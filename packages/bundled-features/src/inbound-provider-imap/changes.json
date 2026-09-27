@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "The tenant-configured IMAP host must resolve to a public address",
+    "migration": "An operator relying on an internal IMAP server or a local dev/test server\n(greenmail on localhost or a private IP) now gets an InboundAuthError\n(account marked auth_error) unless that host is explicitly allowed. Set\nthe same operator env var mail-transport-smtp reads (comma-separated, no\nboot-time code call needed) before starting the process:\n  KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=greenmail.internal\nThis is an operator env var, not a tenant config value — a tenant cannot\nadd their own host to this list. A DNS resolution failure for a\ngenuinely unreachable host now surfaces as InboundTransientError (job\nretry) instead of reaching imapflow at all."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "IMAP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message",
+    "detail": "`createImapClient` throws the same generic message\n(\"IMAP host is not reachable or not allowed\") for both a blocked host\n(`InboundAuthError`) and a DNS resolution failure (`InboundTransientError`).\nThe configured host and the underlying error are now logged via the\nfeature's own logger instead of being embedded in the thrown message.\nError class (and therefore retry behavior) is unchanged."
+  }
+]

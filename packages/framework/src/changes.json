@@ -1,5 +1,78 @@
 [
   {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "Centralized client-IP resolver replaces the old first-XFF-entry heuristic",
+    "detail": "New `trustedProxyHops` option on `ServerOptions` (default 0 — trusts no\nproxy header, only the socket address counts). Precedence:\n`options.trustedProxyHops ?? options.auth?.trustedProxyHops ?? 0`.\n`requestContext.ip` is now always set for an HTTP request (falls back to\n\"unknown\" instead of being left undefined), so `rateLimit: { per: \"ip\" }`\nhandlers reached via `r.httpRoute`/`extraRoutes` systemQuery are never\nsilently unthrottled. `rate-limit/middleware.ts`'s `globalIpRateLimit`/\n`authEndpointRateLimit` and `auth-routes.ts`'s `createAuthRoutes` gained a\n`trustedProxyHops`/`clientIpResolver` option and now share the server's\none resolver instance instead of each building their own.",
+    "migration": "Apps deployed behind a reverse-proxy/ingress that appends to\nX-Forwarded-For must set `trustedProxyHops` (buildServer/runProdApp/\nrunDevApp top-level option) to the number of trusted hops — usually `1`\nfor a single ingress. Without it, every client collapses into one shared\nrate-limit bucket (safe default, but likely too strict for real traffic).\nApps not behind a proxy need no change; `trustedProxyHops` defaults to 0.\n\nIntegration tests that call an `ip`/`ip+handler`-rate-limited handler\nrepeatedly through `stack.http.raw`/`stack.app.request` (no real socket)\nnow share one \"unknown\" bucket instead of skipping the bucket entirely —\na previously-passing test suite can start seeing 429s. Fix by flushing\nthe rate-limit namespace between test cases (`stack.redis.flushNamespace()`\nin `beforeEach`), or by setting `setupTestStack({ trustedProxyHops: 1 })`\nand sending a distinct `X-Forwarded-For` per test case. Also check any\ntest that nulls `context.redis` via `extraContext` to exercise a\nhandler's own redis-down guard: `setupTestStack` now keeps the L3\nrate-limit resolver alive from its own always-real Redis in that case\n(an explicit `context.rateLimit` still wins), so a handler-declared\n`rateLimit` is enforced instead of throwing `InternalError` for a missing\nresolver."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "Upload requests are now size-checked before the body is buffered",
+    "detail": "`POST /api/files` previously ran `parseBody()` on the full multipart request before any size check, so the body was parsed in full before the configured `maxUploadSize` ever ruled it out. It now rejects requests over the configured limit (checked upfront via `Content-Length`, and while streaming for chunked bodies) with a 413 before parsing. `runProdApp` and the dev server now also derive `Bun.serve`'s request-body cap from that same `maxUploadSize`/field `maxSize` configuration instead of Bun's own 128 MiB default; `buildBunServeOptions` keeps a lower fixed fallback for direct callers, overridable via `runProdApp`'s new `maxRequestBodySize` option."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "Dev-boot backfills nullable columns a persistent dev DB is missing",
+    "detail": "`pushEntityProjectionTables` (packages/framework/src/stack) now diffs an\nexisting implicit-projection table's live columns against the entity's\ncurrent column set via `columnNamesOf`, backfilling anything nullable or\ndefaulted through the newly extracted `addMissingColumns` helper (shared\nwith `unsafePushTables`'s existing column-diff loop). A missing required\ncolumn with no default throws instead, naming the column and the\npersistent dev DB (`KUMIKO_DEV_DB_NAME`) to drop so the next boot\nrecreates it. Covers implicit `r.entity()`-derived projection tables,\nwhich is what the reporting app's read-model table used. `setupTestStack`'s\nown explicit `r.projection()`/`r.storeTable()` push loop (test-stack.ts)\nhas the same skip-existing behavior and is not yet patched."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "Boot validator checks a metric's cross-screen navigate tab",
+    "detail": "A projectionDetail metric whose `navigate` sets `screen` or `entity` plus\n`tab` now fails boot when the target is not a projectionDetail with\nlayout.mode \"tabs\" or has no section with that id. Previously only a\nsame-screen `tab` was checked."
+  },
+  {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "Personal Access Tokens are now scoped to the dispatcher routes only",
+    "migration": "A caller using a PAT for SSE, file upload/download, /api/auth/*, a feature\nr.httpRoute, or an entry:\"user\" extraRoute now gets a 403 and needs a\nsession-cookie or JWT credential for those calls instead. The dispatcher\nroutes (/api/write, /api/batch, /api/query, /api/command, /api/stream) are\nunaffected."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "No user-reference-name warning for owner fields referenced via personal.of",
+    "detail": "The `PII_USER_REFERENCE_NAME_HINTS` boot warning checked each field in isolation, so an owner field such as `authorId` kept warning even when a content field on the same entity already declared `personal: { of: \"authorId\" }`, the exact silencing condition the warning itself names. The validator now collects the owner fields referenced via `personal.of` per entity first and skips the warning for them. Fields with a user-reference-typical name that no `personal.of` references still warn."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "New GET /api/schema route",
+    "detail": "Behind the existing `/api/*` auth guard. A signed-in, non-anonymous user\ngets the built `AppSchema` as JSON with `Cache-Control: private, no-cache`\nand a strong `ETag`; a matching `If-None-Match` gets a bodyless 304 (still\nbehind the same auth check, so an anonymous request with a stolen/guessed\nETag still 401s instead of getting a 304). Anonymous or missing auth gets\nthe same 401 `unauthenticated` response shape as every other non-public\nroute."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user",
+    "detail": "`buildAppSchema`'s output previously shipped every screen, nav, workspace and content-collection to any signed-in caller, regardless of role — a screen's own `access` rule only ever hid it in the UI, never removed it from the payload a curious client could still read. `projectAppSchemaForRoles` now strips every screen/nav/workspace/content-collection reference the caller's roles can't see (screens, nav entries, row/toolbar/related-list actions, entityEdit redirects, dashboard panels and metric navigation targets, tree actions, workspace nav membership) before the route serializes a response, closing empty parent nav sections and workspaces left with no surviving members along the way. Entities and translations are still shipped in full — the projection is a UI-visibility concern, not an entity-authorization concern; the dispatcher's `hasAccess` default-deny check is unchanged.\nThe route now builds the full schema lazily once per process and caches the projected JSON/ETag per canonical (deduplicated, sorted) role set — tenant is deliberately not part of the cache key, since the projection only depends on roles.\n`isUiAccessGranted` is the new shared default-visible UI predicate in `@cosmicdrift/kumiko-types`, re-exported through `framework/ui-types`. The renderer's `screenAccessAllows` is now an alias of it, and headless nav resolution and renderer-web's workspace filter call it directly instead of carrying their own copies.\nA deep link to a screen the caller's roles no longer receive now shows the \"screen not found\" banner instead of the access-denied banner, because the screen is no longer part of that caller's schema."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "Sequential-job lock key scoped by queueNamePrefix; contract clarified as mutual exclusion, not FIFO",
+    "detail": "The per-name Redis SETNX lock behind `concurrency: \"sequential\"` used a fixed `kumiko:lock:seq:<lane>:` key, unlike the queues themselves, which are scoped by `queueNamePrefix`. Two runners sharing a Redis but isolated by distinct prefixes (e.g. per-test-run prefixes) could collide on the same lock key even though their queues never saw each other's jobs. The key is now `kumiko:lock:seq:<queueNamePrefix>:<lane>:`. Separately, `JobDefinition.concurrency`'s doc comment and the integration test now state the contract precisely: \"sequential\" guarantees same-name dispatches never run concurrently, but does not guarantee they run in dispatch order. A lock loser is re-enqueued to the back of its queue, so a later dispatch can still complete before an earlier one. See fw#3265 for the local repro evidence backing this."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "Real-provider helpers under the import-free subpath testing/real-providers",
+    "detail": "`@cosmicdrift/kumiko-framework/testing/real-providers` exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` without pulling in the `./testing` barrel and its Bun-only dependencies, so code that loads under Node can use them."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "Boot validator checks the target tab of toolbar navigate actions",
+    "detail": "A ToolbarAction with kind \"navigate\" and `tab` fails boot when its target\nis not a projectionDetail with layout.mode \"tabs\" or has no section with\nthat id. The check covers entityList, projectionList and relatedList\nsection toolbars."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "HttpRouteHandlerDeps carries the resolved clientIp",
+    "detail": "`r.httpRoute` handlers get a new `clientIp: string` dep, resolved once per\nrequest via `buildServer`'s existing shared `clientIpResolver` (the same\ninstance `requestIdMiddleware` and the L1/L2 rate limits use), instead of\neach handler parsing `X-Forwarded-For`/`X-Real-IP` itself with no\nknowledge of the deployment's actual `trustedProxyHops`. `UNKNOWN_CLIENT_IP`\nis now exported from `@cosmicdrift/kumiko-framework/api` so callers can\ndetect the resolver's no-value sentinel without hardcoding the string."
+  },
+  {
     "version": "0.318.0",
     "type": "improvement",
     "title": "Generic create/update entity handlers can exclude individual fields",

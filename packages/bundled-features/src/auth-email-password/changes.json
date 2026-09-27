@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "AuthPaths entries accept a locale function, not just a plain path",
+    "detail": "AuthPaths (and DEFAULT_AUTH_PATHS/makeAuthPaths) previously typed every entry as a plain string, so an app needing a locale-in-path reset link (/de/reset-password) had to set auth.passwordReset explicitly instead of auth.mail.paths — and since that block requires its own hmacSecret, the app ended up threading its own secret instead of the one auth.mail resolves, decoupling reset-token signing from that secret's rotation. Each AuthPaths entry now accepts a plain path or a (locale) => path function, mirroring the appUrl shape every flow's options already take, so a locale-aware reset link needs only auth.mail.paths.resetPassword, never a hand-rolled passwordReset block."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "auth routes return a server-computed landingPath from auth.postAuthLanding",
+    "detail": "`AuthRoutesConfig.postAuthLanding` lets an app resolve, in one server-side place, where a user lands after auth instead of every frontend screen re-deriving it from roles/tenantId. The resolver runs for login, mfa-verify, mfa-preauth-confirm, signup-confirm, and all three invite-accept branches, and its result is validated (root-relative only, no protocol-relative/backslash/control-character paths, no cross-origin resolution) before it is ever added to the response as `landingPath`. An invalid path or a throwing resolver just omits the field — auth never fails because of it.\n`run-prod-app`'s and `run-dev-app`'s auth options now accept `postAuthLanding` and thread it through to the framework config unchanged.\n`SignupCompleteScreen` and `InviteAcceptScreen` now prefer the server's `landingPath` over their `loggedInHref` prop, which becomes a deprecated per-app fallback for apps that haven't configured a resolver yet.\nCloses #3320."
+  },
+  {
     "version": "0.314.0",
     "type": "improvement",
     "title": "SignupCompleteScreen passes the claimed handover to loggedInHref",

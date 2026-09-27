@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "webhook dispatch failures no longer distinguish a blocked host from a DNS failure",
+    "detail": "`performWebhookDispatch` returns the same generic error\n(\"webhook host is not reachable or not allowed\") for both a blocked\nhost and a DNS resolution failure, instead of two distinguishable\nstrings that also embedded the target hostname in the delivery-attempt\nevent payload. The hostname and the underlying error are now logged via\nthe feature's own logger instead of being included in the result."
+  },
+  {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "A webhook.send target host must resolve to a public address",
+    "migration": "A workflow or handler pointing `r.step.webhook.send` at an internal\nreceiver or a local dev/test endpoint (localhost or a private IP) now\ngets a delivery error (step.dispatch-failed) unless that host is\nexplicitly allowed. Set the operator env var (comma-separated, read at\ndispatch time — no boot-time code call needed) before starting the\nprocess:\n  KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS=webhook-receiver.internal\nThis is an operator env var, not a tenant/workflow-config value — a\nworkflow author cannot add their own host to this list. A DNS resolution\nfailure for a genuinely unreachable host now surfaces as a distinct\ndelivery error instead of only failing later inside `fetch()`."
+  }
+]

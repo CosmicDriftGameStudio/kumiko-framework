@@ -1,5 +1,255 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.320.0
+
+### Minor Changes
+
+- 0ab9874: auth routes return a server-computed landingPath from auth.postAuthLanding
+
+  `AuthRoutesConfig.postAuthLanding` lets an app resolve, in one server-side place, where a user lands after auth instead of every frontend screen re-deriving it from roles/tenantId. The resolver runs for login, mfa-verify, mfa-preauth-confirm, signup-confirm, and all three invite-accept branches, and its result is validated (root-relative only, no protocol-relative/backslash/control-character paths, no cross-origin resolution) before it is ever added to the response as `landingPath`. An invalid path or a throwing resolver just omits the field — auth never fails because of it.
+
+  `run-prod-app`'s and `run-dev-app`'s auth options now accept `postAuthLanding` and thread it through to the framework config unchanged.
+
+  `SignupCompleteScreen` and `InviteAcceptScreen` now prefer the server's `landingPath` over their `loggedInHref` prop, which becomes a deprecated per-app fallback for apps that haven't configured a resolver yet.
+
+  Closes #3320.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: auth routes return a server-computed landingPath from auth.postAuthLanding
+  -->
+
+- 519261d: Ledger accounts declare a partial unique index on `(tenantId, code)`
+
+  <!-- kumiko-changes
+  feature: ledger
+  type: breaking
+  title: Account code is unique per tenant (partial unique index read_ledger_accounts_tenant_id_code_uidx)
+  detail: |
+    `accountEntity` declares `read_ledger_accounts_tenant_id_code_uidx`, a unique index on `(tenant_id, code)` that only covers accounts with a code. Two parallel find-then-create calls for the same code (two tabs, two devices) could each create an account and leave a tenant with duplicate codes. The second write now fails with `unique_violation` (HTTP 409). This applies to `createAccount` and to an `updateAccount` that changes the code. Accounts without a code are unaffected, and the same code in different tenants stays allowed.
+  migration: |
+    Before you apply the migration, check for existing duplicates:
+
+      SELECT tenant_id, code, count(*) FROM read_ledger_accounts
+      WHERE code IS NOT NULL GROUP BY tenant_id, code HAVING count(*) > 1;
+
+    `kumiko schema generate` treats a new unique index on a managed projection as destructive. It emits DROP TABLE + CREATE TABLE plus a `.rebuild.json`, which means a full event replay of `read_ledger_accounts`. A rebuild creates the table's indexes before it replays. So if a tenant's event history ever contained two accounts with the same code at the same time, the replay hits the unique index and fails, even after one of them was renamed. For an app with existing ledger data, hand-edit the generated migration before committing it. Replace the DROP/CREATE with an in-place
+
+      CREATE UNIQUE INDEX IF NOT EXISTS "read_ledger_accounts_tenant_id_code_uidx"
+        ON "read_ledger_accounts" ("tenant_id", "code") WHERE "code" IS NOT NULL;
+
+    and delete the `.rebuild.json`. The migrations snapshot stays as generated. If the duplicate check found rows, resolve them first through real writes, for example an `updateAccount` that gives the extra account another code. Never edit the table directly. For such a tenant, a later full rebuild of `read_ledger_accounts` still replays the historical duplicate and fails. An app that already created this index by hand under the same name (money-horse migration 0024) gets a no-op from the in-place statement.
+
+    Code that does find-then-create by code should expect `unique_violation` on create and re-read the account that won the race.
+  -->
+
+- c61cc7a: Tenant-supplied SMTP and IMAP hosts must now resolve to a public address before a connect is attempted. `resolvePublicHost` in `@cosmicdrift/kumiko-http` gained a host-based sibling, `resolvePublicHostname`, used by a new shared `resolveMailConnectTarget` helper in `@cosmicdrift/kumiko-bundled-features/foundation-shared`. Both `mail-transport-smtp` and `inbound-provider-imap` now resolve the tenant-configured host once, reject a private/loopback/link-local/metadata address before connecting, and — for a real hostname — pin the connection to the resolved address while keeping the original hostname as the TLS SNI `servername`, so certificate validation still checks the right name.
+
+  <!-- kumiko-changes
+  feature: http
+  type: improvement
+  title: resolvePublicHost's DNS-pinning is now also available for a bare hostname
+  detail: |
+    `resolvePublicHostname(host, lookupFn?)` exposes the same resolve-once,
+    reject-non-public-addresses check `resolvePublicHost` already does for a
+    URL, for callers that only have a hostname (no scheme/path). Also newly
+    exported: `BlockedHostError`, `HostResolutionError`, `isPublicHost`,
+    `resolvePublicHostname`, and `type EgressPolicy`/`ResolvedHost`.
+  migration: |
+    Purely additive for existing `resolvePublicHost`/`isBlockedIp` callers —
+    no behavior change to the URL-based API. New export surface only.
+  -->
+
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: breaking
+  title: The tenant-configured SMTP host must resolve to a public address
+  migration: |
+    An operator relying on an internal SMTP relay or a local dev/test server
+    (mailpit, MailHog on localhost or a private IP) now gets a build-time
+    422 (code "unconfigured", naming the "host" config-key) unless that host
+    is explicitly allowed. Set the operator env var (comma-separated, read
+    at connect time — no boot-time code call needed) before starting the
+    process:
+      KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=mailpit.internal
+    This is an operator env var, not a tenant config value — a tenant cannot
+    add their own host to this list. Shared with inbound-provider-imap: one
+    env var covers both SMTP and IMAP allowlisting. A DNS resolution failure
+    for a genuinely unreachable host now surfaces distinctly (not as
+    "unconfigured") instead of only failing later at first-send time.
+  -->
+
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: breaking
+  title: The tenant-configured IMAP host must resolve to a public address
+  migration: |
+    An operator relying on an internal IMAP server or a local dev/test server
+    (greenmail on localhost or a private IP) now gets an InboundAuthError
+    (account marked auth_error) unless that host is explicitly allowed. Set
+    the same operator env var mail-transport-smtp reads (comma-separated, no
+    boot-time code call needed) before starting the process:
+      KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=greenmail.internal
+    This is an operator env var, not a tenant config value — a tenant cannot
+    add their own host to this list. A DNS resolution failure for a
+    genuinely unreachable host now surfaces as InboundTransientError (job
+    retry) instead of reaching imapflow at all.
+  -->
+
+- c61cc7a: `r.step.webhook.send`'s `url` is commonly wired straight from request or workflow input (see the webhook-step recipe), so `performWebhookDispatch` now resolves the target host once and rejects a private/reserved address before connecting — the same guard already applied to tenant-supplied SMTP/IMAP hosts — and pins the connect to the resolved address while keeping the original hostname as the Host header and TLS SNI `servername`.
+
+  <!-- kumiko-changes
+  feature: http
+  type: improvement
+  title: resolvePublicHost and buildPinnedRequest are now exported from the package barrel
+  detail: |
+    `resolvePublicHost(url, lookupFn?)` (the URL-based sibling of
+    `resolvePublicHostname`) and `buildPinnedRequest(url, resolved, init)`
+    (Host header + TLS SNI pinning) are newly exported so a caller that
+    already has a full URL (not just a hostname) can build the same pinned
+    request `egress()` builds internally, for a custom fetch/transport seam.
+  migration: |
+    Purely additive — no behavior change to any existing export. New export
+    surface only.
+  -->
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: breaking
+  title: A webhook.send target host must resolve to a public address
+  migration: |
+    A workflow or handler pointing `r.step.webhook.send` at an internal
+    receiver or a local dev/test endpoint (localhost or a private IP) now
+    gets a delivery error (step.dispatch-failed) unless that host is
+    explicitly allowed. Set the operator env var (comma-separated, read at
+    dispatch time — no boot-time code call needed) before starting the
+    process:
+      KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS=webhook-receiver.internal
+    This is an operator env var, not a tenant/workflow-config value — a
+    workflow author cannot add their own host to this list. A DNS resolution
+    failure for a genuinely unreachable host now surfaces as a distinct
+    delivery error instead of only failing later inside `fetch()`.
+  -->
+
+### Patch Changes
+
+- c61cc7a: AuthPaths entries accept a locale function, not just a plain path
+
+  AuthPaths (and DEFAULT_AUTH_PATHS/makeAuthPaths) previously typed every entry as a plain string, so an app needing a locale-in-path reset link (/de/reset-password) had to set auth.passwordReset explicitly instead of auth.mail.paths — and since that block requires its own hmacSecret, the app ended up threading its own secret instead of the one auth.mail resolves, decoupling reset-token signing from that secret's rotation. Each AuthPaths entry now accepts a plain path or a (locale) => path function, mirroring the appUrl shape every flow's options already take, so a locale-aware reset link needs only auth.mail.paths.resetPassword, never a hand-rolled passwordReset block.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: AuthPaths entries accept a locale function, not just a plain path
+  -->
+
+- c61cc7a: IMAP, SMTP, and webhook-dispatch host-egress failures now surface one generic tenant-visible message per channel regardless of whether the target host was blocked (private/reserved range) or simply failed to resolve. Previously the message text (and, for webhooks, the event payload) differed between the two cases and could embed the configured host — sometimes alongside the private address it resolved to. The distinguishing detail and the host are now logged server-side only; retry semantics are unchanged (IMAP: `InboundAuthError` no-retry for a blocked host vs `InboundTransientError` retry for a resolution failure; SMTP: `UnconfiguredError` for a blocked host vs `HostResolutionError` for a resolution failure, still distinct classes).
+
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: fix
+  title: IMAP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message
+  detail: |
+    `createImapClient` throws the same generic message
+    ("IMAP host is not reachable or not allowed") for both a blocked host
+    (`InboundAuthError`) and a DNS resolution failure (`InboundTransientError`).
+    The configured host and the underlying error are now logged via the
+    feature's own logger instead of being embedded in the thrown message.
+    Error class (and therefore retry behavior) is unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: fix
+  title: SMTP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message
+  detail: |
+    `buildSmtpTransport` throws an `UnconfiguredError` for a blocked host and
+    a `HostResolutionError` for a DNS failure — both classes unchanged for
+    retry semantics — but the `.message` text is now byte-identical between
+    the two ("... host is not reachable or not allowed"). The configured
+    host and the underlying error are now logged via the feature's own
+    logger instead of being embedded in the thrown message.
+  -->
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: webhook dispatch failures no longer distinguish a blocked host from a DNS failure
+  detail: |
+    `performWebhookDispatch` returns the same generic error
+    ("webhook host is not reachable or not allowed") for both a blocked
+    host and a DNS resolution failure, instead of two distinguishable
+    strings that also embedded the target hostname in the delivery-attempt
+    event payload. The hostname and the underlying error are now logged via
+    the feature's own logger instead of being included in the result.
+  -->
+
+- 9c6173d: subscription-stripe narrows a recurring price interval to a closed union instead of widening on an unrecognized Stripe value
+
+  stripe >= 22.5 widened Recurring.Interval to an open union. mapStripePrice now maps anything outside RecurringInterval ("day" | "week" | "month" | "year") to null via isKnownRecurringInterval, the same as a one-off price, instead of letting an unrecognized interval leak into ProviderPrice untyped. stripe bumped to 22.6.2. Closes #3312.
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: subscription-stripe narrows a recurring price interval to a closed union instead of widening on an unrecognized Stripe value
+  -->
+
+- c61cc7a: user-data-rights takes the audit IP from the shared client-IP resolver
+
+  `extractAuditMeta` read the first `X-Forwarded-For` entry itself — a header any client can set — so a caller could plant a fake IP for their own download attempt in the audit trail (`recordDownloadUse`/`recordInvalidAttempt`). `r.httpRoute` handlers had no access to the server's `trustedProxyHops`-aware resolver at all: `requestIdMiddleware` only wraps `/api/*`, and `user-export/by-token` is an anonymous `r.httpRoute`. `HttpRouteHandlerDeps` gained a `clientIp: string` field, computed once per request in `buildServer`'s httpRoute mount loop from the same shared resolver instance `/api/*` and the L1/L2 rate limits already use. `extractAuditMeta` now takes that resolved value as a parameter instead of parsing headers itself.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: HttpRouteHandlerDeps carries the resolved clientIp
+  detail: |
+    `r.httpRoute` handlers get a new `clientIp: string` dep, resolved once per
+    request via `buildServer`'s existing shared `clientIpResolver` (the same
+    instance `requestIdMiddleware` and the L1/L2 rate limits use), instead of
+    each handler parsing `X-Forwarded-For`/`X-Real-IP` itself with no
+    knowledge of the deployment's actual `trustedProxyHops`. `UNKNOWN_CLIENT_IP`
+    is now exported from `@cosmicdrift/kumiko-framework/api` so callers can
+    detect the resolver's no-value sentinel without hardcoding the string.
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Audit IP comes from the framework's trustedProxyHops-aware resolver, not a self-parsed X-Forwarded-For
+  detail: |
+    `extractAuditMeta` no longer reads `X-Forwarded-For`/`X-Real-IP` itself —
+    it takes the `clientIp` the `/user-export/by-token` httpRoute handler now
+    receives from `HttpRouteHandlerDeps`, mapping the resolver's `unknown`
+    sentinel to `null`. Closes the spoofed-first-XFF-entry gap for that
+    route. A caller invoking `/api/query`'s `download-by-token` handler
+    directly (not through this httpRoute) can still pass its own `auditMeta`
+    in the payload — a pre-existing, documented tradeoff (the handler's own
+    comment: audit data isn't security-relevant), unchanged by this fix.
+  -->
+
+- Updated dependencies [0ab9874]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [3a99ac1]
+- Updated dependencies [fe36eeb]
+- Updated dependencies [02cc7b3]
+- Updated dependencies [c498565]
+- Updated dependencies [9907bc6]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+  - @cosmicdrift/kumiko-framework@0.320.0
+  - @cosmicdrift/kumiko-renderer@0.320.0
+  - @cosmicdrift/kumiko-renderer-web@0.320.0
+  - @cosmicdrift/kumiko-types@0.320.0
+  - @cosmicdrift/kumiko-headless@0.320.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.320.0
+
 ## 0.319.0
 
 ### Minor Changes

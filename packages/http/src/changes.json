@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "isBlockedIp closes embedded-IPv4 and reserved-range gaps in the egress guard",
+    "detail": "Adds detection for IPv4-compatible IPv6 (`::a.b.c.d`, RFC 4291), IPv4-\ntranslated IPv6 (`::ffff:0:a.b.c.d`, RFC 8215), and the NAT64 local-use\nprefix `64:ff9b:1::/48` (RFC 8215) — each checked against the existing\nIPv4 blocklist for its embedded address. Adds the `192.0.0.0/24` and\n`198.18.0.0/15` reserved IPv4 ranges. Replaces the previous regex-based\nembedded-IPv4 matching (which required exactly two trailing hex groups)\nwith a full 8-group expansion, fixing a false negative for embedded\nIPv4 addresses with a leading zero octet that compress to fewer groups.",
+    "migration": "No API change. Some addresses that previously resolved through\n`resolvePublicHost`/`resolvePublicHostname`/`isPublicHost` as \"not\nblocked\" are now correctly rejected as blocked. This only narrows what\nis treated as a public egress target."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "resolvePublicHost's DNS-pinning is now also available for a bare hostname",
+    "detail": "`resolvePublicHostname(host, lookupFn?)` exposes the same resolve-once,\nreject-non-public-addresses check `resolvePublicHost` already does for a\nURL, for callers that only have a hostname (no scheme/path). Also newly\nexported: `BlockedHostError`, `HostResolutionError`, `isPublicHost`,\n`resolvePublicHostname`, and `type EgressPolicy`/`ResolvedHost`.",
+    "migration": "Purely additive for existing `resolvePublicHost`/`isBlockedIp` callers —\nno behavior change to the URL-based API. New export surface only."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "resolvePublicHost and buildPinnedRequest are now exported from the package barrel",
+    "detail": "`resolvePublicHost(url, lookupFn?)` (the URL-based sibling of\n`resolvePublicHostname`) and `buildPinnedRequest(url, resolved, init)`\n(Host header + TLS SNI pinning) are newly exported so a caller that\nalready has a full URL (not just a hostname) can build the same pinned\nrequest `egress()` builds internally, for a custom fetch/transport seam.",
+    "migration": "Purely additive — no behavior change to any existing export. New export\nsurface only."
+  },
+  {
     "version": "0.287.0",
     "type": "improvement",
     "title": "export isPublicHost for create-time SSRF precheck without a real fetch",

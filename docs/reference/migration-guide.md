@@ -10,6 +10,168 @@ verified: 2026-09-27
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.320.0
+
+### enterprise:dev-server
+
+**createKumikoServer/runDevApp gained a trustedProxyHops option**
+
+`CreateKumikoServerOptions`/`RunDevAppOptions` gained a top-level
+`trustedProxyHops`, forwarded into `setupTestStack`'s `buildServer` call.
+Dev normally runs unproxied, so this is usually left unset (default 0).
+
+**Migration:** No action needed for the default (unproxied) dev setup. Set
+`trustedProxyHops` only if you run the dev server behind a reverse proxy.
+
+**Dev-server HTML no longer injects __KUMIKO_SCHEMA__ either**
+
+**Migration:** Same semantics as the prod change: `DevHostDispatchResult.injectSchema`
+is deprecated and ignored. The dev-server's auto-mint mode still sets
+the `kumiko_auth`/`kumiko_csrf` cookies on the HTML response, so a
+client-side fetch to `/api/schema` is authenticated immediately without
+a real login round-trip.
+
+### enterprise:server-runtime
+
+**runProdApp threads the Bun socket address and a trustedProxyHops option through to the client-IP resolver**
+
+`buildBunServeOptions` now extracts the client socket address once via
+`server.requestIP(req)` at the outermost Bun.serve fetch callback (a
+cloned/rebuilt Request loses that ability) and threads it through
+`tryHonoFirst`/`withSecurityHeaders`/`buildStaticFallback` as Hono's
+`env`. `RunProdAppOptions` gained a top-level `trustedProxyHops` (falls
+back to the deprecated `auth.trustedProxyHops`, then
+`KUMIKO_TRUSTED_PROXY_HOPS`), forwarded into `buildServer` and the
+static-fallback's own client-IP resolver.
+
+**Migration:** Same as the framework entry — set `trustedProxyHops` on `runProdApp` when
+deployed behind a reverse-proxy/ingress.
+
+**Static fallback no longer injects __KUMIKO_SCHEMA__ into HTML**
+
+**Migration:** `HostDispatchResult.injectSchema` is deprecated and ignored — HTML never
+carries the schema anymore, in prod or dev. `createKumikoApp` now fetches
+the schema itself from the authenticated `GET /api/schema` after its
+clientFeature gates (e.g. an auth gate) let rendering through, so a
+signed-in admin app keeps working without changes. Anything that read
+`window.__KUMIKO_SCHEMA__` directly (custom clients, e2e fixtures) must
+switch to fetching `/api/schema` instead. An anonymously reachable page
+that used to render schema-based screens needs `createPublicSurface`,
+which never carries a schema. The `@cosmicdrift/kumiko-server-runtime/inject-schema`
+subpath export is removed.
+
+### framework-core
+
+**Centralized client-IP resolver replaces the old first-XFF-entry heuristic**
+
+New `trustedProxyHops` option on `ServerOptions` (default 0 — trusts no
+proxy header, only the socket address counts). Precedence:
+`options.trustedProxyHops ?? options.auth?.trustedProxyHops ?? 0`.
+`requestContext.ip` is now always set for an HTTP request (falls back to
+"unknown" instead of being left undefined), so `rateLimit: { per: "ip" }`
+handlers reached via `r.httpRoute`/`extraRoutes` systemQuery are never
+silently unthrottled. `rate-limit/middleware.ts`'s `globalIpRateLimit`/
+`authEndpointRateLimit` and `auth-routes.ts`'s `createAuthRoutes` gained a
+`trustedProxyHops`/`clientIpResolver` option and now share the server's
+one resolver instance instead of each building their own.
+
+**Migration:** Apps deployed behind a reverse-proxy/ingress that appends to
+X-Forwarded-For must set `trustedProxyHops` (buildServer/runProdApp/
+runDevApp top-level option) to the number of trusted hops — usually `1`
+for a single ingress. Without it, every client collapses into one shared
+rate-limit bucket (safe default, but likely too strict for real traffic).
+Apps not behind a proxy need no change; `trustedProxyHops` defaults to 0.
+
+Integration tests that call an `ip`/`ip+handler`-rate-limited handler
+repeatedly through `stack.http.raw`/`stack.app.request` (no real socket)
+now share one "unknown" bucket instead of skipping the bucket entirely —
+a previously-passing test suite can start seeing 429s. Fix by flushing
+the rate-limit namespace between test cases (`stack.redis.flushNamespace()`
+in `beforeEach`), or by setting `setupTestStack({ trustedProxyHops: 1 })`
+and sending a distinct `X-Forwarded-For` per test case. Also check any
+test that nulls `context.redis` via `extraContext` to exercise a
+handler's own redis-down guard: `setupTestStack` now keeps the L3
+rate-limit resolver alive from its own always-real Redis in that case
+(an explicit `context.rateLimit` still wins), so a handler-declared
+`rateLimit` is enforced instead of throwing `InternalError` for a missing
+resolver.
+
+**Personal Access Tokens are now scoped to the dispatcher routes only**
+
+**Migration:** A caller using a PAT for SSE, file upload/download, /api/auth/*, a feature
+r.httpRoute, or an entry:"user" extraRoute now gets a 403 and needs a
+session-cookie or JWT credential for those calls instead. The dispatcher
+routes (/api/write, /api/batch, /api/query, /api/command, /api/stream) are
+unaffected.
+
+### inbound-provider-imap
+
+**The tenant-configured IMAP host must resolve to a public address**
+
+**Migration:** An operator relying on an internal IMAP server or a local dev/test server
+(greenmail on localhost or a private IP) now gets an InboundAuthError
+(account marked auth_error) unless that host is explicitly allowed. Set
+the same operator env var mail-transport-smtp reads (comma-separated, no
+boot-time code call needed) before starting the process:
+  KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=greenmail.internal
+This is an operator env var, not a tenant config value — a tenant cannot
+add their own host to this list. A DNS resolution failure for a
+genuinely unreachable host now surfaces as InboundTransientError (job
+retry) instead of reaching imapflow at all.
+
+### ledger
+
+**Account code is unique per tenant (partial unique index read_ledger_accounts_tenant_id_code_uidx)**
+
+`accountEntity` declares `read_ledger_accounts_tenant_id_code_uidx`, a unique index on `(tenant_id, code)` that only covers accounts with a code. Two parallel find-then-create calls for the same code (two tabs, two devices) could each create an account and leave a tenant with duplicate codes. The second write now fails with `unique_violation` (HTTP 409). This applies to `createAccount` and to an `updateAccount` that changes the code. Accounts without a code are unaffected, and the same code in different tenants stays allowed.
+
+**Migration:** Before you apply the migration, check for existing duplicates:
+
+  SELECT tenant_id, code, count(*) FROM read_ledger_accounts
+  WHERE code IS NOT NULL GROUP BY tenant_id, code HAVING count(*) > 1;
+
+`kumiko schema generate` treats a new unique index on a managed projection as destructive. It emits DROP TABLE + CREATE TABLE plus a `.rebuild.json`, which means a full event replay of `read_ledger_accounts`. A rebuild creates the table's indexes before it replays. So if a tenant's event history ever contained two accounts with the same code at the same time, the replay hits the unique index and fails, even after one of them was renamed. For an app with existing ledger data, hand-edit the generated migration before committing it. Replace the DROP/CREATE with an in-place
+
+  CREATE UNIQUE INDEX IF NOT EXISTS "read_ledger_accounts_tenant_id_code_uidx"
+    ON "read_ledger_accounts" ("tenant_id", "code") WHERE "code" IS NOT NULL;
+
+and delete the `.rebuild.json`. The migrations snapshot stays as generated. If the duplicate check found rows, resolve them first through real writes, for example an `updateAccount` that gives the extra account another code. Never edit the table directly. For such a tenant, a later full rebuild of `read_ledger_accounts` still replays the historical duplicate and fails. An app that already created this index by hand under the same name (money-horse migration 0024) gets a no-op from the in-place statement.
+
+Code that does find-then-create by code should expect `unique_violation` on create and re-read the account that won the race.
+
+### mail-transport-smtp
+
+**The tenant-configured SMTP host must resolve to a public address**
+
+**Migration:** An operator relying on an internal SMTP relay or a local dev/test server
+(mailpit, MailHog on localhost or a private IP) now gets a build-time
+422 (code "unconfigured", naming the "host" config-key) unless that host
+is explicitly allowed. Set the operator env var (comma-separated, read
+at connect time — no boot-time code call needed) before starting the
+process:
+  KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=mailpit.internal
+This is an operator env var, not a tenant config value — a tenant cannot
+add their own host to this list. Shared with inbound-provider-imap: one
+env var covers both SMTP and IMAP allowlisting. A DNS resolution failure
+for a genuinely unreachable host now surfaces distinctly (not as
+"unconfigured") instead of only failing later at first-send time.
+
+### step-dispatcher
+
+**A webhook.send target host must resolve to a public address**
+
+**Migration:** A workflow or handler pointing `r.step.webhook.send` at an internal
+receiver or a local dev/test endpoint (localhost or a private IP) now
+gets a delivery error (step.dispatch-failed) unless that host is
+explicitly allowed. Set the operator env var (comma-separated, read at
+dispatch time — no boot-time code call needed) before starting the
+process:
+  KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS=webhook-receiver.internal
+This is an operator env var, not a tenant/workflow-config value — a
+workflow author cannot add their own host to this list. A DNS resolution
+failure for a genuinely unreachable host now surfaces as a distinct
+delivery error instead of only failing later inside `fetch()`.
+
 ## 0.319.0
 
 ### billing-foundation

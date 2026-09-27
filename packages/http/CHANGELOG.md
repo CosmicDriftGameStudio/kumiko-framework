@@ -1,5 +1,121 @@
 # @cosmicdrift/kumiko-http
 
+## 0.320.0
+
+### Minor Changes
+
+- c61cc7a: Tenant-supplied SMTP and IMAP hosts must now resolve to a public address before a connect is attempted. `resolvePublicHost` in `@cosmicdrift/kumiko-http` gained a host-based sibling, `resolvePublicHostname`, used by a new shared `resolveMailConnectTarget` helper in `@cosmicdrift/kumiko-bundled-features/foundation-shared`. Both `mail-transport-smtp` and `inbound-provider-imap` now resolve the tenant-configured host once, reject a private/loopback/link-local/metadata address before connecting, and — for a real hostname — pin the connection to the resolved address while keeping the original hostname as the TLS SNI `servername`, so certificate validation still checks the right name.
+
+  <!-- kumiko-changes
+  feature: http
+  type: improvement
+  title: resolvePublicHost's DNS-pinning is now also available for a bare hostname
+  detail: |
+    `resolvePublicHostname(host, lookupFn?)` exposes the same resolve-once,
+    reject-non-public-addresses check `resolvePublicHost` already does for a
+    URL, for callers that only have a hostname (no scheme/path). Also newly
+    exported: `BlockedHostError`, `HostResolutionError`, `isPublicHost`,
+    `resolvePublicHostname`, and `type EgressPolicy`/`ResolvedHost`.
+  migration: |
+    Purely additive for existing `resolvePublicHost`/`isBlockedIp` callers —
+    no behavior change to the URL-based API. New export surface only.
+  -->
+
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: breaking
+  title: The tenant-configured SMTP host must resolve to a public address
+  migration: |
+    An operator relying on an internal SMTP relay or a local dev/test server
+    (mailpit, MailHog on localhost or a private IP) now gets a build-time
+    422 (code "unconfigured", naming the "host" config-key) unless that host
+    is explicitly allowed. Set the operator env var (comma-separated, read
+    at connect time — no boot-time code call needed) before starting the
+    process:
+      KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=mailpit.internal
+    This is an operator env var, not a tenant config value — a tenant cannot
+    add their own host to this list. Shared with inbound-provider-imap: one
+    env var covers both SMTP and IMAP allowlisting. A DNS resolution failure
+    for a genuinely unreachable host now surfaces distinctly (not as
+    "unconfigured") instead of only failing later at first-send time.
+  -->
+
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: breaking
+  title: The tenant-configured IMAP host must resolve to a public address
+  migration: |
+    An operator relying on an internal IMAP server or a local dev/test server
+    (greenmail on localhost or a private IP) now gets an InboundAuthError
+    (account marked auth_error) unless that host is explicitly allowed. Set
+    the same operator env var mail-transport-smtp reads (comma-separated, no
+    boot-time code call needed) before starting the process:
+      KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=greenmail.internal
+    This is an operator env var, not a tenant config value — a tenant cannot
+    add their own host to this list. A DNS resolution failure for a
+    genuinely unreachable host now surfaces as InboundTransientError (job
+    retry) instead of reaching imapflow at all.
+  -->
+
+### Patch Changes
+
+- c61cc7a: `isBlockedIp` now recognizes more encodings of already-blocked addresses instead of only the two-trailing-group compressed form: the deprecated IPv4-compatible IPv6 form (`::a.b.c.d`), the IPv4-translated form (`::ffff:0:a.b.c.d`), and the NAT64 local-use prefix (`64:ff9b:1::/48`) each with their embedded IPv4 checked against the same range table, plus the `192.0.0.0/24` and `198.18.0.0/15` reserved IPv4 ranges. Embedded-IPv4 detection is now compression-agnostic (expands to the full 8-group form before matching), which also fixes a case the previous two-group regex missed: an embedded IPv4 with a leading zero octet, e.g. `64:ff9b::0.0.0.1`, canonicalizes to a single trailing hex group and was not being blocked.
+
+  <!-- kumiko-changes
+  feature: http
+  type: fix
+  title: isBlockedIp closes embedded-IPv4 and reserved-range gaps in the egress guard
+  detail: |
+    Adds detection for IPv4-compatible IPv6 (`::a.b.c.d`, RFC 4291), IPv4-
+    translated IPv6 (`::ffff:0:a.b.c.d`, RFC 8215), and the NAT64 local-use
+    prefix `64:ff9b:1::/48` (RFC 8215) — each checked against the existing
+    IPv4 blocklist for its embedded address. Adds the `192.0.0.0/24` and
+    `198.18.0.0/15` reserved IPv4 ranges. Replaces the previous regex-based
+    embedded-IPv4 matching (which required exactly two trailing hex groups)
+    with a full 8-group expansion, fixing a false negative for embedded
+    IPv4 addresses with a leading zero octet that compress to fewer groups.
+  migration: |
+    No API change. Some addresses that previously resolved through
+    `resolvePublicHost`/`resolvePublicHostname`/`isPublicHost` as "not
+    blocked" are now correctly rejected as blocked. This only narrows what
+    is treated as a public egress target.
+  -->
+
+- c61cc7a: `r.step.webhook.send`'s `url` is commonly wired straight from request or workflow input (see the webhook-step recipe), so `performWebhookDispatch` now resolves the target host once and rejects a private/reserved address before connecting — the same guard already applied to tenant-supplied SMTP/IMAP hosts — and pins the connect to the resolved address while keeping the original hostname as the Host header and TLS SNI `servername`.
+
+  <!-- kumiko-changes
+  feature: http
+  type: improvement
+  title: resolvePublicHost and buildPinnedRequest are now exported from the package barrel
+  detail: |
+    `resolvePublicHost(url, lookupFn?)` (the URL-based sibling of
+    `resolvePublicHostname`) and `buildPinnedRequest(url, resolved, init)`
+    (Host header + TLS SNI pinning) are newly exported so a caller that
+    already has a full URL (not just a hostname) can build the same pinned
+    request `egress()` builds internally, for a custom fetch/transport seam.
+  migration: |
+    Purely additive — no behavior change to any existing export. New export
+    surface only.
+  -->
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: breaking
+  title: A webhook.send target host must resolve to a public address
+  migration: |
+    A workflow or handler pointing `r.step.webhook.send` at an internal
+    receiver or a local dev/test endpoint (localhost or a private IP) now
+    gets a delivery error (step.dispatch-failed) unless that host is
+    explicitly allowed. Set the operator env var (comma-separated, read at
+    dispatch time — no boot-time code call needed) before starting the
+    process:
+      KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS=webhook-receiver.internal
+    This is an operator env var, not a tenant/workflow-config value — a
+    workflow author cannot add their own host to this list. A DNS resolution
+    failure for a genuinely unreachable host now surfaces as a distinct
+    delivery error instead of only failing later inside `fetch()`.
+  -->
+
 ## 0.319.0
 
 ## 0.318.0

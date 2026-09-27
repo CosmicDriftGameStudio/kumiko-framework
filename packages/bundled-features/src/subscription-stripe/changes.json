@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "subscription-stripe narrows a recurring price interval to a closed union instead of widening on an unrecognized Stripe value",
+    "detail": "stripe >= 22.5 widened Recurring.Interval to an open union. mapStripePrice now maps anything outside RecurringInterval (\"day\" | \"week\" | \"month\" | \"year\") to null via isKnownRecurringInterval, the same as a one-off price, instead of letting an unrecognized interval leak into ProviderPrice untyped. stripe bumped to 22.6.2. Closes #3312."
+  },
+  {
     "version": "0.319.0",
     "type": "fix",
     "title": "subscription-stripe bumps the stripe SDK to ^22.6.2 and fixes the resulting price-interval type break",

@@ -1,5 +1,30 @@
 [
   {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "runProdApp threads the Bun socket address and a trustedProxyHops option through to the client-IP resolver",
+    "detail": "`buildBunServeOptions` now extracts the client socket address once via\n`server.requestIP(req)` at the outermost Bun.serve fetch callback (a\ncloned/rebuilt Request loses that ability) and threads it through\n`tryHonoFirst`/`withSecurityHeaders`/`buildStaticFallback` as Hono's\n`env`. `RunProdAppOptions` gained a top-level `trustedProxyHops` (falls\nback to the deprecated `auth.trustedProxyHops`, then\n`KUMIKO_TRUSTED_PROXY_HOPS`), forwarded into `buildServer` and the\nstatic-fallback's own client-IP resolver.",
+    "migration": "Same as the framework entry — set `trustedProxyHops` on `runProdApp` when\ndeployed behind a reverse-proxy/ingress."
+  },
+  {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "Static fallback no longer injects __KUMIKO_SCHEMA__ into HTML",
+    "migration": "`HostDispatchResult.injectSchema` is deprecated and ignored — HTML never\ncarries the schema anymore, in prod or dev. `createKumikoApp` now fetches\nthe schema itself from the authenticated `GET /api/schema` after its\nclientFeature gates (e.g. an auth gate) let rendering through, so a\nsigned-in admin app keeps working without changes. Anything that read\n`window.__KUMIKO_SCHEMA__` directly (custom clients, e2e fixtures) must\nswitch to fetching `/api/schema` instead. An anonymously reachable page\nthat used to render schema-based screens needs `createPublicSurface`,\nwhich never carries a schema. The `@cosmicdrift/kumiko-server-runtime/inject-schema`\nsubpath export is removed."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "requireEnv is now part of the public package export",
+    "detail": "`packages/server-runtime/src/index.ts` now re-exports `requireEnv`\nalongside `runProdApp`, so `import { requireEnv } from\n\"@cosmicdrift/kumiko-server-runtime\"` resolves without reaching into the\ninternal `run-prod-app.ts` module."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "resolveAuthMail builds locale-aware appUrls and adds a dedicated auth.mail.hmacSecret",
+    "detail": "resolveAuthMail (shared by runProdApp and runDevApp) now builds the passwordReset/emailVerification/signup/invite appUrl from a locale-aware AuthPath, so a function-valued auth.mail.paths entry produces a locale-aware appUrl for every flow, symmetric to the appUrl-as-function support each flow's options already had.\nAuthMailOptions also gains an optional hmacSecret: when set, passwordReset/emailVerification tokens sign with it instead of the hmacSecret resolveAuthMail is called with (JWT_SECRET), so JWT_SECRET can rotate without invalidating in-flight reset/verify tokens. hmacSecret is now optional on the passwordReset/emailVerification wrapper options too — an app overriding just appUrl no longer has to also thread its own secret; resolveAuthMail backfills the resolved secret onto that explicit block. An explicitly supplied hmacSecret still wins."
+  },
+  {
     "version": "0.298.0",
     "type": "breaking",
     "title": "ExtraRoutesSystemDeps renamed to SystemWireDeps; hostDispatch gains systemQuery",

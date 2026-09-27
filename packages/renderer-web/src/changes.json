@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "The default detailFor row click carries returnTo",
+    "detail": "create-app's default row click to a declared detailFor screen now calls\nnavigateWithReturnTo with the current host, so navigating to an entity's\ndetail screen from a list carries returnTo like every other navigate\naction already does."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "createKumikoApp loads the schema after the auth gate, with loading/error states",
+    "detail": "When neither `options.schema` nor `window.__KUMIKO_SCHEMA__` is set,\n`createKumikoApp` now fetches the schema from `GET /api/schema` itself,\nonly after its clientFeature gates let rendering through (so an\nunauthenticated visitor never triggers the request). While the fetch is\nin flight a minimal loading placeholder renders; a 401/403 shows a clear\n\"sign in required\" message with no auto-retry; any other failure shows a\nretry button. Losing schema access mid-session (a gate withdrawing\nchildren, e.g. on logout) resets the fetched schema so the next mount\nre-fetches instead of reusing a previous session's — important once\nschemas become role-dependent. An explicit `options.schema` never resets\nthis way."
+  },
+  {
     "version": "0.318.0",
     "type": "improvement",
     "title": "Add PlanCard/PlanGrid widgets for billing plan catalogs",

@@ -1,5 +1,411 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.320.0
+
+### Minor Changes
+
+- 0ab9874: auth routes return a server-computed landingPath from auth.postAuthLanding
+
+  `AuthRoutesConfig.postAuthLanding` lets an app resolve, in one server-side place, where a user lands after auth instead of every frontend screen re-deriving it from roles/tenantId. The resolver runs for login, mfa-verify, mfa-preauth-confirm, signup-confirm, and all three invite-accept branches, and its result is validated (root-relative only, no protocol-relative/backslash/control-character paths, no cross-origin resolution) before it is ever added to the response as `landingPath`. An invalid path or a throwing resolver just omits the field — auth never fails because of it.
+
+  `run-prod-app`'s and `run-dev-app`'s auth options now accept `postAuthLanding` and thread it through to the framework config unchanged.
+
+  `SignupCompleteScreen` and `InviteAcceptScreen` now prefer the server's `landingPath` over their `loggedInHref` prop, which becomes a deprecated per-app fallback for apps that haven't configured a resolver yet.
+
+  Closes #3320.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: auth routes return a server-computed landingPath from auth.postAuthLanding
+  -->
+
+- c61cc7a: Centralized, trustedProxyHops-aware client-IP resolver for every IP-based rate limit (kumiko-framework#3323)
+
+  `rate-limit/middleware.ts`'s L1/L2 rate limits, `auth-routes.ts`'s auth rate limits and `requestIdMiddleware`'s `requestContext.ip` each derived the caller's IP their own way, all trusting the first `X-Forwarded-For` entry unconditionally — a header any client can set, so any of them was bypassable by an attacker who simply forged a first entry, and an app with no reverse proxy in front of it had no defense at all. Worse, `requestIdMiddleware` left `ip` `undefined` when no XFF header was present, which made `dispatch-shared.ts`'s `enforceRateLimit` treat the whole bucket as skippable — an L3 handler with `rateLimit: { per: "ip" }` silently never throttled a client that omitted the header.
+
+  All three now share one `createClientIpResolver` (`@cosmicdrift/kumiko-framework/api`). A new top-level `trustedProxyHops` option on `buildServer`, `runProdApp` and `runDevApp` (default `0`) replaces the old first-entry heuristic: `0` trusts no proxy header at all (only the real socket address, sourced once from Bun's `server.requestIP()`, counts), `n >= 1` reads the n-th `X-Forwarded-For` entry from the right (falling back to `X-Real-IP`, then the socket address, for a chain shorter than `n`). A bucket is never skipped anymore — with no usable value the resolver falls back to a fixed `"unknown"` string, which shares one bucket across affected clients rather than letting them bypass the limit entirely. The deprecated `auth.trustedProxyHops` still works as a fallback when the new top-level option isn't set.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Centralized client-IP resolver replaces the old first-XFF-entry heuristic
+  detail: |
+    New `trustedProxyHops` option on `ServerOptions` (default 0 — trusts no
+    proxy header, only the socket address counts). Precedence:
+    `options.trustedProxyHops ?? options.auth?.trustedProxyHops ?? 0`.
+    `requestContext.ip` is now always set for an HTTP request (falls back to
+    "unknown" instead of being left undefined), so `rateLimit: { per: "ip" }`
+    handlers reached via `r.httpRoute`/`extraRoutes` systemQuery are never
+    silently unthrottled. `rate-limit/middleware.ts`'s `globalIpRateLimit`/
+    `authEndpointRateLimit` and `auth-routes.ts`'s `createAuthRoutes` gained a
+    `trustedProxyHops`/`clientIpResolver` option and now share the server's
+    one resolver instance instead of each building their own.
+  migration: |
+    Apps deployed behind a reverse-proxy/ingress that appends to
+    X-Forwarded-For must set `trustedProxyHops` (buildServer/runProdApp/
+    runDevApp top-level option) to the number of trusted hops — usually `1`
+    for a single ingress. Without it, every client collapses into one shared
+    rate-limit bucket (safe default, but likely too strict for real traffic).
+    Apps not behind a proxy need no change; `trustedProxyHops` defaults to 0.
+
+    Integration tests that call an `ip`/`ip+handler`-rate-limited handler
+    repeatedly through `stack.http.raw`/`stack.app.request` (no real socket)
+    now share one "unknown" bucket instead of skipping the bucket entirely —
+    a previously-passing test suite can start seeing 429s. Fix by flushing
+    the rate-limit namespace between test cases (`stack.redis.flushNamespace()`
+    in `beforeEach`), or by setting `setupTestStack({ trustedProxyHops: 1 })`
+    and sending a distinct `X-Forwarded-For` per test case. Also check any
+    test that nulls `context.redis` via `extraContext` to exercise a
+    handler's own redis-down guard: `setupTestStack` now keeps the L3
+    rate-limit resolver alive from its own always-real Redis in that case
+    (an explicit `context.rateLimit` still wins), so a handler-declared
+    `rateLimit` is enforced instead of throwing `InternalError` for a missing
+    resolver.
+  -->
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp threads the Bun socket address and a trustedProxyHops option through to the client-IP resolver
+  detail: |
+    `buildBunServeOptions` now extracts the client socket address once via
+    `server.requestIP(req)` at the outermost Bun.serve fetch callback (a
+    cloned/rebuilt Request loses that ability) and threads it through
+    `tryHonoFirst`/`withSecurityHeaders`/`buildStaticFallback` as Hono's
+    `env`. `RunProdAppOptions` gained a top-level `trustedProxyHops` (falls
+    back to the deprecated `auth.trustedProxyHops`, then
+    `KUMIKO_TRUSTED_PROXY_HOPS`), forwarded into `buildServer` and the
+    static-fallback's own client-IP resolver.
+  migration: |
+    Same as the framework entry — set `trustedProxyHops` on `runProdApp` when
+    deployed behind a reverse-proxy/ingress.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: createKumikoServer/runDevApp gained a trustedProxyHops option
+  detail: |
+    `CreateKumikoServerOptions`/`RunDevAppOptions` gained a top-level
+    `trustedProxyHops`, forwarded into `setupTestStack`'s `buildServer` call.
+    Dev normally runs unproxied, so this is usually left unset (default 0).
+  migration: |
+    No action needed for the default (unproxied) dev setup. Set
+    `trustedProxyHops` only if you run the dev server behind a reverse proxy.
+  -->
+
+- c61cc7a: Tenant-supplied SMTP and IMAP hosts must now resolve to a public address before a connect is attempted. `resolvePublicHost` in `@cosmicdrift/kumiko-http` gained a host-based sibling, `resolvePublicHostname`, used by a new shared `resolveMailConnectTarget` helper in `@cosmicdrift/kumiko-bundled-features/foundation-shared`. Both `mail-transport-smtp` and `inbound-provider-imap` now resolve the tenant-configured host once, reject a private/loopback/link-local/metadata address before connecting, and — for a real hostname — pin the connection to the resolved address while keeping the original hostname as the TLS SNI `servername`, so certificate validation still checks the right name.
+
+  <!-- kumiko-changes
+  feature: http
+  type: improvement
+  title: resolvePublicHost's DNS-pinning is now also available for a bare hostname
+  detail: |
+    `resolvePublicHostname(host, lookupFn?)` exposes the same resolve-once,
+    reject-non-public-addresses check `resolvePublicHost` already does for a
+    URL, for callers that only have a hostname (no scheme/path). Also newly
+    exported: `BlockedHostError`, `HostResolutionError`, `isPublicHost`,
+    `resolvePublicHostname`, and `type EgressPolicy`/`ResolvedHost`.
+  migration: |
+    Purely additive for existing `resolvePublicHost`/`isBlockedIp` callers —
+    no behavior change to the URL-based API. New export surface only.
+  -->
+
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: breaking
+  title: The tenant-configured SMTP host must resolve to a public address
+  migration: |
+    An operator relying on an internal SMTP relay or a local dev/test server
+    (mailpit, MailHog on localhost or a private IP) now gets a build-time
+    422 (code "unconfigured", naming the "host" config-key) unless that host
+    is explicitly allowed. Set the operator env var (comma-separated, read
+    at connect time — no boot-time code call needed) before starting the
+    process:
+      KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=mailpit.internal
+    This is an operator env var, not a tenant config value — a tenant cannot
+    add their own host to this list. Shared with inbound-provider-imap: one
+    env var covers both SMTP and IMAP allowlisting. A DNS resolution failure
+    for a genuinely unreachable host now surfaces distinctly (not as
+    "unconfigured") instead of only failing later at first-send time.
+  -->
+
+  <!-- kumiko-changes
+  feature: inbound-provider-imap
+  type: breaking
+  title: The tenant-configured IMAP host must resolve to a public address
+  migration: |
+    An operator relying on an internal IMAP server or a local dev/test server
+    (greenmail on localhost or a private IP) now gets an InboundAuthError
+    (account marked auth_error) unless that host is explicitly allowed. Set
+    the same operator env var mail-transport-smtp reads (comma-separated, no
+    boot-time code call needed) before starting the process:
+      KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=greenmail.internal
+    This is an operator env var, not a tenant config value — a tenant cannot
+    add their own host to this list. A DNS resolution failure for a
+    genuinely unreachable host now surfaces as InboundTransientError (job
+    retry) instead of reaching imapflow at all.
+  -->
+
+- c61cc7a: Personal Access Tokens are now rejected fail-closed on every `/api/*` route except the dispatcher routes (write/batch/query/command/stream) — previously a PAT authenticated on SSE, file upload/download, `/api/auth/*`, feature `r.httpRoute`s and `entry:"user"` extraRoutes the same as a cookie/JWT session, regardless of its granted scopes, since only the five dispatcher routes ever checked the token's scope.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Personal Access Tokens are now scoped to the dispatcher routes only
+  migration: |
+    A caller using a PAT for SSE, file upload/download, /api/auth/*, a feature
+    r.httpRoute, or an entry:"user" extraRoute now gets a 403 and needs a
+    session-cookie or JWT credential for those calls instead. The dispatcher
+    routes (/api/write, /api/batch, /api/query, /api/command, /api/stream) are
+    unaffected.
+  -->
+
+- fe36eeb: AppSchema now leaves the server only via an authenticated GET /api/schema
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: Static fallback no longer injects __KUMIKO_SCHEMA__ into HTML
+  migration: |
+    `HostDispatchResult.injectSchema` is deprecated and ignored — HTML never
+    carries the schema anymore, in prod or dev. `createKumikoApp` now fetches
+    the schema itself from the authenticated `GET /api/schema` after its
+    clientFeature gates (e.g. an auth gate) let rendering through, so a
+    signed-in admin app keeps working without changes. Anything that read
+    `window.__KUMIKO_SCHEMA__` directly (custom clients, e2e fixtures) must
+    switch to fetching `/api/schema` instead. An anonymously reachable page
+    that used to render schema-based screens needs `createPublicSurface`,
+    which never carries a schema. The `@cosmicdrift/kumiko-server-runtime/inject-schema`
+    subpath export is removed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: New GET /api/schema route
+  detail: |
+    Behind the existing `/api/*` auth guard. A signed-in, non-anonymous user
+    gets the built `AppSchema` as JSON with `Cache-Control: private, no-cache`
+    and a strong `ETag`; a matching `If-None-Match` gets a bodyless 304 (still
+    behind the same auth check, so an anonymous request with a stolen/guessed
+    ETag still 401s instead of getting a 304). Anonymous or missing auth gets
+    the same 401 `unauthenticated` response shape as every other non-public
+    route.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Dev-server HTML no longer injects __KUMIKO_SCHEMA__ either
+  migration: |
+    Same semantics as the prod change: `DevHostDispatchResult.injectSchema`
+    is deprecated and ignored. The dev-server's auto-mint mode still sets
+    the `kumiko_auth`/`kumiko_csrf` cookies on the HTML response, so a
+    client-side fetch to `/api/schema` is authenticated immediately without
+    a real login round-trip.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: createKumikoApp loads the schema after the auth gate, with loading/error states
+  detail: |
+    When neither `options.schema` nor `window.__KUMIKO_SCHEMA__` is set,
+    `createKumikoApp` now fetches the schema from `GET /api/schema` itself,
+    only after its clientFeature gates let rendering through (so an
+    unauthenticated visitor never triggers the request). While the fetch is
+    in flight a minimal loading placeholder renders; a 401/403 shows a clear
+    "sign in required" message with no auto-retry; any other failure shows a
+    retry button. Losing schema access mid-session (a gate withdrawing
+    children, e.g. on logout) resets the fetched schema so the next mount
+    re-fetches instead of reusing a previous session's — important once
+    schemas become role-dependent. An explicit `options.schema` never resets
+    this way.
+  -->
+
+- 02cc7b3: GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user
+
+  `buildAppSchema`'s output previously shipped every screen, nav, workspace and content-collection to any signed-in caller, regardless of role — a screen's own `access` rule only ever hid it in the UI, never removed it from the payload a curious client could still read. `projectAppSchemaForRoles` now strips every screen/nav/workspace/content-collection reference the caller's roles can't see (screens, nav entries, row/toolbar/related-list actions, entityEdit redirects, dashboard panels and metric navigation targets, tree actions, workspace nav membership) before the route serializes a response, closing empty parent nav sections and workspaces left with no surviving members along the way. Entities and translations are still shipped in full — the projection is a UI-visibility concern, not an entity-authorization concern; the dispatcher's `hasAccess` default-deny check is unchanged.
+
+  The route now builds the full schema lazily once per process and caches the projected JSON/ETag per canonical (deduplicated, sorted) role set — tenant is deliberately not part of the cache key, since the projection only depends on roles.
+
+  `isUiAccessGranted` is the new shared default-visible UI predicate in `@cosmicdrift/kumiko-types`, re-exported through `framework/ui-types`. The renderer's `screenAccessAllows` is now an alias of it, and headless nav resolution and renderer-web's workspace filter call it directly instead of carrying their own copies.
+
+  A deep link to a screen the caller's roles no longer receive now shows the "screen not found" banner instead of the access-denied banner, because the screen is no longer part of that caller's schema.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user
+  -->
+
+- 9907bc6: `requireRealProviders()` is importable from `@cosmicdrift/kumiko-testing/e2e`, and `seedTenant()` tenants receive SSE events on `stack.events.sse`
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Real-provider helpers under the import-free subpath testing/real-providers
+  detail: |
+    `@cosmicdrift/kumiko-framework/testing/real-providers` exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` without pulling in the `./testing` barrel and its Bun-only dependencies, so code that loads under Node can use them.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: requireRealProviders from kumiko-testing/e2e, SSE events for seedTenant tenants
+  detail: |
+    `@cosmicdrift/kumiko-testing/e2e` re-exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` from the framework's `testing/real-providers` subpath instead of keeping its own copy. Playwright specs and configs, which load under Node, no longer have to avoid the framework's `./testing` barrel.
+
+    `seedTenant(stack, …)` subscribes `stack.events.sse` to the seeded tenant's SSE channel. Before, `setupTestStack` only listened on test tenant 1, so writes in a seeded tenant never showed up on `events.sse` and tests had to call `stack.sseBroker.addClient(tenantChannel(id), …)` themselves; that manual call can go. Events from `persist: true` seeding (tenant, user, membership) now also land on `events.sse` after the next drain.
+  -->
+
+- c61cc7a: ToolbarAction's navigate variant gets `tab`, merged into the navigate search params and checked by the boot validator against the target projectionDetail's sections, same as RowActionNavigate.tab and MetricNavigate.tab (fw#3260)
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: ToolbarAction's navigate variant gets `tab`
+  detail: |
+    The navigate-kind ToolbarAction (entityList, projectionList and
+    relatedList-section toolbars) accepts `tab?: string`, the section id of the
+    tab to activate on the target projectionDetail (layout.mode "tabs"),
+    analogous to RowActionNavigate.tab and MetricNavigate.tab.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Toolbar navigate actions merge `tab` into the search params
+  detail: |
+    buildNavigateToolbarAction (shared by entityList, projectionList and
+    relatedList-section toolbars) sets `tab` in the same params object as any
+    declared `params`/prefill, so it lands in the single navigateWithReturnTo
+    call next to returnTo.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validator checks the target tab of toolbar navigate actions
+  detail: |
+    A ToolbarAction with kind "navigate" and `tab` fails boot when its target
+    is not a projectionDetail with layout.mode "tabs" or has no section with
+    that id. The check covers entityList, projectionList and relatedList
+    section toolbars.
+  -->
+
+### Patch Changes
+
+- c61cc7a: Upload requests are now size-checked before the body is buffered
+
+  `POST /api/files` previously ran `parseBody()` on the full multipart request before any size check, so the body was parsed in full before the configured `maxUploadSize` ever ruled it out. It now rejects requests over the configured limit (checked upfront via `Content-Length`, and while streaming for chunked bodies) with a 413 before parsing. `runProdApp` and the dev server now also derive `Bun.serve`'s request-body cap from that same `maxUploadSize`/field `maxSize` configuration instead of Bun's own 128 MiB default; `buildBunServeOptions` keeps a lower fixed fallback for direct callers, overridable via `runProdApp`'s new `maxRequestBodySize` option.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upload requests are now size-checked before the body is buffered
+  -->
+
+- c61cc7a: Dev-boot backfills nullable columns a persistent dev DB is missing
+
+  pushEntityProjectionTables (used by runDevApp/createKumikoServer and setupAppTestStack) skipped every table that already existed, even when the entity definition had grown new columns since the table was created — a persistent dev DB (KUMIKO_DEV_DB_NAME) needed the column added by hand. It now diffs the live columns against the entity's current column set and runs ALTER TABLE ADD COLUMN for anything nullable or defaulted. A missing required column with no default can't be added safely once the table may hold rows, so that case still fails boot, now with a message naming the exact column and telling the dev to drop the persistent dev DB so the next boot recreates it.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Dev-boot backfills nullable columns a persistent dev DB is missing
+  detail: |
+    `pushEntityProjectionTables` (packages/framework/src/stack) now diffs an
+    existing implicit-projection table's live columns against the entity's
+    current column set via `columnNamesOf`, backfilling anything nullable or
+    defaulted through the newly extracted `addMissingColumns` helper (shared
+    with `unsafePushTables`'s existing column-diff loop). A missing required
+    column with no default throws instead, naming the column and the
+    persistent dev DB (`KUMIKO_DEV_DB_NAME`) to drop so the next boot
+    recreates it. Covers implicit `r.entity()`-derived projection tables,
+    which is what the reporting app's read-model table used. `setupTestStack`'s
+    own explicit `r.projection()`/`r.storeTable()` push loop (test-stack.ts)
+    has the same skip-existing behavior and is not yet patched.
+  -->
+
+- c61cc7a: Boot validator now checks MetricNavigate's `tab` against the target screen's sections when `navigate` also sets `screen` or `entity`, not just for same-screen tab activation (fw#3260)
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot validator checks a metric's cross-screen navigate tab
+  detail: |
+    A projectionDetail metric whose `navigate` sets `screen` or `entity` plus
+    `tab` now fails boot when the target is not a projectionDetail with
+    layout.mode "tabs" or has no section with that id. Previously only a
+    same-screen `tab` was checked.
+  -->
+
+- 3a99ac1: Boot validator no longer warns about a user-reference-named field (e.g. `authorId`) that another field of the same entity already names as its owner via `personal: { of: "<field>" }`
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: No user-reference-name warning for owner fields referenced via personal.of
+  detail: |
+    The `PII_USER_REFERENCE_NAME_HINTS` boot warning checked each field in isolation, so an owner field such as `authorId` kept warning even when a content field on the same entity already declared `personal: { of: "authorId" }`, the exact silencing condition the warning itself names. The validator now collects the owner fields referenced via `personal.of` per entity first and skips the warning for them. Fields with a user-reference-typical name that no `personal.of` references still warn.
+  -->
+
+- c498565: `concurrency: "sequential"` job lock now scoped by `queueNamePrefix`; corrected docs and test to the actual mutual-exclusion (not FIFO) contract
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Sequential-job lock key scoped by queueNamePrefix; contract clarified as mutual exclusion, not FIFO
+  detail: |
+    The per-name Redis SETNX lock behind `concurrency: "sequential"` used a fixed `kumiko:lock:seq:<lane>:` key, unlike the queues themselves, which are scoped by `queueNamePrefix`. Two runners sharing a Redis but isolated by distinct prefixes (e.g. per-test-run prefixes) could collide on the same lock key even though their queues never saw each other's jobs. The key is now `kumiko:lock:seq:<queueNamePrefix>:<lane>:`. Separately, `JobDefinition.concurrency`'s doc comment and the integration test now state the contract precisely: "sequential" guarantees same-name dispatches never run concurrently, but does not guarantee they run in dispatch order. A lock loser is re-enqueued to the back of its queue, so a later dispatch can still complete before an earlier one. See fw#3265 for the local repro evidence backing this.
+  -->
+
+- c61cc7a: user-data-rights takes the audit IP from the shared client-IP resolver
+
+  `extractAuditMeta` read the first `X-Forwarded-For` entry itself — a header any client can set — so a caller could plant a fake IP for their own download attempt in the audit trail (`recordDownloadUse`/`recordInvalidAttempt`). `r.httpRoute` handlers had no access to the server's `trustedProxyHops`-aware resolver at all: `requestIdMiddleware` only wraps `/api/*`, and `user-export/by-token` is an anonymous `r.httpRoute`. `HttpRouteHandlerDeps` gained a `clientIp: string` field, computed once per request in `buildServer`'s httpRoute mount loop from the same shared resolver instance `/api/*` and the L1/L2 rate limits already use. `extractAuditMeta` now takes that resolved value as a parameter instead of parsing headers itself.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: HttpRouteHandlerDeps carries the resolved clientIp
+  detail: |
+    `r.httpRoute` handlers get a new `clientIp: string` dep, resolved once per
+    request via `buildServer`'s existing shared `clientIpResolver` (the same
+    instance `requestIdMiddleware` and the L1/L2 rate limits use), instead of
+    each handler parsing `X-Forwarded-For`/`X-Real-IP` itself with no
+    knowledge of the deployment's actual `trustedProxyHops`. `UNKNOWN_CLIENT_IP`
+    is now exported from `@cosmicdrift/kumiko-framework/api` so callers can
+    detect the resolver's no-value sentinel without hardcoding the string.
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Audit IP comes from the framework's trustedProxyHops-aware resolver, not a self-parsed X-Forwarded-For
+  detail: |
+    `extractAuditMeta` no longer reads `X-Forwarded-For`/`X-Real-IP` itself —
+    it takes the `clientIp` the `/user-export/by-token` httpRoute handler now
+    receives from `HttpRouteHandlerDeps`, mapping the resolver's `unknown`
+    sentinel to `null`. Closes the spoofed-first-XFF-entry gap for that
+    route. A caller invoking `/api/query`'s `download-by-token` handler
+    directly (not through this httpRoute) can still pass its own `auditMeta`
+    in the payload — a pre-existing, documented tradeoff (the handler's own
+    comment: audit data isn't security-relevant), unchanged by this fix.
+  -->
+
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [02cc7b3]
+- Updated dependencies [c498565]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+  - @cosmicdrift/kumiko-http@0.320.0
+  - @cosmicdrift/kumiko-types@0.320.0
+
 ## 0.319.0
 
 ### Patch Changes

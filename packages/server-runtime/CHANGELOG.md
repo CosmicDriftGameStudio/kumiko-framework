@@ -1,5 +1,225 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.320.0
+
+### Minor Changes
+
+- 0ab9874: auth routes return a server-computed landingPath from auth.postAuthLanding
+
+  `AuthRoutesConfig.postAuthLanding` lets an app resolve, in one server-side place, where a user lands after auth instead of every frontend screen re-deriving it from roles/tenantId. The resolver runs for login, mfa-verify, mfa-preauth-confirm, signup-confirm, and all three invite-accept branches, and its result is validated (root-relative only, no protocol-relative/backslash/control-character paths, no cross-origin resolution) before it is ever added to the response as `landingPath`. An invalid path or a throwing resolver just omits the field — auth never fails because of it.
+
+  `run-prod-app`'s and `run-dev-app`'s auth options now accept `postAuthLanding` and thread it through to the framework config unchanged.
+
+  `SignupCompleteScreen` and `InviteAcceptScreen` now prefer the server's `landingPath` over their `loggedInHref` prop, which becomes a deprecated per-app fallback for apps that haven't configured a resolver yet.
+
+  Closes #3320.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: auth routes return a server-computed landingPath from auth.postAuthLanding
+  -->
+
+- c61cc7a: Centralized, trustedProxyHops-aware client-IP resolver for every IP-based rate limit (kumiko-framework#3323)
+
+  `rate-limit/middleware.ts`'s L1/L2 rate limits, `auth-routes.ts`'s auth rate limits and `requestIdMiddleware`'s `requestContext.ip` each derived the caller's IP their own way, all trusting the first `X-Forwarded-For` entry unconditionally — a header any client can set, so any of them was bypassable by an attacker who simply forged a first entry, and an app with no reverse proxy in front of it had no defense at all. Worse, `requestIdMiddleware` left `ip` `undefined` when no XFF header was present, which made `dispatch-shared.ts`'s `enforceRateLimit` treat the whole bucket as skippable — an L3 handler with `rateLimit: { per: "ip" }` silently never throttled a client that omitted the header.
+
+  All three now share one `createClientIpResolver` (`@cosmicdrift/kumiko-framework/api`). A new top-level `trustedProxyHops` option on `buildServer`, `runProdApp` and `runDevApp` (default `0`) replaces the old first-entry heuristic: `0` trusts no proxy header at all (only the real socket address, sourced once from Bun's `server.requestIP()`, counts), `n >= 1` reads the n-th `X-Forwarded-For` entry from the right (falling back to `X-Real-IP`, then the socket address, for a chain shorter than `n`). A bucket is never skipped anymore — with no usable value the resolver falls back to a fixed `"unknown"` string, which shares one bucket across affected clients rather than letting them bypass the limit entirely. The deprecated `auth.trustedProxyHops` still works as a fallback when the new top-level option isn't set.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Centralized client-IP resolver replaces the old first-XFF-entry heuristic
+  detail: |
+    New `trustedProxyHops` option on `ServerOptions` (default 0 — trusts no
+    proxy header, only the socket address counts). Precedence:
+    `options.trustedProxyHops ?? options.auth?.trustedProxyHops ?? 0`.
+    `requestContext.ip` is now always set for an HTTP request (falls back to
+    "unknown" instead of being left undefined), so `rateLimit: { per: "ip" }`
+    handlers reached via `r.httpRoute`/`extraRoutes` systemQuery are never
+    silently unthrottled. `rate-limit/middleware.ts`'s `globalIpRateLimit`/
+    `authEndpointRateLimit` and `auth-routes.ts`'s `createAuthRoutes` gained a
+    `trustedProxyHops`/`clientIpResolver` option and now share the server's
+    one resolver instance instead of each building their own.
+  migration: |
+    Apps deployed behind a reverse-proxy/ingress that appends to
+    X-Forwarded-For must set `trustedProxyHops` (buildServer/runProdApp/
+    runDevApp top-level option) to the number of trusted hops — usually `1`
+    for a single ingress. Without it, every client collapses into one shared
+    rate-limit bucket (safe default, but likely too strict for real traffic).
+    Apps not behind a proxy need no change; `trustedProxyHops` defaults to 0.
+
+    Integration tests that call an `ip`/`ip+handler`-rate-limited handler
+    repeatedly through `stack.http.raw`/`stack.app.request` (no real socket)
+    now share one "unknown" bucket instead of skipping the bucket entirely —
+    a previously-passing test suite can start seeing 429s. Fix by flushing
+    the rate-limit namespace between test cases (`stack.redis.flushNamespace()`
+    in `beforeEach`), or by setting `setupTestStack({ trustedProxyHops: 1 })`
+    and sending a distinct `X-Forwarded-For` per test case. Also check any
+    test that nulls `context.redis` via `extraContext` to exercise a
+    handler's own redis-down guard: `setupTestStack` now keeps the L3
+    rate-limit resolver alive from its own always-real Redis in that case
+    (an explicit `context.rateLimit` still wins), so a handler-declared
+    `rateLimit` is enforced instead of throwing `InternalError` for a missing
+    resolver.
+  -->
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: runProdApp threads the Bun socket address and a trustedProxyHops option through to the client-IP resolver
+  detail: |
+    `buildBunServeOptions` now extracts the client socket address once via
+    `server.requestIP(req)` at the outermost Bun.serve fetch callback (a
+    cloned/rebuilt Request loses that ability) and threads it through
+    `tryHonoFirst`/`withSecurityHeaders`/`buildStaticFallback` as Hono's
+    `env`. `RunProdAppOptions` gained a top-level `trustedProxyHops` (falls
+    back to the deprecated `auth.trustedProxyHops`, then
+    `KUMIKO_TRUSTED_PROXY_HOPS`), forwarded into `buildServer` and the
+    static-fallback's own client-IP resolver.
+  migration: |
+    Same as the framework entry — set `trustedProxyHops` on `runProdApp` when
+    deployed behind a reverse-proxy/ingress.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: createKumikoServer/runDevApp gained a trustedProxyHops option
+  detail: |
+    `CreateKumikoServerOptions`/`RunDevAppOptions` gained a top-level
+    `trustedProxyHops`, forwarded into `setupTestStack`'s `buildServer` call.
+    Dev normally runs unproxied, so this is usually left unset (default 0).
+  migration: |
+    No action needed for the default (unproxied) dev setup. Set
+    `trustedProxyHops` only if you run the dev server behind a reverse proxy.
+  -->
+
+- fe36eeb: AppSchema now leaves the server only via an authenticated GET /api/schema
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: Static fallback no longer injects __KUMIKO_SCHEMA__ into HTML
+  migration: |
+    `HostDispatchResult.injectSchema` is deprecated and ignored — HTML never
+    carries the schema anymore, in prod or dev. `createKumikoApp` now fetches
+    the schema itself from the authenticated `GET /api/schema` after its
+    clientFeature gates (e.g. an auth gate) let rendering through, so a
+    signed-in admin app keeps working without changes. Anything that read
+    `window.__KUMIKO_SCHEMA__` directly (custom clients, e2e fixtures) must
+    switch to fetching `/api/schema` instead. An anonymously reachable page
+    that used to render schema-based screens needs `createPublicSurface`,
+    which never carries a schema. The `@cosmicdrift/kumiko-server-runtime/inject-schema`
+    subpath export is removed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: New GET /api/schema route
+  detail: |
+    Behind the existing `/api/*` auth guard. A signed-in, non-anonymous user
+    gets the built `AppSchema` as JSON with `Cache-Control: private, no-cache`
+    and a strong `ETag`; a matching `If-None-Match` gets a bodyless 304 (still
+    behind the same auth check, so an anonymous request with a stolen/guessed
+    ETag still 401s instead of getting a 304). Anonymous or missing auth gets
+    the same 401 `unauthenticated` response shape as every other non-public
+    route.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Dev-server HTML no longer injects __KUMIKO_SCHEMA__ either
+  migration: |
+    Same semantics as the prod change: `DevHostDispatchResult.injectSchema`
+    is deprecated and ignored. The dev-server's auto-mint mode still sets
+    the `kumiko_auth`/`kumiko_csrf` cookies on the HTML response, so a
+    client-side fetch to `/api/schema` is authenticated immediately without
+    a real login round-trip.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: createKumikoApp loads the schema after the auth gate, with loading/error states
+  detail: |
+    When neither `options.schema` nor `window.__KUMIKO_SCHEMA__` is set,
+    `createKumikoApp` now fetches the schema from `GET /api/schema` itself,
+    only after its clientFeature gates let rendering through (so an
+    unauthenticated visitor never triggers the request). While the fetch is
+    in flight a minimal loading placeholder renders; a 401/403 shows a clear
+    "sign in required" message with no auto-retry; any other failure shows a
+    retry button. Losing schema access mid-session (a gate withdrawing
+    children, e.g. on logout) resets the fetched schema so the next mount
+    re-fetches instead of reusing a previous session's — important once
+    schemas become role-dependent. An explicit `options.schema` never resets
+    this way.
+  -->
+
+- c61cc7a: requireEnv is now part of the public package export
+
+  requireEnv (the boot-time required-env-var check with context-aware error messages) was only reachable via a relative import of run-prod-app.ts. Consumers that need the same check for their own env vars (e.g. auth-mail overrides) can now do `import { requireEnv } from "@cosmicdrift/kumiko-server-runtime"`.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: requireEnv is now part of the public package export
+  detail: |
+    `packages/server-runtime/src/index.ts` now re-exports `requireEnv`
+    alongside `runProdApp`, so `import { requireEnv } from
+    "@cosmicdrift/kumiko-server-runtime"` resolves without reaching into the
+    internal `run-prod-app.ts` module.
+  -->
+
+### Patch Changes
+
+- c61cc7a: Upload requests are now size-checked before the body is buffered
+
+  `POST /api/files` previously ran `parseBody()` on the full multipart request before any size check, so the body was parsed in full before the configured `maxUploadSize` ever ruled it out. It now rejects requests over the configured limit (checked upfront via `Content-Length`, and while streaming for chunked bodies) with a 413 before parsing. `runProdApp` and the dev server now also derive `Bun.serve`'s request-body cap from that same `maxUploadSize`/field `maxSize` configuration instead of Bun's own 128 MiB default; `buildBunServeOptions` keeps a lower fixed fallback for direct callers, overridable via `runProdApp`'s new `maxRequestBodySize` option.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upload requests are now size-checked before the body is buffered
+  -->
+
+- c61cc7a: resolveAuthMail builds locale-aware appUrls and adds a dedicated auth.mail.hmacSecret
+
+  resolveAuthMail (shared by runProdApp and runDevApp) now builds the passwordReset/emailVerification/signup/invite appUrl from a locale-aware AuthPath, so a function-valued auth.mail.paths entry produces a locale-aware appUrl for every flow, symmetric to the appUrl-as-function support each flow's options already had.
+
+  AuthMailOptions also gains an optional hmacSecret: when set, passwordReset/emailVerification tokens sign with it instead of the hmacSecret resolveAuthMail is called with (JWT_SECRET), so JWT_SECRET can rotate without invalidating in-flight reset/verify tokens. hmacSecret is now optional on the passwordReset/emailVerification wrapper options too — an app overriding just appUrl no longer has to also thread its own secret; resolveAuthMail backfills the resolved secret onto that explicit block. An explicitly supplied hmacSecret still wins.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: resolveAuthMail builds locale-aware appUrls and adds a dedicated auth.mail.hmacSecret
+  -->
+
+- Updated dependencies [c61cc7a]
+- Updated dependencies [0ab9874]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [519261d]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [3a99ac1]
+- Updated dependencies [fe36eeb]
+- Updated dependencies [02cc7b3]
+- Updated dependencies [c498565]
+- Updated dependencies [9c6173d]
+- Updated dependencies [9907bc6]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+  - @cosmicdrift/kumiko-bundled-features@0.320.0
+  - @cosmicdrift/kumiko-framework@0.320.0
+  - @cosmicdrift/kumiko-headless@0.320.0
+
 ## 0.319.0
 
 ### Patch Changes

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "navigateWithReturnTo carries returnTo for entity ObjectTargets",
+    "detail": "navigateWithReturnTo now accepts a NavTarget (ScreenTarget or ObjectTarget),\nnot just ScreenTarget. For an entity target it compares the resolved href\nagainst the host's to detect a self-navigate (no returnTo) and otherwise\nsets returnTo to the host snapshot, same as the existing screen-target\npath. runProjectionRowNavigate, buildNavigateRecordAction, EntityListBody's\nrow navigate and related-list-section's legacy rowClick now go through\nthis for entity actions."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "Toolbar navigate actions merge `tab` into the search params",
+    "detail": "buildNavigateToolbarAction (shared by entityList, projectionList and\nrelatedList-section toolbars) sets `tab` in the same params object as any\ndeclared `params`/prefill, so it lands in the single navigateWithReturnTo\ncall next to returnTo."
+  },
+  {
     "version": "0.318.0",
     "type": "improvement",
     "title": "App theme as one Tailwind plugin instead of duplicated @theme and :root blocks",
