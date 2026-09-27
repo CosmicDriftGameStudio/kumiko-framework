@@ -386,10 +386,10 @@ describe("download-by-job :: happy path", () => {
   test("session-auth: Job-Owner → returns signed URL + audit (IP aus X-Forwarded-For)", async () => {
     const { jobId } = await seedDoneJobWithToken();
 
-    // Der UI-Klick laeuft als direkter download-by-job-Query (Client traegt
-    // X-CSRF-Token). Die Audit-IP kommt server-trusted aus dem RequestContext
-    // (X-Forwarded-For, letzter vom trusted Proxy angehaengter Eintrag bei
-    // trustedProxyHops=1), nicht aus einem vom Client mitgeschickten Feld.
+    // The UI click runs as a direct download-by-job query (client sends
+    // X-CSRF-Token). The audit IP is server-trusted from the RequestContext
+    // (X-Forwarded-For entry appended by the trusted proxy at
+    // trustedProxyHops=1), never from a client-supplied field.
     const res = await stack.http.queryWithHeaders(
       "user-data-rights:query:download-by-job",
       { jobId },

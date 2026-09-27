@@ -248,12 +248,12 @@ function makeDryRunHandle(): ProdAppHandle {
   };
 }
 
-/** Wrapper-API für den Password-Reset-Flow.
+/** Wrapper API for the password-reset flow.
  *
- *  Seit der delivery-Migration trägt PasswordResetOptions selbst `appUrl`
- *  (+ appName/locale) und der Handler mailt via ctx.notify — kein
- *  sendResetEmail-Callback mehr. Apps geben `auth.mail` (Convenience,
- *  resolveAuthMail baut die appUrl) ODER einen expliziten Block.
+ *  Since the delivery migration PasswordResetOptions carries `appUrl`
+ *  (+ appName/locale) itself and the handler mails via ctx.notify — no
+ *  sendResetEmail callback anymore. Apps pass `auth.mail` (convenience,
+ *  resolveAuthMail builds the appUrl) OR an explicit block.
  *
  *  hmacSecret is optional here (unlike PasswordResetOptions): resolveAuthMail
  *  backfills it, so overriding just appUrl needs no secret of its own. */
@@ -261,7 +261,7 @@ export type PasswordResetSetup = Omit<PasswordResetOptions, "hmacSecret"> & {
   readonly hmacSecret?: string;
 };
 
-/** Wrapper-API für den Email-Verification-Flow, symmetrisch zu
+/** Wrapper API for the email-verification flow, symmetric to
  *  PasswordResetSetup (appUrl via delivery, optional hmacSecret). */
 export type EmailVerificationSetup = Omit<EmailVerificationOptions, "hmacSecret"> & {
   readonly hmacSecret?: string;

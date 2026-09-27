@@ -730,11 +730,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
   });
 }
 
-// `clientIp` kommt vom Server's trustedProxyHops-aware resolver statt
-// selbst X-Forwarded-For zu lesen, sonst faelscht ein gefaelschter
-// Erst-Eintrag die Audit-IP. Ein Caller der /api/query direkt (nicht ueber
-// diesen httpRoute-Wrapper) mit eigenem auditMeta aufruft kann weiterhin
-// luegen — das bleibt akzeptiert, siehe download-by-token.query.ts.
+// `clientIp` comes from the server's trustedProxyHops-aware resolver instead
+// of reading X-Forwarded-For here, where a forged first entry would spoof the
+// audit IP. A caller hitting /api/query directly (bypassing this httpRoute
+// wrapper) with its own auditMeta can still lie — accepted, see
+// download-by-token.query.ts.
 export function extractAuditMeta(
   headers: Headers,
   clientIp: string,
