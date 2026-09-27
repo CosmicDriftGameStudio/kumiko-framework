@@ -18,6 +18,7 @@ import {
   createIdempotencyGuard,
   dispatcherToWriteRef,
 } from "../pipeline";
+import { createRateLimitResolver } from "../rate-limit";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createTestDb } from "./db";
@@ -420,9 +421,31 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     const idempotency = createIdempotencyGuard(testRedis.redis, { ttlSeconds: 60 });
     const eventDedup = createEventDedup(testRedis.redis, { ttlSeconds: 60 });
 
+    // buildServer only auto-wires an L3 RateLimitResolver from
+    // `context.redis` — a degradation test that nulls `redis` via
+    // extraContext (to exercise a handler's own ctx.redis-down guard) also
+    // silently strips rate-limiting, even though every handler with a
+    // `rateLimit` declaration still requires a resolver at dispatch time.
+    // Since e7bf543ad, an IP-keyed bucket key is built unconditionally
+    // (falls back to a shared "unknown" IP rather than skipping), so the
+    // missing resolver now throws instead of merely skipping enforcement.
+    // Mirrors idempotency/eventDedup above: built from the test-stack's own
+    // always-real `testRedis.redis`, independent of whatever extraContext
+    // did to `appContext.redis` — an explicit `context.rateLimit` from
+    // extraContext still wins (same precedence buildServer documents).
+    // @cast-boundary extraContext is declared Record<string, unknown> (late,
+    // dynamic extension point) — appContext's inferred type doesn't carry a
+    // `rateLimit` key, so reading it back needs the same relaxed boundary
+    // extraContext itself is typed with.
+    const explicitRateLimit = (appContext as { rateLimit?: unknown }).rateLimit;
+    const rateLimitFallback =
+      appContext.redis === undefined && explicitRateLimit === undefined
+        ? createRateLimitResolver({ redis: testRedis.redis })
+        : undefined;
+
     const server = buildServer({
       registry,
-      context: appContext,
+      context: rateLimitFallback ? { ...appContext, rateLimit: rateLimitFallback } : appContext,
       jwtSecret,
       ...(options.observability ? { observability: options.observability } : {}),
       dispatcherOptions: {
