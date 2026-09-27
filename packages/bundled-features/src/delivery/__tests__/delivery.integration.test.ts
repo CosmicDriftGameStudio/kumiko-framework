@@ -64,7 +64,7 @@ import {
 import { createDeliveryTestContext } from "../testing";
 import type { DeliveryService } from "../types";
 import {
-  createUnsubscribeRoute,
+  createUnsubscribeRoutes,
   signAddressUnsubscribeToken,
   signUnsubscribeToken,
 } from "../unsubscribe";
@@ -75,6 +75,16 @@ let stack: TestStack;
 let db: DbConnection;
 let deliveryService: DeliveryService;
 const UNSUBSCRIBE_SECRET = "test-stack-unsubscribe-secret-32-chars-min!!";
+
+// Mirrors a confirmation-page form submit / RFC-8058 one-click POST: token in
+// a form-urlencoded body, same encoding both senders use.
+function postUnsubscribe(token: string) {
+  return stack.app.request(DELIVERY_UNSUBSCRIBE_PATH, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: `token=${encodeURIComponent(token)}`,
+  });
+}
 
 // Email test infrastructure
 const emailTransport = createInMemoryTransport();
@@ -373,7 +383,7 @@ beforeAll(async () => {
       deliveryService = ctx.deliveryService;
       return ctx;
     },
-    extraRoutes: [createUnsubscribeRoute({ secret: UNSUBSCRIBE_SECRET })],
+    extraRoutes: [...createUnsubscribeRoutes({ secret: UNSUBSCRIBE_SECRET })],
   });
   db = stack.db;
 
@@ -793,7 +803,7 @@ describe("flow 6: user preferences", () => {
 // --- Flow 7: Unsubscribe endpoint ---
 
 describe("flow 7: unsubscribe endpoint", () => {
-  test("signed unsubscribe token disables preference", async () => {
+  test("GET renders a confirmation page and writes nothing", async () => {
     const token = await signUnsubscribeToken(
       {
         userId: user2.id,
@@ -806,10 +816,10 @@ describe("flow 7: unsubscribe endpoint", () => {
 
     const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
     expect(res.status).toBe(200);
-    const text = await res.text();
-    expect(text).toContain("unsubscribed");
+    const html = await res.text();
+    expect(html).toContain("<form");
+    expect(html).toContain('method="post"');
 
-    // Verify preference was created
     const prefs = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
       DeliveryQueries.preferences,
       {},
@@ -817,6 +827,63 @@ describe("flow 7: unsubscribe endpoint", () => {
     );
     const pref = prefs.rows.find(
       (r) => r["notificationType"] === "app:notify:announcement" && r["channel"] === "inApp",
+    );
+    expect(pref).toBeUndefined();
+  });
+
+  test("POST with a form-urlencoded body disables the preference", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:announcement",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const res = await postUnsubscribe(token);
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain("unsubscribed");
+
+    const prefs = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      DeliveryQueries.preferences,
+      {},
+      user2,
+    );
+    const pref = prefs.rows.find(
+      (r) => r["notificationType"] === "app:notify:announcement" && r["channel"] === "inApp",
+    );
+    expect(pref).toBeDefined();
+    expect(pref?.["enabled"]).toBe(false);
+  });
+
+  test("RFC 8058 one-click POST (token in query, List-Unsubscribe=One-Click body) disables the preference", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:one-click",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "List-Unsubscribe=One-Click",
+    });
+    expect(res.status).toBe(200);
+
+    const prefs = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      DeliveryQueries.preferences,
+      {},
+      user2,
+    );
+    const pref = prefs.rows.find(
+      (r) => r["notificationType"] === "app:notify:one-click" && r["channel"] === "inApp",
     );
     expect(pref).toBeDefined();
     expect(pref?.["enabled"]).toBe(false);
@@ -833,7 +900,7 @@ describe("flow 7: unsubscribe endpoint", () => {
       UNSUBSCRIBE_SECRET,
     );
 
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    const res = await postUnsubscribe(token);
     expect(res.status).toBe(200);
 
     const rows = await selectMany(db, notificationPreferencesTable, {
@@ -845,14 +912,24 @@ describe("flow 7: unsubscribe endpoint", () => {
     expect(rows[0]?.["enabled"]).toBe(false);
   });
 
-  test("invalid token returns 400", async () => {
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=invalid-jwt-token`);
-    expect(res.status).toBe(400);
+  test("invalid token returns 400 for both GET and POST", async () => {
+    const getRes = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=invalid-jwt-token`);
+    expect(getRes.status).toBe(400);
+    const getBody = (await getRes.json()) as { error?: { code?: string } };
+    expect(getBody.error?.code).toBe("unsubscribe_token_invalid");
+
+    const postRes = await postUnsubscribe("invalid-jwt-token");
+    expect(postRes.status).toBe(400);
+    const postBody = (await postRes.json()) as { error?: { code?: string } };
+    expect(postBody.error?.code).toBe("unsubscribe_token_invalid");
   });
 
-  test("missing token returns 400", async () => {
-    const res = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH);
-    expect(res.status).toBe(400);
+  test("missing token returns 400 for both GET and POST", async () => {
+    const getRes = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH);
+    expect(getRes.status).toBe(400);
+
+    const postRes = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH, { method: "POST" });
+    expect(postRes.status).toBe(400);
   });
 
   test("normal user cannot dispatch the unsubscribe write handlers directly", async () => {
@@ -895,7 +972,7 @@ describe("flow 7: unsubscribe endpoint", () => {
       .setIssuedAt()
       .sign(new TextEncoder().encode(UNSUBSCRIBE_SECRET));
 
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${tamperedIssuer}`);
+    const res = await postUnsubscribe(tamperedIssuer);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error?: { code?: string; message?: string } };
     expect(body.error?.code).toBe("unsubscribe_token_invalid");
@@ -912,7 +989,7 @@ describe("flow 7: unsubscribe endpoint", () => {
 
   test("a real stack session JWT is rejected at the unsubscribe route", async () => {
     const sessionToken = await stack.jwt.sign(user1);
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${sessionToken}`);
+    const res = await postUnsubscribe(sessionToken);
     expect(res.status).toBe(400);
     const body = (await res.json()) as { error?: { code?: string } };
     expect(body.error?.code).toBe("unsubscribe_token_invalid");
@@ -1573,11 +1650,10 @@ describe("flow 16: repeated unsubscribe clicks are idempotent", () => {
       UNSUBSCRIBE_SECRET,
     );
 
-    const url = `${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`;
     const results = await Promise.all([
-      stack.app.request(url),
-      stack.app.request(url),
-      stack.app.request(url),
+      postUnsubscribe(token),
+      postUnsubscribe(token),
+      postUnsubscribe(token),
     ]);
 
     // All three requests complete with 200 — no duplicate-key crashes
@@ -1964,12 +2040,12 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       },
       UNSUBSCRIBE_SECRET,
     );
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    const res = await postUnsubscribe(token);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("unsubscribed");
 
     // Clicking twice must stay a no-op (one row, no crash).
-    const res2 = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    const res2 = await postUnsubscribe(token);
     expect(res2.status).toBe(200);
     const optOutRows = await selectMany(db, notificationAddressOptOutsTable, {
       notificationType: "app:notify:address-unsub-19a",
@@ -2035,7 +2111,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       FOREIGN_JWT_SECRET,
     );
 
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${forgedToken}`);
+    const res = await postUnsubscribe(forgedToken);
     expect(res.status).toBe(400);
 
     const rows = await selectMany(db, notificationAddressOptOutsTable, {
@@ -2077,7 +2153,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       },
       UNSUBSCRIBE_SECRET,
     );
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    const res = await postUnsubscribe(token);
     expect(res.status).toBe(200);
 
     await deliveryService.notify(
@@ -2125,7 +2201,7 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       { tenantId: user1.tenantId, address, notificationType, channel: "email" },
       UNSUBSCRIBE_SECRET,
     );
-    const res = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`);
+    const res = await postUnsubscribe(token);
     expect(res.status).toBe(200);
 
     emailTransport.sent.length = 0;
@@ -2175,11 +2251,10 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       UNSUBSCRIBE_SECRET,
     );
 
-    const url = `${DELIVERY_UNSUBSCRIBE_PATH}?token=${token}`;
     const results = await Promise.all([
-      stack.app.request(url),
-      stack.app.request(url),
-      stack.app.request(url),
+      postUnsubscribe(token),
+      postUnsubscribe(token),
+      postUnsubscribe(token),
     ]);
 
     for (const res of results) {

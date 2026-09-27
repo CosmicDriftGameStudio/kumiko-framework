@@ -43,7 +43,8 @@ export {
 } from "./types";
 export {
   type AddressUnsubscribeTokenPayload,
-  createUnsubscribeRoute,
+  createUnsubscribeRoutes,
+  DELIVERY_UNSUBSCRIBE_ONE_CLICK_HEADER_VALUE,
   signAddressUnsubscribeToken,
   signUnsubscribeToken,
   type UnsubscribeRouteOptions,

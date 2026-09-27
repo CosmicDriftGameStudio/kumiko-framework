@@ -100,3 +100,95 @@ describe("email channel envelope", () => {
     expect(sent.headers).toBeUndefined();
   });
 });
+
+describe("email channel List-Unsubscribe headers", () => {
+  test("unsubscribeUrl on the framework route sets both headers", async () => {
+    const transport = createInMemoryTransport();
+    const unsubscribeUrl = "https://app.example/api/delivery/unsubscribe?token=abc";
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: { subject: "t", body: "b", unsubscribeUrl },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    expect(sent.headers).toEqual({
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+  });
+
+  test("unsubscribeUrl on a foreign path sets no headers", async () => {
+    const transport = createInMemoryTransport();
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: {
+        subject: "t",
+        body: "b",
+        unsubscribeUrl: "https://app.example/subscribe/unsubscribe?token=abc",
+      },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    expect(sent.headers).toBeUndefined();
+  });
+
+  test("an unparseable unsubscribeUrl sets no headers", async () => {
+    const transport = createInMemoryTransport();
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: { subject: "t", body: "b", unsubscribeUrl: "not a url" },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    expect(sent.headers).toBeUndefined();
+  });
+
+  test("no unsubscribeUrl sets no headers", async () => {
+    const transport = createInMemoryTransport();
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: { subject: "t", body: "b" },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    expect(sent.headers).toBeUndefined();
+  });
+
+  test('an explicit data.headers["List-Unsubscribe"] wins over the auto header', async () => {
+    const transport = createInMemoryTransport();
+    const unsubscribeUrl = "https://app.example/api/delivery/unsubscribe?token=abc";
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: {
+        subject: "t",
+        body: "b",
+        unsubscribeUrl,
+        headers: { "List-Unsubscribe": "<mailto:override@example.com>" },
+      },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+
+    const [sent] = transport.sent;
+    if (!sent) throw new Error("expected a sent mail");
+    expect(sent.headers?.["List-Unsubscribe"]).toBe("<mailto:override@example.com>");
+    expect(sent.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+  });
+});
