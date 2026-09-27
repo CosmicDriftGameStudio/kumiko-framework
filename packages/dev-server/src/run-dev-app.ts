@@ -187,17 +187,16 @@ export type RunDevAppOptions = {
   readonly features: readonly FeatureDefinition[];
   /** Opt-in boot-validator warnings — see ValidateBootOptions. */
   readonly validateBootOptions?: ValidateBootOptions;
-  /** Pfad zum Browser-Entry-Modul. Bun.build bündelt es zu /client.js.
-   *  Mutually exclusive mit `clientEntries`. */
+  /** Browser entry module, bundled to /client.js. Mutually exclusive with
+   *  `clientEntries`. */
   readonly clientEntry?: string;
-  /** Multi-Entry-Mode: pro Entry ein eigenes Bundle (`/client-<name>.js`)
-   *  + ein eigenes HTML-Template. `hostDispatch` wählt zur Request-Zeit
-   *  welcher Entry kommt. Symmetric zur kumiko-build-Convention
-   *  `src/client-<name>.tsx`. Mutually exclusive mit `clientEntry`. */
+  /** Multi-entry mode: one bundle (`/client-<name>.js`) and one HTML template
+   *  per entry; `hostDispatch` picks the entry per request. kumiko-build reads
+   *  the same list from package.json `kumiko.clientEntries`. Mutually exclusive
+   *  with `clientEntry`. */
   readonly clientEntries?: CreateKumikoServerOptions["clientEntries"];
-  /** Multi-Entry-Mode: Routing per Request. Wird für Multi-Entry mit
-   *  geforderten — sonst weiß der Server nicht welche HTML er liefern
-   *  soll. */
+  /** Multi-entry mode: per-request routing. Required with `clientEntries`,
+   *  otherwise the server cannot tell which HTML to serve. */
   readonly hostDispatch?: CreateKumikoServerOptions["hostDispatch"];
   /** Per-request head-metadata resolver — same option, same signature as
    *  `runProdApp`'s `resolvePageHead`, so `bun dev` and every e2e that boots

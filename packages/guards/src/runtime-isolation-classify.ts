@@ -85,15 +85,16 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
 }
 
 /**
- * App-repo browser bundle entry, mirroring kumiko-build's own discovery
- * (`discoverClientEntries` in kumiko-framework's
+ * App-repo browser bundle entry, mirroring the naming convention apps use
+ * for `kumiko-build` entries (`resolveClientEntries` in kumiko-framework's
  * `packages/server-runtime/src/build-prod-bundle.ts`): `src/client.tsx`/
- * `src/client.ts` (single-entry) or `src/client-<suffix>.tsx?` (multi-entry).
- * Framework/enterprise packages never match — their sources live under
- * `packages/*\/src/`, not a repo-root `src/`. Kept independent of the
- * framework's own regex (cross-package import would be a build-vs-lint
- * layering violation) — if kumiko-build's discovery pattern changes, this
- * drifts and needs a matching update.
+ * `src/client.ts` (single-entry) or `src/client-<suffix>.tsx?` (declared via
+ * package.json `kumiko.clientEntries`, fw#2320 — no longer auto-discovered
+ * by this filename alone). Framework/enterprise packages never match —
+ * their sources live under `packages/*\/src/`, not a repo-root `src/`. Kept
+ * independent of the framework's own regex (cross-package import would be a
+ * build-vs-lint layering violation) — if apps stop following this naming
+ * convention, this drifts and needs a matching update.
  */
 export function isClientEntryPath(repoRelativePath: string): boolean {
   const rel = repoRelativePath.replace(/\\/g, "/");

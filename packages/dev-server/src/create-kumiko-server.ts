@@ -85,18 +85,20 @@ const logInfo = (msg: string): void => console.log(msg);
 // biome-ignore lint/suspicious/noConsole: dev-server error logging
 const logError = (...args: unknown[]): void => console.error(...args);
 
-/** Multi-Entry-Mode für Apps die mehrere getrennte Bundles ausliefern
- *  (z.B. publicstatus: `admin.<base>` lädt Admin-UI, sonst Public-Page).
+/** Multi-entry mode for apps that ship several separate bundles (e.g.
+ *  publicstatus: `admin.<base>` loads the admin UI, otherwise the public
+ *  page).
  *
- *  Spiegelt die Convention von kumiko-build (`src/client-<name>.tsx`) und
- *  serviert `/client-<name>.js` per HTTP. Multi-Entry ist mutually
- *  exclusive mit `clientEntry`. Wer Multi-Entry nutzt MUSS auch
- *  `hostDispatch` setzen — sonst weiß der Server nicht welches HTML
- *  er rausgeben soll. */
+ *  kumiko-build reads the same entry list from package.json
+ *  `kumiko.clientEntries` and serves `/client-<name>.js` per HTTP — the
+ *  dev server and the prod build stay in sync via that shared declaration,
+ *  not a filename convention. Mutually exclusive with `clientEntry`.
+ *  Multi-entry apps MUST also set `hostDispatch` — otherwise the server
+ *  has no way to know which HTML to serve. */
 export type DevClientEntry = {
-  /** Logical Name. Frei wählbar; Convention: gleicher Suffix wie
-   *  `src/client-<name>.tsx` damit der Build identische Asset-URLs
-   *  liefert (`/client-<name>.js`). */
+  /** Logical name. Should match the corresponding package.json
+   *  `kumiko.clientEntries[].name` so dev and prod produce identical
+   *  asset URLs (`/client-<name>.js`). */
   readonly name: string;
   /** Absoluter Pfad zur Browser-Entry-Datei. */
   readonly sourceFile: string;
