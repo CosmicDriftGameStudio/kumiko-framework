@@ -122,8 +122,7 @@ const BIN_PATH = (() => {
 const BIOME = join(BIN_PATH, "biome");
 const TSC = join(BIN_PATH, "tsc");
 const CHECK_APP_TSC = resolvePath(import.meta.dir, "..", "scripts", "check-app-tsc.ts");
-const GUARDS_RUNNER = resolvePath(import.meta.dir, "..", "packages", "guards", "src", "run-guards.ts");
-const GUARDS_CLI = resolvePath(import.meta.dir, "..", "packages", "guards", "src", "cli.ts");
+const KUMIKO_CLI = resolvePath(import.meta.dir, "..", "packages", "cli", "bin", "cli.ts");
 
 // Geteilte Liste der CPU-bound, kurzlaufenden Steps. `kumiko check` hängt
 // danach Unit-Tests (+ Integration lokal, nicht in CI) an; `kumiko check:fast`
@@ -229,22 +228,10 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     }
   }
 
-  // 3. Guards (already cross-repo aware via roots.ts).
-  //
-  // Die portierten AST-Guards laufen in EINEM Shared-Project-Prozess
-  // (infra/guards/run-guards.ts) statt als N Subprozesse à eigenes
-  // ts-morph-Project. Jeder Subprozess hielt ~1.1GB RSS; bei pool=6 waren das
-  // ~7GB gleichzeitig → Memory-Thrashing (die "96s"-Guard-Zeiten waren Swap).
-  // Der Runner baut das Project EINMAL (~6s) und lässt alle Guards seriell
-  // in-process drüber laufen (~0.1-0.5s je weiterem Guard) — 11 Guards in 11.8s
-  // statt ~308s thrash-inflationiert. Restliche Guards: Follow-up-Port.
-  // These three resolve their scan root from cwd (packages/guards/_lib/roots.ts).
-  // The parent workspace is no repo, so running them from there resolves zero
-  // roots — silently green before infra#2863, a hard preflight error since.
+  // 3. Boot validation + guard suites: delegated to the published `kumiko
+  // check` (packages/cli), step list derived from the scanned repo's kumiko.json.
   const guardCwd = guardScanRoot();
-  steps.push({ name: "AST-Guards (shared runner)", cmd: `cd ${guardCwd} && bun ${GUARDS_RUNNER}` });
-  steps.push({ name: "Public repo checks", cmd: `cd ${guardCwd} && bun ${GUARDS_CLI} checks` });
-  steps.push({ name: "Public guards", cmd: `cd ${guardCwd} && bun ${GUARDS_CLI} guards` });
+  steps.push({ name: "kumiko check (boot + guard suites)", cmd: `cd "${guardCwd}" && bun "${KUMIKO_CLI}" check` });
   // Warn-only (exit 0): run-config preset names vs composeStacks fingerprints.
   // Parent-workspace only until kumiko-guard-compose-stacks-parity is published.
   const composeStacksParityGuard = join(REPO_ROOT, "infra/guards/guard-compose-stacks-parity.ts");
@@ -301,16 +288,6 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
   } else {
     console.log("App-Dockerfile Guard skipped: infra/guards not in workspace (CI-standalone).");
   }
-  // UI-Guard-Bundle (App-Mounting 2.0, infra#208) now also scans
-  // packages/bundled-features/src (#2226) — same standalone loud-skip
-  // pattern as the other infra/guards bindings above.
-  const uiGuardsBundle = join(REPO_ROOT, "infra/guards/run-ui-guards.ts");
-  steps.push({
-    name: "UI-Guards (bundled-features)",
-    cmd: existsSync(uiGuardsBundle)
-      ? `KUMIKO_GUARD_ROOTS=kumiko-framework bun "${uiGuardsBundle}"`
-      : "bunx kumiko-guard-ui",
-  });
   // Baseline-Regression-Guard (infra#295): failt nur bei NEUEN DE-Kommentaren,
   // Altbestand ist via .kumiko-comment-lang-baseline.json eingefroren.
   steps.push({ name: "Comment-Language Guard", cmd: "bunx kumiko-guard-comment-lang" });
@@ -343,13 +320,13 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
     name: "Changes-JSON Guard",
     cmd: `bun "${join(frameworkRepoRoot, "scripts/guard-changes-json.ts")}"`,
   });
-  // Local override only; the "Public repo checks" step above already covers
+  // Local override only; the "kumiko check" step above already covers
   // raw-sql detection via the public package when this file is absent.
   const rawSqlGuard = join(REPO_ROOT, "infra/guards/guard-raw-sql.ts");
   if (existsSync(rawSqlGuard)) {
     steps.push({ name: "Raw-SQL Guard", cmd: `bun ${rawSqlGuard}` });
   } else {
-    console.log('Raw-SQL Guard übersprungen: bereits über "Public repo checks" abgedeckt.');
+    console.log('Raw-SQL Guard übersprungen: bereits über "kumiko check" abgedeckt.');
   }
   steps.push({ name: "License Check", cmd: "bunx kumiko-check-licenses" });
   steps.push({ name: "Security Audit", cmd: "bunx kumiko-check-security" });

@@ -2,17 +2,15 @@ import { join } from "node:path";
 import { runStreaming } from "./_spawn";
 import { defineCommand } from "./registry";
 
-// check ist 300+ LOC mit parallel-Lock, Tee-Logging und multi-step
-// pool-runner. Sprint B nutzt subprocess-delegation an die existing
-// implementation in bin/kumiko-legacy.ts. Sprint C macht das echte
-// Extracting (siehe TODO im plan).
+// Workspace-only extras (lock, preflight, Biome/tsc, tests, tee logging); boot
+// validation and the public guard suites run via the published `kumiko check`.
 const LEGACY_BIN = "bin/kumiko-legacy.ts";
 
 export const checkCommand = defineCommand({
   id: "check",
   label: "check",
   description: "Full quality pass: lint, types, guards, unit + integration (local only)",
-  help: "Runs Biome + TS + guards + unit tests (+ integration locally, not in CI).\nParallel-lock: concurrent invocations follow the lead run.\n\n(Sprint B: subprocess-dispatch to legacy implementation.\nSprint C: native extraction into bin/commands/_check/)",
+  help: "Runs Biome + TS + `kumiko check` (boot + guard suites) + unit tests (+ integration locally, not in CI).\nParallel-lock: concurrent invocations follow the lead run.",
   category: "quality",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
