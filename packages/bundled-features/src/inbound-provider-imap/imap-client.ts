@@ -14,6 +14,7 @@ import {
   type RawInboundMessage,
   type SyncCursorPayload,
 } from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
@@ -22,6 +23,14 @@ import type { ImapCredentialDocument } from "./credential-document";
 
 export const IMAP_MAILBOX = "INBOX";
 const SNIPPET_MAX = 300;
+
+const log = createFallbackLogger("inbound-provider-imap");
+
+// Tenant-visible for both branches below — must not reveal whether the host
+// was blocked (private/reserved range) or merely failed to resolve, and
+// must never include the host or the underlying error text. Server-side
+// detail goes to `log` only.
+const IMAP_HOST_UNREACHABLE_MESSAGE = "IMAP host is not reachable or not allowed";
 
 // =============================================================================
 // Client-Factory + Fehler-Mapping
@@ -39,12 +48,13 @@ export async function createImapClient(
   try {
     target = await resolveMailConnectTarget(doc.host, hostGuard);
   } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
     if (err instanceof BlockedHostError) {
-      throw new InboundAuthError(`IMAP host rejected for ${doc.host}: ${err.message}`);
+      log.warn("rejected blocked host", { host: doc.host, reason });
+      throw new InboundAuthError(IMAP_HOST_UNREACHABLE_MESSAGE);
     }
-    throw new InboundTransientError(
-      `IMAP ${doc.host} unreachable: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    log.warn("host resolution failed", { host: doc.host, reason });
+    throw new InboundTransientError(IMAP_HOST_UNREACHABLE_MESSAGE);
   }
   return new ImapFlow({
     host: target.host,

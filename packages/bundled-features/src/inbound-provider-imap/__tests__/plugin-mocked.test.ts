@@ -396,6 +396,8 @@ describe("imapInboundMailPlugin — mail-host guard", () => {
       expect.unreachable("expected verify to throw");
     } catch (e) {
       expect(isInboundAuthError(e)).toBe(true);
+      expect((e as Error).message).toBe("IMAP host is not reachable or not allowed");
+      expect((e as Error).message).not.toContain("10.0.0.5");
     }
     expect(lastIdleClient).toBeUndefined();
   });
@@ -408,11 +410,14 @@ describe("imapInboundMailPlugin — mail-host guard", () => {
       expect.unreachable("expected verify to throw");
     } catch (e) {
       expect(isInboundAuthError(e)).toBe(true);
+      expect((e as Error).message).toBe("IMAP host is not reachable or not allowed");
+      expect((e as Error).message).not.toContain("internal.example");
+      expect((e as Error).message).not.toContain("127.0.0.1");
     }
     expect(lastIdleClient).toBeUndefined();
   });
 
-  test("a DNS resolution failure surfaces as InboundTransientError before any connect attempt", async () => {
+  test("a DNS resolution failure surfaces as InboundTransientError before any connect attempt, with the same tenant-visible message as a blocked host", async () => {
     setImapMailHostLookup(fakeLookupFor({}));
     lastIdleClient = undefined;
     try {
@@ -420,6 +425,9 @@ describe("imapInboundMailPlugin — mail-host guard", () => {
       expect.unreachable("expected verify to throw");
     } catch (e) {
       expect(isInboundTransientError(e)).toBe(true);
+      expect(isInboundAuthError(e)).toBe(false);
+      expect((e as Error).message).toBe("IMAP host is not reachable or not allowed");
+      expect((e as Error).message).not.toContain("nowhere.example");
     }
     expect(lastIdleClient).toBeUndefined();
   });

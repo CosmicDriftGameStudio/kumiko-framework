@@ -109,7 +109,44 @@ describe("mailTransportSmtpFeature — mail-host guard", () => {
         feature: "mail-transport-smtp",
         key: "host",
       });
+      expect((e as Error).message).not.toContain("10.0.0.5");
     }
+  });
+
+  test("a blocked host and a DNS resolution failure produce the exact same tenant-visible message", async () => {
+    const blockedCtx = {
+      config: fakeConfig({ host: "10.0.0.5" }),
+      secrets: fakeSecrets(),
+      _userId: "x",
+    };
+    let blockedMessage: string | undefined;
+    try {
+      await registeredPlugin().build(blockedCtx, "contract-test-tenant");
+      expect.unreachable("expected build to throw");
+    } catch (e) {
+      blockedMessage = (e as Error).message;
+    }
+
+    const failingLookup = (async () => {
+      throw new Error("ENOTFOUND");
+    }) as unknown as typeof lookup;
+    setSmtpMailHostLookup(failingLookup);
+    const unresolvableCtx = {
+      config: fakeConfig({ host: "nowhere.test" }),
+      secrets: fakeSecrets(),
+      _userId: "x",
+    };
+    let unresolvableMessage: string | undefined;
+    try {
+      await registeredPlugin().build(unresolvableCtx, "contract-test-tenant");
+      expect.unreachable("expected build to throw");
+    } catch (e) {
+      unresolvableMessage = (e as Error).message;
+    }
+
+    expect(blockedMessage).toBe(unresolvableMessage);
+    expect(blockedMessage).not.toContain("10.0.0.5");
+    expect(unresolvableMessage).not.toContain("nowhere.test");
   });
 
   test("a hostname resolving to a private address is rejected as unconfigured", async () => {

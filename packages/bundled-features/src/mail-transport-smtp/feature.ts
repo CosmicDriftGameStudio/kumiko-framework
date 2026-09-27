@@ -32,6 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
   BlockedHostError,
+  HostResolutionError,
   MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   type MailConnectTarget,
   readAllowedPrivateMailHostsFromEnv,
@@ -48,9 +49,12 @@ import {
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
 
 const FEATURE_NAME = "mail-transport-smtp";
+
+const log = createFallbackLogger(FEATURE_NAME);
 
 // Operator escape hatch for an internal relay or a dev/test SMTP server
 // (mailpit, MailHog): KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, an operator env
@@ -170,6 +174,18 @@ export const SMTP_PASSWORD = mailTransportSmtpFeature.exports.password;
 // Internal: build the EmailTransport from tenant config + secret
 // =============================================================================
 
+// Tenant-visible for both a blocked host and a DNS failure — must not
+// reveal which one occurred, or the host itself. Built once so a
+// HostResolutionError raised for the other branch can reuse the exact same
+// `.message` string byte-for-byte instead of just a similar hint.
+function mailHostUnreachableError(): UnconfiguredError {
+  return new UnconfiguredError({
+    feature: FEATURE_NAME,
+    key: "host",
+    hint: "host is not reachable or not allowed",
+  });
+}
+
 async function buildSmtpTransport(
   ctx: MailTransportContext,
   tenantId: string,
@@ -220,14 +236,19 @@ async function buildSmtpTransport(
       lookupFn: mailHostLookup,
     });
   } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    // Both branches throw the exact same tenant-visible message text — the
+    // blocked-vs-unresolvable distinction and the host itself stay
+    // server-log-only. Class stays distinct: UnconfiguredError (422, a
+    // config problem, no retry) for a blocked host vs HostResolutionError
+    // (transient, retried) for a DNS failure — see mailHostUnreachableError().
+    const unreachable = mailHostUnreachableError();
     if (err instanceof BlockedHostError) {
-      throw new UnconfiguredError({
-        feature: FEATURE_NAME,
-        key: "host",
-        hint: `"${host}" is not a public address — use a public SMTP host.`,
-      });
+      log.warn("rejected blocked host", { host, reason });
+      throw unreachable;
     }
-    throw err;
+    log.warn("host resolution failed", { host, reason });
+    throw new HostResolutionError(unreachable.message);
   }
 
   return createSmtpTransport({

@@ -68,6 +68,29 @@ describe("performWebhookDispatch — host-egress guard", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  test("a blocked host and a DNS resolution failure produce the exact same tenant-visible error, without the host", async () => {
+    setWebhookFetch(fetchMock as unknown as typeof fetch);
+
+    const blocked = await performWebhookDispatch({
+      url: "http://10.0.0.5/hook",
+      method: "POST",
+      headers: {},
+    });
+    setWebhookHostLookup(fakeLookupFor({}));
+    const unresolvable = await performWebhookDispatch({
+      url: "http://nowhere.example/hook",
+      method: "POST",
+      headers: {},
+    });
+
+    expect(blocked.ok).toBe(false);
+    expect(unresolvable.ok).toBe(false);
+    if (blocked.ok || unresolvable.ok) throw new Error("unreachable");
+    expect(blocked.error).toBe(unresolvable.error);
+    expect(blocked.error).not.toContain("10.0.0.5");
+    expect(unresolvable.error).not.toContain("nowhere.example");
+  });
+
   test("an operator-allowlisted private host bypasses resolution and keeps its raw url", async () => {
     process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "webhook-receiver.internal";
     setWebhookFetch(fetchMock as unknown as typeof fetch);

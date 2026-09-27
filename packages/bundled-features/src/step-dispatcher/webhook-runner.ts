@@ -22,7 +22,10 @@ import {
   HostResolutionError,
   resolvePublicHostname,
 } from "@cosmicdrift/kumiko-framework/http";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
+
+const log = createFallbackLogger("step-dispatcher");
 
 export const WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR = "KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS";
 
@@ -127,11 +130,10 @@ export async function performWebhookDispatch(spec: WebhookSpec): Promise<Webhook
       fetchUrl = pinned.url;
       requestInit = pinned.init;
     } catch (err) {
-      if (err instanceof BlockedHostError) {
-        return { ok: false, error: `webhook host "${url.hostname}" is not a public address` };
-      }
-      if (err instanceof HostResolutionError) {
-        return { ok: false, error: `webhook host "${url.hostname}" could not be resolved` };
+      const reason = err instanceof Error ? err.message : String(err);
+      if (err instanceof BlockedHostError || err instanceof HostResolutionError) {
+        log.warn("webhook host unreachable", { host: url.hostname, reason });
+        return { ok: false, error: "webhook host is not reachable or not allowed" };
       }
       throw err;
     }
