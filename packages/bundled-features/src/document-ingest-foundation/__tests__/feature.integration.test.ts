@@ -6,6 +6,12 @@
 // hardcoded allowlist/cap — there is none anymore.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  buildAgentManifest,
+  buildToolCatalog,
+  dispatchToolCall,
+  toolNameForQn,
+} from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -27,6 +33,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
 import { createTenantFeature } from "../../tenant/feature";
@@ -136,6 +143,22 @@ const documentExtractExecutorForSeed = createEventStoreExecutor(
   { entityName: "document-extract" },
 );
 
+// A mid-risk agent tool (not the raw HTTP DELETE route) appends fileRef.deleted under a real
+// entryHandler, proving the forget-extract-with-file-ref consumer stays ungated regardless.
+const AGENT_DELETE_FILEREF_QN = "agent-tools-test-delete-fileref:write:delete-fileref-mid";
+
+const agentDeleteFileRefFeature = defineFeature("agent-tools-test-delete-fileref", (r) => {
+  r.writeHandler(
+    "delete-fileref-mid",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => fileRefExecutor.delete({ id: event.payload.id }, event.user, ctx.db),
+    {
+      access: { roles: ["Admin"] },
+      description: "Soft-delete a fileRef (mid risk, default agent exposure).",
+    },
+  );
+});
+
 beforeAll(async () => {
   provider = createInMemoryFileProvider();
   stack = await setupTestStack({
@@ -147,6 +170,7 @@ beforeAll(async () => {
       documentIngestFoundationFeature,
       testProviderAFeature,
       testProviderBFeature,
+      agentDeleteFileRefFeature,
     ],
     files: { storageProvider: provider },
     // Distinct prefix: avoids sharing a BullMQ queue namespace with any other
@@ -576,6 +600,54 @@ describe("fileRef.restored → re-ingest", () => {
 
     expect(await loadIngestRequestedEventsForFileRef(fileRefId)).toHaveLength(1);
     expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
+  });
+});
+
+// Regression proof for the deferred-context exception on assertIrreversibleOperationAllowed:
+// the consumer (separate dispatcher pass, no entryHandler) still forgets the extract cleanly.
+describe("fileRef soft-delete via a mid-risk agent tool", () => {
+  test("dispatchToolCall delete succeeds, the consumer forgets the extract without a gate error, restore re-ingests", async () => {
+    const { id: fileRefId } = await uploadFile("invoice.pdf", pdfBytes, "application/pdf");
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+    });
+
+    const manifest = buildAgentManifest(stack.registry, { locale: "en", roles: admin.roles });
+    const catalog = buildToolCatalog(stack.registry, manifest, { mode: "edit" });
+    const deleteResult = await dispatchToolCall({
+      dispatcher: stack.dispatcher,
+      user: admin,
+      toolName: toolNameForQn(AGENT_DELETE_FILEREF_QN),
+      input: { id: fileRefId },
+      dispatchTable: catalog.dispatchTable,
+      runId: "run-delete-fileref",
+      toolCallId: `call-delete-fileref-${fileRefId}`,
+    });
+    expect(deleteResult.ok).toBe(true);
+
+    await stack.eventDispatcher?.runOnce();
+
+    const consumerRows = await asRawClient(stack.db).unsafe(
+      `SELECT status, last_error FROM kumiko_event_consumers WHERE name = $1`,
+      ["document-ingest-foundation:projection:forget-extract-with-file-ref"],
+    );
+    const consumer = (consumerRows as { status: string; last_error: string | null }[])[0];
+    expect(consumer?.last_error).toBeNull();
+    expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
+
+    const user = createSystemUser(admin.tenantId);
+    const tdb = createTenantDb(stack.db, admin.tenantId);
+    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+    if (!restoreResult.isSuccess) {
+      throw new Error(`restore failed: ${restoreResult.error.message}`);
+    }
+
+    await waitFor(async () => {
+      await stack.eventDispatcher?.runOnce();
+      expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(1);
+    });
   });
 });
 

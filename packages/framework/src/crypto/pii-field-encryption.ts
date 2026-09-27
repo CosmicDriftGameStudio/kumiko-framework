@@ -13,6 +13,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { EntityDefinition } from "../engine/types/fields";
 import type { TenantId } from "../engine/types/identifiers";
+import { assertIrreversibleOperationAllowed } from "../pipeline/irreversible-operation-gate";
 import {
   isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
@@ -231,6 +232,20 @@ export async function decryptPiiFieldValues(
 // (phase E); until then no production deployment can satisfy it.
 let injectedKms: LocalKeyKmsAdapter | undefined;
 
+// Explicit delegation: adapters are class instances with prototype methods (no spread/Object.create).
+function gateIrreversibleKmsErase(adapter: LocalKeyKmsAdapter): LocalKeyKmsAdapter {
+  return {
+    capabilities: adapter.capabilities,
+    createKey: (subject, ctx) => adapter.createKey(subject, ctx),
+    getKey: (subject, ctx) => adapter.getKey(subject, ctx),
+    health: () => adapter.health(),
+    eraseKey: async (subject, ctx) => {
+      assertIrreversibleOperationAllowed("kms.eraseKey");
+      await adapter.eraseKey(subject, ctx);
+    },
+  };
+}
+
 export function configurePiiSubjectKms(adapter: KmsAdapter | undefined): void {
   if (adapter !== undefined && !isLocalKeyKmsAdapter(adapter)) {
     throw new Error(
@@ -238,7 +253,7 @@ export function configurePiiSubjectKms(adapter: KmsAdapter | undefined): void {
         "(Vault transit) support lands with the BYOK adapter.",
     );
   }
-  injectedKms = adapter;
+  injectedKms = adapter && gateIrreversibleKmsErase(adapter);
 }
 
 export function configuredPiiSubjectKms(): LocalKeyKmsAdapter | undefined {

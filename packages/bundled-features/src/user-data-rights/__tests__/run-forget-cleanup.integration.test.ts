@@ -15,10 +15,10 @@
 // Unit-Test pinned (policy-to-strategy.test.ts), nicht hier. Hier nur
 // der end-to-end-Default-Pfad (delete).
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -29,10 +29,15 @@ import { fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
+  TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+  seedRow,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { createComplianceProfilesFeature } from "../../compliance-profiles";
 import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
@@ -1090,5 +1095,37 @@ describe("runForgetCleanup :: crypto-shredding (subject key erase)", () => {
     const alice = await fetchUser(ALICE_ID);
     expect(alice?.status).toBe(USER_STATUS.DeletionRequested);
     expect(alice?.email).toBe("alice.erase-fail@example.com");
+  });
+});
+
+// The manual operator trigger (agent.risk "high") must erase a real subject key
+// through configuredPiiSubjectKms(), not a directly-injected args.kms that bypasses the wrapper.
+describe("run-forget-cleanup write handler (manual, risk high) via configuredPiiSubjectKms", () => {
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("erases the subject key through the gated KMS wrapper", async () => {
+    await seedUser(ALICE_ID, {
+      status: USER_STATUS.DeletionRequested,
+      gracePeriodEnd: instantFromOffsetMs(-60 * 1000),
+    });
+    await seedMembership(ALICE_ID, TENANT_A);
+
+    const kms = new InMemoryKmsAdapter();
+    await kms.createKey({ kind: "user", userId: ALICE_ID });
+    configurePiiSubjectKms(kms);
+
+    await stack.http.writeOk(
+      "user-data-rights:write:run-forget-cleanup",
+      {},
+      TestUsers.systemAdmin,
+    );
+
+    const aliceRow = await fetchUser(ALICE_ID);
+    expect(aliceRow?.status).toBe(USER_STATUS.Deleted);
+    await expect(kms.getKey({ kind: "user", userId: ALICE_ID })).rejects.toThrow(
+      "Subject key erased",
+    );
   });
 });
