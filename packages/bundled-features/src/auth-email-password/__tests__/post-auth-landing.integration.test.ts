@@ -291,6 +291,20 @@ describe("open-redirect / throwing resolver protections", () => {
     });
   }
 
+  test("rejecting async resolver → login stays 200 with token, landingPath omitted", async () => {
+    // @cast-boundary test — simulates a JS consumer bypassing the sync signature
+    currentResolver = (async () => {
+      throw new Error("boom");
+    }) as unknown as PostAuthLandingResolver;
+    await seedTenantAdmin("landing-async@example.com", "landing-async-pw-1234", ["User"]);
+
+    const res = await postLogin("landing-async@example.com", "landing-async-pw-1234");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { token?: string; landingPath?: string };
+    expect(body.token).toBeTruthy();
+    expect(body).not.toHaveProperty("landingPath");
+  });
+
   test("throwing resolver → login stays 200 with token, landingPath omitted", async () => {
     currentResolver = () => {
       throw new Error("boom");
