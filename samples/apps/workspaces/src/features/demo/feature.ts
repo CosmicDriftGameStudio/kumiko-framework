@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { demoTranslations } from "./i18n";
 import { orderEditScreen, orderEntity, orderListScreen } from "./schema";
 
@@ -19,7 +20,7 @@ const open = {
 // — invert here (bracket notation + fallback avoids TS4111/TS18048 under
 // noUncheckedIndexedAccess), then add the screen/entity-field/action keys
 // that aren't in the client bundle at all.
-const REQUIRED_I18N: Record<string, { de: string; en: string }> = {
+const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue }> = {
   ...Object.fromEntries(
     Object.keys(demoTranslations["de"] ?? {}).map((key) => [
       key,

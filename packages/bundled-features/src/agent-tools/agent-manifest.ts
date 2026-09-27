@@ -6,6 +6,7 @@ import type {
   NavDefinition,
   QueryHandlerDef,
   ScreenDefinition,
+  TranslationEntry,
   TranslationKeys,
   WorkspaceDefinition,
   WriteHandlerDef,
@@ -15,6 +16,7 @@ import {
   isAgentVisibleScreen,
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import * as z from "zod";
 import type {
   AgentManifest,
@@ -29,6 +31,14 @@ import type {
   RegistryManifestView,
 } from "./types";
 
+/** The manifest surfaces one string per locale — a plural entry reads as its
+ *  CLDR `other` form since the manifest has no `count` to select a category. */
+function entryAsLabels(entry: TranslationEntry): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(entry).map(([locale, value]) => [locale, translationValueOtherText(value)]),
+  );
+}
+
 /** Translation keys carry a feature prefix the manifest can't reconstruct
  *  (`showcase:entity:item:field:title`), so match on the suffix instead. */
 function labelsForSuffix(
@@ -36,7 +46,7 @@ function labelsForSuffix(
   suffix: string,
 ): Readonly<Record<string, string>> {
   for (const [key, labels] of Object.entries(translations)) {
-    if (key === suffix || key.endsWith(suffix)) return labels;
+    if (key === suffix || key.endsWith(suffix)) return entryAsLabels(labels);
   }
   return {};
 }
@@ -226,7 +236,7 @@ function buildNavs(
 
     result.push({
       id: nav.id,
-      labels: translations[nav.label] ?? {},
+      labels: entryAsLabels(translations[nav.label] ?? {}),
       ...(nav.screen !== undefined && { screen: nav.screen }),
       ...(nav.parent !== undefined && { parent: nav.parent }),
       workspaces: visibleWorkspaces,
@@ -304,7 +314,7 @@ function buildWorkspaces(
     if (!uiVisible(workspace.access, roles)) continue;
     result.push({
       id: workspace.id,
-      labels: translations[workspace.label] ?? {},
+      labels: entryAsLabels(translations[workspace.label] ?? {}),
       ...(workspace.default === true && { default: true as const }),
     });
   }

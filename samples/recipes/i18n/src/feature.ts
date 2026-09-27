@@ -1,5 +1,6 @@
 // i18n Sample
-// Shows: r.translations() for multi-language feature keys
+// Shows: r.translations() for multi-language feature keys, and plural forms
+// (CLDR categories) for a count-dependent key
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -20,6 +21,16 @@ export const greetingFeature = defineFeature("greeting", (r) => {
         de: "Hallo, {name}!",
         en: "Hello, {name}!",
         fr: "Bonjour, {name}!",
+      },
+      "greeting.unread_count": {
+        de: { one: "{count} ungelesene Nachricht", other: "{count} ungelesene Nachrichten" },
+        en: { one: "{count} unread message", other: "{count} unread messages" },
+        pl: {
+          one: "{count} nieprzeczytana wiadomość",
+          few: "{count} nieprzeczytane wiadomości",
+          many: "{count} nieprzeczytanych wiadomości",
+          other: "{count} nieprzeczytanej wiadomości",
+        },
       },
     },
   });

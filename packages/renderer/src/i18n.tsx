@@ -14,7 +14,12 @@
 //      resolver's `subscribe()` — app code can switch language mid-session
 //      without a reload.
 
-import { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  type Formality,
+  formalLocaleTag,
+  resolveTranslationValue,
+  type TranslationValue,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { LocaleResolver } from "@cosmicdrift/kumiko-headless";
 import {
   createContext,
@@ -25,19 +30,22 @@ import {
   useSyncExternalStore,
 } from "react";
 
-/** Map von i18n-Key → Template-String. Templates dürfen `{name}`-
- *  Platzhalter enthalten — identische Semantik zu i18next-t. */
-export type TranslationBundle = Readonly<Record<string, string>>;
+/** Map of i18n key → TranslationValue. Strings may contain `{name}`
+ *  placeholders (same semantics as i18next t); plural entries resolve via
+ *  `resolveTranslationValue`. */
+export type TranslationBundle = Readonly<Record<string, TranslationValue>>;
 
 /** Map von Locale-Code (BCP-47, z.B. `"de"`, `"en-US"`) → Bundle. */
 export type TranslationsByLocale = Readonly<Record<string, TranslationBundle>>;
 
-/** Key-first shape for `r.translations({ keys })` — each key maps locale → string. */
-export type TranslationsByKey = Readonly<Record<string, Readonly<Record<string, string>>>>;
+/** Key-first shape for `r.translations({ keys })` — each key maps locale → TranslationValue. */
+export type TranslationsByKey = Readonly<
+  Record<string, Readonly<Record<string, TranslationValue>>>
+>;
 
 /** Pivot key-first server translations to locale-first client bundles. */
 export function translationsByLocaleFromKeys(source: TranslationsByKey): TranslationsByLocale {
-  const out: Record<string, Record<string, string>> = {};
+  const out: Record<string, Record<string, TranslationValue>> = {};
   for (const [key, byLocale] of Object.entries(source)) {
     for (const [locale, value] of Object.entries(byLocale)) {
       out[locale] ??= {};
@@ -55,7 +63,7 @@ export function mergeTranslations(
   override: TranslationsByLocale,
 ): TranslationsByLocale {
   const locales = new Set([...Object.keys(base), ...Object.keys(override)]);
-  const merged: Record<string, Record<string, string>> = {};
+  const merged: Record<string, Record<string, TranslationValue>> = {};
   for (const locale of locales) {
     merged[locale] = { ...(base[locale] ?? {}), ...(override[locale] ?? {}) };
   }
@@ -199,7 +207,7 @@ function translateWithFallbacks(
     for (const bundle of ctx.fallbackBundles) {
       for (const localeToTry of localesToTry) {
         const value = bundle[localeToTry]?.[key];
-        if (value !== undefined) return interpolate(value, params);
+        if (value !== undefined) return resolveTranslationValue(value, localeToTry, params);
       }
     }
   }
@@ -215,14 +223,6 @@ function bundleLocaleTiers(
   const plainTier = [locale, languageRoot, fallbackLocale];
   if (formality === "informal") return [plainTier];
   return [[formalLocaleTag(locale), formalLocaleTag(languageRoot)], plainTier];
-}
-
-function interpolate(template: string, params?: Readonly<Record<string, unknown>>): string {
-  if (params === undefined) return template;
-  return template.replace(/\{(\w+)\}/g, (_, name: string) => {
-    const value = params[name];
-    return value !== undefined ? String(value) : `{${name}}`;
-  });
 }
 
 /** Non-throwing LocaleContext read — undefined outside LocaleProvider.

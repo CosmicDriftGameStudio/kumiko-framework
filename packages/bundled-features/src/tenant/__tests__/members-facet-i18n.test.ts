@@ -6,6 +6,7 @@
 // so adding a facet option without translating it fails here rather than in
 // production.
 import { describe, expect, test } from "bun:test";
+import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
 import { MEMBERS_SCREEN_ID } from "../constants";
@@ -67,7 +68,7 @@ describe("members status filter labels are localized in every shipped locale (fw
       const label = translations[key]?.["en"];
       expect(label).toBeString();
       expect(label).not.toBe(key);
-      expect((label ?? "").trim()).not.toBe("");
+      expect((label === undefined ? "" : translationValueOtherText(label)).trim()).not.toBe("");
     }
   });
 
@@ -77,7 +78,7 @@ describe("members status filter labels are localized in every shipped locale (fw
       const label = translations[key]?.["en"];
       expect(label).toBeString();
       expect(label).not.toBe(key);
-      expect((label ?? "").trim()).not.toBe("");
+      expect((label === undefined ? "" : translationValueOtherText(label)).trim()).not.toBe("");
     }
   });
 

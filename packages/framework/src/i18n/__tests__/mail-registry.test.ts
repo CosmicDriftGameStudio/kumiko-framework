@@ -33,3 +33,22 @@ test("resolveMailLocale prefers exact, then root, then en", () => {
   expect(resolveMailLocale("de-AT")).toBe("de");
   expect(resolveMailLocale("fr-CA")).toBe("en");
 });
+
+describe("mailT — plural forms", () => {
+  registerMailTranslations("en", {
+    "test.unread": { one: "{count} unread message", other: "{count} unread messages" },
+  });
+  registerMailTranslations("de", {
+    "test.unread": { one: "{count} ungelesene Nachricht", other: "{count} ungelesene Nachrichten" },
+  });
+
+  test("resolves the CLDR category for the count", () => {
+    expect(mailT("en", "test.unread", { count: 1 })).toBe("1 unread message");
+    expect(mailT("en", "test.unread", { count: 5 })).toBe("5 unread messages");
+    expect(mailT("de", "test.unread", { count: 1 })).toBe("1 ungelesene Nachricht");
+  });
+
+  test("uses the fallback locale's own plural rules, not the requested locale's", () => {
+    expect(mailT("fr", "test.unread", { count: 1 })).toBe("1 unread message");
+  });
+});

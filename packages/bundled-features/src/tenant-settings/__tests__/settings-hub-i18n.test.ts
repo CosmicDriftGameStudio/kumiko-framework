@@ -14,20 +14,16 @@
 import { describe, expect, test } from "bun:test";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
 import { buildConfigFeatureSchema, createRegistry } from "@cosmicdrift/kumiko-framework/engine";
+import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
-import { translationsByLocaleFromKeys } from "@cosmicdrift/kumiko-renderer";
+import { type TranslationsByKey, translationsByLocaleFromKeys } from "@cosmicdrift/kumiko-renderer";
 import { createTenantSettingsFeature } from "../feature";
 
-function translate(
-  translations: Readonly<Record<string, Readonly<Record<string, string>> | undefined>>,
-  key: string,
-  locale = "en",
-): string {
-  const byLocale = translationsByLocaleFromKeys(
-    translations as Record<string, Readonly<Record<string, string>>>,
-  );
-  return byLocale[locale]?.[key] ?? key;
+function translate(translations: TranslationsByKey, key: string, locale = "en"): string {
+  const byLocale = translationsByLocaleFromKeys(translations);
+  const value = byLocale[locale]?.[key];
+  return value === undefined ? key : translationValueOtherText(value);
 }
 
 function settingsHubLabelKeys(): readonly string[] {

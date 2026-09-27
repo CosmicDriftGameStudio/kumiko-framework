@@ -38,6 +38,7 @@ import type {
   SecretKeyDefinition,
   StoreTableDef,
   StreamHandlerDef,
+  TranslationValue,
   TreeActionDef,
   WorkspaceDefinition,
   WriteHandlerDef,
@@ -212,7 +213,7 @@ export type RegistryState = {
   extensionSelectorMap: Map<string, string>;
   allReferenceData: ReferenceDataDef[];
   allConfigSeeds: ConfigSeedDef[];
-  mergedTranslations: Record<string, Record<string, string>>;
+  mergedTranslations: Record<string, Record<string, TranslationValue>>;
   metricMap: Map<string, FeatureMetricDef & { readonly featureName: string }>;
   secretKeyMap: Map<string, SecretKeyDefinition>;
   projectionMap: Map<string, ProjectionDefinition>;

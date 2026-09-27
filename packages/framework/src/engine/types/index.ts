@@ -42,6 +42,7 @@ export type {
   NotificationDefinition,
   NotificationRecipientFn,
   NotificationTemplateFn,
+  PluralForms,
   ReferenceDataDef,
   RegistrarExtensionDef,
   RegistrarExtensionHooks,
@@ -50,6 +51,7 @@ export type {
   TranslationEntry,
   TranslationKeys,
   TranslationsDef,
+  TranslationValue,
   UiExtensionDef,
 } from "@cosmicdrift/kumiko-types/config";
 export type {

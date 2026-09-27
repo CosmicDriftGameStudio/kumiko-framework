@@ -1,10 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
-import type {
-  ActionFormScreenDefinition,
-  EntityDefinition,
-  EntityEditScreenDefinition,
-  EntityListScreenDefinition,
-  ProjectionListScreenDefinition,
+import {
+  type ActionFormScreenDefinition,
+  type EntityDefinition,
+  type EntityEditScreenDefinition,
+  type EntityListScreenDefinition,
+  type ProjectionListScreenDefinition,
+  translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavApi, NavTarget } from "@cosmicdrift/kumiko-renderer";
@@ -29,6 +30,11 @@ import {
   waitFor,
   within,
 } from "./test-utils";
+
+function defaultEnText(key: string): string {
+  const value = kumikoDefaultTranslations["en"]?.[key];
+  return value === undefined ? "" : translationValueOtherText(value);
+}
 
 const taskEntity = {
   fields: {
@@ -570,7 +576,7 @@ describe("KumikoScreen", () => {
     // konkreten Wording festzukleben.
     await waitFor(() => expect(screen.queryByTestId("render-edit-form-error")).toBeTruthy());
     expect(screen.getByTestId("render-edit-form-error-key").textContent).toBe(
-      kumikoDefaultTranslations["en"]?.["errors.versionConflict"] ?? "",
+      defaultEnText("errors.versionConflict"),
     );
 
     expect(detailCalls).toBe(1);
@@ -601,7 +607,7 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-error")).toBeTruthy());
     const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
-    expect(bannerText).toBe(kumikoDefaultTranslations["en"]?.["errors.access.denied"] ?? "");
+    expect(bannerText).toBe(defaultEnText("errors.access.denied"));
     expect(bannerText).not.toBe("errors.access.denied");
   });
 
@@ -626,7 +632,7 @@ describe("KumikoScreen", () => {
 
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-error")).toBeTruthy());
     const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
-    expect(bannerText).toBe(kumikoDefaultTranslations["en"]?.["errors.access.denied"] ?? "");
+    expect(bannerText).toBe(defaultEnText("errors.access.denied"));
     expect(bannerText).not.toBe("errors.access.denied");
   });
 

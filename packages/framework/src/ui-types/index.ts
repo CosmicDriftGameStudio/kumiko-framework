@@ -150,3 +150,9 @@ export {
   REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
 } from "./list-row-meta";
+export {
+  type PluralForms,
+  resolveTranslationValue,
+  type TranslationValue,
+  translationValueOtherText,
+} from "./plural";
