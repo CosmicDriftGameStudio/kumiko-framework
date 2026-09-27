@@ -320,7 +320,10 @@ function buildNavigateToolbarAction(
         action.params !== undefined && record !== undefined
           ? evalRowExtractor(action.params, record)
           : prefill;
-      const params = resolvedParams !== undefined ? stringifyNavParams(resolvedParams) : undefined;
+      const stringifiedParams =
+        resolvedParams !== undefined ? stringifyNavParams(resolvedParams) : undefined;
+      const params =
+        action.tab === undefined ? stringifiedParams : { ...stringifiedParams, tab: action.tab };
       navigateWithReturnTo(nav, target, host, params);
     },
   };

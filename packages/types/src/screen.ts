@@ -350,6 +350,10 @@ export type ToolbarAction =
       readonly label: string;
       /** Screen-id (kurz, unqualified) zu dem navigiert wird. */
       readonly screen: string;
+      /** Section id of the tab to activate on the target projectionDetail
+       *  (layout.mode "tabs"); merged into the navigate search params next to
+       *  returnTo. Boot validator checks the id exists on the target. */
+      readonly tab?: string;
       /** Visual style only — unlike the writeHandler variant, "danger" does
        *  not force a confirm dialog here: the target form is the
        *  confirmation. */

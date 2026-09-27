@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { RowActionNavigate } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  RelatedListToolbarAction,
+  RowActionNavigate,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavApi, NavTarget } from "../nav";
 import { RETURN_TO_PARAM, type ReturnHost } from "../return-to";
-import { buildRecordActions } from "../row-actions";
+import { buildProjectionToolbarActions, buildRecordActions } from "../row-actions";
 
 function recordingNav(): {
   readonly nav: NavApi;
@@ -109,5 +112,58 @@ describe("buildRecordActions — RowActionNavigate.tab", () => {
 
     expect(setSearchParamsCalls).toHaveLength(1);
     expect(setSearchParamsCalls[0]).not.toHaveProperty("tab");
+  });
+});
+
+describe("buildProjectionToolbarActions — navigate.tab", () => {
+  test("tab lands in the setSearchParams call", () => {
+    const { nav, navigateCalls, setSearchParamsCalls } = recordingNav();
+    const action: RelatedListToolbarAction = {
+      kind: "navigate",
+      id: "view-channels",
+      label: "app.actions.viewChannels",
+      screen: "vehicle-detail",
+      tab: "channels",
+    };
+    const actions = buildProjectionToolbarActions({
+      toolbarActions: [action],
+      translate: (key) => key,
+      dispatcher: undefined,
+      nav,
+      refetch: async () => {},
+      host: undefined,
+    });
+    actions?.[0]?.onTrigger();
+
+    expect(navigateCalls).toEqual([{ screenId: "vehicle-detail" }]);
+    expect(setSearchParamsCalls).toEqual([{ tab: "channels" }]);
+  });
+
+  test("navigatePrefill and tab both survive into the same setSearchParams call, plus returnTo with a host", () => {
+    const { nav, setSearchParamsCalls } = recordingNav();
+    const action: RelatedListToolbarAction = {
+      kind: "navigate",
+      id: "create-channel",
+      label: "app.actions.createChannel",
+      screen: "channel-create",
+      tab: "channels",
+    };
+    const actions = buildProjectionToolbarActions({
+      toolbarActions: [action],
+      translate: (key) => key,
+      dispatcher: undefined,
+      nav,
+      refetch: async () => {},
+      navigatePrefill: { vehicleId: "abc" },
+      host,
+    });
+    actions?.[0]?.onTrigger();
+
+    expect(setSearchParamsCalls).toHaveLength(1);
+    expect(setSearchParamsCalls[0]).toMatchObject({
+      tab: "channels",
+      vehicleId: "abc",
+      [RETURN_TO_PARAM]: "vehicle-list",
+    });
   });
 });
