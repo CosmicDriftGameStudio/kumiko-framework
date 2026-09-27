@@ -64,7 +64,7 @@ export type {
   RoleAccessPersonalData,
   RoleAccessRule,
 } from "../engine/types/handlers";
-export { isOpenToAllGranted } from "../engine/types/handlers";
+export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers";
 export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav";
 export type {
   ActionFormRedirect,

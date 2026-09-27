@@ -218,7 +218,11 @@ export type {
   WriteHandlerFn,
   WriteResult,
 } from "@cosmicdrift/kumiko-types/handlers";
-export { isOpenToAllGranted, isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
+export {
+  isOpenToAllGranted,
+  isRateLimitDisabled,
+  isUiAccessGranted,
+} from "@cosmicdrift/kumiko-types/handlers";
 export type {
   DeleteContext,
   EntityHookMap,

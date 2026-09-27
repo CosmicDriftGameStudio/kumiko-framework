@@ -136,6 +136,19 @@ describe("createKumikoApp", () => {
     expect(await screen.findByTestId("render-list-table-empty")).toBeTruthy();
   });
 
+  // kumiko-framework#3314: per-role projected schemas can legitimately omit
+  // a screen a stale URL/deep-link still points at — pins the pre-existing
+  // (unchanged) "Screen not found" fallback rather than a crash.
+  test("screenQn pointing at a screen absent from the schema → Screen not found banner", async () => {
+    mountRoot();
+    await mountApp({
+      schema: baseSchema,
+      dispatcher: makeDispatcher(),
+      screenQn: "tasks:screen:does-not-exist",
+    });
+    expect(await screen.findByTestId("kumiko-screen-not-found")).toBeTruthy();
+  });
+
   test("rootId override: mounts into a different DOM id", async () => {
     mountRoot("custom-root");
     await mountApp({

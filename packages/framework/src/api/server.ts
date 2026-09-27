@@ -4,6 +4,7 @@ import type { DbConnection, PgClient } from "../db/connection";
 import { createDerivativesContext } from "../derivatives/derivatives-context";
 import { buildAppSchema } from "../engine/build-app-schema";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names";
+import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles";
 import { runsInLane } from "../engine/run-in";
 import { ANONYMOUS_ROLE, createAnonymousUser, createSystemUser } from "../engine/system-user";
 import {
@@ -54,6 +55,7 @@ import {
 } from "../rate-limit";
 import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config";
 import type { SearchAdapter } from "../search/types";
+import type { AppSchema } from "../ui-types/app-schema";
 import { assertUnreachable, generateId } from "../utils";
 import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants";
 import {
@@ -838,26 +840,39 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // GET /api/schema — the only way a client obtains the AppSchema. Behind
   // jwtGuard (NON_PUBLIC_API_PATHS), so anonymousAccess's synthesised user
   // also gets rejected below — the schema never reaches an unauthenticated
-  // caller. Built lazily and cached with its ETag: the registry is
-  // immutable for this server's lifetime, so both are the same on every
-  // request.
-  let cachedSchema: { readonly json: string; readonly etag: string } | undefined;
+  // caller. The FULL schema is built lazily once — the registry is
+  // immutable for this server's lifetime, so it's the same on every
+  // request — then projected per caller-role-set (fw#3314: a role only
+  // sees the screens/navs/workspaces/content-collections it may reach,
+  // not the whole app's schema) and cached per role key. Tenant is
+  // deliberately NOT part of the key: the projection depends only on
+  // roles, and per-tenant caching would grow unboundedly across tenants
+  // that share the same role set.
+  let fullSchema: AppSchema | undefined;
+  const projectedSchemaCache = new Map<string, { readonly json: string; readonly etag: string }>();
   app.get(`/api${Routes.schema}`, (c) => {
     const user = getUser(c);
     if (isMissingOrAnonymousUser(user)) {
       return unauthenticatedResponse(c);
     }
-    if (cachedSchema === undefined) {
-      const json = JSON.stringify(
-        buildAppSchema(options.registry, { searchAdapterMissing: !options.context.searchAdapter }),
-      );
-      cachedSchema = { json, etag: computeStrongEtag(json) };
+    const roleKey = JSON.stringify([...new Set(user?.roles ?? [])].sort());
+    let cached = projectedSchemaCache.get(roleKey);
+    if (cached === undefined) {
+      if (fullSchema === undefined) {
+        fullSchema = buildAppSchema(options.registry, {
+          searchAdapterMissing: !options.context.searchAdapter,
+        });
+      }
+      const projected = projectAppSchemaForRoles(fullSchema, user?.roles ?? []);
+      const json = JSON.stringify(projected);
+      cached = { json, etag: computeStrongEtag(json) };
+      projectedSchemaCache.set(roleKey, cached);
     }
-    const cacheHeaders = { "Cache-Control": "private, no-cache", ETag: cachedSchema.etag };
-    if (etagMatches(c.req.header("If-None-Match") ?? null, cachedSchema.etag)) {
+    const cacheHeaders = { "Cache-Control": "private, no-cache", ETag: cached.etag };
+    if (etagMatches(c.req.header("If-None-Match") ?? null, cached.etag)) {
       return c.body(null, 304, cacheHeaders);
     }
-    return c.body(cachedSchema.json, 200, {
+    return c.body(cached.json, 200, {
       "Content-Type": "application/json; charset=utf-8",
       ...cacheHeaders,
     });

@@ -450,7 +450,7 @@ export function validateScreenShortIdCollisions(
 // cross-feature screen QN (`<feature>:screen:<id>`) given verbatim — a
 // short id can never itself be a valid QN (QN_SEGMENT forbids colons), so
 // the two forms don't collide.
-function resolveScreenTargetQn(featureName: string, target: string): string {
+export function resolveScreenTargetQn(featureName: string, target: string): string {
   return isValidQn(target) ? target : qualifyEntityName(featureName, "screen", target);
 }
 
