@@ -3,6 +3,7 @@
 // Screens. Audit + Multi-Tenant kommen aus dem Framework-Default.
 
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { assetsTranslations } from "./i18n";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
@@ -18,12 +19,13 @@ const open = {
 // r.translations() wants key-first shape ({key: {de, en}}); assetsTranslations
 // is locale-first (client TranslationsByLocale shape) — invert here (bracket
 // notation + fallback avoids TS4111/TS18048 under noUncheckedIndexedAccess).
-const REQUIRED_I18N: Record<string, { de: string; en: string }> = Object.fromEntries(
-  Object.keys(assetsTranslations["de"] ?? {}).map((key) => [
-    key,
-    { de: assetsTranslations["de"]?.[key] ?? "", en: assetsTranslations["en"]?.[key] ?? "" },
-  ]),
-);
+const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue }> =
+  Object.fromEntries(
+    Object.keys(assetsTranslations["de"] ?? {}).map((key) => [
+      key,
+      { de: assetsTranslations["de"]?.[key] ?? "", en: assetsTranslations["en"]?.[key] ?? "" },
+    ]),
+  );
 
 export const assetsFeature = defineFeature("assets", (r) => {
   r.translations({ keys: REQUIRED_I18N });

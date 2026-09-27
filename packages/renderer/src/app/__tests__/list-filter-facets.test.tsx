@@ -7,10 +7,11 @@
 // with boolean facets coerced from URL-state strings to real booleans.
 
 import { describe, expect, test } from "bun:test";
-import type {
-  EntityDefinition,
-  EntityListScreenDefinition,
-  ProjectionListScreenDefinition,
+import {
+  type EntityDefinition,
+  type EntityListScreenDefinition,
+  type ProjectionListScreenDefinition,
+  translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, render, waitFor } from "@testing-library/react";
@@ -360,8 +361,10 @@ describe("projectionList filter + facets (fw#2224)", () => {
     if (en === undefined) throw new Error("missing en default translations");
     const save = de?.["kumiko.actions.save"] ?? en["kumiko.actions.save"];
     const cancel = de?.["kumiko.actions.cancel"] ?? en["kumiko.actions.cancel"];
-    expect(facet?.label).toBe(save);
-    expect(facet?.options?.[0]?.label).toBe(cancel);
+    expect(facet?.label).toBe(save === undefined ? undefined : translationValueOtherText(save));
+    expect(facet?.options?.[0]?.label).toBe(
+      cancel === undefined ? undefined : translationValueOtherText(cancel),
+    );
   });
 
   test("a reference facet loads its options from the referenced entity's list query, and selecting one sends an id filter", async () => {

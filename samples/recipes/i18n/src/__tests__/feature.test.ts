@@ -30,6 +30,16 @@ describe("translation lookup", () => {
   });
 });
 
+describe("plural forms", () => {
+  test("selects the CLDR category for the count and interpolates {count}", () => {
+    expect(i18n.t("greeting:greeting.unread_count", "en", { count: 1 })).toBe("1 unread message");
+    expect(i18n.t("greeting:greeting.unread_count", "en", { count: 5 })).toBe("5 unread messages");
+    expect(i18n.t("greeting:greeting.unread_count", "de", { count: 1 })).toBe(
+      "1 ungelesene Nachricht",
+    );
+  });
+});
+
 describe("multiple features merge translations", () => {
   test("keys from both features available", () => {
     expect(i18n.t("greeting:greeting.welcome")).toBe("Willkommen");
@@ -43,6 +53,6 @@ describe("multiple features merge translations", () => {
     expect(keys).toContain("greeting:greeting.hello_name");
     expect(keys).toContain("errors:errors.not_found");
     expect(keys).toContain("errors:errors.access_denied");
-    expect(keys).toHaveLength(5);
+    expect(keys).toHaveLength(6);
   });
 });

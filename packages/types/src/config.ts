@@ -453,7 +453,19 @@ export type NotificationDefinition = {
 
 // --- Translations ---
 
-export type TranslationEntry = Readonly<Record<string, string>>;
+// CLDR plural categories for one locale's variants of a translation string.
+// `other` is the CLDR-mandated fallback and therefore required; the rest
+// only exist in some locales (e.g. "few"/"many" for Slavic plurals).
+export type PluralForms = {
+  readonly zero?: string;
+  readonly one?: string;
+  readonly two?: string;
+  readonly few?: string;
+  readonly many?: string;
+  readonly other: string;
+};
+export type TranslationValue = string | PluralForms;
+export type TranslationEntry = Readonly<Record<string, TranslationValue>>;
 export type TranslationKeys = Readonly<Record<string, TranslationEntry>>;
 
 export type TranslationsDef = {

@@ -1,4 +1,5 @@
 import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
+import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { tasksTranslations } from "./i18n";
 import { editScreen, listScreen, taskEntity } from "./schema";
 
@@ -16,12 +17,13 @@ const open = {
 // r.translations() wants key-first shape ({key: {de, en}}); tasksTranslations
 // is locale-first (client TranslationsByLocale shape) — invert here (bracket
 // notation + fallback avoids TS4111/TS18048 under noUncheckedIndexedAccess).
-const REQUIRED_I18N: Record<string, { de: string; en: string }> = Object.fromEntries(
-  Object.keys(tasksTranslations["de"] ?? {}).map((key) => [
-    key,
-    { de: tasksTranslations["de"]?.[key] ?? "", en: tasksTranslations["en"]?.[key] ?? "" },
-  ]),
-);
+const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue }> =
+  Object.fromEntries(
+    Object.keys(tasksTranslations["de"] ?? {}).map((key) => [
+      key,
+      { de: tasksTranslations["de"]?.[key] ?? "", en: tasksTranslations["en"]?.[key] ?? "" },
+    ]),
+  );
 
 export const taskFeature = defineFeature("tasks", (r) => {
   r.translations({ keys: REQUIRED_I18N });

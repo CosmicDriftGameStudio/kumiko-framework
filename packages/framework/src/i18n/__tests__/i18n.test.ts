@@ -76,3 +76,38 @@ describe("createI18n", () => {
     expect(keys).toContain("adminUsers:field.email");
   });
 });
+
+describe("createI18n — plural forms", () => {
+  const notificationsFeature = defineFeature("notifications", (r) => {
+    r.translations({
+      keys: {
+        "notifications.unread": {
+          de: { one: "{count} ungelesene Nachricht", other: "{count} ungelesene Nachrichten" },
+          en: { one: "{count} unread message", other: "{count} unread messages" },
+        },
+      },
+    });
+  });
+
+  test("resolves the CLDR category for the given locale and count", () => {
+    const registry = createRegistry([notificationsFeature]);
+    const i18n = createI18n(registry, { defaultLocale: "en" });
+
+    expect(i18n.t("notifications:notifications.unread", "en", { count: 1 })).toBe(
+      "1 unread message",
+    );
+    expect(i18n.t("notifications:notifications.unread", "en", { count: 5 })).toBe(
+      "5 unread messages",
+    );
+    expect(i18n.t("notifications:notifications.unread", "de", { count: 1 })).toBe(
+      "1 ungelesene Nachricht",
+    );
+  });
+
+  test("falls back to `other` when no params are given", () => {
+    const registry = createRegistry([notificationsFeature]);
+    const i18n = createI18n(registry, { defaultLocale: "en" });
+
+    expect(i18n.t("notifications:notifications.unread", "en")).toBe("{count} unread messages");
+  });
+});

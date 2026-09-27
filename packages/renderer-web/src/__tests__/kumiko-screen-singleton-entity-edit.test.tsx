@@ -1,7 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
-import type {
-  EntityDefinition,
-  EntityEditScreenDefinition,
+import {
+  type EntityDefinition,
+  type EntityEditScreenDefinition,
+  translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
@@ -158,7 +159,10 @@ describe("KumikoScreen: singleton entityEdit", () => {
     );
     await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
     const bannerText = screen.getByTestId("kumiko-screen-error").textContent;
-    expect(bannerText).toBe(kumikoDefaultTranslations["en"]?.["errors.access.denied"] ?? "");
+    const expectedBannerValue = kumikoDefaultTranslations["en"]?.["errors.access.denied"];
+    expect(bannerText).toBe(
+      expectedBannerValue === undefined ? "" : translationValueOtherText(expectedBannerValue),
+    );
     expect(screen.queryByTestId("render-edit-form")).toBeNull();
   });
 

@@ -88,6 +88,34 @@ describe("useTranslation — lookup order", () => {
     });
     expect(result.current("greet", { name: "Marc" })).toBe("Hallo Marc!");
   });
+  test("resolves a plural entry's CLDR category from a fallback bundle — matches the server's output", () => {
+    const bundles: TranslationsByLocale[] = [
+      {
+        de: {
+          "notifications.unread": {
+            one: "{count} ungelesene Nachricht",
+            other: "{count} ungelesene Nachrichten",
+          },
+        },
+        en: {
+          "notifications.unread": {
+            one: "{count} unread message",
+            other: "{count} unread messages",
+          },
+        },
+      },
+    ];
+    const { result: en } = renderHook(() => useTranslation(), {
+      wrapper: wrap(createStaticLocaleResolver({ locale: "en" }), bundles),
+    });
+    expect(en.current("notifications.unread", { count: 1 })).toBe("1 unread message");
+    expect(en.current("notifications.unread", { count: 5 })).toBe("5 unread messages");
+
+    const { result: de } = renderHook(() => useTranslation(), {
+      wrapper: wrap(createStaticLocaleResolver({ locale: "de" }), bundles),
+    });
+    expect(de.current("notifications.unread", { count: 1 })).toBe("1 ungelesene Nachricht");
+  });
 });
 describe("useTranslation — formality", () => {
   const bundles: TranslationsByLocale[] = [
