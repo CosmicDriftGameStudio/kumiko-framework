@@ -365,6 +365,53 @@ describe("validateBoot — PII annotations", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
+  const userReferenceHintWarningFor = (fieldName: string) =>
+    warnSpy.mock.calls.find((args: unknown[]) => {
+      const message = String(args[0]);
+      return (
+        message.includes(`Field "${fieldName}"`) && message.includes("user-reference-typical name")
+      );
+    });
+
+  function defineCommentFeatureWithBodyOwnedBy(ownerFieldName: "authorId" | "ownerId") {
+    return defineFeature("test", (r) => {
+      r.entity(
+        "user",
+        createEntity({
+          fields: {
+            email: createTextField({ personal: "self", find: "none" }),
+          },
+        }),
+      );
+      stubListHandler(r, "user");
+      r.entity(
+        "comment",
+        createEntity({
+          fields: {
+            body: createLongTextField({ personal: { of: ownerFieldName }, find: "none" }),
+            authorId: { type: "reference", entity: "user" },
+            ownerId: { type: "reference", entity: "user" },
+          },
+        }),
+      );
+    });
+  }
+
+  test("owner field referenced by another field's personal.of does not trigger the user-reference-name warning", () => {
+    validateBoot([defineCommentFeatureWithBodyOwnedBy("authorId")]);
+    expect(userReferenceHintWarningFor("authorId")).toBeUndefined();
+    const anyAuthorIdWarning = warnSpy.mock.calls.find((args: unknown[]) =>
+      String(args[0]).includes('Field "authorId"'),
+    );
+    expect(anyAuthorIdWarning).toBeUndefined();
+  });
+
+  test("user-reference-named field not referenced by any personal.of still warns", () => {
+    validateBoot([defineCommentFeatureWithBodyOwnedBy("ownerId")]);
+    expect(userReferenceHintWarningFor("authorId")).toBeDefined();
+    expect(userReferenceHintWarningFor("ownerId")).toBeUndefined();
+  });
+
   test("allowPlaintext marker silences PII-name heuristic warning", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(

@@ -1,5 +1,5 @@
 import type { FeatureDefinition } from "../types";
-import type { ResolvedPiiFlags } from "../types/fields";
+import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
@@ -25,6 +25,17 @@ const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 // forbids `anonymize` (packages/types/src/fields.ts) — #2336.
 function hasAnonymizableSubjectField(annot: ResolvedPiiFlags): boolean {
   return Boolean(annot.pii || annot.userOwned || annot.tenantOwned || annot.recordOwned);
+}
+
+function ownerFieldNamesReferencedByPersonalOf(
+  fieldsByName: EntityDefinition["fields"],
+): ReadonlySet<string> {
+  const ownerFieldNames = new Set<string>();
+  for (const field of Object.values(fieldsByName)) {
+    const ownerFieldName = (field as ResolvedPiiFlags).userOwned?.ownerField; // @cast-boundary schema-walk
+    if (typeof ownerFieldName === "string") ownerFieldNames.add(ownerFieldName);
+  }
+  return ownerFieldNames;
 }
 
 // --- PII / Subject-Key Annotations + Retention validation ---
@@ -54,6 +65,7 @@ function hasAnonymizableSubjectField(annot: ResolvedPiiFlags): boolean {
 export function validatePiiAndRetention(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     const fieldsByName = entity.fields;
+    const personalOfOwnerFieldNames = ownerFieldNamesReferencedByPersonalOf(fieldsByName);
 
     for (const [fieldName, field] of Object.entries(fieldsByName)) {
       // ResolvedPiiFlags properties are type-level optional. On field defs
@@ -192,7 +204,11 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-content-typical name but no personal annotation. If this contains user-generated content, mark it { personal: { of: "<authorIdField>" }, find: ... }. If business data, set { personal: false, reason: "..." } to silence.`,
           );
-        } else if (PII_USER_REFERENCE_NAME_HINTS.has(lower) && !annot.subjectRef) {
+        } else if (
+          PII_USER_REFERENCE_NAME_HINTS.has(lower) &&
+          !annot.subjectRef &&
+          !personalOfOwnerFieldNames.has(fieldName)
+        ) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a user-reference-typical name but no personal annotation — a foreign key into \`user\` carries Art.17 obligations even with no annotated content on the entity. Mark it { personal: "ref" } AND register r.useExtension(EXT_USER_DATA, "${entityName}", …) for Art.17 coverage — this warning is the only boot-time check for that, registering the hook is not enforced. Or { personal: { of: "${fieldName}" } } on the field it owns. If business data, set { personal: false, reason: "..." } to silence.`,
