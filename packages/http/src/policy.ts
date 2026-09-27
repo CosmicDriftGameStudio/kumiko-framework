@@ -39,27 +39,34 @@ function inRange(n: number, [min, max]: readonly [number, number]): boolean {
   return n >= min && n <= max;
 }
 
-// Each entry: first-octet range, and an optional second-octet range for
-// ranges narrower than a full /8. Table form keeps the range list scannable
-// as data rather than as a chain of near-identical `if`s.
+// Each entry: first-octet range, an optional second-octet range for ranges
+// narrower than a full /8, and an optional third-octet range for the one
+// entry (192.0.0.0/24) narrower than a full /16. Table form keeps the range
+// list scannable as data rather than as a chain of near-identical `if`s.
 const BLOCKED_V4_RANGES: readonly {
   readonly a: readonly [number, number];
   readonly b?: readonly [number, number];
+  readonly c?: readonly [number, number];
 }[] = [
   { a: [0, 0] }, // 0.0.0.0/8 "this host"
   { a: [10, 10] }, // 10/8 private
   { a: [127, 127] }, // loopback
   { a: [169, 169], b: [254, 254] }, // link-local + cloud metadata (169.254.169.254)
   { a: [172, 172], b: [16, 31] }, // 172.16/12 private
+  { a: [192, 192], b: [0, 0], c: [0, 0] }, // 192.0.0.0/24 IETF protocol assignments
   { a: [192, 192], b: [168, 168] }, // 192.168/16 private
+  { a: [198, 198], b: [18, 19] }, // 198.18.0.0/15 benchmarking (RFC 2544)
   { a: [100, 100], b: [64, 127] }, // 100.64/10 CGNAT
-  { a: [224, 255] }, // multicast/reserved
+  { a: [224, 255] }, // multicast/reserved — also covers 240.0.0.0/4 and the broadcast address
 ];
 
 function isBlockedV4(ip: string): boolean {
-  const [a = 0, b = 0] = ip.split(".").map(Number);
+  const [a = 0, b = 0, c = 0] = ip.split(".").map(Number);
   return BLOCKED_V4_RANGES.some(
-    (range) => inRange(a, range.a) && (range.b === undefined || inRange(b, range.b)),
+    (range) =>
+      inRange(a, range.a) &&
+      (range.b === undefined || inRange(b, range.b)) &&
+      (range.c === undefined || inRange(c, range.c)),
   );
 }
 
@@ -76,12 +83,56 @@ function canonicalIPv6(ip: string): string {
   }
 }
 
-// Two 16-bit hex groups, as WHATWG URL serializes an embedded IPv4 address
-// inside an IPv6 literal, decoded back into the v4 range rules.
-function isBlockedHexPair(hi: string | undefined, lo: string | undefined): boolean {
-  const hiNum = Number.parseInt(hi ?? "0", 16);
-  const loNum = Number.parseInt(lo ?? "0", 16);
-  return isBlockedV4(`${hiNum >>> 8}.${hiNum & 0xff}.${loNum >>> 8}.${loNum & 0xff}`);
+const HEX_GROUP_RE = /^[0-9a-f]{1,4}$/;
+
+// Expands a canonicalized (RFC 5952) IPv6 literal into its 8 explicit
+// 16-bit groups. Compression ("::") swallows a variable number of the
+// trailing zero groups an embedded IPv4 address produces — e.g.
+// `64:ff9b::0.0.0.1` canonicalizes to `64:ff9b::1` (one group, not two) —
+// so matching by regex on the compressed string misses those forms.
+// Expanding first lets every embedded-v4 check below match by fixed group
+// *position* regardless of how much of the address compressed away.
+// Returns null for anything that isn't well-formed hex-group IPv6 (e.g. a
+// zone id), which isBlockedV6 treats as fail-closed.
+function expandGroups(ip: string): number[] | null {
+  const parts = ip.split("::");
+  if (parts.length > 2) return null;
+  const toGroups = (segment: string | undefined) => (segment ? segment.split(":") : []);
+  const head = toGroups(parts[0]);
+  if (parts.length === 1) {
+    if (head.length !== 8 || !head.every((g) => HEX_GROUP_RE.test(g))) return null;
+    return head.map((g) => Number.parseInt(g, 16));
+  }
+  const tail = toGroups(parts[1]);
+  const missing = 8 - head.length - tail.length;
+  if (missing < 0 || ![...head, ...tail].every((g) => HEX_GROUP_RE.test(g))) return null;
+  return [...head, ...Array(missing).fill("0"), ...tail].map((g) => Number.parseInt(g, 16));
+}
+
+// Decodes the two 16-bit groups at `at`/`at+1` back into dotted-decimal, for
+// the v4 range rules.
+function decodeEmbeddedV4(groups: readonly number[], at: number): string {
+  const hi = groups[at] ?? 0;
+  const lo = groups[at + 1] ?? 0;
+  return `${hi >>> 8}.${hi & 0xff}.${lo >>> 8}.${lo & 0xff}`;
+}
+
+// Every "IPv4-in-IPv6" encoding a URL literal can carry, as the fixed
+// leading groups (in expanded, 8-group form) and the group index the
+// embedded IPv4 address starts at. Matching by expanded position instead of
+// regex on the compressed string is what makes a single-group-compressed
+// embed (see expandGroups above) match the same as an uncompressed one.
+const EMBEDDED_V4_FORMS: readonly { readonly prefix: readonly number[]; readonly at: number }[] = [
+  { prefix: [0, 0, 0, 0, 0, 0], at: 6 }, // ::a.b.c.d — deprecated IPv4-compatible (RFC 4291)
+  { prefix: [0, 0, 0, 0, 0, 0xffff], at: 6 }, // ::ffff:a.b.c.d — IPv4-mapped (RFC 4291)
+  { prefix: [0, 0, 0, 0, 0xffff, 0], at: 6 }, // ::ffff:0:a.b.c.d — IPv4-translated (RFC 8215)
+  { prefix: [0x64, 0xff9b, 0, 0, 0, 0], at: 6 }, // 64:ff9b::a.b.c.d — NAT64 well-known prefix (RFC 6052)
+  { prefix: [0x64, 0xff9b, 1], at: 6 }, // 64:ff9b:1::a.b.c.d — NAT64 local-use prefix (RFC 8215)
+  { prefix: [0x2002], at: 1 }, // 2002:a.b.c.d:: — 6to4 (RFC 3056)
+];
+
+function matchesPrefix(groups: readonly number[], prefix: readonly number[]): boolean {
+  return prefix.every((value, index) => groups[index] === value);
 }
 
 const BLOCKED_V6_EXACT = new Set(["::1", "::"]); // loopback / unspecified
@@ -102,19 +153,11 @@ const BLOCKED_V6_HEAD_RANGES: readonly (readonly [number, number])[] = [
 function isBlockedV6(ip: string): boolean {
   const lower = canonicalIPv6(ip.toLowerCase());
   if (BLOCKED_V6_EXACT.has(lower)) return true;
-  const mappedDotted = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mappedDotted) return isBlockedV4(mappedDotted[1] ?? "0.0.0.0"); // IPv4-mapped -> v4 rules
-  const mappedHex = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (mappedHex) return isBlockedHexPair(mappedHex[1], mappedHex[2]); // IPv4-mapped, hex form
-  // NAT64 well-known prefix (RFC 6052) embeds an IPv4 address in the low 32
-  // bits, same trick as the IPv4-mapped form above with a different prefix —
-  // a known SSRF-filter-bypass technique on NAT64/DNS64 networks.
-  const nat64 = lower.match(/^64:ff9b::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-  if (nat64) return isBlockedHexPair(nat64[1], nat64[2]);
-  // 6to4 (RFC 3056) embeds an IPv4 address directly after the 2002: prefix.
-  const sixToFour = lower.match(/^2002:([0-9a-f]{1,4}):([0-9a-f]{1,4})(?::|$)/);
-  if (sixToFour) return isBlockedHexPair(sixToFour[1], sixToFour[2]);
-  const head = Number.parseInt(lower.split(":")[0] || "0", 16);
+  const groups = expandGroups(lower);
+  if (!groups) return true; // not well-formed IPv6 -> fail closed
+  const embedded = EMBEDDED_V4_FORMS.find((form) => matchesPrefix(groups, form.prefix));
+  if (embedded) return isBlockedV4(decodeEmbeddedV4(groups, embedded.at));
+  const head = groups[0] ?? 0;
   return BLOCKED_V6_HEAD_RANGES.some((range) => inRange(head, range));
 }
 
