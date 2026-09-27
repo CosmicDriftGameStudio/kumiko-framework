@@ -112,16 +112,20 @@ describe("AuthRoutesConfig.trustedProxyHops", () => {
     expect((await clientB()).status).toBe(422);
   });
 
-  test("hops=0 (default): legacy behavior — trusts the first XFF entry unconditionally", async () => {
+  // hops=0 trusts NO proxy header at all, so a client-controlled XFF (any
+  // entry) is ignored outright and every request collapses into the shared
+  // "unknown" bucket (no socket address available via app.request()).
+  test("hops=0 (default): ignores x-forwarded-for entirely — distinct first entries share one bucket", async () => {
     const app = await buildApp();
-    // No override: two "different" first-entries mean two different buckets,
-    // even though both requests carry the same real backend hop.
     const clientA = () => app.request(verifyRequest("1.1.1.1, 9.9.9.9"));
     const clientB = () => app.request(verifyRequest("2.2.2.2, 9.9.9.9"));
     expect((await clientA()).status).toBe(422);
     expect((await clientA()).status).toBe(422);
     expect((await clientA()).status).toBe(429);
-    expect((await clientB()).status).toBe(422);
+    // client B "looks" different (different first XFF entry) but hops=0
+    // ignores XFF outright — same "unknown" bucket as client A, already
+    // exhausted above.
+    expect((await clientB()).status).toBe(429);
   });
 
   test("hops=2 with a shorter XFF chain than configured collapses distinct clients into the unknown bucket", async () => {

@@ -107,6 +107,7 @@ export type ApiEntrypointOptions = BaseEntrypointOptions & {
   readonly eventDispatcher?: ServerOptions["eventDispatcher"] & {
     readonly runLocal?: boolean;
   };
+  readonly trustedProxyHops?: ServerOptions["trustedProxyHops"];
 };
 
 export type WorkerEntrypointOptions = BaseEntrypointOptions &
@@ -231,6 +232,7 @@ function buildApiServer(
     processLane,
     jwtIssuer: opts.jwtIssuer,
     auth: opts.auth,
+    trustedProxyHops: opts.trustedProxyHops,
     anonymousAccess: opts.anonymousAccess,
     sseBroker: opts.sseBroker,
     rateLimit: opts.rateLimit,

@@ -187,6 +187,9 @@ export type TestStackOptions = {
    *  them themselves. Default true — false pushes only projection/MSP/
    *  storeTable sources, same as before fw#3102. */
   entityTables?: boolean;
+  /** Forwarded to buildServer's top-level `ServerOptions.trustedProxyHops`
+   *  — see there. Default 0. */
+  trustedProxyHops?: number;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -429,6 +432,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       },
       eventDedup,
       sseBroker,
+      ...(options.trustedProxyHops !== undefined && { trustedProxyHops: options.trustedProxyHops }),
       ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
       ...(options.metrics && { metrics: options.metrics }),
       // Tests drive the dispatcher via stack.eventDispatcher.runOnce() for

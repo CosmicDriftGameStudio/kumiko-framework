@@ -23,6 +23,7 @@ import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-
 import {
   type AuthRoutesConfig,
   buildRequestContextDataFromRequest,
+  createClientIpResolver,
   type ExtraRouteDefinition,
   generateToken,
   requestContext,
@@ -230,6 +231,10 @@ export type CreateKumikoServerOptions = {
    *  inside buildServer (setupTestStack), before the Static/HTML-fallback,
    *  so an own GET (/feed.xml, /og-image, …) wins over the dev-asset path. */
   readonly extraRoutes?: readonly ExtraRouteDefinition[];
+  /** Forwarded to setupTestStack → buildServer's top-level
+   *  `ServerOptions.trustedProxyHops`. Dev usually runs unproxied, so this
+   *  is normally left unset (default 0). */
+  readonly trustedProxyHops?: number;
   /** Hook for app-wired co-running components that need the system-write
    *  dispatcher — runs after buildServer, before onAfterSetup (seeds), with
    *  NO `app` (routes are declared via `extraRoutes`, not wired here). */
@@ -893,6 +898,7 @@ export async function createKumikoServer(
       effectiveFeatures: options.effectiveFeatures,
     }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
+    ...(options.trustedProxyHops !== undefined && { trustedProxyHops: options.trustedProxyHops }),
     // jobs.consumerLane unset = enqueuer-only; startDevJobRunners below is
     // the sole consumer/cron-scheduler per lane, so runOnBoot/cron jobs
     // don't double-fire. queueNamePrefix keeps this boot's queues isolated
@@ -1005,11 +1011,23 @@ export async function createKumikoServer(
   //
   // Anonymous-role systemQuery, shared by resolvePageHead and hostDispatch —
   // mirrors runProdApp's HostDispatchFn deps so dev/prod stay symmetric.
+  // Own resolver mirroring the same effective hops as setupTestStack's
+  // internal buildServer — this path runs for
+  // page-head/hostDispatch resolution, ahead of requestIdMiddleware's
+  // /api/* mount, so it can't reuse that instance. Two independent
+  // warn-once flags in dev is an accepted, low-risk gap (dev normally
+  // runs unproxied — see CreateKumikoServerOptions.trustedProxyHops).
+  const pageHeadClientIpResolver = createClientIpResolver(
+    options.trustedProxyHops ?? 0,
+    "createKumikoServer(pageHead)",
+  );
   const buildDevSystemQuery =
     (req: Request): PageHeadSystemQuery =>
     (type, payload, tenantId) =>
-      requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
-        stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+      requestContext.run(
+        requestContext.get() ??
+          buildRequestContextDataFromRequest(req, { resolver: pageHeadClientIpResolver }),
+        () => stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
       );
 
   // resolvePageHead goes through the same headless resolveAndInjectPageHead

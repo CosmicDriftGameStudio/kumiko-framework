@@ -92,13 +92,11 @@ export const publicVariantQuery = defineQueryHandler({
   schema: publicVariantPayloadSchema,
   access: { roles: ["anonymous", "User", "TenantAdmin", "SystemAdmin"] },
   agent: { expose: false },
-  // ponytail: "ip" trusts the first x-forwarded-for hop (buildRequestContextData
-  // in request-id-middleware.ts) — this is the ONLY throttle on an anonymous,
-  // internet-facing render/storage-cost route, so it assumes the deployment's
-  // ingress overwrites (not appends to) x-forwarded-for. A direct-to-origin
-  // deployment lets a caller rotate the header per request and bypass this.
-  // Upgrade path if that assumption doesn't hold: trusted-proxy-count config
-  // on buildRequestContextData, same fix point as every other /api/* route.
+  // ponytail: "ip" is the ONLY throttle on an anonymous, internet-facing
+  // render/storage-cost route — its accuracy depends on the server's
+  // `trustedProxyHops` matching the real number of reverse proxies in
+  // front of it (see api/client-ip.ts). Left at the default 0 with a proxy
+  // actually in front, every caller collapses into one shared bucket.
   rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
   handler: async (query, ctx) => {
     const row = await fetchOne<FileRefRow>(ctx.db, fileRefsTable, {

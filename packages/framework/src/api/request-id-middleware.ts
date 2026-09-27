@@ -1,7 +1,15 @@
 import type { Context, Next } from "hono";
 import { resolveHeaderLocale } from "../i18n/request-locale";
 import { LOCALE_HEADER_NAME } from "./api-constants";
+import { type ClientIpResolver, createClientIpResolver, extractSocketAddress } from "./client-ip";
 import { type RequestContextData, requestContext } from "./request-context";
+
+// Fallback for the few call-sites that build a RequestContextData without a
+// caller-configured resolver (e.g. an internal system-query mount reached
+// before requestIdMiddleware ran). trustedProxyHops 0 matches the framework
+// default; callers that care about the real hop count pass their own
+// resolver instead — see requestIdMiddleware(options).
+const FALLBACK_CLIENT_IP_RESOLVER = createClientIpResolver(0, "requestIdMiddleware");
 
 const REQUEST_ID_HEADER = "X-Request-ID";
 const CORRELATION_ID_HEADER = "X-Correlation-ID";
@@ -34,7 +42,10 @@ function header(req: Request, name: string): string | undefined {
  * Hono's router entirely — can still populate the same AsyncLocalStorage
  * record via `requestContext.run(...)`.
  */
-export function buildRequestContextDataFromRequest(req: Request): RequestContextData {
+export function buildRequestContextDataFromRequest(
+  req: Request,
+  options?: { readonly resolver?: ClientIpResolver; readonly socketAddress?: string },
+): RequestContextData {
   const requestId = sanitizeClientId(header(req, REQUEST_ID_HEADER)) ?? requestContext.generateId();
   const correlationId = sanitizeClientId(header(req, CORRELATION_ID_HEADER)) ?? requestId;
 
@@ -42,14 +53,15 @@ export function buildRequestContextDataFromRequest(req: Request): RequestContext
   // back-press, tab close). We propagate it through requestContext so
   // framework internals can honour cancellation at long-running checkpoints.
   const signal = req.signal;
-  // Client IP for per-IP rate limiting. Trust `x-forwarded-for` when
-  // present (proxy/CDN) — first hop is the originating client. Adapter-
-  // specific socket-address fallback (bun, node) is not standardized
-  // in Hono; deployments behind a proxy should always set xff. Without
-  // either we leave `ip` undefined and skip ip-bucketed checks rather
-  // than fabricate one.
-  const xff = header(req, "x-forwarded-for");
-  const ip = xff?.split(",")[0]?.trim();
+  // Client IP for per-IP rate limiting — resolved via the shared
+  // trustedProxyHops-aware resolver. Always set for
+  // an HTTP request; falls back to "unknown" rather than skipping the
+  // ip-bucket (see createClientIpResolver).
+  const resolver = options?.resolver ?? FALLBACK_CLIENT_IP_RESOLVER;
+  const ip = resolver.resolve({
+    header: (name) => header(req, name),
+    socketAddress: options?.socketAddress,
+  });
   const userAgent = header(req, "user-agent");
   // Runs before auth-middleware, so this reaches public routes too (e.g.
   // signup-request) — that's the whole point: the active UI locale must
@@ -64,7 +76,7 @@ export function buildRequestContextDataFromRequest(req: Request): RequestContext
     correlationId,
     startedAt: performance.now(),
     ...(signal ? { signal } : {}),
-    ...(ip && ip.length > 0 ? { ip } : {}),
+    ip,
     ...(userAgent !== undefined ? { userAgent } : {}),
     ...(locale !== undefined ? { locale } : {}),
   };
@@ -76,7 +88,10 @@ export function buildRequestContextDataFromRequest(req: Request): RequestContext
  * export because most call-sites (server.ts's httpRoute→systemQuery mount,
  * `requestIdMiddleware` below) already hold a Hono `Context`.
  */
-export function buildRequestContextData(c: Context): RequestContextData {
+export function buildRequestContextData(
+  c: Context,
+  resolver?: ClientIpResolver,
+): RequestContextData {
   // Older Hono / adapter combos may leave c.req.raw unset even though it's
   // typed as Request — degrade to a bare id pair (no signal/ip/ua/locale)
   // instead of letting req.headers.get() throw on every request.
@@ -84,7 +99,10 @@ export function buildRequestContextData(c: Context): RequestContextData {
     const requestId = requestContext.generateId();
     return { requestId, correlationId: requestId, startedAt: performance.now() };
   }
-  return buildRequestContextDataFromRequest(c.req.raw);
+  return buildRequestContextDataFromRequest(c.req.raw, {
+    resolver,
+    socketAddress: extractSocketAddress(c.env),
+  });
 }
 
 /**
@@ -96,9 +114,21 @@ export function buildRequestContextData(c: Context): RequestContextData {
  * `x-correlation-id` — clients that don't care about cross-service tracing
  * still get sensible single-request correlation for free.
  */
-export function requestIdMiddleware() {
+export function requestIdMiddleware(options?: {
+  // Shared resolver instance — pass buildServer's single clientIpResolver
+  // here so the whole server shares one warn-once flag.
+  // Takes precedence over `trustedProxyHops`, which only exists for
+  // standalone callers (no buildServer).
+  readonly resolver?: ClientIpResolver;
+  readonly trustedProxyHops?: number;
+}) {
+  // Created once per middleware mount (not per request) so the warn-once
+  // flag in the resolver actually fires only once per server boot.
+  const resolver =
+    options?.resolver ??
+    createClientIpResolver(options?.trustedProxyHops ?? 0, "requestIdMiddleware");
   return async (c: Context, next: Next) => {
-    const data = buildRequestContextData(c);
+    const data = buildRequestContextData(c, resolver);
     c.header(REQUEST_ID_HEADER, data.requestId);
     c.header(CORRELATION_ID_HEADER, data.correlationId);
     c.set("requestId", data.requestId);

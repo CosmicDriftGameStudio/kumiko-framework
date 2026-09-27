@@ -12,11 +12,18 @@
  */
 export function buildBunServeOptions(
   port: number,
-  fetchHandler: (req: Request) => Response | Promise<Response>,
+  fetchHandler: (req: Request, socketAddress?: string) => Response | Promise<Response>,
 ): {
   readonly port: number;
-  readonly fetch: (req: Request) => Response | Promise<Response>;
+  readonly fetch: (req: Request, server: Bun.Server<unknown>) => Response | Promise<Response>;
   readonly idleTimeout: number;
 } {
-  return { port, fetch: fetchHandler, idleTimeout: 0 };
+  // `server.requestIP(req)` only resolves for the exact Request instance
+  // Bun created — extracted here, once, before any downstream req.clone()
+  // (tryHonoFirst et al.) can invalidate it.
+  return {
+    port,
+    fetch: (req, server) => fetchHandler(req, server.requestIP(req)?.address),
+    idleTimeout: 0,
+  };
 }

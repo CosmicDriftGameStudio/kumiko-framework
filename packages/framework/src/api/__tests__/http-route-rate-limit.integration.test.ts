@@ -4,7 +4,16 @@
 // systemQuery wiring. Proves the fix: repeated calls through the same
 // httpRoute, same client IP, DO hit the limit.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  spyOn,
+  test,
+} from "bun:test";
 import * as z from "zod";
 import { createEntity, createTextField, defineFeature } from "../../engine";
 import type { TenantId } from "../../engine/types/identifiers";
@@ -44,7 +53,10 @@ const ipLimitedFeature = defineFeature("rl-http", (r) => {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [ipLimitedFeature] });
+  // trustedProxyHops: 1 — this suite's whole point is isolating buckets by
+  // the literal x-forwarded-for value below; the
+  // new hops=0 default ignores that header outright.
+  stack = await setupTestStack({ features: [ipLimitedFeature], trustedProxyHops: 1 });
 });
 
 afterAll(async () => {
@@ -73,5 +85,64 @@ describe("r.httpRoute → systemQuery propagates requestContext for per-ip rate 
     expect((await callAs("9.9.9.2")).status).toBe(429);
 
     expect((await callAs("9.9.9.3")).status).toBe(200);
+  });
+
+  // An attacker rotating the untrusted, client-facing XFF prefix must still
+  // land in the real client's bucket — only the
+  // trusted-proxy-appended LAST entry counts at hops=1.
+  test("hops=1: different spoofed leading XFF entry, same trailing entry → same bucket", async () => {
+    const attempt = (leading: string) =>
+      stack.app.request("/ping", { headers: { "x-forwarded-for": `${leading}, 9.9.9.4` } });
+
+    expect((await attempt("attacker-claim-a")).status).toBe(200);
+    expect((await attempt("attacker-claim-b")).status).toBe(200);
+    const third = await attempt("attacker-claim-c");
+    expect(third.status).toBe(429);
+  });
+});
+
+describe("r.httpRoute → systemQuery: default trustedProxyHops=0 never fail-opens", () => {
+  let defaultHopsStack: TestStack;
+
+  beforeAll(async () => {
+    defaultHopsStack = await setupTestStack({ features: [ipLimitedFeature] });
+  });
+
+  afterAll(async () => {
+    await defaultHopsStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await defaultHopsStack.redis.flushNamespace();
+  });
+
+  test("no x-forwarded-for at all: the shared 'unknown' bucket still enforces the limit", async () => {
+    const call = () => defaultHopsStack.app.request("/ping");
+
+    expect((await call()).status).toBe(200);
+    expect((await call()).status).toBe(200);
+    expect((await call()).status).toBe(429);
+  });
+
+  describe("one-time warning when hops=0 but the client sends x-forwarded-for anyway", () => {
+    let warnSpy: ReturnType<typeof spyOn>;
+
+    afterEach(() => {
+      warnSpy?.mockRestore();
+    });
+
+    test("warns exactly once across multiple requests, not once per request", async () => {
+      warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      const call = () =>
+        defaultHopsStack.app.request("/ping", { headers: { "x-forwarded-for": "203.0.113.50" } });
+
+      await call();
+      await call();
+
+      const proxyWarnings = warnSpy.mock.calls.filter((args: unknown[]) =>
+        String(args[0]).includes("trustedProxyHops is 0"),
+      );
+      expect(proxyWarnings.length).toBe(1);
+    });
   });
 });

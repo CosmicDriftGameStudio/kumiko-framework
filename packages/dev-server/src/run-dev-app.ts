@@ -276,6 +276,12 @@ export type RunDevAppOptions = {
    *  something the user can click. Pass an object to override the
    *  features-dir hint or the docs URL. */
   readonly welcomeBanner?: boolean | { readonly featuresDir?: string; readonly docsUrl?: string };
+  /** Forwarded to createKumikoServer → setupTestStack's top-level
+   *  `trustedProxyHops` — symmetric to
+   *  RunProdAppOptions.trustedProxyHops. Wins over the deprecated
+   *  `auth.trustedProxyHops`. Dev usually runs unproxied, so this is
+   *  normally left unset (default 0). */
+  readonly trustedProxyHops?: number;
 };
 
 export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServerHandle> {
@@ -499,6 +505,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
     ...(options.files !== undefined && { files: options.files }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
     ...(options.wire !== undefined && { wire: options.wire }),
+    ...((options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops) !== undefined && {
+      trustedProxyHops: options.trustedProxyHops ?? effectiveAuth?.trustedProxyHops,
+    }),
     ...(finalEffectiveFeatures !== undefined && {
       effectiveFeatures: finalEffectiveFeatures,
     }),

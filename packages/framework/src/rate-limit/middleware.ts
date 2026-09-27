@@ -1,5 +1,10 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { isAuthRateLimitExempt } from "../api/api-constants";
+import {
+  type ClientIpResolver,
+  clientIpSourceFromHonoContext,
+  createClientIpResolver,
+} from "../api/client-ip";
 import { requestContext } from "../api/request-context";
 import { RateLimitError, serializeError } from "../errors";
 import type { RateLimitDecision, RateLimitResolver } from "./resolver";
@@ -22,8 +27,17 @@ export type GlobalIpRateLimitOptions = {
   readonly resolver: RateLimitResolver;
   readonly limit?: number;
   readonly windowSeconds?: number;
+  // Number of trusted reverse-proxy hops for the default client-IP
+  // resolver — see createClientIpResolver. Ignored when `extractIp` is set.
+  // Default 0 (no proxy trusted).
+  readonly trustedProxyHops?: number;
+  // Shared resolver instance from buildServer — takes precedence over
+  // `trustedProxyHops` so the whole server has exactly one resolver (and
+  // one warn-once flag) rather than one per middleware.
+  // Only standalone callers (no buildServer) should rely on `trustedProxyHops`.
+  readonly clientIpResolver?: ClientIpResolver;
   // Override IP extraction — useful when behind a non-standard proxy.
-  // Default: x-forwarded-for first hop.
+  // Default: the shared resolveClientIp, honoring `trustedProxyHops`.
   readonly extractIp?: (c: Context) => string | undefined;
   // Hook for ops logging when fail-closed fires (Redis down). Default:
   // emits to console.error so the misbehaviour is loud at minimum.
@@ -33,7 +47,11 @@ export type GlobalIpRateLimitOptions = {
 export function globalIpRateLimit(opts: GlobalIpRateLimitOptions): MiddlewareHandler {
   const limit = opts.limit ?? 1000;
   const windowSeconds = opts.windowSeconds ?? 60;
-  const extractIp = opts.extractIp ?? defaultExtractIp;
+  const clientIpResolver =
+    opts.clientIpResolver ??
+    createClientIpResolver(opts.trustedProxyHops ?? 0, "globalIpRateLimit");
+  const extractIp =
+    opts.extractIp ?? ((c) => clientIpResolver.resolve(clientIpSourceFromHonoContext(c)));
   const onFailClosed = opts.onFailClosed ?? defaultOnFailClosed("l1-global-ip");
 
   return async (c, next) => {
@@ -73,6 +91,13 @@ export type AuthEndpointRateLimitOptions = {
   // top of IP. Default: bucket on `l2:${ip}:${path}` (IP + route),
   // which catches naive IP-flood without consuming the request body.
   readonly extractTarget?: (c: Context) => string | undefined | Promise<string | undefined>;
+  // Number of trusted reverse-proxy hops for the default client-IP
+  // resolver — see createClientIpResolver. Ignored when `extractIp` is set.
+  // Default 0 (no proxy trusted).
+  readonly trustedProxyHops?: number;
+  // See GlobalIpRateLimitOptions.clientIpResolver — same single-resolver
+  // rationale.
+  readonly clientIpResolver?: ClientIpResolver;
   readonly extractIp?: (c: Context) => string | undefined;
   readonly onFailClosed?: (err: unknown) => void;
 };
@@ -80,7 +105,11 @@ export type AuthEndpointRateLimitOptions = {
 export function authEndpointRateLimit(opts: AuthEndpointRateLimitOptions): MiddlewareHandler {
   const limit = opts.limit ?? 5;
   const windowSeconds = opts.windowSeconds ?? 60;
-  const extractIp = opts.extractIp ?? defaultExtractIp;
+  const clientIpResolver =
+    opts.clientIpResolver ??
+    createClientIpResolver(opts.trustedProxyHops ?? 0, "authEndpointRateLimit");
+  const extractIp =
+    opts.extractIp ?? ((c) => clientIpResolver.resolve(clientIpSourceFromHonoContext(c)));
   const extractTarget = opts.extractTarget;
   const onFailClosed = opts.onFailClosed ?? defaultOnFailClosed("l2-auth-endpoints");
 
@@ -108,11 +137,6 @@ export function authEndpointRateLimit(opts: AuthEndpointRateLimitOptions): Middl
     }
     await next();
   };
-}
-
-function defaultExtractIp(c: Context): string | undefined {
-  const xff = c.req.header("x-forwarded-for");
-  return xff?.split(",")[0]?.trim() || undefined;
 }
 
 function defaultOnFailClosed(label: string): (err: unknown) => void {

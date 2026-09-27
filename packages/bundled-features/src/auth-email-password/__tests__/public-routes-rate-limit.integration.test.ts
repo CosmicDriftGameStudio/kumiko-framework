@@ -96,6 +96,10 @@ beforeAll(async () => {
     rateLimit: {
       auth: { limit: 2, windowSeconds: 60, onFailClosed: () => {} },
     },
+    // Tests below rely on distinct per-test IPs to keep buckets from
+    // cross-contaminating, so the resolver needs a trusted hop to read
+    // x-forwarded-for at all.
+    trustedProxyHops: 1,
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);

@@ -50,6 +50,9 @@ beforeAll(async () => {
     rateLimit: {
       auth: { onFailClosed: () => {} },
     },
+    // Tests below assert the literal IP in the rate-limit bucket key, so the
+    // resolver needs a trusted hop to read x-forwarded-for at all.
+    trustedProxyHops: 1,
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);

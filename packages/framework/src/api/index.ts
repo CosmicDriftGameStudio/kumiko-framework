@@ -28,6 +28,13 @@ export {
   createInMemoryLoginRateLimiter,
   createRedisLoginRateLimiter,
 } from "./auth-routes";
+export type { ClientIpHeaderSource, ClientIpResolver } from "./client-ip";
+export {
+  assertValidTrustedProxyHops,
+  clientIpSourceFromHonoContext,
+  createClientIpResolver,
+  extractSocketAddress,
+} from "./client-ip";
 export type {
   AnonymousExtraRoute,
   AnonymousExtraRouteDeps,

@@ -134,6 +134,9 @@ beforeAll(async () => {
     anonymousAccess: {
       defaultTenantId: tenantA,
     },
+    // "download-by-job" below asserts the literal ip stored by requestContext,
+    // so the resolver needs a trusted hop to read x-forwarded-for at all.
+    trustedProxyHops: 1,
   });
   await unsafeCreateEntityTable(stack.db, exportJobEntity);
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
@@ -385,8 +388,8 @@ describe("download-by-job :: happy path", () => {
 
     // Der UI-Klick laeuft als direkter download-by-job-Query (Client traegt
     // X-CSRF-Token). Die Audit-IP kommt server-trusted aus dem RequestContext
-    // (X-Forwarded-For, erster Hop), nicht aus einem vom Client mitgeschickten
-    // Feld.
+    // (X-Forwarded-For, letzter vom trusted Proxy angehaengter Eintrag bei
+    // trustedProxyHops=1), nicht aus einem vom Client mitgeschickten Feld.
     const res = await stack.http.queryWithHeaders(
       "user-data-rights:query:download-by-job",
       { jobId },
@@ -403,7 +406,7 @@ describe("download-by-job :: happy path", () => {
       lastUsedFromIp: string | null;
     }>;
     expect(row?.useCount).toBe(1);
-    expect(row?.lastUsedFromIp).toBe("10.0.0.5");
+    expect(row?.lastUsedFromIp).toBe("10.0.0.1");
   });
 
   test("failed Job (status != done) → 404 download.unavailable (job-Pfad)", async () => {

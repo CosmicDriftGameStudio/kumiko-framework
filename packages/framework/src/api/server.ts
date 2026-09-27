@@ -65,6 +65,11 @@ import {
   type TenantLifecycleStatusResolver,
 } from "./auth-middleware";
 import { type AuthRoutesConfig, createAuthRoutes, type LoginRateLimiter } from "./auth-routes";
+import {
+  assertValidTrustedProxyHops,
+  type ClientIpResolver,
+  createClientIpResolver,
+} from "./client-ip";
 import { csrfMiddleware } from "./csrf-middleware";
 import {
   type ExtraRouteDefinition,
@@ -107,6 +112,12 @@ export type ServerOptions = {
   eventDedup?: EventDedup;
   sseBroker?: SseBroker;
   auth?: AuthRoutesConfig;
+  // Number of trusted reverse-proxy hops for client-IP resolution — feeds
+  // requestIdMiddleware's `ip`, the L1/L2
+  // rate-limit middleware below, and createAuthRoutes. Wins over the
+  // deprecated `auth.trustedProxyHops`. Default 0 = trust no proxy header,
+  // only the socket address (or "unknown") counts — see client-ip.ts.
+  trustedProxyHops?: number;
   // No `files` option: file-storage is wired by mounting `file-foundation` +
   // a `file-provider-*` feature. Upload routes, ctx.files and the GDPR jobs
   // resolve the provider per-tenant through that single source (issue #608).
@@ -299,6 +310,17 @@ export function withFileProviderResolver(registry: Registry, context: AppContext
 }
 
 export function buildServer(options: ServerOptions): KumikoServer {
+  // Single effective hop-count for every IP-derived rate-limit + requestMeta
+  // below — the top-level option wins over the deprecated
+  // `auth.trustedProxyHops` fallback.
+  const trustedProxyHops = options.trustedProxyHops ?? options.auth?.trustedProxyHops ?? 0;
+  assertValidTrustedProxyHops(trustedProxyHops, "buildServer");
+  // Exactly ONE resolver for the whole server — the warn-once flag must fire
+  // once per boot, not once per consumer (requestIdMiddleware, L1, L2,
+  // auth-routes each sharing this same instance rather than building a
+  // private one).
+  const clientIpResolver = createClientIpResolver(trustedProxyHops, "buildServer");
+
   // File-storage is resolved per-tenant through file-foundation: a mounted
   // `file-provider-*` plugin (inmemory/s3/s3-env) is the single source for
   // uploads, ctx.files and the GDPR jobs.
@@ -673,7 +695,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     registerMetricsRoute(app, observability.meter, options.metrics);
   }
 
-  app.use("/api/*", requestIdMiddleware());
+  app.use("/api/*", requestIdMiddleware({ resolver: clientIpResolver }));
 
   // Cap JSON bodies before rate-limit/auth/observability even run. Header-
   // check is O(1); oversized requests never allocate memory for a full body
@@ -696,12 +718,19 @@ export function buildServer(options: ServerOptions): KumikoServer {
     if (options.rateLimit?.global) {
       app.use(
         "/api/*",
-        globalIpRateLimit({ ...options.rateLimit.global, resolver: rateLimitResolver }),
+        globalIpRateLimit({
+          ...options.rateLimit.global,
+          resolver: rateLimitResolver,
+          clientIpResolver,
+        }),
       );
     }
     if (options.rateLimit?.auth) {
       const { path: l2Path = "/api/auth/*", ...l2Opts } = options.rateLimit.auth;
-      app.use(l2Path, authEndpointRateLimit({ ...l2Opts, resolver: rateLimitResolver }));
+      app.use(
+        l2Path,
+        authEndpointRateLimit({ ...l2Opts, resolver: rateLimitResolver, clientIpResolver }),
+      );
     }
   }
   // Observability span wraps everything that follows (auth, routes).
@@ -827,7 +856,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
           "need it to reject blocked principals).",
       );
     }
-    app.route("/api", createAuthRoutes(dispatcher, jwt, options.auth));
+    app.route(
+      "/api",
+      createAuthRoutes(dispatcher, jwt, { ...options.auth, resolver: clientIpResolver }),
+    );
   }
   app.route(
     "/api",
@@ -927,7 +959,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
           // would leak it into the response. The forced tenant already
           // comes from bypassing the HTTP layer entirely; no elevated
           // role is needed or wanted on top of that.
-          systemQuery: makeSystemQuery(c, dispatcher),
+          systemQuery: makeSystemQuery(c, dispatcher, clientIpResolver),
         });
       mountHonoRoute(
         app,
@@ -987,6 +1019,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
         secrets: contextWithObservability.secrets,
         dispatchSystemWrite,
         dispatchSystemQuery,
+        clientIpResolver,
       });
       mountHonoRoute(app, route.method, route.path, honoHandler);
     }
@@ -1103,9 +1136,10 @@ function makeSystemQuery(
   // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
   c: import("hono").Context<any, any>,
   dispatcher: Dispatcher,
+  clientIpResolver?: ClientIpResolver,
 ): (type: string, payload: unknown, tenantId: TenantId) => Promise<unknown> {
   return (type, payload, tenantId) =>
-    requestContext.run(requestContext.get() ?? buildRequestContextData(c), () =>
+    requestContext.run(requestContext.get() ?? buildRequestContextData(c, clientIpResolver), () =>
       dispatcher.query(type, payload, createAnonymousUser(tenantId)),
     );
 }
@@ -1213,6 +1247,7 @@ type ExtraRouteHonoHandlerDeps = {
   readonly secrets: import("../secrets").SecretsContext | undefined;
   readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
+  readonly clientIpResolver?: ClientIpResolver;
 };
 
 function buildExtraRouteHonoHandler(
@@ -1226,7 +1261,7 @@ function buildExtraRouteHonoHandler(
         route.handler(c, {
           app: shared.app,
           registry: shared.registry,
-          systemQuery: makeSystemQuery(c, shared.dispatcher),
+          systemQuery: makeSystemQuery(c, shared.dispatcher, shared.clientIpResolver),
           write: makeAnonymousWrite(c, shared.dispatcher),
         });
     case ExtraRouteEntries.user:
@@ -1277,7 +1312,7 @@ function buildExtraRouteHonoHandler(
           app: shared.app,
           registry: shared.registry,
           secrets: shared.secrets,
-          systemQuery: makeSystemQuery(c, shared.dispatcher),
+          systemQuery: makeSystemQuery(c, shared.dispatcher, shared.clientIpResolver),
           dispatchSystemWrite: shared.dispatchSystemWrite,
           dispatchSystemQuery: shared.dispatchSystemQuery,
         });

@@ -115,6 +115,10 @@ beforeAll(async () => {
       sessionCreator: callbacks.sessionCreator,
       sessionRevoker: callbacks.sessionRevoker,
     },
+    // "login wires into sessionCreator" below asserts the literal ip stored
+    // by sessionCreator, so the resolver needs a trusted hop to read
+    // x-forwarded-for at all.
+    trustedProxyHops: 1,
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);

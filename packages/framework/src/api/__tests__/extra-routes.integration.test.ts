@@ -105,7 +105,14 @@ describe("extraRoutes: entry:anonymous", () => {
   let stack: TestStack;
 
   beforeAll(async () => {
-    stack = await setupTestStack({ features: [probeFeature], extraRoutes: [pingRoute] });
+    // trustedProxyHops: 1 — the default hops=0 ignores x-forwarded-for and
+    // would collapse both tests below onto one
+    // shared "unknown" per-ip bucket, bleeding rate-limit state between them.
+    stack = await setupTestStack({
+      features: [probeFeature],
+      extraRoutes: [pingRoute],
+      trustedProxyHops: 1,
+    });
   });
 
   afterAll(() => stack.cleanup());

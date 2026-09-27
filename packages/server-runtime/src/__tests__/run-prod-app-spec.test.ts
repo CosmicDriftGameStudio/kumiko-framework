@@ -19,11 +19,19 @@ describe("Bun.serve options for production", () => {
     expect(opts.idleTimeout).toBe(0);
   });
 
-  test("port + fetch werden 1:1 durchgereicht", () => {
-    const fetchHandler = (_req: Request) => new Response("test");
+  test("port wird 1:1 durchgereicht, fetch reicht req + Socket-Adresse an den Handler weiter", async () => {
+    let received: [Request, string | undefined] | undefined;
+    const fetchHandler = (req: Request, socketAddress?: string) => {
+      received = [req, socketAddress];
+      return new Response("test");
+    };
     const opts = buildBunServeOptions(3000, fetchHandler);
     expect(opts.port).toBe(3000);
-    expect(opts.fetch).toBe(fetchHandler);
+    const req = new Request("http://localhost/");
+    const fakeServer = { requestIP: () => ({ address: "203.0.113.1", port: 1, family: "IPv4" }) };
+    await opts.fetch(req, fakeServer as unknown as Bun.Server<unknown>);
+    expect(received?.[0]).toBe(req);
+    expect(received?.[1]).toBe("203.0.113.1");
   });
 });
 
