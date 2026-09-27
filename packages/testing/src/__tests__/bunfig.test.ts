@@ -15,6 +15,7 @@ describe("renderBunfig", () => {
     expect(renderBunfig("unit")).toBe(`${HEADER("unit")}preload = [
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
+  "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
 ]
 pathIgnorePatterns = [
   "**/*.integration.test.ts",
@@ -62,6 +63,7 @@ pathIgnorePatterns = [
     expect(renderBunfig("unit", { dom: true })).toBe(`${HEADER("dom")}preload = [
   "@cosmicdrift/kumiko-testing/preload/temporal",
   "@cosmicdrift/kumiko-testing/preload/scrub-env",
+  "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
   "@cosmicdrift/kumiko-testing/preload/dom",
 ]
 pathIgnorePatterns = [
@@ -274,6 +276,7 @@ describe("mergeBunfig", () => {
     expect(parsed.test.preload).toEqual([
       "@cosmicdrift/kumiko-testing/preload/temporal",
       "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
       "./test-setup/app-local.preload.ts",
     ]);
   });
@@ -302,6 +305,7 @@ describe("mergeBunfig", () => {
     expect(parsed.test.preload).toEqual([
       "@cosmicdrift/kumiko-testing/preload/temporal",
       "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
       "./test-setup/env.preload.ts",
       "./test-setup/codegen.preload.ts",
     ]);
@@ -334,6 +338,7 @@ describe("mergeBunfig", () => {
     expect(parsed.test.preload).toEqual([
       "@cosmicdrift/kumiko-testing/preload/temporal",
       "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
       "@cosmicdrift/kumiko-testing/preload/dom",
     ]);
   });
@@ -350,6 +355,7 @@ describe("mergeBunfig", () => {
     expect(parsed.test.preload).toEqual([
       "@cosmicdrift/kumiko-testing/preload/temporal",
       "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
       "@cosmicdrift/kumiko-testing/preload/env",
     ]);
   });
@@ -377,6 +383,7 @@ describe("mergeBunfig", () => {
     expect(parsed.test.preload).toEqual([
       "@cosmicdrift/kumiko-testing/preload/temporal",
       "@cosmicdrift/kumiko-testing/preload/scrub-env",
+      "@cosmicdrift/kumiko-testing/preload/schema-env-defaults",
       "./test-setup/app-local.preload.ts",
     ]);
   });

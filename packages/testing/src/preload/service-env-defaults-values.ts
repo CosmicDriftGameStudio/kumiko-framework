@@ -4,7 +4,6 @@ export const SERVICE_ENV_DEFAULTS = {
   REDIS_URL: "redis://localhost:16379",
   MEILI_URL: "http://localhost:17700",
   MEILI_MASTER_KEY: "kumiko-dev-key",
-  JWT_SECRET: "test-jwt-secret-at-least-32-characters-long",
   MINIO_ENDPOINT: "http://localhost:19000",
   MINIO_ACCESS_KEY: "kumiko",
   MINIO_SECRET_KEY: "kumiko-dev-secret",
