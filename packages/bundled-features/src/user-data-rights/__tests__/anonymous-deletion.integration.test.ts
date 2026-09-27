@@ -75,6 +75,12 @@ afterAll(async () => {
 beforeEach(async () => {
   verifyCalls.length = 0;
   await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+  // request-deletion-by-email/confirm-deletion-by-token are `per: "ip"`
+  // rate-limited (10/60s). All calls here go through stack.http.raw with no
+  // socket address, so every test in this file lands in the same shared
+  // "unknown" IP bucket — flush it per test so one test's calls can't push
+  // a later, unrelated test over the cap.
+  await stack.redis.flushNamespace();
 });
 
 async function seedAlice(status: string = USER_STATUS.Active, email: string = ALICE_EMAIL) {
@@ -198,6 +204,11 @@ describe("anonymous deletion flow", () => {
     // instead of a single run (probabilistic test).
     for (let i = 0; i < 20; i++) {
       await resetTestTables(stack.db, [userTable, tenantComplianceProfileTable, eventsTable]);
+      // Both handlers below are `per: "ip"` rate-limited (10/60s); this loop's
+      // own 3 calls/iteration would otherwise trip that limiter well before
+      // the 20th repetition, which has nothing to do with the concurrency
+      // behaviour under test.
+      await stack.redis.flushNamespace();
       await seedAlice();
       verifyCalls.length = 0;
       await stack.http.raw("POST", "/api/write", {

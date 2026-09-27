@@ -15,10 +15,11 @@
 // — der volle Dispatcher-Pfad ist in
 // inbound-mail-foundation.integration.test.ts abgedeckt.
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { connect } from "node:net";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTransport } from "nodemailer";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
 import {
   type InboundMailContext,
   isInboundAuthError,
@@ -34,6 +35,18 @@ const SMTP_PORT = Number(process.env["IMAP_LIVE_SMTP_PORT"] ?? 3025);
 const USER = "testuser";
 const PASSWORD = "testpass";
 const ADDRESS = "testuser@example.com";
+
+// greenmail is a local test server, not tenant-supplied — needs the
+// operator escape hatch since HOST is a private/loopback address.
+const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
+afterAll(() => {
+  if (originalAllowedPrivateHostsEnv === undefined) {
+    delete process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+  } else {
+    process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = originalAllowedPrivateHostsEnv;
+  }
+});
 
 function probe(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {

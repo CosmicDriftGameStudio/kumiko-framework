@@ -67,7 +67,7 @@ function isMetaShape(v: unknown): v is EntityTableMeta {
   );
 }
 
-function tableToMeta(table: unknown): EntityTableMeta {
+export function tableToMeta(table: unknown): EntityTableMeta {
   // table() spreads column handles as enumerable props, so a field named
   // `columns`/`tableName`/`source`/… shadows the matching meta key — read the
   // canonical meta from the unshadowable symbol when present.
@@ -77,6 +77,20 @@ function tableToMeta(table: unknown): EntityTableMeta {
   }
   if (isMetaShape(table)) return table;
   throw new Error("unsafePushTables: argument is not a SchemaTable / EntityTableMeta");
+}
+
+/** Applies ALTER TABLE ADD COLUMN for exactly the given columns. */
+export async function addMissingColumns(
+  db: DbConnection,
+  tableName: string,
+  columns: readonly ColumnMeta[],
+): Promise<void> {
+  for (const col of columns) {
+    const type = renderColumnType(col);
+    const notNull = col.notNull && !col.primaryKey ? " NOT NULL" : "";
+    const defaultClause = col.defaultSql !== undefined ? ` DEFAULT ${col.defaultSql}` : "";
+    await alterTableAddColumn(db, tableName, col.name, type, defaultClause, notNull);
+  }
 }
 
 /**
@@ -106,14 +120,8 @@ export async function unsafePushTables(
 
     if (prev) {
       const prevCols = new Set(prev.columns.map((c) => c.name));
-      for (const col of meta.columns) {
-        if (!prevCols.has(col.name)) {
-          const type = renderColumnType(col);
-          const notNull = col.notNull && !col.primaryKey ? " NOT NULL" : "";
-          const defaultClause = col.defaultSql !== undefined ? ` DEFAULT ${col.defaultSql}` : "";
-          await alterTableAddColumn(db, meta.tableName, col.name, type, defaultClause, notNull);
-        }
-      }
+      const newCols = meta.columns.filter((c) => !prevCols.has(c.name));
+      await addMissingColumns(db, meta.tableName, newCols);
       const prevIdxNames = new Set(prev.indexes.map((i) => i.name));
       for (const idx of meta.indexes) {
         if (!prevIdxNames.has(idx.name)) {

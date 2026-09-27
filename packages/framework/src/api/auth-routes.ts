@@ -26,6 +26,11 @@ import {
   getUser,
   type TokenVerifier,
 } from "./auth-middleware";
+import {
+  type ClientIpResolver,
+  clientIpSourceFromHonoContext,
+  createClientIpResolver,
+} from "./client-ip";
 import type { JwtHelper } from "./jwt";
 import type { PostAuthLandingArgs, PostAuthLandingResolver } from "./post-auth-landing";
 import { resolvePostAuthLandingPath } from "./post-auth-landing";
@@ -443,20 +448,26 @@ export type AuthRoutesConfig = {
   // `x-forwarded-for` (e.g. nginx `$proxy_add_x_forwarded_for`). Used to
   // derive the client IP for every auth rate-limiter (login, mfa-verify,
   // preauth-enable-start, preauth-confirm) and for requestMeta's session
-  // IP — kumiko-framework#1539. Default 0 = legacy behavior, trust the
-  // first XFF entry (or x-real-ip) unconditionally; spoofable by design,
-  // kept as the default so unconfigured deployments don't regress into a
-  // shared "unknown" bucket (mfa-verify/preauth-confirm key on bare IP, no
-  // email composite — collapsing everyone into one bucket is a DoS worse
-  // than the spoofing hole). Set this to your real proxy hop count (1 for
-  // a single ingress/reverse-proxy, 2 for edge-LB + ingress, etc.) to close
-  // the hole; see clientIpOf's doc comment for the extraction algorithm.
+  // IP via the shared resolveClientIp (see client-ip.ts for the extraction
+  // algorithm). Deprecated in favor of the
+  // top-level `trustedProxyHops` on ServerOptions/RunProdAppOptions/
+  // RunDevAppOptions, which wins when both are set — kept as a fallback so
+  // existing consumers that only set this don't regress. Default 0 = trust
+  // no proxy header, only the socket address (or "unknown") counts. Set
+  // this to your real proxy hop count (1 for a single ingress/reverse-
+  // proxy, 2 for edge-LB + ingress, etc.) when deployed behind a proxy.
   trustedProxyHops?: number;
   // Server-computed post-auth redirect, consulted at login, mfa-verify,
   // mfa-preauth-confirm, signup-confirm, and all three invite-accept branches.
   // Result lands in the response as `landingPath`; an invalid path or a
   // throwing resolver just omits the field (see post-auth-landing.ts).
   postAuthLanding?: PostAuthLandingResolver;
+  // Shared resolver instance from buildServer — takes precedence over
+  // `trustedProxyHops` so the whole server shares exactly one resolver
+  // instance (and warn-once flag) instead of building a private one here.
+  // Only standalone callers of createAuthRoutes
+  // (no buildServer) should rely on `trustedProxyHops` instead.
+  resolver?: ClientIpResolver;
 };
 
 export type PasswordResetConfig = {
@@ -511,69 +522,6 @@ export type SignupConfig = {
   confirmHandler: string;
 };
 
-// Derives the caller IP from proxy headers, single source for the
-// rate-limiter keys below and requestMeta. kumiko-framework#1523/#1522/#1539:
-// `x-forwarded-for` is attacker-controlled unless we know how many trusted
-// proxy hops sit between the client and this process — `trustedProxyHops`
-// (AuthRoutesConfig) is that count.
-//
-//   hops === 0 (default): legacy behavior — trust the first XFF entry (or
-//   x-real-ip) at face value. Kept as the default so unconfigured
-//   deployments don't regress: collapsing everyone into a single "unknown"
-//   bucket would turn mfa-verify/preauth-confirm's pure-IP-keyed limiter
-//   into a one-request-locks-out-everyone DoS, which is worse than the
-//   spoofing hole this issue is about. Apps behind a proxy MUST set this to
-//   close the hole — see AuthRoutesConfig.trustedProxyHops.
-//
-//   hops >= 1: each trusted proxy appends (not overwrites) its peer address
-//   to XFF (e.g. nginx `$proxy_add_x_forwarded_for`), so the last `hops`
-//   entries are proxy-supplied and everything before them — including the
-//   real client — sits at `entries[length - hops]`. Anything the client
-//   itself prepended lands further left and is ignored. If the header has
-//   fewer entries than `hops`, the proxy chain is shorter than configured
-//   (misconfiguration or a bypassed hop) — fall back to x-real-ip when present,
-//   else "unknown". x-real-ip has no hop-count semantics (so it isn't used for
-//   hop math), but a shared "unknown" bucket is worse than trusting the
-//   proxy-set header when XFF is absent (common nginx X-Real-IP-only setups).
-//
-// Callers that need a hard boundary regardless of this config
-// (preauth-enable-start) additionally key on something the caller can't
-// freely choose (see preauthTokenKeyOf below).
-let warnedUnknownClientIp = false;
-function clientIpOf(
-  c: { req: { header(name: string): string | undefined } },
-  trustedProxyHops = 0,
-): string {
-  if (trustedProxyHops <= 0) {
-    return (
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
-      c.req.header("x-real-ip") ??
-      "unknown"
-    );
-  }
-  const entries = (c.req.header("x-forwarded-for") ?? "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0);
-  if (entries.length < trustedProxyHops) {
-    // nginx often sets only X-Real-IP (no XFF). Prefer that over a shared
-    // "unknown" rate-limit bucket (fw#1555) — hop-count math still doesn't
-    // apply to X-Real-IP, but a shared bucket is worse than trusting the
-    // proxy-set header when the XFF chain is shorter than configured.
-    const realIp = c.req.header("x-real-ip")?.trim();
-    if (realIp) return realIp;
-    if (!warnedUnknownClientIp) {
-      warnedUnknownClientIp = true;
-      console.warn(
-        "[kumiko] trustedProxyHops>=1 but XFF chain too short and no x-real-ip — " +
-          'all such clients share the "unknown" rate-limit bucket. Check proxy headers.',
-      );
-    }
-    return "unknown";
-  }
-  return entries[entries.length - trustedProxyHops] ?? "unknown";
-}
-
 // Second rate-limit axis for preauth-enable-start: unlike the IP, a
 // preauthSetupToken isn't freely choosable by the attacker (it's minted by
 // login.write.ts), so hashing it into a bucket key still caps the replay
@@ -582,15 +530,12 @@ function preauthTokenKeyOf(token: string): string {
   return `preauth-token:${createHash("sha256").update(token).digest("hex")}`;
 }
 
-// Extract `ip` and `user-agent` for the sessionCreator.
-// Hono's `c.req.header(...)` returns undefined for missing headers; we coerce
-// them to "unknown" rather than throwing because auth-routes are a public
-// surface and we don't want header-sniffing bugs to break login.
-function requestMeta(
-  c: { req: { header(name: string): string | undefined } },
-  trustedProxyHops = 0,
-): SessionMetadata {
-  const ip = clientIpOf(c, trustedProxyHops);
+// Extract `ip` and `user-agent` for the sessionCreator. Client-IP resolution
+// (trustedProxyHops-aware) is the shared resolveClientIp (see client-ip.ts)
+// — createAuthRoutes builds one resolver instance below and
+// closes over it here and in getClientIp.
+function requestMeta(c: Context, resolver: ClientIpResolver): SessionMetadata {
+  const ip = resolver.resolve(clientIpSourceFromHonoContext(c));
   const userAgent = c.req.header("user-agent") ?? "unknown";
   return { ip, userAgent };
 }
@@ -721,20 +666,14 @@ export function createAuthRoutes(
   const cookieSameSite = config.cookieSameSite ?? "lax";
   const cookieDomain = config.cookieDomain;
   // Single hop-count-aware IP getter for every rate-limit call site below —
-  // see AuthRoutesConfig.trustedProxyHops / clientIpOf's doc comment. Fail
-  // loud on a non-finite/negative value rather than letting it silently
-  // reach clientIpOf, where NaN/negative behaves like "chain too short"
-  // and collapses every request into the shared "unknown" bucket.
-  if (
-    config.trustedProxyHops !== undefined &&
-    (!Number.isInteger(config.trustedProxyHops) || config.trustedProxyHops < 0)
-  ) {
-    throw new Error(
-      `createAuthRoutes: trustedProxyHops must be a non-negative integer, got ${config.trustedProxyHops}.`,
-    );
-  }
-  const trustedProxyHops = config.trustedProxyHops ?? 0;
-  const getClientIp = (c: Context): string => clientIpOf(c, trustedProxyHops);
+  // see AuthRoutesConfig.trustedProxyHops and client-ip.ts's resolveClientIp
+  // doc comment. createClientIpResolver fails loud on a non-finite/negative
+  // value rather than letting it silently collapse every request into the
+  // shared "unknown" bucket.
+  const clientIpResolver =
+    config.resolver ?? createClientIpResolver(config.trustedProxyHops ?? 0, "createAuthRoutes");
+  const getClientIp = (c: Context): string =>
+    clientIpResolver.resolve(clientIpSourceFromHonoContext(c));
 
   // Shared tail of every route that ends a request logged-in: create the
   // session record (if wired), sign the JWT, set the auth+csrf cookies. Was
@@ -744,7 +683,7 @@ export function createAuthRoutes(
   async function mintSessionAndRespond(c: Context, session: SessionUser): Promise<string> {
     let sessionForJwt = session;
     if (config.sessionCreator) {
-      const sid = await config.sessionCreator(session, requestMeta(c, trustedProxyHops));
+      const sid = await config.sessionCreator(session, requestMeta(c, clientIpResolver));
       sessionForJwt = { ...session, sid };
     }
     const token = await jwt.sign(sessionForJwt);

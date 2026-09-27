@@ -71,7 +71,11 @@ describe("requestIdMiddleware — signal propagation", () => {
   });
 });
 describe("requestIdMiddleware — ip + userAgent capture (603/2)", () => {
-  test("populates ip from x-forwarded-for and userAgent from the User-Agent header", async () => {
+  // Default trustedProxyHops=0 trusts no proxy header at all — the resolver
+  // ignores x-forwarded-for outright (a
+  // spoofable, client-controlled header) and falls back to the socket
+  // address, "unknown" here since app.request() has none.
+  test("default (trustedProxyHops=0): ignores x-forwarded-for, falls back to unknown", async () => {
     let captured: { ip: string | undefined; userAgent: string | undefined } = {
       ip: undefined,
       userAgent: undefined,
@@ -96,7 +100,36 @@ describe("requestIdMiddleware — ip + userAgent capture (603/2)", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(captured.ip).toBe("203.0.113.7");
+    expect(captured.ip).toBe("unknown");
+    expect(captured.userAgent).toBe("Mozilla/5.0 (probe-test)");
+  });
+
+  test("trustedProxyHops=1: populates ip from the last (trusted-proxy-appended) x-forwarded-for entry", async () => {
+    let captured: { ip: string | undefined; userAgent: string | undefined } = {
+      ip: undefined,
+      userAgent: undefined,
+    };
+
+    const app = new Hono();
+    app.use("/probe", requestIdMiddleware({ trustedProxyHops: 1 }));
+    app.get("/probe", (c) => {
+      const ctx = requestContext.get();
+      captured = { ip: ctx?.ip, userAgent: ctx?.userAgent };
+      return c.text("ok");
+    });
+
+    const res = await app.request(
+      new Request("http://test.local/probe", {
+        method: "GET",
+        headers: {
+          "x-forwarded-for": "203.0.113.7, 10.0.0.1",
+          "user-agent": "Mozilla/5.0 (probe-test)",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(captured.ip).toBe("10.0.0.1");
     expect(captured.userAgent).toBe("Mozilla/5.0 (probe-test)");
   });
 

@@ -149,6 +149,15 @@ beforeAll(async () => {
         confirmHandler: AuthHandlers.signupConfirm,
       },
     },
+    // signup-request declares rateLimit: { per: "ip+handler", limit: 10 }.
+    // Since e7bf543ad, an unset socket address resolves to the shared
+    // "unknown" IP rather than skipping the bucket — every postSignupRequest
+    // call in this file (14+ across all tests) would otherwise collapse
+    // into that one 10/60s bucket and fail later tests with rate_limited,
+    // regardless of the test's own scenario. trustedProxyHops: 1 lets
+    // postSignupRequest hand each distinct signup its own resolved IP via
+    // X-Forwarded-For, mirroring distinct real callers instead of one.
+    trustedProxyHops: 1,
   });
 
   await unsafeCreateEntityTable(stack.db, userEntity);
@@ -186,7 +195,15 @@ async function postSignupRequest(
   email: string,
   headers?: Record<string, string>,
 ): Promise<Response> {
-  return stack.http.raw("POST", "/api/auth/signup-request", { email }, headers);
+  // Distinct email → distinct resolved IP (trustedProxyHops: 1 above), so
+  // each test's own signup-request calls land in their own rate-limit
+  // bucket instead of sharing the file-wide "unknown" one.
+  return stack.http.raw(
+    "POST",
+    "/api/auth/signup-request",
+    { email },
+    { "x-forwarded-for": email, ...headers },
+  );
 }
 
 async function postSignupConfirm(token: string, password: string): Promise<Response> {

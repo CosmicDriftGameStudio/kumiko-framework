@@ -5,9 +5,14 @@
 // missing local .env var.
 
 import { describe, expect, test } from "bun:test";
+import { requireEnv as requireEnvFromPackageExport } from "@cosmicdrift/kumiko-server-runtime";
 import { requireEnv } from "../run-prod-app";
 
 describe("requireEnv", () => {
+  test("is part of the package's public export, not just the internal run-prod-app module", () => {
+    expect(requireEnvFromPackageExport).toBe(requireEnv);
+  });
+
   test("default context (runProdApp) gives container/production advice", () => {
     expect(() => requireEnv("MISSING_VAR", {})).toThrow(/container env.*Coolify secrets/);
   });

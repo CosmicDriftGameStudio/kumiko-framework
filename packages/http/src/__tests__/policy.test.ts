@@ -3,9 +3,12 @@ import type { lookup } from "node:dns/promises";
 import {
   assertAllowedHost,
   assertHttpScheme,
+  BlockedHostError,
+  HostResolutionError,
   isBlockedIp,
   isPublicHost,
   resolvePublicHost,
+  resolvePublicHostname,
 } from "../policy";
 
 describe("isBlockedIp", () => {
@@ -31,15 +34,31 @@ describe("isBlockedIp", () => {
     ["feff::1", true], // upper end of fec0::/10
     ["64:ff9b::169.254.169.254", true], // NAT64-embedded cloud metadata (RFC 6052)
     ["2002:a9fe:a9fe::", true], // 6to4-embedded cloud metadata (RFC 3056)
+    ["::127.0.0.1", true], // deprecated IPv4-compatible loopback (RFC 4291)
+    ["::7f00:1", true], // same address, canonical hex form
+    ["::ffff:0:169.254.169.254", true], // IPv4-translated cloud metadata (RFC 8215)
+    ["::ffff:0:a9fe:a9fe", true], // same address, hex form
+    ["64:ff9b:1::169.254.169.254", true], // NAT64 local-use prefix cloud metadata (RFC 8215)
+    ["64:ff9b::0.0.0.1", true], // NAT64 well-known prefix, single-group-compressed embed
+    ["192.0.0.1", true], // 192.0.0.0/24 IETF protocol assignments
+    ["192.0.0.255", true],
+    ["198.18.0.1", true], // 198.18.0.0/15 benchmarking (RFC 2544)
+    ["198.19.255.255", true],
     ["not-an-ip", true], // fail closed
     ["8.8.8.8", false],
     ["1.1.1.1", false],
     ["172.15.0.1", false], // just outside 172.16/12
     ["172.32.0.1", false],
     ["93.184.216.34", false],
+    ["203.0.113.5", false], // TEST-NET-3 — used as the "public" fixture elsewhere, must stay unblocked
     ["2606:2800:220:1:248:1893:25c8:1946", false],
     ["64:ff9b::8.8.8.8", false], // NAT64-embedded public IP
     ["2002:808:808::", false], // 6to4-embedded public IP (8.8.8.8)
+    ["64:ff9b:1::8.8.8.8", false], // NAT64 local-use prefix, public embedded IP
+    ["192.0.1.1", false], // just outside 192.0.0.0/24 (not the whole 192.0.0.0/16)
+    ["192.0.2.1", false], // TEST-NET-1 documentation range — out of scope, must stay unblocked
+    ["198.17.255.255", false], // just below 198.18.0.0/15
+    ["198.20.0.1", false], // just above 198.18.0.0/15
   ])("%s -> blocked=%p", (ip, blocked) => {
     expect(isBlockedIp(ip)).toBe(blocked);
   });
@@ -127,6 +146,68 @@ describe("resolvePublicHost", () => {
     await expect(
       resolvePublicHost(new URL("http://rebinding.example/"), fakeLookup),
     ).rejects.toThrow(/non-public/);
+  });
+});
+
+describe("resolvePublicHostname", () => {
+  test("rejects a blocked IP-literal host without any DNS lookup", async () => {
+    await expect(resolvePublicHostname("169.254.169.254")).rejects.toThrow(BlockedHostError);
+  });
+
+  test("allows a public IP-literal host and pins that exact address", async () => {
+    await expect(resolvePublicHostname("93.184.216.34")).resolves.toEqual({
+      address: "93.184.216.34",
+      family: 4,
+    });
+  });
+
+  test("resolves a public hostname via an injected lookupFn", async () => {
+    const fakeLookup = (async () => [
+      { address: "203.0.113.5", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("smtp.example.com", fakeLookup)).resolves.toEqual({
+      address: "203.0.113.5",
+      family: 4,
+    });
+  });
+
+  test("rejects a hostname that resolves to a private address", async () => {
+    const fakeLookup = (async () => [
+      { address: "10.0.0.1", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("internal.example", fakeLookup)).rejects.toThrow(
+      BlockedHostError,
+    );
+  });
+
+  test("rejects when any of several resolved addresses is private", async () => {
+    const fakeLookup = (async () => [
+      { address: "203.0.113.5", family: 4 },
+      { address: "192.168.1.1", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("mixed.example", fakeLookup)).rejects.toThrow(
+      BlockedHostError,
+    );
+  });
+
+  test("surfaces a DNS failure as HostResolutionError, distinct from a blocked host", async () => {
+    const failingLookup = (async () => {
+      throw new Error("ENOTFOUND");
+    }) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("nowhere.example", failingLookup)).rejects.toThrow(
+      HostResolutionError,
+    );
+  });
+
+  test("strips brackets from an IPv6-literal host", async () => {
+    await expect(resolvePublicHostname("[2606:2800:220:1:248:1893:25c8:1946]")).resolves.toEqual({
+      address: "2606:2800:220:1:248:1893:25c8:1946",
+      family: 6,
+    });
   });
 });
 

@@ -110,8 +110,8 @@ export function composeFeatures(
 }
 
 /** Shape of any run{Prod,Dev}App auth block that can carry a
- *  passwordReset/emailVerification config. The wrapper API
- *  (PasswordResetSetup) extends the feature API (PasswordResetOptions), so
+ *  passwordReset/emailVerification config, once resolveAuthMail has resolved
+ *  the wrapper's optional hmacSecret into the feature API's required one —
  *  a structural-typed lookup on the auth-only subset is enough. Lets
  *  buildComposeAuthOptions be called with both RunProd- and
  *  RunDev-AuthOptions without building the helper twice. */

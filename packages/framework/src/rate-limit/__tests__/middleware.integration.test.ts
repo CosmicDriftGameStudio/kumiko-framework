@@ -28,7 +28,16 @@ describe("globalIpRateLimit (L1)", () => {
     const app = new Hono();
     app.use(
       "/api/*",
-      globalIpRateLimit({ resolver, limit: 3, windowSeconds: 60, onFailClosed: () => {} }),
+      // trustedProxyHops: 1 — the default hops=0 ignores x-forwarded-for
+      // outright, which would collapse the bucket
+      // assertion below onto "l1:unknown" instead of the literal IP.
+      globalIpRateLimit({
+        resolver,
+        limit: 3,
+        windowSeconds: 60,
+        trustedProxyHops: 1,
+        onFailClosed: () => {},
+      }),
     );
     app.get("/api/probe", (c) => c.text("ok"));
 
@@ -56,7 +65,13 @@ describe("globalIpRateLimit (L1)", () => {
     const app = new Hono();
     app.use(
       "/api/*",
-      globalIpRateLimit({ resolver, limit: 2, windowSeconds: 60, onFailClosed: () => {} }),
+      globalIpRateLimit({
+        resolver,
+        limit: 2,
+        windowSeconds: 60,
+        trustedProxyHops: 1,
+        onFailClosed: () => {},
+      }),
     );
     app.get("/api/probe", (c) => c.text("ok"));
 
@@ -73,7 +88,11 @@ describe("globalIpRateLimit (L1)", () => {
     expect(otherIp.status).toBe(200);
   });
 
-  test("no x-forwarded-for: pass-through (no bucket)", async () => {
+  // The built-in resolver never returns undefined — no x-forwarded-for (or
+  // an untrusted one at hops=0) falls back to a fixed "unknown" bucket
+  // instead of skipping the middleware: skipping would fail open, letting
+  // an attacker omit/rotate the header to dodge L1 entirely.
+  test("no x-forwarded-for: still enforced via the shared 'unknown' bucket, never skipped", async () => {
     const app = new Hono();
     app.use(
       "/api/*",
@@ -81,12 +100,10 @@ describe("globalIpRateLimit (L1)", () => {
     );
     app.get("/api/probe", (c) => c.text("ok"));
 
-    // No xff header — extractIp returns undefined → middleware skips.
-    // Both calls succeed even though limit=1.
     const a = await app.request("/api/probe");
-    const b = await app.request("/api/probe");
     expect(a.status).toBe(200);
-    expect(b.status).toBe(200);
+    const b = await app.request("/api/probe");
+    expect(b.status).toBe(429);
   });
 
   test("fail-closed when resolver throws non-RateLimit error (Redis down)", async () => {

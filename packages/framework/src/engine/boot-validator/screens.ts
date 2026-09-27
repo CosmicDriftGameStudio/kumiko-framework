@@ -1158,9 +1158,9 @@ export function validateScreens(
         }
         validateAtMostOneRowClick(feature.name, screenId, "projectionList", screen.rowActions);
       }
-      // Only drawer-kind is validated here — navigate/writeHandler toolbarActions
-      // on projectionList have no boot check yet (pre-existing gap, out of
-      // scope for fw#2225).
+      // Only drawer-kind and navigate actions that set tab are validated
+      // here — plain navigate (no tab) and writeHandler toolbarActions on
+      // projectionList have no boot check yet (pre-existing gap).
       if (screen.toolbarActions !== undefined) {
         for (const action of screen.toolbarActions) {
           if (action.kind === "drawer") {
@@ -1171,6 +1171,19 @@ export function validateScreens(
               "toolbarAction",
               action,
               feature.screens,
+            );
+          }
+          if (action.kind === "navigate" && action.tab !== undefined) {
+            resolveRowActionNavigateTarget(
+              feature.name,
+              screenId,
+              "projectionList",
+              "toolbarAction",
+              action,
+              allScreenQns,
+              navTargetShortIds,
+              screensByShortId,
+              detailForScreens,
             );
           }
         }
@@ -1239,18 +1252,35 @@ export function validateScreens(
             );
           }
           const navigate = typeof metric === "string" ? undefined : metric.navigate;
-          // Cross-screen navigate+tab isn't checked here — the target screen
-          // validates its own section ids when the loop reaches it.
-          if (
-            navigate?.tab !== undefined &&
-            navigate.screen === undefined &&
-            navigate.entity === undefined &&
-            !screen.layout.sections.some((section) => section.id === navigate.tab)
-          ) {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
-                `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
-            );
+          if (navigate?.tab !== undefined) {
+            if (navigate.screen === undefined && navigate.entity === undefined) {
+              if (!screen.layout.sections.some((section) => section.id === navigate.tab)) {
+                throw new Error(
+                  `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
+                    `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
+                );
+              }
+            } else {
+              resolveRowActionNavigateTarget(
+                feature.name,
+                screenId,
+                "projectionDetail",
+                "metric",
+                {
+                  kind: "navigate",
+                  id: field,
+                  label: field,
+                  ...(navigate.screen !== undefined ? { screen: navigate.screen } : {}),
+                  ...(navigate.entity !== undefined ? { entity: navigate.entity } : {}),
+                  ...(navigate.entityId !== undefined ? { entityId: navigate.entityId } : {}),
+                  tab: navigate.tab,
+                },
+                allScreenQns,
+                navTargetShortIds,
+                screensByShortId,
+                detailForScreens,
+              );
+            }
           }
         }
       }
@@ -1459,8 +1489,9 @@ export function validateScreens(
               featureMap,
             );
           }
-          // Only drawer-kind is validated here — navigate/writeHandler
-          // toolbarActions have no boot check yet, same gap as above.
+          // Only drawer-kind and navigate actions that set tab are validated
+          // here — plain navigate (no tab) and writeHandler toolbarActions
+          // have no boot check yet, same gap as above.
           if (section.toolbarActions !== undefined) {
             for (const action of section.toolbarActions) {
               if (action.kind === "drawer") {
@@ -1471,6 +1502,19 @@ export function validateScreens(
                   "toolbarAction",
                   action,
                   feature.screens,
+                );
+              }
+              if (action.kind === "navigate" && action.tab !== undefined) {
+                resolveRowActionNavigateTarget(
+                  feature.name,
+                  screenId,
+                  "projectionDetail",
+                  "toolbarAction",
+                  action,
+                  allScreenQns,
+                  navTargetShortIds,
+                  screensByShortId,
+                  detailForScreens,
                 );
               }
             }
@@ -2000,6 +2044,19 @@ export function validateScreens(
               throw new Error(
                 `[Feature ${feature.name}] Screen "${screenId}" (entityList) toolbarAction "${action.id}" ` +
                   `navigate-target "${action.screen}" does not resolve to a registered screen in any feature.`,
+              );
+            }
+            if (action.tab !== undefined) {
+              resolveRowActionNavigateTarget(
+                feature.name,
+                screenId,
+                "entityList",
+                "toolbarAction",
+                action,
+                allScreenQns,
+                navTargetShortIds,
+                screensByShortId,
+                detailForScreens,
               );
             }
           } else if (action.kind === "drawer") {

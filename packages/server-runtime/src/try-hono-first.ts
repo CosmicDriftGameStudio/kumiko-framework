@@ -31,11 +31,13 @@
 import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 
 export type HonoLikeApp = {
-  // Hono.app.fetch is `(req) => Response | Promise<Response>` (sync if all
-  // handlers are sync, otherwise a Promise). createApiEntrypoint's
+  // Hono.app.fetch is `(req, env?) => Response | Promise<Response>` (sync if
+  // all handlers are sync, otherwise a Promise). createApiEntrypoint's
   // apiHandler matches the same shape. The union accepts both — we await
-  // below, which works for either case.
-  readonly fetch: (req: Request) => Response | Promise<Response>;
+  // below, which works for either case. `socketAddress` rides in as `env`
+  // so requestIdMiddleware/rate-limit can read it via `c.env` without Hono
+  // ever seeing a raw Bun `Server`.
+  readonly fetch: (req: Request, socketAddress?: string) => Response | Promise<Response>;
 };
 
 export type HonoFirstResult = {
@@ -69,8 +71,12 @@ export function stripNoRouteMatchHeader(response: Response): Response {
  * req.clone() because downstream needs to read the request body again
  * (future-proofing for POST/PUT/PATCH — only GET routes today).
  */
-export async function tryHonoFirst(app: HonoLikeApp, req: Request): Promise<HonoFirstResult> {
-  const response = await app.fetch(req.clone());
+export async function tryHonoFirst(
+  app: HonoLikeApp,
+  req: Request,
+  socketAddress?: string,
+): Promise<HonoFirstResult> {
+  const response = await app.fetch(req.clone(), socketAddress);
   const isRouterMiss = response.status === 404 && response.headers.has(NO_ROUTE_MATCH_HEADER_NAME);
   stripNoRouteMatchHeader(response);
   return { matched: !isRouterMiss, response };

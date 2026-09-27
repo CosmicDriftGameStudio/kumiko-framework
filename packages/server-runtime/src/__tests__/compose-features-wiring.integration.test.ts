@@ -27,6 +27,9 @@ import {
   AuthErrors,
   AuthHandlers,
   hashPassword,
+  signToken,
+  TokenPurpose,
+  verifyToken,
 } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   createChannelEmailFeature,
@@ -50,7 +53,9 @@ import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-featu
 import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
+import { LOCALE_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import {
   setupTestStack,
   type TestStack,
@@ -59,7 +64,13 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
-import { composeFeatures } from "../compose-features";
+import { buildComposeAuthOptions, composeFeatures } from "../compose-features";
+import type { RunProdAppAuthOptions } from "../run-prod-app";
+import { resolveAuthMail } from "../run-prod-app-boot-context";
+
+// resolveMailLocale only recognizes locales with a registered mail bundle;
+// an empty bundle is enough to make "de" negotiable here.
+registerMailTranslations("de", {});
 
 const RESET_HMAC = randomBytes(32).toString("base64");
 const VERIFY_HMAC = randomBytes(32).toString("base64");
@@ -136,6 +147,79 @@ async function bootStack(
           confirmHandler: AuthHandlers.verifyEmail,
         },
       }),
+    },
+  });
+
+  await unsafeCreateEntityTable(stack.db, userEntity);
+  await unsafeCreateEntityTable(stack.db, tenantEntity);
+  await unsafePushTables(stack.db, {
+    configValuesTable,
+    tenantMembershipsTable,
+    notificationPreferencesTable,
+  });
+
+  return { stack, emailTransport };
+}
+
+// Boots via resolveAuthMail's `auth.mail` convenience with its own
+// hmacSecret, distinct from the resolveAuthMail call-site secret.
+async function bootMailConventionStack(
+  mailHmacSecret: string,
+  callSiteSecret = "unused-call-site-secret",
+): Promise<{ stack: TestStack; emailTransport: ReturnType<typeof createInMemoryTransport> }> {
+  const emailTransport = createInMemoryTransport();
+
+  const mailAuth = resolveAuthMail<RunProdAppAuthOptions>(
+    {
+      admin: {
+        email: "admin@example.com",
+        password: "pw-long-enough",
+        displayName: "Admin",
+        memberships: [],
+      },
+      mail: {
+        baseUrl: "https://app.example.com",
+        hmacSecret: mailHmacSecret,
+        paths: {
+          resetPassword: (locale) => (locale === "de" ? "/de/reset-password" : "/reset-password"),
+        },
+      },
+    },
+    callSiteSecret,
+    { SMTP_HOST: "localhost" },
+  );
+
+  const features = composeFeatures(
+    [
+      createTemplateResolverFeature(),
+      createRendererFoundationFeature(),
+      createDeliveryFeature(),
+      createRendererSimpleFeature(),
+      createChannelEmailFeature({
+        transport: emailTransport,
+        renderer: simpleRenderer,
+        resolveEmail: async () => "unused@test.local",
+      }),
+    ],
+    {
+      includeBundled: true,
+      authOptions: buildComposeAuthOptions(mailAuth),
+    },
+  );
+
+  const stack = await setupTestStack({
+    features,
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      configResolver: createConfigResolver(),
+    }),
+    authConfig: {
+      membershipQuery: "tenant:query:memberships",
+      loginHandler: AuthHandlers.login,
+      passwordReset: {
+        requestHandler: AuthHandlers.requestPasswordReset,
+        confirmHandler: AuthHandlers.resetPassword,
+      },
     },
   });
 
@@ -447,5 +531,79 @@ describe("composeFeatures wiring — fail-closed ohne authOptions", () => {
     // der Test.
     expect(res.status).toBe(200);
     expect(suite.emailTransport.sent).toHaveLength(0);
+  });
+});
+
+describe("composeFeatures wiring — auth.mail convenience locale + secret", () => {
+  // mailHmacSecret and callSiteSecret are deliberately different values: a
+  // live reset roundtrip must validate against mailHmacSecret, not callSiteSecret.
+  const mailHmacSecret = randomBytes(32).toString("base64");
+  const callSiteSecret = randomBytes(32).toString("base64");
+  let suite: Awaited<ReturnType<typeof bootMailConventionStack>>;
+
+  beforeAll(async () => {
+    suite = await bootMailConventionStack(mailHmacSecret, callSiteSecret);
+  });
+
+  afterAll(async () => {
+    await suite.stack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await deleteRows(suite.stack.db, userTable, {});
+    await deleteRows(suite.stack.db, tenantMembershipsTable, {});
+    suite.emailTransport.sent.length = 0;
+  });
+
+  test("X-Locale: de → reset link carries the localized path and its token is accepted", async () => {
+    await seedUser(suite.stack, { email: "greta@example.com", password: "old-password-1234" });
+
+    const res = await suite.stack.http.raw(
+      "POST",
+      "/api/auth/request-password-reset",
+      { email: "greta@example.com" },
+      { [LOCALE_HEADER_NAME]: "de" },
+    );
+    expect(res.status).toBe(200);
+    const sent = suite.emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    const resetUrl = tokenUrlFromHtml(sent.html);
+    expect(resetUrl.pathname).toBe("/de/reset-password");
+    const token = resetUrl.searchParams.get("token");
+    if (!token) throw new Error("no token in mail link");
+    expect(verifyToken(token, TokenPurpose.passwordReset, mailHmacSecret).ok).toBe(true);
+    expect(verifyToken(token, TokenPurpose.passwordReset, callSiteSecret).ok).toBe(false);
+
+    const confirmRes = await suite.stack.http.raw("POST", "/api/auth/reset-password", {
+      token,
+      newPassword: "brand-new-pw-9876",
+    });
+    expect(confirmRes.status).toBe(200);
+  });
+
+  test("no X-Locale → reset link falls back to the default path", async () => {
+    await seedUser(suite.stack, { email: "henry@example.com", password: "old-password-1234" });
+
+    const res = await suite.stack.http.raw("POST", "/api/auth/request-password-reset", {
+      email: "henry@example.com",
+    });
+    expect(res.status).toBe(200);
+    const sent = suite.emailTransport.sent[0];
+    if (!sent) throw new Error("no email sent");
+    expect(tokenUrlFromHtml(sent.html).pathname).toBe("/reset-password");
+  });
+
+  test("a token signed with the resolveAuthMail call-site secret is rejected", async () => {
+    const seeded = await seedUser(suite.stack, {
+      email: "ivy@example.com",
+      password: "old-password-1234",
+    });
+    const { token } = signToken(seeded.id, TokenPurpose.passwordReset, 15, callSiteSecret);
+
+    const res = await suite.stack.http.raw("POST", "/api/auth/reset-password", {
+      token,
+      newPassword: "should-not-stick-1234",
+    });
+    expect(res.status).toBe(422);
   });
 });

@@ -40,6 +40,7 @@ import {
   tenantComplianceProfileEntity,
 } from "../../compliance-profiles";
 import { createConfigFeature } from "../../config";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
 import {
   createInboundMailSupervisor,
   InboundMailAccountStatuses,
@@ -62,6 +63,11 @@ const SMTP_PORT = Number(process.env["IMAP_LIVE_SMTP_PORT"] ?? 3025);
 const USER = "testuser";
 const PASSWORD = "testpass";
 const ADDRESS = "testuser@example.com";
+
+// greenmail is a local test server, not tenant-supplied — needs the
+// operator escape hatch since HOST is a private/loopback address.
+const originalAllowedPrivateHostsEnv = process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = HOST;
 
 function probe(host: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -127,6 +133,11 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (originalAllowedPrivateHostsEnv === undefined) {
+    delete process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+  } else {
+    process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = originalAllowedPrivateHostsEnv;
+  }
   if (!available) return;
   await stack.cleanup();
   resetPiiSubjectKmsForTests();

@@ -10,6 +10,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
+import type { lookup } from "node:dns/promises";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
@@ -32,8 +33,13 @@ import { ConfigHandlers } from "../../config/constants";
 import { createConfigAccessorFactory } from "../../config/feature";
 import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
 import { configValuesTable } from "../../config/table";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
 import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
-import { mailTransportSmtpFeature, SMTP_PASSWORD } from "../../mail-transport-smtp";
+import {
+  mailTransportSmtpFeature,
+  SMTP_PASSWORD,
+  setSmtpMailHostLookup,
+} from "../../mail-transport-smtp";
 import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
 import { createTenantFeature } from "../../tenant/feature";
 import { tenantEntity } from "../../tenant/schema/tenant";
@@ -85,6 +91,25 @@ let resolver: ConfigResolver;
 let providerRef: MutableMasterKeyProvider;
 
 const testEncryptionKey = randomBytes(32).toString("base64");
+
+// Tenant-supplied SMTP hosts here are placeholder `.test`/`localhost`
+// names that never touch a real server (createSmtpTransport allocates a
+// nodemailer pool lazily, connecting only on send) — pin DNS to a fixed
+// public address so the host-egress guard resolves deterministically
+// instead of depending on real DNS for a name that's never meant to work.
+// "internal-relay.test" is the one exception, mapped to a private address
+// on purpose for scenario 5's resolves-privately rejection case.
+beforeAll(() => {
+  const fakeLookup = (async (hostname: string) => {
+    if (hostname === "internal-relay.test") return [{ address: "127.0.0.1", family: 4 }];
+    return [{ address: "93.184.216.34", family: 4 }];
+  }) as unknown as typeof lookup;
+  setSmtpMailHostLookup(fakeLookup);
+});
+
+afterAll(() => {
+  setSmtpMailHostLookup(undefined);
+});
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher(testEncryptionKey);
@@ -281,5 +306,65 @@ describe("scenario 4: in-memory transport dispatch", () => {
     await stack.http.writeOk("mail-test:write:send", message, admin);
 
     expect(getInbox(admin.tenantId)).toEqual([message]);
+  });
+});
+
+// --- Scenario 5: tenant-supplied SMTP host must resolve to a public address ---
+
+describe("scenario 5: mail-host guard", () => {
+  async function configureSmtp(admin: ReturnType<typeof adminFor>, host: string) {
+    await selectSmtpProvider(admin);
+    await setConfig(admin, "mail-transport-smtp:config:host", host);
+    await setConfig(admin, "mail-transport-smtp:config:port", 587);
+    await setConfig(admin, "mail-transport-smtp:config:from", "noreply@test.local");
+    await setConfig(admin, "mail-transport-smtp:config:auth-user", "admin@test.local");
+    await stack.http.writeOk("secrets:write:set", { key: SMTP_PASSWORD.name, value: "pw" }, admin);
+  }
+
+  test("a private IP-literal host is rejected as unconfigured, naming 'host'", async () => {
+    const admin = adminFor(407);
+    await configureSmtp(admin, "10.0.0.5");
+
+    const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
+    expect(error.httpStatus).toBe(422);
+    expect(error.code).toBe("unconfigured");
+    expect(error.details).toMatchObject({ feature: "mail-transport-smtp", key: "host" });
+  });
+
+  test("a hostname that resolves to a private address is rejected as unconfigured", async () => {
+    const admin = adminFor(408);
+    await configureSmtp(admin, "internal-relay.test");
+
+    const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
+    expect(error.httpStatus).toBe(422);
+    expect(error.code).toBe("unconfigured");
+    expect(error.details).toMatchObject({ feature: "mail-transport-smtp", key: "host" });
+  });
+
+  test("a public tenant-supplied host builds successfully", async () => {
+    const admin = adminFor(409);
+    await configureSmtp(admin, "smtp.public-relay.test");
+
+    const result = (await stack.http.writeOk(TEST_HANDLER_QN, {}, admin)) as Record<
+      string,
+      unknown
+    >;
+    expect(result["hasSend"]).toBe(true);
+  });
+
+  test("an operator-allowlisted private relay bypasses the guard", async () => {
+    process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "ops-relay.internal";
+    try {
+      const admin = adminFor(410);
+      await configureSmtp(admin, "ops-relay.internal");
+
+      const result = (await stack.http.writeOk(TEST_HANDLER_QN, {}, admin)) as Record<
+        string,
+        unknown
+      >;
+      expect(result["hasSend"]).toBe(true);
+    } finally {
+      delete process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+    }
   });
 });

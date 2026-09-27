@@ -9,6 +9,7 @@ import {
   isPiiCiphertext,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import {
   setupTestStack,
   type TestStack,
@@ -124,6 +125,10 @@ beforeAll(async () => {
       // ≤2 requests per (distinct) token, so this ceiling never trips them.
       patRateLimiter: createInMemoryLoginRateLimiter(3, 60_000),
     },
+    // Only exercised by the route-guard describe block below (POST/GET
+    // /api/files) — proves the guard blocks a PAT there even though the
+    // route is actually mounted and reachable for a JWT/cookie caller.
+    files: { storageProvider: createInMemoryFileProvider() },
   });
   h = makeSessionHelpers(stack, TENANT);
 
@@ -548,5 +553,59 @@ describe("PAT list projection (fw#2548 Teil B)", () => {
       expiredActor,
     );
     expect(expired.rows[0]?.status).toBe("expired");
+  });
+});
+
+describe("PAT route guard: dispatcher routes only (#security)", () => {
+  test("PAT → GET /api/sse → 403, even with a granted scope", async () => {
+    const actor = await actorFor("route-guard-sse@example.com");
+    const token = await mintToken(actor);
+    const res = await stack.http.raw("GET", "/api/sse", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("access_denied");
+  });
+
+  test("PAT → POST /api/files → 403 (route is mounted — a JWT gets past the guard to the 400 validation)", async () => {
+    const actor = await actorFor("route-guard-files-post@example.com");
+    const token = await mintToken(actor);
+    const patRes = await h.authedPost("/api/files", token);
+    expect(patRes.status).toBe(403);
+
+    const jwt = await loginToken("route-guard-files-post@example.com");
+    const jwtRes = await h.authedPost("/api/files", jwt);
+    expect(jwtRes.status).toBe(400);
+  });
+
+  test("PAT → GET /api/files/:id → 403 (a JWT gets past the guard to the 404 not_found)", async () => {
+    const actor = await actorFor("route-guard-files-get@example.com");
+    const token = await mintToken(actor);
+    const patRes = await stack.http.raw("GET", "/api/files/does-not-exist", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+    expect(patRes.status).toBe(403);
+
+    const jwt = await loginToken("route-guard-files-get@example.com");
+    const jwtRes = await stack.http.raw("GET", "/api/files/does-not-exist", undefined, {
+      Authorization: `Bearer ${jwt}`,
+    });
+    expect(jwtRes.status).toBe(404);
+  });
+
+  test("PAT → GET /api/auth/tenants → 403 (a JWT reaches the real 200)", async () => {
+    const actor = await actorFor("route-guard-tenants@example.com");
+    const token = await mintToken(actor);
+    const patRes = await stack.http.raw("GET", "/api/auth/tenants", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+    expect(patRes.status).toBe(403);
+
+    const jwt = await loginToken("route-guard-tenants@example.com");
+    const jwtRes = await stack.http.raw("GET", "/api/auth/tenants", undefined, {
+      Authorization: `Bearer ${jwt}`,
+    });
+    expect(jwtRes.status).toBe(200);
   });
 });

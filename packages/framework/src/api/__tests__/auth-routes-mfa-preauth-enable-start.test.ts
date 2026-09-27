@@ -218,9 +218,15 @@ describe("POST /auth/mfa/preauth-enable-start", () => {
   // x-forwarded-for. The second check keys on a sha256 of the
   // preauthSetupToken — prove rotating IPs still hit 429 on the same
   // token, and that a different token does not share that bucket.
+  // trustedProxyHops: 1 makes the single-entry XFF values below resolve to
+  // genuinely distinct client IPs — the default
+  // hops=0 ignores x-forwarded-for outright and would collapse every
+  // request onto one shared "unknown" IP-axis bucket, masking exactly the
+  // token-axis independence this test exists to prove.
   test("preauthSetupToken rate-limit axis survives x-forwarded-for rotation", async () => {
     const { app } = await buildApp({
       mfaPreauthEnableStartRateLimit: createInMemoryLoginRateLimiter(2, 60_000),
+      trustedProxyHops: 1,
     });
     const attempt = (token: string, forwardedFor: string) =>
       app.request(

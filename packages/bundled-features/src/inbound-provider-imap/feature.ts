@@ -44,6 +44,7 @@ import {
   coerceDate,
   createImapClient,
   IMAP_MAILBOX,
+  imapMailHostGuard,
   mapImapError,
   parseImapCursor,
   toRawInboundMessage,
@@ -51,6 +52,8 @@ import {
 
 const FEATURE_NAME = "inbound-provider-imap";
 export const IMAP_PROVIDER_KEY = "imap";
+
+export { setImapMailHostLookup } from "./imap-client";
 
 // =============================================================================
 // Credential-Read — per-Account-Slot, Worker-tauglich (slim ctx).
@@ -88,7 +91,7 @@ async function fetchMessages(
   opts: { readonly backfillWindowDays: number; readonly maxMessages: number },
 ): Promise<InboundFetchResult> {
   const doc = await readCredentialDocument(ctx, account);
-  const client = createImapClient(doc);
+  const client = await createImapClient(doc, imapMailHostGuard());
   let lock: Awaited<ReturnType<typeof client.getMailboxLock>> | undefined;
   try {
     await client.connect();
@@ -164,7 +167,7 @@ async function watchMailbox(
   },
 ): Promise<() => Promise<void>> {
   const doc = await readCredentialDocument(ctx, account);
-  const client: ImapFlow = createImapClient(doc);
+  const client: ImapFlow = await createImapClient(doc, imapMailHostGuard());
   let stopped = false;
 
   try {
@@ -252,7 +255,7 @@ async function watchMailbox(
 export const imapInboundMailPlugin: InboundMailProviderPlugin = {
   verify: async (ctx, account) => {
     const doc = await readCredentialDocument(ctx, account);
-    const client = createImapClient(doc);
+    const client = await createImapClient(doc, imapMailHostGuard());
     try {
       await client.connect();
     } catch (err) {

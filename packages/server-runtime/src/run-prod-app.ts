@@ -145,7 +145,7 @@ import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
-import { buildBunServeOptions } from "./bun-serve-options";
+import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
@@ -248,17 +248,24 @@ function makeDryRunHandle(): ProdAppHandle {
   };
 }
 
-/** Wrapper-API für den Password-Reset-Flow.
+/** Wrapper API for the password-reset flow.
  *
- *  Seit der delivery-Migration trägt PasswordResetOptions selbst `appUrl`
- *  (+ appName/locale) und der Handler mailt via ctx.notify — kein
- *  sendResetEmail-Callback mehr. Apps geben `auth.mail` (Convenience,
- *  resolveAuthMail baut die appUrl) ODER einen expliziten Block. */
-export type PasswordResetSetup = PasswordResetOptions;
+ *  Since the delivery migration PasswordResetOptions carries `appUrl`
+ *  (+ appName/locale) itself and the handler mails via ctx.notify — no
+ *  sendResetEmail callback anymore. Apps pass `auth.mail` (convenience,
+ *  resolveAuthMail builds the appUrl) OR an explicit block.
+ *
+ *  hmacSecret is optional here (unlike PasswordResetOptions): resolveAuthMail
+ *  backfills it, so overriding just appUrl needs no secret of its own. */
+export type PasswordResetSetup = Omit<PasswordResetOptions, "hmacSecret"> & {
+  readonly hmacSecret?: string;
+};
 
-/** Wrapper-API für den Email-Verification-Flow. Symmetrisch zu
- *  PasswordResetSetup — = EmailVerificationOptions (appUrl via delivery). */
-export type EmailVerificationSetup = EmailVerificationOptions;
+/** Wrapper API for the email-verification flow, symmetric to
+ *  PasswordResetSetup (appUrl via delivery, optional hmacSecret). */
+export type EmailVerificationSetup = Omit<EmailVerificationOptions, "hmacSecret"> & {
+  readonly hmacSecret?: string;
+};
 
 /** Wrapper-API für Magic-Link Self-Signup. = SignupOptions (appUrl, die
  *  Mail geht via delivery/ctx.notify wie reset/verify). Anders als reset/
@@ -303,6 +310,9 @@ export type AuthMailOptions = {
   readonly from?: string;
   /** Einzelne Auth-Pfade überschreiben (Default DEFAULT_AUTH_PATHS). */
   readonly paths?: Partial<AuthPaths>;
+  /** Reset/verify token secret, decoupled from JWT_SECRET rotation.
+   *  Falls back to resolveAuthMail's call-site secret when unset. */
+  readonly hmacSecret?: string;
 };
 
 export type RunProdAppAuthOptions = {
@@ -464,6 +474,12 @@ export type RunProdAppOptions = {
   readonly validateBootOptions?: ValidateBootOptions;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
+  /** Ceiling Bun.serve buffers a request body to before any app-level
+   *  body-limit middleware runs. Default is derived from `createFilesFeature`'s
+   *  configured `maxUploadSize`/field `maxSize` (see
+   *  resolveDerivedMaxRequestBodySize in bun-serve-options.ts) — override
+   *  only for a custom ceiling unrelated to that config. */
+  readonly maxRequestBodySize?: number;
   /** Auth-mode: standard features + routes wired, admin seeded. */
   readonly auth?: RunProdAppAuthOptions;
   /** Custom seed functions, run after the admin seed (when auth-mode). */
@@ -668,6 +684,12 @@ export type RunProdAppOptions = {
    *  overridden. `false` disables the whole block; per-header overrides
    *  via the object form — see SecurityHeadersOption. */
   readonly securityHeaders?: SecurityHeadersOption;
+  /** Number of trusted reverse-proxy hops for client-IP resolution — 1:1
+   *  durchgereicht an `buildServer`s
+   *  top-level `ServerOptions.trustedProxyHops`. Wins over the deprecated
+   *  `auth.trustedProxyHops` and `KUMIKO_TRUSTED_PROXY_HOPS`. Default 0 =
+   *  trust no proxy header, only the socket address (or "unknown") counts. */
+  readonly trustedProxyHops?: number;
 };
 
 export type ProdAppHandle = {
@@ -803,6 +825,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // deployment — a self-inflicted DoS, worse than staying on the default.
   const trustedProxyHopsFromEnv = readEnv("KUMIKO_TRUSTED_PROXY_HOPS", envSource);
   const trustedProxyHops = ((): number | undefined => {
+    if (options.trustedProxyHops !== undefined) return options.trustedProxyHops;
     if (options.auth?.trustedProxyHops !== undefined) return options.auth.trustedProxyHops;
     if (trustedProxyHopsFromEnv === undefined) return undefined;
     // Digits-only — parseInt("0x10")/("1e3")/("2x") would silently coerce
@@ -1074,6 +1097,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.observabilityOptions && { observabilityOptions: options.observabilityOptions }),
     ...(options.metrics && { metrics: options.metrics }),
     ...(options.rateLimit && { rateLimit: options.rateLimit }),
+    ...(trustedProxyHops !== undefined && { trustedProxyHops }),
     ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
     ...(effectiveAuth && {
       auth: {
@@ -1296,13 +1320,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             ? { resolvePageHead: options.resolvePageHead, dispatcher: entrypoint.dispatcher }
             : undefined,
           entrypoint.dispatcher,
+          trustedProxyHops ?? 0,
         )
       : // No staticDir (split-deploy / API-only container) → app.fetch's
         // response goes straight to the client, bypassing buildStaticFallback
         // (and with it tryHonoFirst) entirely. Must strip the router-miss
         // marker here too, same reason as the /api/* passthrough in
         // run-prod-app-static-files.ts (see try-hono-first.ts).
-        async (req: Request) => stripNoRouteMatchHeader(await entrypoint.app.fetch(req)),
+        async (req: Request, socketAddress?: string) =>
+          stripNoRouteMatchHeader(await entrypoint.app.fetch(req, socketAddress)),
     options.securityHeaders,
   );
 
@@ -1327,7 +1353,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             "Under Node/vitest pass `autoListen: false` and call the returned `fetch()` directly.",
         );
       }
-      handle.server = Bun.serve(buildBunServeOptions(listenPort, fetchHandler));
+      handle.server = Bun.serve(
+        buildBunServeOptions(
+          listenPort,
+          fetchHandler,
+          options.maxRequestBodySize ?? resolveDerivedMaxRequestBodySize(registry),
+        ),
+      );
 
       // SIGTERM/SIGINT — graceful shutdown. Only registered when we
       // actually own a Bun-server, otherwise the test process picks up

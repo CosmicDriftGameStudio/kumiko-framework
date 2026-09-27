@@ -1,3 +1,8 @@
 // Public API of the mail-transport-smtp bundled-feature.
 
-export { mailTransportSmtpFeature, SMTP_PASSWORD } from "./feature";
+export {
+  mailTransportSmtpEnvSchema,
+  mailTransportSmtpFeature,
+  SMTP_PASSWORD,
+  setSmtpMailHostLookup,
+} from "./feature";

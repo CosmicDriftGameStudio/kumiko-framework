@@ -106,11 +106,8 @@ export function runProjectionRowNavigate(
     const id = action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : "";
     // skip: no entityId column on this row — nothing to navigate to.
     if (id === "") return;
-    nav.navigate({ entity: action.entity, id });
     const params = navigateActionSearchParams(action, row.values);
-    if (params !== undefined) {
-      nav.setSearchParams(params);
-    }
+    navigateWithReturnTo(nav, { entity: action.entity, id }, host, params);
   } else if (action.screen !== undefined) {
     const entityId =
       action.entityId !== undefined ? String(row.values[action.entityId] ?? "") : undefined;
@@ -320,7 +317,10 @@ function buildNavigateToolbarAction(
         action.params !== undefined && record !== undefined
           ? evalRowExtractor(action.params, record)
           : prefill;
-      const params = resolvedParams !== undefined ? stringifyNavParams(resolvedParams) : undefined;
+      const stringifiedParams =
+        resolvedParams !== undefined ? stringifyNavParams(resolvedParams) : undefined;
+      const params =
+        action.tab === undefined ? stringifiedParams : { ...stringifiedParams, tab: action.tab };
       navigateWithReturnTo(nav, target, host, params);
     },
   };
@@ -450,10 +450,6 @@ function buildNavigateRecordAction(
     defaultScreenTargetEntityId,
     sameEntityScreenId,
   } = options;
-  const runParams = (): void => {
-    const params = navigateActionSearchParams(action, record);
-    if (params !== undefined) nav.setSearchParams(params);
-  };
   if (action.entity !== undefined) {
     const targetEntity = action.entity;
     const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
@@ -466,8 +462,8 @@ function buildNavigateRecordAction(
       onPress: () => {
         // No entityId on record (id === "") → nothing to navigate to.
         if (id !== "") {
-          nav.navigate({ entity: targetEntity, id });
-          runParams();
+          const params = navigateActionSearchParams(action, record);
+          navigateWithReturnTo(nav, { entity: targetEntity, id }, host, params);
         }
       },
     };

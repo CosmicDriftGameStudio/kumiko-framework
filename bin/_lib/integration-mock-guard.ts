@@ -25,11 +25,16 @@ export function hasDisallowedMock(content: string): boolean {
 //     fires; the job run + DB state are real (setupTestStack).
 //   run-dev-app: spies console.warn to assert the missing-sessionStore boot
 //     warning fires (#2027); runDevApp itself boots for real (server, DB).
+//   http-route-rate-limit: spies console.warn to assert the warn-once
+//     "trustedProxyHops is 0 but X-Forwarded-For was set" notice fires
+//     exactly once across repeated requests, not once per request; the
+//     stack, HTTP calls and rate-limit enforcement are all real.
 export const MOCK_GUARD_ALLOWLIST: ReadonlySet<string> = new Set([
   "samples/recipes/auth-claims/src/__tests__/feature.integration.test.ts",
   "packages/dev-server/src/__tests__/schema-apply.integration.test.ts",
   "packages/bundled-features/src/user-data-rights/__tests__/run-export-jobs.integration.test.ts",
   "packages/dev-server/src/__tests__/run-dev-app.integration.test.ts",
+  "packages/framework/src/api/__tests__/http-route-rate-limit.integration.test.ts",
 ]);
 
 export function isMockGuardAllowlisted(relativePath: string): boolean {

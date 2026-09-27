@@ -28,6 +28,14 @@ export {
   createInMemoryLoginRateLimiter,
   createRedisLoginRateLimiter,
 } from "./auth-routes";
+export type { ClientIpHeaderSource, ClientIpResolver } from "./client-ip";
+export {
+  assertValidTrustedProxyHops,
+  clientIpSourceFromHonoContext,
+  createClientIpResolver,
+  extractSocketAddress,
+  UNKNOWN_CLIENT_IP,
+} from "./client-ip";
 export type {
   AnonymousExtraRoute,
   AnonymousExtraRouteDeps,
@@ -70,6 +78,7 @@ export {
   buildRequestContextDataFromRequest,
   requestIdMiddleware,
 } from "./request-id-middleware";
+export { DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars";
 export { createApiRoutes } from "./routes";
 export type { KumikoServer, ServerOptions } from "./server";
 export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server";

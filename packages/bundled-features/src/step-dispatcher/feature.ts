@@ -8,8 +8,22 @@
 // the audit trail lives in the event log only — no separate status table.
 
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import * as z from "zod";
 import { type MailSpec, performMailDispatch } from "./mail-runner";
-import { performWebhookDispatch, type WebhookSpec } from "./webhook-runner";
+import {
+  performWebhookDispatch,
+  WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+  type WebhookSpec,
+} from "./webhook-runner";
+
+export const stepDispatcherEnvSchema = z.object({
+  [WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR]: z
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated operator allowlist of private/internal hosts (e.g. a local webhook-receiver for dev/test) that bypass the public-address check for webhook.send targets. Never a tenant-config value.",
+    ),
+});
 
 export const STEP_DISPATCH_AGGREGATE_TYPE = "step-dispatch";
 export const STEP_DISPATCH_REQUESTED_TYPE = "kumiko:system:step.dispatch-requested";
@@ -37,6 +51,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
       category: "infrastructure",
       recommended: false,
     });
+    r.envSchema(stepDispatcherEnvSchema);
 
     r.multiStreamProjection({
       name: "step-dispatcher",

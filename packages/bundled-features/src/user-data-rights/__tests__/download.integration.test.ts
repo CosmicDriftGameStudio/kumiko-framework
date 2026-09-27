@@ -134,6 +134,9 @@ beforeAll(async () => {
     anonymousAccess: {
       defaultTenantId: tenantA,
     },
+    // "download-by-job" below asserts the literal ip stored by requestContext,
+    // so the resolver needs a trusted hop to read x-forwarded-for at all.
+    trustedProxyHops: 1,
   });
   await unsafeCreateEntityTable(stack.db, exportJobEntity);
   await unsafeCreateEntityTable(stack.db, exportDownloadTokenEntity);
@@ -383,10 +386,10 @@ describe("download-by-job :: happy path", () => {
   test("session-auth: Job-Owner → returns signed URL + audit (IP aus X-Forwarded-For)", async () => {
     const { jobId } = await seedDoneJobWithToken();
 
-    // Der UI-Klick laeuft als direkter download-by-job-Query (Client traegt
-    // X-CSRF-Token). Die Audit-IP kommt server-trusted aus dem RequestContext
-    // (X-Forwarded-For, erster Hop), nicht aus einem vom Client mitgeschickten
-    // Feld.
+    // The UI click runs as a direct download-by-job query (client sends
+    // X-CSRF-Token). The audit IP is server-trusted from the RequestContext
+    // (X-Forwarded-For entry appended by the trusted proxy at
+    // trustedProxyHops=1), never from a client-supplied field.
     const res = await stack.http.queryWithHeaders(
       "user-data-rights:query:download-by-job",
       { jobId },
@@ -403,7 +406,7 @@ describe("download-by-job :: happy path", () => {
       lastUsedFromIp: string | null;
     }>;
     expect(row?.useCount).toBe(1);
-    expect(row?.lastUsedFromIp).toBe("10.0.0.5");
+    expect(row?.lastUsedFromIp).toBe("10.0.0.1");
   });
 
   test("failed Job (status != done) → 404 download.unavailable (job-Pfad)", async () => {
@@ -485,6 +488,8 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
   test("POST-Exchange (Fragment-Pfad): happy-path + IP/UA-Audit aus httpRoute-Headers", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
 
+    // trustedProxyHops=1 here → the resolver trusts the last XFF entry, not
+    // the client-spoofable first one.
     const res = await stack.app.fetch(
       new Request("http://test/user-export/by-token", {
         method: "POST",
@@ -506,7 +511,8 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
       lastUsedUserAgent: string | null;
     }>;
     expect(row?.useCount).toBe(1);
-    expect(row?.lastUsedFromIp).toBe("203.0.113.9");
+    expect(row?.lastUsedFromIp).toBe("10.0.0.1");
+    expect(row?.lastUsedFromIp).not.toBe("203.0.113.9");
     expect(row?.lastUsedUserAgent).toBe("e2e-test/3.0");
   });
 

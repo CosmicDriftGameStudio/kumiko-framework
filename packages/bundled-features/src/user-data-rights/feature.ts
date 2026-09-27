@@ -1,4 +1,5 @@
 // kumiko-lint-ignore app-feature-structure Phase-3 conversion tracked in #2312 (feature.ts > 300 lines)
+import { UNKNOWN_CLIENT_IP } from "@cosmicdrift/kumiko-framework/api";
 import {
   createSystemConfig,
   defineFeature,
@@ -486,10 +487,11 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // as a POST body instead of a query string (issue #1271). A dedicated
     // route rather than letting the browser JS call /api/query directly,
     // for two reasons:
-    //   1. IP/UA audit — extractAuditMeta needs the raw request headers,
-    //      which only the server has, not the browser (see the GET path
-    //      above). Without this route every fragment-path download would
-    //      land in download-attempt with lastUsedFromIp/UA = null.
+    //   1. IP/UA audit — extractAuditMeta needs the raw request headers and
+    //      the framework-resolved client IP, which only the server has, not
+    //      the browser (see the GET path above). Without this route every
+    //      fragment-path download would land in download-attempt with
+    //      lastUsedFromIp/UA = null.
     //   2. /api/query is the reserved dispatcher namespace for
     //      authenticated writes/queries — an anonymous cross-origin POST
     //      there isn't guaranteed to be reachable (origin guard).
@@ -497,7 +499,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       method: "POST",
       path: "/user-export/by-token",
       anonymous: true,
-      handler: async (c, { app }) => {
+      handler: async (c, { app, clientIp }) => {
         const url = new URL(c.req.url);
         const parsedBody = await c.req.json().catch(() => null);
         const token =
@@ -507,28 +509,29 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         if (typeof token !== "string" || token.length === 0) {
           return c.json({ error: "missing_token" }, 400);
         }
-        const auditMeta = extractAuditMeta(c.req.raw.headers);
+        const auditMeta = extractAuditMeta(c.req.raw.headers, clientIp);
         return app.fetch(
           new Request(`${url.origin}/api/query`, {
             method: "POST",
-            headers: {
-              "content-type": "application/json",
-              // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
-              // keys off request-id-middleware's own x-forwarded-for read on
-              // THIS internal request — without forwarding it, every fragment-
-              // POST download shares the request's own (empty/localhost) IP,
-              // turning the per-user 30/min backstop into one global bucket
-              // (#1307). Forwarding the same value extractAuditMeta already
-              // computed from the original request's headers doesn't widen the
-              // trust boundary: it's the identical XFF-trusts-first-hop model
-              // request-id-middleware.ts already applies framework-wide.
-              ...(auditMeta.ip ? { "x-forwarded-for": auditMeta.ip } : {}),
-            },
+            headers: { "content-type": "application/json" },
             body: JSON.stringify({
               type: "user-data-rights:query:download-by-token",
               payload: { token, auditMeta },
             }),
           }),
+          // download-by-token.query.ts's `rateLimit: { per: "ip", limit: 30 }`
+          // resolves the client IP from this internal request's env (2nd
+          // app.fetch arg), same as Bun.serve's socket address — without it,
+          // the resolver has neither a trusted XFF entry (trustedProxyHops
+          // defaults to 0, ignoring headers entirely) nor a socket, so every
+          // fragment-POST download would fall to the shared "unknown" bucket,
+          // turning the per-user 30/min backstop into one global bucket an
+          // attacker can exhaust for everyone (#1307). Passing `clientIp`
+          // directly as env — the same server-resolved, trustedProxyHops-
+          // aware value the outer request already trusted — reaches
+          // extractSocketAddress() without going through header/hop-count
+          // logic at all.
+          clientIp,
         );
       },
     });
@@ -727,24 +730,19 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
   });
 }
 
-// Extract Audit-Meta (IP + UA) aus den HTTP-Headers + steck es in die
-// query-payload. Der httpRoute-Wrapper ist trusted-source — er hat den
-// raw-request gesehen, nicht der direkter /api/query-Caller. User der
-// /api/query direkt mit eigenem auditMeta aufruft kann luegen, aber
-// auditMeta ist nicht security-relevant (operator kann mit server-logs
-// crossreferencen wenn forensik gebraucht).
-function extractAuditMeta(headers: Headers): { ip: string | null; userAgent: string | null } {
-  const xff = headers.get("x-forwarded-for");
-  let ip: string | null = null;
-  if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first && first.length > 0) ip = first;
-  }
-  if (!ip) {
-    const real = headers.get("x-real-ip");
-    if (real && real.length > 0) ip = real;
-  }
-  return { ip, userAgent: headers.get("user-agent") };
+// `clientIp` comes from the server's trustedProxyHops-aware resolver instead
+// of reading X-Forwarded-For here, where a forged first entry would spoof the
+// audit IP. A caller hitting /api/query directly (bypassing this httpRoute
+// wrapper) with its own auditMeta can still lie — accepted, see
+// download-by-token.query.ts.
+export function extractAuditMeta(
+  headers: Headers,
+  clientIp: string,
+): { ip: string | null; userAgent: string | null } {
+  return {
+    ip: clientIp === UNKNOWN_CLIENT_IP ? null : clientIp,
+    userAgent: headers.get("user-agent"),
+  };
 }
 
 // Interstitial page for the magic-link fragment exchange (see the

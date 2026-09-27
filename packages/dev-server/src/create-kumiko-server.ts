@@ -23,6 +23,7 @@ import { resolveAnonymousAccessFromRegistry } from "@cosmicdrift/kumiko-bundled-
 import {
   type AuthRoutesConfig,
   buildRequestContextDataFromRequest,
+  createClientIpResolver,
   type ExtraRouteDefinition,
   generateToken,
   requestContext,
@@ -46,7 +47,10 @@ import {
   resolveAndInjectPageHead,
 } from "@cosmicdrift/kumiko-headless/apex";
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
-import { buildBunServeOptions } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
+import {
+  buildBunServeOptions,
+  resolveDerivedMaxRequestBodySize,
+} from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
 import {
   makeDispatchSystemWrite,
   type SystemWireDeps,
@@ -230,6 +234,10 @@ export type CreateKumikoServerOptions = {
    *  inside buildServer (setupTestStack), before the Static/HTML-fallback,
    *  so an own GET (/feed.xml, /og-image, …) wins over the dev-asset path. */
   readonly extraRoutes?: readonly ExtraRouteDefinition[];
+  /** Forwarded to setupTestStack → buildServer's top-level
+   *  `ServerOptions.trustedProxyHops`. Dev usually runs unproxied, so this
+   *  is normally left unset (default 0). */
+  readonly trustedProxyHops?: number;
   /** Hook for app-wired co-running components that need the system-write
    *  dispatcher — runs after buildServer, before onAfterSetup (seeds), with
    *  NO `app` (routes are declared via `extraRoutes`, not wired here). */
@@ -493,9 +501,10 @@ async function tryServePublicAsset(
   pathname: string,
   app: HonoLikeApp,
   publicDir: string,
+  socketAddress?: string,
 ): Promise<Response | undefined> {
   if (!isRoutableGetOrHead(req, pathname) || !pathname.includes(".")) return undefined;
-  const honoTry = await tryHonoFirst(app, req);
+  const honoTry = await tryHonoFirst(app, req, socketAddress);
   if (honoTry.matched) {
     return honoTry.response;
   }
@@ -893,6 +902,7 @@ export async function createKumikoServer(
       effectiveFeatures: options.effectiveFeatures,
     }),
     ...(options.extraRoutes !== undefined && { extraRoutes: options.extraRoutes }),
+    ...(options.trustedProxyHops !== undefined && { trustedProxyHops: options.trustedProxyHops }),
     // jobs.consumerLane unset = enqueuer-only; startDevJobRunners below is
     // the sole consumer/cron-scheduler per lane, so runOnBoot/cron jobs
     // don't double-fire. queueNamePrefix keeps this boot's queues isolated
@@ -1005,17 +1015,36 @@ export async function createKumikoServer(
   //
   // Anonymous-role systemQuery, shared by resolvePageHead and hostDispatch —
   // mirrors runProdApp's HostDispatchFn deps so dev/prod stay symmetric.
+  // Own resolver mirroring the same effective hops as setupTestStack's
+  // internal buildServer — this path runs for
+  // page-head/hostDispatch resolution, ahead of requestIdMiddleware's
+  // /api/* mount, so it can't reuse that instance. Two independent
+  // warn-once flags in dev is an accepted, low-risk gap (dev normally
+  // runs unproxied — see CreateKumikoServerOptions.trustedProxyHops).
+  const pageHeadClientIpResolver = createClientIpResolver(
+    options.trustedProxyHops ?? 0,
+    "createKumikoServer(pageHead)",
+  );
   const buildDevSystemQuery =
-    (req: Request): PageHeadSystemQuery =>
+    (req: Request, socketAddress?: string): PageHeadSystemQuery =>
     (type, payload, tenantId) =>
-      requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
-        stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+      requestContext.run(
+        requestContext.get() ??
+          buildRequestContextDataFromRequest(req, {
+            resolver: pageHeadClientIpResolver,
+            socketAddress,
+          }),
+        () => stack.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
       );
 
   // resolvePageHead goes through the same headless resolveAndInjectPageHead
   // that runProdApp uses, so dev and e2e exercise the one timeout and
   // fallback path instead of a second copy of it (#3026).
-  const htmlResponse = async (entryName: string, req: Request): Promise<Response> => {
+  const htmlResponse = async (
+    entryName: string,
+    req: Request,
+    socketAddress?: string,
+  ): Promise<Response> => {
     const template = htmlTemplates.get(entryName) ?? defaultTemplate;
     const headers = new Headers();
     headers.set("Content-Type", "text/html; charset=utf-8");
@@ -1033,7 +1062,7 @@ export async function createKumikoServer(
       html = await resolveAndInjectPageHead(html, options.resolvePageHead, {
         path: url.pathname,
         host,
-        systemQuery: buildDevSystemQuery(req),
+        systemQuery: buildDevSystemQuery(req, socketAddress),
       });
     }
     return new Response(html, { headers });
@@ -1051,7 +1080,7 @@ export async function createKumikoServer(
   // process.cwd() is the app workspace, so public/ is its static asset dir.
   const publicDir = resolve(process.cwd(), "public");
 
-  const handleFetch = async (req: Request): Promise<Response> => {
+  const handleFetch = async (req: Request, socketAddress?: string): Promise<Response> => {
     const url = new URL(req.url);
 
     // Specific routes first — assets, reload-SSE, API.
@@ -1149,14 +1178,16 @@ export async function createKumikoServer(
       isRoutableGetOrHead(req, url.pathname) &&
       !url.pathname.includes(".")
     ) {
-      const honoTry = await tryHonoFirst(stack.app, req);
+      const honoTry = await tryHonoFirst(stack.app, req, socketAddress);
       if (honoTry.matched) {
         return honoTry.response;
       }
       // Discriminated-Dispatch — symmetric zu prod. Ohne hostDispatch
       // landet das im Single-Entry-Default ("client" + Schema-Inject).
       if (options.hostDispatch !== undefined) {
-        const dispatch = await options.hostDispatch(req, { systemQuery: buildDevSystemQuery(req) });
+        const dispatch = await options.hostDispatch(req, {
+          systemQuery: buildDevSystemQuery(req, socketAddress),
+        });
         if (dispatch.kind === "redirect") {
           return new Response(null, {
             status: dispatch.status ?? 302,
@@ -1174,21 +1205,27 @@ export async function createKumikoServer(
             headers: { "Content-Type": "text/html; charset=utf-8" },
           });
         }
-        return htmlResponse(dispatch.entryName, req);
+        return htmlResponse(dispatch.entryName, req, socketAddress);
       }
-      return htmlResponse("client", req);
+      return htmlResponse("client", req, socketAddress);
     }
 
     // Static assets under public/ — see tryServePublicAsset's own comment
     // for the Hono → file → router-miss ordering.
-    const staticAsset = await tryServePublicAsset(req, url.pathname, stack.app, publicDir);
+    const staticAsset = await tryServePublicAsset(
+      req,
+      url.pathname,
+      stack.app,
+      publicDir,
+      socketAddress,
+    );
     if (staticAsset !== undefined) return staticAsset;
 
     // Bypasses tryHonoFirst entirely (API paths, /sse, non-GET/HEAD), so the
     // router-miss marker must be stripped here too — otherwise an unmatched
     // path would leak it straight to the client (see try-hono-first.ts's
     // header-hygiene note).
-    return stripNoRouteMatchHeader(await stack.app.fetch(req));
+    return stripNoRouteMatchHeader(await stack.app.fetch(req, socketAddress));
   };
 
   // --- HTTP server (Bun only) ---
@@ -1200,7 +1237,7 @@ export async function createKumikoServer(
   // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
   const server = hasBun
     ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve(
-        buildBunServeOptions(port, handleFetch),
+        buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry)),
       )
     : undefined;
 
@@ -1234,7 +1271,10 @@ export async function createKumikoServer(
           if (action === "ignore") return;
           if (action === "restart") {
             logInfo(
-              `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht)`,
+              `[kumiko-server] schema change in ${filename} — restarting (Bun caches imports, hot-reload reicht hier nicht). ` +
+                "The kumiko-dev wrapper (package.json's `dev` script) respawns automatically " +
+                "and re-syncs new r.entity() columns on the new boot; running this entry " +
+                "directly (not via kumiko-dev) exits here without restarting.",
             );
             await stop();
             process.exit(75);

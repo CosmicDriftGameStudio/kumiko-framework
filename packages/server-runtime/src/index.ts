@@ -17,7 +17,7 @@ export type {
   RunProdAppOptions,
   SignupSetup,
 } from "./run-prod-app";
-export { runProdApp } from "./run-prod-app";
+export { requireEnv, runProdApp } from "./run-prod-app";
 export type {
   RunWorkerAppOptions,
   WorkerAppHandle,

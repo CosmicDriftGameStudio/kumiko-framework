@@ -100,6 +100,11 @@ beforeEach(async () => {
     userSessionTable,
     eventsTable,
   ]);
+  // login.write.ts is `per: "ip+handler"` rate-limited (20/60s). h.login()
+  // goes through stack.http.raw with no socket address, so every test in
+  // this file shares one "unknown" IP bucket — flush it per test so the
+  // file's cumulative login() calls can't push a later test over the cap.
+  await stack.redis.flushNamespace();
 });
 
 describe("sessions feature — login → check → revoke → rejected", () => {

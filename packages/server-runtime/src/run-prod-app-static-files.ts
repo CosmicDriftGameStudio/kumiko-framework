@@ -1,9 +1,11 @@
 import {
   buildRequestContextDataFromRequest,
   type CachePolicy,
+  type ClientIpResolver,
   cachedResponse,
   computeStrongEtag,
   computeWeakEtag,
+  createClientIpResolver,
   requestContext,
 } from "@cosmicdrift/kumiko-framework/api";
 import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
@@ -126,7 +128,7 @@ export type PageHeadOptions = {
 };
 
 export function buildStaticFallback(
-  apiHandler: (req: Request) => Response | Promise<Response>,
+  apiHandler: (req: Request, socketAddress?: string) => Response | Promise<Response>,
   staticDir: string,
   hostDispatch?: HostDispatchFn,
   pageHead?: PageHeadOptions,
@@ -135,8 +137,15 @@ export function buildStaticFallback(
    *  throw). Separate from `pageHead.dispatcher` since resolvePageHead is
    *  optional independently of hostDispatch. */
   hostDispatchDispatcher?: QueryDispatcher,
-): (req: Request) => Promise<Response> {
+  /** trustedProxyHops for the systemQuery request-context builds below —
+   *  1:1 with runProdApp's effective value. */
+  trustedProxyHops = 0,
+): (req: Request, socketAddress?: string) => Promise<Response> {
   const indexHtml = `${staticDir}/index.html`;
+  const clientIpResolver: ClientIpResolver = createClientIpResolver(
+    trustedProxyHops,
+    "buildStaticFallback",
+  );
 
   // Reads an HTML file from disk. No schema injection — createKumikoApp
   // fetches it itself from the authenticated GET /api/schema, so the HTML
@@ -187,13 +196,16 @@ export function buildStaticFallback(
   async function applyPageHead(
     req: Request,
     html: { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number },
+    socketAddress?: string,
   ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number }> {
     if (!pageHead) return html;
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
     const systemQuery: PageHeadSystemQuery = (type, payload, tenantId) =>
-      requestContext.run(requestContext.get() ?? buildRequestContextDataFromRequest(req), () =>
-        pageHead.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
+      requestContext.run(
+        requestContext.get() ??
+          buildRequestContextDataFromRequest(req, { resolver: clientIpResolver, socketAddress }),
+        () => pageHead.dispatcher.query(type, payload, createAnonymousUser(tenantId)),
       );
     const text = new TextDecoder().decode(html.bytes);
     const injected = await resolveAndInjectPageHead(text, pageHead.resolvePageHead, {
@@ -215,7 +227,7 @@ export function buildStaticFallback(
   // HTML-Fallback fällt (Root oder SPA-Route). Returnt entweder die
   // resolved Response (redirect/404/html) oder null wenn der Default-
   // Pfad weiterlaufen soll.
-  async function tryHostDispatch(req: Request): Promise<Response | null> {
+  async function tryHostDispatch(req: Request, socketAddress?: string): Promise<Response | null> {
     if (!hostDispatch) return null;
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
@@ -226,7 +238,8 @@ export function buildStaticFallback(
         );
       }
       return requestContext.run(
-        requestContext.get() ?? buildRequestContextDataFromRequest(req),
+        requestContext.get() ??
+          buildRequestContextDataFromRequest(req, { resolver: clientIpResolver, socketAddress }),
         () => hostDispatchDispatcher.query(type, payload, createAnonymousUser(tenantId)),
       );
     };
@@ -255,18 +268,18 @@ export function buildStaticFallback(
     // otherwise a shared cache could serve Host A's HTML to Host B.
     const extraHeaders: Record<string, string> = { vary: "Host" };
     if (result.csp) extraHeaders["content-security-policy"] = result.csp;
-    const withHead = await applyPageHead(req, html);
+    const withHead = await applyPageHead(req, html, socketAddress);
     return serveHtmlFile(req, "/index.html", withHead, extraHeaders);
   }
 
-  return async (req: Request): Promise<Response> => {
+  return async (req: Request, socketAddress?: string): Promise<Response> => {
     const url = new URL(req.url);
     // /api/* and /health → always Hono (Dispatcher + Health-Probe). Bypasses
     // tryHonoFirst entirely, so the router-miss marker must be stripped
     // here too — otherwise an unmatched /api/* path would leak it straight
     // to the client (see try-hono-first.ts's header-hygiene note).
     if (url.pathname.startsWith("/api/") || url.pathname === "/health") {
-      return stripNoRouteMatchHeader(await apiHandler(req));
+      return stripNoRouteMatchHeader(await apiHandler(req, socketAddress));
     }
 
     // Hono-First für andere Pfade: extraRoutes (z.B. /feed.xml,
@@ -274,7 +287,7 @@ export function buildStaticFallback(
     // dem Disk-Lookup greifen, sonst schluckt der SPA-Fallback unten
     // unbekannte Pfade als index.html. Shared mit dev-server's
     // createKumikoServer.handleFetch damit beide IDENTISCHE Semantik haben.
-    const honoTry = await tryHonoFirst({ fetch: apiHandler }, req);
+    const honoTry = await tryHonoFirst({ fetch: apiHandler }, req, socketAddress);
     if (honoTry.matched) {
       return honoTry.response;
     }
@@ -303,13 +316,13 @@ export function buildStaticFallback(
 
     // Root or SPA route — hostDispatch applies here when set.
     // Without hostDispatch: the old single-app path (index.html).
-    const dispatched = await tryHostDispatch(req);
+    const dispatched = await tryHostDispatch(req, socketAddress);
     if (dispatched) return dispatched;
 
     // Default single-app path: index.html, no schema injection.
     const index = await readHtmlFile(indexHtml);
     if (index) {
-      const withHead = await applyPageHead(req, index);
+      const withHead = await applyPageHead(req, index, socketAddress);
       return serveHtmlFile(req, "/index.html", withHead);
     }
 
