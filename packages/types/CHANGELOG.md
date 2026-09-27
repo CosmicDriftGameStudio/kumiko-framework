@@ -1,5 +1,105 @@
 # @cosmicdrift/kumiko-types
 
+## 0.320.0
+
+### Minor Changes
+
+- c61cc7a: ToolbarAction's navigate variant gets `tab`, merged into the navigate search params and checked by the boot validator against the target projectionDetail's sections, same as RowActionNavigate.tab and MetricNavigate.tab (fw#3260)
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: ToolbarAction's navigate variant gets `tab`
+  detail: |
+    The navigate-kind ToolbarAction (entityList, projectionList and
+    relatedList-section toolbars) accepts `tab?: string`, the section id of the
+    tab to activate on the target projectionDetail (layout.mode "tabs"),
+    analogous to RowActionNavigate.tab and MetricNavigate.tab.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Toolbar navigate actions merge `tab` into the search params
+  detail: |
+    buildNavigateToolbarAction (shared by entityList, projectionList and
+    relatedList-section toolbars) sets `tab` in the same params object as any
+    declared `params`/prefill, so it lands in the single navigateWithReturnTo
+    call next to returnTo.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validator checks the target tab of toolbar navigate actions
+  detail: |
+    A ToolbarAction with kind "navigate" and `tab` fails boot when its target
+    is not a projectionDetail with layout.mode "tabs" or has no section with
+    that id. The check covers entityList, projectionList and relatedList
+    section toolbars.
+  -->
+
+### Patch Changes
+
+- 02cc7b3: GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user
+
+  `buildAppSchema`'s output previously shipped every screen, nav, workspace and content-collection to any signed-in caller, regardless of role — a screen's own `access` rule only ever hid it in the UI, never removed it from the payload a curious client could still read. `projectAppSchemaForRoles` now strips every screen/nav/workspace/content-collection reference the caller's roles can't see (screens, nav entries, row/toolbar/related-list actions, entityEdit redirects, dashboard panels and metric navigation targets, tree actions, workspace nav membership) before the route serializes a response, closing empty parent nav sections and workspaces left with no surviving members along the way. Entities and translations are still shipped in full — the projection is a UI-visibility concern, not an entity-authorization concern; the dispatcher's `hasAccess` default-deny check is unchanged.
+
+  The route now builds the full schema lazily once per process and caches the projected JSON/ETag per canonical (deduplicated, sorted) role set — tenant is deliberately not part of the cache key, since the projection only depends on roles.
+
+  `isUiAccessGranted` is the new shared default-visible UI predicate in `@cosmicdrift/kumiko-types`, re-exported through `framework/ui-types`. The renderer's `screenAccessAllows` is now an alias of it, and headless nav resolution and renderer-web's workspace filter call it directly instead of carrying their own copies.
+
+  A deep link to a screen the caller's roles no longer receive now shows the "screen not found" banner instead of the access-denied banner, because the screen is no longer part of that caller's schema.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user
+  -->
+
+- c498565: `concurrency: "sequential"` job lock now scoped by `queueNamePrefix`; corrected docs and test to the actual mutual-exclusion (not FIFO) contract
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Sequential-job lock key scoped by queueNamePrefix; contract clarified as mutual exclusion, not FIFO
+  detail: |
+    The per-name Redis SETNX lock behind `concurrency: "sequential"` used a fixed `kumiko:lock:seq:<lane>:` key, unlike the queues themselves, which are scoped by `queueNamePrefix`. Two runners sharing a Redis but isolated by distinct prefixes (e.g. per-test-run prefixes) could collide on the same lock key even though their queues never saw each other's jobs. The key is now `kumiko:lock:seq:<queueNamePrefix>:<lane>:`. Separately, `JobDefinition.concurrency`'s doc comment and the integration test now state the contract precisely: "sequential" guarantees same-name dispatches never run concurrently, but does not guarantee they run in dispatch order. A lock loser is re-enqueued to the back of its queue, so a later dispatch can still complete before an earlier one. See fw#3265 for the local repro evidence backing this.
+  -->
+
+- c61cc7a: user-data-rights takes the audit IP from the shared client-IP resolver
+
+  `extractAuditMeta` read the first `X-Forwarded-For` entry itself — a header any client can set — so a caller could plant a fake IP for their own download attempt in the audit trail (`recordDownloadUse`/`recordInvalidAttempt`). `r.httpRoute` handlers had no access to the server's `trustedProxyHops`-aware resolver at all: `requestIdMiddleware` only wraps `/api/*`, and `user-export/by-token` is an anonymous `r.httpRoute`. `HttpRouteHandlerDeps` gained a `clientIp: string` field, computed once per request in `buildServer`'s httpRoute mount loop from the same shared resolver instance `/api/*` and the L1/L2 rate limits already use. `extractAuditMeta` now takes that resolved value as a parameter instead of parsing headers itself.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: HttpRouteHandlerDeps carries the resolved clientIp
+  detail: |
+    `r.httpRoute` handlers get a new `clientIp: string` dep, resolved once per
+    request via `buildServer`'s existing shared `clientIpResolver` (the same
+    instance `requestIdMiddleware` and the L1/L2 rate limits use), instead of
+    each handler parsing `X-Forwarded-For`/`X-Real-IP` itself with no
+    knowledge of the deployment's actual `trustedProxyHops`. `UNKNOWN_CLIENT_IP`
+    is now exported from `@cosmicdrift/kumiko-framework/api` so callers can
+    detect the resolver's no-value sentinel without hardcoding the string.
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Audit IP comes from the framework's trustedProxyHops-aware resolver, not a self-parsed X-Forwarded-For
+  detail: |
+    `extractAuditMeta` no longer reads `X-Forwarded-For`/`X-Real-IP` itself —
+    it takes the `clientIp` the `/user-export/by-token` httpRoute handler now
+    receives from `HttpRouteHandlerDeps`, mapping the resolver's `unknown`
+    sentinel to `null`. Closes the spoofed-first-XFF-entry gap for that
+    route. A caller invoking `/api/query`'s `download-by-token` handler
+    directly (not through this httpRoute) can still pass its own `auditMeta`
+    in the payload — a pre-existing, documented tradeoff (the handler's own
+    comment: audit data isn't security-relevant), unchanged by this fix.
+  -->
+
 ## 0.319.0
 
 ## 0.318.0

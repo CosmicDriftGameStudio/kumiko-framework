@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "Audit IP comes from the framework's trustedProxyHops-aware resolver, not a self-parsed X-Forwarded-For",
+    "detail": "`extractAuditMeta` no longer reads `X-Forwarded-For`/`X-Real-IP` itself —\nit takes the `clientIp` the `/user-export/by-token` httpRoute handler now\nreceives from `HttpRouteHandlerDeps`, mapping the resolver's `unknown`\nsentinel to `null`. Closes the spoofed-first-XFF-entry gap for that\nroute. A caller invoking `/api/query`'s `download-by-token` handler\ndirectly (not through this httpRoute) can still pass its own `auditMeta`\nin the payload — a pre-existing, documented tradeoff (the handler's own\ncomment: audit data isn't security-relevant), unchanged by this fix."
+  },
+  {
     "version": "0.313.0",
     "type": "fix",
     "title": "Privacy-center screen subtitle is now translatable",

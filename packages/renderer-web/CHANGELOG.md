@@ -1,5 +1,125 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.320.0
+
+### Minor Changes
+
+- fe36eeb: AppSchema now leaves the server only via an authenticated GET /api/schema
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: Static fallback no longer injects __KUMIKO_SCHEMA__ into HTML
+  migration: |
+    `HostDispatchResult.injectSchema` is deprecated and ignored — HTML never
+    carries the schema anymore, in prod or dev. `createKumikoApp` now fetches
+    the schema itself from the authenticated `GET /api/schema` after its
+    clientFeature gates (e.g. an auth gate) let rendering through, so a
+    signed-in admin app keeps working without changes. Anything that read
+    `window.__KUMIKO_SCHEMA__` directly (custom clients, e2e fixtures) must
+    switch to fetching `/api/schema` instead. An anonymously reachable page
+    that used to render schema-based screens needs `createPublicSurface`,
+    which never carries a schema. The `@cosmicdrift/kumiko-server-runtime/inject-schema`
+    subpath export is removed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: New GET /api/schema route
+  detail: |
+    Behind the existing `/api/*` auth guard. A signed-in, non-anonymous user
+    gets the built `AppSchema` as JSON with `Cache-Control: private, no-cache`
+    and a strong `ETag`; a matching `If-None-Match` gets a bodyless 304 (still
+    behind the same auth check, so an anonymous request with a stolen/guessed
+    ETag still 401s instead of getting a 304). Anonymous or missing auth gets
+    the same 401 `unauthenticated` response shape as every other non-public
+    route.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Dev-server HTML no longer injects __KUMIKO_SCHEMA__ either
+  migration: |
+    Same semantics as the prod change: `DevHostDispatchResult.injectSchema`
+    is deprecated and ignored. The dev-server's auto-mint mode still sets
+    the `kumiko_auth`/`kumiko_csrf` cookies on the HTML response, so a
+    client-side fetch to `/api/schema` is authenticated immediately without
+    a real login round-trip.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: createKumikoApp loads the schema after the auth gate, with loading/error states
+  detail: |
+    When neither `options.schema` nor `window.__KUMIKO_SCHEMA__` is set,
+    `createKumikoApp` now fetches the schema from `GET /api/schema` itself,
+    only after its clientFeature gates let rendering through (so an
+    unauthenticated visitor never triggers the request). While the fetch is
+    in flight a minimal loading placeholder renders; a 401/403 shows a clear
+    "sign in required" message with no auto-retry; any other failure shows a
+    retry button. Losing schema access mid-session (a gate withdrawing
+    children, e.g. on logout) resets the fetched schema so the next mount
+    re-fetches instead of reusing a previous session's — important once
+    schemas become role-dependent. An explicit `options.schema` never resets
+    this way.
+  -->
+
+### Patch Changes
+
+- c61cc7a: `navigateWithReturnTo` accepts entity ObjectTargets, so row navigate actions, legacy rowClick and the default detailFor row click now carry `returnTo` the same way screen targets already do (fw#3260)
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: navigateWithReturnTo carries returnTo for entity ObjectTargets
+  detail: |
+    navigateWithReturnTo now accepts a NavTarget (ScreenTarget or ObjectTarget),
+    not just ScreenTarget. For an entity target it compares the resolved href
+    against the host's to detect a self-navigate (no returnTo) and otherwise
+    sets returnTo to the host snapshot, same as the existing screen-target
+    path. runProjectionRowNavigate, buildNavigateRecordAction, EntityListBody's
+    row navigate and related-list-section's legacy rowClick now go through
+    this for entity actions.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: The default detailFor row click carries returnTo
+  detail: |
+    create-app's default row click to a declared detailFor screen now calls
+    navigateWithReturnTo with the current host, so navigating to an entity's
+    detail screen from a list carries returnTo like every other navigate
+    action already does.
+  -->
+
+- 02cc7b3: GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user
+
+  `buildAppSchema`'s output previously shipped every screen, nav, workspace and content-collection to any signed-in caller, regardless of role — a screen's own `access` rule only ever hid it in the UI, never removed it from the payload a curious client could still read. `projectAppSchemaForRoles` now strips every screen/nav/workspace/content-collection reference the caller's roles can't see (screens, nav entries, row/toolbar/related-list actions, entityEdit redirects, dashboard panels and metric navigation targets, tree actions, workspace nav membership) before the route serializes a response, closing empty parent nav sections and workspaces left with no surviving members along the way. Entities and translations are still shipped in full — the projection is a UI-visibility concern, not an entity-authorization concern; the dispatcher's `hasAccess` default-deny check is unchanged.
+
+  The route now builds the full schema lazily once per process and caches the projected JSON/ETag per canonical (deduplicated, sorted) role set — tenant is deliberately not part of the cache key, since the projection only depends on roles.
+
+  `isUiAccessGranted` is the new shared default-visible UI predicate in `@cosmicdrift/kumiko-types`, re-exported through `framework/ui-types`. The renderer's `screenAccessAllows` is now an alias of it, and headless nav resolution and renderer-web's workspace filter call it directly instead of carrying their own copies.
+
+  A deep link to a screen the caller's roles no longer receive now shows the "screen not found" banner instead of the access-denied banner, because the screen is no longer part of that caller's schema.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: GET /api/schema now returns a per-role projection instead of the full AppSchema to every authenticated user
+  -->
+
+- Updated dependencies [c61cc7a]
+- Updated dependencies [fe36eeb]
+- Updated dependencies [02cc7b3]
+- Updated dependencies [c61cc7a]
+  - @cosmicdrift/kumiko-renderer@0.320.0
+  - @cosmicdrift/kumiko-headless@0.320.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.320.0
+
 ## 0.319.0
 
 ### Patch Changes

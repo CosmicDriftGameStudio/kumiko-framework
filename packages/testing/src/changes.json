@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "requireRealProviders from kumiko-testing/e2e, SSE events for seedTenant tenants",
+    "detail": "`@cosmicdrift/kumiko-testing/e2e` re-exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` from the framework's `testing/real-providers` subpath instead of keeping its own copy. Playwright specs and configs, which load under Node, no longer have to avoid the framework's `./testing` barrel.\n\n`seedTenant(stack, …)` subscribes `stack.events.sse` to the seeded tenant's SSE channel. Before, `setupTestStack` only listened on test tenant 1, so writes in a seeded tenant never showed up on `events.sse` and tests had to call `stack.sseBroker.addClient(tenantChannel(id), …)` themselves; that manual call can go. Events from `persist: true` seeding (tenant, user, membership) now also land on `events.sse` after the next drain."
+  },
+  {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "Schema-required test env keys (JWT_SECRET, secrets master key) now default in every bunfig variant",
+    "detail": "Apps with the secrets, field-encryption or auth-mfa features previously had\nto hand-roll a `test-setup/env.preload.ts` to satisfy the env schema's\n`JWT_SECRET` and `KUMIKO_SECRETS_MASTER_KEY_*` in unit and DOM tests, since\nonly `SERVICE_ENV_DEFAULTS` (integration/real only) carried a `JWT_SECRET`\ndefault and no map carried the master key. The new `SCHEMA_ENV_DEFAULTS`\nmap lives next to `SERVICE_ENV_DEFAULTS` and is preloaded in all four bunfig\nvariants (unit, DOM, integration, real) via a new `preload/schema-env-defaults`\nmodule, filled with `??=` so an app's own value is kept; only a\n`JWT_SECRET` shorter than 32 characters is replaced.\n`SERVICE_ENV_DEFAULTS` no longer duplicates `JWT_SECRET` — it has one home\nnow. Unit and DOM still carry no service-endpoint defaults."
+  },
+  {
     "version": "0.318.0",
     "type": "improvement",
     "title": "integration-runner exports a dedicated subpath",

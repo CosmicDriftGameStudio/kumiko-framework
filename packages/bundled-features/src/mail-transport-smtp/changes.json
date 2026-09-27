@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "version": "0.320.0",
+    "type": "breaking",
+    "title": "The tenant-configured SMTP host must resolve to a public address",
+    "migration": "An operator relying on an internal SMTP relay or a local dev/test server\n(mailpit, MailHog on localhost or a private IP) now gets a build-time\n422 (code \"unconfigured\", naming the \"host\" config-key) unless that host\nis explicitly allowed. Set the operator env var (comma-separated, read\nat connect time — no boot-time code call needed) before starting the\nprocess:\n  KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS=mailpit.internal\nThis is an operator env var, not a tenant config value — a tenant cannot\nadd their own host to this list. Shared with inbound-provider-imap: one\nenv var covers both SMTP and IMAP allowlisting. A DNS resolution failure\nfor a genuinely unreachable host now surfaces distinctly (not as\n\"unconfigured\") instead of only failing later at first-send time."
+  },
+  {
+    "version": "0.320.0",
+    "type": "fix",
+    "title": "SMTP connect failures no longer distinguish a blocked host from a DNS failure in the thrown message",
+    "detail": "`buildSmtpTransport` throws an `UnconfiguredError` for a blocked host and\na `HostResolutionError` for a DNS failure — both classes unchanged for\nretry semantics — but the `.message` text is now byte-identical between\nthe two (\"... host is not reachable or not allowed\"). The configured\nhost and the underlying error are now logged via the feature's own\nlogger instead of being embedded in the thrown message."
+  }
+]

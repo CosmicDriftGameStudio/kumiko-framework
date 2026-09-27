@@ -1,5 +1,75 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.320.0
+
+### Minor Changes
+
+- 9907bc6: `requireRealProviders()` is importable from `@cosmicdrift/kumiko-testing/e2e`, and `seedTenant()` tenants receive SSE events on `stack.events.sse`
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Real-provider helpers under the import-free subpath testing/real-providers
+  detail: |
+    `@cosmicdrift/kumiko-framework/testing/real-providers` exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` without pulling in the `./testing` barrel and its Bun-only dependencies, so code that loads under Node can use them.
+  -->
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: requireRealProviders from kumiko-testing/e2e, SSE events for seedTenant tenants
+  detail: |
+    `@cosmicdrift/kumiko-testing/e2e` re-exports `requireRealProviders`, `isRealProviderRun` and `REAL_PROVIDERS_ENV` from the framework's `testing/real-providers` subpath instead of keeping its own copy. Playwright specs and configs, which load under Node, no longer have to avoid the framework's `./testing` barrel.
+
+    `seedTenant(stack, …)` subscribes `stack.events.sse` to the seeded tenant's SSE channel. Before, `setupTestStack` only listened on test tenant 1, so writes in a seeded tenant never showed up on `events.sse` and tests had to call `stack.sseBroker.addClient(tenantChannel(id), …)` themselves; that manual call can go. Events from `persist: true` seeding (tenant, user, membership) now also land on `events.sse` after the next drain.
+  -->
+
+- ef64fa9: `SCHEMA_ENV_DEFAULTS` (`JWT_SECRET`, `KUMIKO_SECRETS_MASTER_KEY_V1`, `KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION`) is now preloaded by every `kumiko-testing bunfig` variant — unit and DOM via the new `preload/schema-env-defaults`, integration via `preload/env`, real via `preload/real` — each filled with `??=` so an app's own value wins — except a `JWT_SECRET` shorter than 32 characters, which is replaced like the app-local preloads did. Previously only integration and real got a `JWT_SECRET` default (from `SERVICE_ENV_DEFAULTS`, which no longer carries it — `SCHEMA_ENV_DEFAULTS` is now its single source), and no variant defaulted the secrets master key, forcing every app with the secrets/field-encryption/auth-mfa features to hand-roll its own test preload for these framework-schema keys. Unit and DOM still get no service-endpoint defaults (`DATABASE_URL`, `REDIS_URL`, …) — an accidental infra call in a unit test still fails instead of silently connecting. Regenerate with `kumiko-testing bunfig` to pick up the new preload entry.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: improvement
+  title: Schema-required test env keys (JWT_SECRET, secrets master key) now default in every bunfig variant
+  detail: |
+    Apps with the secrets, field-encryption or auth-mfa features previously had
+    to hand-roll a `test-setup/env.preload.ts` to satisfy the env schema's
+    `JWT_SECRET` and `KUMIKO_SECRETS_MASTER_KEY_*` in unit and DOM tests, since
+    only `SERVICE_ENV_DEFAULTS` (integration/real only) carried a `JWT_SECRET`
+    default and no map carried the master key. The new `SCHEMA_ENV_DEFAULTS`
+    map lives next to `SERVICE_ENV_DEFAULTS` and is preloaded in all four bunfig
+    variants (unit, DOM, integration, real) via a new `preload/schema-env-defaults`
+    module, filled with `??=` so an app's own value is kept; only a
+    `JWT_SECRET` shorter than 32 characters is replaced.
+    `SERVICE_ENV_DEFAULTS` no longer duplicates `JWT_SECRET` — it has one home
+    now. Unit and DOM still carry no service-endpoint defaults.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [c61cc7a]
+- Updated dependencies [0ab9874]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [e7cd1cb]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [519261d]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [3a99ac1]
+- Updated dependencies [fe36eeb]
+- Updated dependencies [02cc7b3]
+- Updated dependencies [c498565]
+- Updated dependencies [9c6173d]
+- Updated dependencies [9907bc6]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+- Updated dependencies [c61cc7a]
+  - @cosmicdrift/kumiko-bundled-features@0.320.0
+  - @cosmicdrift/kumiko-framework@0.320.0
+  - @cosmicdrift/kumiko-dev-server@0.320.0
+
 ## 0.319.0
 
 ### Patch Changes

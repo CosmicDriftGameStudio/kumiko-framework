@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.320.0",
+    "type": "improvement",
+    "title": "ToolbarAction's navigate variant gets `tab`",
+    "detail": "The navigate-kind ToolbarAction (entityList, projectionList and\nrelatedList-section toolbars) accepts `tab?: string`, the section id of the\ntab to activate on the target projectionDetail (layout.mode \"tabs\"),\nanalogous to RowActionNavigate.tab and MetricNavigate.tab."
+  },
+  {
     "version": "0.310.0",
     "type": "improvement",
     "title": "RowActionNavigate.tab selects the tab on the target projectionDetail",
