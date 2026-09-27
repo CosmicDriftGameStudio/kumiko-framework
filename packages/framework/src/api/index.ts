@@ -78,6 +78,7 @@ export {
   buildRequestContextDataFromRequest,
   requestIdMiddleware,
 } from "./request-id-middleware";
+export { DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars";
 export { createApiRoutes } from "./routes";
 export type { KumikoServer, ServerOptions } from "./server";
 export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server";

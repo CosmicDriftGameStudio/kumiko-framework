@@ -11,7 +11,7 @@ export type {
   FileRef,
   FileRoutesOptions,
 } from "./file-routes";
-export { createFileRoutes } from "./file-routes";
+export { createFileRoutes, readFilesRouteOptions, resolveMaxUploadBodyBytes } from "./file-routes";
 export type { InMemoryFileProvider } from "./in-memory-provider";
 export { createInMemoryFileProvider } from "./in-memory-provider";
 export { createLocalProvider } from "./local-provider";

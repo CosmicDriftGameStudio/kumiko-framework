@@ -19,7 +19,7 @@ import {
 } from "../engine/types";
 import { createFileContext } from "../files/file-handle";
 import type { FileRoutesOptions } from "../files/file-routes";
-import { createFileRoutes } from "../files/file-routes";
+import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes";
 import { makeFileProviderResolver } from "../files/provider-resolver";
 import type { Lifecycle } from "../lifecycle";
 import {
@@ -1386,21 +1386,4 @@ function entitiesWithSearchableScreen(registry: Registry): readonly string[] {
     }
   }
   return [...entities];
-}
-
-// Upload-route policy carried by createFilesFeature(opts?) — read from the
-// feature's exports so buildServer applies it without a parallel ServerOptions
-// surface. Absent feature / opts → defaults in createFileRoutes.
-function readFilesRouteOptions(
-  registry: Registry,
-): Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize"> {
-  const exp = registry.features.get("files")?.exports;
-  if (exp && typeof exp === "object" && "routeOptions" in exp) {
-    const ro = (exp as { routeOptions?: unknown }).routeOptions;
-    if (ro && typeof ro === "object") {
-      // @cast-boundary feature-exports: engine-payload (unknown) → known shape
-      return ro as Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize">;
-    }
-  }
-  return {};
 }

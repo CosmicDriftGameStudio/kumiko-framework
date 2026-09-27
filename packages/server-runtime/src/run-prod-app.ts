@@ -145,7 +145,7 @@ import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
-import { buildBunServeOptions } from "./bun-serve-options";
+import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
@@ -474,6 +474,12 @@ export type RunProdAppOptions = {
   readonly validateBootOptions?: ValidateBootOptions;
   /** Listen-Port. Default 3000 (or $PORT). */
   readonly port?: number;
+  /** Ceiling Bun.serve buffers a request body to before any app-level
+   *  body-limit middleware runs. Default is derived from `createFilesFeature`'s
+   *  configured `maxUploadSize`/field `maxSize` (see
+   *  resolveDerivedMaxRequestBodySize in bun-serve-options.ts) — override
+   *  only for a custom ceiling unrelated to that config. */
+  readonly maxRequestBodySize?: number;
   /** Auth-mode: standard features + routes wired, admin seeded. */
   readonly auth?: RunProdAppAuthOptions;
   /** Custom seed functions, run after the admin seed (when auth-mode). */
@@ -1347,7 +1353,13 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
             "Under Node/vitest pass `autoListen: false` and call the returned `fetch()` directly.",
         );
       }
-      handle.server = Bun.serve(buildBunServeOptions(listenPort, fetchHandler));
+      handle.server = Bun.serve(
+        buildBunServeOptions(
+          listenPort,
+          fetchHandler,
+          options.maxRequestBodySize ?? resolveDerivedMaxRequestBodySize(registry),
+        ),
+      );
 
       // SIGTERM/SIGINT — graceful shutdown. Only registered when we
       // actually own a Bun-server, otherwise the test process picks up

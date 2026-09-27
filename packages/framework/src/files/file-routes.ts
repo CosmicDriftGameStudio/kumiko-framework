@@ -1,5 +1,6 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getUser } from "../api/auth-middleware";
 import { requestContext } from "../api/request-context";
 import {
@@ -29,6 +30,7 @@ import { fileRefsTable } from "./file-ref-table";
 import type { FileProviderResolver } from "./provider-resolver";
 import {
   buildStorageKey,
+  parseMaxSize,
   resolveServedContentType,
   resolveUploadMimeType,
   validateFile,
@@ -130,6 +132,45 @@ function resolveAttachedField(
   return { kind: "resolved", fieldDef };
 }
 
+const DEFAULT_MAX_UPLOAD_SIZE = "10mb";
+
+// Multipart framing plus the small entityType/entityId/fieldName parts
+// riding alongside the file.
+const MULTIPART_OVERHEAD_MARGIN_BYTES = 64 * 1024;
+
+// entityType/fieldName (and therefore the field's own maxSize) are only
+// known after the body is parsed, so this covers the largest configured
+// field, not just the global default.
+export function resolveMaxUploadBodyBytes(
+  options: Pick<FileRoutesOptions, "registry" | "maxUploadSize">,
+): number {
+  let maxBytes = parseMaxSize(options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE);
+  for (const entity of options.registry?.getAllEntities().values() ?? []) {
+    for (const field of Object.values(entity.fields)) {
+      if (isFileField(field) && field.maxSize) {
+        maxBytes = Math.max(maxBytes, parseMaxSize(field.maxSize));
+      }
+    }
+  }
+  return maxBytes + MULTIPART_OVERHEAD_MARGIN_BYTES;
+}
+
+// Upload-route policy carried by createFilesFeature(opts?) — read from the
+// feature's exports so callers apply it without a parallel options surface.
+export function readFilesRouteOptions(
+  registry: Registry,
+): Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize"> {
+  const exp = registry.features.get("files")?.exports;
+  if (exp && typeof exp === "object" && "routeOptions" in exp) {
+    const ro = (exp as { routeOptions?: unknown }).routeOptions;
+    if (ro && typeof ro === "object") {
+      // @cast-boundary feature-exports: engine-payload (unknown) → known shape
+      return ro as Pick<FileRoutesOptions, "accessGuard" | "privilegedRoles" | "maxUploadSize">;
+    }
+  }
+  return {};
+}
+
 export function createFileRoutes(options: FileRoutesOptions): Hono {
   const { db } = options;
   const privilegedRoles = options.privilegedRoles ?? DEFAULT_PRIVILEGED_ROLES;
@@ -168,8 +209,19 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     return typeof decrypted["fileName"] === "string" ? decrypted["fileName"] : "download";
   }
 
+  // Runs before parseBody buffers the request below: checks Content-Length
+  // upfront, counts chunked bodies while streaming.
+  const uploadBodyLimit = bodyLimit({
+    maxSize: resolveMaxUploadBodyBytes(options),
+    onError: (c) =>
+      c.json(
+        { error: "request_too_large: request body exceeds the maximum allowed upload size" },
+        413,
+      ),
+  });
+
   // POST /files — multipart upload.
-  api.post("/files", async (c) => {
+  api.post("/files", uploadBodyLimit, async (c) => {
     const user = getUser(c);
     const body = await c.req.parseBody();
     const file = body["file"];
@@ -198,7 +250,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     }
 
     // Validate against entity field definition if available.
-    let maxSize = options.maxUploadSize ?? "10mb";
+    let maxSize = options.maxUploadSize ?? DEFAULT_MAX_UPLOAD_SIZE;
     let accept: readonly string[] | undefined;
 
     const attachedField = resolveAttachedField(options.registry, entityType, fieldName);

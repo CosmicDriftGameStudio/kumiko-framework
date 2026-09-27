@@ -33,7 +33,7 @@ import {
 import { createFilesFeature } from "../feature";
 import { fileRefsTable } from "../file-ref-table";
 import type { FileRoutesOptions } from "../file-routes";
-import { createInMemoryFileProvider } from "../in-memory-provider";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider";
 import { createLocalProvider } from "../local-provider";
 import type { FileStorageProvider, SignedUrlOptions } from "../types";
 import {
@@ -1641,5 +1641,109 @@ describe("byte-serving routes with field-encrypted fileName", () => {
     } finally {
       await isolatedDb.cleanup();
     }
+  });
+});
+
+describe("upload body-size limit", () => {
+  // Small on purpose: the pre-parseBody body limit is maxUploadSize + a
+  // fixed multipart margin regardless of scale, so a tiny maxUploadSize
+  // keeps the over-limit payloads (and this suite) fast.
+  const SMALL_MAX_UPLOAD_SIZE = "1kb";
+  const OVER_LIMIT_FILE_BYTES = 200 * 1024;
+
+  async function withSizeLimitedServer(
+    body: (args: { app: Hono; jwt: JwtHelper; provider: InMemoryFileProvider }) => Promise<void>,
+  ): Promise<void> {
+    const isolatedDb = await createTestDb();
+    await unsafePushTables(isolatedDb.db, { fileRefsTable });
+    const provider = createInMemoryFileProvider();
+    const isolatedRegistry = createRegistry([
+      createFilesFeature({ maxUploadSize: SMALL_MAX_UPLOAD_SIZE }),
+    ]);
+    const isolatedServer = buildServer({
+      registry: isolatedRegistry,
+      context: { db: isolatedDb.db, _fileProviderResolver: () => Promise.resolve(provider) },
+      jwtSecret: JWT_SECRET,
+    });
+    try {
+      await body({ app: isolatedServer.app, jwt: isolatedServer.jwt, provider });
+    } finally {
+      await isolatedDb.cleanup();
+    }
+  }
+
+  async function buildUnattachedMultipartBody(
+    fileSizeBytes: number,
+  ): Promise<{ body: Uint8Array; contentType: string }> {
+    const fd = new FormData();
+    const content = new Uint8Array(fileSizeBytes);
+    content.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); // PNG magic bytes
+    fd.append("file", new File([Buffer.from(content)], "big.png", { type: "image/png" }));
+    const { body, contentType } = await buildMultipartBody(fd);
+    return { body: body as Uint8Array, contentType };
+  }
+
+  test("Content-Length above the limit is rejected without writing to storage", async () => {
+    await withSizeLimitedServer(async ({ app, jwt, provider }) => {
+      const token = await jwt.sign(adminUser);
+      const { body, contentType } = await buildUnattachedMultipartBody(OVER_LIMIT_FILE_BYTES);
+      const res = await app.request("/api/files", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body: body as unknown as BodyInit,
+      });
+      expect(res.status).toBe(413);
+      const json = (await res.json()) as { error: string };
+      expectErrorIncludes(json.error, "request_too_large");
+      expect(provider.keys()).toEqual([]);
+    });
+  });
+
+  test("a chunked body without Content-Length above the limit is rejected while streaming", async () => {
+    await withSizeLimitedServer(async ({ app, jwt, provider }) => {
+      const token = await jwt.sign(adminUser);
+      const { body, contentType } = await buildUnattachedMultipartBody(OVER_LIMIT_FILE_BYTES);
+      // Feeding the buffer through a ReadableStream (instead of handing it to
+      // fetch directly) means no Content-Length can be inferred — this drives
+      // bodyLimit's streaming/counting branch instead of its Content-Length
+      // shortcut.
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          const chunkSize = 8 * 1024;
+          for (let offset = 0; offset < body.length; offset += chunkSize) {
+            controller.enqueue(body.subarray(offset, offset + chunkSize));
+          }
+          controller.close();
+        },
+      });
+      const req = new Request("http://localhost/api/files", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body: stream,
+        duplex: "half",
+      } as RequestInit);
+      // A stream body has no known length — confirms this exercises
+      // bodyLimit's streaming/counting branch, not its Content-Length shortcut.
+      expect(req.headers.get("content-length")).toBeNull();
+      const res = await app.request(req);
+      expect(res.status).toBe(413);
+      const json = (await res.json()) as { error: string };
+      expectErrorIncludes(json.error, "request_too_large");
+      expect(provider.keys()).toEqual([]);
+    });
+  });
+
+  test("an upload within the limit still succeeds", async () => {
+    await withSizeLimitedServer(async ({ app, jwt, provider }) => {
+      const token = await jwt.sign(adminUser);
+      const { body, contentType } = await buildUnattachedMultipartBody(128);
+      const res = await app.request("/api/files", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body: body as unknown as BodyInit,
+      });
+      expect(res.status).toBe(201);
+      expect(provider.keys().length).toBe(1);
+    });
   });
 });

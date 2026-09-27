@@ -47,7 +47,10 @@ import {
   resolveAndInjectPageHead,
 } from "@cosmicdrift/kumiko-headless/apex";
 import { startDevJobRunners } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
-import { buildBunServeOptions } from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
+import {
+  buildBunServeOptions,
+  resolveDerivedMaxRequestBodySize,
+} from "@cosmicdrift/kumiko-server-runtime/bun-serve-options";
 import {
   makeDispatchSystemWrite,
   type SystemWireDeps,
@@ -1234,7 +1237,7 @@ export async function createKumikoServer(
   // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
   const server = hasBun
     ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve(
-        buildBunServeOptions(port, handleFetch),
+        buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry)),
       )
     : undefined;
 

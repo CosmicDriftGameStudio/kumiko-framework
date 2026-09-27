@@ -6,6 +6,17 @@
 
 import { describe, expect, test } from "bun:test";
 import { SSE_HEARTBEAT_INTERVAL_MS } from "@cosmicdrift/kumiko-framework/api";
+import {
+  createEntity,
+  createFileField,
+  createRegistry,
+  defineFeature,
+} from "@cosmicdrift/kumiko-framework/engine";
+import { createFilesFeature, resolveMaxUploadBodyBytes } from "@cosmicdrift/kumiko-framework/files";
+import {
+  DEFAULT_MAX_REQUEST_BODY_SIZE_BYTES,
+  resolveDerivedMaxRequestBodySize,
+} from "../bun-serve-options";
 import { buildBunServeOptions } from "../run-prod-app";
 
 describe("Bun.serve options for production", () => {
@@ -32,6 +43,40 @@ describe("Bun.serve options for production", () => {
     await opts.fetch(req, fakeServer as unknown as Bun.Server<unknown>);
     expect(received?.[0]).toBe(req);
     expect(received?.[1]).toBe("203.0.113.1");
+  });
+
+  test("maxRequestBodySize defaults well below Bun's own 128 MiB", () => {
+    // Bun.serve's undocumented-in-our-code default (128 MiB) buffers every
+    // concurrent request up to that size before any app-level body-limit
+    // middleware runs. Pins the lowered default against a silent revert to
+    // "just let Bun handle it".
+    const opts = buildBunServeOptions(0, () => new Response("ok"));
+    expect(opts.maxRequestBodySize).toBe(DEFAULT_MAX_REQUEST_BODY_SIZE_BYTES);
+    expect(opts.maxRequestBodySize).toBeLessThan(128 * 1024 * 1024);
+  });
+
+  test("maxRequestBodySize is overridable for apps with larger maxUploadSize", () => {
+    const opts = buildBunServeOptions(0, () => new Response("ok"), 64 * 1024 * 1024);
+    expect(opts.maxRequestBodySize).toBe(64 * 1024 * 1024);
+  });
+});
+
+describe("resolveDerivedMaxRequestBodySize", () => {
+  test("stays above the files route's own derived bodyLimit", () => {
+    // Otherwise Bun's bare rejection would fire before the route's own,
+    // more specific 413 ever runs.
+    const registry = createRegistry([createFilesFeature({ maxUploadSize: "50mb" })]);
+    const routeBodyLimit = resolveMaxUploadBodyBytes({ registry, maxUploadSize: "50mb" });
+    expect(resolveDerivedMaxRequestBodySize(registry)).toBeGreaterThan(routeBodyLimit);
+  });
+
+  test("accounts for a field maxSize configured above the global default", () => {
+    const entity = createEntity({
+      fields: { attachment: createFileField({ maxSize: "50mb" }) },
+    });
+    const feature = defineFeature("attachments", (r) => r.entity("attachment", entity));
+    const registry = createRegistry([feature, createFilesFeature()]);
+    expect(resolveDerivedMaxRequestBodySize(registry)).toBeGreaterThanOrEqual(50 * 1024 * 1024);
   });
 });
 
