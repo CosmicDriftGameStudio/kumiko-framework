@@ -14,15 +14,17 @@ import { join } from "node:path";
 import {
   buildMissingTemplateError,
   type ClientEntry,
+  type ClientEntryDeclaration,
   computeBuildId,
-  discoverClientEntries,
   discoverHtmlTemplate,
   formatBuildResult,
   injectAssetTags,
+  readClientEntriesConfig,
+  resolveClientEntries,
 } from "../build-prod-bundle";
 
-// Synthetic single-entry helper. Realer Build erzeugt das via
-// discoverClientEntries; hier reicht die Form für injectAssetTags-Tests.
+// Synthetic single-entry: injectAssetTags only needs the shape, not a
+// resolveClientEntries round-trip.
 function clientEntry(): ClientEntry {
   return {
     name: "client",
@@ -41,7 +43,11 @@ function namedEntry(name: string): ClientEntry {
   };
 }
 
-describe("build-prod-bundle/discovery", () => {
+async function writeJson(path: string, value: unknown): Promise<void> {
+  await writeFile(path, JSON.stringify(value));
+}
+
+describe("build-prod-bundle/discovery (convention mode)", () => {
   let workDir = "";
 
   beforeEach(async () => {
@@ -52,11 +58,11 @@ describe("build-prod-bundle/discovery", () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  test("discoverClientEntries findet single-mode src/client.tsx", async () => {
+  test("resolveClientEntries findet single-mode src/client.tsx wenn nichts deklariert ist", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client.tsx"), "// single");
 
-    const entries = discoverClientEntries(workDir);
+    const entries = resolveClientEntries(workDir, {});
 
     expect(entries).toHaveLength(1);
     expect(entries[0]?.name).toBe("client");
@@ -64,41 +70,46 @@ describe("build-prod-bundle/discovery", () => {
     expect(entries[0]?.htmlPath).toBe("index.html");
   });
 
-  test("discoverClientEntries findet multi-mode client-public + client-admin", async () => {
+  test("resolveClientEntries gibt leeres Array zurück wenn nichts da und nichts deklariert ist", () => {
+    expect(resolveClientEntries(workDir, {})).toEqual([]);
+  });
+
+  // #2305 regression: a plain module imported by the real entry, named
+  // like a legacy client-<suffix>.tsx file, must not turn into an error or
+  // a second entry once src/client.tsx exists (single mode wins outright).
+  test("src/client.tsx neben src/client-utils.tsx → genau ein Entry, kein Fehler", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
+    await writeFile(join(workDir, "src/client.tsx"), "// real entry");
+    await writeFile(join(workDir, "src/client-utils.tsx"), "export const utils = [];");
+
+    const entries = resolveClientEntries(workDir, {});
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.name).toBe("client");
+  });
+
+  test("legacy src/client-<suffix>.tsx ohne Deklaration → Migrations-Fehler mit package.json-Snippet", async () => {
+    await mkdir(join(workDir, "src"), { recursive: true });
+    await writeFile(join(workDir, "src/client-admin.tsx"), "// admin");
     await writeFile(join(workDir, "src/client-public.tsx"), "// public");
-    await writeFile(join(workDir, "src/client-admin.tsx"), "// admin");
 
-    const entries = discoverClientEntries(workDir);
-
-    // Sortiert nach name.
-    expect(entries.map((e) => e.name)).toEqual(["admin", "public"]);
-
-    const admin = entries.find((e) => e.name === "admin");
-    expect(admin?.manifestKey).toBe("client-admin.js");
-    expect(admin?.htmlPath).toBe("admin.html");
-
-    const pub = entries.find((e) => e.name === "public");
-    expect(pub?.manifestKey).toBe("client-public.js");
-    // "public" mappt auf das Default-Template (index.html), nicht
-    // public.html — das ist Convention damit das default-served-Template
-    // den vom-User-erwarteten Namen behält.
-    expect(pub?.htmlPath).toBe("index.html");
+    expect(() => resolveClientEntries(workDir, {})).toThrow(/client-admin\.tsx/);
+    expect(() => resolveClientEntries(workDir, {})).toThrow(/client-public\.tsx/);
+    expect(() => resolveClientEntries(workDir, {})).toThrow(/kumiko\.clientEntries/);
+    expect(() => resolveClientEntries(workDir, {})).toThrow(
+      /"name":\s*"admin",\s*"sourceFile":\s*"\.\/src\/client-admin\.tsx"/,
+    );
   });
 
-  test("discoverClientEntries multi-mode dominiert über single-mode wenn beide da", async () => {
+  test("legacy src/client-<suffix>.ts (kein x) → Migrations-Snippet nennt die exakte .ts-Extension", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
-    await writeFile(join(workDir, "src/client.tsx"), "// single");
-    await writeFile(join(workDir, "src/client-admin.tsx"), "// admin");
+    await writeFile(join(workDir, "src/client-admin.ts"), "// admin");
 
-    const entries = discoverClientEntries(workDir);
-
-    // Multi-mode aktiv → "client" wird ignoriert.
-    expect(entries.map((e) => e.name)).toEqual(["admin"]);
-  });
-
-  test("discoverClientEntries gibt leeres Array zurück wenn nichts da", () => {
-    expect(discoverClientEntries(workDir)).toEqual([]);
+    expect(() => resolveClientEntries(workDir, {})).toThrow(/src\/client-admin\.ts\b/);
+    expect(() => resolveClientEntries(workDir, {})).toThrow(
+      /"sourceFile":\s*"\.\/src\/client-admin\.ts"/,
+    );
+    expect(() => resolveClientEntries(workDir, {})).not.toThrow(/client-admin\.tsx/);
   });
 
   test("discoverHtmlTemplate findet index.html im cwd", async () => {
@@ -125,6 +136,350 @@ describe("build-prod-bundle/discovery", () => {
   test("discoverHtmlTemplate gibt undefined zurück wenn nichts da ist", () => {
     expect(existsSync(workDir)).toBe(true);
     expect(discoverHtmlTemplate(workDir)).toBeUndefined();
+  });
+});
+
+describe("build-prod-bundle/resolveClientEntries (declared)", () => {
+  let workDir = "";
+
+  beforeEach(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "kumiko-build-declared-"));
+  });
+
+  afterEach(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  async function writeSourceFiles(names: readonly string[]): Promise<void> {
+    await mkdir(join(workDir, "src"), { recursive: true });
+    for (const name of names) {
+      await writeFile(join(workDir, `src/${name}`), `// ${name}`);
+    }
+  }
+
+  test("clientEntry → single entry named 'client'", async () => {
+    await writeSourceFiles(["main.tsx"]);
+
+    const entries = resolveClientEntries(workDir, { clientEntry: "./src/main.tsx" });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.name).toBe("client");
+    expect(entries[0]?.manifestKey).toBe("client.js");
+    expect(entries[0]?.sourceFile).toBe(join(workDir, "src/main.tsx"));
+    expect(entries[0]?.htmlPath).toBe("index.html");
+  });
+
+  test("clientEntry: sourceFile fehlt → throws", () => {
+    expect(() => resolveClientEntries(workDir, { clientEntry: "./src/missing.tsx" })).toThrow(
+      /kumiko\.clientEntry.*does not exist/s,
+    );
+  });
+
+  test("clientEntry with non-source extension throws even when the file exists", async () => {
+    await writeSourceFiles(["app.json"]);
+
+    expect(() => resolveClientEntries(workDir, { clientEntry: "./src/app.json" })).toThrow(
+      /kumiko\.clientEntry "\.\/src\/app\.json" must point to a \.ts, \.tsx, \.js or \.jsx file/,
+    );
+  });
+
+  test("clientEntry und clientEntries gleichzeitig → mutual-exclusion error", async () => {
+    await writeSourceFiles(["main.tsx", "client-admin.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntry: "./src/main.tsx",
+        clientEntries: [{ name: "admin", sourceFile: "./src/client-admin.tsx" }],
+      }),
+    ).toThrow(/mutually exclusive/);
+  });
+
+  test("clientEntries: leeres Array → throws", () => {
+    expect(() => resolveClientEntries(workDir, { clientEntries: [] })).toThrow(
+      /"kumiko\.clientEntries" is empty/,
+    );
+  });
+
+  test("clientEntries: ungültiger name (führender Großbuchstabe) → throws", async () => {
+    await writeSourceFiles(["client-admin.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [{ name: "Admin", sourceFile: "./src/client-admin.tsx" }],
+      }),
+    ).toThrow(/invalid "kumiko\.clientEntries\[\]\.name"/);
+  });
+
+  test("clientEntries: name mit '..' → throws", async () => {
+    await writeSourceFiles(["client-admin.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [{ name: "../x", sourceFile: "./src/client-admin.tsx" }],
+      }),
+    ).toThrow(/invalid "kumiko\.clientEntries\[\]\.name"/);
+  });
+
+  test("clientEntries: sourceFile escaping cwd via '..' → throws", () => {
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [{ name: "admin", sourceFile: "../outside.tsx" }],
+      }),
+    ).toThrow(/resolves outside the app root/);
+  });
+
+  test("clientEntries: absolute sourceFile outside cwd → throws", () => {
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [{ name: "admin", sourceFile: "/etc/passwd" }],
+      }),
+    ).toThrow(/resolves outside the app root/);
+  });
+
+  test("clientEntries: htmlPath escaping cwd → throws", async () => {
+    await writeSourceFiles(["client-admin.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [
+          { name: "admin", sourceFile: "./src/client-admin.tsx", htmlPath: "../outside.html" },
+        ],
+      }),
+    ).toThrow(/resolves outside the app root/);
+  });
+
+  test("clientEntries: sourceFile existiert nicht → throws", () => {
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [{ name: "admin", sourceFile: "./src/client-admin.tsx" }],
+      }),
+    ).toThrow(/sourceFile ".*" does not exist/);
+  });
+
+  test("clientEntries: sourceFile with non-source extension throws even when the file exists", async () => {
+    await writeSourceFiles(["client-admin.css"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [{ name: "admin", sourceFile: "./src/client-admin.css" }],
+      }),
+    ).toThrow(
+      /kumiko\.clientEntries\["admin"\]\.sourceFile "\.\/src\/client-admin\.css" must point to a \.ts, \.tsx, \.js or \.jsx file/,
+    );
+  });
+
+  test("clientEntries: htmlPath with non-html extension throws", async () => {
+    await writeSourceFiles(["client-admin.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [
+          {
+            name: "admin",
+            sourceFile: "./src/client-admin.tsx",
+            htmlPath: "./public/manifest.json",
+          },
+        ],
+      }),
+    ).toThrow(
+      /kumiko\.clientEntries\["admin"\]\.htmlPath "\.\/public\/manifest\.json" must point to an \.html file/,
+    );
+  });
+
+  test("clientEntries: doppelter name → throws", async () => {
+    await writeSourceFiles(["client-admin.tsx", "client-admin2.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [
+          { name: "admin", sourceFile: "./src/client-admin.tsx" },
+          { name: "admin", sourceFile: "./src/client-admin2.tsx" },
+        ],
+      }),
+    ).toThrow(/duplicate "kumiko\.clientEntries\[\]\.name" "admin"/);
+  });
+
+  test("clientEntries: zwei Entries mit gleichem html-basename (default 'public' vs. explizit) → throws", async () => {
+    await writeSourceFiles(["client-public.tsx", "client-legacy.tsx"]);
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [
+          { name: "public", sourceFile: "./src/client-public.tsx" },
+          { name: "legacy", sourceFile: "./src/client-legacy.tsx", htmlPath: "./index.html" },
+        ],
+      }),
+    ).toThrow(/resolve to the same HTML output file "index\.html"/);
+  });
+
+  test("clientEntries: zwei Entries mit identischem source-basename → throws", async () => {
+    await mkdir(join(workDir, "src/admin"), { recursive: true });
+    await mkdir(join(workDir, "src/public"), { recursive: true });
+    await writeFile(join(workDir, "src/admin/index.tsx"), "// admin");
+    await writeFile(join(workDir, "src/public/index.tsx"), "// public");
+
+    expect(() =>
+      resolveClientEntries(workDir, {
+        clientEntries: [
+          { name: "admin", sourceFile: "./src/admin/index.tsx", htmlPath: "./admin.html" },
+          { name: "public", sourceFile: "./src/public/index.tsx" },
+        ],
+      }),
+    ).toThrow(/share the source basename "index"/);
+  });
+
+  test("publicstatus-Shape: public ohne htmlPath, admin/auth mit explizitem htmlPath", async () => {
+    await mkdir(join(workDir, "public"), { recursive: true });
+    await writeFile(join(workDir, "public/admin.html"), "<html></html>");
+    await writeFile(join(workDir, "public/auth.html"), "<html></html>");
+    await writeSourceFiles(["client-public.tsx", "client-admin.tsx", "client-auth.tsx"]);
+
+    const entries = resolveClientEntries(workDir, {
+      clientEntries: [
+        { name: "public", sourceFile: "./src/client-public.tsx" },
+        { name: "admin", sourceFile: "./src/client-admin.tsx", htmlPath: "./public/admin.html" },
+        { name: "auth", sourceFile: "./src/client-auth.tsx", htmlPath: "./public/auth.html" },
+      ],
+    });
+
+    expect(entries.map((e) => e.name)).toEqual(["admin", "auth", "public"]);
+    const publicEntry = entries.find((e) => e.name === "public");
+    expect(publicEntry?.manifestKey).toBe("client-public.js");
+    expect(publicEntry?.htmlPath).toBe("index.html");
+    const admin = entries.find((e) => e.name === "admin");
+    expect(admin?.manifestKey).toBe("client-admin.js");
+    expect(admin?.htmlPath).toBe(join(workDir, "public/admin.html"));
+    const auth = entries.find((e) => e.name === "auth");
+    expect(auth?.htmlPath).toBe(join(workDir, "public/auth.html"));
+  });
+
+  test("show-pony-Shape: admin und public beide mit explizitem htmlPath", async () => {
+    await mkdir(join(workDir, "public"), { recursive: true });
+    await writeFile(join(workDir, "public/admin.html"), "<html></html>");
+    await writeFile(join(workDir, "public/index.html"), "<html></html>");
+    await writeSourceFiles(["client-admin.tsx", "client-public.tsx"]);
+
+    const entries = resolveClientEntries(workDir, {
+      clientEntries: [
+        { name: "admin", sourceFile: "./src/client-admin.tsx", htmlPath: "./public/admin.html" },
+        { name: "public", sourceFile: "./src/client-public.tsx", htmlPath: "./public/index.html" },
+      ],
+    });
+
+    expect(entries.map((e) => e.manifestKey)).toEqual(["client-admin.js", "client-public.js"]);
+    expect(entries.map((e) => e.htmlPath)).toEqual([
+      join(workDir, "public/admin.html"),
+      join(workDir, "public/index.html"),
+    ]);
+  });
+
+  test("offlot-app-Shape: einziger Entry 'app' mit explizitem htmlPath", async () => {
+    await mkdir(join(workDir, "public"), { recursive: true });
+    await writeFile(join(workDir, "public/app.html"), "<html></html>");
+    await writeSourceFiles(["client-app.tsx"]);
+
+    const entries = resolveClientEntries(workDir, {
+      clientEntries: [
+        { name: "app", sourceFile: "./src/client-app.tsx", htmlPath: "./public/app.html" },
+      ],
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.manifestKey).toBe("client-app.js");
+    expect(entries[0]?.htmlPath).toBe(join(workDir, "public/app.html"));
+  });
+});
+
+describe("build-prod-bundle/readClientEntriesConfig", () => {
+  let workDir = "";
+
+  beforeEach(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "kumiko-build-config-"));
+  });
+
+  afterEach(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  test("kein package.json → {}", () => {
+    expect(readClientEntriesConfig(workDir)).toEqual({});
+  });
+
+  test("package.json ohne kumiko-Block → {}", async () => {
+    await writeJson(join(workDir, "package.json"), { name: "app" });
+
+    expect(readClientEntriesConfig(workDir)).toEqual({});
+  });
+
+  test("valides kumiko.clientEntry", async () => {
+    await writeJson(join(workDir, "package.json"), {
+      name: "app",
+      kumiko: { clientEntry: "./src/client.tsx" },
+    });
+
+    expect(readClientEntriesConfig(workDir)).toEqual({ clientEntry: "./src/client.tsx" });
+  });
+
+  test("valides kumiko.clientEntries", async () => {
+    const declared: readonly ClientEntryDeclaration[] = [
+      { name: "public", sourceFile: "./src/client-public.tsx" },
+      { name: "admin", sourceFile: "./src/client-admin.tsx", htmlPath: "./public/admin.html" },
+    ];
+    await writeJson(join(workDir, "package.json"), {
+      name: "app",
+      kumiko: { clientEntries: declared },
+    });
+
+    expect(readClientEntriesConfig(workDir)).toEqual({ clientEntries: declared });
+  });
+
+  test("kumiko.clientEntry ist keine string → throws", async () => {
+    await writeJson(join(workDir, "package.json"), { name: "app", kumiko: { clientEntry: 42 } });
+
+    expect(() => readClientEntriesConfig(workDir)).toThrow(
+      /"kumiko\.clientEntry" must be a string/,
+    );
+  });
+
+  test("kumiko.clientEntries ist kein Array → throws", async () => {
+    await writeJson(join(workDir, "package.json"), {
+      name: "app",
+      kumiko: { clientEntries: { name: "admin" } },
+    });
+
+    expect(() => readClientEntriesConfig(workDir)).toThrow(
+      /"kumiko\.clientEntries" must be an array/,
+    );
+  });
+
+  test("kumiko.clientEntries[] ohne sourceFile → throws", async () => {
+    await writeJson(join(workDir, "package.json"), {
+      name: "app",
+      kumiko: { clientEntries: [{ name: "admin" }] },
+    });
+
+    expect(() => readClientEntriesConfig(workDir)).toThrow(
+      /"kumiko\.clientEntries\[0\]\.sourceFile" must be a non-empty string/,
+    );
+  });
+
+  test("kumiko.clientEntries[].htmlPath ist keine string → throws", async () => {
+    await writeJson(join(workDir, "package.json"), {
+      name: "app",
+      kumiko: {
+        clientEntries: [{ name: "admin", sourceFile: "./src/client-admin.tsx", htmlPath: 1 }],
+      },
+    });
+
+    expect(() => readClientEntriesConfig(workDir)).toThrow(
+      /"kumiko\.clientEntries\[0\]\.htmlPath" must be a string/,
+    );
+  });
+
+  test("kaputtes JSON → throws", async () => {
+    await writeFile(join(workDir, "package.json"), "{not json");
+
+    expect(() => readClientEntriesConfig(workDir)).toThrow(/Invalid JSON/);
   });
 });
 
@@ -317,34 +672,22 @@ describe("build-prod-bundle/discovery edges", () => {
     await rm(workDir, { recursive: true, force: true });
   });
 
-  test("discoverClientEntries accepts src/client.ts (no x)", async () => {
+  test("resolveClientEntries accepts src/client.ts (no x)", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     await writeFile(join(workDir, "src/client.ts"), "// single ts");
-    const entries = discoverClientEntries(workDir);
+    const entries = resolveClientEntries(workDir, {});
     expect(entries).toHaveLength(1);
     expect(entries[0]?.name).toBe("client");
     expect(entries[0]?.sourceFile.endsWith("src/client.ts")).toBe(true);
   });
 
-  test("discoverClientEntries ignores non-matching client-* names", async () => {
+  test("resolveClientEntries ignores non-matching legacy client-* names (no migration error)", async () => {
     await mkdir(join(workDir, "src"), { recursive: true });
     // Uppercase / leading digit / underscore violate ^client-([a-z][a-z0-9-]*)\.tsx?$
     await writeFile(join(workDir, "src/client-Admin.tsx"), "// bad");
     await writeFile(join(workDir, "src/client-1bad.tsx"), "// bad");
     await writeFile(join(workDir, "src/client_admin.tsx"), "// bad");
-    expect(discoverClientEntries(workDir)).toEqual([]);
-  });
-
-  // #2305: a module only imported by another client-*.tsx still matches
-  // the entry pattern and becomes a second bundle entry.
-  test("discoverClientEntries treats a plain imported module named client-<x>.tsx as its own entry", async () => {
-    await mkdir(join(workDir, "src"), { recursive: true });
-    await writeFile(join(workDir, "src/client-app.tsx"), "// real entry");
-    await writeFile(join(workDir, "src/client-features.tsx"), "export const clientFeatures = [];");
-
-    const entries = discoverClientEntries(workDir);
-
-    expect(entries.map((e) => e.name)).toEqual(["app", "features"]);
+    expect(resolveClientEntries(workDir, {})).toEqual([]);
   });
 });
 
@@ -358,25 +701,24 @@ describe("build-prod-bundle/buildMissingTemplateError", () => {
     };
   }
 
-  test("names the discovered source file and the client-<suffix> convention", () => {
+  test("names the declaring entry name and its sourceFile", () => {
     const message = buildMissingTemplateError(
       { "client-features.js": "/assets/client-features-abcd.js" },
       multiEntry(),
     );
 
     expect(message).toContain("src/client-features.tsx");
-    expect(message).toContain("client-<suffix>.tsx");
-    expect(message).toContain("umbenennen");
+    expect(message).toContain("kumiko.clientEntries");
+    expect(message).toContain('Entry "features"');
   });
 
-  test("single-mode entry gets no rename hint (nothing was auto-discovered by suffix)", () => {
+  test("single-mode entry gets no declaration hint", () => {
     const message = buildMissingTemplateError(
       { "client.js": "/assets/client-abcd.js" },
       clientEntry(),
     );
 
     expect(message).toContain("src/client.tsx");
-    expect(message).not.toContain("umbenennen");
-    expect(message).not.toContain("client-<suffix>.tsx");
+    expect(message).not.toContain("kumiko.clientEntries");
   });
 });

@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 // kumiko-build — Production-Build für Kumiko-Apps. Convention-driven:
 //
-//   src/client.tsx | src/styles.css | public/   →  Client-Bundle (dist/)
-//   bin/main.ts                                  →  Server-Bundle (dist-server/)
+//   package.json "kumiko.clientEntries"/"kumiko.clientEntry",
+//     or src/client.tsx | src/styles.css | public/   →  Client-Bundle (dist/)
+//   bin/main.ts                                       →  Server-Bundle (dist-server/)
 //
 // Beide werden gebaut wenn die jeweiligen Conventions getroffen sind, sonst
 // übersprungen. Ein Workspace mit nur bin/main.ts kriegt nur den Server-
@@ -20,11 +21,12 @@ import { join, resolve } from "node:path";
 import {
   buildProdBundle,
   buildServerBundle,
-  discoverClientEntries,
   discoverServerEntry,
   formatBuildResult,
   formatServerBuildResult,
+  readClientEntriesConfig,
   readExtraRuntimeExternals,
+  resolveClientEntries,
 } from "../src/build";
 import { formatScanWarning, runCodegen } from "../src/codegen";
 
@@ -35,23 +37,27 @@ const red = "\x1b[31m";
 const yellow = "\x1b[33m";
 const reset = "\x1b[0m";
 
-const hasClient =
-  discoverClientEntries(cwd).length > 0 ||
-  existsSync(join(cwd, "src/styles.css")) ||
-  existsSync(join(cwd, "public")) ||
-  existsSync(join(cwd, "index.html"));
-const hasServer = discoverServerEntry(cwd) !== undefined;
-
-if (!hasClient && !hasServer) {
-  // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
-  console.error(
-    `\n  ${yellow}!${reset} Nichts zu bauen in ${cwd}.\n` +
-      `    Convention: src/client.tsx oder bin/main.ts erwartet.\n`,
-  );
-  process.exit(1);
-}
-
 try {
+  // Read once up front — resolveClientEntries can throw (mutual exclusion,
+  // malformed declaration, unmigrated legacy client-*.tsx files) and that
+  // must surface through the same ✗/exit(1) path as every other build error.
+  const declaredClientEntries = readClientEntriesConfig(cwd);
+  const hasClient =
+    resolveClientEntries(cwd, declaredClientEntries).length > 0 ||
+    existsSync(join(cwd, "src/styles.css")) ||
+    existsSync(join(cwd, "public")) ||
+    existsSync(join(cwd, "index.html"));
+  const hasServer = discoverServerEntry(cwd) !== undefined;
+
+  if (!hasClient && !hasServer) {
+    // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
+    console.error(
+      `\n  ${yellow}!${reset} Nichts zu bauen in ${cwd}.\n` +
+        `    Convention: src/client.tsx oder bin/main.ts erwartet.\n`,
+    );
+    process.exit(1);
+  }
+
   // Codegen-Pass vor dem Build — sicherstellt dass `.kumiko/define.ts`
   // und `types.generated.d.ts` synchron mit den r.defineEvent-Aufrufen
   // sind. Ohne diesen Pass würde ein veraltetes Wrapper-File ein
@@ -67,7 +73,7 @@ try {
 
   if (hasClient) {
     const t0 = performance.now();
-    const result = await buildProdBundle({ cwd });
+    const result = await buildProdBundle({ cwd, ...declaredClientEntries });
     const ms = Math.round(performance.now() - t0);
     // biome-ignore lint/suspicious/noConsole: CLI-Output, einziger Weg
     console.log(formatBuildResult(result, ms));

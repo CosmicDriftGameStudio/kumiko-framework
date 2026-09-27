@@ -9,10 +9,12 @@ export {
   type BuildResult,
   buildProdBundle,
   type ClientEntry,
-  discoverClientEntries,
+  type ClientEntryDeclaration,
   discoverHtmlTemplate,
   formatBuildResult,
   injectAssetTags,
+  readClientEntriesConfig,
+  resolveClientEntries,
 } from "@cosmicdrift/kumiko-server-runtime/build-prod-bundle";
 
 export {

@@ -9,7 +9,7 @@ export const buildCommand = defineCommand({
   category: "code",
   roles: ["maintainer", "app-dev"],
   run: async (ctx) => {
-    const { buildProdBundle, formatBuildResult } = await import(
+    const { buildProdBundle, formatBuildResult, readClientEntriesConfig } = await import(
       "@cosmicdrift/kumiko-dev-server/build"
     );
     const explicit = ctx.argv[0];
@@ -17,7 +17,7 @@ export const buildCommand = defineCommand({
       ? resolvePath(explicit)
       : (process.env["INIT_CWD"] ?? ctx.cwd);
     const t0 = performance.now();
-    const result = await buildProdBundle({ cwd });
+    const result = await buildProdBundle({ cwd, ...readClientEntriesConfig(cwd) });
     const ms = Math.round(performance.now() - t0);
     ctx.out.log(formatBuildResult(result, ms));
     return 0;

@@ -2,7 +2,7 @@
 // in the same process (CLI subprocess tests do not contribute to lcov).
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -139,7 +139,7 @@ describe("buildProdBundle in-process (Bun.build)", () => {
     }
   });
 
-  test("multi-entry client-admin + client-public → two hashed bundles", async () => {
+  test("multi-entry client-admin + client-public via kumiko.clientEntries → two hashed bundles", async () => {
     await mkdir(join(tmp, "src"), { recursive: true });
     await writeFile(join(tmp, "src/client-admin.ts"), `console.log("admin");`);
     await writeFile(join(tmp, "src/client-public.ts"), `console.log("public");`);
@@ -154,11 +154,40 @@ describe("buildProdBundle in-process (Bun.build)", () => {
     );
     await writeFile(join(tmp, "package.json"), `{"name":"multi-inproc","private":true}`);
 
-    const result = await buildProdBundle({ cwd: tmp, stylesheet: false });
+    const result = await buildProdBundle({
+      cwd: tmp,
+      stylesheet: false,
+      clientEntries: [
+        { name: "admin", sourceFile: "./src/client-admin.ts" },
+        { name: "public", sourceFile: "./src/client-public.ts" },
+      ],
+    });
 
     expect(result.manifest["client-admin.js"]).toMatch(/^\/assets\/client-admin-/);
     expect(result.manifest["client-public.js"]).toMatch(/^\/assets\/client-public-/);
     expect(existsSync(join(tmp, "dist/admin.html"))).toBe(true);
     expect(existsSync(join(tmp, "dist/index.html"))).toBe(true);
+  });
+
+  test("undeclared helper next to declared entries produces no bundle for it", async () => {
+    await mkdir(join(tmp, "src"), { recursive: true });
+    await writeFile(join(tmp, "src/client-public.ts"), `console.log("public");`);
+    await writeFile(join(tmp, "src/client-helper.ts"), `export const helper = "unused";`);
+    await mkdir(join(tmp, "public"), { recursive: true });
+    await writeFile(
+      join(tmp, "public/index.html"),
+      `<!doctype html><html><body><script type="module" src="/client-public.js"></script></body></html>`,
+    );
+    await writeFile(join(tmp, "package.json"), `{"name":"undeclared-helper","private":true}`);
+
+    const result = await buildProdBundle({
+      cwd: tmp,
+      stylesheet: false,
+      clientEntries: [{ name: "public", sourceFile: "./src/client-public.ts" }],
+    });
+
+    expect(Object.keys(result.manifest)).toEqual(["client-public.js"]);
+    const assetFiles = readdirSync(join(tmp, "dist/assets"));
+    expect(assetFiles.some((f) => f.startsWith("client-helper-"))).toBe(false);
   });
 });

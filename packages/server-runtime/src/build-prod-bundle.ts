@@ -3,9 +3,16 @@
 // die App-Struktur, Bun.build + Tailwind + Public-Folder-Copy
 // produzieren ein deploybares dist/.
 //
-// Convention (alles optional, fehlt was → übersprungen):
+// Client entries (fw#2320 — explicit, no filename inference):
 //
-//   src/client.tsx | src/client.ts   →  Bun.build (splitting + hash + asset-loader)
+//   package.json "kumiko.clientEntries": [{ name, sourceFile, htmlPath? }]
+//                                     →  one Bun.build bundle per declared entry
+//   package.json "kumiko.clientEntry": "./src/…"
+//                                     →  single bundle, name "client"
+//   (neither declared)               →  convention: src/client.tsx | src/client.ts
+//
+// Convention for everything else (all optional, missing → skipped):
+//
 //   src/styles.css                   →  Tailwind one-shot
 //                                       (oder fallback auf @cosmicdrift/kumiko-renderer-web/styles.css
 //                                        wenn nur clientEntry da ist und kein eigenes CSS)
@@ -40,10 +47,11 @@
 //   alles andere (public/)  →  default (auto-cache)
 
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 
@@ -62,6 +70,22 @@ export type BuildProdBundleOptions = {
    *  @cosmicdrift/kumiko-renderer-web/styles.css wenn clientEntry da ist.
    *  `false` deaktiviert die CSS-Pipeline explizit. */
   readonly stylesheet?: string | false;
+} & ClientEntriesConfig;
+
+/** One declared client entry, read from package.json `kumiko.clientEntries`.
+ *  `name` becomes the output filename (`client-<name>.js` / `<name>.html`
+ *  unless `htmlPath` overrides it). */
+export type ClientEntryDeclaration = {
+  readonly name: string;
+  readonly sourceFile: string;
+  readonly htmlPath?: string;
+};
+
+/** The two mutually exclusive shapes read from package.json `kumiko.*`.
+ *  Neither set → convention mode (src/client.tsx | src/client.ts). */
+export type ClientEntriesConfig = {
+  readonly clientEntry?: string;
+  readonly clientEntries?: readonly ClientEntryDeclaration[];
 };
 
 export type BuildManifest = Readonly<Record<string, string>>;
@@ -132,7 +156,7 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   const assetsDir = join(outDir, ASSETS_DIR);
 
   // 1. Discovery: was ist da?
-  const clientEntries = discoverClientEntries(cwd);
+  const clientEntries = resolveClientEntries(cwd, options);
   const firstClientSource = clientEntries[0]?.sourceFile;
   const stylesheet = resolveStylesheetEntry(cwd, firstClientSource, options.stylesheet);
   const publicDir = resolve(cwd, "public");
@@ -140,8 +164,8 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
 
   if (clientEntries.length === 0 && !hasPublicDir) {
     throw new Error(
-      `[kumiko build] nothing to build in ${cwd} — expected at least one of: ` +
-        `src/client.tsx, src/client-*.tsx, public/`,
+      `[kumiko build] nothing to build in ${cwd} — expected one of: ` +
+        `package.json "kumiko.clientEntry"/"kumiko.clientEntries", src/client.tsx, public/`,
     );
   }
 
@@ -230,35 +254,166 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
 
 // Single client-entry shape — one bundle, one html-template.
 export type ClientEntry = {
-  /** Logical name. "client" für single-mode; sonst der Suffix von
-   *  src/client-<suffix>.tsx (z.B. "public", "admin"). */
+  /** Logical name. "client" for single-entry mode (package.json
+   *  `kumiko.clientEntry` or the src/client.tsx convention); otherwise the
+   *  `name` declared in package.json `kumiko.clientEntries[]`. */
   readonly name: string;
-  /** TypeScript-Source. */
+  /** Absolute path to the TypeScript entry module. */
   readonly sourceFile: string;
-  /** Manifest-key & logical-asset-path. "client.js" für single, sonst
-   *  "client-<name>.js". */
+  /** Manifest key & logical asset path. "client.js" for single-entry mode,
+   *  otherwise "client-<name>.js". */
   readonly manifestKey: string;
-  /** HTML-template-Pfad relativ zum cwd. "index.html" für single oder
-   *  "public"-entry; sonst "<name>.html". Naming bewusst symmetrisch
-   *  zu `runDevApp.clientEntries[].htmlPath` damit Build und Dev-Server
-   *  dieselbe Konvention verwenden. */
+  /** HTML template path — absolute when declared or discovered on disk,
+   *  otherwise a bare default filename ("index.html", "<name>.html")
+   *  resolved against cwd by the caller. Naming is deliberately symmetric
+   *  to `runDevApp.clientEntries[].htmlPath` so build and dev server agree
+   *  on the same convention. */
   readonly htmlPath: string;
 };
 
-// @internal — exported nur für Unit-Tests. Konsumenten gehen über
-// buildProdBundle.
-//
-// Discovery-Pattern:
-//   - Falls `src/client-<suffix>.tsx` files existieren → multi-entry-mode,
-//     ein Bundle pro Datei. "public" mapped auf index.html (default),
-//     andere Suffixe auf "<suffix>.html".
-//   - Sonst falls `src/client.tsx` oder `src/client.ts` existiert →
-//     single-entry-mode mit name "client" + index.html.
-//   - Sonst leeres Array (keine Client-Bundles).
-export function discoverClientEntries(cwd: string): readonly ClientEntry[] {
-  const multi = discoverMultiClientEntries(cwd);
-  if (multi.length > 0) return multi;
+const ENTRY_NAME_PATTERN = /^[a-z][a-z0-9-]*$/;
 
+// The extension guard and both basename derivations (collision check, Bun.build
+// output mapping) must agree, otherwise an accepted entry maps to no bundle.
+const SOURCE_EXTENSION_PATTERN = /\.(?:tsx?|jsx?)$/;
+
+/** Resolves the client entries to build. Public — also called from
+ *  `kumiko-build`/`kumiko build` via `@cosmicdrift/kumiko-dev-server/build`,
+ *  not just from unit tests.
+ *
+ * Precedence (fw#2320 — explicit declaration, no filename inference):
+ *   1. `declared.clientEntry` and `declared.clientEntries` both set → throw.
+ *   2. `declared.clientEntries` (non-empty) → one entry per declaration.
+ *   3. `declared.clientEntry` → single entry, name "client".
+ *   4. Neither → convention: src/client.tsx | src/client.ts (name "client").
+ *      If that convention finds nothing but src/ still has legacy
+ *      `client-<suffix>.tsx` files, throws a migration error instead of
+ *      silently shipping a build without their bundles. */
+export function resolveClientEntries(
+  cwd: string,
+  declared: ClientEntriesConfig,
+): readonly ClientEntry[] {
+  const hasClientEntry = declared.clientEntry !== undefined;
+  const hasClientEntries = declared.clientEntries !== undefined;
+  if (hasClientEntry && hasClientEntries) {
+    throw new Error(
+      '[kumiko build] package.json "kumiko.clientEntry" and "kumiko.clientEntries" ' +
+        "are mutually exclusive — declare only one.",
+    );
+  }
+  if (declared.clientEntries !== undefined) {
+    return resolveDeclaredMultiEntries(cwd, declared.clientEntries);
+  }
+  if (declared.clientEntry !== undefined) {
+    return [resolveDeclaredSingleEntry(cwd, declared.clientEntry)];
+  }
+  return resolveConventionEntries(cwd);
+}
+
+function resolveDeclaredMultiEntries(
+  cwd: string,
+  declarations: readonly ClientEntryDeclaration[],
+): readonly ClientEntry[] {
+  if (declarations.length === 0) {
+    throw new Error(
+      '[kumiko build] package.json "kumiko.clientEntries" is empty — omit the key ' +
+        "entirely to use the src/client.tsx convention.",
+    );
+  }
+  const entries = declarations.map((decl) => resolveDeclaredEntry(cwd, decl));
+
+  const seenNames = new Set<string>();
+  for (const entry of entries) {
+    if (seenNames.has(entry.name)) {
+      throw new Error(
+        `[kumiko build] duplicate "kumiko.clientEntries[].name" "${entry.name}" — names must be unique.`,
+      );
+    }
+    seenNames.add(entry.name);
+  }
+
+  const seenHtmlBasenames = new Set<string>();
+  for (const entry of entries) {
+    const base = basenameOf(entry.htmlPath);
+    if (seenHtmlBasenames.has(base)) {
+      throw new Error(
+        `[kumiko build] two "kumiko.clientEntries" entries resolve to the same HTML ` +
+          `output file "${base}" — set an explicit "htmlPath" on one of them.`,
+      );
+    }
+    seenHtmlBasenames.add(base);
+  }
+
+  // Bun.build's output → ClientEntry mapping (buildClientBundles) matches on
+  // the source basename without extension. Two entries sharing it would
+  // silently map to the same bundle.
+  const seenSourceBasenames = new Set<string>();
+  for (const entry of entries) {
+    const base = basenameOf(entry.sourceFile).replace(SOURCE_EXTENSION_PATTERN, "");
+    if (seenSourceBasenames.has(base)) {
+      throw new Error(
+        `[kumiko build] two "kumiko.clientEntries" entries share the source basename ` +
+          `"${base}" ("${entry.sourceFile}") — rename one of the source files.`,
+      );
+    }
+    seenSourceBasenames.add(base);
+  }
+
+  return [...entries].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function resolveDeclaredEntry(cwd: string, decl: ClientEntryDeclaration): ClientEntry {
+  if (!ENTRY_NAME_PATTERN.test(decl.name)) {
+    throw new Error(
+      `[kumiko build] invalid "kumiko.clientEntries[].name" "${decl.name}" — must match ` +
+        `^[a-z][a-z0-9-]*$ (it becomes the output filename client-${decl.name}.js).`,
+    );
+  }
+  const sourceFile = resolveWithinCwd(
+    cwd,
+    decl.sourceFile,
+    `kumiko.clientEntries["${decl.name}"].sourceFile`,
+  );
+  assertValidSourceExtension(decl.sourceFile, `kumiko.clientEntries["${decl.name}"].sourceFile`);
+  if (!isExistingFile(sourceFile)) {
+    throw new Error(
+      `[kumiko build] kumiko.clientEntries["${decl.name}"].sourceFile "${decl.sourceFile}" ` +
+        `does not exist (resolved: ${sourceFile}).`,
+    );
+  }
+  const htmlPath =
+    decl.htmlPath !== undefined
+      ? resolveDeclaredHtmlPath(cwd, decl.name, decl.htmlPath)
+      : decl.name === "public"
+        ? (discoverHtmlTemplateFor(cwd, "index") ?? "index.html")
+        : (discoverHtmlTemplateFor(cwd, decl.name) ?? `${decl.name}.html`);
+  return { name: decl.name, sourceFile, manifestKey: `client-${decl.name}.js`, htmlPath };
+}
+
+function resolveDeclaredHtmlPath(cwd: string, entryName: string, htmlPath: string): string {
+  const label = `kumiko.clientEntries["${entryName}"].htmlPath`;
+  const resolved = resolveWithinCwd(cwd, htmlPath, label);
+  assertValidHtmlExtension(htmlPath, label);
+  return resolved;
+}
+
+function resolveDeclaredSingleEntry(cwd: string, clientEntry: string): ClientEntry {
+  const sourceFile = resolveWithinCwd(cwd, clientEntry, "kumiko.clientEntry");
+  assertValidSourceExtension(clientEntry, "kumiko.clientEntry");
+  if (!isExistingFile(sourceFile)) {
+    throw new Error(
+      `[kumiko build] kumiko.clientEntry "${clientEntry}" does not exist (resolved: ${sourceFile}).`,
+    );
+  }
+  return {
+    name: "client",
+    sourceFile,
+    manifestKey: "client.js",
+    htmlPath: discoverHtmlTemplateFor(cwd, "index") ?? "index.html",
+  };
+}
+
+function resolveConventionEntries(cwd: string): readonly ClientEntry[] {
   for (const candidate of ["src/client.tsx", "src/client.ts"]) {
     const sourceFile = resolve(cwd, candidate);
     if (existsSync(sourceFile)) {
@@ -272,10 +427,19 @@ export function discoverClientEntries(cwd: string): readonly ClientEntry[] {
       ];
     }
   }
+  const legacyEntries = findLegacyClientFiles(cwd);
+  if (legacyEntries.length > 0) {
+    throw new Error(buildLegacyMultiEntryMigrationError(legacyEntries));
+  }
   return [];
 }
 
-function discoverMultiClientEntries(cwd: string): readonly ClientEntry[] {
+type LegacyClientFile = { readonly name: string; readonly file: string };
+
+// Pre-fw#2320 multi-entry convention: any src/client-<suffix>.tsx(x) became
+// its own bundle. Detecting these without a declaration means an unmigrated
+// app would silently ship without their bundles — throw instead.
+function findLegacyClientFiles(cwd: string): readonly LegacyClientFile[] {
   const srcDir = resolve(cwd, "src");
   if (!existsSync(srcDir)) return [];
   let files: readonly string[];
@@ -284,25 +448,122 @@ function discoverMultiClientEntries(cwd: string): readonly ClientEntry[] {
   } catch {
     return [];
   }
-  const out: ClientEntry[] = [];
+  const found: LegacyClientFile[] = [];
   for (const file of files) {
     const match = /^client-([a-z][a-z0-9-]*)\.tsx?$/.exec(file);
-    const suffix = match?.[1];
-    if (!suffix) continue;
-    const sourceFile = resolve(srcDir, file);
-    out.push({
-      name: suffix,
-      sourceFile,
-      manifestKey: `client-${suffix}.js`,
-      // "public"-entry serviert die default-page (index.html), sonst pro
-      // Suffix ein eigenes Template.
-      htmlPath:
-        suffix === "public"
-          ? (discoverHtmlTemplateFor(cwd, "index") ?? "index.html")
-          : (discoverHtmlTemplateFor(cwd, suffix) ?? `${suffix}.html`),
-    });
+    if (match?.[1]) found.push({ name: match[1], file });
   }
-  return out.sort((a, b) => a.name.localeCompare(b.name));
+  return found.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function buildLegacyMultiEntryMigrationError(entries: readonly LegacyClientFile[]): string {
+  const fileNames = entries.map((e) => `src/${e.file}`).join(", ");
+  const snippet = entries
+    .map((e) => `      { "name": "${e.name}", "sourceFile": "./src/${e.file}" }`)
+    .join(",\n");
+  return (
+    `[kumiko build] found ${fileNames} but no "kumiko.clientEntries" declaration in ` +
+    `package.json — production builds no longer infer entries from filenames (fw#2320). Add:\n\n` +
+    `  "kumiko": {\n` +
+    `    "clientEntries": [\n` +
+    `${snippet}\n` +
+    `    ]\n` +
+    `  }\n`
+  );
+}
+
+function resolveWithinCwd(cwd: string, value: string, label: string): string {
+  const resolved = resolve(cwd, value);
+  const rel = relative(cwd, resolved);
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+    throw new Error(`[kumiko build] ${label} "${value}" resolves outside the app root ${cwd}.`);
+  }
+  return resolved;
+}
+
+function isExistingFile(path: string): boolean {
+  return existsSync(path) && statSync(path).isFile();
+}
+
+// The basename of htmlPath becomes a dist output filename (e.g. "manifest.json"
+// would collide with a file the build writes itself) — restrict it to .html.
+function assertValidHtmlExtension(value: string, label: string): void {
+  if (!value.endsWith(".html")) {
+    throw new Error(`[kumiko build] ${label} "${value}" must point to an .html file.`);
+  }
+}
+
+function assertValidSourceExtension(value: string, label: string): void {
+  if (!SOURCE_EXTENSION_PATTERN.test(value)) {
+    throw new Error(
+      `[kumiko build] ${label} "${value}" must point to a .ts, .tsx, .js or .jsx file.`,
+    );
+  }
+}
+
+/** Reads package.json → `kumiko.clientEntry` / `kumiko.clientEntries`.
+ *  Missing file or missing keys → `{}` (falls back to convention mode). A
+ *  malformed value under either key throws — a typo here must fail the
+ *  build loudly instead of silently dropping declared entries. */
+export function readClientEntriesConfig(cwd: string): ClientEntriesConfig {
+  const pkgJsonPath = resolve(cwd, "package.json");
+  if (!existsSync(pkgJsonPath)) return {};
+  const raw = readFileSync(pkgJsonPath, "utf8");
+  const parsed = parseJsonOrThrow<unknown>(raw, pkgJsonPath);
+  if (!isPlainObject(parsed)) return {};
+  const kumiko = parsed["kumiko"];
+  if (!isPlainObject(kumiko)) return {};
+
+  const result: { clientEntry?: string; clientEntries?: readonly ClientEntryDeclaration[] } = {};
+
+  if ("clientEntry" in kumiko) {
+    const value = kumiko["clientEntry"];
+    if (typeof value !== "string") {
+      throw new Error(
+        `[kumiko build] package.json "kumiko.clientEntry" must be a string, got ${typeof value}.`,
+      );
+    }
+    result.clientEntry = value;
+  }
+
+  if ("clientEntries" in kumiko) {
+    const value = kumiko["clientEntries"];
+    if (!Array.isArray(value)) {
+      throw new Error(
+        `[kumiko build] package.json "kumiko.clientEntries" must be an array, got ${typeof value}.`,
+      );
+    }
+    result.clientEntries = value.map((item, index) => parseClientEntryDeclaration(item, index));
+  }
+
+  return result;
+}
+
+function parseClientEntryDeclaration(item: unknown, index: number): ClientEntryDeclaration {
+  if (!isPlainObject(item)) {
+    throw new Error(
+      `[kumiko build] package.json "kumiko.clientEntries[${index}]" must be an object.`,
+    );
+  }
+  const name = item["name"];
+  const sourceFile = item["sourceFile"];
+  const htmlPath = item["htmlPath"];
+  if (typeof name !== "string" || name.length === 0) {
+    throw new Error(
+      `[kumiko build] package.json "kumiko.clientEntries[${index}].name" must be a non-empty string.`,
+    );
+  }
+  if (typeof sourceFile !== "string" || sourceFile.length === 0) {
+    throw new Error(
+      `[kumiko build] package.json "kumiko.clientEntries[${index}].sourceFile" must be a non-empty string.`,
+    );
+  }
+  if (htmlPath !== undefined && typeof htmlPath !== "string") {
+    throw new Error(
+      `[kumiko build] package.json "kumiko.clientEntries[${index}].htmlPath" must be a string when set.`,
+    );
+  }
+  return { name, sourceFile, ...(htmlPath !== undefined && { htmlPath }) };
 }
 
 function discoverHtmlTemplateFor(cwd: string, basename: string): string | undefined {
@@ -475,7 +736,10 @@ async function buildClientBundles(
   // entry-output zurück auf seinen ClientEntry via Basename-match.
   const result: Record<string, string> = {};
   for (const entry of entries) {
-    const baseName = (entry.sourceFile.split("/").pop() ?? "").replace(/\.tsx?$/, "");
+    const baseName = (entry.sourceFile.split("/").pop() ?? "").replace(
+      SOURCE_EXTENSION_PATTERN,
+      "",
+    );
     const match = entryOutputs.find((o) => {
       const outName = o.path.split("/").pop() ?? "";
       return outName.startsWith(`${baseName}-`);
@@ -537,7 +801,8 @@ async function renderHtml(
 }
 
 // @internal — exported for unit tests only. See #2305: the message must
-// name the source file and the filename convention.
+// name the source file and, for a declared multi-entry, which package.json
+// "kumiko.clientEntries" entry it came from.
 export function buildMissingTemplateError(manifest: BuildManifest, entry: ClientEntry): string {
   const cssLine = manifest["styles.css"]
     ? `    <link rel="stylesheet" href="/styles.css" />\n`
@@ -548,15 +813,11 @@ export function buildMissingTemplateError(manifest: BuildManifest, entry: Client
     : "";
   const sourceBasename = basenameOf(entry.sourceFile);
   // Single-mode entries always carry manifestKey "client.js"; any other
-  // value came from discoverMultiClientEntries' filename match.
+  // value came from a declared package.json "kumiko.clientEntries" entry.
   const isMultiEntry = entry.manifestKey !== "client.js";
   const discoveryHint = isMultiEntry
-    ? `"src/${sourceBasename}" wurde automatisch als eigener Bundle-Entry erkannt — ` +
-      `jede Datei nach dem Muster src/client-<suffix>.tsx zählt als Entry (hier: Suffix "${entry.name}"). ` +
-      `War das nicht beabsichtigt, z. B. weil die Datei nur ein von einem anderen client-*.tsx ` +
-      `importiertes Modul ist: Datei umbenennen (ohne "client-"-Präfix), dann verschwindet der Entry.\n` +
-      `\n` +
-      `War es beabsichtigt:\n`
+    ? `Entry "${entry.name}" comes from package.json "kumiko.clientEntries" ` +
+      `(sourceFile: "src/${sourceBasename}").\n\n`
     : "";
   return (
     `[kumiko build] kein ${entry.htmlPath} gefunden für Entry "src/${sourceBasename}", ` +
