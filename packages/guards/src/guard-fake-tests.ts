@@ -20,8 +20,8 @@ const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
   scope: "tests",
-  extensions: ["ts"],
-  kinds: ["framework", "library"],
+  extensions: ["ts", "tsx"],
+  kinds: ["framework", "library", "app"],
 };
 
 interface Violation {
@@ -59,19 +59,60 @@ const ASSERTION_HELPER_NAMES = new Set([
   "expectTypeOf",
 ]);
 
-function countExpects(node: Node): number {
-  let n = 0;
-  node.forEachDescendant((d) => {
-    if (d.isKind(SyntaxKind.CallExpression)) {
-      const name = d.getExpression().getText();
-      if (name === "expect" || name.startsWith("expect.")) {
-        n++;
-      } else if (ASSERTION_HELPER_NAMES.has(name)) {
-        n++;
-      }
-    }
-  });
-  return n;
+// Matched on the LAST property name of a property-access callee
+// (`stack.http.writeOk(...)`, `tenant.api.queryErr(...)`) — these throw on
+// the wrong outcome, same as expect(), so a call to one counts as an
+// assertion (framework request-helper.ts, testing auth-kit.ts successData).
+const ASSERTION_API_METHODS = new Set(["writeOk", "writeErr", "queryOk", "queryErr"]);
+
+const MAX_HELPER_DEPTH = 3;
+
+function isDirectAssertionCall(call: CallExpression): boolean {
+  const expr = call.getExpression();
+  const text = expr.getText();
+  if (text === "expect" || text.startsWith("expect.")) return true;
+  if (ASSERTION_HELPER_NAMES.has(text)) return true;
+  if (!expr.isKind(SyntaxKind.PropertyAccessExpression)) return false;
+  const name = expr.getName();
+  return ASSERTION_API_METHODS.has(name);
+}
+
+// A bare identifier `foo(...)` counts as an assertion when `foo` is declared
+// in the SAME file (function declaration, or a variable initialized with an
+// arrow/function expression, at any nesting level) and its own body asserts —
+// recursively, so a chain of thin wrappers around expect() still counts.
+function resolveSameFileHelper(sf: SourceFile, name: string): Node | undefined {
+  const fn = sf
+    .getDescendantsOfKind(SyntaxKind.FunctionDeclaration)
+    .find((f) => f.getName() === name);
+  if (fn) return fn;
+  const varDecl = sf
+    .getDescendantsOfKind(SyntaxKind.VariableDeclaration)
+    .find((v) => v.getName() === name);
+  const init = varDecl?.getInitializer();
+  if (
+    init &&
+    (init.isKind(SyntaxKind.ArrowFunction) || init.isKind(SyntaxKind.FunctionExpression))
+  ) {
+    return init;
+  }
+  return undefined;
+}
+
+// depth limit + visited set: a helper chain deeper than the limit is treated
+// as unproven (violation), and a recursive helper never infinite-loops.
+function bodyHasAssertion(node: Node, sf: SourceFile, depth: number, visited: Set<Node>): boolean {
+  if (visited.has(node)) return false;
+  visited.add(node);
+  for (const call of node.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (isDirectAssertionCall(call)) return true;
+    if (depth >= MAX_HELPER_DEPTH) continue;
+    const expr = call.getExpression();
+    if (!expr.isKind(SyntaxKind.Identifier)) continue;
+    const helper = resolveSameFileHelper(sf, expr.getText());
+    if (helper && bodyHasAssertion(helper, sf, depth + 1, visited)) return true;
+  }
+  return false;
 }
 
 function scanFile(sf: SourceFile): Violation[] {
@@ -100,8 +141,8 @@ function scanFile(sf: SourceFile): Violation[] {
     const isArrowOrFn =
       body.isKind(SyntaxKind.ArrowFunction) || body.isKind(SyntaxKind.FunctionExpression);
     if (!isArrowOrFn) continue;
-    const nExpect = countExpects(body);
-    if (nExpect === 0) {
+    const hasAssertion = bodyHasAssertion(body, sf, 0, new Set());
+    if (!hasAssertion) {
       const nameArg = args[0]?.getText().slice(0, 50) ?? "<anonymous>";
       violations.push({
         file: path.relative(ROOT, sf.getFilePath()),
