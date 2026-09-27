@@ -27,8 +27,8 @@ import {
 //   - tier: "free" / "pro" / ... — vom tier-engine konsumiert. Aus
 //     price-to-tier-Map resolved im Plugin.
 //   - currentPeriodEnd: wann läuft die aktuelle Billing-Period aus.
-//   - cancelAt: wann das Abo wegen Kündigung endet (null = verlängert
-//     sich weiter). Nullable, weil ein aktives Abo das nicht hat.
+//   - cancelAt: when a scheduled cancellation ends the subscription;
+//     nullable because a renewing subscription has none.
 //
 // **Was hier NICHT ist:**
 //   - invoice-history, payment-method, line-items, tax-info → all das

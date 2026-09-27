@@ -162,16 +162,7 @@ export function verifyAndParseStripeWebhook(
     const currentPeriodEnd = Temporal.Instant.fromEpochMilliseconds(
       periodEndUnixSec * 1000,
     ).toString();
-    // cancel_at is set once a cancellation is scheduled (either an explicit
-    // future cancel_at, or cancel_at_period_end which Stripe resolves to the
-    // period end) — null means the subscription just renews. Missing
-    // sub.cancel_at with cancel_at_period_end true falls back to
-    // currentPeriodEnd, the same value Stripe would report as cancel_at.
-    const cancelAt = sub.cancel_at
-      ? Temporal.Instant.fromEpochMilliseconds(sub.cancel_at * 1000).toString()
-      : sub.cancel_at_period_end
-        ? currentPeriodEnd
-        : null;
+    const cancelAt = stripeCancelAtIso(sub, currentPeriodEnd);
 
     return {
       providerEventId: event.id,
@@ -192,6 +183,21 @@ export function verifyAndParseStripeWebhook(
 // =============================================================================
 // Helpers
 // =============================================================================
+
+/** cancel_at is set once a cancellation is scheduled (an explicit future
+ *  cancel_at, or cancel_at_period_end which Stripe resolves to the period
+ *  end) — null means the subscription renews. cancel_at_period_end without
+ *  cancel_at falls back to currentPeriodEnd, the value Stripe would report
+ *  as cancel_at. */
+export function stripeCancelAtIso(
+  sub: Pick<Stripe.Subscription, "cancel_at" | "cancel_at_period_end">,
+  currentPeriodEndIso: string,
+): string | null {
+  if (sub.cancel_at) {
+    return Temporal.Instant.fromEpochMilliseconds(sub.cancel_at * 1000).toString();
+  }
+  return sub.cancel_at_period_end ? currentPeriodEndIso : null;
+}
 
 /** Stripe-event-type → normalisiert. null = ignore. */
 export function mapStripeEventType(stripeType: string): SubscriptionEventType | null {
