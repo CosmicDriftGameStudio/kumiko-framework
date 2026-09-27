@@ -17,7 +17,18 @@
 //   const entry = createApiEntrypoint(opts);
 //   attachSignalHandlers(entry.lifecycle);
 //   await entry.start();
-//   serve({ fetch: entry.app.fetch, port: 3000 });
+//   serve({
+//     fetch: (req, server) => entry.app.fetch(req, server.requestIP(req)?.address),
+//     port: 3000,
+//   });
+//
+// `entry.app.fetch` alone (without the 2nd arg) loses the caller's real
+// socket address — the client-ip resolver then sees no env, falls back to
+// "unknown", and every caller shares one IP-keyed rate-limit bucket (see
+// api/client-ip.ts). @cosmicdrift/kumiko-server-runtime's
+// `buildBunServeOptions(port, entry.app.fetch)` wires this same pattern
+// plus the SSE-safe idleTimeout default, for consumers that already
+// depend on that package.
 //
 // The `lifecycle` handle drives graceful-shutdown LIFO; the framework
 // registers its own shutdown hooks (eventDispatcher.stop, jobRunner.stop)
