@@ -278,6 +278,47 @@ export type OpenCheckoutInput = {
   readonly mode?: "subscription" | "payment";
 };
 
+function assertSubscriptionPriceAllowed(
+  plugin: SubscriptionProviderPlugin,
+  catalog: BillingPlanCatalog | undefined,
+  input: OpenCheckoutInput,
+): void {
+  if (!plugin.priceToTier) {
+    throw new UnprocessableError("provider_has_no_price_catalog", {
+      i18nKey: "billing-foundation.errors.providerHasNoPriceCatalog",
+      message: `subscription-foundation: provider "${input.providerName}" has no priceToTier — cannot verify priceId "${input.priceId}" belongs to a known plan`,
+    });
+  }
+  const tier = plugin.priceToTier[input.priceId];
+  if (!tier) {
+    throw new UnprocessableError("unknown_price", {
+      i18nKey: "billing-foundation.errors.unknownPrice",
+      message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s priceToTier`,
+    });
+  }
+  if (catalog && !catalog.plans.includes(tier)) {
+    throw new UnprocessableError("unknown_price", {
+      i18nKey: "billing-foundation.errors.unknownPrice",
+      message: `subscription-foundation: priceId "${input.priceId}" maps to tier "${tier}", which is not one of the catalog's plans`,
+    });
+  }
+}
+
+// Missing/empty oneOffPriceIds rejects every payment checkout: same
+// "no gate configured yet = closed" default as the priceToTier gate.
+function assertOneOffPriceAllowed(
+  plugin: SubscriptionProviderPlugin,
+  input: OpenCheckoutInput,
+): void {
+  const oneOffPriceIds = plugin.oneOffPriceIds ?? [];
+  if (!oneOffPriceIds.includes(input.priceId)) {
+    throw new UnprocessableError("unknown_price", {
+      i18nKey: "billing-foundation.errors.unknownPrice",
+      message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s oneOffPriceIds`,
+    });
+  }
+}
+
 /** The one checkout entry-point create-checkout-session and
  *  start-plan-checkout both funnel through. `mode: "payment"` (one-off
  *  top-ups etc.) skips the price/subscription gates entirely — those apply
@@ -306,39 +347,10 @@ export async function openCheckout(
   let ownSubscription: Awaited<ReturnType<typeof getSubscriptionForTenant>> | undefined;
 
   if (mode === "subscription") {
-    if (!plugin.priceToTier) {
-      throw new UnprocessableError("provider_has_no_price_catalog", {
-        i18nKey: "billing-foundation.errors.providerHasNoPriceCatalog",
-        message: `subscription-foundation: provider "${input.providerName}" has no priceToTier — cannot verify priceId "${input.priceId}" belongs to a known plan`,
-      });
-    }
-    const tier = plugin.priceToTier[input.priceId];
-    if (!tier) {
-      throw new UnprocessableError("unknown_price", {
-        i18nKey: "billing-foundation.errors.unknownPrice",
-        message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s priceToTier`,
-      });
-    }
-    if (options.catalog && !options.catalog.plans.includes(tier)) {
-      throw new UnprocessableError("unknown_price", {
-        i18nKey: "billing-foundation.errors.unknownPrice",
-        message: `subscription-foundation: priceId "${input.priceId}" maps to tier "${tier}", which is not one of the catalog's plans`,
-      });
-    }
-
+    assertSubscriptionPriceAllowed(plugin, options.catalog, input);
     ownSubscription = await assertNoActiveSubscription(ctx, options.now());
   } else {
-    // mode: "payment" — the price must be on the provider's own one-off
-    // allowlist. Missing/empty oneOffPriceIds rejects every payment
-    // checkout, same "no gate configured yet = closed" default as
-    // priceToTier's mode:"subscription" branch above.
-    const oneOffPriceIds = plugin.oneOffPriceIds ?? [];
-    if (!oneOffPriceIds.includes(input.priceId)) {
-      throw new UnprocessableError("unknown_price", {
-        i18nKey: "billing-foundation.errors.unknownPrice",
-        message: `subscription-foundation: priceId "${input.priceId}" is not in provider "${input.providerName}"'s oneOffPriceIds`,
-      });
-    }
+    assertOneOffPriceAllowed(plugin, input);
   }
 
   // Rejects a foreign tenant's provider-customer id — otherwise the checkout
