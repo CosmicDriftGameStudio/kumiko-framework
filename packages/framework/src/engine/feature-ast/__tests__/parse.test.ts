@@ -2799,10 +2799,10 @@ defineFeature("showpony", (r) => {
 
   test("an imported registrar-wrapper stays invisible when its file can't be resolved (in-memory project, #1008)", () => {
     // parseInline uses an in-memory ts-morph Project — "./register/screens"
-    // isn't a real file, so getModuleSpecifierSourceFile() returns
-    // undefined and the wrapper is skipped like any other unresolvable
-    // call. Real cross-file resolution against on-disk files is covered by
-    // the parseFeatureFile fixture tests below.
+    // isn't a real file, so resolveModuleFile() returns undefined and the
+    // wrapper is skipped like any other unresolvable call. Real cross-file
+    // resolution against on-disk files is covered by the parseFeatureFile
+    // fixture tests below.
     expect(result.patterns.some((p) => p.kind === "screen" || p.kind === "nav")).toBe(false);
   });
 });

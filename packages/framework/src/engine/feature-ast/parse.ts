@@ -73,7 +73,9 @@ import {
   extractWorkspace,
   extractWriteHandler,
   findFunctionLiteral,
+  findImportBindingForLocalName,
   readObjectPropertyInitializer,
+  resolveModuleFile,
   resolveSameFileObjectLiteral,
 } from "./extractors";
 import type { FeaturePattern, UnknownPattern } from "./patterns";
@@ -296,13 +298,13 @@ function walkSetupCallback(
 /**
  * Resolves a bare call like `registerShowPonyScreens(r)` to the callee's
  * body + its own parameter name for the registrar slot. The callee may be
- * declared in the same file (function declaration, or a const initialized
- * with an arrow/function expression), or imported by name from another
- * file — resolved via the module specifier's SourceFile (#1008; only
- * works against a real-filesystem Project, e.g. parseFeatureFile's. The
- * in-memory Designer Project has no files to resolve against and
- * getModuleSpecifierSourceFile() returns undefined there, same as any
- * other unresolvable reference).
+ * declared in the same file, or imported by name from another file —
+ * resolved syntactically via resolveModuleFile, which only works against a
+ * real-filesystem Project; the in-memory Designer Project has no files to
+ * resolve against and returns undefined there, same as any other
+ * unresolvable reference. Does not follow re-exports in the target file — a
+ * wrapper function is expected to be declared directly in the module it's
+ * imported from.
  */
 function resolveRegistrarWrapperCall(
   call: CallExpression,
@@ -328,21 +330,12 @@ function resolveRegistrarWrapperCall(
   const local = resolveWrapperDeclarationInFile(callSourceFile, name, argIndex);
   if (local) return { ...local, sourceFile: callSourceFile };
 
-  const importDecl = callSourceFile
-    .getImportDeclarations()
-    .find((d) =>
-      d.getNamedImports().some((ni) => (ni.getAliasNode()?.getText() ?? ni.getName()) === name),
-    );
-  if (!importDecl) return undefined;
-  const exportedName =
-    importDecl
-      .getNamedImports()
-      .find((ni) => (ni.getAliasNode()?.getText() ?? ni.getName()) === name)
-      ?.getName() ?? name;
-  const targetFile = importDecl.getModuleSpecifierSourceFile();
+  const binding = findImportBindingForLocalName(callSourceFile, name);
+  if (!binding) return undefined;
+  const targetFile = resolveModuleFile(callSourceFile, binding.moduleSpecifier);
   if (!targetFile) return undefined; // Unresolvable: in-memory project, external package, or missing file.
 
-  const imported = resolveWrapperDeclarationInFile(targetFile, exportedName, argIndex);
+  const imported = resolveWrapperDeclarationInFile(targetFile, binding.importedName, argIndex);
   return imported ? { ...imported, sourceFile: targetFile } : undefined;
 }
 

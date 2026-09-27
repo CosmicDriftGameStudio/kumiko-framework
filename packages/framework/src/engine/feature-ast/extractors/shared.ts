@@ -2,6 +2,12 @@ import type { CallExpression, Node, ObjectLiteralExpression } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import { isPlainObject } from "../../../utils/is-plain-object";
 import type { ParseError } from "../parse";
+import {
+  findImportBindingForLocalName,
+  findScopedVariableDeclaration,
+  resolveExportedVariable,
+  resolveModuleFile,
+} from "./resolve-import";
 
 export type ExtractOutput<TPattern> =
   | { readonly kind: "pattern"; readonly pattern: TPattern }
@@ -200,28 +206,31 @@ function unwrapLiteralInitializer(node: Node): string | undefined {
 /**
  * Resolves a bare Identifier to the string value of its declaration's
  * initializer (`export const EXT_TENANT_DATA = "tenant-data" as const`),
- * following imports via ts-morph's definition lookup — works across files
- * and packages against a real-filesystem Project (see #1008 precedent in
- * parse.ts). Only descends into VariableDeclaration initializers; a
- * function/class/type definition or an unresolvable import (external
- * package, ambient declaration) yields undefined, never a throw.
+ * following imports syntactically across files and packages against a
+ * real-filesystem Project without ever building a TypeScript program (see
+ * resolve-import.ts). Only descends into VariableDeclaration initializers; a
+ * function/class/type definition or an unresolvable import yields undefined,
+ * never a throw.
  */
 function resolveIdentifierToStringLiteral(identifier: Node): string | undefined {
   const id = identifier.asKind(SyntaxKind.Identifier);
   if (!id) return undefined;
-  let defs: readonly Node[];
-  try {
-    defs = id.getDefinitionNodes();
-  } catch {
-    return undefined;
-  }
-  for (const def of defs) {
-    const init = def.asKind(SyntaxKind.VariableDeclaration)?.getInitializer();
-    if (!init) continue;
-    const value = unwrapLiteralInitializer(init);
+  const name = id.getText();
+
+  const scoped = findScopedVariableDeclaration(id, name);
+  if (scoped) {
+    const init = scoped.getInitializer();
+    const value = init ? unwrapLiteralInitializer(init) : undefined;
     if (value !== undefined) return value;
   }
-  return undefined;
+
+  const binding = findImportBindingForLocalName(id.getSourceFile(), name);
+  if (!binding) return undefined;
+  const targetFile = resolveModuleFile(id.getSourceFile(), binding.moduleSpecifier);
+  if (!targetFile) return undefined;
+  const decl = resolveExportedVariable(targetFile, binding.importedName);
+  const init = decl?.getInitializer();
+  return init ? unwrapLiteralInitializer(init) : undefined;
 }
 
 /**
@@ -279,9 +288,7 @@ export function resolveSameFileObjectLiteral(node: Node): ObjectLiteralExpressio
   if (direct) return direct;
   const identifier = node.asKind(SyntaxKind.Identifier);
   if (!identifier) return undefined;
-  const valueDecl = identifier.getSymbol()?.getValueDeclaration();
-  const fromSymbol = valueDecl?.asKind(SyntaxKind.VariableDeclaration);
-  const varDecl = fromSymbol ?? node.getSourceFile().getVariableDeclaration(identifier.getText());
+  const varDecl = findScopedVariableDeclaration(identifier, identifier.getText());
   return varDecl?.getInitializer()?.asKind(SyntaxKind.ObjectLiteralExpression);
 }
 
