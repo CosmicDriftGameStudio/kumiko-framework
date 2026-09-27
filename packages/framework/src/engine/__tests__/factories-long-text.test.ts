@@ -17,9 +17,11 @@ import type { LongTextFieldDef } from "../types";
 // =============================================================================
 
 describe("createLongTextField — runtime shape", () => {
-  test("default returns { type: 'longText', required: false }", () => {
-    const f = createLongTextField();
-    expect(f).toEqual({ type: "longText", required: false });
+  test("kumiko-framework#2921: no argument throws — a longText field must declare a personal stance", () => {
+    expect(() =>
+      // @ts-expect-error overrides (with a personal stance) is now required
+      createLongTextField(),
+    ).toThrow(/must declare an explicit personal-data stance/);
   });
 
   test("required: true is preserved as literal in the return type", () => {

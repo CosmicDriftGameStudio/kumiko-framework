@@ -88,6 +88,77 @@ function expandPersonalAnnotations<T extends PersonalOverridesInput>(
   } as Omit<T, "personal" | "find" | "reason"> & ResolvedPiiFlags;
 }
 
+type TextFieldStanceFactory = "createTextField" | "createLongTextField";
+
+// `find` is mandatory once a subject is named (types require it — see
+// PersonalAnnotations / PersonalAnnotationsLongText), but the valid values
+// differ per factory: longText has no lookup/search machinery.
+const TEXT_FIELD_STANCE_FIND_VALUES: Record<TextFieldStanceFactory, readonly Findability[]> = {
+  createTextField: ["exact", "fuzzy", "none", "secret"],
+  createLongTextField: ["none", "secret"],
+};
+
+function textFieldStanceHint(factoryName: TextFieldStanceFactory): string {
+  const find = TEXT_FIELD_STANCE_FIND_VALUES[factoryName].map((f) => `"${f}"`).join(" | ");
+  return (
+    `{ personal: "self", find: ${find} }, ` +
+    `{ personal: "tenant", find: ${find} }, ` +
+    `{ personal: { of: "<ownerField>" }, find: ${find} }, ` +
+    `{ personal: "ref" }, or ` +
+    `{ personal: false, reason: "<why this is not personal data>" }`
+  );
+}
+
+function missingTextFieldStanceError(factoryName: TextFieldStanceFactory): Error {
+  return new Error(
+    `${factoryName}(...) must declare an explicit personal-data stance — a text field must state whose data it holds and (unless it isn't personal data) how findable it needs to stay (kumiko-framework#2921). Pass one of: ${textFieldStanceHint(factoryName)}. Run \`kumiko-guards guards --guard="Text-Field Personal-Stance Guard"\` to find remaining call sites.`,
+  );
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+// Fail-closed stance gate (kumiko-framework#2921) for the two text-shaped
+// factories — runs before expandPersonalAnnotations so an untyped JS caller
+// (no compiler to stop it) can't slip an unannotated text field past the
+// type layer either. `overrides` is `unknown` here on purpose: the typed
+// signature above already rejects a missing/malformed shape at compile
+// time, this re-checks the same shape at the runtime boundary.
+function assertTextFieldStance(factoryName: TextFieldStanceFactory, overrides: unknown): void {
+  if (overrides === null || typeof overrides !== "object") {
+    throw missingTextFieldStanceError(factoryName);
+  }
+  // @cast-boundary runtime-guard — re-validated field by field below before
+  // any value is trusted.
+  const { personal, find, reason } = overrides as PersonalOverridesInput;
+  if (personal === undefined || personal === null) {
+    throw missingTextFieldStanceError(factoryName);
+  }
+  if (personal === "ref") {
+    // skip: a user reference carries no content of its own, so no `find` applies
+    return;
+  }
+  if (personal === false) {
+    if (!isNonEmptyString(reason)) {
+      throw missingTextFieldStanceError(factoryName);
+    }
+    // skip: plaintext by declaration, `find` only applies to a named subject
+    return;
+  }
+  const hasValidSubject =
+    personal === "self" ||
+    personal === "tenant" ||
+    (typeof personal === "object" && isNonEmptyString(personal.of));
+  if (!hasValidSubject) {
+    throw missingTextFieldStanceError(factoryName);
+  }
+  const validFinds = TEXT_FIELD_STANCE_FIND_VALUES[factoryName];
+  if (typeof find !== "string" || !(validFinds as readonly string[]).includes(find)) {
+    throw missingTextFieldStanceError(factoryName);
+  }
+}
+
 // Generic über `R extends true | false` (statt `boolean`) damit
 // `createTextField({ required: true })` literal `required: true` im
 // Return-Type behält. `boolean` würde widenen — EntityTable<E>'s
@@ -96,9 +167,10 @@ function expandPersonalAnnotations<T extends PersonalOverridesInput>(
 // degradieren. Default `R = false` matcht den runtime-default. Pattern
 // in jeder required-bearing factory unten.
 export function createTextField<R extends true | false = false>(
-  overrides?: Partial<Omit<TextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+  overrides: Partial<Omit<TextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
     PersonalAnnotations & { required?: R },
 ): TextFieldDef & { required: R } {
+  assertTextFieldStance("createTextField", overrides);
   return {
     type: "text",
     maxLength: 200,
@@ -131,9 +203,10 @@ export function createDerivedField(spec: DerivedFieldDef): DerivedFieldDef {
 }
 
 export function createLongTextField<R extends true | false = false>(
-  overrides?: Partial<Omit<LongTextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
+  overrides: Partial<Omit<LongTextFieldDef, "type" | "required" | keyof ResolvedPiiFlags>> &
     PersonalAnnotationsLongText & { required?: R },
 ): LongTextFieldDef & { required: R } {
+  assertTextFieldStance("createLongTextField", overrides);
   return {
     type: "longText",
     required: false,

@@ -1,9 +1,6 @@
 {
   "format": 1,
   "generated": "2026-09-27",
-  "total": 2,
-  "perFile": {
-    "packages/framework/src/engine/__tests__/factories-long-text.test.ts": 1,
-    "packages/framework/src/engine/__tests__/factories-personal.test.ts": 1
-  }
+  "total": 0,
+  "perFile": {}
 }

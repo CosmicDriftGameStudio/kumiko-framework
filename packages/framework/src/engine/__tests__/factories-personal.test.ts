@@ -3,21 +3,84 @@
 // ../factories, exercised through the public factory functions.
 
 import { describe, expect, test } from "bun:test";
-import { createLongTextField, createTextField, createTimestampField } from "../factories";
+import {
+  createLongTextField,
+  createNumberField,
+  createTextField,
+  createTimestampField,
+} from "../factories";
 
 describe("createTextField — personal/find resolution", () => {
-  test("no annotation at all: no PII flags, no personal/find/reason leak into the field", () => {
-    const f = createTextField({ required: true });
-    expect(f).toEqual({
-      type: "text",
-      maxLength: 200,
-      required: true,
-      searchable: false,
-      sortable: false,
-    });
-    expect(f).not.toHaveProperty("personal");
-    expect(f).not.toHaveProperty("find");
-    expect(f).not.toHaveProperty("reason");
+  // kumiko-framework#2921 — a text field can no longer be constructed
+  // without declaring whose data it holds, neither at the type level nor
+  // at runtime (fail-closed for untyped JS callers).
+  test("no argument at all throws", () => {
+    expect(() =>
+      // @ts-expect-error overrides (with a personal stance) is now required
+      createTextField(),
+    ).toThrow(/must declare an explicit personal-data stance/);
+  });
+
+  test("options without `personal` throws", () => {
+    expect(() =>
+      // @ts-expect-error `personal` is required on the options object
+      createTextField({ required: true }),
+    ).toThrow(/createTextField\(\.\.\.\) must declare an explicit personal-data stance/);
+  });
+
+  test("an untyped JS caller passing null throws the same guidance instead of a raw TypeError", () => {
+    // Simulated untyped-boundary call — a real JS consumer has no compiler
+    // to reject this, so the runtime gate must catch it. Cast only here.
+    const call = () => createTextField(null as unknown as Parameters<typeof createTextField>[0]);
+    expect(call).toThrow(/must declare an explicit personal-data stance/);
+  });
+
+  test("an untyped JS caller passing personal: null throws the guidance message, not a raw TypeError", () => {
+    // Same untyped-boundary simulation, but `personal` itself is null
+    // instead of the whole options object — the object-branch subject
+    // check must not dereference `.of` on it.
+    const call = () =>
+      createTextField({ personal: null } as unknown as Parameters<typeof createTextField>[0]);
+    expect(call).toThrow(/must declare an explicit personal-data stance/);
+  });
+
+  test('personal: "self" without find throws', () => {
+    expect(() =>
+      // @ts-expect-error `find` is required alongside a named subject
+      createTextField({ personal: "self" }),
+    ).toThrow(/must declare an explicit personal-data stance/);
+  });
+
+  test("personal: false without a reason throws", () => {
+    expect(() =>
+      // @ts-expect-error `reason` is required alongside `personal: false`
+      createTextField({ personal: false }),
+    ).toThrow(/must declare an explicit personal-data stance/);
+  });
+
+  test("personal: false with a reason works", () => {
+    const f = createTextField({ personal: false, reason: "is_business_data" });
+    expect(f.allowPlaintext).toBe("is_business_data");
+  });
+
+  test("an invalid personal value throws and lists every valid stance", () => {
+    const call = () =>
+      createTextField({
+        // @ts-expect-error "yes" is not a valid personal stance
+        personal: "yes",
+      });
+    expect(call).toThrow(/must declare an explicit personal-data stance/);
+    try {
+      call();
+      throw new Error("expected createTextField to throw");
+    } catch (error) {
+      const message = String(error);
+      expect(message).toContain('personal: "self"');
+      expect(message).toContain('personal: "tenant"');
+      expect(message).toContain('personal: { of: "<ownerField>" }');
+      expect(message).toContain('personal: "ref"');
+      expect(message).toContain("personal: false, reason:");
+    }
   });
 
   test('personal: "self", find: "exact" → pii + lookupable', () => {
@@ -108,6 +171,16 @@ describe("createLongTextField — restricted find (PersonalAnnotationsLongText)"
     expect(f.lookupable).toBeUndefined();
     expect(f).not.toHaveProperty("searchable");
   });
+
+  test('find: "exact" is a createTextField-only value — createLongTextField rejects it', () => {
+    expect(() =>
+      createLongTextField({
+        personal: "self",
+        // @ts-expect-error "exact"/"fuzzy" don't exist on LongTextFindability
+        find: "exact",
+      }),
+    ).toThrow(/must declare an explicit personal-data stance/);
+  });
 });
 
 describe("createTimestampField — personal without find (PersonalAnnotationsNoFind)", () => {
@@ -126,5 +199,18 @@ describe("createTimestampField — personal without find (PersonalAnnotationsNoF
   test("personal: false, reason given → allowPlaintext", () => {
     const f = createTimestampField({ personal: false, reason: "server-generated, not user data" });
     expect(f.allowPlaintext).toBe("server-generated, not user data");
+  });
+
+  // kumiko-framework#2921 only tightens text/longText — NoFind factories
+  // keep `personal` optional and stay callable without an argument.
+  test("createTimestampField() without any argument still works", () => {
+    const f = createTimestampField();
+    expect(f).toEqual({ type: "timestamp", required: false });
+  });
+
+  test("createNumberField() without any argument still works", () => {
+    const f = createNumberField();
+    expect(f.type).toBe("number");
+    expect(f).not.toHaveProperty("personal");
   });
 });
