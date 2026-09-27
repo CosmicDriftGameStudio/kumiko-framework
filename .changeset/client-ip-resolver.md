@@ -32,6 +32,20 @@ migration: |
   for a single ingress. Without it, every client collapses into one shared
   rate-limit bucket (safe default, but likely too strict for real traffic).
   Apps not behind a proxy need no change; `trustedProxyHops` defaults to 0.
+
+  Integration tests that call an `ip`/`ip+handler`-rate-limited handler
+  repeatedly through `stack.http.raw`/`stack.app.request` (no real socket)
+  now share one "unknown" bucket instead of skipping the bucket entirely —
+  a previously-passing test suite can start seeing 429s. Fix by flushing
+  the rate-limit namespace between test cases (`stack.redis.flushNamespace()`
+  in `beforeEach`), or by setting `setupTestStack({ trustedProxyHops: 1 })`
+  and sending a distinct `X-Forwarded-For` per test case. Also check any
+  test that nulls `context.redis` via `extraContext` to exercise a
+  handler's own redis-down guard: `setupTestStack` now keeps the L3
+  rate-limit resolver alive from its own always-real Redis in that case
+  (an explicit `context.rateLimit` still wins), so a handler-declared
+  `rateLimit` is enforced instead of throwing `InternalError` for a missing
+  resolver.
 -->
 
 <!-- kumiko-changes
