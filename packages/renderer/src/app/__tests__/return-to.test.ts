@@ -1,7 +1,37 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "../feature-schema";
-import { formatReturnTo, resolveReturnTarget, returnToParams, splitReturnTo } from "../return-to";
+import type { NavApi, NavTarget } from "../nav";
+import {
+  formatReturnTo,
+  navigateWithReturnTo,
+  resolveReturnTarget,
+  returnToParams,
+  splitReturnTo,
+} from "../return-to";
+
+// hrefFor maps entity ObjectTargets to their detail screen, mirroring resolveTarget.
+function fakeNav(searchParams: Readonly<Record<string, string>> = {}): {
+  readonly nav: NavApi;
+  readonly navigateCalls: NavTarget[];
+  readonly setSearchParamsCalls: ReadonlyArray<Readonly<Record<string, string | null>>>;
+} {
+  const navigateCalls: NavTarget[] = [];
+  const setSearchParamsCalls: Array<Readonly<Record<string, string | null>>> = [];
+  const hrefFor = (target: NavTarget): string =>
+    "screenId" in target
+      ? `/${[target.screenId, target.entityId].filter((s) => s !== undefined).join("/")}`
+      : `/vehicle-detail/${target.id}`;
+  const nav: NavApi = {
+    route: undefined,
+    navigate: (target) => navigateCalls.push(target),
+    replace: () => {},
+    hrefFor,
+    searchParams,
+    setSearchParams: (updates) => setSearchParamsCalls.push(updates),
+  };
+  return { nav, navigateCalls, setSearchParamsCalls };
+}
 
 function schemaWith(featureName: string, screens: readonly ScreenDefinition[]): FeatureSchema {
   return { featureName, entities: {}, screens };
@@ -334,5 +364,33 @@ describe("formatReturnTo / splitReturnTo", () => {
     expect(
       returnToParams({ screenId: "token-list" }, { screenId: "token-create" }, { tab: "keys" }),
     ).toEqual({ returnTo: "token-list?tab=keys" });
+  });
+});
+
+describe("navigateWithReturnTo — ObjectTarget", () => {
+  test("target resolves away from the host: returnTo carries the host's search-params snapshot", () => {
+    const { nav, navigateCalls, setSearchParamsCalls } = fakeNav({ tab: "active" });
+    navigateWithReturnTo(nav, { entity: "vehicle", id: "abc" }, { screenId: "vehicle-list" });
+
+    expect(navigateCalls).toEqual([{ entity: "vehicle", id: "abc" }]);
+    expect(setSearchParamsCalls).toEqual([{ returnTo: "vehicle-list?tab=active" }]);
+  });
+
+  test("target resolves to the host itself: no returnTo", () => {
+    const { nav, setSearchParamsCalls } = fakeNav();
+    navigateWithReturnTo(
+      nav,
+      { entity: "vehicle", id: "abc" },
+      { screenId: "vehicle-detail", entityId: "abc" },
+    );
+
+    expect(setSearchParamsCalls).toEqual([]);
+  });
+
+  test("no host: only params, no returnTo", () => {
+    const { nav, setSearchParamsCalls } = fakeNav();
+    navigateWithReturnTo(nav, { entity: "vehicle", id: "abc" }, undefined, { name: "Vehicle A" });
+
+    expect(setSearchParamsCalls).toEqual([{ name: "Vehicle A" }]);
   });
 });

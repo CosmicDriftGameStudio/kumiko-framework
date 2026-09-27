@@ -20,7 +20,7 @@ import {
 } from "../app/list-facets";
 import { useNav } from "../app/nav";
 import { ReferenceFacetBridges, type ReferenceFacetOption } from "../app/reference-facet-bridge";
-import { useReturnHost } from "../app/return-to";
+import { navigateWithReturnTo, useReturnHost } from "../app/return-to";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
@@ -252,7 +252,7 @@ export function RelatedListSection({
       ? (row: ListRowViewModel) => {
           const id = String(row.values[rowClick.idColumn ?? "id"] ?? "");
           if (id === "") return;
-          nav.navigate({ entity: rowClick.entity, id });
+          navigateWithReturnTo(nav, { entity: rowClick.entity, id }, host);
         }
       : rowClickAction !== undefined
         ? (row: ListRowViewModel) => runProjectionRowNavigate(nav, rowClickAction, row, host)

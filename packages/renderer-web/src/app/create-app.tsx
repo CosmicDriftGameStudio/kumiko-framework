@@ -779,12 +779,17 @@ function RoutedScreen({
   >(() => {
     if (!hasRowClickTarget(app, activeScreen, onRowClick)) return undefined;
     return (row, entityName) => {
+      // No ReturnHostProvider out here — derive the host from this memo's own qn/entityId.
+      const host: ReturnHost = {
+        screenId: lastSegment(qn),
+        ...(entityId !== undefined && { entityId }),
+      };
       // Precedence (fw#2164): detailFor screen, then onRowClick, then the
       // entityEdit-search fallback below. An explicit rowActions
       // rowClick:true already wins over all of this — kumiko-screen.tsx
       // handles it before onRowClick is ever called.
       if (hasDetailScreen(app.features, entityName)) {
-        nav.navigate({ entity: entityName, id: row.id });
+        navigateWithReturnTo(nav, { entity: entityName, id: row.id }, host);
         return;
       }
       if (onRowClick !== undefined) {
@@ -801,11 +806,6 @@ function RoutedScreen({
           (s) => s.type === "entityEdit" && s.entity === entityName,
         );
         if (editScreen) {
-          // No ReturnHostProvider out here — derive the host from this memo's own qn/entityId.
-          const host: ReturnHost = {
-            screenId: lastSegment(qn),
-            ...(entityId !== undefined && { entityId }),
-          };
           // editScreen.id is already short form; lastSegment is a no-op
           // safety net here, kept for symmetry with the other call sites.
           navigateWithReturnTo(

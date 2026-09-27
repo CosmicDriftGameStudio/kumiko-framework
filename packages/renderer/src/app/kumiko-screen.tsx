@@ -1951,11 +1951,8 @@ function EntityListBody({
           action.entity === screen.entity ? String(row.values["id"] ?? "") : undefined;
         const id = explicit ?? fallback ?? "";
         if (id === "") return;
-        nav.navigate({ entity: action.entity, id });
         const params = navigateActionSearchParams(action, row.values);
-        if (params !== undefined) {
-          nav.setSearchParams(params);
-        }
+        navigateWithReturnTo(nav, { entity: action.entity, id }, host, params);
       } else if (action.screen !== undefined) {
         // Default entityId für entityEdit-Targets: row["id"] wenn kein expliziter
         // entityId-Feldname gesetzt ist. Nur für Targets DERSELBEN Entity — sonst

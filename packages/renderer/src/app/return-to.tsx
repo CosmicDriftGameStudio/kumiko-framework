@@ -3,7 +3,7 @@ import { createContext, type ReactNode, useContext, useMemo } from "react";
 import { useUserRoles } from "../context/user-roles-context";
 import { useAppFeatures } from "./app-features-context";
 import type { FeatureSchema } from "./feature-schema";
-import { type NavApi, type ScreenTarget, useNav } from "./nav";
+import { type NavApi, type NavTarget, type ObjectTarget, type ScreenTarget, useNav } from "./nav";
 import { lastSegment } from "./qn";
 import { screenAccessAllows } from "./screen-access";
 
@@ -93,14 +93,34 @@ export function returnToParams(
   return { [RETURN_TO_PARAM]: formatReturnTo(host, hostParams) };
 }
 
+// ObjectTarget only resolves to a path inside the NavApi impl (detailFor
+// lookup across all features), so compare hrefs instead of the raw target.
+function objectTargetIsHost(nav: NavApi, target: ObjectTarget, host: ReturnHost): boolean {
+  const hostTarget: ScreenTarget = {
+    screenId: host.screenId,
+    ...(host.entityId !== undefined && { entityId: host.entityId }),
+  };
+  return nav.hrefFor(target) === nav.hrefFor(hostTarget);
+}
+
+function returnParamsFor(
+  nav: NavApi,
+  target: NavTarget,
+  host: ReturnHost | undefined,
+): Readonly<Record<string, string>> {
+  if ("screenId" in target) return returnToParams(host, target, nav.searchParams);
+  if (host === undefined || objectTargetIsHost(nav, target, host)) return {};
+  return { [RETURN_TO_PARAM]: formatReturnTo(host, nav.searchParams) };
+}
+
 export function navigateWithReturnTo(
   nav: NavApi,
-  target: ScreenTarget,
+  target: NavTarget,
   host: ReturnHost | undefined,
   params?: Readonly<Record<string, string | null>>,
 ): void {
   // Snapshot before navigating — nav.searchParams still describes the host.
-  const returnParams = returnToParams(host, target, nav.searchParams);
+  const returnParams = returnParamsFor(nav, target, host);
   nav.navigate(target);
   const merged: Record<string, string | null> = {
     ...(params ?? {}),

@@ -5,9 +5,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavApi, NavTarget } from "../nav";
 import { RETURN_TO_PARAM, type ReturnHost } from "../return-to";
-import { buildProjectionToolbarActions, buildRecordActions } from "../row-actions";
+import {
+  buildProjectionToolbarActions,
+  buildRecordActions,
+  runProjectionRowNavigate,
+} from "../row-actions";
 
-function recordingNav(): {
+function recordingNav(hrefFor: (target: NavTarget) => string = () => ""): {
   readonly nav: NavApi;
   readonly navigateCalls: NavTarget[];
   readonly setSearchParamsCalls: ReadonlyArray<Readonly<Record<string, string | null>>>;
@@ -18,12 +22,18 @@ function recordingNav(): {
     route: undefined,
     navigate: (target) => navigateCalls.push(target),
     replace: () => {},
-    hrefFor: () => "",
+    hrefFor,
     searchParams: {},
     setSearchParams: (updates) => setSearchParamsCalls.push(updates),
   };
   return { nav, navigateCalls, setSearchParamsCalls };
 }
+
+// hrefFor maps entity ObjectTargets to their detail screen, mirroring resolveTarget.
+const hrefForVehicleDetail = (target: NavTarget): string =>
+  "screenId" in target
+    ? `/${[target.screenId, target.entityId].filter((s) => s !== undefined).join("/")}`
+    : `/vehicle-detail/${target.id}`;
 
 const host: ReturnHost = { screenId: "vehicle-list" };
 const noOpenDrawer = (): void => {};
@@ -77,7 +87,7 @@ describe("buildRecordActions — RowActionNavigate.tab", () => {
       record: { id: "abc" },
       translate: (key) => key,
       nav,
-      host,
+      host: undefined,
       dispatcher: undefined,
       openDrawer: noOpenDrawer,
       onWriteSuccess: noOnWriteSuccess,
@@ -86,6 +96,32 @@ describe("buildRecordActions — RowActionNavigate.tab", () => {
 
     expect(setSearchParamsCalls).toHaveLength(1);
     expect(setSearchParamsCalls[0]).toEqual({ tab: "channels" });
+  });
+
+  test("entity-target: carries returnTo when the target resolves away from the host", () => {
+    const { nav, navigateCalls, setSearchParamsCalls } = recordingNav(hrefForVehicleDetail);
+    const action: RowActionNavigate = {
+      kind: "navigate",
+      id: "view-channels",
+      label: "app.actions.viewChannels",
+      entity: "vehicle",
+      entityId: "id",
+      tab: "channels",
+    };
+    const actions = buildRecordActions({
+      actions: [action],
+      record: { id: "abc" },
+      translate: (key) => key,
+      nav,
+      host,
+      dispatcher: undefined,
+      openDrawer: noOpenDrawer,
+      onWriteSuccess: noOnWriteSuccess,
+    });
+    actions?.[0]?.onPress();
+
+    expect(navigateCalls).toEqual([{ entity: "vehicle", id: "abc" }]);
+    expect(setSearchParamsCalls).toEqual([{ tab: "channels", [RETURN_TO_PARAM]: "vehicle-list" }]);
   });
 
   test("no tab set: search params carry no tab key", () => {
@@ -165,5 +201,23 @@ describe("buildProjectionToolbarActions — navigate.tab", () => {
       vehicleId: "abc",
       [RETURN_TO_PARAM]: "vehicle-list",
     });
+  });
+});
+
+describe("runProjectionRowNavigate — entity target carries returnTo", () => {
+  test("entity action with a host and tab: navigate gets the ObjectTarget, returnTo and tab land together", () => {
+    const { nav, navigateCalls, setSearchParamsCalls } = recordingNav(hrefForVehicleDetail);
+    const action: RowActionNavigate = {
+      kind: "navigate",
+      id: "view-channels",
+      label: "app.actions.viewChannels",
+      entity: "vehicle",
+      entityId: "id",
+      tab: "channels",
+    };
+    runProjectionRowNavigate(nav, action, { id: "abc", values: { id: "abc" } }, host);
+
+    expect(navigateCalls).toEqual([{ entity: "vehicle", id: "abc" }]);
+    expect(setSearchParamsCalls).toEqual([{ tab: "channels", [RETURN_TO_PARAM]: "vehicle-list" }]);
   });
 });

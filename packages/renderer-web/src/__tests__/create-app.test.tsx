@@ -664,6 +664,7 @@ describe("createKumikoApp", () => {
 
       await waitFor(() => expect(window.location.pathname).toBe("/task-detail/r1"));
       expect(await screen.findByTestId("task-detail-mounted")).toBeTruthy();
+      expect(new URLSearchParams(window.location.search).get("returnTo")).toBe("task-list");
     });
 
     test("no detailFor screen → unchanged fallback to the entity's entityEdit screen", async () => {
