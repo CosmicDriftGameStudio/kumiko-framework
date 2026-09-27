@@ -20,6 +20,7 @@ import {
   BillingPlanActions,
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
+  SubscriptionStatuses,
 } from "../constants";
 import type { BillingPlansResult, BillingPlanView } from "../types";
 
@@ -241,6 +242,11 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           {t(mutationError.i18nKey, mutationError.i18nParams)}
         </Banner>
       )}
+      {result.subscription?.status === SubscriptionStatuses.pastDue && (
+        <Banner variant="warning" testId="billing-plans-panel-past-due">
+          {t("billing-foundation.plans.pastDue")}
+        </Banner>
+      )}
       {result.subscription !== null &&
         !result.subscription.terminal &&
         result.subscription.cancelAt != null && (
@@ -249,7 +255,8 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
               date: toInstant(result.subscription.cancelAt).toLocaleString(locale, {
                 dateStyle: "medium",
               }),
-            })}
+            })}{" "}
+            {t("billing-foundation.plans.switchRequiresReactivation")}
           </Banner>
         )}
       <PlanGrid testId="billing-plans-grid">

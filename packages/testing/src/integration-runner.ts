@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { BUNFIG_FILES, TEST_TIMEOUT_MS } from "./bunfig";
 
 export type IntegrationRunOptions = {
@@ -14,6 +16,26 @@ export function selectIntegrationFiles(paths: readonly string[]): string[] {
     .filter((path) => path.endsWith(".integration.test.ts"))
     .filter((path) => !path.split("/").some((segment) => EXCLUDED_SEGMENTS.has(segment)))
     .sort();
+}
+
+/** Resolves `kumiko-testing integration`'s positional file args against `cwd`
+ *  into absolute paths — absolute (not glob-relative) so bun's own
+ *  `bun test <path>` treats them as files to run, not filter patterns.
+ *  `exists` is injectable so this stays unit-testable without touching the
+ *  real filesystem. Throws on the first missing file — the caller decides
+ *  how to report it (CLI: print + exit 1). */
+export function resolveRequestedIntegrationFiles(
+  cwd: string,
+  positionals: readonly string[],
+  exists: (path: string) => boolean = existsSync,
+): string[] {
+  return positionals.map((arg) => {
+    const resolved = resolve(cwd, arg);
+    if (!exists(resolved)) {
+      throw new Error(`kumiko-testing integration: file not found: ${arg}`);
+    }
+    return resolved;
+  });
 }
 
 const isPositiveInteger = (value: number): boolean => Number.isInteger(value) && value > 0;

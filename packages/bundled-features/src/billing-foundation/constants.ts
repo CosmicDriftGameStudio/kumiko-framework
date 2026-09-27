@@ -44,6 +44,12 @@ export const SubscriptionFoundationHandlers = {
    *  subscription to another plan tier via the provider's confirmation
    *  page. Only registered when a `catalog` is configured. */
   switchPlan: "billing-foundation:write:switch-plan",
+  /** Backfill entry-point for the `sync-subscriptions` job (and any
+   *  SystemAdmin that wants an on-demand reconciliation). Pulls the live
+   *  provider-side state via the plugin's `retrieveSubscription` and
+   *  appends drift as a `subscription.updated` event. `agent.expose: false`
+   *  — programmatic only. */
+  syncSubscription: "billing-foundation:write:sync-subscription",
 } as const;
 
 // Qualified query handler names.

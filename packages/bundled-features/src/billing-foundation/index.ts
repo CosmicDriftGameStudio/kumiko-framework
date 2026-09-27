@@ -73,6 +73,7 @@ export {
   KNOWN_RECURRING_INTERVALS,
   type PaymentEvent,
   type ProviderPrice,
+  type ProviderSubscriptionSnapshot,
   type RecurringInterval,
   type SubscriptionEvent,
   type SubscriptionProviderPlugin,

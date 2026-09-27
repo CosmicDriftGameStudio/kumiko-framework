@@ -103,7 +103,26 @@ type ActiveSubscription = {
   readonly status: string;
   readonly tier: string;
   readonly terminal: boolean;
+  readonly cancelAt: string | null;
 };
+
+/** Whether an existing subscription can move to `tier` via the provider's
+ *  plan-switch session — pulled out of resolvePlanAction so that function
+ *  stays under the guard's complexity budget. A pending cancellation
+ *  (`cancelAt` set) must be reactivated via create-portal-session before a
+ *  switch is allowed — same gate `switch-plan.write.ts` enforces server-side. */
+function canSwitchToTier(
+  tier: string,
+  subscription: ActiveSubscription,
+  plugin: SubscriptionProviderPlugin | null,
+): boolean {
+  return (
+    isSwitchableSubscriptionStatus(subscription.status) &&
+    tier !== subscription.tier &&
+    subscription.cancelAt === null &&
+    plugin?.createPlanSwitchSession !== undefined
+  );
+}
 
 /** One plan-row's action — pulled out of `buildBillingPlans`' map callback so
  *  that function's own complexity stays under the guard's budget. paymentPending
@@ -133,11 +152,9 @@ function resolvePlanAction(
 
   if (!subscription || subscription.terminal) return BillingPlanActions.checkout;
 
-  const canSwitch =
-    isSwitchableSubscriptionStatus(subscription.status) &&
-    tier !== subscription.tier &&
-    plugin?.createPlanSwitchSession;
-  return canSwitch ? BillingPlanActions.switch : BillingPlanActions.unavailable;
+  return canSwitchToTier(tier, subscription, plugin)
+    ? BillingPlanActions.switch
+    : BillingPlanActions.unavailable;
 }
 
 /** `plugin === null` — no provider is registered/resolvable for this

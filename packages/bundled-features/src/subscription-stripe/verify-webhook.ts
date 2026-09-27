@@ -137,32 +137,14 @@ export function verifyAndParseStripeWebhook(
       return null;
     }
 
-    // 5. Price-to-tier-Mapping. Stripe-subscription hat items[0].price.id.
-    const priceId = sub.items.data[0]?.price.id;
-    if (!priceId) {
+    // 5+6. Price-to-tier-Mapping + status/period-end/cancel_at — shared with
+    //      plugin-methods.ts's createStripeRetrieveSubscription so both the
+    //      webhook and the sync-subscriptions backfill map Stripe state
+    //      identically.
+    const state = mapStripeSubscriptionState(sub, options.priceToTier);
+    if (!state) {
       return null;
     }
-    const tier = options.priceToTier[priceId];
-    if (!tier) {
-      // Price-id nicht im Mapping → App-Owner hat den Stripe-price
-      // angelegt aber nicht zur tier zugeordnet. Drop silent.
-      return null;
-    }
-
-    // 6. Status-Mapping + period-end. Stripe hat den period-end seit
-    //    2024 vom subscription-level auf item-level migriert (=
-    //    subscription.items.data[i].current_period_end). Wir lesen
-    //    das vom ersten item; multi-item-subs (Add-Ons) sind kein
-    //    Phase-5-Scope.
-    const status = mapStripeStatus(sub.status);
-    const periodEndUnixSec = sub.items.data[0]?.current_period_end ?? 0;
-    // Stripe returns Unix-seconds; Temporal.Instant.fromEpochMilliseconds
-    // expects ms. Multiply, then ISO. (No-Date-API-Guard forbids
-    // `new Date()` — static import above, not the ambient global, see #1490.)
-    const currentPeriodEnd = Temporal.Instant.fromEpochMilliseconds(
-      periodEndUnixSec * 1000,
-    ).toString();
-    const cancelAt = stripeCancelAtIso(sub, currentPeriodEnd);
 
     return {
       providerEventId: event.id,
@@ -171,13 +153,55 @@ export function verifyAndParseStripeWebhook(
       tenantId,
       providerCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
       providerSubscriptionId: sub.id,
-      status,
-      tier,
-      currentPeriodEnd,
-      cancelAt,
+      ...state,
       rawPayload: JSON.stringify(event),
     };
   };
+}
+
+// =============================================================================
+// Shared subscription-state mapping (webhook + retrieveSubscription)
+// =============================================================================
+
+export type MappedStripeSubscriptionState = {
+  readonly status: SubscriptionStatus;
+  readonly tier: string;
+  readonly currentPeriodEnd: string;
+  readonly cancelAt: string | null;
+};
+
+/** Maps a Stripe subscription's price/status/period-end/cancel_at onto the
+ *  foundation's normalized shape. Null when the subscription's price isn't
+ *  in `priceToTier` (the app owner created the Stripe price but never
+ *  mapped it to a tier) or the item has no price id at all. */
+export function mapStripeSubscriptionState(
+  sub: Pick<Stripe.Subscription, "status" | "items" | "cancel_at" | "cancel_at_period_end">,
+  priceToTier: Readonly<Record<string, string>>,
+): MappedStripeSubscriptionState | null {
+  const priceId = sub.items.data[0]?.price.id;
+  if (!priceId) {
+    return null;
+  }
+  const tier = priceToTier[priceId];
+  if (!tier) {
+    return null;
+  }
+
+  // Since 2024 Stripe reports period-end per item
+  // (subscription.items.data[i].current_period_end), not per subscription.
+  // We read the first item; multi-item subscriptions (add-ons) aren't
+  // supported.
+  const status = mapStripeStatus(sub.status);
+  const periodEndUnixSec = sub.items.data[0]?.current_period_end ?? 0;
+  // Stripe returns Unix-seconds; Temporal.Instant.fromEpochMilliseconds
+  // expects ms. Multiply, then ISO. (No-Date-API-Guard forbids
+  // `new Date()` — static import above, not the ambient global, see #1490.)
+  const currentPeriodEnd = Temporal.Instant.fromEpochMilliseconds(
+    periodEndUnixSec * 1000,
+  ).toString();
+  const cancelAt = stripeCancelAtIso(sub, currentPeriodEnd);
+
+  return { status, tier, currentPeriodEnd, cancelAt };
 }
 
 // =============================================================================

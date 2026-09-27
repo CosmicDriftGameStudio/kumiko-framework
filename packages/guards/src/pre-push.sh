@@ -86,6 +86,37 @@ if git -C "$REPO_ROOT" ls-files --error-unmatch scripts/pre-push-extra.sh >/dev/
   (cd "$REPO_ROOT" && KUMIKO_PUSH_REPO_ROOT="$REPO_ROOT" KUMIKO_PUSH_PARENT_DIR="$PARENT_DIR" "$REPO_ROOT/scripts/pre-push-extra.sh" "$@") || exit 1
 fi
 
+# Upgrade-state guard: a repo that has adopted the `.kumiko/upgrade-state.json`
+# marker must not push with it stale. Installed as a bin, `$0` here is the
+# node_modules/.bin symlink, not this file's real path — resolve the symlink
+# chain so guard-upgrade-state.ts is found next to the real script, not $0.
+resolve_script_dir() {
+  SOURCE="$1"
+  while [ -h "$SOURCE" ]; do
+    DIR="$(cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    case "$SOURCE" in
+      /*) ;;
+      *) SOURCE="$DIR/$SOURCE" ;;
+    esac
+  done
+  cd -P "$(dirname "$SOURCE")" >/dev/null 2>&1 && pwd
+}
+
+if [ -f "$REPO_ROOT/.kumiko/upgrade-state.json" ]; then
+  SCRIPT_DIR="$(resolve_script_dir "$0")"
+  GUARD_UPGRADE_STATE="$SCRIPT_DIR/guard-upgrade-state.ts"
+  if [ ! -f "$GUARD_UPGRADE_STATE" ]; then
+    echo "[pre-push] FATAL: guard-upgrade-state.ts not found next to resolved script location '$SCRIPT_DIR' — refusing push" >&2
+    exit 1
+  fi
+  echo "[pre-push] .kumiko/upgrade-state.json present — running upgrade-state guard…"
+  if ! (cd "$REPO_ROOT" && bun "$GUARD_UPGRADE_STATE"); then
+    echo "[pre-push] upgrade-state guard failed — refusing push" >&2
+    exit 1
+  fi
+fi
+
 # infra#559/#569: from a worktree, `--git-common-dir` resolves to the main
 # checkout's .git, so the branch below would scope `bun check` to the
 # canonical sibling path instead of this worktree — checking the wrong

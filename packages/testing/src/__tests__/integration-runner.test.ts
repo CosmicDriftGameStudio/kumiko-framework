@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildIntegrationTestArgs, selectIntegrationFiles } from "../integration-runner";
+import {
+  buildIntegrationTestArgs,
+  resolveRequestedIntegrationFiles,
+  selectIntegrationFiles,
+} from "../integration-runner";
 
 describe("buildIntegrationTestArgs", () => {
   test("without options sets no parallelism and no timings", () => {
@@ -62,6 +66,34 @@ describe("buildIntegrationTestArgs", () => {
         buildIntegrationTestArgs({ files: ["x.integration.test.ts"], ...combo }),
       ).not.toContain("--no-isolate");
     }
+  });
+});
+
+describe("resolveRequestedIntegrationFiles", () => {
+  test("resolves each positional against cwd into an absolute path", () => {
+    expect(
+      resolveRequestedIntegrationFiles(
+        "/repo",
+        ["a.integration.test.ts", "src/b.integration.test.ts"],
+        () => true,
+      ),
+    ).toEqual(["/repo/a.integration.test.ts", "/repo/src/b.integration.test.ts"]);
+  });
+
+  test("leaves an already-absolute positional untouched", () => {
+    expect(
+      resolveRequestedIntegrationFiles("/repo", ["/other/c.integration.test.ts"], () => true),
+    ).toEqual(["/other/c.integration.test.ts"]);
+  });
+
+  test("throws on the first file that does not exist", () => {
+    expect(() =>
+      resolveRequestedIntegrationFiles("/repo", ["missing.integration.test.ts"], () => false),
+    ).toThrow(/file not found: missing\.integration\.test\.ts/);
+  });
+
+  test("empty positionals resolve to an empty list", () => {
+    expect(resolveRequestedIntegrationFiles("/repo", [], () => false)).toEqual([]);
   });
 });
 

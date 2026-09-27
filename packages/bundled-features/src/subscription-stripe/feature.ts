@@ -53,6 +53,7 @@ import {
   createStripePortalSession,
   createStripePriceCache,
   createStripeRetrievePrices,
+  createStripeRetrieveSubscription,
 } from "./plugin-methods";
 import { createStripeRuntimes } from "./runtime";
 import { verifyAndParseStripeWebhook } from "./verify-webhook";
@@ -144,7 +145,7 @@ export function createSubscriptionStripeFeature(
   validateOneOffPriceIds(options.oneOffPriceIds ?? []);
   return defineFeature(SUBSCRIPTION_STRIPE_FEATURE, (r) => {
     r.describe(
-      'Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements webhook verify, checkout, portal, cancel, `retrievePrices` (10-minute TTL-cached price lookup for the billing-plans catalog) and `createPlanSwitchSession` (auto-provisions a Customer-Portal configuration for switching an existing subscription to another plan tier — each tier needs its own Stripe product), plus `isBillingEnabled` (billingLive + an api-key existence probe, no secret read).',
+      'Stripe payment provider plugin for `billing-foundation`. Reads its Stripe API key + webhook secret from system config keys with `backing:"secrets"` (envelope-encrypted in the secrets store under the system tenant) and a `billingLive` **system config** flag — all at runtime, so keys rotate and prod goes live without a redeploy. The `mask` on each key derives the sysadmin settings screen + nav, so no app wires a hand-written config UI. Mount via `createSubscriptionStripeFeature({ priceToTier })`; the optional `apiKey`/`webhookSecret` options are env→secrets bridge fallbacks. The plugin always mounts — `createCheckoutSession` throws `feature_disabled` unless `billingLive` is true, so sk_test_ keys in prod never produce a live checkout. Implements webhook verify, checkout, portal, cancel, `retrievePrices` (10-minute TTL-cached price lookup for the billing-plans catalog), `createPlanSwitchSession` (auto-provisions a Customer-Portal configuration for switching an existing subscription to another plan tier — each tier needs its own Stripe product), `retrieveSubscription` (live provider-side snapshot for the `sync-subscriptions` backfill job, mapped identically to the webhook path), plus `isBillingEnabled` (billingLive + an api-key existence probe, no secret read).',
     );
     r.uiHints({
       displayLabel: "Billing · Stripe",
@@ -234,6 +235,9 @@ export function createSubscriptionStripeFeature(
       oneOffPriceIds: options.oneOffPriceIds ?? [],
       isBillingEnabled: runtimes.ctx.isBillingEnabled,
       retrievePrices: createStripeRetrievePrices(runtimes.ctx, priceCache),
+      retrieveSubscription: createStripeRetrieveSubscription(runtimes.ctx, {
+        priceToTier: options.priceToTier ?? {},
+      }),
       createPlanSwitchSession: createStripePlanSwitchSession(
         runtimes.ctx,
         priceCache,

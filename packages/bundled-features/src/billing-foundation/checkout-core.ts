@@ -141,15 +141,19 @@ export async function assertBillingEnabled(
   }
 }
 
-/** Public readiness-probe for a named provider — `resolveProviderPlugin` +
+/** Public readiness-probe for a named provider — `findProviderPlugin` +
  *  `isPluginBillingEnabled`, re-exported from index.ts so an app-owner can
- *  check billing readiness without reaching into checkout-core internals. */
+ *  check billing readiness without reaching into checkout-core internals.
+ *  An unregistered provider is a "not live" state, not a config error here
+ *  (unlike `resolveProviderPlugin`'s throw) — a readiness probe should
+ *  answer false, not throw, for a provider that simply isn't mounted yet. */
 export async function isBillingEnabled(
   ctx: HandlerContext,
   providerName: string,
 ): Promise<boolean> {
-  const { plugin } = resolveProviderPlugin(ctx, providerName);
-  return isPluginBillingEnabled(ctx, plugin);
+  const found = findProviderPlugin(ctx, providerName);
+  if (!found) return false;
+  return isPluginBillingEnabled(ctx, found.plugin);
 }
 
 /** `create-portal-session`'s returnUrl, built server-side (the client no

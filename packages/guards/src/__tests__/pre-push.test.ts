@@ -6,6 +6,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -508,6 +509,79 @@ describe("kumiko-pre-push", () => {
       const output = result.stdout.toString() + result.stderr.toString();
 
       expect(output).toContain("EXTRA_ARGS=origin refs/heads/main");
+    });
+  });
+
+  describe("upgrade-state guard", () => {
+    function writeMarker(dir: string, version: string): void {
+      mkdirSync(join(dir, ".kumiko"), { recursive: true });
+      writeFileSync(join(dir, ".kumiko", "upgrade-state.json"), JSON.stringify({ version }));
+    }
+
+    test("no marker — guard is not run, main check still runs", () => {
+      const standaloneDir = join(tmp, "standalone-no-marker");
+      writeStandaloneRepo(standaloneDir, tmp);
+
+      const { output, exitCode } = runHook(standaloneDir, tmp);
+
+      expect(output).not.toContain("upgrade-state guard");
+      expect(output).toContain("bun run test (standalone)");
+      expect(exitCode).toBe(0);
+    });
+
+    test("marker present, guard fails (no kumiko-upgrade bin installed) — push refused before the main check", () => {
+      const standaloneDir = join(tmp, "standalone-marker-guard-fails");
+      writeStandaloneRepo(standaloneDir, tmp);
+      // The guard's own resolveRepoRoots() needs a derivable src/ layout, or
+      // it treats the fixture as "not a checkout" and skips without checking.
+      mkdirSync(join(standaloneDir, "src"), { recursive: true });
+      writeMarker(standaloneDir, "1.0.0");
+
+      const { output, exitCode } = runHook(standaloneDir, tmp);
+
+      expect(output).toContain(".kumiko/upgrade-state.json present — running upgrade-state guard");
+      expect(output).toContain("upgrade-state guard failed — refusing push");
+      expect(output).not.toContain("bun run test (standalone)");
+      expect(output).not.toContain("MARKER_A");
+      expect(exitCode).not.toBe(0);
+    });
+
+    test("guard-upgrade-state.ts not found next to the resolved script location fails closed", () => {
+      const standaloneDir = join(tmp, "standalone-guard-missing");
+      writeStandaloneRepo(standaloneDir, tmp);
+      writeMarker(standaloneDir, "1.0.0");
+
+      const copyDir = join(tmp, "hook-copy-without-guard");
+      mkdirSync(copyDir, { recursive: true });
+      const copyPath = join(copyDir, "pre-push.sh");
+      writeExecutable(copyPath, readFileSync(HOOK_PATH, "utf-8"));
+
+      const result = Bun.spawnSync([copyPath], { cwd: standaloneDir, env: fixtureEnv(tmp) });
+      const output = result.stdout.toString() + result.stderr.toString();
+
+      expect(result.exitCode).not.toBe(0);
+      expect(output).toContain(
+        "FATAL: guard-upgrade-state.ts not found next to resolved script location",
+      );
+    });
+
+    test("hook invoked via a symlink still resolves guard-upgrade-state.ts next to the real script", () => {
+      const standaloneDir = join(tmp, "standalone-guard-symlink");
+      writeStandaloneRepo(standaloneDir, tmp);
+      mkdirSync(join(standaloneDir, "src"), { recursive: true });
+      writeMarker(standaloneDir, "1.0.0");
+
+      const binDir = join(tmp, "bin-symlink");
+      mkdirSync(binDir, { recursive: true });
+      const symlinkPath = join(binDir, "kumiko-pre-push");
+      symlinkSync(HOOK_PATH, symlinkPath);
+
+      const result = Bun.spawnSync([symlinkPath], { cwd: standaloneDir, env: fixtureEnv(tmp) });
+      const output = result.stdout.toString() + result.stderr.toString();
+
+      expect(output).not.toContain("FATAL: guard-upgrade-state.ts not found");
+      expect(output).toContain(".kumiko/upgrade-state.json present — running upgrade-state guard");
+      expect(result.exitCode).not.toBe(0);
     });
   });
 });
