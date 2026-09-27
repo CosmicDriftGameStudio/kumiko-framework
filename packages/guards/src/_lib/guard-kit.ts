@@ -255,6 +255,10 @@ export type RunResult = {
   readonly message?: string;
   /** No root resolved at all: the target repos are not in this checkout. */
   readonly notApplicable?: boolean;
+  /** Why `notApplicable` is set — `runGuards` only; `runRepoChecks` leaves this undefined. */
+  readonly skipReason?: "repos-missing" | "outside-kinds";
+  /** The guard's `scan.kinds`, for the "outside-kinds" skip message. */
+  readonly scanKinds?: readonly string[];
   /** Files the scan matched — the runner's own count, basis of the floor. */
   readonly matchedFiles?: number;
   /** Roots whose declared sourceRoots hold no .ts/.tsx at all (D4, infra#427). */
@@ -333,13 +337,20 @@ export function runGuards(
         ? { violations: securityResult.blocking }
         : outcome;
       const { violatingRoots } = checkRootFloor(guard, scans);
+      const notApplicable = scans.length === 0;
       results.push({
         name: guard.name,
         ok: effectiveOutcome.violations.length === 0 && violatingRoots.length === 0,
         ms: Math.round(performance.now() - start),
         outcome: effectiveOutcome,
         hint: guard.hint,
-        notApplicable: scans.length === 0,
+        notApplicable,
+        skipReason: notApplicable
+          ? roots.length === 0
+            ? "repos-missing"
+            : "outside-kinds"
+          : undefined,
+        scanKinds: notApplicable ? guard.scan.kinds : undefined,
         matchedFiles: files.length,
         violatingRoots: violatingRoots.length > 0 ? violatingRoots : undefined,
         frozenFindings: securityResult?.frozen,
@@ -600,7 +611,9 @@ export function reportResults(results: readonly RunResult[]): number {
       // Not applicable does not mean checked — that must stay visible,
       // otherwise a standalone run reads like a complete one.
       const scope = r.notApplicable
-        ? " — skipped, target repos not in checkout"
+        ? r.skipReason === "outside-kinds"
+          ? ` — skipped, repo kind outside guard kinds (${(r.scanKinds ?? []).join(", ")})`
+          : " — skipped, target repos not in checkout"
         : ` (${r.matchedFiles ?? 0} files)`;
       const frozen =
         r.frozenFindings && r.frozenFindings > 0

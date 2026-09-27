@@ -198,7 +198,7 @@ describe("KumikoScreen / projectionDetail", () => {
       </DispatcherProvider>,
     );
 
-    await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"));
+    expect(await waitFor(() => screen.getByTestId("kumiko-screen-record-missing"))).toBeTruthy();
   });
 
   // A projectionDetail has no write path, so there's nothing for a "Cancel"

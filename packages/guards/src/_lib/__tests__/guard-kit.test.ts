@@ -176,6 +176,48 @@ describe("runGuards — vacuity verdicts", () => {
   });
 });
 
+// infra#502: notApplicable used to collapse two different silent-green causes
+// into one message — no repos in this checkout at all, vs repos present but
+// all outside the guard's declared kinds.
+describe("runGuards — skipReason distinguishes repos-missing from outside-kinds", () => {
+  test("no roots at all → repos-missing", () => {
+    const [result] = runGuards([okGuard], emptyProject(), {
+      roots: [],
+      scan: fixedScan([]),
+    });
+    expect(result?.notApplicable).toBe(true);
+    expect(result?.skipReason).toBe("repos-missing");
+  });
+
+  test("roots present, none matching the guard's kinds → outside-kinds", () => {
+    const root = repoRoot("solon", "/repo/solon");
+    const [result] = runGuards([okGuard], emptyProject(), {
+      roots: [root],
+      scan: fixedScan([]),
+    });
+    expect(result?.notApplicable).toBe(true);
+    expect(result?.skipReason).toBe("outside-kinds");
+    expect(result?.scanKinds).toEqual(okGuard.scan.kinds);
+  });
+
+  test("reportResults prints a distinct message per skip reason", () => {
+    const kindedGuard: AstGuard = { ...okGuard, scan: { ...SOURCE_SPEC, kinds: ["app"] } };
+    const root = repoRoot("solon", "/repo/solon");
+    const [missingResult] = runGuards([okGuard], emptyProject(), {
+      roots: [],
+      scan: fixedScan([]),
+    });
+    const [outsideResult] = runGuards([kindedGuard], emptyProject(), {
+      roots: [root],
+      scan: fixedScan([]),
+    });
+    const missingOutput = captureConsole(() => reportResults(missingResult ? [missingResult] : []));
+    const outsideOutput = captureConsole(() => reportResults(outsideResult ? [outsideResult] : []));
+    expect(missingOutput).toContain("target repos not in checkout");
+    expect(outsideOutput).toContain("repo kind outside guard kinds (app)");
+  });
+});
+
 // infra#427/#789: a root whose declared sourceRoots hold no .ts/.tsx at all is a floor violation — the manifest promises source, the checkout has none.
 describe("runGuards — per-root floor (D4)", () => {
   test("a root with sourceSurface 0 fails the guard and is named in violatingRoots", () => {

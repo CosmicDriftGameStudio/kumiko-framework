@@ -135,7 +135,7 @@ describe("KumikoScreen / secretsEdit", () => {
     );
 
     await waitFor(() => screen.getByTestId("secrets-edit-form"));
-    await waitFor(() => screen.getByTestId("required-marker-stripe-api-key"));
+    expect(await waitFor(() => screen.getByTestId("required-marker-stripe-api-key"))).toBeTruthy();
   });
 
   test("a set required secret does not show the required marker", async () => {
