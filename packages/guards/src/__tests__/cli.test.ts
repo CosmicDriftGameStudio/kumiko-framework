@@ -31,6 +31,22 @@ async function runCli(
   return { exitCode, stdout, stderr };
 }
 
+async function runCliInFixtureRepo(args: string[]): Promise<{
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}> {
+  // Real-process runs against a one-file fixture repo: scanning the whole
+  // checkout from a spawned CLI exceeded the test budget under CI load.
+  const fixture = mkdtempSync(join(tmpdir(), "cli-fixture-repo-"));
+  writeRepo(fixture, { name: "cli-fixture-repo", layout: "flat" });
+  try {
+    return await runCli(args, { cwd: fixture });
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
 describe("cli.ts — real process runs, no mocks", () => {
   test("an unknown subcommand exits 1 and lists the valid subcommands on stderr", async () => {
     const { exitCode, stderr } = await runCli(["nonsense"]);
@@ -67,7 +83,7 @@ describe("cli.ts — real process runs, no mocks", () => {
   });
 
   test("checks runs the repo-checks suite and prints the guard-kit banner", async () => {
-    const { exitCode, stdout } = await runCli(["checks"]);
+    const { exitCode, stdout } = await runCliInFixtureRepo(["checks"]);
 
     expect([0, 1]).toContain(exitCode);
     expect(stdout).toContain("kumiko-guards");
@@ -77,7 +93,7 @@ describe("cli.ts — real process runs, no mocks", () => {
   }, 30_000);
 
   test("guards --explain reaches run-guards' --explain branch through the bin instead of running the checks", async () => {
-    const { exitCode, stdout } = await runCli(["guards", "--explain"]);
+    const { exitCode, stdout } = await runCliInFixtureRepo(["guards", "--explain"]);
 
     expect(exitCode).toBe(0);
     expect(stdout).toContain("Repo:");
@@ -89,7 +105,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(expectedCount).toBeGreaterThan(0);
     expect(expectedCount).toBeLessThan(GUARDS.length);
 
-    const { stdout } = await runCli(["guards", "--strict-security-baseline"]);
+    const { stdout } = await runCliInFixtureRepo(["guards", "--strict-security-baseline"]);
 
     expect(stdout).toContain(`${expectedCount} guards registered`);
   }, 30_000);
