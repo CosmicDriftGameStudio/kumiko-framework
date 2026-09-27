@@ -28,7 +28,11 @@ const PRELOAD_PREFIX = "@cosmicdrift/kumiko-testing/preload";
 const DOM_PRELOAD = `${PRELOAD_PREFIX}/dom`;
 
 const PRELOADS = {
-  unit: [`${PRELOAD_PREFIX}/temporal`, `${PRELOAD_PREFIX}/scrub-env`],
+  unit: [
+    `${PRELOAD_PREFIX}/temporal`,
+    `${PRELOAD_PREFIX}/scrub-env`,
+    `${PRELOAD_PREFIX}/schema-env-defaults`,
+  ],
   integration: [`${PRELOAD_PREFIX}/temporal`, `${PRELOAD_PREFIX}/env`],
   real: [`${PRELOAD_PREFIX}/temporal`, `${PRELOAD_PREFIX}/real`],
 } as const satisfies Record<BunfigVariant, readonly string[]>;

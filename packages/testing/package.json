@@ -42,6 +42,10 @@
       "types": "./src/preload/scrub-env.ts",
       "default": "./src/preload/scrub-env.ts"
     },
+    "./preload/schema-env-defaults": {
+      "types": "./src/preload/schema-env-defaults.ts",
+      "default": "./src/preload/schema-env-defaults.ts"
+    },
     "./preload/env": {
       "types": "./src/preload/env.ts",
       "default": "./src/preload/env.ts"

@@ -11,12 +11,14 @@ const persisted = await seedTenant(stack, { persist: true }); // real rows via t
 await tenant.api.writeOk("my-feature:write:thing:create", { title: "x" });
 ```
 
-- `preload/{temporal,ci-log,scrub-env,env,real,dom}`: bunfig `preload` entries. `scrub-env` removes
-  `PROVIDER_ENV_KEYS` (unit default); `env` adds the localhost service defaults (integration);
-  `real` refuses to run without `KUMIKO_REAL_PROVIDERS=1` and in CI, and keeps the keys; `dom`
-  registers happy-dom (window/document/HTMLElement) while preserving Bun's native
-  fetch/Request/Response, and cleans up (`@testing-library/react` unmount, Radix DOM/style leaks,
-  `window.location`) after every test.
+- `preload/{temporal,ci-log,scrub-env,schema-env-defaults,env,real,dom}`: bunfig `preload` entries.
+  `scrub-env` removes `PROVIDER_ENV_KEYS` (unit default); `schema-env-defaults` fills `JWT_SECRET`
+  and the `KUMIKO_SECRETS_MASTER_KEY_*` pair that the framework's own env schema requires (unit,
+  DOM, integration, real — never a service endpoint); `env` adds `schema-env-defaults` plus the
+  localhost service defaults (integration); `real` refuses to run without
+  `KUMIKO_REAL_PROVIDERS=1` and in CI, and keeps the keys; `dom` registers happy-dom
+  (window/document/HTMLElement) while preserving Bun's native fetch/Request/Response, and cleans up
+  (`@testing-library/react` unmount, Radix DOM/style leaks, `window.location`) after every test.
 - `kumiko-testing bunfig [--dom] [--coverage]`: writes `bunfig.toml`,
   `bunfig.integration.toml` and `bunfig.real.toml` (plus `bunfig.dom.toml`). `--dom` adds
   `preload/dom` (happy-dom + testing-library/react cleanup); `@happy-dom/global-registrator` and

@@ -37,6 +37,17 @@ that keep each class in its own lane. Bun ignores a `[test] timeout` key, so
 the budget above is a `--timeout` flag in the scripts, from one constant
 (`TEST_TIMEOUT_MS`) — not something an app sets per file.
 
+Unit, DOM and integration all preload `SCHEMA_ENV_DEFAULTS`
+(`JWT_SECRET`, `KUMIKO_SECRETS_MASTER_KEY_V1`,
+`KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION`) — the env keys the framework's
+own schema (auth, secrets, field-encryption) requires, each filled with `??=`
+so an app's own value always wins. Integration additionally preloads
+`SERVICE_ENV_DEFAULTS` (`DATABASE_URL`, `REDIS_URL`, …); unit and DOM don't,
+so a unit test that accidentally reaches for a service still fails instead of
+silently connecting. An app-specific default (a demo email, a seed value) is
+never added to either map — it stays in the app's own preload extra, kept
+across regenerations by `kumiko-testing bunfig`.
+
 ## Real providers: opt-in, never by accident
 
 Tests that call a real external provider (LLM, mail, payment) are named
@@ -278,3 +289,4 @@ per-spec case, so it stays template-owned everywhere.
 | A shared/global test user across flows | `seedTenant()` per flow |
 | A copied `playwright.config.ts` / bunfig from another app | `kumiko-testing bunfig` generator + `defineAppE2eConfig`, updated by a version bump |
 | A local `test-setup/dom.preload.ts` copy | `kumiko-testing bunfig --dom`, which preloads `@cosmicdrift/kumiko-testing/preload/dom` |
+| An app-local preload setting `JWT_SECRET` / `KUMIKO_SECRETS_MASTER_KEY_*` | `SCHEMA_ENV_DEFAULTS`, preloaded automatically in every `kumiko-testing bunfig` variant |

@@ -1,9 +1,19 @@
 import { describe, expect, test } from "bun:test";
+import { SCHEMA_ENV_DEFAULTS } from "../preload/schema-env-defaults-values";
+import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import { PROVIDER_ENV_KEYS, scrubProviderEnv } from "../provider-env-keys";
 
 type PreloadRun = { readonly exitCode: number; readonly stdout: string; readonly stderr: string };
 
 const PROBE = "console.log(JSON.stringify(process.env))";
+
+// Strips every key a preload under test might default, not just DATABASE_URL —
+// a host that happens to export e.g. REDIS_URL or a master-key env would
+// otherwise make a "stays unset" assertion pass for the wrong reason.
+const DEFAULTABLE_KEYS = [
+  ...Object.keys(SCHEMA_ENV_DEFAULTS),
+  ...Object.keys(SERVICE_ENV_DEFAULTS),
+];
 
 function runWithPreload(
   preload: string,
@@ -11,10 +21,15 @@ function runWithPreload(
   probe: string = PROBE,
 ): PreloadRun {
   const inherited = { ...process.env };
-  for (const key of [...PROVIDER_ENV_KEYS, "CI", "KUMIKO_REAL_PROVIDERS", "DATABASE_URL"]) {
+  for (const key of [
+    ...PROVIDER_ENV_KEYS,
+    ...DEFAULTABLE_KEYS,
+    "CI",
+    "KUMIKO_REAL_PROVIDERS",
+    "KUMIKO_INSTANCE_ID",
+  ]) {
     delete inherited[key];
   }
-  delete inherited["KUMIKO_INSTANCE_ID"];
   const result = Bun.spawnSync(
     ["bun", "--preload", `@cosmicdrift/kumiko-testing/preload/${preload}`, "-e", probe],
     { env: { ...inherited, ...env }, stdout: "pipe", stderr: "pipe" },
@@ -44,24 +59,52 @@ describe("preload/env", () => {
     expect(env["UNRELATED_SETTING"]).toBe("kept");
   });
 
-  test("fills service defaults only where the variable is unset", () => {
+  test("fills service and schema defaults only where the variable is unset", () => {
     const run = runWithPreload("env", { REDIS_URL: "redis://custom:1" });
 
     const env = envOf(run);
     expect(env["REDIS_URL"]).toBe("redis://custom:1");
-    expect(env["DATABASE_URL"]).toBe("postgresql://kumiko:kumiko@localhost:15432/kumiko_dev");
-    expect(env["JWT_SECRET"]).toBeString();
+    for (const [key, value] of Object.entries(SERVICE_ENV_DEFAULTS)) {
+      if (key === "REDIS_URL") continue;
+      expect(env[key]).toBe(value);
+    }
+    for (const [key, value] of Object.entries(SCHEMA_ENV_DEFAULTS)) expect(env[key]).toBe(value);
   });
 });
 
 describe("preload/scrub-env", () => {
-  test("removes provider keys without adding service defaults", () => {
+  test("removes provider keys without adding service or schema defaults", () => {
     const run = runWithPreload("scrub-env", { ANTHROPIC_API_KEY: "sk-ant-real" });
 
     expect(run.exitCode).toBe(0);
     const env = envOf(run);
     expect(env["ANTHROPIC_API_KEY"]).toBeUndefined();
-    expect(env["DATABASE_URL"]).toBeUndefined();
+    for (const key of DEFAULTABLE_KEYS) expect(env[key]).toBeUndefined();
+  });
+});
+
+describe("preload/schema-env-defaults", () => {
+  test("fills every schema default only where the variable is unset", () => {
+    const kept = "a-jwt-secret-that-is-at-least-32-characters-long";
+    const env = envOf(runWithPreload("schema-env-defaults", { JWT_SECRET: kept }));
+
+    expect(env["JWT_SECRET"]).toBe(kept);
+    for (const [key, value] of Object.entries(SCHEMA_ENV_DEFAULTS)) {
+      if (key === "JWT_SECRET") continue;
+      expect(env[key]).toBe(value);
+    }
+  });
+
+  test("replaces a JWT_SECRET shorter than 32 chars, same as the app-local preloads it replaces", () => {
+    const env = envOf(runWithPreload("schema-env-defaults", { JWT_SECRET: "too-short" }));
+
+    expect(env["JWT_SECRET"]).toBe(SCHEMA_ENV_DEFAULTS.JWT_SECRET);
+  });
+
+  test("sets no service endpoints, unlike preload/env", () => {
+    const env = envOf(runWithPreload("schema-env-defaults", {}));
+
+    for (const key of Object.keys(SERVICE_ENV_DEFAULTS)) expect(env[key]).toBeUndefined();
   });
 });
 
@@ -95,8 +138,10 @@ describe("preload/real", () => {
     });
 
     expect(run.exitCode).toBe(0);
-    expect(envOf(run)["ANTHROPIC_API_KEY"]).toBe("sk-ant-real");
-    expect(envOf(run)["DATABASE_URL"]).toBeString();
+    const env = envOf(run);
+    expect(env["ANTHROPIC_API_KEY"]).toBe("sk-ant-real");
+    for (const [key, value] of Object.entries(SERVICE_ENV_DEFAULTS)) expect(env[key]).toBe(value);
+    for (const [key, value] of Object.entries(SCHEMA_ENV_DEFAULTS)) expect(env[key]).toBe(value);
   });
 });
 
