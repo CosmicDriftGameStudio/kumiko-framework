@@ -3,6 +3,11 @@
 // UIDVALIDITY:lastUid-Cursor statt '1:*'-Vollscan.
 
 import {
+  BlockedHostError,
+  type MailHostGuardOptions,
+  resolveMailConnectTarget,
+} from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
+import {
   InboundAuthError,
   InboundCursorInvalidError,
   InboundTransientError,
@@ -22,11 +27,30 @@ const SNIPPET_MAX = 300;
 // Client-Factory + Fehler-Mapping
 // =============================================================================
 
-export function createImapClient(doc: ImapCredentialDocument): ImapFlow {
+// Resolves+pins doc.host before ever touching imapflow — a blocked host
+// (private/reserved range) must never reach a connect attempt. Rejection is
+// InboundAuthError (no retry, a config problem) vs InboundTransientError for
+// a DNS failure (matches mapImapError's ENOTFOUND handling below).
+export async function createImapClient(
+  doc: ImapCredentialDocument,
+  hostGuard: MailHostGuardOptions = {},
+): Promise<ImapFlow> {
+  let target: Awaited<ReturnType<typeof resolveMailConnectTarget>>;
+  try {
+    target = await resolveMailConnectTarget(doc.host, hostGuard);
+  } catch (err) {
+    if (err instanceof BlockedHostError) {
+      throw new InboundAuthError(`IMAP host rejected for ${doc.host}: ${err.message}`);
+    }
+    throw new InboundTransientError(
+      `IMAP ${doc.host} unreachable: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
   return new ImapFlow({
-    host: doc.host,
+    host: target.host,
     port: doc.port,
     secure: doc.secure,
+    ...(target.servername && { servername: target.servername }),
     auth: doc.password
       ? { user: doc.user, pass: doc.password }
       : { user: doc.user, accessToken: doc.accessToken as string },

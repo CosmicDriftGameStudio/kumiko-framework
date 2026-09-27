@@ -3,9 +3,12 @@ import type { lookup } from "node:dns/promises";
 import {
   assertAllowedHost,
   assertHttpScheme,
+  BlockedHostError,
+  HostResolutionError,
   isBlockedIp,
   isPublicHost,
   resolvePublicHost,
+  resolvePublicHostname,
 } from "../policy";
 
 describe("isBlockedIp", () => {
@@ -127,6 +130,68 @@ describe("resolvePublicHost", () => {
     await expect(
       resolvePublicHost(new URL("http://rebinding.example/"), fakeLookup),
     ).rejects.toThrow(/non-public/);
+  });
+});
+
+describe("resolvePublicHostname", () => {
+  test("rejects a blocked IP-literal host without any DNS lookup", async () => {
+    await expect(resolvePublicHostname("169.254.169.254")).rejects.toThrow(BlockedHostError);
+  });
+
+  test("allows a public IP-literal host and pins that exact address", async () => {
+    await expect(resolvePublicHostname("93.184.216.34")).resolves.toEqual({
+      address: "93.184.216.34",
+      family: 4,
+    });
+  });
+
+  test("resolves a public hostname via an injected lookupFn", async () => {
+    const fakeLookup = (async () => [
+      { address: "203.0.113.5", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("smtp.example.com", fakeLookup)).resolves.toEqual({
+      address: "203.0.113.5",
+      family: 4,
+    });
+  });
+
+  test("rejects a hostname that resolves to a private address", async () => {
+    const fakeLookup = (async () => [
+      { address: "10.0.0.1", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("internal.example", fakeLookup)).rejects.toThrow(
+      BlockedHostError,
+    );
+  });
+
+  test("rejects when any of several resolved addresses is private", async () => {
+    const fakeLookup = (async () => [
+      { address: "203.0.113.5", family: 4 },
+      { address: "192.168.1.1", family: 4 },
+    ]) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("mixed.example", fakeLookup)).rejects.toThrow(
+      BlockedHostError,
+    );
+  });
+
+  test("surfaces a DNS failure as HostResolutionError, distinct from a blocked host", async () => {
+    const failingLookup = (async () => {
+      throw new Error("ENOTFOUND");
+    }) as unknown as typeof lookup;
+
+    await expect(resolvePublicHostname("nowhere.example", failingLookup)).rejects.toThrow(
+      HostResolutionError,
+    );
+  });
+
+  test("strips brackets from an IPv6-literal host", async () => {
+    await expect(resolvePublicHostname("[2606:2800:220:1:248:1893:25c8:1946]")).resolves.toEqual({
+      address: "2606:2800:220:1:248:1893:25c8:1946",
+      family: 6,
+    });
   });
 });
 

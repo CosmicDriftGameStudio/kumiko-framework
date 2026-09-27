@@ -143,8 +143,67 @@ export interface ResolvedHost {
 // the DNS-rebinding window: there is no second lookup left for an
 // attacker-controlled DNS server to answer differently.
 //
+// Thrown for a host that is itself a blocked IP-literal, or that resolves to
+// one — a policy verdict, not a network condition. Retrying will not help;
+// callers should surface this as a rejected configuration.
+export class BlockedHostError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BlockedHostError";
+  }
+}
+
+// Thrown when the resolver itself failed or returned nothing — a network
+// condition, not a policy verdict. Callers that retry (e.g. an inbound-mail
+// poll) should treat this as transient, unlike BlockedHostError.
+export class HostResolutionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HostResolutionError";
+  }
+}
+
+// Resolves a bare hostname or IP-literal (no scheme, no URL parsing) exactly
+// once and returns the single validated address the caller must connect to
+// — the same DNS-rebinding-closing mechanism as resolvePublicHost below,
+// factored out for callers that only ever have a host (SMTP/IMAP tenant
+// config), never a full URL.
+//
 // `lookupFn` defaults to the real resolver and exists only so tests can pin
 // deterministic, network-free answers — production call sites never pass it.
+export async function resolvePublicHostname(
+  rawHost: string,
+  lookupFn: typeof lookup = lookup,
+): Promise<ResolvedHost> {
+  const host = stripBrackets(rawHost);
+  const ipVersion = isIP(host);
+  if (ipVersion !== 0) {
+    if (isBlockedIp(host))
+      throw new BlockedHostError(`egress: host is not a public address: ${host}`);
+    return { address: host, family: ipVersion === 6 ? 6 : 4 };
+  }
+  let addresses: readonly { readonly address: string; readonly family: number }[];
+  try {
+    addresses = await lookupFn(host, { all: true });
+  } catch {
+    throw new HostResolutionError(`egress: DNS resolution failed for host: ${host}`);
+  }
+  if (addresses.length === 0) {
+    throw new HostResolutionError(`egress: DNS resolution returned no records for host: ${host}`);
+  }
+  const blocked = addresses.find((a) => isBlockedIp(a.address));
+  if (blocked) {
+    throw new BlockedHostError(
+      `egress: host resolves to a non-public address: ${host} -> ${blocked.address}`,
+    );
+  }
+  const chosen = addresses.find((address) => address.family === 4) ?? addresses[0];
+  if (!chosen) {
+    throw new HostResolutionError(`egress: DNS resolution returned no records for host: ${host}`);
+  }
+  return { address: chosen.address, family: chosen.family === 6 ? 6 : 4 };
+}
+
 export async function resolvePublicHost(
   url: URL,
   lookupFn: typeof lookup = lookup,
@@ -152,30 +211,7 @@ export async function resolvePublicHost(
   if (url.username || url.password) {
     throw new Error("egress: URLs with embedded credentials are not supported");
   }
-  const host = stripBrackets(url.hostname);
-  const ipVersion = isIP(host);
-  if (ipVersion !== 0) {
-    if (isBlockedIp(host)) throw new Error(`egress: host is not a public address: ${host}`);
-    return { address: host, family: ipVersion === 6 ? 6 : 4 };
-  }
-  let addresses: readonly { readonly address: string; readonly family: number }[];
-  try {
-    addresses = await lookupFn(host, { all: true });
-  } catch {
-    throw new Error(`egress: DNS resolution failed for host: ${host}`);
-  }
-  if (addresses.length === 0) {
-    throw new Error(`egress: DNS resolution returned no records for host: ${host}`);
-  }
-  const blocked = addresses.find((a) => isBlockedIp(a.address));
-  if (blocked) {
-    throw new Error(`egress: host resolves to a non-public address: ${host} -> ${blocked.address}`);
-  }
-  const chosen = addresses.find((address) => address.family === 4) ?? addresses[0];
-  if (!chosen) {
-    throw new Error(`egress: DNS resolution returned no records for host: ${host}`);
-  }
-  return { address: chosen.address, family: chosen.family === 6 ? 6 : 4 };
+  return resolvePublicHostname(url.hostname, lookupFn);
 }
 
 // Create-time validation for tenant-supplied URLs (e.g. webhook registration)

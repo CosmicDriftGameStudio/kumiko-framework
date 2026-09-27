@@ -25,14 +25,20 @@
 //   - `config` — für die Tenant-Config-Keys
 //   - `secrets` — für das verschlüsselte SMTP-Password
 
+import type { lookup } from "node:dns/promises";
 import {
   createSmtpTransport,
   type EmailTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-email";
 import {
+  BlockedHostError,
+  MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+  type MailConnectTarget,
+  readAllowedPrivateMailHostsFromEnv,
   requireDefined,
   requireNonEmpty,
   requireSecretSet,
+  resolveMailConnectTarget,
 } from "@cosmicdrift/kumiko-bundled-features/foundation-shared";
 import {
   MAIL_TRANSPORT_EXTENSION,
@@ -41,8 +47,37 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
 import { requireSecretsContext } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
+import * as z from "zod";
 
 const FEATURE_NAME = "mail-transport-smtp";
+
+// Operator escape hatch for an internal relay or a dev/test SMTP server
+// (mailpit, MailHog): KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS, an operator env
+// var never a tenant-config value, so a tenant can never grant themselves
+// the private-host bypass. Declared here (not duplicated in
+// inbound-provider-imap's envSchema) since both features read the same
+// var and composeEnvSchema rejects two features declaring the same key —
+// see foundation-shared/mail-host-policy.ts for the shared reader + the
+// guard this feeds.
+export const mailTransportSmtpEnvSchema = z.object({
+  [MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR]: z
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated operator allowlist of private/internal hosts (e.g. a local mailpit/greenmail dev server) that bypass the public-address check for SMTP and IMAP host config. Shared with inbound-provider-imap — never a tenant-config value.",
+    ),
+});
+
+// Test-only DNS seam — production never calls this, resolveMailConnectTarget
+// defaults to the real resolver. Lets tests pin deterministic, network-free
+// host resolutions instead of depending on real DNS for a placeholder host.
+// Reset it in afterEach/afterAll — this is module-global state.
+let mailHostLookup: typeof lookup | undefined;
+
+export function setSmtpMailHostLookup(fn: typeof lookup | undefined): void {
+  mailHostLookup = fn;
+}
 
 // =============================================================================
 // Feature-definition
@@ -60,6 +95,7 @@ export const mailTransportSmtpFeature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("config");
   r.requires("secrets");
   r.requires("mail-foundation");
+  r.envSchema(mailTransportSmtpEnvSchema);
 
   // Provider-secret. Sensitive: redact-helper for admin-UI display.
   const password = r.secret("smtp.password", {
@@ -177,12 +213,30 @@ async function buildSmtpTransport(
 
   const password = await readPassword(ctx, tenantId);
 
+  let target: MailConnectTarget;
+  try {
+    target = await resolveMailConnectTarget(host, {
+      allowedPrivateMailHosts: readAllowedPrivateMailHostsFromEnv(),
+      lookupFn: mailHostLookup,
+    });
+  } catch (err) {
+    if (err instanceof BlockedHostError) {
+      throw new UnconfiguredError({
+        feature: FEATURE_NAME,
+        key: "host",
+        hint: `"${host}" is not a public address — use a public SMTP host.`,
+      });
+    }
+    throw err;
+  }
+
   return createSmtpTransport({
-    host,
+    host: target.host,
     port,
     secure,
     from,
     auth: { user: authUser, pass: password },
+    ...(target.servername && { servername: target.servername }),
   });
 }
 

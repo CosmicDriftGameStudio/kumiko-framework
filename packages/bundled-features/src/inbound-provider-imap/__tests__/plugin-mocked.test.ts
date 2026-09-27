@@ -2,10 +2,12 @@
 // Greenmail suites skip in CI when the container is down — this file mocks
 // imapflow so the plugin body stays on the coverage badge without Docker.
 
-import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import type { lookup } from "node:dns/promises";
 import { EventEmitter } from "node:events";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { sleep, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
 import {
   type InboundMailContext,
   isInboundAuthError,
@@ -36,10 +38,12 @@ let lastIdleClient: FakeImapFlow | undefined;
 
 class FakeImapFlow extends EventEmitter {
   mailbox: { uidValidity: bigint; uidNext: number } | false = false;
+  readonly opts: Record<string, unknown>;
   private idleReject: ((err: Error) => void) | undefined;
 
-  constructor(_opts: unknown) {
+  constructor(opts: Record<string, unknown>) {
     super();
+    this.opts = opts;
     lastIdleClient = this;
   }
 
@@ -119,7 +123,28 @@ class FakeImapFlow extends EventEmitter {
 const realImapflow = await import("imapflow");
 mock.module("imapflow", () => ({ ImapFlow: FakeImapFlow }));
 
-const { imapInboundMailPlugin } = await import("../feature");
+const { imapInboundMailPlugin, setImapMailHostLookup } = await import("../feature");
+
+/** Host-aware fake resolver — an unmapped hostname behaves like a real ENOTFOUND. */
+function fakeLookupFor(addressesByHost: Readonly<Record<string, string>>): typeof lookup {
+  return (async (hostname: string) => {
+    const address = addressesByHost[hostname];
+    if (!address) throw new Error(`ENOTFOUND ${hostname}`);
+    return [{ address, family: 4 }];
+  }) as unknown as typeof lookup;
+}
+
+// goodDoc's host is a placeholder that must still clear the mail-host guard —
+// resolved to a public address so the pinned-connect path (host+servername)
+// is exercised the same way a real tenant hostname would be.
+beforeEach(() => {
+  setImapMailHostLookup(fakeLookupFor({ "imap.example.com": "203.0.113.5" }));
+});
+
+afterEach(() => {
+  setImapMailHostLookup(undefined);
+  delete process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
+});
 
 afterAll(() => {
   mock.module("imapflow", () => realImapflow);
@@ -198,6 +223,10 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
     await expect(
       imapInboundMailPlugin.verify(ctxWithDoc(goodDoc), account),
     ).resolves.toBeUndefined();
+    // Proves the connect path actually pins to the resolved IP with SNI set
+    // to the original hostname, not just that some connect happened.
+    expect(lastIdleClient?.opts["host"]).toBe("203.0.113.5");
+    expect(lastIdleClient?.opts["servername"]).toBe("imap.example.com");
   });
 
   test("verify: auth failure → InboundAuthError", async () => {
@@ -352,5 +381,53 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
     await sleep(100);
     expect(errors).toBe(1);
     await stop().catch(() => {});
+  });
+});
+
+function docWithHost(host: string): string {
+  return JSON.stringify({ host, port: 993, secure: true, user: "u@example.com", password: "pw" });
+}
+
+describe("imapInboundMailPlugin — mail-host guard", () => {
+  test("a private IP-literal host is rejected before any connect attempt", async () => {
+    lastIdleClient = undefined;
+    try {
+      await imapInboundMailPlugin.verify(ctxWithDoc(docWithHost("10.0.0.5")), account);
+      expect.unreachable("expected verify to throw");
+    } catch (e) {
+      expect(isInboundAuthError(e)).toBe(true);
+    }
+    expect(lastIdleClient).toBeUndefined();
+  });
+
+  test("a hostname resolving to a private address is rejected before any connect attempt", async () => {
+    setImapMailHostLookup(fakeLookupFor({ "internal.example": "127.0.0.1" }));
+    lastIdleClient = undefined;
+    try {
+      await imapInboundMailPlugin.verify(ctxWithDoc(docWithHost("internal.example")), account);
+      expect.unreachable("expected verify to throw");
+    } catch (e) {
+      expect(isInboundAuthError(e)).toBe(true);
+    }
+    expect(lastIdleClient).toBeUndefined();
+  });
+
+  test("a DNS resolution failure surfaces as InboundTransientError before any connect attempt", async () => {
+    setImapMailHostLookup(fakeLookupFor({}));
+    lastIdleClient = undefined;
+    try {
+      await imapInboundMailPlugin.verify(ctxWithDoc(docWithHost("nowhere.example")), account);
+      expect.unreachable("expected verify to throw");
+    } catch (e) {
+      expect(isInboundTransientError(e)).toBe(true);
+    }
+    expect(lastIdleClient).toBeUndefined();
+  });
+
+  test("an operator-allowlisted private host bypasses resolution and keeps its raw host, without SNI", async () => {
+    process.env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "mailpit.internal";
+    await imapInboundMailPlugin.verify(ctxWithDoc(docWithHost("mailpit.internal")), account);
+    expect(lastIdleClient?.opts["host"]).toBe("mailpit.internal");
+    expect(lastIdleClient?.opts["servername"]).toBeUndefined();
   });
 });

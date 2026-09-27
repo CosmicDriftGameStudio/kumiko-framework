@@ -40,6 +40,12 @@ export type SmtpTransportOptions = {
    *  override this applies. Accepts both "noreply@ex.com" and
    *  "Name <noreply@ex.com>". */
   readonly from: string;
+  /** TLS SNI hostname. Only needed when `host` is an IP address pinned by
+   *  the caller for a hostname it already resolved — nodemailer otherwise
+   *  skips SNI for an IP `host` and certificate validation would then check
+   *  the wrong name. Unset for the common case where `host` is already the
+   *  hostname to validate against. */
+  readonly servername?: string;
 };
 
 export function createSmtpTransport(options: SmtpTransportOptions): EmailTransport {
@@ -48,6 +54,7 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
     port: options.port ?? 587,
     secure: options.secure ?? false,
     ...(options.auth && { auth: options.auth }),
+    ...(options.servername && { servername: options.servername }),
     pool: true,
     maxConnections: 5,
   });

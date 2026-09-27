@@ -6,7 +6,7 @@ export {
   type ParseCredentialResult,
   parseImapCredentialDocument,
 } from "./credential-document";
-export { IMAP_PROVIDER_KEY, inboundProviderImapFeature } from "./feature";
+export { IMAP_PROVIDER_KEY, inboundProviderImapFeature, setImapMailHostLookup } from "./feature";
 export {
   assertUidValidity,
   buildProviderMessageId,
