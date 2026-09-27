@@ -162,7 +162,12 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 
 export const ${camel}ItemEntity = createEntity({
   fields: {
-    title: createTextField({ required: true, sortable: true }),
+    title: createTextField({
+      required: true,
+      sortable: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
   },
 });
 `;

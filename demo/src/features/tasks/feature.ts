@@ -20,8 +20,13 @@ import type {
 
 const taskEntity = createEntity({
   fields: {
-    title: createTextField({ required: true, sortable: true }),
-    status: createTextField({ sortable: true }),
+    title: createTextField({
+      required: true,
+      sortable: true,
+      personal: false,
+      reason: "is_business_data",
+    }),
+    status: createTextField({ sortable: true, personal: false, reason: "is_business_data" }),
     priority: createNumberField(),
     isUrgent: createBooleanField({ default: false }),
   },
