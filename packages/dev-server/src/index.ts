@@ -68,6 +68,8 @@ export type {
 } from "./few-shot-corpus";
 export { buildFewShotCorpus, pathToId } from "./few-shot-corpus";
 export { resolveFrameworkVersion } from "./framework-version";
+export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli";
+export { runInitDeployCli } from "./init-deploy-cli";
 export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
 export { runDevApp } from "./run-dev-app";
 export type {
@@ -82,11 +84,17 @@ export type {
 } from "./scaffold-app-feature";
 export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature";
 export type {
+  CheckDeployDriftResult,
+  DeployDriftEntry,
+  RenderDeployFilesOptions,
+  RenderDeployFilesResult,
+  RenderedDeployFile,
+  ScaffoldDeployDetected,
   ScaffoldDeployOptions,
   ScaffoldDeployResult,
   ScaffoldedFile,
 } from "./scaffold-deploy";
-export { scaffoldDeploy } from "./scaffold-deploy";
+export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy";
 export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature";
 export { scaffoldFeature } from "./scaffold-feature";
 export {

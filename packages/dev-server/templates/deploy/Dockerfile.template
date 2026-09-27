@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.27
 #
 # Production-Image for {{appName}}.
 #
@@ -13,10 +13,11 @@
 
 ARG BUN_VERSION=1.4.0
 {{#hasPrivateGhPackages}}
-# Private GH-Packages: der CI-Workflow injects GITHUB_TOKEN via --build-arg.
-# Docker's multi-stage ARG scoping braucht die Re-declaration in jeder Stage
-# die sie nutzt; das top-level ARG macht sie per `docker build` setzbar.
-ARG GITHUB_TOKEN=
+# Registry auth for @cosmicdriftgamestudio: CI passes the token as
+# NPM_AUTH_TOKEN via --build-arg. Multi-stage ARG scoping needs the
+# re-declaration inside the stage that uses it; this top-level ARG only
+# makes it settable via `docker build`.
+ARG NPM_AUTH_TOKEN=
 {{/hasPrivateGhPackages}}
 # Build identity — passed in by the CI workflow via --build-arg. Defaults
 # for local container builds.
@@ -27,24 +28,34 @@ ARG BUILD_TIME=unknown
 FROM oven/bun:${BUN_VERSION}-alpine AS build
 WORKDIR /app
 {{#hasPrivateGhPackages}}
-# GITHUB_TOKEN für @cosmicdriftgamestudio/*-Scope beim bun install.
-ARG GITHUB_TOKEN
-ENV GITHUB_TOKEN=${GITHUB_TOKEN}
-RUN bun config set --scope @cosmicdriftgamestudio token "${GITHUB_TOKEN}"
+# bunfig.toml/.npmrc resolve the @cosmicdriftgamestudio scope via $GITHUB_TOKEN.
+ARG NPM_AUTH_TOKEN
+ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}
 {{/hasPrivateGhPackages}}
 
-# Standalone-repo layout: @cosmicdrift/* pulled from NPM, no workspace:*
-# refs. Manifests first for Docker layer cache (bun install only
-# invalidates on dep change).
-COPY package.json bun.lock ./
-
+{{#installFromFullTree}}
+# file:/workspace:/link: deps (or a workspaces root) need the whole tree on
+# disk for bun to resolve the lockfile — a partial COPY makes bun treat it
+# as empty and rewrite it.
+COPY . .
 RUN bun install --frozen-lockfile
-
+RUN bun run build
+{{/installFromFullTree}}
+{{#installFromManifests}}
+# Manifests first for Docker layer cache — bun install only invalidates on
+# dependency change, not on every source edit.
+COPY {{installManifests}} ./
+RUN bun install --frozen-lockfile
 COPY . .
 RUN bun run build
+{{/installFromManifests}}
 
 # ----- runtime: bun-alpine, knows only the bundle artefact ------------------
 FROM oven/bun:${BUN_VERSION}-alpine AS runtime
+# Global ARGs are invisible inside a stage until re-declared — without this,
+# ENV BUILD_VERSION/BUILD_TIME below stay empty despite a correct --build-arg.
+ARG BUILD_VERSION=dev
+ARG BUILD_TIME=unknown
 WORKDIR /app
 
 RUN addgroup -S app && adduser -S app -G app
@@ -63,11 +74,10 @@ COPY --from=build --chown=app:app /app/dist ./dist
 # (only generate reads it; apply is checksum-tracked SQL only).
 COPY --from=build --chown=app:app /app/kumiko/migrations ./kumiko/migrations
 
-# Container entrypoint — `infra/pulumi/bun-server.ts` overrides the container
-# command to inject DATABASE_URL from the init-container's /shared/database-url
-# then execs `./start.sh`. We generate it inline so app-source-roots stay
-# clean (no per-app start.sh duplication). Apps that don't go through
-# createBunServer's command-override still boot via the CMD at the bottom
+# Container entrypoint — the platform may override the container command to
+# inject runtime secrets, then execs `./start.sh`. We generate it inline so
+# app-source-roots stay clean (no per-app start.sh duplication). Apps that
+# don't go through a command-override still boot via the CMD at the bottom
 # (`exec bun run server.js`) — start.sh is dead-code in that case.
 RUN printf '#!/bin/sh\nset -e\nexec bun run server.js\n' > ./start.sh && chmod +x ./start.sh
 
@@ -85,6 +95,8 @@ COPY --from=build --chown=app:app /app/seeds ./seeds
 USER app
 
 ENV NODE_ENV=production
+# The framework assumes UTC.
+ENV TZ=UTC
 ENV PORT={{port}}
 # The bundled kumiko.js CLI resolves its repo-relative paths via
 # KUMIKO_REPO_ROOT (default: parent-of-import.meta.dir, which inside the

@@ -54,6 +54,7 @@
   "bin": {
     "kumiko-build": "./bin/kumiko-build.ts",
     "kumiko-dev": "./bin/kumiko-dev.ts",
+    "kumiko-init-deploy": "./bin/kumiko-init-deploy.ts",
     "kumiko-schema": "./bin/kumiko-schema.ts",
     "kumiko-schema-check": "./bin/kumiko-schema-check.ts",
     "kumiko-upgrade": "./bin/kumiko-upgrade.ts"
