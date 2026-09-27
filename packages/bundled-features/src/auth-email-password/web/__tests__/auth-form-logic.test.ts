@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { passwordPairIssue, resolveLoggedInHref, retryAfterMinutes } from "../auth-form-logic";
+import {
+  passwordPairIssue,
+  resolveLoggedInHref,
+  resolvePostAuthHref,
+  retryAfterMinutes,
+} from "../auth-form-logic";
 
 describe("passwordPairIssue", () => {
   test("too_short when under min length", () => {
@@ -69,5 +74,33 @@ describe("resolveLoggedInHref", () => {
         { tenantId: "t1", roles: ["Editor"] },
       ),
     ).toBe("/t1/Editor");
+  });
+});
+
+describe("resolvePostAuthHref", () => {
+  type SignupArgs = { tenantKey: string; roles: readonly string[] };
+
+  test("server landingPath wins over loggedInHref", () => {
+    expect(
+      resolvePostAuthHref<SignupArgs>("/a/vehicle-create", "/", {
+        tenantKey: "acme",
+        roles: ["User"],
+      }),
+    ).toBe("/a/vehicle-create");
+  });
+
+  test("undefined landingPath falls back to loggedInHref (string form)", () => {
+    expect(
+      resolvePostAuthHref<SignupArgs>(undefined, "/fixed", { tenantKey: "acme", roles: [] }),
+    ).toBe("/fixed");
+  });
+
+  test("undefined landingPath falls back to loggedInHref (function form)", () => {
+    expect(
+      resolvePostAuthHref<SignupArgs>(undefined, ({ tenantKey }) => `/${tenantKey}/`, {
+        tenantKey: "acme",
+        roles: [],
+      }),
+    ).toBe("/acme/");
   });
 });

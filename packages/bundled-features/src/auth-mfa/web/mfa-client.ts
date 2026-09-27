@@ -32,6 +32,7 @@ export async function verifyMfaChallenge(
     isSuccess?: boolean;
     token?: string;
     user?: LoginResponse["user"];
+    landingPath?: string;
     error?:
       | {
           code?: string;
@@ -41,7 +42,14 @@ export async function verifyMfaChallenge(
       | string;
   };
   if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
-    return { kind: "success", data: { token: body.token, user: body.user } };
+    return {
+      kind: "success",
+      data: {
+        token: body.token,
+        user: body.user,
+        ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
+      },
+    };
   }
   const err = body.error;
   if (typeof err === "string") {
@@ -156,6 +164,7 @@ export async function confirmMfaSetupPreauth(
     isSuccess?: boolean;
     token?: string;
     user?: LoginResponse["user"];
+    landingPath?: string;
     error?:
       | {
           code?: string;
@@ -165,7 +174,14 @@ export async function confirmMfaSetupPreauth(
       | string;
   };
   if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
-    return { kind: "success", data: { token: body.token, user: body.user } };
+    return {
+      kind: "success",
+      data: {
+        token: body.token,
+        user: body.user,
+        ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
+      },
+    };
   }
   const err = body.error;
   if (typeof err === "string") {

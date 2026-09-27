@@ -144,6 +144,17 @@ describe("POST /auth/mfa/verify", () => {
     expect(cookies.get(CSRF_COOKIE_NAME)).toBeDefined();
   });
 
+  test("postAuthLanding wired → response carries landingPath", async () => {
+    const { app } = await buildApp({
+      postAuthLanding: (args) => (args.flow === "login" ? "/a/profile" : undefined),
+    });
+    const res = await app.request(
+      verifyRequest({ challengeToken: "opaque-challenge-token", code: "123456" }),
+    );
+    const body = (await res.json()) as { landingPath?: string };
+    expect(body.landingPath).toBe("/a/profile");
+  });
+
   test("a handler failure maps through mfaVerifyErrorStatusMap", async () => {
     const dispatcher = createStubDispatcher({
       async write(): Promise<WriteResult> {

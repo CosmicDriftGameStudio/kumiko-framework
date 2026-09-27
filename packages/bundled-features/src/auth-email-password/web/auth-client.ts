@@ -33,6 +33,9 @@ export type LoginResponse = {
     readonly tenantId: string;
     readonly roles: readonly string[];
   };
+  // Present only when the server's auth.postAuthLanding resolver returned a
+  // valid path — see auth-routes.ts. Screens prefer this over loggedInHref.
+  readonly landingPath?: string;
 };
 
 // Reason codes the login-handler is known to emit today (login-screen.tsx's
@@ -93,6 +96,14 @@ export type LoginResult =
   | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string }
   | { readonly kind: "failure"; readonly error: LoginFailure };
 
+function toLoginResponse(
+  token: string,
+  user: LoginResponse["user"],
+  landingPath: unknown,
+): LoginResponse {
+  return typeof landingPath === "string" ? { token, user, landingPath } : { token, user };
+}
+
 // POST /api/auth/login. Success → token + user; MFA-enrolled user → a
 // challenge token the caller completes via auth-mfa's verify screen;
 // unenrolled user blocked by enforcement policy → mfa-setup-required;
@@ -118,6 +129,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
     challengeToken?: string;
     mfaSetupRequired?: boolean;
     preauthSetupToken?: string;
+    landingPath?: string;
     error?:
       | {
           code?: string;
@@ -140,7 +152,7 @@ export async function login(req: LoginRequest): Promise<LoginResult> {
       return { kind: "failure", error: { reason: "mfa_setup_required" } };
     }
     if (body.token !== undefined && body.user !== undefined) {
-      return { kind: "success", data: { token: body.token, user: body.user } };
+      return { kind: "success", data: toLoginResponse(body.token, body.user, body.landingPath) };
     }
   }
   // Der Server schickt error entweder als string ("invalid_body") oder als
@@ -343,6 +355,9 @@ export type SignupConfirmSuccess = {
   // Present only when a bound handover grant existed and its claim
   // succeeded — see signup-confirm.write.ts.
   readonly handover?: { readonly entityType: string; readonly id: string };
+  // Present only when the server's auth.postAuthLanding resolver returned a
+  // valid path — see auth-routes.ts.
+  readonly landingPath?: string;
 };
 
 export async function confirmSignup(

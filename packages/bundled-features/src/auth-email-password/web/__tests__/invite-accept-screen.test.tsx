@@ -121,6 +121,36 @@ describe("InviteAcceptScreen — logged-in branch", () => {
     });
   });
 
+  test("server landingPath gewinnt über loggedInHref", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            tenantId: "tenant-new",
+            role: "Dealer",
+            alreadyMember: false,
+            landingPath: "/a/vehicle-create",
+          }),
+          { status: 200 },
+        ),
+    ) as unknown as typeof fetch;
+    const assign = mock<(url: string) => void>();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      writable: true,
+      value: { href: originalLocation.href, search: originalLocation.search, assign },
+    });
+
+    renderWithProviders(
+      <InviteAcceptScreen token="tok-123" loggedInHref={({ tenantId }) => `/${tenantId}/home`} />,
+      { session: makeSessionApi({ status: "authenticated" }) },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Accept" }));
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith("/a/vehicle-create");
+    });
+  });
+
   test("String-Form bleibt unverändert gültig", async () => {
     const assign = mock<(url: string) => void>();
     Object.defineProperty(window, "location", {

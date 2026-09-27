@@ -57,6 +57,12 @@ export {
 export type { JwtHelper, JwtKeyring, JwtPayload } from "./jwt";
 export { createJwtHelper, loadJwtSecretOrKeyring } from "./jwt";
 export { patAllows, qnMatches } from "./pat-scope";
+export type {
+  PostAuthLandingArgs,
+  PostAuthLandingFlow,
+  PostAuthLandingResolver,
+} from "./post-auth-landing";
+export { isSafeLandingPath } from "./post-auth-landing";
 export type { RedisSseBroker, RedisSseBrokerOptions } from "./redis-sse-broker";
 export { createDefaultSseBroker, createRedisSseBroker, isRedisSseBroker } from "./redis-sse-broker";
 export { type RequestContextData, requestContext } from "./request-context";

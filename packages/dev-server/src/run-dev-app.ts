@@ -44,7 +44,11 @@ import {
   SESSIONS_FEATURE,
 } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
-import type { SessionMetadata, TokenVerifier } from "@cosmicdrift/kumiko-framework/api";
+import type {
+  PostAuthLandingResolver,
+  SessionMetadata,
+  TokenVerifier,
+} from "@cosmicdrift/kumiko-framework/api";
 import { createInMemoryLoginRateLimiter } from "@cosmicdrift/kumiko-framework/api";
 import {
   configureBlindIndexKey,
@@ -162,6 +166,10 @@ export type RunDevAppAuthOptions = {
    *  RunProdAppAuthOptions — dev usually runs unproxied, so this is normally
    *  left unset (default 0). */
   readonly trustedProxyHops?: number;
+  /** Server-computed post-auth redirect (see AuthRoutesConfig.postAuthLanding).
+   *  Result lands in the login/signup/invite response as `landingPath`; an
+   *  invalid path or a throwing resolver just omits the field. */
+  readonly postAuthLanding?: PostAuthLandingResolver;
 };
 
 /** Hook for app-specific seeding (demo data, fixtures). Runs after the
@@ -513,6 +521,9 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         }),
         ...(effectiveAuth.trustedProxyHops !== undefined && {
           trustedProxyHops: effectiveAuth.trustedProxyHops,
+        }),
+        ...(effectiveAuth.postAuthLanding !== undefined && {
+          postAuthLanding: effectiveAuth.postAuthLanding,
         }),
         ...sessionAuthFragment,
         ...patAuthFragment,
