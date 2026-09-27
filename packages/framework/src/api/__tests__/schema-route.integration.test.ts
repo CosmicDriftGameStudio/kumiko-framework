@@ -17,6 +17,21 @@ const SCHEMA_PATH = `/api${Routes.schema}`;
 
 const schemaRouteFeature = defineFeature("schema-route-fixture", (r) => {
   r.entity("widget", createEntity({ fields: {} }));
+  r.screen({
+    id: "widget-list",
+    type: "entityList",
+    entity: "widget",
+    columns: ["id"],
+  });
+  r.screen({
+    id: "admin-only",
+    type: "entityList",
+    entity: "widget",
+    columns: ["id"],
+    access: { roles: ["Admin"] },
+  });
+  r.nav({ id: "widget-list", label: "Widgets", screen: "widget-list" });
+  r.nav({ id: "admin-only", label: "Admin Only", screen: "admin-only" });
 });
 
 let stack: TestStack;
@@ -98,5 +113,45 @@ describe("GET /api/schema", () => {
       headers: { "If-None-Match": etag ?? "" },
     });
     expect(res.status).toBe(401);
+  });
+
+  test("role projection: Admin sees the role-gated screen, User does not", async () => {
+    const adminToken = await stack.jwt.sign(TestUsers.admin);
+    const adminRes = await stack.app.request(SCHEMA_PATH, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const adminBody = (await adminRes.json()) as {
+      features: Array<{ featureName: string; screens: Array<{ id: string }> }>;
+    };
+    const adminFixture = adminBody.features.find((f) => f.featureName === "schema-route-fixture");
+    expect(adminFixture?.screens.map((s) => s.id).sort()).toEqual(["admin-only", "widget-list"]);
+
+    const userToken = await stack.jwt.sign(TestUsers.user);
+    const userRes = await stack.app.request(SCHEMA_PATH, {
+      headers: { Authorization: `Bearer ${userToken}` },
+    });
+    const userBody = (await userRes.json()) as {
+      features: Array<{ featureName: string; screens: Array<{ id: string }> }>;
+    };
+    const userFixture = userBody.features.find((f) => f.featureName === "schema-route-fixture");
+    expect(userFixture?.screens.map((s) => s.id)).toEqual(["widget-list"]);
+
+    // Different bodies must carry different (strong) ETags.
+    expect(adminRes.headers.get("etag")).not.toBe(userRes.headers.get("etag"));
+  });
+
+  test("role projection: one role's ETag sent by a different role never 304s", async () => {
+    const adminToken = await stack.jwt.sign(TestUsers.admin);
+    const adminRes = await stack.app.request(SCHEMA_PATH, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    });
+    const adminEtag = adminRes.headers.get("etag");
+    expect(adminEtag).toBeTruthy();
+
+    const userToken = await stack.jwt.sign(TestUsers.user);
+    const userRes = await stack.app.request(SCHEMA_PATH, {
+      headers: { Authorization: `Bearer ${userToken}`, "If-None-Match": adminEtag ?? "" },
+    });
+    expect(userRes.status).toBe(200);
   });
 });

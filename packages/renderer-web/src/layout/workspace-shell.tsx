@@ -29,8 +29,7 @@
 //   * access undefined → shown to everyone (engine convention — same
 //                        rule that NavDefinition.access follows)
 
-import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import { qualifyNavId, toAppSchema, UserRolesProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
@@ -275,16 +274,9 @@ export function filterByAccess(
   workspaces: readonly WorkspaceSchema[],
   userRoles: readonly string[] | undefined,
 ): readonly WorkspaceSchema[] {
-  const roles = userRoles ?? [];
   return [...workspaces]
-    .filter((ws) => userMatchesAccess(ws.definition.access, roles))
+    .filter((ws) => isUiAccessGranted(ws.definition.access, userRoles))
     .sort(byOrderThenInsertion);
-}
-
-function userMatchesAccess(access: AccessRule | undefined, userRoles: readonly string[]): boolean {
-  if (access === undefined) return true;
-  if ("openToAll" in access) return isOpenToAllGranted(access);
-  return access.roles.some((r) => userRoles.includes(r));
 }
 
 function byOrderThenInsertion(a: WorkspaceSchema, b: WorkspaceSchema): number {

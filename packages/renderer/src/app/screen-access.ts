@@ -1,28 +1,16 @@
 import type {
-  AccessRule,
   EntityEditScreenDefinition,
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import { lastSegment } from "./qn";
 
-// Minimal role-gate for the screen-render path (#1203 — nav filtering via
-// filterByAccess in workspace-shell.tsx hid role-gated screens from the
-// menu, but a direct URL/screenQn hit reached KumikoScreen unchecked).
-// Reimplemented instead of imported from framework/engine's hasAccess
-// (pulls server-side deps) — same bundle-purity reasoning as headless/nav's
-// resolve.ts:userCanSee, which this mirrors. Own leaf module (not exported
-// from kumiko-screen.tsx directly) so render-field.tsx can import it too
-// without the kumiko-screen → RenderEdit → RenderField cycle.
-export function screenAccessAllows(
-  access: AccessRule | undefined,
-  userRoles: readonly string[] | undefined,
-): boolean {
-  if (!access) return true;
-  if ("openToAll" in access) return isOpenToAllGranted(access);
-  if (userRoles === undefined) return false;
-  return access.roles.some((role) => userRoles.includes(role));
-}
+// Shared UI-visibility predicate for the screen-render path (#1203 — nav
+// filtering via filterByAccess in workspace-shell.tsx hid role-gated
+// screens from the menu, but a direct URL/screenQn hit reached
+// KumikoScreen unchecked). Public name kept as an alias of the shared
+// predicate that headless/nav and workspace-shell use as well.
+export { isUiAccessGranted as screenAccessAllows };
 
 // A navigate target (metric click) declares no access rule of its own — the
 // destination screen already does, so the jump is offered exactly when the
@@ -49,7 +37,7 @@ export function navigateTargetAllows(
       // First match IS the destination: short ids are globally unique
       // (validateScreenShortIdCollisions) and both the router and
       // resolveTarget take the first hit.
-      if (isTarget) return screenAccessAllows(candidate.access, userRoles);
+      if (isTarget) return isUiAccessGranted(candidate.access, userRoles);
     }
   }
   // Unresolvable target — the boot-validator doesn't check metric navigate
@@ -67,7 +55,7 @@ export function findEditScreenFor(
   for (const feature of appFeatures) {
     const match = feature.screens.find(
       (s): s is EntityEditScreenDefinition =>
-        s.type === "entityEdit" && s.entity === entity && screenAccessAllows(s.access, userRoles),
+        s.type === "entityEdit" && s.entity === entity && isUiAccessGranted(s.access, userRoles),
     );
     if (match !== undefined) return match;
   }

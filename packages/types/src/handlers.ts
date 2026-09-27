@@ -56,6 +56,24 @@ export function isOpenToAllGranted(rule: AccessRule): boolean {
   return openToAll.reason.trim().length > 0;
 }
 
+// UI-visibility predicate — DEFAULT-VISIBLE, the opposite stance from
+// `hasAccess`/AccessRule's own default-deny doc above: an unset `access`
+// means every signed-in user may see the screen/nav/workspace, not nobody.
+// The engine's dispatcher access check stays default-deny; this only
+// decides what a client renders/lists, never what a handler accepts.
+// Same `unknown`-narrowing caution as isOpenToAllGranted — `access` can
+// arrive from untyped sources.
+export function isUiAccessGranted(
+  access: AccessRule | undefined,
+  userRoles: readonly string[] | undefined,
+): boolean {
+  if (access === undefined) return true;
+  if ("openToAll" in access) return isOpenToAllGranted(access);
+  if (userRoles === undefined) return false;
+  if (!("roles" in access)) return false;
+  return access.roles.some((role) => userRoles.includes(role));
+}
+
 // --- Pipeline User ---
 
 // Set only on a SessionUser the framework resolved internally for a

@@ -1,5 +1,5 @@
-import type { AccessRule, NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { isOpenToAllGranted } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { NavNode, NavTree, ResolveNavigationOptions } from "./types";
 
 // Assembles the renderable nav tree from the registry's pre-grouped
@@ -16,7 +16,9 @@ export function resolveNavigation(options: ResolveNavigationOptions): NavTree {
   const { source, user } = options;
 
   function build(entry: NavDefinition): NavNode | null {
-    if (!userCanSee(entry.access, user)) return null;
+    // Shared default-visible UI predicate, not hasAccess from the engine:
+    // that module pulls server-side deps and would break bundle purity.
+    if (!isUiAccessGranted(entry.access, user?.roles)) return null;
     // `entry.id` is already the qualified name — the registry stores
     // it that way. No reverse-index lookup needed.
     const children: NavNode[] = [];
@@ -55,28 +57,4 @@ function bySortKey(a: NavNode, b: NavNode): number {
   // shuffle between renders.
   if (a.order !== b.order) return a.order - b.order;
   return a.qualifiedName.localeCompare(b.qualifiedName);
-}
-
-// Access evaluator. Duplicated minimal logic instead of importing
-// hasAccess from @cosmicdrift/kumiko-framework/engine at runtime — that module pulls
-// in server-side deps (tenant-db, ownership-evaluator) and would break
-// ui-core's bundle-purity guarantee. Only roles + openToAll are checked;
-// ownership-level row-filtering is a server-side concern and doesn't
-// apply to navigation entries (they're a menu, not a dataset).
-function userCanSee(
-  access: AccessRule | undefined,
-  user: ResolveNavigationOptions["user"],
-): boolean {
-  // No rule = always visible — matches the framework's "engine stays
-  // un-opinionated about who sees what" stance in the nav docs.
-  if (!access) return true;
-  if ("openToAll" in access && isOpenToAllGranted(access)) return true;
-  if (!user) return false; // anonymous can't match a role-gated rule
-  if ("roles" in access) {
-    const allowed = access.roles;
-    for (const role of user.roles) {
-      if (allowed.includes(role)) return true;
-    }
-  }
-  return false;
 }
