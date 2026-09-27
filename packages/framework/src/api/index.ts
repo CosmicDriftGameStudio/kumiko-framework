@@ -34,6 +34,7 @@ export {
   clientIpSourceFromHonoContext,
   createClientIpResolver,
   extractSocketAddress,
+  UNKNOWN_CLIENT_IP,
 } from "./client-ip";
 export type {
   AnonymousExtraRoute,

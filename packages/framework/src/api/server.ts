@@ -68,6 +68,7 @@ import { type AuthRoutesConfig, createAuthRoutes, type LoginRateLimiter } from "
 import {
   assertValidTrustedProxyHops,
   type ClientIpResolver,
+  clientIpSourceFromHonoContext,
   createClientIpResolver,
 } from "./client-ip";
 import { csrfMiddleware } from "./csrf-middleware";
@@ -960,6 +961,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
           // comes from bypassing the HTTP layer entirely; no elevated
           // role is needed or wanted on top of that.
           systemQuery: makeSystemQuery(c, dispatcher, clientIpResolver),
+          clientIp: clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
         });
       mountHonoRoute(
         app,

@@ -48,6 +48,12 @@ export type HttpRouteHandlerDeps = {
     payload: unknown,
     tenantId: import("./identifiers").TenantId,
   ) => Promise<unknown>;
+  /** Caller IP resolved via the server's configured, trustedProxyHops-aware
+   *  resolver (same one requestIdMiddleware uses for `/api/*`) — a route
+   *  handler needing the caller's IP (rate limiting, audit) should read
+   *  this instead of parsing X-Forwarded-For itself, which trusts
+   *  whichever hop count the deployment actually has in front of it. */
+  readonly clientIp: string;
 };
 
 export type HttpRouteHandler = (

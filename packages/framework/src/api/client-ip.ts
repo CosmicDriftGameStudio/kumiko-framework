@@ -17,7 +17,7 @@ import type { Context } from "hono";
 // A bucket is never skipped: without any usable value the fallback is a
 // fixed "unknown" string, which collapses affected callers into one shared
 // bucket rather than letting them bypass the limit entirely.
-const UNKNOWN_CLIENT_IP = "unknown";
+export const UNKNOWN_CLIENT_IP = "unknown";
 
 export type ClientIpHeaderSource = {
   readonly header: (name: string) => string | undefined;

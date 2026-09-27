@@ -488,6 +488,8 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
   test("POST-Exchange (Fragment-Pfad): happy-path + IP/UA-Audit aus httpRoute-Headers", async () => {
     const { jobId, plainToken } = await seedDoneJobWithToken();
 
+    // trustedProxyHops=1 here → the resolver trusts the last XFF entry, not
+    // the client-spoofable first one.
     const res = await stack.app.fetch(
       new Request("http://test/user-export/by-token", {
         method: "POST",
@@ -509,7 +511,8 @@ describe("r.httpRoute :: /user-export/by-token (Magic-Link e2e)", () => {
       lastUsedUserAgent: string | null;
     }>;
     expect(row?.useCount).toBe(1);
-    expect(row?.lastUsedFromIp).toBe("203.0.113.9");
+    expect(row?.lastUsedFromIp).toBe("10.0.0.1");
+    expect(row?.lastUsedFromIp).not.toBe("203.0.113.9");
     expect(row?.lastUsedUserAgent).toBe("e2e-test/3.0");
   });
 
