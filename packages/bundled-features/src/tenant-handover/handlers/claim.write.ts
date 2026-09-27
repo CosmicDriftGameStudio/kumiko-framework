@@ -82,6 +82,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
             rootRowId: subject,
             sourceTenantId: expectedAnchor,
             destinationTenantId,
+            transferredBy: event.user.id,
           });
 
           // Own aggregate, decoupled from the transferred root's stream (see

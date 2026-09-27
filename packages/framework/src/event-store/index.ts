@@ -54,6 +54,12 @@ export {
   snapshotsTable,
 } from "./snapshot";
 export {
+  AGGREGATE_TRANSFER_STREAM_TYPE,
+  AGGREGATE_TRANSFERRED_EVENT_TYPE,
+  type TransferAggregateStreamsArgs,
+  transferAggregateStreams,
+} from "./transfer";
+export {
   type EventUpcasters,
   makeUpcastCtx,
   type UpcasterErrorPolicy,

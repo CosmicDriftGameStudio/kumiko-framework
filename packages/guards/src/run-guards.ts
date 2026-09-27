@@ -31,6 +31,7 @@ import { guard as directEntityWrites } from "./guard-direct-entity-writes";
 import { guard as directFetch } from "./guard-direct-fetch";
 import { guard as errorReasons } from "./guard-error-reasons";
 import { guard as escapeHatchDeclared } from "./guard-escape-hatch-declared";
+import { guard as eventStoreWrites } from "./guard-event-store-writes";
 import { guard as fakeTests } from "./guard-fake-tests";
 import { guard as htmlEscape } from "./guard-html-escape";
 import { guard as i18nKeys } from "./guard-i18n-keys";
@@ -88,6 +89,7 @@ export const GUARDS = [
   writeHandlerQns,
   asCasts,
   loadallEvents,
+  eventStoreWrites,
   tableDdl,
   appFeatureStructure,
   libTestCoverage,

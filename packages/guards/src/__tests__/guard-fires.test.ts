@@ -225,6 +225,11 @@ const ENFORCING: Record<string, Violating> = {
     code: 'declare function loadAllEventsByType(t: string): unknown;\nexport const load = () => loadAllEventsByType("x");',
     expectedMessage: /loadAllEventsByType\(\.\.\.\) in load/,
   },
+  "Event-Store-Writes Guard": {
+    path: `${PKG}/features/x/move.ts`,
+    code: 'export const sql = "UPDATE kumiko_events SET tenant_id = $1 WHERE aggregate_id = $2";',
+    expectedMessage: /UPDATE kumiko_events/,
+  },
   "test-timeouts": {
     path: `${PKG}/features/x/__tests__/x.test.ts`,
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
