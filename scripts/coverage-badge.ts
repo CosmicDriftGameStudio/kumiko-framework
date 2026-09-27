@@ -3,7 +3,13 @@
  *  file exercised by different lines in each suite needs the union of hit
  *  lines, not the larger of two file-level LH counts) → shields.io endpoint JSON. */
 
+import { isIgnoredCoverageFile, readCoverageIgnorePatterns } from "./coverage-ignore";
+
 type LineMap = Map<string, Map<number, number>>;
+
+// bun's --parallel workers don't apply bunfig's coveragePathIgnorePatterns
+// (bun 1.4.0), so the badge enforces the product scope itself.
+const ignorePatterns = await readCoverageIgnorePatterns("bunfig.ci.toml");
 
 async function parseLines(path: string): Promise<LineMap> {
   const perFile: LineMap = new Map();
@@ -14,6 +20,7 @@ async function parseLines(path: string): Promise<LineMap> {
     const sf = /SF:(.+)/.exec(rec)?.[1]?.trim();
     if (!sf) continue;
     const key = sf.replace(/\\/g, "/");
+    if (isIgnoredCoverageFile(key, ignorePatterns)) continue;
     const lines = perFile.get(key) ?? new Map<number, number>();
     for (const m of rec.matchAll(/^DA:(\d+),(\d+)/gm)) {
       const line = Number(m[1]);
