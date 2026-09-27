@@ -599,6 +599,86 @@ describe("ledger integration — createSchedule with a caller-chosen id (idempot
   });
 });
 
+describe("ledger integration — account code uniqueness", () => {
+  test("a second account with the same code in the same tenant is rejected", async () => {
+    await stack.http.writeOk(
+      LedgerHandlers.createAccount,
+      { name: "Bank", type: "asset", code: "1000" },
+      admin,
+    );
+
+    const err = await stack.http.writeErr(
+      LedgerHandlers.createAccount,
+      { name: "Bank 2", type: "asset", code: "1000" },
+      admin,
+    );
+    expect(err.code).toBe("unique_violation");
+
+    // The rejected create must not leave an event behind that a later rebuild
+    // would replay into a duplicate.
+    const accounts = await stack.http.queryOk<{ rows: { code?: string }[] }>(
+      LedgerQueries.accountList,
+      {},
+      admin,
+    );
+    expect(accounts.rows.filter((row) => row.code === "1000")).toHaveLength(1);
+    const [eventCount] = await asRawClient(stack.db).unsafe<{ count: number }>(
+      "SELECT count(*)::int AS count FROM kumiko_events WHERE tenant_id = $1",
+      [admin.tenantId],
+    );
+    expect(eventCount?.count).toBe(1);
+  });
+
+  test("two accounts without a code in the same tenant both succeed", async () => {
+    await stack.http.writeOk(LedgerHandlers.createAccount, { name: "Bank", type: "asset" }, admin);
+    const second = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createAccount,
+      { name: "Bank 2", type: "asset" },
+      admin,
+    );
+    expect(second.id).toBeDefined();
+  });
+
+  test("the same code in two different tenants both succeed", async () => {
+    const a = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createAccount,
+      { name: "Bank", type: "asset", code: "1000" },
+      admin,
+    );
+    const b = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createAccount,
+      { name: "Bank", type: "asset", code: "1000" },
+      otherTenant,
+    );
+    expect(a.id).not.toBe(b.id);
+  });
+
+  test("updating an account's code to an existing code in the same tenant is rejected", async () => {
+    await stack.http.writeOk(
+      LedgerHandlers.createAccount,
+      { name: "Bank", type: "asset", code: "1000" },
+      admin,
+    );
+    const other = await stack.http.writeOk<{ id: string }>(
+      LedgerHandlers.createAccount,
+      { name: "Rent", type: "income", code: "2000" },
+      admin,
+    );
+    const otherDetail = await stack.http.queryOk<{ version: number }>(
+      LedgerQueries.accountDetail,
+      { id: other.id },
+      admin,
+    );
+
+    const err = await stack.http.writeErr(
+      LedgerHandlers.updateAccount,
+      { id: other.id, version: otherDetail.version, changes: { code: "1000" } },
+      admin,
+    );
+    expect(err.code).toBe("unique_violation");
+  });
+});
+
 describe("ledger integration — subject dimension (filterable business-object reference)", () => {
   test("a booking with subjectType/subjectId round-trips and is findable via an eq filter", async () => {
     const bank = await createAccount("Bank", "asset");

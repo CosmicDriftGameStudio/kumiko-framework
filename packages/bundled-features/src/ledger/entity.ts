@@ -1,3 +1,4 @@
+import { sql } from "@cosmicdrift/kumiko-framework/db";
 import {
   createDateField,
   createEmbeddedListField,
@@ -26,11 +27,23 @@ export const accountEntity = createEntity({
       reason: "is_business_data",
     }),
     type: createSelectField({ options: ACCOUNT_TYPES, required: true }),
-    // Optional account number (Kontonummer / SKR code) — free text in v1.
+    // Optional account number (Kontonummer / SKR code); unique per tenant when set.
     code: createTextField({ maxLength: 32, personal: false, reason: "technical_reference" }),
     // Parent account id, or absent for a root account. No FK (event-sourced).
     parentId: createTextField({ maxLength: 64, personal: false, reason: "technical_reference" }),
   },
+  // Find-then-create by code (solon, money-horse) races across tabs/devices;
+  // only the DB closes that gap. Partial because code is optional. The name is
+  // the one money-horse's hand-written migration 0024 already uses, so both
+  // declare the same Postgres object instead of two indexes.
+  indexes: [
+    {
+      columns: ["tenantId", "code"],
+      unique: true,
+      where: sql`"code" IS NOT NULL`,
+      name: "read_ledger_accounts_tenant_id_code_uidx",
+    },
+  ],
 });
 
 // transaction — a journal entry. The balanced posting lines live embedded as
