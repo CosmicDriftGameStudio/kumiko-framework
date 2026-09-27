@@ -17,6 +17,7 @@ import {
   reportResults,
   runGuards,
 } from "./_lib/guard-kit";
+import type { RepoRoot } from "./_lib/roots";
 import { writeSecurityBaselines } from "./_lib/security-baseline-cli";
 import { guard as asCasts } from "./check-as-casts";
 import { guard as complexity } from "./check-complexity";
@@ -103,10 +104,14 @@ export const GUARD_FLAGS = [
 
 const GUARD_NAME_PREFIX = "--guard=";
 
+export type RunGuardsCliDeps = {
+  readonly writeBaselineRoots?: readonly RepoRoot[];
+};
+
 // Shared by the direct `bun run-guards.ts` invocation below and by the
 // `guards` subcommand in cli.ts — one place for the flag behavior so the
 // two entry points can never drift.
-export function runGuardsCli(argv: readonly string[]): number {
+export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {}): number {
   const guardNameArg = argv.find((arg) => arg.startsWith(GUARD_NAME_PREFIX));
   const flags = guardNameArg === undefined ? argv : argv.filter((arg) => arg !== guardNameArg);
   const flagsError = cliFlagsError("guards", flags, GUARD_FLAGS);
@@ -148,8 +153,8 @@ export function runGuardsCli(argv: readonly string[]): number {
       console.error(`Guard "${guardName}" has no ratchet baseline to write.`);
       return 1;
     }
-    const project = buildSharedProject([target]);
-    target.writeBaseline(filesForGuard(project, target));
+    const project = buildSharedProject([target], deps.writeBaselineRoots);
+    target.writeBaseline(filesForGuard(project, target, deps.writeBaselineRoots));
     return 0;
   }
   const strictSecurityBaseline = flags.includes("--strict-security-baseline");
