@@ -24,8 +24,14 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.plans.cancelScheduled": {
     en: "Your subscription is scheduled to end on {date}.",
   },
+  "billing-foundation.plans.switchRequiresReactivation": {
+    en: "Reactivate your subscription before switching plans.",
+  },
   "billing-foundation.plans.paymentPending": {
     en: "Payment is still being completed.",
+  },
+  "billing-foundation.plans.pastDue": {
+    en: "Your last payment failed. Update your payment method to avoid interruption.",
   },
   "billing-foundation.plans.priceUnavailable": { en: "Price not available" },
   "billing-foundation.plans.purchaseNotAllowed": {
@@ -49,6 +55,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   },
   "billing-foundation.errors.noActiveSubscription": {
     en: "This tenant has no active subscription to switch.",
+  },
+  "billing-foundation.errors.cancellationScheduled": {
+    en: "This subscription is scheduled to cancel. Reactivate it before switching plans.",
   },
   "billing-foundation.errors.alreadyOnPlan": { en: "This tenant is already on that plan." },
   "billing-foundation.errors.planSwitchNotSupported": {

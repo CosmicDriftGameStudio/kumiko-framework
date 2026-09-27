@@ -281,6 +281,33 @@ export type SubscriptionProviderPlugin = {
       readonly returnUrl: string;
     },
   ) => Promise<{ readonly url: string }>;
+
+  /**
+   * Fetches the live provider-side state of one subscription, for the
+   * `sync-subscriptions` backfill job — catches drift (e.g. a `cancel_at`
+   * set on the provider's own dashboard) that never reached us as a
+   * webhook. Missing → sync-subscription reports `provider_cannot_retrieve`
+   * instead of throwing. Null → the implementation could not resolve a
+   * snapshot for this id — the subscription no longer exists at the
+   * provider (deleted account, ...), or its state no longer maps onto this
+   * app's config (e.g. Stripe's price-to-tier — same silent-drop the
+   * webhook path already applies to an unmapped price).
+   */
+  readonly retrieveSubscription?: (
+    ctx: HandlerContext,
+    providerSubscriptionId: string,
+  ) => Promise<ProviderSubscriptionSnapshot | null>;
+};
+
+export type ProviderSubscriptionSnapshot = {
+  readonly providerCustomerId: string;
+  readonly providerSubscriptionId: string;
+  readonly status: SubscriptionStatus;
+  readonly tier: string;
+  /** ISO instant string, same shape as `SubscriptionEventPayload.currentPeriodEndIso`. */
+  readonly currentPeriodEnd: string;
+  readonly cancelAt: string | null;
+  readonly rawPayload: string;
 };
 
 // =============================================================================

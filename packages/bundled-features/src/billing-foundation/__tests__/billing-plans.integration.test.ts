@@ -232,6 +232,7 @@ async function createSubscription(
     tier: string;
     providerSubscriptionId: string;
     providerCustomerId: string;
+    cancelAtIso: string | null;
   }> = {},
   onStack: TestStack = stack,
 ) {
@@ -247,6 +248,7 @@ async function createSubscription(
       status: overrides.status ?? SubscriptionStatuses.active,
       tier: overrides.tier ?? "starter",
       currentPeriodEndIso: "2026-06-01T00:00:00Z",
+      ...(overrides.cancelAtIso !== undefined && { cancelAtIso: overrides.cancelAtIso }),
       rawPayload: '{"raw":"payload"}',
     },
     admin,
@@ -501,6 +503,31 @@ describe("switch-plan", () => {
       admin,
     );
     expect(error.httpStatus).toBe(409);
+  });
+
+  test("switching a subscription that is scheduled to cancel is a conflict, and the query offers unavailable instead of switch", async () => {
+    const admin = adminFor(7034);
+    await createSubscription(admin.tenantId, {
+      tier: "starter",
+      providerSubscriptionId: "sub_switch_7034",
+      cancelAtIso: "2026-07-01T00:00:00Z",
+    });
+
+    const result = (await stack.http.queryOk(
+      "billing-foundation:query:billing-plans",
+      {},
+      admin,
+    )) as { plans: Array<{ tier: string; action: string }> };
+    expect(result.plans.find((p) => p.tier === "pro")?.action).toBe("unavailable");
+
+    const error = await stack.http.writeErr(
+      SubscriptionFoundationHandlers.switchPlan,
+      { tier: "pro" },
+      admin,
+    );
+    expect(error.httpStatus).toBe(409);
+    expect(error.i18nKey).toBe("billing-foundation.errors.cancellationScheduled");
+    expect(switchCalls).toHaveLength(0);
   });
 
   test("the provider rejecting the switch because two tiers share one Stripe product surfaces as a 422, not a 500", async () => {

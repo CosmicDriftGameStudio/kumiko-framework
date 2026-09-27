@@ -16,7 +16,7 @@ import {
   configuredPiiSubjectKms,
   encryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
-import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id";
 import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
@@ -66,7 +66,7 @@ export const processEventSchema = z.object({
   cancelAtIso: z.string().min(1).nullable().optional(),
   rawPayload: z.string().min(1),
 });
-type ProcessEventPayload = z.infer<typeof processEventSchema>;
+export type ProcessEventPayload = z.infer<typeof processEventSchema>;
 
 // Map normalized SubscriptionEventType → fully-qualified ES event-name.
 const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
@@ -76,6 +76,114 @@ const NORMALIZED_TO_ES_EVENT: Readonly<Record<string, string>> = {
   [SubscriptionEventTypes.invoicePaid]: INVOICE_PAID_EVENT_QN,
   [SubscriptionEventTypes.invoicePaymentFailed]: INVOICE_PAYMENT_FAILED_EVENT_QN,
 } satisfies Readonly<Record<string, string>>;
+
+// =============================================================================
+// appendSubscriptionEvent — the append-body, shared by processEventHandler
+// (webhook path) and sync-subscription.write.ts (backfill path). Both call
+// this with the same normalized payload shape; the difference is only in
+// who constructs `payload` and what `providerEventId` they use.
+// =============================================================================
+
+export async function appendSubscriptionEvent(
+  ctx: HandlerContext,
+  tenantId: string,
+  payload: ProcessEventPayload,
+): Promise<{ readonly duplicate: boolean; readonly subscriptionAggregateId: string }> {
+  const aggId = subscriptionAggregateId(tenantId);
+
+  // ---------------------------------------------------------------
+  // 1. Idempotency: load the subscription stream and check whether this
+  //    providerEventId was already seen. A provider retry storm (Stripe
+  //    resends up to 5x within 4h) hits the same stream and finds the
+  //    event id in metadata.
+  //
+  //    **Performance caveat:** O(N) per stream. With 5 years of history
+  //    (monthly recurring = ~60 events) still <50ms. For much longer
+  //    streams, optimize via snapshot or a per-tenant dedup table as the
+  //    idempotency anchor (like cap-counter).
+  // ---------------------------------------------------------------
+  const existingEvents = await ctx.loadAggregate(aggId);
+  const alreadySeen = existingEvents.some((e) => {
+    const headers = e.metadata.headers ?? {};
+    return (
+      headers["providerEventId"] === payload.providerEventId &&
+      headers["providerName"] === payload.providerName
+    );
+  });
+  if (alreadySeen) {
+    return { duplicate: true, subscriptionAggregateId: aggId };
+  }
+
+  // ---------------------------------------------------------------
+  // 2. Map normalized event-type → ES event-FQN.
+  // ---------------------------------------------------------------
+  const esEventType = NORMALIZED_TO_ES_EVENT[payload.type];
+  if (!esEventType) {
+    // Schema validation above should already catch this; defensive against
+    // drift between the SubscriptionEventTypes enum and the NORMALIZED map.
+    throw new Error(`subscription-foundation: no ES event-type mapping for "${payload.type}"`);
+  }
+
+  // ---------------------------------------------------------------
+  // 3. Encrypt the two provider-subject PII fields before they touch
+  //    storage — this is the ONLY write path onto the subscription
+  //    stream, so encrypting here covers both the event-log payload AND
+  //    (via projection.ts copying the event fields as-is) the
+  //    read_subscriptions row with a single call. The subject is the
+  //    TENANT (tenantOwned) — tenant-destroy's subject-keys stage
+  //    (eraseSubjectKeys) erases exactly this key, so both copies become
+  //    genuinely unreadable (#800) once that stage runs, not just
+  //    "encrypted at rest". No adapter configured = engine off (fields
+  //    stay plaintext, pre-#724-phase-C behavior) — mirrors how the
+  //    event-store-executor treats an absent piiKms().
+  // ---------------------------------------------------------------
+  const piiKms = configuredPiiSubjectKms();
+  const encryptedFields = piiKms
+    ? await encryptPiiFieldValues(
+        {
+          tenantId,
+          providerCustomerId: payload.providerCustomerId,
+          providerSubscriptionId: payload.providerSubscriptionId,
+        },
+        subscriptionEntity,
+        SUBSCRIPTION_PII_FIELDS,
+        piiKms,
+        { requestId: `billing-foundation:process-event:${payload.providerEventId}`, tenantId },
+        { tenantId, entityName: SUBSCRIPTION_AGGREGATE_TYPE },
+      )
+    : {
+        providerCustomerId: payload.providerCustomerId,
+        providerSubscriptionId: payload.providerSubscriptionId,
+      };
+
+  // ---------------------------------------------------------------
+  // 4. Append the event onto the subscription stream. The inline projection
+  //    materializes the read_subscriptions row in the same TX.
+  // ---------------------------------------------------------------
+  const eventPayload: SubscriptionEventPayload = {
+    providerName: payload.providerName,
+    providerCustomerId: encryptedFields["providerCustomerId"] as string,
+    providerSubscriptionId: encryptedFields["providerSubscriptionId"] as string,
+    status: payload.status,
+    tier: payload.tier,
+    currentPeriodEndIso: payload.currentPeriodEndIso,
+    ...(payload.cancelAtIso !== undefined && { cancelAtIso: payload.cancelAtIso }),
+  };
+  const headers: SubscriptionEventHeaders = {
+    providerEventId: payload.providerEventId,
+    providerName: payload.providerName,
+    rawPayload: payload.rawPayload,
+  };
+  await ctx.unsafeAppendEvent({
+    aggregateId: aggId,
+    aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
+    type: esEventType,
+    payload: eventPayload,
+    headers,
+  });
+
+  return { duplicate: false, subscriptionAggregateId: aggId };
+}
 
 // =============================================================================
 // Handler
@@ -92,109 +200,7 @@ export const processEventHandler: WriteHandlerDef = {
   handler: async (event, ctx) => {
     // @cast-boundary engine-payload — dispatcher-zod-validated payload
     const payload = event.payload as ProcessEventPayload;
-    const tenantId = event.user.tenantId;
-    const aggId = subscriptionAggregateId(tenantId);
-
-    // ---------------------------------------------------------------
-    // 1. Idempotency: load subscription-stream + check ob dieser
-    //    providerEventId bereits gesehen wurde. Provider-Retry-Storm
-    //    (Stripe sendet bis zu 5x in 4h) trifft denselben Stream und
-    //    findet den event-id in metadata.
-    //
-    //    **Performance-caveat:** O(N) pro stream. Bei 5 Jahren history
-    //    (recurring monatlich = ~60 events) noch <50ms. Bei deutlich
-    //    längeren streams optimieren via snapshot oder per-tenant
-    //    dedup-table als idempotency-anchor (analog cap-counter).
-    // ---------------------------------------------------------------
-    const existingEvents = await ctx.loadAggregate(aggId);
-    const alreadySeen = existingEvents.some((e) => {
-      const headers = e.metadata.headers ?? {};
-      return (
-        headers["providerEventId"] === payload.providerEventId &&
-        headers["providerName"] === payload.providerName
-      );
-    });
-    if (alreadySeen) {
-      return {
-        isSuccess: true as const,
-        data: { duplicate: true as const, subscriptionAggregateId: aggId },
-      };
-    }
-
-    // ---------------------------------------------------------------
-    // 2. Map normalized event-type → ES event-FQN.
-    // ---------------------------------------------------------------
-    const esEventType = NORMALIZED_TO_ES_EVENT[payload.type];
-    if (!esEventType) {
-      // Schema-validation oben sollte das schon fangen, aber defensive
-      // gegen drift im SubscriptionEventTypes-enum vs NORMALIZED-Map.
-      throw new Error(`subscription-foundation: no ES event-type mapping for "${payload.type}"`);
-    }
-
-    // ---------------------------------------------------------------
-    // 3. Encrypt the two provider-subject PII fields before they touch
-    //    storage — this is the ONLY write path onto the subscription
-    //    stream, so encrypting here covers both the event-log payload AND
-    //    (via projection.ts copying the event fields as-is) the
-    //    read_subscriptions row with a single call. The subject is the
-    //    TENANT (tenantOwned) — tenant-destroy's subject-keys stage
-    //    (eraseSubjectKeys) erases exactly this key, so both copies become
-    //    genuinely unreadable (#800) once that stage runs, not just
-    //    "encrypted at rest". No adapter configured = engine off (fields
-    //    stay plaintext, pre-#724-phase-C behavior) — mirrors how the
-    //    event-store-executor treats an absent piiKms().
-    // ---------------------------------------------------------------
-    const piiKms = configuredPiiSubjectKms();
-    const encryptedFields = piiKms
-      ? await encryptPiiFieldValues(
-          {
-            tenantId,
-            providerCustomerId: payload.providerCustomerId,
-            providerSubscriptionId: payload.providerSubscriptionId,
-          },
-          subscriptionEntity,
-          SUBSCRIPTION_PII_FIELDS,
-          piiKms,
-          { requestId: `billing-foundation:process-event:${payload.providerEventId}`, tenantId },
-          { tenantId, entityName: SUBSCRIPTION_AGGREGATE_TYPE },
-        )
-      : {
-          providerCustomerId: payload.providerCustomerId,
-          providerSubscriptionId: payload.providerSubscriptionId,
-        };
-
-    // ---------------------------------------------------------------
-    // 4. Append event auf den subscription-stream. Inline-projection
-    //    materialisiert die read_subscriptions-row in derselben TX.
-    // ---------------------------------------------------------------
-    const eventPayload: SubscriptionEventPayload = {
-      providerName: payload.providerName,
-      providerCustomerId: encryptedFields["providerCustomerId"] as string,
-      providerSubscriptionId: encryptedFields["providerSubscriptionId"] as string,
-      status: payload.status,
-      tier: payload.tier,
-      currentPeriodEndIso: payload.currentPeriodEndIso,
-      ...(payload.cancelAtIso !== undefined && { cancelAtIso: payload.cancelAtIso }),
-    };
-    const headers: SubscriptionEventHeaders = {
-      providerEventId: payload.providerEventId,
-      providerName: payload.providerName,
-      rawPayload: payload.rawPayload,
-    };
-    await ctx.unsafeAppendEvent({
-      aggregateId: aggId,
-      aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
-      type: esEventType,
-      payload: eventPayload,
-      headers,
-    });
-
-    return {
-      isSuccess: true as const,
-      data: {
-        duplicate: false as const,
-        subscriptionAggregateId: aggId,
-      },
-    };
+    const result = await appendSubscriptionEvent(ctx, event.user.tenantId, payload);
+    return { isSuccess: true as const, data: result };
   },
 };

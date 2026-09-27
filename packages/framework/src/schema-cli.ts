@@ -115,7 +115,11 @@ export async function runSchemaCli(
   // migration, since the crashed process still records the migration as
   // applied and the rebuild is never retried.
   await ensureTemporalPolyfill();
-  const sub = argv[0];
+  // `--help`/`-h`/`help` fall through to the same "no subcommand" usage
+  // branch below (undefined) — a real request for help, not a typo that
+  // should fail loud like an unrecognized subcommand does.
+  const rawSub = argv[0];
+  const sub = rawSub === "--help" || rawSub === "-h" || rawSub === "help" ? undefined : rawSub;
   const schemaFile = resolvePath(appCwd, "kumiko/schema.ts");
   const migrationsDir = resolvePath(appCwd, "kumiko/migrations");
 

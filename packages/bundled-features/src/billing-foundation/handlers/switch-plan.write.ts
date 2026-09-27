@@ -57,6 +57,13 @@ export function createSwitchPlanHandler(
             "tenant has no switchable subscription; use billing-foundation:write:start-plan-checkout to start one",
         });
       }
+      if (sub.cancelAt !== null) {
+        throw new ConflictError({
+          i18nKey: "billing-foundation.errors.cancellationScheduled",
+          message:
+            "subscription has a scheduled cancellation; reactivate it via billing-foundation:write:create-portal-session before switching plans",
+        });
+      }
       if (payload.tier === sub.tier) {
         throw new ConflictError({
           i18nKey: "billing-foundation.errors.alreadyOnPlan",

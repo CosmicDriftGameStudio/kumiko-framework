@@ -5,15 +5,20 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { Glob } from "bun";
 import { BUNFIG_FILES, mergeBunfig, renderBunfigFiles } from "../src/bunfig";
-import { buildIntegrationTestArgs, selectIntegrationFiles } from "../src/integration-runner";
+import {
+  buildIntegrationTestArgs,
+  resolveRequestedIntegrationFiles,
+  selectIntegrationFiles,
+} from "../src/integration-runner";
 
 const USAGE = `kumiko-testing <command>
 
   bunfig [--dom] [--coverage] [--hoisted]  write bunfig.toml, bunfig.integration.toml and
                                            bunfig.real.toml (plus bunfig.dom.toml with --dom);
                                            --hoisted adds [install] linker = "hoisted"
-  integration [--parallel N]               run every *.integration.test.ts under the cwd
-              [--timings <file>] [--update-timings]
+  integration [--parallel N]               run every *.integration.test.ts under the cwd,
+              [--timings <file>] [--update-timings]  or only the given file(s) when passed
+              [file...]                               as positional args
 `;
 
 function runBunfig(args: readonly string[]): number {
@@ -53,25 +58,36 @@ function runBunfig(args: readonly string[]): number {
 }
 
 async function runIntegration(args: readonly string[]): Promise<number> {
-  const { values } = parseArgs({
+  const { values, positionals } = parseArgs({
     args: [...args],
     options: {
       parallel: { type: "string" },
       timings: { type: "string" },
       "update-timings": { type: "boolean" },
     },
+    allowPositionals: true,
     strict: true,
   });
   if (!existsSync(BUNFIG_FILES.integration)) {
     console.error(`${BUNFIG_FILES.integration} not found - run \`kumiko-testing bunfig\` first`);
     return 1;
   }
-  const files = selectIntegrationFiles(
-    await Array.fromAsync(new Glob("**/*.integration.test.ts").scan({ cwd: process.cwd() })),
-  );
-  if (files.length === 0) {
-    console.error("no *.integration.test.ts files found");
-    return 1;
+  let files: string[];
+  if (positionals.length > 0) {
+    try {
+      files = resolveRequestedIntegrationFiles(process.cwd(), positionals);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 1;
+    }
+  } else {
+    files = selectIntegrationFiles(
+      await Array.fromAsync(new Glob("**/*.integration.test.ts").scan({ cwd: process.cwd() })),
+    );
+    if (files.length === 0) {
+      console.error("no *.integration.test.ts files found");
+      return 1;
+    }
   }
   const testArgs = buildIntegrationTestArgs({
     files,

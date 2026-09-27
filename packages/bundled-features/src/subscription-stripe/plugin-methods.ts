@@ -18,6 +18,7 @@ import { createHash } from "node:crypto";
 import {
   KNOWN_RECURRING_INTERVALS,
   type ProviderPrice,
+  type ProviderSubscriptionSnapshot,
   type RecurringInterval,
   type SubscriptionProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
@@ -25,6 +26,7 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import Stripe from "stripe";
 import type { StripeCtxRuntime } from "./runtime";
+import { mapStripeSubscriptionState } from "./verify-webhook";
 
 // =============================================================================
 // createCheckoutSession
@@ -124,6 +126,57 @@ export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
   return async (ctx: HandlerContext, providerSubscriptionId: string): Promise<void> => {
     const stripe = await runtime.clientForCtx(ctx);
     await stripe.subscriptions.cancel(providerSubscriptionId);
+  };
+}
+
+// =============================================================================
+// retrieveSubscription — live provider-side snapshot for the
+// sync-subscriptions backfill job
+// =============================================================================
+//
+// Same status/tier/period-end/cancel_at mapping as verify-webhook.ts, via
+// the shared mapStripeSubscriptionState — the sync path and the webhook path
+// must never disagree on what a given Stripe subscription object means.
+
+export type StripeRetrieveSubscriptionOptions = {
+  readonly priceToTier: Readonly<Record<string, string>>;
+};
+
+function isResourceMissingStripeError(error: unknown): boolean {
+  return (
+    error instanceof Stripe.errors.StripeInvalidRequestError && error.code === "resource_missing"
+  );
+}
+
+export function createStripeRetrieveSubscription(
+  runtime: StripeCtxRuntime,
+  { priceToTier }: StripeRetrieveSubscriptionOptions,
+) {
+  return async (
+    ctx: HandlerContext,
+    providerSubscriptionId: string,
+  ): Promise<ProviderSubscriptionSnapshot | null> => {
+    const stripe = await runtime.clientForCtx(ctx);
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(providerSubscriptionId);
+    } catch (error) {
+      if (isResourceMissingStripeError(error)) return null;
+      throw error;
+    }
+
+    const state = mapStripeSubscriptionState(subscription, priceToTier);
+    if (!state) return null;
+
+    return {
+      providerCustomerId:
+        typeof subscription.customer === "string"
+          ? subscription.customer
+          : subscription.customer.id,
+      providerSubscriptionId: subscription.id,
+      ...state,
+      rawPayload: JSON.stringify(subscription),
+    };
   };
 }
 

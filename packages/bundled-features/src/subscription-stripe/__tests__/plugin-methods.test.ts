@@ -26,6 +26,7 @@ import {
   createStripePortalSession,
   createStripePriceCache,
   createStripeRetrievePrices,
+  createStripeRetrieveSubscription,
 } from "../plugin-methods";
 import type { StripeCtxRuntime } from "../runtime";
 
@@ -828,5 +829,121 @@ describe("createStripePlanSwitchSession", () => {
       }),
     ).rejects.toBeInstanceOf(FeatureDisabledError);
     expect(retrieveMock).not.toHaveBeenCalled();
+  });
+});
+
+// =============================================================================
+// retrieveSubscription — sync-subscriptions backfill, same status/tier/
+// period-end/cancel_at mapping as verify-webhook.ts's mapStripeSubscriptionState.
+// =============================================================================
+
+const PRICE_TO_TIER = { price_retrieve_pro: "pro" };
+
+function stripeSubscriptionForRetrieve(overrides: Record<string, unknown> = {}) {
+  return stripeSubscription({
+    status: "active",
+    items: {
+      data: [
+        {
+          id: "si_001",
+          price: stripePrice({ id: "price_retrieve_pro" }),
+          quantity: 1,
+          current_period_end: 1_800_000_000,
+        },
+      ],
+    },
+    cancel_at: null,
+    cancel_at_period_end: false,
+    ...overrides,
+  });
+}
+
+describe("createStripeRetrieveSubscription", () => {
+  test("maps a live subscription to a ProviderSubscriptionSnapshot", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscriptionForRetrieve());
+    const retrieve = createStripeRetrieveSubscription(ctxRuntime(stripe), {
+      priceToTier: PRICE_TO_TIER,
+    });
+
+    const result = await retrieve(stubCtx, "sub_switch_001");
+
+    expect(result).toEqual({
+      providerCustomerId: "cus_switch_001",
+      providerSubscriptionId: "sub_switch_001",
+      status: "active",
+      tier: "pro",
+      currentPeriodEnd: "2027-01-15T08:00:00Z",
+      cancelAt: null,
+      rawPayload: JSON.stringify(stripeSubscriptionForRetrieve()),
+    });
+  });
+
+  test("a resource_missing StripeInvalidRequestError resolves to null instead of throwing", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockRejectedValue(
+      new Stripe.errors.StripeInvalidRequestError({
+        message: "No such subscription: 'sub_gone'",
+        code: "resource_missing",
+      }),
+    );
+    const retrieve = createStripeRetrieveSubscription(ctxRuntime(stripe), {
+      priceToTier: PRICE_TO_TIER,
+    });
+
+    expect(await retrieve(stubCtx, "sub_gone")).toBeNull();
+  });
+
+  test("an unmapped priceId resolves to null (same as verify-webhook's silent-drop)", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(
+      stripeSubscriptionForRetrieve({
+        items: {
+          data: [
+            {
+              id: "si_001",
+              price: stripePrice({ id: "price_unmapped" }),
+              quantity: 1,
+              current_period_end: 1_800_000_000,
+            },
+          ],
+        },
+      }),
+    );
+    const retrieve = createStripeRetrieveSubscription(ctxRuntime(stripe), {
+      priceToTier: PRICE_TO_TIER,
+    });
+
+    expect(await retrieve(stubCtx, "sub_switch_001")).toBeNull();
+  });
+
+  test("a non-resource_missing Stripe error rethrows", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockRejectedValue(
+      new Stripe.errors.StripeInvalidRequestError({
+        message: "rate limited",
+        code: "rate_limit",
+      }),
+    );
+    const retrieve = createStripeRetrieveSubscription(ctxRuntime(stripe), {
+      priceToTier: PRICE_TO_TIER,
+    });
+
+    await expect(retrieve(stubCtx, "sub_switch_001")).rejects.toBeInstanceOf(
+      Stripe.errors.StripeInvalidRequestError,
+    );
+  });
+
+  test("a scheduled cancel_at is mapped through", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(
+      stripeSubscriptionForRetrieve({ cancel_at: 1_850_000_000 }),
+    );
+    const retrieve = createStripeRetrieveSubscription(ctxRuntime(stripe), {
+      priceToTier: PRICE_TO_TIER,
+    });
+
+    const result = await retrieve(stubCtx, "sub_switch_001");
+    expect(result?.cancelAt).toBe("2028-08-16T00:53:20Z");
   });
 });

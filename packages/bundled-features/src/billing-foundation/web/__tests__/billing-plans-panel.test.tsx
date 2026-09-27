@@ -351,6 +351,34 @@ describe("BillingPlansPanel", () => {
     expect(screen.queryByTestId("billing-plan-card-pro-cta")).toBeNull();
   });
 
+  test("a scheduled cancellation shows cancelScheduled and switchRequiresReactivation together", () => {
+    queryState = {
+      data: result({
+        subscription: subscription({ cancelAt: "2024-03-01T00:00:00Z" }),
+        plans: [plan({ isCurrent: true, action: BillingPlanActions.current })],
+      }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    const banner = screen.getByTestId("billing-plans-panel-cancel-scheduled");
+    expect(banner.textContent).toContain("billing-foundation.plans.cancelScheduled");
+    expect(banner.textContent).toContain("billing-foundation.plans.switchRequiresReactivation");
+  });
+
+  test("past_due status renders the past-due banner", () => {
+    queryState = {
+      data: result({
+        subscription: subscription({ status: "past_due" }),
+        plans: [plan({ isCurrent: true, action: BillingPlanActions.current })],
+      }),
+      loading: false,
+      error: null,
+    };
+    renderPanel();
+    expect(screen.getByTestId("billing-plans-panel-past-due")).toBeTruthy();
+  });
+
   test("price=null renders the price-unavailable fallback and a disabled cta", () => {
     queryState = {
       data: result({ plans: [plan({ price: null, action: BillingPlanActions.unavailable })] }),

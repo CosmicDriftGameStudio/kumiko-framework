@@ -54,6 +54,17 @@ describe("runSchemaCli — no-DB paths", () => {
     expect(cap.err).toHaveLength(0);
   });
 
+  test.each(["--help", "-h", "help"])(
+    "%s prints the same usage as no subcommand and exits 0",
+    async (helpArg) => {
+      const cap = captureOut();
+      const code = await runSchemaCli([helpArg], appCwd, cap.out);
+      expect(code).toBe(0);
+      expect(cap.log.join("\n")).toContain("Subcommands:");
+      expect(cap.err).toHaveLength(0);
+    },
+  );
+
   test("unknown subcommand exits 1 and reports it on stderr", async () => {
     const cap = captureOut();
     const code = await runSchemaCli(["cutover"], appCwd, cap.out);

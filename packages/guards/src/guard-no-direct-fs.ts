@@ -126,6 +126,11 @@ const ALLOWLIST: readonly AllowEntry[] = [
   { repo: "kumiko-enterprise", pattern: /^packages\/publish\/src\/build\.ts$/ },
   { repo: "kumiko-enterprise", pattern: /^packages\/publish\/src\/feature\.ts$/ },
   { repo: "kumiko-enterprise", pattern: /^packages\/publish\/src\/validate\.ts$/ },
+
+  // testing: `kumiko-testing integration` CLI resolves positional test-file
+  // args against the developer's cwd, local dev/CI tooling reading paths
+  // the developer typed — no server request input.
+  { repo: "kumiko-framework", pattern: /^packages\/testing\/src\/integration-runner\.ts$/ },
 ];
 
 export function isRepoAllowlisted(

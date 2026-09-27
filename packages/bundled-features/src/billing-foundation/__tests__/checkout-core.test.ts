@@ -1,15 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 // Aliased — an un-aliased `Temporal` would shadow the ambient global
 // `Temporal` TYPE `SubscriptionView.lastChangedAt` resolves against.
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import {
   assertRedirectOrigins,
+  isBillingEnabled,
   isNonEmptyStringArray,
   isOwnProviderCustomer,
   joinBaseUrl,
 } from "../checkout-core";
 import type { SubscriptionView } from "../get-subscription-for-tenant";
+import type { SubscriptionProviderPlugin } from "../types";
 
 function subscriptionView(overrides: Partial<SubscriptionView> = {}): SubscriptionView {
   return {
@@ -149,5 +152,37 @@ describe("isOwnProviderCustomer", () => {
 
   test("true for the tenant's own customer id at the same provider, even canceled", () => {
     expect(isOwnProviderCustomer(subscriptionView(), "mock", "cus_own")).toBe(true);
+  });
+});
+
+function fakeCtxWithProvider(
+  entries: ReadonlyArray<{ readonly entityName: string; readonly options: unknown }>,
+): HandlerContext {
+  return {
+    registry: {
+      getExtensionUsages: () => entries,
+    },
+  } as unknown as HandlerContext; // @cast-boundary test-fixture — only registry is exercised
+}
+
+describe("isBillingEnabled", () => {
+  test("false when no provider with that name is registered", async () => {
+    const ctx = fakeCtxWithProvider([]);
+    expect(await isBillingEnabled(ctx, "stripe")).toBe(false);
+  });
+
+  test("false when the registered plugin's own isBillingEnabled reports false", async () => {
+    const plugin: SubscriptionProviderPlugin = {
+      verifyAndParseWebhook: async () => null,
+      isBillingEnabled: async () => false,
+    };
+    const ctx = fakeCtxWithProvider([{ entityName: "stripe", options: plugin }]);
+    expect(await isBillingEnabled(ctx, "stripe")).toBe(false);
+  });
+
+  test("true when the registered plugin has no isBillingEnabled (defaults to enabled)", async () => {
+    const plugin: SubscriptionProviderPlugin = { verifyAndParseWebhook: async () => null };
+    const ctx = fakeCtxWithProvider([{ entityName: "stripe", options: plugin }]);
+    expect(await isBillingEnabled(ctx, "stripe")).toBe(true);
   });
 });

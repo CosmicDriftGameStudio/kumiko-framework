@@ -92,6 +92,23 @@ async function runJson(cwd: string, from: string): Promise<{ pending: Array<{ ti
   return JSON.parse(spy.logs.join("\n"));
 }
 
+describe("upgrade command — --help", () => {
+  test("--help prints usage and exits 0 without touching the filesystem", async () => {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["--help"], "/nonexistent-cwd", spy.out);
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("kumiko-upgrade");
+    expect(spy.errs).toEqual([]);
+  });
+
+  test("-h behaves the same as --help", async () => {
+    const spy = makeSpyOutput();
+    const exit = await runUpgradeCli(["-h"], "/nonexistent-cwd", spy.out);
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("--apply");
+  });
+});
+
 describe("upgrade command — framework core changelog", () => {
   test("collects core changes.json from the framework repo layout", async () => {
     const cwd = tmp({

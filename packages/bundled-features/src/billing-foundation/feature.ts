@@ -59,7 +59,11 @@ import {
 // `Temporal` TYPE `ResolvedBillingFoundationOptions.now`'s return type
 // resolves against, see event-store.ts's own import comment (#1438).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
-import { BILLING_FOUNDATION_FEATURE, SUBSCRIPTION_PROVIDER_EXTENSION } from "./constants";
+import {
+  BILLING_FOUNDATION_FEATURE,
+  SUBSCRIPTION_PROVIDER_EXTENSION,
+  SubscriptionFoundationHandlers,
+} from "./constants";
 import { paymentEntity, subscriptionEntity } from "./entities";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -87,6 +91,7 @@ import { processEventHandler } from "./handlers/process-event.write";
 import { processPaymentEventHandler } from "./handlers/process-payment-event.write";
 import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write";
 import { createSwitchPlanHandler } from "./handlers/switch-plan.write";
+import { syncSubscriptionHandler } from "./handlers/sync-subscription.write";
 import { BILLING_FOUNDATION_I18N } from "./i18n";
 import {
   applyInvoicePaid,
@@ -137,7 +142,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
 
   return defineFeature(BILLING_FOUNDATION_FEATURE, (r) => {
     r.describe(
-      "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers and a dormant billing-plans dashboard screen/panel from the catalog. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
+      "Plugin host for subscription billing — manages the `read_subscriptions` projection table and exposes 5 domain events (subscription created/updated/canceled, invoice paid/failed) appended by the foundation's own `billing-foundation:write:process-event` write-handler after provider plugins verify and normalize each webhook. Also manages a separate `read_payments` projection table (one row per one-off-payment) fed by its own `payment-received` event and `billing-foundation:write:process-payment-event` write-handler. Also ships `billing-foundation:write:create-checkout-session` and `billing-foundation:write:create-portal-session` write-handlers, a `billing-foundation:query:subscription:list` query handler, and a `createSubscriptionWebhookRoute` factory for the `/api/subscription/webhook/:providerName` extraRoute. `createBillingFoundationFeature({ baseUrl, catalog })` additionally derives a `billing-foundation:query:billing-plans` query, `start-plan-checkout`/`switch-plan` write-handlers and a dormant billing-plans dashboard screen/panel from the catalog. Also ships `billing-foundation:write:sync-subscription` (pulls a provider plugin's live subscription state via `retrieveSubscription` and appends drift as a `subscription.updated` event — catches changes made on the provider's own dashboard that never reached us as a webhook) and the `sync-subscriptions` job (manual-trigger + runOnBoot, perTenant) that dispatches it. Low-level building block — use `subscription-stripe` or `subscription-mollie` unless you are writing a new payment provider.",
     );
     r.uiHints({
       displayLabel: "Billing · Foundation",
@@ -215,6 +220,12 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     //   - process-payment-event: programmatic entry-point from the webhook-
     //     handler for one-off-payments; appends onto the payment-aggregate
     r.writeHandler(processPaymentEventHandler);
+    //   - sync-subscription: backfill entry-point for the sync-subscriptions
+    //     job below; pulls the live provider state and appends drift as a
+    //     subscription.updated event. Registered unconditionally (not
+    //     catalog-gated) — it operates on whatever subscription already
+    //     exists for the tenant, independent of the billing-plans catalog.
+    r.writeHandler(syncSubscriptionHandler);
 
     // Custom list-query on the subscription-projection (raw drizzle
     // table; no r.entity since writes go through projection-apply).
@@ -232,6 +243,30 @@ export function createBillingFoundationFeature<TTier extends string = string>(
       r.writeHandler(createSwitchPlanHandler(widened, catalog));
       r.screen(createBillingPlansScreen(catalog.viewRoles));
     }
+
+    // Backfill job: catches provider-side drift (e.g. a cancel_at set on
+    // the provider's own dashboard) that never reached us as a webhook.
+    // manual-trigger + runOnBoot (not cron) — this is an on-demand/boot
+    // reconciliation pass, not a recurring sweep; an app that wants a
+    // recurring sync can dispatch billing-foundation:job:sync-subscriptions
+    // from its own cron job. perTenant + runOnBoot are compatible (only
+    // bootGate is not). Registered unconditionally, same reasoning as the
+    // sync-subscription write-handler above.
+    r.job({
+      name: "sync-subscriptions",
+      trigger: { manual: true },
+      perTenant: true,
+      runOnBoot: true,
+      handler: async (_payload, ctx) => {
+        const result = await ctx.write(SubscriptionFoundationHandlers.syncSubscription, {});
+        if (!result.isSuccess) {
+          throw new Error(
+            `billing-foundation:sync-subscriptions: sync-subscription write failed: ${JSON.stringify(result.error)}`,
+          );
+        }
+        ctx.log.info(`[billing-foundation:sync-subscriptions] ${JSON.stringify(result.data)}`);
+      },
+    });
 
     r.useExtension(EXT_TENANT_DATA, "subscription", {
       destroy: subscriptionTenantDestroyHook,

@@ -485,6 +485,16 @@ async function applyCodemods(
   return 0;
 }
 
+const UPGRADE_USAGE = `kumiko-upgrade [--from <version>] [--dir <path>] [--json] [--verbose] [--apply [--dry-run]]
+
+  --from <version>   filter baseline version (default: last applied marker, or the installed version)
+  --dir <path>       target directory to check/apply against (default: cwd)
+  --json             machine-readable output
+  --verbose          include full migration details for each pending entry
+  --apply            run codemods for pending breaking changes and write the upgrade marker
+  --dry-run          with --apply, report what would run without writing anything
+  --help, -h         print this usage and exit`;
+
 // kumiko-lint-ignore complexity-budget CLI orchestration moved from bin/commands/upgrade.ts — same branching surface, shared by kumiko upgrade + published kumiko-upgrade bin
 export async function runUpgradeCli(
   argv: readonly string[],
@@ -492,6 +502,10 @@ export async function runUpgradeCli(
   out: UpgradeCliOut,
   options?: { readonly repoRoot?: string },
 ): Promise<number> {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    out.log(UPGRADE_USAGE);
+    return 0;
+  }
   // Standalone CLI entry, not booted via runProdApp/runDevApp — Temporal needs an explicit polyfill here.
   await ensureTemporalPolyfill();
   const repoRoot = options?.repoRoot ?? cwd;
