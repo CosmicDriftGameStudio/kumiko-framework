@@ -1331,6 +1331,13 @@ describe("runProdApp job-lane wiring (runSingleInstance)", () => {
     const handle = await boot(undefined, {
       rateLimit: { global: { limit: 1, windowSeconds: 60 } },
       anonymousAccess: { defaultTenantId: TENANT_ID },
+      // handle.entrypoint.app.fetch has no real socket, and the client-ip
+      // resolver ignores X-Forwarded-For without a trusted hop — without
+      // this, every call below (and every other untrusted-XFF call this
+      // suite makes) resolves to the same shared "unknown" bucket, so the
+      // probeIp uniqueness below is silently defeated by whichever test
+      // happens to run first.
+      trustedProxyHops: 1,
     });
 
     // Unique per test run: the L1 limiter's Redis bucket is keyed only on
