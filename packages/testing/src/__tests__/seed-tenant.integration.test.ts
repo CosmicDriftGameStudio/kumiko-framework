@@ -8,7 +8,8 @@ import {
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
+import { SSE_BROADCAST_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
+import { drainEventConsumers, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { type SeedPart, seedTenant, setupAppTestStack } from "../index";
 import { NOTE_CREATE, NOTE_LIST, noteFeature } from "./note-feature";
@@ -108,6 +109,16 @@ describe("seedTenant (light)", () => {
       "from part 1",
       "from part 2",
     ]);
+  });
+
+  test("events.sse receives the SSE broadcast for a write in the seeded tenant", async () => {
+    const tenant = await seedTenant(stack);
+
+    const created = await tenant.api.writeOk<{ id: string }>(NOTE_CREATE, { title: "sse" });
+    await drainEventConsumers(stack, [SSE_BROADCAST_CONSUMER_NAME]);
+
+    const event = stack.events.sse.find((candidate) => candidate.data["id"] === created.id);
+    expect(event?.type).toBe("note.created");
   });
 
   test("light seeding writes no tenant, user or membership rows", async () => {

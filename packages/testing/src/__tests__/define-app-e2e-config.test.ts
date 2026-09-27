@@ -3,11 +3,11 @@ import {
   PROD_BUNDLES_ENV as DEV_SERVER_PROD_BUNDLES_ENV,
   STYLESHEET_WATCH_ENV as DEV_SERVER_STYLESHEET_WATCH_ENV,
 } from "@cosmicdrift/kumiko-dev-server";
+import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   E2E_WORKERS_ENV,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
-  REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
   STYLESHEET_WATCH_ENV,

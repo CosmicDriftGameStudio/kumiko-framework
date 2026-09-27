@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, statSync } from "node:fs";
 import { dirname } from "node:path";
+import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import { expect, type Page, type Request } from "@playwright/test";
-import { DESKTOP_VIEWPORT, isRealProviderRun } from "./constants";
+import { DESKTOP_VIEWPORT } from "./constants";
 import { pinEnglishLocale } from "./pin-english-locale";
 import { requireScreenshotDir, SCREENSHOT_DIR_ENV } from "./screenshot-dir";
 import { type SeedTenantFixture, test } from "./seeded-tenant-fixture";

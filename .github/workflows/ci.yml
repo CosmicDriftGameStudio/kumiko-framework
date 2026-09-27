@@ -67,6 +67,12 @@ jobs:
         with:
           bun-version: "1.4.0"
 
+      # real-providers-node-import.test.ts spawns node to prove the
+      # testing/real-providers subpath loads without Bun.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24.17.0"
+
       - name: Cache Bun
         uses: actions/cache@v6
         with:

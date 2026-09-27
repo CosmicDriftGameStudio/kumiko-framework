@@ -7,6 +7,7 @@ import {
   createSystemUser,
   type SessionUser,
   type TenantId,
+  tenantChannel,
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { TestStack } from "@cosmicdrift/kumiko-framework/stack";
@@ -176,6 +177,13 @@ export async function seedTenant(
   const persist = opts.persist === true;
   const rows = persist ? await persistTenantRows(write, opts) : lightTenantRows(opts);
   const { id } = rows;
+
+  // setupTestStack subscribes events.sse only to test tenant 1; a seeded tenant has a fresh random id.
+  stack.sseBroker.addClient(
+    tenantChannel(id),
+    (event) => stack.events.sse.push(event),
+    () => {},
+  );
 
   const admin = withSession(rows.admin, id, [ROLES.TenantAdmin]);
   const tenant: SeededTenant = {

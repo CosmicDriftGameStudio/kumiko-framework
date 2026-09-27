@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { availableParallelism } from "node:os";
+import { isRealProviderRun } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import {
   defineConfig,
   devices,
@@ -12,7 +13,6 @@ import { SERVICE_ENV_DEFAULTS } from "../preload/service-env-defaults-values";
 import {
   DESKTOP_VIEWPORT,
   E2E_WORKERS_ENV,
-  isRealProviderRun,
   PLAYWRIGHT_DEMO_ENV,
   PROD_BUNDLES_ENV,
   SCREENSHOT_DEVICE_SCALE_FACTOR,

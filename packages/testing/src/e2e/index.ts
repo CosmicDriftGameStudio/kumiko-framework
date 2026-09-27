@@ -1,3 +1,8 @@
+export {
+  isRealProviderRun,
+  REAL_PROVIDERS_ENV,
+  requireRealProviders,
+} from "@cosmicdrift/kumiko-framework/testing/real-providers";
 export { expect } from "@playwright/test";
 export {
   apiCommand,
@@ -16,10 +21,8 @@ export {
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
   E2E_WORKERS_ENV,
-  isRealProviderRun,
   KUMIKO_SECRETS_MASTER_KEY_V1,
   PLAYWRIGHT_DEMO_ENV,
-  REAL_PROVIDERS_ENV,
   SEED_ENABLE_ENV,
   SEED_TOKEN_ENV,
 } from "./constants";

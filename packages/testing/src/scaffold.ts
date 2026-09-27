@@ -1,6 +1,6 @@
 // @runtime tooling
+import { REAL_PROVIDERS_ENV } from "@cosmicdrift/kumiko-framework/testing/real-providers";
 import { BUNFIG_FILES, renderBunfigFiles, TEST_TIMEOUT_MS } from "./bunfig";
-import { REAL_PROVIDERS_ENV } from "./e2e/constants";
 
 export type ScaffoldTestSetup = {
   readonly files: Readonly<Record<string, string>>;
