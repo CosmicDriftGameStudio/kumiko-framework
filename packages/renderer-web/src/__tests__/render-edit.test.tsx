@@ -806,6 +806,86 @@ describe("RenderEdit", () => {
   });
 });
 
+describe("RenderEdit server validation errors (single-section)", () => {
+  test("issue path matches a rendered field — field shows the error, no banner", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "title", code: "too_small", i18nKey: "kumiko.errors.required" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    // Save stays disabled on an unchanged form.
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme Corp" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+  });
+
+  test("issue path matches no rendered field — banner shows", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "version", code: "custom", i18nKey: "kumiko.errors.stale" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme Corp" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+  });
+});
+
 describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
   const screenDef: EntityEditScreenDefinition = {
     id: "orders:screen:order-edit",

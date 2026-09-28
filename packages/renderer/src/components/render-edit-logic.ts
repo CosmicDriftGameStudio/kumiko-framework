@@ -41,6 +41,22 @@ export function shouldNotifyCaller(
   return !(result.isSuccess && !extensionsPersisted);
 }
 
+// Matched on the first path segment (embedded-list rows are dotted, e.g. `tasks.2.title`).
+// No issues at all counts as unmatched, so the caller keeps the banner.
+export function hasIssueWithoutRenderedField(
+  issuePaths: readonly string[],
+  sections: readonly EditSectionViewModel[],
+): boolean {
+  if (issuePaths.length === 0) return true;
+  const renderedFields = new Set(
+    sections
+      .filter((s) => s.kind === "fields" && (s.visible || s.fields.length === 0))
+      .flatMap((s) => (s.kind === "fields" ? s.fields.filter((f) => f.visible) : []))
+      .map((f) => f.field),
+  );
+  return issuePaths.some((path) => !renderedFields.has(path.split(".")[0] ?? path));
+}
+
 // Extension, relatedList and writeForm sections skip the `fields` filter
 // (writeForm's fields belong to its own independent form, not the host's);
 // a `fields` section left with zero fields after filtering is dropped, not
