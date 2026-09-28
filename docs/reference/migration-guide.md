@@ -2,13 +2,139 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-09-27
+verified: 2026-09-28
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.323.0
+
+### enterprise:dev-server
+
+**kumiko-build reads client entries from package.json "kumiko.clientEntries"/"kumiko.clientEntry" instead of inferring them from filenames**
+
+`kumiko-build` (and the `kumiko build` command) now call
+`readClientEntriesConfig(cwd)` and pass the result into
+`buildProdBundle`, instead of relying on `discoverClientEntries`'
+filename-based multi-entry discovery. `@cosmicdrift/kumiko-dev-server/build`
+re-exports `resolveClientEntries`, `readClientEntriesConfig`, and
+`ClientEntryDeclaration` in place of `discoverClientEntries`.
+
+**Migration:** See the `@cosmicdrift/kumiko-server-runtime` changelog entry above for
+the required package.json changes — the dev-server change is the CLI
+wiring for the same underlying behavior.
+
+### enterprise:server-runtime
+
+**buildProdBundle takes client entries explicitly via package.json "kumiko.clientEntries"/"kumiko.clientEntry" — no more filename inference**
+
+`discoverClientEntries(cwd)`, which scanned `src/` for
+`client-<suffix>.tsx` files and treated every match as its own bundle
+entry, is replaced by `resolveClientEntries(cwd, declared)` plus
+`readClientEntriesConfig(cwd)`, a boundary parser for package.json
+`kumiko.clientEntry` / `kumiko.clientEntries`. `buildProdBundle(options)`
+now accepts the same `clientEntry`/`clientEntries` shape directly.
+
+`kumiko.clientEntries` entries are validated: `name` must match
+`^[a-z][a-z0-9-]*$` (it becomes the output filename), `sourceFile` (and
+`htmlPath`, if set) must resolve inside the app root, `sourceFile` must
+exist, and names/html-output-files/source-basenames must be unique
+across the list. `clientEntry` and `clientEntries` are mutually
+exclusive; an empty `clientEntries` array is rejected (omit the key
+instead). Apps with only `src/client.tsx` or `src/client.ts` need no
+declaration — that convention is unchanged.
+
+**Migration:** Apps with `src/client-<name>.tsx` entries: add the entry list to
+package.json, using the same objects already passed to
+`runDevApp`/`createKumikoServer`'s `clientEntries` (paths relative to the
+app root). Without this, the build now throws instead of silently
+building without those bundles.
+
+  publicstatus:
+
+    "kumiko": {
+      "clientEntries": [
+        { "name": "public", "sourceFile": "./src/client-public.tsx" },
+        { "name": "admin", "sourceFile": "./src/client-admin.tsx", "htmlPath": "./public/admin.html" },
+        { "name": "auth", "sourceFile": "./src/client-auth.tsx", "htmlPath": "./public/auth.html" }
+      ]
+    }
+
+  show-pony:
+
+    "kumiko": {
+      "clientEntries": [
+        { "name": "admin", "sourceFile": "./src/client-admin.tsx", "htmlPath": "./public/admin.html" },
+        { "name": "public", "sourceFile": "./src/client-public.tsx", "htmlPath": "./public/index.html" }
+      ]
+    }
+
+  offlot-app:
+
+    "kumiko": {
+      "clientEntries": [
+        { "name": "app", "sourceFile": "./src/client-app.tsx", "htmlPath": "./public/app.html" }
+      ]
+    }
+
+Apps using a single entry that isn't `src/client.tsx`: add
+`"kumiko": { "clientEntry": "./src/…" }` instead.
+
+Apps with only `src/client.tsx` | `src/client.ts`: no action needed.
+
+`discoverClientEntries` (exported from
+`@cosmicdrift/kumiko-dev-server/build`) is removed; callers use
+`resolveClientEntries(cwd, readClientEntriesConfig(cwd))`.
+
+### framework-core
+
+**createTextField/createLongTextField require an explicit personal-data stance**
+
+Both factories' `overrides` parameter is no longer optional and must
+include a `personal` stance:
+`{ personal: "self", find: "exact" | "fuzzy" | "none" | "secret" }`
+(longText: `find: "none" | "secret"`), `{ personal: "tenant", find: … }`,
+`{ personal: { of: "<ownerField>" }, find: … }`, `{ personal: "ref" }`, or
+`{ personal: false, reason: "<why this is not personal data>" }`. A
+missing/malformed shape throws at the call site (`createTextField(...)` /
+`createLongTextField(...)` in the message, with every valid option
+listed) instead of silently resolving to an unannotated field — this
+also removes the #2918 boot-time deprecation warning, since the shape it
+warned about can no longer be constructed.
+
+**Migration:** Two call forms now throw: `createTextField()` / `createLongTextField()`
+with no argument at all, and an options object with no `personal` key,
+e.g. `createTextField({ required: true })`. Add a stance to every call:
+
+  createTextField({ personal: "self", find: "exact" })
+  createTextField({ personal: "tenant", find: "none" })
+  createTextField({ personal: { of: "authorId" }, find: "none" })
+  createTextField({ personal: "ref" })
+  createTextField({ personal: false, reason: "is_business_data" })
+
+`personal: false` additionally requires a non-empty `reason` string.
+`find` is mandatory whenever `personal` names a subject (`"self"` /
+`"tenant"` / `{ of }`) — not for `"ref"` or `false`. The #2918 boot-time
+deprecation warning for this shape is gone; there's nothing left for it
+to warn about.
+
+To find remaining call sites (the #2919 codemod mode below is the
+migration tool): `kumiko-guards guards
+--guard="Text-Field Personal-Stance Guard"` flags every
+statically-decidable call missing a stance. `bun
+node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/pii-personal-migration.ts
+<targetDir> --report-stance` classifies unannotated text/longText fields
+by name heuristic (direct/user-owned/user-reference/near-miss/
+unclassified) to help pick the right stance — it does not add one
+automatically, since a wrong guess would be worse than the throw. This
+codemod is not wired into `kumiko upgrade --apply`; run it by hand. It
+also only transforms fields still carrying the OLD flag-based API
+(`pii`/`userOwned`/`tenantOwned`/`subjectRef`/`allowPlaintext`) — a field
+with no annotation at all was never in its mapping table and needs a
+stance added by hand either way.
 
 ## 0.322.0
 

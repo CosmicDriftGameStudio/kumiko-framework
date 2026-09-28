@@ -1,5 +1,31 @@
 [
   {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "Deploy Dockerfile template: NPM_AUTH_TOKEN registry auth, manifest-first or full-tree install by detected layout, BUILD_VERSION/BUILD_TIME in the runtime stage, TZ=UTC; new kumiko-init-deploy bin with --force and a --check drift check",
+    "migration": "The scaffolded `deploy/Dockerfile` now declares `ARG NPM_AUTH_TOKEN`\n(global + re-declared in the build stage) instead of `ARG GITHUB_TOKEN`,\nand exports `ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}` in the build stage —\nbunfig.toml/.npmrc still read `$GITHUB_TOKEN`, only the build-arg name\npassed by CI changes. Apps that already generated `deploy/Dockerfile`\nfrom an older template keep working unchanged; re-run\n`kumiko-init-deploy --force` (or `kumiko init-deploy --force` from the\nmonorepo) to pick up the new wiring, the runtime stage's\n`ARG BUILD_VERSION=dev`/`ARG BUILD_TIME=unknown` re-declaration (without\nit the runtime `ENV BUILD_VERSION`/`ENV BUILD_TIME` stayed empty despite\na correct `--build-arg`), and `ENV TZ=UTC`.\n\nThe install step now copies manifests first (`package.json`, `bun.lock`,\nand whichever of `bunfig.toml`/`.npmrc` exist) before `bun install`,\nunless the app's `package.json` has a `workspaces` field or a\n`file:`/`workspace:`/`link:` dependency spec, in which case it still\ndoes `COPY . .` first (bun needs the whole tree to resolve the\nlockfile).\n\n`scaffoldDeploy`/`ScaffoldDeployOptions`/`ScaffoldDeployResult` keep\ntheir existing shape and behavior. New: `renderDeployFiles` (pure,\nno writes) and `checkDeployDrift` (read-only, reports missing/differing\nfiles) are exported alongside `scaffoldDeploy`, which now calls\n`renderDeployFiles` internally. `ScaffoldDeployDetected` gained\n`installFromFullTree` and `registryConfigFiles`.\n\nNew `kumiko-init-deploy` bin (and `runInitDeployCli` export) — same\nflags as `kumiko init-deploy` (`--app`, `--port`, `--github-org`,\n`--out`, `--force`), plus `--check` (drift check, exit 1 on any\nmissing/differing file, does not write) and defaulting `--app` from\n`package.json`'s `name` (scope stripped) when omitted. `--check` and\n`--force` are mutually exclusive (exit 2). The monorepo's\n`kumiko init-deploy` command now delegates to `runInitDeployCli`\ninstead of duplicating the CLI logic."
+  },
+  {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "migrate-step.sh reads package.json#kumiko.deploy (dbUser, stackNetwork \"discover\" | \"directory\"); defaults unchanged, invalid values fail the render and the drift check",
+    "migration": "No action needed: without `kumiko.deploy` the scaffolded\n`deploy/migrate-step.sh` renders byte-identical to before. Apps whose\ndatabase user is not the app name set\n`\"kumiko\": { \"deploy\": { \"dbUser\": \"<user>\" } }`; apps that want the\nexact `<dirname>_stack` network instead of the `docker network ls`\nheuristic set `\"stackNetwork\": \"directory\"`. Both `kumiko-init-deploy\n--force` and `--check` read the same config, so the drift check needs\nno extra flags. `ScaffoldDeployDetected` gained `dbUser` and\n`stackNetwork`."
+  },
+  {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "runDevApp wires auth-email-password's new invite-info query into invite.infoHandler",
+    "detail": "Same wiring as runProdApp, for the dev server.",
+    "migration": "No action needed: purely additive wiring, no option changes."
+  },
+  {
+    "version": "0.323.0",
+    "type": "breaking",
+    "title": "kumiko-build reads client entries from package.json \"kumiko.clientEntries\"/\"kumiko.clientEntry\" instead of inferring them from filenames",
+    "detail": "`kumiko-build` (and the `kumiko build` command) now call\n`readClientEntriesConfig(cwd)` and pass the result into\n`buildProdBundle`, instead of relying on `discoverClientEntries`'\nfilename-based multi-entry discovery. `@cosmicdrift/kumiko-dev-server/build`\nre-exports `resolveClientEntries`, `readClientEntriesConfig`, and\n`ClientEntryDeclaration` in place of `discoverClientEntries`.",
+    "migration": "See the `@cosmicdrift/kumiko-server-runtime` changelog entry above for\nthe required package.json changes — the dev-server change is the CLI\nwiring for the same underlying behavior."
+  },
+  {
     "version": "0.321.0",
     "type": "improvement",
     "title": "kumiko-upgrade gained --help/-h",
