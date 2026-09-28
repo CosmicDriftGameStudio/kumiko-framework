@@ -18,13 +18,18 @@
 import type { WorkspaceSchema } from "../ui-types";
 import type { ConfigScope } from "./constants";
 import {
+  EXTENSION_SELECTOR_HINT_KEY,
+  SELECTED_EXTENSIONS_QUERY,
+  selectablePluginIds,
+} from "./extension-selector-plugins";
+import {
   createBooleanField,
   createNumberField,
   createSelectField,
   createTextField,
 } from "./factories";
-import { isKebabSegment } from "./qualified-name";
-import type { ConfigKeyDefinition, TranslationKeys } from "./types/config";
+import { isKebabSegment, toKebab } from "./qualified-name";
+import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config";
 import type { Registry, SecretKeyDefinition } from "./types/feature";
 import type { FieldDefinition } from "./types/fields";
 import type { AccessRule } from "./types/handlers";
@@ -32,6 +37,8 @@ import { isOpenToAllGranted } from "./types/handlers";
 import type { NavDefinition, NavIconKey } from "./types/nav";
 import type {
   ConfigEditScreenDefinition,
+  DashboardPanelDefinition,
+  DashboardScreenDefinition,
   EditFieldsSection,
   ScreenDefinition,
   SecretsEditScreenDefinition,
@@ -117,51 +124,278 @@ type ScopeResult = {
   readonly translations?: TranslationKeys;
 };
 
+// Its tenant keys/secrets become panels of the selector owner's dashboard, not own navs.
+type GatedPlugin = {
+  readonly feature: string;
+  readonly extension: string;
+  readonly pluginId: string;
+  readonly scopedKeys: readonly ScopedKey[];
+  readonly secrets: readonly DeclaredSecret[];
+};
+
+type SelectorGating = {
+  readonly pluginsByOwnerGroup: ReadonlyMap<string, readonly GatedPlugin[]>;
+  readonly pluginFeatures: ReadonlySet<string>;
+  readonly secretQns: ReadonlySet<string>;
+};
+
+const NO_SELECTOR_GATING: SelectorGating = {
+  pluginsByOwnerGroup: new Map(),
+  pluginFeatures: new Set(),
+  secretQns: new Set(),
+};
+
+type HubContext = {
+  readonly declaredTranslationKeys: ReadonlySet<string>;
+  readonly selectorOptions: ReadonlyMap<string, readonly string[]>;
+  readonly translationsByKey: ReadonlyMap<string, TranslationEntry>;
+};
+
 // Verbatim (unprefixed) keys as the client sees them — NOT getAllTranslations()
 // (server-merged, "feature:"-prefixed, see build-app-schema.ts:77-81).
-function collectDeclaredTranslationKeys(registry: Registry): Set<string> {
-  const declaredTranslationKeys = new Set<string>();
+function collectDeclaredTranslations(registry: Registry): ReadonlyMap<string, TranslationEntry> {
+  const declared = new Map<string, TranslationEntry>();
   for (const f of registry.features.values()) {
-    for (const key of Object.keys(f.translations ?? {})) declaredTranslationKeys.add(key);
+    for (const [key, values] of Object.entries(f.translations ?? {})) {
+      if (!declared.has(key)) declared.set(key, values);
+    }
   }
-  return declaredTranslationKeys;
+  return declared;
 }
 
-// Per-feature configEdit screen + child-nav, one pair per feature present in
-// `visible` at this scope.
+function collectSelectorOptions(registry: Registry): Map<string, readonly string[]> {
+  const options = new Map<string, readonly string[]>();
+  for (const [extensionName, selectorKey] of registry.getAllExtensionSelectors()) {
+    const pluginIds = selectablePluginIds(registry, extensionName);
+    if (pluginIds.length > 0) options.set(selectorKey, pluginIds);
+  }
+  return options;
+}
+
+// A plugin feature with several selector-gated registrations can't sit under one
+// selector's panel, so it stays ungated (own nav, secrets in the global screen).
+function planSelectorGating(
+  registry: Registry,
+  visible: readonly ScopedKey[],
+  declaredSecrets: readonly DeclaredSecret[],
+  secretsEnabled: boolean,
+): SelectorGating {
+  const ownerGroupByExtension = new Map<string, string>();
+  const selectorFeatures = new Set<string>();
+  for (const [extensionName, selectorKey] of registry.getAllExtensionSelectors()) {
+    const selector = visible.find((v) => v.key.qn === selectorKey);
+    if (selector === undefined) continue;
+    ownerGroupByExtension.set(extensionName, selector.key.feature);
+    selectorFeatures.add(selector.key.feature);
+    selectorFeatures.add(selector.key.ownerFeature);
+  }
+  if (ownerGroupByExtension.size === 0) return NO_SELECTOR_GATING;
+
+  const usageCountByFeature = new Map<string, number>();
+  for (const [extensionName] of registry.getAllExtensionSelectors()) {
+    for (const usage of registry.getExtensionUsages(extensionName)) {
+      if (usage.featureName === undefined) continue;
+      const feature = toKebab(usage.featureName);
+      usageCountByFeature.set(feature, (usageCountByFeature.get(feature) ?? 0) + 1);
+    }
+  }
+
+  const pluginsByOwnerGroup = new Map<string, GatedPlugin[]>();
+  const pluginFeatures = new Set<string>();
+  const secretQns = new Set<string>();
+  for (const [extension, ownerGroup] of [...ownerGroupByExtension].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const usages = [...registry.getExtensionUsages(extension)].sort((a, b) =>
+      (a.featureName ?? "").localeCompare(b.featureName ?? ""),
+    );
+    for (const usage of usages) {
+      if (usage.featureName === undefined) continue;
+      const feature = toKebab(usage.featureName);
+      if (usageCountByFeature.get(feature) !== 1 || selectorFeatures.has(feature)) continue;
+      const scopedKeys = visible.filter((v) => v.key.ownerFeature === feature);
+      const secrets = secretsEnabled ? declaredSecrets.filter((s) => s.feature === feature) : [];
+      if (scopedKeys.length === 0 && secrets.length === 0) continue;
+      const plugins = pluginsByOwnerGroup.get(ownerGroup) ?? [];
+      plugins.push({ feature, extension, pluginId: usage.entityName, scopedKeys, secrets });
+      pluginsByOwnerGroup.set(ownerGroup, plugins);
+      pluginFeatures.add(feature);
+      for (const s of secrets) secretQns.add(s.qn);
+    }
+  }
+  return { pluginsByOwnerGroup, pluginFeatures, secretQns };
+}
+
+type FeatureScreens = {
+  screens: ScreenDefinition[];
+  navs: NavDefinition[];
+  translations: Record<string, TranslationEntry>;
+};
+
+// A tenant/user-home key with an elevated write role (SystemAdmin on a
+// tenant key, see ELEVATED_ROLES) surfaces the SAME feature under two
+// audience navs (cascade-default screen + home screen) — both would
+// otherwise carry the identical `${feature}.settings` label. Opt-in
+// scoped override (`${feature}.settings.${scope}`) disambiguates only
+// where a feature actually declares one; every single-scope feature
+// keeps the plain key unchanged.
+function buildFeatureNav(
+  scope: ConfigScope,
+  feature: string,
+  ordered: readonly MaskedKey[],
+  access: AccessRule,
+  declaredTranslationKeys: ReadonlySet<string>,
+): NavDefinition {
+  const shortId = `${feature}-${scope}`;
+  const scopedLabel = `${feature}.settings.${scope}`;
+  return {
+    id: shortId,
+    label: declaredTranslationKeys.has(scopedLabel) ? scopedLabel : `${feature}.settings`,
+    parent: audienceNavShortId(scope),
+    screen: shortId,
+    icon: ordered[0]?.def.mask?.icon ?? "settings",
+    order: minMaskOrder(ordered),
+    access,
+  };
+}
+
+// One configEdit screen + child-nav per feature; a tenant-scope selector owner
+// becomes a dashboard instead and its gated plugins get no entries of their own.
 function buildFeatureScreensAndNavs(
   scope: ConfigScope,
   visible: readonly ScopedKey[],
-  declaredTranslationKeys: ReadonlySet<string>,
-): { screens: ScreenDefinition[]; navs: NavDefinition[] } {
-  const screens: ScreenDefinition[] = [];
-  const navs: NavDefinition[] = [];
-  for (const feature of featuresPresent(visible.map((v) => v.key))) {
-    const group = visible.filter((v) => v.key.feature === feature);
+  hub: HubContext,
+  gating: SelectorGating,
+  secretsAccess: AccessRule | undefined,
+): FeatureScreens {
+  const out: FeatureScreens = { screens: [], navs: [], translations: {} };
+  const ungated = visible.filter((v) => !gating.pluginFeatures.has(v.key.ownerFeature));
+  for (const feature of featuresPresent(ungated.map((v) => v.key))) {
+    const group = ungated.filter((v) => v.key.feature === feature);
     const ordered = sortByMaskOrder(group.map((v) => v.key));
     const access = rolesToAccess(group.flatMap((v) => v.roles));
     const shortId = `${feature}-${scope}`;
+    const plugins = scope === "tenant" ? gating.pluginsByOwnerGroup.get(feature) : undefined;
 
-    screens.push(buildScreen(shortId, scope, feature, ordered, access, declaredTranslationKeys));
-    // A tenant/user-home key with an elevated write role (SystemAdmin on a
-    // tenant key, see ELEVATED_ROLES) surfaces the SAME feature under two
-    // audience navs (cascade-default screen + home screen) — both would
-    // otherwise carry the identical `${feature}.settings` label. Opt-in
-    // scoped override (`${feature}.settings.${scope}`) disambiguates only
-    // where a feature actually declares one; every single-scope feature
-    // keeps the plain key unchanged.
-    const scopedLabel = `${feature}.settings.${scope}`;
-    navs.push({
-      id: shortId,
-      label: declaredTranslationKeys.has(scopedLabel) ? scopedLabel : `${feature}.settings`,
-      parent: audienceNavShortId(scope),
-      screen: shortId,
-      icon: ordered[0]?.def.mask?.icon ?? "settings",
-      order: minMaskOrder(ordered),
+    if (plugins === undefined) {
+      out.screens.push(buildScreen(shortId, scope, feature, ordered, access, hub));
+      out.navs.push(buildFeatureNav(scope, feature, ordered, access, hub.declaredTranslationKeys));
+      continue;
+    }
+    const ownerHub = buildSelectorOwnerDashboard(
+      feature,
+      ordered,
       access,
-    });
+      plugins,
+      hub,
+      secretsAccess,
+    );
+    out.screens.push(...ownerHub.screens);
+    out.navs.push(
+      buildFeatureNav(scope, feature, ordered, ownerHub.access, hub.declaredTranslationKeys),
+    );
+    Object.assign(out.translations, ownerHub.translations);
   }
-  return { screens, navs };
+  return out;
+}
+
+function pluginTenantScreenId(plugin: GatedPlugin): string {
+  return `${plugin.feature}-tenant`;
+}
+
+// Plugin screens keep their `${F}-tenant` ids so consumer title keys stay valid;
+// they are dormant because only this dashboard embeds them.
+function buildSelectorOwnerDashboard(
+  ownerGroup: string,
+  ownerKeys: readonly MaskedKey[],
+  ownerAccess: AccessRule,
+  plugins: readonly GatedPlugin[],
+  hub: HubContext,
+  secretsAccess: AccessRule | undefined,
+): {
+  screens: ScreenDefinition[];
+  access: AccessRule;
+  translations: Record<string, TranslationEntry>;
+} {
+  const selectionScreenId = `${ownerGroup}-tenant-selection`;
+  const selectionScreen: ConfigEditScreenDefinition = {
+    ...buildScreen(selectionScreenId, "tenant", ownerGroup, ownerKeys, ownerAccess, hub),
+    dormant: true,
+  };
+  const screens: ScreenDefinition[] = [selectionScreen];
+  const configPanels: DashboardPanelDefinition[] = [];
+  const secretsPanels: DashboardPanelDefinition[] = [];
+  const accessRules: (AccessRule | undefined)[] = [ownerAccess];
+  const translations: Record<string, TranslationEntry> = {};
+
+  const titleSource = [`${ownerGroup}.settings.tenant`, `${ownerGroup}.settings`].find((key) =>
+    hub.translationsByKey.has(key),
+  );
+  const titleValues =
+    titleSource === undefined ? undefined : hub.translationsByKey.get(titleSource);
+  if (titleValues !== undefined) translations[`screen:${selectionScreenId}.title`] = titleValues;
+
+  for (const plugin of plugins) {
+    const visibleWhen = {
+      query: SELECTED_EXTENSIONS_QUERY,
+      field: plugin.extension,
+      eq: plugin.pluginId,
+    };
+    if (plugin.scopedKeys.length > 0) {
+      const pluginAccess = rolesToAccess(plugin.scopedKeys.flatMap((v) => v.roles));
+      const ordered = sortByMaskOrder(plugin.scopedKeys.map((v) => v.key));
+      screens.push({
+        ...buildScreen(
+          pluginTenantScreenId(plugin),
+          "tenant",
+          plugin.feature,
+          ordered,
+          pluginAccess,
+          hub,
+        ),
+        dormant: true,
+      });
+      accessRules.push(pluginAccess);
+      configPanels.push({
+        kind: "screen",
+        id: `${plugin.feature}-config`,
+        screen: pluginTenantScreenId(plugin),
+        visibleWhen,
+      });
+    }
+    if (plugin.secrets.length > 0) {
+      const secretsScreenId = `${plugin.feature}-tenant-secrets`;
+      const generated = buildSecretsEditScreen(
+        secretsScreenId,
+        plugin.secrets,
+        secretsAccess,
+        hub.declaredTranslationKeys,
+      );
+      screens.push({ ...generated.screen, dormant: true });
+      Object.assign(translations, generated.translations);
+      accessRules.push(secretsAccess);
+      secretsPanels.push({
+        kind: "screen",
+        id: `${plugin.feature}-secrets`,
+        screen: secretsScreenId,
+        visibleWhen,
+      });
+    }
+  }
+
+  const access = unionAccessRules(accessRules);
+  const dashboard: DashboardScreenDefinition = {
+    id: `${ownerGroup}-tenant`,
+    type: "dashboard",
+    description: EXTENSION_SELECTOR_HINT_KEY,
+    panels: [
+      { kind: "screen", id: "selection", screen: selectionScreenId },
+      ...configPanels,
+      ...secretsPanels,
+    ],
+    access,
+  };
+  return { screens: [dashboard, ...screens], access, translations };
 }
 
 // Everything generated for one audience scope: the audience-parent nav, the
@@ -173,7 +407,8 @@ function buildScopeResult(
   secretsEnabled: boolean,
   secretsWriteHandler: ReturnType<Registry["getWriteHandler"]>,
   declaredSecrets: readonly DeclaredSecret[],
-  declaredTranslationKeys: ReadonlySet<string>,
+  hub: HubContext,
+  registry: Registry,
 ): ScopeResult | null {
   const visible = scopedKeysAt(masked, scope);
   // Secrets attach to the tenant-audience nav regardless of whether any
@@ -183,6 +418,10 @@ function buildScopeResult(
 
   const configAccess = rolesToAccess(visible.flatMap((v) => v.roles));
   const secretsAccess = secretsWriteHandler?.access;
+  const gating =
+    scope === "tenant"
+      ? planSelectorGating(registry, visible, declaredSecrets, secretsEnabled)
+      : NO_SELECTOR_GATING;
   const screens: ScreenDefinition[] = [];
   const navs: NavDefinition[] = [];
   // Audience-Parent: Gruppierungs-Knoten ohne Screen.
@@ -194,19 +433,26 @@ function buildScopeResult(
     access: includeSecrets ? unionAccessRules([configAccess, secretsAccess]) : configAccess,
   });
 
-  const perFeature = buildFeatureScreensAndNavs(scope, visible, declaredTranslationKeys);
+  const perFeature = buildFeatureScreensAndNavs(scope, visible, hub, gating, secretsAccess);
   screens.push(...perFeature.screens);
   navs.push(...perFeature.navs);
 
-  let translations: TranslationKeys | undefined;
-  if (includeSecrets) {
-    const generated = buildSecretsScreen(declaredSecrets, secretsAccess, declaredTranslationKeys);
+  const translations: Record<string, TranslationEntry> = {
+    ...perFeature.translations,
+  };
+  const globalSecrets = declaredSecrets.filter((s) => !gating.secretQns.has(s.qn));
+  if (includeSecrets && globalSecrets.length > 0) {
+    const generated = buildSecretsScreen(globalSecrets, secretsAccess, hub.declaredTranslationKeys);
     screens.push(generated.screen);
     navs.push(generated.nav);
-    translations = generated.translations;
+    Object.assign(translations, generated.translations);
   }
 
-  return { screens, navs, ...(translations !== undefined && { translations }) };
+  return {
+    screens,
+    navs,
+    ...(Object.keys(translations).length > 0 && { translations }),
+  };
 }
 
 export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchema {
@@ -218,7 +464,12 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
   const secretsEnabled = secretsWriteHandler !== undefined && declaredSecrets.length > 0;
   if (masked.length === 0 && !secretsEnabled) return { screens: [], navs: [] };
 
-  const declaredTranslationKeys = collectDeclaredTranslationKeys(registry);
+  const translationsByKey = collectDeclaredTranslations(registry);
+  const hub: HubContext = {
+    declaredTranslationKeys: new Set(translationsByKey.keys()),
+    selectorOptions: collectSelectorOptions(registry),
+    translationsByKey,
+  };
 
   const screens: ScreenDefinition[] = [];
   const navs: NavDefinition[] = [];
@@ -231,12 +482,15 @@ export function buildConfigFeatureSchema(registry: Registry): ConfigFeatureSchem
       secretsEnabled,
       secretsWriteHandler,
       declaredSecrets,
-      declaredTranslationKeys,
+      hub,
+      registry,
     );
     if (result === null) continue;
     screens.push(...result.screens);
     navs.push(...result.navs);
-    if (result.translations !== undefined) translations = result.translations;
+    if (result.translations !== undefined) {
+      translations = { ...translations, ...result.translations };
+    }
   }
 
   // Every masked key machine-only and no secrets → no human hub, and no
@@ -283,6 +537,30 @@ function buildSecretsScreen(
   access: AccessRule | undefined,
   declaredTranslationKeys: ReadonlySet<string>,
 ): { screen: SecretsEditScreenDefinition; nav: NavDefinition; translations: TranslationKeys } {
+  const { screen, translations } = buildSecretsEditScreen(
+    "secrets",
+    secrets,
+    access,
+    declaredTranslationKeys,
+  );
+  const nav: NavDefinition = {
+    id: "secrets",
+    label: "config.secrets.title",
+    parent: audienceNavShortId("tenant"),
+    screen: "secrets",
+    icon: "key",
+    order: 900,
+    ...(access !== undefined && { access }),
+  };
+  return { screen, nav, translations };
+}
+
+function buildSecretsEditScreen(
+  screenId: string,
+  secrets: readonly DeclaredSecret[],
+  access: AccessRule | undefined,
+  declaredTranslationKeys: ReadonlySet<string>,
+): { screen: SecretsEditScreenDefinition; translations: TranslationKeys } {
   const secretKeys: Record<string, string> = {};
   const fieldLabels: Record<string, string> = {};
   const fieldHints: Record<string, string> = {};
@@ -290,7 +568,7 @@ function buildSecretsScreen(
   // Mutable outer record — TranslationKeys' Readonly<Record<...>> index
   // signature only permits reading, so the top-level assignments below
   // need a writable local type; each entry is still a fresh, never-mutated object.
-  const translations: Record<string, Readonly<Record<string, string>>> = {};
+  const translations: Record<string, TranslationEntry> = {};
   const sections: SecretsEditSection[] = [];
 
   for (const feature of [...new Set(secrets.map((s) => s.feature))]) {
@@ -317,7 +595,7 @@ function buildSecretsScreen(
   }
 
   const screen: SecretsEditScreenDefinition = {
-    id: "secrets",
+    id: screenId,
     type: "secretsEdit",
     secretKeys,
     fieldLabels,
@@ -326,16 +604,7 @@ function buildSecretsScreen(
     sections,
     ...(access !== undefined && { access }),
   };
-  const nav: NavDefinition = {
-    id: "secrets",
-    label: "config.secrets.title",
-    parent: audienceNavShortId("tenant"),
-    screen: "secrets",
-    icon: "key",
-    order: 900,
-    ...(access !== undefined && { access }),
-  };
-  return { screen, nav, translations };
+  return { screen, translations };
 }
 
 // Keys visible at `scope`, paired with their effective write roles AT that
@@ -389,7 +658,7 @@ function buildScreen(
   feature: string,
   keys: readonly MaskedKey[],
   access: AccessRule,
-  declaredTranslationKeys: ReadonlySet<string>,
+  hub: HubContext,
 ): ConfigEditScreenDefinition {
   const configKeys: Record<string, string> = {};
   const fields: Record<string, FieldDefinition> = {};
@@ -411,7 +680,7 @@ function buildScreen(
     }
     seenFieldIds.set(id, k.qn);
     configKeys[id] = k.qn;
-    fields[id] = deriveField(k.def);
+    fields[id] = deriveField(k.def, hub.selectorOptions.get(k.qn));
     // mask is the visibility gate, so collectMaskedKeys guarantees it here.
     if (k.def.mask) fieldLabels[id] = k.def.mask.title;
   }
@@ -419,7 +688,7 @@ function buildScreen(
   const descriptionKey = `${feature}.settings.description`;
   const section: EditFieldsSection = {
     title: `${feature}.settings`,
-    ...(declaredTranslationKeys.has(descriptionKey) && { description: descriptionKey }),
+    ...(hub.declaredTranslationKeys.has(descriptionKey) && { description: descriptionKey }),
     fields: keys.map(fieldId),
   };
   return {
@@ -434,7 +703,11 @@ function buildScreen(
   };
 }
 
-function deriveField(def: ConfigKeyDefinition): FieldDefinition {
+function deriveField(
+  def: ConfigKeyDefinition,
+  selectorPluginIds: readonly string[] | undefined,
+): FieldDefinition {
+  if (selectorPluginIds !== undefined) return createSelectField({ options: selectorPluginIds });
   switch (def.type) {
     case "number":
       return createNumberField();

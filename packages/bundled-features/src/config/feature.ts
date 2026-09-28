@@ -19,6 +19,7 @@ import { readinessQuery } from "./handlers/readiness.query";
 import { reencryptJob } from "./handlers/reencrypt.job";
 import { resetWrite } from "./handlers/reset.write";
 import { schemaQuery } from "./handlers/schema.query";
+import { selectedExtensionsQuery } from "./handlers/selected-extensions.query";
 import { setWrite } from "./handlers/set.write";
 import { valuesQuery } from "./handlers/values.query";
 import { CONFIG_FEATURE_I18N } from "./i18n";
@@ -56,6 +57,7 @@ export function createConfigFeature(): FeatureDefinition {
       values: r.queryHandler(valuesQuery),
       schema: r.queryHandler(schemaQuery),
       readiness: r.queryHandler(readinessQuery),
+      selectedExtensions: r.queryHandler(selectedExtensionsQuery),
     };
 
     // KEK-rotation for encrypted values. Manual trigger — ops runs it once

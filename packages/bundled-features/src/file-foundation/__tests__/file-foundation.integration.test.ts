@@ -97,6 +97,7 @@ const testProbeFeature = defineFeature("file-test", (r) => {
 let stack: TestStack;
 let db: DbConnection;
 let resolver: ConfigResolver;
+let envOverrides: Map<string, string | number | boolean>;
 let providerRef: MutableMasterKeyProvider;
 
 const testEncryptionKey = randomBytes(32).toString("base64");
@@ -125,13 +126,14 @@ beforeAll(async () => {
     ],
     masterKeyProvider: providerRef,
     extraContext: ({ db, registry }) => {
+      envOverrides = new Map(
+        buildEnvConfigOverrides(registry, { [FILE_STORAGE_PROVIDER_ENV]: ENV_SELECTED_PROVIDER }),
+      );
       // No app-side resolver rebuild: the provider key declares
       // env: FILE_STORAGE_PROVIDER, so the generic ENV bridge selects it.
       resolver = createConfigResolver({
         cipher: encryption,
-        appOverrides: buildEnvConfigOverrides(registry, {
-          [FILE_STORAGE_PROVIDER_ENV]: ENV_SELECTED_PROVIDER,
-        }),
+        appOverrides: envOverrides,
       });
       return {
         configResolver: resolver,
@@ -384,9 +386,19 @@ describe("scenario 5: ENV-bridged provider selection", () => {
     ).toBe(FILE_STORAGE_PROVIDER_BOOT_SENTINEL);
 
     const admin = adminFor(508);
-    await setConfig(admin, FILE_PROVIDER_CONFIG_KEY, FILE_STORAGE_PROVIDER_BOOT_SENTINEL);
+    // The sentinel names no mounted plugin, so a tenant row can no longer hold it;
+    // it reaches the cascade the way production delivers it, as an app override.
+    const rejected = await stack.http.writeErr(
+      "config:write:set",
+      { key: FILE_PROVIDER_CONFIG_KEY, value: FILE_STORAGE_PROVIDER_BOOT_SENTINEL },
+      admin,
+    );
+    expect(rejected.i18nKey).toBe("config.errors.unknownExtensionPlugin");
+    envOverrides.set(FILE_PROVIDER_CONFIG_KEY, FILE_STORAGE_PROVIDER_BOOT_SENTINEL);
 
-    const error = await stack.http.writeErr(TEST_HANDLER_QN, {}, admin);
+    const error = await stack.http
+      .writeErr(TEST_HANDLER_QN, {}, admin)
+      .finally(() => envOverrides.set(FILE_PROVIDER_CONFIG_KEY, ENV_SELECTED_PROVIDER));
     // The factory throw surfaces as internal_error; the original message sits
     // in details.causeMessage.
     expect(JSON.stringify(error)).toMatch(

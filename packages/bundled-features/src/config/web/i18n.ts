@@ -25,6 +25,9 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.errors.systemOnly": "This value can only be set by the system.",
     "config.errors.invalidScope": "This scope is not allowed for this key.",
     "config.errors.unknownKey": "Unknown configuration key.",
+    "config.errors.unknownExtensionPlugin": "This provider is not available.",
+    "config.settings.extensionSelectorHint":
+      "Save the provider selection to show its settings below.",
     // Required by every generated screen (screenTitleKey, required-surface-keys.ts) —
     // the secrets screen has a fixed id ("secrets"), so the framework ships its
     // title translation directly instead of asking every app to declare it.

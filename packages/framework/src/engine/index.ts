@@ -118,6 +118,12 @@ export {
   FILE_STORAGE_PROVIDER_ENV,
   TENANT_MEMBERSHIPS_QUERY,
 } from "./extension-names";
+export {
+  EXTENSION_SELECTOR_HINT_KEY,
+  extensionSelectorTargets,
+  SELECTED_EXTENSIONS_QUERY,
+  selectablePluginIds,
+} from "./extension-selector-plugins";
 export { extensionUsageEscapeHatchReason } from "./extensions/escape-hatch-usage";
 export type {
   StorageProviderDestroyTenantHook,

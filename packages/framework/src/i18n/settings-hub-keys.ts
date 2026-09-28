@@ -17,6 +17,9 @@ export const SETTINGS_HUB_I18N: TranslationKeys = {
   "config.settings.system": { en: "Platform" },
   "config.settings.tenant": { en: "Tenant" },
   "config.settings.user": { en: "Personal" },
+  "config.settings.extensionSelectorHint": {
+    en: "Save the provider selection to show its settings below.",
+  },
   "config.secrets.title": { en: "Secrets" },
   "config.secrets.notSet": { en: "Not set" },
   "config.secrets.set": { en: "Set" },

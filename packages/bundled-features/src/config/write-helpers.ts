@@ -9,10 +9,12 @@ import {
   type ConfigKeyDefinition,
   type ConfigScope,
   ConfigScopes,
+  extensionSelectorTargets,
   type Registry,
   type SessionUser,
   SYSTEM_ROLE,
   SYSTEM_TENANT_ID,
+  selectablePluginIds,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -218,6 +220,23 @@ export function resolvePiiSubject(
     return { kind: "user", userId };
   }
   return { kind: "tenant", tenantId };
+}
+
+// An extension-selector key may only name a mounted plugin (or "" to clear) —
+// otherwise the settings screen would show no panel for a typo'd value.
+export function validateExtensionPlugin(
+  registry: Registry,
+  key: string,
+  value: string | number | boolean,
+): KumikoError | null {
+  const extensionName = extensionSelectorTargets(registry).get(key);
+  if (extensionName === undefined || value === "") return null;
+  const allowed = selectablePluginIds(registry, extensionName);
+  if (typeof value === "string" && allowed.includes(value)) return null;
+  return new UnprocessableError(ConfigErrors.unknownExtensionPlugin, {
+    i18nKey: "config.errors.unknownExtensionPlugin",
+    details: { key, value, allowed },
+  });
 }
 
 export function validateType(

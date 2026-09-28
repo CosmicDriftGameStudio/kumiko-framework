@@ -15,6 +15,7 @@ export const ConfigQueries = {
   values: "config:query:values",
   schema: "config:query:schema",
   readiness: "config:query:readiness",
+  selectedExtensions: "config:query:config-value:selected-extensions",
 } as const;
 
 // Error codes
@@ -25,4 +26,5 @@ export const ConfigErrors = {
   systemScopeWriteDenied: "system_scope_write_denied",
   typeError: "type_error",
   invalidOption: "invalid_option",
+  unknownExtensionPlugin: "unknown_extension_plugin",
 } as const;
