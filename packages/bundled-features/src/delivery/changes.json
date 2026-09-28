@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "New POST /api/delivery/resubscribe route undoes an unsubscribe/opt-out",
+    "detail": "createUnsubscribeRoutes now also mounts POST /api/delivery/resubscribe (JSON {token} or form body only, never the query string, to stay safe against mail-client link prefetchers). It accepts the same signed tokens as the unsubscribe routes and re-enables the preference (signed-in user) or removes the address opt-out (no-account recipient). A resubscribed address opt-out is hard-deleted; a later re-opt-out for the same address/type/channel lands on a fresh event-stream generation instead of reviving the deleted one.",
+    "migration": "No action needed: the route is additive and mounted automatically wherever createUnsubscribeRoutes({ secret }) already runs. Sign resubscribe links with the same signUnsubscribeToken/signAddressUnsubscribeToken used for unsubscribe links."
+  },
+  {
     "version": "0.321.0",
     "type": "breaking",
     "title": "Unsubscribe route splits into a non-writing GET confirmation page and a writing POST (RFC 8058)",

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "guard-fake-tests now also runs in app repos, counts same-file assertion helpers and the writeOk/writeErr/queryOk/queryErr test APIs as assertions; skip output distinguishes \"outside guard kinds\" from \"target repos missing\"",
+    "migration": "A same-file helper function (or arrow/function-expression variable) whose\nbody calls `expect(...)` — directly or through up to two more levels of\nsame-file helpers — now counts as an assertion, same as calling `expect`\nin the test body itself. `stack.http.writeOk/writeErr` and\n`tenant.api.queryOk/queryErr` (matched on the last property name of the\ncallee) count as assertions too, since they throw on the wrong outcome.\nA bare Testing Library `waitFor(() => screen.getByTestId(...))` (or any\nother `getBy*`/`getAllBy*` query call) does NOT count as an assertion —\nit still needs its own `expect(...)` to prove the wait actually found\nsomething. The guard now also scans `kind: \"app\"` repos and `.tsx` test files,\nnot just framework/library `.ts`. `reportResults` now prints \"skipped,\nrepo kind outside guard kinds (<kinds>)\" instead of \"target repos not in\ncheckout\" when the checkout has repo roots but none match the guard's\n`kinds` — the missing-checkout case keeps its original message."
+  },
+  {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "Text-Field Personal-Stance Guard exempts the two framework tests that assert the throw",
+    "detail": "`guard-text-field-stance.ts` now skips an explicit, exact\nrepo-relative-path allowlist\n(`packages/framework/src/engine/__tests__/factories-long-text.test.ts`,\n`packages/framework/src/engine/__tests__/factories-personal.test.ts`) —\nthese two deliberately call `createTextField`/`createLongTextField`\nwithout a stance to prove the fail-closed throw. A different file\nsharing one of those basenames is not exempt; the match is on the exact\nrepo-relative path. The guard also scans `samples/**` and `demo/**`\nnow, not only `packages/*/src/**`. The baseline\n(`.kumiko-text-field-stance-baseline.json`) drops to 0."
+  },
+  {
     "version": "0.321.0",
     "type": "improvement",
     "title": "pre-push.sh refuses to push a stale .kumiko/upgrade-state.json",

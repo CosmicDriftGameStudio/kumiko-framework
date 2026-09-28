@@ -1,5 +1,179 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.323.0
+
+### Minor Changes
+
+- c01b9be: Deploy Dockerfile template: NPM_AUTH_TOKEN registry auth, manifest-first or full-tree install by detected layout, BUILD_VERSION/BUILD_TIME in the runtime stage, TZ=UTC; new `kumiko-init-deploy` bin with --force and a --check drift check.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Deploy Dockerfile template: NPM_AUTH_TOKEN registry auth, manifest-first or full-tree install by detected layout, BUILD_VERSION/BUILD_TIME in the runtime stage, TZ=UTC; new kumiko-init-deploy bin with --force and a --check drift check
+  migration: |
+    The scaffolded `deploy/Dockerfile` now declares `ARG NPM_AUTH_TOKEN`
+    (global + re-declared in the build stage) instead of `ARG GITHUB_TOKEN`,
+    and exports `ENV GITHUB_TOKEN=${NPM_AUTH_TOKEN}` in the build stage —
+    bunfig.toml/.npmrc still read `$GITHUB_TOKEN`, only the build-arg name
+    passed by CI changes. Apps that already generated `deploy/Dockerfile`
+    from an older template keep working unchanged; re-run
+    `kumiko-init-deploy --force` (or `kumiko init-deploy --force` from the
+    monorepo) to pick up the new wiring, the runtime stage's
+    `ARG BUILD_VERSION=dev`/`ARG BUILD_TIME=unknown` re-declaration (without
+    it the runtime `ENV BUILD_VERSION`/`ENV BUILD_TIME` stayed empty despite
+    a correct `--build-arg`), and `ENV TZ=UTC`.
+
+    The install step now copies manifests first (`package.json`, `bun.lock`,
+    and whichever of `bunfig.toml`/`.npmrc` exist) before `bun install`,
+    unless the app's `package.json` has a `workspaces` field or a
+    `file:`/`workspace:`/`link:` dependency spec, in which case it still
+    does `COPY . .` first (bun needs the whole tree to resolve the
+    lockfile).
+
+    `scaffoldDeploy`/`ScaffoldDeployOptions`/`ScaffoldDeployResult` keep
+    their existing shape and behavior. New: `renderDeployFiles` (pure,
+    no writes) and `checkDeployDrift` (read-only, reports missing/differing
+    files) are exported alongside `scaffoldDeploy`, which now calls
+    `renderDeployFiles` internally. `ScaffoldDeployDetected` gained
+    `installFromFullTree` and `registryConfigFiles`.
+
+    New `kumiko-init-deploy` bin (and `runInitDeployCli` export) — same
+    flags as `kumiko init-deploy` (`--app`, `--port`, `--github-org`,
+    `--out`, `--force`), plus `--check` (drift check, exit 1 on any
+    missing/differing file, does not write) and defaulting `--app` from
+    `package.json`'s `name` (scope stripped) when omitted. `--check` and
+    `--force` are mutually exclusive (exit 2). The monorepo's
+    `kumiko init-deploy` command now delegates to `runInitDeployCli`
+    instead of duplicating the CLI logic.
+  -->
+
+- 5c7e422: migrate-step.sh now reads `package.json#kumiko.deploy` (`dbUser`, `stackNetwork: "discover" | "directory"`); defaults are unchanged (dbUser = appName, stackNetwork = "discover"), and invalid values fail the render/check loudly instead of silently falling back.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: migrate-step.sh reads package.json#kumiko.deploy (dbUser, stackNetwork "discover" | "directory"); defaults unchanged, invalid values fail the render and the drift check
+  migration: |
+    No action needed: without `kumiko.deploy` the scaffolded
+    `deploy/migrate-step.sh` renders byte-identical to before. Apps whose
+    database user is not the app name set
+    `"kumiko": { "deploy": { "dbUser": "<user>" } }`; apps that want the
+    exact `<dirname>_stack` network instead of the `docker network ls`
+    heuristic set `"stackNetwork": "directory"`. Both `kumiko-init-deploy
+    --force` and `--check` read the same config, so the drift check needs
+    no extra flags. `ScaffoldDeployDetected` gained `dbUser` and
+    `stackNetwork`.
+  -->
+
+- d7bba26: runDevApp wires auth-email-password's new invite-info query into invite.infoHandler
+
+  Same wiring as runProdApp, for the dev server.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: runDevApp wires auth-email-password's new invite-info query into invite.infoHandler
+  migration: |
+    No action needed: purely additive wiring, no option changes.
+  -->
+
+- 60e1a1f: Production builds discovered multi-entry client bundles by scanning `src/` for files matching `client-<suffix>.tsx` — any file matching that pattern became its own bundle, even a plain module only imported by another entry (#2305). `buildProdBundle` now takes the entry list explicitly, the same shape the dev server already uses: package.json `"kumiko": { "clientEntries": [{ "name", "sourceFile", "htmlPath"? }] }` for multi-entry apps, or `"kumiko": { "clientEntry": "./src/…" }` for a single non-conventional entry. Apps with a plain `src/client.tsx` need no declaration. An app that still has `src/client-<suffix>.tsx` files but no `kumiko.clientEntries` declaration now fails the build loudly with the exact snippet to add, instead of silently shipping without those bundles.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: breaking
+  title: buildProdBundle takes client entries explicitly via package.json "kumiko.clientEntries"/"kumiko.clientEntry" — no more filename inference
+  detail: |
+    `discoverClientEntries(cwd)`, which scanned `src/` for
+    `client-<suffix>.tsx` files and treated every match as its own bundle
+    entry, is replaced by `resolveClientEntries(cwd, declared)` plus
+    `readClientEntriesConfig(cwd)`, a boundary parser for package.json
+    `kumiko.clientEntry` / `kumiko.clientEntries`. `buildProdBundle(options)`
+    now accepts the same `clientEntry`/`clientEntries` shape directly.
+
+    `kumiko.clientEntries` entries are validated: `name` must match
+    `^[a-z][a-z0-9-]*$` (it becomes the output filename), `sourceFile` (and
+    `htmlPath`, if set) must resolve inside the app root, `sourceFile` must
+    exist, and names/html-output-files/source-basenames must be unique
+    across the list. `clientEntry` and `clientEntries` are mutually
+    exclusive; an empty `clientEntries` array is rejected (omit the key
+    instead). Apps with only `src/client.tsx` or `src/client.ts` need no
+    declaration — that convention is unchanged.
+  migration: |
+    Apps with `src/client-<name>.tsx` entries: add the entry list to
+    package.json, using the same objects already passed to
+    `runDevApp`/`createKumikoServer`'s `clientEntries` (paths relative to the
+    app root). Without this, the build now throws instead of silently
+    building without those bundles.
+
+      publicstatus:
+
+        "kumiko": {
+          "clientEntries": [
+            { "name": "public", "sourceFile": "./src/client-public.tsx" },
+            { "name": "admin", "sourceFile": "./src/client-admin.tsx", "htmlPath": "./public/admin.html" },
+            { "name": "auth", "sourceFile": "./src/client-auth.tsx", "htmlPath": "./public/auth.html" }
+          ]
+        }
+
+      show-pony:
+
+        "kumiko": {
+          "clientEntries": [
+            { "name": "admin", "sourceFile": "./src/client-admin.tsx", "htmlPath": "./public/admin.html" },
+            { "name": "public", "sourceFile": "./src/client-public.tsx", "htmlPath": "./public/index.html" }
+          ]
+        }
+
+      offlot-app:
+
+        "kumiko": {
+          "clientEntries": [
+            { "name": "app", "sourceFile": "./src/client-app.tsx", "htmlPath": "./public/app.html" }
+          ]
+        }
+
+    Apps using a single entry that isn't `src/client.tsx`: add
+    `"kumiko": { "clientEntry": "./src/…" }` instead.
+
+    Apps with only `src/client.tsx` | `src/client.ts`: no action needed.
+
+    `discoverClientEntries` (exported from
+    `@cosmicdrift/kumiko-dev-server/build`) is removed; callers use
+    `resolveClientEntries(cwd, readClientEntriesConfig(cwd))`.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: kumiko-build reads client entries from package.json "kumiko.clientEntries"/"kumiko.clientEntry" instead of inferring them from filenames
+  detail: |
+    `kumiko-build` (and the `kumiko build` command) now call
+    `readClientEntriesConfig(cwd)` and pass the result into
+    `buildProdBundle`, instead of relying on `discoverClientEntries`'
+    filename-based multi-entry discovery. `@cosmicdrift/kumiko-dev-server/build`
+    re-exports `resolveClientEntries`, `readClientEntriesConfig`, and
+    `ClientEntryDeclaration` in place of `discoverClientEntries`.
+  migration: |
+    See the `@cosmicdrift/kumiko-server-runtime` changelog entry above for
+    the required package.json changes — the dev-server change is the CLI
+    wiring for the same underlying behavior.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [d7bba26]
+- Updated dependencies [d7bba26]
+- Updated dependencies [60e1a1f]
+- Updated dependencies [d7bba26]
+- Updated dependencies [72727cd]
+- Updated dependencies [d7bba26]
+- Updated dependencies [1343b18]
+  - @cosmicdrift/kumiko-bundled-features@0.323.0
+  - @cosmicdrift/kumiko-server-runtime@0.323.0
+  - @cosmicdrift/kumiko-framework@0.323.0
+  - @cosmicdrift/kumiko-headless@0.323.0
+
 ## 0.322.0
 
 ### Patch Changes

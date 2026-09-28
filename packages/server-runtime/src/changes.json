@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.323.0",
+    "type": "breaking",
+    "title": "buildProdBundle takes client entries explicitly via package.json \"kumiko.clientEntries\"/\"kumiko.clientEntry\" — no more filename inference",
+    "detail": "`discoverClientEntries(cwd)`, which scanned `src/` for\n`client-<suffix>.tsx` files and treated every match as its own bundle\nentry, is replaced by `resolveClientEntries(cwd, declared)` plus\n`readClientEntriesConfig(cwd)`, a boundary parser for package.json\n`kumiko.clientEntry` / `kumiko.clientEntries`. `buildProdBundle(options)`\nnow accepts the same `clientEntry`/`clientEntries` shape directly.\n\n`kumiko.clientEntries` entries are validated: `name` must match\n`^[a-z][a-z0-9-]*$` (it becomes the output filename), `sourceFile` (and\n`htmlPath`, if set) must resolve inside the app root, `sourceFile` must\nexist, and names/html-output-files/source-basenames must be unique\nacross the list. `clientEntry` and `clientEntries` are mutually\nexclusive; an empty `clientEntries` array is rejected (omit the key\ninstead). Apps with only `src/client.tsx` or `src/client.ts` need no\ndeclaration — that convention is unchanged.",
+    "migration": "Apps with `src/client-<name>.tsx` entries: add the entry list to\npackage.json, using the same objects already passed to\n`runDevApp`/`createKumikoServer`'s `clientEntries` (paths relative to the\napp root). Without this, the build now throws instead of silently\nbuilding without those bundles.\n\n  publicstatus:\n\n    \"kumiko\": {\n      \"clientEntries\": [\n        { \"name\": \"public\", \"sourceFile\": \"./src/client-public.tsx\" },\n        { \"name\": \"admin\", \"sourceFile\": \"./src/client-admin.tsx\", \"htmlPath\": \"./public/admin.html\" },\n        { \"name\": \"auth\", \"sourceFile\": \"./src/client-auth.tsx\", \"htmlPath\": \"./public/auth.html\" }\n      ]\n    }\n\n  show-pony:\n\n    \"kumiko\": {\n      \"clientEntries\": [\n        { \"name\": \"admin\", \"sourceFile\": \"./src/client-admin.tsx\", \"htmlPath\": \"./public/admin.html\" },\n        { \"name\": \"public\", \"sourceFile\": \"./src/client-public.tsx\", \"htmlPath\": \"./public/index.html\" }\n      ]\n    }\n\n  offlot-app:\n\n    \"kumiko\": {\n      \"clientEntries\": [\n        { \"name\": \"app\", \"sourceFile\": \"./src/client-app.tsx\", \"htmlPath\": \"./public/app.html\" }\n      ]\n    }\n\nApps using a single entry that isn't `src/client.tsx`: add\n`\"kumiko\": { \"clientEntry\": \"./src/…\" }` instead.\n\nApps with only `src/client.tsx` | `src/client.ts`: no action needed.\n\n`discoverClientEntries` (exported from\n`@cosmicdrift/kumiko-dev-server/build`) is removed; callers use\n`resolveClientEntries(cwd, readClientEntriesConfig(cwd))`."
+  },
+  {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "runProdApp wires auth-email-password's new invite-info query into invite.infoHandler",
+    "detail": "When the invite feature is enabled, runProdApp now passes AuthQueries.inviteInfo as invite.infoHandler, mounting POST /auth/invite-info automatically.",
+    "migration": "No action needed: purely additive wiring, no option changes."
+  },
+  {
     "version": "0.321.0",
     "type": "improvement",
     "title": "runProdApp's KUMIKO_TRUSTED_PROXY_HOPS parsing now shares framework's parseTrustedProxyHopsEnv",

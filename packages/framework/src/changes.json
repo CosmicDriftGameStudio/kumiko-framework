@@ -1,5 +1,25 @@
 [
   {
+    "version": "0.323.0",
+    "type": "improvement",
+    "title": "auth-routes: optional invite.infoHandler mounts POST /auth/invite-info",
+    "detail": "InviteConfig gained an optional infoHandler (qualified query-handler name). When set, createAuthRoutes mounts POST /auth/invite-info, dispatching the query anonymously and returning {isSuccess:true, email, hasAccount} or the query's serialized error.",
+    "migration": "No action needed: infoHandler is optional and existing invite configs without it are unaffected — the route simply isn't mounted."
+  },
+  {
+    "version": "0.323.0",
+    "type": "fix",
+    "title": "kms.eraseKey is now gated by the agent-risk floor for irreversible operations",
+    "migration": "`configurePiiSubjectKms(adapter)` now stores a wrapper whose `eraseKey`\nruns `assertIrreversibleOperationAllowed(\"kms.eraseKey\")` before\ndelegating — the same agent-risk floor `executor.forget()`/`delete()`\nalready enforce. A directly-dispatched write handler that calls\n`configuredPiiSubjectKms()!.eraseKey(...)` must resolve `agent.risk:\n\"high\"`, or the call is denied with `access_denied` /\n`irreversible_operation_requires_high_risk`.\n\nCron-triggered jobs and pipelines started by a `risk: \"high\"` handler are\nunaffected — they run outside any entry handler or already resolve\n\"high\". `crypto-shredding:write:forget-subject`, the manual\n`run-forget-cleanup` operator trigger, and framework-internal cleanup\nhooks already satisfy this."
+  },
+  {
+    "version": "0.323.0",
+    "type": "breaking",
+    "title": "createTextField/createLongTextField require an explicit personal-data stance",
+    "detail": "Both factories' `overrides` parameter is no longer optional and must\ninclude a `personal` stance:\n`{ personal: \"self\", find: \"exact\" | \"fuzzy\" | \"none\" | \"secret\" }`\n(longText: `find: \"none\" | \"secret\"`), `{ personal: \"tenant\", find: … }`,\n`{ personal: { of: \"<ownerField>\" }, find: … }`, `{ personal: \"ref\" }`, or\n`{ personal: false, reason: \"<why this is not personal data>\" }`. A\nmissing/malformed shape throws at the call site (`createTextField(...)` /\n`createLongTextField(...)` in the message, with every valid option\nlisted) instead of silently resolving to an unannotated field — this\nalso removes the #2918 boot-time deprecation warning, since the shape it\nwarned about can no longer be constructed.",
+    "migration": "Two call forms now throw: `createTextField()` / `createLongTextField()`\nwith no argument at all, and an options object with no `personal` key,\ne.g. `createTextField({ required: true })`. Add a stance to every call:\n\n  createTextField({ personal: \"self\", find: \"exact\" })\n  createTextField({ personal: \"tenant\", find: \"none\" })\n  createTextField({ personal: { of: \"authorId\" }, find: \"none\" })\n  createTextField({ personal: \"ref\" })\n  createTextField({ personal: false, reason: \"is_business_data\" })\n\n`personal: false` additionally requires a non-empty `reason` string.\n`find` is mandatory whenever `personal` names a subject (`\"self\"` /\n`\"tenant\"` / `{ of }`) — not for `\"ref\"` or `false`. The #2918 boot-time\ndeprecation warning for this shape is gone; there's nothing left for it\nto warn about.\n\nTo find remaining call sites (the #2919 codemod mode below is the\nmigration tool): `kumiko-guards guards\n--guard=\"Text-Field Personal-Stance Guard\"` flags every\nstatically-decidable call missing a stance. `bun\nnode_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/pii-personal-migration.ts\n<targetDir> --report-stance` classifies unannotated text/longText fields\nby name heuristic (direct/user-owned/user-reference/near-miss/\nunclassified) to help pick the right stance — it does not add one\nautomatically, since a wrong guess would be worse than the throw. This\ncodemod is not wired into `kumiko upgrade --apply`; run it by hand. It\nalso only transforms fields still carrying the OLD flag-based API\n(`pii`/`userOwned`/`tenantOwned`/`subjectRef`/`allowPlaintext`) — a field\nwith no annotation at all was never in its mapping table and needs a\nstance added by hand either way."
+  },
+  {
     "version": "0.322.0",
     "type": "breaking",
     "title": "Irreversible writes now require agent.risk \"high\" on the directly-dispatched handler",

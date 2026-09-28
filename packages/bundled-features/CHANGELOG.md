@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.323.0
+
+### Minor Changes
+
+- d7bba26: New anonymous invite-info lookup route; invite-accept-with-login now returns invalid_credentials for a wrong or missing password
+
+  POST /auth/invite-info ({token} -> {email, hasAccount}) lets an invite-acceptance page pre-fill the email and show a login-vs-signup form without consuming the token; it 422s invalid_invite_token for any unknown/non-pending token, same as the accept routes. invite-accept-with-login's wrong-password and no-password-set branches now return 422 invalid_credentials instead of collapsing into invalid_invite_token — safe to reveal because reaching that branch already required a valid, open invite token plus the matching invitation email.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: New anonymous invite-info lookup route; invite-accept-with-login now returns invalid_credentials for a wrong or missing password
+  migration: |
+    No action needed for apps using createAuthEmailPasswordFeature's default wiring via runProdApp/runDevApp — the new route only mounts when the host app's auth-routes config sets invite.infoHandler (runProdApp/runDevApp now do this automatically when the invite feature is enabled). A client that special-cased invite-accept-with-login's invalid_invite_token response to also mean "wrong password" should switch to matching invalid_credentials for that case.
+  -->
+
+- d7bba26: New POST /api/delivery/resubscribe route undoes an unsubscribe/opt-out
+
+  createUnsubscribeRoutes now also mounts POST /api/delivery/resubscribe (JSON {token} or form body only, never the query string, to stay safe against mail-client link prefetchers). It accepts the same signed tokens as the unsubscribe routes and re-enables the preference (signed-in user) or removes the address opt-out (no-account recipient). A resubscribed address opt-out is hard-deleted; a later re-opt-out for the same address/type/channel lands on a fresh event-stream generation instead of reviving the deleted one.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: New POST /api/delivery/resubscribe route undoes an unsubscribe/opt-out
+  migration: |
+    No action needed: the route is additive and mounted automatically wherever createUnsubscribeRoutes({ secret }) already runs. Sign resubscribe links with the same signUnsubscribeToken/signAddressUnsubscribeToken used for unsubscribe links.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [d7bba26]
+- Updated dependencies [72727cd]
+- Updated dependencies [1343b18]
+  - @cosmicdrift/kumiko-framework@0.323.0
+  - @cosmicdrift/kumiko-types@0.323.0
+  - @cosmicdrift/kumiko-headless@0.323.0
+  - @cosmicdrift/kumiko-renderer@0.323.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.323.0
+  - @cosmicdrift/kumiko-renderer-web@0.323.0
+
 ## 0.322.0
 
 ### Minor Changes
