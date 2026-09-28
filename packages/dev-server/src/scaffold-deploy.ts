@@ -59,6 +59,15 @@ export type ScaffoldDeployDetected = {
   /** Which of bunfig.toml/.npmrc exist at the source root — copied ahead of
    *  `bun install` in the manifests-first install variant. */
   readonly registryConfigFiles: readonly RegistryConfigFile[];
+  /** DB user for migrate-step.sh's DATABASE_URL — from
+   *  `package.json#kumiko.deploy.dbUser`, default = appName. The db name
+   *  always stays appName regardless of this value. */
+  readonly dbUser: string;
+  /** How migrate-step.sh locates the compose `_stack` network — from
+   *  `package.json#kumiko.deploy.stackNetwork`. "discover" (default):
+   *  today's `docker network ls` heuristic. "directory": the exact name
+   *  `$(basename "$PWD")_stack`, checked via `docker network inspect`. */
+  readonly stackNetwork: "discover" | "directory";
 };
 
 export type ScaffoldedFile = {
@@ -135,7 +144,7 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
   // a `seeds/` directory (e.g. studio) crash in Docker-build with
   // `failed to compute cache key: "/app/seeds": not found`.
   const sourceDir = options.sourceDir ?? destinationRoot;
-  const detected = detectOptionalSurfaces(sourceDir);
+  const detected = detectOptionalSurfaces(sourceDir, options.appName);
 
   const installManifests = ["package.json", "bun.lock", ...detected.registryConfigFiles].join(" ");
 
@@ -144,6 +153,7 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     port: String(port),
     githubOrg,
     installManifests,
+    dbUser: detected.dbUser,
   };
 
   const flags: Readonly<Record<string, boolean>> = {
@@ -151,6 +161,9 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     hasPrivateGhPackages: detected.hasPrivateGhPackages,
     installFromFullTree: detected.installFromFullTree,
     installFromManifests: !detected.installFromFullTree,
+    stackNetworkDiscover: detected.stackNetwork === "discover",
+    stackNetworkDirectory: detected.stackNetwork === "directory",
+    customDbUser: detected.dbUser !== options.appName,
   };
 
   const dir = templatesDir();
@@ -213,16 +226,89 @@ const packageJsonSchema = z.object({
     .optional(),
 });
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Reads `raw.kumiko.deploy` without going through `packageJsonSchema` — an
+ *  unrelated shape problem elsewhere in package.json (e.g. a malformed
+ *  `dependencies`) must not silently drop a valid deploy config; only
+ *  actually-malformed JSON (JSON.parse throwing) should fall back. */
+function extractDeployConfigRaw(raw: unknown): unknown {
+  if (!isRecord(raw)) return undefined;
+  const kumiko = raw["kumiko"];
+  if (!isRecord(kumiko)) return undefined;
+  return kumiko["deploy"];
+}
+
 const LOCAL_DEP_SPEC_RE = /^(file:|workspace:|link:)/;
 
-function detectOptionalSurfaces(sourceDir: string): ScaffoldDeployDetected {
+// The user part of DATABASE_URL — deliberately stricter than a full Postgres
+// role-name grammar (no quoting support) since it is interpolated into a
+// shell string, not passed through a driver's escaping.
+const DB_USER_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$/;
+
+const kumikoDeployConfigSchema = z
+  .object({
+    dbUser: z.string().regex(DB_USER_RE).optional(),
+    stackNetwork: z.enum(["discover", "directory"]).optional(),
+  })
+  .strict();
+
+type KumikoDeployConfig = z.infer<typeof kumikoDeployConfigSchema>;
+
+/** `package.json#kumiko.deploy` must be well-formed — silently falling back
+ *  to defaults on an invalid `dbUser`/`stackNetwork` would render a migrate
+ *  step that talks to the wrong DB user or the wrong stack network, breaking
+ *  prod migrations without anyone noticing. Unlike detectOptionalSurfaces'
+ *  malformed-JSON fallback, this throws (fail loud) and names the field. */
+function parseDeployConfig(raw: unknown): KumikoDeployConfig {
+  if (raw === undefined) return {};
+  const result = kumikoDeployConfigSchema.safeParse(raw);
+  if (result.success) return result.data;
+  const issue = result.error.issues[0];
+  const location =
+    issue === undefined
+      ? "kumiko.deploy"
+      : issue.code === "unrecognized_keys"
+        ? ["kumiko", "deploy", ...issue.keys].join(".")
+        : ["kumiko", "deploy", ...issue.path.map(String)].join(".");
+  throw new Error(
+    `scaffoldDeploy: invalid package.json#${location} — ${issue?.message ?? "validation failed"}`,
+  );
+}
+
+function resolveDeployConfig(
+  deployConfigRaw: unknown,
+  appName: string,
+): Pick<ScaffoldDeployDetected, "dbUser" | "stackNetwork"> {
+  const config = parseDeployConfig(deployConfigRaw);
+  const dbUser = config.dbUser ?? appName;
+  // The default (appName) already passed isKebabSegment's charset check but
+  // not DB_USER_RE's length cap — validate the effective value so an
+  // over-long appName fails loud here instead of producing a DB user
+  // Postgres itself would reject at migrate-time.
+  if (!DB_USER_RE.test(dbUser)) {
+    throw new Error(
+      `scaffoldDeploy: invalid package.json#kumiko.deploy.dbUser — effective value "${dbUser}" (defaulted from appName) does not match ${DB_USER_RE}`,
+    );
+  }
+  return { dbUser, stackNetwork: config.stackNetwork ?? "discover" };
+}
+
+function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDeployDetected {
   const hasSeeds = existsSync(join(sourceDir, "seeds"));
   let hasPrivateGhPackages = false;
   let installFromFullTree = false;
+  let deployConfigRaw: unknown;
   const pkgJsonPath = join(sourceDir, "package.json");
   if (existsSync(pkgJsonPath)) {
     try {
       const raw: unknown = JSON.parse(readFileSync(pkgJsonPath, "utf-8"));
+      // Read ahead of packageJsonSchema.parse: an unrelated shape problem in
+      // `dependencies`/`workspaces` must not silently discard a valid deploy
+      // config along with it (that's caught by the outer catch below).
+      deployConfigRaw = extractDeployConfigRaw(raw);
       const pkg = packageJsonSchema.parse(raw);
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
       hasPrivateGhPackages = Object.keys(allDeps).some((d) =>
@@ -232,11 +318,15 @@ function detectOptionalSurfaces(sourceDir: string): ScaffoldDeployDetected {
         pkg.workspaces !== undefined ||
         Object.values(allDeps).some((v) => LOCAL_DEP_SPEC_RE.test(v));
     } catch (err) {
-      // malformed/unexpected-shape package.json — assume no private packages
-      // and a plain manifests-first install; app-author can override via
-      // Dockerfile. Warn so a silent mis-detection (later YN0041 on yarn
-      // install, or a broken lockfile resolve) is traceable to the scaffold
-      // step.
+      // malformed JSON (or unexpected dependencies/workspaces shape) —
+      // assume no private packages and a plain manifests-first install;
+      // app-author can override via Dockerfile. Warn so a silent
+      // mis-detection (later YN0041 on yarn install, or a broken lockfile
+      // resolve) is traceable to the scaffold step. If JSON.parse itself
+      // failed, deployConfigRaw also stays undefined → deploy params fall
+      // back to defaults (an invalid deploy config must THROW, but
+      // unreadable JSON can't distinguish "no deploy config" from "invalid
+      // deploy config" — it already surfaces via this warning).
       // biome-ignore lint/suspicious/noConsole: scaffold visibility for skipped private-package detection
       console.warn(
         `scaffoldDeploy: package.json at ${pkgJsonPath} is not valid JSON — private-GH-packages/install-layout detection skipped (${err instanceof Error ? err.message : String(err)})`,
@@ -244,7 +334,13 @@ function detectOptionalSurfaces(sourceDir: string): ScaffoldDeployDetected {
     }
   }
   const registryConfigFiles = REGISTRY_CONFIG_FILES.filter((f) => existsSync(join(sourceDir, f)));
-  return { hasSeeds, hasPrivateGhPackages, installFromFullTree, registryConfigFiles };
+  return {
+    hasSeeds,
+    hasPrivateGhPackages,
+    installFromFullTree,
+    registryConfigFiles,
+    ...resolveDeployConfig(deployConfigRaw, appName),
+  };
 }
 
 // Unconsumed-mustache guard. After step 1+2 the only legitimate `{{`

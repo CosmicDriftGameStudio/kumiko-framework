@@ -10,12 +10,19 @@
 # changes BEFORE the app container starts — runProdApp's boot gate would
 # otherwise abort with SchemaDriftError.
 #
+{{#stackNetworkDiscover}}
 # Network discovery: the _stack network is named `<dirname>_stack`
 # (compose convention). We discover it via `docker network ls` instead
 # of hard-coding.
+{{/stackNetworkDiscover}}
+{{#stackNetworkDirectory}}
+# Network: the exact `<dirname>_stack` name of the compose project this
+# script runs in (package.json#kumiko.deploy.stackNetwork = "directory").
+{{/stackNetworkDirectory}}
 
 set -euo pipefail
 
+{{#stackNetworkDiscover}}
 # `|| true` keeps `set -e`/`pipefail` from aborting the script when `grep`
 # finds no match (exit 1) — the empty-check below owns that case and prints
 # the actionable hint instead of a bare pipefail abort.
@@ -24,6 +31,14 @@ if [ -z "$STACK_NETWORK" ]; then
   echo "No _stack network found — compose project not running?" >&2
   exit 1
 fi
+{{/stackNetworkDiscover}}
+{{#stackNetworkDirectory}}
+STACK_NETWORK="$(basename "$PWD")_stack"
+if ! docker network inspect "$STACK_NETWORK" >/dev/null 2>&1; then
+  echo "Stack network '$STACK_NETWORK' not found — compose project not running?" >&2
+  exit 1
+fi
+{{/stackNetworkDirectory}}
 
 # Import .env as bash env. `set -a` marks subsequent variable assignments
 # as auto-export. Bash's built-in parser respects quotes/escapes like
@@ -34,13 +49,16 @@ set +a
 
 # DATABASE_URL assumes: db user = appName, db name = appName, host "db"
 # (compose-service-name), port 5432. Adjust to your stack if different.
+{{#customDbUser}}
+# The db user is overridden via package.json#kumiko.deploy.dbUser.
+{{/customDbUser}}
 # Image tag pinned to :latest — swap to :${BUILD_SHA} for atomic deploys.
 #
 # Compose DATABASE_URL into the shell env and pass it to the container by
 # NAME (`-e DATABASE_URL`, no value) so the expanded password never appears
 # in `docker run`'s argv — otherwise it would be visible in `ps auxe` for
 # the duration of the migrate run.
-export DATABASE_URL="postgresql://{{appName}}:${DB_PASSWORD}@db:5432/{{appName}}"
+export DATABASE_URL="postgresql://{{dbUser}}:${DB_PASSWORD}@db:5432/{{appName}}"
 docker run --rm \
   --network "$STACK_NETWORK" \
   -e DATABASE_URL \

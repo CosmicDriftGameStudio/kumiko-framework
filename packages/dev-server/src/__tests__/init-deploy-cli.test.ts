@@ -99,4 +99,15 @@ describe("runInitDeployCli", () => {
     expect(code).toBe(1);
     expect(errs.some((e) => e.includes("kebab-case"))).toBe(true);
   });
+
+  it("rejects an invalid package.json#kumiko.deploy config with exit 1", async () => {
+    writeFileSync(
+      join(tmp, "package.json"),
+      JSON.stringify({ name: "myapp", kumiko: { deploy: { stackNetwork: "foo" } } }),
+    );
+    const { out, errs } = makeOut();
+    const code = await runInitDeployCli({ argv: ["--app", "myapp"], cwd: tmp, out });
+    expect(code).toBe(1);
+    expect(errs.some((e) => e.includes("stackNetwork"))).toBe(true);
+  });
 });

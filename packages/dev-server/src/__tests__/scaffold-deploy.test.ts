@@ -295,6 +295,71 @@ describe("scaffoldDeploy", () => {
     });
   });
 
+  describe("kumiko.deploy config", () => {
+    it("no kumiko.deploy → migrate-step uses appName as db user and the discover block", () => {
+      scaffoldDeploy({ appName: "plainapp", destination: tmp });
+      const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
+      expect(migrate).toContain("postgresql://plainapp:${DB_PASSWORD}@db:5432/plainapp");
+      expect(migrate).toContain("docker network ls");
+      expect(migrate).not.toContain("basename");
+    });
+
+    it('dbUser "kumiko" substitutes only the DB-URL user, db name stays appName', () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "dbuserapp", kumiko: { deploy: { dbUser: "kumiko" } } }),
+      );
+      scaffoldDeploy({ appName: "dbuserapp", destination: tmp });
+      const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
+      expect(migrate).toContain("postgresql://kumiko:${DB_PASSWORD}@db:5432/dbuserapp");
+    });
+
+    it('stackNetwork "directory" renders the exact-name block, not the discover block', () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "dirapp", kumiko: { deploy: { stackNetwork: "directory" } } }),
+      );
+      scaffoldDeploy({ appName: "dirapp", destination: tmp });
+      const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+      expect(migrate).toContain('STACK_NETWORK="$(basename "$PWD")_stack"');
+      expect(migrate).toContain("docker network inspect");
+      expect(migrate).not.toContain("docker network ls");
+    });
+
+    it.each(["a;rm -rf /", "$(id)", "a b", ""])(
+      "rejects invalid dbUser %j, naming the field",
+      (dbUser) => {
+        writeFileSync(
+          join(tmp, "package.json"),
+          JSON.stringify({ name: "invaliddbuser", kumiko: { deploy: { dbUser } } }),
+        );
+        expect(() => scaffoldDeploy({ appName: "invaliddbuser", destination: tmp })).toThrow(
+          /dbUser/,
+        );
+      },
+    );
+
+    it("rejects an invalid stackNetwork value", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "invalidnet", kumiko: { deploy: { stackNetwork: "foo" } } }),
+      );
+      expect(() => scaffoldDeploy({ appName: "invalidnet", destination: tmp })).toThrow(
+        /stackNetwork/,
+      );
+    });
+
+    it("rejects an unknown key under kumiko.deploy (strict)", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "unknownkey", kumiko: { deploy: { dbHost: "elsewhere" } } }),
+      );
+      expect(() => scaffoldDeploy({ appName: "unknownkey", destination: tmp })).toThrow(/dbHost/);
+    });
+  });
+
   describe("checkDeployDrift", () => {
     it("reports missing when no deploy files exist yet", () => {
       const result = checkDeployDrift({ appName: "driftapp", destination: tmp });
@@ -316,6 +381,47 @@ describe("scaffoldDeploy", () => {
       const result = checkDeployDrift({ appName: "driftapp", destination: tmp });
       expect(result.drifted).toHaveLength(0);
     });
+
+    it("reports no drift for a scaffold rendered with a kumiko.deploy config", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "driftconfigapp", kumiko: { deploy: { dbUser: "kumiko" } } }),
+      );
+      scaffoldDeploy({ appName: "driftconfigapp", destination: tmp });
+      const result = checkDeployDrift({ appName: "driftconfigapp", destination: tmp });
+      expect(result.drifted).toHaveLength(0);
+    });
+
+    it("reports differs on migrate-step.sh after package.json's dbUser changes", () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "driftconfigapp", kumiko: { deploy: { dbUser: "kumiko" } } }),
+      );
+      scaffoldDeploy({ appName: "driftconfigapp", destination: tmp });
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "driftconfigapp", kumiko: { deploy: { dbUser: "otheruser" } } }),
+      );
+      const result = checkDeployDrift({ appName: "driftconfigapp", destination: tmp });
+      expect(result.drifted).toEqual([
+        { path: join(tmp, "deploy", "migrate-step.sh"), reason: "differs" },
+      ]);
+    });
+
+    it("reports differs when the file on disk uses defaults but package.json now says directory", () => {
+      scaffoldDeploy({ appName: "driftconfigapp", destination: tmp });
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "driftconfigapp",
+          kumiko: { deploy: { stackNetwork: "directory" } },
+        }),
+      );
+      const result = checkDeployDrift({ appName: "driftconfigapp", destination: tmp });
+      expect(result.drifted).toEqual([
+        { path: join(tmp, "deploy", "migrate-step.sh"), reason: "differs" },
+      ]);
+    });
   });
 
   describe("malformed package.json", () => {
@@ -328,6 +434,28 @@ describe("scaffoldDeploy", () => {
         expect(result.detected.installFromFullTree).toBe(false);
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn.mock.calls[0]?.[0]).toContain("is not valid JSON");
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it("keeps a valid kumiko.deploy config even when dependencies has an unexpected shape", () => {
+      const warn = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        writeFileSync(
+          join(tmp, "package.json"),
+          JSON.stringify({
+            name: "shapeissue",
+            dependencies: "not-an-object",
+            kumiko: { deploy: { dbUser: "kumiko" } },
+          }),
+        );
+        const result = scaffoldDeploy({ appName: "shapeissue", destination: tmp });
+        expect(result.detected.hasPrivateGhPackages).toBe(false);
+        expect(warn).toHaveBeenCalledTimes(1);
+        const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
+        expect(migrate).toContain("postgresql://kumiko:${DB_PASSWORD}@db:5432/shapeissue");
       } finally {
         warn.mockRestore();
       }
