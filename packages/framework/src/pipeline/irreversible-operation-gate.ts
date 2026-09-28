@@ -1,6 +1,8 @@
-import { requestContext } from "../api/request-context";
+import { type RequestContextData, requestContext } from "../api/request-context";
 import type { EntityDefinition } from "../engine/types";
 import { AccessDeniedError, type FrameworkReason, FrameworkReasons } from "../errors";
+
+type EntryHandler = NonNullable<RequestContextData["entryHandler"]>;
 
 // forget hard-purges regardless of softDelete; delete is only irreversible
 // when the entity has no soft-delete recovery path.
@@ -20,14 +22,14 @@ export function isIrreversibleEntityVerb(
 // reason to the agent synchronously, so the gate sits at the primitives.
 function assertEntryHandlerHighRisk(args: {
   reason: FrameworkReason;
-  message: string;
+  buildMessage: (entryHandler: EntryHandler) => string;
   details: Record<string, unknown>;
 }): void {
   const entryHandler = requestContext.get()?.entryHandler;
   // skip: no entry handler (see above) or the entry handler already resolves "high".
   if (!entryHandler || entryHandler.risk === "high") return;
   throw new AccessDeniedError({
-    message: args.message,
+    message: args.buildMessage(entryHandler),
     details: {
       reason: args.reason,
       handler: entryHandler.qn,
@@ -38,12 +40,11 @@ function assertEntryHandlerHighRisk(args: {
 }
 
 export function assertIrreversibleOperationAllowed(operation: string): void {
-  const entryHandler = requestContext.get()?.entryHandler;
   assertEntryHandlerHighRisk({
     reason: FrameworkReasons.irreversibleOperationRequiresHighRisk,
-    message:
-      `Handler "${entryHandler?.qn}" performs an irreversible ${operation} but resolves agent risk ` +
-      `"${entryHandler?.risk}" — declare agent: { risk: "high" } on "${entryHandler?.qn}". The ` +
+    buildMessage: (entryHandler) =>
+      `Handler "${entryHandler.qn}" performs an irreversible ${operation} but resolves agent risk ` +
+      `"${entryHandler.risk}" — declare agent: { risk: "high" } on "${entryHandler.qn}". The ` +
       "directly called handler must carry it; delegating via ctx.write/writeAs does not.",
     details: { operation },
   });
@@ -61,13 +62,12 @@ export function assertInstructionFieldWriteAllowed(
 ): void {
   const fields = writtenFieldNames.filter((name) => instructionFieldNames.includes(name));
   if (fields.length === 0) return;
-  const entryHandler = requestContext.get()?.entryHandler;
   assertEntryHandlerHighRisk({
     reason: FrameworkReasons.instructionFieldWriteRequiresHighRisk,
-    message:
-      `Handler "${entryHandler?.qn}" ${verb}s "${entityName}" field(s) ${fields.join(", ")} ` +
-      `flagged readAsInstruction: true but resolves agent risk "${entryHandler?.risk}" — declare ` +
-      `agent: { risk: "high" } on "${entryHandler?.qn}". The directly called handler must carry ` +
+    buildMessage: (entryHandler) =>
+      `Handler "${entryHandler.qn}" ${verb}s "${entityName}" field(s) ${fields.join(", ")} ` +
+      `flagged readAsInstruction: true but resolves agent risk "${entryHandler.risk}" — declare ` +
+      `agent: { risk: "high" } on "${entryHandler.qn}". The directly called handler must carry ` +
       "it; delegating via ctx.write/writeAs does not.",
     details: { entityName, verb, fields },
   });

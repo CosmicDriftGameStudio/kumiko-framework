@@ -37,4 +37,9 @@ migration: |
      applied via `ctx.appendEvent` whose projection writes a flagged field —
      route such writes through the executor primitives (`create`/`update`)
      to get the gate.
+  6. On `create`, a flagged field with a `default` counts as written even if
+     the payload omits it — `applyDefaults` runs before the gate. A custom
+     mid-risk create handler whose payload leaves the field out is denied
+     just the same, and a standard create with `excludeFields` on such a
+     field still resolves to "high".
 -->
