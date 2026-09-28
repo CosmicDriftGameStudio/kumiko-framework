@@ -68,8 +68,11 @@ function exportedCallables(sf: SourceFile): Export[] {
   return out;
 }
 
+// NodeNext-Importe schreiben ".js"/".jsx", obwohl die Quelle ".ts"/".tsx" ist
+// (und analog .mjs/.cjs zu .mts/.cts) — die Extension muss beim Vergleich der
+// Modulpfade also für alle vier Paar-Varianten fallen, sonst reißt der Link.
 function stripExt(path: string): string {
-  return path.replace(/\.tsx?$/, "");
+  return path.replace(/\.(?:[cm]?tsx?|[cm]?jsx?)$/, "");
 }
 
 // Ein Test ist mit einer lib-Datei verknüpft, wenn er relativ aus genau dieser

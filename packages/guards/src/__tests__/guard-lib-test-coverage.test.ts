@@ -42,6 +42,16 @@ addFees(1);`,
     ).toEqual([expect.stringContaining('"subFees"')]);
   });
 
+  test("Test importiert die lib per NodeNext-.js-Spezifizierer → gilt als verknüpft", () => {
+    expect(
+      run({
+        [LIB]: `export function addFees(base: number): number { return base * 1.02; }`,
+        "/src/features/demo/lib/__tests__/calc.test.ts": `import { addFees } from "../calc.js";
+addFees(100);`,
+      }),
+    ).toHaveLength(0);
+  });
+
   test("Test importiert ein anderes Modul → gilt nicht als verknüpft", () => {
     expect(
       run({
