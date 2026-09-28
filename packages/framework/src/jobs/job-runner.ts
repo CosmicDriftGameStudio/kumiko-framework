@@ -239,6 +239,11 @@ export type JobRunner = {
   // once at boot, after the dispatcher exists (job-runner construction happens
   // before it). Before this runs, JobContext.write/writeAs/queryAs throw.
   attachDispatcher(ref: DispatchWriteRef): void;
+  // Read-only snapshot across both lane queues for test-stack draining
+  // (stack.drainJobs()). Excludes delayed jobs whose BullMQ id starts with
+  // "repeat:" — those are future cron ticks, not work in flight, and would
+  // make drainJobs wait forever on a stack with a scheduled job.
+  countPendingJobs(): Promise<number>;
 };
 
 export type JobRunnerOptions = {
@@ -1334,6 +1339,28 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     },
     attachDispatcher(ref: DispatchWriteRef): void {
       dispatchWriteRef = ref;
+    },
+    async countPendingJobs(): Promise<number> {
+      let total = 0;
+      for (const queue of Object.values(queues)) {
+        const counts = await queue.getJobCounts(
+          "waiting",
+          "active",
+          "prioritized",
+          "waiting-children",
+        );
+        total +=
+          (counts["waiting"] ?? 0) +
+          (counts["active"] ?? 0) +
+          (counts["prioritized"] ?? 0) +
+          (counts["waiting-children"] ?? 0);
+        // getJobCounts has no id-prefix filter for "delayed" — getJobs(["delayed"])
+        // loads the full Job objects (payload included) just to read .id; fine for
+        // test-draining's low volume, not a pattern for a prod-path hot loop.
+        const delayed = await queue.getJobs(["delayed"]);
+        total += delayed.filter((job) => !(job.id ?? "").startsWith("repeat:")).length;
+      }
+      return total;
     },
   };
 

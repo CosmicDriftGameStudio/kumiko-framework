@@ -22,6 +22,7 @@ import { createRateLimitResolver } from "../rate-limit";
 import { createInMemorySearchAdapter } from "../search";
 import type { SearchAdapter } from "../search/types";
 import { createTestDb } from "./db";
+import { createJobFailureTracker, drainJobs } from "./drain-jobs";
 import { createEventCollector, type EventCollector } from "./event-collector";
 import { createTestRedis, type TestRedis } from "./redis";
 import { createRequestHelper, type RequestHelper } from "./request-helper";
@@ -64,6 +65,16 @@ export type TestStack = {
   // registered in the mounted features. Lets integration tests call
   // `stack.jobRunner.dispatch(...)` directly, mirroring `ctx.jobRunner`.
   jobRunner?: JobRunner;
+  // Waits for every in-flight job and its follow-up event-consumer /
+  // job-trigger cascade to settle — instead of `waitFor` polling on a
+  // specific job's side effect. Rejects with the failing job's name and
+  // error once a job exhausts its retries, or with a clear error when this
+  // stack has no jobRunner at all. Tracked failures accumulate since the
+  // PREVIOUS drainJobs() call (or setup, if none yet) — on a shared stack
+  // (e.g. beforeAll), a test that deliberately fails a job and never calls
+  // drainJobs() itself leaves that failure for the next test's drainJobs()
+  // call to reject on.
+  drainJobs: () => Promise<void>;
   cleanup: () => Promise<void>;
 };
 
@@ -361,6 +372,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // context = appContext + tracer/meter, mirroring the prod entrypoint's
   // `contextWithObservability(options.context, observability)`.
   let jobRunner: JobRunner | undefined;
+  // Fed to createJobRunner's onJobComplete/onJobFailed below so drainJobs()
+  // can tell a job's final outcome apart from an attempt that will retry —
+  // built before createJobRunner regardless of whether a runner ends up
+  // existing, so the returned drainJobs() closure always has one to read.
+  const jobFailureTracker = createJobFailureTracker();
   if (options.jobs && registry.getAllJobs().size > 0) {
     jobRunner = createJobRunner({
       registry,
@@ -374,6 +390,8 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.jobs.getActiveTenantIds !== undefined && {
         getActiveTenantIds: options.jobs.getActiveTenantIds,
       }),
+      onJobComplete: (jobName, jobId) => jobFailureTracker.onJobComplete(jobName, jobId),
+      onJobFailed: (jobName, jobId, error) => jobFailureTracker.onJobFailed(jobName, jobId, error),
     });
   }
 
@@ -540,6 +558,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(eventDispatcher ? { eventDispatcher } : {}),
       ...(server.lifecycle ? { lifecycle: server.lifecycle } : {}),
       ...(jobRunner ? { jobRunner } : {}),
+      drainJobs: () => drainJobs({ db: testDb.db, eventDispatcher, jobRunner }, jobFailureTracker),
       cleanup: async () => {
         if (jobRunner) await jobRunner.stop();
         if (eventDispatcher) await eventDispatcher.stop();

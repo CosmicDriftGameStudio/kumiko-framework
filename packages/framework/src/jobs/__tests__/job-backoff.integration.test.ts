@@ -7,13 +7,12 @@
 //
 // Only lower bounds are asserted (never upper) — BullMQ schedules the next
 // attempt at failureTime + delay using the same wall clock this test reads,
-// so a >= assertion is flake-free without inflating waitFor's budget.
+// so a >= assertion is flake-free without inflating the wait budget.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../engine";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack";
-import { waitFor } from "../../testing";
 
 const exponentialDefaultStarts: number[] = [];
 const exponentialCustomStarts: number[] = [];
@@ -113,9 +112,8 @@ describe("job backoff waits between retries (fw#3167)", () => {
       TestUsers.admin,
     );
 
-    await waitFor(() => {
-      expect(exponentialDefaultStarts).toHaveLength(2);
-    });
+    await stack.drainJobs();
+    expect(exponentialDefaultStarts).toHaveLength(2);
 
     const [gap = 0] = gapsBetween(exponentialDefaultStarts);
     expect(gap).toBeGreaterThanOrEqual(1000);
@@ -128,9 +126,8 @@ describe("job backoff waits between retries (fw#3167)", () => {
       TestUsers.admin,
     );
 
-    await waitFor(() => {
-      expect(exponentialCustomStarts).toHaveLength(4);
-    });
+    await stack.drainJobs();
+    expect(exponentialCustomStarts).toHaveLength(4);
 
     const [gap1 = 0, gap2 = 0, gap3 = 0] = gapsBetween(exponentialCustomStarts);
     expect(gap1).toBeGreaterThanOrEqual(50);
@@ -141,9 +138,8 @@ describe("job backoff waits between retries (fw#3167)", () => {
   test('backoff: { type: "fixed", delayMs } waits the configured constant delay', async () => {
     await stack.http.writeOk("backofffixture:write:trigger-fixed-custom", {}, TestUsers.admin);
 
-    await waitFor(() => {
-      expect(fixedCustomStarts).toHaveLength(2);
-    });
+    await stack.drainJobs();
+    expect(fixedCustomStarts).toHaveLength(2);
 
     const [gap = 0] = gapsBetween(fixedCustomStarts);
     expect(gap).toBeGreaterThanOrEqual(300);
