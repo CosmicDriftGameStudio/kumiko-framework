@@ -108,6 +108,8 @@ describe("reindexEntityJob", () => {
       ),
       log: noopLogger,
       triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
       ...bridgeStub(),
     };
     await reindexEntityJob({ entity: "widget" }, ctx);
@@ -153,6 +155,8 @@ describe("reindexEntityJob", () => {
       ),
       log: noopLogger,
       triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
       ...bridgeStub(),
     };
     await job.handler({ entity: "widget" }, ctx);
@@ -217,6 +221,8 @@ describe("reindexEntityJob", () => {
       systemDb: createSystemDbView(createTenantDb(stack.db, otherTenantId, "system")),
       log: noopLogger,
       triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
       ...bridgeStub(),
     };
     await expect(reindexEntityJob({ entity: "widget" }, ctx)).rejects.toThrow(

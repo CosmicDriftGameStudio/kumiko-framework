@@ -767,6 +767,9 @@ export type JobContext = SharedContextFields & {
   readonly systemUser: SessionUser;
   readonly log: Logger;
   readonly triggeredBy: { readonly id: string; readonly tenantId: TenantId } | null;
+  // 1-based run number; finalAttempt = no retry follows if this run throws. A sequential-lock re-enqueue restarts at 1.
+  readonly attempt: number;
+  readonly finalAttempt: boolean;
   // Only present for jobs whose owning feature declares r.systemScope().
   // assertTenantMatch()/acknowledgeCrossTenant() return a TenantDb; a raw,
   // tenant-unfiltered DbRunner instead comes from ctx.systemDb.unsafeRaw(reason)

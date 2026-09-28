@@ -442,6 +442,8 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },
       log: noopLogger,
       triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
       files: filesCtx(),
       ...bridgeStub(),
     };

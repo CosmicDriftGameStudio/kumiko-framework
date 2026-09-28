@@ -493,6 +493,8 @@ describe("run-forget-cleanup job — real glue-code, not a hand-set tenantModel"
         },
       },
       triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
       ...bridgeStub(),
     };
     await job.handler({}, ctx);
