@@ -27,7 +27,7 @@ import { z } from "zod";
 export const productEntity = createEntity({
   table: "mt_products",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

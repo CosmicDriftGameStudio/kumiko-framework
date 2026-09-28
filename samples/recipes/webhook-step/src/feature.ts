@@ -20,8 +20,8 @@ import { z } from "zod";
 export const incidentEntity = createEntity({
   table: "read_webhook_demo_incidents",
   fields: {
-    title: createTextField({ required: true }),
-    severity: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    severity: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

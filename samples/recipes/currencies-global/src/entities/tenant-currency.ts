@@ -11,7 +11,7 @@ import {
 export const tenantCurrencyEntity = createEntity({
   table: "read_sample_tenant_currencies",
   fields: {
-    currencyCode: createTextField({ required: true }),
+    currencyCode: createTextField({ personal: false, reason: "is_reference_data", required: true }),
     isActive: createBooleanField({ default: true }),
   },
 });

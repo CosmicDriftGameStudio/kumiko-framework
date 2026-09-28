@@ -35,7 +35,13 @@ export type AssetDepartment = (typeof ASSET_DEPARTMENTS)[number];
 
 export const assetEntity = createEntity({
   fields: {
-    name: createTextField({ required: true, sortable: true, searchable: true }),
+    name: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      sortable: true,
+      searchable: true,
+    }),
     type: createSelectField({
       options: ASSET_TYPES,
       default: "laptop",
@@ -54,14 +60,24 @@ export const assetEntity = createEntity({
       sortable: true,
       filterable: true,
     }),
-    owner: createTextField({ searchable: true, sortable: true }),
-    location: createTextField({ searchable: true, sortable: true, filterable: true }),
-    serialNumber: createTextField({ searchable: true }),
-    vendor: createTextField({ searchable: true }),
+    owner: createTextField({ personal: { of: "id" }, find: "fuzzy" }),
+    location: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      searchable: true,
+      sortable: true,
+      filterable: true,
+    }),
+    serialNumber: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      searchable: true,
+    }),
+    vendor: createTextField({ personal: false, reason: "is_business_data", searchable: true }),
     price: createNumberField({ sortable: true }),
     purchaseDate: createDateField({ sortable: true }),
     warrantyUntil: createDateField({ sortable: true }),
-    notes: createTextField({ multiline: { rows: 3 } }),
+    notes: createTextField({ personal: false, reason: "is_business_data", multiline: { rows: 3 } }),
   },
 });
 

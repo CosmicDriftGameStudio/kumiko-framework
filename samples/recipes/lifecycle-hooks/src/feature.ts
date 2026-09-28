@@ -20,9 +20,14 @@ export const articleEntity = createEntity({
   fields: {
     // maxLength high so zod lets long titles through — the validation hook
     // below rejects titles > 200 so the sample can demonstrate the hook path.
-    title: createTextField({ required: true, maxLength: 1000 }),
-    content: createTextField(),
-    status: createTextField({ default: "draft" }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 1000,
+    }),
+    content: createTextField({ personal: false, reason: "is_business_data" }),
+    status: createTextField({ personal: false, reason: "is_business_data", default: "draft" }),
     isPublished: createBooleanField({ default: false }),
   },
 });

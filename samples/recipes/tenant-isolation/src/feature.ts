@@ -3,8 +3,8 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 export const noteEntity = createEntity({
   table: "read_sample_notes",
   fields: {
-    title: createTextField({ required: true }),
-    content: createTextField(),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    content: createTextField({ personal: false, reason: "is_business_data" }),
   },
 });
 

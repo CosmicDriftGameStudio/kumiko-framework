@@ -8,12 +8,14 @@ import {
 export const employeeEntity = createEntity({
   table: "read_sample_employees",
   fields: {
-    name: createTextField({ required: true }),
-    email: createTextField({ required: true }),
+    name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    email: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     salary: createNumberField({
       access: { read: ["Admin", "Accounting"], write: ["Admin"] },
     }),
     internalNotes: createTextField({
+      personal: { of: "id" },
+      find: "none",
       access: { read: ["Admin"], write: ["Admin"] },
     }),
   },

@@ -43,8 +43,8 @@ import { z } from "zod";
 export const orderEntity = createEntity({
   table: "read_sample_pubsub_orders",
   fields: {
-    customer: createTextField({ required: true }),
-    product: createTextField({ required: true }),
+    customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    product: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

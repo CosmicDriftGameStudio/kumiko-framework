@@ -41,18 +41,18 @@ const openAccess = {
 export const orderEntity = createEntity({
   table: "read_orders",
   fields: {
-    customerName: createTextField({ required: true }),
+    customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     amount: createNumberField({ required: true }),
-    status: createTextField({ default: "pending" }),
+    status: createTextField({ personal: false, reason: "is_business_data", default: "pending" }),
   },
 });
 
 export const fulfillmentEntity = createEntity({
   table: "read_fulfillments",
   fields: {
-    orderKey: createTextField({ required: true }),
-    carrier: createTextField({ required: true }),
-    label: createTextField({ required: true }),
+    orderKey: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
+    carrier: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    label: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

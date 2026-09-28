@@ -26,8 +26,18 @@ import {
 export const bookEntity = createEntity({
   table: "read_books",
   fields: {
-    title: createTextField({ required: true, maxLength: 200 }),
-    author: createTextField({ required: true, maxLength: 100 }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+    }),
+    author: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 100,
+    }),
     price: createNumberField({ required: true }),
     published: createBooleanField({ default: false }),
   },

@@ -39,16 +39,16 @@ import {
 export const teamMembershipEntity = createEntity({
   table: "read_sample_auth_team_memberships",
   fields: {
-    userId: createTextField({ required: true }),
-    teamId: createTextField({ required: true }),
+    userId: createTextField({ personal: "ref", required: true }),
+    teamId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
   },
 });
 
 export const betaFlagsEntity = createEntity({
   table: "read_sample_auth_beta_flags",
   fields: {
-    userId: createTextField({ required: true }),
-    flag: createTextField({ required: true }),
+    userId: createTextField({ personal: "ref", required: true }),
+    flag: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

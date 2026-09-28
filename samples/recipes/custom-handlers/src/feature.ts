@@ -15,9 +15,9 @@ import { z } from "zod";
 export const counterEntity = createEntity({
   table: "read_sample_counters",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
     count: createNumberField({ default: 0 }),
-    lastIncrementedBy: createTextField(),
+    lastIncrementedBy: createTextField({ personal: "ref" }),
   },
 });
 

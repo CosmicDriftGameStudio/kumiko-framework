@@ -10,10 +10,15 @@ import { z } from "zod";
 export const productEntity = createEntity({
   table: "read_sample_products",
   fields: {
-    name: createTextField({ required: true, searchable: true }),
-    brand: createTextField({ searchable: true }),
-    sku: createTextField({ required: true }),
-    category: createTextField(),
+    name: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      searchable: true,
+    }),
+    brand: createTextField({ personal: false, reason: "is_business_data", searchable: true }),
+    sku: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    category: createTextField({ personal: false, reason: "is_business_data" }),
   },
   searchWeight: 10,
 });

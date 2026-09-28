@@ -4,24 +4,24 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 export const teamEntity = createEntity({
   table: "read_sample_teams",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 
 export const memberEntity = createEntity({
   table: "read_sample_members",
   fields: {
-    name: createTextField({ required: true }),
-    teamId: createTextField({ required: true }),
-    role: createTextField(),
+    name: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    teamId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
+    role: createTextField({ personal: false, reason: "is_business_data" }),
   },
 });
 
 export const taskEntity = createEntity({
   table: "read_sample_member_tasks",
   fields: {
-    title: createTextField({ required: true }),
-    memberId: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    memberId: createTextField({ personal: "ref", required: true }),
   },
 });
 

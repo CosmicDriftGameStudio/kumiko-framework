@@ -7,7 +7,7 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 export const productEntity = createEntity({
   table: "read_sample_products",
   fields: {
-    name: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

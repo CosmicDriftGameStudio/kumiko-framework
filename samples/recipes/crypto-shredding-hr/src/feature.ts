@@ -5,7 +5,7 @@ export const employeeEntity = createEntity({
   fields: {
     displayName: createTextField({ required: true, personal: "self", find: "none" }),
     email: createTextField({ required: true, format: "email", personal: "self", find: "exact" }),
-    department: createTextField({ sortable: true }),
+    department: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
   },
   softDelete: true,
 });
@@ -13,9 +13,9 @@ export const employeeEntity = createEntity({
 export const hrCommentEntity = createEntity({
   table: "read_hr_comments",
   fields: {
-    employeeId: createTextField({ required: true }),
+    employeeId: createTextField({ personal: "ref", required: true }),
     body: createTextField({ required: true, personal: { of: "employeeId" }, find: "none" }),
-    authorName: createTextField(),
+    authorName: createTextField({ personal: { of: "id" }, find: "none" }),
   },
   softDelete: true,
 });

@@ -12,8 +12,8 @@ export const suggestionEntity = createEntity({
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
     email: createTextField({ format: "email", personal: "self", find: "none" }),
-    company: createTextField(),
-    notes: createTextField(),
+    company: createTextField({ personal: false, reason: "is_business_data" }),
+    notes: createTextField({ personal: { of: "id" }, find: "none" }),
     status: createSelectField({
       options: ["pending", "accepted", "rejected"] as const,
       default: "pending",

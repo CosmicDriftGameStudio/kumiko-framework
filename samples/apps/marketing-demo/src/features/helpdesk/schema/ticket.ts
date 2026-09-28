@@ -42,8 +42,14 @@ export type TicketDepartment = (typeof TICKET_DEPARTMENTS)[number];
 
 export const ticketEntity = createEntity({
   fields: {
-    title: createTextField({ required: true, sortable: true, searchable: true }),
-    description: createTextField({ multiline: { rows: 4 }, searchable: true }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      sortable: true,
+      searchable: true,
+    }),
+    description: createTextField({ personal: { of: "id" }, find: "fuzzy", multiline: { rows: 4 } }),
     category: createSelectField({
       options: TICKET_CATEGORIES,
       default: "other",
@@ -68,8 +74,8 @@ export const ticketEntity = createEntity({
       sortable: true,
       filterable: true,
     }),
-    reporter: createTextField({ sortable: true, searchable: true }),
-    assignee: createTextField({ sortable: true, searchable: true }),
+    reporter: createTextField({ personal: { of: "id" }, find: "fuzzy" }),
+    assignee: createTextField({ personal: { of: "id" }, find: "fuzzy" }),
     dueDate: createDateField({ sortable: true }),
     spentMinutes: createNumberField({ sortable: true }),
   },

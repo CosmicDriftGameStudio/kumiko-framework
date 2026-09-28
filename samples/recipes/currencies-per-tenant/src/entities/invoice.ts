@@ -8,7 +8,7 @@ import {
 export const invoiceEntity = createEntity({
   table: "read_sample_mt_invoices",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     amount: createMoneyField({ required: true }),
     shippingCost: createMoneyField(),
   },

@@ -39,7 +39,13 @@ export const noteEntity = createEntity({
     "A demo note holding just a title plus per-tenant custom-field values, used as the host object that the tags, folders and custom-fields extensions attach to.",
   table: "read_demo_notes",
   fields: {
-    title: createTextField({ required: true, maxLength: 200, sortable: true }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+      sortable: true,
+    }),
     customFields: customFieldsField(),
   },
 });

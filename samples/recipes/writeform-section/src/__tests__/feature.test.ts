@@ -98,7 +98,7 @@ describe("writeform-section sample — boot-validator catches author mistakes", 
             {
               kind: "writeForm",
               title: "s",
-              fieldDefs: { name: createTextField() },
+              fieldDefs: { name: createTextField({ personal: false, reason: "is_business_data" }) },
               fields: ["name"],
               handler: "broken-note-desk:write:save",
             },

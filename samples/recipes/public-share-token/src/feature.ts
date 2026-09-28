@@ -30,8 +30,18 @@ export const shareLinkEntity = createEntity({
   table: "read_public_share_links",
   idType: "uuid",
   fields: {
-    tokenHash: createTextField({ required: true, maxLength: 64 }),
-    label: createTextField({ required: true, maxLength: 200 }),
+    tokenHash: createTextField({
+      personal: false,
+      reason: "is_token_hash",
+      required: true,
+      maxLength: 64,
+    }),
+    label: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+    }),
     payload: createJsonbField(),
     expiresAt: createTimestampField({ required: true }),
     revokedAt: createTimestampField({}),

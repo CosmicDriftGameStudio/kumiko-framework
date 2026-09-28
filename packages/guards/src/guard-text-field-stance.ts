@@ -50,7 +50,11 @@ const ROOT = process.cwd();
 const SCAN: ScanSpec = {
   scope: "source",
   extensions: ["ts"],
-  frameworkWithin: ["packages/*/src/**"],
+  frameworkWithin: ["packages/*/src/**", "samples/**", "demo/**"],
+  // `demo/` isn't a declared sourceRoot (kumiko.json) — extraGlobs pulls its
+  // files in on top of the scope's own hits; frameworkWithin above still
+  // gates them the same as every other hit.
+  extraGlobs: ["demo/**/*.ts"],
 };
 // Unlike guard-pii-annotations.ts, tests are IN scope: kumiko-framework#2810's
 // fail-closed throw fires at call time regardless of test vs. production code —

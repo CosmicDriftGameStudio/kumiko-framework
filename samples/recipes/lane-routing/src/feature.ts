@@ -32,7 +32,7 @@ export const sentConfirmations: Array<{ customerName: string; amount: number }> 
 const orderEntity = createEntity({
   table: "read_orders",
   fields: {
-    customerName: createTextField({ required: true }),
+    customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     amount: createNumberField({ required: true }),
   },
 });
