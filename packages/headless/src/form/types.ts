@@ -272,6 +272,9 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
   // That's intentional: a caller choosing to write a transformer is
   // making an explicit statement about payload shape.
   readonly buildPayload?: (snapshot: FormSnapshot<TValues>) => unknown;
+  // When buildPayload nests values under a key, server issue paths carry it
+  // ("changes.vin"); submit() strips this prefix so errors map onto form fields.
+  readonly serverFieldPathPrefix?: string;
   /** Restricts submit()'s internal validate() call to these field names —
    *  same contract as validate()'s `scope` param. Set by RenderEdit when the
    *  caller's `fields` prop narrows which fields are rendered, so an

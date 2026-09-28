@@ -172,6 +172,67 @@ describe("createFormController — submit()", () => {
     expect(form.getSnapshot().errors["title"]?.[0]?.code).toBe("too_small");
   });
 
+  test("server validation failure with serverFieldPathPrefix: paths are stripped before mapping to form fields", async () => {
+    const disp = makeDispatcher({
+      isSuccess: false,
+      error: {
+        code: "validation_error",
+        httpStatus: 400,
+        i18nKey: "errors.validation",
+        message: "Validation failed",
+        details: {
+          fields: [
+            { path: "changes.count", code: "too_small", i18nKey: "errors.validation.too_small" },
+            { path: "title", code: "too_small", i18nKey: "errors.validation.too_small" },
+          ],
+        },
+      },
+    });
+    const form = createFormController({
+      initial: { title: "hello", count: 1 },
+      submit: {
+        dispatcher: disp,
+        type: "app:write:task:update",
+        serverFieldPathPrefix: "changes.",
+      },
+    });
+
+    const result = await form.submit();
+
+    expect(result.isSuccess).toBe(false);
+    expect(form.getSnapshot().errors["count"]).toBeDefined();
+    expect(form.getSnapshot().errors["title"]).toBeDefined();
+    expect(form.getSnapshot().errors["changes.count"]).toBeUndefined();
+    if (result.validationBlocked || result.isSuccess) throw new Error("expected a server failure");
+    expect(result.error.details?.fields?.map((f) => f.path)).toEqual(["count", "title"]);
+  });
+
+  test("server validation failure without serverFieldPathPrefix: prefixed paths pass through unchanged", async () => {
+    const disp = makeDispatcher({
+      isSuccess: false,
+      error: {
+        code: "validation_error",
+        httpStatus: 400,
+        i18nKey: "errors.validation",
+        message: "Validation failed",
+        details: {
+          fields: [
+            { path: "changes.count", code: "too_small", i18nKey: "errors.validation.too_small" },
+          ],
+        },
+      },
+    });
+    const form = createFormController({
+      initial: { title: "hello", count: 1 },
+      submit: { dispatcher: disp, type: "app:write:task:update" },
+    });
+
+    const result = await form.submit();
+
+    expect(result.isSuccess).toBe(false);
+    expect(form.getSnapshot().errors["changes.count"]).toBeDefined();
+  });
+
   test("non-validation server error: form state is left alone, error passes through", async () => {
     const disp = makeDispatcher({
       isSuccess: false,

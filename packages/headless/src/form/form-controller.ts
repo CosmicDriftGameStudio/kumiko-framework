@@ -12,6 +12,16 @@ import type {
 } from "./types";
 import { groupIssuesByPath, zodErrorToFieldIssues } from "./zod-bridge";
 
+// Paths without the prefix (hook-level errors, "(root)") pass through unchanged.
+function stripServerFieldPathPrefix(
+  issues: readonly FieldIssue[],
+  prefix: string,
+): readonly FieldIssue[] {
+  return issues.map((issue) =>
+    issue.path.startsWith(prefix) ? { ...issue, path: issue.path.slice(prefix.length) } : issue,
+  );
+}
+
 // Resolve one condition-value (boolean | predicate) against current values + ctx.
 // `undefined` means "condition not declared"; the caller substitutes the
 // field-default (visible:true, readonly:false, required:false).
@@ -423,8 +433,16 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
 
         const serverFields = result.error.details?.fields;
         if (serverFields && serverFields.length > 0) {
-          errors = Object.freeze(groupIssuesByPath(serverFields));
+          const prefix = submitCfg.serverFieldPathPrefix;
+          const mappedFields = prefix
+            ? stripServerFieldPathPrefix(serverFields, prefix)
+            : serverFields;
+          errors = Object.freeze(groupIssuesByPath(mappedFields));
           invalidate();
+          const error = prefix
+            ? { ...result.error, details: { ...result.error.details, fields: mappedFields } }
+            : result.error;
+          return { validationBlocked: false, isSuccess: false, isNoOp: false, error };
         }
         return { validationBlocked: false, isSuccess: false, isNoOp: false, error: result.error };
       };
