@@ -110,8 +110,11 @@ export const notificationPreferencesTable = pgTable(
 // `ctx.notify(type, { route: { email } })`). addressHash is a keyed HMAC
 // (computeBlindIndex over the normalized address) — the plaintext address
 // never reaches this entity or the token that unsubscribes it.
-// A row's mere existence is the opt-out; there is no `enabled` toggle to flip
-// back (re-subscribing a no-account address has no signed-in flow to do it from).
+// A row's mere existence is the opt-out; there is no `enabled` toggle to flip.
+// Resubscribing (removeAddressOptOut) hard-deletes the row instead — the
+// entity has no softDelete, and a later re-opt-out for the same address
+// picks the next id generation (see addressOptOutAggregateId) since the
+// deleted stream can't be revived.
 export const notificationAddressOptOutEntity = createEntity({
   table: "read_notification_address_opt_outs",
   fields: {

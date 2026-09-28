@@ -12,7 +12,11 @@
 // alternativer Membership-Query, eigener LoginRateLimiter): geht direkt
 // auf `createKumikoServer` aus @cosmicdrift/kumiko-dev-server.
 
-import { AuthErrors, AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
+import {
+  AuthErrors,
+  AuthHandlers,
+  AuthQueries,
+} from "@cosmicdrift/kumiko-bundled-features/auth-email-password";
 import {
   type SeedAdminOptions,
   seedAdminGuarded,
@@ -577,6 +581,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
             acceptHandler: AuthHandlers.inviteAccept,
             acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
             signupCompleteHandler: AuthHandlers.inviteSignupComplete,
+            infoHandler: AuthQueries.inviteInfo,
           },
         }),
       },

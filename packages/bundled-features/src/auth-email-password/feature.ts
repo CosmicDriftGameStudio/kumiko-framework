@@ -10,6 +10,7 @@ import {
   createInviteCreateHandler,
   type InviteCreateOptions,
 } from "./handlers/invite-create.write";
+import { inviteInfoQuery } from "./handlers/invite-info.query";
 import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write";
 import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write";
 import { logoutWrite } from "./handlers/logout.write";
@@ -232,6 +233,9 @@ export function createAuthEmailPasswordFeature(
     const queries = {
       ...(opts.signup && {
         signupRegistrationStatus: r.queryHandler(selfRegistrationStatusQuery),
+      }),
+      ...(opts.invite && {
+        inviteInfo: r.queryHandler(inviteInfoQuery),
       }),
     };
 

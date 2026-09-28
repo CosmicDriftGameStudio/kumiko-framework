@@ -74,10 +74,15 @@ ist):
   Issue-Autor sie nicht mitgezählt hat.
 - `auth` (`"/auth"`) ist keine eigene registrierte Route, nur ein
   Namespace-Präfix für den Wildcard-Eintrag `/api${Routes.auth}/*`.
-- `authInviteInfo` (`"/auth/invite-info"`) ist in `Routes` und in
-  `PUBLIC_API_PATHS` gelistet, hat aber **keinen registrierten Handler** in
-  `auth-routes.ts` — totes/vorbereitetes Wiring, unabhängig von diesem Issue.
-  Als Fund dokumentiert, ggf. eigenes Ticket wert.
+- `authInviteInfo` (`"/auth/invite-info"`) hatte zum `Stand 2026-08-14` noch
+  **keinen registrierten Handler** in `auth-routes.ts` (totes/vorbereitetes
+  Wiring). Seit kumiko-framework#3356 ist die Route gemountet (`config.invite`
+  mit gesetztem `infoHandler`) und verhält sich wie die anderen
+  `authInvite*`-Routes: POST, via `/api/auth/*`-Wildcard gedeckt, nur wenn
+  `config.invite` gesetzt ist. Die Zähl-Rekonstruktion und die Tabelle unten
+  bleiben auf dem `Stand 2026-08-14` eingefroren (Body-Limit-Frage ist
+  unverändert), dieser Punkt ist nur die Korrektur des veralteten
+  "kein Handler"-Funds.
 
 Die Tabelle unten ist trotzdem vollständig für **alle** 30 `Routes`-Einträge,
 nicht nur für die 22 POST-Routes — Body-Limit-relevant sind zwar in erster
@@ -216,4 +221,4 @@ separates DoS-Härtungs-Thema, kein Body-Limit-Inventar-Scope.
 | `write`, `batch`, `query`, `command`, `auth*` (18 Routes) | keine Änderung — bereits limitiert |
 | `stream` | in die Liste aufnehmen (kein Opt-out, keine Konstruktion nötig — einfacher Listen-Fix) |
 | `files` | expliziter Opt-out mit eigenem, höherem Limit gekoppelt an `maxUploadSize`; Changelog-Hinweis für Consumer, die den Default-Upload-Endpoint mit Custom-`maxSize`-Feldern >1 MiB nutzen |
-| `authInviteInfo` | kein Body-Limit-Thema (kein Handler) — als Fund an Issue-Autor:in melden, evtl. eigenes Ticket |
+| `authInviteInfo` | keine Änderung — seit #3356 gemountet und via `/api/auth/*`-Wildcard bereits limitiert, wie die übrigen `authInvite*`-Routes |

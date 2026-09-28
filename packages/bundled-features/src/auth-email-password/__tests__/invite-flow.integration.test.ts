@@ -50,7 +50,7 @@ import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
 import { createUserFeature } from "../../user/feature";
 import { userEntity, userTable } from "../../user/schema/user";
-import { AuthErrors, AuthHandlers } from "../constants";
+import { AuthErrors, AuthHandlers, AuthQueries } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { storeInviteToken } from "../invite-token-store";
 import { seedUser } from "../seeding";
@@ -125,6 +125,7 @@ beforeAll(async () => {
         acceptHandler: AuthHandlers.inviteAccept,
         acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
         signupCompleteHandler: AuthHandlers.inviteSignupComplete,
+        infoHandler: AuthQueries.inviteInfo,
       },
     },
   });
@@ -149,8 +150,11 @@ beforeEach(async () => {
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${tenantTable.tableName}"`);
   emailTransport.sent.length = 0;
-  const allKeys = await stack.redis.redis.keys("invite:*");
-  if (allKeys.length > 0) await stack.redis.redis.del(...allKeys);
+  // Also clears rate-limit buckets: trustedProxyHops defaults to 0, so
+  // every call in this file shares one unknown-IP bucket per handler —
+  // without this, earlier invite-info calls would count toward the
+  // rate-limit test's own budget.
+  await stack.redis.flushNamespace();
 
   // Pro Test frische Tenant-IDs + tenant.key (sonst unique-violation
   // auf read_tenants_key_unique beim 2. Run).
@@ -438,7 +442,7 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     }
   });
 
-  test("Wrong password → 422 invalid_invite_token (anti-enum)", async () => {
+  test("Wrong password → 422 invalid_credentials, invite stays acceptable", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Editor");
     const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
       token,
@@ -447,7 +451,16 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     });
     expect(res.status).toBe(422);
     const body = (await res.json()) as { error?: { details?: { reason?: string } } };
-    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidCredentials);
+
+    // Token was released on failure (existing finally/unburn) — the same
+    // invite must still be acceptable with the correct password.
+    const retryRes = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(retryRes.status).toBe(200);
   });
 
   test("common password → 400 (schema rejects breach-list password) (#1340)", async () => {
@@ -533,6 +546,112 @@ describe("invite-signup-complete (Branch 3: anon + new email)", () => {
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(1);
     void GUEST;
+  });
+});
+
+describe("invite-info (anonymous, read-only lookup)", () => {
+  test("open invite for an existing account → {email, hasAccount:true}, token stays acceptable afterwards", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-info", { token });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { email?: string; hasAccount?: boolean };
+    expect(body.email).toBe(BOB_EMAIL);
+    expect(body.hasAccount).toBe(true);
+
+    // Token was never consumed — the same invite can still be accepted.
+    const acceptRes = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(acceptRes.status).toBe(200);
+  });
+
+  test("open invite for a new email → hasAccount:false", async () => {
+    const token = await inviteEmail(CAROL_EMAIL, "Admin");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-info", { token });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { email?: string; hasAccount?: boolean };
+    expect(body.email).toBe(CAROL_EMAIL);
+    expect(body.hasAccount).toBe(false);
+  });
+
+  test("unknown token → 422 invalid_invite_token", async () => {
+    const res = await stack.http.raw("POST", "/api/auth/invite-info", {
+      token: "not-a-real-token",
+    });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+  });
+
+  test("error body has the same shape as the write routes' — invalid_invite_token sits at error.details.reason on both", async () => {
+    const infoRes = await stack.http.raw("POST", "/api/auth/invite-info", {
+      token: "not-a-real-token",
+    });
+    const writeRes = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token: "not-a-real-token",
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(infoRes.status).toBe(422);
+    expect(writeRes.status).toBe(422);
+    type ErrorBody = {
+      isSuccess?: boolean;
+      error?: {
+        code?: string;
+        httpStatus?: number;
+        i18nKey?: string;
+        details?: { reason?: string };
+      };
+    };
+    const infoBody = (await infoRes.json()) as ErrorBody;
+    const writeBody = (await writeRes.json()) as ErrorBody;
+    expect(Object.keys(infoBody).sort()).toEqual(Object.keys(writeBody).sort());
+    expect(Object.keys(infoBody.error ?? {}).sort()).toEqual(
+      Object.keys(writeBody.error ?? {}).sort(),
+    );
+    expect(infoBody.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+    expect(writeBody.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+  });
+
+  test("already-accepted invitation → 422 invalid_invite_token", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+    const acceptRes = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(acceptRes.status).toBe(200);
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-info", { token });
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+  });
+
+  test("token in the query string instead of the body → invalid_body", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+    const res = await stack.http.raw(
+      "POST",
+      `/api/auth/invite-info?token=${encodeURIComponent(token)}`,
+      {},
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("invalid_body");
+  });
+
+  test("rate limit: the 21st call in a window is rejected with 429", async () => {
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+    for (let i = 0; i < 20; i++) {
+      const res = await stack.http.raw("POST", "/api/auth/invite-info", { token });
+      expect(res.status).toBe(200);
+    }
+    const limited = await stack.http.raw("POST", "/api/auth/invite-info", { token });
+    expect(limited.status).toBe(429);
   });
 });
 
