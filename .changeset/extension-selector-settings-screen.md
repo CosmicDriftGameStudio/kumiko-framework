@@ -29,4 +29,9 @@ detail: |
 
   Generated hub screens need the new key `config.settings.extensionSelectorHint` (shipped in
   the config and secrets bundles, en/de/es).
+migration: |
+  Links, tests or screenshots that open `<plugin>-tenant` through the nav or expect a configEdit
+  at `<owner>-tenant` should open `<owner>-tenant` (now the dashboard) and look for the plugin
+  panels there. Tenant rows or scripts that write a selector value naming no mounted plugin must
+  write a mounted plugin id or "" instead. No new translation keys are required from apps.
 -->
