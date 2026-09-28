@@ -166,6 +166,20 @@ irreversible_operation_requires_high_risk:
 
     Declare `agent: { risk: "high" }` on the named handler.
 
+instruction_field_write_requires_high_risk:
+  endUser: |
+    This action isn't allowed.
+    Please contact an administrator if you believe this is a mistake.
+  developer: |
+    `AccessDeniedError`: the directly-dispatched entry handler writes a field
+    flagged `readAsInstruction: true` (`details.fields`) but its resolved
+    agent risk (`details.resolvedRisk`) is below `"high"`. `details.handler`
+    names the entry handler — delegating the call via `ctx.write`/`writeAs`
+    from a lower-risk handler does not inherit an inner handler's declared
+    risk.
+
+    Declare `agent: { risk: "high" }` on the named handler.
+
 agent.tool_not_allowed:
   endUser: |
     This tool is not available in the current mode.

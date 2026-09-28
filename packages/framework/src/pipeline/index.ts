@@ -51,6 +51,7 @@ export { ConsumerLagError, pruneEvents } from "./event-retention";
 export type { IdempotencyGuard } from "./idempotency";
 export { createIdempotencyGuard } from "./idempotency";
 export {
+  assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
 } from "./irreversible-operation-gate";

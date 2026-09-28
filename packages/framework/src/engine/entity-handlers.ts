@@ -13,6 +13,7 @@ import { acknowledgeConventionCrossTenant, type TenantDb } from "../db/tenant-db
 import { isSystemIdentity } from "../pipeline/system-identity-switch";
 import { assertUnreachable } from "../utils";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
+import { instructionFieldNames } from "./instruction-fields";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
 import type {
   AccessRule,
@@ -214,19 +215,45 @@ function isInTotalsMatchPair(entity: EntityDefinition, fieldName: string): boole
   );
 }
 
-// delete on an entity without softDelete hard-purges the row — the agent
-// risk gate only protects it if this handler resolves to "high".
+// A create/update handler can write a field flagged readAsInstruction: true if:
+// update — the field isn't in excludeFields; create — the field isn't excluded,
+// or is excluded but has a default (applyDefaults writes it regardless, so the
+// define-time floor must match what the executor gate will see at runtime).
+function writableInstructionFields(
+  verb: "create" | "update",
+  entity: EntityDefinition,
+  excludedFields: readonly string[],
+): readonly string[] {
+  return instructionFieldNames(entity).filter((fieldName) => {
+    if (!excludedFields.includes(fieldName)) return true;
+    if (verb !== "create") return false;
+    const field = entity.fields[fieldName];
+    return field !== undefined && "default" in field && field.default !== undefined;
+  });
+}
+
+// delete on an entity without softDelete hard-purges the row, and create/update
+// handlers writing a readAsInstruction field are irreversible in effect (a
+// revert doesn't undo a run that already read the value) — the agent risk gate
+// only protects either case if this handler resolves to "high".
 function resolveEntityWriteAgentHints(
   name: string,
   verb: (typeof WRITE_VERBS)[number],
   entity: EntityDefinition,
   agent: AgentHandlerHints | undefined,
+  excludedFields: readonly string[],
 ): AgentHandlerHints | undefined {
-  if (verb !== "delete" || entity.softDelete) return agent;
+  const isIrreversibleDelete = verb === "delete" && !entity.softDelete;
+  const instructionFields =
+    verb === "create" || verb === "update"
+      ? writableInstructionFields(verb, entity, excludedFields)
+      : [];
+  if (!isIrreversibleDelete && instructionFields.length === 0) return agent;
   if (agent?.risk !== undefined && agent.risk !== "high") {
-    throw new Error(
-      `"${name}": delete on an entity without softDelete is irreversible — agent.risk must be "high" (got "${agent.risk}").`,
-    );
+    const reason = isIrreversibleDelete
+      ? "delete on an entity without softDelete is irreversible"
+      : `it writes field(s) ${instructionFields.join(", ")} flagged readAsInstruction: true`;
+    throw new Error(`"${name}": ${reason} — agent.risk must be "high" (got "${agent.risk}").`);
   }
   return { ...agent, risk: "high" };
 }
@@ -271,9 +298,15 @@ export function defineEntityWriteHandler(
       `"${name}": restore is only valid for entities declared with softDelete: true.`,
     );
   }
-  const agentHints = resolveEntityWriteAgentHints(name, verb, entity, options.agent);
   const excludedFields = options.excludeFields ?? [];
   assertExcludableFields(name, verb, entity, excludedFields);
+  const agentHints = resolveEntityWriteAgentHints(
+    name,
+    verb,
+    entity,
+    options.agent,
+    excludedFields,
+  );
 
   const table = buildEntityTable(entityName, entity);
   const executor = createEventStoreExecutor(table, entity, { entityName });

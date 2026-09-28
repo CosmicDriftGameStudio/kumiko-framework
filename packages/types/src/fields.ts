@@ -259,6 +259,11 @@ export type TextFieldDef = {
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
+  /** A later run reads this field's value as an instruction — prompt, rule,
+   *  template. Every create/update whose payload writes it requires agent.risk
+   *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
+   *  run that already read the compromised value. See irreversible-operation-gate. */
+  readonly readAsInstruction?: boolean;
   /** "password" is a pure render hint (masked input) — no storage semantics. */
   readonly format?: "email" | "url" | "phone" | "password";
   readonly default?: string;
@@ -300,6 +305,11 @@ export type LongTextFieldDef = {
   readonly required?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
+  /** A later run reads this field's value as an instruction — prompt, rule,
+   *  template. Every create/update whose payload writes it requires agent.risk
+   *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
+   *  run that already read the compromised value. See irreversible-operation-gate. */
+  readonly readAsInstruction?: boolean;
   readonly default?: string;
   readonly access?: FieldAccess;
   readonly multiline?: boolean | { readonly rows?: number };
@@ -663,6 +673,11 @@ export type JsonbFieldDef = {
   readonly type: "jsonb";
   readonly description?: string;
   readonly sensitive?: boolean;
+  /** A later run reads this field's value as an instruction — prompt, rule,
+   *  template. Every create/update whose payload writes it requires agent.risk
+   *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
+   *  run that already read the compromised value. See irreversible-operation-gate. */
+  readonly readAsInstruction?: boolean;
   readonly access?: FieldAccess;
 } & ResolvedPiiFlags;
 

@@ -68,6 +68,12 @@ export const FrameworkReasons = {
   // delete/forget but its agent.risk resolves below "high" — delegation via
   // ctx.write/writeAs from a lower-risk handler does not inherit the gate.
   irreversibleOperationRequiresHighRisk: "irreversible_operation_requires_high_risk",
+
+  // AccessDeniedError: the directly-dispatched entry handler writes a field
+  // flagged readAsInstruction: true but its agent.risk resolves below "high" —
+  // delegation via ctx.write/writeAs from a lower-risk handler does not
+  // inherit the gate.
+  instructionFieldWriteRequiresHighRisk: "instruction_field_write_requires_high_risk",
 } as const;
 
 export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkReasons];

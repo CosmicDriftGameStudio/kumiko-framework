@@ -173,6 +173,20 @@ irreversible_operation_requires_high_risk:
 
     `agent: { risk: "high" }` am genannten Handler deklarieren.
 
+instruction_field_write_requires_high_risk:
+  endUser: |
+    Diese Aktion ist nicht erlaubt.
+    Wende dich an einen Administrator wenn du glaubst, dass das ein Fehler ist.
+  developer: |
+    `AccessDeniedError`: der direkt aufgerufene Einstiegs-Handler schreibt ein
+    Feld mit `readAsInstruction: true` (`details.fields`), aber sein
+    aufgelöstes Agent-Risiko (`details.resolvedRisk`) liegt unter `"high"`.
+    `details.handler` nennt den Einstiegs-Handler — eine Delegation über
+    `ctx.write`/`writeAs` aus einem Handler mit niedrigerem Risiko erbt das
+    deklarierte Risiko des inneren Handlers nicht.
+
+    `agent: { risk: "high" }` am genannten Handler deklarieren.
+
 agent.tool_not_allowed:
   endUser: |
     Dieses Tool ist im aktuellen Modus nicht verfügbar.
