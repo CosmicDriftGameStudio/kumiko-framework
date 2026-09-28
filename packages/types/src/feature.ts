@@ -671,7 +671,11 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    * Readiness gating counts a provider-feature's `required` keys and
    * secrets only while that provider is the selected one. Registry-build
    * fails on duplicate declarations per extension and on selector keys
-   * that no mounted feature declares.
+   * that no mounted feature declares. A masked tenant selector key makes the
+   * Settings-Hub render one tenant dashboard for the owner: the selector as a
+   * select of the mounted plugin ids, the selected plugin's config and secrets
+   * as panels, and plugin features lose their own tenant nav. `config:write:set`
+   * rejects unknown plugin ids (`""` clears).
    */
   extensionSelector(extensionName: string, key: { readonly name: string } | string): void;
 

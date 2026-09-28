@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
+import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys";
 import { buildConfigFeatureSchema } from "../../build-config-feature-schema";
 import { access, createTenantConfig } from "../../config-helpers";
 import { defineFeature } from "../../define-feature";
@@ -263,5 +265,76 @@ describe("validateI18nSurfaceKeys — mask.title is unconditionally required (fw
       "fw2313mask.settings": { en: "Settings" },
     });
     expect(() => validateBoot([configHub, feature])).not.toThrow();
+  });
+});
+
+describe("validateI18nSurfaceKeys — extension-selector settings dashboard", () => {
+  const secretsMount = defineFeature("secrets", (r) => {
+    r.writeHandler(
+      "set",
+      z.object({ key: z.string(), value: z.string() }),
+      async () => ({ isSuccess: true, data: null }),
+      { access: { roles: ["TenantAdmin"] } },
+    );
+  });
+  const hubWithHint = defineFeature("config", (r) => {
+    r.translations({ keys: SETTINGS_HUB_I18N });
+  });
+  const hubWithoutHint = defineFeature("config", (r) => {
+    const { "config.settings.extensionSelectorHint": _hint, ...withoutHint } = SETTINGS_HUB_I18N;
+    r.translations({ keys: withoutHint });
+  });
+
+  // Consumer-shaped: only the keys an app declared before the selector screen existed.
+  const owner = defineFeature("mail-foundation", (r) => {
+    r.translations({
+      keys: {
+        "mail-foundation.settings": { en: "Mail" },
+        "screen:mail-foundation-tenant.title": { en: "Mail" },
+        "mail.provider": { en: "Provider" },
+      },
+    });
+    r.extendsRegistrar("mailTransport", { onRegister: () => undefined });
+    const keys = r.config({
+      keys: {
+        provider: createTenantConfig("text", {
+          default: "",
+          write: access.roles("TenantAdmin"),
+          mask: { title: "mail.provider" },
+        }),
+      },
+    });
+    r.extensionSelector("mailTransport", keys.provider);
+  });
+  const smtp = defineFeature("mail-smtp", (r) => {
+    r.requires("mail-foundation");
+    r.translations({
+      keys: {
+        "mail-smtp.settings": { en: "SMTP" },
+        "screen:mail-smtp-tenant.title": { en: "SMTP" },
+        "smtp.host": { en: "Host" },
+      },
+    });
+    r.useExtension("mailTransport", "smtp");
+    r.config({
+      keys: {
+        host: createTenantConfig("text", {
+          default: "",
+          write: access.roles("TenantAdmin"),
+          mask: { title: "smtp.host" },
+        }),
+      },
+    });
+    r.secret("password", { label: { en: "SMTP password" }, scope: "tenant" });
+  });
+
+  test("an app declaring only today's keys boots with the selector dashboard", () => {
+    expect(() => validateBoot([hubWithHint, secretsMount, owner, smtp])).not.toThrow();
+  });
+
+  test("the dashboard hint key is required once a selector dashboard exists", () => {
+    expect(() => validateBoot([hubWithoutHint, secretsMount, owner, smtp])).toThrow(
+      /Settings-Hub: required translation key missing: "config\.settings\.extensionSelectorHint"/,
+    );
   });
 });

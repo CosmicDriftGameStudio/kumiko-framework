@@ -5,14 +5,20 @@ import {
   requiredKeysFromNav,
   requiredKeysFromScreen,
   requiredKeysFromWorkspace,
+  screenTitleKey,
 } from "../../i18n/required-surface-keys";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
 } from "../build-config-feature-schema";
+import { EXTENSION_SELECTOR_HINT_KEY } from "../extension-selector-plugins";
 import { createRegistry } from "../registry";
-import type { FeatureDefinition } from "../types";
+import type { FeatureDefinition, ScreenDefinition } from "../types";
+
+function isDormantSecretsScreen(screen: ScreenDefinition): boolean {
+  return screen.type === "secretsEdit" && screen.dormant === true;
+}
 
 function requiredKeysFromGeneratedConfigHub(schema: ConfigFeatureSchema): readonly string[] {
   if (schema.navs.length === 0) return [];
@@ -25,9 +31,12 @@ function requiredKeysFromGeneratedConfigHub(schema: ConfigFeatureSchema): readon
     for (const key of requiredKeysFromScreen(SETTINGS_HUB_FEATURE, screen, {
       treatDotFormAsKey: true,
     })) {
+      // Embedded selector-plugin secrets panels render no title of their own.
+      if (isDormantSecretsScreen(screen) && key === screenTitleKey(screen.id)) continue;
       out.add(key);
     }
   }
+  if (schema.screens.some((s) => s.type === "dashboard")) out.add(EXTENSION_SELECTOR_HINT_KEY);
   for (const nav of schema.navs) {
     for (const key of requiredKeysFromNav(nav, { treatDotFormAsKey: true })) out.add(key);
   }

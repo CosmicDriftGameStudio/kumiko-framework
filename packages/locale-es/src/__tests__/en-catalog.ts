@@ -344,6 +344,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "compliance.profile.title": "Compliance profile",
   "config.errors.invalidScope": "This scope is not allowed for this key.",
   "config.errors.systemOnly": "This value can only be set by the system.",
+  "config.errors.unknownExtensionPlugin": "This provider is not available.",
   "config.errors.unknownKey": "Unknown configuration key.",
   "config.secrets.delete": "Delete",
   "config.secrets.notSet": "Not set",
@@ -352,6 +353,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.secrets.required": "Required",
   "config.secrets.set": "Set",
   "config.secrets.title": "Secrets",
+  "config.settings.extensionSelectorHint":
+    "Save the provider selection to show its settings below.",
   "config.settings.system": "Platform",
   "config.settings.tenant": "Tenant",
   "config.settings.title": "Settings",

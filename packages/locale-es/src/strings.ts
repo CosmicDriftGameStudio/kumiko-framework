@@ -353,6 +353,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "compliance.profile.title": "Perfil de cumplimiento",
   "config.errors.invalidScope": "Este nivel no está permitido para esta clave.",
   "config.errors.systemOnly": "Este valor solo puede establecerlo el sistema.",
+  "config.errors.unknownExtensionPlugin": "Este proveedor no está disponible.",
   "config.errors.unknownKey": "Clave de configuración desconocida.",
   "config.secrets.delete": "Eliminar",
   "config.secrets.notSet": "Sin establecer",
@@ -361,6 +362,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "config.secrets.required": "Obligatorio",
   "config.secrets.set": "Establecido",
   "config.secrets.title": "Secretos",
+  "config.settings.extensionSelectorHint":
+    "Guarda la selección del proveedor para mostrar debajo su configuración.",
   "config.settings.system": "Plataforma",
   "config.settings.tenant": "Organización",
   "config.settings.title": "Ajustes",

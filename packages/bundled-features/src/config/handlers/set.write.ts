@@ -23,6 +23,7 @@ import {
   prepareConfigWrite,
   resolvePiiSubject,
   validateBounds,
+  validateExtensionPlugin,
   validatePattern,
   validateScope,
   validateType,
@@ -81,6 +82,13 @@ export const setWrite = defineWriteHandler({
 
     const typeError = validateType(event.payload.value, keyDef);
     if (typeError) return writeFailure(typeError);
+
+    const pluginError = validateExtensionPlugin(
+      ctx.registry,
+      event.payload.key,
+      event.payload.value,
+    );
+    if (pluginError) return writeFailure(pluginError);
 
     // Bounds enforcement: hard-reject (not silent-clamp). A caller that
     // sends 9999 for a bounds.max=1000 key should see a 422 and fix their
