@@ -50,6 +50,9 @@ export const AuthHandlers = {
 // signup page can decide whether to show its own link/form.
 export const AuthQueries = {
   signupRegistrationStatus: "auth-email-password:query:signup-registration-status",
+  // Anonymous, read-only invite lookup for the invite-acceptance page —
+  // see invite-info.query.ts. Does not consume the token.
+  inviteInfo: "auth-email-password:query:invite-info",
 } as const;
 
 // Error codes — kept intentionally generic so clients can't distinguish

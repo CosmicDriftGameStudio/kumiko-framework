@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Context } from "hono";
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type Redis from "ioredis";
 import * as z from "zod";
 import { buildSessionRoles } from "../engine/membership-roles";
@@ -13,7 +14,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "../engine/types";
-import { NotFoundError } from "../errors";
+import { NotFoundError, toKumikoError, toWriteErrorInfo } from "../errors";
 import type { Dispatcher } from "../pipeline/dispatcher";
 import { assertUnreachable } from "../utils";
 import { parseRoles } from "../utils/serialization";
@@ -182,6 +183,10 @@ const InviteAcceptWithLoginBody = z.object({
 const InviteSignupCompleteBody = z.object({
   token: z.string().min(1),
   password: z.string().min(8).max(200),
+});
+
+const InviteInfoBody = z.object({
+  token: z.string().min(1),
 });
 
 // Shape guard for "handler not registered" — the only legitimate reason to
@@ -503,6 +508,10 @@ export type InviteConfig = {
   readonly acceptHandler: string;
   readonly acceptWithLoginHandler: string;
   readonly signupCompleteHandler: string;
+  // Optional: qualified query handler name for the anonymous invite-info
+  // lookup (email + hasAccount for a pending invite, token not consumed).
+  // When unset, POST /auth/invite-info is not mounted.
+  readonly infoHandler?: string;
 };
 
 // Magic-Link Self-Signup. Anders als reset/verify NICHT HMAC-signed —
@@ -1315,6 +1324,39 @@ export function createAuthRoutes(
         ...landingPath,
       });
     });
+
+    // Anonymous, read-only invite lookup for the acceptance page: pre-fill
+    // the invited email and pick Branch 2 (existing account) vs Branch 3
+    // (new account) before the user submits. Token is never consumed here.
+    if (inv.infoHandler) {
+      const infoHandler = inv.infoHandler;
+      api.post(Routes.authInviteInfo, async (c) => {
+        const raw = await c.req.json().catch(() => null);
+        const parsed = InviteInfoBody.safeParse(raw);
+        if (!parsed.success) {
+          return c.json({ isSuccess: false, error: "invalid_body" }, 400);
+        }
+        try {
+          // @cast-boundary engine-payload — generic dispatcher.query result
+          const data = (await dispatcher.query(
+            infoHandler,
+            parsed.data,
+            createAnonymousUser(SYSTEM_TENANT_ID),
+          )) as { email: string; hasAccount: boolean };
+          return c.json({ isSuccess: true, ...data });
+        } catch (e) {
+          const err = toKumikoError(e);
+          // Same body shape as the write routes' `{ isSuccess: false, error:
+          // result.error }` (WriteErrorInfo) — this is a query, not a write,
+          // so there's no WriteResult to read `.error` off; toWriteErrorInfo
+          // builds the equivalent shape directly from the caught error.
+          return c.json(
+            { isSuccess: false, error: toWriteErrorInfo(err) },
+            err.httpStatus as ContentfulStatusCode, // @cast-boundary engine-payload
+          );
+        }
+      });
+    }
   }
 
   // POST /auth/logout — revokes the current session. Requires a valid JWT so

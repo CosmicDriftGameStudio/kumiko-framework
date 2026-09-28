@@ -48,7 +48,14 @@ import { createTenantFeature } from "../../tenant/feature";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity } from "../../tenant/schema/tenant";
 import {
+  addressOptOutAggregateIdForTests,
+  hashUnsubscribeAddress,
+  MAX_ADDRESS_OPT_OUT_GENERATIONS_FOR_TESTS,
+} from "../address-opt-out";
+import {
+  DELIVERY_RESUBSCRIBE_PATH,
   DELIVERY_UNSUBSCRIBE_PATH,
+  DeliveryErrors,
   DeliveryHandlers,
   DeliveryJobs,
   DeliveryQueries,
@@ -58,6 +65,7 @@ import { createDeliveryFeature } from "../feature";
 import { deliveryRenderJob, deliverySendJob } from "../jobs";
 import {
   deliveryAttemptsTable,
+  notificationAddressOptOutEntity,
   notificationAddressOptOutsTable,
   notificationPreferencesTable,
 } from "../tables";
@@ -83,6 +91,15 @@ function postUnsubscribe(token: string) {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: `token=${encodeURIComponent(token)}`,
+  });
+}
+
+// Mirrors the unsubscribe-page's "Undo" button: JSON body, never the query.
+function postResubscribe(token: string) {
+  return stack.app.request(DELIVERY_RESUBSCRIBE_PATH, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ token }),
   });
 }
 
@@ -2267,5 +2284,220 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
       channel: "email",
     });
     expect(rows).toHaveLength(1);
+  });
+});
+
+// --- Flow 20: resubscribe endpoint (undo direction of unsubscribe) ---
+
+describe("flow 20: resubscribe endpoint", () => {
+  const ADDRESS_BIDX_KEY = Buffer.alloc(32, 3).toString("base64");
+
+  beforeAll(() => {
+    configureBlindIndexKey(ADDRESS_BIDX_KEY);
+  });
+
+  afterAll(() => {
+    resetBlindIndexKeyForTests();
+  });
+
+  test("address token: unsubscribe → resubscribe → unsubscribe again → resubscribe (id generations)", async () => {
+    const address = "flow20-address@test.com";
+    const notificationType = "app:notify:address-resub-20a";
+
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: admin.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const unsubRes = await postUnsubscribe(token);
+    expect(unsubRes.status).toBe(200);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel: "email",
+      }),
+    ).toHaveLength(1);
+
+    const resubRes = await postResubscribe(token);
+    expect(resubRes.status).toBe(200);
+    const resubBody = (await resubRes.json()) as { isSuccess?: boolean };
+    expect(resubBody.isSuccess).toBe(true);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel: "email",
+      }),
+    ).toHaveLength(0);
+
+    // Opting out again must land on a fresh generation — the first
+    // generation's stream was hard-deleted by the resubscribe above.
+    const unsubRes2 = await postUnsubscribe(token);
+    expect(unsubRes2.status).toBe(200);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel: "email",
+      }),
+    ).toHaveLength(1);
+
+    const resubRes2 = await postResubscribe(token);
+    expect(resubRes2.status).toBe(200);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel: "email",
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("address token: resubscribe at the last generation is refused with 409, opt-out survives, unsubscribe still works", async () => {
+    const address = "flow20-generation-cap@test.com";
+    const notificationType = "app:notify:address-resub-20-cap";
+    const channel = "email";
+    const addressHash = hashUnsubscribeAddress(address);
+    if (!addressHash) throw new Error("blind-index key not configured for this test");
+
+    // Seed directly at the last generation instead of looping resubscribe
+    // 99 times — same executor.create seed pattern production code itself
+    // uses (see ticketExecutor() above), not a raw table write.
+    const lastGenerationId = addressOptOutAggregateIdForTests(
+      admin.tenantId,
+      addressHash,
+      notificationType,
+      channel,
+      MAX_ADDRESS_OPT_OUT_GENERATIONS_FOR_TESTS - 1,
+    );
+    const optOutExecutor = createEventStoreExecutor(
+      notificationAddressOptOutsTable,
+      notificationAddressOptOutEntity,
+      { entityName: "notification-address-opt-out" },
+    );
+    const tenantDb = createTenantDb(db, admin.tenantId);
+    const seeded = await optOutExecutor.create(
+      { id: lastGenerationId, addressHash, notificationType, channel },
+      admin,
+      tenantDb,
+    );
+    expect(seeded.isSuccess).toBe(true);
+
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: admin.tenantId, address, notificationType, channel },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const resubRes = await postResubscribe(token);
+    expect(resubRes.status).toBe(409);
+    const resubBody = (await resubRes.json()) as { error?: { code?: string } };
+    expect(resubBody.error?.code).toBe(DeliveryErrors.resubscribeLimitReached);
+
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel,
+      }),
+    ).toHaveLength(1);
+
+    const unsubRes = await postUnsubscribe(token);
+    expect(unsubRes.status).toBe(200);
+    expect(
+      await selectMany(db, notificationAddressOptOutsTable, {
+        tenantId: admin.tenantId,
+        notificationType,
+        channel,
+      }),
+    ).toHaveLength(1);
+  });
+
+  test("address token: resubscribe without a prior opt-out is a no-op 200", async () => {
+    const address = "flow20-no-prior-optout@test.com";
+    const notificationType = "app:notify:address-resub-20b";
+
+    const token = await signAddressUnsubscribeToken(
+      { tenantId: admin.tenantId, address, notificationType, channel: "email" },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const res = await postResubscribe(token);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isSuccess?: boolean };
+    expect(body.isSuccess).toBe(true);
+  });
+
+  test("user token: resubscribe re-enables the preference", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:user-resub-20c",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    await postUnsubscribe(token);
+    const disabled = await selectMany(db, notificationPreferencesTable, {
+      userId: user2.id,
+      notificationType: "app:notify:user-resub-20c",
+      channel: "inApp",
+    });
+    expect(disabled[0]?.["enabled"]).toBe(false);
+
+    const res = await postResubscribe(token);
+    expect(res.status).toBe(200);
+    const enabled = await selectMany(db, notificationPreferencesTable, {
+      userId: user2.id,
+      notificationType: "app:notify:user-resub-20c",
+      channel: "inApp",
+    });
+    expect(enabled[0]?.["enabled"]).toBe(true);
+  });
+
+  test("invalid token returns 400 unsubscribe_token_invalid", async () => {
+    const res = await postResubscribe("invalid-jwt-token");
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("unsubscribe_token_invalid");
+  });
+
+  test("token only in the query string is rejected (no query fallback, unlike unsubscribe)", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:user-resub-20d",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const res = await stack.app.request(`${DELIVERY_RESUBSCRIBE_PATH}?token=${token}`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(400);
+  });
+
+  test("normal user cannot dispatch the resubscribe write handlers directly", async () => {
+    const addressError = await stack.http.writeErr(
+      DeliveryHandlers.resubscribeAddress,
+      {
+        addressHash: "x".repeat(32),
+        notificationType: "app:notify:direct-resub",
+        channel: "email",
+      },
+      user1,
+    );
+    expect(addressError.code).toBe("access_denied");
+
+    const userError = await stack.http.writeErr(
+      DeliveryHandlers.resubscribeUser,
+      { userId: user2.id, notificationType: "app:notify:direct-resub", channel: "email" },
+      user1,
+    );
+    expect(userError.code).toBe("access_denied");
   });
 });

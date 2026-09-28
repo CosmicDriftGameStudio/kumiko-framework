@@ -10,7 +10,12 @@ import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import * as jose from "jose";
 import * as z from "zod";
 import { hashUnsubscribeAddress } from "./address-opt-out";
-import { DELIVERY_UNSUBSCRIBE_PATH, DeliveryHandlers } from "./constants";
+import {
+  DELIVERY_RESUBSCRIBE_PATH,
+  DELIVERY_UNSUBSCRIBE_PATH,
+  DeliveryErrors,
+  DeliveryHandlers,
+} from "./constants";
 
 // Shape des verified-JWT-payloads. tenantId kommt als string aus jose und
 // wird NACH erfolgreichem parse() zur Branded TenantId — kein blind-cast.
@@ -130,11 +135,10 @@ export async function signAddressUnsubscribeToken(
       .setSubject(addressHash)
       .setIssuer("kumiko:unsubscribe")
       .setIssuedAt()
-      // No expiry, unlike the user token above: a leaked address token can
-      // only opt that one address out of one notificationType/channel, and
-      // an unsubscribe link mailed out today must keep working indefinitely
-      // — there is no signed-in flow for a no-account address to re-subscribe
-      // or request a fresh link from.
+      // No expiry, unlike the user token above: this same token also signs
+      // the resubscribe (undo) direction, and an unsubscribe link mailed out
+      // today must keep working indefinitely — there's no signed-in flow for
+      // a no-account address to request a fresh link from.
       .sign(encodedSecret)
   );
 }
@@ -262,6 +266,50 @@ async function dispatchUnsubscribeWrite(
   return dispatched.isSuccess;
 }
 
+// "limit_reached" is a distinct outcome, not a generic failure: it's the
+// address-side generation cap (removeAddressOptOut) refusing to delete the
+// opt-out row so unsubscribe always still works — the route answers 409,
+// not the 500 a real write failure gets.
+type ResubscribeOutcome = "success" | "limit_reached" | "failed";
+
+function isResubscribeLimitReached(error: { readonly details?: unknown }): boolean {
+  const details = error.details;
+  return (
+    typeof details === "object" &&
+    details !== null &&
+    (details as { reason?: unknown }).reason === DeliveryErrors.resubscribeLimitReached
+  );
+}
+
+async function dispatchResubscribeWrite(
+  verified: VerifiedUnsubscribe,
+  deps: SignatureExtraRouteDeps,
+): Promise<ResubscribeOutcome> {
+  const payload =
+    verified.kind === "address"
+      ? {
+          addressHash: verified.addressHash,
+          notificationType: verified.notificationType,
+          channel: verified.channel,
+        }
+      : {
+          userId: verified.userId,
+          notificationType: verified.notificationType,
+          channel: verified.channel,
+        };
+
+  const dispatched = await deps.dispatchSystemWrite({
+    handlerQn:
+      verified.kind === "address"
+        ? DeliveryHandlers.resubscribeAddress
+        : DeliveryHandlers.resubscribeUser,
+    tenantId: verified.tenantId,
+    payload,
+  });
+  if (dispatched.isSuccess) return "success";
+  return isResubscribeLimitReached(dispatched.error) ? "limit_reached" : "failed";
+}
+
 function confirmationPage(token: string): string {
   return `<!doctype html>
 <html>
@@ -289,6 +337,30 @@ function tokenFromPostRequest(request: SignatureExtraRouteVerifyRequest): string
     if (fromBody) return fromBody;
   }
   return request.query["token"];
+}
+
+// Resubscribe is deliberately NOT reachable via the query string — a mail
+// client's link prefetcher (or a scanner) following an unsubscribe link
+// eagerly is the exact threat model unsubscribe's one-click POST body
+// convention is built to avoid; resubscribe carries the same risk in
+// reverse (a prefetch that undoes a real opt-out) and gets no query-param
+// fallback at all.
+function tokenFromResubscribeRequest(
+  request: SignatureExtraRouteVerifyRequest,
+): string | undefined {
+  const contentType = request.headers["content-type"];
+  if (contentType?.includes("application/x-www-form-urlencoded")) {
+    return new URLSearchParams(request.rawBody).get("token") ?? undefined;
+  }
+  if (contentType?.includes("application/json")) {
+    try {
+      const parsed = JSON.parse(request.rawBody) as { token?: unknown };
+      return typeof parsed.token === "string" ? parsed.token : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
 }
 
 // GET renders a confirmation page without writing; POST performs the opt-out.
@@ -335,5 +407,30 @@ export function createUnsubscribeRoutes(
     },
   });
 
-  return [confirmRoute, writeRoute];
+  // Undo direction: token only from the JSON/form body, never the query
+  // (see tokenFromResubscribeRequest) — no GET confirmation-page variant,
+  // this is a one-shot POST from the unsubscribe-page's "Undo" button.
+  const resubscribeRoute = signatureRoute<VerifiedUnsubscribe>({
+    method: "POST",
+    path: DELIVERY_RESUBSCRIBE_PATH,
+    entry: "signature",
+    verify: async (request) =>
+      verifyUnsubscribeToken(tokenFromResubscribeRequest(request), encodedSecret),
+    handler: async (c, verified, deps) => {
+      const outcome = await dispatchResubscribeWrite(verified, deps);
+      if (outcome === "limit_reached") {
+        return c.json({ error: { code: DeliveryErrors.resubscribeLimitReached } }, 409, {
+          "Cache-Control": "no-store",
+        });
+      }
+      if (outcome === "failed") {
+        return c.json({ error: { code: "resubscribe_failed" } }, 500, {
+          "Cache-Control": "no-store",
+        });
+      }
+      return c.json({ isSuccess: true }, 200, { "Cache-Control": "no-store" });
+    },
+  });
+
+  return [confirmRoute, writeRoute, resubscribeRoute];
 }

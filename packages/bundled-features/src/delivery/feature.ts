@@ -17,6 +17,8 @@ import {
 import { deliveryAttemptSchema } from "./events";
 import { logQuery } from "./handlers/log.query";
 import { preferencesQuery } from "./handlers/preferences.query";
+import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write";
+import { resubscribeUserWrite } from "./handlers/resubscribe-user.write";
 import { setPreferenceWrite } from "./handlers/set-preference.write";
 import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write";
 import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write";
@@ -44,7 +46,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
   const resolvedAccess = options?.access ?? access.admin;
   return defineFeature("delivery", (r) => {
     r.describe(
-      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe`: `GET ?token=` renders a confirmation page (no write), `POST` performs the opt-out (RFC 8058 one-click, token from the form body or query) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at this route.",
+      "The notification dispatch core: call `ctx.notify(notificationType, { to, route, data, priority, idempotencyKey })` from any handler to fan out a notification across all registered channels (email, in-app, push). It stores per-user channel preferences in the `notification-preference` entity, opt-outs for no-account recipient addresses in `notification-address-opt-out` (keyed by a blind-index hash, never the plaintext address), logs every attempt to `store_delivery_attempts`, and enforces idempotency and rate-limiting \u2014 add `channel-email`, `channel-in-app`, or `channel-push` on top to actually send anything. Unsubscribe/resubscribe links are served by `createUnsubscribeRoutes({ secret })` mounted via the app's `extraRoutes` at `/api/delivery/unsubscribe` and `/api/delivery/resubscribe`: `GET /unsubscribe?token=` renders a confirmation page (no write), `POST /unsubscribe` performs the opt-out (RFC 8058 one-click, token from the form body or query), `POST /resubscribe` undoes it (JSON `{token}` or form body only, never the query — reachable by a mail-client link prefetcher) — sign links with `signUnsubscribeToken` / `signAddressUnsubscribeToken` using the same secret. `channel-email` sets `List-Unsubscribe` / `List-Unsubscribe-Post` automatically when a message's `data.unsubscribeUrl` points at the unsubscribe route.",
     );
     r.uiHints({
       displayLabel: "Notifications \u00b7 Dispatch Core",
@@ -152,6 +154,8 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       setPreference: r.writeHandler(setPreferenceWrite),
       unsubscribeAddress: r.writeHandler(unsubscribeAddressWrite),
       unsubscribeUser: r.writeHandler(unsubscribeUserWrite),
+      resubscribeAddress: r.writeHandler(resubscribeAddressWrite),
+      resubscribeUser: r.writeHandler(resubscribeUserWrite),
     };
 
     const queries = {

@@ -52,7 +52,7 @@ import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
   AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
 } from "../constants";
-import { invalidInviteToken, inviteEmailMismatch } from "../errors";
+import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors";
 import {
   burnInviteToken,
   deleteInviteToken,
@@ -191,14 +191,13 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
           email: invitationEmail,
           isDeleted: false,
         });
-        if (!userRow?.passwordHash) return invalidInviteToken();
+        // No enumeration risk: reaching here already required a valid, open
+        // invite token plus the matching invitation email.
+        if (!userRow?.passwordHash) return invalidCredentials();
 
         const lockoutGate = await gateEnforceLockout(ctx, userRow.id);
         if (!lockoutGate.ok) return lockoutGate.result;
 
-        // Wrong password still collapses to invalidInviteToken (existing
-        // anti-enum contract for this endpoint) — gateVerifyPassword runs
-        // regardless, for its failed-attempt recording side effect.
         const passwordGate = await gateVerifyPassword(
           ctx,
           { id: userRow.id, passwordHash: userRow.passwordHash },
@@ -206,7 +205,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
           maxFailedAttempts,
           lockoutDurationMinutes,
         );
-        if (!passwordGate.ok) return invalidInviteToken();
+        if (!passwordGate.ok) return invalidCredentials();
 
         const emailGate = gateEnforceEmailVerified(userRow, strictVerification);
         if (!emailGate.ok) return emailGate.result;
