@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.325.2",
+    "type": "fix",
+    "title": "Server validation issues without a rendered field keep the error banner",
+    "detail": "RenderEdit suppressed the banner as soon as the server returned any field issue, even one\nthat no rendered field can display (`version`, `id`, a root-level refine, a condition-hidden\nfield), so the save failed silently. The banner now stays whenever at least one issue has no\nvisible field; tabs/wizard layouts still jump to the step holding the first matched field."
+  },
+  {
     "version": "0.325.1",
     "type": "fix",
     "title": "Server validation errors on entityEdit update forms reach their fields again",
