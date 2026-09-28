@@ -48,6 +48,7 @@ import { RelatedListSection } from "./related-list-section";
 import {
   filterEditSections,
   hasEditableSection,
+  hasIssueWithoutRenderedField,
   resolveExtensionEntityId,
   shouldNotifyCaller,
 } from "./render-edit-logic";
@@ -1029,29 +1030,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         }
       } else {
         const fieldIssues = result.error.details?.fields ?? [];
+        const issuePaths = fieldIssues.map((i) => i.path);
         // A server field error on a step the form isn't currently showing is
         // otherwise invisible — jump to the first step that contains one of
         // the errored fields. For tabs this is what keeps the submit from
         // blocking in silence, the failure mode the boot-validator used to
-        // prevent by rejecting the layout outright (fw#3134). Single-section
-        // forms render every field at once, so the original
-        // suppress-when-field-issues-exist rule still applies there (the
-        // field itself already shows the error inline).
+        // prevent by rejecting the layout outright (fw#3134). An issue no
+        // rendered field can show (`version`, `id`, a root-level refine, a
+        // hidden field) keeps the banner, jump or not.
         if (isStepped) {
-          const step = findFirstErroringStep(fieldIssues.map((i) => i.path));
-          if (step !== undefined) {
-            setRawStep(step);
-            setFormError(null);
-          } else {
-            // No rendered step contains any of the errored fields (a
-            // root-level issue, or a field outside every step) — nothing
-            // will show this error inline, so the banner must not be
-            // suppressed.
-            setFormError(result.error);
-          }
-        } else {
-          setFormError(fieldIssues.length === 0 ? result.error : null);
+          const step = findFirstErroringStep(issuePaths);
+          if (step !== undefined) setRawStep(step);
         }
+        setFormError(
+          hasIssueWithoutRenderedField(issuePaths, filteredSections) ? result.error : null,
+        );
       }
       // skip: on entity-success-but-extension-failure the extension-error
       // banner is showing — don't notify (the caller navigates away on success

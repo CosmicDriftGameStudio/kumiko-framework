@@ -806,6 +806,86 @@ describe("RenderEdit", () => {
   });
 });
 
+describe("RenderEdit server validation errors (single-section)", () => {
+  test("issue path matches a rendered field — field shows the error, no banner", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "title", code: "too_small", i18nKey: "kumiko.errors.required" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    // Save stays disabled on an unchanged form.
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme Corp" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-title-errors")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+  });
+
+  test("issue path matches no rendered field — banner shows", async () => {
+    const write = mock(
+      async () =>
+        ({
+          isSuccess: false,
+          error: {
+            code: "validation_failed",
+            httpStatus: 422,
+            i18nKey: "kumiko.errors.validation",
+            message: "Validation failed",
+            details: {
+              fields: [{ path: "version", code: "custom", i18nKey: "kumiko.errors.stale" }],
+            },
+          },
+        }) as never,
+    );
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Acme Corp" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
+  });
+});
+
 describe("RenderEdit — composed extension save (Bug-Bash 3 #1)", () => {
   const screenDef: EntityEditScreenDefinition = {
     id: "orders:screen:order-edit",
@@ -4223,6 +4303,45 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
 
     expect(writes).toHaveLength(1);
     expect(writes[0]?.payload).toMatchObject({ title: "Acme", count: 7 });
+  });
+
+  test("a server error on an unopened tab jumps there and still shows the banner for an issue without a field", async () => {
+    const dispatcher = makeDispatcher((async () => ({
+      isSuccess: false,
+      error: {
+        code: "validation_failed",
+        httpStatus: 422,
+        i18nKey: "kumiko.errors.validation",
+        message: "Validation failed",
+        details: {
+          fields: [
+            { path: "count", code: "too_small", i18nKey: "kumiko.errors.required" },
+            { path: "version", code: "custom", i18nKey: "kumiko.errors.stale" },
+          ],
+        },
+      },
+    })) as Dispatcher["write"]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
+    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
   });
 
   test("a required field on an unopened tab activates that tab instead of blocking in silence", async () => {

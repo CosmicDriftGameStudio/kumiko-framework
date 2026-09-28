@@ -8,6 +8,7 @@ import type {
 import {
   filterEditSections,
   hasEditableSection,
+  hasIssueWithoutRenderedField,
   resolveExtensionEntityId,
   shouldNotifyCaller,
 } from "../render-edit-logic";
@@ -246,5 +247,68 @@ describe("filterEditSections", () => {
     const sections = [extensionSection, namedFieldsSection("a")];
     const result = filterEditSections(sections, ["zzz"]);
     expect(result).toEqual([extensionSection]);
+  });
+});
+
+describe("hasIssueWithoutRenderedField", () => {
+  test("issue path matches a rendered field → false", () => {
+    expect(hasIssueWithoutRenderedField(["title"], [namedFieldsSection("title", "body")])).toBe(
+      false,
+    );
+  });
+
+  // Root-level refine issues (`version`/`id`/`changes`) never match a rendered
+  // field name — the banner is the only place that can show them.
+  test("root-level refine path (version) → true", () => {
+    expect(hasIssueWithoutRenderedField(["version"], [namedFieldsSection("title")])).toBe(true);
+  });
+
+  test("(root) path → true", () => {
+    expect(hasIssueWithoutRenderedField(["(root)"], [namedFieldsSection("title")])).toBe(true);
+  });
+
+  test("path matches a field hidden by its own condition → true", () => {
+    const section: EditSectionViewModel = {
+      kind: "fields",
+      columns: 1,
+      visible: true,
+      fields: [
+        {
+          field: "a",
+          label: "A",
+          type: "text",
+          value: "",
+          visible: true,
+          readOnly: false,
+          required: false,
+        },
+        {
+          field: "b",
+          label: "B",
+          type: "text",
+          value: "",
+          visible: false,
+          readOnly: false,
+          required: false,
+        },
+      ],
+    };
+    expect(hasIssueWithoutRenderedField(["b"], [section])).toBe(true);
+  });
+
+  test("dotted path (tasks.2.title) matches on its first segment → false", () => {
+    expect(hasIssueWithoutRenderedField(["tasks.2.title"], [namedFieldsSection("tasks")])).toBe(
+      false,
+    );
+  });
+
+  test("mixed: one matched, one unmatched → true", () => {
+    expect(hasIssueWithoutRenderedField(["title", "version"], [namedFieldsSection("title")])).toBe(
+      true,
+    );
+  });
+
+  test("empty issue list → true (single-section path always shows the banner then)", () => {
+    expect(hasIssueWithoutRenderedField([], [namedFieldsSection("title")])).toBe(true);
   });
 });
