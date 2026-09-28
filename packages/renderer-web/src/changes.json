@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.324.0",
+    "type": "fix",
+    "title": "An explicit screenQn missing from the role-projected schema falls back to the first reachable screen",
+    "detail": "createKumikoApp's root route used an explicit screenQn unchecked; when the server's role\nprojection removed that screen for the caller, /a showed \"Screen not found\". It now lands\non the first reachable screen. A visible explicit screen and unprojected schemas are unchanged."
+  },
+  {
     "version": "0.321.0",
     "type": "fix",
     "title": "Landing fallback for a role-projected fetched schema now considers every nav-reachable screen, not just open-to-all ones",
