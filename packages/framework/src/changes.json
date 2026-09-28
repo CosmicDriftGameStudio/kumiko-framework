@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.324.0",
+    "type": "breaking",
+    "title": "Writes on readAsInstruction fields now require agent.risk \"high\" on the directly-dispatched handler",
+    "migration": "New field flag `readAsInstruction: true` on `text`, `longText`, and `jsonb`\nfields (`@cosmicdrift/kumiko-types`) marks a field whose value a later run\nreads as an instruction — a prompt, rule, or template. Any create/update\nwhose payload writes such a field must resolve `agent.risk: \"high\"` on the\ndirectly-dispatched entry handler, or the executor gate denies it with\n`access_denied` / `instruction_field_write_requires_high_risk` before any\nDB write. This is opt-in per field, but touches every write path once a\nfield carries the flag — consumer checklist:\n\n1. Mark fields that a later run reads as an instruction (prompts, rules,\n   templates) with `readAsInstruction: true`.\n2. Update your own handlers that write such a field via\n   `executor.create`/`executor.update`, or delegate into one via\n   `ctx.write`/`writeAs`, to `agent: { risk: \"high\" }` — the directly\n   called handler must carry it, delegation does not inherit it.\n3. Standard entity-convention create/update handlers on an entity with such\n   a field now default to \"high\" automatically; declaring a lower\n   `agent.risk` on one is a define-time error, same as the delete floor\n   from #3345.\n4. An update whose payload doesn't include the flagged field stays allowed\n   unchanged — the gate checks payload presence after `preSave`, not\n   whether the value actually changed.\n5. Not gated: `delete`/`restore` (they don't write the field; the existing\n   irreversible-delete floor still applies), and your own domain events\n   applied via `ctx.appendEvent` whose projection writes a flagged field —\n   route such writes through the executor primitives (`create`/`update`)\n   to get the gate.\n6. On `create`, a flagged field with a `default` counts as written even if\n   the payload omits it — `applyDefaults` runs before the gate. A custom\n   mid-risk create handler whose payload leaves the field out is denied\n   just the same, and a standard create with `excludeFields` on such a\n   field still resolves to \"high\"."
+  },
+  {
+    "version": "0.324.0",
+    "type": "improvement",
+    "title": "TestStack.drainJobs() waits deterministically for jobs and their follow-up consumers",
+    "detail": "Migration note: replace `waitFor` polling on a job's side effect with `await\nstack.drainJobs()`; it rejects with the job's name and error on final\nfailure. New `JobRunner.countPendingJobs()` — hand-written `JobRunner`\nstubs (test doubles) must add it."
+  },
+  {
     "version": "0.323.0",
     "type": "improvement",
     "title": "auth-routes: optional invite.infoHandler mounts POST /auth/invite-info",
