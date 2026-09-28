@@ -61,6 +61,7 @@ export function assertInstructionFieldWriteAllowed(
   instructionFieldNames: readonly string[],
 ): void {
   const fields = writtenFieldNames.filter((name) => instructionFieldNames.includes(name));
+  // skip: the write touches no readAsInstruction field.
   if (fields.length === 0) return;
   assertEntryHandlerHighRisk({
     reason: FrameworkReasons.instructionFieldWriteRequiresHighRisk,
