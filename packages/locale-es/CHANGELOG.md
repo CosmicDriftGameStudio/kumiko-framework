@@ -1,5 +1,12 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.325.0
+
+### Patch Changes
+
+- Updated dependencies [100732a]
+  - @cosmicdrift/kumiko-framework@0.325.0
+
 ## 0.324.0
 
 ### Patch Changes

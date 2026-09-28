@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.325.0",
+    "type": "improvement",
+    "title": "JobContext exposes ctx.attempt and ctx.finalAttempt",
+    "detail": "Job handlers can read the 1-based run number and whether the current run is\nthe last one BullMQ will attempt, so a handler can defer writing a\nbusiness-facing failure state until the final attempt instead of writing\nit on every retry.\n\nMigration note: hand-built `JobContext` objects (test doubles, boot\nseeders) must add `attempt` and `finalAttempt` (e.g. `attempt: 1,\nfinalAttempt: true`)."
+  },
+  {
     "version": "0.324.0",
     "type": "breaking",
     "title": "Writes on readAsInstruction fields now require agent.risk \"high\" on the directly-dispatched handler",

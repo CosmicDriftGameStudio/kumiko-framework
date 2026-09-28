@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.325.0
+
+### Minor Changes
+
+- 100732a: JobContext exposes ctx.attempt and ctx.finalAttempt
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: JobContext exposes ctx.attempt and ctx.finalAttempt
+  detail: |
+    Job handlers can read the 1-based run number and whether the current run is
+    the last one BullMQ will attempt, so a handler can defer writing a
+    business-facing failure state until the final attempt instead of writing
+    it on every retry.
+
+    Migration note: hand-built `JobContext` objects (test doubles, boot
+    seeders) must add `attempt` and `finalAttempt` (e.g. `attempt: 1,
+    finalAttempt: true`).
+  -->
+
+### Patch Changes
+
+- Updated dependencies [100732a]
+  - @cosmicdrift/kumiko-types@0.325.0
+  - @cosmicdrift/kumiko-http@0.325.0
+
 ## 0.324.0
 
 ### Minor Changes
