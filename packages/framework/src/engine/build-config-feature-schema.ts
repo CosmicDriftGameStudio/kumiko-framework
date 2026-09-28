@@ -172,14 +172,10 @@ function collectSelectorOptions(registry: Registry): Map<string, readonly string
   return options;
 }
 
-// A plugin feature with several selector-gated registrations can't sit under one
-// selector's panel, so it stays ungated (own nav, secrets in the global screen).
-function planSelectorGating(
+function collectVisibleSelectorOwners(
   registry: Registry,
   visible: readonly ScopedKey[],
-  declaredSecrets: readonly DeclaredSecret[],
-  secretsEnabled: boolean,
-): SelectorGating {
+): { ownerGroupByExtension: Map<string, string>; selectorFeatures: Set<string> } {
   const ownerGroupByExtension = new Map<string, string>();
   const selectorFeatures = new Set<string>();
   for (const [extensionName, selectorKey] of registry.getAllExtensionSelectors()) {
@@ -189,8 +185,10 @@ function planSelectorGating(
     selectorFeatures.add(selector.key.feature);
     selectorFeatures.add(selector.key.ownerFeature);
   }
-  if (ownerGroupByExtension.size === 0) return NO_SELECTOR_GATING;
+  return { ownerGroupByExtension, selectorFeatures };
+}
 
+function countSelectorUsagesByFeature(registry: Registry): Map<string, number> {
   const usageCountByFeature = new Map<string, number>();
   for (const [extensionName] of registry.getAllExtensionSelectors()) {
     for (const usage of registry.getExtensionUsages(extensionName)) {
@@ -199,6 +197,23 @@ function planSelectorGating(
       usageCountByFeature.set(feature, (usageCountByFeature.get(feature) ?? 0) + 1);
     }
   }
+  return usageCountByFeature;
+}
+
+// A plugin feature with several selector-gated registrations can't sit under one
+// selector's panel, so it stays ungated (own nav, secrets in the global screen).
+function planSelectorGating(
+  registry: Registry,
+  visible: readonly ScopedKey[],
+  declaredSecrets: readonly DeclaredSecret[],
+  secretsEnabled: boolean,
+): SelectorGating {
+  const { ownerGroupByExtension, selectorFeatures } = collectVisibleSelectorOwners(
+    registry,
+    visible,
+  );
+  if (ownerGroupByExtension.size === 0) return NO_SELECTOR_GATING;
+  const usageCountByFeature = countSelectorUsagesByFeature(registry);
 
   const pluginsByOwnerGroup = new Map<string, GatedPlugin[]>();
   const pluginFeatures = new Set<string>();
