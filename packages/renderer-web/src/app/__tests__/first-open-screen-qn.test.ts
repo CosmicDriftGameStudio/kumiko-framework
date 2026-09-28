@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { CustomScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { firstLandingScreenQnForProjectedSchema, firstOpenScreenQn } from "../create-app";
+import {
+  firstLandingScreenQnForProjectedSchema,
+  firstOpenScreenQn,
+  resolveRootScreenQn,
+} from "../create-app";
 
 function feature(
   overrides: Partial<FeatureSchema> & { readonly featureName: string },
@@ -123,5 +127,37 @@ describe("firstLandingScreenQnForProjectedSchema", () => {
       }),
     ];
     expect(firstLandingScreenQnForProjectedSchema(features)).toBeUndefined();
+  });
+});
+
+describe("resolveRootScreenQn", () => {
+  const features: readonly FeatureSchema[] = [
+    feature({
+      featureName: "shop",
+      screens: [customScreen({ id: "catalog" })],
+      navs: [{ id: "catalog", label: "shop:nav.catalog", screen: "shop:screen:catalog" }],
+    }),
+  ];
+
+  test("projected schema, explicit screen missing from the projection: falls back to the first reachable screen", () => {
+    expect(resolveRootScreenQn(features, "shop:screen:missing", true)).toBe("shop:screen:catalog");
+  });
+
+  test("projected schema, explicit screen present: keeps the explicit screen", () => {
+    expect(resolveRootScreenQn(features, "shop:screen:catalog", true)).toBe("shop:screen:catalog");
+  });
+
+  test("unprojected schema, explicit screen missing: keeps the explicit screen unchanged", () => {
+    expect(resolveRootScreenQn(features, "shop:screen:missing", false)).toBe("shop:screen:missing");
+  });
+
+  test("projected schema, explicit screen missing and nothing reachable: undefined (no-open-screen banner)", () => {
+    const noLandingFeatures: readonly FeatureSchema[] = [
+      feature({
+        featureName: "admin",
+        screens: [customScreen({ id: "dashboard", access: { roles: ["SystemAdmin"] } })],
+      }),
+    ];
+    expect(resolveRootScreenQn(noLandingFeatures, "admin:screen:missing", true)).toBeUndefined();
   });
 });

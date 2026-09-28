@@ -277,6 +277,25 @@ export function firstLandingScreenQnForProjectedSchema(
   return firstOpenScreenQn(features) ?? firstNavReachableScreenQn(features, () => true);
 }
 
+// The server's role projection may strip an explicitly configured screenQn
+// for this caller's roles; the root route then falls back to the first
+// reachable landing instead of "Screen not found". An unprojected schema
+// keeps the explicit screen as configured.
+export function resolveRootScreenQn(
+  features: readonly FeatureSchema[],
+  explicitScreenQn: string | undefined,
+  schemaIsRoleProjected: boolean,
+): string | undefined {
+  if (explicitScreenQn === undefined) {
+    return schemaIsRoleProjected
+      ? firstLandingScreenQnForProjectedSchema(features)
+      : firstOpenScreenQn(features);
+  }
+  if (!schemaIsRoleProjected) return explicitScreenQn;
+  if (findOwnerFeatureInFeatures(features, explicitScreenQn) !== undefined) return explicitScreenQn;
+  return firstLandingScreenQnForProjectedSchema(features);
+}
+
 // Last-wins merge for a clientFeature-contributed map (contentEditors,
 // columnRenderers, extensionSectionComponents, ...): later features in
 // `clientFeatures` override earlier ones on key collision, logging once
@@ -535,11 +554,7 @@ function AppSchemaBoundary({
     return <AppSchemaFetchBoot onLoaded={onAppLoaded} />;
   }
 
-  const fallbackQn =
-    screenQn ??
-    (schemaIsRoleProjected
-      ? firstLandingScreenQnForProjectedSchema(app.features)
-      : firstOpenScreenQn(app.features));
+  const fallbackQn = resolveRootScreenQn(app.features, screenQn, schemaIsRoleProjected);
   if (fallbackQn === undefined) {
     return (
       <Banner variant="error" padded>
@@ -717,16 +732,25 @@ function BrowserNavBoot({
   );
 }
 
-// Finds the feature that owns a fully qualified ScreenQn.
-// Returns undefined if the screen isn't declared in any feature schema —
-// KumikoScreen then renders the "Screen not found" banner.
-function findOwnerFeature(app: AppSchema, qn: string): FeatureSchema | undefined {
-  for (const feature of app.features) {
+// Finds the feature that owns a fully qualified ScreenQn among a feature list.
+// Returns undefined if the screen isn't declared in any of them.
+function findOwnerFeatureInFeatures(
+  features: readonly FeatureSchema[],
+  qn: string,
+): FeatureSchema | undefined {
+  for (const feature of features) {
     for (const s of feature.screens) {
       if (qualifyScreenId(feature.featureName, s.id) === qn) return feature;
     }
   }
   return undefined;
+}
+
+// Finds the feature that owns a fully qualified ScreenQn.
+// Returns undefined if the screen isn't declared in any feature schema —
+// KumikoScreen then renders the "Screen not found" banner.
+function findOwnerFeature(app: AppSchema, qn: string): FeatureSchema | undefined {
+  return findOwnerFeatureInFeatures(app.features, qn);
 }
 
 type ScreenDef = FeatureSchema["screens"][number];
