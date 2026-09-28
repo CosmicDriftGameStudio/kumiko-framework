@@ -113,6 +113,15 @@ async function readPrompt(id: string): Promise<Record<string, unknown> | null> {
   return stack.http.queryOk("instructiongate:query:prompt:detail", { id }, admin);
 }
 
+async function promptWithLabelExists(label: string): Promise<boolean> {
+  const { rows } = await stack.http.queryOk<{ rows: readonly Record<string, unknown>[] }>(
+    "instructiongate:query:prompt:list",
+    {},
+    admin,
+  );
+  return rows.some((row) => row["label"] === label);
+}
+
 describe("executor.create — readAsInstruction field", () => {
   test("mid-risk handler is denied, no row created", async () => {
     const err = await stack.http.writeErr(
@@ -124,12 +133,14 @@ describe("executor.create — readAsInstruction field", () => {
     expect(err.code).toBe("access_denied");
     expect(errorReason(err.details)).toBe("instruction_field_write_requires_high_risk");
     expect(err.message).toContain("instructiongate:write:create-prompt-mid");
+    expect(await promptWithLabelExists("denied-create")).toBe(false);
   });
 
   test("high-risk handler succeeds, row exists", async () => {
     const id = await createPromptDirect("allowed-create", "system prompt v1");
     const row = await readPrompt(id);
     expect(row?.["body"]).toBe("system prompt v1");
+    expect(await promptWithLabelExists("allowed-create")).toBe(true);
   });
 });
 

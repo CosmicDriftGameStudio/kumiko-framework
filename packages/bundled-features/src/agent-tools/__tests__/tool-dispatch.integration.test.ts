@@ -304,5 +304,10 @@ describe("dispatchToolCall — a mid-risk tool writing a readAsInstruction field
     if (result.ok) throw new Error("unreachable");
     expect(result.error).toContain(SCRIBE_WRITE_NOTE_MID_QN);
     expect(result.error).toContain("readAsInstruction");
+
+    const rows = (await asRawClient(stack.db).unsafe(
+      "SELECT id FROM agent_tools_test_scribes",
+    )) as readonly Record<string, unknown>[];
+    expect(rows.length).toBe(0);
   });
 });

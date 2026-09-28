@@ -124,6 +124,7 @@ export function createWriteVerbs(
     assertStreamWritable,
     loadExpectSnapshot,
   } = ctx;
+  const entityInstructionFieldNames = instructionFieldNames(entity);
 
   return {
     async create(payload, user, db, options) {
@@ -158,7 +159,7 @@ export function createWriteVerbs(
         entityName,
         "create",
         Object.keys(data),
-        instructionFieldNames(entity),
+        entityInstructionFieldNames,
       );
 
       // H.2 — entity-level write-ownership on create. No oldRow exists, so
@@ -356,7 +357,7 @@ export function createWriteVerbs(
         entityName,
         "update",
         Object.keys(changes),
-        instructionFieldNames(entity),
+        entityInstructionFieldNames,
       );
 
       // H.2 — entity-level write-ownership on update. Load old row (already
