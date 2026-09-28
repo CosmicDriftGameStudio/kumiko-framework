@@ -29,7 +29,12 @@ import { z } from "zod";
 export const taskEntity = createEntity({
   table: "read_sample_notes_history_tasks",
   fields: {
-    title: createTextField({ required: true, maxLength: 200 }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+    }),
   },
 });
 

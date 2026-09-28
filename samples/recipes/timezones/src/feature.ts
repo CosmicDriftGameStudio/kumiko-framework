@@ -14,7 +14,7 @@ import { z } from "zod";
 export const deliveryEntity = createEntity({
   table: "read_sample_deliveries",
   fields: {
-    label: createTextField({ required: true }),
+    label: createTextField({ personal: false, reason: "is_business_data", required: true }),
     pickup: createLocatedTimestampField({ required: true }),
     dropoffOn: createDateField(),
     bookedAt: createTimestampField(),

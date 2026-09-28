@@ -7,8 +7,8 @@ import { createEntity, createTextField } from "@cosmicdrift/kumiko-framework/eng
 export const currencyEntity = createEntity({
   table: "read_sample_currencies",
   fields: {
-    code: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
+    name: createTextField({ personal: false, reason: "is_reference_data", required: true }),
   },
 });
 

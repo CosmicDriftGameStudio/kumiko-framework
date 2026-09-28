@@ -28,7 +28,12 @@ import { z } from "zod";
 export const noteEntity = createEntity({
   table: "read_sample_tags_notes",
   fields: {
-    title: createTextField({ required: true, maxLength: 200 }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+    }),
   },
 });
 

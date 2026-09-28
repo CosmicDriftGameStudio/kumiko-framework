@@ -6,13 +6,13 @@ import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { helpdeskTranslations } from "./i18n";
 import { ticketEditScreen, ticketEntity, ticketListScreen } from "./schema";
 
-const open = {
-  access: {
-    openToAll: {
-      reason:
-        "demo app: any signed-in user manages every helpdesk ticket; there is no per-user ownership in this sample",
-    },
-  },
+const openReason =
+  "demo app: any signed-in user manages every helpdesk ticket; there is no per-user ownership in this sample";
+
+const openRead = { access: { openToAll: { reason: openReason } } } as const;
+
+const openWrite = {
+  access: { openToAll: { reason: openReason, personalData: "tenant-members" } },
 } as const;
 
 // r.translations() wants key-first shape ({key: {de, en}}); helpdeskTranslations
@@ -29,7 +29,7 @@ const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue
 export const helpdeskFeature = defineFeature("helpdesk", (r) => {
   r.translations({ keys: REQUIRED_I18N });
 
-  r.crud("ticket", ticketEntity, { write: open, read: open });
+  r.crud("ticket", ticketEntity, { write: openWrite, read: openRead });
 
   r.screen(ticketEditScreen);
   r.screen(ticketListScreen);

@@ -57,7 +57,7 @@ const ORDER_TRANSITIONS = defineTransitions({
 export const orderEntity = createEntity({
   table: "read_errctr_orders",
   fields: {
-    ownerId: createTextField({ required: true }),
+    ownerId: createTextField({ personal: "ref", required: true }),
     status: createSelectField({ options: ORDER_STATES, default: "draft" }),
     totalCents: createNumberField({ default: 0 }),
   },

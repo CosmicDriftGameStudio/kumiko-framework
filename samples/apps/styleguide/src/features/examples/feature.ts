@@ -21,13 +21,13 @@ import { EXAMPLES_I18N } from "./i18n";
 export const shippingEntity = createEntity({
   table: "read_examples_shipping",
   fields: {
-    street: createTextField({ required: true }),
-    apt: createTextField(),
-    city: createTextField({ required: true }),
+    street: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    apt: createTextField({ personal: { of: "id" }, find: "none" }),
+    city: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     state: createSelectField({
       options: ["California", "New York", "Texas", "Washington", "Florida"] as const,
     }),
-    zip: createTextField({ required: true }),
+    zip: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     country: createSelectField({
       options: ["United States", "Germany", "United Kingdom", "Canada"] as const,
       default: "United States",
@@ -42,10 +42,10 @@ export const profileEntity = createEntity({
   table: "read_examples_profile",
   fields: {
     avatar: createImageField({ maxSize: "5mb", accept: ["jpg", "jpeg", "png"] }),
-    fullName: createTextField({ required: true }),
+    fullName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     // Demo-Daten, kein echtes PII-Encryption-Setup → Plaintext bewusst erlaubt.
     email: createTextField({ required: true, personal: false, reason: "is_business_data" }),
-    bio: createTextField({ multiline: { rows: 3 } }),
+    bio: createTextField({ personal: { of: "id" }, find: "none", multiline: { rows: 3 } }),
   },
 });
 
@@ -57,7 +57,7 @@ export const profileEntity = createEntity({
 export const deliveryEntity = createEntity({
   table: "read_examples_delivery",
   fields: {
-    label: createTextField({ required: true }),
+    label: createTextField({ personal: false, reason: "is_business_data", required: true }),
     pickup: createLocatedTimestampField({ required: true }),
     dropoffOn: createDateField(),
     bookedAt: createTimestampField(),
@@ -65,18 +65,12 @@ export const deliveryEntity = createEntity({
   },
 });
 
-const open = {
-  access: {
-    openToAll: {
-      reason:
-        "demo app: any signed-in user edits the shipping, profile and delivery example " +
-        "forms; there is no per-user ownership in this sample",
-    },
-  },
-} as const;
+const openReason =
+  "demo app: any signed-in user edits the shipping, profile and delivery example " +
+  "forms; there is no per-user ownership in this sample";
 const editFormOnly = {
-  write: open,
-  read: open,
+  write: { access: { openToAll: { reason: openReason, personalData: "tenant-members" } } },
+  read: { access: { openToAll: { reason: openReason } } },
   verbs: { delete: false, list: false, restore: false },
 } as const;
 

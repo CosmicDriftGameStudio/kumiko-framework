@@ -88,8 +88,8 @@ function reduceInvoice(state: InvoiceState, evt: { type: string; payload: unknow
 export const invoiceEntity = createEntity({
   table: "read_showcase_invoices",
   fields: {
-    customer: createTextField({ required: true }),
-    status: createTextField({ required: true }), // "draft" | "approved" | "paid" | "closed"
+    customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    status: createTextField({ personal: false, reason: "is_business_data", required: true }), // "draft" | "approved" | "paid" | "closed"
   },
 });
 

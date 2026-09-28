@@ -24,7 +24,7 @@ const BODY_NOT_PERSONAL = {
 const noteEntity = createEntity({
   table: "read_sample_writeform_notes",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     body: createTextField(BODY_NOT_PERSONAL),
     category: createSelectField({ options: NOTE_CATEGORIES, default: "question" }),
     priority: createNumberField(),
@@ -114,7 +114,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
           title: "Add comment",
           columns: 2,
           fieldDefs: {
-            title: createTextField({ required: true }),
+            title: createTextField({ personal: false, reason: "is_business_data", required: true }),
             body: createTextField(BODY_NOT_PERSONAL),
             category: createSelectField({ options: NOTE_CATEGORIES, default: "question" }),
             priority: createNumberField(),

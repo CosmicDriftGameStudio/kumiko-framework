@@ -15,7 +15,7 @@ import {
 export const invoiceEntity = createEntity({
   table: "read_invoices",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     amount: createMoneyField({ required: true }),
     language: createSelectField({ options: ["en", "de", "fr"] as const }),
   },

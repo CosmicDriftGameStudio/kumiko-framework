@@ -19,11 +19,16 @@ import { z } from "zod";
 export const ticketEntity = createEntity({
   table: "read_sample_delivery_tickets",
   fields: {
-    title: createTextField({ required: true, maxLength: 200 }),
-    description: createTextField({ maxLength: 2000 }),
-    assigneeId: createTextField(),
-    priority: createTextField({ required: true }), // "low" | "normal" | "critical"
-    status: createTextField({ required: true }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+    }),
+    description: createTextField({ personal: false, reason: "is_business_data", maxLength: 2000 }),
+    assigneeId: createTextField({ personal: "ref" }),
+    priority: createTextField({ personal: false, reason: "is_business_data", required: true }), // "low" | "normal" | "critical"
+    status: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

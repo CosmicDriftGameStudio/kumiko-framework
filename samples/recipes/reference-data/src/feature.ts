@@ -7,9 +7,9 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 export const categoryEntity = createEntity({
   table: "read_sample_categories",
   fields: {
-    code: createTextField({ required: true }),
-    name: createTextField({ required: true }),
-    description: createTextField(),
+    code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
+    name: createTextField({ personal: false, reason: "is_reference_data", required: true }),
+    description: createTextField({ personal: false, reason: "is_reference_data" }),
   },
 });
 

@@ -22,7 +22,7 @@ export const INVOICE_TRANSITIONS = defineTransitions(TRANSITION_CONFIG);
 export const invoiceEntity = createEntity({
   table: "read_sample_sm_invoices",
   fields: {
-    title: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
     amount: createMoneyField({ required: true }),
     status: createSelectField({ options: INVOICE_STATES, default: "draft" }),
   },

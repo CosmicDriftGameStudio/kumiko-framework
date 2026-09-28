@@ -11,8 +11,8 @@ import {
 export const currencyEntity = createEntity({
   table: "read_sample_mt_currencies",
   fields: {
-    code: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    code: createTextField({ personal: false, reason: "is_reference_data", required: true }),
+    name: createTextField({ personal: false, reason: "is_reference_data", required: true }),
     isActive: createBooleanField({ default: true }),
   },
 });

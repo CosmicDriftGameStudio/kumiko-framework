@@ -12,7 +12,7 @@ import {
 export const invoiceEntity = createEntity({
   table: "read_sample_invoices",
   fields: {
-    customer: createTextField({ required: true }),
+    customer: createTextField({ personal: { of: "id" }, find: "none", required: true }),
     lines: createEmbeddedListField(
       {
         product: { type: "reference", entity: "product", required: true },

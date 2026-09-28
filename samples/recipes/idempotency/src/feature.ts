@@ -11,9 +11,9 @@ import { z } from "zod";
 export const orderEntity = createEntity({
   table: "read_sample_orders",
   fields: {
-    customerName: createTextField({ required: true }),
-    product: createTextField({ required: true }),
-    status: createTextField({ default: "pending" }),
+    customerName: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    product: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    status: createTextField({ personal: false, reason: "is_business_data", default: "pending" }),
   },
 });
 

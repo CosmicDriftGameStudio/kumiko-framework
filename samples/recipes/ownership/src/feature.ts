@@ -41,16 +41,18 @@ export const contractEntity = createEntity({
   fields: {
     // teamId is the ownership-scoping column. It's referenced by claim-rules
     // via the default column (rule's shortName = "teamId" matches).
-    teamId: createTextField({ required: true }),
+    teamId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
     // Optional — when set, only that user (via user:id rule) can access.
-    assigneeId: createTextField(),
+    assigneeId: createTextField({ personal: "ref" }),
 
     // propA: public field. No access declared — every caller reads AND writes.
-    propA: createTextField(),
+    propA: createTextField({ personal: false, reason: "is_business_data" }),
 
     // propB: Admin-only. Non-admins don't see it in responses; attempts
     // to write it return access_denied (role gate in dispatcher).
     propB: createTextField({
+      personal: false,
+      reason: "is_business_data",
       access: {
         read: { Admin: "all" },
         write: { Admin: "all" },
@@ -61,6 +63,8 @@ export const contractEntity = createEntity({
     // propC in responses; writes to propC on a foreign team's row return
     // field_ownership_denied (executor ownership check).
     propC: createTextField({
+      personal: false,
+      reason: "is_business_data",
       access: {
         read: { Admin: "all", TeamMember: from("claim:teams:teamId") },
         write: { Admin: "all", TeamMember: from("claim:teams:teamId") },

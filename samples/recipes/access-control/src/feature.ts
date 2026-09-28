@@ -30,17 +30,17 @@ export const AccessControlRoles = defineRoles(["Admin"] as const);
 export const projectEntity = createEntity({
   table: "read_ac_projects",
   fields: {
-    name: createTextField({ required: true }),
-    ownerId: createTextField({ required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    ownerId: createTextField({ personal: "ref", required: true }),
   },
 });
 
 export const taskEntity = createEntity({
   table: "read_ac_tasks",
   fields: {
-    title: createTextField({ required: true }),
-    assigneeId: createTextField(),
-    projectId: createTextField({ required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    assigneeId: createTextField({ personal: "ref" }),
+    projectId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
   },
 });
 

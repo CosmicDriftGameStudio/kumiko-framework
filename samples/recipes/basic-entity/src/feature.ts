@@ -14,10 +14,10 @@ import {
 export const taskEntity = createEntity({
   table: "read_sample_tasks",
   fields: {
-    title: createTextField({ required: true }),
-    description: createTextField(),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    description: createTextField({ personal: false, reason: "is_business_data" }),
     // sortable: true so the integration test can exercise list-with-sort.
-    status: createTextField({ sortable: true }),
+    status: createTextField({ personal: false, reason: "is_business_data", sortable: true }),
     isArchived: createBooleanField({ default: false }),
   },
   softDelete: true,

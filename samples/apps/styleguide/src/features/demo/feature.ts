@@ -17,8 +17,18 @@ import { DEMO_I18N } from "./i18n";
 export const demoEntity = createEntity({
   table: "read_styleguide_items",
   fields: {
-    name: createTextField({ required: true, searchable: true, sortable: true }),
-    description: createTextField({ multiline: { rows: 4 } }),
+    name: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      searchable: true,
+      sortable: true,
+    }),
+    description: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      multiline: { rows: 4 },
+    }),
     quantity: createNumberField({ default: 1, sortable: true, filterable: true }),
     rating: createNumberField({ sortable: true }),
     isActive: createBooleanField({ default: true, sortable: true, filterable: true }),

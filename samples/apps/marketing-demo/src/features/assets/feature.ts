@@ -7,13 +7,13 @@ import type { TranslationValue } from "@cosmicdrift/kumiko-framework/ui-types";
 import { assetsTranslations } from "./i18n";
 import { assetEditScreen, assetEntity, assetListScreen } from "./schema";
 
-const open = {
-  access: {
-    openToAll: {
-      reason:
-        "demo app: any signed-in user manages every marketing asset; there is no per-user ownership in this sample",
-    },
-  },
+const openReason =
+  "demo app: any signed-in user manages every marketing asset; there is no per-user ownership in this sample";
+
+const openRead = { access: { openToAll: { reason: openReason } } } as const;
+
+const openWrite = {
+  access: { openToAll: { reason: openReason, personalData: "tenant-members" } },
 } as const;
 
 // r.translations() wants key-first shape ({key: {de, en}}); assetsTranslations
@@ -30,7 +30,7 @@ const REQUIRED_I18N: Record<string, { de: TranslationValue; en: TranslationValue
 export const assetsFeature = defineFeature("assets", (r) => {
   r.translations({ keys: REQUIRED_I18N });
 
-  r.crud("asset", assetEntity, { write: open, read: open });
+  r.crud("asset", assetEntity, { write: openWrite, read: openRead });
 
   r.screen(assetEditScreen);
   r.screen(assetListScreen);

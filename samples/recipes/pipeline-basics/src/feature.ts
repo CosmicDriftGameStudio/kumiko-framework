@@ -47,8 +47,8 @@ const LOW_STOCK_THRESHOLD = 10;
 export const productEntity = createEntity({
   table: "read_inventory_products",
   fields: {
-    sku: createTextField({ required: true }),
-    name: createTextField({ required: true }),
+    sku: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
     currentStock: createNumberField({ default: 0 }),
   },
 });

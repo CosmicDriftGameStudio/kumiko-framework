@@ -12,10 +12,10 @@ export const prospectEntity = createEntity({
   fields: {
     name: createTextField({ required: true, personal: "self", find: "fuzzy" }),
     email: createTextField({ format: "email", personal: "self", find: "none" }),
-    company: createTextField(),
-    notes: createTextField(),
-    source: createTextField({ required: true }),
-    acceptedBy: createTextField({ required: true }),
+    company: createTextField({ personal: false, reason: "is_business_data" }),
+    notes: createTextField({ personal: { of: "id" }, find: "none" }),
+    source: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    acceptedBy: createTextField({ personal: "ref", required: true }),
     acceptedAt: createTimestampField({ required: true }),
   },
 });

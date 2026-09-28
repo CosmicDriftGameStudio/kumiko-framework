@@ -8,9 +8,9 @@ import {
 export const messageEntity = createEntity({
   table: "read_sample_messages",
   fields: {
-    channel: createTextField({ required: true }),
-    text: createTextField({ required: true }),
-    author: createTextField(),
+    channel: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    text: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    author: createTextField({ personal: { of: "id" }, find: "none" }),
   },
   softDelete: true,
 });

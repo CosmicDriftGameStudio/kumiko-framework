@@ -3,8 +3,8 @@ import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumik
 export const pageEntity = createEntity({
   table: "read_content_pages",
   fields: {
-    slug: createTextField({ required: true }),
-    title: createTextField({ required: true }),
+    slug: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
+    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
   },
 });
 

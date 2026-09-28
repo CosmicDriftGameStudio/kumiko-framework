@@ -29,7 +29,12 @@ import { z } from "zod";
 export const productEntity = createEntity({
   table: "read_products",
   fields: {
-    name: createTextField({ required: true, maxLength: 100 }),
+    name: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 100,
+    }),
     active: createBooleanField({ default: true }),
   },
 });
@@ -70,7 +75,12 @@ export function createProductFeature(): FeatureDefinition {
 export const productAuditEntity = createEntity({
   table: "read_product_audits",
   fields: {
-    productName: createTextField({ required: true, maxLength: 100 }),
+    productName: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 100,
+    }),
   },
 });
 export const productAuditTable = buildEntityTable("product-audit", productAuditEntity);

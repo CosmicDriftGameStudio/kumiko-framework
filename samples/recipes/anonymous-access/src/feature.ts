@@ -34,17 +34,17 @@ import { z } from "zod";
 export const productEntity = createEntity({
   table: "shop_products",
   fields: {
-    name: createTextField({ required: true }),
-    priceCents: createTextField({ default: "0" }),
+    name: createTextField({ personal: false, reason: "is_business_data", required: true }),
+    priceCents: createTextField({ personal: false, reason: "is_business_data", default: "0" }),
   },
 });
 
 export const guestOrderEntity = createEntity({
   table: "shop_guest_orders",
   fields: {
-    productId: createTextField({ required: true }),
-    email: createTextField({ required: true }),
-    placedBy: createTextField({ default: "" }),
+    productId: createTextField({ personal: false, reason: "is_system_identifier", required: true }),
+    email: createTextField({ personal: { of: "id" }, find: "none", required: true }),
+    placedBy: createTextField({ personal: "ref", default: "" }),
   },
 });
 
@@ -106,7 +106,11 @@ export const anonymousAccessFeature = defineFeature("shop", (r) => {
     async (event, ctx) =>
       guestOrderExecutor.create({ ...event.payload, placedBy: event.user.id }, event.user, ctx.db),
     {
-      access: { roles: [...access.anonymous, "User"] },
+      // `email` is recordOwned PII (personal: { of: "id" }) written by an
+      // anonymous root handler — the runtime personal-data gate
+      // (write-origin.ts) requires this explicit opt-in, the same way the
+      // boot validator would reject an openToAll declaration missing it.
+      access: { roles: [...access.anonymous, "User"], personalData: "public-intake" },
       rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
     },
   );

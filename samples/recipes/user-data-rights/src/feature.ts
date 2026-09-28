@@ -31,9 +31,21 @@ export const noteEntity = createEntity({
   table: "store_notes",
   idType: "uuid",
   fields: {
-    authorId: createTextField({}),
-    title: createTextField({ required: true, maxLength: 200 }),
-    body: createTextField({ maxLength: 4000 }),
+    authorId: createTextField({ personal: "ref" }),
+    title: createTextField({
+      personal: false,
+      reason: "is_business_data",
+      required: true,
+      maxLength: 200,
+    }),
+    // Plaintext on purpose: store_notes is an unmanaged direct-write store, so the
+    // PII executor never encrypts it. Art. 17 runs through the EXT_USER_DATA
+    // hook below instead (deletes the author's rows, or unlinks them on anonymize).
+    body: createTextField({
+      personal: false,
+      reason: "covered_by_user_data_hook",
+      maxLength: 4000,
+    }),
   },
 });
 
