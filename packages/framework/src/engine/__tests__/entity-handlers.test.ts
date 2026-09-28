@@ -13,7 +13,7 @@ import {
   type EntityCrudRegistrar,
   registerEntityCrud,
 } from "../entity-handlers";
-import { createEntity, createTextField } from "../factories";
+import { createEntity, createLongTextField, createTextField } from "../factories";
 // Barrel import, not "../entity-handlers": covers that entityListSchema is
 // actually re-exported through engine/index.ts.
 import { entityListSchema, resolveAgentExposure } from "../index";
@@ -35,6 +35,31 @@ const noteEntitySoftDelete = createEntity({
     title: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
   softDelete: true,
+});
+
+const promptEntity = createEntity({
+  table: "prompts",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    body: createLongTextField({
+      personal: false,
+      reason: "test_fixture",
+      readAsInstruction: true,
+    }),
+  },
+});
+
+const promptEntityDefaultedBody = createEntity({
+  table: "prompts_defaulted",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    body: createLongTextField({
+      personal: false,
+      reason: "test_fixture",
+      readAsInstruction: true,
+      default: "system default prompt",
+    }),
+  },
 });
 
 const adminAccess = { access: { roles: ["Admin"] } } as const;
@@ -137,6 +162,42 @@ describe("defineEntityWriteHandler", () => {
     const def = defineEntityDeleteHandler("note", noteEntitySoftDelete, adminAccess);
     expect(def.agent).toBeUndefined();
     expect(resolveAgentExposure(def, "write").risk).toBe("mid");
+  });
+
+  test("standard create on an entity with a readAsInstruction field defaults agent.risk to high", () => {
+    const def = defineEntityCreateHandler("prompt", promptEntity, adminAccess);
+    expect(resolveAgentExposure(def, "write").risk).toBe("high");
+  });
+
+  test("standard update on an entity with a readAsInstruction field defaults agent.risk to high", () => {
+    const def = defineEntityUpdateHandler("prompt", promptEntity, adminAccess);
+    expect(resolveAgentExposure(def, "write").risk).toBe("high");
+  });
+
+  test("declaring mid on a readAsInstruction-writing standard handler throws", () => {
+    expect(() =>
+      defineEntityUpdateHandler("prompt", promptEntity, {
+        access: { roles: ["Admin"] },
+        agent: { risk: "mid" },
+      }),
+    ).toThrow(/agent\.risk must be "high"/);
+  });
+
+  test("update with excludeFields excluding all readAsInstruction fields is not forced to high", () => {
+    const def = defineEntityUpdateHandler("prompt", promptEntity, {
+      access: { roles: ["Admin"] },
+      excludeFields: ["body"],
+    });
+    expect(def.agent).toBeUndefined();
+    expect(resolveAgentExposure(def, "write").risk).toBe("mid");
+  });
+
+  test("create excluding a readAsInstruction field that has a default is still forced to high", () => {
+    const def = defineEntityCreateHandler("prompt", promptEntityDefaultedBody, {
+      access: { roles: ["Admin"] },
+      excludeFields: ["body"],
+    });
+    expect(resolveAgentExposure(def, "write").risk).toBe("high");
   });
 });
 

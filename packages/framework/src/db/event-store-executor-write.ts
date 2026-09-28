@@ -1,4 +1,5 @@
 import { checkWriteFieldOwnership } from "../engine/field-access";
+import { instructionFieldNames } from "../engine/instruction-fields";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership";
 import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
 import type { EntityId, SessionUser } from "../engine/types";
@@ -19,6 +20,7 @@ import {
   getStreamVersion,
 } from "../event-store";
 import {
+  assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
 } from "../pipeline/irreversible-operation-gate";
@@ -152,6 +154,12 @@ export function createWriteVerbs(
 
       // After preSave so derived fields count, before the event append so nothing persists.
       assertPersonalDataWrite(db, tableNameOf(table), Object.keys(data), entity);
+      assertInstructionFieldWriteAllowed(
+        entityName,
+        "create",
+        Object.keys(data),
+        instructionFieldNames(entity),
+      );
 
       // H.2 — entity-level write-ownership on create. No oldRow exists, so
       // only the new row is checked. No Straddle concern for creates.
@@ -344,6 +352,12 @@ export function createWriteVerbs(
 
       // After preSave so derived fields count, before the event append so nothing persists.
       assertPersonalDataWrite(db, tableNameOf(table), Object.keys(changes), entity);
+      assertInstructionFieldWriteAllowed(
+        entityName,
+        "update",
+        Object.keys(changes),
+        instructionFieldNames(entity),
+      );
 
       // H.2 — entity-level write-ownership on update. Load old row (already
       // done above), build post-change row via shallow merge. Straddle-safe
