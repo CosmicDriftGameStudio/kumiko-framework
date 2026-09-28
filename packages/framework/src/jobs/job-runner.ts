@@ -745,10 +745,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // retry number, so audit queries distinguish fresh from retry runs
     // without peeking at BullMQ internals.
     const rawData = bullJob.data as DbRow;
+    const attempt = bullJob.attemptsMade + 1;
     const meta: JobMeta = {
       triggeredById: rawData["_triggeredById"] as string | undefined, // @cast-boundary dynamic-key
       payload: rawData["_payload"] as string | undefined, // @cast-boundary dynamic-key
-      attempt: bullJob.attemptsMade + 1,
+      attempt,
     };
 
     // Build handler payload (without internal meta fields)
@@ -773,7 +774,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       : null;
     // BullMQ stops retrying once attemptsMade reaches the configured attempts
     // (`retries + 1`), so this is the attempt whose failure is final.
-    const finalAttempt = bullJob.attemptsMade + 1 >= (jobDef.retries ?? 0) + 1;
+    const finalAttempt = attempt >= (jobDef.retries ?? 0) + 1;
     const outcomeMeta = (messageKey: string | null): JobOutcomeMeta => ({
       tenantId,
       finalAttempt,
@@ -898,6 +899,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       ...(selfRunner !== undefined && { jobRunner: selfRunner }),
       systemUser: jobSystemUser,
       triggeredBy: triggeredById !== null ? { id: triggeredById, tenantId } : null,
+      attempt,
+      finalAttempt,
       log: createJobLogger(logs),
       ...(triggerName !== undefined && { triggerName }),
       ...(triggerEvent !== undefined && { triggerEvent }),
@@ -1003,7 +1006,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           attributes: {
             "job.name": jobName,
             "job.id": jobId,
-            "job.attempt": bullJob.attemptsMade + 1,
+            "job.attempt": attempt,
             "kumiko.tenant_id": tenantId,
             // Lane-routing attributes (Welle 2.6). `run_in` is the job's
             // declared lane (explicit or default-"worker"); `consumer_lane`

@@ -68,6 +68,8 @@ function makeCtx(
     systemUser: tenantA,
     log,
     triggeredBy: null,
+    attempt: 1,
+    finalAttempt: true,
     ...(fileProviderResolver ? { _fileProviderResolver: fileProviderResolver } : {}),
     ...bridgeStub(),
   };

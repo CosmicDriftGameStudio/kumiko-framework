@@ -286,6 +286,8 @@ describe("runRetentionCleanup :: real postgres", () => {
       systemUser: { id: "system", tenantId: T1, roles: ["all"] },
       log: noopLogger,
       triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
       ...bridgeStub(),
     };
     await job.handler({}, ctx);

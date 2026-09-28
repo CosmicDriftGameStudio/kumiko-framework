@@ -192,6 +192,8 @@ async function runResumeDueRunsJob(): Promise<void> {
     systemUser,
     log: noopLogger,
     triggeredBy: null,
+    attempt: 1,
+    finalAttempt: true,
     ...bridgeStub({ user: systemUser }),
     write: (qn, payload) => stack.dispatcher.write(qn, payload, systemUser),
   };
