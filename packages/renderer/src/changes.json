@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.325.1",
+    "type": "fix",
+    "title": "Server validation errors on entityEdit update forms reach their fields again",
+    "detail": "The update form sends `{ id, version, changes }`, so server validation issues arrive as\n`changes.<field>`. The form controller stored them under that key, so no field showed the\nerror, tabs/wizard layouts never jumped to the erroring tab (only the generic banner), and\nsingle-section forms failed silently. A new submit option `serverFieldPathPrefix` strips the\nnesting key; KumikoScreen's update form sets it to `changes.`. Paths without the prefix are unchanged."
+  },
+  {
     "version": "0.320.0",
     "type": "improvement",
     "title": "navigateWithReturnTo carries returnTo for entity ObjectTargets",
