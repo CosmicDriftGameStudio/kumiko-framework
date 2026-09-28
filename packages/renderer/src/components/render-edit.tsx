@@ -296,6 +296,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onSubmit,
     payloadMode = "values",
     buildPayload,
+    serverFieldPathPrefix,
     onDelete,
     onCancel,
     onReload,
@@ -434,6 +435,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           type: writeCommand,
           payloadMode,
           ...(buildPayload !== undefined && { buildPayload }),
+          ...(serverFieldPathPrefix !== undefined && { serverFieldPathPrefix }),
           ...(scopeFieldNames !== undefined && { validateScope: scopeFieldNames }),
         }
       : undefined;

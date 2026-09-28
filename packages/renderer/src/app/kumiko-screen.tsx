@@ -500,6 +500,9 @@ function resolveTenantCurrency(
 // lands here — same last resort as the entityEdit path's `?? "EUR"`.
 const ACTION_FORM_CURRENCY_FALLBACK = "EUR";
 
+// Shared by the update payload shape and the server-error path prefix so both can't drift.
+const UPDATE_CHANGES_KEY = "changes";
+
 // A money field naming a fixed ISO code (`currency: { kind: "literal", code }`,
 // fw#2839) resolves with no query at all. Read structurally, same idiom as
 // tenantCurrencyMoneyFieldNames above.
@@ -1196,7 +1199,7 @@ function EntityEditUpdateForm({
       (snap: { readonly changes: Readonly<Record<string, unknown>> }): unknown => ({
         id: entityId,
         version: recordVersion,
-        changes: snap.changes,
+        [UPDATE_CHANGES_KEY]: snap.changes,
       }),
     [entityId, recordVersion],
   );
@@ -1317,6 +1320,7 @@ function EntityEditUpdateForm({
         writeCommand={writeCommand}
         payloadMode="changes"
         buildPayload={buildPayload}
+        serverFieldPathPrefix={`${UPDATE_CHANGES_KEY}.`}
         onSubmit={handleSubmitted}
         // allowDelete:false marks an entity without a CRUD delete (history is
         // kept) — without this gate the button dispatched against an
