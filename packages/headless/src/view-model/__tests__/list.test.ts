@@ -425,4 +425,15 @@ describe("computeListViewModel", () => {
     });
     expect(vm.slots).toBe(slots);
   });
+  test("hideOnNarrow is carried onto the column view model only when set", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["title", { field: "priority", hideOnNarrow: true }]),
+      entity: taskEntity,
+      rows: [],
+      translate,
+      featureName: "tasks",
+    });
+    expect(vm.columns[0]?.hideOnNarrow).toBeUndefined();
+    expect(vm.columns[1]?.hideOnNarrow).toBe(true);
+  });
 });

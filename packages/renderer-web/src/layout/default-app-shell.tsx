@@ -32,6 +32,7 @@ import {
 } from "../ui/sidebar";
 import { fillClasses } from "./fill-classes";
 import { NavTree } from "./nav-tree";
+import { PageHeaderSlotProvider } from "./page-header-slot";
 import { ShellHeader } from "./shell-header";
 import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel";
 
@@ -100,7 +101,7 @@ export function DefaultAppShell({
           {sidebarActions !== undefined && (
             <SidebarGroup
               data-kumiko-layout="sidebar-actions"
-              className="flex-row items-center gap-1 py-0"
+              className="flex-row flex-wrap items-center gap-1 py-0"
             >
               {sidebarActions}
             </SidebarGroup>
@@ -123,14 +124,16 @@ export function DefaultAppShell({
           className={panel.occupied ? "flex h-svh shrink-0 flex-col" : "hidden"}
         />
         <SidebarInset className={fillCls.inset}>
-          <ShellHeader
-            schema={schema}
-            {...(user !== undefined && { user })}
-            {...(headerActions !== undefined && { headerActions })}
-          />
-          <main className={fillCls.main}>
-            <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
-          </main>
+          <PageHeaderSlotProvider>
+            <ShellHeader
+              schema={schema}
+              {...(user !== undefined && { user })}
+              {...(headerActions !== undefined && { headerActions })}
+            />
+            <main className={fillCls.main}>
+              <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+            </main>
+          </PageHeaderSlotProvider>
         </SidebarInset>
       </SidebarPanelProvider>
     </SidebarProvider>

@@ -49,16 +49,21 @@ import {
 import { RenderList } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
-import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
+import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state";
 import { type UseQueryResult, useQuery } from "../hooks/use-query";
-import { useOptionalTimeZone, useTranslation } from "../i18n";
+import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n";
+import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer";
+import { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableRowAction,
+  type StatusTone,
+  statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
 } from "../primitives";
+import { screenFillsHeight } from "../screen-fills-height";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { useAppFeatures } from "./app-features-context";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
@@ -200,8 +205,11 @@ export function KumikoScreen({
   }
 
   const body = renderScreenBody({ schema, screen, translate, entityId, onRowClick, onCopyLink });
-  // An embedded screen (e.g. a dashboard panel) keeps its parent's host.
-  if (outerHost !== undefined) return body;
+  // An embedded screen (e.g. a dashboard panel) keeps its parent's host and
+  // must not portal its page header into the shell that hosts the outer screen.
+  if (outerHost !== undefined) {
+    return <PageHeaderSlotAvailableProvider value={false}>{body}</PageHeaderSlotAvailableProvider>;
+  }
   return <ReturnHostProvider value={ownHost}>{body}</ReturnHostProvider>;
 }
 
@@ -385,6 +393,12 @@ function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () =
 // Schema-Screens kommen mit qualifizierten ids ("publicstatus:screen:
 // component-edit") aus der Registry; lastSegment strippt den Prefix
 // für nav.navigate (siehe ./qn.ts für Doku).
+function pageSizeOptionsFor(currentLimit: number): readonly number[] {
+  return PAGE_SIZE_OPTIONS.includes(currentLimit)
+    ? PAGE_SIZE_OPTIONS
+    : [...PAGE_SIZE_OPTIONS, currentLimit].sort((a, b) => a - b);
+}
+
 function useNavigateToCreateFor(
   schema: FeatureSchema,
   entityName: string,
@@ -578,6 +592,42 @@ function isMoneyValue(value: unknown): value is MoneyValue {
     typeof currency === "string" &&
     CURRENCY_CODE_PATTERN.test(currency)
   );
+}
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatSummaryValue(value: unknown, locale: string): string {
+  if (isMoneyValue(value)) {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: value.currency }).format(
+      value.amount,
+    );
+  }
+  if (typeof value === "number") return value.toLocaleString(locale);
+  if (typeof value === "string" && ISO_DATE_PATTERN.test(value)) {
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString(locale, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "UTC",
+    });
+  }
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function resolveActionFormSummary(
+  summary: ActionFormScreenDefinition["summary"],
+  prefill: Readonly<Record<string, unknown>> | undefined,
+  translate: Translate,
+  locale: string,
+): { readonly title: string; readonly subtitle?: string } | undefined {
+  if (summary === undefined) return undefined;
+  const params = Object.fromEntries(
+    Object.entries(prefill ?? {}).map(([name, value]) => [name, formatSummaryValue(value, locale)]),
+  );
+  return {
+    title: translate(summary.title, params),
+    ...(summary.subtitle !== undefined && { subtitle: translate(summary.subtitle, params) }),
+  };
 }
 
 function parseJsonOrRaw(raw: string): unknown {
@@ -1021,6 +1071,7 @@ function EntityEditCreateBody({
       onSubmit={handleSubmitted}
       onControlsReady={handleControlsReady}
       onCancel={handleCancel}
+      {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
     />
@@ -1328,6 +1379,7 @@ function EntityEditUpdateForm({
         {...(screen.allowDelete !== false && { onDelete: handleDelete })}
         onCancel={handleCancel}
         onReload={() => void onReload()}
+        {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
         {...(translate !== undefined && { translate })}
         {...(onCopyLink !== undefined && { onCopyLink })}
@@ -1639,9 +1691,20 @@ function DrawerHost({
   readonly onClose: () => void;
   readonly onSuccess: () => void;
 }): ReactNode {
-  const { Drawer, Banner, Text } = usePrimitives();
+  const { Drawer, Banner, Text, Dialog } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+  const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const closeAndReset = useCallback(() => {
+    setHasUnsavedInput(false);
+    setConfirmDiscardOpen(false);
+    onClose();
+  }, [onClose]);
+  const requestClose = useCallback(() => {
+    if (hasUnsavedInput) setConfirmDiscardOpen(true);
+    else closeAndReset();
+  }, [hasUnsavedInput, closeAndReset]);
   // Drawer is an optional Core-Primitive (additive rollout) — same "skip +
   // warn once" precedent as rowActions without a mounted DispatcherProvider
   // above, instead of crashing when a web app hasn't upgraded its
@@ -1665,33 +1728,58 @@ function DrawerHost({
   const allowed = screenAccessAllows(drawerScreen?.access, userRoles);
 
   return (
-    <Drawer
-      open={true}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title={effectiveTranslate(drawerAction.label)}
-      testId={`toolbar-drawer-${drawerAction.id}`}
-    >
-      {drawerScreen === undefined ? (
-        <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
-          Screen not found: <Text variant="code">{drawerAction.screen}</Text>
-        </Banner>
-      ) : !allowed ? (
-        <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
-          Access denied: <Text variant="code">{drawerAction.screen}</Text>
-        </Banner>
-      ) : (
-        <ActionFormBody
-          schema={schema}
-          screen={drawerScreen}
-          {...(translate !== undefined && { translate })}
-          {...(drawerInitialValues !== undefined && { initialOverrides: drawerInitialValues })}
-          onSuccess={onSuccess}
-          onCancelOverride={onClose}
-        />
-      )}
-    </Drawer>
+    <>
+      <Drawer
+        open={true}
+        onOpenChange={(open) => {
+          if (!open) requestClose();
+        }}
+        title={effectiveTranslate(drawerAction.label)}
+        testId={`toolbar-drawer-${drawerAction.id}`}
+      >
+        <PageHeaderSlotAvailableProvider value={false}>
+          <InsideDrawerProvider value={true}>
+            {drawerScreen === undefined ? (
+              <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
+                Screen not found: <Text variant="code">{drawerAction.screen}</Text>
+              </Banner>
+            ) : !allowed ? (
+              <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
+                Access denied: <Text variant="code">{drawerAction.screen}</Text>
+              </Banner>
+            ) : (
+              <ActionFormBody
+                schema={schema}
+                screen={drawerScreen}
+                {...(translate !== undefined && { translate })}
+                {...(drawerInitialValues !== undefined && {
+                  initialOverrides: drawerInitialValues,
+                })}
+                onSuccess={() => {
+                  setHasUnsavedInput(false);
+                  onSuccess();
+                }}
+                onCancelOverride={requestClose}
+                onDirtyChange={setHasUnsavedInput}
+                submitLabelFallback={drawerAction.label}
+              />
+            )}
+          </InsideDrawerProvider>
+        </PageHeaderSlotAvailableProvider>
+      </Drawer>
+      <Dialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title={t("kumiko.drawer.discard.title")}
+        description={t("kumiko.drawer.discard.body")}
+        confirmLabel={t("kumiko.drawer.discard.confirm")}
+        cancelLabel={t("kumiko.drawer.discard.cancel")}
+        variant="danger"
+        initialFocus="cancel"
+        onConfirm={closeAndReset}
+        testId="drawer-discard-dialog"
+      />
+    </>
   );
 }
 
@@ -1765,7 +1853,7 @@ function EntityListBody({
   // wenn URL keinen sort hat — Author-Default vs User-Choice.
   const urlState = useListUrlState(screen.id);
   const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
-  const limit = screen.pageSize ?? 50;
+  const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
   const usePager = paginationMode === "pages";
   const useInfinite = paginationMode === "infinite";
@@ -2009,6 +2097,7 @@ function EntityListBody({
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
             confirmRequired: false,
+            ...(navigateAction.rowClick === true && { rowClick: true }),
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
             ...(actionVisible !== undefined && {
@@ -2166,6 +2255,8 @@ function EntityListBody({
           limit,
           total,
           onPageChange: urlState.setPage,
+          pageSizeOptions: pageSizeOptionsFor(limit),
+          onPageSizeChange: urlState.setPageSize,
         }
       : undefined;
 
@@ -2187,6 +2278,7 @@ function EntityListBody({
         sort={effectiveSort}
         onSortChange={urlState.setSort}
         screenPadding
+        {...(screenFillsHeight(screen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
@@ -2275,7 +2367,7 @@ function ProjectionListBody({
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
   const activeSearch = searchable ? urlState.q : "";
   const activeSort = sortable ? (urlState.sort ?? screen.defaultSort ?? null) : null;
-  const limit = screen.pageSize ?? 50;
+  const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   // Pages-mode only (see header comment) — an author-set pagination:
   // "infinite" on a paginated projectionList is silently a no-op today.
   const usePager = paginated && (screen.pagination ?? "pages") === "pages";
@@ -2494,7 +2586,14 @@ function ProjectionListBody({
   const total = rowsQuery.data?.total;
   const pager =
     usePager && total !== undefined
-      ? { page: urlState.page, limit, total, onPageChange: urlState.setPage }
+      ? {
+          page: urlState.page,
+          limit,
+          total,
+          onPageChange: urlState.setPage,
+          pageSizeOptions: pageSizeOptionsFor(limit),
+          onPageSizeChange: urlState.setPageSize,
+        }
       : undefined;
 
   return (
@@ -2511,6 +2610,7 @@ function ProjectionListBody({
         sort={activeSort}
         onSortChange={urlState.setSort}
         screenPadding
+        {...(screenFillsHeight(listScreen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(toolbarActions !== undefined && { toolbarActions })}
@@ -2606,6 +2706,19 @@ function isAbsoluteHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value) && isSafeHref(value);
 }
 
+function headerStatusTone(
+  header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
+  record: Readonly<Record<string, unknown>>,
+): StatusTone | undefined {
+  if (header.status === undefined) return undefined;
+  const value = String(record[header.status] ?? "");
+  const declared =
+    header.statusTones !== undefined && Object.hasOwn(header.statusTones, value)
+      ? header.statusTones[value]
+      : undefined;
+  return declared !== undefined ? statusToneForOptionTone(declared) : statusToneForValue(value);
+}
+
 function resolveSubtitleHref(
   header: ProjectionDetailScreenDefinition["header"],
   record: Readonly<Record<string, unknown>>,
@@ -2647,13 +2760,17 @@ function HeaderActionsBar({
   Dialog,
   ActionOverflowMenu,
   onError,
+  collapseAfterPrimary = false,
 }: {
+  /** Header slot layout: only the primary action stays a button, the rest goes into the menu. */
+  readonly collapseAfterPrimary?: boolean;
   readonly actions: readonly RenderEditAction[];
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly ActionOverflowMenu: ReturnType<typeof usePrimitives>["ActionOverflowMenu"];
   readonly onError: (text: string | null) => void;
 }): ReactNode {
+  const t = useTranslation();
   const [pendingAction, setPendingAction] = useState<RenderEditAction | null>(null);
   const trigger = async (action: RenderEditAction): Promise<void> => {
     onError(null);
@@ -2663,7 +2780,8 @@ function HeaderActionsBar({
       onError(e instanceof Error ? e.message : String(e));
     }
   };
-  if (actions.length <= 2 || ActionOverflowMenu === undefined) {
+  const maxPlainButtons = collapseAfterPrimary ? 1 : 2;
+  if (actions.length <= maxPlainButtons || ActionOverflowMenu === undefined) {
     return (
       <>
         {actions.map((action) => (
@@ -2672,6 +2790,7 @@ function HeaderActionsBar({
             action={action}
             Button={Button}
             Dialog={Dialog}
+            hideIcon
             onError={onError}
           />
         ))}
@@ -2688,11 +2807,12 @@ function HeaderActionsBar({
           action={primary}
           Button={Button}
           Dialog={Dialog}
+          hideIcon
           onError={onError}
         />
       )}
       <ActionOverflowMenu
-        label="More actions"
+        label={t("kumiko.list.row-actions.more")}
         testId="kumiko-screen-projection-detail-actions-overflow"
         items={rest.map((action) => ({
           id: action.id,
@@ -2752,10 +2872,13 @@ function ProjectionDetailBody({
     Tabs,
     StatusBadge,
     Metric,
+    MetricBand,
+    PageHeader,
     Link,
     ActionOverflowMenu,
   } = usePrimitives();
   const t = useTranslation();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
@@ -3002,7 +3125,7 @@ function ProjectionDetailBody({
           {StatusBadge !== undefined ? (
             <StatusBadge
               value={String(record[header.status] ?? "")}
-              tone={statusToneForValue(String(record[header.status] ?? ""))}
+              tone={headerStatusTone(header, record)}
               testId="kumiko-screen-projection-detail-status"
             />
           ) : (
@@ -3031,58 +3154,101 @@ function ProjectionDetailBody({
     ) : undefined;
   // slots.header shares the header card with the actions (one card, actions
   // top right) instead of rendering as an unframed block above it.
+  const metricItems = screen.metrics?.map((metric) => {
+    const field = metricField(metric);
+    const labelKey = metricLabelKey(metric, screen.fieldLabels);
+    const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
+    const value = String(record[field] ?? "");
+    const testId = `kumiko-screen-projection-detail-metric-${field}`;
+    const navigate = metricNavigateSpec(metric);
+    const onPress =
+      navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
+        ? () => runMetricNavigate(nav, navigate, record, host)
+        : undefined;
+    return Metric !== undefined ? (
+      <Metric
+        key={field}
+        label={label}
+        value={value}
+        testId={testId}
+        {...(onPress !== undefined && { onPress })}
+      />
+    ) : (
+      <GridCell key={field}>
+        <Text variant="small" testId={`${testId}-label`}>
+          {label}
+        </Text>
+        <Text testId={`${testId}-value`}>{value}</Text>
+      </GridCell>
+    );
+  });
+  // Metrics are a dl band when the primitive exists; the old Grid stays as the fallback.
+  const metricsBlock = (subtitle?: ReactNode): ReactNode =>
+    MetricBand !== undefined ? (
+      <MetricBand testId="kumiko-screen-projection-detail-metrics" subtitle={subtitle}>
+        {metricItems}
+      </MetricBand>
+    ) : (
+      <Grid columns={screen.metrics?.length ?? 1} testId="kumiko-screen-projection-detail-metrics">
+        {metricItems}
+      </Grid>
+    );
+  const usesPageHeaderSlot = pageHeaderSlotAvailable && PageHeader !== undefined;
+  const actionErrorBanner = actionError !== null && (
+    <Banner variant="error" testId="render-edit-action-error">
+      {actionError}
+    </Banner>
+  );
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (
     <>
-      {(hasHeaderCard || headerSlot !== undefined) && (
-        <Card
-          slots={{
-            ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
-            ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
-            ...(headerSlot !== undefined && { headerContent: headerSlot }),
-            ...(hasHeaderActions && { headerActions: headerActionsContent }),
-          }}
-        >
-          {hasMetrics && (
-            <Grid
-              columns={screen.metrics?.length ?? 1}
-              testId="kumiko-screen-projection-detail-metrics"
-            >
-              {screen.metrics?.map((metric) => {
-                const field = metricField(metric);
-                const labelKey = metricLabelKey(metric, screen.fieldLabels);
-                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
-                const value = String(record[field] ?? "");
-                const testId = `kumiko-screen-projection-detail-metric-${field}`;
-                const navigate = metricNavigateSpec(metric);
-                const onPress =
-                  navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
-                    ? () => runMetricNavigate(nav, navigate, record, host)
-                    : undefined;
-                return Metric !== undefined ? (
-                  <Metric
-                    key={field}
-                    label={label}
-                    value={value}
-                    testId={testId}
-                    {...(onPress !== undefined && { onPress })}
+      {usesPageHeaderSlot && headerSlot === undefined ? (
+        <>
+          <PageHeader
+            {...(header !== undefined && { title: String(record[header.title] ?? "") })}
+            {...(header?.status !== undefined &&
+              StatusBadge !== undefined && {
+                status: (
+                  <StatusBadge
+                    value={String(record[header.status] ?? "")}
+                    tone={headerStatusTone(header, record)}
+                    testId="kumiko-screen-projection-detail-status"
                   />
-                ) : (
-                  <GridCell key={field}>
-                    <Text variant="small" testId={`${testId}-label`}>
-                      {label}
-                    </Text>
-                    <Text testId={`${testId}-value`}>{value}</Text>
-                  </GridCell>
-                );
+                ),
               })}
-            </Grid>
-          )}
-          {actionError !== null && (
-            <Banner variant="error" testId="render-edit-action-error">
-              {actionError}
-            </Banner>
-          )}
-        </Card>
+            {...(hasHeaderActions && {
+              actions: (
+                <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
+                  <HeaderActionsBar
+                    actions={headerActionsList}
+                    Button={Button}
+                    Dialog={Dialog}
+                    ActionOverflowMenu={ActionOverflowMenu}
+                    onError={setActionError}
+                    collapseAfterPrimary
+                  />
+                </Grid>
+              ),
+            })}
+          />
+          {(hasMetrics || headerSubtitleSlot !== undefined) &&
+            (MetricBand !== undefined || hasMetrics) &&
+            metricsBlock(headerSubtitleSlot)}
+          {actionErrorBanner}
+        </>
+      ) : (
+        (hasHeaderCard || headerSlot !== undefined) && (
+          <Card
+            slots={{
+              ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
+              ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
+              ...(headerSlot !== undefined && { headerContent: headerSlot }),
+              ...(hasHeaderActions && { headerActions: headerActionsContent }),
+            }}
+          >
+            {hasMetrics && metricsBlock()}
+            {actionErrorBanner}
+          </Card>
+        )
       )}
       {hasTabs && activeSection !== undefined && (
         <Tabs
@@ -3120,6 +3286,7 @@ function ProjectionDetailBody({
         onRelatedListDrawerAction={openDrawer}
         {...(translate !== undefined && { translate })}
         {...(hasTabs && { hideSectionTitles: true })}
+        {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...((hasHeaderCard || hasTabs || screen.slots?.header !== undefined) && {
           headerRegion: renderHeaderContent,
         })}
@@ -3238,6 +3405,8 @@ function ActionFormBody({
   initialOverrides,
   onSuccess,
   onCancelOverride,
+  onDirtyChange,
+  submitLabelFallback,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
@@ -3255,9 +3424,16 @@ function ActionFormBody({
   /** Drawer-hosted usage: replaces the cancelTarget/redirect-based Cancel
    *  handler so Cancel closes the drawer instead of navigating. */
   readonly onCancelOverride?: () => void;
+  /** Drawer-hosted usage: reports unsaved input so the host can confirm
+   *  before discarding it. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Drawer-hosted usage: submit label when the screen declares none (the opening action's label). */
+  readonly submitLabelFallback?: string;
 }): ReactNode {
   const nav = useNav();
   const appFeatures = useAppFeatures();
+  const insideDrawer = useInsideDrawer();
+  const locale = useLocale().locale();
   const { Banner } = usePrimitives();
   // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
   const returnTarget = useReturnTarget(screen.id);
@@ -3299,6 +3475,12 @@ function ActionFormBody({
       initialOverrides,
       handoffValues,
     ],
+  );
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  const summary = useMemo(
+    () => resolveActionFormSummary(screen.summary, initialOverrides, effectiveTranslate, locale),
+    [screen.summary, initialOverrides, effectiveTranslate, locale],
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
@@ -3363,8 +3545,13 @@ function ActionFormBody({
       payloadMode="values"
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
-      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
+      {...(onDirtyChange !== undefined && { onDirtyChange })}
+      {...((insideDrawer || screenFillsHeight(screen)) && { fillScreenHeight: true })}
+      {...((screen.submitLabel ?? submitLabelFallback) !== undefined && {
+        submitLabel: screen.submitLabel ?? submitLabelFallback,
+      })}
       {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
+      {...(summary !== undefined && { summary })}
       {...(translate !== undefined && { translate })}
     />
   );

@@ -1,0 +1,34 @@
+import type { PageHeaderProps } from "@cosmicdrift/kumiko-renderer";
+import { type ReactNode, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { usePageHeaderSlot } from "../layout/page-header-slot";
+
+export function DefaultPageHeader({ title, status, actions }: PageHeaderProps): ReactNode {
+  const slot = usePageHeaderSlot();
+  const setTitle = slot?.setTitle;
+
+  useEffect(() => {
+    if (setTitle === undefined || title === undefined) return;
+    setTitle(title);
+    return () => setTitle(undefined);
+  }, [setTitle, title]);
+
+  if (slot === null) {
+    return (
+      <div data-kumiko-layout="page-header-inline" className="flex items-center gap-2 px-4 py-2">
+        {status}
+        <div className="ml-auto flex items-center gap-2">{actions}</div>
+      </div>
+    );
+  }
+  return (
+    <>
+      {status !== undefined &&
+        slot.statusElement !== null &&
+        createPortal(status, slot.statusElement)}
+      {actions !== undefined &&
+        slot.actionsElement !== null &&
+        createPortal(actions, slot.actionsElement)}
+    </>
+  );
+}

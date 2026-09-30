@@ -63,13 +63,21 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
   const avatarText = initials(displayName);
 
   const content = (
-    <DropdownMenuContent align="end" aria-label={t("auth.user.menu.label")}>
+    <DropdownMenuContent
+      align={variant === "sidebar" ? "start" : "end"}
+      aria-label={t("auth.user.menu.label")}
+    >
       <DropdownMenuLabel className="text-xs">
         <div className="font-medium text-foreground truncate">{displayName}</div>
         {hasName && <div className="truncate">{user.email}</div>}
       </DropdownMenuLabel>
       <DropdownMenuSeparator />
-      {children}
+      {children !== undefined && (
+        <>
+          {children}
+          <DropdownMenuSeparator />
+        </>
+      )}
       <DropdownMenuItem onSelect={() => void logout()}>
         <LogOut className="h-4 w-4" />
         <span>{t("auth.user.menu.logout")}</span>
@@ -91,15 +99,19 @@ export function UserMenu({ children, variant = "pill" }: UserMenuProps): ReactNo
               >
                 <span
                   aria-hidden="true"
-                  className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted text-xs font-medium text-muted-foreground"
+                  className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-xs font-medium text-sidebar-accent-foreground"
                 >
                   {avatarText}
                 </span>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{displayName}</span>
-                  {hasName && <span className="truncate text-xs">{user.email}</span>}
+                  <span className="truncate font-medium text-sidebar-foreground">
+                    {displayName}
+                  </span>
+                  {hasName && (
+                    <span className="truncate text-xs text-sidebar-muted">{user.email}</span>
+                  )}
                 </div>
-                <ChevronsUpDown className="ml-auto size-4" />
+                <ChevronsUpDown className="ml-auto size-4 text-sidebar-muted" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
             {content}

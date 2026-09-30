@@ -14,24 +14,30 @@ export const STATUS_TONE_TEXT: Record<StatusTone, string> = {
   muted: "text-muted-foreground",
 };
 
-const TONE_PILL: Record<StatusTone, string> = {
-  ok: "bg-status-ok/10 text-status-ok",
-  warn: "bg-status-warn/10 text-status-warn",
-  bad: "bg-status-bad/10 text-status-bad",
-  critical: "bg-status-critical/15 text-status-critical",
-  muted: "bg-muted text-muted-foreground",
+/** `accent` is a brand-colored call-out (e.g. "3 suggestions"), not a status —
+ *  hence not part of `StatusTone`, which toasts and select options share. */
+export type StatusBadgeTone = StatusTone | "accent";
+
+// `muted` maps to the neutral tokens, not a status-* palette.
+const TONE_PILL: Record<StatusBadgeTone, string> = {
+  accent: "bg-primary/10 text-primary",
+  ok: "bg-status-ok-surface text-status-ok",
+  warn: "bg-status-warn-surface text-status-warn",
+  bad: "bg-status-bad-surface text-status-bad",
+  critical: "bg-status-critical-surface text-status-critical",
+  muted: "bg-status-neutral-surface text-status-neutral",
 };
 
-/** Pill-Badge für Status-Werte. Caller mappt Domain-Werte → Tone
- *  (z.B. operational→ok, investigating→warn) und liefert das
- *  translated Label als children. */
+/** Pill badge with a status dot. Caller maps domain values to a tone
+ *  (e.g. operational→ok, investigating→warn) and passes the translated
+ *  label as children. */
 export function StatusBadge({
   tone,
   children,
   className,
   testId,
 }: {
-  readonly tone: StatusTone;
+  readonly tone: StatusBadgeTone;
   readonly children: ReactNode;
   readonly className?: string;
   readonly testId?: string;
@@ -40,11 +46,12 @@ export function StatusBadge({
     <span
       data-testid={testId}
       className={cn(
-        "inline-block rounded-xl px-2.5 py-1 text-xs font-semibold",
+        "inline-flex h-[22px] items-center gap-1.5 whitespace-nowrap rounded-full px-2 text-xs font-medium",
         TONE_PILL[tone],
         className,
       )}
     >
+      <span aria-hidden="true" data-status-dot className="size-1.5 rounded-full bg-current" />
       {children}
     </span>
   );

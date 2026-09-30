@@ -10,13 +10,22 @@ export function ModeSwitch<T extends string>({
   testId,
 }: {
   readonly value: T;
-  readonly options: readonly { readonly value: T; readonly label: string }[];
+  readonly options: readonly {
+    readonly value: T;
+    readonly label: string;
+    /** Muted tabular counter after the label. */
+    readonly count?: number;
+  }[];
   readonly onChange: (value: T) => void;
   readonly testId?: string;
 }): ReactNode {
   return (
     // biome-ignore lint/a11y/useSemanticElements: fieldset bringt Browser-Default-Chrome (Border/legend) mit, das für ein Button-Segmented-Control falsch ist
-    <div data-testid={testId} role="group" className="flex flex-wrap gap-1">
+    <div
+      data-testid={testId}
+      role="group"
+      className="flex h-8 overflow-hidden rounded-md border border-input bg-background"
+    >
       {options.map((o) => {
         const active = o.value === value;
         return (
@@ -26,13 +35,25 @@ export function ModeSwitch<T extends string>({
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "rounded-md border px-3 py-1.5 text-sm transition-colors",
+              "grow border-l border-input px-3 text-sm transition-colors first:border-l-0",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               active
-                ? "border-transparent bg-secondary font-semibold text-secondary-foreground"
-                : "text-muted-foreground hover:bg-muted",
+                ? "bg-primary/10 font-semibold text-primary"
+                : "text-foreground hover:bg-muted",
             )}
           >
             {o.label}
+            {o.count !== undefined && (
+              <span
+                data-testid={testId !== undefined ? `${testId}-count-${o.value}` : undefined}
+                className={cn(
+                  "ml-1.5 font-normal tabular-nums",
+                  !active && "text-muted-foreground",
+                )}
+              >
+                {o.count}
+              </span>
+            )}
           </button>
         );
       })}

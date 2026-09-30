@@ -171,10 +171,14 @@ const NAV_ICON_LUCIDE_CLASS: Readonly<Record<string, string>> = {
   gauge: "lucide-gauge",
 };
 
-function expectNavIcons(container: HTMLElement, iconKeys: readonly string[]): void {
-  const classes = Array.from(container.querySelectorAll("svg")).map(
-    (svg) => svg.getAttribute("class") ?? "",
+function navIconSvgs(container: HTMLElement): SVGElement[] {
+  return Array.from(container.querySelectorAll("svg")).filter(
+    (svg) => !(svg.getAttribute("class") ?? "").includes("lucide-search"),
   );
+}
+
+function expectNavIcons(container: HTMLElement, iconKeys: readonly string[]): void {
+  const classes = navIconSvgs(container).map((svg) => svg.getAttribute("class") ?? "");
   expect(classes).toHaveLength(iconKeys.length);
   iconKeys.forEach((key, i) => {
     expect(classes[i]).toContain(NAV_ICON_LUCIDE_CLASS[key]);
@@ -243,7 +247,7 @@ describe("NavTree", () => {
     expect(screen.getByText("Items")).toBeTruthy();
   });
 
-  test("Nav-Eintrag mit bekanntem icon rendert ein Lucide-Icon, ohne icon den Dot", () => {
+  test("Nav-Eintrag mit bekanntem icon rendert ein Lucide-Icon, ohne icon nur das Label", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -257,8 +261,9 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    // Flache Navigation ohne Sections → keine Chevrons. Genau EIN svg:
-    // das dashboard-Icon. Das icon-lose Item rendert den Dot (span, kein svg).
+    // Flat nav without sections means no chevrons; exactly one nav svg (the
+    // dashboard icon) because the icon-less item renders no leading element.
+    expect(container.querySelector(".rounded-full")).toBeNull();
     expectNavIcons(container, ["dashboard"]);
   });
 
@@ -368,7 +373,7 @@ describe("NavTree", () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
-  test("unbekannter icon-Key fällt sauber auf den Dot zurück (kein svg), aber warnt sichtbar", () => {
+  test("unbekannter icon-Key fällt sauber auf reinen Text zurück (kein svg), aber warnt sichtbar", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -389,7 +394,7 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    expect(container.querySelectorAll("svg").length).toBe(0);
+    expect(navIconSvgs(container)).toHaveLength(0);
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('Nav entry "showcase:nav:x" references icon "does-not-exist"'),
     );
@@ -544,6 +549,38 @@ describe("NavTree active-marker parent fallback", () => {
     const listLink = screen.getByText("Users").closest("a");
     expect(listLink?.getAttribute("data-active")).toBe("false");
     expect(listLink?.hasAttribute("aria-current")).toBe(false);
+  });
+
+  test("editing an existing record marks the list instead of the edit screen's own nav entry", () => {
+    const schema: FeatureSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "user-list", type: "entityList", entity: "profile", columns: [] },
+        {
+          id: "user-edit",
+          type: "entityEdit",
+          entity: "profile",
+          listScreenId: "user-list",
+          layout: { sections: [{ fields: [] }] },
+        },
+      ],
+      navs: [
+        { id: "user-list", label: "Users", screen: "user-list", order: 10 },
+        { id: "user-edit", label: "Add User", screen: "user-edit", order: 20 },
+      ],
+    } as FeatureSchema;
+
+    render(
+      <NavProvider
+        value={{ ...navWithRoute("user-edit"), route: { screenId: "user-edit", entityId: "u1" } }}
+      >
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+
+    expect(screen.getByText("Users").closest("a")?.getAttribute("data-active")).toBe("true");
+    expect(screen.getByText("Add User").closest("a")?.getAttribute("data-active")).toBe("false");
   });
 });
 

@@ -78,6 +78,7 @@ export const NAV_ICON_KEYS = [
   "more-vertical",
   "external-link",
   "chevron-down",
+  "chevron-left",
   "chevron-right",
   "save",
   "undo",

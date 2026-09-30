@@ -22,11 +22,16 @@ const FILL_TONE: Record<ProgressTone, string> = {
 export function ProgressBar({
   value,
   tone = "default",
+  size = "default",
+  ariaLabel,
   className,
   testId,
 }: {
   readonly value: number;
   readonly tone?: ProgressTone;
+  /** `"thin"` is a 4px bar on the border-token track for quiet inline progress. */
+  readonly size?: "default" | "thin";
+  readonly ariaLabel?: string;
   readonly className?: string;
   readonly testId?: string;
 }): ReactNode {
@@ -41,7 +46,11 @@ export function ProgressBar({
         aria-valuenow={Math.round(pct * 100)}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="relative h-2 w-full overflow-hidden rounded-full bg-muted"
+        aria-label={ariaLabel}
+        className={cn(
+          "relative w-full overflow-hidden rounded-full",
+          size === "thin" ? "h-1 bg-border" : "h-2 bg-muted",
+        )}
       >
         <div
           className={cn("absolute inset-y-0 left-0 rounded-full", FILL_TONE[tone])}

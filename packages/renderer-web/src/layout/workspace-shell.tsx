@@ -46,6 +46,7 @@ import {
 import { EditorPanel } from "./editor-panel";
 import { fillClasses } from "./fill-classes";
 import { lastSegment, NavTree } from "./nav-tree";
+import { PageHeaderSlotProvider } from "./page-header-slot";
 import { ShellHeader } from "./shell-header";
 import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel";
 import { parseTargetFromSearchParams } from "./target-url";
@@ -250,18 +251,20 @@ export function WorkspaceShell({
           className={panel.occupied ? "flex h-svh shrink-0 flex-col" : "hidden"}
         />
         <SidebarInset className={fillCls.inset}>
-          <ShellHeader
-            schema={app}
-            {...(user !== undefined && { user })}
-            {...(topbarActions !== undefined && { headerActions: topbarActions })}
-          />
-          <main className={fillCls.main}>
-            {activeTarget !== undefined ? (
-              <EditorPanel resolvers={resolvers} />
-            ) : (
-              <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
-            )}
-          </main>
+          <PageHeaderSlotProvider>
+            <ShellHeader
+              schema={app}
+              {...(user !== undefined && { user })}
+              {...(topbarActions !== undefined && { headerActions: topbarActions })}
+            />
+            <main className={fillCls.main}>
+              {activeTarget !== undefined ? (
+                <EditorPanel resolvers={resolvers} />
+              ) : (
+                <UserRolesProvider roles={user?.roles}>{children}</UserRolesProvider>
+              )}
+            </main>
+          </PageHeaderSlotProvider>
         </SidebarInset>
       </SidebarPanelProvider>
     </SidebarProvider>

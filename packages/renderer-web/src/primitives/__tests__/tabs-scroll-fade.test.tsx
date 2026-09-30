@@ -112,3 +112,36 @@ describe("DefaultTabs mobile overflow scroll hint", () => {
     expect(el.scrollLeft).toBe(250);
   });
 });
+
+describe("DefaultTabs counts and active state", () => {
+  test("shows a count pill per tab and marks only the active tab selected", () => {
+    render(
+      <Tabs
+        items={[
+          { id: "items", label: "Items", count: 3 },
+          { id: "payments", label: "Payments", count: 0 },
+        ]}
+        activeId="items"
+        onSelect={() => {}}
+        testId="tabs"
+      />,
+    );
+    expect(screen.getByTestId("tabs-items-count").textContent).toBe("3");
+    expect(screen.getByTestId("tabs-payments-count").textContent).toBe("0");
+    expect(screen.getByTestId("tabs-items").getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByTestId("tabs-payments").getAttribute("aria-selected")).toBe("false");
+  });
+});
+
+describe("DefaultTabs underline", () => {
+  test("only the active tab carries the primary underline, inactive tabs stay transparent", () => {
+    render(<Tabs items={ITEMS} activeId="payments" onSelect={() => {}} />);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.className).toContain("border-transparent");
+      expect(tab.className).toContain("data-[state=active]:border-primary");
+      expect(tab.getAttribute("data-state")).toBe(
+        tab.textContent === "Payments" ? "active" : "inactive",
+      );
+    }
+  });
+});

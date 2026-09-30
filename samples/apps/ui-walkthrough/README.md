@@ -21,6 +21,31 @@ parallel (workspaces=4174, showcase=4175). Use
 `KUMIKO_DEV_DB_NAME=tasks_demo bun dev` for a persistent DB (data
 survives restarts).
 
+## Design-Abnahme #3381
+
+Features `rental` (319 leases, 19 board rows first) and `vehicles`
+(Octavia + 4 campaigns) mirror the design board masks.
+
+```bash
+bun kumiko dev
+cd samples/apps/ui-walkthrough && bun dev   # http://localhost:4173, admin@kumiko.dev / kumiko-admin
+```
+
+| Mask | Route |
+| --- | --- |
+| Liste | `/lease-list` (pager check: `/lease-list-short`, 3 rows) |
+| Detail | click "Max Nachmieter" (`/lease-detail/00000000-0000-4000-8000-000000003103`), tab "Positionen" |
+| Drawer | Positionen tab, button "Miete anpassen" |
+| Formular | `/vehicle-list`, click "Octavia" (`/vehicle-edit`) |
+| Wizard | `/vehicle-list`, row menu "Schritt für Schritt" (`/vehicle-wizard`), 3x "Weiter" for step 4 |
+| Mobile | `/campaign-list` at 390 px width |
+
+Screenshots (light 1440x900, mobile 390x844, dark for liste and detail):
+
+```bash
+SCREENSHOT_DIR=/path/to/shots bun --env-file=../../../.env x playwright test e2e/screenshots.spec.ts --config=playwright.config.ts
+```
+
 ## Schema
 
 `src/run-config.ts` holds `APP_FEATURES` + `HAS_AUTH`. `kumiko/schema.ts`

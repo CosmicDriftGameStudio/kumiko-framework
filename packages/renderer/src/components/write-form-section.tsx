@@ -144,7 +144,6 @@ export function WriteFormSection({
     <Button
       type="button"
       variant="primary"
-      icon="check"
       disabled={isSubmitting}
       loading={isSubmitting}
       onClick={() => void handleSubmit()}

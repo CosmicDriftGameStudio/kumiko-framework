@@ -385,3 +385,30 @@ describe("RenderEdit Section-Titel-Dopplung", () => {
     expect(section.querySelector("h3")?.textContent).toBe("Basics");
   });
 });
+
+describe("DefaultForm pinned footer (fillHeight + stickyActions, fw#3381)", () => {
+  test("footer is a sibling after the body, in flow (no max-sm:fixed, no spacer)", () => {
+    render(
+      <Form onSubmit={() => {}} fillHeight stickyActions actions={<Button>Save</Button>} testId="f">
+        <div>body</div>
+      </Form>,
+    );
+    const primary = screen.getByTestId("f-actions");
+    expect(primary.className).not.toContain("max-sm:fixed");
+    const footer = primary.parentElement as HTMLElement;
+    expect(footer.className).toContain("shrink-0");
+    expect(footer.className).toContain("border-t");
+    expect(footer.nextElementSibling).toBeNull();
+    expect(footer.previousElementSibling?.textContent).toContain("body");
+    expect(footer.querySelector('[aria-hidden="true"].h-20')).toBeNull();
+  });
+
+  test("stickyActions without fillHeight keeps the fixed mobile bar", () => {
+    render(
+      <Form onSubmit={() => {}} stickyActions actions={<Button>Save</Button>} testId="f">
+        <div>body</div>
+      </Form>,
+    );
+    expect(screen.getByTestId("f-actions").className).toContain("max-sm:fixed");
+  });
+});

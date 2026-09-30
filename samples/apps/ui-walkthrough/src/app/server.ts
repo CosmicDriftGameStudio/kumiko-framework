@@ -14,6 +14,8 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { APP_FEATURES } from "../run-config";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 import { seedTasks } from "./seed";
+import { seedRental } from "./seed-rental";
+import { seedVehicles } from "./seed-vehicles";
 
 // Zwei feste Tenants — Admin ist in beiden Mitglied damit der
 // TenantSwitcher im Sample sichtbar ist (rendert nur bei >1 Tenant).
@@ -23,7 +25,7 @@ import { seedTasks } from "./seed";
 
 await runDevApp({
   features: [...APP_FEATURES],
-  seeds: [seedTasks],
+  seeds: [seedTasks, seedRental, seedVehicles],
   // PORT env-var override für Playwright-e2e-Runs (config zeigt auf 4174);
   // sonst lokal-Default 4173.
   port: Number.parseInt(process.env["PORT"] ?? "4173", 10),

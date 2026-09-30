@@ -158,7 +158,7 @@ describe("KumikoScreen / projectionDetail", () => {
     );
 
     const form = await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(form.firstElementChild?.className).toContain("max-w-full");
+    expect(form.querySelector(".max-w-full")).not.toBeNull();
   });
 
   test("missing entityId shows an error banner instead of crashing", async () => {
@@ -795,7 +795,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
   });
 
-  test("layout.mode: 'tabs' — the active relatedList tab renders inside the same Card frame as other tab kinds", async () => {
+  test("layout.mode: 'tabs' — the active relatedList tab runs full-bleed without a Card frame", async () => {
     const tabsRelatedListScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -848,14 +848,8 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
       </NavProvider>,
     );
     await waitFor(() => screen.getByTestId("row-pay-1"));
-    // Acceptance criterion: the relatedList tab must sit in exactly the same
-    // Card frame every other tab kind gets, not a bare FillContainer.
-    const card = container.querySelector('[data-slot="card"]');
-    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
-    // fw#3234 round 3: the table's own DataTable wrapper must not add a
-    // second p-6 inset on top of the Card's own body padding — it must start
-    // at the same left edge as a sibling Banner in the same Card.
-    expect(card?.querySelector(".p-6")).toBeNull();
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(screen.getByTestId("row-pay-1").closest(".p-6")).toBeNull();
   });
 
   test("layout.mode: 'tabs' — the active writeForm tab renders inside the same Card frame as other tab kinds", async () => {
@@ -1041,6 +1035,92 @@ describe("KumikoScreen / projectionDetail actions drawer-kind (fw#2710)", () => 
     await waitFor(() => expect(screen.queryByTestId("field-note")).toBeNull());
     await waitFor(() => expect(queryCallCount).toBeGreaterThan(queryCallsBeforeSubmit));
     expect(screen.getByTestId("field-userId").textContent).toContain("user-42");
+  });
+});
+
+describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", () => {
+  const paymentNoteForm: ActionFormScreenDefinition = {
+    id: "payment-note",
+    type: "actionForm",
+    handler: "sessions:write:payment:note",
+    fields: { paymentId: { type: "text" }, note: { type: "text", required: true } },
+    layout: { sections: [{ fields: ["paymentId", "note"] }] },
+  };
+  const detailWithDrawerRow: ProjectionDetailScreenDefinition = {
+    ...detailScreen,
+    layout: {
+      sections: [
+        ...detailScreen.layout.sections,
+        {
+          kind: "relatedList" as const,
+          title: "Payments",
+          query: "sessions:query:user-session:payments",
+          columns: [{ field: "amount", label: "Amount" }],
+          rowActions: [
+            {
+              kind: "drawer" as const,
+              id: "annotate",
+              label: "actions.annotate",
+              screen: "payment-note",
+              params: { map: { paymentId: "id" } },
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  test("a relatedList row action opens the drawer prefilled from the row; a successful submit closes it and refetches the related list", async () => {
+    let paymentsQueryCount = 0;
+    const dispatcher: Dispatcher = createMockDispatcher({
+      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+      query: (async (type: string) => {
+        if (type === "sessions:query:user-session:payments") paymentsQueryCount += 1;
+        return type === "sessions:query:user-session:detail"
+          ? { isSuccess: true, data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" } }
+          : {
+              isSuccess: true,
+              data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null },
+            };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{
+            featureName: "sessions",
+            entities: {},
+            screens: [detailWithDrawerRow, paymentNoteForm],
+          }}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("row-pay-1"));
+
+    fireEvent.click(screen.getByTestId("row-pay-1-action-annotate"));
+
+    const drawer = await waitFor(() => screen.getByTestId("toolbar-drawer-annotate"));
+    const paymentIdInput = within(drawer).getByTestId("field-paymentId").querySelector("input");
+    if (paymentIdInput === null) throw new Error("expected an <input> inside field-paymentId");
+    expect(paymentIdInput.value).toBe("pay-1");
+    expect(screen.getByTestId("row-pay-1")).toBeTruthy();
+    const queriesBeforeSubmit = paymentsQueryCount;
+
+    const noteInput = within(drawer).getByTestId("field-note").querySelector("input");
+    if (noteInput === null) throw new Error("expected an <input> inside field-note");
+    await act(async () => {
+      fireEvent.change(noteInput, { target: { value: "hello" } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("toolbar-drawer-annotate")).toBeNull());
+    expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull();
+    await waitFor(() => expect(paymentsQueryCount).toBeGreaterThan(queriesBeforeSubmit));
   });
 });
 
@@ -1416,10 +1496,8 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     );
 
     const actionButton = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
-    // "open" resolves to the "eye" icon via ACTION_ICON_BY_ID (no explicit
-    // icon declared) — the header action button must actually draw it, not
-    // just carry it as unused data (fw#3234 round 3).
-    expect(actionButton.querySelector("svg")).toBeTruthy();
+    // Record-header actions are text-only (board layout).
+    expect(actionButton.querySelector("svg")).toBeNull();
     // The footer regions RenderEdit's Form would otherwise draw the action
     // into are gone entirely — the action moved out, it didn't just gain a
     // second home.

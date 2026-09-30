@@ -40,6 +40,7 @@ import type {
   FormWidth,
   IconKey,
   NavIconKey,
+  SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
@@ -91,8 +92,9 @@ export type ButtonProps = {
    *  becomes visually; the renderers use "primary" for Save, "danger" for
    *  Delete, "secondary" for a Confirm state, "link" for inline actions in
    *  running text (no background, underline), "danger-ghost" for a
-   *  destructive action as red text instead of a red fill. */
-  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost";
+   *  destructive action as red text instead of a red fill, "ghost" for a
+   *  low-emphasis primary-colored text action beside a filled primary. */
+  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost";
   /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
    *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
   readonly size?: "sm" | "md" | "icon";
@@ -130,8 +132,10 @@ export type ButtonProps = {
 export type LinkProps = {
   readonly href: string;
   readonly variant?: "default" | "button" | "muted";
-  /** `_blank` setzt in der Web-Impl automatisch rel="noreferrer". */
-  readonly target?: "_blank";
+  /** `_blank` makes the web impl set `rel="noopener noreferrer"` unless
+   *  `rel` is set explicitly. */
+  readonly target?: "_blank" | "_self" | "_parent" | "_top";
+  readonly rel?: string;
   /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
    *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
   readonly className?: string;
@@ -184,6 +188,10 @@ export type FieldProps = {
    *  `htmlFor` (no separate `aria-label` needed). For tables/grids whose
    *  column header already carries the label for each row. */
   readonly hideLabel?: boolean;
+  /** Marks the field as edited relative to its saved value — the label row
+   *  shows a "changed" marker. Set only in edit mode for fields present in
+   *  the form's change set. */
+  readonly changed?: boolean;
   readonly testId?: string;
 };
 
@@ -350,10 +358,19 @@ export type InputProps =
        *  {value,label}-Form für DB-getragene Refs (Tier 2.7e-3). */
       readonly options:
         | readonly string[]
-        | readonly { readonly value: string; readonly label: string }[];
+        | readonly {
+            readonly value: string;
+            readonly label: string;
+            /** Second line under the label; shown by `radioVariant="card"`. */
+            readonly description?: string;
+          }[];
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** `"card"` renders the radio group as bordered cards with label plus
+       *  optional description per option and always uses the radio group,
+       *  regardless of option count or `display`. Default `"list"`. */
+      readonly radioVariant?: "list" | "card";
       /** Requested presentation. `"radio"` renders the options as a visible
        *  radio group (WAI-ARIA radiogroup, one click per choice),
        *  `"dropdown"` renders the combobox. Omitted = the implementation
@@ -552,6 +569,9 @@ export type DataTableRowAction = {
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
   /** Conditional Visibility pro Row (z.B. "Start" nur wenn status==="scheduled"). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
+  /** This action is what a click on the row does. The card layout drops it
+   *  from the row menu, since the whole card is already the tap target. */
+  readonly rowClick?: boolean;
   /** Resolved icon (author `RowAction.icon` or the id-derived default) —
    *  drives both the icon-left-of-text render and the icon-only collapse
    *  rule (see `shouldRenderActionsIconOnly`). */
@@ -612,13 +632,13 @@ export type DataTableProps = {
    *  Form (Labels + onTrigger schon verdrahtet); DataTable kümmert
    *  sich nur um Render + Confirm-Dialog. */
   readonly rowActions?: readonly DataTableRowAction[];
-  /** Wie die Row-Action-Spalte rendert:
-   *  - `"adaptive"` (Default): ≤2 sichtbare Actions inline (rechtsbündig),
-   *    >2 als Kebab-Dropdown. Passt die Optik automatisch an die Anzahl an.
-   *  - `"inline"`: IMMER Inline-Buttons, linksbündig — auch bei >2 (kein
-   *    Kebab). So stehen die Aktionen über alle Rows an derselben x-Position
-   *    (kein Wandern durch unterschiedlich breite Labels) und alle Listen
-   *    einer App sehen gleich aus. */
+  /** How the row-action column renders:
+   *  - `"adaptive"` (default): with `onRowClick` all actions go in the kebab;
+   *    without it the primary action is a link button and the rest go in the
+   *    kebab (a single action gets no kebab).
+   *  - `"inline"`: ALWAYS inline buttons, left-aligned, even with >2 (no
+   *    kebab). Actions then sit at the same x-position across all rows
+   *    (no drifting with label width) and all lists in an app look alike. */
   readonly rowActionMode?: DataTableRowActionMode;
   /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
    *  Default-Renderer rahmt ihn in einer dashed-border Box. */
@@ -657,7 +677,16 @@ export type DataTableProps = {
     readonly limit: number;
     readonly total: number;
     readonly onPageChange: (next: number) => void;
+    /** Offered page sizes; with `onPageSizeChange` the footer shows a
+     *  "N pro Seite" select. */
+    readonly pageSizeOptions?: readonly number[];
+    readonly onPageSizeChange?: (next: number) => void;
   };
+  /** Hint at the left of the toolbar (relatedList tab description). */
+  readonly toolbarDescription?: string;
+  /** Noun for the footer count ("1–19 of 19 leases", "1 position"),
+   *  resolved for the given count. Omitted = generic "entries" wording. */
+  readonly itemNoun?: (count: number) => string;
   /** Infinite-Scroll Callback. Wenn gesetzt, rendert der Renderer einen
    *  Bottom-Sentinel und ruft `onReachEnd` wenn der ins Viewport rückt
    *  (Web: IntersectionObserver). Caller verwaltet accumulation +
@@ -693,8 +722,12 @@ export type DataTableProps = {
    *  leave dead space below it (a tab panel, fw#2722). Requires the same
    *  flex-fill chain FormProps.fillHeight sets up above it; without that
    *  ancestor chain this collapses to zero height (Web: `flex-1 min-h-0`
-   *  has no effect outside a sized flex-col ancestor). Default false:
-   *  unchanged document-flow table that grows with its content. */
+   *  has no effect outside a sized flex-col ancestor). When true the table
+   *  also takes the full board layout: the wrapper fills its container
+   *  (`h-full`), toolbar and footer (pager or entry count) stay pinned
+   *  outside the scrolling body, no card frame and no outer padding.
+   *  Default false: unchanged document-flow table that grows with its
+   *  content, pager below the last row. */
   readonly scrollBody?: boolean;
   /** Uses the shared screen padding (wider bottom inset) instead of the
    *  table's symmetric embedded inset — for a table that IS the screen body
@@ -800,6 +833,13 @@ export type EmbeddedListInputProps = {
 
 export type { FormWidth };
 
+/** One entry of a form's "on this page" navigation: `id` matches the
+ *  `SectionProps.id` of the section it scrolls to. */
+export type FormSectionNavItem = {
+  readonly id: string;
+  readonly title: string;
+};
+
 /** Submit wrapper. Web: `<form onSubmit>`, native: a View that triggers an
  *  onSubmit callback via button press. `onSubmit` gets an abstract
  *  signature (no FormEvent) so native impls can fill it meaningfully.
@@ -843,8 +883,10 @@ export type FormProps = {
   /** Sizes the form to fill its container's height (instead of the page's
    *  natural content height) so a single scrolling child — a lone
    *  relatedList tab's table — can scroll internally instead of stretching
-   *  the whole page (fw#2722). Only set by RenderEdit for a lone relatedList
-   *  tab section; every other caller leaves it unset and keeps normal
+   *  the whole page (fw#2722). Set by RenderEdit for a lone relatedList tab
+   *  section and for screens that fill the shell height (together with
+   *  `stickyActions`: sections scroll, footer stays pinned without
+   *  `position: fixed`); every other caller leaves it unset and keeps normal
    *  document-flow height. Native impls may ignore this prop (already a
    *  bounded viewport there). */
   readonly fillHeight?: boolean;
@@ -857,12 +899,31 @@ export type FormProps = {
    *  card chrome. Native impls may ignore this prop (no card chrome there
    *  to begin with). */
   readonly chromeless?: boolean;
+  /** Set by RenderEdit for entityEdit/actionForm screens that fill the shell
+   *  height: the form renders without a surrounding card, in a padded scroll
+   *  surface with a fixed-width form column. Requires `fillHeight`; projection
+   *  detail screens (which also fill the height) do not set it. Native impls
+   *  may ignore this prop. */
+  readonly screenForm?: boolean;
+  /** Number of unsaved changes, shown in the pinned footer. Omitted in create
+   *  mode and when nothing changed — the footer then shows no status. */
+  readonly unsavedCount?: number;
+  /** Drawer-hosted forms: context box above the fields. */
+  readonly summary?: { readonly title: string; readonly subtitle?: string };
+  /** Titled sections for the "on this page" navigation next to a
+   *  `screenForm`. The web impl shows it only with three or more entries. */
+  readonly sectionNav?: readonly FormSectionNavItem[];
+  /** Leading column next to the scroll surface of a `screenForm` (wizard step
+   *  navigation). Native impls may ignore this prop. */
+  readonly sideRail?: ReactNode;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
  *  View mit Header-Text. Native-Impls können den Title als Accordion
  *  oder Collapsible rendern. */
 export type SectionProps = {
+  /** DOM id — the scroll target of a form's "on this page" navigation. */
+  readonly id?: string;
   /** Optional — ohne Titel rendert die Section nur die Gruppierung
    *  (kein Header). RenderEdit lässt ihn weg, wenn er den Screen-Titel
    *  der Action-Bar 1:1 wiederholen würde. */
@@ -900,6 +961,11 @@ export type SectionProps = {
 export type FillContainerProps = {
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Claims the remaining height of the flex chain (`flex-1`) instead of
+   *  sizing to its content, so a footer inside the child sits at the bottom
+   *  edge even with few rows. Set only when the screen fills the shell
+   *  height. */
+  readonly grow?: boolean;
 };
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit
@@ -919,12 +985,20 @@ export type GridProps = {
    *  the grid grows with its content and never scrolls. Ignored when
    *  `columns` is "auto". */
   readonly maxRows?: number;
+  /** Fields flow left to right in wrapping rows sized by `GridCell.width`
+   *  instead of equal-width tracks (screen forms and drawers). */
+  readonly flow?: boolean;
 };
+
+/** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
+export type FieldCellWidth = "text" | "number" | "money" | "date" | "select" | "full" | "auto";
 
 /** Span-Wrapper für ein Kind innerhalb eines Grid. Web: `style={{gridColumn: span N}}`,
  *  Native: eigenes Width-Rechnen. */
 export type GridCellProps = {
   readonly span?: number;
+  /** Only read inside a `flow` grid. */
+  readonly width?: FieldCellWidth;
   readonly children: ReactNode;
 };
 
@@ -970,6 +1044,10 @@ export type DialogProps = {
   readonly cancelLabel?: string;
   /** `default` = Confirm primary, `danger` = Confirm danger. */
   readonly variant?: "default" | "danger";
+  /** Which button takes focus on open. Default: Confirm for a bare dialog,
+   *  the browser/Radix default when `children` are present. `"cancel"` for
+   *  dialogs where the safe choice must be the one Enter triggers. */
+  readonly initialFocus?: "confirm" | "cancel";
   /** Wird gefeuert wenn der User Confirm drückt. Async-Funktion ist
    *  ok — Dialog setzt automatisch loading-State, ruft danach
    *  onOpenChange(false). */
@@ -1101,6 +1179,7 @@ export type ProgressTone = "default" | "success" | "warn" | "danger";
 export type ProgressProps = {
   readonly value: number;
   readonly tone?: ProgressTone;
+  readonly ariaLabel?: string;
   readonly testId?: string;
 };
 
@@ -1122,6 +1201,12 @@ export type StepBarProps = {
    *  viewports; "steps" keeps the row there too — for short wizards whose
    *  labels fit a phone and whose done steps must stay tappable. */
   readonly narrowLayout?: "label" | "steps";
+  /** "vertical" renders a step rail (from `lg`, with `compactLabel` as the
+   *  single line below it) instead of the chip row. Default "horizontal". */
+  readonly orientation?: "horizontal" | "vertical";
+  /** Vertical only: rail heading ("Step 4 of 6") and optional description. */
+  readonly heading?: string;
+  readonly description?: string;
   readonly testId?: string;
   readonly compactTestId?: string;
 };
@@ -1136,6 +1221,8 @@ export type StepBarProps = {
  *  on `hidden` alone. */
 export type WizardStepGroupProps = {
   readonly hidden: boolean;
+  /** Pads the step content (tab panels sit full-bleed under the tab strip). */
+  readonly inset?: boolean;
   readonly children: ReactNode;
 };
 
@@ -1194,6 +1281,17 @@ const STATUS_TONE_BY_VALUE: Readonly<Record<string, StatusTone>> = {
   critical: "bad",
 };
 
+const STATUS_TONE_BY_OPTION_TONE: Readonly<Record<SelectOptionTone, StatusTone>> = {
+  ok: "ok",
+  warn: "warn",
+  bad: "bad",
+  neutral: "muted",
+};
+
+export function statusToneForOptionTone(tone: SelectOptionTone): StatusTone {
+  return STATUS_TONE_BY_OPTION_TONE[tone];
+}
+
 export function statusToneForValue(value: string): StatusTone | undefined {
   const slug = value
     .trim()
@@ -1225,6 +1323,24 @@ export type JsonViewProps = {
   readonly value: unknown;
   readonly indent?: number;
   readonly testId?: string;
+};
+
+/** Band above the tabs of a record detail: optional subtitle line plus the
+ *  metrics as a definition list. `children` are `Metric` tiles. */
+export type MetricBandProps = {
+  readonly subtitle?: ReactNode;
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
+/** Page title area rendered by the app shell's header instead of inside the
+ *  screen: `title` replaces the last breadcrumb, `status` sits right after it,
+ *  `actions` at the right edge. Renders nothing itself; without a shell slot
+ *  (see `usePageHeaderSlotAvailable`) callers keep their previous placement. */
+export type PageHeaderProps = {
+  readonly title?: string;
+  readonly status?: ReactNode;
+  readonly actions?: ReactNode;
 };
 
 /** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the
@@ -1382,6 +1498,11 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly FillContainer?: ComponentType<FillContainerProps>;
+  /** Optional — additive rollout, see StickyActionBar. Without it, header
+   *  content stays where the screen always rendered it. */
+  readonly PageHeader?: ComponentType<PageHeaderProps>;
+  /** Optional — additive rollout, see StickyActionBar. */
+  readonly MetricBand?: ComponentType<MetricBandProps>;
   /** Optional: without an implementation, callers with >2 header/row
    *  actions fall back to today's all-buttons-inline rendering (A7). */
   readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;

@@ -15,7 +15,7 @@ import {
   screen,
   waitFor,
 } from "../../__tests__/test-utils";
-import { InfinityList } from "../infinity-list";
+import { InfinityList, type InfinityListSelection } from "../infinity-list";
 
 // Fake LiveEventSubscriber for live-mode tests — collects subscribers,
 // `inject(type, data)` fires the ones matching `data.aggregateType`.
@@ -583,5 +583,72 @@ describe("InfinityList", () => {
 
       await waitFor(() => expect(screen.getByText("Hallo")).toBeTruthy());
     });
+  });
+});
+
+describe("InfinityList selection position", () => {
+  const threeRows = createMockDispatcher({
+    query: (async () => ({
+      isSuccess: true,
+      data: {
+        rows: [
+          { id: "m1", subject: "Eins" },
+          { id: "m2", subject: "Zwei" },
+          { id: "m3", subject: "Drei" },
+        ],
+        nextCursor: null,
+      },
+    })) as unknown as Dispatcher["query"],
+  });
+
+  function selectionList(selectedId: string | null, seen: InfinityListSelection[]): ReactNode {
+    return (
+      <InfinityList<Page, Row>
+        query="inbox:query:message:list"
+        rows={(data) => data.rows}
+        nextCursor={(data) => data.nextCursor}
+        rowId={(row) => row.id}
+        renderRow={(row) => <span>{row.subject}</span>}
+        selectedId={selectedId}
+        onSelectionChange={(selection) => seen.push(selection)}
+      />
+    );
+  }
+
+  test("reports index, total and both neighbours for a middle row", async () => {
+    const seen: InfinityListSelection[] = [];
+    renderWithDispatcher(selectionList("m2", seen), threeRows);
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    expect(seen.at(-1)).toEqual({
+      index: 1,
+      total: 3,
+      prevId: "m1",
+      nextId: "m3",
+      hasMore: false,
+    });
+  });
+
+  test("has no previous neighbour on the first row and follows a changed selection", async () => {
+    const seen: InfinityListSelection[] = [];
+    const view = renderWithDispatcher(selectionList("m1", seen), threeRows);
+    await waitFor(() => expect(seen.at(-1)?.index).toBe(0));
+    expect(seen.at(-1)?.prevId).toBeNull();
+    view.rerender(
+      <DispatcherProvider dispatcher={threeRows}>{selectionList("m3", seen)}</DispatcherProvider>,
+    );
+    await waitFor(() => expect(seen.at(-1)?.index).toBe(2));
+    expect(seen.at(-1)?.nextId).toBeNull();
+  });
+
+  test("stays silent without a selection or for a row that is not loaded", async () => {
+    const seen: InfinityListSelection[] = [];
+    const view = renderWithDispatcher(selectionList(null, seen), threeRows);
+    await waitFor(() => expect(screen.getByText("Drei")).toBeTruthy());
+    view.rerender(
+      <DispatcherProvider dispatcher={threeRows}>
+        {selectionList("missing", seen)}
+      </DispatcherProvider>,
+    );
+    expect(seen).toEqual([]);
   });
 });

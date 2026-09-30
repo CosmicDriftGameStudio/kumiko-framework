@@ -1,6 +1,6 @@
 import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
-import type { usePrimitives } from "../primitives";
+import type { FieldCellWidth, usePrimitives } from "../primitives";
 import { RenderField } from "./render-field";
 
 // Extracted out of render-edit.tsx so write-form-section.tsx can reuse it
@@ -23,7 +23,32 @@ export type GridCellForFieldProps = {
   readonly valueDisplay: "form" | "text";
   /** Passed through to RenderField as `row` — see RenderFieldProps.row. */
   readonly row: Readonly<Record<string, unknown>>;
+  readonly changed?: boolean;
+  readonly flow?: boolean;
 };
+
+const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
+  number: "number",
+  decimal: "number",
+  bigInt: "number",
+  money: "money",
+  date: "date",
+  select: "select",
+  multiSelect: "select",
+  boolean: "auto",
+  longText: "full",
+  embedded: "full",
+  jsonb: "full",
+  file: "full",
+  files: "full",
+  image: "full",
+  images: "full",
+};
+
+function fieldCellWidth(field: EditFieldViewModel): FieldCellWidth {
+  if (field.span !== undefined || (field.type === "text" && field.multiline)) return "full";
+  return FIELD_CELL_WIDTH_BY_TYPE[field.type] ?? "text";
+}
 
 export function GridCellForField({
   field,
@@ -37,13 +62,15 @@ export function GridCellForField({
   allIssues,
   valueDisplay,
   row,
+  changed,
+  flow,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
 
   const effectiveSpan = field.span !== undefined ? Math.min(field.span, columns) : 1;
   return (
-    <GridCell span={effectiveSpan}>
+    <GridCell span={effectiveSpan} {...(flow === true && { width: fieldCellWidth(field) })}>
       <RenderField
         field={field}
         {...(issues !== undefined && { issues })}
@@ -54,6 +81,7 @@ export function GridCellForField({
         allIssues={allIssues}
         valueDisplay={valueDisplay}
         row={row}
+        {...(changed === true && { changed })}
       />
     </GridCell>
   );

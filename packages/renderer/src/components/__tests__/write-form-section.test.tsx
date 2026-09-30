@@ -188,7 +188,7 @@ describe("WriteFormSection", () => {
 
     expect(actions.contains(button)).toBe(true);
     expect(body.contains(button)).toBe(false);
-    expect(button.dataset["icon"]).toBe("check");
+    expect(button.dataset["icon"]).toBeUndefined();
   });
 
   test("submit dispatches through the section's configured write handler with the entered values", async () => {

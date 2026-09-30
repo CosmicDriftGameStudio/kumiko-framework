@@ -450,6 +450,8 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (isJsonSafeValue(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
+  if (isPlainObject(def["optionTones"]) && isJsonSafeValue(def["optionTones"]))
+    out["optionTones"] = def["optionTones"];
   // Reference: entity-Target + labelField + multiple müssen zum Renderer.
   // Der ReferenceInput baut die Options-Query aus refEntity/refFeature und
   // resolved das Label über labelField — ohne diese Properties fällt das

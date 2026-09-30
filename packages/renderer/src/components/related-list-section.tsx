@@ -35,6 +35,7 @@ import { useUserRoles } from "../context/user-roles-context";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
+import { PageHeaderSlotAvailableProvider } from "../page-header-slot";
 import { type DataTableFacet, usePrimitives } from "../primitives";
 import { sortByAccessor } from "../sort-by-accessor";
 import { RenderEditActionButton } from "./render-edit-action-button";
@@ -58,10 +59,13 @@ type PagedRows = {
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
 ): EntityDefinition {
-  const fields: Record<string, { type: "text"; sortable: boolean }> = {};
+  const fields: Record<string, { type: string; sortable: boolean }> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    fields[normalized.field] = { type: "text", sortable: normalized.sortable === true };
+    fields[normalized.field] = {
+      type: normalized.valueType ?? "text",
+      sortable: normalized.sortable === true,
+    };
   }
   return { fields } as unknown as EntityDefinition;
 }
@@ -84,6 +88,7 @@ export function RelatedListSection({
   featureName,
   translate,
   hideTitle,
+  grow,
   onOpenDrawer,
   actions,
 }: {
@@ -96,6 +101,8 @@ export function RelatedListSection({
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
+  /** Under a fixed-height screen the tab panel chain stretches so the count footer sits at the bottom. */
+  readonly grow?: boolean;
   /** Opens a drawer-kind rowAction (fw#2710). Supplied by the parent
    *  (ProjectionDetailBody), which owns schema + the actual Drawer render —
    *  this component only ever invokes the callback. */
@@ -379,7 +386,12 @@ export function RelatedListSection({
   // are really just "the first N in the server's own order" (fw#2722 review).
   // `nextCursor` is exactly how the paged envelope marks that: non-null means
   // more rows exist server-side beyond what was fetched.
-  const truncated = rowsQuery.data !== null && rowsQuery.data.nextCursor !== null;
+  // A handler that omits `nextCursor` (or reports a `total` the fetched rows
+  // already cover) has no further rows — only a real cursor marks truncation.
+  const truncated =
+    rowsQuery.data !== null &&
+    typeof rowsQuery.data.nextCursor === "string" &&
+    (rowsQuery.data.total === undefined || rowsQuery.data.total > rowsQuery.data.rows.length);
 
   const content =
     rowsQuery.loading && rowsQuery.data === null ? (
@@ -404,31 +416,39 @@ export function RelatedListSection({
             {emptyStateActionError}
           </Banner>
         )}
-        <RenderList
-          screen={listScreen}
-          entity={entity}
-          rows={sortedRows}
-          featureName={featureName}
-          translate={effectiveTranslate}
-          sort={sort}
-          onSortChange={setSort}
-          {...(section.searchable === true && {
-            searchable: true,
-            searchValue: search,
-            onSearchChange: setSearch,
-          })}
-          {...(filterFacets.length > 0 && {
-            filterFacets,
-            filterValues: filters,
-            onFilterChange,
-            onFilterReset,
-          })}
-          {...(onRowClick !== undefined && { onRowClick })}
-          {...(rowActions !== undefined && { rowActions })}
-          {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
-          {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
-          {...(hideTitle === true && { scrollBody: true, screenPadding: false, chromeless: true })}
-        />
+        <PageHeaderSlotAvailableProvider value={false}>
+          <RenderList
+            screen={listScreen}
+            entity={entity}
+            rows={sortedRows}
+            featureName={featureName}
+            translate={effectiveTranslate}
+            {...(section.description !== undefined && { description: section.description })}
+            {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
+            sort={sort}
+            onSortChange={setSort}
+            {...(section.searchable === true && {
+              searchable: true,
+              searchValue: search,
+              onSearchChange: setSearch,
+            })}
+            {...(filterFacets.length > 0 && {
+              filterFacets,
+              filterValues: filters,
+              onFilterChange,
+              onFilterReset,
+            })}
+            {...(onRowClick !== undefined && { onRowClick })}
+            {...(rowActions !== undefined && { rowActions })}
+            {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
+            {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
+            {...(hideTitle === true && {
+              scrollBody: true,
+              screenPadding: false,
+              chromeless: true,
+            })}
+          />
+        </PageHeaderSlotAvailableProvider>
       </>
     );
 
@@ -447,7 +467,11 @@ export function RelatedListSection({
     return (
       <>
         {bridges}
-        {FillContainer !== undefined ? <FillContainer>{content}</FillContainer> : content}
+        {FillContainer !== undefined ? (
+          <FillContainer {...(grow === true && { grow: true })}>{content}</FillContainer>
+        ) : (
+          content
+        )}
       </>
     );
   }

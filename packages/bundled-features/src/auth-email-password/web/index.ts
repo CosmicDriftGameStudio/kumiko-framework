@@ -63,6 +63,8 @@ export type { SignupCompleteScreenProps } from "./signup-complete-screen";
 export { SignupCompleteScreen } from "./signup-complete-screen";
 export type { SignupScreenProps } from "./signup-screen";
 export { SignupScreen } from "./signup-screen";
+export type { TenantMenuItemsProps } from "./tenant-menu-items";
+export { TenantMenuItems } from "./tenant-menu-items";
 export type { TenantSwitcherProps } from "./tenant-switcher";
 export { TenantSwitcher } from "./tenant-switcher";
 export type { ShellUser } from "./use-shell-user";

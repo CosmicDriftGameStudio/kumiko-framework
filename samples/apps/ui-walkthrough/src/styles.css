@@ -1,0 +1,24 @@
+@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+
+@source "./**/*.{ts,tsx}";
+
+/* Solon brand: token overrides only. Unlayered rules beat the framework's
+   `@layer base` light-mode block and its @theme defaults. */
+:root {
+  --color-sidebar: #172430;
+  --color-sidebar-foreground: #dce4e8;
+  --color-sidebar-muted: #a9b8c1;
+  --color-sidebar-input: #22323f;
+  --color-sidebar-primary: #24566a;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #24566a;
+  --color-sidebar-accent-foreground: #ffffff;
+  --color-sidebar-border: #22323f;
+  --color-sidebar-ring: #205265;
+}
+
+:root:not(.dark) {
+  --color-primary: #205265;
+  --color-primary-foreground: #ffffff;
+  --color-ring: #205265;
+}

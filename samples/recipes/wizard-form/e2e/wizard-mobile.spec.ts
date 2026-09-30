@@ -51,17 +51,16 @@ async function assertCssIsLive(page: Page): Promise<void> {
 }
 
 test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
-  test("step 1: progress, step label, and Next fit the viewport without overlap", async ({
-    page,
-  }) => {
+  test("step 1: step label and Next fit the viewport without overlap", async ({ page }) => {
     await gotoWizard(page);
     await assertCssIsLive(page);
 
-    const progress = page.getByTestId("render-edit-wizard-progress");
+    // Below lg the step rail collapses to the compact step label; the
+    // progress bar no longer exists on screen-form wizards.
+    await expect(page.getByTestId("render-edit-wizard-progress")).toHaveCount(0);
     const stepLabel = page.getByTestId("render-edit-wizard-step-label");
     const next = page.getByTestId("render-edit-wizard-next");
 
-    await expect(progress).toBeVisible();
     await expect(stepLabel).toBeVisible();
     await expect(stepLabel).toHaveText("Step 1 of 3 · Basics");
     await expect(next).toBeVisible();
@@ -73,7 +72,6 @@ test.describe("wizard-form — 375px mobile chrome (#1917)", () => {
     );
     expect(overflowsHorizontally).toBe(false);
 
-    await assertNoOverlap(progress, stepLabel);
     await assertNoOverlap(stepLabel, next);
   });
 

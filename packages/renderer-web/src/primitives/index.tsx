@@ -8,7 +8,11 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import type { FieldIconKey, IconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  FieldIconKey,
+  IconKey,
+  SelectOptionTone,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -27,14 +31,17 @@ import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableProps,
+  type FieldCellWidth,
   type FieldProps,
   type FillContainerProps,
   type FormProps,
+  type FormSectionNavItem,
   type FormWidth,
   type GridCellProps,
   type GridProps,
   type HeadingProps,
   type InputProps,
+  InsideDrawerProvider,
   type LinkProps,
   type ProgressProps,
   type SecretRevealProps,
@@ -43,9 +50,11 @@ import {
   type StepBarProps,
   type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
+  statusToneForOptionTone,
   statusToneForValue,
   type TextProps,
   useColumnRenderer,
+  useInsideDrawer,
   useOptionalLocale,
   useOptionalTranslation,
   useTranslation,
@@ -73,6 +82,7 @@ import {
   MoreHorizontal,
   Phone,
   Search,
+  SlidersHorizontal,
   Tag,
   User,
   X,
@@ -88,6 +98,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type TableHTMLAttributes,
   useContext,
   useEffect,
   useRef,
@@ -123,9 +134,10 @@ import { DefaultJsonView } from "./json-view";
 import { screenPaddingClassName, screenWidthClassName } from "./layout";
 import { DefaultLightbox } from "./lightbox";
 import { LocatedTimestampInput } from "./located-timestamp-input";
-import { DefaultMetric } from "./metric";
+import { DefaultMetric, DefaultMetricBand } from "./metric";
 import { DefaultModal } from "./modal";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input";
+import { DefaultPageHeader } from "./page-header";
 import { PromoPanel } from "./promo-panel";
 import { CopyButton, ShareButton } from "./share-actions";
 import { DefaultStatusBadge } from "./status-badge";
@@ -171,6 +183,7 @@ const BUTTON_VARIANT = {
   danger: "destructive",
   link: "link",
   "danger-ghost": "ghost",
+  ghost: "ghost",
 } as const;
 
 const BUTTON_SIZE = {
@@ -211,6 +224,8 @@ function DefaultButton({
     variant === "danger-ghost"
       ? "text-destructive hover:text-destructive hover:bg-destructive/10"
       : "",
+    variant === "ghost" ? "text-primary hover:text-primary hover:bg-primary/10" : "",
+    variant === "secondary" ? "border-input hover:bg-muted" : "",
     width === "full" ? "w-full" : "",
     className,
   );
@@ -303,6 +318,11 @@ function fieldLabelId(id: string): string {
 // — Field hands its resolved layout down to the nested Input via context.
 const FieldLayoutContext = createContext<FieldProps["layout"]>("stacked");
 
+// True inside the sections of a card-less screen form: sections then drop their
+// own horizontal padding, the screen form's scroll surface provides it.
+const ScreenFormContext = createContext(false);
+const DrawerBodyContext = createContext(false);
+
 function DefaultField({
   id,
   label,
@@ -314,6 +334,7 @@ function DefaultField({
   layout,
   hideLabel,
   testId,
+  changed,
 }: FieldProps): ReactNode {
   const t = useTranslation();
   const hasError = issues !== undefined && issues.length > 0;
@@ -322,6 +343,7 @@ function DefaultField({
       id={fieldLabelId(id)}
       htmlFor={id}
       className={cn(
+        "text-[13px]",
         hasError ? "text-destructive" : "text-foreground",
         hideLabel === true && "sr-only",
       )}
@@ -360,10 +382,28 @@ function DefaultField({
     );
   }
 
+  const changedMarker =
+    changed === true ? (
+      <span
+        data-testid={testId !== undefined ? `${testId}-changed` : undefined}
+        className="inline-flex items-center gap-1 text-xs text-primary"
+      >
+        <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+        {t("kumiko.form.changed")}
+      </span>
+    ) : null;
+
   return (
     <div data-testid={testId} className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        {labelEl}
+        {changedMarker !== null ? (
+          <div className="flex items-center gap-2">
+            {labelEl}
+            {changedMarker}
+          </div>
+        ) : (
+          labelEl
+        )}
         {/* appendix neben dem <label>, nicht darin — interaktiver Inhalt
             (Disclosure-Button) gehört nicht in ein label-Element. */}
         {labelAppendix !== undefined && labelAppendix}
@@ -444,17 +484,22 @@ function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
-// Default presentation for `kind: "select"` with a small closed option set —
-// a 4-value Status field looked wrong stretched into a full-width dropdown
-// (edit-existing screenshot feedback). Only consulted when the caller states
-// no `display` of its own; an explicit `display` wins (#2711). The option
-// count is the only criterion: labels arrive already translated, so the former
-// label-length threshold made the widget type depend on the active UI language
-// (#2606). Labels that no longer fit wrap inside the group.
-const SEGMENTED_SELECT_MAX_OPTIONS = 4;
+// Default presentation for `kind: "select"` without a `display` of its own
+// (board rule): up to 3 short options read as a segmented control, up to 3
+// longer ones as a vertical radio list, everything else as a dropdown. Labels
+// arrive translated, so the widget can differ between UI languages (#2606).
+const SEGMENTED_SELECT_MAX_OPTIONS = 3;
+const SEGMENTED_SELECT_MAX_LABEL_LENGTH = 16;
 
-function isSegmentedSelectEligible(options: readonly unknown[]): boolean {
-  return options.length > 0 && options.length <= SEGMENTED_SELECT_MAX_OPTIONS;
+type SelectPresentation = "segmented" | "radioList" | "dropdown";
+
+function defaultSelectPresentation(
+  options: readonly { readonly label: string }[],
+): SelectPresentation {
+  if (options.length === 0 || options.length > SEGMENTED_SELECT_MAX_OPTIONS) return "dropdown";
+  return options.every((option) => option.label.length <= SEGMENTED_SELECT_MAX_LABEL_LENGTH)
+    ? "segmented"
+    : "radioList";
 }
 
 // A "" value is the unselected placeholder, not a real choice — a radio
@@ -516,7 +561,7 @@ function SegmentedSelect({
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`segmented-${id}`}
       className={cn(
-        "inline-flex w-fit flex-wrap overflow-hidden rounded-md border",
+        "inline-flex min-h-9 w-fit flex-wrap overflow-hidden rounded-md border",
         hasError === true ? "border-destructive" : "border-input",
       )}
     >
@@ -554,19 +599,93 @@ function SegmentedSelect({
               // and the next row's top border cut a notch into the row above.
               // Harmless on a single-row layout: there's no leftover space to
               // grow into, so `w-fit` on the container still holds.
-              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-sm font-medium transition-colors",
+              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
               hasError === true ? "border-destructive/50" : "border-border",
               checked
-                ? "bg-primary text-primary-foreground"
-                : "bg-transparent text-foreground hover:bg-accent",
+                ? "bg-primary/10 font-semibold text-primary"
+                : "bg-transparent font-medium text-foreground hover:bg-accent",
             )}
           >
             {opt.label}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+const RADIO_CARD_CLASS =
+  "flex items-start gap-3 rounded-lg border border-input bg-background px-[15px] py-[13px] text-sm font-normal text-foreground " +
+  "has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:px-[14px] has-[:checked]:py-3 " +
+  "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:opacity-50";
+
+function RadioListSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  variant = "list",
+  disabled,
+  required,
+  hasError,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly onChange: (v: string) => void;
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+    readonly description?: string;
+  }[];
+  readonly variant?: "list" | "card";
+  readonly disabled?: boolean;
+  readonly required?: boolean;
+  readonly hasError?: boolean;
+}): ReactNode {
+  const card = variant === "card";
+  return (
+    <div
+      role="radiogroup"
+      aria-labelledby={fieldLabelId(id)}
+      aria-required={required}
+      aria-invalid={hasError === true ? true : undefined}
+      data-testid={`radio-list-${id}`}
+      data-radio-list=""
+      className="flex flex-col gap-2"
+    >
+      {options.map((opt) => (
+        <label
+          key={opt.value}
+          className={
+            card ? RADIO_CARD_CLASS : "flex items-center gap-2 text-sm font-normal text-foreground"
+          }
+        >
+          <input
+            type="radio"
+            name={name}
+            value={opt.value}
+            checked={opt.value === value}
+            disabled={disabled}
+            data-testid={`radio-list-${id}-${opt.value}`}
+            onChange={() => onChange(opt.value)}
+            className={cn("size-4 accent-primary", card && "mt-0.5 shrink-0")}
+          />
+          {card ? (
+            <span className="flex flex-col gap-0.5">
+              <span className="font-semibold">{opt.label}</span>
+              {opt.description !== undefined && (
+                <span className="text-[13px] text-foreground-secondary">{opt.description}</span>
+              )}
+            </span>
+          ) : (
+            opt.label
+          )}
+        </label>
+      ))}
     </div>
   );
 }
@@ -657,7 +776,7 @@ function DefaultInput(props: InputProps): ReactNode {
             }}
             {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
             className={cn(
-              "text-right tabular-nums",
+              "text-left tabular-nums",
               fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
               props.unit !== undefined ? "pr-8" : undefined,
             )}
@@ -754,10 +873,30 @@ function DefaultInput(props: InputProps): ReactNode {
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
       // one even when the options outnumber the heuristic's threshold (#2711).
-      const wantsRadioGroup =
-        props.display === "radio" ||
-        (props.display === undefined && isSegmentedSelectEligible(radioGroupOptions));
-      if (wantsRadioGroup && radioGroupOptions.length > 0) {
+      const presentation =
+        props.radioVariant === "card"
+          ? "radioList"
+          : props.display === "radio"
+            ? "segmented"
+            : props.display === "dropdown"
+              ? "dropdown"
+              : defaultSelectPresentation(radioGroupOptions);
+      if (presentation === "radioList" && radioGroupOptions.length > 0) {
+        return (
+          <RadioListSelect
+            id={props.id}
+            name={props.name}
+            value={props.value}
+            onChange={props.onChange}
+            options={radioGroupOptions}
+            {...(props.radioVariant !== undefined && { variant: props.radioVariant })}
+            {...(props.disabled !== undefined && { disabled: props.disabled })}
+            {...(props.required !== undefined && { required: props.required })}
+            {...(props.hasError !== undefined && { hasError: props.hasError })}
+          />
+        );
+      }
+      if (presentation === "segmented" && radioGroupOptions.length > 0) {
         return (
           <SegmentedSelect
             id={props.id}
@@ -910,10 +1049,13 @@ function FacetFilter({
   facet,
   selected,
   onChange,
+  dense = false,
 }: {
   facet: DataTableFacet;
   selected: readonly string[];
   onChange: (field: string, values: readonly string[]) => void;
+  /** Toolbar of a scrollBody table: h32 with the stronger border. */
+  dense?: boolean;
 }): ReactNode {
   const toggle = (value: string, checked: boolean): void => {
     const next = checked ? [...selected, value] : selected.filter((v) => v !== value);
@@ -922,7 +1064,12 @@ function FacetFilter({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <UiButton variant="outline" size="sm" className="h-9" data-testid={`facet-${facet.field}`}>
+        <UiButton
+          variant="outline"
+          size="sm"
+          className={cn("h-9", dense && "h-8 border-border-strong px-2.5 max-md:h-11")}
+          data-testid={`facet-${facet.field}`}
+        >
           {facet.label}
           {selected.length > 0 && (
             <Badge variant="secondary" className="ml-1 rounded-sm px-1 font-normal tabular-nums">
@@ -962,7 +1109,7 @@ function DateRangeFacetFilter({
   onChange: (field: string, bound: "from" | "to", value: string) => void;
 }): ReactNode {
   const inputClass =
-    "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+    "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 max-md:min-h-11";
   return (
     <div className="flex items-center gap-2" data-testid={`facet-daterange-${facet.field}`}>
       <span className="text-sm text-muted-foreground">{facet.label}</span>
@@ -989,6 +1136,62 @@ function DateRangeFacetFilter({
   );
 }
 
+// The vendored Table wraps <table> in an `overflow-x-auto` container, which
+// would become the scrollport of a sticky header. A scrollBody table scrolls
+// in its parent instead, so it renders the bare <table>.
+function FlushTable({ className, ...props }: TableHTMLAttributes<HTMLTableElement>): ReactNode {
+  return (
+    <table
+      data-slot="table"
+      className={cn("w-full caption-bottom text-sm", className)}
+      {...props}
+    />
+  );
+}
+
+// Header cells stick to the scroll surface; the bottom rule is an inset
+// shadow because a border on a sticky cell scrolls away under border-collapse.
+// Column weight (medium vs. semibold for the sorted one) lives on the th itself
+// in SortableHeader: a `[&_th]:font-*` rule here would outrank it.
+const FILL_TABLE_CLASS = cn(
+  "[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-9 [&_th]:bg-muted [&_th]:px-2 [&_th]:text-[13px]",
+  "[&_th]:shadow-[inset_0_-1px_0_var(--color-border)] [&_th_button]:text-[13px] [&_td]:px-2 [&_td]:py-0",
+  "[&_tr>:first-child]:pl-6 [&_tr>:last-child]:pr-6",
+);
+
+const TABLE_FOOTER_BAR_CLASS = cn(
+  "flex h-15 shrink-0 items-center gap-4 border-t border-border bg-card pl-4 pr-2",
+  "text-[13px] tabular-nums text-foreground-secondary md:h-11 md:px-6",
+);
+
+function DataTableFooter({
+  count,
+  itemNoun,
+  testId,
+}: {
+  readonly count: number;
+  readonly itemNoun?: (count: number) => string;
+  readonly testId: string;
+}): ReactNode {
+  const t = useOptionalTranslation();
+  const noun = itemNoun?.(count);
+  const label =
+    noun !== undefined
+      ? (t?.("kumiko.list.count.noun", { count: count.toLocaleString(), noun }) ??
+        `${count.toLocaleString()} ${noun}`)
+      : count === 1
+        ? (t?.("kumiko.list.count.one") ?? "1 entry")
+        : (t?.("kumiko.list.count.other", { count: count.toLocaleString() }) ??
+          `${count.toLocaleString()} entries`);
+  return (
+    <div data-testid={testId} className={TABLE_FOOTER_BAR_CLASS}>
+      <span data-testid={`${testId}-count`}>{label}</span>
+    </div>
+  );
+}
+
+const CARD_META_MAX = 3;
+
 function DefaultDataTable({
   columns,
   rows,
@@ -997,11 +1200,13 @@ function DefaultDataTable({
   onSortChange,
   emptyState,
   toolbarStart,
+  toolbarDescription,
   toolbarEnd,
   pager,
   onReachEnd,
   loadingMore,
   hasMore,
+  itemNoun,
   rowActions,
   rowActionMode,
   filterFacets,
@@ -1027,18 +1232,21 @@ function DefaultDataTable({
   // one). Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
+  const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
   // Sticky würde mit der Topbar konkurrieren.
   const hasTableActions = rowActions !== undefined && rowActions.length > 0;
   const isEmpty = rows.length === 0;
+  const fillsHeight = scrollBody === true;
+  const TableRoot = fillsHeight ? FlushTable : Table;
   const emptyBlock: ReactNode = (
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
       className={cn(
         "flex flex-col items-center justify-center p-12 text-sm text-muted-foreground gap-3",
-        chromeless !== true && "rounded-md border border-dashed",
+        chromeless !== true && !fillsHeight && "rounded-md border border-dashed",
       )}
     >
       {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}
@@ -1053,23 +1261,17 @@ function DefaultDataTable({
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
-      // `scrollBody` is the terminal link in the DefaultForm/FormScreenShell
-      // `fillHeight` chain (fw#2722) — every ancestor in that chain sizes to
-      // its own content (no flex-1) and only shrinks once the chain's
-      // `h-full` root runs out of room, so THIS is the one div that still
-      // claims the leftover height (`flex-1`) and scrolls rows internally
-      // instead of `overflow-hidden` (document-flow height, grows with row
-      // count) — a short list keeps a content-sized card, a long one scrolls
-      // in place instead of stretching the whole page (fw#2722, fw#2778).
-      // `min-h-0` overrides flex's default min-height:auto, which would
-      // otherwise keep this at its content's height regardless of flex-shrink.
+      // `scrollBody`: the scroll surface and its border live on the wrapper
+      // in `content` below, so the table renders frameless and without the
+      // vendored `overflow-x-auto` container — that container would become
+      // the sticky header's scrollport and the header would never stick.
       <div
         className={cn(
-          scrollBody === true ? "flex-1 min-h-0 overflow-y-auto" : "overflow-hidden",
-          chromeless !== true && "rounded-lg border bg-card",
+          !fillsHeight && "overflow-hidden",
+          !fillsHeight && chromeless !== true && "rounded-lg border bg-card",
         )}
       >
-        <Table data-testid={testId}>
+        <TableRoot data-testid={testId} className={fillsHeight ? FILL_TABLE_CLASS : undefined}>
           <TableHeader className="bg-muted">
             <TableRow className="hover:bg-transparent">
               {columns.map((col) => (
@@ -1079,6 +1281,7 @@ function DefaultDataTable({
                   label={col.label}
                   sortable={col.sortable === true}
                   highlighted={col.highlighted === true}
+                  numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
                   {...(sort !== undefined && sort !== null && { sort })}
                   {...(onSortChange !== undefined && { onSortChange })}
                 />
@@ -1105,9 +1308,12 @@ function DefaultDataTable({
                 key={row.id}
                 data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
                 onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-                className={cn(onRowClick !== undefined && "cursor-pointer")}
+                className={cn(
+                  onRowClick !== undefined && "cursor-pointer",
+                  fillsHeight && "h-10 border-border-row hover:bg-muted",
+                )}
               >
-                {columns.map((col) => (
+                {columns.map((col, colIndex) => (
                   <TableCell
                     key={col.field}
                     data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
@@ -1117,23 +1323,37 @@ function DefaultDataTable({
                     // pattern). max-w-xs gives a sensible default upper
                     // bound; the table container scrolls horizontally
                     // if the sum of the columns gets too wide.
-                    className={cn("max-w-xs truncate", col.highlighted === true && "bg-accent/40")}
+                    className={cn(
+                      "max-w-xs truncate",
+                      colIndex === 0 ? "font-medium text-foreground" : "text-foreground-secondary",
+                      NUMERIC_COLUMN_TYPES.has(col.type) && "text-right tabular-nums",
+                      col.highlighted === true && "bg-accent/40",
+                    )}
                     title={cellTitle(row.values[col.field])}
                   >
-                    <DataTableCell
-                      value={row.values[col.field]}
-                      row={row.values}
-                      field={col.field}
-                      type={col.type}
-                      renderer={col.renderer}
-                      translate={tableTranslate}
-                      locale={tableLocale}
-                      {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
-                      {...(col.grouping !== undefined && { grouping: col.grouping })}
-                      {...(onCellChange !== undefined && {
-                        onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-                      })}
-                    />
+                    <FirstCellLink
+                      enabled={
+                        colIndex === 0 && onRowClick !== undefined && onCellChange === undefined
+                      }
+                      onOpen={() => onRowClick?.(row)}
+                      empty={isEmptyCellValue(row.values[col.field])}
+                    >
+                      <DataTableCell
+                        value={row.values[col.field]}
+                        row={row.values}
+                        field={col.field}
+                        type={col.type}
+                        renderer={col.renderer}
+                        translate={tableTranslate}
+                        locale={tableLocale}
+                        {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                        {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
+                        {...(col.grouping !== undefined && { grouping: col.grouping })}
+                        {...(onCellChange !== undefined && {
+                          onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+                        })}
+                      />
+                    </FirstCellLink>
                   </TableCell>
                 ))}
                 {hasTableActions && (
@@ -1145,7 +1365,10 @@ function DefaultDataTable({
                     // would hide the neighboring data column on narrow
                     // viewports. bg-background sets the column apart during
                     // scroll — no border-l (divider too heavy).
-                    className="text-right md:sticky md:right-0 md:z-10 md:bg-background"
+                    className={cn(
+                      "text-right md:sticky md:right-0 md:z-10 md:bg-background",
+                      fillsHeight && "md:bg-card",
+                    )}
                     // Action-cell events must not trigger the row click/activation
                     // (typically "Open Detail" — the user wanted the action,
                     // not navigation). We stopPropagation for mouse and
@@ -1153,13 +1376,18 @@ function DefaultDataTable({
                     onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => e.stopPropagation()}
                   >
-                    <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
+                    <RowActionsCell
+                      row={row}
+                      actions={rowActions}
+                      mode={rowActionMode}
+                      rowIsLink={onRowClick !== undefined}
+                    />
                   </TableCell>
                 )}
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </TableRoot>
       </div>
     );
   }
@@ -1181,129 +1409,181 @@ function DefaultDataTable({
     { value: `${col.field}:desc`, field: col.field, dir: "desc", label: `${col.label} ↓` },
   ]);
 
-  function renderCard(row: ListRowViewModel): ReactNode {
-    const titleColumn = columns.find((col) => col.highlighted === true) ?? columns[0];
-    const detailColumns = columns.filter((col) => col !== titleColumn);
+  const cardTitleColumn = columns.find((col) => col.highlighted === true) ?? columns[0];
+  const cardStatusColumn = columns.find(
+    (col) => col !== cardTitleColumn && col.type === "select" && col.renderer === undefined,
+  );
+  const cardMetaColumns = columns.filter(
+    (col) => col !== cardTitleColumn && col !== cardStatusColumn && col.hideOnNarrow !== true,
+  );
+
+  function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
     return (
-      <div
+      <DataTableCell
+        value={row.values[col.field]}
+        row={row.values}
+        field={col.field}
+        type={col.type}
+        renderer={col.renderer}
+        translate={tableTranslate}
+        locale={tableLocale}
+        {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+        {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
+        {...(col.grouping !== undefined && { grouping: col.grouping })}
+        {...(onCellChange !== undefined && {
+          onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+        })}
+      />
+    );
+  }
+
+  function renderCard(row: ListRowViewModel): ReactNode {
+    const metaColumns = cardMetaColumns
+      .filter((col) => !isEmptyCellValue(row.values[col.field]))
+      .slice(0, CARD_META_MAX);
+    const showStatus =
+      cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
+    const rowIsLink = onRowClick !== undefined;
+    const menuActions =
+      rowActions !== undefined && rowIsLink
+        ? rowActions.filter((action) => action.rowClick !== true)
+        : rowActions;
+    const body = (
+      <>
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            {cardTitleColumn !== undefined && (
+              <span
+                data-testid={
+                  getCellTestId?.(row, cardTitleColumn.field) ??
+                  `cell-${row.id}-${cardTitleColumn.field}`
+                }
+                className="min-w-0 truncate text-base font-semibold text-foreground"
+              >
+                {cardCell(row, cardTitleColumn)}
+              </span>
+            )}
+            {showStatus && (
+              <span
+                data-testid={
+                  getCellTestId?.(row, cardStatusColumn.field) ??
+                  `cell-${row.id}-${cardStatusColumn.field}`
+                }
+                className="shrink-0"
+              >
+                {cardCell(row, cardStatusColumn)}
+              </span>
+            )}
+          </div>
+          {metaColumns.length > 0 && (
+            <div className="flex min-w-0 items-center gap-1 truncate text-[13px] tabular-nums text-foreground-secondary">
+              {metaColumns.map((col, index) => (
+                <Fragment key={col.field}>
+                  {index > 0 && <span aria-hidden="true">·</span>}
+                  <span
+                    data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                    className="truncate"
+                  >
+                    {cardCell(row, col)}
+                  </span>
+                </Fragment>
+              ))}
+            </div>
+          )}
+        </div>
+        {rowIsLink && (
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        )}
+      </>
+    );
+    return (
+      <li
         key={row.id}
         data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
-        {...(onRowClick !== undefined && {
-          role: "button" as const,
-          tabIndex: 0,
-          onClick: () => onRowClick(row),
-          onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
-            if (e.key !== "Enter" && e.key !== " ") return;
-            e.preventDefault();
-            onRowClick(row);
-          },
-        })}
-        className={cn(
-          "flex flex-col gap-3 rounded-lg border bg-card p-4",
-          onRowClick !== undefined && "cursor-pointer",
-        )}
+        className="flex min-h-[72px] items-center gap-2 border-b border-border-row py-3 pl-4 pr-2"
+        {...(rowIsLink && { onClick: () => onRowClick(row) })}
       >
-        {titleColumn !== undefined && (
-          <div
-            data-testid={
-              getCellTestId?.(row, titleColumn.field) ?? `cell-${row.id}-${titleColumn.field}`
-            }
-            className="text-base font-medium"
+        {rowIsLink ? (
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 bg-transparent p-0 text-left"
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              e.stopPropagation();
+              onRowClick(row);
+            }}
           >
-            <DataTableCell
-              value={row.values[titleColumn.field]}
-              row={row.values}
-              field={titleColumn.field}
-              type={titleColumn.type}
-              renderer={titleColumn.renderer}
-              translate={tableTranslate}
-              locale={tableLocale}
-              {...(titleColumn.optionLabels !== undefined && {
-                optionLabels: titleColumn.optionLabels,
-              })}
-              {...(titleColumn.grouping !== undefined && { grouping: titleColumn.grouping })}
-              {...(onCellChange !== undefined && {
-                onChange: (value: unknown) => onCellChange(row.id, titleColumn.field, value),
-              })}
+            {body}
+          </button>
+        ) : (
+          body
+        )}
+        {menuActions !== undefined && menuActions.length > 0 && (
+          // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
+          <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <RowActionsCell
+              row={row}
+              actions={menuActions}
+              mode={rowActionMode}
+              rowIsLink={rowIsLink}
             />
           </div>
         )}
-        <div className="flex flex-col gap-2">
-          {detailColumns.map((col) => (
-            <div key={col.field} className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">{col.label}</span>
-              <span
-                data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                className="text-sm"
-              >
-                <DataTableCell
-                  value={row.values[col.field]}
-                  row={row.values}
-                  field={col.field}
-                  type={col.type}
-                  renderer={col.renderer}
-                  translate={tableTranslate}
-                  locale={tableLocale}
-                  {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
-                  {...(col.grouping !== undefined && { grouping: col.grouping })}
-                  {...(onCellChange !== undefined && {
-                    onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-                  })}
-                />
-              </span>
-            </div>
-          ))}
-        </div>
-        {hasTableActions && (
-          // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
-          <div
-            className="flex items-center justify-end gap-1 border-t pt-3"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <RowActionsCell row={row} actions={rowActions} mode={rowActionMode} />
-          </div>
-        )}
-      </div>
+      </li>
     );
   }
 
   function cardsInner(): ReactNode {
     if (isEmpty) return emptyBlock;
+    const sortLabel =
+      sort !== undefined && sort !== null
+        ? (tableTranslate?.("kumiko.list.sort.by", {
+            column: columns.find((col) => col.field === sort.field)?.label ?? sort.field,
+          }) ?? `Sorted by ${sort.field}`)
+        : (tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted");
+    const SortArrow = sort?.dir === "desc" ? ArrowDown : ArrowUp;
     return (
       <div
         data-testid={testId !== undefined ? `${testId}-cards` : "render-list-cards"}
-        className={cn(
-          "flex flex-col gap-3",
-          scrollBody === true && "flex-1 min-h-0 overflow-y-auto",
-        )}
+        className="flex flex-col"
       >
         {onSortChange !== undefined && sortableColumns.length > 0 && (
-          <select
-            aria-label={tableTranslate?.("kumiko.list.sort.label") ?? "Sort"}
-            data-testid={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
-            value={sort !== undefined && sort !== null ? `${sort.field}:${sort.dir}` : ""}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw === "") {
-                onSortChange(null);
-                return;
-              }
-              const picked = sortOptions.find((o) => o.value === raw);
-              if (picked === undefined) return;
-              onSortChange({ field: picked.field, dir: picked.dir });
-            }}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          >
-            <option value="">{tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted"}</option>
-            {sortOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+          <div className="relative flex h-9 items-center gap-1.5 px-4 text-[13px] text-foreground-secondary">
+            <span aria-hidden="true">{sortLabel}</span>
+            {sort !== undefined && sort !== null && (
+              <SortArrow className="size-3.5" aria-hidden="true" />
+            )}
+            <select
+              aria-label={tableTranslate?.("kumiko.list.sort.label") ?? "Sort"}
+              data-testid={testId !== undefined ? `${testId}-sort` : "render-list-sort"}
+              value={sort !== undefined && sort !== null ? `${sort.field}:${sort.dir}` : ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === "") {
+                  onSortChange(null);
+                  return;
+                }
+                const picked = sortOptions.find((o) => o.value === raw);
+                if (picked === undefined) return;
+                onSortChange({ field: picked.field, dir: picked.dir });
+              }}
+              className="absolute inset-0 size-full cursor-pointer opacity-0"
+            >
+              <option value="">
+                {tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted"}
               </option>
-            ))}
-          </select>
+              {sortOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
-        {rows.map((row) => renderCard(row))}
+        <ul className="m-0 list-none border-t border-border-row p-0">
+          {rows.map((row) => renderCard(row))}
+        </ul>
       </div>
     );
   }
@@ -1315,32 +1595,58 @@ function DefaultDataTable({
   // ohne die Liste zu verlieren. Außer total === 0 — dann gibt's
   // nichts zu paginieren. Inkompatibel mit Infinite-Scroll: Caller
   // setzt entweder pager ODER onReachEnd.
-  const content =
+  const pagerElement =
     pager !== undefined && pager.total > 0 ? (
-      <>
+      <Pager
+        page={pager.page}
+        limit={pager.limit}
+        total={pager.total}
+        onPageChange={pager.onPageChange}
+        {...(pager.pageSizeOptions !== undefined && { pageSizeOptions: pager.pageSizeOptions })}
+        {...(pager.onPageSizeChange !== undefined && { onPageSizeChange: pager.onPageSizeChange })}
+        {...(itemNoun !== undefined && { itemNoun })}
+        testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
+        pinned={fillsHeight}
+      />
+    ) : undefined;
+  const sentinelElement =
+    pagerElement === undefined && onReachEnd !== undefined ? (
+      <InfiniteSentinel
+        onReachEnd={onReachEnd}
+        loadingMore={loadingMore === true}
+        hasMore={hasMore !== false}
+        rowsCount={rows.length}
+        testId={testId !== undefined ? `${testId}-sentinel` : "render-list-sentinel"}
+      />
+    ) : undefined;
+
+  // With scrollBody the footer (pager, else the entry count) sits OUTSIDE the
+  // scroll surface so it stays put at any row count; the infinite sentinel
+  // stays INSIDE, or it would never intersect the scrollport.
+  const content = fillsHeight ? (
+    <>
+      <div
+        data-testid={testId !== undefined ? `${testId}-scroll` : "render-list-scroll"}
+        className="min-h-0 flex-1 overflow-auto border-t border-border bg-card"
+      >
         {tableContent}
-        <Pager
-          page={pager.page}
-          limit={pager.limit}
-          total={pager.total}
-          onPageChange={pager.onPageChange}
-          testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
+        {sentinelElement}
+      </div>
+      {pagerElement ?? (
+        <DataTableFooter
+          count={rows.length}
+          {...(itemNoun !== undefined && { itemNoun })}
+          testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
         />
-      </>
-    ) : onReachEnd !== undefined ? (
-      <>
-        {tableContent}
-        <InfiniteSentinel
-          onReachEnd={onReachEnd}
-          loadingMore={loadingMore === true}
-          hasMore={hasMore !== false}
-          rowsCount={rows.length}
-          testId={testId !== undefined ? `${testId}-sentinel` : "render-list-sentinel"}
-        />
-      </>
-    ) : (
-      tableContent
-    );
+      )}
+    </>
+  ) : (
+    <>
+      {tableContent}
+      {pagerElement}
+      {sentinelElement}
+    </>
+  );
 
   const hasFacets =
     filterFacets !== undefined && filterFacets.length > 0 && onFilterChange !== undefined;
@@ -1358,6 +1664,7 @@ function DefaultDataTable({
               facet={facet}
               selected={filterValues?.[facet.field] ?? []}
               onChange={onFilterChange}
+              dense={fillsHeight}
             />
           ))}
         {hasDateRangeFacets &&
@@ -1379,8 +1686,12 @@ function DefaultDataTable({
       </div>
     ) : undefined;
 
+  const collapsesFacetsBehindButton = isNarrow && fillsHeight && facetCluster !== undefined;
   const hasToolbar =
-    toolbarStart !== undefined || toolbarEnd !== undefined || facetCluster !== undefined;
+    toolbarStart !== undefined ||
+    toolbarDescription !== undefined ||
+    toolbarEnd !== undefined ||
+    facetCluster !== undefined;
 
   // dashboard-01-Muster: die Toolbar (Search + Facets + "+ Neu") sitzt ÜBER
   // der Tabelle im selben Padding-Block — kein separater bg-Bar, kein Screen-
@@ -1396,30 +1707,81 @@ function DefaultDataTable({
     // same Card body.
     <div
       className={cn(
-        "flex flex-col gap-4 w-full",
-        screenPadding === true
-          ? screenPaddingClassName
-          : screenPadding === false
-            ? undefined
-            : "p-6",
-        // No flex-1: this wrapper sizes to its content (toolbar + table) and
-        // only shrinks (min-h-0) once its ancestor chain is itself
-        // height-constrained — the actual scroll surface is tableInner/
-        // cardsInner below, which do keep flex-1 to claim whatever height
-        // that shrink leaves them (fw#2778).
-        scrollBody === true && "min-h-0",
+        "flex flex-col w-full",
+        // scrollBody: the wrapper fills its container so the footer sits at the
+        // same spot at 3 and 300 rows; the 24px insets live in toolbar, cells
+        // and footer, so no outer padding.
+        fillsHeight
+          ? "h-full min-h-0"
+          : cn(
+              "gap-4",
+              screenPadding === true
+                ? screenPaddingClassName
+                : screenPadding === false
+                  ? undefined
+                  : "p-6",
+            ),
       )}
     >
       {hasToolbar && (
         <div
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
-          className={cn("flex flex-wrap items-center gap-3", scrollBody === true && "shrink-0")}
+          className={cn(
+            "flex flex-wrap items-center",
+            fillsHeight
+              ? isNarrow
+                ? "shrink-0 gap-2 p-3"
+                : "min-h-13 shrink-0 gap-2 px-6 py-2 md:py-0"
+              : "gap-3",
+          )}
         >
           {/* min-w-48: without a floor, flex shrinks the search instead of wrapping the facet cluster onto its own line (fw#3116). */}
           {toolbarStart !== undefined && (
-            <div className="flex-1 min-w-48 max-w-sm">{toolbarStart}</div>
+            <div
+              className={cn(
+                fillsHeight
+                  ? "relative w-full md:w-[300px] max-md:flex-1 [&_input]:border-border-strong [&_input]:pl-8 [&_input]:max-md:h-11 md:[&_input]:h-8"
+                  : "flex-1 min-w-48 max-w-sm",
+              )}
+            >
+              {fillsHeight && (
+                <Search
+                  className="pointer-events-none absolute left-2.5 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
+              )}
+              {toolbarStart}
+            </div>
           )}
-          {facetCluster}
+          {toolbarDescription !== undefined && (
+            <p
+              data-testid={
+                testId !== undefined ? `${testId}-description` : "render-list-description"
+              }
+              className="m-0 text-[13px] text-muted-foreground"
+            >
+              {toolbarDescription}
+            </p>
+          )}
+          {collapsesFacetsBehindButton ? (
+            <>
+              <UiButton
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-11"
+                aria-label={tableTranslate?.("kumiko.list.filter.toggle") ?? "Filter"}
+                aria-expanded={facetsOpenNarrow}
+                data-testid={testId !== undefined ? `${testId}-filter-toggle` : "filter-toggle"}
+                onClick={() => setFacetsOpenNarrow((open) => !open)}
+              >
+                <SlidersHorizontal className="size-4" aria-hidden="true" />
+              </UiButton>
+              {facetsOpenNarrow && <div className="w-full">{facetCluster}</div>}
+            </>
+          ) : (
+            facetCluster
+          )}
           {toolbarEnd !== undefined && (
             <div className="flex flex-wrap items-center gap-2 ml-auto">{toolbarEnd}</div>
           )}
@@ -1438,9 +1800,10 @@ function primaryRowAction(actions: readonly DataTableRowAction[]): DataTableRowA
 }
 
 // RowActionsCell renders the row actions depending on `mode`:
-//   - "adaptive" (default): <=2 visible actions render inline (right-
-//     aligned); >2 render the primary action (see `primaryRowAction`)
-//     inline plus the rest in the kebab dropdown.
+//   - "adaptive" (default): when the row itself is the link (`rowIsLink`)
+//     every action sits in the kebab; otherwise the primary action (see
+//     `primaryRowAction`) is a link-button and the rest goes into the kebab.
+//     A single action never gets a kebab.
 //   - "inline": ALWAYS inline buttons, left-aligned + full-width, even for
 //     >2 (no kebab). `w-full justify-start` pins the first button to the
 //     column's left edge so it sits at the same position across rows
@@ -1452,10 +1815,12 @@ function RowActionsCell({
   row,
   actions,
   mode = "adaptive",
+  rowIsLink = false,
 }: {
   readonly row: ListRowViewModel;
   readonly actions: readonly DataTableRowAction[];
   readonly mode?: DataTableRowActionMode;
+  readonly rowIsLink?: boolean;
 }): ReactNode {
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
@@ -1472,12 +1837,10 @@ function RowActionsCell({
       </div>
     );
   }
-  if (visible.length <= 2) {
+  if (rowIsLink) {
     return (
-      <div className="inline-flex items-center gap-1 justify-end">
-        {visible.map((a) => (
-          <RowActionButton key={a.id} row={row} action={a} />
-        ))}
+      <div className="inline-flex items-center justify-end">
+        <RowActionsKebab row={row} actions={visible} />
       </div>
     );
   }
@@ -1485,9 +1848,48 @@ function RowActionsCell({
   const rest = visible.filter((a) => a.id !== primary?.id);
   return (
     <div className="inline-flex items-center gap-1 justify-end">
-      {primary !== undefined && <RowActionButton row={row} action={primary} />}
-      <RowActionsKebab row={row} actions={rest} />
+      {primary !== undefined && <RowActionButton row={row} action={primary} asLink />}
+      {rest.length > 0 && <RowActionsKebab row={row} actions={rest} />}
     </div>
+  );
+}
+
+function isEmptyCellValue(value: unknown): boolean {
+  return value === null || value === undefined || value === "";
+}
+
+// The first cell is the keyboard-reachable entry point of a clickable row; the
+// row's own onClick keeps serving the mouse. Enter is handled explicitly so
+// it also opens the row where a button does not synthesize a click.
+function FirstCellLink({
+  enabled,
+  empty,
+  onOpen,
+  children,
+}: {
+  readonly enabled: boolean;
+  readonly empty: boolean;
+  readonly onOpen: () => void;
+  readonly children: ReactNode;
+}): ReactNode {
+  if (!enabled || empty) return children;
+  return (
+    <button
+      type="button"
+      className="max-w-full cursor-pointer truncate bg-transparent p-0 text-left font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -1534,9 +1936,11 @@ function RowActionButton({
   row,
   action,
   iconOnly = false,
+  asLink = false,
 }: {
   readonly row: ListRowViewModel;
   readonly action: DataTableRowAction;
+  readonly asLink?: boolean;
   /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
    *  effect when this action actually resolved an icon. */
   readonly iconOnly?: boolean;
@@ -1547,9 +1951,11 @@ function RowActionButton({
   const variantClass =
     action.style === "danger"
       ? "text-destructive hover:bg-destructive/10"
-      : action.style === "primary"
-        ? "text-primary hover:bg-primary/10"
-        : "text-foreground hover:bg-accent";
+      : asLink
+        ? "font-medium text-primary hover:bg-muted"
+        : action.style === "primary"
+          ? "text-primary hover:bg-primary/10"
+          : "text-foreground hover:bg-accent";
 
   const resolvedIcon = actionIconFor(action.icon);
   const showIconOnly = iconOnly && resolvedIcon !== undefined;
@@ -1570,8 +1976,9 @@ function RowActionButton({
           }
         }}
         className={cn(
-          "inline-flex h-8 items-center justify-center gap-1.5 rounded-sm text-sm",
-          showIconOnly ? "w-8" : "px-2",
+          "inline-flex items-center justify-center gap-1.5 text-sm",
+          asLink ? "h-7 rounded-md px-2.5 max-md:h-11" : "h-8 rounded-sm",
+          showIconOnly ? "w-8" : !asLink && "px-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:opacity-50 disabled:pointer-events-none",
           variantClass,
@@ -1579,7 +1986,7 @@ function RowActionButton({
       >
         {busy ? (
           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : resolvedIcon === undefined ? (
+        ) : resolvedIcon === undefined || (asLink && !showIconOnly) ? (
           action.label
         ) : showIconOnly ? (
           <Icon name={resolvedIcon} className="size-4" />
@@ -1616,6 +2023,7 @@ function RowActionsKebab({
   readonly actions: readonly DataTableRowAction[];
 }): ReactNode {
   const { triggerNow } = useRowActionTrigger(row);
+  const t = useTranslation();
   const [pendingConfirm, setPendingConfirm] = useState<DataTableRowAction | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -1625,10 +2033,10 @@ function RowActionsKebab({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="More actions"
+            aria-label={t("kumiko.list.row-actions.more")}
             data-testid={`row-${row.id}-actions-menu`}
             className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-sm",
+              "inline-flex size-7 items-center justify-center rounded-md max-md:size-11",
               "hover:bg-accent text-muted-foreground hover:text-foreground",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             )}
@@ -1692,8 +2100,8 @@ function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): 
           aria-label={label}
           data-testid={testId ?? "action-overflow-menu-trigger"}
           className={cn(
-            "inline-flex h-8 w-8 items-center justify-center rounded-sm",
-            "hover:bg-accent text-muted-foreground hover:text-foreground",
+            "inline-flex size-9 items-center justify-center rounded-md border border-input bg-background shadow-xs",
+            "hover:bg-accent text-foreground",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           )}
         >
@@ -1810,85 +2218,107 @@ function InfiniteSentinel({
   );
 }
 
-// Pager — classic page pager (← 1 … N →) for DataTables with
-// pagination="pages". Layout: status text on the left ("X – Y of Z"),
-// page buttons in the middle, prev/next arrows on the outside. The
-// window-of-7 doesn't show all pages for large lists — the user sees
-// the current range plus first/last as anchors.
+// Pager — status text on the left ("X – Y of Z"), "Page X of Y" and the
+// prev/next arrows on the right. No numbered page list: the board shows none.
+// `pinned` renders the footer bar of a scrollBody table (fixed height, top
+// border); unpinned it sits as a plain row below the table.
 //
-// Status text and prev/next/page aria-labels go through t(...), which
-// requires a LocaleProvider in the tree — same requirement as
-// InfiniteSentinel above, already established for DataTable consumers.
+// Status text and aria-labels go through t(...), which requires a
+// LocaleProvider in the tree — same requirement as InfiniteSentinel above,
+// already established for DataTable consumers.
 function Pager({
   page,
   limit,
   total,
   onPageChange,
+  pageSizeOptions,
+  onPageSizeChange,
+  itemNoun,
   testId,
+  pinned,
 }: {
   readonly page: number;
   readonly limit: number;
   readonly total: number;
   readonly onPageChange: (next: number) => void;
+  readonly pageSizeOptions?: readonly number[];
+  readonly onPageSizeChange?: (next: number) => void;
+  readonly itemNoun?: (count: number) => string;
   readonly testId?: string;
+  readonly pinned?: boolean;
 }): ReactNode {
   const t = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.max(1, Math.min(page, totalPages));
   const from = (safePage - 1) * limit + 1;
   const to = Math.min(safePage * limit, total);
-  const visible = computeVisiblePages(safePage, totalPages);
 
   return (
     <div
       data-testid={testId}
-      className="flex items-center justify-between mt-3 gap-3 text-sm text-muted-foreground"
+      className={
+        pinned === true
+          ? TABLE_FOOTER_BAR_CLASS
+          : "mt-3 flex items-center gap-4 text-[13px] tabular-nums text-foreground-secondary"
+      }
     >
-      <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
-        {t("kumiko.pager.status", {
-          from: from.toLocaleString(),
-          to: to.toLocaleString(),
-          total: total.toLocaleString(),
+      <div data-testid={testId !== undefined ? `${testId}-status` : undefined} className="flex-1">
+        {itemNoun !== undefined
+          ? t("kumiko.pager.status.noun", {
+              from: from.toLocaleString(),
+              to: to.toLocaleString(),
+              total: total.toLocaleString(),
+              noun: itemNoun(total),
+            })
+          : t("kumiko.pager.status", {
+              from: from.toLocaleString(),
+              to: to.toLocaleString(),
+              total: total.toLocaleString(),
+            })}
+      </div>
+      {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
+        <div className="relative hidden md:block">
+          <select
+            aria-label={t("kumiko.pager.pageSizeLabel")}
+            data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
+            value={limit}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="h-7 appearance-none rounded-md border border-input bg-card pl-2 pr-7 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 opacity-50"
+            aria-hidden="true"
+          />
+        </div>
+      )}
+      <div className="hidden md:block">
+        {t("kumiko.pager.pageOf", {
+          page: safePage.toLocaleString(),
+          pages: totalPages.toLocaleString(),
         })}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <PagerButton
           ariaLabel={t("kumiko.pager.previousPage")}
           disabled={safePage <= 1}
           onClick={() => onPageChange(safePage - 1)}
           testId={testId !== undefined ? `${testId}-prev` : undefined}
         >
-          <ChevronLeft className="size-4" aria-hidden="true" />
+          <ChevronLeft className="size-3.5" aria-hidden="true" />
         </PagerButton>
-        {visible.map((entry, idx) =>
-          entry === "ellipsis" ? (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: visible array is pure-derived from safePage/totalPages, so idx is stable across renders. No DnD/Reorder.
-              key={`ellipsis-${idx}`}
-              className="px-2 text-muted-foreground"
-            >
-              …
-            </span>
-          ) : (
-            <PagerButton
-              key={entry}
-              ariaLabel={t("kumiko.pager.page", { entry })}
-              ariaCurrent={entry === safePage ? "page" : undefined}
-              active={entry === safePage}
-              onClick={() => onPageChange(entry)}
-              testId={testId !== undefined ? `${testId}-page-${entry}` : undefined}
-            >
-              {entry}
-            </PagerButton>
-          ),
-        )}
         <PagerButton
           ariaLabel={t("kumiko.pager.nextPage")}
           disabled={safePage >= totalPages}
           onClick={() => onPageChange(safePage + 1)}
           testId={testId !== undefined ? `${testId}-next` : undefined}
         >
-          <ChevronRight className="size-4" aria-hidden="true" />
+          <ChevronRight className="size-3.5" aria-hidden="true" />
         </PagerButton>
       </div>
     </div>
@@ -1899,16 +2329,12 @@ function PagerButton({
   children,
   onClick,
   ariaLabel,
-  ariaCurrent,
-  active,
   disabled,
   testId,
 }: {
   readonly children: ReactNode;
   readonly onClick: () => void;
   readonly ariaLabel: string;
-  readonly ariaCurrent?: "page";
-  readonly active?: boolean;
   readonly disabled?: boolean;
   readonly testId?: string;
 }): ReactNode {
@@ -1918,57 +2344,16 @@ function PagerButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      aria-current={ariaCurrent}
       data-testid={testId}
       className={cn(
-        "inline-flex h-8 min-w-8 items-center justify-center rounded-sm px-2 text-sm",
-        "hover:bg-accent hover:text-accent-foreground",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        "disabled:opacity-40 disabled:pointer-events-none",
-        active === true && "bg-accent text-accent-foreground font-medium",
+        "inline-flex size-11 items-center justify-center rounded-md border border-border md:size-7",
+        "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "disabled:pointer-events-none disabled:text-foreground-disabled",
       )}
     >
       {children}
     </button>
   );
-}
-
-// Window-of-7 Strategie: erste + letzte Page immer sichtbar als Anker,
-// 5 Pages um den aktuellen Wert + Ellipsen wenn Distanz zu first/last
-// > 1. Beispiele:
-//   p=1, total=20:  [1] 2 3 4 5 … 20
-//   p=10, total=20: 1 … 8 9 [10] 11 12 … 20
-//   p=20, total=20: 1 … 16 17 18 19 [20]
-//   total=5: 1 2 3 4 5 (kein Window nötig)
-export function computeVisiblePages(
-  page: number,
-  totalPages: number,
-): readonly (number | "ellipsis")[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-
-  // Fenster von 5 Seiten um die aktuelle Seite. An den Rändern wird das
-  // Fenster verschoben (nicht abgeschnitten), damit immer 5 Zahlen + die
-  // gegenüberliegende Anker-Seite sichtbar sind:
-  //   p=1,  total=20: 1 2 3 4 5 … 20
-  //   p=10, total=20: 1 … 8 9 10 11 12 … 20
-  //   p=20, total=20: 1 … 16 17 18 19 20
-  const leftSibling = Math.max(page - 2, 1);
-  const rightSibling = Math.min(page + 2, totalPages);
-  const showLeftEllipsis = leftSibling > 2;
-  const showRightEllipsis = rightSibling < totalPages - 1;
-
-  if (!showLeftEllipsis) {
-    return [1, 2, 3, 4, 5, "ellipsis", totalPages];
-  }
-  if (!showRightEllipsis) {
-    const tail: (number | "ellipsis")[] = [1, "ellipsis"];
-    for (let i = totalPages - 4; i <= totalPages; i++) tail.push(i);
-    return tail;
-  }
-  const out: (number | "ellipsis")[] = [1, "ellipsis"];
-  for (let i = leftSibling; i <= rightSibling; i++) out.push(i);
-  out.push("ellipsis", totalPages);
-  return out;
 }
 
 // SortableHeader — rendert pro Spalte den th-Header, mit oder ohne
@@ -1985,6 +2370,7 @@ function SortableHeader({
   label,
   sortable,
   highlighted,
+  numeric,
   sort,
   onSortChange,
 }: {
@@ -1992,6 +2378,7 @@ function SortableHeader({
   readonly label: string;
   readonly sortable: boolean;
   readonly highlighted?: boolean;
+  readonly numeric?: boolean;
   readonly sort?: DataTableSort;
   readonly onSortChange?: (next: DataTableSort | null) => void;
 }): ReactNode {
@@ -2005,7 +2392,11 @@ function SortableHeader({
         data-testid={`column-${field}`}
         data-sortable={sortable === true ? true : undefined}
         data-highlighted={highlighted === true ? "true" : undefined}
-        className={cn("text-muted-foreground", highlighted === true && "bg-accent/40")}
+        className={cn(
+          "font-medium text-muted-foreground",
+          numeric === true && "text-right",
+          highlighted === true && "bg-accent/40",
+        )}
       >
         {label}
       </TableHead>
@@ -2021,20 +2412,34 @@ function SortableHeader({
       data-sortable="true"
       data-highlighted={highlighted === true ? "true" : undefined}
       aria-sort={ariaSort}
-      className={cn("text-muted-foreground", highlighted === true && "bg-accent/40")}
+      className={cn(
+        active !== undefined
+          ? "font-semibold text-foreground"
+          : "font-medium text-muted-foreground",
+        numeric === true && "text-right",
+        highlighted === true && "bg-accent/40",
+      )}
     >
       <button
         type="button"
         onClick={() => onSortChange(next)}
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm font-medium",
+          "group/sort inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm [font-weight:inherit]",
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           active !== undefined && "text-foreground",
         )}
       >
         <span>{label}</span>
-        <Icon className={cn("size-3.5", active === undefined && "opacity-40")} aria-hidden="true" />
+        <Icon
+          data-sort-icon={active === undefined ? "idle" : "active"}
+          className={cn(
+            "size-3.5",
+            active === undefined &&
+              "opacity-0 group-hover/sort:opacity-40 group-focus-visible/sort:opacity-40",
+          )}
+          aria-hidden="true"
+        />
       </button>
     </TableHead>
   );
@@ -2181,11 +2586,16 @@ type DataTableCellProps = {
   readonly type: string;
   readonly renderer?: unknown;
   readonly optionLabels?: Readonly<Record<string, string>>;
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
   readonly onChange?: (value: unknown) => void;
   readonly translate?: (key: string, params?: Readonly<Record<string, unknown>>) => string;
   readonly locale?: string;
   readonly grouping?: boolean;
 };
+
+const EMPTY_CELL_PLACEHOLDER = "–";
+
+const NUMERIC_COLUMN_TYPES: ReadonlySet<string> = new Set(["number", "decimal", "bigInt", "money"]);
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
 // useColumnRenderer-Hook aus dem Provider lesen kann. Die vier Pfade:
@@ -2203,6 +2613,7 @@ function DataTableCell({
   type,
   renderer,
   optionLabels,
+  optionTones,
   onChange,
   translate,
   locale,
@@ -2210,6 +2621,13 @@ function DataTableCell({
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
+  if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
+    return (
+      <span data-empty-cell="true" className="text-muted-foreground">
+        {EMPTY_CELL_PLACEHOLDER}
+      </span>
+    );
+  }
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
     return applyFormatSpec(
       { locale, ...(renderer as { format: string } & Record<string, unknown>) },
@@ -2261,7 +2679,16 @@ function DataTableCell({
   // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     const label = defaultCellRender(value, type, optionLabels, locale);
-    const tone = typeof value === "string" ? statusToneForValue(value) : undefined;
+    const declaredTone =
+      typeof value === "string" && optionTones && Object.hasOwn(optionTones, value)
+        ? optionTones[value]
+        : undefined;
+    const tone =
+      declaredTone !== undefined
+        ? statusToneForOptionTone(declaredTone)
+        : typeof value === "string"
+          ? statusToneForValue(value)
+          : undefined;
     if (tone !== undefined) {
       return <StatusBadge tone={tone}>{label}</StatusBadge>;
     }
@@ -2361,6 +2788,16 @@ function FormRoot({
   );
 }
 
+// stickyActions alone pins the primary action with `position: fixed` on
+// narrow viewports; together with fillHeight the flex chain pins the footer
+// on every viewport instead.
+function isPinnedFooter(
+  stickyActions: boolean | undefined,
+  fillHeight: boolean | undefined,
+): boolean {
+  return stickyActions === true && fillHeight === true;
+}
+
 // Sections wrapper for DefaultForm's card and chromeless layouts alike —
 // only the card-derived padding on non-section children differs between
 // them (see `chromeless` doc on FormProps).
@@ -2369,12 +2806,23 @@ function FormSections({
   chromeless,
   stickyActions,
   fillHeight,
+  screenForm = false,
 }: {
   readonly children: ReactNode;
   readonly chromeless: boolean;
   readonly stickyActions: boolean | undefined;
   readonly fillHeight: boolean | undefined;
+  readonly screenForm?: boolean;
 }): ReactNode {
+  if (screenForm) {
+    return (
+      <div className="flex flex-col gap-9">
+        <InsideFormContext.Provider value={true}>
+          <ScreenFormContext.Provider value={true}>{children}</ScreenFormContext.Provider>
+        </InsideFormContext.Provider>
+      </div>
+    );
+  }
   return (
     <div
       className={cn(
@@ -2389,11 +2837,13 @@ function FormSections({
         // button row + its own p-4, fw#2606) instead of the whole footer —
         // shrunk from pb-32 accordingly. Widen again if a wizard's primary
         // action ever wraps to two rows.
-        stickyActions === true && STICKY_FOOTER_SPACER_CLASS,
+        stickyActions === true && fillHeight !== true && STICKY_FOOTER_SPACER_CLASS,
         // Same "no flex-1" reasoning as the card above: this is the
         // one section allowed to shrink (min-h-0) inside the card, not
         // one forced to grow past its content.
         fillHeight === true && "min-h-0",
+        // The flex chain pins the footer, so the sections are the scroll surface.
+        isPinnedFooter(stickyActions, fillHeight) && "flex-1 overflow-y-auto",
       )}
     >
       <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
@@ -2491,6 +2941,8 @@ function FormFooter({
   chromeless,
   stickyActions,
   fillHeight,
+  unsavedCount = 0,
+  railed = false,
 }: {
   readonly actions: ReactNode;
   readonly secondaryActions: ReactNode;
@@ -2498,7 +2950,11 @@ function FormFooter({
   readonly chromeless: boolean;
   readonly stickyActions: boolean | undefined;
   readonly fillHeight: boolean | undefined;
+  readonly unsavedCount?: number;
+  /** Footer sits under a step rail: symmetric px-6 instead of the form column's left inset. */
+  readonly railed?: boolean;
 }): ReactNode {
+  const t = useTranslation();
   if (actions === undefined && secondaryActions === undefined) return null;
   // Only split when sticky: the non-sticky (regular, non-wizard) footer must
   // reproduce the previous DOM exactly (form-action-bar.test.tsx pins
@@ -2527,19 +2983,39 @@ function FormFooter({
     ) : (
       secondaryActions
     );
+  const pinned = isPinnedFooter(stickyActions, fillHeight);
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
-        !chromeless && "px-[var(--card-padding)]",
-        !chromeless && cardFooterBorder,
-        fillHeight === true && "shrink-0",
+        pinned
+          ? cn(
+              "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6",
+              !railed && "md:pl-10",
+            )
+          : "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
+        !pinned && !chromeless && "px-[var(--card-padding)]",
+        !pinned && !chromeless && cardFooterBorder,
+        !pinned && fillHeight === true && "shrink-0",
       )}
     >
+      {pinned && unsavedCount > 0 && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
+          className="mr-auto flex items-center gap-2 text-[13px] text-foreground-secondary"
+        >
+          <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+          {unsavedCount === 1
+            ? t("kumiko.form.unsaved.one")
+            : t("kumiko.form.unsaved.other", { count: unsavedCount })}
+        </div>
+      )}
       {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
-          className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
+          className={cn(
+            "flex flex-wrap items-center gap-2 max-sm:[&_button]:text-xs",
+            pinned && hasNonPrimaryOverflow && "mr-auto",
+          )}
         >
           {renderedSecondary}
         </div>
@@ -2548,7 +3024,10 @@ function FormFooter({
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
           className={cn(
-            "flex flex-wrap items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
+            "flex flex-wrap items-center gap-2",
+            pinned
+              ? "max-md:[&>button]:min-h-11"
+              : "max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
             // Below sm (640px): pin only the primary action to the viewport
             // bottom instead of normal flow, so a virtual keyboard shrinking
             // the viewport can't push it out of reach (fw#1918). `fixed`
@@ -2556,6 +3035,7 @@ function FormFooter({
             // contain ancestors trap it, confirmed against
             // AppLayout/SidebarInset — neither sets those).
             stickyActions === true &&
+              !pinned &&
               cn(
                 "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:p-4 max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)]",
                 STICKY_FOOTER_SAFE_AREA_CLASS,
@@ -2566,6 +3046,139 @@ function FormFooter({
         </div>
       )}
     </div>
+  );
+}
+
+const SECTION_NAV_MIN_ITEMS = 3;
+
+// "On this page" navigation next to a screen form. The active entry follows
+// the section nearest the top of the scroll surface; without IntersectionObserver
+// (happy-dom, old engines) the first entry stays active until one is clicked.
+function FormSectionNav({ items }: { readonly items: readonly FormSectionNavItem[] }): ReactNode {
+  const t = useTranslation();
+  const [activeId, setActiveId] = useState(items[0]?.id);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const visibleIds = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visibleIds.add(entry.target.id);
+          else visibleIds.delete(entry.target.id);
+        }
+        const firstVisible = items.find((item) => visibleIds.has(item.id));
+        if (firstVisible !== undefined) setActiveId(firstVisible.id);
+      },
+      { rootMargin: "0px 0px -60% 0px" },
+    );
+    for (const item of items) {
+      const target = document.getElementById(item.id);
+      if (target !== null) observer.observe(target);
+    }
+    return () => observer.disconnect();
+  }, [items]);
+
+  return (
+    <nav
+      aria-label={t("kumiko.form.on-this-page")}
+      data-testid="form-section-nav"
+      className="sticky top-0 hidden w-[200px] shrink-0 flex-col gap-0.5 self-start xl:flex"
+    >
+      <span className="pb-1.5 pl-3 text-xs text-muted-foreground">
+        {t("kumiko.form.on-this-page")}
+      </span>
+      {items.map((item) => {
+        const active = item.id === activeId;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            data-testid={`form-section-nav-${item.id}`}
+            {...(active && { "aria-current": "true" as const })}
+            onClick={() => {
+              setActiveId(item.id);
+              document
+                .getElementById(item.id)
+                ?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+            }}
+            className={cn(
+              "border-l-2 px-3 py-[5px] text-left text-sm",
+              active
+                ? "border-primary font-semibold text-primary"
+                : "border-border text-foreground-secondary hover:text-foreground",
+            )}
+          >
+            {item.title}
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+// Form inside the Drawer primitive: the drawer header carries the title, so
+// only the description (as help text), the scrolling sections and a pinned
+// footer remain. The scroll area is a sibling of the footer, never its parent.
+function DrawerFormLayout({
+  onSubmit,
+  subtitle,
+  actions,
+  secondaryActions,
+  summary,
+  testId,
+  children,
+}: Pick<
+  FormProps,
+  "onSubmit" | "subtitle" | "actions" | "secondaryActions" | "testId" | "summary"
+> & {
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <FormRoot onSubmit={onSubmit} testId={testId} className="flex h-full min-h-0 w-full flex-col">
+      <div
+        data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
+        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
+      >
+        {summary !== undefined && (
+          <div
+            data-testid={testId !== undefined ? `${testId}-summary` : undefined}
+            className="flex flex-col gap-0.5 rounded-lg bg-muted px-3.5 py-3"
+          >
+            <span className="text-sm font-semibold text-foreground">{summary.title}</span>
+            {summary.subtitle !== undefined && (
+              <span className="text-[13px] text-foreground-secondary">{summary.subtitle}</span>
+            )}
+          </div>
+        )}
+        {subtitle !== undefined && (
+          <p
+            data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+            className="text-[13px] text-foreground-secondary"
+          >
+            {subtitle}
+          </p>
+        )}
+        <InsideFormContext.Provider value={true}>
+          <ScreenFormContext.Provider value={true}>
+            <InsideDrawerProvider value={false}>
+              <DrawerBodyContext.Provider value={true}>
+                <div className="flex flex-col gap-5">{children}</div>
+              </DrawerBodyContext.Provider>
+            </InsideDrawerProvider>
+          </ScreenFormContext.Provider>
+        </InsideFormContext.Provider>
+      </div>
+      {(actions !== undefined || secondaryActions !== undefined) && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-footer` : undefined}
+          className="flex h-16 shrink-0 items-center justify-end gap-2 border-t border-border px-6"
+        >
+          {secondaryActions}
+          {actions}
+        </div>
+      )}
+    </FormRoot>
   );
 }
 
@@ -2583,7 +3196,13 @@ function DefaultForm({
   titleAction,
   fillHeight,
   chromeless,
+  screenForm,
+  unsavedCount,
+  sectionNav,
+  sideRail,
+  summary,
 }: FormProps): ReactNode {
+  const insideDrawer = useInsideDrawer();
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
   if (useContext(BareFormContext)) {
@@ -2609,11 +3228,28 @@ function DefaultForm({
     );
   }
 
+  if (insideDrawer) {
+    return (
+      <DrawerFormLayout
+        onSubmit={onSubmit}
+        subtitle={subtitle}
+        actions={actions}
+        secondaryActions={secondaryActions}
+        summary={summary}
+        testId={testId}
+      >
+        {children}
+      </DrawerFormLayout>
+    );
+  }
+
+  const isScreenForm = screenForm === true && fillHeight === true && chromeless !== true;
   const sections = (
     <FormSections
       chromeless={chromeless === true}
       stickyActions={stickyActions}
       fillHeight={fillHeight}
+      screenForm={isScreenForm}
     >
       {children}
     </FormSections>
@@ -2626,8 +3262,55 @@ function DefaultForm({
       chromeless={chromeless === true}
       stickyActions={stickyActions}
       fillHeight={fillHeight}
+      {...(unsavedCount !== undefined && { unsavedCount })}
+      railed={sideRail !== undefined}
     />
   );
+
+  // Screen form: no card. A padded scroll surface holds the form column and,
+  // from xl, the section navigation; the footer stays pinned below it.
+  if (isScreenForm) {
+    const showsSectionNav = sectionNav !== undefined && sectionNav.length >= SECTION_NAV_MIN_ITEMS;
+    return (
+      <FormRoot onSubmit={onSubmit} testId={testId} className="flex h-full min-h-0 w-full flex-col">
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          {sideRail}
+          <div
+            data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
+            className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-5 md:px-10 md:pb-10 md:pt-7"
+          >
+            <div className="flex gap-18">
+              <div
+                className={cn(
+                  "flex w-full min-w-0 flex-col gap-9",
+                  width !== undefined ? screenWidthClassName[width] : "max-w-[640px]",
+                )}
+              >
+                {headerRegion}
+                <FormTitleBlock
+                  title={title}
+                  subtitle={subtitle}
+                  titleAction={titleAction}
+                  testId={testId}
+                  bordered={false}
+                  fillHeight={false}
+                />
+                {sections}
+              </div>
+              {showsSectionNav && <FormSectionNav items={sectionNav} />}
+            </div>
+          </div>
+        </div>
+        {footer}
+      </FormRoot>
+    );
+  }
+
+  // Pinned footer (fillHeight + stickyActions): the footer is a full-bleed
+  // sibling BELOW the padded shell, so the shell's bottom inset does not float
+  // it above the viewport edge; the shell shrinks (`flex-1`) to make room.
+  const pinnedFooter = isPinnedFooter(stickyActions, fillHeight);
+  const pinnedShellClassName = pinnedFooter ? "h-auto flex-1 pb-6" : undefined;
 
   // Tab content (bedienkonzept A1): the head card is the ONLY card on the
   // screen, so a tabbed projectionDetail's tab content must render as a
@@ -2646,11 +3329,12 @@ function DefaultForm({
         className={cn("flex flex-col w-full", fillHeight === true && "h-full min-h-0")}
       >
         <FormScreenShell
-          {...(width !== undefined && { maxWidth: width })}
+          maxWidth="full"
           {...(fillHeight === true && { fillHeight: true })}
+          className={cn("!p-0", pinnedShellClassName)}
         >
           {headerRegion !== undefined && (
-            <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
+            <div className={cn("flex flex-col", fillHeight === true && "shrink-0")}>
               {headerRegion}
             </div>
           )}
@@ -2663,8 +3347,9 @@ function DefaultForm({
             fillHeight={fillHeight}
           />
           {sections}
-          {footer}
+          {!pinnedFooter && footer}
         </FormScreenShell>
+        {pinnedFooter && footer}
       </FormRoot>
     );
   }
@@ -2681,6 +3366,7 @@ function DefaultForm({
       <FormScreenShell
         {...(width !== undefined && { maxWidth: width })}
         {...(fillHeight === true && { fillHeight: true })}
+        {...(pinnedShellClassName !== undefined && { className: pinnedShellClassName })}
       >
         {headerRegion !== undefined && (
           <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
@@ -2699,6 +3385,7 @@ function DefaultForm({
             // it to always fill the remaining height, stretching a short
             // relatedList tab to the bottom of the panel (fw#2778).
             fillHeight === true && "min-h-0 flex flex-col",
+            pinnedFooter && "flex-1",
           )}
         >
           <FormTitleBlock
@@ -2710,9 +3397,10 @@ function DefaultForm({
             fillHeight={fillHeight}
           />
           {sections}
-          {footer}
+          {!pinnedFooter && footer}
         </div>
       </FormScreenShell>
+      {pinnedFooter && footer}
     </FormRoot>
   );
 }
@@ -2760,6 +3448,7 @@ export function FormScreenShell({
 }
 
 function DefaultSection({
+  id,
   title,
   subtitle,
   children,
@@ -2769,6 +3458,7 @@ function DefaultSection({
   icon,
 }: SectionProps): ReactNode {
   const insideForm = useContext(InsideFormContext);
+  const insideScreenForm = useContext(ScreenFormContext);
 
   // h3 statt CardTitle (= div): erhält die Heading-Semantik für
   // Screenreader-Navigation. Subtitle fließt darunter (kein Divider —
@@ -2778,22 +3468,26 @@ function DefaultSection({
   // actions render top-right in this same title row, never a
   // footer — a title-less section still draws the row when actions are
   // present, so a hideTitle tabs-Section with `actions` isn't stranded.
+  const TitleTag = insideScreenForm ? "h2" : "h3";
   const titleBlock =
     title !== undefined || subtitle !== undefined ? (
       <div className="flex flex-col gap-1">
         {title !== undefined && (
-          <h3
+          <TitleTag
             data-testid={testId !== undefined ? `${testId}-title` : undefined}
             className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight"
           >
             {icon !== undefined && <Icon name={icon} className="size-4 text-muted-foreground" />}
             {title}
-          </h3>
+          </TitleTag>
         )}
         {subtitle !== undefined && (
           <div
             data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
-            className="text-sm text-muted-foreground"
+            className={cn(
+              "text-sm text-muted-foreground",
+              insideScreenForm && "text-[13px] text-foreground-secondary",
+            )}
           >
             {subtitle}
           </div>
@@ -2820,13 +3514,16 @@ function DefaultSection({
   if (insideForm) {
     return (
       <section
+        id={id}
         data-testid={testId}
         className={cn(
           // py-4 (not the standalone card's py-6): the border-t between
           // sections already carries the section break, so the vertical
           // gap only needs to read as roughly double the gap-4 field row
           // spacing, not triple it.
-          "flex flex-col gap-4 px-6 py-4",
+          insideScreenForm
+            ? "flex scroll-mt-4 flex-col gap-4 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:pt-7"
+            : "flex flex-col gap-4 px-6 py-4",
           variant === "destructive" && "border-l-2 border-destructive/40",
         )}
       >
@@ -2861,19 +3558,47 @@ function DefaultSection({
   );
 }
 
-function DefaultFillContainer({ children, testId }: FillContainerProps): ReactNode {
-  // No flex-1: sizes to its content (the relatedList table) and only
-  // shrinks (min-h-0) once the ancestor FormScreenShell chain is itself
-  // height-constrained — flex-1 would instead always stretch to fill the
-  // remaining tab-panel height, even for a two-row table (fw#2778).
+function DefaultFillContainer({ children, testId, grow }: FillContainerProps): ReactNode {
+  // flex-1 only on request (`grow`, set under fillScreenHeight): without it the
+  // container sizes to its content and only shrinks (min-h-0), so a two-row
+  // table in a non-fixed-height screen does not stretch (fw#2778).
   return (
-    <div data-testid={testId} className="flex min-h-0 flex-col">
+    <div data-testid={testId} className={cn("flex min-h-0 flex-col", grow === true && "flex-1")}>
       {children}
     </div>
   );
 }
 
-function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
+const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
+  money: "w-full sm:w-[200px] [&_label]:whitespace-nowrap",
+  select: "w-full",
+};
+
+const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
+  text: "w-full sm:w-60",
+  number: "w-fit min-w-24 shrink-0 [&_label]:whitespace-nowrap [&_input]:w-24",
+  money: "w-40 shrink-0 [&_label]:whitespace-nowrap",
+  date: "w-full sm:w-[200px]",
+  select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",
+  full: "w-full",
+  auto: "w-auto",
+};
+
+function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): ReactNode {
+  const insideDrawerBody = useContext(DrawerBodyContext);
+  if (flow === true) {
+    return (
+      <div
+        data-testid={testId}
+        className={cn(
+          "flex gap-4",
+          insideDrawerBody ? "flex-col items-start" : "flex-wrap items-end",
+        )}
+      >
+        {children}
+      </div>
+    );
+  }
   // "auto": content-sized items in a wrapping row (e.g. a metrics band of
   // self-sized tiles) instead of N equal-width, container-stretched tracks.
   // maxRows/scrolling don't apply — the row just wraps.
@@ -2921,7 +3646,22 @@ function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNo
   );
 }
 
-function DefaultGridCell({ span, children }: GridCellProps): ReactNode {
+function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
+  const insideDrawerBody = useContext(DrawerBodyContext);
+  if (width !== undefined) {
+    return (
+      <div
+        className={cn(
+          "min-w-0 max-w-full",
+          insideDrawerBody
+            ? (DRAWER_FIELD_CELL_WIDTH_CLASS[width] ?? FIELD_CELL_WIDTH_CLASS[width])
+            : FIELD_CELL_WIDTH_CLASS[width],
+        )}
+      >
+        {children}
+      </div>
+    );
+  }
   const s = span !== undefined ? Math.min(span, 12) : 1;
   return <div style={{ gridColumn: `span ${s}` }}>{children}</div>;
 }
@@ -2974,6 +3714,7 @@ function DefaultLink({
   href,
   variant = "default",
   target,
+  rel,
   className,
   children,
   testId,
@@ -2989,7 +3730,7 @@ function DefaultLink({
     <a
       href={isSafeHref(href) ? href : "#"}
       target={target}
-      rel={target === "_blank" ? "noreferrer" : undefined}
+      rel={rel ?? (target === "_blank" ? "noopener noreferrer" : undefined)}
       {...dataAttributes}
       data-testid={testId}
       className={cn(variantClass, className)}
@@ -2999,8 +3740,8 @@ function DefaultLink({
   );
 }
 
-function DefaultProgress({ value, tone, testId }: ProgressProps): ReactNode {
-  return <ProgressBar value={value} tone={tone} testId={testId} />;
+function DefaultProgress({ value, tone, ariaLabel, testId }: ProgressProps): ReactNode {
+  return <ProgressBar value={value} tone={tone} ariaLabel={ariaLabel} testId={testId} />;
 }
 
 function DefaultStepBar({
@@ -3009,6 +3750,9 @@ function DefaultStepBar({
   compactLabel,
   onStepSelect,
   narrowLayout,
+  orientation,
+  heading,
+  description,
   testId,
   compactTestId,
 }: StepBarProps): ReactNode {
@@ -3019,15 +3763,19 @@ function DefaultStepBar({
       compactLabel={compactLabel}
       onStepSelect={onStepSelect}
       narrowLayout={narrowLayout}
+      orientation={orientation}
+      heading={heading}
+      description={description}
       testId={testId}
       compactTestId={compactTestId}
     />
   );
 }
 
-function DefaultWizardStepGroup({ hidden, children }: WizardStepGroupProps): ReactNode {
+function DefaultWizardStepGroup({ hidden, inset, children }: WizardStepGroupProps): ReactNode {
+  const visibleClass = inset === true ? "flex min-w-0 flex-col gap-4 p-6" : "contents";
   return (
-    <fieldset disabled={hidden} hidden={hidden} className={hidden ? undefined : "contents"}>
+    <fieldset disabled={hidden} hidden={hidden} className={hidden ? undefined : visibleClass}>
       {children}
     </fieldset>
   );
@@ -3260,6 +4008,8 @@ export const defaultPrimitives: CorePrimitives = {
   Tabs: DefaultTabs,
   StatusBadge: DefaultStatusBadge,
   Metric: DefaultMetric,
+  MetricBand: DefaultMetricBand,
+  PageHeader: DefaultPageHeader,
   JsonView: DefaultJsonView,
   FillContainer: DefaultFillContainer,
   ActionOverflowMenu,

@@ -29,18 +29,18 @@ export type DrawerProps = {
    *  footer already has a dedicated close/cancel action, so there is only
    *  one way to dismiss the drawer. */
   readonly showCloseButton?: boolean;
-  /** Panel treatment. `"floating"` (default) keeps the detached-panel look
-   *  (margin to the viewport edge, full corner radius). `"flush"` docks the
-   *  panel against the edge instead — full extent, no radius, and a border
-   *  only on the edge facing the app content. Ignored in the narrow-viewport
+  /** Panel treatment. `"flush"` (default) docks the panel against the edge —
+   *  full extent, no radius, and a border only on the edge facing the app
+   *  content. `"floating"` gives the detached-panel look (margin to the
+   *  viewport edge, full corner radius). Ignored in the narrow-viewport
    *  fullscreen layout. */
   readonly variant?: "floating" | "flush";
   /** `variant="flush"` only: dock the panel below the app's ShellHeader
    *  (offset top by `--shell-header-height`, height shrunk to match)
-   *  instead of covering it. Default `false` keeps today's edge-to-edge
-   *  behavior. No ShellHeader mounted → the variable is `0`, so this is a
-   *  no-op. Ignored in the narrow-viewport fullscreen layout, which already
-   *  takes over the whole screen including the header. */
+   *  instead of covering it. Default `false` is edge-to-edge. No ShellHeader
+   *  mounted → the variable is `0`, so this is a no-op. Ignored in the
+   *  narrow-viewport fullscreen layout, which already takes over the whole
+   *  screen including the header. */
   readonly belowHeader?: boolean;
   /** Panel width for `side="left"|"right"` (ignored for top/bottom and in
    *  the narrow-viewport layout). A number is pixels, a string any CSS
@@ -69,6 +69,12 @@ export type DrawerProps = {
    *  that leaves Escape as the only way out, so keep one of the two.
    *  Default `true`. */
   readonly modal?: boolean;
+  /** Extra classes for the panel, merged over the built-in ones. Not applied
+   *  in the narrow-viewport fullscreen layout. */
+  readonly panelClassName?: string;
+  /** The body becomes a plain flex column with no padding or scrolling of its
+   *  own, for children that bring their own scroll area and pinned footer. */
+  readonly fillBody?: boolean;
 };
 
 const MIN_WIDTH_PX = 320;
@@ -166,12 +172,14 @@ export function Drawer({
   children,
   testId,
   showCloseButton = true,
-  variant = "floating",
+  variant = "flush",
   belowHeader = false,
   width,
   resize,
   backdrop,
   modal = true,
+  panelClassName,
+  fillBody = false,
 }: DrawerProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
@@ -246,7 +254,11 @@ export function Drawer({
         // to suppress, so a click into the page behind keeps the panel open.
         onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
         showCloseButton={showCloseButton}
-        className={sidePanelClass(side, narrow, variant, belowHeader)}
+        className={cn(
+          sidePanelClass(side, narrow, variant, belowHeader),
+          fillBody && "gap-0",
+          !narrow && panelClassName,
+        )}
         style={{
           ...(canResize && !narrow
             ? { width: effectiveWidthPx, maxWidth: "none" }
@@ -277,7 +289,9 @@ export function Drawer({
             {description !== undefined && <SheetDescription>{description}</SheetDescription>}
           </SheetHeader>
         )}
-        <div className="flex-1 overflow-y-auto px-4">{children}</div>
+        <div className={fillBody ? "flex min-h-0 flex-1 flex-col" : "flex-1 overflow-y-auto px-4"}>
+          {children}
+        </div>
         {footer !== undefined && (
           <SheetFooter className={DRAWER_FOOTER_CLASS}>{footer}</SheetFooter>
         )}

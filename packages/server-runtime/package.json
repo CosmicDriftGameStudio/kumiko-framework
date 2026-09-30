@@ -62,6 +62,10 @@
       "types": "./src/extra-routes-deps.ts",
       "default": "./src/extra-routes-deps.ts"
     },
+    "./renderer-web-fonts": {
+      "types": "./src/renderer-web-fonts.ts",
+      "default": "./src/renderer-web-fonts.ts"
+    },
     "./resolve-tailwind-cli": {
       "types": "./src/resolve-tailwind-cli.ts",
       "default": "./src/resolve-tailwind-cli.ts"

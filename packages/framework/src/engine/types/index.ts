@@ -143,6 +143,7 @@ export type {
   ResolvedPiiFlags,
   RetentionDef,
   SelectFieldDef,
+  SelectOptionTone,
   TextFieldDef,
   TimestampFieldDef,
   TransitionMap,

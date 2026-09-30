@@ -95,7 +95,7 @@ export function DateField({
   const maxDate = max !== undefined ? parseIso(max) : undefined;
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="relative w-full">
       <input
         type="text"
         inputMode="numeric"
@@ -125,6 +125,7 @@ export function DateField({
         onBlur={() => setDraft(null)}
         className={cn(
           inputClass,
+          "pr-9",
           hasError === true && "border-destructive focus-visible:ring-destructive",
         )}
       />

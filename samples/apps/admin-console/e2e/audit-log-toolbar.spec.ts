@@ -7,6 +7,7 @@ import { loginAsTenantAdmin } from "./_helpers/login";
 
 const SEARCH_INPUT = "#render-list-search";
 const DATE_RANGE_CLUSTER = '[data-testid="facet-daterange-createdAt"]';
+const FILTER_TOGGLE = '[data-testid$="filter-toggle"]';
 const MIN_USABLE_SEARCH_WIDTH_PX = 192;
 
 test.describe("Audit log toolbar layout", () => {
@@ -18,6 +19,10 @@ test.describe("Audit log toolbar layout", () => {
     const search = page.locator(SEARCH_INPUT);
     const dateRange = page.locator(DATE_RANGE_CLUSTER);
     await expect(search).toBeVisible();
+    // Below md the facets collapse behind a filter toggle next to the search;
+    // opening it puts the cluster on its own row.
+    await expect(dateRange).toHaveCount(0);
+    await page.locator(FILTER_TOGGLE).click();
     await expect(dateRange).toBeVisible();
 
     const searchBox = await search.boundingBox();

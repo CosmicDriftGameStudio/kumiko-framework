@@ -60,47 +60,65 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("narrow viewport: no <table>, one card per row, every column present as label + value", () => {
+  test("narrow viewport: no <table>, one list row per record with title and meta values", () => {
     withViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
       expect(document.querySelector("table")).toBeNull();
       const card = within(screen.getByTestId("t-cards")).getByTestId("row-u1");
-      // Title = first column (none highlighted here) — still findable, and
-      // not duplicated as a label/value pair below.
-      expect(card.textContent).toContain("Anna Beispiel");
-      for (const col of COLUMNS.filter((c) => c.field !== "name")) {
-        expect(within(card).getByText(col.label)).not.toBeNull();
-      }
+      expect(card.tagName).toBe("LI");
+      expect(card.querySelector(".font-semibold")?.textContent).toBe("Anna Beispiel");
       expect(within(card).getByTestId("cell-u1-email").textContent).toBe("anna@haendler.de");
       expect(within(card).getByTestId("cell-u1-role").textContent).toBe("Admin");
       expect(within(card).getByTestId("cell-u1-bio").textContent).toBe(LONG_BIO);
     });
   });
 
-  test("highlighted column becomes the card title and does not repeat as a label/value pair", () => {
+  test("highlighted column becomes the row title", () => {
     withViewportWidth(500, () => {
       const columns = COLUMNS.map((c) => (c.field === "role" ? { ...c, highlighted: true } : c));
       render(<DataTable columns={columns} rows={ROWS} testId="t" />);
       const card = within(screen.getByTestId("t-cards")).getByTestId("row-u1");
-      expect(within(card).queryByText("Role")).toBeNull();
-      expect(within(card).getByText("Name")).not.toBeNull();
+      expect(card.querySelector(".font-semibold")?.textContent).toBe("Admin");
     });
   });
 
-  test("a value the table would truncate is shown in full in the card, without the truncate class", () => {
-    const originalWidth = window.innerWidth;
-    try {
-      setViewportWidth(1024);
-      const { unmount } = render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
-      const desktopCell = screen.getByTestId("cell-u1-bio");
-      expect(desktopCell.className).toContain("truncate");
-      unmount();
+  test("a select column renders as badge next to the title, at most three values in the meta line", () => {
+    withViewportWidth(500, () => {
+      const columns = [
+        { field: "name", label: "Name", type: "string", sortable: false },
+        { field: "status", label: "Status", type: "select", sortable: false },
+        { field: "a", label: "A", type: "string", sortable: false },
+        { field: "b", label: "B", type: "string", sortable: false },
+        { field: "c", label: "C", type: "string", sortable: false },
+        { field: "d", label: "D", type: "string", sortable: false },
+      ] as const;
+      const rows = [
+        { id: "u1", values: { name: "Anna", status: "active", a: "1", b: "2", c: "3", d: "4" } },
+      ];
+      render(<DataTable columns={columns} rows={rows} testId="t" />);
+      const card = within(screen.getByTestId("t-cards")).getByTestId("row-u1");
+      const badge = within(card).getByTestId("cell-u1-status");
+      expect(badge.className).toContain("shrink-0");
+      const titleRow = within(card).getByTestId("cell-u1-name").parentElement;
+      expect(badge.parentElement).toBe(titleRow);
+      expect(titleRow?.className).toContain("items-start");
+      expect(titleRow?.contains(within(card).getByTestId("cell-u1-a"))).toBe(false);
+      expect(within(card).queryByTestId("cell-u1-d")).toBeNull();
+      expect(within(card).getByTestId("cell-u1-c").textContent).toBe("3");
+    });
+  });
 
-      setViewportWidth(500);
-      render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
-      const cardCell = screen.getByTestId("cell-u1-bio");
-      expect(cardCell.className).not.toContain("truncate");
-      expect(cardCell.textContent).toBe(LONG_BIO);
+  test("with onRowClick the whole row opens the record, also via Enter", async () => {
+    const originalWidth = window.innerWidth;
+    setViewportWidth(500);
+    try {
+      const onRowClick = mock();
+      render(<DataTable columns={COLUMNS} rows={ROWS} onRowClick={onRowClick} testId="t" />);
+      const card = screen.getByTestId("row-u1");
+      await userEvent.setup().click(card);
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+      fireEvent.keyDown(card.querySelector("button") as HTMLElement, { key: "Enter" });
+      expect(onRowClick).toHaveBeenCalledTimes(2);
     } finally {
       setViewportWidth(originalWidth);
     }
@@ -182,6 +200,54 @@ describe("DataTable — card-mode sort select", () => {
       const onSortChange = mock();
       render(<DataTable columns={COLUMNS} rows={ROWS} onSortChange={onSortChange} testId="t" />);
       expect(screen.queryByTestId("t-sort")).toBeNull();
+    });
+  });
+});
+
+describe("DataTable — card-mode row menu and hideOnNarrow", () => {
+  test("the rowClick action alone leaves no menu next to the chevron", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          onRowClick={() => {}}
+          rowActions={[{ id: "edit", label: "Edit", rowClick: true, onTrigger: mock() }]}
+          testId="t"
+        />,
+      );
+      expect(within(screen.getByTestId("row-u1")).queryAllByRole("button")).toHaveLength(1);
+    });
+  });
+
+  test("an action beyond the rowClick one keeps its menu", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          onRowClick={() => {}}
+          rowActions={[
+            { id: "edit", label: "Edit", rowClick: true, onTrigger: mock() },
+            { id: "wizard", label: "Wizard", onTrigger: mock() },
+          ]}
+          testId="t"
+        />,
+      );
+      expect(within(screen.getByTestId("row-u1")).queryAllByRole("button")).toHaveLength(2);
+    });
+  });
+
+  test("hideOnNarrow keeps a column out of the cards but in the table", () => {
+    const columns = COLUMNS.map((c) => (c.field === "role" ? { ...c, hideOnNarrow: true } : c));
+    withViewportWidth(500, () => {
+      render(<DataTable columns={columns} rows={ROWS} testId="t" />);
+      expect(screen.queryByTestId("cell-u1-role")).toBeNull();
+      expect(screen.getByTestId("cell-u1-email")).not.toBeNull();
+    });
+    withViewportWidth(1024, () => {
+      render(<DataTable columns={columns} rows={ROWS} testId="t2" />);
+      expect(screen.getByTestId("cell-u1-role")).not.toBeNull();
     });
   });
 });

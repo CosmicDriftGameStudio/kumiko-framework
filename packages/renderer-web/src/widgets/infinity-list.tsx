@@ -8,6 +8,16 @@ import {
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState, ErrorState, LoadingState } from "./states";
 
+/** Position of the selected row among the rows loaded so far. `total`
+ *  counts loaded rows only; `hasMore` says whether further pages exist. */
+export type InfinityListSelection = {
+  readonly index: number;
+  readonly total: number;
+  readonly prevId: string | null;
+  readonly nextId: string | null;
+  readonly hasMore: boolean;
+};
+
 export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, unknown>>> = {
   /** Dispatcher-Query-Type (`<feature>:query:<entity>:<verb>`). */
   readonly query: string;
@@ -30,6 +40,13 @@ export type InfinityListProps<TData = unknown, TRow = Readonly<Record<string, un
    *  already-accumulated rows instead of collapsing them — see
    *  `useQuery`'s `live` option for the same convention. Default false. */
   readonly live?: boolean;
+  /** Row id (as returned by `rowId`) whose position `onSelectionChange`
+   *  reports. The list itself does not highlight it — `renderRow` does. */
+  readonly selectedId?: string | null;
+  /** Fires when the selected row's position or neighbours change, e.g. for
+   *  a "message 4 of 6" header with previous/next buttons. Not called while
+   *  nothing is selected or the selected row is not loaded. */
+  readonly onSelectionChange?: (selection: InfinityListSelection) => void;
 };
 
 type State<TRow> =
@@ -54,6 +71,8 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
   className,
   testId,
   live = false,
+  selectedId,
+  onSelectionChange,
 }: InfinityListProps<TData, TRow>): ReactNode {
   const dispatcher = useDispatcher();
   const t = useTranslation();
@@ -241,6 +260,22 @@ export function InfinityList<TData = unknown, TRow = Readonly<Record<string, unk
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [state, load]);
+
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  onSelectionChangeRef.current = onSelectionChange;
+  useEffect(() => {
+    if (selectedId === undefined || selectedId === null || state.kind !== "ready") return;
+    const ids = state.rows.map((row, index) => rowIdRef.current(row, index));
+    const index = ids.indexOf(selectedId);
+    if (index === -1) return;
+    onSelectionChangeRef.current?.({
+      index,
+      total: ids.length,
+      prevId: ids[index - 1] ?? null,
+      nextId: ids[index + 1] ?? null,
+      hasMore: state.cursor !== null,
+    });
+  }, [state, selectedId]);
 
   if (state.kind === "loading") return <LoadingState rows={4} testId={testId} />;
   if (state.kind === "error")

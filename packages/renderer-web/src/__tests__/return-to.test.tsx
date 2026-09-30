@@ -360,7 +360,8 @@ describe("returnTo", () => {
     renderApp();
 
     await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
-    await user.click(screen.getByTestId("row-tok-1-action-open"));
+    await user.click(screen.getByTestId("row-tok-1-actions-menu"));
+    await user.click(await screen.findByTestId("row-tok-1-action-open"));
 
     expect(window.location.pathname).toBe("/token-open");
     expect(window.location.search).toBe("?returnTo=settings");

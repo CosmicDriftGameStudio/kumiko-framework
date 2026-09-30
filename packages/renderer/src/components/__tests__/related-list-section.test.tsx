@@ -96,6 +96,7 @@ function testPrimitives(): CorePrimitives {
 function stubDispatcher(
   rows: readonly Record<string, unknown>[] = [{ id: "r1", name: "Alice" }],
   nextCursor: string | null = null,
+  envelope: { readonly total?: number; readonly omitCursor?: boolean } = {},
 ): {
   dispatcher: Dispatcher;
   writes: Array<{ type: string; payload: unknown }>;
@@ -110,7 +111,14 @@ function stubDispatcher(
     }) as Dispatcher["write"],
     query: (async () => {
       queryCalls += 1;
-      return { isSuccess: true, data: { rows, nextCursor } };
+      return {
+        isSuccess: true,
+        data: {
+          rows,
+          ...(envelope.omitCursor !== true && { nextCursor }),
+          ...(envelope.total !== undefined && { total: envelope.total }),
+        },
+      };
     }) as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
     statusStore: {
@@ -188,6 +196,42 @@ function renderRelatedList(
     </LocaleProvider>,
   );
 }
+
+describe("RelatedListSection column value type", () => {
+  test("a column declaring valueType money reaches the table as a money column", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedTypes: Record<string, string | undefined> = {};
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedTypes = Object.fromEntries(props.columns.map((c) => [c.field, c.type]));
+      return testDataTable(props);
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  ...historySection,
+                  columns: [{ field: "name" }, { field: "betrag", valueType: "money" }],
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(capturedTypes["betrag"]).toBe("money");
+    expect(capturedTypes["name"]).toBe("text");
+  });
+});
 
 describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
   test("hideTitle (tabs mode) renders the list without a Section wrapper, drops the table frame (the tab card frames it), and marks scrollBody", async () => {
@@ -1040,6 +1084,26 @@ describe("RelatedListSection — truncation banner (fw#2722 review)", () => {
 
   test("nextCursor === null renders no truncation banner", async () => {
     const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], null);
+    renderRelatedList(dispatcher);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
+  });
+
+  test("a handler that omits nextCursor renders no truncation banner, even at exactly one row", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], null, {
+      omitCursor: true,
+    });
+    renderRelatedList(dispatcher);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
+  });
+
+  test("a cursor with a total the rows already cover renders no truncation banner", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], "cursor-abc", {
+      total: 1,
+    });
     renderRelatedList(dispatcher);
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());

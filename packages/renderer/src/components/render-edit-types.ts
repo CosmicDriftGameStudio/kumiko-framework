@@ -53,6 +53,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly onDelete?: () => Promise<void> | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
+  /** Fires when the form gains or loses unsaved input (field changes or a
+   *  dirty extension section). Lets a host such as a drawer guard closing. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
   /** Copy-link action (issue #912) — only set in update mode (create mode
    *  has no entity id yet, hence no permalink). The callback is already fully
    *  bound (URL building + clipboard happen outside, in
@@ -83,6 +86,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly submitLabel?: string;
   /** Visual style of the submit button (actionForm `submitStyle`). Default "primary". */
   readonly submitVariant?: "primary" | "danger";
+  /** Context box above the drawer form (title + optional subtitle, already resolved). */
+  readonly summary?: { readonly title: string; readonly subtitle?: string };
   /** Per-field extra content inline after the label (e.g.
    *  ConfigSourceBadge). Called with the field name, returns a ReactNode or
    *  undefined. */
@@ -161,6 +166,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  redundant title above its content. Omitting this prop keeps unchanged
    *  behavior. */
   readonly hideSectionTitles?: boolean;
+  /** Screen body fills the shell height: the form gets `fillHeight` and
+   *  `stickyActions` (sections scroll, footer pinned). Set by KumikoScreen for
+   *  screens with `fillHeight !== false`; dialogs and other embedded hosts
+   *  omit it and keep document-flow height. */
+  readonly fillScreenHeight?: boolean;
   /** Extra content rendered above the card, sharing its left padding and
    *  width — for a host with its own header region (title/metrics/tabs)
    *  that would otherwise render as unpadded siblings before RenderEdit.

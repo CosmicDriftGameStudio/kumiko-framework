@@ -45,7 +45,11 @@ export {
   TextField,
   type TextFieldProps,
 } from "./form-fields";
-export { InfinityList, type InfinityListProps } from "./infinity-list";
+export {
+  InfinityList,
+  type InfinityListProps,
+  type InfinityListSelection,
+} from "./infinity-list";
 export { ModeSwitch } from "./mode-switch";
 export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots";
 export {
@@ -68,9 +72,20 @@ export {
   ResultTable,
 } from "./result-panel";
 export { SectionCard } from "./section-card";
+export {
+  SideBySideTable,
+  type SideBySideTableCell,
+  type SideBySideTableColumn,
+  type SideBySideTableRow,
+} from "./side-by-side-table";
 export { MiniStat, Sparkline, StatCard, type StatDelta, type StatTone } from "./stat";
 export { EmptyState, ErrorState, LoadingState } from "./states";
-export { STATUS_TONE_TEXT, StatusBadge, type StatusTone } from "./status-badge";
+export {
+  STATUS_TONE_TEXT,
+  StatusBadge,
+  type StatusBadgeTone,
+  type StatusTone,
+} from "./status-badge";
 export { StepBar } from "./step-bar";
 export { UploadZone, type UploadZoneProps } from "./upload-zone";
 export { useDraft } from "./use-draft";

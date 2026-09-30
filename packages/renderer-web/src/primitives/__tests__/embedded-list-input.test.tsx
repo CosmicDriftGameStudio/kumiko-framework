@@ -701,7 +701,8 @@ describe("EmbeddedListInput — currency (#1839)", () => {
     );
     const cell = within(screen.getByTestId("lines-desktop")).getByTestId("lines-cell-0-amount");
     const input = cell.querySelector("input") as HTMLInputElement;
-    expect(input.value).toContain("$");
+    expect(input.value).toBe("1,500.00");
+    expect(cell.textContent).toContain("$");
   });
 
   test("without a currency prop, totals row still formats as EUR (backward-compatible default)", () => {

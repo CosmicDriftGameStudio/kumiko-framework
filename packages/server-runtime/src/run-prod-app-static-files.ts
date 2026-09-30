@@ -110,6 +110,8 @@ export function mimeTypeFor(filePath: string): string {
       return "application/xml; charset=utf-8";
     case "webmanifest":
       return "application/manifest+json";
+    case "woff2":
+      return "font/woff2";
     default:
       return "application/octet-stream";
   }

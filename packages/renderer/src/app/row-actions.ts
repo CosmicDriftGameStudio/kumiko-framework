@@ -135,6 +135,7 @@ function buildNavigateRowAction(
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
     confirmRequired: false,
+    ...(action.rowClick === true && { rowClick: true }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: (row: ListRowViewModel) => runProjectionRowNavigate(nav, action, row, host),
     ...(visible !== undefined && {

@@ -1,7 +1,9 @@
-import { describe, expect, test } from "bun:test";
-import { SidebarProvider } from "@cosmicdrift/kumiko-renderer-web";
+import { describe, expect, mock, test } from "bun:test";
+import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
+import { SidebarProvider, ThemeMenuItem } from "@cosmicdrift/kumiko-renderer-web";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { TenantMenuItems } from "../tenant-menu-items";
 import { UserMenu } from "../user-menu";
 import { makeSessionApi, renderWithProviders } from "./test-utils";
 
@@ -76,5 +78,39 @@ describe("UserMenu", () => {
     expect(screen.getByText("alice@example.com")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: /Alice Wonder/ }));
     expect(screen.getByText("Sign out")).toBeTruthy();
+  });
+
+  test("sidebar variant: tenant and theme controls live inside the menu, not beside the row", async () => {
+    const user = userEvent.setup();
+    const switchTenant = mock(async () => {});
+    const session = makeSessionApi({
+      tenants: [
+        { tenantId: "tenant-1", name: "Alpha", roles: ["Admin"] },
+        { tenantId: "tenant-2", name: "Beta", roles: ["Admin"] },
+      ],
+      switchTenant,
+    });
+    const tokens = {
+      tokens: {} as never,
+      mode: "light" as const,
+      setMode: () => {},
+      toggleMode: () => {},
+    };
+    renderWithProviders(
+      <TokensProvider value={tokens}>
+        <SidebarProvider>
+          <UserMenu variant="sidebar">
+            <TenantMenuItems />
+            <ThemeMenuItem />
+          </UserMenu>
+        </SidebarProvider>
+      </TokensProvider>,
+      { session },
+    );
+    expect(screen.queryByText("Beta")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Test User/ }));
+    await user.click(screen.getByText("Beta"));
+    expect(switchTenant).toHaveBeenCalledWith("tenant-2");
+    expect(screen.getByText(/Modus/)).toBeTruthy();
   });
 });

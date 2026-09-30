@@ -13,7 +13,7 @@
 // useMemo), so this spec matches on the `listing-wizard:new:` prefix
 // rather than a single literal key.
 
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { expectSelectedOption, selectCombobox } from "./_helpers/select-combobox";
 import { CREATED_LISTINGS_KEY, draftStorageKey } from "./fixtures/mock-dispatcher";
 
@@ -40,30 +40,6 @@ async function draftInStorage(page: Page): Promise<unknown> {
 async function createdListings(page: Page): Promise<Record<string, unknown>[]> {
   const raw = await page.evaluate((key) => localStorage.getItem(key), CREATED_LISTINGS_KEY);
   return raw === null ? [] : (JSON.parse(raw) as Record<string, unknown>[]);
-}
-
-// Derives the expected fill ratio from the step label's own "Step X of Y"
-// text instead of a hardcoded literal (fw#1970) — so adding/removing a
-// wizard step doesn't break this on an unrelated number mismatch.
-async function expectStepFillRatio(
-  progress: Locator,
-  fill: Locator,
-  stepLabel: Locator,
-): Promise<void> {
-  const label = await stepLabel.textContent();
-  const match = label?.match(/Step (\d+) of (\d+)/);
-  expect(match, `step label "${label}" doesn't match "Step X of Y"`).not.toBeNull();
-  const [, currentStr, totalStr] = match!;
-  const expectedRatio = Number(currentStr) / Number(totalStr);
-
-  const wrapperBox = await progress.boundingBox();
-  const fillBox = await fill.boundingBox();
-  expect(wrapperBox).not.toBeNull();
-  expect(fillBox).not.toBeNull();
-  const actualRatio = fillBox!.width / wrapperBox!.width;
-  const tolerance = 0.03;
-  expect(actualRatio).toBeGreaterThan(expectedRatio - tolerance);
-  expect(actualRatio).toBeLessThan(expectedRatio + tolerance);
 }
 
 test.describe("wizard-form — step navigation, validation, draft resume", () => {
@@ -132,34 +108,32 @@ test.describe("wizard-form — step navigation, validation, draft resume", () =>
     );
   });
 
-  test("the progress bar keeps its own 8px height inside the wizard's padded chrome", async ({
+  test("the step rail keeps its own 36px row height inside the wizard's padded chrome and follows the step", async ({
     page,
   }) => {
-    // Regression for fw#1963/#1967: RenderEdit's wizard chrome pads every
-    // direct child of the form body (`[&>:not(section)]:py-3`, first-child
-    // `pt-6`) — with `box-sizing: border-box` that padding used to consume
-    // the progress bar's `h-2` entirely, rendering a ~36px bar instead of
-    // 8px. A jsdom unit test can't catch this (layout returns 0 there);
-    // only a real browser box model does.
+    // Screen-form wizards render a vertical step rail instead of the
+    // progress bar. Same regression class as fw#1963/#1967 (the progress bar's
+    // `h-2` used to be eaten by the chrome's padding): a rail row (`h-9`) must
+    // keep its own box inside the padded chrome. A jsdom unit test can't catch
+    // this (layout returns 0 there); only a real browser box model does.
     await gotoWizard(page);
-    const progress = page.getByTestId("render-edit-wizard-progress");
-    const fill = progress.locator("> div");
-    const stepLabel = page.getByTestId("render-edit-wizard-step-label");
+    const rail = page.getByTestId("render-edit-wizard-steps");
+    const step0 = page.getByTestId("render-edit-wizard-steps-step-0");
+    const step1 = page.getByTestId("render-edit-wizard-steps-step-1");
 
-    // `fill` is `absolute inset-y-0` inside `progress` — once the track's
-    // own height is confirmed, the fill's height follows by construction;
-    // asserting it separately would only catch a regression this test
-    // doesn't otherwise already fail on.
-    await expect(progress).toHaveCSS("height", "8px");
-    await expectStepFillRatio(progress, fill, stepLabel);
+    await expect(rail).toBeVisible();
+    await expect(page.getByTestId("render-edit-wizard-progress")).toHaveCount(0);
+    await expect(step0).toHaveAttribute("aria-current", "step");
+    await expect(step0).toHaveCSS("height", "36px");
+    await expect(step1).toHaveCSS("height", "36px");
 
     await page.getByTestId("field-title").locator("input").fill("Vintage desk lamp");
     await selectCombobox(page, "category", "furniture");
     await page.getByTestId("render-edit-wizard-next").click();
-    await expect(stepLabel).toHaveText("Step 2 of 3 · Pricing");
 
-    await expect(progress).toHaveCSS("height", "8px");
-    await expectStepFillRatio(progress, fill, stepLabel);
+    await expect(step1).toHaveAttribute("aria-current", "step");
+    await expect(step0).not.toHaveAttribute("aria-current", "step");
+    await expect(step1).toHaveCSS("height", "36px");
   });
 
   test("an empty required field blocks Next and shows a field error", async ({ page }) => {

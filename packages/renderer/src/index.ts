@@ -188,6 +188,8 @@ export {
   useTranslation,
 } from "./i18n";
 export { kumikoDefaultTranslations } from "./i18n-defaults";
+export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer";
+export { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "./page-header-slot";
 export type {
   ActionMenuItemSpec,
   ActionOverflowMenuProps,
@@ -212,9 +214,11 @@ export type {
   EmbeddedListColumn,
   EmbeddedListInputProps,
   EmbeddedListTotal,
+  FieldCellWidth,
   FieldProps,
   FillContainerProps,
   FormProps,
+  FormSectionNavItem,
   FormWidth,
   GridCellProps,
   GridProps,
@@ -223,8 +227,10 @@ export type {
   JsonViewProps,
   LightboxProps,
   LinkProps,
+  MetricBandProps,
   MetricProps,
   ModalProps,
+  PageHeaderProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   ProgressProps,
@@ -249,6 +255,7 @@ export {
   PrimitivesProvider,
   STICKY_PRIMARY_ACTION_PROP,
   shouldRenderActionsIconOnly,
+  statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
 } from "./primitives";

@@ -11,7 +11,7 @@ import {
   type EditFieldViewModel,
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { useAppFeatures } from "../app/app-features-context";
 import { useColumnRenderer } from "../app/column-renderers";
 import { extensionSectionName } from "../app/extension-sections";
@@ -71,7 +71,13 @@ export type RenderFieldProps = {
    *  field's sibling-field `unit`. Omitted → falls back to a single-key
    *  `{ [field.field]: field.value }` row. */
   readonly row?: Readonly<Record<string, unknown>>;
+  /** Marks the field as modified against the loaded record (edit mode only). */
+  readonly changed?: boolean;
 };
+
+const AllFieldsRequiredContext = createContext(false);
+
+export const AllFieldsRequiredProvider = AllFieldsRequiredContext.Provider;
 
 export function RenderField({
   field,
@@ -83,6 +89,7 @@ export function RenderField({
   allIssues,
   valueDisplay = "form",
   row,
+  changed,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -92,6 +99,7 @@ export function RenderField({
   // Standalone-Consumer/Tests müssen wrappen (createKumikoApp tut es).
   const appLocale = useLocale().locale();
   const t = useTranslation();
+  const allFieldsRequired = useContext(AllFieldsRequiredContext);
   if (!field.visible) return null;
 
   const id = inputId(field);
@@ -157,10 +165,11 @@ export function RenderField({
     <Field
       id={id}
       label={field.label}
-      required={field.required}
+      required={field.required && !allFieldsRequired}
       {...(issues !== undefined && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
+      {...(changed === true && { changed })}
       testId={`field-${field.field}`}
     >
       {control}

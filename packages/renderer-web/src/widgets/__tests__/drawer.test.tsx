@@ -112,9 +112,23 @@ describe("Drawer", () => {
   });
 
   describe("variant", () => {
-    test("default (no variant prop): floating classes unchanged (inset-y-8, right-8, rounded-[2rem], default width)", () => {
+    test("default (no variant prop): flush against the right edge, full height, no radius, default width", () => {
       render(
         <Drawer open={true} onOpenChange={() => {}} side="right" testId="drawer">
+          <div>Body</div>
+        </Drawer>,
+      );
+      const content = screen.getByTestId("drawer");
+      expect(content.className).toContain("inset-y-0");
+      expect(content.className).toContain("right-0");
+      expect(content.className).toContain("border-l");
+      expect(content.className).not.toContain("rounded-[2rem]");
+      expect(content.className).toContain("w-[max(600px,37.5vw)]");
+    });
+
+    test('variant="floating": detached panel with margin and radius', () => {
+      render(
+        <Drawer open={true} onOpenChange={() => {}} side="right" variant="floating" testId="drawer">
           <div>Body</div>
         </Drawer>,
       );
@@ -122,7 +136,6 @@ describe("Drawer", () => {
       expect(content.className).toContain("inset-y-8");
       expect(content.className).toContain("right-8");
       expect(content.className).toContain("rounded-[2rem]");
-      expect(content.className).toContain("w-[max(600px,37.5vw)]");
     });
 
     test('variant="flush" with side="right": inset-y-0, no radius, border-l only', () => {
@@ -247,9 +260,16 @@ describe("Drawer", () => {
       expect(screen.getByTestId("drawer").className).not.toContain("--shell-header-height");
     });
 
-    test("true + variant=floating (default variant): ignored, floating classes unchanged", () => {
+    test("true + variant=floating: ignored, floating classes unchanged", () => {
       render(
-        <Drawer open={true} onOpenChange={() => {}} side="right" belowHeader testId="drawer">
+        <Drawer
+          open={true}
+          onOpenChange={() => {}}
+          side="right"
+          variant="floating"
+          belowHeader
+          testId="drawer"
+        >
           <div>Body</div>
         </Drawer>,
       );

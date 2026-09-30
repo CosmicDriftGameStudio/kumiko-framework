@@ -392,6 +392,32 @@ describe("buildAppSchema", () => {
     expect(fields["categories"]?.["maxRows"]).toBeUndefined();
   });
 
+  test("Select: optionTones überleben die Projection", () => {
+    const entity = {
+      fields: {
+        status: {
+          type: "select",
+          options: ["open", "closed"],
+          optionTones: { closed: "bad" },
+        },
+        area: { type: "select", options: ["a", "b"] },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["status"]?.["optionTones"]).toEqual({ closed: "bad" });
+    expect(fields["area"]?.["optionTones"]).toBeUndefined();
+  });
+
   test("MultiSelectFieldDef: alle Keys sind in projectField bewusst eingeordnet", () => {
     // Bounded completeness check, scoped to MultiSelectFieldDef's own key set
     // (packages/types/src/fields.ts) — NOT a general FieldDefinition lockstep.
