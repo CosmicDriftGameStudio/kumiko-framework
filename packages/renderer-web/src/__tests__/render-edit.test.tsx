@@ -4409,3 +4409,96 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
     expect(container.querySelectorAll('[data-testid^="section-"]').length).toBe(2);
   });
 });
+
+describe("RenderEdit screen form (fillScreenHeight)", () => {
+  function threeSectionScreen(): EntityEditScreenDefinition {
+    return {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          { title: "Numbers", columns: 1, fields: [{ field: "count" }] },
+          { title: "Notes", columns: 1, fields: [{ field: "notes" }] },
+        ],
+      },
+    };
+  }
+
+  function renderScreenForm(props: { entityId?: string; screenDef?: EntityEditScreenDefinition }) {
+    return render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={props.screenDef ?? threeSectionScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Existing", count: 0, isUrgent: false } as TestValues}
+          writeCommand={props.entityId === undefined ? "order:create" : "order:update"}
+          fillScreenHeight
+          {...(props.entityId !== undefined && { entityId: props.entityId })}
+        />
+      </DispatcherProvider>,
+    );
+  }
+
+  test("edit mode: changed marker and unsaved counter appear only after a change", () => {
+    renderScreenForm({ entityId: "order-1" });
+    expect(document.querySelector("[data-testid$='-changed']")).toBeNull();
+    expect(document.querySelector("[data-testid$='-unsaved']")).toBeNull();
+
+    const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Changed" } });
+
+    expect(document.querySelector("[data-testid$='-changed']")).not.toBeNull();
+    expect(document.querySelector("[data-testid$='-unsaved']")).not.toBeNull();
+  });
+
+  test("create mode: no changed marker and no unsaved counter", () => {
+    renderScreenForm({});
+    const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Changed" } });
+    expect(document.querySelector("[data-testid$='-changed']")).toBeNull();
+    expect(document.querySelector("[data-testid$='-unsaved']")).toBeNull();
+  });
+
+  test("section nav appears from three titled sections", () => {
+    renderScreenForm({ entityId: "order-1" });
+    const nav = screen.getByTestId("form-section-nav");
+    expect(nav.querySelectorAll("button").length).toBe(3);
+    expect(nav.querySelector("[aria-current='true']")?.textContent).toBe("Basics");
+  });
+
+  test("no section nav with only two sections", () => {
+    const base = threeSectionScreen();
+    renderScreenForm({
+      entityId: "order-1",
+      screenDef: { ...base, layout: { sections: base.layout.sections?.slice(0, 2) ?? [] } },
+    });
+    expect(screen.queryByTestId("form-section-nav")).toBeNull();
+  });
+
+  test("wizard: vertical step rail with current state and 'Weiter: <Titel>' on the next button", () => {
+    renderScreenForm({
+      screenDef: {
+        id: "orders:screen:order-wizard",
+        type: "entityEdit",
+        entity: "order",
+        layout: {
+          mode: "wizard",
+          sections: [
+            { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+            { title: "Details", columns: 1, fields: [{ field: "count" }] },
+          ],
+        },
+      },
+    });
+    expect(screen.getByTestId("render-edit-wizard-steps-step-0").getAttribute("aria-current")).toBe(
+      "step",
+    );
+    expect(
+      screen.getByTestId("render-edit-wizard-steps-step-1").getAttribute("aria-current"),
+    ).toBeNull();
+    expect(screen.getByTestId("render-edit-wizard-next").textContent).toContain("Details");
+  });
+});

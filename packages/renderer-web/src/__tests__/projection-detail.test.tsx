@@ -158,7 +158,7 @@ describe("KumikoScreen / projectionDetail", () => {
     );
 
     const form = await waitFor(() => screen.getByTestId("render-edit-form"));
-    expect(form.firstElementChild?.className).toContain("max-w-full");
+    expect(form.querySelector(".max-w-full")).not.toBeNull();
   });
 
   test("missing entityId shows an error banner instead of crashing", async () => {

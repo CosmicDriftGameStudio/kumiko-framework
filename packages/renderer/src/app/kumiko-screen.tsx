@@ -52,6 +52,7 @@ import { useUserRoles } from "../context/user-roles-context";
 import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
 import { type UseQueryResult, useQuery } from "../hooks/use-query";
 import { useOptionalTimeZone, useTranslation } from "../i18n";
+import { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -201,8 +202,11 @@ export function KumikoScreen({
   }
 
   const body = renderScreenBody({ schema, screen, translate, entityId, onRowClick, onCopyLink });
-  // An embedded screen (e.g. a dashboard panel) keeps its parent's host.
-  if (outerHost !== undefined) return body;
+  // An embedded screen (e.g. a dashboard panel) keeps its parent's host and
+  // must not portal its page header into the shell that hosts the outer screen.
+  if (outerHost !== undefined) {
+    return <PageHeaderSlotAvailableProvider value={false}>{body}</PageHeaderSlotAvailableProvider>;
+  }
   return <ReturnHostProvider value={ownHost}>{body}</ReturnHostProvider>;
 }
 
@@ -1676,24 +1680,26 @@ function DrawerHost({
       title={effectiveTranslate(drawerAction.label)}
       testId={`toolbar-drawer-${drawerAction.id}`}
     >
-      {drawerScreen === undefined ? (
-        <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
-          Screen not found: <Text variant="code">{drawerAction.screen}</Text>
-        </Banner>
-      ) : !allowed ? (
-        <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
-          Access denied: <Text variant="code">{drawerAction.screen}</Text>
-        </Banner>
-      ) : (
-        <ActionFormBody
-          schema={schema}
-          screen={drawerScreen}
-          {...(translate !== undefined && { translate })}
-          {...(drawerInitialValues !== undefined && { initialOverrides: drawerInitialValues })}
-          onSuccess={onSuccess}
-          onCancelOverride={onClose}
-        />
-      )}
+      <PageHeaderSlotAvailableProvider value={false}>
+        {drawerScreen === undefined ? (
+          <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
+            Screen not found: <Text variant="code">{drawerAction.screen}</Text>
+          </Banner>
+        ) : !allowed ? (
+          <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
+            Access denied: <Text variant="code">{drawerAction.screen}</Text>
+          </Banner>
+        ) : (
+          <ActionFormBody
+            schema={schema}
+            screen={drawerScreen}
+            {...(translate !== undefined && { translate })}
+            {...(drawerInitialValues !== undefined && { initialOverrides: drawerInitialValues })}
+            onSuccess={onSuccess}
+            onCancelOverride={onClose}
+          />
+        )}
+      </PageHeaderSlotAvailableProvider>
     </Drawer>
   );
 }
@@ -2652,13 +2658,17 @@ function HeaderActionsBar({
   Dialog,
   ActionOverflowMenu,
   onError,
+  collapseAfterPrimary = false,
 }: {
+  /** Header slot layout: only the primary action stays a button, the rest goes into the menu. */
+  readonly collapseAfterPrimary?: boolean;
   readonly actions: readonly RenderEditAction[];
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly ActionOverflowMenu: ReturnType<typeof usePrimitives>["ActionOverflowMenu"];
   readonly onError: (text: string | null) => void;
 }): ReactNode {
+  const t = useTranslation();
   const [pendingAction, setPendingAction] = useState<RenderEditAction | null>(null);
   const trigger = async (action: RenderEditAction): Promise<void> => {
     onError(null);
@@ -2668,7 +2678,8 @@ function HeaderActionsBar({
       onError(e instanceof Error ? e.message : String(e));
     }
   };
-  if (actions.length <= 2 || ActionOverflowMenu === undefined) {
+  const maxPlainButtons = collapseAfterPrimary ? 1 : 2;
+  if (actions.length <= maxPlainButtons || ActionOverflowMenu === undefined) {
     return (
       <>
         {actions.map((action) => (
@@ -2697,7 +2708,7 @@ function HeaderActionsBar({
         />
       )}
       <ActionOverflowMenu
-        label="More actions"
+        label={t("kumiko.list.row-actions.more")}
         testId="kumiko-screen-projection-detail-actions-overflow"
         items={rest.map((action) => ({
           id: action.id,
@@ -2757,10 +2768,13 @@ function ProjectionDetailBody({
     Tabs,
     StatusBadge,
     Metric,
+    MetricBand,
+    PageHeader,
     Link,
     ActionOverflowMenu,
   } = usePrimitives();
   const t = useTranslation();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
@@ -3036,58 +3050,101 @@ function ProjectionDetailBody({
     ) : undefined;
   // slots.header shares the header card with the actions (one card, actions
   // top right) instead of rendering as an unframed block above it.
+  const metricItems = screen.metrics?.map((metric) => {
+    const field = metricField(metric);
+    const labelKey = metricLabelKey(metric, screen.fieldLabels);
+    const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
+    const value = String(record[field] ?? "");
+    const testId = `kumiko-screen-projection-detail-metric-${field}`;
+    const navigate = metricNavigateSpec(metric);
+    const onPress =
+      navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
+        ? () => runMetricNavigate(nav, navigate, record, host)
+        : undefined;
+    return Metric !== undefined ? (
+      <Metric
+        key={field}
+        label={label}
+        value={value}
+        testId={testId}
+        {...(onPress !== undefined && { onPress })}
+      />
+    ) : (
+      <GridCell key={field}>
+        <Text variant="small" testId={`${testId}-label`}>
+          {label}
+        </Text>
+        <Text testId={`${testId}-value`}>{value}</Text>
+      </GridCell>
+    );
+  });
+  // Metrics are a dl band when the primitive exists; the old Grid stays as the fallback.
+  const metricsBlock = (subtitle?: ReactNode): ReactNode =>
+    MetricBand !== undefined ? (
+      <MetricBand testId="kumiko-screen-projection-detail-metrics" subtitle={subtitle}>
+        {metricItems}
+      </MetricBand>
+    ) : (
+      <Grid columns={screen.metrics?.length ?? 1} testId="kumiko-screen-projection-detail-metrics">
+        {metricItems}
+      </Grid>
+    );
+  const usesPageHeaderSlot = pageHeaderSlotAvailable && PageHeader !== undefined;
+  const actionErrorBanner = actionError !== null && (
+    <Banner variant="error" testId="render-edit-action-error">
+      {actionError}
+    </Banner>
+  );
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (
     <>
-      {(hasHeaderCard || headerSlot !== undefined) && (
-        <Card
-          slots={{
-            ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
-            ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
-            ...(headerSlot !== undefined && { headerContent: headerSlot }),
-            ...(hasHeaderActions && { headerActions: headerActionsContent }),
-          }}
-        >
-          {hasMetrics && (
-            <Grid
-              columns={screen.metrics?.length ?? 1}
-              testId="kumiko-screen-projection-detail-metrics"
-            >
-              {screen.metrics?.map((metric) => {
-                const field = metricField(metric);
-                const labelKey = metricLabelKey(metric, screen.fieldLabels);
-                const label = labelKey !== undefined ? effectiveTranslate(labelKey) : field;
-                const value = String(record[field] ?? "");
-                const testId = `kumiko-screen-projection-detail-metric-${field}`;
-                const navigate = metricNavigateSpec(metric);
-                const onPress =
-                  navigate !== undefined && navigateTargetAllows(navigate, appFeatures, userRoles)
-                    ? () => runMetricNavigate(nav, navigate, record, host)
-                    : undefined;
-                return Metric !== undefined ? (
-                  <Metric
-                    key={field}
-                    label={label}
-                    value={value}
-                    testId={testId}
-                    {...(onPress !== undefined && { onPress })}
+      {usesPageHeaderSlot && headerSlot === undefined ? (
+        <>
+          <PageHeader
+            {...(header !== undefined && { title: String(record[header.title] ?? "") })}
+            {...(header?.status !== undefined &&
+              StatusBadge !== undefined && {
+                status: (
+                  <StatusBadge
+                    value={String(record[header.status] ?? "")}
+                    tone={statusToneForValue(String(record[header.status] ?? ""))}
+                    testId="kumiko-screen-projection-detail-status"
                   />
-                ) : (
-                  <GridCell key={field}>
-                    <Text variant="small" testId={`${testId}-label`}>
-                      {label}
-                    </Text>
-                    <Text testId={`${testId}-value`}>{value}</Text>
-                  </GridCell>
-                );
+                ),
               })}
-            </Grid>
-          )}
-          {actionError !== null && (
-            <Banner variant="error" testId="render-edit-action-error">
-              {actionError}
-            </Banner>
-          )}
-        </Card>
+            {...(hasHeaderActions && {
+              actions: (
+                <Grid columns="auto" testId="kumiko-screen-projection-detail-actions">
+                  <HeaderActionsBar
+                    actions={headerActionsList}
+                    Button={Button}
+                    Dialog={Dialog}
+                    ActionOverflowMenu={ActionOverflowMenu}
+                    onError={setActionError}
+                    collapseAfterPrimary
+                  />
+                </Grid>
+              ),
+            })}
+          />
+          {(hasMetrics || headerSubtitleSlot !== undefined) &&
+            (MetricBand !== undefined || hasMetrics) &&
+            metricsBlock(headerSubtitleSlot)}
+          {actionErrorBanner}
+        </>
+      ) : (
+        (hasHeaderCard || headerSlot !== undefined) && (
+          <Card
+            slots={{
+              ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
+              ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
+              ...(headerSlot !== undefined && { headerContent: headerSlot }),
+              ...(hasHeaderActions && { headerActions: headerActionsContent }),
+            }}
+          >
+            {hasMetrics && metricsBlock()}
+            {actionErrorBanner}
+          </Card>
+        )
       )}
       {hasTabs && activeSection !== undefined && (
         <Tabs

@@ -144,6 +144,11 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     expect(
       screen.getByTestId("kumiko-screen-projection-detail-metric-overdueDays-value").textContent,
     ).toBe("3");
+    const label = screen.getByTestId("kumiko-screen-projection-detail-metric-balance-label");
+    const value = screen.getByTestId("kumiko-screen-projection-detail-metric-balance-value");
+    expect(label.tagName).toBe("DT");
+    expect(value.tagName).toBe("DD");
+    expect(label.closest("dl")).not.toBeNull();
   });
 
   test("metric.navigate — clicking the value navigates to the resolved id and applies params", async () => {

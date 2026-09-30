@@ -24,6 +24,7 @@ import {
 import { Separator } from "../ui/separator";
 import { SidebarTrigger } from "../ui/sidebar";
 import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree";
+import { usePageHeaderSlot } from "./page-header-slot";
 import { type BreadcrumbCrumb, resolveDetailBreadcrumb } from "./shell-breadcrumb";
 
 type ShellHeaderUser = {
@@ -60,25 +61,34 @@ export function ShellHeader({
     return resolveDetailBreadcrumb(allScreens, screenId, t);
   }, [allScreens, screenId, t, tree]);
 
+  const slot = usePageHeaderSlot();
+  const setStatusElement = slot?.setStatusElement;
+  const setActionsElement = slot?.setActionsElement;
+  const titleOverride = slot?.title;
+
   return (
     <header
       data-kumiko-layout="shell-header"
-      className="flex h-14 shrink-0 items-center gap-2 border-b border-border pl-4 pr-6"
+      className="flex h-14 shrink-0 items-center gap-2 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6"
     >
-      <div className="flex items-center gap-2">
-        <SidebarTrigger className="-ml-1" />
+      <div className="flex min-w-0 items-center gap-2">
+        <SidebarTrigger className="-ml-1 max-md:size-11" />
         <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
         {crumbs !== undefined && crumbs.length > 0 && (
-          <Breadcrumb>
-            <BreadcrumbList>
+          <Breadcrumb className="min-w-0">
+            <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">
               {crumbs.map((crumb, index) => {
                 const screenId = crumb.screenId;
+                const isLast = index === crumbs.length - 1;
                 return (
-                  <BreadcrumbItem key={screenId ?? crumb.label}>
-                    {index > 0 && <BreadcrumbSeparator />}
-                    {screenId !== undefined && index < crumbs.length - 1 ? (
+                  <BreadcrumbItem key={screenId ?? crumb.label} className="min-w-0">
+                    {index > 0 && (
+                      <BreadcrumbSeparator className="text-muted-foreground [&>svg]:size-3.5" />
+                    )}
+                    {screenId !== undefined && !isLast ? (
                       <BreadcrumbLink
                         href="#"
+                        className="text-foreground-secondary"
                         onClick={(e) => {
                           e.preventDefault();
                           nav.navigate({ screenId });
@@ -86,8 +96,17 @@ export function ShellHeader({
                       >
                         {crumb.label}
                       </BreadcrumbLink>
+                    ) : isLast ? (
+                      <h1
+                        aria-current="page"
+                        className="truncate text-lg font-semibold text-foreground"
+                      >
+                        {titleOverride ?? crumb.label}
+                      </h1>
                     ) : (
-                      <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                      <BreadcrumbPage className="text-foreground-secondary">
+                        {crumb.label}
+                      </BreadcrumbPage>
                     )}
                   </BreadcrumbItem>
                 );
@@ -95,12 +114,24 @@ export function ShellHeader({
             </BreadcrumbList>
           </Breadcrumb>
         )}
+        <div
+          ref={setStatusElement}
+          data-kumiko-layout="page-header-status"
+          className="flex shrink-0 items-center gap-2 empty:hidden"
+        />
       </div>
-      {headerActions !== undefined && (
-        <div data-kumiko-layout="header-actions" className="ml-auto flex items-center gap-2">
-          {headerActions}
-        </div>
-      )}
+      <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div
+          ref={setActionsElement}
+          data-kumiko-layout="page-header-actions"
+          className="flex items-center gap-2 empty:hidden"
+        />
+        {headerActions !== undefined && (
+          <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
+            {headerActions}
+          </div>
+        )}
+      </div>
     </header>
   );
 }

@@ -35,6 +35,7 @@ import { useUserRoles } from "../context/user-roles-context";
 import type { ListSort } from "../hooks/use-list-url-state";
 import { useQuery } from "../hooks/use-query";
 import { useTranslation } from "../i18n";
+import { PageHeaderSlotAvailableProvider } from "../page-header-slot";
 import { type DataTableFacet, usePrimitives } from "../primitives";
 import { sortByAccessor } from "../sort-by-accessor";
 import { RenderEditActionButton } from "./render-edit-action-button";
@@ -84,6 +85,7 @@ export function RelatedListSection({
   featureName,
   translate,
   hideTitle,
+  grow,
   onOpenDrawer,
   actions,
 }: {
@@ -96,6 +98,8 @@ export function RelatedListSection({
   readonly featureName: string;
   readonly translate?: Translate;
   readonly hideTitle?: boolean;
+  /** Under a fixed-height screen the tab panel chain stretches so the count footer sits at the bottom. */
+  readonly grow?: boolean;
   /** Opens a drawer-kind rowAction (fw#2710). Supplied by the parent
    *  (ProjectionDetailBody), which owns schema + the actual Drawer render —
    *  this component only ever invokes the callback. */
@@ -404,31 +408,37 @@ export function RelatedListSection({
             {emptyStateActionError}
           </Banner>
         )}
-        <RenderList
-          screen={listScreen}
-          entity={entity}
-          rows={sortedRows}
-          featureName={featureName}
-          translate={effectiveTranslate}
-          sort={sort}
-          onSortChange={setSort}
-          {...(section.searchable === true && {
-            searchable: true,
-            searchValue: search,
-            onSearchChange: setSearch,
-          })}
-          {...(filterFacets.length > 0 && {
-            filterFacets,
-            filterValues: filters,
-            onFilterChange,
-            onFilterReset,
-          })}
-          {...(onRowClick !== undefined && { onRowClick })}
-          {...(rowActions !== undefined && { rowActions })}
-          {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
-          {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
-          {...(hideTitle === true && { scrollBody: true, screenPadding: false, chromeless: true })}
-        />
+        <PageHeaderSlotAvailableProvider value={false}>
+          <RenderList
+            screen={listScreen}
+            entity={entity}
+            rows={sortedRows}
+            featureName={featureName}
+            translate={effectiveTranslate}
+            sort={sort}
+            onSortChange={setSort}
+            {...(section.searchable === true && {
+              searchable: true,
+              searchValue: search,
+              onSearchChange: setSearch,
+            })}
+            {...(filterFacets.length > 0 && {
+              filterFacets,
+              filterValues: filters,
+              onFilterChange,
+              onFilterReset,
+            })}
+            {...(onRowClick !== undefined && { onRowClick })}
+            {...(rowActions !== undefined && { rowActions })}
+            {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
+            {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
+            {...(hideTitle === true && {
+              scrollBody: true,
+              screenPadding: false,
+              chromeless: true,
+            })}
+          />
+        </PageHeaderSlotAvailableProvider>
       </>
     );
 
@@ -447,7 +457,11 @@ export function RelatedListSection({
     return (
       <>
         {bridges}
-        {FillContainer !== undefined ? <FillContainer>{content}</FillContainer> : content}
+        {FillContainer !== undefined ? (
+          <FillContainer {...(grow === true && { grow: true })}>{content}</FillContainer>
+        ) : (
+          content
+        )}
       </>
     );
   }

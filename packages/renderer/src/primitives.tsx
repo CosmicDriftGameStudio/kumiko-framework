@@ -184,6 +184,10 @@ export type FieldProps = {
    *  `htmlFor` (no separate `aria-label` needed). For tables/grids whose
    *  column header already carries the label for each row. */
   readonly hideLabel?: boolean;
+  /** Marks the field as edited relative to its saved value — the label row
+   *  shows a "changed" marker. Set only in edit mode for fields present in
+   *  the form's change set. */
+  readonly changed?: boolean;
   readonly testId?: string;
 };
 
@@ -613,8 +617,9 @@ export type DataTableProps = {
    *  sich nur um Render + Confirm-Dialog. */
   readonly rowActions?: readonly DataTableRowAction[];
   /** Wie die Row-Action-Spalte rendert:
-   *  - `"adaptive"` (Default): ≤2 sichtbare Actions inline (rechtsbündig),
-   *    >2 als Kebab-Dropdown. Passt die Optik automatisch an die Anzahl an.
+   *  - `"adaptive"` (Default): mit `onRowClick` alle Actions im Kebab; ohne
+   *    `onRowClick` die primäre Action als Link-Button, der Rest im Kebab
+   *    (eine einzelne Action ohne Kebab).
    *  - `"inline"`: IMMER Inline-Buttons, linksbündig — auch bei >2 (kein
    *    Kebab). So stehen die Aktionen über alle Rows an derselben x-Position
    *    (kein Wandern durch unterschiedlich breite Labels) und alle Listen
@@ -804,6 +809,13 @@ export type EmbeddedListInputProps = {
 
 export type { FormWidth };
 
+/** One entry of a form's "on this page" navigation: `id` matches the
+ *  `SectionProps.id` of the section it scrolls to. */
+export type FormSectionNavItem = {
+  readonly id: string;
+  readonly title: string;
+};
+
 /** Submit wrapper. Web: `<form onSubmit>`, native: a View that triggers an
  *  onSubmit callback via button press. `onSubmit` gets an abstract
  *  signature (no FormEvent) so native impls can fill it meaningfully.
@@ -863,12 +875,29 @@ export type FormProps = {
    *  card chrome. Native impls may ignore this prop (no card chrome there
    *  to begin with). */
   readonly chromeless?: boolean;
+  /** Set by RenderEdit for entityEdit/actionForm screens that fill the shell
+   *  height: the form renders without a surrounding card, in a padded scroll
+   *  surface with a fixed-width form column. Requires `fillHeight`; projection
+   *  detail screens (which also fill the height) do not set it. Native impls
+   *  may ignore this prop. */
+  readonly screenForm?: boolean;
+  /** Number of unsaved changes, shown in the pinned footer. Omitted in create
+   *  mode and when nothing changed — the footer then shows no status. */
+  readonly unsavedCount?: number;
+  /** Titled sections for the "on this page" navigation next to a
+   *  `screenForm`. The web impl shows it only with three or more entries. */
+  readonly sectionNav?: readonly FormSectionNavItem[];
+  /** Leading column next to the scroll surface of a `screenForm` (wizard step
+   *  navigation). Native impls may ignore this prop. */
+  readonly sideRail?: ReactNode;
 };
 
 /** Titled Gruppe von Feldern. Web: `<fieldset>` + `<legend>`, Native:
  *  View mit Header-Text. Native-Impls können den Title als Accordion
  *  oder Collapsible rendern. */
 export type SectionProps = {
+  /** DOM id — the scroll target of a form's "on this page" navigation. */
+  readonly id?: string;
   /** Optional — ohne Titel rendert die Section nur die Gruppierung
    *  (kein Header). RenderEdit lässt ihn weg, wenn er den Screen-Titel
    *  der Action-Bar 1:1 wiederholen würde. */
@@ -906,6 +935,11 @@ export type SectionProps = {
 export type FillContainerProps = {
   readonly children: ReactNode;
   readonly testId?: string;
+  /** Claims the remaining height of the flex chain (`flex-1`) instead of
+   *  sizing to its content, so a footer inside the child sits at the bottom
+   *  edge even with few rows. Set only when the screen fills the shell
+   *  height. */
+  readonly grow?: boolean;
 };
 
 /** Columns-basiertes Layout. Web: CSS grid, Native: Flex-Wrap mit
@@ -1128,6 +1162,12 @@ export type StepBarProps = {
    *  viewports; "steps" keeps the row there too — for short wizards whose
    *  labels fit a phone and whose done steps must stay tappable. */
   readonly narrowLayout?: "label" | "steps";
+  /** "vertical" renders a step rail (from `lg`, with `compactLabel` as the
+   *  single line below it) instead of the chip row. Default "horizontal". */
+  readonly orientation?: "horizontal" | "vertical";
+  /** Vertical only: rail heading ("Step 4 of 6") and optional description. */
+  readonly heading?: string;
+  readonly description?: string;
   readonly testId?: string;
   readonly compactTestId?: string;
 };
@@ -1231,6 +1271,24 @@ export type JsonViewProps = {
   readonly value: unknown;
   readonly indent?: number;
   readonly testId?: string;
+};
+
+/** Band above the tabs of a record detail: optional subtitle line plus the
+ *  metrics as a definition list. `children` are `Metric` tiles. */
+export type MetricBandProps = {
+  readonly subtitle?: ReactNode;
+  readonly children: ReactNode;
+  readonly testId?: string;
+};
+
+/** Page title area rendered by the app shell's header instead of inside the
+ *  screen: `title` replaces the last breadcrumb, `status` sits right after it,
+ *  `actions` at the right edge. Renders nothing itself; without a shell slot
+ *  (see `usePageHeaderSlotAvailable`) callers keep their previous placement. */
+export type PageHeaderProps = {
+  readonly title?: string;
+  readonly status?: ReactNode;
+  readonly actions?: ReactNode;
 };
 
 /** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the
@@ -1388,6 +1446,11 @@ export type CorePrimitives = {
    *  CorePrimitives mocks in tests keep compiling — additive rollout of
    *  a new primitive shouldn't force every test double to grow a stub. */
   readonly FillContainer?: ComponentType<FillContainerProps>;
+  /** Optional — additive rollout, see StickyActionBar. Without it, header
+   *  content stays where the screen always rendered it. */
+  readonly PageHeader?: ComponentType<PageHeaderProps>;
+  /** Optional — additive rollout, see StickyActionBar. */
+  readonly MetricBand?: ComponentType<MetricBandProps>;
   /** Optional: without an implementation, callers with >2 header/row
    *  actions fall back to today's all-buttons-inline rendering (A7). */
   readonly ActionOverflowMenu?: ComponentType<ActionOverflowMenuProps>;

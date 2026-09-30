@@ -71,6 +71,8 @@ export type RenderFieldProps = {
    *  field's sibling-field `unit`. Omitted → falls back to a single-key
    *  `{ [field.field]: field.value }` row. */
   readonly row?: Readonly<Record<string, unknown>>;
+  /** Marks the field as modified against the loaded record (edit mode only). */
+  readonly changed?: boolean;
 };
 
 export function RenderField({
@@ -83,6 +85,7 @@ export function RenderField({
   allIssues,
   valueDisplay = "form",
   row,
+  changed,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -161,6 +164,7 @@ export function RenderField({
       {...(issues !== undefined && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
+      {...(changed === true && { changed })}
       testId={`field-${field.field}`}
     >
       {control}

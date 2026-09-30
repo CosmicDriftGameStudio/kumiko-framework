@@ -188,6 +188,7 @@ export {
   useTranslation,
 } from "./i18n";
 export { kumikoDefaultTranslations } from "./i18n-defaults";
+export { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "./page-header-slot";
 export type {
   ActionMenuItemSpec,
   ActionOverflowMenuProps,
@@ -215,6 +216,7 @@ export type {
   FieldProps,
   FillContainerProps,
   FormProps,
+  FormSectionNavItem,
   FormWidth,
   GridCellProps,
   GridProps,
@@ -223,8 +225,10 @@ export type {
   JsonViewProps,
   LightboxProps,
   LinkProps,
+  MetricBandProps,
   MetricProps,
   ModalProps,
+  PageHeaderProps,
   PrimitivesProviderProps,
   PrimitivesRegistry,
   ProgressProps,

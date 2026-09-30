@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 import { defaultPrimitives, END_LABEL_MIN_ROWS, FormScreenShell } from "../primitives";
 import { DefaultJsonView } from "../primitives/json-view";
 import { PageSection, Stack } from "../primitives/layout";
-import { fireEvent, render, screen, waitFor } from "./test-utils";
+import { fireEvent, render, screen, waitFor, within } from "./test-utils";
 
 const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card, Section } =
   defaultPrimitives;
@@ -990,7 +990,7 @@ describe("DataTable", () => {
       expect(screen.queryByTestId("cell-r1-actions")).not.toBeNull();
     });
 
-    test("≤2 Actions: Inline-Buttons (kein Kebab)", () => {
+    test("2 Actions ohne onRowClick: primäre inline, die andere im Kebab", () => {
       render(
         <DataTable
           columns={cols}
@@ -1003,7 +1003,45 @@ describe("DataTable", () => {
         />,
       );
       expect(screen.queryByTestId("row-r1-action-edit")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-delete")).toBeNull();
+      expect(screen.queryByTestId("row-r1-actions-menu")).not.toBeNull();
+    });
+
+    test("einzelne Aktion ohne onRowClick: Link-Button, kein Kebab", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[{ id: "edit", label: "Edit", onTrigger: mock() }]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-action-edit")).not.toBeNull();
       expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+    });
+
+    test("mit onRowClick: erste Zelle ist fokussierbar, Enter öffnet, Aktionen nur im Kebab", async () => {
+      const user = userEvent.setup();
+      const onRowClick = mock();
+      const onTrigger = mock();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={onRowClick}
+          rowActions={[{ id: "edit", label: "Edit", onTrigger }]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-action-edit")).toBeNull();
+      const firstCellButton = within(screen.getByTestId("cell-r1-name")).getByRole("button");
+      firstCellButton.focus();
+      expect(document.activeElement).toBe(firstCellButton);
+      fireEvent.keyDown(firstCellButton, { key: "Enter" });
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(await screen.findByTestId("row-r1-action-edit"));
+      expect(onTrigger).toHaveBeenCalledTimes(1);
     });
 
     test(">2 Actions: primäre Aktion inline + Rest im Kebab-Dropdown", () => {
@@ -1275,7 +1313,9 @@ describe("DataTable", () => {
           rowActions={[{ id: "edit", label: "Edit", onTrigger }]}
         />,
       );
-      await user.click(screen.getByTestId("row-r1-action-edit"));
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(await screen.findByTestId("row-r1-action-edit"));
+      expect(onTrigger).toHaveBeenCalledTimes(1);
       // onTrigger feuert, onRowClick MUSS NICHT — sonst würde der User
       // beim Action-Click gleichzeitig zum Edit-Screen navigieren.
       expect(onRowClick).not.toHaveBeenCalled();

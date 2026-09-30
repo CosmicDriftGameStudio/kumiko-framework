@@ -23,6 +23,7 @@ export type GridCellForFieldProps = {
   readonly valueDisplay: "form" | "text";
   /** Passed through to RenderField as `row` — see RenderFieldProps.row. */
   readonly row: Readonly<Record<string, unknown>>;
+  readonly changed?: boolean;
 };
 
 export function GridCellForField({
@@ -37,6 +38,7 @@ export function GridCellForField({
   allIssues,
   valueDisplay,
   row,
+  changed,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
@@ -54,6 +56,7 @@ export function GridCellForField({
         allIssues={allIssues}
         valueDisplay={valueDisplay}
         row={row}
+        {...(changed === true && { changed })}
       />
     </GridCell>
   );

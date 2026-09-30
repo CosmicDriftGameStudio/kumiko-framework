@@ -2,7 +2,13 @@
 
 import type { TabsProps } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
+import { cn } from "../lib/cn";
 import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+
+// The underline is a real border-b-2 (board) instead of the vendored ::after bar, so the
+// vendored active/dark border resets are overridden with identical variant chains.
+const TAB_TRIGGER_CLASS =
+  "h-full flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-0 py-0 text-sm font-medium text-foreground-secondary after:hidden hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground dark:text-foreground-secondary dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-foreground dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-primary";
 
 // A single fade-width both edges share — mask-image needs the same offset
 // on each side or the gradient reads as lopsided.
@@ -107,20 +113,26 @@ export function DefaultTabs({ items, activeId, onSelect, testId }: TabsProps): R
         ref={scrollerRef}
         data-scroll-start={scrollStart ? "" : undefined}
         data-scroll-end={scrollEnd ? "" : undefined}
-        className="relative min-w-0 overflow-x-auto"
+        className="relative min-w-0 overflow-x-auto border-b border-border px-6"
         style={maskImage !== undefined ? { maskImage, WebkitMaskImage: maskImage } : undefined}
       >
-        <TabsList variant="line">
+        <TabsList variant="line" className="h-11 gap-6 p-0">
           {items.map((item) => (
             <TabsTrigger
               key={item.id}
               value={item.id}
+              className={TAB_TRIGGER_CLASS}
               data-testid={testId !== undefined ? `${testId}-${item.id}` : undefined}
             >
               {item.label}
               {item.count !== undefined && (
                 <span
-                  className="ml-1.5 text-muted-foreground"
+                  className={cn(
+                    "ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px] text-xs font-medium",
+                    item.id === activeId
+                      ? "bg-primary/10 text-foreground"
+                      : "bg-status-neutral-surface text-foreground-secondary",
+                  )}
                   data-testid={testId !== undefined ? `${testId}-${item.id}-count` : undefined}
                 >
                   {item.count}

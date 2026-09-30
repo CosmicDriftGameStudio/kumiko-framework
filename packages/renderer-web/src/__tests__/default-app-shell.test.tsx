@@ -73,7 +73,7 @@ describe("DefaultAppShell headerActions-Slot (Topbar rechts)", () => {
     );
     const slot = document.querySelector("[data-kumiko-layout='header-actions']");
     expect(slot).toBeTruthy();
-    expect(slot?.className).toContain("ml-auto");
+    expect(slot?.parentElement?.className).toContain("ml-auto");
     expect(slot?.textContent).toBe("Theme");
   });
 

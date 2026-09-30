@@ -25,6 +25,9 @@ export function StepBar({
   compactLabel,
   onStepSelect,
   narrowLayout = "label",
+  orientation = "horizontal",
+  heading,
+  description,
   testId,
   compactTestId,
 }: {
@@ -33,10 +36,87 @@ export function StepBar({
   readonly compactLabel: string;
   readonly onStepSelect?: (index: number) => void;
   readonly narrowLayout?: "label" | "steps";
+  readonly orientation?: "horizontal" | "vertical";
+  readonly heading?: string;
+  readonly description?: string;
   readonly testId?: string;
   readonly compactTestId?: string;
 }): ReactNode {
   const t = useTranslation();
+  if (orientation === "vertical") {
+    return (
+      <>
+        <nav className="hidden w-[280px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-border bg-muted px-6 py-7 lg:flex">
+          {heading !== undefined && (
+            <div className="flex flex-col gap-1">
+              <span className="text-sm font-semibold text-foreground">{heading}</span>
+              {description !== undefined && (
+                <span className="text-[13px] text-foreground-secondary">{description}</span>
+              )}
+            </div>
+          )}
+          <ol data-testid={testId} className="m-0 flex list-none flex-col gap-0.5 p-0">
+            {steps.map((label, i) => {
+              const isDone = i < currentIndex;
+              const isCurrent = i === currentIndex;
+              const rowClass = cn(
+                "flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm",
+                isCurrent && "bg-primary/10 font-semibold text-primary",
+                isDone && "text-foreground",
+                !isCurrent && !isDone && "text-foreground-secondary",
+              );
+              const content = (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "flex size-[22px] shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                      isCurrent && "border-primary bg-primary text-primary-foreground",
+                      isDone && "border-status-ok-surface bg-status-ok-surface text-status-ok",
+                      !isCurrent && !isDone && "border-input bg-card text-foreground-secondary",
+                    )}
+                  >
+                    {isDone ? <Check className="size-3" /> : i + 1}
+                  </span>
+                  {isDone && <span className="sr-only">{t("kumiko.widget.step-bar.done")}</span>}
+                  <span className="truncate">{label}</span>
+                </>
+              );
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
+                <li key={`${i}-${label}`}>
+                  {isDone && onStepSelect !== undefined ? (
+                    <button
+                      type="button"
+                      onClick={() => onStepSelect(i)}
+                      data-testid={chipTestId(testId, i)}
+                      className={cn(rowClass, "hover:bg-muted-foreground/10")}
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <span
+                      aria-current={isCurrent ? "step" : undefined}
+                      data-testid={chipTestId(testId, i)}
+                      className={rowClass}
+                    >
+                      {content}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+        <p
+          data-testid={compactTestId}
+          className="px-4 pt-3 text-sm text-muted-foreground lg:hidden"
+        >
+          {compactLabel}
+        </p>
+      </>
+    );
+  }
   return (
     <>
       <ol

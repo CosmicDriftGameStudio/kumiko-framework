@@ -74,6 +74,13 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.pager.pageOf": "Page {page} of {pages}",
     "kumiko.list.count.one": "1 entry",
     "kumiko.list.count.other": "{count} entries",
+    "kumiko.list.row-actions.more": "More actions",
+    "kumiko.list.sort.by": "Sorted by {column}",
+    "kumiko.form.changed": "changed",
+    "kumiko.form.on-this-page": "On this page",
+    "kumiko.form.unsaved.one": "1 unsaved change",
+    "kumiko.form.unsaved.other": "{count} unsaved changes",
+    "kumiko.wizard.next-with-title": "Next: {title}",
     "kumiko.pager.previousPage": "Previous page",
     "kumiko.pager.nextPage": "Next page",
 

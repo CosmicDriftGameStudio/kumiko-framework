@@ -17,6 +17,7 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import type { ListSort } from "../hooks/use-list-url-state";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
 import { useTranslation } from "../i18n";
+import { usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -192,7 +193,10 @@ export function RenderList(props: RenderListProps): ReactNode {
   // wären Column-Header raw i18n-Keys.
   const t = useTranslation();
   const translate: Translate = translateProp ?? t;
-  const { DataTable, Button, Dialog, Input, Text, Banner } = usePrimitives();
+  const { DataTable, Button, Dialog, Input, Text, Banner, PageHeader } = usePrimitives();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  const createInPageHeader =
+    onCreate !== undefined && PageHeader !== undefined && pageHeaderSlotAvailable;
 
   // Local search buffer + debounce. External changes (browser back,
   // cross-component reset) are mirrored back; typing only fires
@@ -324,8 +328,14 @@ export function RenderList(props: RenderListProps): ReactNode {
   const hasToolbarActions = toolbarActions !== undefined && toolbarActions.length > 0;
   const hasHeaderSlot = screen.slots?.header !== undefined;
   const toolbarIconOnly = hasToolbarActions && shouldRenderActionsIconOnly(toolbarActions);
+  const createButton =
+    onCreate !== undefined ? (
+      <Button variant="primary" onClick={onCreate} testId="render-list-create">
+        {`+ ${effectiveCreateLabel}`}
+      </Button>
+    ) : undefined;
   const toolbarEnd =
-    hasHeaderSlot || hasToolbarActions || onCreate !== undefined ? (
+    hasHeaderSlot || hasToolbarActions || (onCreate !== undefined && !createInPageHeader) ? (
       <>
         {hasHeaderSlot && <ListHeaderSlotMount screen={screen} />}
         {hasToolbarActions &&
@@ -339,11 +349,7 @@ export function RenderList(props: RenderListProps): ReactNode {
               Banner={Banner}
             />
           ))}
-        {onCreate !== undefined && (
-          <Button variant="primary" onClick={onCreate} testId="render-list-create">
-            {`+ ${effectiveCreateLabel}`}
-          </Button>
-        )}
+        {!createInPageHeader && createButton}
       </>
     ) : undefined;
 
@@ -374,6 +380,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   // ListSort = DataTableSort (use-list-url-state aliased) — kein Cast nötig.
   return (
     <>
+      {createInPageHeader && PageHeader !== undefined && <PageHeader actions={createButton} />}
       {referenceColumns.map(
         (rc: { field: string; refEntity: string; refFeature: string; labelField: string }) => (
           <ReferenceLookupBridge

@@ -37,7 +37,9 @@ import { useDraftStorage } from "../context/draft-storage-context";
 import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
+import { usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
+  type FormSectionNavItem,
   STICKY_PRIMARY_ACTION_PROP,
   type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
@@ -282,6 +284,10 @@ function EditSlotMount({
   );
 }
 
+function formSectionDomId(sectionIndex: number): string {
+  return `form-section-${sectionIndex}`;
+}
+
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   props: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
@@ -403,7 +409,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     StepBar,
     WizardStepGroup,
     Tabs,
+    PageHeader,
   } = usePrimitives();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
 
   // Both stepped layouts show one section at a time and keep the rest mounted
   // but inert. A tabs layout on a host without the Tabs primitive has no strip
@@ -1185,6 +1193,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     (isWizard && !isLastWizardStep) ||
     (showsSubmit && (!isWizard || isLastWizardStep)) ||
     footerSlot !== undefined;
+  const nextStepTitle = isWizard ? filteredSections[currentStep + 1]?.title : undefined;
   const formActions = (
     <>
       {isWizard && currentStep > 0 && (
@@ -1218,7 +1227,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           iconEnd="arrow-right"
           testId="render-edit-wizard-next"
         >
-          {translate("kumiko.actions.next")}
+          {nextStepTitle !== undefined
+            ? translate("kumiko.wizard.next-with-title", { title: nextStepTitle })
+            : translate("kumiko.actions.next")}
         </Button>
       )}
       {showsSubmit && (!isWizard || isLastWizardStep) && (
@@ -1272,12 +1283,77 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         (screen.description !== undefined ? translate(screen.description) : undefined))
       : undefined;
 
+  // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
+  // the title then lives in the shell header when the shell offers a slot.
+  const isScreenForm =
+    fillScreenHeight === true && hideSectionTitles !== true && headerRegion === undefined;
+  const titleInShell =
+    PageHeader !== undefined &&
+    pageHeaderSlotAvailable &&
+    hideSectionTitles !== true &&
+    headerRegion === undefined;
+  const stepRail = isWizard && isScreenForm && StepBar !== undefined;
+  const changedFieldCount = isCreate ? 0 : Object.keys(snapshot.changes).length;
+  const unsavedCount =
+    isCreate || !isScreenForm
+      ? 0
+      : changedFieldCount > 0
+        ? changedFieldCount
+        : extensionDirty
+          ? 1
+          : 0;
+  const sectionNavItems: readonly FormSectionNavItem[] =
+    isScreenForm && !isStepped
+      ? filteredSections.flatMap((section, index) =>
+          section.kind !== "extension" &&
+          section.kind !== "relatedList" &&
+          section.kind !== "writeForm" &&
+          section.visible &&
+          section.title !== undefined &&
+          section.title !== formTitle
+            ? [{ id: formSectionDomId(index), title: section.title }]
+            : [],
+        )
+      : [];
+  const compactStepLabel = (() => {
+    const currentTitle = filteredSections[currentStep]?.title;
+    return currentTitle !== undefined
+      ? translate("kumiko.wizard.step-with-title", {
+          current: currentStep + 1,
+          total: lastStepIndex + 1,
+          title: currentTitle,
+        })
+      : translate("kumiko.wizard.step", { current: currentStep + 1, total: lastStepIndex + 1 });
+  })();
+
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
+      {titleInShell && <PageHeader title={formTitle} />}
       <Form
         onSubmit={() => void handleSubmit()}
-        {...(hideSectionTitles !== true && { title: formTitle })}
-        {...(formSubtitle !== undefined && { subtitle: formSubtitle })}
+        {...(hideSectionTitles !== true && !titleInShell && { title: formTitle })}
+        {...(formSubtitle !== undefined && !stepRail && { subtitle: formSubtitle })}
+        {...(isScreenForm && { screenForm: true })}
+        {...(unsavedCount > 0 && { unsavedCount })}
+        {...(sectionNavItems.length > 0 && { sectionNav: sectionNavItems })}
+        {...(stepRail && {
+          sideRail: (
+            <StepBar
+              steps={filteredSections.map((section) => section.title ?? "")}
+              currentIndex={currentStep}
+              compactLabel={compactStepLabel}
+              onStepSelect={handleWizardJumpBack}
+              orientation="vertical"
+              heading={translate("kumiko.wizard.step", {
+                current: currentStep + 1,
+                total: lastStepIndex + 1,
+              })}
+              {...(formSubtitle !== undefined && { description: formSubtitle })}
+              testId="render-edit-wizard-steps"
+              compactTestId="render-edit-wizard-step-label"
+            />
+          ),
+        })}
         {...(hideActions !== true && hasFormActions && { actions: formActions })}
         {...(hideActions !== true &&
           hasSecondaryFormActions && { secondaryActions: secondaryFormActions })}
@@ -1325,7 +1401,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             </Text>
           </Banner>
         )}
-        {isWizard && (
+        {isWizard && !stepRail && (
           <>
             {Progress !== undefined && (
               <Progress
@@ -1333,39 +1409,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 testId="render-edit-wizard-progress"
               />
             )}
-            {(() => {
-              const currentTitle = filteredSections[currentStep]?.title;
-              const compactLabel =
-                currentTitle !== undefined
-                  ? translate("kumiko.wizard.step-with-title", {
-                      current: currentStep + 1,
-                      total: lastStepIndex + 1,
-                      title: currentTitle,
-                    })
-                  : translate("kumiko.wizard.step", {
-                      current: currentStep + 1,
-                      total: lastStepIndex + 1,
-                    });
-              // No StepBar registered → keep the plain label RenderEdit
-              // always had (additive rollout, see CorePrimitives.StepBar).
-              if (StepBar === undefined) {
-                return (
-                  <Text variant="small" testId="render-edit-wizard-step-label">
-                    {compactLabel}
-                  </Text>
-                );
-              }
-              return (
-                <StepBar
-                  steps={filteredSections.map((section) => section.title ?? "")}
-                  currentIndex={currentStep}
-                  compactLabel={compactLabel}
-                  onStepSelect={handleWizardJumpBack}
-                  testId="render-edit-wizard-steps"
-                  compactTestId="render-edit-wizard-step-label"
-                />
-              );
-            })()}
+            {/* No StepBar registered → keep the plain label RenderEdit always had (additive rollout, see CorePrimitives.StepBar). */}
+            {StepBar === undefined ? (
+              <Text variant="small" testId="render-edit-wizard-step-label">
+                {compactStepLabel}
+              </Text>
+            ) : (
+              <StepBar
+                steps={filteredSections.map((section) => section.title ?? "")}
+                currentIndex={currentStep}
+                compactLabel={compactStepLabel}
+                onStepSelect={handleWizardJumpBack}
+                testId="render-edit-wizard-steps"
+                compactTestId="render-edit-wizard-step-label"
+              />
+            )}
           </>
         )}
         {isTabs &&
@@ -1502,6 +1560,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 featureName={featureName}
                 translate={translate}
                 hideTitle={hideSectionTitles}
+                {...(fillScreenHeight === true && { grow: true })}
                 // Tabs mode: actions move to the outer Card below — the
                 // hideTitle branch of RelatedListSection has no title row to
                 // render them into.
@@ -1523,6 +1582,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               <Card
                 key={section.title}
                 options={{ fillHeight }}
+                {...(fillScreenHeight === true && { className: "flex-1" })}
                 {...(sectionActionsEl !== undefined && {
                   slots: { headerActions: sectionActionsEl },
                 })}
@@ -1578,6 +1638,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   allIssues={snapshot.errors}
                   valueDisplay={valueDisplay}
                   row={snapshot.values}
+                  {...(!isCreate && field.field in snapshot.changes && { changed: true })}
                 />
               ))}
             </Grid>
@@ -1641,6 +1702,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           const sectionEl = (
             <Section
               key={sectionKey}
+              {...(sectionNavItems.some((item) => item.id === formSectionDomId(sectionIndex)) && {
+                id: formSectionDomId(sectionIndex),
+              })}
               {...(sectionTitle !== undefined && { title: sectionTitle })}
               {...(section.description !== undefined && { subtitle: section.description })}
               {...(section.icon !== undefined && { icon: section.icon })}

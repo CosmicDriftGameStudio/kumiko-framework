@@ -1,44 +1,52 @@
-import type { MetricProps } from "@cosmicdrift/kumiko-renderer";
-import type { ReactNode } from "react";
+import type { MetricBandProps, MetricProps } from "@cosmicdrift/kumiko-renderer";
+import { createContext, type ReactNode, useContext } from "react";
 import { cn } from "../lib/cn";
 
-// Borderless cell in the metrics-band Grid — `first:border-l-0` drops the
-// divider on the first cell purely from DOM position, so the tiles read as
-// one row of vertical dividers instead of individual cards (fw record-
-// screen-type polish). Typo matches StatCard's label/value rhythm.
+const InsideMetricBandContext = createContext(false);
+
+// Column counts follow the board: 2 below md, 3 below lg, 5 from lg.
+export function DefaultMetricBand({ subtitle, children, testId }: MetricBandProps): ReactNode {
+  return (
+    <div className="flex shrink-0 flex-col gap-3 px-6 pb-4 pt-3.5" data-testid={testId}>
+      {subtitle !== undefined && (
+        <div className="flex flex-wrap items-center gap-x-2 text-[13px] text-foreground-secondary [&_a]:text-primary">
+          {subtitle}
+        </div>
+      )}
+      <InsideMetricBandContext.Provider value={true}>
+        <dl className="m-0 grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-5">{children}</dl>
+      </InsideMetricBandContext.Provider>
+    </div>
+  );
+}
+
 export function DefaultMetric({ label, value, testId, onPress }: MetricProps): ReactNode {
-  const cellClassName = "border-l first:border-l-0 px-4 py-3";
-  const content = (
-    <>
-      <div
+  const insideBand = useContext(InsideMetricBandContext);
+  const item = (
+    <div
+      data-testid={testId}
+      className={cn("flex min-w-0 flex-col gap-0.5", onPress !== undefined && "cursor-pointer")}
+      {...(onPress !== undefined && { onClick: onPress })}
+    >
+      <dt
         className="text-xs text-muted-foreground"
         data-testid={testId !== undefined ? `${testId}-label` : undefined}
       >
         {label}
-      </div>
-      <div
-        className="mt-0.5 text-xl font-semibold tabular-nums text-foreground"
+      </dt>
+      <dd
+        className="m-0 text-base font-medium tabular-nums text-foreground"
         data-testid={testId !== undefined ? `${testId}-value` : undefined}
       >
-        {value}
-      </div>
-    </>
-  );
-  if (onPress !== undefined) {
-    return (
-      <button
-        type="button"
-        data-testid={testId}
-        className={cn(cellClassName, "w-full text-left hover:bg-muted/50")}
-        onClick={onPress}
-      >
-        {content}
-      </button>
-    );
-  }
-  return (
-    <div data-testid={testId} className={cellClassName}>
-      {content}
+        {onPress !== undefined ? (
+          <button type="button" className="text-left hover:underline">
+            {value}
+          </button>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
+  return insideBand ? item : <dl className="m-0">{item}</dl>;
 }
