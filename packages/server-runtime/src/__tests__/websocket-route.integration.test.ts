@@ -321,6 +321,7 @@ describe("r.webSocketRoute (integration) — tenant lifecycle", () => {
       Origin: harness.httpOrigin,
     });
     await socket.opened;
+    expect(JSON.parse(String(await socket.next()))).toEqual({ userId: TestUsers.user.id });
     socket.close();
     await socket.closed;
   });

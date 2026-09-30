@@ -168,7 +168,12 @@ export const kumikoWebSocketHandler = {
     if (onOpen) runGuarded(ws, () => onOpen(toConnection(ws)));
   },
   message(ws: KumikoServerWebSocket, message: string | Uint8Array): void {
-    if (messageByteLength(message) > ws.data.maxMessageBytes) {
+    const byteLength = messageByteLength(message);
+    if (byteLength > ws.data.maxMessageBytes) {
+      log.warn("websocket message over cap", {
+        byteLength,
+        maxMessageBytes: ws.data.maxMessageBytes,
+      });
       ws.close(CLOSE_MESSAGE_TOO_BIG, "message too big");
       return;
     }
