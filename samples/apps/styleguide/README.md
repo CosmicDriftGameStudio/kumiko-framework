@@ -17,6 +17,8 @@ composition examples. Use it as a design guild: choose an existing primitive
 or widget before inventing a new one, then compare the custom and declarative
 implementations. App UI guards enforce the same discipline in app repositories.
 
+The declarative board recreations (list, detail, drawer, form, wizard, mobile) live in `samples/apps/ui-walkthrough`, see its section "Design-Abnahme #3381".
+
 Zwei Widget-Seiten zeigen dieselben Bausteine auf beiden Wegen:
 
 - **`/widgets`** — der Katalog als Custom-Screen: jedes Widget direkt
