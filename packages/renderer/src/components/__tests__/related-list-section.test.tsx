@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
@@ -6,6 +6,7 @@ import type { ComponentType, ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context";
 import type { FeatureSchema } from "../../app/feature-schema";
 import { type NavApi, NavProvider } from "../../app/nav";
+import { resetDrawerActionWarningsForTests } from "../../app/row-actions";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { UserRolesProvider } from "../../context/user-roles-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
@@ -736,6 +737,10 @@ describe("RelatedListSection — rowActions", () => {
 // pins that hand-off, not the Drawer UI itself (covered by kumiko-screen's
 // own tests).
 describe("RelatedListSection — rowActions drawer-kind (fw#2710)", () => {
+  beforeEach(() => {
+    resetDrawerActionWarningsForTests();
+  });
+
   test("clicking a drawer rowAction calls onOpenDrawer with the action and the row's extracted values", async () => {
     const { dispatcher } = stubDispatcher([{ id: "item-7", name: "Rent 2024", amount: 1200 }]);
     const openDrawerCalls: unknown[][] = [];
