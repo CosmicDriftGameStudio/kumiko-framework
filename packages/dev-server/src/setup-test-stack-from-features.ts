@@ -12,6 +12,7 @@ import {
   type TestStack,
   type TestStackOptions,
 } from "@cosmicdrift/kumiko-framework/stack";
+import { jobRunLoggerCallbacks } from "@cosmicdrift/kumiko-server-runtime/boot/job-run-logger";
 import {
   type ComposeFeaturesOptions,
   composeFeatures,
@@ -59,8 +60,20 @@ export async function setupTestStackFromFeatures(
   const features = composeFeatures(appFeatures, { includeBundled, authOptions });
   const extraContext = mergeExtraContext(stackOptions.extraContext, presets);
 
+  // Same run-logger wiring as prod, so jobs that declare tenantVisibleFailure
+  // write their failure rows in tests too.
+  const defaultRunLogger: NonNullable<NonNullable<TestStackOptions["jobs"]>["runLogger"]> = ({
+    registry,
+    db,
+  }) => jobRunLoggerCallbacks(registry, db);
+  const jobs =
+    stackOptions.jobs === undefined
+      ? undefined
+      : { runLogger: defaultRunLogger, ...stackOptions.jobs };
+
   return setupTestStack({
     ...stackOptions,
+    ...(jobs !== undefined && { jobs }),
     features,
     ...(extraContext !== undefined && { extraContext }),
   });
