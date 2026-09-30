@@ -38,8 +38,9 @@ export function usePointerDrag<TStart>({
   };
   const onPointerMove = (event: PointerEvent<HTMLElement>): void => {
     const drag = dragRef.current;
-    if (drag === null) return;
-    onMove(drag.start, { dx: event.clientX - drag.startX, dy: event.clientY - drag.startY });
+    if (drag !== null) {
+      onMove(drag.start, { dx: event.clientX - drag.startX, dy: event.clientY - drag.startY });
+    }
   };
   const endDrag = (event: PointerEvent<HTMLElement>): void => {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
