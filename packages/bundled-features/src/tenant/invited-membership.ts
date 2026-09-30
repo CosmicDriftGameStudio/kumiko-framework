@@ -1,0 +1,97 @@
+import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  createEventStoreExecutor,
+  createTenantDb,
+  type DbRunner,
+} from "@cosmicdrift/kumiko-framework/db";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import { Temporal } from "temporal-polyfill";
+import { TenantErrors } from "./constants";
+import { findForbiddenMembershipRole, reservedMembershipRoleError } from "./membership-roles";
+import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
+import { seedTenantMembership } from "./seeding";
+
+const membershipExecutor = createEventStoreExecutor(
+  tenantMembershipsTable,
+  tenantMembershipEntity,
+  { entityName: "tenant-membership" },
+);
+
+export type InvitedMembershipOptions = {
+  readonly userId: string;
+  readonly tenantId: TenantId;
+  readonly role: string;
+  readonly invitationIssuedAt: Temporal.Instant;
+};
+
+type MembershipRow = {
+  readonly id: string;
+  readonly version: number;
+  readonly roles: string;
+  readonly insertedAt: Temporal.Instant;
+  readonly modifiedAt: Temporal.Instant | null;
+};
+
+// Add-only, so unlike updateMemberRoles no session revoke or last-TenantAdmin check.
+// Read unfiltered: tenant:query:memberships hides disabled tenants.
+export async function grantInvitedMembershipRole(db: DbRunner, options: InvitedMembershipOptions) {
+  const forbiddenRole = findForbiddenMembershipRole([options.role]);
+  if (forbiddenRole !== undefined) return writeFailure(reservedMembershipRoleError(forbiddenRole));
+
+  const existing = await fetchOne<MembershipRow>(db, tenantMembershipsTable, {
+    userId: options.userId,
+    tenantId: options.tenantId,
+  });
+  if (!existing) {
+    await seedTenantMembership(db, {
+      userId: options.userId,
+      tenantId: options.tenantId,
+      roles: [options.role],
+    });
+    return grantedMembership(false, [options.role]);
+  }
+
+  // A membership decision made after the invitation was issued wins over it.
+  if (isMembershipChangedAfter(existing, options.invitationIssuedAt)) {
+    return writeFailure(invitationSupersededError());
+  }
+
+  const currentRoles = parseRoles(existing.roles);
+  if (currentRoles.includes(options.role)) return grantedMembership(true, currentRoles);
+
+  const roles = [...currentRoles, options.role];
+  const updateResult = await membershipExecutor.update(
+    { id: existing.id, version: existing.version, changes: { roles: JSON.stringify(roles) } },
+    createSystemUser(options.tenantId),
+    createTenantDb(db, options.tenantId, "system"),
+  );
+  if (!updateResult.isSuccess) return updateResult;
+  return grantedMembership(true, roles);
+}
+
+// Resend reuses the invitation row, so its last modification is the latest issuance.
+export function invitationIssuedAt(invitation: {
+  readonly insertedAt: Temporal.Instant;
+  readonly modifiedAt: Temporal.Instant | null;
+}): Temporal.Instant {
+  return invitation.modifiedAt ?? invitation.insertedAt;
+}
+
+function isMembershipChangedAfter(membership: MembershipRow, instant: Temporal.Instant): boolean {
+  const lastChangedAt = membership.modifiedAt ?? membership.insertedAt;
+  return Temporal.Instant.compare(lastChangedAt, instant) > 0;
+}
+
+function invitationSupersededError(): ConflictError {
+  return new ConflictError({
+    message: "the membership changed after this invitation was issued",
+    i18nKey: "tenant.errors.invitationSuperseded",
+    details: { reason: TenantErrors.invitationSuperseded },
+  });
+}
+
+function grantedMembership(alreadyMember: boolean, roles: readonly string[]) {
+  return { isSuccess: true, data: { alreadyMember, roles } } as const;
+}

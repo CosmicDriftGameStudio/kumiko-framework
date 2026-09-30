@@ -36,8 +36,12 @@ import { createRendererFoundationFeature } from "../../renderer-foundation/featu
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
 import { decryptStoredPii, hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createTenantFeature } from "../../tenant";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/invitation-table";
+import { createTenantFeature, TenantHandlers } from "../../tenant";
+import {
+  INVITATION_STATUS,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../../tenant/invitation-table";
 import { tenantMembershipsTable } from "../../tenant/membership-table";
 import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
 import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
@@ -47,7 +51,7 @@ import {
   tenantInvitationDeleteHook,
   tenantInvitationExportHook,
 } from "../../user-data-rights-defaults";
-import { AuthHandlers } from "../constants";
+import { AuthErrors, AuthHandlers } from "../constants";
 import { createAuthEmailPasswordFeature } from "../feature";
 import { seedUser } from "../seeding";
 
@@ -255,6 +259,33 @@ describe("auth flows with active KMS + blind index", () => {
 
     const memberships = await selectMany(stack.db, tenantMembershipsTable, { userId: bobId });
     expect(memberships).toHaveLength(2);
+  });
+
+  test("removed member cannot rejoin via an invitation issued before removal", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    await stack.http.writeOk(
+      TenantHandlers.removeMember,
+      { userId: bobId, tenantId: TENANT_A_ID },
+      { id: "system-admin", tenantId: TENANT_A_ID, roles: ["SystemAdmin"] },
+    );
+
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token },
+      { Authorization: `Bearer ${await stack.jwt.sign(bobSession())}` },
+    );
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+    const [invitation] = await selectMany(stack.db, tenantInvitationsTable, { email: BOB_EMAIL });
+    expect(invitation?.["status"]).toBe(INVITATION_STATUS.cancelled);
   });
 
   test("Branch 3: invite-signup-complete creates the user from the DECRYPTED invitation email", async () => {

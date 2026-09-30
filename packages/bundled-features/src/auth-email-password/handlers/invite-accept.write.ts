@@ -6,8 +6,8 @@
 //   2. Burn (single-use)
 //   3. Invitation-Row aus DB
 //   4. Email-Match: invitation.email === user.email (sonst inviteEmailMismatch)
-//   5. Already-Member-Check: User schon Member im invited Tenant → no-op success
-//   6. Membership-Add via system-dispatcher (TenantHandlers.addMember)
+//   5+6. grantInvitedMembershipRole: create the membership, or add the
+//      invited role to an existing one (add-only)
 //   7. Invitation-Row → status=accepted
 //   8. Redis-Keys löschen (Burn-Key bleibt für Replay-Schutz)
 //
@@ -23,6 +23,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
@@ -31,15 +32,8 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
-// kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
-import {
-  findForbiddenMembershipRole,
-  reservedMembershipRoleError,
-} from "../../tenant/membership-roles";
-// kumiko-lint-ignore cross-feature-import direkter membership-Lookup (ungefiltert, s. alreadyMember-Kommentar)
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-// kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add (analog provisionSignupAccount)
-import { seedTenantMembership } from "../../tenant/seeding";
+// kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add (like provisionSignupAccount)
+import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership";
 // kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
 import { userTable } from "../../user/schema/user";
 import { invalidInviteToken, inviteEmailMismatch } from "../errors";
@@ -113,6 +107,8 @@ export function createInviteAcceptHandler() {
         readonly email: string;
         readonly role: string;
         readonly version: number;
+        readonly insertedAt: Temporal.Instant;
+        readonly modifiedAt: Temporal.Instant | null;
       };
       type UserEmailRow = { readonly email: string };
 
@@ -148,37 +144,17 @@ export function createInviteAcceptHandler() {
           return inviteEmailMismatch();
         }
 
-        // Already-Member-Check direkt gegen die memberships-Projektion —
-        // NICHT via tenant:query:memberships, die disabled Tenants filtert:
-        // ein Re-Invite in einen (vorübergehend) disabled Tenant würde dort
-        // alreadyMember=false sehen und am Unique-Constraint scheitern.
-        // Idempotenz: schon Member → no-op + 200 mit alreadyMember=true.
-        const invitationTenantRunner = ctx.db.unsafeRaw(ADD_MEMBERSHIP_INVITATION_TENANT_REASON);
-        const membershipRow = await fetchOne(invitationTenantRunner, tenantMembershipsTable, {
+        // Executor instead of dispatcher.writeAs(addMember): addMember only
+        // accepts SystemAdmin, createSystemUser carries "system".
+        const dbConn = ctx.db.unsafeRaw(ADD_MEMBERSHIP_INVITATION_TENANT_REASON);
+        const grant = await grantInvitedMembershipRole(dbConn, {
           userId: event.user.id,
           tenantId: invitationTenantId,
+          role: invitationRole,
+          invitationIssuedAt: invitationIssuedAt(invitation),
         });
-        const alreadyMember = membershipRow !== undefined;
-
-        const dbConn = invitationTenantRunner;
-
-        if (!alreadyMember) {
-          // Membership-Add via seedTenantMembership-helper (event-store-
-          // executor pattern, gleich wie provisionSignupAccount). Nicht
-          // dispatcher.writeAs(addMember) weil addMember-Handler nur
-          // ["SystemAdmin"]-Role akzeptiert; createSystemUser produziert
-          // "system"-Role die NICHT matcht. Direkt-via-Executor bypassed
-          // den Access-Check für privilegierte Cross-Tenant-Operationen.
-          const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);
-          if (forbiddenInviteRole !== undefined) {
-            return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
-          }
-          await seedTenantMembership(dbConn, {
-            userId: event.user.id,
-            tenantId: invitationTenantId,
-            roles: [invitationRole],
-          });
-        }
+        if (!grant.isSuccess) return grant;
+        const { alreadyMember } = grant.data;
 
         // Invitation-Status → accepted via event-store-executor.
         // Tenant-scoping: ctx.db ist auf event.user.tenantId gescopt

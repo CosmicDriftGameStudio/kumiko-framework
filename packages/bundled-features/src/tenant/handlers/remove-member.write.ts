@@ -1,19 +1,81 @@
-import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  createEventStoreExecutor,
+  type DbRow,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
   defineWriteHandler,
+  type SessionUser,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  NotFoundError,
+  type WriteFailure,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
+import type { Redis } from "ioredis";
 import * as z from "zod";
+// kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
+import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store";
+import { decryptStoredPii } from "../../shared";
+import { userTable } from "../../user";
+import {
+  INVITATION_STATUS,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../invitation-table";
 import { assertNotLastTenantAdmin } from "../last-tenant-admin";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",
 });
+
+const invitationExecutor = createEventStoreExecutor(
+  tenantInvitationsTable,
+  tenantInvitationEntity,
+  { entityName: "tenant-invitation" },
+);
+
+type PendingInvitationCancel = {
+  readonly userId: string;
+  readonly tenantId: string;
+  readonly actor: SessionUser;
+  readonly redis: Redis | undefined;
+};
+
+async function cancelPendingInvitationsOfUser(
+  db: TenantDb,
+  options: PendingInvitationCancel,
+): Promise<WriteFailure | undefined> {
+  const user = await fetchOne<{ email: string | null }>(db, userTable, { id: options.userId });
+  if (!user?.email) return undefined;
+  const email = (await decryptStoredPii(user.email, "email", "tenant:remove-member")).toLowerCase();
+
+  const pendingInvitations = await selectMany<{ id: string; version: number }>(
+    db,
+    tenantInvitationsTable,
+    { tenantId: options.tenantId, email, status: INVITATION_STATUS.pending },
+  );
+  for (const invitation of pendingInvitations) {
+    const updateResult = await invitationExecutor.update(
+      {
+        id: invitation.id,
+        version: invitation.version,
+        changes: { status: INVITATION_STATUS.cancelled },
+      },
+      options.actor,
+      db,
+    );
+    if (!updateResult.isSuccess) return updateResult;
+    if (options.redis) await invalidateExistingInviteToken(options.redis, invitation.id);
+  }
+  return undefined;
+}
 
 // Literal QN, not an import off the sessions feature — tenant is
 // foundational and must boot without sessions mounted (no r.requires/
@@ -78,6 +140,16 @@ export const removeMemberWrite = defineWriteHandler({
       event.user,
       db,
     );
+    if (!result.isSuccess) return result;
+
+    // Actor tenant = invitation tenant so the update hits the invitation's stream.
+    const cancelFailure = await cancelPendingInvitationsOfUser(db, {
+      userId: event.payload.userId,
+      tenantId: event.payload.tenantId,
+      actor: { ...event.user, tenantId: event.payload.tenantId },
+      redis: ctx.redis,
+    });
+    if (cancelFailure !== undefined) return cancelFailure;
 
     return withResponseData(result, event.payload);
   },
