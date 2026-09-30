@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.328.1
+
+### Patch Changes
+
+- 51a6a91: kumiko-headless, kumiko-dispatcher-live, kumiko-renderer and kumiko-renderer-web are published as compiled JavaScript plus .d.ts
+
+  The four client packages now ship `dist` (`.js` and `.d.ts`) instead of TypeScript source. Export keys are unchanged; only the targets behind them move to `dist`. `kumiko-renderer-web` still ships `src/styles.css` and `src/fonts` as source, because the stylesheet and the font server resolve them by path; its Tailwind `@source` list now also scans the compiled `dist` of renderer-web and renderer. `kumiko-renderer-web` now declares `kumiko-framework` and `kumiko-types` as dependencies, which its code already imported.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: kumiko-headless, kumiko-dispatcher-live, kumiko-renderer and kumiko-renderer-web are published as compiled JavaScript plus .d.ts
+  -->
+
+- Updated dependencies [51a6a91]
+- Updated dependencies [863e8e4]
+- Updated dependencies [863e8e4]
+  - @cosmicdrift/kumiko-headless@0.328.1
+  - @cosmicdrift/kumiko-framework@0.328.1
+  - @cosmicdrift/kumiko-types@0.328.1
+
 ## 0.328.0
 
 ### Minor Changes

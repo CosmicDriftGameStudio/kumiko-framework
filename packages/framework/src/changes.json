@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.328.1",
+    "type": "improvement",
+    "title": "kumiko-framework and kumiko-http are published as compiled JavaScript plus .d.ts",
+    "detail": "Both packages now ship `dist` (`.js` and `.d.ts`) instead of TypeScript source. Export keys are unchanged; only the targets behind them move to `dist`. `kumiko-framework` still ships `src/scripts/codemod` as source because `kumiko upgrade` runs those codemods with Bun. Runtime-only subpaths that import `bun` or `bun:*` (for example `./testing`) still need Bun."
+  },
+  {
     "version": "0.328.0",
     "type": "improvement",
     "title": "bun-db logs a diagnostic warning when a closed-connection error surfaces",
