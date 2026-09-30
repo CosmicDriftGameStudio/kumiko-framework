@@ -261,8 +261,8 @@ describe("NavTree", () => {
       ],
     } as FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
-    // Flache Navigation ohne Sections → keine Chevrons. Genau EIN Nav-svg:
-    // das dashboard-Icon. Das icon-lose Item rendert kein Leading-Element.
+    // Flat nav without sections means no chevrons; exactly one nav svg (the
+    // dashboard icon) because the icon-less item renders no leading element.
     expect(container.querySelector(".rounded-full")).toBeNull();
     expectNavIcons(container, ["dashboard"]);
   });

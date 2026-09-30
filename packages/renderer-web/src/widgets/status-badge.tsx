@@ -18,7 +18,7 @@ export const STATUS_TONE_TEXT: Record<StatusTone, string> = {
  *  hence not part of `StatusTone`, which toasts and select options share. */
 export type StatusBadgeTone = StatusTone | "accent";
 
-// Fläche + Textfarbe pro Tone; `muted` läuft über die neutral-Tokens.
+// `muted` maps to the neutral tokens, not a status-* palette.
 const TONE_PILL: Record<StatusBadgeTone, string> = {
   accent: "bg-primary/10 text-primary",
   ok: "bg-status-ok-surface text-status-ok",
@@ -28,9 +28,9 @@ const TONE_PILL: Record<StatusBadgeTone, string> = {
   muted: "bg-status-neutral-surface text-status-neutral",
 };
 
-/** Pill-Badge mit Statuspunkt für Status-Werte. Caller mappt Domain-Werte → Tone
- *  (z.B. operational→ok, investigating→warn) und liefert das
- *  translated Label als children. */
+/** Pill badge with a status dot. Caller maps domain values to a tone
+ *  (e.g. operational→ok, investigating→warn) and passes the translated
+ *  label as children. */
 export function StatusBadge({
   tone,
   children,

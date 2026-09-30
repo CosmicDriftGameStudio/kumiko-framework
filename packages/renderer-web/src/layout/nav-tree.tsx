@@ -268,8 +268,8 @@ function useLabel(node: NavNode): string {
   return node.label.includes(".") ? t(node.label) : node.label;
 }
 
-// Bekannter icon-Key → Lucide-Icon; ohne Icon steht nur in der kollabierten
-// Rail der Anfangsbuchstabe, ausgeklappt bleibt das Label allein.
+// Without an icon only the collapsed rail shows the initial letter; expanded,
+// the label stands alone.
 function NavLeadingIcon({
   node,
   active,

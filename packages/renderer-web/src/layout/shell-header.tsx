@@ -1,8 +1,7 @@
-// ShellHeader — die Inset-Kopfzeile für Sidebar-basierte Shells: SidebarTrigger
-// (Rail-/Mobile-Sheet-Toggle) + Breadcrumb mit dem aktiven Screen + optionale
-// rechtsbündige headerActions. Geteilt von DefaultAppShell und WorkspaceShell,
-// damit beide dieselbe Kopfzeile tragen (Höhe h-14, auch
-// mit kollabierter Icon-Rail).
+// ShellHeader — inset header bar for sidebar-based shells: SidebarTrigger
+// (rail/mobile-sheet toggle), breadcrumb of the active screen, optional
+// right-aligned headerActions. Shared by DefaultAppShell and WorkspaceShell so
+// both carry the same header (h-14, also with a collapsed icon rail).
 //
 // The `data-kumiko-layout="shell-header"` marker drives `--shell-header-height`
 // in styles.css (:has() selector) — the single source for the header height

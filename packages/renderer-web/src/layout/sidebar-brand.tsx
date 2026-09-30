@@ -1,7 +1,7 @@
-// SidebarBrand — Logo-Kachel + Name + Untertitel für den `brand`-Slot von
-// DefaultAppShell. Reiner Look (kein Team-Switch-Dropdown) — eine App hat meist
-// EINE Identität; wer wechseln will, baut den Dropdown selbst drumrum und
-// setzt `collapsible`.
+// SidebarBrand — logo tile, name and subtitle for DefaultAppShell's `brand`
+// slot. Look only, no team-switch dropdown: an app usually has one identity;
+// apps that need switching wrap their own dropdown around it and set
+// `collapsible`.
 
 import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";

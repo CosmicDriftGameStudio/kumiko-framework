@@ -132,8 +132,8 @@ export type ButtonProps = {
 export type LinkProps = {
   readonly href: string;
   readonly variant?: "default" | "button" | "muted";
-  /** `_blank` setzt in der Web-Impl `rel="noopener noreferrer"`, sofern
-   *  `rel` nicht selbst gesetzt ist. */
+  /** `_blank` makes the web impl set `rel="noopener noreferrer"` unless
+   *  `rel` is set explicitly. */
   readonly target?: "_blank" | "_self" | "_parent" | "_top";
   readonly rel?: string;
   /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
@@ -632,14 +632,13 @@ export type DataTableProps = {
    *  Form (Labels + onTrigger schon verdrahtet); DataTable kümmert
    *  sich nur um Render + Confirm-Dialog. */
   readonly rowActions?: readonly DataTableRowAction[];
-  /** Wie die Row-Action-Spalte rendert:
-   *  - `"adaptive"` (Default): mit `onRowClick` alle Actions im Kebab; ohne
-   *    `onRowClick` die primäre Action als Link-Button, der Rest im Kebab
-   *    (eine einzelne Action ohne Kebab).
-   *  - `"inline"`: IMMER Inline-Buttons, linksbündig — auch bei >2 (kein
-   *    Kebab). So stehen die Aktionen über alle Rows an derselben x-Position
-   *    (kein Wandern durch unterschiedlich breite Labels) und alle Listen
-   *    einer App sehen gleich aus. */
+  /** How the row-action column renders:
+   *  - `"adaptive"` (default): with `onRowClick` all actions go in the kebab;
+   *    without it the primary action is a link button and the rest go in the
+   *    kebab (a single action gets no kebab).
+   *  - `"inline"`: ALWAYS inline buttons, left-aligned, even with >2 (no
+   *    kebab). Actions then sit at the same x-position across all rows
+   *    (no drifting with label width) and all lists in an app look alike. */
   readonly rowActionMode?: DataTableRowActionMode;
   /** Custom Empty-State-Inhalt (z. B. Icon + Heading + CTA-Button).
    *  Default-Renderer rahmt ihn in einer dashed-border Box. */
@@ -685,7 +684,7 @@ export type DataTableProps = {
   };
   /** Hint at the left of the toolbar (relatedList tab description). */
   readonly toolbarDescription?: string;
-  /** Noun for the footer count ("1–19 von 19 Mietverträgen", "1 Position"),
+  /** Noun for the footer count ("1–19 of 19 leases", "1 position"),
    *  resolved for the given count. Omitted = generic "entries" wording. */
   readonly itemNoun?: (count: number) => string;
   /** Infinite-Scroll Callback. Wenn gesetzt, rendert der Renderer einen
