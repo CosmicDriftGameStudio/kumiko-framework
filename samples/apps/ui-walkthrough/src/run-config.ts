@@ -4,9 +4,11 @@
 // from here — migration and runtime cannot drift.
 
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { rentalFeature } from "./features/rental";
 import { taskFeature } from "./features/tasks";
+import { vehiclesFeature } from "./features/vehicles";
 
-export const APP_FEATURES = [localeDe(), taskFeature] as const;
+export const APP_FEATURES = [localeDe(), taskFeature, rentalFeature, vehiclesFeature] as const;
 
 // runDevApp auto-mounts config/user/tenant/auth-email-password when
 // `auth: { … }` is set in server.ts (composeFeatures includeBundled).

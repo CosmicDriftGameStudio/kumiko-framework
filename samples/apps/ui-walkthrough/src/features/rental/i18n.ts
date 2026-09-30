@@ -1,0 +1,116 @@
+import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
+
+export const rentalTranslations: TranslationsByLocale = {
+  de: {
+    "rental.nav.contracts": "Verträge",
+    "rental.nav.leases": "Mietverträge",
+
+    "screen:lease-list.title": "Mietverträge",
+    "screen:lease-list-short.title": "Mietverträge (gekündigt)",
+    "screen:lease-edit.title": "Mietvertrag",
+    "screen:lease-detail.title": "Mietvertrag",
+    "screen:position-edit.title": "Position",
+    "screen:adjust-rent.title": "Miete anpassen",
+
+    "rental.tab.parties": "Vertragsparteien",
+    "rental.tab.positions": "Positionen",
+    "rental.tab.account": "Mietkonto",
+    "rental.tab.contractData": "Vertragsdaten",
+    "rental.tab.notes": "Notizen",
+
+    "rental.action.open": "Öffnen",
+    "rental.action.terminate": "Mietvertrag kündigen",
+    "rental.action.terminateConfirm": "Soll dieser Mietvertrag gekündigt werden?",
+    "rental.action.addPosition": "Position hinzufügen",
+    "rental.action.adjustRent": "Miete anpassen",
+    "rental.adjustRent.hint":
+      "Die alte Position endet am Vortag, die neue beginnt am Stichtag. Art, Menge und Einheit bleiben dabei unverändert, so bleibt die Mietgeschichte nachvollziehbar.",
+    "rental.adjustRent.submit": "Speichern",
+
+    "rental:entity:lease:field:mieter": "Mieter",
+    "rental:entity:lease:field:einheit": "Einheit",
+    "rental:entity:lease:field:liegenschaft": "Liegenschaft",
+    "rental:entity:lease:field:beginn": "Beginn",
+    "rental:entity:lease:field:ende": "Ende",
+    "rental:entity:lease:field:status": "Status",
+    "rental:entity:lease:field:status:option:active": "Aktiv",
+    "rental:entity:lease:field:status:option:terminated": "Gekündigt",
+    "rental:entity:lease:field:grundmiete": "Grundmiete pro Monat",
+    "rental:entity:lease:field:kuendigungsfrist": "Kündigungsfrist",
+    "rental:entity:lease:field:zahltag": "Zahltag",
+    "rental:entity:lease:field:kontostand": "Kontostand",
+    "rental:entity:lease:field:notizen": "Notizen",
+
+    "rental:entity:leasePosition:field:lease": "Mietvertrag",
+    "rental:entity:leasePosition:field:art": "Art",
+    "rental:entity:leasePosition:field:einheit": "Einheit",
+    "rental:entity:leasePosition:field:betrag": "Betrag",
+    "rental:entity:leasePosition:field:gueltigVon": "Gültig von",
+    "rental:entity:leasePosition:field:gueltigBis": "Gültig bis",
+
+    "rental:entity:leaseParty:field:lease": "Mietvertrag",
+    "rental:entity:leaseParty:field:name": "Name",
+    "rental:entity:leaseParty:field:rolle": "Rolle",
+
+    "rental:entity:__action-form__:field:positionId": "Position",
+    "rental:entity:__action-form__:field:wirksamAb": "Wirksam ab",
+    "rental:entity:__action-form__:field:neuerBetrag": "Neuer Betrag",
+    "rental:entity:__action-form__:field:begruendung": "Begründung",
+  },
+  en: {
+    "rental.nav.contracts": "Contracts",
+    "rental.nav.leases": "Leases",
+
+    "screen:lease-list.title": "Leases",
+    "screen:lease-list-short.title": "Leases (terminated)",
+    "screen:lease-edit.title": "Lease",
+    "screen:lease-detail.title": "Lease",
+    "screen:position-edit.title": "Position",
+    "screen:adjust-rent.title": "Adjust rent",
+
+    "rental.tab.parties": "Parties",
+    "rental.tab.positions": "Positions",
+    "rental.tab.account": "Rent account",
+    "rental.tab.contractData": "Contract data",
+    "rental.tab.notes": "Notes",
+
+    "rental.action.open": "Open",
+    "rental.action.terminate": "Terminate lease",
+    "rental.action.terminateConfirm": "Terminate this lease?",
+    "rental.action.addPosition": "Add position",
+    "rental.action.adjustRent": "Adjust rent",
+    "rental.adjustRent.hint":
+      "The old position ends the day before, the new one starts on the effective date. Type, quantity and unit stay unchanged, so the rent history stays traceable.",
+    "rental.adjustRent.submit": "Save",
+
+    "rental:entity:lease:field:mieter": "Tenant",
+    "rental:entity:lease:field:einheit": "Unit",
+    "rental:entity:lease:field:liegenschaft": "Property",
+    "rental:entity:lease:field:beginn": "Start",
+    "rental:entity:lease:field:ende": "End",
+    "rental:entity:lease:field:status": "Status",
+    "rental:entity:lease:field:status:option:active": "Active",
+    "rental:entity:lease:field:status:option:terminated": "Terminated",
+    "rental:entity:lease:field:grundmiete": "Base rent per month",
+    "rental:entity:lease:field:kuendigungsfrist": "Notice period",
+    "rental:entity:lease:field:zahltag": "Due day",
+    "rental:entity:lease:field:kontostand": "Balance",
+    "rental:entity:lease:field:notizen": "Notes",
+
+    "rental:entity:leasePosition:field:lease": "Lease",
+    "rental:entity:leasePosition:field:art": "Type",
+    "rental:entity:leasePosition:field:einheit": "Unit",
+    "rental:entity:leasePosition:field:betrag": "Amount",
+    "rental:entity:leasePosition:field:gueltigVon": "Valid from",
+    "rental:entity:leasePosition:field:gueltigBis": "Valid until",
+
+    "rental:entity:leaseParty:field:lease": "Lease",
+    "rental:entity:leaseParty:field:name": "Name",
+    "rental:entity:leaseParty:field:rolle": "Role",
+
+    "rental:entity:__action-form__:field:positionId": "Position",
+    "rental:entity:__action-form__:field:wirksamAb": "Effective from",
+    "rental:entity:__action-form__:field:neuerBetrag": "New amount",
+    "rental:entity:__action-form__:field:begruendung": "Reason",
+  },
+};
