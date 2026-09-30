@@ -1,5 +1,57 @@
 [
   {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Screens fill the shell height by default",
+    "detail": "entityList, projectionList, projectionDetail, entityEdit, actionForm and wizard screens now fill the height of the shell content. The table or the form body scrolls inside, the toolbar stays on top and the pager or action bar stays pinned at the bottom (`scrollBody`, `stickyActions`). The shell header is 56px. Custom screens and direct DataTable or Form usage are unchanged.",
+    "migration": "Set `fillHeight: false` on a screen to restore the old page scrolling (table grows with its rows, pager below the last row, form footer in the flow). Apps with e2e or screenshot tests that scroll the page to reach the pager or the form footer need to adjust them or opt out per screen."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Pager shows a status line, page size select and Page X of Y instead of page numbers",
+    "detail": "The numbered page list is gone. The list footer shows \"1-19 of 19 <entities>\" (with the entity plural label when known), \"Page X of Y\", previous and next buttons and a page size select (25, 50, 100). Lists without a pager show a plain entry count. The chosen size is kept in the URL under `<screen>.size`.",
+    "migration": "Remove code and tests that click numbered page buttons (`-page-N` test ids); use the next and previous buttons. The screen's declared `pageSize` stays the default, `<screen>.size` in the URL overrides it. The new keys `kumiko.pager.pageOf`, `kumiko.pager.status.noun`, `kumiko.pager.pageSize`, `kumiko.pager.pageSizeLabel`, `kumiko.list.count.*` exist in en, de and es; apps with their own locale need them too."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "rowActionMode adaptive has new semantics and mobile rows lose the kebab for plain navigation",
+    "detail": "With `rowActionMode: \"adaptive\"` (the default), a table with `onRowClick` renders the first cell as a keyboard-operable link and puts all row actions into the kebab. Without `onRowClick` the primary row action is a link-button and the remaining actions go into the kebab (a single action gets no kebab). Below the md breakpoint a row that only navigates shows a chevron and no kebab.",
+    "migration": "Code or tests that expect up to two inline row action buttons must open the kebab or use `rowActionMode: \"inline\"`, which is unchanged. To keep a visible action next to the row link, drop `onRowClick` and declare the action as the primary row action."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Form, wizard and detail screens use the board layout",
+    "detail": "Screen forms have no card, sections are separated by lines, fields flow in rows with widths by type (text 240px, number 96px, money 160px, date and select 200px, textarea full row) and the page title lives in the shell header. Delete and Copy link move into the header kebab, the footer reads status, Cancel, Save, and the wizard footer has no Cancel. Wizard steps sit in a vertical rail from the lg breakpoint. The first detail header action is a button, further ones sit in the kebab. Detail screens have no header card and use the full width: metrics render as a dl band, tabs are underlined only when active, related lists are full-bleed with a count footer. Required-field asterisks are omitted when every field is required and \"All fields are required.\" is shown instead.",
+    "migration": "Adjust screenshots and DOM tests that pin the old card layout. `fillHeight: false` restores page scrolling only; the footer order, the moved actions and the new field layout apply in both modes. Empty list cells render a dash."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "PageHeader slot, MetricBand, wizard Save and close, drawer row actions with unsaved-input guard",
+    "detail": "Core primitives `PageHeader` (status and actions portalled into the shell header when a shell provides the slot, otherwise the caller keeps its placement) and `MetricBand` (borderless dl of metrics) are new and optional. Wizards on an existing record show \"Save and close\". Row actions and related list row actions with `kind: \"drawer\"` open the action form in a flush drawer. Closing it with unsaved input (X, Escape, overlay, Cancel) asks for confirmation first; nothing is asked after a successful submit. Row action drawers are prefilled from the row through `params`. The action form `summary` renders a context box above the fields."
+  },
+  {
+    "version": "0.328.0",
+    "type": "fix",
+    "title": "Related list no longer claims \"showing the first N entries\" for a complete list",
+    "detail": "The hint \"Zeigt die ersten 1 Einträge. Es gibt weitere, die hier nicht angezeigt werden.\" appeared for a single row even when nothing else existed. It now appears only when more rows exist than were loaded."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "writeForm section Save button without icon, parity with entityEdit",
+    "detail": "The Save button of a writeForm section no longer shows a check icon; it matches the entityEdit submit button. Tests that look for the icon inside the section Save button need updating."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "useQuery gains a refetchIntervalMs option for polling",
+    "detail": "With `refetchIntervalMs` set, an enabled query re-runs on a timer. Background ticks keep `loading` false, are skipped while a fetch is still in flight, and stop on unmount or when enabled, the interval, type or payload change. Only timers are used, so it works on web and React Native."
+  },
+  {
     "version": "0.325.2",
     "type": "fix",
     "title": "Server validation issues without a rendered field keep the error banner",

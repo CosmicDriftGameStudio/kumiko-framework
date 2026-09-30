@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Dates format with two-digit day and month",
+    "detail": "`formatValue` for date values passes `day: \"2-digit\"` and `month: \"2-digit\"`, so German output is 01.10.2026 instead of 1.10.2026 in lists, details and related lists. List view models carry `hideOnNarrow` onto columns.",
+    "migration": "Update tests and snapshots that expect single-digit day or month."
+  },
+  {
     "version": "0.308.0",
     "type": "improvement",
     "title": "computeEditViewModel threads section.actions and EditRelatedListSection.emptyState into the view model (fw#3234)",

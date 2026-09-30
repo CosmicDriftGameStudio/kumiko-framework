@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "User menu and tenant menu items fit the new shell",
+    "detail": "The web user menu and tenant menu items are adapted to the sidebar footer user block, which now hosts the tenant, language and theme controls."
+  },
+  {
     "version": "0.323.0",
     "type": "improvement",
     "title": "New anonymous invite-info lookup route; invite-accept-with-login now returns invalid_credentials for a wrong or missing password",

@@ -1,5 +1,76 @@
 [
   {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "IBM Plex replaces Inter as the default typeface",
+    "detail": "renderer-web ships IBM Plex Sans (400, 500, 600) and IBM Plex Mono (400, 500) as self-hosted woff2 files under the SIL Open Font License. `--font-sans` and `--font-mono` default to Plex. Inter is no longer wired in.",
+    "migration": "Apps that expect Inter set `--font-sans` (and load the font themselves) in their styles.css or through the theme plugin. Nothing else is needed for apps happy with Plex. Custom server setups that do not use the dev server or the prod build of server-runtime must serve `/assets/kumiko/fonts/*.woff2` from the renderer-web `fonts` folder with the MIME type `font/woff2`, and `font-src 'self'` covers it."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Warm-neutral design tokens, 6px radius, content on the surface color",
+    "detail": "Light and dark themes were rebuilt. Light: surface #FFFFFF, page #F3F2EE, sunken #F6F5F1, line #E2E0D9, strong line #CFCCC3, row line #ECEAE4, control border #908D85, text #1A1C1E, text 2 #474B50, text 3 #5F6368, disabled #8A8E93. New tokens: `--color-foreground-secondary`, `--color-foreground-disabled`, `--color-border-strong`, `--color-border-row`, `--color-status-*-surface` (ok, warn, bad, critical), `--color-status-neutral` and `--color-status-neutral-surface`, `--color-sidebar-muted`, `--color-sidebar-input`. `--radius` is 0.5rem so controls use 6px. The shell content, header and toolbars sit on the card surface, the sidebar (232px wide) takes the page color. Buttons: the secondary variant is a surface with a border, a ghost variant was added. Controls are 36px high (32px small), at least 44px below md.",
+    "migration": "Apps that override tokens keep working, but check contrast pairs for the new roles and add overrides for the new tokens if the brand needs them. Apps with hard-coded colors that relied on the page color behind content, on grey secondary buttons or on the 10px radius must adjust. Screenshot tests need new baselines."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Field presentation follows option count, label length and type",
+    "detail": "A select without an explicit `display` renders as a segmented control for up to 3 options with labels of at most 16 characters, as a vertical radio list for up to 3 longer options and as a dropdown for 4 or more. MoneyInput has no stepper, right-aligns its value and shows the currency as a suffix. Number inputs are left-aligned. Fields get a control width by type (number 96px, money 160px, date 200px, select at least 200px, text 240px), labels never wrap, radio lists and textareas take their own row.",
+    "migration": "Set `display: \"radio\"` or `display: \"dropdown\"` on the select field to pin a presentation. Selects with 4 options no longer render as radio groups by default. Tests that spin a money value with the stepper buttons must type the value instead."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Drawer widget defaults to the flush variant, Link with target _blank sets rel",
+    "detail": "The `Drawer` widget renders flush against the right edge with full height, no margin, no radius and a strong left border unless `variant=\"floating\"` is passed. Every `<Drawer>` without `variant` changes its look. `Link` now forwards `rel` and `target`; with `target=\"_blank\"` the default `rel` is `noopener noreferrer`.",
+    "migration": "Pass `variant=\"floating\"` to keep the detached panel look. Tests that assert a missing `rel` on `target=\"_blank\"` links need updating."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "StatusBadge accent tone, ModeSwitch counts, radio cards, SideBySideTable, InfinityList selection",
+    "detail": "`StatusBadge` gets an `accent` tone (primary tint with dot). `ModeSwitch` options take `count`, shown as a muted tabular counter. A select input takes `radioVariant: \"card\"` and each option a `description` for card-style radio choices. `SideBySideTable` renders a semantic table (th scope, ReactNode cells) for comparisons. `InfinityList` takes `selectedId` and `onSelectionChange({ index, total, prevId, nextId })`. `ProgressBar` takes `ariaLabel` and `size: \"thin\"`. `Button` has a `ghost` variant, DataTable rows take `DataTableRowAction.rowClick`, columns take `hideOnNarrow`. Tables and wizard steps use the new flush layout, tabs show counters."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "Shell: user menu holds tenant, language and theme controls",
+    "detail": "The sidebar user block sits in the sidebar footer and its menu contains the tenant, language and theme controls (`LanguageMenuItems` and `ThemeMenuItem` are exported). Sidebar items are 32px high on desktop, at least 44px below md."
+  },
+  {
+    "version": "0.328.0",
+    "type": "fix",
+    "title": "Floating user block no longer overlaps the toolbar",
+    "detail": "The \"Admin\" block hovered at the top left over the content below the header and covered the search field. The user block is part of the sidebar footer now."
+  },
+  {
+    "version": "0.328.0",
+    "type": "breaking",
+    "title": "Money field shows the currency symbol as a suffix inside the field, date field has its calendar button inside the input",
+    "detail": "MoneyInput renders the value right-aligned with the currency symbol as a separate muted adornment (`<id>-currency`), placed before the number for locales that put it there. The input text no longer contains the symbol (\"1.234,56\", not \"1.234,56 €\"); parsing and the stored minor-unit value are unchanged. DateField and TimestampInput draw the calendar button as an icon inside the right edge of the input instead of a separate square button; the button keeps its aria-label and keyboard operation.",
+    "migration": "Tests that read the money input value and expect the symbol must read the `<id>-currency` element or drop the symbol from the expected text. Selectors that find the calendar button by role and label keep working."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "Mobile list cards keep the status badge top right, pager page size select uses the shared chevron",
+    "detail": "On narrow viewports the status badge sits in the title row (top aligned) and the meta line runs across the full card width up to the chevron. The page size select in the pager hides the native arrow and shows the same chevron icon as the other selects."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "Sidebar marks the list while an existing record is edited",
+    "detail": "When the route carries an `entityId`, the nav entry of the screen's parent list is active instead of the edit screen's own nav entry (for example \"Add vehicle\"), the same rule the shell breadcrumb already applies."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "Money input keeps the currency symbol beside the value and survives an invalid locale",
+    "detail": "The currency symbol is a flex sibling of the input inside one bordered wrapper, so multi-character symbols (CHF, R$, kr) never overlap the digits; without a symbol there is no extra padding. An invalid locale tag renders the plain number without a symbol instead of throwing. Native controls (date input, scrollbars, select) follow the theme through `color-scheme`."
+  },
+  {
     "version": "0.327.0",
     "type": "improvement",
     "title": "FloatingPanel widget and exported useIsNarrowViewport",
