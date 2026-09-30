@@ -312,6 +312,7 @@ export {
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
 } from "./steps/_step-dispatch-constants";
+export { describeWorkflowStepError } from "./steps/describe-workflow-step-error";
 export {
   ANONYMOUS_ROLE,
   ANONYMOUS_USER_ID,

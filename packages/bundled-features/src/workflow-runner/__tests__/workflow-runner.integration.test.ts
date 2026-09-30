@@ -52,7 +52,7 @@ const failingWorkflow: WorkflowDefinition = defineWorkflow({
   idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
   steps: stepsPipeline(({ r }) => [
     r.step.compute("boom", () => {
-      throw new Error("boom-explicit-failure");
+      throw new Error("boom-explicit-failure for jane.doe@example.com");
     }),
     r.step.return({ isSuccess: true, data: undefined }),
   ]),
@@ -186,7 +186,7 @@ describe("workflow-runner event-trigger", () => {
     });
   });
 
-  test("error path: a throwing step writes run-failed with the error text, no run-completed", async () => {
+  test("error path: a throwing step writes run-failed with a generic error text, no run-completed", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(failingWorkflow.name, runKey);
     // The registrar namespaces every MSP as `<feature>:projection:<name>`.
@@ -223,7 +223,10 @@ describe("workflow-runner event-trigger", () => {
       WORKFLOW_RUN_FAILED_TYPE,
     ]);
     expect(rows[1]!["payload"]).toMatchObject({ workflowName: failingWorkflow.name, stepIndex: 0 });
-    expect(String(rows[1]!["payload"]["error"])).toContain("boom-explicit-failure");
+    // The event outlives an erase, so it carries the error class only.
+    expect(rows[1]!["payload"]["error"]).toBe("workflow step failed (Error)");
+    expect(JSON.stringify(rows[1]!["payload"])).not.toContain("boom-explicit-failure");
+    expect(JSON.stringify(rows[1]!["payload"])).not.toContain("jane.doe@example.com");
 
     // Second pass has nothing left to redeliver — the same trigger event
     // never spawns a second run-started for this runId. `processed` counts

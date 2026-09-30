@@ -7,6 +7,7 @@
 // after the backoff duration and re-enters the step at the same index.
 // After all attempts exhausted, the original error propagates.
 
+import { createFallbackLogger } from "../../logging";
 import { defineStep } from "../define-step";
 import { runStepList } from "../run-pipeline";
 import type { PipelineCtx, StepInstance } from "../types/step";
@@ -15,6 +16,9 @@ import {
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
 } from "./_step-dispatch-constants";
+import { describeWorkflowStepError } from "./describe-workflow-step-error";
+
+const log = createFallbackLogger("workflow-retry");
 
 type RetryStepArgs = {
   readonly times: number;
@@ -47,6 +51,14 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
         throw error;
       }
 
+      log.warn("workflow step failed, retry scheduled", {
+        runId: ctx.workflow.runId,
+        workflowName: ctx.workflow.workflowName,
+        stepIndex: ctx.workflow.stepIndex,
+        attempt,
+        error: String(error),
+      });
+
       const backoffMs = calculateBackoff(attempt, args.backoff);
       const wakeAt = Temporal.Now.instant().add({ milliseconds: backoffMs }).toString();
 
@@ -60,7 +72,7 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
           maxAttempts,
           wakeAt,
           workflowName: ctx.workflow.workflowName,
-          error: String(error),
+          error: describeWorkflowStepError(error),
           triggerEventType: ctx.event.type,
           triggerPayload: ctx.event.payload,
           ...(ctx.workflow.definitionFingerprint && {

@@ -31,6 +31,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   buildPipelineSteps,
   computeDefinitionFingerprint,
+  describeWorkflowStepError,
   getStep,
   type HandlerContext,
   runStepList,
@@ -48,6 +49,7 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
 import {
   isResumableSuspension,
@@ -58,6 +60,8 @@ import {
 } from "../runner";
 import { workflowRunPendingTable } from "../tables";
 import { getWorkflow } from "../workflow-registry";
+
+const log = createFallbackLogger("workflow-runner");
 
 const resumeRunSchema = z.object({
   runId: z.string().min(1),
@@ -338,10 +342,11 @@ export const resumeRunHandler: WriteHandlerDef = {
       });
       return { isSuccess: true, data: { outcome: "completed" as const } };
     } catch (error) {
+      log.warn("workflow run failed", { runId, workflowName, stepIndex, error: String(error) });
       const failedPayload: WorkflowRunFailedPayload = {
         workflowName,
         stepIndex,
-        error: String(error),
+        error: describeWorkflowStepError(error),
       };
       await appendRunFailed(ctx, runId, failedPayload);
       return { isSuccess: true, data: { outcome: "failed" as const } };
