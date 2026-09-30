@@ -80,29 +80,41 @@ test.describe("writeform-section — layout parity with the established entityEd
     }
   });
 
-  test("both submit buttons sit right-aligned in their form's footer, within 4px of each other", async ({
+  // The entityEdit form's footer is a bar spanning the whole screen,
+  // while the writeForm section's Save stays in the section header above its
+  // fields column. Both must sit at the right edge of their own frame: the
+  // footer bar for entityEdit, the fields column for the section.
+  test("entityEdit submit sits right-aligned in its footer, the writeForm submit at the right edge of its fields column", async ({
     page,
   }) => {
     await gotoBothForms(page);
-    const gaps: number[] = [];
-    for (const submit of [establishedSubmit(page), writeFormSubmit(page)]) {
-      const box = await submit.boundingBox();
-      const formRect = await closestFormRect(submit);
-      if (box === null) throw new Error("writeform-parity: submit button has no bounding box");
-      const rightGap = formRect.right - (box.x + box.width);
-      expect(rightGap).toBeLessThan(formRect.width * 0.2);
-      gaps.push(rightGap);
+
+    const establishedBox = await establishedSubmit(page).boundingBox();
+    const establishedForm = await closestFormRect(establishedSubmit(page));
+    if (establishedBox === null) {
+      throw new Error("writeform-parity: submit button has no bounding box");
     }
-    const [establishedGap, writeFormGap] = gaps as [number, number];
-    expect(Math.abs(establishedGap - writeFormGap)).toBeLessThanOrEqual(4);
+    const establishedGap = establishedForm.right - (establishedBox.x + establishedBox.width);
+    expect(establishedGap).toBeLessThan(establishedForm.width * 0.2);
+
+    const writeFormBox = await writeFormSubmit(page).boundingBox();
+    const fieldsBox = await page
+      .getByTestId("write-form-screen")
+      .getByTestId("field-title")
+      .boundingBox();
+    if (writeFormBox === null || fieldsBox === null) {
+      throw new Error("writeform-parity: submit button or fields column has no bounding box");
+    }
+    const writeFormGap = fieldsBox.x + fieldsBox.width - (writeFormBox.x + writeFormBox.width);
+    expect(Math.abs(writeFormGap)).toBeLessThanOrEqual(4);
   });
 
-  test("both submit buttons carry an icon", async ({ page }) => {
+  test("both submit buttons are text-only, no icon on either", async ({ page }) => {
     await gotoBothForms(page);
-    await expect(establishedSubmit(page).locator("svg").first()).toBeVisible();
-    expect(await establishedSubmit(page).locator("svg").count()).toBeGreaterThanOrEqual(1);
-    await expect(writeFormSubmit(page).locator("svg").first()).toBeVisible();
-    expect(await writeFormSubmit(page).locator("svg").count()).toBeGreaterThanOrEqual(1);
+    await expect(establishedSubmit(page)).toBeVisible();
+    await expect(writeFormSubmit(page)).toBeVisible();
+    expect(await establishedSubmit(page).locator("svg").count()).toBe(0);
+    expect(await writeFormSubmit(page).locator("svg").count()).toBe(0);
   });
 
   test("submitting the writeForm section dispatches the entered values to its own handler", async ({

@@ -1,4 +1,5 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { z } from "zod";
 import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
 
@@ -77,6 +78,5 @@ export function formatGermanMoney(money: z.infer<typeof moneySchema>): string {
 }
 
 export function dayBefore(isoDate: string): string {
-  const millisPerDay = 86_400_000;
-  return new Date(Date.parse(`${isoDate}T00:00:00Z`) - millisPerDay).toISOString().slice(0, 10);
+  return getTemporal().PlainDate.from(isoDate).subtract({ days: 1 }).toString();
 }

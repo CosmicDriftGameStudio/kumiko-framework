@@ -46,8 +46,6 @@ Screenshots (light 1440x900, mobile 390x844, dark for liste and detail):
 SCREENSHOT_DIR=/path/to/shots bun --env-file=../../../.env x playwright test e2e/screenshots.spec.ts --config=playwright.config.ts
 ```
 
-`SHOTS_DIR` overrides `SCREENSHOT_DIR` as output directory.
-
 ## Schema
 
 `src/run-config.ts` holds `APP_FEATURES` + `HAS_AUTH`. `kumiko/schema.ts`

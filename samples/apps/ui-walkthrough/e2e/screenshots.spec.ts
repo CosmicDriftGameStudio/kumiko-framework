@@ -1,14 +1,12 @@
 // @runtime test
 // Design-Abnahme #3381: one PNG per board mask. Light at 1440x900, mobile at
 // 390x844, dark only as a control pair. Runs only with SCREENSHOT_DIR set
-// (defineAppE2eConfig ignores this file otherwise); SHOTS_DIR overrides the
-// output directory.
+// (defineAppE2eConfig ignores this file otherwise).
 
-import { applyDefaultTheme } from "@cosmicdrift/kumiko-testing/e2e";
+import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
-const SHOTS_DIR = process.env["SHOTS_DIR"] ?? process.env["SCREENSHOT_DIR"] ?? "e2e/.shots";
 const DESKTOP = { width: 1440, height: 900 } as const;
 const MOBILE = { width: 390, height: 844 } as const;
 const LIST_TABLE = '[data-testid="render-list-table"]';
@@ -21,7 +19,7 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.waitForFunction(() =>
     document.getAnimations().every((animation) => animation.playState !== "running"),
   );
-  await page.screenshot({ path: `${SHOTS_DIR}/${name}.png`, animations: "disabled" });
+  await captureScreenshot(page, name);
 }
 
 async function openLeaseList(page: Page): Promise<void> {

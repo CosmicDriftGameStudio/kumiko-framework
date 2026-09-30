@@ -652,6 +652,7 @@ export function assertRendererWebShellPresent(css: string, stylesheet: ResolvedS
 // dist. Skipped when renderer-web isn't resolvable — then no such CSS exists.
 async function copyRendererWebFonts(cwd: string, outDir: string): Promise<void> {
   const fontsDir = resolveRendererWebFontsDir([cwd]);
+  // skip: renderer-web not resolvable, so no font-referencing CSS exists.
   if (fontsDir === undefined || !existsSync(fontsDir)) return;
   const target = join(outDir, RENDERER_WEB_FONTS_DIST_DIR);
   await mkdir(target, { recursive: true });

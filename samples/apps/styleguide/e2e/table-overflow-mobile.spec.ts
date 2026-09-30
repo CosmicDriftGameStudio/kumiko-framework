@@ -51,11 +51,10 @@ test.describe("mobile (< md)", () => {
     const cards = cardsContainer.locator('[data-testid^="row-"]:not([data-testid*="-action"])');
     await expect(cards).toHaveCount(8);
 
-    // Every column of item-list's schema (name, status, isActive, quantity,
-    // publishedAt) is reachable on a card: label + value both visible, and no
-    // `truncate` class hiding part of the value behind an ellipsis. This is
-    // the core of the fix — on the old table, these same values sat behind a
-    // sticky actions column with nothing visible past the scroll edge.
+    // Cards are compact rows: title, the select column as a status
+    // badge on the right, and up to three non-empty value columns as one
+    // "·"-separated meta line without labels. Every shown value must be
+    // visible inside the viewport and not clipped by its own box.
     // Item #2 (seed.ts: i=1) is used instead of #1 because isActive renders
     // as "" when false (defaultCellRender) — #1 has isActive=false, which
     // would make that one cell legitimately empty/invisible regardless of
@@ -63,31 +62,23 @@ test.describe("mobile (< md)", () => {
     const sampleCard = cards.nth(1);
     await expect(sampleCard.locator('[data-testid$="-name"]')).toHaveText("Demo item #2");
 
-    const detailFields = ["status", "isActive", "quantity", "publishedAt"] as const;
-    for (const field of detailFields) {
+    const shownFields = ["status", "isActive", "quantity", "publishedAt"] as const;
+    for (const field of shownFields) {
       const valueCell = sampleCard.locator(`[data-testid$="-${field}"]`);
       await expect(valueCell).toBeVisible();
+      await expect(valueCell).toBeInViewport();
 
-      const label = valueCell.locator("xpath=preceding-sibling::span[1]");
-      await expect(label).toBeVisible();
-      expect((await label.textContent())?.trim()).not.toBe("");
-
-      const className = await valueCell.evaluate((el) => el.className);
-      expect(className).not.toContain("truncate");
+      const isClipped = await valueCell.evaluate((el) => el.scrollWidth > el.clientWidth);
+      expect(isClipped).toBe(false);
     }
 
-    // item-list has 5 rowActions (> 2), so RowActionsCell keeps only the
-    // primary action ("edit") inline as a text button and moves the rest
-    // into a kebab menu — this proves both stay reachable on a narrow
+    // item-list has 5 rowActions (> 2). "edit" is the rowClick action, so a
+    // card tap runs it (no inline button, chevron instead) and the rest sit
+    // in a kebab menu — this proves both stay reachable on a narrow
     // viewport, not any specific rendering choice.
     const kebabTrigger = sampleCard.locator('[data-testid$="-actions-menu"]');
     await expect(kebabTrigger).toHaveCount(1);
-
-    const editAction = sampleCard.locator('[data-testid$="-action-edit"]');
-    await expect(editAction).toBeVisible();
-    await expect(editAction).toBeInViewport();
-    await expect(editAction).toBeEnabled();
-    await expect(editAction).toHaveText("Edit");
+    await expect(sampleCard.locator('[data-testid$="-action-edit"]')).toHaveCount(0);
 
     const kebabTestId = await kebabTrigger.getAttribute("data-testid");
     expect(kebabTestId).toBeTruthy();
@@ -98,6 +89,10 @@ test.describe("mobile (< md)", () => {
     await expect(deleteAction).toBeInViewport();
     await expect(deleteAction).toBeEnabled();
     await page.keyboard.press("Escape");
+
+    const listUrl = page.url();
+    await sampleCard.getByRole("button").first().click();
+    await expect(page).not.toHaveURL(listUrl);
   });
 });
 
@@ -115,7 +110,7 @@ test.describe("desktop (>= md)", () => {
     await page.goto("/item-list-wide");
     await expect(page.getByText("Demo item #1")).toBeVisible();
 
-    const scrollContainer = page.locator('[data-slot="table-container"]').first();
+    const scrollContainer = page.locator('[data-testid="render-list-table-scroll"]').first();
     const { scrollWidth, clientWidth } = await scrollContainer.evaluate((el) => ({
       scrollWidth: el.scrollWidth,
       clientWidth: el.clientWidth,
