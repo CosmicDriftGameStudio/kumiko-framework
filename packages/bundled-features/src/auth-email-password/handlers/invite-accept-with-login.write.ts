@@ -31,6 +31,7 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared";
 // kumiko-lint-ignore cross-feature-import invite-flow
@@ -39,13 +40,8 @@ import {
   tenantInvitationEntity,
   tenantInvitationsTable,
 } from "../../tenant/invitation-table";
-// kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
-import {
-  findForbiddenMembershipRole,
-  reservedMembershipRoleError,
-} from "../../tenant/membership-roles";
-// kumiko-lint-ignore cross-feature-import membership-seed-helper for a privileged cross-tenant add
-import { seedTenantMembership } from "../../tenant/seeding";
+// kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
+import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership";
 // kumiko-lint-ignore cross-feature-import login-style password-check
 import { userTable } from "../../user/schema/user";
 import {
@@ -147,6 +143,8 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         readonly email: string;
         readonly role: string;
         readonly version: number;
+        readonly insertedAt: Temporal.Instant;
+        readonly modifiedAt: Temporal.Instant | null;
       };
       type UserAuthRow = {
         readonly id: string;
@@ -215,29 +213,17 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
         const userId = userRow.id;
 
-        // Already-member check (idempotent)
-        const memberships = (await ctx.queryAs(
-          createSystemUser(invitationTenantId),
-          "tenant:query:memberships",
-          { userId },
-        )) as Array<{ tenantId: string }>; // @cast-boundary db-row
-        const alreadyMember = memberships.some((m) => m.tenantId === invitationTenantId);
-
         const dbConn = ctx.db.unsafeRaw(
           "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant",
         );
 
-        if (!alreadyMember) {
-          const forbiddenInviteRole = findForbiddenMembershipRole([invitationRole]);
-          if (forbiddenInviteRole !== undefined) {
-            return writeFailure(reservedMembershipRoleError(forbiddenInviteRole));
-          }
-          await seedTenantMembership(dbConn, {
-            userId,
-            tenantId: invitationTenantId,
-            roles: [invitationRole],
-          });
-        }
+        const grant = await grantInvitedMembershipRole(dbConn, {
+          userId,
+          tenantId: invitationTenantId,
+          role: invitationRole,
+          invitationIssuedAt: invitationIssuedAt(invitation),
+        });
+        if (!grant.isSuccess) return grant;
 
         // Invitation → accepted: TenantDb for the invitation's tenant.
         const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
@@ -255,8 +241,8 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         await deleteInviteToken(ctx.redis, { invitationId, token: event.payload.token });
 
         // buildSessionRoles calls stripForbiddenMembershipRoles internally —
-        // a reserved role on the invitation itself must never reach the session.
-        const mergedRoles = buildSessionRoles([], [invitationRole]);
+        // a reserved role on an existing membership must never reach the session.
+        const mergedRoles = buildSessionRoles([], grant.data.roles);
 
         // MFA gate runs after membership is granted (mirrors login.write.ts's
         // own order: membership resolution before MFA) — a challenge halts

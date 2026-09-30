@@ -29,6 +29,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
 import { createConfigFeature } from "../../config";
 import { createConfigResolver } from "../../config/resolver";
@@ -39,7 +40,7 @@ import { createRendererFoundationFeature } from "../../renderer-foundation/featu
 import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
 import { hashPassword } from "../../shared";
 import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createTenantFeature } from "../../tenant";
+import { createTenantFeature, TenantErrors, TenantHandlers } from "../../tenant";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
@@ -216,6 +217,34 @@ async function authedRaw(
   return stack.http.raw(method, path, body, { Authorization: `Bearer ${token}` });
 }
 
+async function membershipRowOf(userId: string, tenantId: TenantId) {
+  const [row] = await selectMany(stack.db, tenantMembershipsTable, { userId, tenantId });
+  if (!row) throw new Error(`no membership for ${userId} in ${tenantId}`);
+  return row;
+}
+
+async function membershipRolesOf(userId: string, tenantId: TenantId): Promise<string[]> {
+  return [...parseRoles((await membershipRowOf(userId, tenantId))["roles"])].sort();
+}
+
+async function membershipVersionOf(userId: string, tenantId: TenantId): Promise<unknown> {
+  return (await membershipRowOf(userId, tenantId))["version"];
+}
+
+async function changeBobRolesInTenantA(roles: readonly string[]): Promise<void> {
+  await stack.http.writeOk(
+    TenantHandlers.updateMemberRoles,
+    { userId: bobId, roles },
+    aliceSession(),
+  );
+}
+
+async function expectInvitationSuperseded(res: Response): Promise<void> {
+  expect(res.status).toBe(409);
+  const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+  expect(body.error?.details?.reason).toBe(TenantErrors.invitationSuperseded);
+}
+
 async function inviteEmail(email: string, role: string): Promise<string> {
   // invite-create geht via /api/write (Admin-Auth via JWT). Der Handler
   // dispatcht die Invite-Mail via delivery; der Token erreicht den Invitee
@@ -327,8 +356,7 @@ describe("invite-accept (Branch 1: logged-in)", () => {
     expect(body.error?.details?.reason).toBe(AuthErrors.inviteEmailMismatch);
   });
 
-  test("Already-Member: Bob ist schon Member → idempotent no-op + alreadyMember=true", async () => {
-    // Bob direkt zu Tenant-A hinzufügen
+  test("Already-Member: Bob ist schon Member → invited role is added, existing role kept, alreadyMember=true", async () => {
     await seedTenantMembership(stack.db, {
       userId: bobId,
       tenantId: TENANT_A_ID,
@@ -344,6 +372,66 @@ describe("invite-accept (Branch 1: logged-in)", () => {
       bobSession(),
     )) as { alreadyMember: boolean };
     expect(result.alreadyMember).toBe(true);
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "User"]);
+  });
+
+  test("bare member of the inviting tenant, logged in there, gets the invited role", async () => {
+    await seedTenantMembership(stack.db, { userId: bobId, tenantId: TENANT_A_ID, roles: [] });
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteAccept,
+      { token },
+      { id: bobId, tenantId: TENANT_A_ID, roles: [] },
+    )) as { alreadyMember: boolean };
+
+    expect(result.alreadyMember).toBe(true);
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Editor"]);
+  });
+
+  test("member who already holds the invited role keeps an unchanged membership stream", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Admin"],
+    });
+    const versionBefore = await membershipVersionOf(bobId, TENANT_A_ID);
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token }, bobSession());
+
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin"]);
+    expect(await membershipVersionOf(bobId, TENANT_A_ID)).toBe(versionBefore);
+  });
+
+  test("roles changed after the invitation was issued → accept rejected, roles unchanged", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await changeBobRolesInTenantA(["User"]);
+
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+
+    await expectInvitationSuperseded(res);
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
+  });
+
+  test("invitation re-issued after a role change is accepted again", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    await inviteEmail(BOB_EMAIL, "Admin");
+    await changeBobRolesInTenantA(["User"]);
+    const reissuedToken = await inviteEmail(BOB_EMAIL, "Admin");
+
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token: reissuedToken }, bobSession());
+
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "User"]);
   });
 });
 
@@ -378,6 +466,61 @@ describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {
     // claim at all (not null, not "").
     const payload = await stack.jwt.verify(body.token as string);
     expect(payload.locale).toBeUndefined();
+  });
+
+  test("bare member of the inviting tenant accepts with login → membership and session carry the invited role", async () => {
+    await seedTenantMembership(stack.db, { userId: bobId, tenantId: TENANT_A_ID, roles: [] });
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { user: { roles: string[] } };
+
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Editor"]);
+    expect(body.user.roles).toContain("Editor");
+  });
+
+  test("an existing Admin invited as Editor keeps Admin (accepting never demotes)", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Admin"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Editor");
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { user: { roles: string[] } };
+
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "Editor"]);
+    expect(body.user.roles).toEqual(expect.arrayContaining(["Admin", "Editor"]));
+  });
+
+  test("roles changed after the invitation was issued → accept with login rejected, roles unchanged", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+    await changeBobRolesInTenantA(["User"]);
+
+    const res = await stack.http.raw("POST", "/api/auth/invite-accept-with-login", {
+      token,
+      email: BOB_EMAIL,
+      password: BOB_PASSWORD,
+    });
+
+    await expectInvitationSuperseded(res);
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
   });
 
   test("Bob accepts with a locale → JWT retains the locale", async () => {
@@ -690,20 +833,9 @@ describe("invite-accept defense-in-depth (assertAssignableMembershipRoles)", () 
 });
 
 describe("invite-accept-with-login/signup-complete defense-in-depth (637/1)", () => {
-  // Branch 1 (invite-accept, logged-in) and Branch 3 (invite-signup-complete)
-  // both route every new membership through seedTenantMembership, which
-  // calls assertAssignableMembershipRoles unconditionally (tenant/seeding.ts)
-  // — a forbidden invitation role is rejected outright, 403, before it ever
-  // reaches stripForbiddenMembershipRoles. Branch 2 (invite-accept-with-login)
-  // is different: it skips seedTenantMembership entirely when the user is
-  // ALREADY a member of the invited tenant (idempotent-accept path) — for
-  // that one case, stripForbiddenMembershipRoles at the session mint is the
-  // ONLY protection. Removing that call would silently mint a
-  // SystemAdmin-carrying session with no other test catching it.
-  test("invite-accept-with-login: already-member path strips a forbidden invitation role (seedTenantMembership's guard is skipped here)", async () => {
-    // Bob already has a (legitimate) membership in TENANT_A_ID — the
-    // handler's alreadyMember check short-circuits before seedTenantMembership,
-    // so assertAssignableMembershipRoles never runs for this accept.
+  // The already-member path writes the invitation role too, so it needs the
+  // create path's reserved-role guard, not just the session-mint strip.
+  test("invite-accept-with-login: already-member path rejects a forbidden invitation role and leaves the membership untouched", async () => {
     await seedTenantMembership(stack.db, {
       userId: bobId,
       tenantId: TENANT_A_ID,
@@ -724,9 +856,8 @@ describe("invite-accept-with-login/signup-complete defense-in-depth (637/1)", ()
       email: BOB_EMAIL,
       password: BOB_PASSWORD,
     });
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as { user: { roles: string[] } };
-    expect(body.user.roles).toEqual([]);
+    expect(res.status).toBe(403);
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["User"]);
   });
 
   test("invite-signup-complete: a brand-new user always hits seedTenantMembership's guard — forbidden role rejected, not silently stripped", async () => {
