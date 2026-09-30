@@ -92,6 +92,45 @@ describe("resolveRequestedIntegrationFiles", () => {
     ).toThrow(/file not found: missing\.integration\.test\.ts/);
   });
 
+  test("a directory expands to its integration test files only, not *.test.tsx or unit tests", () => {
+    const listed = [
+      "a.integration.test.ts",
+      "ui.test.tsx",
+      "unit.test.ts",
+      "deep/b.integration.test.ts",
+    ];
+    expect(
+      resolveRequestedIntegrationFiles(
+        "/repo",
+        ["src"],
+        () => true,
+        () => listed,
+      ),
+    ).toEqual(["/repo/src/a.integration.test.ts", "/repo/src/deep/b.integration.test.ts"]);
+  });
+
+  test("an ancestor named e2e or dist does not filter out the directory's files", () => {
+    expect(
+      resolveRequestedIntegrationFiles(
+        "/work/e2e/app",
+        ["src"],
+        () => true,
+        () => ["a.integration.test.ts"],
+      ),
+    ).toEqual(["/work/e2e/app/src/a.integration.test.ts"]);
+  });
+
+  test("a file positional is passed through as-is", () => {
+    expect(
+      resolveRequestedIntegrationFiles(
+        "/repo",
+        ["x.test.ts"],
+        () => true,
+        () => undefined,
+      ),
+    ).toEqual(["/repo/x.test.ts"]);
+  });
+
   test("empty positionals resolve to an empty list", () => {
     expect(resolveRequestedIntegrationFiles("/repo", [], () => false)).toEqual([]);
   });

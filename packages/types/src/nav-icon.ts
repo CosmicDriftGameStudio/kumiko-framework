@@ -97,6 +97,8 @@ export const NAV_ICON_KEYS = [
   "mic",
   "circle-stop",
   "image",
+  "camera",
+  "headphones",
 ] as const;
 
 export type NavIconKey = (typeof NAV_ICON_KEYS)[number];

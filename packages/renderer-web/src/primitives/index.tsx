@@ -208,6 +208,8 @@ function DefaultButton({
   variant = "primary",
   size = "md",
   ariaLabel,
+  title,
+  pressed,
   width = "auto",
   children,
   testId,
@@ -251,6 +253,8 @@ function DefaultButton({
       variant={BUTTON_VARIANT[variant]}
       size={BUTTON_SIZE[size]}
       aria-label={ariaLabel}
+      aria-pressed={pressed}
+      title={title}
       className={resolvedClassName}
     >
       {leading}

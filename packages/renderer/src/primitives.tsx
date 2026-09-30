@@ -101,6 +101,10 @@ export type ButtonProps = {
   /** Barrierefreies Label — Pflicht bei icon-only-Buttons (children ist nur
    *  ein Icon/Zeichen), sonst hat der Button keinen zugänglichen Namen. */
   readonly ariaLabel?: string;
+  /** Tooltip — web renders the native `title` attribute, native impls may ignore it. */
+  readonly title?: string;
+  /** Toggle state for toggle buttons — web sets `aria-pressed`; leave unset for plain buttons. */
+  readonly pressed?: boolean;
   /** Breite — default="auto" (inhaltsbreit). "full" streckt CTA-Buttons auf
    *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
    *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */

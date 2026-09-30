@@ -23,6 +23,7 @@ import {
   Building,
   Calculator,
   CalendarDays,
+  Camera,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -45,6 +46,7 @@ import {
   FolderOpen,
   Gauge,
   Hash,
+  Headphones,
   Home,
   ImageIcon,
   Info,
@@ -185,6 +187,8 @@ export const NAV_ICONS = {
   mic: Mic,
   "circle-stop": CircleStop,
   image: ImageIcon,
+  camera: Camera,
+  headphones: Headphones,
 } as const satisfies Readonly<Record<NavIconKey, typeof Folder>>;
 
 // Widened alias for runtime lookups against the plain `string` icon keys
