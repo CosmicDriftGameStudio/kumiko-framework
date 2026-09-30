@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.329.0",
+    "type": "fix",
+    "title": "kumiko-testing integration with a directory runs only *.integration.test.ts files",
+    "detail": "A directory argument used to reach `bun test` as a path filter, which also picked up `*.test.tsx` files. It now expands to the integration test files below it."
+  },
+  {
     "version": "0.321.0",
     "type": "improvement",
     "title": "kumiko-testing integration accepts positional test-file args",

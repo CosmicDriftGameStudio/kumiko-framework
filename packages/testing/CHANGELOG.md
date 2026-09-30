@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.329.0
+
+### Patch Changes
+
+- 9bbdb64: `kumiko-testing integration <dir>` runs only `*.integration.test.ts` files
+
+  A directory argument used to reach `bun test` as a path filter, which also picked up `*.test.tsx` files. It now expands to the integration test files below it.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: kumiko-testing integration with a directory runs only *.integration.test.ts files
+  -->
+
+- Updated dependencies [80ccc38]
+- Updated dependencies [9bbdb64]
+  - @cosmicdrift/kumiko-bundled-features@0.329.0
+  - @cosmicdrift/kumiko-framework@0.329.0
+  - @cosmicdrift/kumiko-dev-server@0.329.0
+
 ## 0.328.1
 
 ### Patch Changes
