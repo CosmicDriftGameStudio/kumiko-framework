@@ -84,8 +84,9 @@ describe("mail.send run", () => {
     expect(eventArg.aggregateType).toBe(STEP_DISPATCH_AGGREGATE_TYPE);
     expect(eventArg.type).toBe(STEP_DISPATCH_REQUESTED_TYPE);
     expect(eventArg.payload.stepKind).toBe("mail.send");
-    expect(eventArg.payload.spec).toMatchObject({
-      to: "user@example.com",
+    expect(eventArg.payload).toEqual({
+      stepKind: "mail.send",
+      to: JSON.stringify("user@example.com"),
       subject: "Test",
       body: "Body text",
     });
@@ -119,10 +120,10 @@ describe("mail.send run", () => {
     );
 
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
-    expect(eventArg.payload.spec.from).toBe("system@example.com");
+    expect(eventArg.payload.from).toBe("system@example.com");
   });
 
-  it("omits from from the spec when not provided", async () => {
+  it("omits from from the payload when not provided", async () => {
     const stepDef = getStep("mail.send");
 
     await stepDef!.run(
@@ -131,6 +132,6 @@ describe("mail.send run", () => {
     );
 
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
-    expect(eventArg.payload.spec.from).toBeUndefined();
+    expect(eventArg.payload.from).toBeUndefined();
   });
 });

@@ -179,7 +179,7 @@ export async function performWebhookDispatch(
   try {
     url = new URL(spec.url);
   } catch {
-    return { ok: false, error: `invalid url "${spec.url}"` };
+    return { ok: false, error: "invalid url" };
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     return { ok: false, error: `unsupported url scheme "${url.protocol}"` };
@@ -203,6 +203,10 @@ export async function performWebhookDispatch(
     }
     return { ok: true, status: res.status };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    // err.message can echo the request URL; this text outlives the payload erase.
+    return {
+      ok: false,
+      error: `webhook request failed (${err instanceof Error ? err.name : "unknown error"})`,
+    };
   }
 }

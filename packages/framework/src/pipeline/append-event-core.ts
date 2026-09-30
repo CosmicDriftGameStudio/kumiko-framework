@@ -1,4 +1,5 @@
 import { requestContext } from "../api/request-context";
+import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii";
 import type { DbRunner } from "../db/connection";
 import { qnScope, toKebab } from "../engine/qualified-name";
 import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
@@ -31,14 +32,6 @@ export type AppendDomainEventCoreDeps = {
   // cross features.
   readonly callerFeature?: string;
 };
-
-// System-event prefix: events under this namespace bypass the registry +
-// ownership checks. Reserved for framework-internal coordination (step-
-// engine deferred dispatch, lifecycle signals). The matching MSP filters
-// on the literal type-string. Apps cannot write into "kumiko:system:*"
-// directly — only framework step implementations call unsafeAppendEvent
-// with these types.
-export const SYSTEM_EVENT_PREFIX = "kumiko:system:";
 
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,

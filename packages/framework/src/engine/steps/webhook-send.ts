@@ -14,15 +14,6 @@ import {
   STEP_DISPATCH_REQUESTED_TYPE,
 } from "./_step-dispatch-constants";
 
-// Re-export for back-compat callers (bundled step-dispatcher imports
-// these). The canonical home is _step-dispatch-constants.ts.
-export {
-  STEP_DISPATCH_AGGREGATE_TYPE,
-  STEP_DISPATCH_FAILED_TYPE,
-  STEP_DISPATCH_REQUESTED_TYPE,
-  STEP_DISPATCHED_TYPE,
-} from "./_step-dispatch-constants";
-
 type WebhookHttpMethod = "POST" | "PUT" | "PATCH";
 
 // Name inside the tenant-owned secrets namespace
@@ -55,13 +46,12 @@ defineStep<WebhookSendArgs, void>({
       type: STEP_DISPATCH_REQUESTED_TYPE,
       payload: {
         stepKind: "webhook.send",
-        spec: {
-          url,
-          method: args.method ?? "POST",
-          headers,
-          body,
-          ...(args.auth && { auth: args.auth }),
-        },
+        // Flat string fields: event PII encryption only handles top-level strings.
+        url,
+        method: args.method ?? "POST",
+        headersJson: JSON.stringify(headers),
+        ...(body !== undefined && { bodyJson: JSON.stringify(body) }),
+        ...(args.auth && { auth: args.auth }),
         retry: args.retry ?? { times: 3, backoff: "exponential" },
       },
     });

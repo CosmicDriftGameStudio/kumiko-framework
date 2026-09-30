@@ -276,8 +276,22 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
       { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
     );
 
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({ ok: false, error: "invalid url" });
     expect(get).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test("a failing request never echoes the request url into the delivery error", async () => {
+    setWebhookHostLookup(fakeLookupFor({ "secret-host.example": "203.0.113.9" }));
+    setWebhookFetch((async () => {
+      throw new TypeError("connect ECONNREFUSED https://secret-host.example/hook?token=abc");
+    }) as unknown as typeof fetch);
+
+    const result = await performWebhookDispatch(
+      { url: "https://secret-host.example/hook?token=abc", method: "POST", headers: {} },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets: undefined },
+    );
+
+    expect(result).toEqual({ ok: false, error: "webhook request failed (TypeError)" });
   });
 });

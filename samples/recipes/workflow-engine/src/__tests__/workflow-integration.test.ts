@@ -231,9 +231,9 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       "kumiko:system:workflow.step.waiting",
     ]);
     const tipsMail = resumeCtx.unsafeAppendEvent.mock.calls[1]![0] as {
-      payload: { spec: { subject: string } };
+      payload: { subject: string };
     };
-    expect(tipsMail.payload.spec.subject).toBe("Engagement tips");
+    expect(tipsMail.payload.subject).toBe("Engagement tips");
   });
 
   it("not-engaged path picks the reminder branch", async () => {
@@ -267,9 +267,9 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
     await runResumeLoop(createInMemorySuspendedRunFetcher([suspendedRun]), resumeCtx as never);
 
     const reminderMail = resumeCtx.unsafeAppendEvent.mock.calls[1]![0] as {
-      payload: { spec: { subject: string } };
+      payload: { subject: string };
     };
-    expect(reminderMail.payload.spec.subject).toBe("Getting started");
+    expect(reminderMail.payload.subject).toBe("Getting started");
   });
 });
 

@@ -4,7 +4,9 @@
 // path at all. `r.defineEvent(name, schema, { piiFields })` declares which
 // payload fields are PII and which payload field names the owning user;
 // createRegistry publishes the catalog and append() — the single write funnel
-// into kumiko_events — encrypts every catalogued field.
+// into kumiko_events — encrypts every catalogued field. `kumiko:system:*`
+// events skip the registry and take their stance from system-event-pii.ts
+// instead (fail-closed when missing).
 //
 // `piiFields` is a mandatory, explicit stance (fw#2558): a payload can only
 // go uncatalogued through a declared `piiFields: "none"`, never by omission —
@@ -12,10 +14,11 @@
 // silent no-op (forgetting the option) is now either an explicit "none" or a
 // missing subject KMS at encrypt-time, both visible states, not a gap.
 
-import type { EventPiiFields } from "@cosmicdrift/kumiko-types/handlers";
+import type { EventPiiFields, EventPiiStance } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext } from "../api/request-context";
 import { configuredPiiSubjectKms, encryptPiiValueForSubject } from "./pii-field-encryption";
 import { type EventSubjectEnvelope, resolveEventSubject } from "./subject-resolver";
+import { SYSTEM_EVENT_PII_STANCES, SYSTEM_EVENT_PREFIX } from "./system-event-pii";
 
 export type EventPiiCatalog = ReadonlyMap<string, EventPiiFields>;
 
@@ -36,6 +39,19 @@ export function resetEventPiiCatalogForTests(): void {
   catalog = new Map();
 }
 
+// System types are checked before the KMS gate: an undeclared one throws
+// even in plaintext rollout mode.
+function resolvePiiStance(eventType: string): EventPiiStance | undefined {
+  if (!eventType.startsWith(SYSTEM_EVENT_PREFIX)) return catalog.get(eventType);
+  const stance = SYSTEM_EVENT_PII_STANCES.get(eventType);
+  if (stance === undefined) {
+    throw new Error(
+      `System event "${eventType}" has no PII stance — declare one in SYSTEM_EVENT_PII_STANCES (crypto/system-event-pii.ts)`,
+    );
+  }
+  return stance;
+}
+
 // Encrypts catalogued payload fields under the declared subject's DEK
 // (user/tenant/self — resolveEventSubject, fw#2801). No-op when the event
 // type is uncatalogued or no subject KMS is configured (plaintext rollout
@@ -51,8 +67,8 @@ export async function encryptEventPayloadPii(
   payload: Record<string, unknown>,
   envelope: EventSubjectEnvelope,
 ): Promise<Record<string, unknown>> {
-  const piiFields = catalog.get(eventType);
-  if (!piiFields) return payload;
+  const piiFields = resolvePiiStance(eventType);
+  if (!piiFields || piiFields === "none") return payload;
   const kms = configuredPiiSubjectKms();
   if (!kms) return payload;
 

@@ -73,8 +73,9 @@ describe("webhook.send run", () => {
     expect(eventArg.aggregateType).toBe(STEP_DISPATCH_AGGREGATE_TYPE);
     expect(eventArg.type).toBe(STEP_DISPATCH_REQUESTED_TYPE);
     expect(eventArg.payload.stepKind).toBe("webhook.send");
-    expect(eventArg.payload.spec.url).toBe("https://hooks.example/test");
-    expect(eventArg.payload.spec.body).toEqual({ event: "incident-opened", id: "abc" });
+    expect(eventArg.payload.url).toBe("https://hooks.example/test");
+    expect(JSON.parse(eventArg.payload.bodyJson)).toEqual({ event: "incident-opened", id: "abc" });
+    expect(eventArg.payload.headersJson).toBe("{}");
   });
 
   it("resolves function-based url and body resolvers", async () => {
@@ -96,10 +97,8 @@ describe("webhook.send run", () => {
     expect(mockUnsafeAppendEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({
-          spec: expect.objectContaining({
-            url: "https://hooks.example/dynamic",
-            body: { key: "value" },
-          }),
+          url: "https://hooks.example/dynamic",
+          bodyJson: JSON.stringify({ key: "value" }),
         }),
       }),
     );
@@ -111,7 +110,7 @@ describe("webhook.send run", () => {
     await stepDef!.run({ url: "https://hooks.example/test", mode: "deferred" }, mockCtx);
 
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
-    expect(eventArg.payload.spec.method).toBe("POST");
+    expect(eventArg.payload.method).toBe("POST");
   });
 
   it("defaults retry to 3x exponential when not specified", async () => {
@@ -123,6 +122,15 @@ describe("webhook.send run", () => {
     expect(eventArg.payload.retry).toEqual({ times: 3, backoff: "exponential" });
   });
 
+  it("omits bodyJson when no body is given", async () => {
+    const stepDef = getStep("webhook.send");
+
+    await stepDef!.run({ url: "https://hooks.example/test", mode: "deferred" }, mockCtx);
+
+    const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
+    expect("bodyJson" in eventArg.payload).toBe(false);
+  });
+
   it("passes auth config through when provided", async () => {
     const stepDef = getStep("webhook.send");
     const auth = { kind: "bearer" as const, secret: "WEBHOOK_TOKEN" };
@@ -130,6 +138,6 @@ describe("webhook.send run", () => {
     await stepDef!.run({ url: "https://hooks.example/secured", mode: "deferred", auth }, mockCtx);
 
     const eventArg = mockUnsafeAppendEvent.mock.calls[0]![0];
-    expect(eventArg.payload.spec.auth).toEqual(auth);
+    expect(eventArg.payload.auth).toEqual(auth);
   });
 });
