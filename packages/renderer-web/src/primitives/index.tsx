@@ -36,6 +36,7 @@ import {
   type GridProps,
   type HeadingProps,
   type InputProps,
+  InsideDrawerProvider,
   type LinkProps,
   type ProgressProps,
   type SecretRevealProps,
@@ -47,6 +48,7 @@ import {
   statusToneForValue,
   type TextProps,
   useColumnRenderer,
+  useInsideDrawer,
   useOptionalLocale,
   useOptionalTranslation,
   useTranslation,
@@ -2878,6 +2880,54 @@ function FormSectionNav({ items }: { readonly items: readonly FormSectionNavItem
   );
 }
 
+// Form inside the Drawer primitive: the drawer header carries the title, so
+// only the description (as help text), the scrolling sections and a pinned
+// footer remain. The scroll area is a sibling of the footer, never its parent.
+function DrawerFormLayout({
+  onSubmit,
+  subtitle,
+  actions,
+  secondaryActions,
+  testId,
+  children,
+}: Pick<FormProps, "onSubmit" | "subtitle" | "actions" | "secondaryActions" | "testId"> & {
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <FormRoot onSubmit={onSubmit} testId={testId} className="flex h-full min-h-0 w-full flex-col">
+      <div
+        data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
+        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
+      >
+        {subtitle !== undefined && (
+          <p
+            data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+            className="text-[13px] text-foreground-secondary"
+          >
+            {subtitle}
+          </p>
+        )}
+        <InsideFormContext.Provider value={true}>
+          <ScreenFormContext.Provider value={true}>
+            <InsideDrawerProvider value={false}>
+              <div className="flex flex-col gap-5">{children}</div>
+            </InsideDrawerProvider>
+          </ScreenFormContext.Provider>
+        </InsideFormContext.Provider>
+      </div>
+      {(actions !== undefined || secondaryActions !== undefined) && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-footer` : undefined}
+          className="flex h-16 shrink-0 items-center justify-end gap-2 border-t border-border px-6"
+        >
+          {secondaryActions}
+          {actions}
+        </div>
+      )}
+    </FormRoot>
+  );
+}
+
 function DefaultForm({
   onSubmit,
   children,
@@ -2897,6 +2947,7 @@ function DefaultForm({
   sectionNav,
   sideRail,
 }: FormProps): ReactNode {
+  const insideDrawer = useInsideDrawer();
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
   if (useContext(BareFormContext)) {
@@ -2919,6 +2970,20 @@ function DefaultForm({
           </div>
         )}
       </FormRoot>
+    );
+  }
+
+  if (insideDrawer) {
+    return (
+      <DrawerFormLayout
+        onSubmit={onSubmit}
+        subtitle={subtitle}
+        actions={actions}
+        secondaryActions={secondaryActions}
+        testId={testId}
+      >
+        {children}
+      </DrawerFormLayout>
     );
   }
 

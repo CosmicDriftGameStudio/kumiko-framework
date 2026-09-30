@@ -1010,6 +1010,10 @@ export type DialogProps = {
   readonly cancelLabel?: string;
   /** `default` = Confirm primary, `danger` = Confirm danger. */
   readonly variant?: "default" | "danger";
+  /** Which button takes focus on open. Default: Confirm for a bare dialog,
+   *  the browser/Radix default when `children` are present. `"cancel"` for
+   *  dialogs where the safe choice must be the one Enter triggers. */
+  readonly initialFocus?: "confirm" | "cancel";
   /** Wird gefeuert wenn der User Confirm drückt. Async-Funktion ist
    *  ok — Dialog setzt automatisch loading-State, ruft danach
    *  onOpenChange(false). */

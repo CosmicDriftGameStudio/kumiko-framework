@@ -108,6 +108,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.intro":
     "Ihr angeforderter Datenexport fuer {app} ist fertig. Laden Sie ihn ueber den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Ihr Datenexport ist bereit",
+  "kumiko.drawer.discard.body": "Ihre Eingaben in diesem Formular gehen verloren.",
   "kumiko.field.reference-created-no-id":
     "Der Eintrag wurde angelegt, aber nicht automatisch ausgewählt. Bitte wählen Sie ihn manuell aus.",
   "kumiko.form.draft.resume-multiple":

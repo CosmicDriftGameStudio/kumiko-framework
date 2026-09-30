@@ -53,6 +53,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly onDelete?: () => Promise<void> | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
+  /** Fires when the form gains or loses unsaved input (field changes or a
+   *  dirty extension section). Lets a host such as a drawer guard closing. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
   /** Copy-link action (issue #912) — only set in update mode (create mode
    *  has no entity id yet, hence no permalink). The callback is already fully
    *  bound (URL building + clipboard happen outside, in

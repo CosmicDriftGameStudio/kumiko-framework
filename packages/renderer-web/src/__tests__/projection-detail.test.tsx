@@ -1044,6 +1044,92 @@ describe("KumikoScreen / projectionDetail actions drawer-kind (fw#2710)", () => 
   });
 });
 
+describe("KumikoScreen / projectionDetail relatedList rowActions drawer-kind", () => {
+  const paymentNoteForm: ActionFormScreenDefinition = {
+    id: "payment-note",
+    type: "actionForm",
+    handler: "sessions:write:payment:note",
+    fields: { paymentId: { type: "text" }, note: { type: "text", required: true } },
+    layout: { sections: [{ fields: ["paymentId", "note"] }] },
+  };
+  const detailWithDrawerRow: ProjectionDetailScreenDefinition = {
+    ...detailScreen,
+    layout: {
+      sections: [
+        ...detailScreen.layout.sections,
+        {
+          kind: "relatedList" as const,
+          title: "Payments",
+          query: "sessions:query:user-session:payments",
+          columns: [{ field: "amount", label: "Amount" }],
+          rowActions: [
+            {
+              kind: "drawer" as const,
+              id: "annotate",
+              label: "actions.annotate",
+              screen: "payment-note",
+              params: { map: { paymentId: "id" } },
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  test("a relatedList row action opens the drawer prefilled from the row; a successful submit closes it and refetches the related list", async () => {
+    let paymentsQueryCount = 0;
+    const dispatcher: Dispatcher = createMockDispatcher({
+      write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
+      query: (async (type: string) => {
+        if (type === "sessions:query:user-session:payments") paymentsQueryCount += 1;
+        return type === "sessions:query:user-session:detail"
+          ? { isSuccess: true, data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" } }
+          : {
+              isSuccess: true,
+              data: { rows: [{ id: "pay-1", amount: "42" }], nextCursor: null },
+            };
+      }) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={{
+            featureName: "sessions",
+            entities: {},
+            screens: [detailWithDrawerRow, paymentNoteForm],
+          }}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("row-pay-1"));
+
+    fireEvent.click(screen.getByTestId("row-pay-1-action-annotate"));
+
+    const drawer = await waitFor(() => screen.getByTestId("toolbar-drawer-annotate"));
+    const paymentIdInput = within(drawer).getByTestId("field-paymentId").querySelector("input");
+    if (paymentIdInput === null) throw new Error("expected an <input> inside field-paymentId");
+    expect(paymentIdInput.value).toBe("pay-1");
+    expect(screen.getByTestId("row-pay-1")).toBeTruthy();
+    const queriesBeforeSubmit = paymentsQueryCount;
+
+    const noteInput = within(drawer).getByTestId("field-note").querySelector("input");
+    if (noteInput === null) throw new Error("expected an <input> inside field-note");
+    await act(async () => {
+      fireEvent.change(noteInput, { target: { value: "hello" } });
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-submit"));
+    });
+
+    await waitFor(() => expect(screen.queryByTestId("toolbar-drawer-annotate")).toBeNull());
+    expect(screen.queryByTestId("drawer-discard-dialog")).toBeNull();
+    await waitFor(() => expect(paymentsQueryCount).toBeGreaterThan(queriesBeforeSubmit));
+  });
+});
+
 // fw#2312 mounts extension sections (ExtensionSectionMount, render-edit.tsx)
 // INSIDE RenderEdit's own host <form testId="render-edit-form"> (render-edit.tsx:1059).
 // A section that renders its own <form> — the pattern ChangeEmailSection/

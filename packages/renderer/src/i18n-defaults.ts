@@ -132,6 +132,10 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.dialog.confirm": "Confirm",
     "kumiko.dialog.cancel": "Cancel",
     "kumiko.dialog.close": "Close",
+    "kumiko.drawer.discard.title": "Discard changes?",
+    "kumiko.drawer.discard.body": "Your input in this form will be lost.",
+    "kumiko.drawer.discard.confirm": "Discard",
+    "kumiko.drawer.discard.cancel": "Keep editing",
 
     "kumiko.aiText.acceptHint": "Tab = accept, Esc = discard",
     "kumiko.aiText.correct": "Correct",

@@ -69,6 +69,12 @@ export type DrawerProps = {
    *  that leaves Escape as the only way out, so keep one of the two.
    *  Default `true`. */
   readonly modal?: boolean;
+  /** Extra classes for the panel, merged over the built-in ones. Not applied
+   *  in the narrow-viewport fullscreen layout. */
+  readonly panelClassName?: string;
+  /** The body becomes a plain flex column with no padding or scrolling of its
+   *  own, for children that bring their own scroll area and pinned footer. */
+  readonly fillBody?: boolean;
 };
 
 const MIN_WIDTH_PX = 320;
@@ -172,6 +178,8 @@ export function Drawer({
   resize,
   backdrop,
   modal = true,
+  panelClassName,
+  fillBody = false,
 }: DrawerProps): ReactNode {
   const t = useTranslation();
   const narrow = useIsNarrowViewport();
@@ -246,7 +254,11 @@ export function Drawer({
         // to suppress, so a click into the page behind keeps the panel open.
         onInteractOutside={modal ? undefined : (event) => event.preventDefault()}
         showCloseButton={showCloseButton}
-        className={sidePanelClass(side, narrow, variant, belowHeader)}
+        className={cn(
+          sidePanelClass(side, narrow, variant, belowHeader),
+          fillBody && "gap-0",
+          !narrow && panelClassName,
+        )}
         style={{
           ...(canResize && !narrow
             ? { width: effectiveWidthPx, maxWidth: "none" }
@@ -277,7 +289,9 @@ export function Drawer({
             {description !== undefined && <SheetDescription>{description}</SheetDescription>}
           </SheetHeader>
         )}
-        <div className="flex-1 overflow-y-auto px-4">{children}</div>
+        <div className={fillBody ? "flex min-h-0 flex-1 flex-col" : "flex-1 overflow-y-auto px-4"}>
+          {children}
+        </div>
         {footer !== undefined && (
           <SheetFooter className={DRAWER_FOOTER_CLASS}>{footer}</SheetFooter>
         )}

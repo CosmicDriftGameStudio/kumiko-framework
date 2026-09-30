@@ -52,6 +52,7 @@ import { useUserRoles } from "../context/user-roles-context";
 import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
 import { type UseQueryResult, useQuery } from "../hooks/use-query";
 import { useOptionalTimeZone, useTranslation } from "../i18n";
+import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer";
 import { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
   type DataTableDateRangeFacet,
@@ -1646,9 +1647,20 @@ function DrawerHost({
   readonly onClose: () => void;
   readonly onSuccess: () => void;
 }): ReactNode {
-  const { Drawer, Banner, Text } = usePrimitives();
+  const { Drawer, Banner, Text, Dialog } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+  const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const closeAndReset = useCallback(() => {
+    setHasUnsavedInput(false);
+    setConfirmDiscardOpen(false);
+    onClose();
+  }, [onClose]);
+  const requestClose = useCallback(() => {
+    if (hasUnsavedInput) setConfirmDiscardOpen(true);
+    else closeAndReset();
+  }, [hasUnsavedInput, closeAndReset]);
   // Drawer is an optional Core-Primitive (additive rollout) — same "skip +
   // warn once" precedent as rowActions without a mounted DispatcherProvider
   // above, instead of crashing when a web app hasn't upgraded its
@@ -1672,35 +1684,57 @@ function DrawerHost({
   const allowed = screenAccessAllows(drawerScreen?.access, userRoles);
 
   return (
-    <Drawer
-      open={true}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      title={effectiveTranslate(drawerAction.label)}
-      testId={`toolbar-drawer-${drawerAction.id}`}
-    >
-      <PageHeaderSlotAvailableProvider value={false}>
-        {drawerScreen === undefined ? (
-          <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
-            Screen not found: <Text variant="code">{drawerAction.screen}</Text>
-          </Banner>
-        ) : !allowed ? (
-          <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
-            Access denied: <Text variant="code">{drawerAction.screen}</Text>
-          </Banner>
-        ) : (
-          <ActionFormBody
-            schema={schema}
-            screen={drawerScreen}
-            {...(translate !== undefined && { translate })}
-            {...(drawerInitialValues !== undefined && { initialOverrides: drawerInitialValues })}
-            onSuccess={onSuccess}
-            onCancelOverride={onClose}
-          />
-        )}
-      </PageHeaderSlotAvailableProvider>
-    </Drawer>
+    <>
+      <Drawer
+        open={true}
+        onOpenChange={(open) => {
+          if (!open) requestClose();
+        }}
+        title={effectiveTranslate(drawerAction.label)}
+        testId={`toolbar-drawer-${drawerAction.id}`}
+      >
+        <PageHeaderSlotAvailableProvider value={false}>
+          <InsideDrawerProvider value={true}>
+            {drawerScreen === undefined ? (
+              <Banner padded variant="error" testId="kumiko-toolbar-drawer-not-found">
+                Screen not found: <Text variant="code">{drawerAction.screen}</Text>
+              </Banner>
+            ) : !allowed ? (
+              <Banner padded variant="error" testId="kumiko-toolbar-drawer-access-denied">
+                Access denied: <Text variant="code">{drawerAction.screen}</Text>
+              </Banner>
+            ) : (
+              <ActionFormBody
+                schema={schema}
+                screen={drawerScreen}
+                {...(translate !== undefined && { translate })}
+                {...(drawerInitialValues !== undefined && {
+                  initialOverrides: drawerInitialValues,
+                })}
+                onSuccess={() => {
+                  setHasUnsavedInput(false);
+                  onSuccess();
+                }}
+                onCancelOverride={requestClose}
+                onDirtyChange={setHasUnsavedInput}
+              />
+            )}
+          </InsideDrawerProvider>
+        </PageHeaderSlotAvailableProvider>
+      </Drawer>
+      <Dialog
+        open={confirmDiscardOpen}
+        onOpenChange={setConfirmDiscardOpen}
+        title={t("kumiko.drawer.discard.title")}
+        description={t("kumiko.drawer.discard.body")}
+        confirmLabel={t("kumiko.drawer.discard.confirm")}
+        cancelLabel={t("kumiko.drawer.discard.cancel")}
+        variant="danger"
+        initialFocus="cancel"
+        onConfirm={closeAndReset}
+        testId="drawer-discard-dialog"
+      />
+    </>
   );
 }
 
@@ -3301,6 +3335,7 @@ function ActionFormBody({
   initialOverrides,
   onSuccess,
   onCancelOverride,
+  onDirtyChange,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
@@ -3318,9 +3353,13 @@ function ActionFormBody({
   /** Drawer-hosted usage: replaces the cancelTarget/redirect-based Cancel
    *  handler so Cancel closes the drawer instead of navigating. */
   readonly onCancelOverride?: () => void;
+  /** Drawer-hosted usage: reports unsaved input so the host can confirm
+   *  before discarding it. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
 }): ReactNode {
   const nav = useNav();
   const appFeatures = useAppFeatures();
+  const insideDrawer = useInsideDrawer();
   const { Banner } = usePrimitives();
   // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
   const returnTarget = useReturnTarget(screen.id);
@@ -3426,7 +3465,8 @@ function ActionFormBody({
       payloadMode="values"
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
-      {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
+      {...(onDirtyChange !== undefined && { onDirtyChange })}
+      {...((insideDrawer || screenFillsHeight(screen)) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
       {...(translate !== undefined && { translate })}

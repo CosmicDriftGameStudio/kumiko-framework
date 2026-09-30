@@ -188,6 +188,7 @@ export {
   useTranslation,
 } from "./i18n";
 export { kumikoDefaultTranslations } from "./i18n-defaults";
+export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer";
 export { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "./page-header-slot";
 export type {
   ActionMenuItemSpec,

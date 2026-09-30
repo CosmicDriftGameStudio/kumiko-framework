@@ -17,6 +17,7 @@ export function DefaultDialog({
   confirmLabel,
   cancelLabel,
   variant = "default",
+  initialFocus,
   onConfirm,
   children,
   testId,
@@ -24,6 +25,8 @@ export function DefaultDialog({
   const t = useTranslation();
   const [loading, setLoading] = useState(false);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
+  const focusTarget = initialFocus ?? (children === undefined ? "confirm" : undefined);
 
   const effectiveConfirmLabel = confirmLabel ?? t("kumiko.dialog.confirm");
   const effectiveCancelLabel = cancelLabel ?? t("kumiko.dialog.cancel");
@@ -51,12 +54,12 @@ export function DefaultDialog({
       closeLabel={t("kumiko.dialog.close")}
       noAriaDescription={description === undefined}
       contentClassName={cn("grid w-full max-w-lg gap-4 border bg-card p-6 shadow-lg rounded-lg")}
-      {...(children === undefined && {
-        // Radix's default initial focus lands on Cancel (first focusable in
-        // DOM order), so Enter would abort instead of confirm.
+      {...(focusTarget !== undefined && {
+        // Radix's default initial focus lands on the first focusable in DOM
+        // order, which is Cancel for a bare dialog.
         onOpenAutoFocus: (event: Event) => {
           event.preventDefault();
-          confirmButtonRef.current?.focus();
+          (focusTarget === "cancel" ? cancelButtonRef : confirmButtonRef).current?.focus();
         },
       })}
     >
@@ -74,6 +77,7 @@ export function DefaultDialog({
       <div className="flex items-center justify-end gap-2">
         <DialogPrimitive.Close asChild>
           <button
+            ref={cancelButtonRef}
             type="button"
             disabled={loading}
             data-testid={testId !== undefined ? `${testId}-cancel` : undefined}

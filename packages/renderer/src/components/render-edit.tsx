@@ -37,6 +37,7 @@ import { useDraftStorage } from "../context/draft-storage-context";
 import { formatWhen } from "../format-when";
 import { useForm } from "../hooks/use-form";
 import { useTranslation } from "../i18n";
+import { useInsideDrawer } from "../inside-drawer";
 import { usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
   type FormSectionNavItem,
@@ -307,6 +308,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onDelete,
     onCancel,
     onReload,
+    onDirtyChange,
     onCopyLink,
     actions,
     onRelatedListDrawerAction,
@@ -412,6 +414,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     PageHeader,
   } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  const insideDrawer = useInsideDrawer();
 
   // Both stepped layouts show one section at a time and keep the rest mounted
   // but inert. A tabs layout on a host without the Tabs primitive has no strip
@@ -603,6 +606,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       submitting: isSubmitting,
     });
   }, [snapshot, isSubmitting]);
+
+  const onDirtyChangeRef = useRef(onDirtyChange);
+  onDirtyChangeRef.current = onDirtyChange;
+  const hasUnsavedInput = snapshot.isDirty || extensionDirty;
+  useEffect(() => {
+    onDirtyChangeRef.current?.(hasUnsavedInput);
+  }, [hasUnsavedInput]);
 
   useEffect(() => {
     // skip: this screen does not persist a draft.
@@ -1130,7 +1140,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         <Button
           type="button"
           variant="secondary"
-          icon="x"
+          {...(!insideDrawer && { icon: "x" as const })}
           onClick={() => onCancel()}
           testId="render-edit-cancel"
         >
@@ -1286,7 +1296,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
   // the title then lives in the shell header when the shell offers a slot.
   const isScreenForm =
-    fillScreenHeight === true && hideSectionTitles !== true && headerRegion === undefined;
+    fillScreenHeight === true &&
+    hideSectionTitles !== true &&
+    headerRegion === undefined &&
+    !insideDrawer;
   const titleInShell =
     PageHeader !== undefined &&
     pageHeaderSlotAvailable &&
