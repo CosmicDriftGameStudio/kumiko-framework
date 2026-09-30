@@ -8,6 +8,11 @@ describe("Icon (fw#3056 public export)", () => {
     expect(container.querySelector("svg")).not.toBeNull();
   });
 
+  test.each(["camera", "headphones"] as const)("%s resolves to an svg", (name) => {
+    const { container } = render(<Icon name={name} />);
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+
   test("is not focusable", () => {
     const { container } = render(<Icon name="trash" />);
     const svg = container.querySelector("svg");

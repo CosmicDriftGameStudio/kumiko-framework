@@ -102,3 +102,32 @@ describe("DefaultButton secondary variant", () => {
     expect(screen.getByTestId("btn").className).toContain("text-primary");
   });
 });
+
+describe("DefaultButton title and pressed", () => {
+  test("title becomes the native tooltip attribute and pressed becomes aria-pressed", () => {
+    render(
+      <Button title="Mute" pressed testId="btn">
+        Mute
+      </Button>,
+    );
+    const button = screen.getByTestId("btn");
+    expect(button.getAttribute("title")).toBe("Mute");
+    expect(button.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  test("pressed={false} still renders aria-pressed=false", () => {
+    render(
+      <Button pressed={false} testId="btn">
+        Mute
+      </Button>,
+    );
+    expect(screen.getByTestId("btn").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  test("both attributes are absent when the props are not set", () => {
+    render(<Button testId="btn">Mute</Button>);
+    const button = screen.getByTestId("btn");
+    expect(button.hasAttribute("title")).toBe(false);
+    expect(button.hasAttribute("aria-pressed")).toBe(false);
+  });
+});

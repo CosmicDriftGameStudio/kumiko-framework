@@ -34,6 +34,10 @@ const CLOSE_MESSAGE_TOO_BIG = 1009;
 const CLOSE_INTERNAL_ERROR = 1011;
 const CLOSE_TRY_AGAIN_LATER = 1013;
 
+// Frames queue behind a slow onOpen or onMessage; without a byte cap a client
+// could grow that queue unbounded.
+export const WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES = 1024 * 1024;
+
 // Consecutive failed session-store checks before a socket is closed: rides out a
 // short store blip, but a socket must not stay unverified forever.
 export const WEBSOCKET_REVALIDATION_FAILURE_LIMIT = 3;
@@ -158,6 +162,7 @@ type ConnectionState = {
   // onOpen/onMessage run one after another in arrival order; steps never reject.
   chain: Promise<void>;
   closed: boolean;
+  pendingMessageBytes: number;
   readonly controller: AbortController;
 };
 
@@ -172,6 +177,7 @@ function stateOf(ws: KumikoServerWebSocket): ConnectionState {
       revalidating: false,
       chain: Promise.resolve(),
       closed: false,
+      pendingMessageBytes: 0,
       controller: new AbortController(),
     };
     connectionStates.set(ws.data, state);
@@ -201,18 +207,24 @@ function runInRequestContext(ws: KumikoServerWebSocket, run: () => Promise<void>
   return requestContextData ? requestContext.run(requestContextData, run) : run();
 }
 
-function enqueue(ws: KumikoServerWebSocket, run: () => void | Promise<void>): void {
+function enqueue(
+  ws: KumikoServerWebSocket,
+  run: () => void | Promise<void>,
+  onSettled?: () => void,
+): void {
   const state = stateOf(ws);
   // skip: the socket is gone, nothing may start after close
   if (state.closed) return;
   const step = async (): Promise<void> => {
-    // skip: queued behind a slower handler and the socket closed meanwhile
-    if (state.closed) return;
     try {
+      // skip: queued behind a slower handler and the socket closed meanwhile
+      if (state.closed) return;
       await run();
     } catch (error) {
       reportHandlerFailure(error);
       ws.close(CLOSE_INTERNAL_ERROR, "internal error");
+    } finally {
+      onSettled?.();
     }
   };
   state.chain = state.chain.then(() => runInRequestContext(ws, step));
@@ -297,8 +309,35 @@ export function createKumikoWebSocketHandler(
         });
         return;
       }
+      const state = stateOf(ws);
+      // skip: overflowed or closed socket, late frames are dropped
+      if (state.closed) return;
+      state.pendingMessageBytes += byteLength;
+      const pendingLimit = Math.max(WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES, ws.data.maxMessageBytes);
+      if (state.pendingMessageBytes > pendingLimit) {
+        // Marks the socket closed right away so already-queued frames never start.
+        state.closed = true;
+        ws.close(CLOSE_TRY_AGAIN_LATER, "try again later");
+        log.warn("websocket pending buffer over cap", {
+          pendingBytes: state.pendingMessageBytes,
+          limitBytes: pendingLimit,
+        });
+        return;
+      }
       const { onMessage } = ws.data.handlers;
-      if (onMessage) enqueue(ws, () => onMessage(toMessageData(message), toConnection(ws)));
+      if (onMessage) {
+        // Copy now: queued behind a slow handler, Bun may have reused the buffer by then.
+        const data = toMessageData(message);
+        enqueue(
+          ws,
+          () => onMessage(data, toConnection(ws)),
+          () => {
+            state.pendingMessageBytes -= byteLength;
+          },
+        );
+      } else {
+        state.pendingMessageBytes -= byteLength;
+      }
     },
     close(ws: KumikoServerWebSocket, code: number, reason: string): void {
       const state = stateOf(ws);

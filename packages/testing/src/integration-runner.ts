@@ -1,5 +1,5 @@
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { BUNFIG_FILES, TEST_TIMEOUT_MS } from "./bunfig";
 
 export type IntegrationRunOptions = {
@@ -18,9 +18,15 @@ export function selectIntegrationFiles(paths: readonly string[]): string[] {
     .sort();
 }
 
+function listDirectoryFiles(path: string): string[] | undefined {
+  if (statSync(path, { throwIfNoEntry: false })?.isDirectory() !== true) return undefined;
+  return readdirSync(path, { recursive: true, encoding: "utf8" });
+}
+
 /** Resolves `kumiko-testing integration`'s positional file args against `cwd`
- *  into absolute paths — absolute (not glob-relative) so bun's own
- *  `bun test <path>` treats them as files to run, not filter patterns.
+ *  into absolute paths, so bun's own `bun test <path>` treats them as files to
+ *  run, not filter patterns. A directory expands to the integration test files
+ *  below it (`listDirectory` returns entries relative to it, undefined for a file).
  *  `exists` is injectable so this stays unit-testable without touching the
  *  real filesystem. Throws on the first missing file — the caller decides
  *  how to report it (CLI: print + exit 1). */
@@ -28,13 +34,18 @@ export function resolveRequestedIntegrationFiles(
   cwd: string,
   positionals: readonly string[],
   exists: (path: string) => boolean = existsSync,
+  listDirectory: (path: string) => string[] | undefined = listDirectoryFiles,
 ): string[] {
-  return positionals.map((arg) => {
+  return positionals.flatMap((arg) => {
     const resolved = resolve(cwd, arg);
     if (!exists(resolved)) {
       throw new Error(`kumiko-testing integration: file not found: ${arg}`);
     }
-    return resolved;
+    // A directory handed to `bun test` is a path filter that also matches *.test.tsx.
+    const directoryFiles = listDirectory(resolved);
+    return directoryFiles === undefined
+      ? [resolved]
+      : selectIntegrationFiles(directoryFiles).map((entry) => join(resolved, entry));
   });
 }
 

@@ -76,6 +76,7 @@ async function runIntegration(args: readonly string[]): Promise<number> {
   if (positionals.length > 0) {
     try {
       files = resolveRequestedIntegrationFiles(process.cwd(), positionals);
+      if (files.length === 0) throw new Error("no *.integration.test.ts files found");
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       return 1;

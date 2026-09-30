@@ -6,7 +6,11 @@
 // bug the "no session" test exists to catch.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { AUTH_COOKIE_NAME, type KumikoWebSocketData } from "@cosmicdrift/kumiko-framework/api";
+import {
+  AUTH_COOKIE_NAME,
+  type KumikoWebSocketData,
+  WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES,
+} from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { buildBunServeOptions } from "../bun-serve-options";
@@ -14,6 +18,7 @@ import { buildBunServeOptions } from "../bun-serve-options";
 const APP_ORIGIN = "https://app.example";
 const EVIL_ORIGIN = "https://evil.example";
 const MAX_MESSAGE_BYTES = 1024;
+const OPEN_FRAME_BYTES = 64 * 1024;
 const membershipQuery = "tenant:query:memberships";
 
 type Deferred = { readonly promise: Promise<void>; readonly resolve: () => void };
@@ -37,6 +42,11 @@ const heldSignal = (): AbortSignal | undefined => hangingSignal;
 let limitedClosed = deferred();
 let limitedConnectCalls = 0;
 let gatedRejects = true;
+let openGate = deferred();
+let openFinished = deferred();
+const gatedOpenReceived: string[] = [];
+let messageGate = deferred();
+const slowMessageStarted: string[] = [];
 
 const wsFeature = defineFeature("ws-test", (r) => {
   r.webSocketRoute({
@@ -44,6 +54,31 @@ const wsFeature = defineFeature("ws-test", (r) => {
     connect: () => ({
       onMessage: async (data, connection) => {
         if (data === "slow") await orderedGate.promise;
+        connection.send(data);
+      },
+    }),
+  });
+  r.webSocketRoute({
+    path: "/api/ws/slow-open",
+    maxMessageBytes: OPEN_FRAME_BYTES,
+    connect: () => ({
+      onOpen: async () => {
+        await openGate.promise;
+        openFinished.resolve();
+      },
+      onMessage: (data, connection) => {
+        gatedOpenReceived.push(String(data).slice(0, 1));
+        connection.send(data);
+      },
+    }),
+  });
+  r.webSocketRoute({
+    path: "/api/ws/slow-message",
+    maxMessageBytes: OPEN_FRAME_BYTES,
+    connect: () => ({
+      onMessage: async (data, connection) => {
+        slowMessageStarted.push(String(data).slice(0, 1));
+        await messageGate.promise;
         connection.send(data);
       },
     }),
@@ -350,6 +385,86 @@ describe("r.webSocketRoute (integration) — same-host origin, no allowlist", ()
     await hangingClosed.promise;
     expect(heldSignal()?.aborted).toBe(true);
     expect(hangingStarted).toEqual(["hangs"]);
+  });
+
+  test("frames buffered while onOpen runs arrive in order once it finishes", async () => {
+    openGate = deferred();
+    openFinished = deferred();
+    gatedOpenReceived.length = 0;
+    const socket = connectSocket(harness.url("/api/ws/slow-open"), {
+      Cookie: cookie,
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    const allReceived = harness.nextMessages(3);
+    for (const tag of ["a", "b", "c"]) socket.send(tag.repeat(OPEN_FRAME_BYTES));
+    await allReceived;
+    expect(gatedOpenReceived).toEqual([]);
+    openGate.resolve();
+    for (const tag of ["a", "b", "c"]) {
+      expect(String(await socket.next()).slice(0, 1)).toBe(tag);
+    }
+    expect(gatedOpenReceived).toEqual(["a", "b", "c"]);
+    socket.close();
+    await socket.closed;
+  });
+
+  test("frames over the limit behind a slow onOpen close with 1013 and never reach onMessage", async () => {
+    openGate = deferred();
+    openFinished = deferred();
+    gatedOpenReceived.length = 0;
+    const socket = connectSocket(harness.url("/api/ws/slow-open"), {
+      Cookie: cookie,
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    const frameCount = WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES / OPEN_FRAME_BYTES + 1;
+    for (let sent = 0; sent < frameCount; sent += 1) {
+      socket.send("x".repeat(OPEN_FRAME_BYTES));
+    }
+    expect((await socket.closed).code).toBe(1013);
+    openGate.resolve();
+    await openFinished.promise;
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(gatedOpenReceived).toEqual([]);
+  });
+
+  test("frames queued behind a slow onMessage arrive in order once it finishes", async () => {
+    messageGate = deferred();
+    slowMessageStarted.length = 0;
+    const socket = connectSocket(harness.url("/api/ws/slow-message"), {
+      Cookie: cookie,
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    const allReceived = harness.nextMessages(3);
+    for (const tag of ["a", "b", "c"]) socket.send(tag.repeat(OPEN_FRAME_BYTES));
+    await allReceived;
+    messageGate.resolve();
+    for (const tag of ["a", "b", "c"]) {
+      expect(String(await socket.next()).slice(0, 1)).toBe(tag);
+    }
+    expect(slowMessageStarted).toEqual(["a", "b", "c"]);
+    socket.close();
+    await socket.closed;
+  });
+
+  test("frames over the limit behind a slow onMessage close with 1013 and never start", async () => {
+    messageGate = deferred();
+    slowMessageStarted.length = 0;
+    const socket = connectSocket(harness.url("/api/ws/slow-message"), {
+      Cookie: cookie,
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    const frameCount = WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES / OPEN_FRAME_BYTES + 1;
+    for (let sent = 0; sent < frameCount; sent += 1) {
+      socket.send("x".repeat(OPEN_FRAME_BYTES));
+    }
+    expect((await socket.closed).code).toBe(1013);
+    messageGate.resolve();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(slowMessageStarted).toEqual(["x"]);
   });
 
   test("a message above maxMessageBytes closes the socket with 1009", async () => {
