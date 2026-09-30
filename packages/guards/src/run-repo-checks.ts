@@ -5,6 +5,7 @@ import { check as realProviderIsolation } from "./check-real-provider-isolation"
 // per-guard subprocess/project.
 import { check as runtimeIsolation } from "./check-runtime-isolation";
 import { check as secretLiterals } from "./check-secret-literals";
+import { check as singleRuntimeInstance } from "./check-single-runtime-instance";
 import { check as featureIntegrationTests } from "./guard-feature-integration-tests";
 import { check as noDirectProcessEnv } from "./guard-no-direct-process-env";
 import { check as primitivesDiscipline } from "./guard-primitives-discipline";
@@ -26,6 +27,7 @@ export const REPO_CHECKS = [
   runtimeIsolation,
   upgradeState,
   realProviderIsolation,
+  singleRuntimeInstance,
 ];
 
 // No flags today — the array stays so an unknown flag still fails loud
