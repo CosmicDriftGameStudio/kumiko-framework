@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.328.1",
+    "type": "improvement",
+    "title": "kumiko-types declares zod and ioredis as peer dependencies",
+    "detail": "The published `.d.ts` files import `zod` and `ioredis`, so consumers need both for type resolution. `ioredis` is an optional peer."
+  },
+  {
     "version": "0.328.0",
     "type": "improvement",
     "title": "kumiko-types is published as compiled JavaScript plus .d.ts",
