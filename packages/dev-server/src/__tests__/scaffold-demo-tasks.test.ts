@@ -9,7 +9,7 @@ import {
   createDemoTasksFeature,
   renderDemoTasksFeatureFile,
   renderDemoTasksI18n,
-} from "../scaffold-demo-tasks";
+} from "../scaffold-demo-tasks.js";
 
 describe("demo tasks feature nav labels are i18n keys (#2065)", () => {
   test("boot-validates with the tasks feature registered", () => {

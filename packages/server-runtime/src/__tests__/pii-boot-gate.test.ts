@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { assertPiiBootInvariants } from "../pii-boot-gate";
+import { assertPiiBootInvariants } from "../pii-boot-gate.js";
 
 const piiFeature = defineFeature("gate-pii", (r) => {
   r.entity(

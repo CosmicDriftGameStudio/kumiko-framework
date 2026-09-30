@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 // build is the only way to get that surface, so diagnostics here run
 // against a different compiler than the repo's own tsc.
 import { ts } from "ts-morph";
-import { runCodegen } from "../run-codegen";
+import { runCodegen } from "../run-codegen.js";
 
 const REPO_ROOT = join(__dirname, "../../../../..");
 const FRAMEWORK_SRC = join(REPO_ROOT, "packages/framework/src");

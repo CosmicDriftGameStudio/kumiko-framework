@@ -12,7 +12,7 @@ import {
   parseArgs,
 } from "@cosmicdrift/kumiko-framework/arg-parser";
 import * as z from "zod";
-import { checkDeployDrift, type ScaffoldedFile, scaffoldDeploy } from "./scaffold-deploy";
+import { checkDeployDrift, type ScaffoldedFile, scaffoldDeploy } from "./scaffold-deploy.js";
 
 export type CliOutput = {
   readonly log: (msg: string) => void;

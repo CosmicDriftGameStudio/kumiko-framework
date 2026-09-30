@@ -35,7 +35,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { startDevJobRunners } from "../job-run-logger";
+import { startDevJobRunners } from "../job-run-logger.js";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { formatBuildResult } from "@cosmicdrift/kumiko-server-runtime/build-prod-bundle";
-import { discoverServerEntry } from "../build-server-bundle";
+import { discoverServerEntry } from "../build-server-bundle.js";
 
 describe("discoverServerEntry", () => {
   test("finds bin/main.ts when present", () => {

@@ -11,7 +11,7 @@ import { describe, expect, spyOn, test } from "bun:test";
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { composeFeatures } from "../compose-features";
+import { composeFeatures } from "../compose-features.js";
 
 const noopFeature = defineFeature("noop-app", () => {});
 

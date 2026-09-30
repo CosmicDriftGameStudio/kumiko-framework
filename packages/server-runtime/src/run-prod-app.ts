@@ -145,35 +145,35 @@ import type {
   PageHeadResolver,
   PageHeadSystemQuery,
 } from "@cosmicdrift/kumiko-headless/apex";
-import Redis from "ioredis";
-import { applyBootSeeds } from "./boot/apply-boot-seeds";
-import { resolveBootCrypto } from "./boot/boot-crypto";
-import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
-import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot";
-import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options";
-import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
-import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
-import { assertPiiBootInvariants } from "./pii-boot-gate";
+import { Redis } from "ioredis";
+import { applyBootSeeds } from "./boot/apply-boot-seeds.js";
+import { resolveBootCrypto } from "./boot/boot-crypto.js";
+import { jobRunLoggerCallbacks } from "./boot/job-run-logger.js";
+import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
+import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
+import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
+import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
+import { assertPiiBootInvariants } from "./pii-boot-gate.js";
 import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   buildProdSessionAuth,
   resolveAuthMail,
   wireProdPatAutoRevoke,
-} from "./run-prod-app-boot-context";
-import { buildStaticFallback } from "./run-prod-app-static-files";
-import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers";
-import { assertSessionBootInvariants } from "./session-boot-gate";
-import { shouldWireProdSessions } from "./session-wiring";
-import { stripNoRouteMatchHeader } from "./try-hono-first";
+} from "./run-prod-app-boot-context.js";
+import { buildStaticFallback } from "./run-prod-app-static-files.js";
+import { type SecurityHeadersOption, withSecurityHeaders } from "./security-headers.js";
+import { assertSessionBootInvariants } from "./session-boot-gate.js";
+import { shouldWireProdSessions } from "./session-wiring.js";
+import { stripNoRouteMatchHeader } from "./try-hono-first.js";
 
-export { buildBunServeOptions } from "./bun-serve-options";
+export { buildBunServeOptions } from "./bun-serve-options.js";
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
   resolveAuthMail,
-} from "./run-prod-app-boot-context";
-export { staticCachePolicy } from "./run-prod-app-static-files";
+} from "./run-prod-app-boot-context.js";
+export { staticCachePolicy } from "./run-prod-app-static-files.js";
 
 // Strict env-var read. Throws with a clear hint when missing — better
 // than discovering a Postgres-connection-refused 30s into the boot.
@@ -412,7 +412,7 @@ export type ProdSeedFn = (deps: {
  *  aussehen. */
 export type RunProdAppDeps = {
   readonly db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
-  readonly redis: import("ioredis").default;
+  readonly redis: Redis;
   readonly registry: import("@cosmicdrift/kumiko-framework/engine").Registry;
   readonly sseBroker: SseBroker;
 };

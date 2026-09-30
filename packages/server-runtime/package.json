@@ -83,14 +83,78 @@
     "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-headless": "workspace:*",
+    "ioredis": "^5.10.1",
     "temporal-polyfill": "^0.3.2"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./compose-features": {
+        "types": "./dist/compose-features.d.ts",
+        "default": "./dist/compose-features.js"
+      },
+      "./run-prod-app": {
+        "types": "./dist/run-prod-app.d.ts",
+        "default": "./dist/run-prod-app.js"
+      },
+      "./run-worker-app": {
+        "types": "./dist/run-worker-app.d.ts",
+        "default": "./dist/run-worker-app.js"
+      },
+      "./bun-serve-options": {
+        "types": "./dist/bun-serve-options.d.ts",
+        "default": "./dist/bun-serve-options.js"
+      },
+      "./pii-boot-gate": {
+        "types": "./dist/pii-boot-gate.d.ts",
+        "default": "./dist/pii-boot-gate.js"
+      },
+      "./session-boot-gate": {
+        "types": "./dist/session-boot-gate.d.ts",
+        "default": "./dist/session-boot-gate.js"
+      },
+      "./boot/apply-boot-seeds": {
+        "types": "./dist/boot/apply-boot-seeds.d.ts",
+        "default": "./dist/boot/apply-boot-seeds.js"
+      },
+      "./boot/boot-crypto": {
+        "types": "./dist/boot/boot-crypto.d.ts",
+        "default": "./dist/boot/boot-crypto.js"
+      },
+      "./boot/job-run-logger": {
+        "types": "./dist/boot/job-run-logger.d.ts",
+        "default": "./dist/boot/job-run-logger.js"
+      },
+      "./extra-routes-deps": {
+        "types": "./dist/extra-routes-deps.d.ts",
+        "default": "./dist/extra-routes-deps.js"
+      },
+      "./renderer-web-fonts": {
+        "types": "./dist/renderer-web-fonts.d.ts",
+        "default": "./dist/renderer-web-fonts.js"
+      },
+      "./resolve-tailwind-cli": {
+        "types": "./dist/resolve-tailwind-cli.d.ts",
+        "default": "./dist/resolve-tailwind-cli.js"
+      },
+      "./try-hono-first": {
+        "types": "./dist/try-hono-first.d.ts",
+        "default": "./dist/try-hono-first.js"
+      },
+      "./build-prod-bundle": {
+        "types": "./dist/build-prod-bundle.d.ts",
+        "default": "./dist/build-prod-bundle.js"
+      }
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "src/changes.json",
     "README.md",
     "LICENSE"
   ]

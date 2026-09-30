@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseSourceFile, VERSION_HEADER } from "@cosmicdrift/kumiko-framework/engine";
 import { Project } from "ts-morph";
-import { scaffoldFeature } from "../scaffold-feature";
+import { scaffoldFeature } from "../scaffold-feature.js";
 
 let workdir: string;
 

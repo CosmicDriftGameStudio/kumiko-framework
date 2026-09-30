@@ -5,7 +5,7 @@
 // failen mit Hinweis auf src/styles.css.
 
 import { describe, expect, test } from "bun:test";
-import { assertRendererWebShellPresent } from "../build-prod-bundle";
+import { assertRendererWebShellPresent } from "../build-prod-bundle.js";
 
 const fallback = {
   path: "/app/node_modules/renderer-web/src/styles.css",

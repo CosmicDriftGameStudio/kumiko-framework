@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { checkDeployDrift, render, scaffoldDeploy } from "../scaffold-deploy";
+import { checkDeployDrift, render, scaffoldDeploy } from "../scaffold-deploy.js";
 
 describe("scaffoldDeploy", () => {
   let tmp: string;

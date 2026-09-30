@@ -26,8 +26,8 @@ import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import postgres from "postgres";
 import * as z from "zod";
-import { makeDispatchSystemWrite } from "../extra-routes-deps";
-import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app";
+import { makeDispatchSystemWrite } from "../extra-routes-deps.js";
+import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.js";
 
 const jobRuns: Array<{ note: string; temporalWasDefined: boolean }> = [];
 

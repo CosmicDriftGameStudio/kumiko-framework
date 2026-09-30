@@ -3,7 +3,7 @@
 // kein Bun → undefined, Package nicht installiert → undefined.
 
 import { describe, expect, test } from "bun:test";
-import { canResolveTailwindStylesheet, resolveTailwindCli } from "../resolve-tailwind-cli";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "../resolve-tailwind-cli.js";
 
 describe("resolveTailwindCli", () => {
   test("ohne Bun-Resolver → undefined (silent skip)", () => {

@@ -57,15 +57,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
-import Redis from "ioredis";
-import { resolveBootCrypto } from "./boot/boot-crypto";
-import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
-import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot";
-import { composeFeatures } from "./compose-features";
-import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
-import { assertPiiBootInvariants } from "./pii-boot-gate";
-import { requireEnv } from "./run-prod-app";
-import { addConfigAccessorFactory, buildBootExtraContext } from "./run-prod-app-boot-context";
+import { Redis } from "ioredis";
+import { resolveBootCrypto } from "./boot/boot-crypto.js";
+import { jobRunLoggerCallbacks } from "./boot/job-run-logger.js";
+import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
+import { composeFeatures } from "./compose-features.js";
+import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
+import { assertPiiBootInvariants } from "./pii-boot-gate.js";
+import { requireEnv } from "./run-prod-app.js";
+import { addConfigAccessorFactory, buildBootExtraContext } from "./run-prod-app-boot-context.js";
 
 export type WorkerContextOption =
   | Record<string, unknown>

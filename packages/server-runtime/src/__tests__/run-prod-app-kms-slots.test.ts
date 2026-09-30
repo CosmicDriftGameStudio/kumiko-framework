@@ -7,8 +7,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { ComposedEnvSchema } from "@cosmicdrift/kumiko-framework/env";
 import * as z from "zod";
-import { runProdApp } from "../run-prod-app";
-import { withClearedBootEnv } from "./boot-probe-fixture";
+import { runProdApp } from "../run-prod-app.js";
+import { withClearedBootEnv } from "./boot-probe-fixture.js";
 
 const MASTER_KEY = Buffer.alloc(32, 7).toString("base64");
 

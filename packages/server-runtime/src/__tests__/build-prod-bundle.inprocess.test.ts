@@ -6,7 +6,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { buildProdBundle } from "../build-prod-bundle";
+import { buildProdBundle } from "../build-prod-bundle.js";
 
 const REPO_ROOT = resolve(import.meta.dir, "../../../..");
 

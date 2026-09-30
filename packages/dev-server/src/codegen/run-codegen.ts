@@ -23,8 +23,8 @@ import {
   renderWriteHandlerTypes,
   TYPED_DISPATCHER_MARKER,
   WRITE_HANDLER_QN_MARKER,
-} from "./render";
-import { type ScanWarning, scanEvents } from "./scan-events";
+} from "./render.js";
+import { type ScanWarning, scanEvents } from "./scan-events.js";
 
 export type CodegenOptions = {
   /** App-Root — `<appRoot>/.kumiko/` ist der Output-Ordner. */

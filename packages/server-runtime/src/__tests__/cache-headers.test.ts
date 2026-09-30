@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { cacheControlHeader } from "@cosmicdrift/kumiko-framework/api";
-import { staticCachePolicy } from "../run-prod-app";
+import { staticCachePolicy } from "../run-prod-app.js";
 
 function cacheControlFor(pathname: string): Record<string, string> {
   const header = cacheControlHeader(staticCachePolicy(pathname));

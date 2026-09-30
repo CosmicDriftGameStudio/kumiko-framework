@@ -42,7 +42,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher, deleteRows } from "@cosmicdrift/kumiko-framework/testing";
-import { composeFeatures } from "../compose-features";
+import { composeFeatures } from "../compose-features.js";
 
 const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";
 const SETUP_TOKEN_SECRET = "test-mfa-setup-secret-at-least-32-bytes-long!!";

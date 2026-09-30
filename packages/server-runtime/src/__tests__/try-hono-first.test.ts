@@ -13,7 +13,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
-import { type HonoLikeApp, stripNoRouteMatchHeader, tryHonoFirst } from "../try-hono-first";
+import { type HonoLikeApp, stripNoRouteMatchHeader, tryHonoFirst } from "../try-hono-first.js";
 
 function makeApp(response: Response): HonoLikeApp {
   return { fetch: () => response };

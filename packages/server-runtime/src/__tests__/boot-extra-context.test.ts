@@ -5,7 +5,7 @@ import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secre
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { buildBootExtraContext } from "../run-prod-app";
+import { buildBootExtraContext } from "../run-prod-app.js";
 
 // Pins runProdApp's framework-default-provider autowire (buildBootExtraContext):
 // textContent unconditional, secrets feature-gated, KEK-env trap avoided, the

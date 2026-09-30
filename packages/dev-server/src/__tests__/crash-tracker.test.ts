@@ -4,7 +4,7 @@
 // Rand würde im Bin-Skript schlecht auffallen.
 
 import { describe, expect, test } from "bun:test";
-import { createCrashTracker } from "../crash-tracker";
+import { createCrashTracker } from "../crash-tracker.js";
 
 describe("createCrashTracker", () => {
   test("erste maxCrashes Crashes sind erlaubt, der nächste nicht", () => {

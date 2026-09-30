@@ -25,8 +25,8 @@ import {
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import * as jose from "jose";
 import * as z from "zod";
-import type { KumikoServerHandle } from "../create-kumiko-server";
-import { runDevApp } from "../run-dev-app";
+import type { KumikoServerHandle } from "../create-kumiko-server.js";
+import { runDevApp } from "../run-dev-app.js";
 
 function validFeature() {
   return defineFeature("shop", (r) => {

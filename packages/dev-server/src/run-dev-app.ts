@@ -92,13 +92,13 @@ import {
 } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { assertPiiBootInvariants } from "@cosmicdrift/kumiko-server-runtime/pii-boot-gate";
 import { assertSessionBootInvariants } from "@cosmicdrift/kumiko-server-runtime/session-boot-gate";
-import { watchAndRegenerate } from "./codegen";
+import { watchAndRegenerate } from "./codegen/index.js";
 import {
   type CreateKumikoServerOptions,
   createKumikoServer,
   type KumikoServerHandle,
-} from "./create-kumiko-server";
-import { renderWelcomeBanner } from "./welcome-banner";
+} from "./create-kumiko-server.js";
+import { renderWelcomeBanner } from "./welcome-banner.js";
 
 // Re-export der shared Auth-Setup-Types damit Apps nur einen Import-Pfad
 // brauchen. PasswordResetSetup / EmailVerificationSetup leben in

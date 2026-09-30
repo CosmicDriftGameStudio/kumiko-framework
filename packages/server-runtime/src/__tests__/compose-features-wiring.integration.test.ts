@@ -64,9 +64,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { deleteRows } from "@cosmicdrift/kumiko-framework/testing";
-import { buildComposeAuthOptions, composeFeatures } from "../compose-features";
-import type { RunProdAppAuthOptions } from "../run-prod-app";
-import { resolveAuthMail } from "../run-prod-app-boot-context";
+import { buildComposeAuthOptions, composeFeatures } from "../compose-features.js";
+import type { RunProdAppAuthOptions } from "../run-prod-app.js";
+import { resolveAuthMail } from "../run-prod-app-boot-context.js";
 
 // resolveMailLocale only recognizes locales with a registered mail bundle;
 // an empty bundle is enough to make "de" negotiable here.

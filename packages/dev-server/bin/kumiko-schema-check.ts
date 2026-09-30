@@ -25,7 +25,10 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { implicitAuthModeFeatureNames, resolveGeneratePath } from "../src/schema-check-core";
+import {
+  implicitAuthModeFeatureNames,
+  resolveGeneratePath,
+} from "@cosmicdrift/kumiko-dev-server/cli";
 
 type Args = {
   readonly runConfigPath: string;

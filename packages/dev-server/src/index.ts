@@ -28,7 +28,7 @@ export {
   type ScannedEvent,
   type ScanWarning,
   scanEvents,
-} from "./codegen";
+} from "./codegen/index.js";
 export {
   composeFileStack,
   composeGdprStack,
@@ -49,7 +49,7 @@ export {
   type PagesStackOptions,
   stackFeatureNames,
   type UserDataRightsStackOptions,
-} from "./compose-stacks";
+} from "./compose-stacks.js";
 export {
   type CreateKumikoServerOptions,
   createKumikoServer,
@@ -57,32 +57,32 @@ export {
   PROD_BUNDLES_ENV,
   resolveStylesheet,
   STYLESHEET_WATCH_ENV,
-} from "./create-kumiko-server";
-export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema";
+} from "./create-kumiko-server.js";
+export { type FrameworkCoreEnv, frameworkCoreEnvSchema } from "./env-schema.js";
 export type {
   AuthoringStyle,
   BuildFewShotCorpusOptions,
   CorpusWarning,
   FewShotCorpus,
   FewShotEntry,
-} from "./few-shot-corpus";
-export { buildFewShotCorpus, pathToId } from "./few-shot-corpus";
-export { resolveFrameworkVersion } from "./framework-version";
-export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli";
-export { runInitDeployCli } from "./init-deploy-cli";
-export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app";
-export { runDevApp } from "./run-dev-app";
+} from "./few-shot-corpus.js";
+export { buildFewShotCorpus, pathToId } from "./few-shot-corpus.js";
+export { resolveFrameworkVersion } from "./framework-version.js";
+export type { CliOutput, RunInitDeployCliOptions } from "./init-deploy-cli.js";
+export { runInitDeployCli } from "./init-deploy-cli.js";
+export type { RunDevAppAuthOptions, RunDevAppOptions, SeedFn } from "./run-dev-app.js";
+export { runDevApp } from "./run-dev-app.js";
 export type {
   ScaffoldAppOptions,
   ScaffoldAppResult,
   ScaffoldFeatureEntry,
-} from "./scaffold-app";
-export { scaffoldApp } from "./scaffold-app";
+} from "./scaffold-app.js";
+export { scaffoldApp } from "./scaffold-app.js";
 export type {
   ScaffoldAppFeatureOptions,
   ScaffoldAppFeatureResult,
-} from "./scaffold-app-feature";
-export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature";
+} from "./scaffold-app-feature.js";
+export { runConfigPathForApp, scaffoldAppFeature } from "./scaffold-app-feature.js";
 export type {
   CheckDeployDriftResult,
   DeployDriftEntry,
@@ -93,13 +93,13 @@ export type {
   ScaffoldDeployOptions,
   ScaffoldDeployResult,
   ScaffoldedFile,
-} from "./scaffold-deploy";
-export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy";
-export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature";
-export { scaffoldFeature } from "./scaffold-feature";
+} from "./scaffold-deploy.js";
+export { checkDeployDrift, renderDeployFiles, scaffoldDeploy } from "./scaffold-deploy.js";
+export type { ScaffoldFeatureOptions, ScaffoldFeatureResult } from "./scaffold-feature.js";
+export { scaffoldFeature } from "./scaffold-feature.js";
 export {
   type SetupTestStackFromFeaturesOptions,
   setupTestStackFromFeatures,
   type TestStackPreset,
-} from "./setup-test-stack-from-features";
-export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner";
+} from "./setup-test-stack-from-features.js";
+export { renderWelcomeBanner, type WelcomeBannerInput } from "./welcome-banner.js";

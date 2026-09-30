@@ -6,8 +6,8 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { runWorkerApp } from "../run-worker-app";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
+import { runWorkerApp } from "../run-worker-app.js";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
 
 const probeFeature = makeProbeFeature({
   name: "worker-boot-probe",

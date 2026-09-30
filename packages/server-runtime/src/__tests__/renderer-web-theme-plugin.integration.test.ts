@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runTailwindOnce } from "../build-prod-bundle";
+import { runTailwindOnce } from "../build-prod-bundle.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const FRAMEWORK_LIGHT_PRIMARY = "--color-primary:#1a1c1e";

@@ -11,8 +11,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import type { CodegenResult } from "../run-codegen";
-import { watchAndRegenerate } from "../watch";
+import type { CodegenResult } from "../run-codegen.js";
+import { watchAndRegenerate } from "../watch.js";
 
 const TEST_FIXTURE_DIR = join(__dirname, ".tmp-fixtures");
 const createdDirs: string[] = [];

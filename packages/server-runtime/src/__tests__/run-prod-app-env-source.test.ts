@@ -7,8 +7,8 @@
 // the PORT test would bind the default instead of the injected port.
 
 import { describe, expect, test } from "bun:test";
-import { runProdApp } from "../run-prod-app";
-import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture";
+import { runProdApp } from "../run-prod-app.js";
+import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
 
 const probeFeature = makeProbeFeature({
   name: "env-source-probe",

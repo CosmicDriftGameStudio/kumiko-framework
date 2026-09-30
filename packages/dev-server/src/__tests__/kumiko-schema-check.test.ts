@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { implicitAuthModeFeatureNames, resolveGeneratePath } from "../schema-check-core";
+import { implicitAuthModeFeatureNames, resolveGeneratePath } from "../schema-check-core.js";
 
 describe("resolveGeneratePath", () => {
   test("defaults to drizzle/generate.ts when neither candidate exists", () => {

@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createKumikoServer } from "../create-kumiko-server";
+import { createKumikoServer } from "../create-kumiko-server.js";
 
 const emptyFeature = defineFeature("dev-server-errors-probe", () => {});
 
