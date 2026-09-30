@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { NavProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { useBrowserNavApi } from "../app/nav";
+import { useBrowserNavApi } from "../app/nav.js";
 
 function WorkspaceNav({ children }: { readonly children: ReactNode }): ReactNode {
   const api = useBrowserNavApi({ hasWorkspaces: true });

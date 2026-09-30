@@ -5,8 +5,8 @@
 
 import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar.js";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar.js";
 
 export type SidebarUserProps = {
   readonly name: string;

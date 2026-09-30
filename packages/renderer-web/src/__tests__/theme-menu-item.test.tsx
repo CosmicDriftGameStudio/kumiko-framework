@@ -2,12 +2,12 @@ import { describe, expect, mock, test } from "bun:test";
 import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ThemeMenuItem } from "../layout/theme-menu-item";
+import { ThemeMenuItem } from "../layout/theme-menu-item.js";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "../primitives/dropdown-menu";
+} from "../primitives/dropdown-menu.js";
 
 function renderInOpenMenu(mode: "light" | "dark", toggleMode: () => void) {
   const api = { tokens: {} as never, mode, setMode: () => {}, toggleMode };

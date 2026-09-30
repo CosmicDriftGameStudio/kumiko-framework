@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { buildThemeCss, FRAMEWORK_COLOR_NAMES } from "../theme-plugin";
+import { buildThemeCss, FRAMEWORK_COLOR_NAMES } from "../theme-plugin.js";
 
 const STYLES_CSS = resolve(dirname(fileURLToPath(import.meta.url)), "../styles.css");
 

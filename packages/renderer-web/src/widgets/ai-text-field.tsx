@@ -30,8 +30,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { Check, Languages, Wand2 } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "../lib/cn";
-import { ModeSwitch } from "./mode-switch";
+import { cn } from "../lib/cn.js";
+import { ModeSwitch } from "./mode-switch.js";
 
 type AiTextAction = "correct" | "translate" | "rewrite";
 

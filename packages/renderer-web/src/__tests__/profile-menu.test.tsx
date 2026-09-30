@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ProfileMenu } from "../layout/profile-menu";
+import { ProfileMenu } from "../layout/profile-menu.js";
 
 describe("ProfileMenu", () => {
   test("wraps Avatar trigger and opens ActionMenu items", async () => {

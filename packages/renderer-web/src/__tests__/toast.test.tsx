@@ -8,8 +8,8 @@
 import { describe, expect, test } from "bun:test";
 import { act, fireEvent, screen } from "@testing-library/react";
 import { type ReactNode, useEffect } from "react";
-import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast";
-import { render } from "./test-utils";
+import { type ToastOptions, ToastProvider, useToast } from "../primitives/toast.js";
+import { render } from "./test-utils.js";
 
 // Trigger-Component die im Mount toast() aufruft. So testen wir den
 // Hook ohne userEvent-Klick-Pfad und ohne fragile timer.

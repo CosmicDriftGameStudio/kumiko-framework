@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { LiveEvent } from "@cosmicdrift/kumiko-renderer";
-import { createEventSourceLiveEvents } from "../live-events";
+import { createEventSourceLiveEvents } from "../live-events.js";
 
 // happy-dom doesn't provide EventSource, and this module only needs
 // `typeof window !== "undefined"` to unlock — no real DOM required. Stub

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { injectPageHead, resolveAndInjectPageHead } from "../index";
+import { injectPageHead, resolveAndInjectPageHead } from "../index.js";
 
 describe("injectPageHead", () => {
   const TAGS = '<title>New Title</title>\n<meta name="description" content="d">';

@@ -104,53 +104,53 @@ import {
   useRef,
   useState,
 } from "react";
-import { Icon, NAV_ICONS } from "../icons";
-import { cn } from "../lib/cn";
-import { Badge } from "../ui/badge";
-import { buttonVariants, Button as UiButton } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
-import { Input as UiInput } from "../ui/input";
-import { Label as UiLabel } from "../ui/label";
-import { Switch } from "../ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { Textarea } from "../ui/textarea";
-import { ProgressBar } from "../widgets/progress-bar";
-import { StatusBadge } from "../widgets/status-badge";
-import { StepBar } from "../widgets/step-bar";
-import { ComboboxInput } from "./combobox";
-import { DateInput } from "./date-input";
-import { DefaultDialog } from "./dialog";
-import { DefaultDrawer } from "./drawer";
+import { Icon, NAV_ICONS } from "../icons.js";
+import { cn } from "../lib/cn.js";
+import { Badge } from "../ui/badge.js";
+import { buttonVariants, Button as UiButton } from "../ui/button.js";
+import { Checkbox } from "../ui/checkbox.js";
+import { Input as UiInput } from "../ui/input.js";
+import { Label as UiLabel } from "../ui/label.js";
+import { Switch } from "../ui/switch.js";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.js";
+import { Textarea } from "../ui/textarea.js";
+import { ProgressBar } from "../widgets/progress-bar.js";
+import { StatusBadge } from "../widgets/status-badge.js";
+import { StepBar } from "../widgets/step-bar.js";
+import { ComboboxInput } from "./combobox.js";
+import { DateInput } from "./date-input.js";
+import { DefaultDialog } from "./dialog.js";
+import { DefaultDrawer } from "./drawer.js";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./dropdown-menu";
-import { EmbeddedListInput } from "./embedded-list-input";
-import { FileUploadInput } from "./file-upload";
-import { DefaultJsonView } from "./json-view";
-import { screenPaddingClassName, screenWidthClassName } from "./layout";
-import { DefaultLightbox } from "./lightbox";
-import { LocatedTimestampInput } from "./located-timestamp-input";
-import { DefaultMetric, DefaultMetricBand } from "./metric";
-import { DefaultModal } from "./modal";
-import { currencyDecimals, formatMoney, MoneyInput } from "./money-input";
-import { DefaultPageHeader } from "./page-header";
-import { PromoPanel } from "./promo-panel";
-import { CopyButton, ShareButton } from "./share-actions";
-import { DefaultStatusBadge } from "./status-badge";
+} from "./dropdown-menu.js";
+import { EmbeddedListInput } from "./embedded-list-input.js";
+import { FileUploadInput } from "./file-upload.js";
+import { DefaultJsonView } from "./json-view.js";
+import { screenPaddingClassName, screenWidthClassName } from "./layout.js";
+import { DefaultLightbox } from "./lightbox.js";
+import { LocatedTimestampInput } from "./located-timestamp-input.js";
+import { DefaultMetric, DefaultMetricBand } from "./metric.js";
+import { DefaultModal } from "./modal.js";
+import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.js";
+import { DefaultPageHeader } from "./page-header.js";
+import { PromoPanel } from "./promo-panel.js";
+import { CopyButton, ShareButton } from "./share-actions.js";
+import { DefaultStatusBadge } from "./status-badge.js";
 import {
   STICKY_FOOTER_SAFE_AREA_CLASS,
   STICKY_FOOTER_SPACER_CLASS,
   StickyActionBar,
-} from "./sticky-action-bar";
-import { DefaultTabs } from "./tabs";
-import { TimestampInput } from "./timestamp-input";
-import { useToast } from "./toast";
-import { TzInput } from "./tz-input";
-import { useIsNarrowViewport } from "./use-narrow-viewport";
+} from "./sticky-action-bar.js";
+import { DefaultTabs } from "./tabs.js";
+import { TimestampInput } from "./timestamp-input.js";
+import { useToast } from "./toast.js";
+import { TzInput } from "./tz-input.js";
+import { useIsNarrowViewport } from "./use-narrow-viewport.js";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -3803,8 +3803,8 @@ function DefaultHeading({ variant = "page", children, testId }: HeadingProps): R
   );
 }
 
-import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade";
-import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge";
+import { ConfigCascadeView as DefaultConfigCascadeView } from "../components/config-cascade.js";
+import { ConfigSourceBadge as DefaultConfigSourceBadge } from "../components/config-source-badge.js";
 
 // Generische Card-Chrome (rounded-xl wie die Entity-Card) — slot- + options-
 // basiert, damit der Contract additiv wächst und Consumer nie migriert werden.

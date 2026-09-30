@@ -1,8 +1,8 @@
-export { resolveNavigation } from "./resolve";
+export { resolveNavigation } from "./resolve.js";
 export type {
   NavDefinition,
   NavNode,
   NavRegistrySlice,
   NavTree,
   ResolveNavigationOptions,
-} from "./types";
+} from "./types.js";

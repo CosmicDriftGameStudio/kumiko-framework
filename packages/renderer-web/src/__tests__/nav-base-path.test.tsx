@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { NavProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { KumikoLink, useBrowserNavApi } from "../app/nav";
+import { KumikoLink, useBrowserNavApi } from "../app/nav.js";
 
 function AdminBrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   const api = useBrowserNavApi({ basePath: "/admin" });

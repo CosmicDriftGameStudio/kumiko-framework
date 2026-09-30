@@ -24,7 +24,7 @@ import {
   ListOrdered,
 } from "lucide-react";
 import { type ReactNode, useEffect } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 type ToolbarAction = {
   readonly label: string;

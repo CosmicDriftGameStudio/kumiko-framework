@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { render } from "@testing-library/react";
-import { Icon } from "../icons";
+import { Icon } from "../icons.js";
 
 describe("Icon (fw#3056 public export)", () => {
   test("renders the resolved icon in the DOM", () => {

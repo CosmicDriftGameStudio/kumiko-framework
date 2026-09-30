@@ -9,7 +9,7 @@ import {
 import { render as _render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { LanguageSwitcher } from "../layout/language-switcher";
+import { LanguageSwitcher } from "../layout/language-switcher.js";
 
 // Tests exercise the LanguageSwitcher with both a stateful stub resolver
 // (setLocale + subscribe) and a stateless resolver, covering the two

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 /** Segmented-Control für sich ausschließende Modi — die prominente
  *  Alternative zum vergrabenen <select>. */

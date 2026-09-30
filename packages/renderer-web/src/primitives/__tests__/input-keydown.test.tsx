@@ -3,7 +3,7 @@
 // keydown access instead of forcing that logic onto a wrapping <form>.
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { defaultPrimitives } from "../index";
+import { defaultPrimitives } from "../index.js";
 
 const { Input } = defaultPrimitives;
 const noop = () => {};

@@ -3,9 +3,9 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { createStaticLocaleResolver, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { act, screen } from "@testing-library/react";
 import { createContext, type ReactNode, useContext } from "react";
-import type { ClientFeatureDefinition } from "../app/client-plugin";
-import { createPublicSurface } from "../app/create-public-surface";
-import { createMockDispatcher } from "./test-utils";
+import type { ClientFeatureDefinition } from "../app/client-plugin.js";
+import { createPublicSurface } from "../app/create-public-surface.js";
+import { createMockDispatcher } from "./test-utils.js";
 
 function mountRoot(id = "root"): HTMLDivElement {
   const existing = document.getElementById(id);

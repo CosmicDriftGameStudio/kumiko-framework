@@ -38,10 +38,10 @@ import {
   useMemo,
   useState,
 } from "react";
-import { KumikoLink } from "../app/nav";
-import { useNavEntities, useNavProviders } from "../app/nav-providers-context";
-import { NAV_ICONS } from "../icons";
-import { cn } from "../lib/cn";
+import { KumikoLink } from "../app/nav.js";
+import { useNavEntities, useNavProviders } from "../app/nav-providers-context.js";
+import { NAV_ICONS } from "../icons.js";
+import { cn } from "../lib/cn.js";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -55,10 +55,10 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   useSidebar,
-} from "../ui/sidebar";
-import { resolveParentScreenId } from "./shell-breadcrumb";
-import { useDispatchTarget } from "./target-resolver-stub";
-import { parseTargetFromSearchParams } from "./target-url";
+} from "../ui/sidebar.js";
+import { resolveParentScreenId } from "./shell-breadcrumb.js";
+import { useDispatchTarget } from "./target-resolver-stub.js";
+import { parseTargetFromSearchParams } from "./target-url.js";
 
 // Widened alias for the two lookup sites below, which index by the plain
 // `string` icon key of the resolved NavNode/TreeAction tree — not the

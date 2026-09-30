@@ -1,6 +1,6 @@
 import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useContext } from "react";
-import { useStore } from "../hooks/use-store";
+import { useStore } from "../hooks/use-store.js";
 
 // React Context threading the Dispatcher through the tree. An app
 // wraps its root in <DispatcherProvider dispatcher={createLiveDispatcher()}>

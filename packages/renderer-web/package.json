@@ -21,8 +21,10 @@
   },
   "dependencies": {
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-renderer": "workspace:*",
+    "@cosmicdrift/kumiko-types": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
@@ -83,10 +85,24 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./styles.css": "./src/styles.css",
+      "./theme-plugin": {
+        "types": "./dist/theme-plugin.d.ts",
+        "default": "./dist/theme-plugin.js"
+      }
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "src/changes.json",
+    "src/styles.css",
+    "src/fonts",
     "README.md",
     "LICENSE"
   ]

@@ -8,9 +8,9 @@
 // against javascript:/data: hrefs as defense-in-depth.
 
 import { describe, expect, test } from "bun:test";
-import { defaultPrimitives } from "../primitives";
-import { StatCard } from "../widgets/stat";
-import { render, screen } from "./test-utils";
+import { defaultPrimitives } from "../primitives/index.js";
+import { StatCard } from "../widgets/stat.js";
+import { render, screen } from "./test-utils.js";
 
 const PAYLOAD = '<script>window.__xss = true;</script><img src=x onerror="window.__xss = true">';
 const UNSAFE_HREFS = [

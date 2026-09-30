@@ -6,13 +6,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
-import { render, screen } from "../../__tests__/test-utils";
+import { render, screen } from "../../__tests__/test-utils.js";
 // Imported directly instead of destructured off `defaultPrimitives`: that
 // registry types `Tabs` as optional (older PrimitivesRegistry consumers may
 // not have it), so `defaultPrimitives.Tabs` narrows to
 // `ComponentType<TabsProps> | undefined` even though it's always assigned
 // here — the component under test, not the optional-registry contract.
-import { DefaultTabs as Tabs } from "../tabs";
+import { DefaultTabs as Tabs } from "../tabs.js";
 
 const ITEMS = [
   { id: "items", label: "Items" },

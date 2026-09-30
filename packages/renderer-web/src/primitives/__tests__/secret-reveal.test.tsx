@@ -2,7 +2,7 @@
 // enrollment URI) instead of the default monospaced text display.
 import { describe, expect, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
-import { defaultPrimitives } from "../index";
+import { defaultPrimitives } from "../index.js";
 
 const { SecretReveal } = defaultPrimitives;
 if (SecretReveal === undefined) {

@@ -33,7 +33,7 @@ import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { AppSchema, FeatureSchema, WorkspaceSchema } from "@cosmicdrift/kumiko-renderer";
 import { qualifyNavId, toAppSchema, UserRolesProvider, useNav } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useMemo } from "react";
-import { useResolvers } from "../app/resolvers-context";
+import { useResolvers } from "../app/resolvers-context.js";
 import {
   Sidebar,
   SidebarContent,
@@ -42,15 +42,15 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarRail,
-} from "../ui/sidebar";
-import { EditorPanel } from "./editor-panel";
-import { fillClasses } from "./fill-classes";
-import { lastSegment, NavTree } from "./nav-tree";
-import { PageHeaderSlotProvider } from "./page-header-slot";
-import { ShellHeader } from "./shell-header";
-import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel";
-import { parseTargetFromSearchParams } from "./target-url";
-import { WorkspaceSwitcher } from "./workspace-switcher";
+} from "../ui/sidebar.js";
+import { EditorPanel } from "./editor-panel.js";
+import { fillClasses } from "./fill-classes.js";
+import { lastSegment, NavTree } from "./nav-tree.js";
+import { PageHeaderSlotProvider } from "./page-header-slot.js";
+import { ShellHeader } from "./shell-header.js";
+import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel.js";
+import { parseTargetFromSearchParams } from "./target-url.js";
+import { WorkspaceSwitcher } from "./workspace-switcher.js";
 
 export type WorkspaceShellUser = {
   readonly id: string;

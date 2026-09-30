@@ -1,12 +1,12 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { clamp } from "../lib/clamp";
-import { cn } from "../lib/cn";
-import { useIsNarrowViewport } from "../primitives/use-narrow-viewport";
-import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet";
-import { DrawerSheetContent } from "./sheet-parts";
-import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag";
+import { clamp } from "../lib/clamp.js";
+import { cn } from "../lib/cn.js";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.js";
+import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet.js";
+import { DrawerSheetContent } from "./sheet-parts.js";
+import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag.js";
 
 // Mirrors primitives/index.tsx's cardFooter + cardFooterBorder (row layout,
 // end-justified actions, top border, panel surface instead of the card

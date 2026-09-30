@@ -1,6 +1,6 @@
 import type { MetricBandProps, MetricProps } from "@cosmicdrift/kumiko-renderer";
 import { createContext, type ReactNode, useContext } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 const InsideMetricBandContext = createContext(false);
 

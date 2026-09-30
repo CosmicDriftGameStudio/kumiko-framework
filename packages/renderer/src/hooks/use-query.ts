@@ -1,7 +1,7 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatcher } from "../context/dispatcher-context";
-import { useLiveEvents } from "../sse/live-events";
+import { useDispatcher } from "../context/dispatcher-context.js";
+import { useLiveEvents } from "../sse/live-events.js";
 
 // React wrapper around dispatcher.query. Fires on mount, re-fires
 // whenever `type` or the serialized payload change, and exposes a

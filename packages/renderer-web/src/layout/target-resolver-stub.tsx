@@ -19,7 +19,7 @@
 import type { TargetRef } from "@cosmicdrift/kumiko-framework/engine";
 import { useNav } from "@cosmicdrift/kumiko-renderer";
 import { useCallback } from "react";
-import { serializeTarget } from "./target-url";
+import { serializeTarget } from "./target-url.js";
 
 type DispatchListener = (target: TargetRef) => void;
 

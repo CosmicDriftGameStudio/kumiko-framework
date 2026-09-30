@@ -3,7 +3,7 @@ import type {
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
-import { lastSegment } from "./qn";
+import { lastSegment } from "./qn.js";
 
 // Shared UI-visibility predicate for the screen-render path (#1203 — nav
 // filtering via filterByAccess in workspace-shell.tsx hid role-gated

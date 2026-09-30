@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
-import { defaultPrimitives } from "../index";
+import { defaultPrimitives } from "../index.js";
 
 const { DataTable } = defaultPrimitives;
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ProgressBar } from "./progress-bar";
+import { ProgressBar } from "./progress-bar.js";
 
 export type ProgressListRow = {
   readonly id: string;

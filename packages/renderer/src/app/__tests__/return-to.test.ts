@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { FeatureSchema } from "../feature-schema";
-import type { NavApi, NavTarget } from "../nav";
+import type { FeatureSchema } from "../feature-schema.js";
+import type { NavApi, NavTarget } from "../nav.js";
 import {
   formatReturnTo,
   navigateWithReturnTo,
   resolveReturnTarget,
   returnToParams,
   splitReturnTo,
-} from "../return-to";
+} from "../return-to.js";
 
 // hrefFor maps entity ObjectTargets to their detail screen, mirroring resolveTarget.
 function fakeNav(searchParams: Readonly<Record<string, string>> = {}): {

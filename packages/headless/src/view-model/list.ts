@@ -9,7 +9,7 @@ import {
   normalizeListColumn,
   parseRefTarget,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types";
+import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types.js";
 
 export type ComputeListViewModelInput = {
   readonly screen: EntityListScreenDefinition;

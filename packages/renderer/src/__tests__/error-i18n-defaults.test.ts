@@ -13,8 +13,8 @@ import {
   VersionConflictError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema";
-import { kumikoDefaultTranslations } from "../i18n-defaults";
+import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.js";
+import { kumikoDefaultTranslations } from "../i18n-defaults.js";
 
 // Keys are read off LIVE error instances, not a hardcoded list — a copied list
 // would mirror the bundle and never catch a renamed i18nKey or a new error

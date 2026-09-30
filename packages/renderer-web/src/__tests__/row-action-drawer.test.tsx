@@ -12,7 +12,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavTarget } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
 
 const taskEntity = {
   fields: { title: { type: "text", required: true } },

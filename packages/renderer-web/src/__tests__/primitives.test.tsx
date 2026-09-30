@@ -11,10 +11,10 @@ import { describe, expect, mock, test } from "bun:test";
 import { type ColumnRendererProps, ColumnRenderersProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { defaultPrimitives, END_LABEL_MIN_ROWS, FormScreenShell } from "../primitives";
-import { DefaultJsonView } from "../primitives/json-view";
-import { PageSection, Stack } from "../primitives/layout";
-import { fireEvent, render, screen, waitFor, within } from "./test-utils";
+import { defaultPrimitives, END_LABEL_MIN_ROWS, FormScreenShell } from "../primitives/index.js";
+import { DefaultJsonView } from "../primitives/json-view.js";
+import { PageSection, Stack } from "../primitives/layout.js";
+import { fireEvent, render, screen, waitFor, within } from "./test-utils.js";
 
 const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Card, Section } =
   defaultPrimitives;

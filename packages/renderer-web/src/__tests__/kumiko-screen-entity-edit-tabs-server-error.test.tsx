@@ -6,7 +6,7 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
-import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import { act, createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.js";
 
 const taskEntity = {
   fields: {

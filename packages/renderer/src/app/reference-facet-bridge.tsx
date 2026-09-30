@@ -1,8 +1,8 @@
 // One bridge component per reference facet, mirroring ReferenceLookupBridge —
 // facet count varies per screen, so the hook can't be called in a loop.
 import { type ReactNode, useEffect } from "react";
-import { useReferenceLookup } from "../hooks/use-reference-lookup";
-import type { ResolvedFacetSpec } from "./list-facets";
+import { useReferenceLookup } from "../hooks/use-reference-lookup.js";
+import type { ResolvedFacetSpec } from "./list-facets.js";
 
 export type ReferenceFacetOption = { readonly value: string; readonly label: string };
 

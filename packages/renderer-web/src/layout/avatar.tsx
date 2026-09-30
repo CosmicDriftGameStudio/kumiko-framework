@@ -9,7 +9,7 @@
 // echte Avatar-URLs haben.
 
 import { type ReactNode, useMemo } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 export type AvatarSize = "sm" | "md" | "lg";
 

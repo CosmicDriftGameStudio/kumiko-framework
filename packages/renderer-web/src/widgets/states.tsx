@@ -1,8 +1,8 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { dispatcherErrorText, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
-import { Skeleton } from "../ui/skeleton";
+import { cn } from "../lib/cn.js";
+import { Skeleton } from "../ui/skeleton.js";
 
 /** Leerer-Zustand mit optionalem Icon + CTA — die dashed-Box-Optik der
  *  entityList-Empty-States, als Standalone-Widget für Custom-Screens. */

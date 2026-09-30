@@ -1,4 +1,4 @@
-import type { DataTableSort } from "./primitives";
+import type { DataTableSort } from "./primitives.js";
 
 /** Sorts `rows` by a `DataTableSort` against a field->accessor map. Unknown
  *  field or `sort === null` returns `rows` unchanged (no-op, not an error —

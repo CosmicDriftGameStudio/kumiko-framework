@@ -13,11 +13,11 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
-import type { ListSort } from "../hooks/use-list-url-state";
-import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup";
-import { useTranslation } from "../i18n";
-import { usePageHeaderSlotAvailable } from "../page-header-slot";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.js";
+import type { ListSort } from "../hooks/use-list-url-state.js";
+import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.js";
+import { useTranslation } from "../i18n.js";
+import { usePageHeaderSlotAvailable } from "../page-header-slot.js";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -25,7 +25,7 @@ import {
   type DataTableRowActionMode,
   shouldRenderActionsIconOnly,
   usePrimitives,
-} from "../primitives";
+} from "../primitives.js";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //

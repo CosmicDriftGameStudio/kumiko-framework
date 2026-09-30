@@ -1,4 +1,4 @@
-import type { LocaleResolver } from "../contracts";
+import type { LocaleResolver } from "../contracts/index.js";
 
 export type LocaleRouterConfig<TPage extends string> = {
   /** Canonical default, usually "de". No URL prefix. */

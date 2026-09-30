@@ -5,8 +5,8 @@
 // nutzt Short-Form. Roundtrip pinnt diese Symmetrie.
 
 import { describe, expect, test } from "bun:test";
-import { qualifyNavId, qualifyScreenId } from "../kumiko-screen";
-import { lastSegment } from "../qn";
+import { qualifyNavId, qualifyScreenId } from "../kumiko-screen.js";
+import { lastSegment } from "../qn.js";
 
 describe("lastSegment", () => {
   test("nimmt den letzten ':'-getrennten Teil", () => {

@@ -3,7 +3,7 @@
 // Invariante — hier die vier Fälle direkt geprüft.
 
 import { describe, expect, test } from "bun:test";
-import { isKumikoBuild, shouldShowUpdate } from "../update-checker";
+import { isKumikoBuild, shouldShowUpdate } from "../update-checker.js";
 
 describe("shouldShowUpdate", () => {
   test("andere Server-id als geladen → Banner", () => {

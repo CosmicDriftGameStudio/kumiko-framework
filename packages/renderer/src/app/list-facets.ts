@@ -5,7 +5,7 @@ import type { ListFacetSpec } from "@cosmicdrift/kumiko-framework/ui-types";
 import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
-import type { DataTableFacet } from "../primitives";
+import type { DataTableFacet } from "../primitives.js";
 
 // One resolved facet, independent of where the type info came from — an
 // entity field (entityList) or an explicit ListFacetSpec (projectionList,

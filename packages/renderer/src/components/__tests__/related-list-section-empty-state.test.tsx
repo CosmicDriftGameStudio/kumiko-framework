@@ -6,18 +6,18 @@ import { describe, expect, test } from "bun:test";
 import type { EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { NavProvider } from "../../app/nav";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
+import { NavProvider } from "../../app/nav.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type ButtonProps,
   type CorePrimitives,
   type DataTableProps,
   PrimitivesProvider,
   type TextProps,
-} from "../../primitives";
-import { RelatedListSection } from "../related-list-section";
+} from "../../primitives.js";
+import { RelatedListSection } from "../related-list-section.js";
 
 const noop = () => {};
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

@@ -3,8 +3,8 @@
 
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { act, screen, waitFor } from "@testing-library/react";
-import { render } from "../../__tests__/test-utils";
-import { UpdateChecker } from "../update-checker";
+import { render } from "../../__tests__/test-utils.js";
+import { UpdateChecker } from "../update-checker.js";
 
 const LOADED_BUILD = { id: "build-loaded", builtAt: "2026-01-01T00:00:00Z" };
 const originalFetch = globalThis.fetch;

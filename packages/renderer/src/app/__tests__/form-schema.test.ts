@@ -5,7 +5,7 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createFormController } from "@cosmicdrift/kumiko-headless";
-import { buildFormSchema, REQUIRED_FIELD_I18N_KEY } from "../form-schema";
+import { buildFormSchema, REQUIRED_FIELD_I18N_KEY } from "../form-schema.js";
 
 function screenWith(fields: readonly EditFieldSpec[]): EntityEditScreenDefinition {
   return {

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import type { FieldIssue } from "../../dispatcher";
+import type { FieldIssue } from "../../dispatcher/index.js";
 import {
   computeDerivedCellValue,
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
-} from "../embedded-list";
+} from "../embedded-list.js";
 
 function issue(path: string): FieldIssue {
   return { path, code: "custom", i18nKey: "errors.validation.custom" };

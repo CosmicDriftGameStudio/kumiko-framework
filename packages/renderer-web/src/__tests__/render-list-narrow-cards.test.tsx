@@ -13,8 +13,8 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
-import { defaultPrimitives } from "../primitives";
-import { fireEvent, render, screen, within } from "./test-utils";
+import { defaultPrimitives } from "../primitives/index.js";
+import { fireEvent, render, screen, within } from "./test-utils.js";
 
 const { DataTable } = defaultPrimitives;
 

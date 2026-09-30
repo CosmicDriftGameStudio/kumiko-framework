@@ -12,8 +12,8 @@
 // Profile / Settings / Sign-out + optional Keyboard-Shortcut-Hints.
 
 import type { ReactNode } from "react";
-import { ActionMenu, type MenuItemDef } from "../primitives/action-menu";
-import { Avatar } from "./avatar";
+import { ActionMenu, type MenuItemDef } from "../primitives/action-menu.js";
+import { Avatar } from "./avatar.js";
 
 export type ProfileMenuItem = MenuItemDef;
 

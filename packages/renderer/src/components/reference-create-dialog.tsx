@@ -4,11 +4,11 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FormValues, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo } from "react";
-import { buildInitialValues } from "../app/kumiko-screen";
-import { toKebab } from "../app/qn";
-import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
-import { RenderEdit } from "./render-edit";
+import { buildInitialValues } from "../app/kumiko-screen.js";
+import { toKebab } from "../app/qn.js";
+import { useTranslation } from "../i18n.js";
+import { usePrimitives } from "../primitives.js";
+import { RenderEdit } from "./render-edit.js";
 
 // Hosts a target entity's create-form inside a bare Modal so a reference
 // field can create a missing record without leaving the current form

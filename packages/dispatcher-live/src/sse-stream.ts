@@ -1,5 +1,5 @@
 import { type DispatcherError, StreamFrame } from "@cosmicdrift/kumiko-headless";
-import { mapServerError } from "./error-mapping";
+import { mapServerError } from "./error-mapping.js";
 
 // Parse the SSE wire format produced by Hono `streamSSE` for POST /api/stream:
 //   event: chunk|ping|done|error

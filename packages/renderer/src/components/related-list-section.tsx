@@ -11,35 +11,35 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { useAppFeatures } from "../app/app-features-context";
+import { useAppFeatures } from "../app/app-features-context.js";
 import {
   buildFilterFacets,
   buildFilterPayload,
   mergeReferenceFacetOptions,
   resolveProjectionFacetSpecs,
-} from "../app/list-facets";
-import { useNav } from "../app/nav";
-import { ReferenceFacetBridges, type ReferenceFacetOption } from "../app/reference-facet-bridge";
-import { navigateWithReturnTo, useReturnHost } from "../app/return-to";
+} from "../app/list-facets.js";
+import { useNav } from "../app/nav.js";
+import { ReferenceFacetBridges, type ReferenceFacetOption } from "../app/reference-facet-bridge.js";
+import { navigateWithReturnTo, useReturnHost } from "../app/return-to.js";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
   buildProjectionToolbarActions,
   buildRecordActions,
   runProjectionRowNavigate,
-} from "../app/row-actions";
-import { findEditScreenFor } from "../app/screen-access";
-import { dispatcherErrorText } from "../app/write-failed-error";
-import { useOptionalDispatcher } from "../context/dispatcher-context";
-import { useUserRoles } from "../context/user-roles-context";
-import type { ListSort } from "../hooks/use-list-url-state";
-import { useQuery } from "../hooks/use-query";
-import { useTranslation } from "../i18n";
-import { PageHeaderSlotAvailableProvider } from "../page-header-slot";
-import { type DataTableFacet, usePrimitives } from "../primitives";
-import { sortByAccessor } from "../sort-by-accessor";
-import { RenderEditActionButton } from "./render-edit-action-button";
-import { RenderList } from "./render-list";
+} from "../app/row-actions.js";
+import { findEditScreenFor } from "../app/screen-access.js";
+import { dispatcherErrorText } from "../app/write-failed-error.js";
+import { useOptionalDispatcher } from "../context/dispatcher-context.js";
+import { useUserRoles } from "../context/user-roles-context.js";
+import type { ListSort } from "../hooks/use-list-url-state.js";
+import { useQuery } from "../hooks/use-query.js";
+import { useTranslation } from "../i18n.js";
+import { PageHeaderSlotAvailableProvider } from "../page-header-slot.js";
+import { type DataTableFacet, usePrimitives } from "../primitives.js";
+import { sortByAccessor } from "../sort-by-accessor.js";
+import { RenderEditActionButton } from "./render-edit-action-button.js";
+import { RenderList } from "./render-list.js";
 
 const RELATED_LIST_PSEUDO_ENTITY = "__related-list__";
 

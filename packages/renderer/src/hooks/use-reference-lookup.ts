@@ -22,10 +22,10 @@ import {
   SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { useMemo } from "react";
-import { toKebab } from "../app/qn";
-import { useTranslation } from "../i18n";
-import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits";
-import { useQuery } from "./use-query";
+import { toKebab } from "../app/qn.js";
+import { useTranslation } from "../i18n.js";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "./reference-limits.js";
+import { useQuery } from "./use-query.js";
 
 export type ReferenceLookupMap = ReadonlyMap<string, string>;
 

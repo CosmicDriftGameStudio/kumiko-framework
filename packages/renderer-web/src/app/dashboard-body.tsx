@@ -57,14 +57,14 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect } from "react";
-import { PageSection } from "../primitives/layout";
-import { TimeseriesChart, type TimeseriesPoint } from "../widgets/charts";
-import { FeedList, type FeedRow } from "../widgets/feed-list";
-import { ProgressList, type ProgressListRow } from "../widgets/progress-list";
-import { QueryTable } from "../widgets/query-table";
-import { SectionCard } from "../widgets/section-card";
-import { StatCard, type StatDelta, type StatTone } from "../widgets/stat";
-import { ErrorState, LoadingState } from "../widgets/states";
+import { PageSection } from "../primitives/layout.js";
+import { TimeseriesChart, type TimeseriesPoint } from "../widgets/charts.js";
+import { FeedList, type FeedRow } from "../widgets/feed-list.js";
+import { ProgressList, type ProgressListRow } from "../widgets/progress-list.js";
+import { QueryTable } from "../widgets/query-table.js";
+import { SectionCard } from "../widgets/section-card.js";
+import { StatCard, type StatDelta, type StatTone } from "../widgets/stat.js";
+import { ErrorState, LoadingState } from "../widgets/states.js";
 
 const STAT_TONES: ReadonlySet<string> = new Set(["default", "positive", "warn"]);
 const WIDE_PANEL = "sm:col-span-2 lg:col-span-4";

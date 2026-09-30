@@ -19,27 +19,30 @@ import type {
   SubmitResult,
 } from "@cosmicdrift/kumiko-headless";
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
-import { RenderEditActionButton } from "./render-edit-action-button";
-import type { RenderEditProps } from "./render-edit-types";
-import { AllFieldsRequiredProvider } from "./render-field";
+import { RenderEditActionButton } from "./render-edit-action-button.js";
+import type { RenderEditProps } from "./render-edit-types.js";
+import { AllFieldsRequiredProvider } from "./render-field.js";
 
 export type {
   RenderEditAction,
   RenderEditChangeState,
   RenderEditControls,
   RenderEditProps,
-} from "./render-edit-types";
+} from "./render-edit-types.js";
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ExtensionFormRegistryProvider, useExtensionFormHost } from "../app/extension-form-submit";
-import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections";
-import { useOptionalDispatcher } from "../context/dispatcher-context";
-import { useDraftStorage } from "../context/draft-storage-context";
-import { formatWhen } from "../format-when";
-import { useForm } from "../hooks/use-form";
-import { useTranslation } from "../i18n";
-import { useInsideDrawer } from "../inside-drawer";
-import { usePageHeaderSlotAvailable } from "../page-header-slot";
+import {
+  ExtensionFormRegistryProvider,
+  useExtensionFormHost,
+} from "../app/extension-form-submit.js";
+import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.js";
+import { useOptionalDispatcher } from "../context/dispatcher-context.js";
+import { useDraftStorage } from "../context/draft-storage-context.js";
+import { formatWhen } from "../format-when.js";
+import { useForm } from "../hooks/use-form.js";
+import { useTranslation } from "../i18n.js";
+import { useInsideDrawer } from "../inside-drawer.js";
+import { usePageHeaderSlotAvailable } from "../page-header-slot.js";
 import {
   type ActionMenuItemSpec,
   type FormSectionNavItem,
@@ -47,17 +50,17 @@ import {
   type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
   usePrimitives,
-} from "../primitives";
-import { GridCellForField } from "./grid-cell-for-field";
-import { RelatedListSection } from "./related-list-section";
+} from "../primitives.js";
+import { GridCellForField } from "./grid-cell-for-field.js";
+import { RelatedListSection } from "./related-list-section.js";
 import {
   filterEditSections,
   hasEditableSection,
   hasIssueWithoutRenderedField,
   resolveExtensionEntityId,
   shouldNotifyCaller,
-} from "./render-edit-logic";
-import { WriteFormSection } from "./write-form-section";
+} from "./render-edit-logic.js";
+import { WriteFormSection } from "./write-form-section.js";
 
 // Qualified names of the bundled `form-draft` feature. Hardcoded because the
 // renderer must not depend on @cosmicdrift/kumiko-bundled-features; a screen

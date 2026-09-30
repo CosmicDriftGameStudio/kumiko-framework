@@ -22,7 +22,7 @@ import {
   renderWithPrimitivesOverride,
   screen,
   waitFor,
-} from "./test-utils";
+} from "./test-utils.js";
 
 const baseScreen: ProjectionDetailScreenDefinition = {
   id: "rent-detail",

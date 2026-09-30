@@ -9,16 +9,16 @@ import { describe, expect, test } from "bun:test";
 import type { Dispatcher, EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import { act, render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type CorePrimitives,
   type EmbeddedListInputProps,
   PrimitivesProvider,
-} from "../../primitives";
-import { EmbeddedListField } from "../embedded-list-field";
-import { RenderField, type RenderFieldProps } from "../render-field";
+} from "../../primitives.js";
+import { EmbeddedListField } from "../embedded-list-field.js";
+import { RenderField, type RenderFieldProps } from "../render-field.js";
 
 let captured: EmbeddedListInputProps | undefined;
 const captureEmbeddedListInput: ComponentType<EmbeddedListInputProps> = (props) => {

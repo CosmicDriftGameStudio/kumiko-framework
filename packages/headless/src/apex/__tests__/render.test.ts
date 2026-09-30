@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { APEX_NAV_MENU_CSS, APEX_NAV_TOGGLE_RESPONSIVE_CSS, APEX_STRUCTURAL_CSS } from "../css";
-import { type ApexPage, renderApexPage } from "../index";
+import { APEX_NAV_MENU_CSS, APEX_NAV_TOGGLE_RESPONSIVE_CSS, APEX_STRUCTURAL_CSS } from "../css.js";
+import { type ApexPage, renderApexPage } from "../index.js";
 
 const brand = { tokensCss: ":root{--primary:#123;--primary-fg:#fff;--bg:#fff;--fg:#000;}" };
 

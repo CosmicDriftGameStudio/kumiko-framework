@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { filterAppSchemaNavsByAllowlist } from "../filter-app-schema-navs";
+import { filterAppSchemaNavsByAllowlist } from "../filter-app-schema-navs.js";
 
 function feature(overrides: Partial<FeatureSchema> & { featureName: string }): FeatureSchema {
   return {

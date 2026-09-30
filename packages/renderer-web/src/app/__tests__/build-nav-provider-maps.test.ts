@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { TreeChildrenSubscribe } from "@cosmicdrift/kumiko-framework/engine";
 import type { QualifiedContentCollection } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "../client-plugin";
-import { buildNavProviderMaps } from "../create-app";
+import type { ClientFeatureDefinition } from "../client-plugin.js";
+import { buildNavProviderMaps } from "../create-app.js";
 
 // Two ways a nav node gets its children: the app wires a navProvider by hand,
 // or a feature derives one per r.contentCollection() from the schema. This

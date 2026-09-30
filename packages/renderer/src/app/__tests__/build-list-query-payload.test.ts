@@ -4,7 +4,7 @@
 // exactly what EntityListBody built before the extraction — the regression
 // floor both list types now sit on.
 import { describe, expect, test } from "bun:test";
-import { buildListQueryPayload } from "../kumiko-screen";
+import { buildListQueryPayload } from "../kumiko-screen.js";
 
 const base = {
   limit: 50,

@@ -1,11 +1,17 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
-import { useUserRoles } from "../context/user-roles-context";
-import { useAppFeatures } from "./app-features-context";
-import type { FeatureSchema } from "./feature-schema";
-import { type NavApi, type NavTarget, type ObjectTarget, type ScreenTarget, useNav } from "./nav";
-import { lastSegment } from "./qn";
-import { screenAccessAllows } from "./screen-access";
+import { useUserRoles } from "../context/user-roles-context.js";
+import { useAppFeatures } from "./app-features-context.js";
+import type { FeatureSchema } from "./feature-schema.js";
+import {
+  type NavApi,
+  type NavTarget,
+  type ObjectTarget,
+  type ScreenTarget,
+  useNav,
+} from "./nav.js";
+import { lastSegment } from "./qn.js";
+import { screenAccessAllows } from "./screen-access.js";
 
 // A search param, not nav/route state, so it survives a full page reload
 // and a copied/shared URL.

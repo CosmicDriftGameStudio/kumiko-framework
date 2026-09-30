@@ -10,8 +10,8 @@ import { describe, expect, test } from "bun:test";
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider } from "@cosmicdrift/kumiko-renderer";
-import { SecretsEditBody } from "../../../renderer/src/app/secrets-edit-body";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
+import { SecretsEditBody } from "../../../renderer/src/app/secrets-edit-body.js";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 function makeDispatcher(): Dispatcher {
   return createMockDispatcher({

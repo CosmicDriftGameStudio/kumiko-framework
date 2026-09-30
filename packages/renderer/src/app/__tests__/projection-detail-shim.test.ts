@@ -3,7 +3,7 @@ import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-frame
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
-} from "../projection-detail-shim";
+} from "../projection-detail-shim.js";
 
 // Regression for the writeForm extension (fw editable-detail-screens): the
 // hard readOnly:true enforcement in synthesizeProjectionDetailScreen must

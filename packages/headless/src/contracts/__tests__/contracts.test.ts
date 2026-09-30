@@ -7,7 +7,7 @@ import type {
   PrimitivesContract,
   SelectProps,
   TextInputProps,
-} from "../index";
+} from "../index.js";
 
 // These aren't unit tests — they're compile-time contract guards in
 // runtime clothing. Building a small fake that satisfies each contract

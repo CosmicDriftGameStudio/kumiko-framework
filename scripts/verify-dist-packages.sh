@@ -71,7 +71,12 @@ deps='{}'
 for i in "${!names[@]}"; do
   deps="$(jq --arg n "${names[$i]}" --arg t "file:${tarballs[$i]}" '.[$n] = $t' <<<"$deps")"
 done
-jq -n --argjson deps "$deps" '{type: "module", private: true, dependencies: $deps, overrides: $deps}' >"$consumer/package.json"
+# A real consumer installs the required peers itself (e.g. tailwindcss for renderer-web/theme-plugin).
+peers='{}'
+for pkg_dir in "${dirs[@]}"; do
+  peers="$(jq --argjson peers "$peers" '$peers + ((.peerDependencies // {}) as $p | (.peerDependenciesMeta // {}) as $m | $p | with_entries(select($m[.key].optional != true)))' "$pkg_dir/package.json")"
+done
+jq -n --argjson deps "$deps" --argjson peers "$peers" '{type: "module", private: true, dependencies: ($peers + $deps), overrides: $deps}' >"$consumer/package.json"
 (cd "$consumer" && bun install --omit peer >&2)
 
 for i in "${!names[@]}"; do

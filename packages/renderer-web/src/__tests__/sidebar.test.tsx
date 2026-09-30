@@ -4,8 +4,8 @@
 // Reihenfolge stehen — header → actions → nav → footer.
 
 import { describe, expect, test } from "bun:test";
-import { Sidebar } from "../layout/sidebar";
-import { render, screen } from "./test-utils";
+import { Sidebar } from "../layout/sidebar.js";
+import { render, screen } from "./test-utils.js";
 
 describe("Sidebar", () => {
   test("alle 4 Slots gesetzt — rendern in Header → Actions → Nav → Footer Reihenfolge", () => {

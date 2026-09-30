@@ -1,5 +1,5 @@
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { qualifyNavId } from "./nav-tree";
+import { qualifyNavId } from "./nav-tree.js";
 
 export type NavReparentOverride = { readonly parent: string; readonly order: number };
 

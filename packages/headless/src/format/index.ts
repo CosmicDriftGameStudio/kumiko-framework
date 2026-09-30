@@ -142,9 +142,9 @@ export const UNIT_FORMAT_KEYS = [
   ...Object.keys(UNIT_SUFFIXES),
 ] as const;
 
-export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape";
-export { type HtmlValue, html, RawHtml, raw } from "./html-template";
-export { currencyDecimals } from "./money";
+export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.js";
+export { type HtmlValue, html, RawHtml, raw } from "./html-template.js";
+export { currencyDecimals } from "./money.js";
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,

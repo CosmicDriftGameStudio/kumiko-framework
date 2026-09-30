@@ -29,8 +29,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { cleanup, render } from "@testing-library/react";
 import type { ReactElement, ReactNode } from "react";
-import { defaultPrimitives } from "../primitives";
-import { defaultTokens } from "../tokens";
+import { defaultPrimitives } from "../primitives/index.js";
+import { defaultTokens } from "../tokens.js";
 
 const stubNav: NavApi = {
   route: undefined,

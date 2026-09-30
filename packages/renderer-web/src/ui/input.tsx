@@ -1,7 +1,7 @@
 // @ts-nocheck — vendored shadcn, regenerate via scripts/sync-shadcn.ts
 import * as React from "react"
 
-import { cn } from "../lib/cn"
+import { cn } from "../lib/cn.js"
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (

@@ -22,7 +22,7 @@ export type {
   ToastIntent,
   ToastProps,
   ToggleProps,
-} from "./contracts";
+} from "./contracts/index.js";
 export type {
   BatchResult,
   Command,
@@ -37,8 +37,8 @@ export type {
   StreamOpts,
   WriteOpts,
   WriteResult,
-} from "./dispatcher";
-export { StreamFrame, type StreamFrameEvent } from "./dispatcher";
+} from "./dispatcher/index.js";
+export { StreamFrame, type StreamFrameEvent } from "./dispatcher/index.js";
 export type {
   FieldConditionPredicate,
   FieldConditions,
@@ -51,8 +51,8 @@ export type {
   SubmitConfig,
   SubmitPayloadMode,
   SubmitResult,
-} from "./form";
-export { createFormController, I18N_KEY_PARAM } from "./form";
+} from "./form/index.js";
+export { createFormController, I18N_KEY_PARAM } from "./form/index.js";
 export {
   applyFormatSpec,
   currencyDecimals,
@@ -66,17 +66,17 @@ export {
   raw,
   stripControlChars,
   toInstant,
-} from "./format";
+} from "./format/index.js";
 export type {
   NavDefinition,
   NavNode,
   NavRegistrySlice,
   NavTree,
   ResolveNavigationOptions,
-} from "./nav";
-export { resolveNavigation } from "./nav";
-export type { Store, WritableStore } from "./store";
-export { createStore, shallowEqual } from "./store";
+} from "./nav/index.js";
+export { resolveNavigation } from "./nav/index.js";
+export type { Store, WritableStore } from "./store/index.js";
+export { createStore, shallowEqual } from "./store/index.js";
 export type {
   ComputeEditViewModelInput,
   ComputeListViewModelInput,
@@ -102,7 +102,7 @@ export type {
   RuntimeRenderer,
   ScreenSlots,
   Translate,
-} from "./view-model";
+} from "./view-model/index.js";
 export {
   computeDerivedCellValue,
   computeEditViewModel,
@@ -115,4 +115,4 @@ export {
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
-} from "./view-model";
+} from "./view-model/index.js";

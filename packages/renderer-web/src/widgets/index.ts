@@ -8,23 +8,23 @@ export {
   type AiTextAreaProps,
   AiTextField,
   type AiTextFieldProps,
-} from "./ai-text-field";
+} from "./ai-text-field.js";
 export {
   StatusBarChart,
   type StatusBarEntry,
   smoothPath,
   TimeseriesChart,
   type TimeseriesPoint,
-} from "./charts";
-export { CollapsibleSection } from "./collapsible-section";
-export { DetailList } from "./detail-list";
-export { Drawer, type DrawerProps } from "./drawer";
-export { FeedList, type FeedRow } from "./feed-list";
+} from "./charts.js";
+export { CollapsibleSection } from "./collapsible-section.js";
+export { DetailList } from "./detail-list.js";
+export { Drawer, type DrawerProps } from "./drawer.js";
+export { FeedList, type FeedRow } from "./feed-list.js";
 export {
   FloatingPanel,
   type FloatingPanelGeometry,
   type FloatingPanelProps,
-} from "./floating-panel";
+} from "./floating-panel.js";
 export {
   BooleanField,
   type BooleanFieldProps,
@@ -44,14 +44,14 @@ export {
   type TextareaFieldProps,
   TextField,
   type TextFieldProps,
-} from "./form-fields";
+} from "./form-fields.js";
 export {
   InfinityList,
   type InfinityListProps,
   type InfinityListSelection,
-} from "./infinity-list";
-export { ModeSwitch } from "./mode-switch";
-export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots";
+} from "./infinity-list.js";
+export { ModeSwitch } from "./mode-switch.js";
+export { type PhotoSlotSpec, PhotoSlots, type PhotoSlotsProps } from "./photo-slots.js";
 export {
   PlanCard,
   type PlanCardActionSlot,
@@ -59,33 +59,33 @@ export {
   type PlanCardProps,
   PlanGrid,
   type PlanGridProps,
-} from "./plan-card";
-export { ProgressBar } from "./progress-bar";
-export { ProgressList, type ProgressListRow } from "./progress-list";
-export { PublicShell, type PublicShellProps, type PublicShellVariant } from "./public-shell";
-export { QueryTable, type QueryTableColumn, type QueryTableProps } from "./query-table";
+} from "./plan-card.js";
+export { ProgressBar } from "./progress-bar.js";
+export { ProgressList, type ProgressListRow } from "./progress-list.js";
+export { PublicShell, type PublicShellProps, type PublicShellVariant } from "./public-shell.js";
+export { QueryTable, type QueryTableColumn, type QueryTableProps } from "./query-table.js";
 export {
   type ComparisonMetric,
   ComparisonTable,
   type ResultColumn,
   ResultPanel,
   ResultTable,
-} from "./result-panel";
-export { SectionCard } from "./section-card";
+} from "./result-panel.js";
+export { SectionCard } from "./section-card.js";
 export {
   SideBySideTable,
   type SideBySideTableCell,
   type SideBySideTableColumn,
   type SideBySideTableRow,
-} from "./side-by-side-table";
-export { MiniStat, Sparkline, StatCard, type StatDelta, type StatTone } from "./stat";
-export { EmptyState, ErrorState, LoadingState } from "./states";
+} from "./side-by-side-table.js";
+export { MiniStat, Sparkline, StatCard, type StatDelta, type StatTone } from "./stat.js";
+export { EmptyState, ErrorState, LoadingState } from "./states.js";
 export {
   STATUS_TONE_TEXT,
   StatusBadge,
   type StatusBadgeTone,
   type StatusTone,
-} from "./status-badge";
-export { StepBar } from "./step-bar";
-export { UploadZone, type UploadZoneProps } from "./upload-zone";
-export { useDraft } from "./use-draft";
+} from "./status-badge.js";
+export { StepBar } from "./step-bar.js";
+export { UploadZone, type UploadZoneProps } from "./upload-zone.js";
+export { useDraft } from "./use-draft.js";

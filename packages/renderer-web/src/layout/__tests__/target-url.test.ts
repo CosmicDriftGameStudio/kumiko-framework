@@ -3,7 +3,7 @@ import {
   clearTargetSearchParams,
   parseTargetFromSearchParams,
   serializeTarget,
-} from "../target-url";
+} from "../target-url.js";
 
 describe("serializeTarget / parseTargetFromSearchParams", () => {
   test("round-trips target + string args", () => {

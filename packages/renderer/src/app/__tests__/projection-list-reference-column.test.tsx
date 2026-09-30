@@ -13,14 +13,14 @@ import type {
 import type { Dispatcher, RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives";
-import type { FeatureSchema } from "../feature-schema";
-import { KumikoScreen } from "../kumiko-screen";
-import type { NavApi } from "../nav";
-import { NavProvider } from "../nav";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.js";
+import type { FeatureSchema } from "../feature-schema.js";
+import { KumikoScreen } from "../kumiko-screen.js";
+import type { NavApi } from "../nav.js";
+import { NavProvider } from "../nav.js";
 
 const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000";
 const REAL_TENANT_ID = "11111111-1111-4111-8111-111111111111";

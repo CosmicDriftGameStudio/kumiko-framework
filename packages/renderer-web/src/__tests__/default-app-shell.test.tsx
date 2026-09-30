@@ -10,8 +10,8 @@ import { describe, expect, test } from "bun:test";
 import type { EntityListScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
-import { DefaultAppShell } from "../layout/default-app-shell";
-import { createMockDispatcher, render, screen } from "./test-utils";
+import { DefaultAppShell } from "../layout/default-app-shell.js";
+import { createMockDispatcher, render, screen } from "./test-utils.js";
 
 function makeSchema(): FeatureSchema {
   return {

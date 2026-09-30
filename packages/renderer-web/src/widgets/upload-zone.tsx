@@ -1,9 +1,9 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { CheckCircle2, FileUp, Loader2, TriangleAlert, Upload } from "lucide-react";
 import { type DragEvent, type ReactNode, useId, useRef, useState } from "react";
-import { toAcceptAttr } from "../lib/accept-attr";
-import { cn } from "../lib/cn";
-import { resizeImageBeforeUpload } from "../lib/resize-image";
+import { toAcceptAttr } from "../lib/accept-attr.js";
+import { cn } from "../lib/cn.js";
+import { resizeImageBeforeUpload } from "../lib/resize-image.js";
 
 type UploadRowStatus = "uploading" | "done" | "error";
 

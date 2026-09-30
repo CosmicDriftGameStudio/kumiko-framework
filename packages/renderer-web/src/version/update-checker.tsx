@@ -10,7 +10,7 @@
 
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // Build-Stand, der beim Page-Load aktiv war. Vom Prod-Build in die index.html
 // gebacken (build-prod-bundle injectAssetTags). Fehlt im Dev und in alten

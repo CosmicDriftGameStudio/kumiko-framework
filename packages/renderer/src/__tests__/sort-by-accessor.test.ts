@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sortByAccessor } from "../sort-by-accessor";
+import { sortByAccessor } from "../sort-by-accessor.js";
 
 type Row = { readonly name: string; readonly count: number };
 

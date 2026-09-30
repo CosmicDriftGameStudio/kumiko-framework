@@ -6,7 +6,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { EmptyState, ErrorState, LoadingState } from "./states";
+import { EmptyState, ErrorState, LoadingState } from "./states.js";
 
 /** Position of the selected row among the rows loaded so far. `total`
  *  counts loaded rows only; `hasMore` says whether further pages exist. */

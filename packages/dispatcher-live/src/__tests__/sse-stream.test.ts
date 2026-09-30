@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { iterateSseChunks, parseSseFrames } from "../sse-stream";
+import { iterateSseChunks, parseSseFrames } from "../sse-stream.js";
 
 describe("parseSseFrames", () => {
   test("parses chunk + done frames from a complete body", () => {

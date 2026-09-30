@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 /** Read-only Schlüssel-Wert-Liste für Detail-Masken (Label links gedimmt,
  *  Wert rechts). Wert ist ReactNode → Badges/Chips möglich. `emphasize` hebt

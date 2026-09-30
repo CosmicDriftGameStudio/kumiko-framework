@@ -1,6 +1,6 @@
 import { useTokenController } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { DropdownMenuItem } from "../primitives/dropdown-menu";
+import { DropdownMenuItem } from "../primitives/dropdown-menu.js";
 
 export type ThemeMenuItemProps = {
   readonly lightIcon?: ReactNode;

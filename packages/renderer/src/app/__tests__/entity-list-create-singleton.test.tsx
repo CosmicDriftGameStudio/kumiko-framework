@@ -16,12 +16,12 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { type ButtonProps, type CorePrimitives, PrimitivesProvider } from "../../primitives";
-import type { FeatureSchema } from "../feature-schema";
-import { KumikoScreen } from "../kumiko-screen";
-import { NavProvider } from "../nav";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { type ButtonProps, type CorePrimitives, PrimitivesProvider } from "../../primitives.js";
+import type { FeatureSchema } from "../feature-schema.js";
+import { KumikoScreen } from "../kumiko-screen.js";
+import { NavProvider } from "../nav.js";
 
 const capturedButtonTestIds: string[] = [];
 const captureButton: ComponentType<ButtonProps> = (props) => {

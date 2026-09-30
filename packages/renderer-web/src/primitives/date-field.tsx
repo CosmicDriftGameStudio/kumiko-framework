@@ -10,8 +10,8 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
 import { Temporal } from "temporal-polyfill";
-import { cn } from "../lib/cn";
-import { CalendarPopover } from "./calendar-popover";
+import { cn } from "../lib/cn.js";
+import { CalendarPopover } from "./calendar-popover.js";
 import {
   formatDateForInput,
   formatDatePlaceholder,
@@ -19,7 +19,7 @@ import {
   parseIso,
   parseTypedDate,
   toIso,
-} from "./date-parse";
+} from "./date-parse.js";
 
 // CalendarPopover wraps react-day-picker, which only accepts native Date
 // objects — the PlainDate↔Date boundary conversion stays confined to

@@ -17,7 +17,7 @@ import { useNav, usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import { X } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { useCallback, useMemo } from "react";
-import { clearTargetSearchParams, parseTargetFromSearchParams } from "./target-url";
+import { clearTargetSearchParams, parseTargetFromSearchParams } from "./target-url.js";
 
 export type ResolverComponent = ComponentType<{
   readonly target: TargetRef;

@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createStore } from "../create-store";
+import { createStore } from "../create-store.js";
 
 describe("createStore — snapshot & setState", () => {
   test("getSnapshot returns the initial value", () => {

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // Semantische Status-Tones — eine Farb-Familie für Component-Status,
 // Incident-Status, Severity, Job-Zustände. Farben kommen aus den

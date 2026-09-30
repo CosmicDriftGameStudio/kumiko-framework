@@ -15,7 +15,7 @@ import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 const secretsScreen: SecretsEditScreenDefinition = {
   id: "secrets",

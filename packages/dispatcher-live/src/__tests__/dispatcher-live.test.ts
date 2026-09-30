@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createLiveDispatcher } from "../dispatcher-live";
+import { createLiveDispatcher } from "../dispatcher-live.js";
 
 // Builds a fake fetch that returns a JSON body with the given
 // payload and status. Exposes the captured Request argv so tests can

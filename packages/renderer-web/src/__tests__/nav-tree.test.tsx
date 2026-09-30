@@ -25,10 +25,10 @@ import type { FeatureSchema, LiveEventSubscriber, NavApi } from "@cosmicdrift/ku
 import { LiveEventsProvider, NavProvider } from "@cosmicdrift/kumiko-renderer";
 import { act } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { NavProvidersProvider } from "../app/nav-providers-context";
-import { NavTree } from "../layout/nav-tree";
-import { setDispatchListener } from "../layout/target-resolver-stub";
-import { fireEvent, renderWithSidebar as render, screen } from "./test-utils";
+import { NavProvidersProvider } from "../app/nav-providers-context.js";
+import { NavTree } from "../layout/nav-tree.js";
+import { setDispatchListener } from "../layout/target-resolver-stub.js";
+import { fireEvent, renderWithSidebar as render, screen } from "./test-utils.js";
 
 function makeSchema(): FeatureSchema {
   return {

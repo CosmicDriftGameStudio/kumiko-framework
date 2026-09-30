@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "../config-edit-shim";
+import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "../config-edit-shim.js";
 
 describe("synthesizeConfigEditEntity", () => {
   test("wraps the inline fields as an EntityDefinition", () => {

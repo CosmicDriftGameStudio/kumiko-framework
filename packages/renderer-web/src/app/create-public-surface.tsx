@@ -11,11 +11,11 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { defaultPrimitives } from "../primitives";
-import { ToastProvider } from "../primitives/toast";
-import { createBrowserLocaleResolver } from "./browser-locale";
-import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin";
-import { DocumentLangSync } from "./document-lang-sync";
+import { defaultPrimitives } from "../primitives/index.js";
+import { ToastProvider } from "../primitives/toast.js";
+import { createBrowserLocaleResolver } from "./browser-locale.js";
+import { type ClientFeatureDefinition, stackWrappers } from "./client-plugin.js";
+import { DocumentLangSync } from "./document-lang-sync.js";
 
 // Apex surface — the public counterpart to createKumikoApp. Mounts a thin,
 // schema-LESS provider chain (locale + primitives + dispatcher +

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
-import type { ButtonProps, DialogProps } from "../../primitives";
-import { RenderEditActionButton } from "../render-edit-action-button";
-import type { RenderEditAction } from "../render-edit-types";
+import type { ButtonProps, DialogProps } from "../../primitives.js";
+import { RenderEditActionButton } from "../render-edit-action-button.js";
+import type { RenderEditAction } from "../render-edit-types.js";
 
 const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, type, loading }) => (
   <button

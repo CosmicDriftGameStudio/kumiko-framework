@@ -35,25 +35,28 @@ import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kum
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { extractCreatedId, extractIdField } from "../components/reference-create-dialog";
+import { extractCreatedId, extractIdField } from "../components/reference-create-dialog.js";
 import {
   RenderEdit,
   type RenderEditAction,
   type RenderEditControls,
-} from "../components/render-edit";
+} from "../components/render-edit.js";
 import {
   needsActionConfirm,
   RenderEditActionButton,
   RenderEditActionConfirmDialog,
-} from "../components/render-edit-action-button";
-import { RenderList } from "../components/render-list";
-import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
-import { useUserRoles } from "../context/user-roles-context";
-import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state";
-import { type UseQueryResult, useQuery } from "../hooks/use-query";
-import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n";
-import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer";
-import { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "../page-header-slot";
+} from "../components/render-edit-action-button.js";
+import { RenderList } from "../components/render-list.js";
+import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
+import { useUserRoles } from "../context/user-roles-context.js";
+import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.js";
+import { type UseQueryResult, useQuery } from "../hooks/use-query.js";
+import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n.js";
+import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.js";
+import {
+  PageHeaderSlotAvailableProvider,
+  usePageHeaderSlotAvailable,
+} from "../page-header-slot.js";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -62,16 +65,16 @@ import {
   statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
-} from "../primitives";
-import { screenFillsHeight } from "../screen-fills-height";
-import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
-import { useAppFeatures } from "./app-features-context";
-import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
-import { useCustomScreenComponent } from "./custom-screens";
-import { useDashboardBody } from "./dashboard-body";
-import type { FeatureSchema } from "./feature-schema";
-import { buildFormSchema } from "./form-schema";
-import { layoutFieldNames } from "./layout-fields";
+} from "../primitives.js";
+import { screenFillsHeight } from "../screen-fills-height.js";
+import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim.js";
+import { useAppFeatures } from "./app-features-context.js";
+import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim.js";
+import { useCustomScreenComponent } from "./custom-screens.js";
+import { useDashboardBody } from "./dashboard-body.js";
+import type { FeatureSchema } from "./feature-schema.js";
+import { buildFormSchema } from "./form-schema.js";
+import { layoutFieldNames } from "./layout-fields.js";
 import {
   buildDateRangePayload,
   buildFilterFacets,
@@ -82,16 +85,16 @@ import {
   readDateRange,
   resolveDateRangeFacets,
   resolveProjectionFacetSpecs,
-} from "./list-facets";
-import { type NavApi, type ScreenTarget, useInitialValuesHandoff, useNav } from "./nav";
+} from "./list-facets.js";
+import { type NavApi, type ScreenTarget, useInitialValuesHandoff, useNav } from "./nav.js";
 import {
   synthesizeProjectionDetailEntity,
   synthesizeProjectionDetailScreen,
-} from "./projection-detail-shim";
-import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim";
-import { lastSegment, toKebab } from "./qn";
-import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id";
-import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge";
+} from "./projection-detail-shim.js";
+import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim.js";
+import { lastSegment, toKebab } from "./qn.js";
+import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id.js";
+import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge.js";
 import {
   navigateToReturn,
   navigateToReturnOr,
@@ -100,7 +103,7 @@ import {
   ReturnHostProvider,
   useReturnHost,
   useReturnTarget,
-} from "./return-to";
+} from "./return-to.js";
 import {
   buildDefaultEditRowAction,
   buildProjectionRowActions,
@@ -111,11 +114,11 @@ import {
   navigateActionSearchParams,
   refetchAfterWrite,
   runProjectionRowNavigate,
-} from "./row-actions";
-import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access";
-import { SecretMintBody } from "./secret-mint-body";
-import { SecretsEditBody } from "./secrets-edit-body";
-import { dispatcherErrorText, WriteFailedError } from "./write-failed-error";
+} from "./row-actions.js";
+import { findEditScreenFor, navigateTargetAllows, screenAccessAllows } from "./screen-access.js";
+import { SecretMintBody } from "./secret-mint-body.js";
+import { SecretsEditBody } from "./secrets-edit-body.js";
+import { dispatcherErrorText, WriteFailedError } from "./write-failed-error.js";
 
 // KumikoScreen picks up a ScreenDefinition from the schema by qn and
 // routes it to the right renderer based on `screen.type`. Command

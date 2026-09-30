@@ -12,7 +12,7 @@ import type {
   ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
-import { buildNavRegistrySlice, buildNavRegistrySliceForApp } from "../nav-tree";
+import { buildNavRegistrySlice, buildNavRegistrySliceForApp } from "../nav-tree.js";
 
 function feature(navs: readonly NavDefinition[], featureName = "tasks"): FeatureSchema {
   return { featureName, entities: {}, screens: [], navs };

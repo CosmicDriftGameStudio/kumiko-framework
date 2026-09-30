@@ -1,7 +1,7 @@
 import { XIcon } from "lucide-react";
 import { Dialog as SheetPrimitive } from "radix-ui";
 import type { ComponentProps, CSSProperties, ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // Drawer needs a per-instance overlay dim/blur (its `backdrop` prop), but
 // ../ui/sheet.tsx is vendored shadcn (regenerated via scripts/sync-shadcn.ts,

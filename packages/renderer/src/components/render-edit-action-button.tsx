@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useState } from "react";
-import type { usePrimitives } from "../primitives";
-import type { RenderEditAction } from "./render-edit-types";
+import type { usePrimitives } from "../primitives.js";
+import type { RenderEditAction } from "./render-edit-types.js";
 
 // Same rule as RowActionWriteHandler: "danger" forces a confirm even
 // without an explicit confirm key — unless `confirmRequired` overrides it
