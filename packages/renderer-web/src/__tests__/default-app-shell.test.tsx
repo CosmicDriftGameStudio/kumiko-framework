@@ -163,3 +163,29 @@ describe("DefaultAppShell fill default", () => {
     expect(inset?.classList.contains("min-h-0")).toBe(false);
   });
 });
+
+describe("DefaultAppShell sidebar controls row", () => {
+  test("a control row wider than the sidebar wraps instead of overflowing over the content", () => {
+    render(
+      <DefaultAppShell
+        brand={<span>Brand</span>}
+        schema={makeSchema()}
+        sidebarActions={<button type="button">Wide control</button>}
+      >
+        <div>content</div>
+      </DefaultAppShell>,
+    );
+    const row = document.querySelector("[data-kumiko-layout='sidebar-actions']");
+    expect(row?.classList.contains("flex-wrap")).toBe(true);
+  });
+
+  test("the content surface is the card colour, not the page colour", () => {
+    render(
+      <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
+        <div>content</div>
+      </DefaultAppShell>,
+    );
+    const inset = document.querySelector('[data-slot="sidebar-inset"]');
+    expect(inset?.classList.contains("bg-card")).toBe(true);
+  });
+});

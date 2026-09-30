@@ -101,7 +101,7 @@ export function DefaultAppShell({
           {sidebarActions !== undefined && (
             <SidebarGroup
               data-kumiko-layout="sidebar-actions"
-              className="flex-row items-center gap-1 py-0"
+              className="flex-row flex-wrap items-center gap-1 py-0"
             >
               {sidebarActions}
             </SidebarGroup>

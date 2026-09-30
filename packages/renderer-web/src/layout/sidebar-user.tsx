@@ -30,15 +30,19 @@ export function SidebarUser({ name, email, avatar }: SidebarUserProps): ReactNod
           size="lg"
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
-          <Avatar className="size-8 rounded-lg">
+          <Avatar className="size-7 bg-sidebar-accent">
             {avatar !== undefined && <AvatarImage src={avatar} alt={name} />}
-            <AvatarFallback className="rounded-lg">{initials(name)}</AvatarFallback>
+            <AvatarFallback className="bg-sidebar-accent text-xs font-medium text-sidebar-accent-foreground">
+              {initials(name)}
+            </AvatarFallback>
           </Avatar>
-          <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">{name}</span>
-            {email !== undefined && <span className="truncate text-xs">{email}</span>}
+          <div className="grid flex-1 text-left leading-tight">
+            <span className="truncate font-medium text-sidebar-foreground">{name}</span>
+            {email !== undefined && (
+              <span className="truncate text-xs text-sidebar-muted">{email}</span>
+            )}
           </div>
-          <ChevronsUpDown className="ml-auto size-4" />
+          <ChevronsUpDown className="ml-auto size-4 text-sidebar-muted" />
         </SidebarMenuButton>
       </SidebarMenuItem>
     </SidebarMenu>

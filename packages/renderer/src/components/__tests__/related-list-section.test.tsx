@@ -96,6 +96,7 @@ function testPrimitives(): CorePrimitives {
 function stubDispatcher(
   rows: readonly Record<string, unknown>[] = [{ id: "r1", name: "Alice" }],
   nextCursor: string | null = null,
+  envelope: { readonly total?: number; readonly omitCursor?: boolean } = {},
 ): {
   dispatcher: Dispatcher;
   writes: Array<{ type: string; payload: unknown }>;
@@ -110,7 +111,14 @@ function stubDispatcher(
     }) as Dispatcher["write"],
     query: (async () => {
       queryCalls += 1;
-      return { isSuccess: true, data: { rows, nextCursor } };
+      return {
+        isSuccess: true,
+        data: {
+          rows,
+          ...(envelope.omitCursor !== true && { nextCursor }),
+          ...(envelope.total !== undefined && { total: envelope.total }),
+        },
+      };
     }) as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
     statusStore: {
@@ -1040,6 +1048,26 @@ describe("RelatedListSection — truncation banner (fw#2722 review)", () => {
 
   test("nextCursor === null renders no truncation banner", async () => {
     const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], null);
+    renderRelatedList(dispatcher);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
+  });
+
+  test("a handler that omits nextCursor renders no truncation banner, even at exactly one row", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], null, {
+      omitCursor: true,
+    });
+    renderRelatedList(dispatcher);
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("related-list-truncated")).toBeNull();
+  });
+
+  test("a cursor with a total the rows already cover renders no truncation banner", async () => {
+    const { dispatcher } = stubDispatcher([{ id: "r1", name: "Alice" }], "cursor-abc", {
+      total: 1,
+    });
     renderRelatedList(dispatcher);
 
     await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());

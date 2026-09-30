@@ -795,7 +795,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(2);
   });
 
-  test("layout.mode: 'tabs' — the active relatedList tab renders inside the same Card frame as other tab kinds", async () => {
+  test("layout.mode: 'tabs' — the active relatedList tab runs full-bleed without a Card frame", async () => {
     const tabsRelatedListScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -848,14 +848,8 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
       </NavProvider>,
     );
     await waitFor(() => screen.getByTestId("row-pay-1"));
-    // Acceptance criterion: the relatedList tab must sit in exactly the same
-    // Card frame every other tab kind gets, not a bare FillContainer.
-    const card = container.querySelector('[data-slot="card"]');
-    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
-    // fw#3234 round 3: the table's own DataTable wrapper must not add a
-    // second p-6 inset on top of the Card's own body padding — it must start
-    // at the same left edge as a sibling Banner in the same Card.
-    expect(card?.querySelector(".p-6")).toBeNull();
+    expect(container.querySelector('[data-slot="card"]')).toBeNull();
+    expect(screen.getByTestId("row-pay-1").closest(".p-6")).toBeNull();
   });
 
   test("layout.mode: 'tabs' — the active writeForm tab renders inside the same Card frame as other tab kinds", async () => {
@@ -1502,10 +1496,8 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     );
 
     const actionButton = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
-    // "open" resolves to the "eye" icon via ACTION_ICON_BY_ID (no explicit
-    // icon declared) — the header action button must actually draw it, not
-    // just carry it as unused data (fw#3234 round 3).
-    expect(actionButton.querySelector("svg")).toBeTruthy();
+    // Record-header actions are text-only (board layout).
+    expect(actionButton.querySelector("svg")).toBeNull();
     // The footer regions RenderEdit's Form would otherwise draw the action
     // into are gone entirely — the action moved out, it didn't just gain a
     // second home.

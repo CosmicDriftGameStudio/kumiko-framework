@@ -30,6 +30,8 @@ export type ListUrlState = {
   /** 1-basierte Page-Nummer. Bei pagination="infinite" oder false ist
    *  der Wert ignoriert; Caller liest ihn nur wenn relevant. */
   readonly page: number;
+  /** User-chosen page size from `PAGE_SIZE_OPTIONS`; undefined = screen default. */
+  readonly pageSize: number | undefined;
   /** Aktive Faceted-Filter: field → ausgewählte Werte (Strings; Caller
    *  coerced pro Field-Type). Leer wenn kein Filter gesetzt. */
   readonly filters: Readonly<Record<string, readonly string[]>>;
@@ -43,6 +45,8 @@ export type ListUrlStateApi = ListUrlState & {
   readonly setQ: (next: string) => void;
   /** Setzt die Page. 1 oder kleiner löscht den Key (Default-Page). */
   readonly setPage: (next: number) => void;
+  /** Sets the page size and resets the page; undefined clears the key. */
+  readonly setPageSize: (next: number | undefined) => void;
   /** Setzt die ausgewählten Werte eines Facet-Felds. Leeres Array löscht
    *  den Key. Resettet die Page (wie sort/search). */
   readonly setFilter: (field: string, values: readonly string[]) => void;
@@ -61,6 +65,14 @@ export type ListUrlStateApi = ListUrlState & {
 // `.` als Trenner: lesbar (`?orders.sort=name`), kollidiert nicht mit
 // üblichen Field-Namen (kebab- oder camelCase ohne Punkt). Boot-Validator
 // pinnt screen.id ohne Punkt — siehe boot-validator entityList Section.
+export const PAGE_SIZE_OPTIONS: readonly number[] = [25, 50, 100];
+
+function parsePageSize(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  const n = Number.parseInt(value, 10);
+  return PAGE_SIZE_OPTIONS.includes(n) ? n : undefined;
+}
+
 function key(screenId: string, suffix: string): string {
   return `${screenId}.${suffix}`;
 }
@@ -88,6 +100,7 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
 
   const q = params[key(screenId, "q")] ?? "";
   const page = parsePage(params[key(screenId, "page")]);
+  const pageSize = parsePageSize(params[key(screenId, "size")]);
 
   const filterPrefix = `${screenId}.f.`;
   const filters = useMemo<Readonly<Record<string, readonly string[]>>>(() => {
@@ -140,6 +153,16 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
     [nav, screenId],
   );
 
+  const setPageSize = useCallback(
+    (next: number | undefined) => {
+      nav.setSearchParams({
+        [key(screenId, "size")]: next === undefined ? null : String(next),
+        [key(screenId, "page")]: null,
+      });
+    },
+    [nav, screenId],
+  );
+
   const setFilter = useCallback(
     (field: string, values: readonly string[]) => {
       nav.setSearchParams({
@@ -167,5 +190,18 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
     nav.setSearchParams(updates);
   }, [nav, screenId, filters]);
 
-  return { sort, q, page, filters, setSort, setQ, setPage, setFilter, clearFilters, setDateRange };
+  return {
+    sort,
+    q,
+    page,
+    pageSize,
+    filters,
+    setSort,
+    setQ,
+    setPage,
+    setPageSize,
+    setFilter,
+    clearFilters,
+    setDateRange,
+  };
 }

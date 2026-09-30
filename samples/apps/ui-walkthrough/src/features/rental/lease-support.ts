@@ -14,6 +14,7 @@ export const idPayloadSchema = z.object({ id: z.uuid() });
 export const rentAdjustPayloadSchema = z.object({
   positionId: z.uuid(),
   wirksamAb: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  einzelpreis: z.object({ amount: z.number(), currency: z.string() }).optional(),
   neuerBetrag: z.object({ amount: z.number(), currency: z.string() }),
   begruendung: z.string().optional(),
 });

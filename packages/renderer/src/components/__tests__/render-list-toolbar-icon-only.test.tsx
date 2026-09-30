@@ -128,7 +128,7 @@ describe("RenderList toolbar actions collapse to icon-only", () => {
     renderToolbar([toolbarAction("sync", "Sync", true), toolbarAction("export", "Export", true)]);
 
     const button = rtlScreen.getByTestId("render-list-toolbar-action-sync");
-    expect(button.getAttribute("data-size")).toBe("md");
+    expect(button.getAttribute("data-size")).toBe("sm");
     expect(button.textContent).toBe("Sync");
   });
 
@@ -140,7 +140,7 @@ describe("RenderList toolbar actions collapse to icon-only", () => {
     ]);
 
     const button = rtlScreen.getByTestId("render-list-toolbar-action-sync");
-    expect(button.getAttribute("data-size")).toBe("md");
+    expect(button.getAttribute("data-size")).toBe("sm");
     expect(button.textContent).toBe("Sync");
   });
 });

@@ -71,7 +71,7 @@ test("wizard-light", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
   await page.locator(EDIT_FORM).waitFor();
   for (let step = 1; step < 4; step++) {
-    await page.getByRole("button", { name: /Weiter/ }).click();
+    await page.getByRole("button", { name: /^Weiter:/ }).click();
   }
   await expect(page.getByText("Lass leer, was du noch nicht weißt")).toBeVisible();
   await shot(page, "wizard-light");

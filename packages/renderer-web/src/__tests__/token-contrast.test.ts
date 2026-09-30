@@ -64,6 +64,11 @@ function pairs(): ReadonlyArray<readonly [text: string, surface: string]> {
     ...textOnSurfaces,
     ["primary-foreground", "primary"],
     ["destructive-foreground", "destructive"],
+    ["sidebar-foreground", "sidebar"],
+    ["sidebar-muted", "sidebar"],
+    ["sidebar-muted", "sidebar-input"],
+    ["sidebar-accent-foreground", "sidebar-accent"],
+    ["sidebar-primary-foreground", "sidebar-primary"],
     ...STATUS_TONES.map((tone) => [`status-${tone}`, `status-${tone}-surface`] as const),
   ];
 }

@@ -135,62 +135,18 @@ describe("MoneyInput", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  test("+ Button: addiert 1 Major-Unit (=100 cents bei EUR) zum Canonical-Wert", () => {
-    const onChange = mock();
+  test("has no stepper buttons", () => {
     render(
       <MoneyInput
         id="eur"
         name="eur"
         value={1000}
-        onChange={onChange}
+        onChange={mock()}
         currency="EUR"
         locale="de-DE"
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "+" }));
-    expect(onChange).toHaveBeenCalledWith(1100);
-  });
-
-  test("− Button: subtrahiert 1 Major-Unit", () => {
-    const onChange = mock();
-    render(
-      <MoneyInput
-        id="eur"
-        name="eur"
-        value={1000}
-        onChange={onChange}
-        currency="EUR"
-        locale="de-DE"
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "−" }));
-    expect(onChange).toHaveBeenCalledWith(900);
-  });
-
-  test("+ Button bei leerem Wert: startet bei 0 + 1 Major-Unit", () => {
-    const onChange = mock();
-    render(
-      <MoneyInput id="eur" name="eur" value="" onChange={onChange} currency="EUR" locale="de-DE" />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "+" }));
-    expect(onChange).toHaveBeenCalledWith(100);
-  });
-
-  test("+ Button bei JPY: addiert 1 Yen (1 cent, weil JPY 0 decimals hat)", () => {
-    const onChange = mock();
-    render(
-      <MoneyInput
-        id="jpy"
-        name="jpy"
-        value={500}
-        onChange={onChange}
-        currency="JPY"
-        locale="ja-JP"
-      />,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "+" }));
-    // factor=1 (10^0), bump(1) → +1 statt +100
-    expect(onChange).toHaveBeenCalledWith(501);
+    expect(screen.queryByRole("button")).toBeNull();
   });
 });
 

@@ -94,6 +94,8 @@
   --color-sidebar-primary-foreground: #1a1a19;
   --color-sidebar-accent: #2a2926;
   --color-sidebar-accent-foreground: #ecebe7;
+  --color-sidebar-muted: #a3a19a;
+  --color-sidebar-input: #1f1f1d;
   --color-sidebar-border: #34332f;
   --color-sidebar-ring: #ecebe7;
 
@@ -321,6 +323,8 @@
     --color-sidebar-primary-foreground: #ffffff;
     --color-sidebar-accent: #e9e7e1;
     --color-sidebar-accent-foreground: #1a1c1e;
+    --color-sidebar-muted: #5f6368;
+    --color-sidebar-input: #ffffff;
     --color-sidebar-border: #e2e0d9;
     --color-sidebar-ring: #1a1c1e;
 

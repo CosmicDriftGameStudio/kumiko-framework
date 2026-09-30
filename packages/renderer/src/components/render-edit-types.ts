@@ -86,6 +86,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly submitLabel?: string;
   /** Visual style of the submit button (actionForm `submitStyle`). Default "primary". */
   readonly submitVariant?: "primary" | "danger";
+  /** Context box above the drawer form (title + optional subtitle, already resolved). */
+  readonly summary?: { readonly title: string; readonly subtitle?: string };
   /** Per-field extra content inline after the label (e.g.
    *  ConfigSourceBadge). Called with the field name, returns a ReactNode or
    *  undefined. */

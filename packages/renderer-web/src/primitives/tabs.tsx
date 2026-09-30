@@ -8,7 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 // The underline is a real border-b-2 (board) instead of the vendored ::after bar, so the
 // vendored active/dark border resets are overridden with identical variant chains.
 const TAB_TRIGGER_CLASS =
-  "h-full flex-none rounded-none border-0 border-b-2 border-transparent bg-transparent px-0 py-0 text-sm font-medium text-foreground-secondary after:hidden hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground dark:text-foreground-secondary dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-foreground dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-primary";
+  "h-full flex-none rounded-none border-0 border-b-2 border-transparent focus-visible:border-transparent bg-transparent px-0 py-0 text-sm font-medium text-foreground-secondary after:hidden hover:text-foreground data-[state=active]:border-primary data-[state=active]:focus-visible:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground dark:text-foreground-secondary dark:data-[state=active]:border-primary dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-foreground dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-primary";
 
 // A single fade-width both edges share — mask-image needs the same offset
 // on each side or the gradient reads as lopsided.

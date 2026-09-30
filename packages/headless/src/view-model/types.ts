@@ -11,6 +11,7 @@ import type {
   RelatedListToolbarAction,
   RowAction,
   ScreenSlots,
+  SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
 // Runtime-only renderer — function form allowed here because the renderer
@@ -53,6 +54,8 @@ export type ListColumnViewModel = {
    *  instead of humanizeSlug when present. Convention key:
    *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Only for `type: "select"` — declared tone per raw option value. */
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
   /** Nur bei `type: "reference"` — referenced Entity-Name für Bulk-
    *  Lookup im Renderer (`<refFeature>:query:<refEntity>:list`). */
   readonly refEntity?: string;
@@ -328,6 +331,9 @@ export type EditRelatedListSectionViewModel = {
   readonly parentParam?: string;
   readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
+  readonly description?: string;
+  /** Untranslated plural-forms key, resolved with the row count by the list footer. */
+  readonly itemNoun?: string;
   readonly pageSize?: number;
   readonly defaultSort?: ListSortSpec;
   readonly searchable?: boolean;

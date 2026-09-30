@@ -383,7 +383,12 @@ export function RelatedListSection({
   // are really just "the first N in the server's own order" (fw#2722 review).
   // `nextCursor` is exactly how the paged envelope marks that: non-null means
   // more rows exist server-side beyond what was fetched.
-  const truncated = rowsQuery.data !== null && rowsQuery.data.nextCursor !== null;
+  // A handler that omits `nextCursor` (or reports a `total` the fetched rows
+  // already cover) has no further rows — only a real cursor marks truncation.
+  const truncated =
+    rowsQuery.data !== null &&
+    typeof rowsQuery.data.nextCursor === "string" &&
+    (rowsQuery.data.total === undefined || rowsQuery.data.total > rowsQuery.data.rows.length);
 
   const content =
     rowsQuery.loading && rowsQuery.data === null ? (
@@ -415,6 +420,8 @@ export function RelatedListSection({
             rows={sortedRows}
             featureName={featureName}
             translate={effectiveTranslate}
+            {...(section.description !== undefined && { description: section.description })}
+            {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
             sort={sort}
             onSortChange={setSort}
             {...(section.searchable === true && {

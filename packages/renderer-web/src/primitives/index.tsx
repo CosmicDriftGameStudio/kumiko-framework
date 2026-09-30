@@ -8,7 +8,11 @@
 // basierte Stile. Radix-UI-Unterbau für interaktive Elemente (Modal,
 // Dropdown etc. kommen später).
 
-import type { FieldIconKey, IconKey } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  FieldIconKey,
+  IconKey,
+  SelectOptionTone,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListRowViewModel } from "@cosmicdrift/kumiko-headless";
 import { applyFormatSpec, isSafeHref } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -27,6 +31,7 @@ import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableProps,
+  type FieldCellWidth,
   type FieldProps,
   type FillContainerProps,
   type FormProps,
@@ -45,6 +50,7 @@ import {
   type StepBarProps,
   type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
+  statusToneForOptionTone,
   statusToneForValue,
   type TextProps,
   useColumnRenderer,
@@ -76,6 +82,7 @@ import {
   MoreHorizontal,
   Phone,
   Search,
+  SlidersHorizontal,
   Tag,
   User,
   X,
@@ -473,17 +480,22 @@ function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
-// Default presentation for `kind: "select"` with a small closed option set —
-// a 4-value Status field looked wrong stretched into a full-width dropdown
-// (edit-existing screenshot feedback). Only consulted when the caller states
-// no `display` of its own; an explicit `display` wins (#2711). The option
-// count is the only criterion: labels arrive already translated, so the former
-// label-length threshold made the widget type depend on the active UI language
-// (#2606). Labels that no longer fit wrap inside the group.
-const SEGMENTED_SELECT_MAX_OPTIONS = 4;
+// Default presentation for `kind: "select"` without a `display` of its own
+// (board rule): up to 3 short options read as a segmented control, up to 3
+// longer ones as a vertical radio list, everything else as a dropdown. Labels
+// arrive translated, so the widget can differ between UI languages (#2606).
+const SEGMENTED_SELECT_MAX_OPTIONS = 3;
+const SEGMENTED_SELECT_MAX_LABEL_LENGTH = 16;
 
-function isSegmentedSelectEligible(options: readonly unknown[]): boolean {
-  return options.length > 0 && options.length <= SEGMENTED_SELECT_MAX_OPTIONS;
+type SelectPresentation = "segmented" | "radioList" | "dropdown";
+
+function defaultSelectPresentation(
+  options: readonly { readonly label: string }[],
+): SelectPresentation {
+  if (options.length === 0 || options.length > SEGMENTED_SELECT_MAX_OPTIONS) return "dropdown";
+  return options.every((option) => option.label.length <= SEGMENTED_SELECT_MAX_LABEL_LENGTH)
+    ? "segmented"
+    : "radioList";
 }
 
 // A "" value is the unselected placeholder, not a real choice — a radio
@@ -545,7 +557,7 @@ function SegmentedSelect({
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`segmented-${id}`}
       className={cn(
-        "inline-flex w-fit flex-wrap overflow-hidden rounded-md border",
+        "inline-flex min-h-9 w-fit flex-wrap overflow-hidden rounded-md border",
         hasError === true ? "border-destructive" : "border-input",
       )}
     >
@@ -583,19 +595,69 @@ function SegmentedSelect({
               // and the next row's top border cut a notch into the row above.
               // Harmless on a single-row layout: there's no leftover space to
               // grow into, so `w-fit` on the container still holds.
-              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-sm font-medium transition-colors",
+              "-ml-px -mt-px grow border-l border-t px-3 py-1.5 text-sm transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               "disabled:pointer-events-none disabled:opacity-50",
               hasError === true ? "border-destructive/50" : "border-border",
               checked
-                ? "bg-primary text-primary-foreground"
-                : "bg-transparent text-foreground hover:bg-accent",
+                ? "bg-primary/10 font-semibold text-primary"
+                : "bg-transparent font-medium text-foreground hover:bg-accent",
             )}
           >
             {opt.label}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function RadioListSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  disabled,
+  required,
+  hasError,
+}: {
+  readonly id: string;
+  readonly name: string;
+  readonly value: string;
+  readonly onChange: (v: string) => void;
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly disabled?: boolean;
+  readonly required?: boolean;
+  readonly hasError?: boolean;
+}): ReactNode {
+  return (
+    <div
+      role="radiogroup"
+      aria-labelledby={fieldLabelId(id)}
+      aria-required={required}
+      aria-invalid={hasError === true ? true : undefined}
+      data-testid={`radio-list-${id}`}
+      className="flex flex-col gap-2"
+    >
+      {options.map((opt) => (
+        <label
+          key={opt.value}
+          className="flex items-center gap-2 text-sm font-normal text-foreground"
+        >
+          <input
+            type="radio"
+            name={name}
+            value={opt.value}
+            checked={opt.value === value}
+            disabled={disabled}
+            data-testid={`radio-list-${id}-${opt.value}`}
+            onChange={() => onChange(opt.value)}
+            className="size-4 accent-primary"
+          />
+          {opt.label}
+        </label>
+      ))}
     </div>
   );
 }
@@ -783,10 +845,27 @@ function DefaultInput(props: InputProps): ReactNode {
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
       // one even when the options outnumber the heuristic's threshold (#2711).
-      const wantsRadioGroup =
-        props.display === "radio" ||
-        (props.display === undefined && isSegmentedSelectEligible(radioGroupOptions));
-      if (wantsRadioGroup && radioGroupOptions.length > 0) {
+      const presentation =
+        props.display === "radio"
+          ? "segmented"
+          : props.display === "dropdown"
+            ? "dropdown"
+            : defaultSelectPresentation(radioGroupOptions);
+      if (presentation === "radioList" && radioGroupOptions.length > 0) {
+        return (
+          <RadioListSelect
+            id={props.id}
+            name={props.name}
+            value={props.value}
+            onChange={props.onChange}
+            options={radioGroupOptions}
+            {...(props.disabled !== undefined && { disabled: props.disabled })}
+            {...(props.required !== undefined && { required: props.required })}
+            {...(props.hasError !== undefined && { hasError: props.hasError })}
+          />
+        );
+      }
+      if (presentation === "segmented" && radioGroupOptions.length > 0) {
         return (
           <SegmentedSelect
             id={props.id}
@@ -1044,8 +1123,8 @@ function FlushTable({ className, ...props }: TableHTMLAttributes<HTMLTableElemen
 // Column weight (medium vs. semibold for the sorted one) lives on the th itself
 // in SortableHeader: a `[&_th]:font-*` rule here would outrank it.
 const FILL_TABLE_CLASS = cn(
-  "[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-9 [&_th]:bg-muted [&_th]:px-4 [&_th]:text-[13px]",
-  "[&_th]:shadow-[inset_0_-1px_0_var(--color-border)] [&_th_button]:text-[13px] [&_td]:px-4",
+  "[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-9 [&_th]:bg-muted [&_th]:px-2 [&_th]:text-[13px]",
+  "[&_th]:shadow-[inset_0_-1px_0_var(--color-border)] [&_th_button]:text-[13px] [&_td]:px-2 [&_td]:py-0",
   "[&_tr>:first-child]:pl-6 [&_tr>:last-child]:pr-6",
 );
 
@@ -1056,17 +1135,23 @@ const TABLE_FOOTER_BAR_CLASS = cn(
 
 function DataTableFooter({
   count,
+  itemNoun,
   testId,
 }: {
   readonly count: number;
+  readonly itemNoun?: (count: number) => string;
   readonly testId: string;
 }): ReactNode {
   const t = useOptionalTranslation();
+  const noun = itemNoun?.(count);
   const label =
-    count === 1
-      ? (t?.("kumiko.list.count.one") ?? "1 entry")
-      : (t?.("kumiko.list.count.other", { count: count.toLocaleString() }) ??
-        `${count.toLocaleString()} entries`);
+    noun !== undefined
+      ? (t?.("kumiko.list.count.noun", { count: count.toLocaleString(), noun }) ??
+        `${count.toLocaleString()} ${noun}`)
+      : count === 1
+        ? (t?.("kumiko.list.count.one") ?? "1 entry")
+        : (t?.("kumiko.list.count.other", { count: count.toLocaleString() }) ??
+          `${count.toLocaleString()} entries`);
   return (
     <div data-testid={testId} className={TABLE_FOOTER_BAR_CLASS}>
       <span data-testid={`${testId}-count`}>{label}</span>
@@ -1084,11 +1169,13 @@ function DefaultDataTable({
   onSortChange,
   emptyState,
   toolbarStart,
+  toolbarDescription,
   toolbarEnd,
   pager,
   onReachEnd,
   loadingMore,
   hasMore,
+  itemNoun,
   rowActions,
   rowActionMode,
   filterFacets,
@@ -1114,6 +1201,7 @@ function DefaultDataTable({
   // one). Cards replace the table entirely below the breakpoint — same
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
+  const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
@@ -1162,6 +1250,7 @@ function DefaultDataTable({
                   label={col.label}
                   sortable={col.sortable === true}
                   highlighted={col.highlighted === true}
+                  numeric={NUMERIC_COLUMN_TYPES.has(col.type)}
                   {...(sort !== undefined && sort !== null && { sort })}
                   {...(onSortChange !== undefined && { onSortChange })}
                 />
@@ -1206,6 +1295,7 @@ function DefaultDataTable({
                     className={cn(
                       "max-w-xs truncate",
                       colIndex === 0 ? "font-medium text-foreground" : "text-foreground-secondary",
+                      NUMERIC_COLUMN_TYPES.has(col.type) && "text-right tabular-nums",
                       col.highlighted === true && "bg-accent/40",
                     )}
                     title={cellTitle(row.values[col.field])}
@@ -1226,6 +1316,7 @@ function DefaultDataTable({
                         translate={tableTranslate}
                         locale={tableLocale}
                         {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+                        {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
                         {...(col.grouping !== undefined && { grouping: col.grouping })}
                         {...(onCellChange !== undefined && {
                           onChange: (value: unknown) => onCellChange(row.id, col.field, value),
@@ -1306,6 +1397,7 @@ function DefaultDataTable({
         translate={tableTranslate}
         locale={tableLocale}
         {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
+        {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
         {...(col.grouping !== undefined && { grouping: col.grouping })}
         {...(onCellChange !== undefined && {
           onChange: (value: unknown) => onCellChange(row.id, col.field, value),
@@ -1336,17 +1428,6 @@ function DefaultDataTable({
                 {cardCell(row, cardTitleColumn)}
               </span>
             )}
-            {showStatus && (
-              <span
-                data-testid={
-                  getCellTestId?.(row, cardStatusColumn.field) ??
-                  `cell-${row.id}-${cardStatusColumn.field}`
-                }
-                className="shrink-0"
-              >
-                {cardCell(row, cardStatusColumn)}
-              </span>
-            )}
           </div>
           {metaColumns.length > 0 && (
             <div className="flex min-w-0 items-center gap-1 truncate text-[13px] tabular-nums text-foreground-secondary">
@@ -1364,6 +1445,17 @@ function DefaultDataTable({
             </div>
           )}
         </div>
+        {showStatus && (
+          <span
+            data-testid={
+              getCellTestId?.(row, cardStatusColumn.field) ??
+              `cell-${row.id}-${cardStatusColumn.field}`
+            }
+            className="shrink-0"
+          >
+            {cardCell(row, cardStatusColumn)}
+          </span>
+        )}
         {rowIsLink && (
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         )}
@@ -1422,7 +1514,7 @@ function DefaultDataTable({
         className="flex flex-col"
       >
         {onSortChange !== undefined && sortableColumns.length > 0 && (
-          <div className="relative flex h-11 items-center gap-1.5 px-4 text-[13px] text-foreground-secondary">
+          <div className="relative flex h-9 items-center gap-1.5 px-4 text-[13px] text-foreground-secondary">
             <span aria-hidden="true">{sortLabel}</span>
             {sort !== undefined && sort !== null && (
               <SortArrow className="size-3.5" aria-hidden="true" />
@@ -1475,6 +1567,9 @@ function DefaultDataTable({
         limit={pager.limit}
         total={pager.total}
         onPageChange={pager.onPageChange}
+        {...(pager.pageSizeOptions !== undefined && { pageSizeOptions: pager.pageSizeOptions })}
+        {...(pager.onPageSizeChange !== undefined && { onPageSizeChange: pager.onPageSizeChange })}
+        {...(itemNoun !== undefined && { itemNoun })}
         testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
         pinned={fillsHeight}
       />
@@ -1505,6 +1600,7 @@ function DefaultDataTable({
       {pagerElement ?? (
         <DataTableFooter
           count={rows.length}
+          {...(itemNoun !== undefined && { itemNoun })}
           testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
         />
       )}
@@ -1555,8 +1651,12 @@ function DefaultDataTable({
       </div>
     ) : undefined;
 
+  const collapsesFacetsBehindButton = isNarrow && fillsHeight && facetCluster !== undefined;
   const hasToolbar =
-    toolbarStart !== undefined || toolbarEnd !== undefined || facetCluster !== undefined;
+    toolbarStart !== undefined ||
+    toolbarDescription !== undefined ||
+    toolbarEnd !== undefined ||
+    facetCluster !== undefined;
 
   // dashboard-01-Muster: die Toolbar (Search + Facets + "+ Neu") sitzt ÜBER
   // der Tabelle im selben Padding-Block — kein separater bg-Bar, kein Screen-
@@ -1595,7 +1695,7 @@ function DefaultDataTable({
             "flex flex-wrap items-center",
             fillsHeight
               ? isNarrow
-                ? "shrink-0 gap-1 px-3 pb-1 pt-3"
+                ? "shrink-0 gap-2 p-3"
                 : "min-h-13 shrink-0 gap-2 px-6 py-2 md:py-0"
               : "gap-3",
           )}
@@ -1605,7 +1705,7 @@ function DefaultDataTable({
             <div
               className={cn(
                 fillsHeight
-                  ? "relative w-full md:w-[300px] [&_input]:border-border-strong [&_input]:pl-8 [&_input]:max-md:h-11 md:[&_input]:h-8"
+                  ? "relative w-full md:w-[300px] max-md:flex-1 [&_input]:border-border-strong [&_input]:pl-8 [&_input]:max-md:h-11 md:[&_input]:h-8"
                   : "flex-1 min-w-48 max-w-sm",
               )}
             >
@@ -1618,7 +1718,35 @@ function DefaultDataTable({
               {toolbarStart}
             </div>
           )}
-          {facetCluster}
+          {toolbarDescription !== undefined && (
+            <p
+              data-testid={
+                testId !== undefined ? `${testId}-description` : "render-list-description"
+              }
+              className="m-0 text-[13px] text-muted-foreground"
+            >
+              {toolbarDescription}
+            </p>
+          )}
+          {collapsesFacetsBehindButton ? (
+            <>
+              <UiButton
+                type="button"
+                variant="outline"
+                size="icon"
+                className="size-11"
+                aria-label={tableTranslate?.("kumiko.list.filter.toggle") ?? "Filter"}
+                aria-expanded={facetsOpenNarrow}
+                data-testid={testId !== undefined ? `${testId}-filter-toggle` : "filter-toggle"}
+                onClick={() => setFacetsOpenNarrow((open) => !open)}
+              >
+                <SlidersHorizontal className="size-4" aria-hidden="true" />
+              </UiButton>
+              {facetsOpenNarrow && <div className="w-full">{facetCluster}</div>}
+            </>
+          ) : (
+            facetCluster
+          )}
           {toolbarEnd !== undefined && (
             <div className="flex flex-wrap items-center gap-2 ml-auto">{toolbarEnd}</div>
           )}
@@ -1823,7 +1951,7 @@ function RowActionButton({
       >
         {busy ? (
           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : resolvedIcon === undefined ? (
+        ) : resolvedIcon === undefined || (asLink && !showIconOnly) ? (
           action.label
         ) : showIconOnly ? (
           <Icon name={resolvedIcon} className="size-4" />
@@ -2068,6 +2196,9 @@ function Pager({
   limit,
   total,
   onPageChange,
+  pageSizeOptions,
+  onPageSizeChange,
+  itemNoun,
   testId,
   pinned,
 }: {
@@ -2075,6 +2206,9 @@ function Pager({
   readonly limit: number;
   readonly total: number;
   readonly onPageChange: (next: number) => void;
+  readonly pageSizeOptions?: readonly number[];
+  readonly onPageSizeChange?: (next: number) => void;
+  readonly itemNoun?: (count: number) => string;
   readonly testId?: string;
   readonly pinned?: boolean;
 }): ReactNode {
@@ -2094,12 +2228,34 @@ function Pager({
       }
     >
       <div data-testid={testId !== undefined ? `${testId}-status` : undefined} className="flex-1">
-        {t("kumiko.pager.status", {
-          from: from.toLocaleString(),
-          to: to.toLocaleString(),
-          total: total.toLocaleString(),
-        })}
+        {itemNoun !== undefined
+          ? t("kumiko.pager.status.noun", {
+              from: from.toLocaleString(),
+              to: to.toLocaleString(),
+              total: total.toLocaleString(),
+              noun: itemNoun(total),
+            })
+          : t("kumiko.pager.status", {
+              from: from.toLocaleString(),
+              to: to.toLocaleString(),
+              total: total.toLocaleString(),
+            })}
       </div>
+      {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
+        <select
+          aria-label={t("kumiko.pager.pageSizeLabel")}
+          data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
+          value={limit}
+          onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          className="hidden h-7 rounded-md border border-input bg-card px-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:block"
+        >
+          {pageSizeOptions.map((size) => (
+            <option key={size} value={size}>
+              {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
+            </option>
+          ))}
+        </select>
+      )}
       <div className="hidden md:block">
         {t("kumiko.pager.pageOf", {
           page: safePage.toLocaleString(),
@@ -2173,6 +2329,7 @@ function SortableHeader({
   label,
   sortable,
   highlighted,
+  numeric,
   sort,
   onSortChange,
 }: {
@@ -2180,6 +2337,7 @@ function SortableHeader({
   readonly label: string;
   readonly sortable: boolean;
   readonly highlighted?: boolean;
+  readonly numeric?: boolean;
   readonly sort?: DataTableSort;
   readonly onSortChange?: (next: DataTableSort | null) => void;
 }): ReactNode {
@@ -2193,7 +2351,11 @@ function SortableHeader({
         data-testid={`column-${field}`}
         data-sortable={sortable === true ? true : undefined}
         data-highlighted={highlighted === true ? "true" : undefined}
-        className={cn("font-medium text-muted-foreground", highlighted === true && "bg-accent/40")}
+        className={cn(
+          "font-medium text-muted-foreground",
+          numeric === true && "text-right",
+          highlighted === true && "bg-accent/40",
+        )}
       >
         {label}
       </TableHead>
@@ -2213,6 +2375,7 @@ function SortableHeader({
         active !== undefined
           ? "font-semibold text-foreground"
           : "font-medium text-muted-foreground",
+        numeric === true && "text-right",
         highlighted === true && "bg-accent/40",
       )}
     >
@@ -2220,14 +2383,22 @@ function SortableHeader({
         type="button"
         onClick={() => onSortChange(next)}
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm [font-weight:inherit]",
+          "group/sort inline-flex h-8 items-center gap-1.5 rounded-sm px-2 -mx-2 text-sm [font-weight:inherit]",
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           active !== undefined && "text-foreground",
         )}
       >
         <span>{label}</span>
-        <Icon className={cn("size-3.5", active === undefined && "opacity-40")} aria-hidden="true" />
+        <Icon
+          data-sort-icon={active === undefined ? "idle" : "active"}
+          className={cn(
+            "size-3.5",
+            active === undefined &&
+              "opacity-0 group-hover/sort:opacity-40 group-focus-visible/sort:opacity-40",
+          )}
+          aria-hidden="true"
+        />
       </button>
     </TableHead>
   );
@@ -2374,11 +2545,16 @@ type DataTableCellProps = {
   readonly type: string;
   readonly renderer?: unknown;
   readonly optionLabels?: Readonly<Record<string, string>>;
+  readonly optionTones?: Readonly<Partial<Record<string, SelectOptionTone>>>;
   readonly onChange?: (value: unknown) => void;
   readonly translate?: (key: string, params?: Readonly<Record<string, unknown>>) => string;
   readonly locale?: string;
   readonly grouping?: boolean;
 };
+
+const EMPTY_CELL_PLACEHOLDER = "–";
+
+const NUMERIC_COLUMN_TYPES: ReadonlySet<string> = new Set(["number", "decimal", "bigInt", "money"]);
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
 // useColumnRenderer-Hook aus dem Provider lesen kann. Die vier Pfade:
@@ -2396,6 +2572,7 @@ function DataTableCell({
   type,
   renderer,
   optionLabels,
+  optionTones,
   onChange,
   translate,
   locale,
@@ -2403,6 +2580,13 @@ function DataTableCell({
 }: DataTableCellProps): ReactNode {
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
+  if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
+    return (
+      <span data-empty-cell="true" className="text-muted-foreground">
+        {EMPTY_CELL_PLACEHOLDER}
+      </span>
+    );
+  }
   if (typeof renderer === "object" && renderer !== null && "format" in renderer) {
     return applyFormatSpec(
       { locale, ...(renderer as { format: string } & Record<string, unknown>) },
@@ -2454,7 +2638,13 @@ function DataTableCell({
   // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     const label = defaultCellRender(value, type, optionLabels, locale);
-    const tone = typeof value === "string" ? statusToneForValue(value) : undefined;
+    const declaredTone = typeof value === "string" ? optionTones?.[value] : undefined;
+    const tone =
+      declaredTone !== undefined
+        ? statusToneForOptionTone(declaredTone)
+        : typeof value === "string"
+          ? statusToneForValue(value)
+          : undefined;
     if (tone !== undefined) {
       return <StatusBadge tone={tone}>{label}</StatusBadge>;
     }
@@ -2888,9 +3078,13 @@ function DrawerFormLayout({
   subtitle,
   actions,
   secondaryActions,
+  summary,
   testId,
   children,
-}: Pick<FormProps, "onSubmit" | "subtitle" | "actions" | "secondaryActions" | "testId"> & {
+}: Pick<
+  FormProps,
+  "onSubmit" | "subtitle" | "actions" | "secondaryActions" | "testId" | "summary"
+> & {
   readonly children: ReactNode;
 }): ReactNode {
   return (
@@ -2899,6 +3093,17 @@ function DrawerFormLayout({
         data-testid={testId !== undefined ? `${testId}-scroll` : undefined}
         className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 py-5"
       >
+        {summary !== undefined && (
+          <div
+            data-testid={testId !== undefined ? `${testId}-summary` : undefined}
+            className="flex flex-col gap-0.5 rounded-lg bg-muted px-3.5 py-3"
+          >
+            <span className="text-sm font-semibold text-foreground">{summary.title}</span>
+            {summary.subtitle !== undefined && (
+              <span className="text-[13px] text-foreground-secondary">{summary.subtitle}</span>
+            )}
+          </div>
+        )}
         {subtitle !== undefined && (
           <p
             data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
@@ -2946,6 +3151,7 @@ function DefaultForm({
   unsavedCount,
   sectionNav,
   sideRail,
+  summary,
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
@@ -2980,6 +3186,7 @@ function DefaultForm({
         subtitle={subtitle}
         actions={actions}
         secondaryActions={secondaryActions}
+        summary={summary}
         testId={testId}
       >
         {children}
@@ -3073,12 +3280,12 @@ function DefaultForm({
         className={cn("flex flex-col w-full", fillHeight === true && "h-full min-h-0")}
       >
         <FormScreenShell
-          {...(width !== undefined && { maxWidth: width })}
+          maxWidth="full"
           {...(fillHeight === true && { fillHeight: true })}
-          {...(pinnedShellClassName !== undefined && { className: pinnedShellClassName })}
+          className={cn("!p-0", pinnedShellClassName)}
         >
           {headerRegion !== undefined && (
-            <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
+            <div className={cn("flex flex-col", fillHeight === true && "shrink-0")}>
               {headerRegion}
             </div>
           )}
@@ -3313,7 +3520,24 @@ function DefaultFillContainer({ children, testId, grow }: FillContainerProps): R
   );
 }
 
-function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNode {
+const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
+  text: "w-full sm:w-60",
+  number: "w-24",
+  money: "w-40",
+  date: "w-full sm:w-[200px]",
+  select: "w-full sm:w-auto sm:min-w-[200px]",
+  full: "w-full",
+  auto: "w-auto",
+};
+
+function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): ReactNode {
+  if (flow === true) {
+    return (
+      <div data-testid={testId} className="flex flex-wrap items-start gap-4">
+        {children}
+      </div>
+    );
+  }
   // "auto": content-sized items in a wrapping row (e.g. a metrics band of
   // self-sized tiles) instead of N equal-width, container-stretched tracks.
   // maxRows/scrolling don't apply — the row just wraps.
@@ -3361,7 +3585,12 @@ function DefaultGrid({ columns, children, testId, maxRows }: GridProps): ReactNo
   );
 }
 
-function DefaultGridCell({ span, children }: GridCellProps): ReactNode {
+function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
+  if (width !== undefined) {
+    return (
+      <div className={cn("min-w-0 max-w-full", FIELD_CELL_WIDTH_CLASS[width])}>{children}</div>
+    );
+  }
   const s = span !== undefined ? Math.min(span, 12) : 1;
   return <div style={{ gridColumn: `span ${s}` }}>{children}</div>;
 }
@@ -3471,9 +3700,10 @@ function DefaultStepBar({
   );
 }
 
-function DefaultWizardStepGroup({ hidden, children }: WizardStepGroupProps): ReactNode {
+function DefaultWizardStepGroup({ hidden, inset, children }: WizardStepGroupProps): ReactNode {
+  const visibleClass = inset === true ? "flex min-w-0 flex-col gap-4 p-6" : "contents";
   return (
-    <fieldset disabled={hidden} hidden={hidden} className={hidden ? undefined : "contents"}>
+    <fieldset disabled={hidden} hidden={hidden} className={hidden ? undefined : visibleClass}>
       {children}
     </fieldset>
   );

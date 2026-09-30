@@ -35,6 +35,7 @@ export const vehicleListScreen: EntityListScreenDefinition = {
   type: "entityList",
   entity: "vehicle",
   columns: ["marke", "modell", "baujahr", "preis", "zustand"],
+  searchPlaceholder: "vehicles.search.placeholder",
   defaultSort: { field: "marke", dir: "asc" },
   rowActions: [
     {
@@ -64,7 +65,6 @@ export const vehicleEditScreen: EntityEditScreenDefinition = {
   listScreenId: "vehicle-list",
   submitLabel: "vehicles.action.saveChanges",
   layout: {
-    width: "full",
     sections: [
       {
         title: "vehicles.section.basics",
@@ -126,6 +126,7 @@ export const campaignListScreen: EntityListScreenDefinition = {
   type: "entityList",
   entity: "campaign",
   columns: ["name", "status", "meta"],
-  defaultSort: { field: "name", dir: "asc" },
+  searchPlaceholder: "vehicles.search.placeholder",
+  defaultSort: { field: "meta", dir: "desc" },
   access: OPEN_ACCESS,
 };

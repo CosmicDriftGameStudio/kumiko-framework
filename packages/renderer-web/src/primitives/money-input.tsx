@@ -9,13 +9,8 @@
 // ("1.234,56 €") ab — kein Browser akzeptiert Locale-Decimals (Komma)
 // in number-Inputs. inputMode="decimal" gibt mobiles Numpad-Keyboard
 // trotzdem.
-//
-// +/- Buttons mutieren den Canonical-Wert direkt (1 Major-Unit pro
-// Klick — also 100 cents bei EUR/USD, 1 yen bei JPY). User der nur
-// Cent-genaue Steps will tippt halt im Focus-Modus.
 
 import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
-import { Minus, Plus } from "lucide-react";
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 
@@ -36,18 +31,13 @@ export type MoneyInputProps = {
 };
 
 const inputClass =
-  "flex h-9 w-full rounded-md border border-input bg-transparent pl-3 pr-1 text-sm shadow-sm " +
+  "flex h-9 w-full rounded-md border border-input bg-transparent pl-3 pr-3 text-sm shadow-sm " +
   "transition-colors placeholder:text-muted-foreground focus-visible:outline-none " +
   "focus-visible:ring-1 focus-visible:ring-ring " +
   "disabled:cursor-not-allowed disabled:opacity-50 " +
   // Numerische Inputs rechtsbündig — wie native type=number — damit
   // Beträge unter Listen-Spalten an den Tausender-Stellen alignen.
   "text-right tabular-nums";
-
-const stepBtnClass =
-  "inline-flex h-7 w-7 items-center justify-center rounded-sm text-muted-foreground " +
-  "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 " +
-  "focus-visible:ring-ring disabled:opacity-40 disabled:pointer-events-none";
 
 export function MoneyInput({
   id,
@@ -114,11 +104,6 @@ export function MoneyInput({
     onChange(Math.round(parsed * factor));
   };
 
-  const bump = (delta: number): void => {
-    const current = value === "" ? 0 : value;
-    onChange(current + delta * factor);
-  };
-
   return (
     <div className="relative w-full">
       <input
@@ -137,32 +122,10 @@ export function MoneyInput({
         onChange={(e) => setDraft(e.target.value)}
         className={cn(
           inputClass,
-          "pr-20",
+          "pr-3",
           hasError === true && "border-destructive focus-visible:ring-destructive",
         )}
       />
-      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-        <button
-          type="button"
-          aria-label="−"
-          tabIndex={-1}
-          disabled={disabled}
-          onClick={() => bump(-1)}
-          className={stepBtnClass}
-        >
-          <Minus className="size-3.5" aria-hidden="true" />
-        </button>
-        <button
-          type="button"
-          aria-label="+"
-          tabIndex={-1}
-          disabled={disabled}
-          onClick={() => bump(1)}
-          className={stepBtnClass}
-        >
-          <Plus className="size-3.5" aria-hidden="true" />
-        </button>
-      </div>
     </div>
   );
 }

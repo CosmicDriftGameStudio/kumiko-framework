@@ -1390,7 +1390,7 @@ describe("RenderEdit — FieldConditions react to extension patch() (#1916)", ()
   }
 
   function isRequired(testId: string): boolean {
-    return screen.getByTestId(testId).querySelector("[data-required]") !== null;
+    return screen.getByTestId(testId).querySelector("[aria-required='true']") !== null;
   }
 
   function isDisabled(testId: string): boolean {

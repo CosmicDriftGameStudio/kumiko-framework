@@ -40,11 +40,17 @@ describe("DefaultInput select → segmented control (edit-existing feedback)", (
     expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
-  test("4 options render the segmented control", () => {
+  test("4 options keep the dropdown", () => {
     renderSelect(["Draft", "Review", "Published", "Archived"]);
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.getByTestId("combobox-status")).toBeTruthy();
+  });
+
+  test("3 options with a long label render a radio list instead of segments", () => {
+    renderSelect(["Draft", "Review", "Published and archived"]);
     expect(screen.queryByTestId("combobox-status")).toBeNull();
-    expect(screen.getByRole("radiogroup")).toBeTruthy();
-    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getByTestId("field-status").querySelector("[role=radiogroup]")).not.toBeNull();
   });
 
   test("5 options keep the dropdown", () => {
@@ -158,13 +164,12 @@ describe("DefaultInput select → placeholder option is excluded from the segmen
     }
   });
 
-  test("4 real options plus a placeholder still count as only 4 real options → segmented control", () => {
+  test("3 real options plus a placeholder still count as only 3 real options → segmented control", () => {
     const options = [
       { value: "", label: "Select one" },
       { value: "a", label: "Alpha" },
       { value: "b", label: "Beta" },
       { value: "c", label: "Gamma" },
-      { value: "d", label: "Delta" },
     ];
     render(
       <Field id="letter" label="Letter" testId="field-letter">
@@ -179,7 +184,7 @@ describe("DefaultInput select → placeholder option is excluded from the segmen
       </Field>,
     );
     expect(screen.getByRole("radiogroup")).toBeTruthy();
-    expect(screen.getAllByRole("radio")).toHaveLength(4);
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
   });
 
   test("5 real options plus a placeholder exceed the threshold → dropdown", () => {

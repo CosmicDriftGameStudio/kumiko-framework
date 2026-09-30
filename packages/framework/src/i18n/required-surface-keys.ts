@@ -166,6 +166,8 @@ export function requiredKeysFromScreen(
           out.add(fieldLabelKey(featureName, list.entity, normalized.field));
         }
       }
+      pushKey(out, list.createLabel);
+      pushKey(out, list.searchPlaceholder);
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
       break;
@@ -177,6 +179,8 @@ export function requiredKeysFromScreen(
         const normalized = normalizeListColumn(col);
         if (normalized.label !== undefined) pushKey(out, normalized.label);
       }
+      pushKey(out, list.createLabel);
+      pushKey(out, list.searchPlaceholder);
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
       break;
@@ -207,6 +211,8 @@ export function requiredKeysFromScreen(
     case "actionForm": {
       const form = screen as ActionFormScreenDefinition;
       pushKey(out, form.submitLabel);
+      pushKey(out, form.summary?.title);
+      pushKey(out, form.summary?.subtitle);
       for (const fieldName of Object.keys(form.fields)) {
         const override = form.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override);
@@ -318,6 +324,8 @@ export function requiredKeysFromScreen(
         }
         if (section.kind === "relatedList") {
           pushKey(out, section.title);
+          pushKey(out, section.description);
+          pushKey(out, section.itemNoun);
           for (const col of section.columns) {
             const normalized = normalizeListColumn(col);
             if (normalized.label !== undefined) pushKey(out, normalized.label);

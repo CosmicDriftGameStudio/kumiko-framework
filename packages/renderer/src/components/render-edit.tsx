@@ -21,6 +21,7 @@ import type {
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
 import { RenderEditActionButton } from "./render-edit-action-button";
 import type { RenderEditProps } from "./render-edit-types";
+import { AllFieldsRequiredProvider } from "./render-field";
 
 export type {
   RenderEditAction,
@@ -40,6 +41,7 @@ import { useTranslation } from "../i18n";
 import { useInsideDrawer } from "../inside-drawer";
 import { usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
+  type ActionMenuItemSpec,
   type FormSectionNavItem,
   STICKY_PRIMARY_ACTION_PROP,
   type StickyPrimaryActionMarker,
@@ -314,6 +316,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onRelatedListDrawerAction,
     submitLabel,
     submitVariant,
+    summary,
     labelAppendix,
     fieldAppendix,
     entityId: entityIdProp,
@@ -412,6 +415,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     WizardStepGroup,
     Tabs,
     PageHeader,
+    ActionOverflowMenu,
   } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const insideDrawer = useInsideDrawer();
@@ -752,6 +756,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     [vm.sections, fieldsFilter],
   );
 
+  const allFieldsRequired = useMemo(() => {
+    const fillable = filteredSections.flatMap((section) =>
+      section.kind === "fields"
+        ? section.fields.filter((field) => field.visible && !field.readOnly)
+        : [],
+    );
+    return fillable.length > 0 && fillable.every((field) => field.required);
+  }, [filteredSections]);
+
+  const showsAllRequiredHint = allFieldsRequired && hideSectionTitles !== true && !isWizard;
+
   // true when editable fields exist or an extension opted into composed submit (fw#2359).
   const isFormEditable = hasEditableSection(filteredSections);
   // A fieldless form (input-less secretMint mint, fw#2838 — the secret is
@@ -1078,21 +1093,73 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   }
   handleSubmitRef.current = handleSubmit;
 
+  // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
+  // the title then lives in the shell header when the shell offers a slot.
+  const isScreenForm =
+    fillScreenHeight === true &&
+    hideSectionTitles !== true &&
+    headerRegion === undefined &&
+    !insideDrawer;
+  const titleInShell =
+    PageHeader !== undefined &&
+    pageHeaderSlotAvailable &&
+    hideSectionTitles !== true &&
+    headerRegion === undefined;
+  const menuPageHeaderActions = titleInShell && isScreenForm && ActionOverflowMenu !== undefined;
+  const cancelInHeaderMenu = menuPageHeaderActions && isWizard && onCancel !== undefined;
   // Two groups — wizard navigation on the right/top, record actions on the
   // left/below; destructive action sits outermost, farthest from the target
   // action.
   const hasSecondaryFormActions =
-    onDelete !== undefined ||
-    onCopyLink !== undefined ||
+    (!menuPageHeaderActions && (onDelete !== undefined || onCopyLink !== undefined)) ||
     (actions !== undefined && actions.length > 0) ||
-    onCancel !== undefined;
+    (onCancel !== undefined && !cancelInHeaderMenu);
   // Teil-C collapse rule: driven by the custom `actions` group only — a
   // resolved true also folds the Copy-Link button (same visual group in the
   // footer), but never Delete/Cancel, which keep their text regardless.
   const iconOnlyMidActions = actions !== undefined && shouldRenderActionsIconOnly(actions);
+  const headerMenuItems: readonly ActionMenuItemSpec[] = menuPageHeaderActions
+    ? [
+        ...(onCopyLink !== undefined
+          ? [
+              {
+                id: "copy-link",
+                label: translate(
+                  linkCopied ? "kumiko.actions.copyLinkCopied" : "kumiko.actions.copyLink",
+                ),
+                icon: "link" as const,
+                onSelect: () => {
+                  void Promise.resolve(onCopyLink()).then(() => setLinkCopied(true));
+                },
+              },
+            ]
+          : []),
+        ...(cancelInHeaderMenu
+          ? [
+              {
+                id: "cancel",
+                label: translate("kumiko.actions.cancel"),
+                icon: "x" as const,
+                onSelect: () => onCancel(),
+              },
+            ]
+          : []),
+        ...(onDelete !== undefined
+          ? [
+              {
+                id: "delete",
+                label: translate("kumiko.actions.delete"),
+                icon: "trash" as const,
+                variant: "danger" as const,
+                onSelect: () => setConfirmDeleteOpen(true),
+              },
+            ]
+          : []),
+      ]
+    : [];
   const secondaryFormActions = (
     <>
-      {onDelete !== undefined && (
+      {onDelete !== undefined && !menuPageHeaderActions && (
         <Button
           type="button"
           variant="danger-ghost"
@@ -1104,7 +1171,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.actions.delete")}
         </Button>
       )}
-      {onCopyLink !== undefined && (
+      {onCopyLink !== undefined && !menuPageHeaderActions && (
         <Button
           type="button"
           variant={iconOnlyMidActions ? "secondary" : "link"}
@@ -1136,11 +1203,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           onError={setActionError}
         />
       ))}
-      {onCancel !== undefined && (
+      {onCancel !== undefined && !cancelInHeaderMenu && (
         <Button
           type="button"
           variant="secondary"
-          {...(!insideDrawer && { icon: "x" as const })}
           onClick={() => onCancel()}
           testId="render-edit-cancel"
         >
@@ -1210,7 +1276,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         <Button
           type="button"
           variant="secondary"
-          icon="arrow-left"
+          icon="chevron-left"
           onClick={handleWizardBack}
           testId="render-edit-wizard-back"
         >
@@ -1234,7 +1300,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         <Button
           type="submit"
           variant="primary"
-          iconEnd="arrow-right"
+          iconEnd="chevron-right"
           testId="render-edit-wizard-next"
         >
           {nextStepTitle !== undefined
@@ -1246,11 +1312,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         <Button
           type="submit"
           disabled={
-            (snapshot.isUnchanged && !extensionDirty && !isFieldless) || isSubmitting || disabled
+            (snapshot.isUnchanged && !extensionDirty && !isFieldless && !insideDrawer) ||
+            isSubmitting ||
+            disabled
           }
           loading={isSubmitting}
           variant={submitVariant ?? "primary"}
-          icon="check"
           testId="render-edit-submit"
         >
           {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
@@ -1293,18 +1360,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         (screen.description !== undefined ? translate(screen.description) : undefined))
       : undefined;
 
-  // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
-  // the title then lives in the shell header when the shell offers a slot.
-  const isScreenForm =
-    fillScreenHeight === true &&
-    hideSectionTitles !== true &&
-    headerRegion === undefined &&
-    !insideDrawer;
-  const titleInShell =
-    PageHeader !== undefined &&
-    pageHeaderSlotAvailable &&
-    hideSectionTitles !== true &&
-    headerRegion === undefined;
+  const usesFieldFlow = isScreenForm || insideDrawer;
   const stepRail = isWizard && isScreenForm && StepBar !== undefined;
   const changedFieldCount = isCreate ? 0 : Object.keys(snapshot.changes).length;
   const unsavedCount =
@@ -1341,7 +1397,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   return (
     <ExtensionFormRegistryProvider value={extensionFormRegistry}>
-      {titleInShell && <PageHeader title={formTitle} />}
+      {titleInShell && (
+        <PageHeader
+          title={formTitle}
+          {...(headerMenuItems.length > 0 &&
+            ActionOverflowMenu !== undefined && {
+              actions: (
+                <ActionOverflowMenu
+                  label={translate("kumiko.list.row-actions.more")}
+                  items={headerMenuItems}
+                  testId="render-edit-header-menu"
+                />
+              ),
+            })}
+        />
+      )}
       <Form
         onSubmit={() => void handleSubmit()}
         {...(hideSectionTitles !== true && !titleInShell && { title: formTitle })}
@@ -1377,403 +1447,409 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(titleActionMount !== undefined && { titleAction: titleActionMount })}
         {...(fillHeight && { fillHeight })}
         {...(hideSectionTitles === true && { chromeless: true })}
+        {...(summary !== undefined && { summary })}
       >
-        {draftCandidates !== null && (
-          <Banner
-            variant="info"
-            testId="render-edit-draft-picker"
-            actions={[
-              ...draftCandidates.map((candidate) => (
+        <AllFieldsRequiredProvider value={showsAllRequiredHint}>
+          {showsAllRequiredHint && (
+            <Text variant="muted" testId="render-edit-all-required-hint">
+              {translate("kumiko.form.all-required")}
+            </Text>
+          )}
+          {draftCandidates !== null && (
+            <Banner
+              variant="info"
+              testId="render-edit-draft-picker"
+              actions={[
+                ...draftCandidates.map((candidate) => (
+                  <Button
+                    key={candidate.id}
+                    type="button"
+                    variant="link"
+                    onClick={() => adoptDraft(candidate)}
+                    testId={`render-edit-draft-pick-${candidate.id}`}
+                  >
+                    {formatWhen(candidate.savedAt)}
+                  </Button>
+                )),
                 <Button
-                  key={candidate.id}
+                  key="start-new"
                   type="button"
                   variant="link"
-                  onClick={() => adoptDraft(candidate)}
-                  testId={`render-edit-draft-pick-${candidate.id}`}
+                  onClick={() => setDraftCandidates(null)}
+                  testId="render-edit-draft-start-new"
                 >
-                  {formatWhen(candidate.savedAt)}
-                </Button>
-              )),
-              <Button
-                key="start-new"
-                type="button"
-                variant="link"
-                onClick={() => setDraftCandidates(null)}
-                testId="render-edit-draft-start-new"
-              >
-                {translate("kumiko.form.draft.start-new")}
-              </Button>,
-            ]}
-          >
-            <Text>
-              {translate(
-                draftCandidates.length === 1
-                  ? "kumiko.form.draft.resume-single"
-                  : "kumiko.form.draft.resume-multiple",
-              )}
-            </Text>
-          </Banner>
-        )}
-        {isWizard && !stepRail && (
-          <>
-            {Progress !== undefined && (
-              <Progress
-                value={(currentStep + 1) / (lastStepIndex + 1)}
-                testId="render-edit-wizard-progress"
-              />
-            )}
-            {/* No StepBar registered → keep the plain label RenderEdit always had (additive rollout, see CorePrimitives.StepBar). */}
-            {StepBar === undefined ? (
-              <Text variant="small" testId="render-edit-wizard-step-label">
-                {compactStepLabel}
+                  {translate("kumiko.form.draft.start-new")}
+                </Button>,
+              ]}
+            >
+              <Text>
+                {translate(
+                  draftCandidates.length === 1
+                    ? "kumiko.form.draft.resume-single"
+                    : "kumiko.form.draft.resume-multiple",
+                )}
               </Text>
-            ) : (
-              <StepBar
-                steps={filteredSections.map((section) => section.title ?? "")}
-                currentIndex={currentStep}
-                compactLabel={compactStepLabel}
-                onStepSelect={handleWizardJumpBack}
-                testId="render-edit-wizard-steps"
-                compactTestId="render-edit-wizard-step-label"
-              />
-            )}
-          </>
-        )}
-        {isTabs &&
-          (() => {
-            // No Tabs primitive registered → every section renders stacked
-            // (stepHidden below is gated on the same condition), which is the
-            // single-layout behaviour. Degrading to one long form beats
-            // hiding sections behind a strip that never drew.
-            if (Tabs === undefined) return null;
-            return (
-              <Tabs
-                testId="render-edit-tabs"
-                items={filteredSections.map((section, index) => ({
-                  id: tabIdAt(section, index),
-                  label: section.title ?? "",
-                }))}
-                activeId={tabIdAt(filteredSections[currentStep], currentStep)}
-                onSelect={(id) => {
-                  const index = filteredSections.findIndex((s, i) => tabIdAt(s, i) === id);
-                  // skip: the strip reported an id no section owns.
-                  if (index === -1) return;
-                  setRawStep(index);
-                }}
-              />
-            );
-          })()}
-        {filteredSections.map((section: EditSectionViewModel, sectionIndex: number) => {
-          // turns this section's own `actions` (RowAction[]) into
-          // already-bound buttons via the caller-supplied builder, rendered
-          // through the same RenderEditActionButton the top-level `actions`
-          // prop uses (same style/confirm/icon/error handling).
-          const sectionActions = section.actions;
-          const sectionActionsEl: ReactNode =
-            sectionActions !== undefined && sectionActions.length > 0
-              ? buildSectionActions?.(sectionActions)?.map((action) => (
-                  <RenderEditActionButton
-                    key={action.id}
-                    action={action}
-                    Button={Button}
-                    Dialog={Dialog}
-                    onError={setActionError}
-                  />
-                ))
-              : undefined;
-          // Wizard steps and tabs stay mounted while off-screen (native
-          // `hidden`, not unmounted) so an extension section's submit-registry
-          // entry (useExtensionFormSubmit → registry.remove on unmount)
-          // survives navigating past its step — otherwise Finish only ran the
-          // last mounted step's handler and silently dropped earlier steps'
-          // writes. For tabs this is also what makes ONE submit cover every
-          // tab, including tabs the user never opened (fw#3134).
-          const stepHidden = isStepped && sectionIndex !== currentStep;
-          const wrapWizardStep = (key: string, el: ReactNode): ReactNode => {
-            if (!isStepped) return el;
-            if (WizardStepGroup === undefined) {
-              throw new Error(
-                `RenderEdit: ${screen.layout.mode} layout requires primitives.WizardStepGroup, but none is registered.`,
+            </Banner>
+          )}
+          {isWizard && !stepRail && (
+            <>
+              {Progress !== undefined && (
+                <Progress
+                  value={(currentStep + 1) / (lastStepIndex + 1)}
+                  testId="render-edit-wizard-progress"
+                />
+              )}
+              {/* No StepBar registered → keep the plain label RenderEdit always had (additive rollout, see CorePrimitives.StepBar). */}
+              {StepBar === undefined ? (
+                <Text variant="small" testId="render-edit-wizard-step-label">
+                  {compactStepLabel}
+                </Text>
+              ) : (
+                <StepBar
+                  steps={filteredSections.map((section) => section.title ?? "")}
+                  currentIndex={currentStep}
+                  compactLabel={compactStepLabel}
+                  onStepSelect={handleWizardJumpBack}
+                  testId="render-edit-wizard-steps"
+                  compactTestId="render-edit-wizard-step-label"
+                />
+              )}
+            </>
+          )}
+          {isTabs &&
+            (() => {
+              // No Tabs primitive registered → every section renders stacked
+              // (stepHidden below is gated on the same condition), which is the
+              // single-layout behaviour. Degrading to one long form beats
+              // hiding sections behind a strip that never drew.
+              if (Tabs === undefined) return null;
+              return (
+                <Tabs
+                  testId="render-edit-tabs"
+                  items={filteredSections.map((section, index) => ({
+                    id: tabIdAt(section, index),
+                    label: section.title ?? "",
+                  }))}
+                  activeId={tabIdAt(filteredSections[currentStep], currentStep)}
+                  onSelect={(id) => {
+                    const index = filteredSections.findIndex((s, i) => tabIdAt(s, i) === id);
+                    // skip: the strip reported an id no section owns.
+                    if (index === -1) return;
+                    setRawStep(index);
+                  }}
+                />
               );
-            }
-            return (
-              <WizardStepGroup key={key} hidden={stepHidden}>
-                {el}
-              </WizardStepGroup>
-            );
-          };
-          // Off-screen wizard steps stay mounted (see comment above) but must
-          // not participate in native constraint validation, or the Next
-          // button's `type="submit"` triggers the browser's full-form check
-          // — including required fields on unvisited steps, which are not
-          // focusable while hidden, so the wizard silently stops navigating
-          // (only a console warning, no visible error). A plain `hidden`
-          // attribute does NOT bar descendants from constraint validation on
-          // web — see WizardStepGroupProps for what implementations must
-          // guarantee.
-          if (section.kind === "extension") {
-            const mount = (
-              <ExtensionSectionMount
-                key={section.title}
-                section={section}
-                entityName={vm.entityName}
-                entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
-                initialValues={extensionInitialValues}
-                values={snapshot.values}
-                // @cast-boundary form-values: ExtensionSectionProps is not generic
-                // over TValues; controller is mount-lifetime-stable, see onControlsReady above.
-                patch={
-                  patchAndScheduleDraftSave as (partial: Readonly<Record<string, unknown>>) => void
-                }
-                validate={scopedValidate}
-                hideTitle={hideSectionTitles}
-                // Tabs mode: actions move to the outer Card below — the inner
-                // Section is flattened (rendered inside this component's own
-                // Form) and would otherwise duplicate them.
-                {...(hideSectionTitles !== true &&
-                  sectionActionsEl !== undefined && { actions: sectionActionsEl })}
-              />
-            );
-            // Section always flattens to a borderless divider inside this
-            // component's own <Form>, so tabs mode frames it with Card
-            // instead — same reason the fields-section tabs branch below
-            // stays on Card. No title here: the tab strip already labels the
-            // panel (matches the non-tabs Section branch above via hideTitle).
-            // testId stays only on the inner Section — this outer Card is
-            // purely chrome, giving it the same testId would register two
-            // elements under one id.
-            const wrapped =
-              hideSectionTitles === true ? (
-                <Card
+            })()}
+          {filteredSections.map((section: EditSectionViewModel, sectionIndex: number) => {
+            // turns this section's own `actions` (RowAction[]) into
+            // already-bound buttons via the caller-supplied builder, rendered
+            // through the same RenderEditActionButton the top-level `actions`
+            // prop uses (same style/confirm/icon/error handling).
+            const sectionActions = section.actions;
+            const sectionActionsEl: ReactNode =
+              sectionActions !== undefined && sectionActions.length > 0
+                ? buildSectionActions?.(sectionActions)?.map((action) => (
+                    <RenderEditActionButton
+                      key={action.id}
+                      action={action}
+                      Button={Button}
+                      Dialog={Dialog}
+                      onError={setActionError}
+                    />
+                  ))
+                : undefined;
+            // Wizard steps and tabs stay mounted while off-screen (native
+            // `hidden`, not unmounted) so an extension section's submit-registry
+            // entry (useExtensionFormSubmit → registry.remove on unmount)
+            // survives navigating past its step — otherwise Finish only ran the
+            // last mounted step's handler and silently dropped earlier steps'
+            // writes. For tabs this is also what makes ONE submit cover every
+            // tab, including tabs the user never opened (fw#3134).
+            const stepHidden = isStepped && sectionIndex !== currentStep;
+            const wrapWizardStep = (key: string, el: ReactNode): ReactNode => {
+              if (!isStepped) return el;
+              if (WizardStepGroup === undefined) {
+                throw new Error(
+                  `RenderEdit: ${screen.layout.mode} layout requires primitives.WizardStepGroup, but none is registered.`,
+                );
+              }
+              return (
+                <WizardStepGroup
+                  key={key}
+                  hidden={stepHidden}
+                  {...(hideSectionTitles === true && { inset: true })}
+                >
+                  {el}
+                </WizardStepGroup>
+              );
+            };
+            // Off-screen wizard steps stay mounted (see comment above) but must
+            // not participate in native constraint validation, or the Next
+            // button's `type="submit"` triggers the browser's full-form check
+            // — including required fields on unvisited steps, which are not
+            // focusable while hidden, so the wizard silently stops navigating
+            // (only a console warning, no visible error). A plain `hidden`
+            // attribute does NOT bar descendants from constraint validation on
+            // web — see WizardStepGroupProps for what implementations must
+            // guarantee.
+            if (section.kind === "extension") {
+              const mount = (
+                <ExtensionSectionMount
                   key={section.title}
-                  {...(sectionActionsEl !== undefined && {
-                    slots: { headerActions: sectionActionsEl },
+                  section={section}
+                  entityName={vm.entityName}
+                  entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
+                  initialValues={extensionInitialValues}
+                  values={snapshot.values}
+                  // @cast-boundary form-values: ExtensionSectionProps is not generic
+                  // over TValues; controller is mount-lifetime-stable, see onControlsReady above.
+                  patch={
+                    patchAndScheduleDraftSave as (
+                      partial: Readonly<Record<string, unknown>>,
+                    ) => void
+                  }
+                  validate={scopedValidate}
+                  hideTitle={hideSectionTitles}
+                  // Tabs mode: actions move to the outer Card below — the inner
+                  // Section is flattened (rendered inside this component's own
+                  // Form) and would otherwise duplicate them.
+                  {...(hideSectionTitles !== true &&
+                    sectionActionsEl !== undefined && { actions: sectionActionsEl })}
+                />
+              );
+              // Section always flattens to a borderless divider inside this
+              // component's own <Form>, so tabs mode frames it with Card
+              // instead — same reason the fields-section tabs branch below
+              // stays on Card. No title here: the tab strip already labels the
+              // panel (matches the non-tabs Section branch above via hideTitle).
+              // testId stays only on the inner Section — this outer Card is
+              // purely chrome, giving it the same testId would register two
+              // elements under one id.
+              const wrapped =
+                hideSectionTitles === true ? (
+                  <Card
+                    key={section.title}
+                    {...(sectionActionsEl !== undefined && {
+                      slots: { headerActions: sectionActionsEl },
+                    })}
+                  >
+                    {mount}
+                  </Card>
+                ) : (
+                  mount
+                );
+              return wrapWizardStep(section.title, wrapped);
+            }
+            if (section.kind === "relatedList") {
+              // parentId is the displayed record's id — without it there's no
+              // parent row whose related rows could be queried (fw#2166).
+              // Rejected at boot in wizard layouts, so no WizardStepGroup here.
+              const parentId = resolveExtensionEntityId(entityIdProp, vm.id);
+              if (parentId === null) return null;
+              const mount = (
+                <RelatedListSection
+                  key={section.title}
+                  section={section}
+                  parentId={parentId}
+                  // @cast-boundary form-values: TValues ist strukturell ein Record.
+                  record={snapshot.values as unknown as Readonly<Record<string, unknown>>}
+                  featureName={featureName}
+                  translate={translate}
+                  hideTitle={hideSectionTitles}
+                  {...(fillScreenHeight === true && { grow: true })}
+                  // Tabs mode: actions move to the outer Card below — the
+                  // hideTitle branch of RelatedListSection has no title row to
+                  // render them into.
+                  {...(hideSectionTitles !== true &&
+                    sectionActionsEl !== undefined && { actions: sectionActionsEl })}
+                  {...(onRelatedListDrawerAction !== undefined && {
+                    onOpenDrawer: onRelatedListDrawerAction,
                   })}
+                />
+              );
+              // Tabs mode: the table runs full-bleed under the tab strip (board
+              // layout); the toolbar buttons live in the list's own toolbar.
+              return hideSectionTitles === true ? (
+                <div
+                  key={section.title}
+                  className={fillScreenHeight === true ? "flex min-h-0 flex-1 flex-col" : undefined}
                 >
                   {mount}
-                </Card>
+                </div>
               ) : (
                 mount
               );
-            return wrapWizardStep(section.title, wrapped);
-          }
-          if (section.kind === "relatedList") {
-            // parentId is the displayed record's id — without it there's no
-            // parent row whose related rows could be queried (fw#2166).
-            // Rejected at boot in wizard layouts, so no WizardStepGroup here.
-            const parentId = resolveExtensionEntityId(entityIdProp, vm.id);
-            if (parentId === null) return null;
-            const mount = (
-              <RelatedListSection
-                key={section.title}
-                section={section}
-                parentId={parentId}
-                // @cast-boundary form-values: TValues ist strukturell ein Record.
-                record={snapshot.values as unknown as Readonly<Record<string, unknown>>}
-                featureName={featureName}
-                translate={translate}
-                hideTitle={hideSectionTitles}
-                {...(fillScreenHeight === true && { grow: true })}
-                // Tabs mode: actions move to the outer Card below — the
-                // hideTitle branch of RelatedListSection has no title row to
-                // render them into.
-                {...(hideSectionTitles !== true &&
-                  sectionActionsEl !== undefined && { actions: sectionActionsEl })}
-                {...(onRelatedListDrawerAction !== undefined && {
-                  onOpenDrawer: onRelatedListDrawerAction,
-                })}
-              />
-            );
-            // Tabs mode: the relatedList tab must sit in the same Card frame
-            // as every other tab (fields/extension/writeForm above) — the
-            // acceptance criterion this unification exists for. `fillHeight`
-            // on the Card threads the same fw#2722/#2778 flex chain the head
-            // card already carries (DefaultCard's `options.fillHeight`), so
-            // the table still scrolls inside the panel instead of the panel
-            // stretching to the row count.
-            return hideSectionTitles === true ? (
-              <Card
-                key={section.title}
-                options={{ fillHeight }}
-                {...(fillScreenHeight === true && { className: "flex-1" })}
-                {...(sectionActionsEl !== undefined && {
-                  slots: { headerActions: sectionActionsEl },
-                })}
-              >
-                {mount}
-              </Card>
-            ) : (
-              mount
-            );
-          }
-          if (section.kind === "writeForm") {
-            // Own submit button + dispatcher call, entirely independent of
-            // this screen's (nonexistent, on projectionDetail) form submit —
-            // rejected at boot in wizard layouts, so no WizardStepGroup here.
-            return (
-              <WriteFormSection
-                key={section.title ?? `write-form-${sectionIndex}`}
-                section={section}
-                featureName={featureName}
-                translate={translate}
-                hideTitle={hideSectionTitles}
-                onSubmitted={() => onReload?.()}
-                {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
-              />
-            );
-          }
-          if (!section.visible) return null;
-          // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
-          const sectionKey = section.title ?? `section-${sectionIndex}`;
-          const renderFieldGrid = (
-            fields: readonly EditFieldViewModel[],
-            columns: number,
-            gridKey: string,
-          ): ReactNode => (
-            <Grid key={gridKey} columns={columns}>
-              {fields.map((field: EditFieldViewModel) => (
-                <GridCellForField
-                  key={field.field}
-                  field={disabled ? { ...field, readOnly: true } : field}
-                  columns={columns}
-                  issues={snapshot.errors[field.field]}
-                  onChange={(v) => {
-                    (controller.setField as (k: string, v: unknown) => void)(field.field, v);
-                  }}
-                  GridCell={GridCell}
-                  featureName={featureName}
-                  {...(labelAppendix !== undefined && {
-                    labelAppendix: labelAppendix(field.field),
-                  })}
-                  {...(fieldAppendix !== undefined && {
-                    fieldAppendix: fieldAppendix(field.field),
-                  })}
-                  allIssues={snapshot.errors}
-                  valueDisplay={valueDisplay}
-                  row={snapshot.values}
-                  {...(!isCreate && field.field in snapshot.changes && { changed: true })}
-                />
-              ))}
-            </Grid>
-          );
-          // Tabs mode renders one or more titled cards, so this card's actual
-          // heading doesn't visually duplicate the short Tab strip label.
-          // Stays `Card`, not `Section` — Section always flattens to a
-          // borderless divider when rendered inside this component's own
-          // `<Form>` (InsideFormContext), even with `chromeless` set, so it
-          // cannot stand in for the tabs-mode card here.
-          if (hideSectionTitles === true) {
-            if (section.groups !== undefined) {
-              const groupsGrid = (
-                <Grid key={`${sectionKey}-groups`} columns={1}>
-                  {section.groups.map((group, groupIndex) => (
-                    <Card
-                      key={group.title}
-                      slots={{ title: group.title }}
-                      testId={`section-${sectionKey}-group-${groupIndex}`}
-                    >
-                      {renderFieldGrid(
-                        group.fields,
-                        group.columns,
-                        `${sectionKey}-group-${groupIndex}-grid`,
-                      )}
-                    </Card>
-                  ))}
-                </Grid>
-              );
-              // `actions` on a `groups` section has no group of its own to
-              // sit in and would need an extra title-less Card around the
-              // group cards (Card-in-Card) — the boot-validator rejects that
-              // combination in tabs mode, so `sectionActionsEl` is always
-              // undefined here at runtime.
-              return wrapWizardStep(sectionKey, groupsGrid);
             }
-            // No section title here (fw#3218) — the Tab strip right above
-            // already names this panel, so a repeated Card title would just
-            // duplicate it. The title row only exists to carry actions, and
-            // then it carries only the actions, never the title text.
-            const cardEl = (
-              <Card
+            if (section.kind === "writeForm") {
+              // Own submit button + dispatcher call, entirely independent of
+              // this screen's (nonexistent, on projectionDetail) form submit —
+              // rejected at boot in wizard layouts, so no WizardStepGroup here.
+              return (
+                <WriteFormSection
+                  key={section.title ?? `write-form-${sectionIndex}`}
+                  section={section}
+                  featureName={featureName}
+                  translate={translate}
+                  hideTitle={hideSectionTitles}
+                  onSubmitted={() => onReload?.()}
+                  {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
+                />
+              );
+            }
+            if (!section.visible) return null;
+            // Titellose Sections kollidieren sonst auf key/testId — Index-Fallback.
+            const sectionKey = section.title ?? `section-${sectionIndex}`;
+            const renderFieldGrid = (
+              fields: readonly EditFieldViewModel[],
+              columns: number,
+              gridKey: string,
+            ): ReactNode => (
+              <Grid key={gridKey} columns={columns} {...(usesFieldFlow && { flow: true })}>
+                {fields.map((field: EditFieldViewModel) => (
+                  <GridCellForField
+                    key={field.field}
+                    field={disabled ? { ...field, readOnly: true } : field}
+                    columns={columns}
+                    {...(usesFieldFlow && { flow: true })}
+                    issues={snapshot.errors[field.field]}
+                    onChange={(v) => {
+                      (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                    }}
+                    GridCell={GridCell}
+                    featureName={featureName}
+                    {...(labelAppendix !== undefined && {
+                      labelAppendix: labelAppendix(field.field),
+                    })}
+                    {...(fieldAppendix !== undefined && {
+                      fieldAppendix: fieldAppendix(field.field),
+                    })}
+                    allIssues={snapshot.errors}
+                    valueDisplay={valueDisplay}
+                    row={snapshot.values}
+                    {...(!isCreate && field.field in snapshot.changes && { changed: true })}
+                  />
+                ))}
+              </Grid>
+            );
+            // Tabs mode renders one or more titled cards, so this card's actual
+            // heading doesn't visually duplicate the short Tab strip label.
+            // Stays `Card`, not `Section` — Section always flattens to a
+            // borderless divider when rendered inside this component's own
+            // `<Form>` (InsideFormContext), even with `chromeless` set, so it
+            // cannot stand in for the tabs-mode card here.
+            if (hideSectionTitles === true) {
+              if (section.groups !== undefined) {
+                const groupsGrid = (
+                  <Grid key={`${sectionKey}-groups`} columns={1}>
+                    {section.groups.map((group, groupIndex) => (
+                      <Card
+                        key={group.title}
+                        slots={{ title: group.title }}
+                        testId={`section-${sectionKey}-group-${groupIndex}`}
+                      >
+                        {renderFieldGrid(
+                          group.fields,
+                          group.columns,
+                          `${sectionKey}-group-${groupIndex}-grid`,
+                        )}
+                      </Card>
+                    ))}
+                  </Grid>
+                );
+                // `actions` on a `groups` section has no group of its own to
+                // sit in and would need an extra title-less Card around the
+                // group cards (Card-in-Card) — the boot-validator rejects that
+                // combination in tabs mode, so `sectionActionsEl` is always
+                // undefined here at runtime.
+                return wrapWizardStep(sectionKey, groupsGrid);
+              }
+              // No section title here (fw#3218) — the Tab strip right above
+              // already names this panel, so a repeated Card title would just
+              // duplicate it. The title row only exists to carry actions, and
+              // then it carries only the actions, never the title text.
+              const cardEl = (
+                <Card
+                  key={sectionKey}
+                  {...(sectionActionsEl !== undefined && {
+                    slots: { headerActions: sectionActionsEl },
+                  })}
+                  testId={`section-${sectionKey}`}
+                >
+                  {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
+                </Card>
+              );
+              return wrapWizardStep(sectionKey, cardEl);
+            }
+            // Suppress the section header when it would just repeat the form
+            // title verbatim (typical for single-section actionForms), or the
+            // tab label right above it. Without a Tabs primitive the sections
+            // render stacked, and then the titles are what tells them apart.
+            const repeatsTabLabel = isTabs && isStepped;
+            const sectionTitle =
+              section.title === formTitle || repeatsTabLabel ? undefined : section.title;
+            const sectionEl = (
+              <Section
                 key={sectionKey}
-                {...(sectionActionsEl !== undefined && {
-                  slots: { headerActions: sectionActionsEl },
+                {...(sectionNavItems.some((item) => item.id === formSectionDomId(sectionIndex)) && {
+                  id: formSectionDomId(sectionIndex),
                 })}
+                {...(sectionTitle !== undefined && { title: sectionTitle })}
+                {...(section.description !== undefined && { subtitle: section.description })}
+                {...(section.icon !== undefined && { icon: section.icon })}
+                {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
                 testId={`section-${sectionKey}`}
               >
                 {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
-              </Card>
+              </Section>
             );
-            return wrapWizardStep(sectionKey, cardEl);
-          }
-          // Suppress the section header when it would just repeat the form
-          // title verbatim (typical for single-section actionForms), or the
-          // tab label right above it. Without a Tabs primitive the sections
-          // render stacked, and then the titles are what tells them apart.
-          const repeatsTabLabel = isTabs && isStepped;
-          const sectionTitle =
-            section.title === formTitle || repeatsTabLabel ? undefined : section.title;
-          const sectionEl = (
-            <Section
-              key={sectionKey}
-              {...(sectionNavItems.some((item) => item.id === formSectionDomId(sectionIndex)) && {
-                id: formSectionDomId(sectionIndex),
-              })}
-              {...(sectionTitle !== undefined && { title: sectionTitle })}
-              {...(section.description !== undefined && { subtitle: section.description })}
-              {...(section.icon !== undefined && { icon: section.icon })}
-              {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
-              testId={`section-${sectionKey}`}
+            return wrapWizardStep(sectionKey, sectionEl);
+          })}
+          {formError !== null && (
+            <Banner
+              variant="error"
+              testId="render-edit-form-error"
+              actions={
+                formError.code === "version_conflict" && onReload !== undefined ? (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      onReload();
+                      setFormError(null);
+                    }}
+                    testId="render-edit-form-error-reload"
+                  >
+                    {translate("kumiko.actions.reload")}
+                  </Button>
+                ) : undefined
+              }
             >
-              {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
-            </Section>
-          );
-          return wrapWizardStep(sectionKey, sectionEl);
-        })}
-        {formError !== null && (
-          <Banner
-            variant="error"
-            testId="render-edit-form-error"
-            actions={
-              formError.code === "version_conflict" && onReload !== undefined ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    onReload();
-                    setFormError(null);
-                  }}
-                  testId="render-edit-form-error-reload"
-                >
-                  {translate("kumiko.actions.reload")}
-                </Button>
-              ) : undefined
-            }
-          >
-            <Text testId="render-edit-form-error-key">{translate(formError.i18nKey)}</Text>
-          </Banner>
-        )}
-        {extensionErrorKey !== null && (
-          <Banner variant="error" testId="render-edit-extension-error">
-            <Text testId="render-edit-extension-error-key">{translate(extensionErrorKey)}</Text>
-          </Banner>
-        )}
-        {actionError !== null && (
-          <Banner variant="error" testId="render-edit-action-error">
-            {actionError}
-          </Banner>
-        )}
-        {onDelete !== undefined && (
-          <Dialog
-            open={confirmDeleteOpen}
-            onOpenChange={setConfirmDeleteOpen}
-            title={translate("kumiko.actions.delete-confirm")}
-            confirmLabel={translate("kumiko.actions.delete")}
-            variant="danger"
-            onConfirm={async () => {
-              await onDelete();
-            }}
-            testId="render-edit-delete-dialog"
-          />
-        )}
+              <Text testId="render-edit-form-error-key">{translate(formError.i18nKey)}</Text>
+            </Banner>
+          )}
+          {extensionErrorKey !== null && (
+            <Banner variant="error" testId="render-edit-extension-error">
+              <Text testId="render-edit-extension-error-key">{translate(extensionErrorKey)}</Text>
+            </Banner>
+          )}
+          {actionError !== null && (
+            <Banner variant="error" testId="render-edit-action-error">
+              {actionError}
+            </Banner>
+          )}
+          {onDelete !== undefined && (
+            <Dialog
+              open={confirmDeleteOpen}
+              onOpenChange={setConfirmDeleteOpen}
+              title={translate("kumiko.actions.delete-confirm")}
+              confirmLabel={translate("kumiko.actions.delete")}
+              variant="danger"
+              onConfirm={async () => {
+                await onDelete();
+              }}
+              testId="render-edit-delete-dialog"
+            />
+          )}
+        </AllFieldsRequiredProvider>
       </Form>
     </ExtensionFormRegistryProvider>
   );

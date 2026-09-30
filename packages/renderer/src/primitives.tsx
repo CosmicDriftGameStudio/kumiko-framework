@@ -40,6 +40,7 @@ import type {
   FormWidth,
   IconKey,
   NavIconKey,
+  SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   FieldIssue,
@@ -662,7 +663,16 @@ export type DataTableProps = {
     readonly limit: number;
     readonly total: number;
     readonly onPageChange: (next: number) => void;
+    /** Offered page sizes; with `onPageSizeChange` the footer shows a
+     *  "N pro Seite" select. */
+    readonly pageSizeOptions?: readonly number[];
+    readonly onPageSizeChange?: (next: number) => void;
   };
+  /** Hint at the left of the toolbar (relatedList tab description). */
+  readonly toolbarDescription?: string;
+  /** Noun for the footer count ("1–19 von 19 Mietverträgen", "1 Position"),
+   *  resolved for the given count. Omitted = generic "entries" wording. */
+  readonly itemNoun?: (count: number) => string;
   /** Infinite-Scroll Callback. Wenn gesetzt, rendert der Renderer einen
    *  Bottom-Sentinel und ruft `onReachEnd` wenn der ins Viewport rückt
    *  (Web: IntersectionObserver). Caller verwaltet accumulation +
@@ -884,6 +894,8 @@ export type FormProps = {
   /** Number of unsaved changes, shown in the pinned footer. Omitted in create
    *  mode and when nothing changed — the footer then shows no status. */
   readonly unsavedCount?: number;
+  /** Drawer-hosted forms: context box above the fields. */
+  readonly summary?: { readonly title: string; readonly subtitle?: string };
   /** Titled sections for the "on this page" navigation next to a
    *  `screenForm`. The web impl shows it only with three or more entries. */
   readonly sectionNav?: readonly FormSectionNavItem[];
@@ -959,12 +971,20 @@ export type GridProps = {
    *  the grid grows with its content and never scrolls. Ignored when
    *  `columns` is "auto". */
   readonly maxRows?: number;
+  /** Fields flow left to right in wrapping rows sized by `GridCell.width`
+   *  instead of equal-width tracks (screen forms and drawers). */
+  readonly flow?: boolean;
 };
+
+/** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
+export type FieldCellWidth = "text" | "number" | "money" | "date" | "select" | "full" | "auto";
 
 /** Span-Wrapper für ein Kind innerhalb eines Grid. Web: `style={{gridColumn: span N}}`,
  *  Native: eigenes Width-Rechnen. */
 export type GridCellProps = {
   readonly span?: number;
+  /** Only read inside a `flow` grid. */
+  readonly width?: FieldCellWidth;
   readonly children: ReactNode;
 };
 
@@ -1186,6 +1206,8 @@ export type StepBarProps = {
  *  on `hidden` alone. */
 export type WizardStepGroupProps = {
   readonly hidden: boolean;
+  /** Pads the step content (tab panels sit full-bleed under the tab strip). */
+  readonly inset?: boolean;
   readonly children: ReactNode;
 };
 
@@ -1243,6 +1265,17 @@ const STATUS_TONE_BY_VALUE: Readonly<Record<string, StatusTone>> = {
   blocked: "bad",
   critical: "bad",
 };
+
+const STATUS_TONE_BY_OPTION_TONE: Readonly<Record<SelectOptionTone, StatusTone>> = {
+  ok: "ok",
+  warn: "warn",
+  bad: "bad",
+  neutral: "muted",
+};
+
+export function statusToneForOptionTone(tone: SelectOptionTone): StatusTone {
+  return STATUS_TONE_BY_OPTION_TONE[tone];
+}
 
 export function statusToneForValue(value: string): StatusTone | undefined {
   const slug = value

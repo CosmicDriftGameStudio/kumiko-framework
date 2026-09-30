@@ -30,6 +30,8 @@ export const FRAMEWORK_COLOR_NAMES = [
   "sidebar-primary-foreground",
   "sidebar-accent",
   "sidebar-accent-foreground",
+  "sidebar-muted",
+  "sidebar-input",
   "sidebar-border",
   "sidebar-ring",
   "status-ok",

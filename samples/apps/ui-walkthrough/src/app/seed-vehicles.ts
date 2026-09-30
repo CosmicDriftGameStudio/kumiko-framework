@@ -36,7 +36,11 @@ const CAMPAIGNS = [
     status: "aktiv",
     meta: "Tag 1 von 30 · 4 Besuche · 1 Interessent",
   },
-  { name: "VW Golf (2019)", status: "aktiv", meta: "Tag 12 von 30 · 86 Besuche · 5 Interessenten" },
+  {
+    name: "VW Golf (2019)",
+    status: "aktiv",
+    meta: "Tag 12 von 30 · 86 Besuche · 5 Interessenten",
+  },
   {
     name: "BMW 320d Touring (2020)",
     status: "abgeschlossen",

@@ -130,6 +130,10 @@ function computeRelatedListSectionViewModel(
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
     ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     columns: sectionSpec.columns,
+    ...(sectionSpec.description !== undefined && {
+      description: translate(sectionSpec.description),
+    }),
+    ...(sectionSpec.itemNoun !== undefined && { itemNoun: sectionSpec.itemNoun }),
     ...(sectionSpec.pageSize !== undefined && { pageSize: sectionSpec.pageSize }),
     ...(sectionSpec.defaultSort !== undefined && { defaultSort: sectionSpec.defaultSort }),
     ...(sectionSpec.searchable !== undefined && { searchable: sectionSpec.searchable }),

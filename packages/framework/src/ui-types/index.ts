@@ -54,6 +54,7 @@ export type {
   ImagesFieldDef,
   NumberFieldDef,
   SelectFieldDef,
+  SelectOptionTone,
   TextFieldDef,
 } from "../engine/types/fields";
 export type {

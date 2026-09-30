@@ -21,6 +21,7 @@ export const leaseEntity = createEntity({
     ende: createDateField({ sortable: true }),
     status: createSelectField({
       options: LEASE_STATUSES,
+      optionTones: { active: "ok", terminated: "bad" },
       default: "active",
       required: true,
       sortable: true,

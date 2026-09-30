@@ -26,11 +26,10 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.screen(vehicleWizardScreen);
   r.screen(campaignListScreen);
 
-  r.nav({ id: "vehicles", label: i18nKey("vehicles.nav.group"), icon: "list", order: 40 });
+  r.nav({ id: "vehicles", label: i18nKey("vehicles.nav.group"), order: 40 });
   r.nav({
     id: "vehicle-list",
     label: i18nKey("vehicles.nav.list"),
-    icon: "list",
     parent: "vehicles:nav:vehicles",
     screen: "vehicles:screen:vehicle-list",
     order: 10,
@@ -38,7 +37,6 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.nav({
     id: "vehicle-new",
     label: i18nKey("vehicles.nav.new"),
-    icon: "plus",
     parent: "vehicles:nav:vehicles",
     screen: "vehicles:screen:vehicle-edit",
     order: 20,
@@ -46,7 +44,6 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.nav({
     id: "campaign-list",
     label: i18nKey("vehicles.nav.campaigns"),
-    icon: "list",
     parent: "vehicles:nav:vehicles",
     screen: "vehicles:screen:campaign-list",
     order: 30,

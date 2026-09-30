@@ -34,14 +34,12 @@ export const taskFeature = defineFeature("tasks", (r) => {
   r.nav({
     id: "task-list",
     label: i18nKey("tasks.nav.list"),
-    icon: "list",
     screen: "tasks:screen:task-list",
     order: 10,
   });
   r.nav({
     id: "task-new",
     label: i18nKey("tasks.nav.new"),
-    icon: "plus",
     screen: "tasks:screen:task-edit",
     order: 20,
   });

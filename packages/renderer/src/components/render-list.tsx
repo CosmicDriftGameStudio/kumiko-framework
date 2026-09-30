@@ -64,6 +64,10 @@ export type RenderListProps = {
   /** Placeholder für das Search-Input. Default kommt aus dem i18n-
    *  Bundle (`kumiko.list.search-placeholder`). */
   readonly searchPlaceholder?: string;
+  /** Hint at the left of the toolbar when there is no search box (already translated). */
+  readonly description?: string;
+  /** Plural-forms key for the footer count noun; default is the entity's `:noun` convention key. */
+  readonly itemNounKey?: string;
   /** Aktueller Search-Term (vom URL-State / Parent). RenderList puffert
    *  Tipps lokal mit 300ms Debounce, bevor onSearchChange gefeuert
    *  wird — sonst macht jeder Tastendruck einen Server-Roundtrip. */
@@ -168,6 +172,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     createLabel,
     searchable = false,
     searchPlaceholder,
+    description,
+    itemNounKey,
     searchValue,
     onSearchChange,
     sort,
@@ -304,9 +310,19 @@ export function RenderList(props: RenderListProps): ReactNode {
   // i18n-Defaults für Toolbar/Empty-State Strings — Caller kann jeden
   // einzeln per Prop überschreiben, sonst kommen die Framework-Bundles
   // (kumiko.actions.create, kumiko.list.search-placeholder, …).
-  const effectiveCreateLabel = createLabel ?? translate("kumiko.actions.create");
-  const effectiveSearchPlaceholder =
-    searchPlaceholder ?? translate("kumiko.list.search-placeholder");
+  const effectiveCreateLabel = translate(
+    createLabel ?? screen.createLabel ?? "kumiko.actions.create",
+  );
+  const effectiveSearchPlaceholder = translate(
+    searchPlaceholder ?? screen.searchPlaceholder ?? "kumiko.list.search-placeholder",
+  );
+
+  const nounKey = itemNounKey ?? `${featureName}:entity:${screen.entity}:noun`;
+  const itemNoun =
+    (itemNounKey !== undefined || !screen.entity.startsWith("__")) &&
+    translate(nounKey, { count: 2 }) !== nounKey
+      ? (count: number): string => translate(nounKey, { count })
+      : undefined;
 
   const toolbarStart = searchable ? (
     <Input
@@ -330,8 +346,14 @@ export function RenderList(props: RenderListProps): ReactNode {
   const toolbarIconOnly = hasToolbarActions && shouldRenderActionsIconOnly(toolbarActions);
   const createButton =
     onCreate !== undefined ? (
-      <Button variant="primary" onClick={onCreate} testId="render-list-create">
-        {`+ ${effectiveCreateLabel}`}
+      <Button
+        variant="primary"
+        icon="plus"
+        onClick={onCreate}
+        testId="render-list-create"
+        className="px-3.5"
+      >
+        {effectiveCreateLabel}
       </Button>
     ) : undefined;
   const toolbarEnd =
@@ -363,8 +385,8 @@ export function RenderList(props: RenderListProps): ReactNode {
       <>
         <Text>{translate("kumiko.list.empty.title")}</Text>
         <Text variant="small">{translate("kumiko.list.empty.hint")}</Text>
-        <Button variant="primary" onClick={onCreate} testId="render-list-empty-create">
-          {`+ ${effectiveCreateLabel}`}
+        <Button variant="primary" icon="plus" onClick={onCreate} testId="render-list-empty-create">
+          {effectiveCreateLabel}
         </Button>
       </>
     ) : undefined);
@@ -400,6 +422,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(onRowClick !== undefined && { onRowClick })}
         {...(composedEmptyState !== undefined && { emptyState: composedEmptyState })}
         {...(toolbarStart !== undefined && { toolbarStart })}
+        {...(description !== undefined && !searchable && { toolbarDescription: description })}
         {...(toolbarEnd !== undefined && { toolbarEnd })}
         {...(sort !== undefined && { sort })}
         {...(onSortChange !== undefined && { onSortChange })}
@@ -407,6 +430,7 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(onReachEnd !== undefined && { onReachEnd })}
         {...(loadingMore !== undefined && { loadingMore })}
         {...(hasMore !== undefined && { hasMore })}
+        {...(itemNoun !== undefined && { itemNoun })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
         {...(filterFacets !== undefined && { filterFacets })}
@@ -536,7 +560,8 @@ function ToolbarActionView({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && { icon: action.icon })}
-        {...(showIconOnly && { size: "icon" as const, ariaLabel: action.label })}
+        size={showIconOnly ? "icon" : "sm"}
+        {...(showIconOnly && { ariaLabel: action.label })}
         onClick={() => {
           if (needsConfirm) {
             setConfirmOpen(true);

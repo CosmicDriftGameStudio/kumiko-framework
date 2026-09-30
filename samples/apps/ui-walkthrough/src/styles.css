@@ -6,12 +6,14 @@
    `@layer base` light-mode block and its @theme defaults. */
 :root {
   --color-sidebar: #172430;
-  --color-sidebar-foreground: #dfe8ec;
-  --color-sidebar-primary: #ffffff;
-  --color-sidebar-primary-foreground: #172430;
+  --color-sidebar-foreground: #dce4e8;
+  --color-sidebar-muted: #a9b8c1;
+  --color-sidebar-input: #22323f;
+  --color-sidebar-primary: #24566a;
+  --color-sidebar-primary-foreground: #ffffff;
   --color-sidebar-accent: #24566a;
   --color-sidebar-accent-foreground: #ffffff;
-  --color-sidebar-border: #2b3f4e;
+  --color-sidebar-border: #22323f;
   --color-sidebar-ring: #205265;
 }
 

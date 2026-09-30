@@ -1,11 +1,10 @@
-// SidebarBrand — der TeamSwitcher-Header aus shadcns sidebar-07: Logo-Kachel +
-// Name + Plan/Tagline. App-Author reicht ihn als `brand` an DefaultAppShell.
-// Reiner Look (kein Team-Switch-Dropdown) — eine App hat meist EINE Identität;
-// wer wechseln will, baut den Dropdown selbst drumrum und setzt `collapsible`.
+// SidebarBrand — Logo-Kachel + Name + Untertitel für den `brand`-Slot von
+// DefaultAppShell. Reiner Look (kein Team-Switch-Dropdown) — eine App hat meist
+// EINE Identität; wer wechseln will, baut den Dropdown selbst drumrum und
+// setzt `collapsible`.
 
 import { ChevronsUpDown } from "lucide-react";
 import type { ReactNode } from "react";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "../ui/sidebar";
 
 export type SidebarBrandProps = {
   /** Workspace-/App-Name (fett, erste Zeile). */
@@ -28,24 +27,17 @@ export function SidebarBrand({
   collapsible = false,
 }: SidebarBrandProps): ReactNode {
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <SidebarMenuButton
-          size="lg"
-          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-        >
-          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            {logo ?? <span className="text-sm font-semibold">{name.charAt(0)}</span>}
-          </div>
-          <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="truncate font-semibold">{name}</span>
-            {plan !== undefined && <span className="truncate text-xs">{plan}</span>}
-          </div>
-          {collapsible && (
-            <ChevronsUpDown className="ml-auto group-data-[collapsible=icon]:hidden" />
-          )}
-        </SidebarMenuButton>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <div className="flex items-center gap-2.5 px-2 pt-1 pb-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
+        {logo ?? <span>{name.charAt(0)}</span>}
+      </div>
+      <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+        <span className="truncate text-sm font-semibold text-sidebar-foreground">{name}</span>
+        {plan !== undefined && <span className="truncate text-xs text-sidebar-muted">{plan}</span>}
+      </div>
+      {collapsible && (
+        <ChevronsUpDown className="ml-auto size-4 text-sidebar-muted group-data-[collapsible=icon]:hidden" />
+      )}
+    </div>
   );
 }

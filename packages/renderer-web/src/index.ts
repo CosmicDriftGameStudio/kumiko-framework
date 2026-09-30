@@ -119,6 +119,8 @@ export type { EditorPanelProps, ResolverComponent } from "./layout/editor-panel"
 export { EditorPanel } from "./layout/editor-panel";
 export type { NavReparentOverride } from "./layout/filter-app-schema-navs";
 export { filterAppSchemaNavsByAllowlist } from "./layout/filter-app-schema-navs";
+export type { LanguageMenuItemsProps } from "./layout/language-menu-items";
+export { LanguageMenuItems } from "./layout/language-menu-items";
 export type { LanguageSwitcherProps, LocaleOption } from "./layout/language-switcher";
 export { LanguageSwitcher } from "./layout/language-switcher";
 export type { NavTreeProps } from "./layout/nav-tree";
@@ -133,6 +135,8 @@ export { SidebarPanel } from "./layout/sidebar-panel";
 export type { SidebarUserProps } from "./layout/sidebar-user";
 export { SidebarUser } from "./layout/sidebar-user";
 export { parseTargetFromSearchParams } from "./layout/target-url";
+export type { ThemeMenuItemProps } from "./layout/theme-menu-item";
+export { ThemeMenuItem } from "./layout/theme-menu-item";
 export type { ThemeToggleProps } from "./layout/theme-toggle";
 export { ThemeToggle } from "./layout/theme-toggle";
 export type { TopbarProps } from "./layout/topbar";

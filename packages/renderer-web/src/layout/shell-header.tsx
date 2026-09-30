@@ -21,7 +21,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "../ui/breadcrumb";
-import { Separator } from "../ui/separator";
 import { SidebarTrigger } from "../ui/sidebar";
 import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree";
 import { usePageHeaderSlot } from "./page-header-slot";
@@ -69,11 +68,10 @@ export function ShellHeader({
   return (
     <header
       data-kumiko-layout="shell-header"
-      className="flex h-14 shrink-0 items-center gap-2 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6"
+      className="flex h-14 shrink-0 items-center gap-3 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6"
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <SidebarTrigger className="-ml-1 max-md:size-11" />
-        <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+      <div className="flex min-w-0 items-center gap-3">
+        <SidebarTrigger />
         {crumbs !== undefined && crumbs.length > 0 && (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">

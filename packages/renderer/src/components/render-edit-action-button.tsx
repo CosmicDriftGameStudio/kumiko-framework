@@ -45,6 +45,7 @@ export function RenderEditActionConfirmDialog({
 export function RenderEditActionButton({
   action,
   iconOnly = false,
+  hideIcon = false,
   Button,
   Dialog,
   onError,
@@ -53,6 +54,8 @@ export function RenderEditActionButton({
   /** Group-level collapse (see `shouldRenderActionsIconOnly`) — only takes
    *  effect when this action actually resolved an icon. */
   readonly iconOnly?: boolean;
+  /** Record-header actions are text-only; the icon still shows when collapsed to icon-only. */
+  readonly hideIcon?: boolean;
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
   readonly onError: (text: string | null) => void;
@@ -81,7 +84,7 @@ export function RenderEditActionButton({
         type="button"
         variant={variant}
         loading={busy}
-        {...(action.icon !== undefined && { icon: action.icon })}
+        {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
         {...(showIconOnly && { size: "icon" as const, ariaLabel: action.label })}
         onClick={() => {
           if (needsActionConfirm(action)) {

@@ -25,7 +25,13 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.action.adjustRent": "Miete anpassen",
     "rental.adjustRent.hint":
       "Die alte Position endet am Vortag, die neue beginnt am Stichtag. Art, Menge und Einheit bleiben dabei unverändert, so bleibt die Mietgeschichte nachvollziehbar.",
-    "rental.adjustRent.submit": "Speichern",
+    "rental.action.createLease": "Mietvertrag abschließen",
+    "rental:entity:lease:noun": { one: "Mietvertrag", other: "Mietverträgen" },
+    "rental.search.placeholder": "Mieter, Einheit oder Liegenschaft",
+    "rental.positions.description": "Alle Positionen dieses Vertrags mit ihrem Verlauf.",
+    "rental.positions.noun": { one: "Position", other: "Positionen" },
+    "rental.adjustRent.summary.title": "{art} · {einheit}",
+    "rental.adjustRent.summary.subtitle": "Aktuell {betrag} seit {gueltigVon}",
 
     "rental:entity:lease:field:mieter": "Mieter",
     "rental:entity:lease:field:einheit": "Einheit",
@@ -54,8 +60,16 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "rental:entity:__action-form__:field:positionId": "Position",
     "rental:entity:__action-form__:field:wirksamAb": "Wirksam ab",
+    "rental:entity:__action-form__:field:art": "Art",
+    "rental:entity:__action-form__:field:einheit": "Einheit",
+    "rental:entity:__action-form__:field:betrag": "Aktueller Betrag",
+    "rental:entity:__action-form__:field:gueltigVon": "Gültig seit",
+    "rental:entity:__action-form__:field:einzelpreis": "Einzelpreis",
     "rental:entity:__action-form__:field:neuerBetrag": "Neuer Betrag",
     "rental:entity:__action-form__:field:begruendung": "Begründung",
+    "rental:entity:__action-form__:field:begruendung:option:indexmiete": "Indexmiete",
+    "rental:entity:__action-form__:field:begruendung:option:staffelmiete": "Staffelmiete",
+    "rental:entity:__action-form__:field:begruendung:option:vereinbarung": "Vereinbarung",
   },
   en: {
     "rental.nav.contracts": "Contracts",
@@ -81,7 +95,13 @@ export const rentalTranslations: TranslationsByLocale = {
     "rental.action.adjustRent": "Adjust rent",
     "rental.adjustRent.hint":
       "The old position ends the day before, the new one starts on the effective date. Type, quantity and unit stay unchanged, so the rent history stays traceable.",
-    "rental.adjustRent.submit": "Save",
+    "rental.action.createLease": "Sign lease",
+    "rental:entity:lease:noun": { one: "lease", other: "leases" },
+    "rental.search.placeholder": "Tenant, unit or property",
+    "rental.positions.description": "All positions of this lease with their history.",
+    "rental.positions.noun": { one: "position", other: "positions" },
+    "rental.adjustRent.summary.title": "{art} · {einheit}",
+    "rental.adjustRent.summary.subtitle": "Currently {betrag} since {gueltigVon}",
 
     "rental:entity:lease:field:mieter": "Tenant",
     "rental:entity:lease:field:einheit": "Unit",
@@ -110,7 +130,15 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "rental:entity:__action-form__:field:positionId": "Position",
     "rental:entity:__action-form__:field:wirksamAb": "Effective from",
+    "rental:entity:__action-form__:field:art": "Type",
+    "rental:entity:__action-form__:field:einheit": "Unit",
+    "rental:entity:__action-form__:field:betrag": "Current amount",
+    "rental:entity:__action-form__:field:gueltigVon": "Valid since",
+    "rental:entity:__action-form__:field:einzelpreis": "Unit price",
     "rental:entity:__action-form__:field:neuerBetrag": "New amount",
     "rental:entity:__action-form__:field:begruendung": "Reason",
+    "rental:entity:__action-form__:field:begruendung:option:indexmiete": "Index rent",
+    "rental:entity:__action-form__:field:begruendung:option:staffelmiete": "Graduated rent",
+    "rental:entity:__action-form__:field:begruendung:option:vereinbarung": "Agreement",
   },
 };

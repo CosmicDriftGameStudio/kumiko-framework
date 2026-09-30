@@ -15,6 +15,9 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "vehicles.action.edit": "Bearbeiten",
     "vehicles.action.wizard": "Schritt für Schritt",
     "vehicles.action.saveChanges": "Änderungen speichern",
+    "vehicles.search.placeholder": "Fahrzeug suchen",
+    "vehicles:entity:vehicle:noun": { one: "Fahrzeug", other: "Fahrzeugen" },
+    "vehicles:entity:campaign:noun": { one: "Kampagne", other: "Kampagnen" },
 
     "vehicles.section.basics": "Basisdaten",
     "vehicles.section.basics.hint":
@@ -96,6 +99,9 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "vehicles.action.edit": "Edit",
     "vehicles.action.wizard": "Step by step",
     "vehicles.action.saveChanges": "Save changes",
+    "vehicles.search.placeholder": "Search vehicles",
+    "vehicles:entity:vehicle:noun": { one: "vehicle", other: "vehicles" },
+    "vehicles:entity:campaign:noun": { one: "campaign", other: "campaigns" },
 
     "vehicles.section.basics": "Basics",
     "vehicles.section.basics.hint":

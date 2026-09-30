@@ -1,5 +1,5 @@
 import type { FieldIconKey } from "./field-icon.js";
-import type { FieldDefinition, FormFieldDefinition } from "./fields.js";
+import type { FieldDefinition, FormFieldDefinition, SelectOptionTone } from "./fields.js";
 import type { AccessRule, AgentHandlerHints } from "./handlers.js";
 import type { IconKey, NavIconKey } from "./nav-icon.js";
 
@@ -462,6 +462,10 @@ export type EntityListScreenDefinition = {
   // `field` muss in der Entity sortable: true sein — Boot-Validator
   // pinnt das.
   readonly defaultSort?: ListSortSpec;
+  /** i18n key for the primary create button label (default `kumiko.actions.create`). */
+  readonly createLabel?: string;
+  /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
+  readonly searchPlaceholder?: string;
   // Search-Toolbar im UI an/aus. Server-Search geht IMMER über den
   // SearchAdapter (Meilisearch) — kein DB-ILIKE-Drift. Default true
   // wenn die Entity searchable Felder hat, sonst false.
@@ -554,6 +558,10 @@ export type ProjectionListScreenDefinition = {
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;
   readonly defaultSort?: ListSortSpec;
+  /** i18n key for the primary create button label (default `kumiko.actions.create`). */
+  readonly createLabel?: string;
+  /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
+  readonly searchPlaceholder?: string;
   readonly searchable?: boolean;
   /** Derived by buildAppSchema from the query handler's Zod schema (`sort`
    *  param present). Same type serves author and wire schema (no separate
@@ -604,6 +612,8 @@ export type RecordHeaderSpec = {
    *  field's value is such a URL, the subtitle renders as an external link
    *  (`target="_blank"`) instead of plain text. */
   readonly subtitleHref?: string;
+  /** Badge tone per `status` field value; unlisted values fall back to the value heuristic. */
+  readonly statusTones?: { readonly [statusValue: string]: SelectOptionTone };
 };
 
 // Same shape as `RowActionNavigate`'s screen/entity choice, minus the fields
@@ -1013,6 +1023,11 @@ export type EditRelatedListSection = {
    *  `filter` (same requirement `filter`/`facets` already have). */
   readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
+  /** i18n key for the one-line hint at the left of the tab toolbar. */
+  readonly description?: string;
+  /** i18n key holding plural forms for the footer count ("1 Position",
+   *  "3 Positionen"). Omitted: generic "entries" wording. */
+  readonly itemNoun?: string;
   readonly pageSize?: number;
   /** Initial sort on mount, applied client-side over the already-loaded rows
    *  (this section has no pager, so there is no "loaded subset" to mislead).
@@ -1278,6 +1293,9 @@ export type ActionFormScreenDefinition = {
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
+  /** Context box above the fields (i18n keys). `{name}` placeholders resolve from the
+   *  drawer prefill (`params` of the opening row action), formatted for display. */
+  readonly summary?: { readonly title: string; readonly subtitle?: string };
   /** Visual style of the submit button. "danger" renders it red — for a form
    *  whose handler is destructive (terminate, revoke, delete), so the warning
    *  isn't lost on the way from the calling screen to this one. Default "primary". */

@@ -65,6 +65,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.sort.label": "Sort",
     "kumiko.list.sort.unsorted": "Unsorted",
     "kumiko.list.filter.reset": "Reset",
+    "kumiko.list.filter.toggle": "Filters",
     "kumiko.list.related-list-truncated":
       "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
     "kumiko.reference.system-tenant": "System",
@@ -72,6 +73,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
 
     "kumiko.pager.status": "{from}–{to} of {total}",
     "kumiko.pager.pageOf": "Page {page} of {pages}",
+    "kumiko.form.all-required": "All fields are required.",
+    "kumiko.pager.status.noun": "{from}–{to} of {total} {noun}",
+    "kumiko.pager.pageSize": "{size} per page",
+    "kumiko.pager.pageSizeLabel": "Entries per page",
+    "kumiko.list.count.noun": "{count} {noun}",
     "kumiko.list.count.one": "1 entry",
     "kumiko.list.count.other": "{count} entries",
     "kumiko.list.row-actions.more": "More actions",

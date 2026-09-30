@@ -21,8 +21,8 @@ export const vehicleEntity = createEntity({
   table: "read_ui_walkthrough_vehicles",
   fields: {
     fin: createTextField({ ...DEMO_DATA, maxLength: 17 }),
-    marke: createTextField({ ...DEMO_DATA, required: true, searchable: true, sortable: true }),
-    modell: createTextField({ ...DEMO_DATA, required: true, searchable: true, sortable: true }),
+    marke: createTextField({ ...DEMO_DATA, searchable: true, sortable: true }),
+    modell: createTextField({ ...DEMO_DATA, searchable: true, sortable: true }),
     baujahr: createNumberField({ integer: true, sortable: true }),
     preis: createMoneyField({ sortable: true }),
     kilometerstand: createNumberField({ integer: true }),
@@ -47,7 +47,12 @@ export const campaignEntity = createEntity({
   table: "read_ui_walkthrough_campaigns",
   fields: {
     name: createTextField({ ...DEMO_DATA, required: true, searchable: true, sortable: true }),
-    status: createSelectField({ options: CAMPAIGN_STATUSES, required: true }),
-    meta: createTextField(DEMO_DATA),
+    status: createSelectField({
+      options: CAMPAIGN_STATUSES,
+      optionTones: { aktiv: "ok", abgeschlossen: "neutral", entwurf: "neutral" },
+      required: true,
+      filterable: true,
+    }),
+    meta: createTextField({ ...DEMO_DATA, sortable: true }),
   },
 });

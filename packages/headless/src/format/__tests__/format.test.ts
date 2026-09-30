@@ -79,6 +79,10 @@ describe("applyFormatSpec — timestamp/date (formatDateCell-Pfad)", () => {
     expect(out).toContain("2026");
   });
 
+  test("date ohne dateStyle rendert Tag und Monat zweistellig", () => {
+    expect(applyFormatSpec({ format: "date", locale: "de-DE" }, "2026-03-05")).toBe("05.03.2026");
+  });
+
   test("timestamp ohne Optionen nutzt das kompakte Default-Format", () => {
     const out = applyFormatSpec({ format: "timestamp", locale: "en-US" }, instant);
     expect(out).toContain("2026");

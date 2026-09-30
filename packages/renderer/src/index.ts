@@ -214,6 +214,7 @@ export type {
   EmbeddedListColumn,
   EmbeddedListInputProps,
   EmbeddedListTotal,
+  FieldCellWidth,
   FieldProps,
   FillContainerProps,
   FormProps,
@@ -254,6 +255,7 @@ export {
   PrimitivesProvider,
   STICKY_PRIMARY_ACTION_PROP,
   shouldRenderActionsIconOnly,
+  statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
 } from "./primitives";

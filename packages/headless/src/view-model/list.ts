@@ -164,6 +164,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
             (fieldDef as unknown as { options?: readonly string[] }).options ?? [],
           )
         : undefined;
+    const optionTones = fieldDef.type === "select" ? fieldDef.optionTones : undefined;
     const grouping = fieldDef.type === "number" ? fieldDef.grouping : undefined;
     const column: ListColumnViewModel = {
       field: normalized.field,
@@ -172,6 +173,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       sortable: fieldIsSortable(fieldDef),
       ...(normalized.renderer !== undefined && { renderer: normalized.renderer }),
       ...(optionLabels !== undefined && { optionLabels }),
+      ...(optionTones !== undefined && { optionTones }),
       ...(refEntity !== undefined && { refEntity }),
       ...(refFeature !== undefined && { refFeature }),
       ...(refLabelField !== undefined && { refLabelField }),

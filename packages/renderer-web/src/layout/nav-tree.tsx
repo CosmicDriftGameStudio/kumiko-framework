@@ -28,7 +28,7 @@ import {
   useNav,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { ChevronDown, ChevronRight, type Folder, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, type Folder, Plus, Search } from "lucide-react";
 import {
   createContext,
   type ReactNode,
@@ -183,9 +183,18 @@ export function NavTree({
     <ActiveScreenMarkerContext.Provider value={activeMarker}>
       <NavFilterContext.Provider value={navFilter}>
         <NavBadgesContext.Provider value={navBadges ?? EMPTY_BADGES}>
-          <div data-testid={testId} data-kumiko-layout="nav-tree" className="flex w-full flex-col">
-            <div className="px-2 pt-2 pb-1 group-data-[collapsible=icon]:hidden">
+          <div
+            data-testid={testId}
+            data-kumiko-layout="nav-tree"
+            className="flex w-full flex-col gap-3"
+          >
+            <div className="relative mb-0 group-data-[collapsible=icon]:hidden">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-sidebar-muted"
+              />
               <SidebarInput
+                className="pl-8"
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 placeholder={t("kumiko.nav.search")}
@@ -201,7 +210,7 @@ export function NavTree({
                   onToggle={onToggle}
                 />
               ) : (
-                <SidebarMenu key={node.qualifiedName} className="px-2 py-1">
+                <SidebarMenu key={node.qualifiedName}>
                   <NavMenuNode node={node} collapsed={collapsed} onToggle={onToggle} />
                 </SidebarMenu>
               ),
@@ -259,8 +268,8 @@ function useLabel(node: NavNode): string {
   return node.label.includes(".") ? t(node.label) : node.label;
 }
 
-// Icon-or-Dot: bekannter icon-Key → Lucide-Icon, sonst ein dezenter Dot.
-// Aktiv = accent-foreground, inaktiv = gedimmt.
+// Bekannter icon-Key → Lucide-Icon; ohne Icon steht nur in der kollabierten
+// Rail der Anfangsbuchstabe, ausgeklappt bleibt das Label allein.
 function NavLeadingIcon({
   node,
   active,
@@ -287,31 +296,17 @@ function NavLeadingIcon({
   }, [iconKey, isKnownIcon, node.qualifiedName]);
   if (NavIcon !== undefined) return <NavIcon aria-hidden="true" className="shrink-0" />;
   const initial = label?.trim().charAt(0).toUpperCase();
+  if (initial === undefined || initial === "") return null;
   return (
-    <>
-      {/* Expanded, a dot is enough: the label sits next to it and carries the
-          meaning. Collapsed the dot is worthless — a rail of identical dots says
-          nothing about what you are clicking. There the initial takes its place
-          until the app sets an icon. */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          "inline-block size-1.5 shrink-0 rounded-full group-data-[collapsible=icon]:hidden",
-          active ? "bg-sidebar-accent-foreground" : "bg-sidebar-foreground/40",
-        )}
-      />
-      {initial !== undefined && initial !== "" && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            "hidden size-4 shrink-0 items-center justify-center font-medium text-xs group-data-[collapsible=icon]:flex",
-            active ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70",
-          )}
-        >
-          {initial}
-        </span>
+    <span
+      aria-hidden="true"
+      className={cn(
+        "hidden size-4 shrink-0 items-center justify-center font-medium text-xs group-data-[collapsible=icon]:flex",
+        active ? "text-sidebar-accent-foreground" : "text-sidebar-foreground/70",
       )}
-    </>
+    >
+      {initial}
+    </span>
   );
 }
 
@@ -581,7 +576,7 @@ function NodeActions({
   if (create === undefined && actions.length === 0) return null;
   const label = (s: string): string => (s.includes(".") ? t(s) : s);
   const btn =
-    "flex size-5 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
+    "flex size-5 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground";
   const hover =
     "opacity-0 group-hover/menu-item:opacity-100 group-hover/menu-sub-item:opacity-100 group-focus-within/menu-item:opacity-100";
   return (
@@ -627,7 +622,7 @@ function ProviderStatus({
     return <li className="px-2 py-1 text-xs text-destructive">{error}</li>;
   }
   if (loading) {
-    return <li className="px-2 py-1 text-xs text-sidebar-foreground/60 italic">Lädt …</li>;
+    return <li className="px-2 py-1 text-xs text-sidebar-muted italic">Lädt …</li>;
   }
   return null;
 }
@@ -648,7 +643,7 @@ function NavSection({ node, collapsed, onToggle }: NavSubProps): ReactNode {
     return null;
   }
   return (
-    <SidebarGroup className="py-1">
+    <SidebarGroup>
       <SidebarGroupLabel>{displayLabel}</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
@@ -818,7 +813,7 @@ function NavSubNode({ node, collapsed, onToggle }: NavSubProps): ReactNode {
         e.stopPropagation();
         onToggle(node.qualifiedName);
       }}
-      className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
       {s.isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
     </button>

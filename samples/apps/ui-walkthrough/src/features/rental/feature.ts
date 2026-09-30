@@ -92,6 +92,8 @@ export const rentalFeature = defineFeature("rental", (r) => {
             art: position.art,
             einheit: position.einheit ?? "",
             betrag: formatGermanMoney(position.betrag),
+            betragWert: position.betrag,
+            gueltigVonIso: position.gueltigVon.toString(),
             gueltigVon: formatGermanDate(position.gueltigVon),
             gueltigBis: position.gueltigBis ? formatGermanDate(position.gueltigBis) : "–",
           };
@@ -167,13 +169,11 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.nav({
     id: "contracts",
     label: i18nKey("rental.nav.contracts"),
-    icon: "list",
     order: 30,
   });
   r.nav({
     id: "lease-list",
     label: i18nKey("rental.nav.leases"),
-    icon: "list",
     parent: "rental:nav:contracts",
     screen: "rental:screen:lease-list",
     order: 10,

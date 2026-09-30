@@ -1,4 +1,8 @@
-import { createDateField, createTextField } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createDateField,
+  createSelectField,
+  createTextField,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
   EntityEditScreenDefinition,
@@ -12,6 +16,8 @@ const OPEN_ACCESS = {
     reason: "demo app: any signed-in user manages every lease; there is no per-user ownership",
   },
 } as const;
+
+const RENT_ADJUST_REASONS = ["indexmiete", "staffelmiete", "vereinbarung"] as const;
 
 const OPEN_FILL_COLUMNS = [
   "mieter",
@@ -38,6 +44,8 @@ export const leaseListScreen: EntityListScreenDefinition = {
   columns: [...OPEN_FILL_COLUMNS],
   defaultSort: { field: "beginn", dir: "desc" },
   pageSize: 25,
+  createLabel: "rental.action.createLease",
+  searchPlaceholder: "rental.search.placeholder",
   rowActions: [openLeaseDetail],
   access: OPEN_ACCESS,
 };
@@ -125,7 +133,12 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
   dormant: true,
   listScreenId: "lease-list",
   query: RENTAL_QUERIES.leaseAkte,
-  header: { title: "mieter", subtitle: "standort", status: "statusLabel" },
+  header: {
+    title: "mieter",
+    subtitle: "standort",
+    status: "statusLabel",
+    statusTones: { Aktiv: "ok", Gekündigt: "bad" },
+  },
   metrics: ["grundmiete", "beginn", "kuendigungsfrist", "zahltag", "mieter"],
   fieldLabels: {
     grundmiete: "rental:entity:lease:field:grundmiete",
@@ -160,6 +173,8 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
         title: "rental.tab.positions",
         query: RENTAL_QUERIES.positionList,
         countField: "positionCount",
+        description: "rental.positions.description",
+        itemNoun: "rental.positions.noun",
         columns: [...POSITION_COLUMNS],
         defaultSort: { field: "gueltigVon", dir: "desc" },
         toolbarActions: [
@@ -178,7 +193,17 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
             icon: "pencil",
             label: "rental.action.adjustRent",
             screen: "adjust-rent",
-            params: { map: { positionId: "id" } },
+            params: {
+              map: {
+                positionId: "id",
+                art: "art",
+                einheit: "einheit",
+                einzelpreis: "betragWert",
+                neuerBetrag: "betragWert",
+                betrag: "betragWert",
+                gueltigVon: "gueltigVonIso",
+              },
+            },
           },
         ],
       },
@@ -225,16 +250,27 @@ export const adjustRentScreen: ActionFormScreenDefinition = {
   fields: {
     positionId: createTextField({ personal: false, reason: "is_business_data", required: true }),
     wirksamAb: createDateField({ required: true }),
+    art: createTextField({ personal: false, reason: "is_business_data" }),
+    einheit: createTextField({ personal: false, reason: "is_business_data" }),
+    betrag: { type: "money", currency: { kind: "literal", code: "EUR" } },
+    gueltigVon: createDateField(),
+    einzelpreis: { type: "money", required: true, currency: { kind: "literal", code: "EUR" } },
     neuerBetrag: { type: "money", required: true, currency: { kind: "literal", code: "EUR" } },
-    begruendung: createTextField({
-      personal: false,
-      reason: "is_business_data",
-      default: "Indexmiete",
+    begruendung: createSelectField({
+      options: RENT_ADJUST_REASONS,
+      display: "dropdown",
+      default: "indexmiete",
+      required: true,
     }),
   },
   fieldLabels: {
     positionId: "rental:entity:__action-form__:field:positionId",
     wirksamAb: "rental:entity:__action-form__:field:wirksamAb",
+    art: "rental:entity:__action-form__:field:art",
+    einheit: "rental:entity:__action-form__:field:einheit",
+    betrag: "rental:entity:__action-form__:field:betrag",
+    gueltigVon: "rental:entity:__action-form__:field:gueltigVon",
+    einzelpreis: "rental:entity:__action-form__:field:einzelpreis",
     neuerBetrag: "rental:entity:__action-form__:field:neuerBetrag",
     begruendung: "rental:entity:__action-form__:field:begruendung",
   },
@@ -244,13 +280,21 @@ export const adjustRentScreen: ActionFormScreenDefinition = {
         description: "rental.adjustRent.hint",
         fields: [
           { field: "positionId", visible: false },
+          { field: "art", visible: false },
+          { field: "einheit", visible: false },
+          { field: "betrag", visible: false },
+          { field: "gueltigVon", visible: false },
           "wirksamAb",
+          "einzelpreis",
           "neuerBetrag",
           "begruendung",
         ],
       },
     ],
   },
-  submitLabel: "rental.adjustRent.submit",
+  summary: {
+    title: "rental.adjustRent.summary.title",
+    subtitle: "rental.adjustRent.summary.subtitle",
+  },
   access: OPEN_ACCESS,
 };

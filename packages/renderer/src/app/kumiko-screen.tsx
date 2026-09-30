@@ -49,15 +49,17 @@ import {
 import { RenderList } from "../components/render-list";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context";
 import { useUserRoles } from "../context/user-roles-context";
-import { type ListSort, useListUrlState } from "../hooks/use-list-url-state";
+import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state";
 import { type UseQueryResult, useQuery } from "../hooks/use-query";
-import { useOptionalTimeZone, useTranslation } from "../i18n";
+import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n";
 import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer";
 import { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "../page-header-slot";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableRowAction,
+  type StatusTone,
+  statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
 } from "../primitives";
@@ -391,6 +393,12 @@ function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () =
 // Schema-Screens kommen mit qualifizierten ids ("publicstatus:screen:
 // component-edit") aus der Registry; lastSegment strippt den Prefix
 // für nav.navigate (siehe ./qn.ts für Doku).
+function pageSizeOptionsFor(currentLimit: number): readonly number[] {
+  return PAGE_SIZE_OPTIONS.includes(currentLimit)
+    ? PAGE_SIZE_OPTIONS
+    : [...PAGE_SIZE_OPTIONS, currentLimit].sort((a, b) => a - b);
+}
+
 function useNavigateToCreateFor(
   schema: FeatureSchema,
   entityName: string,
@@ -584,6 +592,42 @@ function isMoneyValue(value: unknown): value is MoneyValue {
     typeof currency === "string" &&
     CURRENCY_CODE_PATTERN.test(currency)
   );
+}
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function formatSummaryValue(value: unknown, locale: string): string {
+  if (isMoneyValue(value)) {
+    return new Intl.NumberFormat(locale, { style: "currency", currency: value.currency }).format(
+      value.amount,
+    );
+  }
+  if (typeof value === "number") return value.toLocaleString(locale);
+  if (typeof value === "string" && ISO_DATE_PATTERN.test(value)) {
+    return new Date(`${value}T00:00:00Z`).toLocaleDateString(locale, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "UTC",
+    });
+  }
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function resolveActionFormSummary(
+  summary: ActionFormScreenDefinition["summary"],
+  prefill: Readonly<Record<string, unknown>> | undefined,
+  translate: Translate,
+  locale: string,
+): { readonly title: string; readonly subtitle?: string } | undefined {
+  if (summary === undefined) return undefined;
+  const params = Object.fromEntries(
+    Object.entries(prefill ?? {}).map(([name, value]) => [name, formatSummaryValue(value, locale)]),
+  );
+  return {
+    title: translate(summary.title, params),
+    ...(summary.subtitle !== undefined && { subtitle: translate(summary.subtitle, params) }),
+  };
 }
 
 function parseJsonOrRaw(raw: string): unknown {
@@ -1717,6 +1761,7 @@ function DrawerHost({
                 }}
                 onCancelOverride={requestClose}
                 onDirtyChange={setHasUnsavedInput}
+                submitLabelFallback={drawerAction.label}
               />
             )}
           </InsideDrawerProvider>
@@ -1808,7 +1853,7 @@ function EntityListBody({
   // wenn URL keinen sort hat — Author-Default vs User-Choice.
   const urlState = useListUrlState(screen.id);
   const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
-  const limit = screen.pageSize ?? 50;
+  const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
   const usePager = paginationMode === "pages";
   const useInfinite = paginationMode === "infinite";
@@ -2209,6 +2254,8 @@ function EntityListBody({
           limit,
           total,
           onPageChange: urlState.setPage,
+          pageSizeOptions: pageSizeOptionsFor(limit),
+          onPageSizeChange: urlState.setPageSize,
         }
       : undefined;
 
@@ -2319,7 +2366,7 @@ function ProjectionListBody({
   // screen) must not smuggle a param the query's Zod schema doesn't accept.
   const activeSearch = searchable ? urlState.q : "";
   const activeSort = sortable ? (urlState.sort ?? screen.defaultSort ?? null) : null;
-  const limit = screen.pageSize ?? 50;
+  const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   // Pages-mode only (see header comment) — an author-set pagination:
   // "infinite" on a paginated projectionList is silently a no-op today.
   const usePager = paginated && (screen.pagination ?? "pages") === "pages";
@@ -2538,7 +2585,14 @@ function ProjectionListBody({
   const total = rowsQuery.data?.total;
   const pager =
     usePager && total !== undefined
-      ? { page: urlState.page, limit, total, onPageChange: urlState.setPage }
+      ? {
+          page: urlState.page,
+          limit,
+          total,
+          onPageChange: urlState.setPage,
+          pageSizeOptions: pageSizeOptionsFor(limit),
+          onPageSizeChange: urlState.setPageSize,
+        }
       : undefined;
 
   return (
@@ -2651,6 +2705,19 @@ function isAbsoluteHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value) && isSafeHref(value);
 }
 
+function headerStatusTone(
+  header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
+  record: Readonly<Record<string, unknown>>,
+): StatusTone | undefined {
+  if (header.status === undefined) return undefined;
+  const value = String(record[header.status] ?? "");
+  const declared =
+    header.statusTones !== undefined && Object.hasOwn(header.statusTones, value)
+      ? header.statusTones[value]
+      : undefined;
+  return declared !== undefined ? statusToneForOptionTone(declared) : statusToneForValue(value);
+}
+
 function resolveSubtitleHref(
   header: ProjectionDetailScreenDefinition["header"],
   record: Readonly<Record<string, unknown>>,
@@ -2722,6 +2789,7 @@ function HeaderActionsBar({
             action={action}
             Button={Button}
             Dialog={Dialog}
+            hideIcon
             onError={onError}
           />
         ))}
@@ -2738,6 +2806,7 @@ function HeaderActionsBar({
           action={primary}
           Button={Button}
           Dialog={Dialog}
+          hideIcon
           onError={onError}
         />
       )}
@@ -3055,7 +3124,7 @@ function ProjectionDetailBody({
           {StatusBadge !== undefined ? (
             <StatusBadge
               value={String(record[header.status] ?? "")}
-              tone={statusToneForValue(String(record[header.status] ?? ""))}
+              tone={headerStatusTone(header, record)}
               testId="kumiko-screen-projection-detail-status"
             />
           ) : (
@@ -3140,7 +3209,7 @@ function ProjectionDetailBody({
                 status: (
                   <StatusBadge
                     value={String(record[header.status] ?? "")}
-                    tone={statusToneForValue(String(record[header.status] ?? ""))}
+                    tone={headerStatusTone(header, record)}
                     testId="kumiko-screen-projection-detail-status"
                   />
                 ),
@@ -3336,6 +3405,7 @@ function ActionFormBody({
   onSuccess,
   onCancelOverride,
   onDirtyChange,
+  submitLabelFallback,
 }: {
   readonly schema: FeatureSchema;
   readonly screen: ActionFormScreenDefinition;
@@ -3356,10 +3426,13 @@ function ActionFormBody({
   /** Drawer-hosted usage: reports unsaved input so the host can confirm
    *  before discarding it. */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Drawer-hosted usage: submit label when the screen declares none (the opening action's label). */
+  readonly submitLabelFallback?: string;
 }): ReactNode {
   const nav = useNav();
   const appFeatures = useAppFeatures();
   const insideDrawer = useInsideDrawer();
+  const locale = useLocale().locale();
   const { Banner } = usePrimitives();
   // Unused when drawer-hosted — onSuccess/onCancelOverride win below first.
   const returnTarget = useReturnTarget(screen.id);
@@ -3401,6 +3474,12 @@ function ActionFormBody({
       initialOverrides,
       handoffValues,
     ],
+  );
+  const t = useTranslation();
+  const effectiveTranslate = translate ?? t;
+  const summary = useMemo(
+    () => resolveActionFormSummary(screen.summary, initialOverrides, effectiveTranslate, locale),
+    [screen.summary, initialOverrides, effectiveTranslate, locale],
   );
   const handleSubmitted = useCallback(
     (result: SubmitResult<unknown>) => {
@@ -3467,8 +3546,11 @@ function ActionFormBody({
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
       {...(onDirtyChange !== undefined && { onDirtyChange })}
       {...((insideDrawer || screenFillsHeight(screen)) && { fillScreenHeight: true })}
-      {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
+      {...((screen.submitLabel ?? submitLabelFallback) !== undefined && {
+        submitLabel: screen.submitLabel ?? submitLabelFallback,
+      })}
       {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
+      {...(summary !== undefined && { summary })}
       {...(translate !== undefined && { translate })}
     />
   );

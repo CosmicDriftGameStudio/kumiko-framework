@@ -326,6 +326,8 @@ export type BooleanFieldDef = {
   readonly access?: FieldAccess;
 };
 
+export type SelectOptionTone = "ok" | "warn" | "bad" | "neutral";
+
 export type SelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
   readonly type: "select";
   readonly description?: string;
@@ -342,6 +344,10 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  dropdown otherwise). A `"radio"` group with many or long labels wraps —
    *  the author owns that trade-off, the renderer does not override it. */
   readonly display?: "radio" | "dropdown";
+  /** Status tone per option, shown as a toned badge with dot in lists and
+   *  detail bands. Options without an entry keep the renderer's own
+   *  value-based heuristic. */
+  readonly optionTones?: { readonly [K in TOptions[number]]?: SelectOptionTone };
 } & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als

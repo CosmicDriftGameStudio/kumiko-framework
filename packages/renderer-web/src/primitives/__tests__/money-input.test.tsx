@@ -139,24 +139,18 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(onChange).toHaveBeenCalledWith(2550);
   });
 
-  test("+/- Buttons bumpen um eine Major-Unit (= factor Cents)", () => {
-    const onChange = mock((_v: number | undefined) => {});
+  test("renders no step buttons", () => {
     render(
       <MoneyInput
         id="amt"
         name="amt"
         value={1000}
-        onChange={onChange}
+        onChange={() => {}}
         currency="EUR"
         locale="de-DE"
       />,
     );
-    const [minus, plus] = screen.getAllByRole("button");
-    if (minus === undefined || plus === undefined) throw new Error("expected two step buttons");
-    fireEvent.click(plus);
-    expect(onChange).toHaveBeenLastCalledWith(1100);
-    fireEvent.click(minus);
-    expect(onChange).toHaveBeenLastCalledWith(900);
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 
   test("a11y: aria-required + aria-invalid spiegeln die Props", () => {

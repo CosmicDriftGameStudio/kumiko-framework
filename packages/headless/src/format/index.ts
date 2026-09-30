@@ -53,7 +53,11 @@ function formatDateCell(
       });
     }
     if (type === "date") {
-      return toPlainDate(raw).toLocaleString(locale);
+      return toPlainDate(raw).toLocaleString(locale, {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      });
     }
     return toInstant(raw).toLocaleString(locale, {
       year: "numeric",
