@@ -29,6 +29,11 @@ function deferred(): Deferred {
 // Per-test gates the routes below wait on, so ordering and slot release are
 // driven by explicit signals instead of timers.
 let orderedGate = deferred();
+let hangingClosed = deferred();
+let hangingSignal: AbortSignal | undefined;
+const hangingStarted: string[] = [];
+// A function read keeps TS from narrowing the module-level `let` to its last assignment.
+const heldSignal = (): AbortSignal | undefined => hangingSignal;
 let limitedClosed = deferred();
 let limitedConnectCalls = 0;
 let gatedRejects = true;
@@ -40,6 +45,20 @@ const wsFeature = defineFeature("ws-test", (r) => {
       onMessage: async (data, connection) => {
         if (data === "slow") await orderedGate.promise;
         connection.send(data);
+      },
+    }),
+  });
+  r.webSocketRoute({
+    path: "/api/ws/hanging",
+    connect: () => ({
+      onMessage: (data, connection) => {
+        hangingStarted.push(String(data));
+        hangingSignal = connection.signal;
+        return new Promise<void>(() => {});
+      },
+      onClose: (_code, _reason, connection) => {
+        hangingSignal = connection.signal;
+        hangingClosed.resolve();
       },
     }),
   });
@@ -311,6 +330,26 @@ describe("r.webSocketRoute (integration) — same-host origin, no allowlist", ()
     expect(await socket.next()).toBe("fast");
     socket.close();
     await socket.closed;
+  });
+
+  test("onClose runs and the signal aborts while onMessage hangs; queued messages never start", async () => {
+    hangingClosed = deferred();
+    hangingStarted.length = 0;
+    hangingSignal = undefined;
+    const socket = connectSocket(harness.url("/api/ws/hanging"), {
+      Cookie: cookie,
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    const bothReceived = harness.nextMessages(2);
+    socket.send("hangs");
+    socket.send("queued");
+    await bothReceived;
+    socket.close();
+    await socket.closed;
+    await hangingClosed.promise;
+    expect(heldSignal()?.aborted).toBe(true);
+    expect(hangingStarted).toEqual(["hangs"]);
   });
 
   test("a message above maxMessageBytes closes the socket with 1009", async () => {

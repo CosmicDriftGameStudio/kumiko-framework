@@ -449,7 +449,7 @@ describe("kumikoWebSocketHandler", () => {
   });
 
   describe("per-connection ordering and slot release", () => {
-    test("handlers run one after another in arrival order, onClose last", async () => {
+    test("handlers run one after another in arrival order", async () => {
       const events: string[] = [];
       let releaseFirst: () => void = () => {};
       const firstGate = new Promise<void>((resolve) => {
@@ -462,20 +462,45 @@ describe("kumikoWebSocketHandler", () => {
             if (data === "slow") await firstGate;
             events.push(`end:${String(data)}`);
           },
-          onClose: () => void events.push("close"),
         },
       });
       kumikoWebSocketHandler.message(ws, "slow");
       kumikoWebSocketHandler.message(ws, "fast");
-      kumikoWebSocketHandler.close(ws, 1000, "");
       await settle();
       expect(events).toEqual(["start:slow"]);
       releaseFirst();
       await settle();
-      expect(events).toEqual(["start:slow", "end:slow", "start:fast", "end:fast", "close"]);
+      expect(events).toEqual(["start:slow", "end:slow", "start:fast", "end:fast"]);
     });
 
-    test("a failing step closes with 1011 but later steps (onClose cleanup) still run", async () => {
+    test("close runs onClose at once, aborts the signal, and queued messages never start", async () => {
+      const events: string[] = [];
+      let heldSignal: AbortSignal | undefined;
+      const { ws } = fakeSocket({
+        handlers: {
+          onMessage: (data, connection) => {
+            events.push(`start:${String(data)}`);
+            heldSignal = connection.signal;
+            return new Promise<void>(() => {});
+          },
+          onClose: (_code, _reason, connection) => {
+            events.push(`close:aborted=${connection.signal.aborted}`);
+          },
+        },
+      });
+      kumikoWebSocketHandler.message(ws, "hangs");
+      kumikoWebSocketHandler.message(ws, "queued");
+      await settle();
+      expect(heldSignal?.aborted).toBe(false);
+      kumikoWebSocketHandler.close(ws, 1000, "");
+      await settle();
+      kumikoWebSocketHandler.message(ws, "after-close");
+      await settle();
+      expect(events).toEqual(["start:hangs", "close:aborted=true"]);
+      expect(heldSignal?.aborted).toBe(true);
+    });
+
+    test("a failing handler closes with 1011 and onClose still runs afterwards", async () => {
       const errorLog = spyOn(console, "error").mockImplementation(() => {});
       const events: string[] = [];
       const { ws, log } = fakeSocket({
@@ -488,10 +513,30 @@ describe("kumikoWebSocketHandler", () => {
       });
       try {
         kumikoWebSocketHandler.message(ws, "x");
-        kumikoWebSocketHandler.close(ws, 1006, "");
         await settle();
         expect(log.closed).toEqual([{ code: 1011, reason: "internal error" }]);
+        kumikoWebSocketHandler.close(ws, 1006, "");
+        await settle();
         expect(events).toEqual(["close"]);
+      } finally {
+        errorLog.mockRestore();
+      }
+    });
+
+    test("a throwing onClose is logged, not rethrown", async () => {
+      const errorLog = spyOn(console, "error").mockImplementation(() => {});
+      const { ws, log } = fakeSocket({
+        handlers: {
+          onClose: () => {
+            throw new Error("cleanup failed");
+          },
+        },
+      });
+      try {
+        kumikoWebSocketHandler.close(ws, 1000, "");
+        await settle();
+        expect(log.closed).toEqual([]);
+        expect(errorLog).toHaveBeenCalled();
       } finally {
         errorLog.mockRestore();
       }

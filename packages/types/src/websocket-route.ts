@@ -18,15 +18,27 @@ export type WebSocketMessageData = string | Uint8Array;
 export type WebSocketConnection = {
   readonly send: (data: WebSocketMessageData) => void;
   readonly close: (code?: number, reason?: string) => void;
+  /**
+   * Aborts when the socket closes. onClose can run while onOpen/onMessage is
+   * still awaiting, so after any await that allocates (e.g. an upstream
+   * session), check `signal.aborted` and release it yourself.
+   */
+  readonly signal: AbortSignal;
 };
 
 export type WebSocketSessionHandlers = {
+  /** May still be awaiting when onClose runs; see `WebSocketConnection.signal`. */
   readonly onOpen?: (connection: WebSocketConnection) => void | Promise<void>;
   readonly onMessage?: (
     data: WebSocketMessageData,
     connection: WebSocketConnection,
   ) => void | Promise<void>;
-  readonly onClose?: (code: number, reason: string) => void | Promise<void>;
+  /** Runs immediately on close, not queued behind a slow onMessage; pending messages never start after it. */
+  readonly onClose?: (
+    code: number,
+    reason: string,
+    connection: WebSocketConnection,
+  ) => void | Promise<void>;
 };
 
 export type WebSocketRouteConnectDeps = {

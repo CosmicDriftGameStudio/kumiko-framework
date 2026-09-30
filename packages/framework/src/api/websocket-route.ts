@@ -155,8 +155,10 @@ type ConnectionState = {
   timer: ReturnType<typeof setInterval> | undefined;
   revalidationFailures: number;
   revalidating: boolean;
-  // onOpen/onMessage/onClose run one after another in arrival order; steps never reject.
+  // onOpen/onMessage run one after another in arrival order; steps never reject.
   chain: Promise<void>;
+  closed: boolean;
+  readonly controller: AbortController;
 };
 
 const connectionStates = new WeakMap<KumikoWebSocketData, ConnectionState>();
@@ -169,6 +171,8 @@ function stateOf(ws: KumikoServerWebSocket): ConnectionState {
       revalidationFailures: 0,
       revalidating: false,
       chain: Promise.resolve(),
+      closed: false,
+      controller: new AbortController(),
     };
     connectionStates.set(ws.data, state);
   }
@@ -181,25 +185,37 @@ function toConnection(ws: KumikoServerWebSocket): WebSocketConnection {
       ws.send(data);
     },
     close: (code, reason) => ws.close(code, reason),
+    signal: stateOf(ws).controller.signal,
   };
 }
 
+function reportHandlerFailure(error: unknown): void {
+  log.error("websocket handler failed", {
+    error: error instanceof Error ? error.message : String(error),
+  });
+}
+
+// Runs outside the chain: a hung onMessage must not hold back onClose cleanup.
+function runInRequestContext(ws: KumikoServerWebSocket, run: () => Promise<void>): Promise<void> {
+  const { requestContextData } = ws.data;
+  return requestContextData ? requestContext.run(requestContextData, run) : run();
+}
+
 function enqueue(ws: KumikoServerWebSocket, run: () => void | Promise<void>): void {
+  const state = stateOf(ws);
+  // skip: the socket is gone, nothing may start after close
+  if (state.closed) return;
   const step = async (): Promise<void> => {
+    // skip: queued behind a slower handler and the socket closed meanwhile
+    if (state.closed) return;
     try {
       await run();
     } catch (error) {
-      log.error("websocket handler failed", {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      reportHandlerFailure(error);
       ws.close(CLOSE_INTERNAL_ERROR, "internal error");
     }
   };
-  const { requestContextData } = ws.data;
-  const state = stateOf(ws);
-  state.chain = state.chain.then(() =>
-    requestContextData ? requestContext.run(requestContextData, step) : step(),
-  );
+  state.chain = state.chain.then(() => runInRequestContext(ws, step));
 }
 
 function recordRevalidationFailure(
@@ -291,8 +307,19 @@ export function createKumikoWebSocketHandler(
         state.timer = undefined;
       }
       ws.data.releaseConnectionSlot?.();
+      state.closed = true;
+      state.controller.abort();
       const { onClose } = ws.data.handlers;
-      if (onClose) enqueue(ws, () => onClose(code, reason));
+      if (onClose) {
+        const cleanup = async (): Promise<void> => {
+          try {
+            await onClose(code, reason, toConnection(ws));
+          } catch (error) {
+            reportHandlerFailure(error);
+          }
+        };
+        void runInRequestContext(ws, cleanup);
+      }
     },
   };
 }
