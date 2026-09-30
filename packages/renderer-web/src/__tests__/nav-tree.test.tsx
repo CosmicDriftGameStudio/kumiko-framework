@@ -550,6 +550,38 @@ describe("NavTree active-marker parent fallback", () => {
     expect(listLink?.getAttribute("data-active")).toBe("false");
     expect(listLink?.hasAttribute("aria-current")).toBe(false);
   });
+
+  test("editing an existing record marks the list instead of the edit screen's own nav entry", () => {
+    const schema: FeatureSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "user-list", type: "entityList", entity: "profile", columns: [] },
+        {
+          id: "user-edit",
+          type: "entityEdit",
+          entity: "profile",
+          listScreenId: "user-list",
+          layout: { sections: [{ fields: [] }] },
+        },
+      ],
+      navs: [
+        { id: "user-list", label: "Users", screen: "user-list", order: 10 },
+        { id: "user-edit", label: "Add User", screen: "user-edit", order: 20 },
+      ],
+    } as FeatureSchema;
+
+    render(
+      <NavProvider
+        value={{ ...navWithRoute("user-edit"), route: { screenId: "user-edit", entityId: "u1" } }}
+      >
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+
+    expect(screen.getByText("Users").closest("a")?.getAttribute("data-active")).toBe("true");
+    expect(screen.getByText("Add User").closest("a")?.getAttribute("data-active")).toBe("false");
+  });
 });
 
 // ── Visual-Tree-Merge: dynamische Knoten in der EINEN Nav ──────────────

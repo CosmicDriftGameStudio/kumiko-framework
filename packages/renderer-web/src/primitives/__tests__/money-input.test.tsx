@@ -82,9 +82,8 @@ describe("MoneyInput — Render (Tier 2)", () => {
         locale="de-DE"
       />,
     );
-    const value = inputEl().value;
-    expect(value).toContain("10");
-    expect(value).toContain("€");
+    expect(inputEl().value).toBe("10,00");
+    expect(screen.getByTestId("amt-currency").textContent).toBe("€");
   });
 
   test("Focus schaltet auf rohen Decimal-String ohne Währungssymbol", () => {

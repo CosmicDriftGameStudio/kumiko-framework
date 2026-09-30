@@ -9,14 +9,6 @@ const OPEN_ACCESS = {
   },
 } as const;
 
-const BASIC_FIELDS = [
-  "marke",
-  "modell",
-  "baujahr",
-  "preis",
-  "kilometerstand",
-  "kilometerEinheit",
-] as const;
 const DETAIL_FIELDS = [
   "kraftstoffart",
   "getriebe",
@@ -70,7 +62,7 @@ export const vehicleEditScreen: EntityEditScreenDefinition = {
         title: "vehicles.section.basics",
         description: "vehicles.section.basics.hint",
         columns: 2,
-        fields: [...BASIC_FIELDS],
+        fields: ["marke", "modell", "baujahr", "preis", "kilometerstand", "kilometerEinheit"],
       },
       {
         title: "vehicles.section.details",

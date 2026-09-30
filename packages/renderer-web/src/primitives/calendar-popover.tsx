@@ -27,8 +27,8 @@ export type CalendarPopoverProps = {
 };
 
 const triggerClass =
-  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-input " +
-  "bg-transparent text-muted-foreground shadow-sm transition-colors hover:bg-accent " +
+  "absolute inset-y-0 right-0 inline-flex w-9 items-center justify-center rounded-md " +
+  "text-muted-foreground transition-colors hover:text-foreground " +
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -70,7 +70,7 @@ export function CalendarPopover({
           disabled={disabled}
           aria-label={triggerLabel}
           aria-invalid={hasError === true ? true : undefined}
-          className={cn(triggerClass, hasError === true && "border-destructive")}
+          className={cn(triggerClass, hasError === true && "text-destructive")}
         >
           <CalendarIcon className="size-4" aria-hidden="true" />
         </button>

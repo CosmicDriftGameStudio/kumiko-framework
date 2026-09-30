@@ -73,7 +73,12 @@ describe("RenderEdit board fidelity", () => {
         </GridCell>
       </Grid>,
     );
-    expect(screen.getByTestId("n").parentElement?.className).toContain("w-24");
+    const numberCell = screen.getByTestId("n").parentElement;
+    expect(numberCell?.className).toContain("min-w-24");
+    // Grows to its label row (label plus changed marker) instead of a fixed
+    // width that lets the label spill into the neighbouring cell.
+    expect(numberCell?.className).toContain("w-fit");
+    expect(numberCell?.className).not.toMatch(/(^|\s)w-24(\s|$)/);
     expect(screen.getByTestId("f").parentElement?.className).toContain("w-full");
   });
 

@@ -49,6 +49,7 @@ test("drawer-light", async ({ page }) => {
   await openMaxNachmieterPositions(page);
   await page.getByRole("button", { name: "Miete anpassen" }).first().click();
   await expect(page.getByText("Die alte Position endet am Vortag")).toBeVisible();
+  await page.getByLabel("Wirksam ab").fill("01.04.2026");
   await shot(page, "drawer-light");
 });
 
@@ -61,6 +62,9 @@ test("formular-light", async ({ page }) => {
   const price = page.getByLabel("Preis");
   await price.fill("19.450,00");
   await price.blur();
+  const mileage = page.getByLabel("Kilometerstand");
+  await mileage.fill("28500");
+  await mileage.blur();
   await shot(page, "formular-light");
 });
 

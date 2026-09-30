@@ -136,16 +136,26 @@ export function NavTree({
 
   const nav = useNav();
   const activeScreenId = nav.route?.screenId;
+  const activeEntityId = nav.route?.entityId;
   // Same "no nav entry of its own" gap the breadcrumb closes (fw#2724):
   // when the routed screen has no node in {tree}, fall back to its
   // resolved parent so a detail/edit/form screen still orients the user.
   const activeMarker = useMemo((): ActiveScreenMarker => {
     if (activeScreenId === undefined) return undefined;
-    if (treeContainsScreen(tree, activeScreenId)) return { screenId: activeScreenId, exact: true };
     const allScreens = app.features.flatMap((f) => f.screens);
     const parentScreenId = resolveParentScreenId(allScreens, activeScreenId);
+    // A nav entry on an edit screen means "create"; an existing record (entityId
+    // in the route) belongs to its list, same rule as the breadcrumb.
+    if (
+      activeEntityId !== undefined &&
+      parentScreenId !== undefined &&
+      treeContainsScreen(tree, parentScreenId)
+    ) {
+      return { screenId: parentScreenId, exact: false };
+    }
+    if (treeContainsScreen(tree, activeScreenId)) return { screenId: activeScreenId, exact: true };
     return parentScreenId !== undefined ? { screenId: parentScreenId, exact: false } : undefined;
-  }, [tree, app.features, activeScreenId]);
+  }, [tree, app.features, activeScreenId, activeEntityId]);
 
   // Collapsed-Set: nur die explizit zugeklappten qualified-names. Default
   // ist also "alles auf" — neue Features tauchen sofort offen auf, ohne

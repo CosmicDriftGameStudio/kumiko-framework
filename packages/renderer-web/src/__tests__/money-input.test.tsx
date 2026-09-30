@@ -25,7 +25,11 @@ describe("MoneyInput", () => {
       />,
     );
     const input = screen.getByRole("textbox") as HTMLInputElement;
-    expect(input.value).toBe("1.234,56 €");
+    expect(input.value).toBe("1.234,56");
+    const symbol = screen.getByTestId("eur-currency");
+    expect(symbol.textContent).toBe("€");
+    expect(symbol.className).toContain("text-muted-foreground");
+    expect(symbol.className).toContain("right-3");
   });
 
   test("blur-view: en-US USD zeigt $-Prefix + Komma-Tausender + Punkt-Decimal", () => {
@@ -40,7 +44,10 @@ describe("MoneyInput", () => {
       />,
     );
     const input = screen.getByRole("textbox") as HTMLInputElement;
-    expect(input.value).toBe("$25.99");
+    expect(input.value).toBe("25.99");
+    const symbol = screen.getByTestId("usd-currency");
+    expect(symbol.textContent).toBe("$");
+    expect(symbol.className).toContain("left-3");
   });
 
   test("blur-view: ja-JP JPY zeigt Yen-Symbol ohne Decimals", () => {

@@ -1451,7 +1451,7 @@ function DefaultDataTable({
     const body = (
       <>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 items-start justify-between gap-2">
             {cardTitleColumn !== undefined && (
               <span
                 data-testid={
@@ -1461,6 +1461,17 @@ function DefaultDataTable({
                 className="min-w-0 truncate text-base font-semibold text-foreground"
               >
                 {cardCell(row, cardTitleColumn)}
+              </span>
+            )}
+            {showStatus && (
+              <span
+                data-testid={
+                  getCellTestId?.(row, cardStatusColumn.field) ??
+                  `cell-${row.id}-${cardStatusColumn.field}`
+                }
+                className="shrink-0"
+              >
+                {cardCell(row, cardStatusColumn)}
               </span>
             )}
           </div>
@@ -1480,17 +1491,6 @@ function DefaultDataTable({
             </div>
           )}
         </div>
-        {showStatus && (
-          <span
-            data-testid={
-              getCellTestId?.(row, cardStatusColumn.field) ??
-              `cell-${row.id}-${cardStatusColumn.field}`
-            }
-            className="shrink-0"
-          >
-            {cardCell(row, cardStatusColumn)}
-          </span>
-        )}
         {rowIsLink && (
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         )}
@@ -2277,19 +2277,25 @@ function Pager({
             })}
       </div>
       {pageSizeOptions !== undefined && onPageSizeChange !== undefined && (
-        <select
-          aria-label={t("kumiko.pager.pageSizeLabel")}
-          data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
-          value={limit}
-          onChange={(e) => onPageSizeChange(Number(e.target.value))}
-          className="hidden h-7 rounded-md border border-input bg-card px-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:block"
-        >
-          {pageSizeOptions.map((size) => (
-            <option key={size} value={size}>
-              {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
-            </option>
-          ))}
-        </select>
+        <div className="relative hidden md:block">
+          <select
+            aria-label={t("kumiko.pager.pageSizeLabel")}
+            data-testid={testId !== undefined ? `${testId}-page-size` : undefined}
+            value={limit}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="h-7 appearance-none rounded-md border border-input bg-card pl-2 pr-7 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {pageSizeOptions.map((size) => (
+              <option key={size} value={size}>
+                {t("kumiko.pager.pageSize", { size: size.toLocaleString() })}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 opacity-50"
+            aria-hidden="true"
+          />
+        </div>
       )}
       <div className="hidden md:block">
         {t("kumiko.pager.pageOf", {
@@ -3570,7 +3576,7 @@ const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
 
 const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   text: "w-full sm:w-60",
-  number: "w-24 shrink-0 [&_label]:whitespace-nowrap",
+  number: "w-fit min-w-24 shrink-0 [&_label]:whitespace-nowrap [&_input]:w-24",
   money: "w-40 shrink-0 [&_label]:whitespace-nowrap",
   date: "w-full sm:w-[200px]",
   select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",

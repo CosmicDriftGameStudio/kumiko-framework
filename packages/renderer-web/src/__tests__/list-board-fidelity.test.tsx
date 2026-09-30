@@ -123,6 +123,8 @@ describe("list board fidelity", () => {
     expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–19 of 19 Mietverträgen");
     const select = screen.getByTestId("dt-pager-page-size") as HTMLSelectElement;
     expect(within(select).getAllByRole("option").length).toBe(3);
+    expect(select.className).toContain("appearance-none");
+    expect(select.parentElement?.querySelector("svg")).not.toBeNull();
     fireEvent.change(select, { target: { value: "50" } });
     expect(onPageSizeChange).toHaveBeenCalledWith(50);
   });

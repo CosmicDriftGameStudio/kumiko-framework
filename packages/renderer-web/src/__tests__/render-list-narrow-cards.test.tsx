@@ -97,7 +97,12 @@ describe("DataTable — cards below 768px", () => {
       ];
       render(<DataTable columns={columns} rows={rows} testId="t" />);
       const card = within(screen.getByTestId("t-cards")).getByTestId("row-u1");
-      expect(within(card).getByTestId("cell-u1-status").className).toContain("shrink-0");
+      const badge = within(card).getByTestId("cell-u1-status");
+      expect(badge.className).toContain("shrink-0");
+      const titleRow = within(card).getByTestId("cell-u1-name").parentElement;
+      expect(badge.parentElement).toBe(titleRow);
+      expect(titleRow?.className).toContain("items-start");
+      expect(titleRow?.contains(within(card).getByTestId("cell-u1-a"))).toBe(false);
       expect(within(card).queryByTestId("cell-u1-d")).toBeNull();
       expect(within(card).getByTestId("cell-u1-c").textContent).toBe("3");
     });

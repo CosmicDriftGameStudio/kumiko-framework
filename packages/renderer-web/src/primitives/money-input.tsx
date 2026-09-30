@@ -60,7 +60,8 @@ export function MoneyInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const major = value === "" ? null : value / factor;
-  const formatted = value === "" ? "" : formatMoney(value, currency, resolvedLocale);
+  const { symbol, symbolPosition, formatNumber } = moneyFormatParts(currency, resolvedLocale);
+  const formatted = value === "" ? "" : formatNumber(value / factor);
 
   // Edit-Mode: Decimal-String ohne Tausender-Trenner.
   const toEditable = (m: number | null): string =>
@@ -122,10 +123,22 @@ export function MoneyInput({
         onChange={(e) => setDraft(e.target.value)}
         className={cn(
           inputClass,
-          "pr-3",
+          symbolPosition === "prefix" ? "pl-8" : "pr-8",
           hasError === true && "border-destructive focus-visible:ring-destructive",
         )}
       />
+      {symbol !== "" && (
+        <span
+          data-testid={`${id}-currency`}
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none absolute inset-y-0 flex items-center text-sm text-muted-foreground",
+            symbolPosition === "prefix" ? "left-3" : "right-3",
+          )}
+        >
+          {symbol}
+        </span>
+      )}
     </div>
   );
 }
@@ -152,6 +165,42 @@ export function formatMoney(amountMinor: number, currency: string, locale?: stri
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(amountMinor / 10 ** decimals);
+}
+
+// The currency symbol is rendered as a separate adornment, so the field
+// value shows only the grouped number. Position follows the locale's pattern.
+function moneyFormatParts(
+  currency: string,
+  locale: string,
+): {
+  readonly symbol: string;
+  readonly symbolPosition: "prefix" | "suffix";
+  readonly formatNumber: (major: number) => string;
+} {
+  if (!/^[A-Za-z]{3}$/.test(currency)) {
+    return { symbol: "", symbolPosition: "suffix", formatNumber: String };
+  }
+  const decimals = currencyDecimals(currency);
+  const formatter = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  const sample = formatter.formatToParts(1);
+  const symbolIndex = sample.findIndex((p) => p.type === "currency");
+  const integerIndex = sample.findIndex((p) => p.type === "integer");
+  return {
+    symbol: sample[symbolIndex]?.value ?? currency,
+    symbolPosition: symbolIndex !== -1 && symbolIndex < integerIndex ? "prefix" : "suffix",
+    formatNumber: (major) =>
+      formatter
+        .formatToParts(major)
+        .filter((p) => p.type !== "currency")
+        .map((p) => p.value)
+        .join("")
+        .trim(),
+  };
 }
 
 // Locale-Decimal-Parse: erkennt automatisch ob Komma oder Punkt der

@@ -200,3 +200,29 @@ title: Dev server serves the renderer-web fonts
 detail: |
   GET `/assets/kumiko/fonts/<file>.woff2` streams the packaged IBM Plex files with `font/woff2` and a one day cache header. Names outside the allowlist answer 404.
 -->
+
+<!-- kumiko-changes
+feature: renderer-web
+type: breaking
+title: Money field shows the currency symbol as a suffix inside the field, date field has its calendar button inside the input
+detail: |
+  MoneyInput renders the value right-aligned with the currency symbol as a separate muted adornment (`<id>-currency`), placed before the number for locales that put it there. The input text no longer contains the symbol ("1.234,56", not "1.234,56 €"); parsing and the stored minor-unit value are unchanged. DateField and TimestampInput draw the calendar button as an icon inside the right edge of the input instead of a separate square button; the button keeps its aria-label and keyboard operation.
+migration: |
+  Tests that read the money input value and expect the symbol must read the `<id>-currency` element or drop the symbol from the expected text. Selectors that find the calendar button by role and label keep working.
+-->
+
+<!-- kumiko-changes
+feature: renderer-web
+type: improvement
+title: Mobile list cards keep the status badge top right, pager page size select uses the shared chevron
+detail: |
+  On narrow viewports the status badge sits in the title row (top aligned) and the meta line runs across the full card width up to the chevron. The page size select in the pager hides the native arrow and shows the same chevron icon as the other selects.
+-->
+
+<!-- kumiko-changes
+feature: renderer-web
+type: improvement
+title: Sidebar marks the list while an existing record is edited
+detail: |
+  When the route carries an `entityId`, the nav entry of the screen's parent list is active instead of the edit screen's own nav entry (for example "Add vehicle"), the same rule the shell breadcrumb already applies.
+-->

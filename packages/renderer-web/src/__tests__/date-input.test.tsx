@@ -45,6 +45,20 @@ describe("DateInput", () => {
     expect(document.querySelector('input[type="date"]')).toBeNull();
   });
 
+  test("Kalender-Button sitzt im Feld (rechts, absolut) statt als eigener Button daneben", () => {
+    render(
+      <DateInput id="d" name="d" value="2026-04-23" onChange={() => undefined} locale="de-DE" />,
+    );
+    const input = screen.getByRole("textbox");
+    const trigger = screen.getByRole("button");
+    expect(trigger.parentElement).toBe(input.parentElement);
+    expect(input.parentElement?.className).toContain("relative");
+    expect(trigger.className).toContain("absolute");
+    expect(trigger.className).not.toContain("border");
+    expect(input.className).toContain("pr-9");
+    expect(trigger.getAttribute("aria-label")).not.toBeNull();
+  });
+
   test("hasError setzt aria-invalid auf dem Trigger", () => {
     render(
       <DateInput
