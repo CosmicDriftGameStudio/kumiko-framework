@@ -40,7 +40,7 @@ export type WebSocketRouteDefinition = {
   readonly maxMessageBytes?: number;
   /** Runs after auth + origin checks, before the upgrade. Returning a Response rejects the upgrade with it. */
   readonly connect: (
-    // biome-ignore lint/suspicious/noExplicitAny: Hono Context-Generics sind im Framework-Boundary unsichtbar
+    // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,
     deps: WebSocketRouteConnectDeps,
   ) => WebSocketSessionHandlers | Response | Promise<WebSocketSessionHandlers | Response>;

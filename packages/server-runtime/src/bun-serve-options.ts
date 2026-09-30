@@ -43,16 +43,15 @@ function isKumikoWebSocketUpgrade(req: Request): boolean {
 }
 
 /**
- * Bun.serve-Options für Production.
+ * Bun.serve options for production.
  *
- * Spec: idleTimeout: 0 (= disabled). SSE-Streams werden via Heartbeat
- * lebend gehalten (siehe SSE_HEARTBEAT_INTERVAL_MS in framework/api/
- * sse-route.ts), kein Bun-side Idle-Cleanup nötig. Mit dem Default
- * von 10 s killt Bun nach jedem Heartbeat-Gap die Connection mit
- * halbem HTTP/2-RST_STREAM → Browser ERR_HTTP2_PROTOCOL_ERROR.
+ * idleTimeout: 0 (disabled): SSE streams stay alive through their own
+ * heartbeat (SSE_HEARTBEAT_INTERVAL_MS in framework/api/sse-route.ts). With
+ * Bun's 10 s default, every heartbeat gap killed the connection with a half
+ * HTTP/2 RST_STREAM, which browsers report as ERR_HTTP2_PROTOCOL_ERROR.
  *
- * Spec-Test in __tests__/run-prod-app-spec.test.ts pinst die 0 gegen
- * "looks like a leak"-Reverts.
+ * __tests__/run-prod-app-spec.test.ts pins the 0 against "looks like a
+ * leak" reverts.
  *
  * WebSocket: upgrade requests are branched off here, before `fetchHandler`
  * (whose static/SPA layers clone the request, which `server.upgrade` can't
