@@ -1,5 +1,19 @@
 # @cosmicdrift/kumiko-types
 
+## 0.329.0
+
+### Minor Changes
+
+- 9bbdb64: Button gains `title` and `pressed`; icon set gains `camera` and `headphones`
+
+  `title` renders the native tooltip attribute, `pressed` renders `aria-pressed` for toggle buttons. `camera` and `headphones` join the `NavIconKey` vocabulary and the lucide-backed icon registry.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Button gains title and pressed props; icon set gains camera and headphones
+  -->
+
 ## 0.328.1
 
 ### Patch Changes

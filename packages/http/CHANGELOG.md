@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-http
 
+## 0.329.0
+
 ## 0.328.1
 
 ### Patch Changes

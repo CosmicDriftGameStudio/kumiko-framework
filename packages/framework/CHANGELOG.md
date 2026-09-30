@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.329.0
+
+### Minor Changes
+
+- 9bbdb64: WebSocket routes cap the bytes queued behind slow handlers
+
+  Frames that arrive while `onOpen` or an earlier `onMessage` is still running are queued in order. Their summed size is now limited to 1 MiB (`WEBSOCKET_PENDING_BUFFER_LIMIT_BYTES`, or the route's `maxMessageBytes` if larger); beyond that the socket closes with code 1013 and the queued frames are dropped.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: WebSocket routes cap the bytes queued behind slow handlers
+  -->
+
+### Patch Changes
+
+- Updated dependencies [9bbdb64]
+  - @cosmicdrift/kumiko-types@0.329.0
+  - @cosmicdrift/kumiko-http@0.329.0
+
 ## 0.328.1
 
 ### Patch Changes

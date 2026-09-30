@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.329.0",
+    "type": "improvement",
+    "title": "Button gains title and pressed props; icon set gains camera and headphones",
+    "detail": "`title` renders the native tooltip attribute, `pressed` renders `aria-pressed` for toggle buttons. `camera` and `headphones` join the `NavIconKey` vocabulary and the lucide-backed icon registry."
+  },
+  {
     "version": "0.328.1",
     "type": "improvement",
     "title": "kumiko-headless, kumiko-dispatcher-live, kumiko-renderer and kumiko-renderer-web are published as compiled JavaScript plus .d.ts",
