@@ -146,7 +146,12 @@ than re-encrypting one field.
 run `runPiiEventBackfill` in the background after start. It re-encrypts the
 plaintext events once per annotation state (a fingerprint over all PII-annotated
 entity and event fields, kept in `kumiko_pii_backfill_state`), queues the
-affected projections in `kumiko_pending_rebuilds` and rebuilds them. Later boots
+affected projections in `kumiko_pending_rebuilds` and rebuilds them. That
+includes multi-stream projections with their own table, which read the raw event
+payloads and would otherwise keep plaintext. A failed multi-stream rebuild stays
+queued and does not stop the live consumer. The search index needs no step of its
+own: it holds decrypted plaintext by design, and `purgeSearchDocumentsForSubject`
+finds its documents at erase time through the rebuilt projection rows. Later boots
 only run a cheap catch-up over the newest events. Multiple replicas are
 serialized by an advisory lock, and each batch commits on its own, so an
 interrupted run resumes where it stopped. Failed events are logged with their

@@ -3,7 +3,8 @@
 // old events stay plaintext until they are re-encrypted in place. This runs the
 // batch primitive from backfill-pii.ts once per annotation state (fingerprint),
 // then cheap catch-up passes, and rebuilds the projections whose source events
-// changed so ciphertext and blind-index columns get materialized.
+// changed (including multi-stream projections with their own table) so
+// ciphertext and blind-index columns get materialized.
 
 import { createHash } from "node:crypto";
 import { configuredEventPiiCatalog } from "../crypto/event-pii";
@@ -30,13 +31,13 @@ import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
 import type { Logger } from "../logging/types";
 import { createFallbackLogger } from "../logging/utils";
-import { rebuildProjection } from "../pipeline";
 import { unsafePushTables } from "../stack";
 import {
   clearPendingRebuilds,
   createPendingRebuildsTable,
   listPendingRebuildRows,
   pendingRebuildsTable,
+  rebuildProjectionOrMultiStream,
 } from "./pending-rebuilds";
 import { buildProjectionTableIndex } from "./projection-table-index";
 
@@ -153,27 +154,19 @@ function affectedProjectionTables(
       Object.keys(def.apply).some((eventType) => touchedEventTypes.has(eventType));
     if (isAffected) tables.add(extractTableName(def.table, `pii-event-backfill(${name})`));
   }
-  return [...tables];
-}
-
-function mspsConsumingTouchedEvents(
-  registry: Registry,
-  touchedEventTypes: ReadonlySet<string>,
-): readonly string[] {
-  const names: string[] = [];
+  // MSP apply gets the raw event payloads, so their tables hold plaintext until rebuilt.
   for (const [name, def] of registry.getAllMultiStreamProjections()) {
     if (def.table === undefined) continue;
     if (Object.keys(def.apply).some((eventType) => touchedEventTypes.has(eventType))) {
-      names.push(name);
+      tables.add(extractTableName(def.table, `pii-event-backfill(${name})`));
     }
   }
-  return names;
+  return [...tables];
 }
 
 type BatchStep = {
   readonly batch: PiiBackfillBatchResult;
   readonly tables: readonly string[];
-  readonly batchTouchedEventTypes: ReadonlySet<string>;
 };
 
 type RunProgress = {
@@ -188,7 +181,6 @@ type RunProgress = {
   };
   readonly failures: PiiBackfillFailure[];
   readonly queuedTables: Set<string>;
-  readonly touchedEventTypes: Set<string>;
 };
 
 type RunContext = {
@@ -256,7 +248,7 @@ async function runOneBatch(ctx: RunContext, progress: RunProgress): Promise<Batc
         completesRun,
       );
     }
-    return { batch, tables, batchTouchedEventTypes };
+    return { batch, tables };
   });
 }
 
@@ -268,7 +260,6 @@ function recordBatch(progress: RunProgress, step: BatchStep): void {
   progress.totals.erasedFields += batch.erasedFields;
   progress.failures.push(...batch.failures);
   for (const table of step.tables) progress.queuedTables.add(table);
-  for (const eventType of step.batchTouchedEventTypes) progress.touchedEventTypes.add(eventType);
   if (batch.failures.length > 0) progress.failureSeen = true;
 }
 
@@ -290,7 +281,6 @@ async function scanAllBatches(
 
 function reportRunOutcome(
   log: ReturnType<typeof createFallbackLogger>,
-  registry: Registry,
   progress: RunProgress,
 ): void {
   if (progress.failures.length > 0) {
@@ -300,13 +290,6 @@ function reportRunOutcome(
         failureCount: progress.failures.length,
         eventIds: progress.failures.slice(0, MAX_LOGGED_FAILURE_IDS).map((f) => f.eventId),
       },
-    );
-  }
-  const mspNames = mspsConsumingTouchedEvents(registry, progress.touchedEventTypes);
-  if (mspNames.length > 0) {
-    log.warn(
-      "Multi-stream projections with a table consume re-encrypted event types and are not rebuilt automatically; rebuild them manually",
-      { projections: mspNames },
     );
   }
 }
@@ -343,11 +326,10 @@ export async function runPiiEventBackfill(
     totals: { scannedEvents: 0, updatedEvents: 0, encryptedFields: 0, erasedFields: 0 },
     failures: [],
     queuedTables: new Set(),
-    touchedEventTypes: new Set(),
   };
 
   const aborted = await scanAllBatches(ctx, progress, options.signal);
-  reportRunOutcome(log, registry, progress);
+  reportRunOutcome(log, progress);
 
   const rebuild = aborted ? null : await rebuildQueuedTables(db, registry, options.signal, log);
   const queuedTables = [...progress.queuedTables];
@@ -419,7 +401,7 @@ async function rebuildQueuedTables(
   for (const [projection, rows] of rowsByProjection) {
     if (signal?.aborted) break;
     try {
-      const result = await rebuildProjection(projection, {
+      const result = await rebuildProjectionOrMultiStream(projection, {
         db,
         registry,
         ...(signal && { signal }),

@@ -101,6 +101,10 @@ export type MspRebuildDeps = {
   readonly meter?: Meter;
   // Test-hook — independent of `meter`, fires on success only.
   readonly onMetrics?: (result: RebuildResult) => void;
+  // Default true. The rebuild TX rolls back completely (cursor reset included),
+  // so the live consumer is intact; an automatic background rebuild passes false
+  // to not park it as dead and logs the failure itself.
+  readonly markDeadOnFailure?: boolean;
 };
 
 function createRebuildCtx(
@@ -270,7 +274,9 @@ export async function rebuildMultiStreamProjection(
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    await markConsumerRebuildFailed(db, mspName, SHARED_INSTANCE_SENTINEL, message);
+    if (deps.markDeadOnFailure !== false) {
+      await markConsumerRebuildFailed(db, mspName, SHARED_INSTANCE_SENTINEL, message);
+    }
     if (deps.meter) {
       emitProjectionRebuild(
         deps.meter,

@@ -19,7 +19,7 @@ import { tableExists } from "../db/schema-inspection";
 import type { Registry } from "../engine/types";
 import type { JobRunner } from "../jobs";
 import { createFallbackLogger } from "../logging/utils";
-import { type RebuildResult, rebuildProjection } from "../pipeline";
+import { type RebuildResult, rebuildMultiStreamProjection, rebuildProjection } from "../pipeline";
 import { unsafePushTables } from "../stack";
 import { buildProjectionTableIndex } from "./projection-table-index";
 
@@ -115,6 +115,25 @@ export type RunPendingRebuildsOptions = {
   readonly thisRunTables?: readonly string[];
 };
 
+// buildProjectionTableIndex maps both single-stream and multi-stream projection
+// tables to their name, so the rebuild has to pick the matching path. Queue
+// drains are automatic rebuilds: a failed MSP replay rolls back, stays queued
+// and must not park the still-intact live consumer as dead.
+export async function rebuildProjectionOrMultiStream(
+  name: string,
+  deps: {
+    readonly db: DbConnection;
+    readonly registry: Registry;
+    readonly signal?: AbortSignal;
+  },
+): Promise<RebuildResult> {
+  const { db, registry, signal } = deps;
+  if (registry.getAllMultiStreamProjections().has(name)) {
+    return rebuildMultiStreamProjection(name, { db, registry, markDeadOnFailure: false });
+  }
+  return rebuildProjection(name, { db, registry, ...(signal && { signal }) });
+}
+
 /** Arbeitet die persistierte Queue ab: mappt Tabellen auf Projektionen,
  *  rebuildet jede betroffene Projektion und räumt ihre Tabellen erst nach
  *  ERFOLG aus der Queue. Fehlgeschlagene bleiben pending — der nächste
@@ -185,7 +204,7 @@ export async function runPendingRebuilds(
   const failed: { projection: string; error: string }[] = [];
   for (const [projection, tables] of byProjection) {
     try {
-      const result = await rebuildProjection(projection, { db, registry });
+      const result = await rebuildProjectionOrMultiStream(projection, { db, registry });
       await clearPendingRebuilds(db, snapshotRows(tables));
       rebuilt.push({ projection, eventsProcessed: result.eventsProcessed });
     } catch (e) {

@@ -6,7 +6,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { integer, table as pgTable, uuid } from "../../db/dialect";
+import { integer, table as pgTable, text, uuid } from "../../db/dialect";
 import { createEventStoreExecutor } from "../../db/event-store-executor";
 import { asRawClient, selectMany } from "../../db/query";
 import { writeRebuildMarker } from "../../db/rebuild-marker";
@@ -21,7 +21,7 @@ import {
   type ProjectionDefinition,
 } from "../../engine";
 import type { JobRunner } from "../../jobs/job-runner";
-import { createProjectionStateTable } from "../../pipeline";
+import { createEventConsumerStateTable, createProjectionStateTable } from "../../pipeline";
 import {
   createTestDb,
   type TestDb,
@@ -54,6 +54,12 @@ const countsTable = pgTable("read_pending_counts", {
   itemCount: integer("item_count").notNull().default(0),
 });
 
+const mspItemNamesTable = pgTable("read_pending_msp_names", {
+  id: uuid("id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  name: text("name"),
+});
+
 // Exists in the DB but has no registered projection — models an owning
 // feature missing from the composition (distinct from a deliberately DROPped
 // table, which is never pushed at all).
@@ -83,6 +89,20 @@ const countsProjection: ProjectionDefinition = {
 const feature = defineFeature("pendingtest", (r) => {
   r.entity("pending-item", itemEntity);
   r.projection(countsProjection);
+  r.multiStreamProjection({
+    name: "pending-item-names",
+    table: mspItemNamesTable,
+    apply: {
+      "pending-item.created": async (event, tx) => {
+        const payload = event.payload as { name: string };
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_pending_msp_names" (id, tenant_id, name) VALUES ($1::uuid, $2::uuid, $3)
+           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+          [event.aggregateId, event.tenantId, payload.name],
+        );
+      },
+    },
+  });
 });
 
 const admin = TestUsers.admin;
@@ -97,9 +117,11 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, itemEntity, "pending-item");
   await createProjectionStateTable(testDb.db);
+  await createEventConsumerStateTable(testDb.db);
   await unsafePushTables(testDb.db, {
     readPendingCounts: countsTable,
     readOrphanProjection: orphanProjectionTable,
+    readPendingMspNames: mspItemNamesTable,
   });
   tdb = createTenantDb(testDb.db, admin.tenantId);
   markerDir = mkdtempSync(join(tmpdir(), "pending-rebuilds-"));
@@ -113,7 +135,7 @@ afterAll(async () => {
 beforeEach(async () => {
   failApply = false;
   await asRawClient(testDb.db).unsafe(
-    `TRUNCATE kumiko_events, read_pending_items, read_pending_counts, read_orphan_projection, kumiko_projections RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, read_pending_items, read_pending_counts, read_orphan_projection, read_pending_msp_names, kumiko_projections RESTART IDENTITY CASCADE`,
   );
   await asRawClient(testDb.db).unsafe(`DROP TABLE IF EXISTS kumiko_pending_rebuilds`);
 });
@@ -158,6 +180,26 @@ describe("pending-rebuilds queue", () => {
     ]);
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
     expect(await getCount()).toBe(2);
+  });
+
+  test("a queued multi-stream projection table is rebuilt through the multi-stream path", async () => {
+    await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
+    await executor.create({ groupId: GROUP, name: "b" }, admin, tdb);
+    writeRebuildMarker(markerDir, "0003_msp.sql", ["read_pending_msp_names"]);
+    await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0003_msp"],
+    });
+
+    const run = await runPendingRebuilds(testDb.db, registry);
+
+    expect(run.failed).toEqual([]);
+    expect(run.rebuilt).toEqual([
+      { projection: "pendingtest:projection:pending-item-names", eventsProcessed: 2 },
+    ]);
+    expect(await listPendingRebuilds(testDb.db)).toEqual([]);
+    const rows = await selectMany(testDb.db, mspItemNamesTable);
+    expect(rows.map((r) => r.name).sort()).toEqual(["a", "b"]);
   });
 
   test("tables without a registered projection are drained, not stuck forever", async () => {
