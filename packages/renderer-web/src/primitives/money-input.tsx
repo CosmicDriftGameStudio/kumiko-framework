@@ -117,6 +117,7 @@ export function MoneyInput({
         disabled={disabled}
         aria-required={required}
         aria-invalid={hasError === true ? true : undefined}
+        aria-describedby={symbol !== "" ? `${id}-currency` : undefined}
         value={focused ? draft : formatted}
         onFocus={handleFocus}
         onBlur={handleBlur}
@@ -129,8 +130,8 @@ export function MoneyInput({
       />
       {symbol !== "" && (
         <span
+          id={`${id}-currency`}
           data-testid={`${id}-currency`}
-          aria-hidden="true"
           className={cn(
             "pointer-events-none absolute inset-y-0 flex items-center text-sm text-muted-foreground",
             symbolPosition === "prefix" ? "left-3" : "right-3",
