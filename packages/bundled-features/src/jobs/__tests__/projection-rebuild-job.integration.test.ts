@@ -15,6 +15,7 @@ import {
   table as pgTable,
   selectMany,
   type TenantDb,
+  text,
   uuid,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -23,6 +24,7 @@ import {
   createTextField,
   defineApply,
   defineFeature,
+  defineMspApply,
   type ProjectionDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createJobRunner, type JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
@@ -30,7 +32,10 @@ import {
   enqueueProjectionRebuild,
   PROJECTION_REBUILD_JOB,
 } from "@cosmicdrift/kumiko-framework/migrations";
-import { createProjectionStateTable } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createEventConsumerStateTable,
+  createProjectionStateTable,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import {
   createTestDb,
   createTestRedis,
@@ -79,12 +84,32 @@ const countsProjection: ProjectionDefinition = {
   },
 };
 
+const itemNamesTable = pgTable("read_rebuild_msp_names", {
+  id: uuid("id").primaryKey(),
+  tenantId: uuid("tenant_id").notNull(),
+  name: text("name").notNull(),
+});
+
 const PROJECTION = "rebuildtest:projection:rebuild-counts";
+const MSP_PROJECTION = "rebuildtest:projection:rebuild-item-names";
 const GROUP = "00000000-0000-4000-8000-000000000001";
 
 const appFeature = defineFeature("rebuildtest", (r) => {
   r.entity("rebuild-item", itemEntity);
   r.projection(countsProjection);
+  r.multiStreamProjection({
+    name: "rebuild-item-names",
+    table: itemNamesTable,
+    apply: {
+      "rebuild-item.created": defineMspApply<{ name: string }>(async (event, tx) => {
+        await asRawClient(tx).unsafe(
+          `INSERT INTO "read_rebuild_msp_names" (id, tenant_id, name) VALUES ($1::uuid, $2::uuid, $3)
+           ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name`,
+          [event.aggregateId, event.tenantId, event.payload.name],
+        );
+      }),
+    },
+  });
 });
 
 const admin = TestUsers.admin;
@@ -103,7 +128,13 @@ beforeAll(async () => {
 
   await unsafeCreateEntityTable(db, itemEntity, "rebuild-item");
   await createProjectionStateTable(db);
-  await unsafePushTables(db, { readRebuildCounts: countsTable, jobRunsTable, jobRunLogsTable });
+  await createEventConsumerStateTable(db);
+  await unsafePushTables(db, {
+    readRebuildCounts: countsTable,
+    readRebuildMspNames: itemNamesTable,
+    jobRunsTable,
+    jobRunLogsTable,
+  });
   tdb = createTenantDb(db, admin.tenantId);
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;
@@ -167,5 +198,33 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     );
     expect(runs.length).toBeGreaterThanOrEqual(1);
     expect(runs.some((r) => r.status === "completed")).toBe(true);
+  }, 30000);
+
+  test("enqueueProjectionRebuild refills a multi-stream projection through the job", async () => {
+    await executor.create({ groupId: GROUP, name: "msp-a" }, admin, tdb);
+    await asRawClient(db).unsafe('DELETE FROM "read_rebuild_msp_names"');
+    expect(await selectMany(db, itemNamesTable)).toHaveLength(0);
+
+    const outcome = await enqueueProjectionRebuild(MSP_PROJECTION, { db, registry, jobRunner });
+    if (outcome.mode !== "dispatched") throw new Error(`expected dispatch, got ${outcome.mode}`);
+
+    await waitFor(async () => (await selectMany(db, itemNamesTable)).length > 0, {
+      delays: Array(40).fill(200),
+    });
+    const names = (await selectMany<{ name: string }>(db, itemNamesTable)).map((r) => r.name);
+    expect(names).toContain("msp-a");
+
+    let status: string | undefined;
+    await waitFor(
+      async () => {
+        const [run] = await selectMany<{ status: string }>(db, jobRunsTable, {
+          bullJobId: outcome.bullJobId,
+        });
+        status = run?.status;
+        return status === "completed" || status === "failed";
+      },
+      { delays: Array(40).fill(200) },
+    );
+    expect(status).toBe("completed");
   }, 30000);
 });

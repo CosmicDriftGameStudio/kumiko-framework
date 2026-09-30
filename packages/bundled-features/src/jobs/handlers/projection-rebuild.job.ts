@@ -3,7 +3,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { rebuildProjection } from "@cosmicdrift/kumiko-framework/pipeline";
+import { rebuildProjectionOrMultiStream } from "@cosmicdrift/kumiko-framework/migrations";
 import * as z from "zod";
 
 export const projectionRebuildPayloadSchema = z.object({
@@ -31,7 +31,7 @@ export const projectionRebuildJob: JobHandlerFn = async (rawPayload, ctx): Promi
   // documents that instead of the previous implicit ctx.db cast.
   ctx.systemDb.acknowledgeCrossTenant("global projection rebuild");
   const db = ctx.systemDb.unsafeRaw("projection rebuild spans every tenant's rows") as DbConnection; // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
-  const result = await rebuildProjection(projection, {
+  const result = await rebuildProjectionOrMultiStream(projection, {
     db,
     registry: ctx.registry,
     ...(skipApplyErrors === true && { errorPolicy: { skipApplyErrors: true } }),

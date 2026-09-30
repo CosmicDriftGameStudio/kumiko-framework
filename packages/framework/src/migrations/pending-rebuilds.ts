@@ -125,13 +125,20 @@ export async function rebuildProjectionOrMultiStream(
     readonly db: DbConnection;
     readonly registry: Registry;
     readonly signal?: AbortSignal;
+    // MSPs take their skip mode from the declaration (msp.errorMode), no override.
+    readonly errorPolicy?: { readonly skipApplyErrors?: boolean };
   },
 ): Promise<RebuildResult> {
-  const { db, registry, signal } = deps;
+  const { db, registry, signal, errorPolicy } = deps;
   if (registry.getAllMultiStreamProjections().has(name)) {
     return rebuildMultiStreamProjection(name, { db, registry, markDeadOnFailure: false });
   }
-  return rebuildProjection(name, { db, registry, ...(signal && { signal }) });
+  return rebuildProjection(name, {
+    db,
+    registry,
+    ...(signal && { signal }),
+    ...(errorPolicy && { errorPolicy }),
+  });
 }
 
 /** Arbeitet die persistierte Queue ab: mappt Tabellen auf Projektionen,
@@ -239,6 +246,6 @@ export async function enqueueProjectionRebuild(
     const bullJobId = await jobRunner.dispatch(PROJECTION_REBUILD_JOB, { projection });
     return { mode: "dispatched", bullJobId };
   }
-  const result = await rebuildProjection(projection, { db, registry });
+  const result = await rebuildProjectionOrMultiStream(projection, { db, registry });
   return { mode: "inline", result };
 }
