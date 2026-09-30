@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-repo-manifest
 
+## 0.326.1
+
 ## 0.326.0
 
 ## 0.325.2

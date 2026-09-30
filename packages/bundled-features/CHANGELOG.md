@@ -1,5 +1,26 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.326.1
+
+### Patch Changes
+
+- a5e987e: Mail stack on patched nodemailer 10, imapflow and mailparser
+
+  Bumps nodemailer to ^10.0.13 (GHSA-v53p-9fqp-m79j, high), mailparser to ^3.9.32 and imapflow to ^1.7.8 so no dependency pins a vulnerable nodemailer 9.x any more. nodemailer 10 ships its own types, so @types/nodemailer is dropped; it requires Node.js >= 20. No API change for kumiko apps.
+
+  <!-- kumiko-changes
+  feature: mail-transport-smtp
+  type: fix
+  title: Mail stack on patched nodemailer 10, imapflow and mailparser
+  -->
+
+  - @cosmicdrift/kumiko-framework@0.326.1
+  - @cosmicdrift/kumiko-types@0.326.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.326.1
+  - @cosmicdrift/kumiko-headless@0.326.1
+  - @cosmicdrift/kumiko-renderer@0.326.1
+  - @cosmicdrift/kumiko-renderer-web@0.326.1
+
 ## 0.326.0
 
 ### Minor Changes
