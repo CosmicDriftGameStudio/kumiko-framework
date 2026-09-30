@@ -7,7 +7,7 @@
 import type { ColumnRendererProps } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge, type StatusTone } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { DeliveryStatus } from "../public-names";
+import { DeliveryStatus } from "../public-names.js";
 
 const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
   [DeliveryStatus.sent]: "ok",

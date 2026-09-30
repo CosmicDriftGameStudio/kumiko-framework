@@ -41,18 +41,21 @@ import {
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsFeature } from "../../user-data-rights";
-import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup";
-import { runUserExport } from "../../user-data-rights/run-user-export";
-import { fieldDefinitionEntity } from "../entity";
-import { createCustomFieldsFeature } from "../feature";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
-import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
+import { runForgetCleanup } from "../../user-data-rights/run-forget-cleanup.js";
+import { runUserExport } from "../../user-data-rights/run-user-export.js";
+import { fieldDefinitionEntity } from "../entity.js";
+import { createCustomFieldsFeature } from "../feature.js";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
+import { wireCustomFieldsUserDataRightsFor } from "../wire-user-data-rights.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 const NOW = (): Instant => getTemporal().Now.instant();

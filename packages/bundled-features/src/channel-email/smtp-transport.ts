@@ -17,7 +17,7 @@
 // dedizierter Queue (BullMQ + retry) drüberlegen.
 
 import { createTransport, type Transporter } from "nodemailer";
-import type { EmailMessage, EmailTransport } from "./types";
+import type { EmailMessage, EmailTransport } from "./types.js";
 
 export type SmtpTransportOptions = {
   /** SMTP-Server-Host (z.B. "smtp.gmail.com", "in-v3.mailjet.com",

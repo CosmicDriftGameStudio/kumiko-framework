@@ -27,27 +27,30 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createConfigAccessorFactory } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { fileFoundationFeature } from "../../file-foundation";
-import { createFilesFeature } from "../../files";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
-import { createUserDataRightsFeature } from "../feature";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
-import { runForgetCleanup } from "../run-forget-cleanup";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFilesFeature } from "../../files/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
 import {
   createForgetSeeders,
   createTestFileProviderFeature,
   type ForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers";
+} from "./forget-test-helpers.js";
 
 const FILE_PROVIDER_CONFIG_KEY = "file-foundation:config:provider";
 

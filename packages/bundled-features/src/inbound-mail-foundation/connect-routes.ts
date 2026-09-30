@@ -23,9 +23,9 @@ import {
   InboundMailAuthMethods,
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
-} from "./constants";
-import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state";
-import { resolveInboundProviderForKey } from "./provider-factory";
+} from "./constants.js";
+import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.js";
+import { resolveInboundProviderForKey } from "./provider-factory.js";
 
 const DEFAULT_STATE_TTL_MINUTES = 15;
 const DEFAULT_CONNECT_PATH = "/api/inbound-mail/connect";

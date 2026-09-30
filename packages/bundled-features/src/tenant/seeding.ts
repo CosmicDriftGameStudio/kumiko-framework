@@ -46,9 +46,9 @@ import {
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { createLifecycleHooks } from "@cosmicdrift/kumiko-framework/pipeline";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { assertAssignableMembershipRoles } from "./membership-roles";
-import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table";
-import { tenantEntity, tenantTable } from "./schema/tenant";
+import { assertAssignableMembershipRoles } from "./membership-roles.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "./membership-table.js";
+import { tenantEntity, tenantTable } from "./schema/tenant.js";
 
 const tenantExecutor = createEventStoreExecutor(tenantTable, tenantEntity, {
   entityName: "tenant",

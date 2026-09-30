@@ -29,21 +29,25 @@ import {
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { createConfigFeature } from "../../config";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory } from "../../config/feature";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/index.js";
 import {
   buildEnvConfigOverrides,
   type ConfigResolver,
   createConfigResolver,
-} from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3";
-import { fileProviderS3EnvFeature } from "../../file-provider-s3-env";
-import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createFileProviderForTenant, fileFoundationFeature } from "../feature";
+} from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../../file-provider-s3/index.js";
+import { fileProviderS3EnvFeature } from "../../file-provider-s3-env/index.js";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  tenantSecretsTable,
+} from "../../secrets/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createFileProviderForTenant, fileFoundationFeature } from "../feature.js";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 

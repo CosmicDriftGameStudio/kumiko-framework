@@ -21,16 +21,16 @@ import {
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { UserQueries } from "../../../user";
+import { UserQueries } from "../../../user/index.js";
 import {
   EXPORT_JOB_STATUS,
   USER_ME_QUERY,
   UserDataRightsHandlers,
   UserDataRightsQueries,
-} from "../../constants";
-import { EXPORT_JOB_STATUS as SCHEMA_EXPORT_JOB_STATUS } from "../../schema/export-job";
-import { defaultTranslations } from "../i18n";
-import { ExportSection, formatDate } from "../privacy-center-screen";
+} from "../../constants.js";
+import { EXPORT_JOB_STATUS as SCHEMA_EXPORT_JOB_STATUS } from "../../schema/export-job.js";
+import { defaultTranslations } from "../i18n.js";
+import { ExportSection, formatDate } from "../privacy-center-screen.js";
 
 const stubLiveEvents: LiveEventSubscriber = () => () => {};
 const stubTokens = {

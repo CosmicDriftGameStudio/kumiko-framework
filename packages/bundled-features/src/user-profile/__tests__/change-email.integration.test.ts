@@ -17,35 +17,35 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { configValuesTable } from "../../config/table";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createFilesFeature } from "../../files";
-import { createSessionsFeature } from "../../sessions";
-import { hashPassword } from "../../shared";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { UserErrors, UserHandlers, UserQueries } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { createUserDataRightsFeature } from "../../user-data-rights";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createFilesFeature } from "../../files/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserErrors, UserHandlers, UserQueries } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
 import {
   UserDataRightsHandlers,
   UserProfileErrors,
   UserProfileHandlers,
   UserProfileQueries,
-} from "../constants";
-import { createUserProfileFeature } from "../feature";
+} from "../constants.js";
+import { createUserProfileFeature } from "../feature.js";
 
 let stack: TestStack;
 

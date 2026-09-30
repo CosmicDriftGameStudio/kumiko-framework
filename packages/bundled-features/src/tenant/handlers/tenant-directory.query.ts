@@ -6,8 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantTable } from "../schema/tenant";
-import { isSystemAdmin } from "./is-system-admin";
+import { tenantTable } from "../schema/tenant.js";
+import { isSystemAdmin } from "./is-system-admin.js";
 
 // Label source behind every `tenant:tenant` reference column (fw#3142). The
 // entity-convention lookup, tenant:query:tenant:list, is a SystemAdmin-only

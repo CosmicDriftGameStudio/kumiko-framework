@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createTenantDb, type DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { selectConfigRowsForKeys, selectConfigRowsForScope } from "../resolver";
+import { selectConfigRowsForKeys, selectConfigRowsForScope } from "../resolver.js";
 
 type FakeClient = {
   unsafe: (sql: string, params?: readonly unknown[]) => Promise<readonly unknown[]>;

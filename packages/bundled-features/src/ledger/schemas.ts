@@ -1,5 +1,5 @@
 import * as z from "zod";
-import { ACCOUNT_TYPES, TRANSACTION_STATUS } from "./constants";
+import { ACCOUNT_TYPES, TRANSACTION_STATUS } from "./constants.js";
 
 // A posting line. amount is integer minor units (cents), SIGNED: Soll/debit > 0,
 // Haben/credit < 0. Integer → the balance check is exact (=== 0), no float epsilon.

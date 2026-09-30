@@ -1,3 +1,7 @@
 // @runtime client
-export { type ConfigClientFeature, type ConfigClientOptions, configClient } from "./client-plugin";
-export { defaultTranslations } from "./i18n";
+export {
+  type ConfigClientFeature,
+  type ConfigClientOptions,
+  configClient,
+} from "./client-plugin.js";
+export { defaultTranslations } from "./i18n.js";

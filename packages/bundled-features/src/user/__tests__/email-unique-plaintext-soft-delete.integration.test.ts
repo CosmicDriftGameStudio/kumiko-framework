@@ -21,7 +21,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { userEntity, userTable } from "../schema/user";
+import { userEntity, userTable } from "../schema/user.js";
 
 let testDb: TestDb;
 const executor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });

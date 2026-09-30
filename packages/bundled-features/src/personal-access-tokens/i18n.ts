@@ -1,4 +1,4 @@
-import type { PatScopeConfig } from "./scopes";
+import type { PatScopeConfig } from "./scopes.js";
 
 type LocalizedString = { readonly en: string };
 

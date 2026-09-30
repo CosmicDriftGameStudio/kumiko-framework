@@ -3,8 +3,8 @@ import {
   type ProjectionListScreenDefinition,
   type SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "./constants";
-import type { PatScopeConfig } from "./scopes";
+import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "./constants.js";
+import type { PatScopeConfig } from "./scopes.js";
 
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,

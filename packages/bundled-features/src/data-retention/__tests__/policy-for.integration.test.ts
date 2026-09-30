@@ -16,8 +16,8 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
-import { tenantRetentionOverrideTable } from "../schema/tenant-retention-override";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
+import { tenantRetentionOverrideTable } from "../schema/tenant-retention-override.js";
 
 const POLICY_FOR = "data-retention:query:policy-for";
 

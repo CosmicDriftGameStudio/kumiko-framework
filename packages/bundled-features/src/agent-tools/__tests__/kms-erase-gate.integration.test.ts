@@ -12,9 +12,9 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { buildAgentManifest } from "../agent-manifest";
-import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
-import { dispatchToolCall } from "../tool-dispatch";
+import { buildAgentManifest } from "../agent-manifest.js";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";
+import { dispatchToolCall } from "../tool-dispatch.js";
 
 const admin = TestUsers.admin;
 

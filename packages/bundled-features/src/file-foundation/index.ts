@@ -6,4 +6,4 @@ export {
   type FileProviderPlugin,
   fileFoundationFeature,
   isFileProviderPlugin,
-} from "./feature";
+} from "./feature.js";

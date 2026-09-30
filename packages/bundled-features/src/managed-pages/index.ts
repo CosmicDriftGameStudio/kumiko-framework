@@ -16,15 +16,15 @@ export {
   sanitizeTenantCss,
   TENANT_CONTENT_ATTR,
   tenantStyleBlock,
-} from "../page-render";
+} from "../page-render/index.js";
 // BRANDING_QN: the qualified config-key names a consumer writes branding to
 // (`config:write:set`) — single source for the `managed-pages:config:branding-*`
 // strings, so apps + the per-tenant migration never hardcode them.
-export { BRANDING_QN, MANAGED_PAGES_CSS_FEATURE } from "./branding";
-export { createManagedPagesCssFeature } from "./css-gate";
+export { BRANDING_QN, MANAGED_PAGES_CSS_FEATURE } from "./branding.js";
+export { createManagedPagesCssFeature } from "./css-gate.js";
 export {
   createManagedPagesFeature,
   type ManagedPagesOptions,
   type ManagedPagesWrapLayout,
-} from "./feature";
-export { type PageRow, pageEntity, pagesTable } from "./table";
+} from "./feature.js";
+export { type PageRow, pageEntity, pagesTable } from "./table.js";

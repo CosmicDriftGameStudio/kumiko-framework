@@ -22,9 +22,9 @@ import {
 import { defaultPrimitives, defaultTokens } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
-import { defaultTranslations } from "../web/i18n";
-import { NotesSection } from "../web/notes-section";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.js";
+import { defaultTranslations } from "../web/i18n.js";
+import { NotesSection } from "../web/notes-section.js";
 
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = class {

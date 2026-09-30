@@ -11,8 +11,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../../../user";
-import { selectUsersDueForForgetCleanup } from "../forget-cleanup";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../../../user/index.js";
+import { selectUsersDueForForgetCleanup } from "../forget-cleanup.js";
 
 let stack: TestStack;
 

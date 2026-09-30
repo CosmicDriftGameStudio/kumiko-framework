@@ -1,4 +1,4 @@
-import type { FormDraftBlob } from "./schemas";
+import type { FormDraftBlob } from "./schemas.js";
 
 // The draft blob's `values` is free-form by design (issue #1889: form-draft
 // never knows the consuming form's field schema, only { values, stepIndex,

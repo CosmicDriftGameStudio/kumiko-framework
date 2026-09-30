@@ -16,11 +16,11 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { tenantEntity, tenantMembershipsTable } from "../../tenant";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
-import { UserErrors, UserHandlers, UserQueries } from "../constants";
-import { createUserFeature } from "../feature";
-import { userEntity, userTable } from "../schema/user";
+import { tenantEntity, tenantMembershipsTable } from "../../tenant/index.js";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
+import { UserErrors, UserHandlers, UserQueries } from "../constants.js";
+import { createUserFeature } from "../feature.js";
+import { userEntity, userTable } from "../schema/user.js";
 
 let stack: TestStack;
 

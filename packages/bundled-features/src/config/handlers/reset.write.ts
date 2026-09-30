@@ -6,9 +6,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireSystemDb } from "../feature";
-import { configValueEntity, configValuesTable } from "../table";
-import { findConfigRow, prepareConfigWrite } from "../write-helpers";
+import { requireSystemDb } from "../feature.js";
+import { configValueEntity, configValuesTable } from "../table.js";
+import { findConfigRow, prepareConfigWrite } from "../write-helpers.js";
 
 const scopeEnum = z.enum([ConfigScopes.system, ConfigScopes.tenant, ConfigScopes.user]);
 

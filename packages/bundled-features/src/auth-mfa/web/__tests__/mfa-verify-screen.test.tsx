@@ -7,11 +7,11 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, type RenderResult, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { installFetchMock } from "../../../auth-email-password/web/__tests__/fetch-mock";
-import { makeSessionApi } from "../../../auth-email-password/web/__tests__/test-utils";
-import { SessionContext } from "../../../auth-email-password/web/session";
-import { defaultTranslations } from "../i18n";
-import { MfaVerifyScreen } from "../mfa-verify-screen";
+import { installFetchMock } from "../../../auth-email-password/web/__tests__/fetch-mock.js";
+import { makeSessionApi } from "../../../auth-email-password/web/__tests__/test-utils.js";
+import { SessionContext } from "../../../auth-email-password/web/session.js";
+import { defaultTranslations } from "../i18n.js";
+import { MfaVerifyScreen } from "../mfa-verify-screen.js";
 
 function renderScreen(ui: ReactElement, session = makeSessionApi()): RenderResult {
   return render(

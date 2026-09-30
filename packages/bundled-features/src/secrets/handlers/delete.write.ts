@@ -1,8 +1,8 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { DEFAULT_SECRETS_ACCESS } from "../constants";
-import { requireSecretsContext } from "../feature";
+import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
+import { requireSecretsContext } from "../feature.js";
 
 export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({

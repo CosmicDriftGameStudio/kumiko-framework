@@ -1,4 +1,4 @@
-import type { TenantLifecycleStatus } from "./schema/tenant";
+import type { TenantLifecycleStatus } from "./schema/tenant.js";
 
 /** Whether a tenant still serves content to anonymous/public callers.
  *  `destroyRequested` is deliberately blocked too, not just `destroying`

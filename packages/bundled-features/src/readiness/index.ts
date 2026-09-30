@@ -1,3 +1,3 @@
-export { READINESS_FEATURE, ReadinessQueries } from "./constants";
-export { readinessFeature } from "./feature";
-export type { ReadinessMissingSecret } from "./handlers/status.query";
+export { READINESS_FEATURE, ReadinessQueries } from "./constants.js";
+export { readinessFeature } from "./feature.js";
+export type { ReadinessMissingSecret } from "./handlers/status.query.js";

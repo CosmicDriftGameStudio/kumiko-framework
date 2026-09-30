@@ -2,7 +2,7 @@
 
 import { defineFeature, EXT_DERIVATIVE_RENDERER } from "@cosmicdrift/kumiko-framework/engine";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { renderImage } from "./render";
+import { renderImage } from "./render.js";
 
 const FEATURE_NAME = "derivatives-sharp";
 

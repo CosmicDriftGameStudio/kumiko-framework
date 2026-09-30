@@ -7,9 +7,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
-import { TagsQueries } from "../../constants";
-import { defaultTranslations } from "../i18n";
-import type { TagPicker as TagPickerComponent } from "../tag-picker";
+import { TagsQueries } from "../../constants.js";
+import { defaultTranslations } from "../i18n.js";
+import type { TagPicker as TagPickerComponent } from "../tag-picker.js";
 
 // tag-filter.test.tsx and tag-section.test.tsx register a process-wide
 // mock.module stub on the resolved "../tag-picker" path; the query-string

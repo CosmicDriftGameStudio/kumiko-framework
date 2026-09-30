@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createConfigFeature } from "../../config/feature";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createConfigFeature } from "../../config/feature.js";
 import {
   INVITE_CREATE_SCREEN_ID,
   MEMBER_ROLES_EDIT_SCREEN_ID,
@@ -10,8 +10,8 @@ import {
   OWNER_INVITE_ROLE_OPTIONS,
   TenantHandlers,
   TenantQueries,
-} from "../constants";
-import { createTenantFeature } from "../feature";
+} from "../constants.js";
+import { createTenantFeature } from "../feature.js";
 
 describe("tenant members screen + handler access alignment", () => {
   const features = [createConfigFeature(), createTenantFeature()];

@@ -1,2 +1,2 @@
-export { derivativesSharpFeature } from "./feature";
-export { imageMetadata } from "./render";
+export { derivativesSharpFeature } from "./feature.js";
+export { imageMetadata } from "./render.js";

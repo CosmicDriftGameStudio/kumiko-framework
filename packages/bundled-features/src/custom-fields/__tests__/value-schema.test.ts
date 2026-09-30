@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildCustomFieldValueSchema } from "../lib/value-schema";
+import { buildCustomFieldValueSchema } from "../lib/value-schema.js";
 
 describe("buildCustomFieldValueSchema — type-shape only", () => {
   test("strips top-level constraint keys (required/maxLength/format)", () => {

@@ -16,7 +16,7 @@ import {
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { TenantSettingsConfig } from "./constants";
+import { TenantSettingsConfig } from "./constants.js";
 
 const OPTIONAL_CURRENCY_MONEY = z.object({ amount: z.number(), currency: z.string().optional() });
 

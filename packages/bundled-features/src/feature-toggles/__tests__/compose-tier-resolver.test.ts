@@ -21,8 +21,8 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { composeTierResolverWithGlobalToggles } from "../compose-tier-resolver";
-import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+import { composeTierResolverWithGlobalToggles } from "../compose-tier-resolver.js";
+import { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
 
 // Never touched by .apply()/.readOverride() — the runtime only does I/O in
 // .initialize()/.refresh(), which this test never calls.

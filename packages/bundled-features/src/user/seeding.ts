@@ -19,8 +19,8 @@ import {
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 // kumiko-lint-ignore cross-feature-import shares the postSave-hooks fixture contract with tenant/seeding (#1478)
-import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding";
-import { userEntity, userTable } from "./schema/user";
+import { fireEntityPostSave, type SeedTenantHooks } from "../tenant/seeding.js";
+import { userEntity, userTable } from "./schema/user.js";
 
 const userExecutor = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

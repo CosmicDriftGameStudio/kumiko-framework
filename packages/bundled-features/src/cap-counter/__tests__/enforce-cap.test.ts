@@ -15,7 +15,7 @@ import {
   enforceCapAndMaybeNotify,
   enforceRollingCap,
   enforceRollingCapAndMaybeNotify,
-} from "../enforce-cap";
+} from "../enforce-cap.js";
 
 // Test-mock: ctx.db exposes TenantDb-style selectMany (production path)
 // plus legacy drizzle .select().from().where() chain stubs.
@@ -406,14 +406,14 @@ describe("currentCalendarMonthStartIso", () => {
 
 describe("aggregate-id namespaces — drift-pin", () => {
   test("calendar capCounterAggregateId stable für (tenant, capName, period)", async () => {
-    const { capCounterAggregateId } = await import("../aggregate-id");
+    const { capCounterAggregateId } = await import("../aggregate-id.js");
     expect(capCounterAggregateId("tenant-1", "cap-x", "2026-05-01T00:00:00Z")).toBe(
       "2e74a706-7cc1-51ca-a1a7-89e5c5bccb7e",
     );
   });
 
   test("rolling rollingCapAggregateId stable für (tenant, capName)", async () => {
-    const { rollingCapAggregateId } = await import("../aggregate-id");
+    const { rollingCapAggregateId } = await import("../aggregate-id.js");
     // Pinne den exakten UUID-output. Wenn jemand den Namespace-uuid in
     // aggregate-id.ts ändert, kollabiert die ganze rolling-counter-
     // history des Tenants — Test fängt's vor dem Deploy.
@@ -423,7 +423,7 @@ describe("aggregate-id namespaces — drift-pin", () => {
   });
 
   test("calendar und rolling produzieren UNTERSCHIEDLICHE UUIDs für gleiches Tupel", async () => {
-    const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id");
+    const { capCounterAggregateId, rollingCapAggregateId } = await import("../aggregate-id.js");
     // Selbst wenn jemand "1970-01-01..." als periodStart in den
     // calendar-Pfad reinpasst, soll die UUID NICHT mit dem rolling-
     // aggregate kollidieren — sonst würden sich die beiden Streams

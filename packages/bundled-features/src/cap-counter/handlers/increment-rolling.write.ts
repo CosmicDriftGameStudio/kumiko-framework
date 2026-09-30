@@ -20,8 +20,8 @@
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { rollingCapAggregateId } from "../aggregate-id";
-import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "../constants";
+import { rollingCapAggregateId } from "../aggregate-id.js";
+import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "../constants.js";
 
 const incrementRollingSchema = z.object({
   /** App-defined cap-name. e.g. "ai-tokens-7day", "egress-bytes-24h". */

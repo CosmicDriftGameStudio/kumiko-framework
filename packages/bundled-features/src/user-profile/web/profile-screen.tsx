@@ -14,9 +14,9 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { requestEmailVerification } from "../../auth-email-password/web";
-import { UserProfileHandlers } from "../constants";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { requestEmailVerification } from "../../auth-email-password/web/index.js";
+import { UserProfileHandlers } from "../constants.js";
 
 type SectionStatus =
   | { kind: "idle" }

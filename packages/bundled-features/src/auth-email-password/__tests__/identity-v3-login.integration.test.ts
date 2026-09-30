@@ -17,18 +17,18 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature, TenantHandlers } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { UserHandlers } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserHandlers } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 let stack: TestStack;
 

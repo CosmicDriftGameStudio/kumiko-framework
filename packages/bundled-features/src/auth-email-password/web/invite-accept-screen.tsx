@@ -18,10 +18,10 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useContext, useState } from "react";
-import { csrfHeader } from "./auth-client";
-import { resolvePostAuthHref } from "./auth-form-logic";
-import { AuthCard, useUrlToken } from "./auth-form-primitives";
-import { SessionContext, UNAUTHENTICATED } from "./session";
+import { csrfHeader } from "./auth-client.js";
+import { resolvePostAuthHref } from "./auth-form-logic.js";
+import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
+import { SessionContext, UNAUTHENTICATED } from "./session.js";
 
 export type InviteAcceptScreenProps = {
   readonly title?: string;

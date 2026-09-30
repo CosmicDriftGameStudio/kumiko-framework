@@ -1,6 +1,6 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { apiTokenTable } from "../../personal-access-tokens";
-import { featureMounted } from "./feature-mounted";
+import { apiTokenTable } from "../../personal-access-tokens/index.js";
+import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for personal-access-tokens rows. Same shape as user-session:
 // unmanaged direct-write store (no event stream, rebuild-safe DELETE), and a

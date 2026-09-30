@@ -4,8 +4,8 @@
 // both are now factory parameters.
 
 import { buildEntityTable, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
-import type { CapLimitContext } from "../cap-counter";
-import { tierAssignmentEntity } from "./entity";
+import type { CapLimitContext } from "../cap-counter/index.js";
+import { tierAssignmentEntity } from "./entity.js";
 
 export type TierResolverDeps<TTier extends string, TCaps> = {
   readonly capsForTier: (tier: TTier, context: CapLimitContext) => TCaps | Promise<TCaps>;

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createSecretsFeature } from "../feature";
+import { createSecretsFeature } from "../feature.js";
 
 describe("createSecretsFeature access/roles precedence", () => {
   test("roles-only adopts the host role vocabulary", () => {

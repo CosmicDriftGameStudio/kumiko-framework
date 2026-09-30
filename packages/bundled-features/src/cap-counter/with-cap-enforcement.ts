@@ -22,14 +22,14 @@ import type {
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { bookCapUsage } from "./book-cap-usage";
-import { CapCounterHandlers } from "./constants";
+import { bookCapUsage } from "./book-cap-usage.js";
+import { CapCounterHandlers } from "./constants.js";
 import {
   type CapToleranceProfileName,
   enforceCapAndMaybeNotify,
   enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
-} from "./enforce-cap";
+} from "./enforce-cap.js";
 
 // =============================================================================
 // Calendar-Period-Wrapper

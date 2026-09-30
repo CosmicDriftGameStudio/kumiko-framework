@@ -20,11 +20,11 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasWhereRule } from "../shared";
-import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants";
-import { createNoteEntryEntity, noteMentionEntity } from "./entity";
-import { createAddNoteHandler } from "./handlers/add-note.write";
-import { NOTES_HISTORY_FEATURE_I18N } from "./i18n";
+import { hasWhereRule } from "../shared/index.js";
+import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants.js";
+import { createNoteEntryEntity, noteMentionEntity } from "./entity.js";
+import { createAddNoteHandler } from "./handlers/add-note.write.js";
+import { NOTES_HISTORY_FEATURE_I18N } from "./i18n.js";
 
 function registerNotesHistory(
   r: FeatureRegistrar<typeof NOTES_HISTORY_FEATURE_NAME>,

@@ -3,13 +3,13 @@ import { buildEntityTable, decodeCursor, encodeCursor } from "@cosmicdrift/kumik
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { subscriptionsProjectionTable } from "../../billing-foundation";
-import type { CapLimitContext } from "../../cap-counter";
-import { tenantTable } from "../../tenant";
-import { tierAssignmentEntity } from "../../tier-engine";
-import { capFieldName } from "../constants";
-import type { CapSpec, CapUsage } from "../types";
-import { computeFraction } from "../usage-math";
+import { subscriptionsProjectionTable } from "../../billing-foundation/index.js";
+import type { CapLimitContext } from "../../cap-counter/index.js";
+import { tenantTable } from "../../tenant/index.js";
+import { tierAssignmentEntity } from "../../tier-engine/index.js";
+import { capFieldName } from "../constants.js";
+import type { CapSpec, CapUsage } from "../types.js";
+import { computeFraction } from "../usage-math.js";
 
 type TenantRow = { readonly id: string; readonly name: string };
 type TierAssignmentRow = {

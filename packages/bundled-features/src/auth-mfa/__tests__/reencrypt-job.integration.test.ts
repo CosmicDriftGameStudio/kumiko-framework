@@ -29,18 +29,18 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { base32Decode } from "../base32";
-import { AuthMfaHandlers } from "../constants";
-import { createAuthMfaFeature } from "../feature";
-import { mfaReencryptJob } from "../handlers/reencrypt.job";
-import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
-import { currentTotpCode } from "../totp";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { base32Decode } from "../base32.js";
+import { AuthMfaHandlers } from "../constants.js";
+import { createAuthMfaFeature } from "../feature.js";
+import { mfaReencryptJob } from "../handlers/reencrypt.job.js";
+import { userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
+import { currentTotpCode } from "../totp.js";
 
 const SETUP_TOKEN_SECRET = "test-setup-token-secret-do-not-use-in-prod";
 const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";

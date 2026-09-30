@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
 
 // B2 wireCustomFieldsFor: einziger Aufruf registriert MSP + postQuery-hook +
 // search-payload-extension + useExtension-Marker. Tests pinnen die Surface

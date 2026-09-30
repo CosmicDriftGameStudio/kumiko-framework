@@ -5,4 +5,4 @@
 // Knöpfe gehören NICHT hier rein (würde dev-boots brechen wenn jemand
 // einen lockout-test-Knopf einbaut).
 
-export * from "./seeding";
+export * from "./seeding.js";

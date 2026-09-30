@@ -16,7 +16,7 @@
 // Storage footprint: one small string per used token, auto-evicted. At
 // 10k password-resets/day × 15-min TTL, at any moment ~100 keys live.
 
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 
 const BURN_KEY_PREFIX = "kumiko:auth:burn";
 

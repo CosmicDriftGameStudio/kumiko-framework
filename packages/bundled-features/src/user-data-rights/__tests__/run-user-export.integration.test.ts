@@ -45,18 +45,22 @@ import {
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { configValueEntity, createConfigFeature } from "../../config";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createFilesFeature } from "../../files";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createTenantFeature, tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
-import { fileRefExportHook } from "../../user-data-rights-defaults/hooks/file-ref.userdata-hook";
-import { tenantInvitationExportHook } from "../../user-data-rights-defaults/hooks/tenant-invitation.userdata-hook";
-import { createUserDataRightsFeature } from "../feature";
-import { runUserExport } from "../run-user-export";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { configValueEntity, createConfigFeature } from "../../config/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createFilesFeature } from "../../files/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import {
+  createTenantFeature,
+  tenantInvitationEntity,
+  tenantInvitationsTable,
+} from "../../tenant/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { fileRefExportHook } from "../../user-data-rights-defaults/hooks/file-ref.userdata-hook.js";
+import { tenantInvitationExportHook } from "../../user-data-rights-defaults/hooks/tenant-invitation.userdata-hook.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runUserExport } from "../run-user-export.js";
 
 let stack: TestStack;
 

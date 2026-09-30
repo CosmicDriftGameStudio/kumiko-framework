@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { parseS3EnvConfig } from "../env-helper";
+import { parseS3EnvConfig } from "../env-helper.js";
 
 // Tests run against real process.env — we snapshot + restore per-test so
 // parallel test files don't leak env vars into one another. vi.stubEnv is

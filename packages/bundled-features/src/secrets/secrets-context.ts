@@ -35,13 +35,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/secrets";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { selectTenantSecretEnvelope } from "./db/queries/read";
+import { selectTenantSecretEnvelope } from "./db/queries/read.js";
 import {
   type StoredEnvelope,
   type StoredMetadata,
   tenantSecretEntity,
   tenantSecretsTable,
-} from "./table";
+} from "./table.js";
 
 // Re-export the framework interface so consumers of bundled-features/secrets
 // don't need to reach into @cosmicdrift/kumiko-framework/secrets separately.

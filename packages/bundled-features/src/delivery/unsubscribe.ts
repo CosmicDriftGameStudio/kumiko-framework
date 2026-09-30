@@ -9,13 +9,13 @@ import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import * as jose from "jose";
 import * as z from "zod";
-import { hashUnsubscribeAddress } from "./address-opt-out";
+import { hashUnsubscribeAddress } from "./address-opt-out.js";
 import {
   DELIVERY_RESUBSCRIBE_PATH,
   DELIVERY_UNSUBSCRIBE_PATH,
   DeliveryErrors,
   DeliveryHandlers,
-} from "./constants";
+} from "./constants.js";
 
 // Shape des verified-JWT-payloads. tenantId kommt als string aus jose und
 // wird NACH erfolgreichem parse() zur Branded TenantId — kein blind-cast.

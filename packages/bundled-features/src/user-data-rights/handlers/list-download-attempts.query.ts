@@ -2,7 +2,7 @@ import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { downloadAttemptsTable } from "../schema/download-attempt";
+import { downloadAttemptsTable } from "../schema/download-attempt.js";
 
 // Operator-Query: invalid Download-Attempts (S2.U7).
 // DPO-Sicht fuer Brute-Force-Detection. Tenant-isolated via WHERE.

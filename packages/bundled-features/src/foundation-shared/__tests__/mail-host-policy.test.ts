@@ -4,7 +4,7 @@ import {
   BlockedHostError,
   HostResolutionError,
   resolveMailConnectTarget,
-} from "../mail-host-policy";
+} from "../mail-host-policy.js";
 
 describe("resolveMailConnectTarget", () => {
   test("pins a public hostname to its resolved address and sets servername to the original host", async () => {

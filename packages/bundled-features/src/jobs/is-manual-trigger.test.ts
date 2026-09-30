@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isManualTrigger } from "./is-manual-trigger";
+import { isManualTrigger } from "./is-manual-trigger.js";
 
 describe("isManualTrigger", () => {
   test("manual trigger → true", () => {

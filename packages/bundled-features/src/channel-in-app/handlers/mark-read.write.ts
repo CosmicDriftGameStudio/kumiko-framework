@@ -2,7 +2,7 @@ import { updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { inAppMessagesTable } from "../tables";
+import { inAppMessagesTable } from "../tables.js";
 
 export const markReadWrite = defineWriteHandler({
   name: "markRead",

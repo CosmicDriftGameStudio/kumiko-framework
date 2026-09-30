@@ -34,17 +34,17 @@ import {
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { documentExtractEntity, documentExtractsTable } from "../entity";
-import { documentIngestRequestedPayloadSchema } from "../events";
-import { documentIngestFoundationFeature } from "../feature";
-import { writeIngestPages } from "../pages";
-import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers";
-import { writeDocumentExtractForLiveFileRef } from "../write-document-extract";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { documentExtractEntity, documentExtractsTable } from "../entity.js";
+import { documentIngestRequestedPayloadSchema } from "../events.js";
+import { documentIngestFoundationFeature } from "../feature.js";
+import { writeIngestPages } from "../pages.js";
+import { documentIngestProviderTrigger, EXT_DOCUMENT_INGEST_PROVIDER } from "../providers.js";
+import { writeDocumentExtractForLiveFileRef } from "../write-document-extract.js";
 
 // Small test providers — mirror kumiko-enterprise's LiteParse shape without
 // pulling it in: A claims pdf/png, B claims docx, each with a deliberately

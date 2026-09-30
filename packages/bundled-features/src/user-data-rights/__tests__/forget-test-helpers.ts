@@ -10,7 +10,7 @@ import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-frame
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { USER_STATUS, userTable } from "../../user";
+import { USER_STATUS, userTable } from "../../user/index.js";
 
 export const TENANT_SYSTEM = "00000000-0000-4000-8000-000000000001";
 

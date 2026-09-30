@@ -11,7 +11,7 @@ import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/m
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { ConfigResolver, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import { createConfigAccessor } from "../../config";
+import { createConfigAccessor } from "../../config/index.js";
 
 export interface TenantMailResolverCtx {
   readonly registry: Registry;

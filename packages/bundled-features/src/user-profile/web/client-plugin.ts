@@ -8,9 +8,9 @@ import type { ComponentType, ReactNode } from "react";
 import {
   CHANGE_EMAIL_SECTION_EXTENSION_NAME,
   CHANGE_PASSWORD_SECTION_EXTENSION_NAME,
-} from "../constants";
-import { defaultTranslations } from "../i18n";
-import { ChangeEmailSection, ChangePasswordSection } from "./profile-screen";
+} from "../constants.js";
+import { defaultTranslations } from "../i18n.js";
+import { ChangeEmailSection, ChangePasswordSection } from "./profile-screen.js";
 
 export type UserProfileClientOptions = {
   /** Per-key overrides on top of the default bundles (de/en). */

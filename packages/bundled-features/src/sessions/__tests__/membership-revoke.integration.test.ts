@@ -16,24 +16,24 @@ import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { TenantHandlers } from "../../tenant/constants";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/seeding";
-import { UserHandlers } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { createSessionsFeature } from "../feature";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { sessionCallbacksFromLateBound, withMintedSession } from "../testing";
-import { makeSessionHelpers } from "./test-helpers";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/seeding.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserHandlers } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { createSessionsFeature } from "../feature.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../testing.js";
+import { makeSessionHelpers } from "./test-helpers.js";
 
 // Proves the two tenant-membership handlers (update-member-roles,
 // remove-member) reach into the sessions feature's cross-tenant / tenant-

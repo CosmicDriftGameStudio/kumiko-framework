@@ -30,12 +30,12 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { createConfigFeature } from "../../config";
-import { fileFoundationFeature } from "../../file-foundation";
-import { createTenantFeature, TenantHandlers } from "../../tenant";
-import { createFileDerivativesFeature } from "../feature";
-import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query";
-import { PUBLIC_VARIANT_BY_FILE_REF_QN } from "../handlers/public-variant-by-file-ref.query";
+import { createConfigFeature } from "../../config/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
+import { createFileDerivativesFeature } from "../feature.js";
+import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query.js";
+import { PUBLIC_VARIANT_BY_FILE_REF_QN } from "../handlers/public-variant-by-file-ref.query.js";
 
 const VARIANT_BYTES = new Uint8Array([4, 2, 4, 2]);
 const fakeRender: DerivativeRendererPlugin["render"] = async () => VARIANT_BYTES;

@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import type { TierMap } from "../compose-app";
-import { TIER_ADMIN_SCREEN_ID } from "../constants";
-import { createTierEngineFeature } from "../feature";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import type { TierMap } from "../compose-app.js";
+import { TIER_ADMIN_SCREEN_ID } from "../constants.js";
+import { createTierEngineFeature } from "../feature.js";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 

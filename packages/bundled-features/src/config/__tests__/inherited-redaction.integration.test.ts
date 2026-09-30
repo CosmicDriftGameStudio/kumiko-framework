@@ -15,10 +15,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
-import { ConfigHandlers, ConfigQueries } from "../constants";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { type ConfigResolver, createConfigResolver } from "../resolver";
-import { configValuesTable } from "../table";
+import { ConfigHandlers, ConfigQueries } from "../constants.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
+import { type ConfigResolver, createConfigResolver } from "../resolver.js";
+import { configValuesTable } from "../table.js";
 
 // Proves the inheritedToTenant:false redaction end-to-end over real HTTP: a
 // tenant-side admin who is allowed to READ the key (access.admin) must never

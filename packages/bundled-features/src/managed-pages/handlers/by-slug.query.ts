@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type PageRow, pagesTable } from "../table";
+import { type PageRow, pagesTable } from "../table.js";
 
 // Public-Read by (tenantId, slug, lang). Anonymous-capable (Landing-/
 // Marketing-Pages). Tenant kommt aus query.user.tenantId — am Render-Pfad

@@ -5,4 +5,4 @@ export {
   mailTransportSmtpFeature,
   SMTP_PASSWORD,
   setSmtpMailHostLookup,
-} from "./feature";
+} from "./feature.js";

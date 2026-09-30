@@ -1,7 +1,7 @@
 // feature.ts contract tests for subscription-foundation.
 
 import { describe, expect, test } from "bun:test";
-import { paymentAggregateId, paymentRowId, subscriptionAggregateId } from "../aggregate-id";
+import { paymentAggregateId, paymentRowId, subscriptionAggregateId } from "../aggregate-id.js";
 import {
   BILLING_FOUNDATION_FEATURE,
   BILLING_PLANS_SCREEN_ID,
@@ -9,9 +9,9 @@ import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "../constants";
-import { billingFoundationFeature, createBillingFoundationFeature } from "../feature";
-import type { BillingPlanCatalog } from "../types";
+} from "../constants.js";
+import { billingFoundationFeature, createBillingFoundationFeature } from "../feature.js";
+import type { BillingPlanCatalog } from "../types.js";
 
 function catalog(overrides: Partial<BillingPlanCatalog> = {}): BillingPlanCatalog {
   return {

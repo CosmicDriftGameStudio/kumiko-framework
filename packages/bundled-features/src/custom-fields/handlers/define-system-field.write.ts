@@ -1,8 +1,8 @@
 import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect";
-import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
-import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas";
+import { fieldDefinitionAggregateId } from "../aggregate-id.js";
+import { defineOrResurrectFieldDefinition } from "../lib/define-or-resurrect.js";
+import { buildFieldDefinitionColumns } from "../lib/field-definition-row.js";
+import { type DefineFieldPayload, defineFieldPayloadSchema } from "../schemas.js";
 
 // define-system-field — SystemAdmin definiert eine system-weite Custom-Field-
 // Definition die für ALLE Tenants gilt. tenantId wird auf SYSTEM_TENANT_ID

@@ -12,62 +12,66 @@ import {
   createMetricsHandle,
   createNoopMetricsHandle,
 } from "@cosmicdrift/kumiko-framework/observability";
-import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks";
+import { validateGdprHookCompleteness, validateGdprPiiHookCoverage } from "./boot-checks.js";
 import {
   EXPORT_SECTION_EXTENSION_NAME,
   PRIVACY_CENTER_SCREEN_ID,
   STATUS_OPTION_KEY_PREFIX,
   USER_ME_QUERY,
   UserDataRightsHandlers,
-} from "./constants";
-import { cancelDeletionWrite } from "./handlers/cancel-deletion.write";
-import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write";
-import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query";
-import { downloadByJobQuery } from "./handlers/download-by-job.query";
-import { downloadByTokenQuery } from "./handlers/download-by-token.query";
-import { exportJobDetailQuery } from "./handlers/export-job-detail.query";
-import { exportJobListQuery } from "./handlers/export-job-list.query";
-import { exportStatusQuery } from "./handlers/export-status.query";
-import { liftRestrictionWrite } from "./handlers/lift-restriction.write";
-import { listDownloadAttemptsQuery } from "./handlers/list-download-attempts.query";
-import { myAuditLogQuery } from "./handlers/my-audit-log.query";
+} from "./constants.js";
+import { cancelDeletionWrite } from "./handlers/cancel-deletion.write.js";
+import { createConfirmDeletionByTokenHandler } from "./handlers/confirm-deletion-by-token.write.js";
+import { downloadAttemptListQuery } from "./handlers/download-attempt-list.query.js";
+import { downloadByJobQuery } from "./handlers/download-by-job.query.js";
+import { downloadByTokenQuery } from "./handlers/download-by-token.query.js";
+import { exportJobDetailQuery } from "./handlers/export-job-detail.query.js";
+import { exportJobListQuery } from "./handlers/export-job-list.query.js";
+import { exportStatusQuery } from "./handlers/export-status.query.js";
+import { liftRestrictionWrite } from "./handlers/lift-restriction.write.js";
+import { listDownloadAttemptsQuery } from "./handlers/list-download-attempts.query.js";
+import { myAuditLogQuery } from "./handlers/my-audit-log.query.js";
 import {
   createRequestDeletionHandler,
   type SendDeletionRequestedEmailFn,
-} from "./handlers/request-deletion.write";
+} from "./handlers/request-deletion.write.js";
 import {
   createRequestDeletionByEmailHandler,
   type SendDeletionVerificationEmailFn,
-} from "./handlers/request-deletion-by-email.write";
-import { requestExportWrite } from "./handlers/request-export.write";
-import { restrictAccountWrite } from "./handlers/restrict-account.write";
-import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write";
-import { USER_DATA_RIGHTS_I18N } from "./i18n";
+} from "./handlers/request-deletion-by-email.write.js";
+import { requestExportWrite } from "./handlers/request-export.write.js";
+import { restrictAccountWrite } from "./handlers/restrict-account.write.js";
+import { createRunForgetCleanupHandler } from "./handlers/run-forget-cleanup.write.js";
+import { USER_DATA_RIGHTS_I18N } from "./i18n.js";
 import {
   type GdprMailDefaults,
   isMailTransportAvailable,
   makeDefaultDeletionExecutedEmail,
   makeDefaultExportFailedEmail,
   makeDefaultExportReadyEmail,
-} from "./lib/default-mailers";
-import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver";
-import { resolveAppTenantModel } from "./lib/resolve-tenant-model";
-import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver";
+} from "./lib/default-mailers.js";
+import { makeTenantMailTransportResolver } from "./lib/mail-transport-resolver.js";
+import { resolveAppTenantModel } from "./lib/resolve-tenant-model.js";
+import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver.js";
 import {
   EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
   runExportJobs,
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
-} from "./run-export-jobs";
+} from "./run-export-jobs.js";
 import {
   runForgetCleanup,
   type SendDeletionExecutedEmailFn,
   sanitizeReasonForLog,
-} from "./run-forget-cleanup";
-import { downloadAttemptEntity } from "./schema/download-attempt";
-import { exportDownloadTokenEntity } from "./schema/download-token";
-import { exportJobEntity } from "./schema/export-job";
-import { downloadAttemptListScreen, exportJobDetailScreen, exportJobListScreen } from "./screens";
+} from "./run-forget-cleanup.js";
+import { downloadAttemptEntity } from "./schema/download-attempt.js";
+import { exportDownloadTokenEntity } from "./schema/download-token.js";
+import { exportJobEntity } from "./schema/export-job.js";
+import {
+  downloadAttemptListScreen,
+  exportJobDetailScreen,
+  exportJobListScreen,
+} from "./screens.js";
 
 // user-data-rights — DSGVO Art. 15 (Auskunft) + Art. 17 (Löschung) +
 // Art. 18 (Restriction) + Art. 20 (Portabilität) als Core-Feature.

@@ -2,7 +2,7 @@
 // Mirrors reset-token.ts / verification-token.ts.
 
 import type { Temporal } from "temporal-polyfill";
-import { signToken, TokenPurpose, verifyToken } from "./signed-token";
+import { signToken, TokenPurpose, verifyToken } from "./signed-token.js";
 
 export type VerifyResult =
   | { readonly ok: true; readonly userId: string; readonly expiresAtMs: number }

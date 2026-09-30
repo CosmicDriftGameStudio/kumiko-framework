@@ -9,7 +9,7 @@ import {
   type FeatureDefinition,
   type TenantLifecycleStatusPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { validateTenantDataHookCoverage } from "./boot-checks";
+import { validateTenantDataHookCoverage } from "./boot-checks.js";
 import {
   DESTRUCTION_CANCELLED_EVENT_SHORT,
   DESTRUCTION_REQUESTED_EVENT_SHORT,
@@ -20,7 +20,7 @@ import {
   TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
-} from "./constants";
+} from "./constants.js";
 import {
   destructionCancelledSchema,
   destructionRequestedSchema,
@@ -31,10 +31,10 @@ import {
   tenantDestructionStageStartedSchema,
   tenantDestructionStageSucceededSchema,
   tenantDestructionStartedSchema,
-} from "./events";
-import { cancelDestructionWrite } from "./handlers/cancel-destruction.write";
-import { requestDestructionWrite } from "./handlers/request-destruction.write";
-import { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy";
+} from "./events.js";
+import { cancelDestructionWrite } from "./handlers/cancel-destruction.write.js";
+import { requestDestructionWrite } from "./handlers/request-destruction.write.js";
+import { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy.js";
 
 const tenantLifecycleStatusPlugin: TenantLifecycleStatusPlugin = {
   async resolveStatus(tenantId, { db }) {
@@ -145,5 +145,5 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
 export {
   TENANT_LIFECYCLE_FEATURE,
   TenantLifecycleHandlers,
-} from "./constants";
-export { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy";
+} from "./constants.js";
+export { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy.js";

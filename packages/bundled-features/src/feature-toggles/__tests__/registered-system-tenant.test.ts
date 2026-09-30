@@ -22,8 +22,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createDispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { createTestUser } from "@cosmicdrift/kumiko-framework/stack";
-import { createFeatureTogglesFeature } from "../feature";
-import type { GlobalFeatureToggleRuntime } from "../toggle-runtime";
+import { createFeatureTogglesFeature } from "../feature.js";
+import type { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
 
 describe("Sprint 8a: registered.query SYSTEM_TENANT_ID convention", () => {
   test("ruft effectiveFeatures mit SYSTEM_TENANT_ID, nicht mit caller-tenantId", async () => {

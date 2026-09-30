@@ -1,4 +1,4 @@
-export { DEFAULT_SECRETS_ACCESS, DEFAULT_SECRETS_ROLES } from "./constants";
+export { DEFAULT_SECRETS_ACCESS, DEFAULT_SECRETS_ROLES } from "./constants.js";
 export {
   createSecretsContext,
   createSecretsFeature,
@@ -12,12 +12,12 @@ export {
   secretsEnvSchema,
   TENANT_SECRET_READ_EVENT,
   tenantSecretsTable,
-} from "./feature";
-export { createDeleteHandler } from "./handlers/delete.write";
-export { createListHandler } from "./handlers/list.query";
+} from "./feature.js";
+export { createDeleteHandler } from "./handlers/delete.write.js";
+export { createListHandler } from "./handlers/list.query.js";
 export {
   type RotateJobPayload,
   type RotateJobResult,
   rotateJob,
-} from "./handlers/rotate.job";
-export { createSetHandler } from "./handlers/set.write";
+} from "./handlers/rotate.job.js";
+export { createSetHandler } from "./handlers/set.write.js";

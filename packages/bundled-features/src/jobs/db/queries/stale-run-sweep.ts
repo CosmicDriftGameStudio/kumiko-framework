@@ -14,8 +14,8 @@
 
 import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { encryptFailureError } from "../../job-run-logger";
-import { jobRunsTable } from "../../job-run-table";
+import { encryptFailureError } from "../../job-run-logger.js";
+import { jobRunsTable } from "../../job-run-table.js";
 
 export const STALE_JOB_RUN_ERROR =
   "job run exceeded the stale-run timeout without a completion signal (likely a crashed worker process)";

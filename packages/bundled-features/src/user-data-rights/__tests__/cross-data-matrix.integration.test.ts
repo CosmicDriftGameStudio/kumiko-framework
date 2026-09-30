@@ -35,16 +35,19 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { createFilesFeature } from "../../files";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { tenantMembershipsTable } from "../../tenant";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
-import { createUserDataRightsFeature } from "../feature";
-import { runForgetCleanup } from "../run-forget-cleanup";
-import { runUserExport } from "../run-user-export";
+} from "../../compliance-profiles/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { createFilesFeature } from "../../files/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { tenantMembershipsTable } from "../../tenant/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
+import { runUserExport } from "../run-user-export.js";
 
 let stack: TestStack;
 

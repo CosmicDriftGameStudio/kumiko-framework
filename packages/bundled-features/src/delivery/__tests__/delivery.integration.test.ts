@@ -30,28 +30,28 @@ import {
 import { resetBlindIndexKeyForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import * as jose from "jose";
 import * as z from "zod";
-import { createChannelEmailFeature } from "../../channel-email/feature";
-import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types";
-import { InAppHandlers, InAppQueries } from "../../channel-in-app/constants";
-import { createChannelInAppFeature } from "../../channel-in-app/feature";
-import { inAppMessagesTable } from "../../channel-in-app/tables";
-import { createChannelPushFeature } from "../../channel-push/feature";
-import { createInMemoryPushTransport } from "../../channel-push/types";
-import { createConfigFeature } from "../../config/feature";
-import { configValuesTable } from "../../config/table";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
-import { createRendererSimpleFeature } from "../../renderer-simple/feature";
-import { simpleRenderer } from "../../renderer-simple/simple-renderer";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { TenantQueries } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
+import { createChannelEmailFeature } from "../../channel-email/feature.js";
+import { createInMemoryTransport, type EmailMessage } from "../../channel-email/types.js";
+import { InAppHandlers, InAppQueries } from "../../channel-in-app/constants.js";
+import { createChannelInAppFeature } from "../../channel-in-app/feature.js";
+import { inAppMessagesTable } from "../../channel-in-app/tables.js";
+import { createChannelPushFeature } from "../../channel-push/feature.js";
+import { createInMemoryPushTransport } from "../../channel-push/types.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { configValuesTable } from "../../config/table.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature } from "../../renderer-simple/feature.js";
+import { simpleRenderer } from "../../renderer-simple/simple-renderer.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { TenantQueries } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
 import {
   addressOptOutAggregateIdForTests,
   hashUnsubscribeAddress,
   MAX_ADDRESS_OPT_OUT_GENERATIONS_FOR_TESTS,
-} from "../address-opt-out";
+} from "../address-opt-out.js";
 import {
   DELIVERY_RESUBSCRIBE_PATH,
   DELIVERY_UNSUBSCRIBE_PATH,
@@ -59,23 +59,23 @@ import {
   DeliveryHandlers,
   DeliveryJobs,
   DeliveryQueries,
-} from "../constants";
-import { collectChannels, createDeliveryService } from "../delivery-service";
-import { createDeliveryFeature } from "../feature";
-import { deliveryRenderJob, deliverySendJob } from "../jobs";
+} from "../constants.js";
+import { collectChannels, createDeliveryService } from "../delivery-service.js";
+import { createDeliveryFeature } from "../feature.js";
+import { deliveryRenderJob, deliverySendJob } from "../jobs.js";
 import {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
   notificationAddressOptOutsTable,
   notificationPreferencesTable,
-} from "../tables";
-import { createDeliveryTestContext } from "../testing";
-import type { DeliveryService } from "../types";
+} from "../tables.js";
+import { createDeliveryTestContext } from "../testing.js";
+import type { DeliveryService } from "../types.js";
 import {
   createUnsubscribeRoutes,
   signAddressUnsubscribeToken,
   signUnsubscribeToken,
-} from "../unsubscribe";
+} from "../unsubscribe.js";
 
 // --- Setup ---
 

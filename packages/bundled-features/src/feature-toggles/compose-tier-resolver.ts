@@ -4,7 +4,7 @@ import {
   type Registry,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
+import type { GlobalFeatureToggleRuntime } from "./toggle-runtime.js";
 
 // Composes a tenantTierResolver (tier-engine) with a GlobalFeatureToggleRuntime
 // (feature-toggles) into a single resolver an app can pass as

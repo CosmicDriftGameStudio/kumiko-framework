@@ -7,7 +7,7 @@ import type {
   SessionUser,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DELIVERY_CHANNEL_EXTENSION } from "./constants";
+import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 
 // --- Channel Interface ---
 

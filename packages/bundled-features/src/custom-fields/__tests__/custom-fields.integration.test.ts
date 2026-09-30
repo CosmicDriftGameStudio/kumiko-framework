@@ -32,9 +32,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { fieldDefinitionEntity } from "../entity";
-import { createCustomFieldsFeature } from "../feature";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
+import { fieldDefinitionEntity } from "../entity.js";
+import { createCustomFieldsFeature } from "../feature.js";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
 
 // --- Probe-Feature: a tenant-owned "property" entity with customFields ---
 

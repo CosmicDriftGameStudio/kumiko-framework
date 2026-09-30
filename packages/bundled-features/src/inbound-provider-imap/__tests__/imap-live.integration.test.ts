@@ -19,15 +19,15 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { connect } from "node:net";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
 import { createTransport } from "nodemailer";
-import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
+import { describeInboundMailProviderContract } from "../../inbound-mail-foundation/__tests__/inbound-mail-provider-contract.js";
 import {
   type InboundMailContext,
   isInboundAuthError,
   type MailAccountRecord,
   type RawInboundMessage,
-} from "../../inbound-mail-foundation";
-import { describeInboundMailProviderContract } from "../../inbound-mail-foundation/__tests__/inbound-mail-provider-contract";
-import { imapInboundMailPlugin } from "../feature";
+} from "../../inbound-mail-foundation/index.js";
+import { imapInboundMailPlugin } from "../feature.js";
 
 const HOST = process.env["IMAP_LIVE_HOST"] ?? "127.0.0.1";
 const IMAP_PORT = Number(process.env["IMAP_LIVE_PORT"] ?? 3143);

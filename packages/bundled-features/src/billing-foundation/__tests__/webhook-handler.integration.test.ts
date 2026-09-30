@@ -15,19 +15,19 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
   SubscriptionEventTypes,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "../constants";
-import { billingFoundationFeature } from "../feature";
-import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types";
-import { createSubscriptionWebhookRoute } from "../webhook-handler";
+} from "../constants.js";
+import { billingFoundationFeature } from "../feature.js";
+import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
+import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
 
 const stripeLikePlugin: SubscriptionProviderPlugin = {
   verifyAndParseWebhook: async (rawBody) => JSON.parse(rawBody) as SubscriptionEvent | null,

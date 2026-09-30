@@ -3,28 +3,34 @@ import {
   EXT_USER_DATA,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { apiTokenDeleteHook, apiTokenExportHook } from "./hooks/api-token.userdata-hook";
-import { configValueDeleteHook, configValueExportHook } from "./hooks/config-value.userdata-hook";
+import { apiTokenDeleteHook, apiTokenExportHook } from "./hooks/api-token.userdata-hook.js";
+import {
+  configValueDeleteHook,
+  configValueExportHook,
+} from "./hooks/config-value.userdata-hook.js";
 import {
   deliveryAttemptDeleteHook,
   deliveryAttemptExportHook,
-} from "./hooks/delivery-attempt.userdata-hook";
-import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook";
+} from "./hooks/delivery-attempt.userdata-hook.js";
+import { fileRefDeleteHook, fileRefExportHook } from "./hooks/file-ref.userdata-hook.js";
 import {
   inAppMessageDeleteHook,
   inAppMessageExportHook,
-} from "./hooks/in-app-message.userdata-hook";
-import { jobRunDeleteHook, jobRunExportHook } from "./hooks/job-run.userdata-hook";
+} from "./hooks/in-app-message.userdata-hook.js";
+import { jobRunDeleteHook, jobRunExportHook } from "./hooks/job-run.userdata-hook.js";
 import {
   notificationPreferenceDeleteHook,
   notificationPreferenceExportHook,
-} from "./hooks/notification-preference.userdata-hook";
+} from "./hooks/notification-preference.userdata-hook.js";
 import {
   tenantInvitationDeleteHook,
   tenantInvitationExportHook,
-} from "./hooks/tenant-invitation.userdata-hook";
-import { userDeleteHook, userExportHook } from "./hooks/user.userdata-hook";
-import { userSessionDeleteHook, userSessionExportHook } from "./hooks/user-session.userdata-hook";
+} from "./hooks/tenant-invitation.userdata-hook.js";
+import { userDeleteHook, userExportHook } from "./hooks/user.userdata-hook.js";
+import {
+  userSessionDeleteHook,
+  userSessionExportHook,
+} from "./hooks/user-session.userdata-hook.js";
 
 // user-data-rights-defaults — Default-Hooks für die Core-Entities
 // `user` (S2.H1) und `fileRef` (S2.H2).

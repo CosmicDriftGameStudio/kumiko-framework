@@ -25,23 +25,23 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
-import { tenantMembershipEntity } from "../../tenant";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipEntity } from "../../tenant/index.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy";
-import { InboundMailFoundationHandlers } from "../constants";
-import { seenMessageEntity, syncCursorEntity } from "../entities";
-import { inboundMailFoundationFeature } from "../feature";
-import { mailAccountsProjectionTable } from "../projection";
+} from "../../tenant-lifecycle/constants.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
+import { InboundMailFoundationHandlers } from "../constants.js";
+import { seenMessageEntity, syncCursorEntity } from "../entities.js";
+import { inboundMailFoundationFeature } from "../feature.js";
+import { mailAccountsProjectionTable } from "../projection.js";
 
 let stack: TestStack;
 let db: DbConnection;

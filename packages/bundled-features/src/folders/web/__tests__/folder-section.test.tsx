@@ -7,9 +7,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { FoldersHandlers, FoldersQueries } from "../../constants";
-import { FolderSection } from "../folder-section";
-import { defaultTranslations } from "../i18n";
+import { FoldersHandlers, FoldersQueries } from "../../constants.js";
+import { FolderSection } from "../folder-section.js";
+import { defaultTranslations } from "../i18n.js";
 
 type FolderRow = { id: string; name: string; parentId: string | null; version: number };
 type AssignmentRow = { folderId: string; entityType: string; entityId: string };

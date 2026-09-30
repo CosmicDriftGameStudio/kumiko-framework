@@ -15,27 +15,27 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
-import { notificationPreferencesTable } from "../../delivery/tables";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { hashPassword } from "../../shared";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { UserHandlers } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
-import { signResetToken } from "../reset-token";
-import { signVerificationToken } from "../verification-token";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { notificationPreferencesTable } from "../../delivery/tables.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserHandlers } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
+import { signResetToken } from "../reset-token.js";
+import { signVerificationToken } from "../verification-token.js";
 
 // Verify mails now go through delivery (ctx.notify → channel-email); the
 // in-memory transport captures what would be sent.
@@ -348,7 +348,7 @@ describe("POST /auth/verify-email", () => {
     const seed = await seedUser({ email: "cross@example.com", password: "pw-cross-1234" });
     // Sign a token with a different purpose but the SAME secret+userId —
     // the verify-token verify() must reject it.
-    const { signResetToken } = await import("../reset-token");
+    const { signResetToken } = await import("../reset-token.js");
     const { token } = signResetToken(seed.id, 60, verifySecret);
 
     const res = await post("/api/auth/verify-email", { token });

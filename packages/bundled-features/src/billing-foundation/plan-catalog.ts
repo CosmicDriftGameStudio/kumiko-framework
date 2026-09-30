@@ -4,22 +4,22 @@
 // Internal — not re-exported from index.ts.
 
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { isPluginBillingEnabled } from "./checkout-core";
+import { isPluginBillingEnabled } from "./checkout-core.js";
 import {
   BillingPlanActions,
   DEFAULT_PURCHASE_ROLES,
   isSubscriptionBlockingCheckout,
   isSwitchableSubscriptionStatus,
   SubscriptionStatuses,
-} from "./constants";
-import { getSubscriptionForTenant } from "./get-subscription-for-tenant";
+} from "./constants.js";
+import { getSubscriptionForTenant } from "./get-subscription-for-tenant.js";
 import type {
   BillingPlanCatalog,
   BillingPlansResult,
   BillingPlanView,
   ProviderPrice,
   SubscriptionProviderPlugin,
-} from "./types";
+} from "./types.js";
 
 function userHasAnyRole(userRoles: readonly string[], allowedRoles: readonly string[]): boolean {
   return allowedRoles.some((role) => userRoles.includes(role));

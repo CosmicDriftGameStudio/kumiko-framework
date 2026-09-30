@@ -6,7 +6,7 @@
 // notes-history-user-data.
 
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import { userContentDeleteHook, userContentExportHook } from "./hooks";
+import { userContentDeleteHook, userContentExportHook } from "./hooks.js";
 
 export const templateResolverUserDataFeature = defineFeature("template-resolver-user-data", (r) => {
   r.describe(

@@ -20,16 +20,16 @@ import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
-import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store";
-import { decryptStoredPii } from "../../shared";
-import { userTable } from "../../user";
+import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store.js";
+import { decryptStoredPii } from "../../shared/index.js";
+import { userTable } from "../../user/index.js";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../invitation-table";
-import { assertNotLastTenantAdmin } from "../last-tenant-admin";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
+} from "../invitation-table.js";
+import { assertNotLastTenantAdmin } from "../last-tenant-admin.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

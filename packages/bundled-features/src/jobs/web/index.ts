@@ -1,2 +1,2 @@
 // @runtime client
-export { type JobsClientOptions, jobsClient } from "./client-plugin";
+export { type JobsClientOptions, jobsClient } from "./client-plugin.js";

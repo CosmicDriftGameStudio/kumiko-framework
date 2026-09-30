@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { signToken } from "../../shared";
-import { redeemDeletionToken, signDeletionToken } from "../deletion-token";
+import { signToken } from "../../shared/index.js";
+import { redeemDeletionToken, signDeletionToken } from "../deletion-token.js";
 
 const SECRET = "deletion-token-compat-secret";
 const USER_ID = "user-7";

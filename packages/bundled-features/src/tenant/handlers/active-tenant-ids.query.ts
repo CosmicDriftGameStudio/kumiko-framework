@@ -6,7 +6,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantTable } from "../schema/tenant";
+import { tenantTable } from "../schema/tenant.js";
 
 export const activeTenantIdsQuery = defineQueryHandler({
   name: "activeTenantIds",

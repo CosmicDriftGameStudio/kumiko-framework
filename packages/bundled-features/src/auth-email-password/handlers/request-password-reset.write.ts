@@ -1,11 +1,11 @@
-import { AUTH_RESET_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants";
-import { renderResetPasswordEmail } from "../email-templates";
-import { signResetToken } from "../reset-token";
+import { AUTH_RESET_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
+import { renderResetPasswordEmail } from "../email-templates.js";
+import { signResetToken } from "../reset-token.js";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
-} from "./token-request-handler";
+} from "./token-request-handler.js";
 
 const RESET_NOTIFICATION_TYPE = "auth-email-password:password-reset";
 

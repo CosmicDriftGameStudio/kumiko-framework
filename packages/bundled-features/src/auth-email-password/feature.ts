@@ -1,33 +1,33 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { MIN_HMAC_SECRET_LENGTH } from "./constants";
-import type { AuthMailLocale } from "./email-templates";
-import { changePasswordWrite } from "./handlers/change-password.write";
-import { createConfirmAccountUnlockHandler } from "./handlers/confirm-account-unlock.write";
-import { createInviteAcceptHandler } from "./handlers/invite-accept.write";
-import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write";
+import { MIN_HMAC_SECRET_LENGTH } from "./constants.js";
+import type { AuthMailLocale } from "./email-templates.js";
+import { changePasswordWrite } from "./handlers/change-password.write.js";
+import { createConfirmAccountUnlockHandler } from "./handlers/confirm-account-unlock.write.js";
+import { createInviteAcceptHandler } from "./handlers/invite-accept.write.js";
+import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write.js";
 import {
   createInviteCreateHandler,
   type InviteCreateOptions,
-} from "./handlers/invite-create.write";
-import { inviteInfoQuery } from "./handlers/invite-info.query";
-import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write";
-import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write";
-import { logoutWrite } from "./handlers/logout.write";
+} from "./handlers/invite-create.write.js";
+import { inviteInfoQuery } from "./handlers/invite-info.query.js";
+import { createInviteSignupCompleteHandler } from "./handlers/invite-signup-complete.write.js";
+import { createLoginHandler, type LoginHandlerOptions } from "./handlers/login.write.js";
+import { logoutWrite } from "./handlers/logout.write.js";
 import {
   createRequestAccountUnlockHandler,
   type RequestAccountUnlockOptions,
-} from "./handlers/request-account-unlock.write";
-import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write";
-import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write";
-import { createResetPasswordHandler } from "./handlers/reset-password.write";
-import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query";
-import { createSignupConfirmHandler } from "./handlers/signup-confirm.write";
+} from "./handlers/request-account-unlock.write.js";
+import { createRequestEmailVerificationHandler } from "./handlers/request-email-verification.write.js";
+import { createRequestPasswordResetHandler } from "./handlers/request-password-reset.write.js";
+import { createResetPasswordHandler } from "./handlers/reset-password.write.js";
+import { selfRegistrationStatusQuery } from "./handlers/self-registration-status.query.js";
+import { createSignupConfirmHandler } from "./handlers/signup-confirm.write.js";
 import {
   createSignupRequestHandler,
   type SignupRequestOptions,
-} from "./handlers/signup-request.write";
-import { createVerifyEmailHandler } from "./handlers/verify-email.write";
+} from "./handlers/signup-request.write.js";
+import { createVerifyEmailHandler } from "./handlers/verify-email.write.js";
 
 /**
  * Env-vars contract for the `auth-email-password` feature.

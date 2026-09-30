@@ -6,8 +6,8 @@
 import { describe, expect, test } from "bun:test";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import type { AuthMailContent } from "../email-templates";
-import { renderResetPasswordEmail, renderVerifyEmail } from "../email-templates";
+import type { AuthMailContent } from "../email-templates.js";
+import { renderResetPasswordEmail, renderVerifyEmail } from "../email-templates.js";
 
 function buttonUrl(content: AuthMailContent): string | undefined {
   for (const section of content.sections) {

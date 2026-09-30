@@ -19,7 +19,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { CustomFieldsHandlers, CustomFieldsQueries } from "../constants";
+import { CustomFieldsHandlers, CustomFieldsQueries } from "../constants.js";
 
 type FieldDefinitionRow = {
   readonly id: string;

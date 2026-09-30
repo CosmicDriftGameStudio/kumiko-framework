@@ -22,9 +22,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { documentExtractEntity, documentExtractsTable } from "../entity";
-import { readIngestPages, writeIngestPages } from "../pages";
+import { createConfigFeature } from "../../config/index.js";
+import { documentExtractEntity, documentExtractsTable } from "../entity.js";
+import { readIngestPages, writeIngestPages } from "../pages.js";
 
 let stack: TestStack;
 let kms: InMemoryKmsAdapter;

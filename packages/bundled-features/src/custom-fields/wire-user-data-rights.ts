@@ -3,7 +3,7 @@
 import { type DbRunner, extractTableName } from "@cosmicdrift/kumiko-framework/db";
 import type { UserDataExportSnippet, UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
 import { EXT_USER_DATA, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { selectCustomFieldsHostRows } from "./db/queries/user-data-rights";
+import { selectCustomFieldsHostRows } from "./db/queries/user-data-rights.js";
 
 export interface WireCustomFieldsUserDataRightsOptions {
   readonly entityName: string;

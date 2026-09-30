@@ -1,7 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { deleteStaleJobRuns } from "../db/queries/retention";
+import { deleteStaleJobRuns } from "../db/queries/retention.js";
 
 // Single source for the retention window — change here, nowhere else.
 export const DEFAULT_JOB_RUN_RETENTION_DAYS = 30;

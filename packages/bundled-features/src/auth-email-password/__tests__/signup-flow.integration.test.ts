@@ -38,27 +38,27 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
-import { notificationPreferencesTable } from "../../delivery/tables";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { notificationPreferencesTable } from "../../delivery/tables.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 // kumiko-lint-ignore cross-feature-import regression-proof for #1463: seedTenant
 // must fire tier-engine's entity postSave hook on self-signup, not just on the
 // TenantHandlers.create HTTP path.
-import { tierAssignmentEntity } from "../../tier-engine/entity";
-import { createTierEngineFeature } from "../../tier-engine/feature";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+import { tierAssignmentEntity } from "../../tier-engine/entity.js";
+import { createTierEngineFeature } from "../../tier-engine/feature.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 

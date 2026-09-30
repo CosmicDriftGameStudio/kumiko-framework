@@ -27,10 +27,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { ConfigHandlers, ConfigQueries } from "../constants";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { createConfigResolver } from "../resolver";
-import { configValuesTable } from "../table";
+import { ConfigHandlers, ConfigQueries } from "../constants.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
+import { createConfigResolver } from "../resolver.js";
+import { configValuesTable } from "../table.js";
 
 const BILLING_ADDRESS_KEY = "pii-cfg-test:config:billing-address";
 const PHONE_NUMBER_KEY = "pii-cfg-test:config:phone-number";

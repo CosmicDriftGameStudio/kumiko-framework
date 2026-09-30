@@ -23,20 +23,20 @@ import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-framewo
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { subscriptionAggregateId } from "../aggregate-id";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { subscriptionAggregateId } from "../aggregate-id.js";
 import {
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
-} from "../constants";
-import { createBillingFoundationFeature } from "../feature";
-import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types";
+} from "../constants.js";
+import { createBillingFoundationFeature } from "../feature.js";
+import type { ProviderSubscriptionSnapshot, SubscriptionProviderPlugin } from "../types.js";
 
 let retrieveSnapshot: ProviderSubscriptionSnapshot | null = null;
 // Keyed by providerSubscriptionId — the job-path test fans the same

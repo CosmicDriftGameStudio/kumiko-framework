@@ -14,10 +14,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep";
-import { createJobsFeature } from "../feature";
-import { DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS } from "../handlers/stale-run-sweep.job";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+import { STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.js";
+import { createJobsFeature } from "../feature.js";
+import { DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS } from "../handlers/stale-run-sweep.job.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 const SWEEP_JOB = "jobs:job:stale-run-sweep";
 

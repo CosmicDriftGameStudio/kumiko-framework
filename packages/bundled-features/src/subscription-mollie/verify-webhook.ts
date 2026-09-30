@@ -26,8 +26,8 @@ import type {
   Subscription as MollieSubscription,
 } from "@mollie/api-client";
 import { Temporal } from "temporal-polyfill";
-import { MOLLIE_PROVIDER_NAME } from "./constants";
-import type { MolliePriceConfig } from "./plugin-methods";
+import { MOLLIE_PROVIDER_NAME } from "./constants.js";
+import type { MolliePriceConfig } from "./plugin-methods.js";
 
 /** Minimal-Subset des Mollie-Clients, das der Plugin nutzt — separat
  *  damit Tests ohne den vollen MollieClient mocken können. Adapter in

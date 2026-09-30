@@ -1,11 +1,11 @@
-import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants";
-import { renderUnlockAccountEmail } from "../email-templates";
-import { signUnlockToken } from "../unlock-token";
+import { AUTH_UNLOCK_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
+import { renderUnlockAccountEmail } from "../email-templates.js";
+import { signUnlockToken } from "../unlock-token.js";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
-} from "./token-request-handler";
+} from "./token-request-handler.js";
 
 const UNLOCK_NOTIFICATION_TYPE = "auth-email-password:account-unlock";
 

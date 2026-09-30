@@ -1,1 +1,1 @@
-export { createFilesFeature, fileRefEntity } from "./feature";
+export { createFilesFeature, fileRefEntity } from "./feature.js";

@@ -3,7 +3,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { ComplianceProfileKey } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { tenantComplianceProfileTable } from "../schema/profile-selection";
+import { tenantComplianceProfileTable } from "../schema/profile-selection.js";
 
 // Onboarding banner trigger for tenant admin.
 //

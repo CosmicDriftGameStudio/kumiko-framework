@@ -3,9 +3,9 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { decryptStoredPii } from "../../shared";
-import { USER_STATUS, userTable } from "../../user";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle";
+import { decryptStoredPii } from "../../shared/index.js";
+import { USER_STATUS, userTable } from "../../user/index.js";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

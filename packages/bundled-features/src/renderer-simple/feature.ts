@@ -5,9 +5,9 @@ import {
   RendererError,
   type RenderRequest,
   type RenderResponse,
-} from "../renderer-foundation";
-import { resolveNotificationVariables } from "./resolve-variables";
-import { simpleRenderer } from "./simple-renderer";
+} from "../renderer-foundation/index.js";
+import { resolveNotificationVariables } from "./resolve-variables.js";
+import { simpleRenderer } from "./simple-renderer.js";
 
 // Adapter: simpleRenderer.render hat `Promise<string>`-Signatur (Legacy
 // NotificationRenderer-Contract), renderer-foundation erwartet

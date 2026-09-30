@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createConfigFeature } from "../../config/feature";
-import { createManagedPagesFeature } from "../feature";
+import { createConfigFeature } from "../../config/feature.js";
+import { createManagedPagesFeature } from "../feature.js";
 
 // Completeness-Gate: managed-pages ruft jetzt r.translations → der Boot-Validator
 // erzwingt den KOMPLETTEN Required-Surface-Key-Satz (screen:*.title,

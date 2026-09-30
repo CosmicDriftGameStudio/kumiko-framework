@@ -20,7 +20,7 @@
 //     (crypto-shredding, Muster billing-foundation #800).
 
 import * as z from "zod";
-import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants";
+import { INBOUND_MAIL_FOUNDATION_FEATURE, InboundMailAccountStatuses } from "./constants.js";
 
 // Aggregate-types für den event-store.
 export const MAIL_ACCOUNT_AGGREGATE_TYPE = "mail-account" as const;

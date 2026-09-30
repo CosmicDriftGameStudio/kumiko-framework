@@ -5,15 +5,18 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DEFAULT_LEDGER_ACCESS } from "../constants";
+import { DEFAULT_LEDGER_ACCESS } from "../constants.js";
 import {
   accountExecutor,
   scheduleExecutor,
   transactionExecutor,
   transactionTable,
-} from "../executor";
-import { findReversedIds, isoMonth, scheduleReference } from "../recurring";
-import { type ConfirmSchedulePeriodPayload, confirmSchedulePeriodPayloadSchema } from "../schemas";
+} from "../executor.js";
+import { findReversedIds, isoMonth, scheduleReference } from "../recurring.js";
+import {
+  type ConfirmSchedulePeriodPayload,
+  confirmSchedulePeriodPayloadSchema,
+} from "../schemas.js";
 
 // confirm-schedule-period — turn ONE projected period of a schedule into a posted,
 // balanced transaction (debit +amount / credit −amount), tagged with

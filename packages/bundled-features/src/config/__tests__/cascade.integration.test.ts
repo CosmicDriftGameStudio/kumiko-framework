@@ -21,10 +21,10 @@ import {
   TestUsers,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { ConfigHandlers, ConfigQueries } from "../constants";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { buildEnvConfigOverrides, type ConfigResolver, createConfigResolver } from "../resolver";
-import { configValueEntity, configValuesTable } from "../table";
+import { ConfigHandlers, ConfigQueries } from "../constants.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
+import { buildEnvConfigOverrides, type ConfigResolver, createConfigResolver } from "../resolver.js";
+import { configValueEntity, configValuesTable } from "../table.js";
 
 let stack: TestStack;
 let db: import("@cosmicdrift/kumiko-framework/db").DbConnection;

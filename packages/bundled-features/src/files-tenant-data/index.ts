@@ -21,8 +21,8 @@ import {
 import {
   sweepOrphanedDerivativesJob,
   sweepOrphanedDerivativesPayloadSchema,
-} from "./handlers/sweep-orphaned-derivatives.job";
-import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks";
+} from "./handlers/sweep-orphaned-derivatives.job.js";
+import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.js";
 
 export function createFilesTenantDataFeature(): FeatureDefinition {
   return defineFeature("files-tenant-data", (r) => {
@@ -63,5 +63,5 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
 export {
   sweepOrphanedDerivativesJob,
   sweepOrphanedDerivativesPayloadSchema,
-} from "./handlers/sweep-orphaned-derivatives.job";
-export { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks";
+} from "./handlers/sweep-orphaned-derivatives.job.js";
+export { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.js";

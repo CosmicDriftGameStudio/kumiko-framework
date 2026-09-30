@@ -11,9 +11,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { defaultTranslations } from "../../i18n";
-import { InviteAcceptScreen } from "../invite-accept-screen";
-import { makeSessionApi, renderWithProviders } from "./test-utils";
+import { defaultTranslations } from "../../i18n.js";
+import { InviteAcceptScreen } from "../invite-accept-screen.js";
+import { makeSessionApi, renderWithProviders } from "./test-utils.js";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
 

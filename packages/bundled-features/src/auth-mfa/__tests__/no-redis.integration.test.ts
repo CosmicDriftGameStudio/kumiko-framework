@@ -28,17 +28,17 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user/feature";
-import { base32Encode } from "../base32";
-import { AuthMfaHandlers } from "../constants";
-import { createAuthMfaFeature } from "../feature";
-import { signMfaChallengeToken } from "../mfa-challenge-token";
-import { signMfaSetupToken } from "../mfa-setup-token";
-import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa";
-import { generateTotpSecret } from "../totp";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { base32Encode } from "../base32.js";
+import { AuthMfaHandlers } from "../constants.js";
+import { createAuthMfaFeature } from "../feature.js";
+import { signMfaChallengeToken } from "../mfa-challenge-token.js";
+import { signMfaSetupToken } from "../mfa-setup-token.js";
+import { encodeRecoveryCodes, userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
+import { generateTotpSecret } from "../totp.js";
 
 let stack: TestStack;
 

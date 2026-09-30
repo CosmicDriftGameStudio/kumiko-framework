@@ -4,7 +4,7 @@ import {
   type EntityListScreenDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_TAG_ACCESS, TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "./constants";
+import { DEFAULT_TAG_ACCESS, TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "./constants.js";
 
 // Declarative catalog screens (Phase-3 / #2312). Access matches create/update/
 // delete so createTagsFeature({ access|roles }) stays consistent. TagManager

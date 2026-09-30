@@ -6,7 +6,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createTemplateResolverApi, TemplateNotFoundError, type TemplateResolverApi } from "../api";
+import {
+  createTemplateResolverApi,
+  TemplateNotFoundError,
+  type TemplateResolverApi,
+} from "../api.js";
 import {
   type ContentFormat,
   FALLBACK_LOCALE,
@@ -14,9 +18,9 @@ import {
   SYSTEM_TENANT_ID,
   type TemplateScope,
   type TemplateStatus,
-} from "../constants";
-import { createTemplateResolverFeature } from "../feature";
-import { templateResourceEntity, templateResourcesTable } from "../table";
+} from "../constants.js";
+import { createTemplateResolverFeature } from "../feature.js";
+import { templateResourceEntity, templateResourcesTable } from "../table.js";
 
 let stack: TestStack;
 let db: DbConnection;

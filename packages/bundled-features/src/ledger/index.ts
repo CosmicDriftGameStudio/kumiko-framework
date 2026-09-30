@@ -10,30 +10,30 @@ export {
   type ScheduleInterval,
   TRANSACTION_STATUS,
   type TransactionStatus,
-} from "./constants";
-export { accountEntity, scheduleEntity, transactionEntity } from "./entity";
+} from "./constants.js";
+export { accountEntity, scheduleEntity, transactionEntity } from "./entity.js";
 export {
   createLedgerFeature,
   type LedgerFeatureOptions,
   ledgerFeature,
-} from "./feature";
+} from "./feature.js";
 export {
   confirmSchedulePeriodHandler,
   createConfirmSchedulePeriodHandler,
-} from "./handlers/confirm-schedule-period.write";
+} from "./handlers/confirm-schedule-period.write.js";
 export {
   createCreateTransactionHandler,
   createTransactionHandler,
-} from "./handlers/create-transaction.write";
+} from "./handlers/create-transaction.write.js";
 export {
   createBalanceSheetHandler,
   createBalancesReportHandler,
   createIncomeStatementHandler,
-} from "./handlers/reports.query";
+} from "./handlers/reports.query.js";
 export {
   createReverseTransactionHandler,
   reverseTransactionHandler,
-} from "./handlers/reverse-transaction.write";
+} from "./handlers/reverse-transaction.write.js";
 export {
   findReversedIds,
   type LedgerTxRow,
@@ -44,7 +44,7 @@ export {
   type ScheduleMonth,
   type ScheduleMonthStatus,
   scheduleReference,
-} from "./recurring";
+} from "./recurring.js";
 export {
   type AccountBalance,
   accountBalances,
@@ -57,7 +57,7 @@ export {
   type LedgerEntry,
   type Period,
   rawBalances,
-} from "./reports";
+} from "./reports.js";
 export {
   accountTypeSchema,
   type ConfirmSchedulePeriodPayload,
@@ -68,4 +68,4 @@ export {
   postingSchema,
   type ReverseTransactionPayload,
   reverseTransactionPayloadSchema,
-} from "./schemas";
+} from "./schemas.js";

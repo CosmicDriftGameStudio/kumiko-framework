@@ -1,16 +1,16 @@
 // Public API of the subscription-foundation bundled-feature.
 
-export { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id";
+export { paymentAggregateId, subscriptionAggregateId } from "./aggregate-id.js";
 export {
   type BillingInfo,
   type BillingInfoQueryDeps,
   createBillingInfoQueryConfig,
-} from "./billing-info-query";
+} from "./billing-info-query.js";
 export {
   isBillingEnabled,
   type ResolvedProvider,
   resolveProviderPlugin,
-} from "./checkout-core";
+} from "./checkout-core.js";
 export {
   BILLING_FOUNDATION_FEATURE,
   BILLING_PLANS_PANEL_COMPONENT,
@@ -29,8 +29,8 @@ export {
   SubscriptionFoundationQueries,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "./constants";
-export { paymentEntity, subscriptionEntity } from "./entities";
+} from "./constants.js";
+export { paymentEntity, subscriptionEntity } from "./entities.js";
 export {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -52,17 +52,17 @@ export {
   type SubscriptionEventHeaders,
   type SubscriptionEventPayload,
   subscriptionEventPayloadSchema,
-} from "./events";
-export { billingFoundationFeature, createBillingFoundationFeature } from "./feature";
-export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant";
-export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection";
-export { billingPlansPanel, createBillingPlansScreen } from "./screens";
+} from "./events.js";
+export { billingFoundationFeature, createBillingFoundationFeature } from "./feature.js";
+export { getSubscriptionForTenant, type SubscriptionView } from "./get-subscription-for-tenant.js";
+export { paymentsProjectionTable, subscriptionsProjectionTable } from "./projection.js";
+export { billingPlansPanel, createBillingPlansScreen } from "./screens.js";
 export {
   createSubscriptionTierSync,
   effectiveTierFromSubscription,
   SUBSCRIPTION_WEBHOOK_PATH,
   type SubscriptionTierSyncDeps,
-} from "./subscription-tier-sync";
+} from "./subscription-tier-sync.js";
 export {
   type BillingFoundationOptions,
   type BillingPlanBenefit,
@@ -77,8 +77,8 @@ export {
   type RecurringInterval,
   type SubscriptionEvent,
   type SubscriptionProviderPlugin,
-} from "./types";
+} from "./types.js";
 export {
   createSubscriptionWebhookRoute,
   type SubscriptionWebhookRouteOptions,
-} from "./webhook-handler";
+} from "./webhook-handler.js";

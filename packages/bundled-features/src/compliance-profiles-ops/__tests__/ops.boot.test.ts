@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { complianceProfilesOpsFeature } from "../index";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { complianceProfilesOpsFeature } from "../index.js";
 
 describe("compliance-profiles-ops (#2089)", () => {
   test("declares systemScope and requires compliance-profiles + tenant", () => {

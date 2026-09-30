@@ -4,7 +4,7 @@ import {
   createSystemConfig,
   createTenantConfig,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { buildEnvConfigOverrides } from "../resolver";
+import { buildEnvConfigOverrides } from "../resolver.js";
 
 // Registry stub exposing the two methods buildEnvConfigOverrides reads:
 // getAllConfigKeys (iterate declared keys) + getConfigKey (validate).

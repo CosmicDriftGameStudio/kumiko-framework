@@ -11,7 +11,7 @@
 // (sichtbarer breaking change) statt ctx-cast.
 
 import type { ConfigAccessor, Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants";
+import { INBOUND_MAIL_PROVIDER_EXTENSION, type InboundMailAccountStatus } from "./constants.js";
 
 /**
  * Slim-Context für Provider-Plugins.

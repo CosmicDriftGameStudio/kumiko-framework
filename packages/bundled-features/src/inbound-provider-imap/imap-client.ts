@@ -20,7 +20,7 @@ import { legacyDateToInstant } from "@cosmicdrift/kumiko-framework/time";
 import { ImapFlow } from "imapflow";
 import { type AddressObject, type ParsedMail, simpleParser } from "mailparser";
 import { Temporal } from "temporal-polyfill";
-import type { ImapCredentialDocument } from "./credential-document";
+import type { ImapCredentialDocument } from "./credential-document.js";
 
 export const IMAP_MAILBOX = "INBOX";
 const SNIPPET_MAX = 300;

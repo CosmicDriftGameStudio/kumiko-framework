@@ -22,13 +22,13 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../feature";
-import { tenantMembershipsTable } from "../membership-table";
-import { tenantEntity, tenantTable } from "../schema/tenant";
-import { seedTenant, seedTenantMembership } from "../seeding";
+import { createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../feature.js";
+import { tenantMembershipsTable } from "../membership-table.js";
+import { tenantEntity, tenantTable } from "../schema/tenant.js";
+import { seedTenant, seedTenantMembership } from "../seeding.js";
 
 let stack: TestStack;
 

@@ -7,8 +7,8 @@ export {
   resolveTenantExistence,
   resolveTenantResolver,
   resolveTokenVerifier,
-} from "./feature";
-export { resolveAnonymousAccessFromRegistry } from "./resolve-anonymous-access";
+} from "./feature.js";
+export { resolveAnonymousAccessFromRegistry } from "./resolve-anonymous-access.js";
 export {
   type AuthProviderBuildDeps,
   type AuthProviderPlugin,
@@ -34,4 +34,4 @@ export {
   type TokenShape,
   tokenShapeKey,
   tokenShapeMatches,
-} from "./types";
+} from "./types.js";

@@ -18,7 +18,7 @@ import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/st
 const KUMIKO_COLUMNS_SYMBOL = Symbol.for("kumiko:schema:Columns");
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createFilesFeature, fileRefEntity } from "../feature";
+import { createFilesFeature, fileRefEntity } from "../feature.js";
 
 let stack: TestStack;
 

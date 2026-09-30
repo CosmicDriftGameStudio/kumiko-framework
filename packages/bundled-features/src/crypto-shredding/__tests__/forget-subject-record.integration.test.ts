@@ -38,17 +38,17 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import {
   RECORD_ENTITY_NOT_REGISTERED,
   SUBJECT_FORGET_DENIED_EVENT_NAME,
   SUBJECT_FORGOTTEN_EVENT_NAME,
   TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
-} from "../constants";
-import { createCryptoShreddingFeature } from "../feature";
+} from "../constants.js";
+import { createCryptoShreddingFeature } from "../feature.js";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 const RECORD_PROBE_ENTITY_NAME = "recordProbe";

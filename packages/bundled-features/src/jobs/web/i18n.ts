@@ -3,6 +3,6 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { JOBS_I18N } from "../i18n";
+import { JOBS_I18N } from "../i18n.js";
 
 export const defaultTranslations: TranslationsByLocale = translationsByLocaleFromKeys(JOBS_I18N);

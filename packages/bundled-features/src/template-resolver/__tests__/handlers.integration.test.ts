@@ -10,9 +10,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { createTemplateResolverFeature } from "../feature";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
-import { templateResourceEntity } from "../table";
+import { createTemplateResolverFeature } from "../feature.js";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
+import { templateResourceEntity } from "../table.js";
 
 let stack: TestStack;
 let db: DbConnection;

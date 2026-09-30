@@ -7,9 +7,9 @@ import {
   type DeliveryChannel,
   type NotificationRenderer,
   type RenderedMessage,
-} from "../delivery";
-import { guardEmailMessage } from "./pii-guard";
-import type { EmailTransport } from "./types";
+} from "../delivery/index.js";
+import { guardEmailMessage } from "./pii-guard.js";
+import type { EmailTransport } from "./types.js";
 
 // Envelope (From / Reply-To / threading headers) rides on the channel data —
 // the notification's email template echoes it out of the notify() call, since

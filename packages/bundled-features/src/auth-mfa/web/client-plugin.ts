@@ -10,7 +10,7 @@
 
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
-import { defaultTranslations, mergeTranslations } from "./i18n";
+import { defaultTranslations, mergeTranslations } from "./i18n.js";
 
 export type AuthMfaClientOptions = {
   /** Key-Overrides pro Locale, gemerged mit den Default-Bundles (de/en). */

@@ -5,8 +5,8 @@
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { TIER_ENGINE_FEATURE } from "../constants";
-import { defaultTranslations } from "../i18n";
+import { TIER_ENGINE_FEATURE } from "../constants.js";
+import { defaultTranslations } from "../i18n.js";
 
 export type TierEngineClientOptions = {
   /** Per-key overrides over the default bundles (de/en). */

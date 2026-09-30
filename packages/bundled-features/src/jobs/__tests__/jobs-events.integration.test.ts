@@ -20,9 +20,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { createJobsFeature } from "../feature";
-import { createJobRunLogger } from "../job-run-logger";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+import { createJobsFeature } from "../feature.js";
+import { createJobRunLogger } from "../job-run-logger.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

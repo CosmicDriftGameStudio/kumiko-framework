@@ -20,12 +20,12 @@
 //   today, but new fields could change that — keep the executor as the
 //   reference if the mapper output ever diverges from a replayed read-model.
 
-import { addMemberWrite } from "./handlers/add-member.write";
-import { createWrite } from "./handlers/create.write";
-import { removeMemberWrite } from "./handlers/remove-member.write";
-import { disableWrite } from "./handlers/toggle-enabled.write";
-import { updateWrite } from "./handlers/update.write";
-import { updateMemberRolesWrite } from "./handlers/update-member-roles.write";
+import { addMemberWrite } from "./handlers/add-member.write.js";
+import { createWrite } from "./handlers/create.write.js";
+import { removeMemberWrite } from "./handlers/remove-member.write.js";
+import { disableWrite } from "./handlers/toggle-enabled.write.js";
+import { updateWrite } from "./handlers/update.write.js";
+import { updateMemberRolesWrite } from "./handlers/update-member-roles.write.js";
 
 export const TenantCommandSchemas = {
   create: createWrite.schema,

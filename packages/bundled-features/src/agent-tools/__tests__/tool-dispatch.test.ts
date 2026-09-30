@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import type { ToolCallRequest, ToolDispatcher } from "../tool-dispatch";
-import { dispatchToolCall } from "../tool-dispatch";
-import type { ToolDispatchDescriptor } from "../types";
+import type { ToolCallRequest, ToolDispatcher } from "../tool-dispatch.js";
+import { dispatchToolCall } from "../tool-dispatch.js";
+import type { ToolDispatchDescriptor } from "../types.js";
 
 const CALLER: SessionUser = { id: "user-1", tenantId: "tenant-1", roles: ["member"] };
 

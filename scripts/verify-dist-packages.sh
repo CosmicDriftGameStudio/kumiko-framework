@@ -36,7 +36,7 @@ for pkg_json in packages/*/package.json; do
   listing="$(tar -tzf "$tarball_path")"
   if grep -q '__tests__' <<<"$listing"; then fail "$name: tarball contains __tests__"; fi
 
-  # A `files` entry under src/ (exact file or directory prefix) is intentionally shipped as source.
+  # A `files` entry under src/ (exact file, directory prefix or `*` glob) is intentionally shipped as source.
   allowed_src="$(jq -r '.files[] | select(startswith("src/"))' "$pkg_json")"
   stray_src=""
   while IFS= read -r entry; do
@@ -44,7 +44,7 @@ for pkg_json in packages/*/package.json; do
     allowed=0
     while IFS= read -r prefix; do
       [ -n "$prefix" ] || continue
-      if [ "$entry" = "package/$prefix" ] || [[ "$entry" == "package/${prefix%/}/"* ]]; then allowed=1; break; fi
+      if [ "$entry" = "package/$prefix" ] || [[ "$entry" == "package/${prefix%/}/"* ]] || [[ "$entry" == package/$prefix ]]; then allowed=1; break; fi
     done <<<"$allowed_src"
     [ "$allowed" -eq 1 ] || stray_src+="$entry"$'\n'
   done < <(grep -E '^package/src/.*[^/]$' <<<"$listing" | grep -vxF 'package/src/changes.json' || true)

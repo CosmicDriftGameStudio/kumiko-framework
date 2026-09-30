@@ -6,9 +6,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { USER_STATUS, userTable } from "../../user";
-import { redeemDeletionToken } from "../deletion-token";
-import { startDeletionGracePeriod } from "./deletion-grace-period";
+import { USER_STATUS, userTable } from "../../user/index.js";
+import { redeemDeletionToken } from "../deletion-token.js";
+import { startDeletionGracePeriod } from "./deletion-grace-period.js";
 
 export type ConfirmDeletionByTokenOptions = {
   readonly deletionTokenSecret?: string;

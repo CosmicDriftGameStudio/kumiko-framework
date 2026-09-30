@@ -7,10 +7,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tierAssignmentEntity } from "../../tier-engine";
-import { MY_CAPS_ACCESS_ROLES } from "../access";
-import type { CapSpec, CapUsageWithMeta } from "../types";
-import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math";
+import { tierAssignmentEntity } from "../../tier-engine/index.js";
+import { MY_CAPS_ACCESS_ROLES } from "../access.js";
+import type { CapSpec, CapUsageWithMeta } from "../types.js";
+import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math.js";
 
 type TierAssignmentRow = { readonly tenantId: string; readonly tier: string };
 

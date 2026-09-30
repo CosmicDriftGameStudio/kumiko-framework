@@ -1,10 +1,10 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { AuthErrors } from "../constants";
-import { invalidVerificationToken } from "../errors";
-import { verifyVerificationToken } from "../verification-token";
-import { runConfirmTokenFlow } from "./confirm-token-flow";
+import { AuthErrors } from "../constants.js";
+import { invalidVerificationToken } from "../errors.js";
+import { verifyVerificationToken } from "../verification-token.js";
+import { runConfirmTokenFlow } from "./confirm-token-flow.js";
 
 export type VerifyEmailOptions = {
   readonly hmacSecret: string;

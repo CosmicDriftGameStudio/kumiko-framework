@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { parseRetentionOverrideOrNull } from "../_internal/parse-override";
+import { parseRetentionOverrideOrNull } from "../_internal/parse-override.js";
 
 // A mid-test assertion throw skips the trailing `warn.mockRestore()` in that
 // test, leaving the spy live for every test after it (551/1) — this backstop

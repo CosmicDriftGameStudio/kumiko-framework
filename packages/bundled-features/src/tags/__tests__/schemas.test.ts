@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { assignTagPayloadSchema } from "../schemas";
+import { assignTagPayloadSchema } from "../schemas.js";
 
 // 456/3: tagAssignmentAggregateId joins tenantId/tagId/entityType/entityId
 // with "|" to derive the stream id — a literal "|" in entityType/entityId

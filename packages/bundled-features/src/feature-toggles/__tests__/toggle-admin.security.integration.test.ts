@@ -5,8 +5,12 @@ import {
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { FeatureToggleHandlers, FeatureToggleQueries, TOGGLE_ADMIN_SCREEN_ID } from "../constants";
-import { createFeatureTogglesFeature } from "../feature";
+import {
+  FeatureToggleHandlers,
+  FeatureToggleQueries,
+  TOGGLE_ADMIN_SCREEN_ID,
+} from "../constants.js";
+import { createFeatureTogglesFeature } from "../feature.js";
 
 let stack: TestStack;
 

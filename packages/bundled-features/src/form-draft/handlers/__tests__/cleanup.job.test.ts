@@ -8,8 +8,8 @@
 import { describe, expect, test } from "bun:test";
 import { testTenantId } from "@cosmicdrift/kumiko-framework/stack";
 import { Temporal } from "temporal-polyfill";
-import type { StaleDraftRow } from "../../db/queries/cleanup";
-import { groupStaleDraftIdsByTenant } from "../cleanup.job";
+import type { StaleDraftRow } from "../../db/queries/cleanup.js";
+import { groupStaleDraftIdsByTenant } from "../cleanup.job.js";
 
 const TENANT_A = testTenantId(101);
 const TENANT_B = testTenantId(102);

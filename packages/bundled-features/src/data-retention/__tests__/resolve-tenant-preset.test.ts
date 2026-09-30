@@ -7,8 +7,8 @@ import { describe, expect, test } from "bun:test";
 import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { RETENTION_PRESETS } from "../presets";
-import { PROFILE_TO_PRESET, resolveTenantRetentionPreset } from "../resolve-tenant-preset";
+import { RETENTION_PRESETS } from "../presets.js";
+import { PROFILE_TO_PRESET, resolveTenantRetentionPreset } from "../resolve-tenant-preset.js";
 
 describe("PROFILE_TO_PRESET map", () => {
   test("deckt jeden ComplianceProfileKey ab", () => {

@@ -1,8 +1,8 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
-import { userSessionTable } from "../schema/user-session";
+import { decryptStoredPii } from "../../shared/index.js";
+import { userSessionTable } from "../schema/user-session.js";
 
 // Admin single-session inspector — mirrors list.query's decrypt handling for
 // the one-row case. ctx.db (TenantDb) applies tenant-scoping automatically.

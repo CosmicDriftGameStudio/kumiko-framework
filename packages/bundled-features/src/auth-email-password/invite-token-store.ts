@@ -21,8 +21,8 @@
 // No collision with signup/reset/verify tokens: all invite keys carry the
 // `invite:`-prefix.
 
-import type Redis from "ioredis";
-import { createSingleUseTokenStore } from "../shared";
+import type { Redis } from "ioredis";
+import { createSingleUseTokenStore } from "../shared/index.js";
 
 const store = createSingleUseTokenStore({
   tokenPrefix: "invite:by-token:",

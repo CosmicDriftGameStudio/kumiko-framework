@@ -25,24 +25,24 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii } from "../../shared/index.js";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link), DB-row-owner ist tenant-feature
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table";
+} from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add (like provisionSignupAccount)
-import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership";
+import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership.js";
 // kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
-import { userTable } from "../../user/schema/user";
-import { invalidInviteToken, inviteEmailMismatch } from "../errors";
+import { userTable } from "../../user/schema/user.js";
+import { invalidInviteToken, inviteEmailMismatch } from "../errors.js";
 import {
   burnInviteToken,
   deleteInviteToken,
   getInvitationIdForToken,
   unburnInviteToken,
-} from "../invite-token-store";
+} from "../invite-token-store.js";
 
 const InviteAcceptSchema = z.object({
   token: z.string().min(1),

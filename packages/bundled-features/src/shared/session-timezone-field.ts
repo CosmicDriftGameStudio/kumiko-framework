@@ -1,5 +1,5 @@
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
-import { sessionField } from "./session-field";
+import { sessionField } from "./session-field.js";
 
 export function sessionTimezoneField(
   timezone: string | null | undefined,

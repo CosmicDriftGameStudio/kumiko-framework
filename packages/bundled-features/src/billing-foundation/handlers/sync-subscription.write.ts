@@ -20,10 +20,10 @@ import { SYSTEM_ROLE, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework
 // against, same reasoning as constants.ts's own import.
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import * as z from "zod";
-import { findProviderPlugin } from "../checkout-core";
-import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../constants";
-import { getSubscriptionForTenant } from "../get-subscription-for-tenant";
-import { appendSubscriptionEvent } from "./process-event.write";
+import { findProviderPlugin } from "../checkout-core.js";
+import { isTerminalSubscriptionStatus, SubscriptionEventTypes } from "../constants.js";
+import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
+import { appendSubscriptionEvent } from "./process-event.write.js";
 
 export const syncSubscriptionSchema = z.object({}).strict();
 

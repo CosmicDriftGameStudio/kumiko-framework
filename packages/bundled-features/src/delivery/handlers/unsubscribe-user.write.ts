@@ -1,7 +1,7 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { upsertPreference } from "../upsert-preference";
+import { upsertPreference } from "../upsert-preference.js";
 
 export const unsubscribeUserWrite = defineWriteHandler({
   name: "unsubscribeUser",

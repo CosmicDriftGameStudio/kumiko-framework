@@ -5,15 +5,15 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createTemplateResolverApi, TemplateNotFoundError } from "../api";
-import { createTemplateResolverFeature } from "../feature";
-import { templateResourceEntity } from "../table";
+import { createTemplateResolverApi, TemplateNotFoundError } from "../api.js";
+import { createTemplateResolverFeature } from "../feature.js";
+import { templateResourceEntity } from "../table.js";
 import {
   assertConsumerHandlesMissingResourceKeys,
   assertConsumerHandlesNotFound,
   runTemplateConsumerConformance,
   type TemplateConsumer,
-} from "../testing";
+} from "../testing.js";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 

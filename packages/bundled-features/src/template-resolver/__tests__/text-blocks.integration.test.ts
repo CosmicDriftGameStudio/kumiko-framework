@@ -15,12 +15,16 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { TEXT_BLOCK_KIND } from "../constants";
-import { createTemplateResolverFeature } from "../feature";
-import { executor } from "../handlers/shared";
-import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names";
-import { seedTextBlock } from "../seeding";
-import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
+import { TEXT_BLOCK_KIND } from "../constants.js";
+import { createTemplateResolverFeature } from "../feature.js";
+import { executor } from "../handlers/shared.js";
+import { TemplateResolverHandlers, TemplateResolverQueries } from "../qualified-names.js";
+import { seedTextBlock } from "../seeding.js";
+import {
+  type TemplateResourceRow,
+  templateResourceEntity,
+  templateResourcesTable,
+} from "../table.js";
 
 let stack: TestStack;
 let db: DbConnection;

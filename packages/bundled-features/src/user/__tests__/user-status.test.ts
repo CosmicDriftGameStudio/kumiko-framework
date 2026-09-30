@@ -7,7 +7,7 @@
 // liefert die options-Liste.
 
 import { describe, expect, test } from "bun:test";
-import { USER_STATUS, userEntity } from "../schema/user";
+import { USER_STATUS, userEntity } from "../schema/user.js";
 
 describe("USER_STATUS — Drift-Guard (S2.D2.5 N1)", () => {
   test("Snapshot-Vergleich: USER_STATUS-Object und entity.fields.status.options synchron", () => {

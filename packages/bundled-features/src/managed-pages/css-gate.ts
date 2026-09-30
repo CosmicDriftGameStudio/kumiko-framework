@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { MANAGED_PAGES_CSS_FEATURE } from "./branding";
+import { MANAGED_PAGES_CSS_FEATURE } from "./branding.js";
 
 // Per-tenant toggle gate for the managed-pages custom-CSS capability. Declares
 // no handlers/entities — composing it simply registers `managed-pages-css` as a

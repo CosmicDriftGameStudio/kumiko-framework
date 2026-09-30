@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { generateToken, PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
-import { PAT_PREFIX_DISPLAY_LENGTH } from "./constants";
+import { PAT_PREFIX_DISPLAY_LENGTH } from "./constants.js";
 
 // A PAT is high-entropy (32 random bytes from generateToken). A single SHA-256
 // is the right hash here: fast on the per-request auth path, and there's no

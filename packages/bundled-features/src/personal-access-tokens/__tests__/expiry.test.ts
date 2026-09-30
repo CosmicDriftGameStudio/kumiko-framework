@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { isExpiredAt } from "../expiry";
+import { isExpiredAt } from "../expiry.js";
 
 describe("isExpiredAt", () => {
   it("null never expires", () => {

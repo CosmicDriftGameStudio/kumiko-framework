@@ -1,5 +1,5 @@
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { RateLimitErrors } from "../constants";
+import { RateLimitErrors } from "../constants.js";
 
 // Bucket keys are `<dimension>:<subject>[:<handler>]` (framework
 // rate-limit/bucket.ts) — only `tenant*` and `user*` carry a subject the

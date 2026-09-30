@@ -5,4 +5,4 @@
 // `@cosmicdrift/kumiko-bundled-features/template-resolver` and has no React or
 // DOM deps.
 
-export { textBlocksClient } from "./client-plugin";
+export { textBlocksClient } from "./client-plugin.js";

@@ -33,7 +33,7 @@ import { MAX_TRANSFER_DEPTH, type Registry } from "@cosmicdrift/kumiko-framework
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { transferAggregateStreams } from "@cosmicdrift/kumiko-framework/event-store";
 import { transferTenantStorageUsage } from "@cosmicdrift/kumiko-framework/files";
-import { resolveTransferAdjacency, type TransferEdge } from "./transfer-graph";
+import { resolveTransferAdjacency, type TransferEdge } from "./transfer-graph.js";
 
 const FILE_REFS_TABLE = "file_refs";
 

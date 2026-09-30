@@ -12,7 +12,7 @@ import {
   physicalColumnName,
 } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveTransferableRoot } from "./transfer-graph";
+import { resolveTransferableRoot } from "./transfer-graph.js";
 
 export type RootAnchorLocation = {
   readonly rootTableName: string;

@@ -1,10 +1,10 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { joinRowParentIsVisible } from "../../shared";
-import { folderAssignmentAggregateId } from "../aggregate-id";
-import { DEFAULT_FOLDER_ACCESS } from "../constants";
-import { folderAssignmentExecutor, folderExecutor } from "../executor";
-import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas";
+import { joinRowParentIsVisible } from "../../shared/index.js";
+import { folderAssignmentAggregateId } from "../aggregate-id.js";
+import { DEFAULT_FOLDER_ACCESS } from "../constants.js";
+import { folderAssignmentExecutor, folderExecutor } from "../executor.js";
+import { type SetFolderPayload, setFolderPayloadSchema } from "../schemas.js";
 
 // set-folder — puts a host entity into a folder. Single-membership: the
 // assignment id is deterministic over (tenant, entity) WITHOUT folderId, so an

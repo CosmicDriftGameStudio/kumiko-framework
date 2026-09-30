@@ -12,19 +12,19 @@ import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
-import { createSessionCallbacks } from "../../sessions/session-callbacks";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { base32Decode } from "../base32";
-import { AuthMfaHandlers } from "../constants";
-import { bindMfaRevokeAllOtherSessionsFromFeature, createAuthMfaFeature } from "../feature";
-import { userMfaEntity } from "../schema/user-mfa";
-import { currentTotpCode } from "../totp";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.js";
+import { createSessionCallbacks } from "../../sessions/session-callbacks.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { base32Decode } from "../base32.js";
+import { AuthMfaHandlers } from "../constants.js";
+import { bindMfaRevokeAllOtherSessionsFromFeature, createAuthMfaFeature } from "../feature.js";
+import { userMfaEntity } from "../schema/user-mfa.js";
+import { currentTotpCode } from "../totp.js";
 
 // Enable/disable/regenerate are security-relevant state changes on the
 // account — every OTHER live session must be signed out (stolen-session

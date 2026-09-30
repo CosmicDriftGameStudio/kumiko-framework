@@ -9,8 +9,8 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { confirmAccountUnlock } from "./auth-client";
-import { AuthCard, useUrlToken } from "./auth-form-primitives";
+import { confirmAccountUnlock } from "./auth-client.js";
+import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
 
 export type ConfirmAccountUnlockScreenProps = {
   readonly title?: string;

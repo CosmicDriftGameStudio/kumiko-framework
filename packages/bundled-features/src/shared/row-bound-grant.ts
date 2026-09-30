@@ -29,7 +29,7 @@
 // (single-use-token-store) instead.
 
 import type { Temporal } from "temporal-polyfill";
-import { peekTokenSubject, signToken, verifyToken } from "./signed-token";
+import { peekTokenSubject, signToken, verifyToken } from "./signed-token.js";
 
 export type RowBoundGrantResult =
   | { readonly ok: true; readonly subject: string; readonly expiresAtMs: number }

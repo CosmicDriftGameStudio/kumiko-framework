@@ -1,5 +1,5 @@
-export { hashUnsubscribeAddress } from "./address-opt-out";
-export type { DeliveryStatusValue } from "./constants";
+export { hashUnsubscribeAddress } from "./address-opt-out.js";
+export type { DeliveryStatusValue } from "./constants.js";
 export {
   DELIVERY_CHANNEL_EXTENSION,
   DELIVERY_FEATURE,
@@ -10,23 +10,23 @@ export {
   DeliveryJobs,
   DeliveryQueries,
   DeliveryStatus,
-} from "./constants";
+} from "./constants.js";
 export {
   collectChannels,
   createDeliveryService,
   type DeliveryServiceOptions,
   type KillSwitchResolver,
   type RateLimitConfig,
-} from "./delivery-service";
-export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature";
+} from "./delivery-service.js";
+export { createDeliveryFeature, type DeliveryFeatureOptions } from "./feature.js";
 export {
   deliveryAttemptsTable,
   notificationAddressOptOutEntity,
   notificationAddressOptOutsTable,
   notificationPreferenceEntity,
   notificationPreferencesTable,
-} from "./tables";
-export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing";
+} from "./tables.js";
+export { type CreateDeliveryTestContextOptions, createDeliveryTestContext } from "./testing.js";
 export {
   type ChannelContext,
   type ChannelMessage,
@@ -40,7 +40,7 @@ export {
   type NotificationRenderer,
   type RenderedMessage,
   type RendererInput,
-} from "./types";
+} from "./types.js";
 export {
   type AddressUnsubscribeTokenPayload,
   createUnsubscribeRoutes,
@@ -49,4 +49,4 @@ export {
   signUnsubscribeToken,
   type UnsubscribeRouteOptions,
   type UnsubscribeTokenPayload,
-} from "./unsubscribe";
+} from "./unsubscribe.js";

@@ -6,8 +6,8 @@
 import { describe, expect, test } from "bun:test";
 import { BillingEventKinds } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import Stripe from "stripe";
-import type { StripeWebhookRuntime } from "../runtime";
-import { verifyAndParseStripeWebhook } from "../verify-webhook";
+import type { StripeWebhookRuntime } from "../runtime.js";
+import { verifyAndParseStripeWebhook } from "../verify-webhook.js";
 
 const TEST_SECRET = "whsec_test_secret_12345";
 const TEST_API_KEY = "sk_test_dummy_apikey";

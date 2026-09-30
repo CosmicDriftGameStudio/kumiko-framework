@@ -15,15 +15,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { REFERENCE_LOOKUP_SOURCES } from "@cosmicdrift/kumiko-framework/ui-types";
-import { createConfigFeature } from "../../config";
-import { configValuesTable } from "../../config/table";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { seedUser } from "../../user/seeding";
-import { TenantQueries } from "../constants";
-import { createTenantFeature } from "../feature";
-import { tenantEntity } from "../schema/tenant";
-import { seedTenant } from "../seeding";
+import { createConfigFeature } from "../../config/index.js";
+import { configValuesTable } from "../../config/table.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { seedUser } from "../../user/seeding.js";
+import { TenantQueries } from "../constants.js";
+import { createTenantFeature } from "../feature.js";
+import { tenantEntity } from "../schema/tenant.js";
+import { seedTenant } from "../seeding.js";
 
 const ownTenantId = testTenantId(1);
 const foreignTenantId = testTenantId(2);

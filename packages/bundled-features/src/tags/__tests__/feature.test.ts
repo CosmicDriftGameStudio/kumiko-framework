@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_TAG_ROLES } from "../constants";
-import { createTagsFeature } from "../feature";
+import { DEFAULT_TAG_ROLES } from "../constants.js";
+import { createTagsFeature } from "../feature.js";
 import {
   assignTagPayloadSchema,
   createTagPayloadSchema,
   deleteTagPayloadSchema,
   removeTagPayloadSchema,
   updateTagPayloadSchema,
-} from "../schemas";
+} from "../schemas.js";
 
 // Unit tests: feature-shape, role-options, schema-validation. The ES-loop
 // behaviour (idempotent assign/remove, projection, tenant-isolation, read

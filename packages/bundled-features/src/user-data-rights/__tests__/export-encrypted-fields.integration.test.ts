@@ -21,12 +21,12 @@ import {
   resetEntityFieldEncryptionCacheForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runUserExport } from "../run-user-export";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runUserExport } from "../run-user-export.js";
 
 const TENANT = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "cccccccc-cccc-4ccc-8ccc-000000000001";

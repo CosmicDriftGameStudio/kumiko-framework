@@ -13,7 +13,7 @@
 // the grant must stay exactly where the anonymous flow minted it.
 
 import type { Temporal } from "temporal-polyfill";
-import { signRowBoundGrant } from "../shared";
+import { signRowBoundGrant } from "../shared/index.js";
 
 const HANDOVER_PURPOSE_PREFIX = "tenant-handover";
 

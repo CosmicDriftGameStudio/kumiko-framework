@@ -26,10 +26,10 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { selectDueWorkflowRunPending } from "./db/queries/due-runs";
-import { resumeRunHandler } from "./handlers/resume-run.write";
-import { registerWorkflowRunPendingProjection } from "./pending-projection";
-import { workflowRunPendingTableMeta } from "./tables";
+import { selectDueWorkflowRunPending } from "./db/queries/due-runs.js";
+import { resumeRunHandler } from "./handlers/resume-run.write.js";
+import { registerWorkflowRunPendingProjection } from "./pending-projection.js";
+import { workflowRunPendingTableMeta } from "./tables.js";
 
 // Kebab-case matching the "./workflow-runner" export subpath — every other
 // bundled feature's runtime name follows this convention, and

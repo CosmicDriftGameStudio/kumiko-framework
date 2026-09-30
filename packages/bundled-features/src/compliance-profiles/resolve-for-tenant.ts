@@ -16,9 +16,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { isTenantDb } from "../shared";
-import { parseComplianceProfileOverride } from "./_internal/parse-override";
-import { tenantComplianceProfileTable } from "./schema/profile-selection";
+import { isTenantDb } from "../shared/index.js";
+import { parseComplianceProfileOverride } from "./_internal/parse-override.js";
+import { tenantComplianceProfileTable } from "./schema/profile-selection.js";
 
 export interface ResolveProfileForTenantArgs {
   // data-retention's resolveTenantRetentionPreset forwards this via

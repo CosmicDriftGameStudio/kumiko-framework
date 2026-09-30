@@ -10,13 +10,13 @@
 // No collision with reset/verify/invite tokens: all signup keys carry the
 // `signup:`-prefix.
 
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import * as z from "zod";
 import {
   createSingleUseTokenStore,
   hashSingleUseToken,
   type SignupHandoverBinding,
-} from "../shared";
+} from "../shared/index.js";
 
 /** Email normalization — single source for every lookup layer (used
  *  internally by the store AND by callers that need a consistent form

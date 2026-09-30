@@ -1,6 +1,6 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { markCapSoftWarned } from "../book-cap-usage";
+import { markCapSoftWarned } from "../book-cap-usage.js";
 
 // mark-soft-warned — sets lastSoftWarnedAt on the counter so subsequent
 // soft-cap-hits in the same period don't re-trigger notifications.

@@ -1,3 +1,3 @@
 // @runtime client
-export { type DeliveryClientOptions, deliveryClient } from "./client-plugin";
-export { DeliveryStatusCell } from "./delivery-status-cell";
+export { type DeliveryClientOptions, deliveryClient } from "./client-plugin.js";
+export { DeliveryStatusCell } from "./delivery-status-cell.js";

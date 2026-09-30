@@ -10,23 +10,27 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { billingFoundationFeature } from "../../billing-foundation";
+import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenant } from "../../tenant/seeding";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { TierEngineHandlers, tierAssignmentEntity, tierEngineFeature } from "../../tier-engine";
-import { CapOverviewQueries } from "../constants";
-import { createCapOverviewFeature } from "../feature";
-import type { CapSpec } from "../types";
+} from "../../compliance-profiles/index.js";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenant } from "../../tenant/seeding.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import {
+  TierEngineHandlers,
+  tierAssignmentEntity,
+  tierEngineFeature,
+} from "../../tier-engine/index.js";
+import { CapOverviewQueries } from "../constants.js";
+import { createCapOverviewFeature } from "../feature.js";
+import type { CapSpec } from "../types.js";
 
 const BUDGET_KEY = "cap-budget-probe:config:public-budget";
 const STATIC_PRO_LIMIT = 50;

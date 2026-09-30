@@ -26,7 +26,7 @@ import {
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { workflowRunPendingTable } from "./tables";
+import { workflowRunPendingTable } from "./tables.js";
 
 type WaitPayload = {
   readonly wakeAt: string;

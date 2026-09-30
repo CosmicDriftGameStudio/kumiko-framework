@@ -25,13 +25,13 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
-import { type MailSpec, mailSpecSchema, performMailDispatch } from "./mail-runner";
+import { type MailSpec, mailSpecSchema, performMailDispatch } from "./mail-runner.js";
 import {
   performWebhookDispatch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   type WebhookSpec,
   webhookSpecSchema,
-} from "./webhook-runner";
+} from "./webhook-runner.js";
 
 const log = createFallbackLogger("step-dispatcher");
 

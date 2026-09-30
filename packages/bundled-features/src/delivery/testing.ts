@@ -7,9 +7,9 @@ import type {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Redis } from "ioredis";
-import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service";
-import { collectChannels, createDeliveryService } from "./delivery-service";
-import type { DeliveryService } from "./types";
+import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.js";
+import { collectChannels, createDeliveryService } from "./delivery-service.js";
+import type { DeliveryService } from "./types.js";
 
 export type CreateDeliveryTestContextOptions = {
   readonly tenantUserIdsQuery?: string;

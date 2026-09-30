@@ -22,11 +22,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { withoutAmbientTemporal } from "@cosmicdrift/kumiko-framework/testing";
 import { buildDateRangePayload, resolveDateRangeFacets } from "@cosmicdrift/kumiko-renderer";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
-import { createAuditFeature } from "../feature";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.js";
+import { createAuditFeature } from "../feature.js";
 
 const widgetEntity = createEntity({
   table: "audit_widgets",

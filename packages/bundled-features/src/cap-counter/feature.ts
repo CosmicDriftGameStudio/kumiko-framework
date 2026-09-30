@@ -55,16 +55,16 @@ import {
   CAP_COUNTER_FEATURE,
   CAP_COUNTER_LIST_SCREEN_ID,
   ROLLING_INCREMENTED_EVENT_SHORT,
-} from "./constants";
-import { capCounterEntity } from "./entity";
-import { getCounterQuery } from "./handlers/get-counter.query";
-import { incrementCapHandler } from "./handlers/increment.write";
+} from "./constants.js";
+import { capCounterEntity } from "./entity.js";
+import { getCounterQuery } from "./handlers/get-counter.query.js";
+import { incrementCapHandler } from "./handlers/increment.write.js";
 import {
   incrementRollingCapHandler,
   rollingIncrementedSchema,
-} from "./handlers/increment-rolling.write";
-import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write";
-import { CAP_COUNTER_I18N } from "./i18n";
+} from "./handlers/increment-rolling.write.js";
+import { markSoftWarnedHandler } from "./handlers/mark-soft-warned.write.js";
+import { CAP_COUNTER_I18N } from "./i18n.js";
 
 export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
   r.describe(

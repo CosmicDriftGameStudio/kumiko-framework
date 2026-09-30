@@ -8,7 +8,7 @@
 // mintSessionAndRespond() for both routes.
 
 // kumiko-lint-ignore cross-feature-import client-only types, the feature's server barrel has no web/ re-export
-import type { LoginFailure, LoginResponse } from "../../auth-email-password/web";
+import type { LoginFailure, LoginResponse } from "../../auth-email-password/web/index.js";
 
 export type MfaVerifyResult =
   | { readonly kind: "success"; readonly data: LoginResponse }

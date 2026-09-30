@@ -5,11 +5,11 @@
 // Seite (defineFeature, Handler) lebt unter `.../user-data-rights` und hat
 // keine React-/DOM-Deps.
 
-export { type UserDataRightsClientOptions, userDataRightsClient } from "./client-plugin";
-export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-screen";
-export { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen";
-export { defaultTranslations } from "./i18n";
-export { formatDate } from "./privacy-center-screen";
-export { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate";
-export type { RequestAccountDeletionScreenProps } from "./request-deletion-screen";
-export { RequestAccountDeletionScreen } from "./request-deletion-screen";
+export { type UserDataRightsClientOptions, userDataRightsClient } from "./client-plugin.js";
+export type { ConfirmAccountDeletionScreenProps } from "./confirm-deletion-screen.js";
+export { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen.js";
+export { defaultTranslations } from "./i18n.js";
+export { formatDate } from "./privacy-center-screen.js";
+export { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate.js";
+export type { RequestAccountDeletionScreenProps } from "./request-deletion-screen.js";
+export { RequestAccountDeletionScreen } from "./request-deletion-screen.js";

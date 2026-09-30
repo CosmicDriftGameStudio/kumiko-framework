@@ -4,8 +4,8 @@
 // (entweder UI zeigt was nicht erlaubt ist, oder umgekehrt).
 
 import { describe, expect, test } from "bun:test";
-import type { CurrentUserProfile, TenantSummary } from "../auth-client";
-import { computeActiveRoles } from "../session";
+import type { CurrentUserProfile, TenantSummary } from "../auth-client.js";
+import { computeActiveRoles } from "../session.js";
 
 const user = (globalRoles: readonly string[]): CurrentUserProfile => ({
   id: "u1",

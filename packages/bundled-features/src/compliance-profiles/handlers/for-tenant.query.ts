@@ -6,8 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/compliance";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { parseComplianceProfileOverride } from "../_internal/parse-override";
-import { tenantComplianceProfileTable } from "../schema/profile-selection";
+import { parseComplianceProfileOverride } from "../_internal/parse-override.js";
+import { tenantComplianceProfileTable } from "../schema/profile-selection.js";
 
 // Liefert das effektive Compliance-Profile fuer den aktuellen Tenant.
 // Macht den exposesApi-Marker aus feature.ts mit echtem Inhalt.

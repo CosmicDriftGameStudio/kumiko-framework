@@ -15,13 +15,13 @@ import {
   expectErrorIncludes,
   rolesOf,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigAccessor, createConfigFeature } from "../../config";
-import { ConfigHandlers, ConfigQueries } from "../../config/constants";
-import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { TenantHandlers, TenantQueries } from "../constants";
-import { createTenantFeature } from "../feature";
-import { tenantEntity } from "../schema/tenant";
+import { ConfigHandlers, ConfigQueries } from "../../config/constants.js";
+import { createConfigAccessor, createConfigFeature } from "../../config/index.js";
+import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { TenantHandlers, TenantQueries } from "../constants.js";
+import { createTenantFeature } from "../feature.js";
+import { tenantEntity } from "../schema/tenant.js";
 
 // --- Setup ---
 

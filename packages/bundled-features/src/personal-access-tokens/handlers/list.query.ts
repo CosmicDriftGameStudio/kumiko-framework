@@ -1,9 +1,9 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
-import { isExpiredAt } from "../expiry";
-import { apiTokenTable } from "../schema/api-token";
+import { decryptStoredPii } from "../../shared/index.js";
+import { isExpiredAt } from "../expiry.js";
+import { apiTokenTable } from "../schema/api-token.js";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy has
 // no column-existence check — an unrecognised field just gets snake_cased and

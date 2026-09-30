@@ -12,15 +12,19 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { TEXT_BLOCK_KIND } from "../constants";
-import { createTemplateResolverFeature } from "../feature";
+import { TEXT_BLOCK_KIND } from "../constants.js";
+import { createTemplateResolverFeature } from "../feature.js";
 import {
   type LegalContentBlock,
   type SeedSystemTemplateOptions,
   seedLegalContentFromJson,
   seedSystemTemplate,
-} from "../seeding";
-import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
+} from "../seeding.js";
+import {
+  type TemplateResourceRow,
+  templateResourceEntity,
+  templateResourcesTable,
+} from "../table.js";
 
 // Pins seedLegalContentFromJson: seeds into SYSTEM_TENANT_ID by default and
 // re-seeds with ifExists:"update" so a changed template body lands on an

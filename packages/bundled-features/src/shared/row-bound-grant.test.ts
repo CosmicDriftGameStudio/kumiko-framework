@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant";
+import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.js";
 
 const SECRET = "test-secret-value";
 const PURPOSE = "waitlist-enrich";

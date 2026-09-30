@@ -8,13 +8,13 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { SETTINGS_HUB_I18N } from "@cosmicdrift/kumiko-framework/i18n";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import * as z from "zod";
-import { DEFAULT_SECRETS_ACCESS } from "./constants";
-import { createDeleteHandler } from "./handlers/delete.write";
-import { createListHandler } from "./handlers/list.query";
-import { rotateJob } from "./handlers/rotate.job";
-import { createSetHandler } from "./handlers/set.write";
-import { secretReadSchema } from "./secrets-context";
-import { tenantSecretEntity, tenantSecretsTable } from "./table";
+import { DEFAULT_SECRETS_ACCESS } from "./constants.js";
+import { createDeleteHandler } from "./handlers/delete.write.js";
+import { createListHandler } from "./handlers/list.query.js";
+import { rotateJob } from "./handlers/rotate.job.js";
+import { createSetHandler } from "./handlers/set.write.js";
+import { secretReadSchema } from "./secrets-context.js";
+import { tenantSecretEntity, tenantSecretsTable } from "./table.js";
 
 /**
  * Env-vars contract for the `secrets` feature. Apps merge this via
@@ -53,8 +53,8 @@ export {
   type SecretsContext,
   type SecretsContextOptions,
   TENANT_SECRET_READ_EVENT,
-} from "./secrets-context";
-export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table";
+} from "./secrets-context.js";
+export { type StoredEnvelope, type StoredMetadata, tenantSecretsTable } from "./table.js";
 
 // AppContext carries ctx.secrets via extraContext. requireSecretsContext
 // wraps that raw context so every `.get(...)` call auto-includes the

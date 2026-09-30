@@ -11,8 +11,8 @@
 // der ConfirmScreen liest das ?token aus eben dieser URL.
 
 import type { ComponentType, ReactNode } from "react";
-import { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen";
-import { RequestAccountDeletionScreen } from "./request-deletion-screen";
+import { ConfirmAccountDeletionScreen } from "./confirm-deletion-screen.js";
+import { RequestAccountDeletionScreen } from "./request-deletion-screen.js";
 
 export type PublicDeletionRoutes = {
   /** Login-freie Route für die Email-Antrags-Maske (z.B. "/account/delete"). */

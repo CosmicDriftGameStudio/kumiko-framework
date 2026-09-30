@@ -35,8 +35,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { ChevronRight, File, Folder, type LucideIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useEffect, useState } from "react";
-import { FoldersHandlers, FoldersQueries } from "../constants";
-import { buildFolderTree, type FolderNode, type FolderRow } from "./tree";
+import { FoldersHandlers, FoldersQueries } from "../constants.js";
+import { buildFolderTree, type FolderNode, type FolderRow } from "./tree.js";
 
 type FolderListResponse = { readonly rows: readonly FolderRow[] };
 

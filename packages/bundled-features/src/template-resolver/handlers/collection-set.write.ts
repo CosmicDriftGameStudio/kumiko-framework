@@ -11,8 +11,8 @@ import {
   type CollectionEntryRow,
   collectionStore,
   DEFAULT_COLLECTION_ACCESS,
-} from "./collection-shared";
-import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared";
+} from "./collection-shared.js";
+import { contentFormatSchema, folderSchema, localeSchema, slugSchema } from "./shared.js";
 
 // Upsert inside one collection. Mirrors set.write for text-blocks, but the
 // kind comes from the declaration and the access rule is the collection's own,

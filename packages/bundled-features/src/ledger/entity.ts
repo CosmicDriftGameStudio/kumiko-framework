@@ -7,7 +7,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./constants";
+import { ACCOUNT_TYPES, SCHEDULE_INTERVALS, TRANSACTION_STATUS } from "./constants.js";
 
 // account — a node in the chart of accounts. Event-sourced (create/update/list/
 // detail via the standard handlers); the framework projects `read_ledger_accounts`

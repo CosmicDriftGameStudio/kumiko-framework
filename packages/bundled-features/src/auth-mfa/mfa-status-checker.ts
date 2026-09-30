@@ -6,11 +6,14 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { type MfaRequiredPolicy, mfaRequiredConfigHandle, mfaRequiredConfigKey } from "./config";
-import { MFA_CHALLENGE_TOKEN_TTL_MINUTES, MFA_PREAUTH_SETUP_TOKEN_TTL_MINUTES } from "./constants";
-import { findUserMfaRow } from "./db/queries";
-import { signMfaChallengeToken } from "./mfa-challenge-token";
-import { signMfaPreauthSetupToken } from "./mfa-preauth-setup-token";
+import { type MfaRequiredPolicy, mfaRequiredConfigHandle, mfaRequiredConfigKey } from "./config.js";
+import {
+  MFA_CHALLENGE_TOKEN_TTL_MINUTES,
+  MFA_PREAUTH_SETUP_TOKEN_TTL_MINUTES,
+} from "./constants.js";
+import { findUserMfaRow } from "./db/queries.js";
+import { signMfaChallengeToken } from "./mfa-challenge-token.js";
+import { signMfaPreauthSetupToken } from "./mfa-preauth-setup-token.js";
 
 export type MfaStatusCheckResult =
   | { readonly required: false }

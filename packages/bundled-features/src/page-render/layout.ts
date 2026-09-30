@@ -1,7 +1,7 @@
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { type ApexHead, renderApexHeadTags } from "@cosmicdrift/kumiko-headless/apex";
-import { type BrandingTokens, brandingHeaderHtml, brandingStyleBlock } from "./branding";
-import { sanitizeTenantCss } from "./css-sanitize";
+import { type BrandingTokens, brandingHeaderHtml, brandingStyleBlock } from "./branding.js";
+import { sanitizeTenantCss } from "./css-sanitize.js";
 
 // Optional OG/JSON-LD/canonical extension for wrapInLayout — the same field
 // set renderApexPage accepts, minus title/description/lang (those come from

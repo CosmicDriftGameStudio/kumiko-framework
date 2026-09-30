@@ -1,9 +1,9 @@
 import { SYSTEM_TENANT_ID, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../constants";
-import { fieldDefinitionExecutor } from "../executor";
-import { customFieldsFeature } from "../feature";
-import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas";
+import { fieldDefinitionAggregateId } from "../aggregate-id.js";
+import { FIELD_DEFINITION_AGGREGATE_TYPE } from "../constants.js";
+import { fieldDefinitionExecutor } from "../executor.js";
+import { customFieldsFeature } from "../feature.js";
+import { type DeleteFieldPayload, deleteFieldPayloadSchema } from "../schemas.js";
 
 // delete-system-field — SystemAdmin entfernt eine system-weite Field-
 // Definition. Konsequenz: KEIN Tenant kann mehr neue Werte dafür setzen,

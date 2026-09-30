@@ -11,11 +11,11 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../../config/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { DeliveryQueries } from "../constants";
-import { createDeliveryFeature } from "../feature";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
+import { createConfigFeature } from "../../config/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { DeliveryQueries } from "../constants.js";
+import { createDeliveryFeature } from "../feature.js";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.js";
 
 type LogRow = {
   readonly id: string;

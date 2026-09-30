@@ -9,9 +9,9 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
-import type { DeliveryStatusValue } from "../constants";
-import { deliveryAttemptsTable } from "../tables";
+import { decryptStoredPii } from "../../shared/index.js";
+import type { DeliveryStatusValue } from "../constants.js";
+import { deliveryAttemptsTable } from "../tables.js";
 
 type DeliveryLogRow = {
   id: string;

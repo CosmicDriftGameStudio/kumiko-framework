@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { SUPPORTED_FIELD_TYPES } from "../constants";
-import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../feature";
-import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas";
+import { fieldDefinitionAggregateId } from "../aggregate-id.js";
+import { SUPPORTED_FIELD_TYPES } from "../constants.js";
+import { createCustomFieldsFeature, resolveFieldDefinitionListRoles } from "../feature.js";
+import { defineFieldPayloadSchema, deleteFieldPayloadSchema } from "../schemas.js";
 
 // B1 unit-tests: feature-shape, schema-validation, aggregate-id determinism.
 // Integration tests (full-stack via setupTestStack) kommen in B2 wenn der

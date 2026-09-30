@@ -4,7 +4,7 @@
 // — out-of-dispatcher writes otherwise skip schema enforcement).
 
 import * as z from "zod";
-import { DeliveryStatus } from "./constants";
+import { DeliveryStatus } from "./constants.js";
 
 export const deliveryAttemptSchema = z.object({
   notificationType: z.string(),

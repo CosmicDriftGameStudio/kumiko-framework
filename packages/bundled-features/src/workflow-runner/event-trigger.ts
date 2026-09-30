@@ -21,10 +21,10 @@ import {
   WORKFLOW_RUN_FAILED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
-import { workflowRunAggregateId } from "./aggregate-id";
-import { registerEventWakeup } from "./event-subscriber";
-import { startAndRunWorkflow, type WorkflowRunFailedPayload } from "./runner";
-import { registerWorkflow } from "./workflow-registry";
+import { workflowRunAggregateId } from "./aggregate-id.js";
+import { registerEventWakeup } from "./event-subscriber.js";
+import { startAndRunWorkflow, type WorkflowRunFailedPayload } from "./runner.js";
+import { registerWorkflow } from "./workflow-registry.js";
 
 const log = createFallbackLogger("workflow-runner");
 

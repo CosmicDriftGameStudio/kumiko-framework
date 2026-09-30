@@ -1,7 +1,7 @@
 import { defineQueryHandler, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants";
-import { globalFeatureStateTable } from "../global-feature-state-table";
+import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants.js";
+import { globalFeatureStateTable } from "../global-feature-state-table.js";
 
 // Inventory of every registered feature, annotated with toggle metadata
 // and the current effective state. This is the canonical "what's here,

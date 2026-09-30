@@ -5,7 +5,7 @@
 // runs at feature-construction time.
 
 import { describe, expect, test } from "bun:test";
-import { createTagsFeature } from "../feature";
+import { createTagsFeature } from "../feature.js";
 
 describe("tags — boot guard rejects a where-rule in ownership.write", () => {
   test("createTagsFeature throws instead of shipping a deny-only ownership map", () => {

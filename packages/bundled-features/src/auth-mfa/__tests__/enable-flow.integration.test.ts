@@ -12,18 +12,18 @@ import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { UserHandlers } from "../../user/constants";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { base32Decode } from "../base32";
-import { AuthMfaHandlers, AuthMfaQueries } from "../constants";
-import { createAuthMfaFeature } from "../feature";
-import { userMfaEntity } from "../schema/user-mfa";
-import { currentTotpCode } from "../totp";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { UserHandlers } from "../../user/constants.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { base32Decode } from "../base32.js";
+import { AuthMfaHandlers, AuthMfaQueries } from "../constants.js";
+import { createAuthMfaFeature } from "../feature.js";
+import { userMfaEntity } from "../schema/user-mfa.js";
+import { currentTotpCode } from "../totp.js";
 
 let stack: TestStack;
 

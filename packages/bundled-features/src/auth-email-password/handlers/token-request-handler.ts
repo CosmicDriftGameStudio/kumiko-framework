@@ -16,10 +16,14 @@ import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framew
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { UserQueries } from "../../user";
-import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row";
-import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "../email-templates";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail";
+import { UserQueries } from "../../user/index.js";
+import { type AuthUserRow, parseAuthUserRow } from "../auth-user-row.js";
+import type {
+  AuthMailContent,
+  AuthMailLocale,
+  RenderTokenContentArgs,
+} from "../email-templates.js";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 
 const RequestTokenSchema = z.object({
   email: z.email(),

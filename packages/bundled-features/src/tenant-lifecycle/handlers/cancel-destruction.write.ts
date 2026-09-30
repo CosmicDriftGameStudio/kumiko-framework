@@ -3,10 +3,10 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { isWithinGracePeriod } from "../../shared";
-import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant";
-import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants";
-import { invalidateTenantLifecycleGate } from "../lifecycle-gate";
+import { isWithinGracePeriod } from "../../shared/index.js";
+import { type TenantLifecycleStatus, tenantEntity, tenantTable } from "../../tenant/index.js";
+import { DESTRUCTION_CANCELLED_EVENT_QN } from "../constants.js";
+import { invalidateTenantLifecycleGate } from "../lifecycle-gate.js";
 
 const crud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 

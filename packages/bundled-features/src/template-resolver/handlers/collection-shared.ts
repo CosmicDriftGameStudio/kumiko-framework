@@ -7,8 +7,8 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
-import { templateResourceEntity, templateResourcesTable } from "../table";
-import { userContentEntriesTable, userContentEntryEntity } from "../user-content-table";
+import { templateResourceEntity, templateResourcesTable } from "../table.js";
+import { userContentEntriesTable, userContentEntryEntity } from "../user-content-table.js";
 
 // Applies when an app mounts a collection without saying who may reach it.
 // Deliberately narrow: a collection whose access nobody decided should be

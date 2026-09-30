@@ -1,8 +1,8 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { RateLimitErrors } from "../constants";
-import { bucketAccessDenied } from "./bucket-access";
+import { RateLimitErrors } from "../constants.js";
+import { bucketAccessDenied } from "./bucket-access.js";
 
 // Ops-side bucket inspection. Pass the bucket key (e.g. "user:42",
 // "user+handler:42:orders:write:order:create") plus the limit/window the bucket

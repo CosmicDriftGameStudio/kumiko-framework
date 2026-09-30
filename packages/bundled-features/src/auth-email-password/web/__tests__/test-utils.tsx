@@ -13,9 +13,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render as _render, type RenderResult } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { defaultTranslations } from "../../i18n";
-import type { SessionApi, SessionState } from "../session";
-import { SessionContext } from "../session";
+import { defaultTranslations } from "../../i18n.js";
+import type { SessionApi, SessionState } from "../session.js";
+import { SessionContext } from "../session.js";
 
 // Stateless Resolver — module-level cached, weil renderWithProviders
 // ihn pro Mount sonst neu konstruiert (~0.5ms × N Tests). Tests die

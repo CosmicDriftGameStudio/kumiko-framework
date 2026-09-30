@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sessionTimezoneField } from "./session-timezone-field";
+import { sessionTimezoneField } from "./session-timezone-field.js";
 
 describe("sessionTimezoneField", () => {
   test("set timezone → { timezone }", () => {

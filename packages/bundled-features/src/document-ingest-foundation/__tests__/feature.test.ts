@@ -6,9 +6,9 @@
 
 import { describe, expect, test } from "bun:test";
 import { EXT_TENANT_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import { documentExtractEntity } from "../entity";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN, DOCUMENT_INGEST_SKIPPED_EVENT_QN } from "../events";
-import { documentIngestFoundationFeature } from "../feature";
+import { documentExtractEntity } from "../entity.js";
+import { DOCUMENT_INGEST_REQUESTED_EVENT_QN, DOCUMENT_INGEST_SKIPPED_EVENT_QN } from "../events.js";
+import { documentIngestFoundationFeature } from "../feature.js";
 
 describe("documentIngestFoundationFeature — shape", () => {
   test("has the expected name", () => {
@@ -54,7 +54,7 @@ describe("documentIngestFoundationFeature — shape", () => {
   });
 
   test("exports writeIngestPages / readIngestPages for the encrypted pages wire format (#1549)", async () => {
-    const { readIngestPages, writeIngestPages } = await import("../pages");
+    const { readIngestPages, writeIngestPages } = await import("../pages.js");
     const pages = [{ pageNumber: 1, text: "x" }];
     expect(readIngestPages(writeIngestPages(pages))).toEqual(pages);
   });

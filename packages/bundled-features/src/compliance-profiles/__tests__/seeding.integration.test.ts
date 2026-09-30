@@ -17,12 +17,12 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature } from "../feature";
+import { createComplianceProfilesFeature } from "../feature.js";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../schema/profile-selection";
-import { seedComplianceProfile } from "../seeding";
+} from "../schema/profile-selection.js";
+import { seedComplianceProfile } from "../seeding.js";
 
 const FOR_TENANT = "compliance-profiles:query:for-tenant";
 

@@ -7,18 +7,18 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ConfigQueries } from "../config";
-import { JobQueries } from "../jobs";
-import { TenantQueries } from "../tenant";
-import { UserQueries } from "../user";
+import { ConfigQueries } from "../config/index.js";
+import { JobQueries } from "../jobs/index.js";
+import { TenantQueries } from "../tenant/index.js";
+import { UserQueries } from "../user/index.js";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
   PLATFORM_OVERVIEW_SCREEN_ID,
   TENANT_OVERVIEW_SCREEN_ID,
-} from "./constants";
-import { ADMIN_SHELL_I18N } from "./i18n";
+} from "./constants.js";
+import { ADMIN_SHELL_I18N } from "./i18n.js";
 
 export type CreateAdminShellOptions = {
   /** Short workspace id for tenant operators (URL segment). Default `tenant-admin`. */

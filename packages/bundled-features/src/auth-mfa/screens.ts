@@ -8,7 +8,7 @@ import {
   MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
-} from "./constants";
+} from "./constants.js";
 
 // Declarative TOTP-enrollment screen: mint (no input) -> reveal QR/secret/
 // recovery-codes -> confirm with a 6-digit code. `setupToken` is carried

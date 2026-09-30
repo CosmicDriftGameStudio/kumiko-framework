@@ -7,8 +7,8 @@ import {
   mfaAlreadyEnabled,
   mfaNotEnabled,
   tooManyAttempts,
-} from "../errors";
-import { defaultTranslations } from "../web/i18n";
+} from "../errors.js";
+import { defaultTranslations } from "../web/i18n.js";
 
 const failures = {
   mfaAlreadyEnabled: mfaAlreadyEnabled(),

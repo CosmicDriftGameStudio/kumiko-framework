@@ -26,19 +26,19 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testin
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import type { TierMap } from "../../tier-engine/compose-app";
-import { TierEngineQueries } from "../../tier-engine/constants";
-import { tierAssignmentEntity } from "../../tier-engine/entity";
-import { createTierEngineFeature } from "../../tier-engine/feature";
-import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
-import { billingFoundationFeature } from "../feature";
-import { createSubscriptionTierSync } from "../subscription-tier-sync";
-import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import type { TierMap } from "../../tier-engine/compose-app.js";
+import { TierEngineQueries } from "../../tier-engine/constants.js";
+import { tierAssignmentEntity } from "../../tier-engine/entity.js";
+import { createTierEngineFeature } from "../../tier-engine/feature.js";
+import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.js";
+import { billingFoundationFeature } from "../feature.js";
+import { createSubscriptionTierSync } from "../subscription-tier-sync.js";
+import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
 
 type TestTier = "free" | "pro";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "pro";

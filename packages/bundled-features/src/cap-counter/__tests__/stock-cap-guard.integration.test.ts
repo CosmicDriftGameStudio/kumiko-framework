@@ -28,12 +28,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { capCounterEntity } from "../entity";
-import { createStockCapGuard } from "../stock-cap-guard";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { capCounterEntity } from "../entity.js";
+import { createStockCapGuard } from "../stock-cap-guard.js";
 
 const { executor, table: capCounterTable } = createEntityExecutor("cap-counter", capCounterEntity);
 

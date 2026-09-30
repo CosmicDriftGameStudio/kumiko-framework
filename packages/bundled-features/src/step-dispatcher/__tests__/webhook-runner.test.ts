@@ -12,7 +12,7 @@ import {
   setWebhookHostLookup,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   type WebhookDispatchDeps,
-} from "../webhook-runner";
+} from "../webhook-runner.js";
 
 function fakeLookupFor(addressesByHost: Readonly<Record<string, string>>): typeof lookup {
   return (async (hostname: string) => {

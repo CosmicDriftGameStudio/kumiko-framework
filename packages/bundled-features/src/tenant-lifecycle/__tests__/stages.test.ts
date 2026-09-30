@@ -7,7 +7,7 @@ import {
   EXT_TENANT_DATA,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DESTRUCTION_STAGES, isDestructionPipelineComplete, pickNextStage } from "../stages";
+import { DESTRUCTION_STAGES, isDestructionPipelineComplete, pickNextStage } from "../stages.js";
 
 // Minimal declaring feature: real tenant-lifecycle feature drags in "tenant" +
 // "compliance-profiles" requires, unrelated to what these guard tests exercise.

@@ -9,13 +9,13 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { seedComplianceProfile } from "../../compliance-profiles/seeding";
-import { createConfigFeature } from "../../config/feature";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { complianceProfilesOpsFeature } from "../index";
+} from "../../compliance-profiles/index.js";
+import { seedComplianceProfile } from "../../compliance-profiles/seeding.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { complianceProfilesOpsFeature } from "../index.js";
 
 const TENANTS_MISSING_PROFILE = "compliance-profiles-ops:query:tenants-missing-profile";
 

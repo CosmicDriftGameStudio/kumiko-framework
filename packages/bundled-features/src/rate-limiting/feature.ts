@@ -1,5 +1,5 @@
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { rateLimitStatus } from "./handlers/status.query";
+import { rateLimitStatus } from "./handlers/status.query.js";
 
 // Opt-in feature. Loading it does NOT install rate-limit middleware —
 // the framework auto-wires the L3 dispatcher hook and the resolver

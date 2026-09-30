@@ -21,19 +21,19 @@ import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-framewo
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
 import {
   emitWatchError,
   failNextFetchWith,
   isWatching,
   resetInboundInMemory,
   seedInboundMessage,
-} from "../../inbound-provider-inmemory/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../inbound-provider-inmemory/feature.js";
+import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
   createInboundMailSupervisor,
   InboundAuthError,
@@ -47,7 +47,7 @@ import {
   type RawInboundMessage,
   seenMessageEntity,
   syncCursorEntity,
-} from "../index";
+} from "../index.js";
 
 let stack: TestStack;
 let db: DbConnection;

@@ -7,9 +7,9 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterHandlers, CapCounterQueries } from "../constants";
-import { capCounterEntity } from "../entity";
-import { capCounterFeature } from "../feature";
+import { CAP_COUNTER_LIST_SCREEN_ID, CapCounterHandlers, CapCounterQueries } from "../constants.js";
+import { capCounterEntity } from "../entity.js";
+import { capCounterFeature } from "../feature.js";
 
 let stack: TestStack;
 

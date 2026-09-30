@@ -19,8 +19,8 @@ import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
 import { assertUnreachable, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
-import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver";
-import { configValuesTable } from "./table";
+import { selectConfigRowsForKeys, selectConfigRowsForScope } from "./db/queries/resolver.js";
+import { configValuesTable } from "./table.js";
 
 type ConfigRow = {
   id: string;

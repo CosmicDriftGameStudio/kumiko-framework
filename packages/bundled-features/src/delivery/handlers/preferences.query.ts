@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { notificationPreferencesTable } from "../tables";
+import { notificationPreferencesTable } from "../tables.js";
 
 export const preferencesQuery = defineQueryHandler({
   name: "preferences",

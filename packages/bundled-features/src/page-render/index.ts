@@ -6,12 +6,17 @@ export {
   isSafeHexColor,
   isSafeHttpsUrl,
   layoutMaxWidth,
-} from "./branding";
+} from "./branding.js";
 export {
   type CachedSecurePageResponseInit,
   cachedSecurePageResponse,
-} from "./cached-page-response";
-export { sanitizeTenantCss } from "./css-sanitize";
-export { type SeoHeadInput, TENANT_CONTENT_ATTR, tenantStyleBlock, wrapInLayout } from "./layout";
-export { renderSafeMarkdown } from "./markdown";
-export { securePageHeaders } from "./security-headers";
+} from "./cached-page-response.js";
+export { sanitizeTenantCss } from "./css-sanitize.js";
+export {
+  type SeoHeadInput,
+  TENANT_CONTENT_ATTR,
+  tenantStyleBlock,
+  wrapInLayout,
+} from "./layout.js";
+export { renderSafeMarkdown } from "./markdown.js";
+export { securePageHeaders } from "./security-headers.js";

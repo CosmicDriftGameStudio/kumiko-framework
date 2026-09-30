@@ -8,7 +8,11 @@
 // version this replaced, so tokens stay byte-compatible.
 
 import type { Temporal } from "temporal-polyfill";
-import { type RowBoundGrantResult, redeemRowBoundGrant, signRowBoundGrant } from "../shared";
+import {
+  type RowBoundGrantResult,
+  redeemRowBoundGrant,
+  signRowBoundGrant,
+} from "../shared/index.js";
 
 const DELETION_REQUEST_PURPOSE = "deletion-request";
 

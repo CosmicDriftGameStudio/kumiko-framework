@@ -11,8 +11,8 @@ import {
   SYSTEM_TENANT_ID,
   type TenantUserModel,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createConfigAccessor } from "../../config";
-import { TENANT_MODEL_CONFIG_KEY } from "../constants";
+import { createConfigAccessor } from "../../config/index.js";
+import { TENANT_MODEL_CONFIG_KEY } from "../constants.js";
 
 export async function resolveAppTenantModel(args: {
   readonly registry: Registry;

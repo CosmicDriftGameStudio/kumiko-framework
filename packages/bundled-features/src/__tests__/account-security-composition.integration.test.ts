@@ -12,30 +12,30 @@ import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthHandlers } from "../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../auth-email-password/feature";
-import { authFoundationFeature } from "../auth-foundation";
-import { createAuthMfaFeature } from "../auth-mfa";
-import { userMfaEntity } from "../auth-mfa/schema/user-mfa";
-import { createConfigFeature } from "../config";
-import { createConfigResolver } from "../config/resolver";
-import { configValuesTable } from "../config/table";
-import { createSessionsFeature } from "../sessions";
-import { makeSessionHelpers } from "../sessions/__tests__/test-helpers";
-import { userSessionEntity } from "../sessions/schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../sessions/session-callbacks";
-import { sessionCallbacksFromLateBound } from "../sessions/testing";
-import { createTenantFeature } from "../tenant";
-import { tenantMembershipsTable } from "../tenant/membership-table";
-import { tenantEntity } from "../tenant/schema/tenant";
-import { createUserFeature } from "../user/feature";
-import { userEntity } from "../user/schema/user";
+import { AuthHandlers } from "../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../auth-email-password/feature.js";
+import { authFoundationFeature } from "../auth-foundation/index.js";
+import { createAuthMfaFeature } from "../auth-mfa/index.js";
+import { userMfaEntity } from "../auth-mfa/schema/user-mfa.js";
+import { createConfigFeature } from "../config/index.js";
+import { createConfigResolver } from "../config/resolver.js";
+import { configValuesTable } from "../config/table.js";
+import { makeSessionHelpers } from "../sessions/__tests__/test-helpers.js";
+import { createSessionsFeature } from "../sessions/index.js";
+import { userSessionEntity } from "../sessions/schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../sessions/session-callbacks.js";
+import { sessionCallbacksFromLateBound } from "../sessions/testing.js";
+import { createTenantFeature } from "../tenant/index.js";
+import { tenantMembershipsTable } from "../tenant/membership-table.js";
+import { tenantEntity } from "../tenant/schema/tenant.js";
+import { createUserFeature } from "../user/feature.js";
+import { userEntity } from "../user/schema/user.js";
 import {
   ACCOUNT_SECURITY_SCREEN_ID,
   accountSecurityFeature,
   mfaStatusVisibility,
   testAuthMfaOptions,
-} from "./account-security-fixture";
+} from "./account-security-fixture.js";
 
 type PanelQueryRow = { readonly id: string; readonly current: boolean };
 

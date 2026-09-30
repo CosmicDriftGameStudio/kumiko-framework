@@ -22,7 +22,7 @@ import {
   logout as logoutApi,
   switchTenant as switchTenantApi,
   type TenantSummary,
-} from "./auth-client";
+} from "./auth-client.js";
 
 export type SessionStatus = "loading" | "unauthenticated" | "authenticated" | "error";
 

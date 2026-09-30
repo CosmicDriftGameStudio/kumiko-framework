@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { describeInboundMailProviderContract } from "../../inbound-mail-foundation/__tests__/inbound-mail-provider-contract";
+import { describeInboundMailProviderContract } from "../../inbound-mail-foundation/__tests__/inbound-mail-provider-contract.js";
 import {
   inboundProviderInMemoryFeature,
   inMemoryInboundMailPlugin,
   seedInboundMessage,
-} from "../feature";
+} from "../feature.js";
 
 describe("inboundProviderInMemoryFeature — shape", () => {
   test("has the expected name + requirement", () => {

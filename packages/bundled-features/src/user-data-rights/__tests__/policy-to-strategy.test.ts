@@ -5,7 +5,7 @@
 // nicht ein Detail.
 
 import { describe, expect, test } from "bun:test";
-import { policyToStrategy } from "../run-forget-cleanup";
+import { policyToStrategy } from "../run-forget-cleanup.js";
 
 describe("policyToStrategy", () => {
   test("hardDelete → delete (Default-Pfad: Row physisch entfernen)", () => {

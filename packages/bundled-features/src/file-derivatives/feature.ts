@@ -17,11 +17,11 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { RateLimitError } from "@cosmicdrift/kumiko-framework/errors";
-import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query";
+import { PUBLIC_VARIANT_QN, publicVariantQuery } from "./handlers/public-variant.query.js";
 import {
   PUBLIC_VARIANT_BY_FILE_REF_QN,
   publicVariantByFileRefQuery,
-} from "./handlers/public-variant-by-file-ref.query";
+} from "./handlers/public-variant-by-file-ref.query.js";
 
 const FEATURE_NAME = "file-derivatives";
 

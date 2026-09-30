@@ -35,7 +35,7 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { userEntity, userTable } from "../schema/user";
+import { userEntity, userTable } from "../schema/user.js";
 
 const TEST_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);

@@ -26,7 +26,7 @@ import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "./schema/profile-selection";
+} from "./schema/profile-selection.js";
 
 const executor = createEventStoreExecutor(
   tenantComplianceProfileTable,

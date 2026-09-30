@@ -17,10 +17,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { buildAgentManifest } from "../agent-manifest";
-import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
-import type { ToolDispatcher } from "../tool-dispatch";
-import { dispatchToolCall } from "../tool-dispatch";
+import { buildAgentManifest } from "../agent-manifest.js";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";
+import type { ToolDispatcher } from "../tool-dispatch.js";
+import { dispatchToolCall } from "../tool-dispatch.js";
 
 const FEATURE_NAME = "agent-tools-int-test";
 

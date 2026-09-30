@@ -5,7 +5,7 @@ import {
   type FileProviderPlugin,
   isFileProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/file-foundation";
-import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature";
+import { fileProviderS3Feature, S3_SECRET_ACCESS_KEY } from "../feature.js";
 
 describe("fileProviderS3Feature — shape", () => {
   test("has the expected name", () => {

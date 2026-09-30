@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { hashPassword, verifyPassword } from "../shared";
+import { hashPassword, verifyPassword } from "../shared/index.js";
 
 const RECOVERY_CODE_COUNT = 8;
 // No ambiguous chars (0/O, 1/I) — these get read aloud or copy-typed from a

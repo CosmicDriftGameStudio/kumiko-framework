@@ -1,5 +1,5 @@
 import { type CachePolicy, cachedResponse } from "@cosmicdrift/kumiko-framework/api";
-import { securePageHeaders } from "./security-headers";
+import { securePageHeaders } from "./security-headers.js";
 
 export type CachedSecurePageResponseInit = {
   readonly body: BodyInit | null;

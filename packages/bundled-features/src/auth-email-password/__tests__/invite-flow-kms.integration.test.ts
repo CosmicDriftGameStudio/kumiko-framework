@@ -26,34 +26,34 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
-import { notificationPreferencesTable } from "../../delivery/tables";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { decryptStoredPii, hashPassword } from "../../shared";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createTenantFeature, TenantHandlers } from "../../tenant";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { notificationPreferencesTable } from "../../delivery/tables.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
+import { decryptStoredPii, hashPassword } from "../../shared/index.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { createTenantFeature, TenantHandlers } from "../../tenant/index.js";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
+} from "../../tenant/invitation-table.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
 import {
   tenantInvitationDeleteHook,
   tenantInvitationExportHook,
-} from "../../user-data-rights-defaults";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
-import { seedUser } from "../seeding";
+} from "../../user-data-rights-defaults/index.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
+import { seedUser } from "../seeding.js";
 
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";
 const BOB_EMAIL = "bob.kms@example.com";

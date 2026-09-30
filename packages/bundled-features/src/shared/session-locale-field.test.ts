@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sessionLocaleField } from "./session-locale-field";
+import { sessionLocaleField } from "./session-locale-field.js";
 
 describe("sessionLocaleField", () => {
   test("set locale → { locale }", () => {

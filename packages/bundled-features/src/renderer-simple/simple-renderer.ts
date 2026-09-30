@@ -1,5 +1,5 @@
 import { escapeHtml } from "@cosmicdrift/kumiko-headless";
-import type { NotificationRenderer } from "../delivery";
+import type { NotificationRenderer } from "../delivery/index.js";
 
 type Section =
   | { readonly text: string }

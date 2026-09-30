@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
 } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
-import { useSession } from "./session";
+import { useSession } from "./session.js";
 
 export type TenantMenuItemsProps = {
   readonly tenantName?: (tenantId: string) => string;

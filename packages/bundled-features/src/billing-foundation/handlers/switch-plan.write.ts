@@ -13,11 +13,11 @@ import {
   joinBaseUrl,
   resolveCatalogProvider,
   resolveProviderPlugin,
-} from "../checkout-core";
-import { isSwitchableSubscriptionStatus, isTerminalSubscriptionStatus } from "../constants";
-import { getSubscriptionForTenant } from "../get-subscription-for-tenant";
-import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog";
-import type { BillingFoundationOptions, BillingPlanCatalog } from "../types";
+} from "../checkout-core.js";
+import { isSwitchableSubscriptionStatus, isTerminalSubscriptionStatus } from "../constants.js";
+import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
+import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.js";
+import type { BillingFoundationOptions, BillingPlanCatalog } from "../types.js";
 
 export function createSwitchPlanHandler(
   options: BillingFoundationOptions,

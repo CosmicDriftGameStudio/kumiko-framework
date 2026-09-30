@@ -6,10 +6,10 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import type { DocumentExtractMeta, IngestPage } from "./entity";
-import { documentExtractExecutor } from "./executor";
-import { isFileRefLive } from "./file-ref-liveness";
-import { writeIngestPages } from "./pages";
+import type { DocumentExtractMeta, IngestPage } from "./entity.js";
+import { documentExtractExecutor } from "./executor.js";
+import { isFileRefLive } from "./file-ref-liveness.js";
+import { writeIngestPages } from "./pages.js";
 
 export type DocumentExtractWriteResult =
   | { readonly kind: "written"; readonly documentExtractId: string }

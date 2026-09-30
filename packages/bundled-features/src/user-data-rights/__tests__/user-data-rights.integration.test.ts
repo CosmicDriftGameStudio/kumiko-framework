@@ -9,11 +9,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
 
 let stack: TestStack;
 

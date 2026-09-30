@@ -7,7 +7,7 @@
 //     ohne node:crypto-Import. Memory `feedback_universal_deps`.
 
 import { describe, expect, test } from "bun:test";
-import { generateDownloadToken, hashDownloadToken } from "../token-helpers";
+import { generateDownloadToken, hashDownloadToken } from "../token-helpers.js";
 
 describe("generateDownloadToken", () => {
   test("returns plain (base64url) + matching hash (hex)", async () => {

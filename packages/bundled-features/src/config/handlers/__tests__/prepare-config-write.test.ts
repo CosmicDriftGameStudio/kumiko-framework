@@ -12,7 +12,7 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { prepareConfigWrite, validateBounds } from "../../write-helpers";
+import { prepareConfigWrite, validateBounds } from "../../write-helpers.js";
 
 // Minimal Registry stub — only getConfigKey is exercised by prepareConfigWrite.
 function registryStub(keys: Record<string, unknown>): Registry {

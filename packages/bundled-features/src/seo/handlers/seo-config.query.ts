@@ -1,6 +1,6 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { SEO_CONFIG_QN } from "../constants";
+import { SEO_CONFIG_QN } from "../constants.js";
 
 // Public read of the seo feature's own tenant-config values, for the
 // anonymous sitemap.xml/llms.txt routes (a Response is per-request; those

@@ -5,7 +5,7 @@ import {
   resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "../agent-doc-lint";
+import { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "../agent-doc-lint.js";
 
 const OPEN_ACCESS = {
   openToAll: { reason: "test handler callable by any signed-in test user" },

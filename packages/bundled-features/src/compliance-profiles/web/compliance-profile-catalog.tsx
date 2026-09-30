@@ -10,7 +10,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { ComplianceProfileQueries } from "../constants";
+import { ComplianceProfileQueries } from "../constants.js";
 
 type ProfileSummary = {
   readonly key: string;

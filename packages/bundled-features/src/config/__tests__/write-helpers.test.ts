@@ -15,7 +15,7 @@ import {
   validatePattern,
   validateScope,
   validateType,
-} from "../write-helpers";
+} from "../write-helpers.js";
 
 // Reading the field-level code at a test boundary — KumikoError.details is
 // per-error `unknown`, so one documented cast beats per-assertion narrowing.

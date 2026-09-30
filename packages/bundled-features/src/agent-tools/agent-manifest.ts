@@ -29,7 +29,7 @@ import type {
   AgentManifestScreen,
   AgentManifestWorkspace,
   RegistryManifestView,
-} from "./types";
+} from "./types.js";
 
 /** The manifest surfaces one string per locale — a plural entry reads as its
  *  CLDR `other` form since the manifest has no `count` to select a category. */

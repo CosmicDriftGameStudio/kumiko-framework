@@ -20,10 +20,10 @@ import {
   renderDeletionRequestedEmail,
   renderExportFailedEmail,
   renderExportReadyEmail,
-} from "../email-templates";
-import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write";
-import type { SendExportFailedEmailFn, SendExportReadyEmailFn } from "../run-export-jobs";
-import type { SendDeletionExecutedEmailFn } from "../run-forget-cleanup";
+} from "../email-templates.js";
+import type { SendDeletionRequestedEmailFn } from "../handlers/request-deletion.write.js";
+import type { SendExportFailedEmailFn, SendExportReadyEmailFn } from "../run-export-jobs.js";
+import type { SendDeletionExecutedEmailFn } from "../run-forget-cleanup.js";
 
 export type GdprMailDefaults = {
   readonly locale?: GdprMailLocale;

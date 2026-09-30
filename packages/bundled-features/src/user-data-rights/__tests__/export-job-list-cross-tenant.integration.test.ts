@@ -16,12 +16,12 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { exportJobEntity, exportJobsTable } from "../schema/export-job";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { exportJobEntity, exportJobsTable } from "../schema/export-job.js";
 
 const REQUEST_EXPORT = "user-data-rights:write:request-export";
 const EXPORT_JOB_LIST = "user-data-rights:query:export-job:list";

@@ -41,13 +41,13 @@ import {
   findSignupHandoverProvider,
   SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
   type SignupHandoverBinding,
-} from "../../shared";
+} from "../../shared/index.js";
 // kumiko-lint-ignore cross-feature-import signup-confirm reads tenants.key for slug-uniqueness check (TOCTOU + DB-unique-index zusammen)
-import { tenantTable } from "../../tenant/schema/tenant";
-import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors";
-import { passwordSchema } from "../password-policy";
+import { tenantTable } from "../../tenant/schema/tenant.js";
+import { invalidSignupToken, signupEmailAlreadyRegistered } from "../errors.js";
+import { passwordSchema } from "../password-policy.js";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
-import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding";
+import { INITIAL_SIGNUP_ROLES, provisionSignupAccount } from "../seeding.js";
 import {
   burnSignupToken,
   deleteSignupHandover,
@@ -55,7 +55,7 @@ import {
   getEmailForSignupToken,
   getSignupHandover,
   unburnSignupToken,
-} from "../signup-token-store";
+} from "../signup-token-store.js";
 
 const SignupConfirmSchema = z.object({
   token: z.string().min(8),

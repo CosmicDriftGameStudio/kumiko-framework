@@ -1,7 +1,7 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { JobHandlerFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { markStaleJobRunsFailed } from "../db/queries/stale-run-sweep";
+import { markStaleJobRunsFailed } from "../db/queries/stale-run-sweep.js";
 
 // 24h, not e.g. the 1h cache-TTL used elsewhere in this feature (see
 // job-run-logger.ts) — a wrong guess there costs one extra DB lookup, a

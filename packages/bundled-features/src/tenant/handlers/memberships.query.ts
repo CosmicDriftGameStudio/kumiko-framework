@@ -3,8 +3,8 @@ import { defineQueryHandler, SYSTEM_ROLE } from "@cosmicdrift/kumiko-framework/e
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { tenantMembershipsTable } from "../membership-table";
-import { tenantTable } from "../schema/tenant";
+import { tenantMembershipsTable } from "../membership-table.js";
+import { tenantTable } from "../schema/tenant.js";
 
 export const membershipsQuery = defineQueryHandler({
   name: "memberships",

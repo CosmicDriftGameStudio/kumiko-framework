@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildLlmsTxt } from "../llms-txt";
+import { buildLlmsTxt } from "../llms-txt.js";
 
 describe("buildLlmsTxt", () => {
   test("emits H1 title + blockquote summary", () => {

@@ -17,10 +17,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { userEntity } from "../../user";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
-import { createNoteEntryEntity, noteMentionEntity } from "../entity";
-import { createNotesHistoryFeature } from "../feature";
+import { userEntity } from "../../user/index.js";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.js";
+import { createNoteEntryEntity, noteMentionEntity } from "../entity.js";
+import { createNotesHistoryFeature } from "../feature.js";
 
 const PROJECT_TABLE = "notes_rg_test_projects";
 

@@ -23,7 +23,7 @@ import {
   isTenantExistenceProvider,
   isTenantResolverProvider,
   tokenShapeKey,
-} from "./types";
+} from "./types.js";
 
 export function validateTokenVerifierMultiplicity(features: readonly FeatureDefinition[]): void {
   const namesByShape = new Map<string, string[]>();

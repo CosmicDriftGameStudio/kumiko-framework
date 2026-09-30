@@ -3,7 +3,7 @@ import {
   type FeatureDefinition,
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { entitiesOf } from "../shared";
+import { entitiesOf } from "../shared/index.js";
 
 // V2: export-without-erase gate. A feature that registers an EXT_USER_DATA
 // export hook without a matching delete hook exports data under Art.20 but

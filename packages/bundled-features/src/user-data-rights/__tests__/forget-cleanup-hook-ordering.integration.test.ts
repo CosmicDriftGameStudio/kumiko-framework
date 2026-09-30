@@ -31,19 +31,22 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow as seedProjectionRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { customFieldsField } from "../../custom-fields/wire-for-entity";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, userEntity } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runForgetCleanup } from "../run-forget-cleanup";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { customFieldsField } from "../../custom-fields/wire-for-entity.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature, userEntity } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
 import {
   createForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers";
+} from "./forget-test-helpers.js";
 
 const TENANT = "00000000-0000-4000-8000-0000000000aa";
 

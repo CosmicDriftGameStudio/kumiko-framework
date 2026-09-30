@@ -32,13 +32,13 @@ import { assertIrreversibleOperationAllowed } from "@cosmicdrift/kumiko-framewor
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { revokeAllPatTokensForUser } from "../../personal-access-tokens";
-import { USER_STATUS } from "../../user";
+import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.js";
+import { USER_STATUS } from "../../user/index.js";
 import {
   denyIfTargetOutsideAdminTenant,
   isSystemAdminActor,
   updateUserLifecycle,
-} from "../../user-data-rights";
+} from "../../user-data-rights/index.js";
 import {
   CRYPTO_SHREDDING_AGGREGATE_TYPE,
   RECORD_ENTITY_NOT_REGISTERED,
@@ -47,7 +47,7 @@ import {
   TARGET_RECORD_NOT_ADMIN_TENANT,
   TARGET_RECORD_RETENTION_BLOCK_DELETE,
   TARGET_TENANT_NOT_ADMIN_TENANT,
-} from "../constants";
+} from "../constants.js";
 
 export { subjectIdSchema };
 

@@ -23,22 +23,22 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError } from "@cosmicdrift/kumiko-framework/errors";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { hashPassword } from "../shared";
+import { hashPassword } from "../shared/index.js";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding";
+import { type SeedTenantHooks, seedTenant, seedTenantMembership } from "../tenant/seeding.js";
 // kumiko-lint-ignore cross-feature-import signup create-only guard reads the user projection by email
-import { USER_STATUS, userTable } from "../user/schema/user";
+import { USER_STATUS, userTable } from "../user/schema/user.js";
 // kumiko-lint-ignore cross-feature-import auth-tests need user+tenant seed-helpers
-import { reconcileSeededUserEmailVerified, seedUser } from "../user/seeding";
+import { reconcileSeededUserEmailVerified, seedUser } from "../user/seeding.js";
 
 // Re-export für ergonomische Single-Import-Site in tests/seed-scripts.
 // Das Auth-Feature ist der natürliche Aufrufer für "seed admin user mit
 // password + tenant + membership" — wer das nutzt soll nicht aus drei
 // verschiedenen sub-paths zusammensammeln müssen.
 // kumiko-lint-ignore cross-feature-import re-export of test-helpers
-export { seedTenant, seedTenantMembership } from "../tenant/seeding";
+export { seedTenant, seedTenantMembership } from "../tenant/seeding.js";
 // kumiko-lint-ignore cross-feature-import re-export of test-helpers
-export { seedUser } from "../user/seeding";
+export { seedUser } from "../user/seeding.js";
 
 export type SeedUserWithPasswordOptions = {
   readonly email: string;

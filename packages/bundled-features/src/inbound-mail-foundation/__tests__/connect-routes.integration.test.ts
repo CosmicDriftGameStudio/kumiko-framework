@@ -26,13 +26,17 @@ import {
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
-import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  tenantSecretsTable,
+} from "../../secrets/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import {
   createInboundMailConnectRoutes,
   INBOUND_MAIL_PROVIDER_EXTENSION,
@@ -43,7 +47,7 @@ import {
   type OAuthTokenSet,
   seenMessageEntity,
   syncCursorEntity,
-} from "../index";
+} from "../index.js";
 
 const OAUTH_PROVIDER_KEY = "oauth-test";
 const STATE_SECRET = "inbound-mail-connect-test-state-secret-32b";

@@ -7,21 +7,21 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import type { KumikoExtensionOptionsMap } from "@cosmicdrift/kumiko-types/extension-options-map";
-import { authFoundationFeature } from "../auth-foundation/feature";
-import { billingFoundationFeature } from "../billing-foundation/feature";
-import { createCustomFieldsFeature } from "../custom-fields/feature";
-import { createDeliveryFeature } from "../delivery/feature";
-import { documentIngestFoundationFeature } from "../document-ingest-foundation/feature";
-import { createFileDerivativesFeature } from "../file-derivatives/feature";
-import { fileFoundationFeature } from "../file-foundation/feature";
-import { inboundMailFoundationFeature } from "../inbound-mail-foundation/feature";
-import { mailFoundationFeature } from "../mail-foundation/feature";
-import { createRendererFoundationFeature } from "../renderer-foundation/feature";
-import { createTenantHandoverFeature } from "../tenant-handover/feature";
-import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature";
-import { createTierEngineFeature } from "../tier-engine/feature";
-import { createUserFeature } from "../user/feature";
-import { createUserDataRightsFeature } from "../user-data-rights/feature";
+import { authFoundationFeature } from "../auth-foundation/feature.js";
+import { billingFoundationFeature } from "../billing-foundation/feature.js";
+import { createCustomFieldsFeature } from "../custom-fields/feature.js";
+import { createDeliveryFeature } from "../delivery/feature.js";
+import { documentIngestFoundationFeature } from "../document-ingest-foundation/feature.js";
+import { createFileDerivativesFeature } from "../file-derivatives/feature.js";
+import { fileFoundationFeature } from "../file-foundation/feature.js";
+import { inboundMailFoundationFeature } from "../inbound-mail-foundation/feature.js";
+import { mailFoundationFeature } from "../mail-foundation/feature.js";
+import { createRendererFoundationFeature } from "../renderer-foundation/feature.js";
+import { createTenantHandoverFeature } from "../tenant-handover/feature.js";
+import { createTenantLifecycleFeature } from "../tenant-lifecycle/feature.js";
+import { createTierEngineFeature } from "../tier-engine/feature.js";
+import { createUserFeature } from "../user/feature.js";
+import { createUserDataRightsFeature } from "../user-data-rights/feature.js";
 
 const TYPED_EXTENSION_POINTS = [
   "userData",

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { runConfirmTokenFlow } from "../handlers/confirm-token-flow";
+import { runConfirmTokenFlow } from "../handlers/confirm-token-flow.js";
 
 // Pins the "fail-loud when ctx.redis is missing" branch. Without this
 // test, a refactor that accidentally drops the redis check would not

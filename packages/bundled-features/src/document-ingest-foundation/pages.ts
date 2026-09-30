@@ -4,7 +4,7 @@
 // the codec here keeps liteparse + recipe consumers lockstep with the
 // entity shape (kumiko-framework#1549/1).
 
-import type { IngestPage } from "./entity";
+import type { IngestPage } from "./entity.js";
 
 export function writeIngestPages(pages: readonly IngestPage[]): string {
   return JSON.stringify(pages);

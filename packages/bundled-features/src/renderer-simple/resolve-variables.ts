@@ -1,9 +1,9 @@
-import type { RendererContext, RenderRequest } from "../renderer-foundation";
+import type { RendererContext, RenderRequest } from "../renderer-foundation/index.js";
 import {
   createTemplateResolverApi,
   FALLBACK_LOCALE,
   TemplateNotFoundError,
-} from "../template-resolver";
+} from "../template-resolver/index.js";
 
 type NotificationRequest = Extract<RenderRequest, { kind: "notification" }>;
 

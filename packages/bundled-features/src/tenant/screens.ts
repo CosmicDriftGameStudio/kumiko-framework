@@ -16,7 +16,7 @@ import {
   OWNER_INVITE_ROLE_OPTIONS,
   TenantHandlers,
   TenantQueries,
-} from "./constants";
+} from "./constants.js";
 
 // Cross-tenant SystemAdmin platform view of the tenants themselves. The tenant
 // feature runs with `r.systemScope()`, so the entityList returns every tenant.

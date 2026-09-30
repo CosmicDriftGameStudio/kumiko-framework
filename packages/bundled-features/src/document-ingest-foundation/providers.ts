@@ -5,7 +5,7 @@
 import type { FeatureDefinition, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { normalizeMimeType } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "./events";
+import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "./events.js";
 
 export const EXT_DOCUMENT_INGEST_PROVIDER = "documentIngestProvider" as const;
 

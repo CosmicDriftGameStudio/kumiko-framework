@@ -33,9 +33,9 @@ import {
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { archiveStream } from "@cosmicdrift/kumiko-framework/event-store";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { seenMessageTable } from "./entities";
-import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events";
-import { inboundMessagesProjectionTable } from "./projection";
+import { seenMessageTable } from "./entities.js";
+import { INBOUND_MESSAGE_AGGREGATE_TYPE } from "./events.js";
+import { inboundMessagesProjectionTable } from "./projection.js";
 
 // Temporal.Instant ohne den Caller zwingen es aus globalThis zu ziehen
 // (Muster data-retention/keep-for.ts).

@@ -34,15 +34,19 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
 import Stripe from "stripe";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { configValuesTable, createConfigFeature } from "../../config";
-import { createConfigAccessorFactory } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { createSubscriptionStripeFeature } from "../feature";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
+import { configValuesTable, createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  tenantSecretsTable,
+} from "../../secrets/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { createSubscriptionStripeFeature } from "../feature.js";
 
 // Qualified-names der runtime-keys (drift-pin: müssen 1:1 dem entsprechen,
 // was r.config(...) im feature build qualifiziert — `subscription-stripe:

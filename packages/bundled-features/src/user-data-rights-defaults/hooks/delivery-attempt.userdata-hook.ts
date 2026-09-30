@@ -1,6 +1,6 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { deliveryAttemptsTable } from "../../delivery";
-import { featureMounted } from "./feature-mounted";
+import { deliveryAttemptsTable } from "../../delivery/index.js";
+import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for delivery's attempt log (deferred from #797, closed by
 // #799). deliveryAttempt is an events-only aggregate — the export reads the

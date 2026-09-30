@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { fieldWriteAccessDeniedRoles } from "../lib/field-access";
-import type { SerializedFieldShape } from "../lib/parse-serialized-field";
+import { fieldWriteAccessDeniedRoles } from "../lib/field-access.js";
+import type { SerializedFieldShape } from "../lib/parse-serialized-field.js";
 
 function field(write?: ReadonlyArray<string>): SerializedFieldShape {
   return { type: "text", ...(write ? { fieldAccess: { write } } : {}) };

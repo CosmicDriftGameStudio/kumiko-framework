@@ -3,9 +3,9 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { buildSessionRoles } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 // kumiko-lint-ignore cross-feature-import shared lifecycle-status gate with session auth
-import { isPrincipalBlocked } from "../sessions";
-import { tenantMembershipsTable } from "../tenant";
-import { type UserStatus, userTable } from "../user";
+import { isPrincipalBlocked } from "../sessions/index.js";
+import { tenantMembershipsTable } from "../tenant/index.js";
+import { type UserStatus, userTable } from "../user/index.js";
 
 // Live role resolution for a (userId, tenantId), mirroring login.write.ts:
 // global roles (users.roles) ∪ tenant-membership roles (forbidden roles

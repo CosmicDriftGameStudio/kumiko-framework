@@ -2,8 +2,8 @@ import { countWhere, selectMany, type WhereObject } from "@cosmicdrift/kumiko-fr
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared";
-import { jobRunsTable } from "../job-run-table";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
+import { jobRunsTable } from "../job-run-table.js";
 
 const KMS_POOL_CONCURRENCY = 4;
 

@@ -16,15 +16,15 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
+import { createConfigFeature } from "../../config/feature.js";
 import {
   JOB_RUN_DETAIL_SCREEN_ID,
   JOB_RUNS_SCREEN_ID,
   JobHandlers,
   JobQueries,
-} from "../constants";
-import { createJobsFeature } from "../feature";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+} from "../constants.js";
+import { createJobsFeature } from "../feature.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 

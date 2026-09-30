@@ -1,9 +1,9 @@
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { DEFAULT_VALUE_WRITE_ROLES } from "../constants";
-import { customFieldsFeature } from "../feature";
-import { checkFieldAccessForWrite } from "../lib/field-access";
+import { DEFAULT_VALUE_WRITE_ROLES } from "../constants.js";
+import { customFieldsFeature } from "../feature.js";
+import { checkFieldAccessForWrite } from "../lib/field-access.js";
 
 export const clearCustomFieldPayloadSchema = z.object({
   entityName: z.string().min(1).max(64),

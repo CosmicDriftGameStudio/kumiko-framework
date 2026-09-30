@@ -29,9 +29,9 @@ import {
   tenantMembershipEntity,
   tenantMembershipsTable,
   tenantTable,
-} from "../tenant";
-import type { TenantDestructionStageName } from "./constants";
-import { invalidateTenantLifecycleGate } from "./lifecycle-gate";
+} from "../tenant/index.js";
+import type { TenantDestructionStageName } from "./constants.js";
+import { invalidateTenantLifecycleGate } from "./lifecycle-gate.js";
 
 export type DestructionStageCtx = {
   readonly db: DbRunner;

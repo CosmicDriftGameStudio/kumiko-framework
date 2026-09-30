@@ -16,11 +16,11 @@
 
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
-import { paymentRowId } from "./aggregate-id";
-import { insertPaymentProjectionRow } from "./db/queries/payment-projection";
-import { upsertSubscriptionProjectionRow } from "./db/queries/subscription-projection";
-import { paymentEntity, subscriptionEntity } from "./entities";
-import type { PaymentEventPayload, SubscriptionEventPayload } from "./events";
+import { paymentRowId } from "./aggregate-id.js";
+import { insertPaymentProjectionRow } from "./db/queries/payment-projection.js";
+import { upsertSubscriptionProjectionRow } from "./db/queries/subscription-projection.js";
+import { paymentEntity, subscriptionEntity } from "./entities.js";
+import type { PaymentEventPayload, SubscriptionEventPayload } from "./events.js";
 
 // Drizzle-table-instance aus dem entity-shape. Wird sowohl von der
 // projection-apply als auch von list-query / get-helper genutzt damit

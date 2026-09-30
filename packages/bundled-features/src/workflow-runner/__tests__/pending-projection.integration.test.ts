@@ -22,9 +22,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { workflowRunAggregateId } from "../aggregate-id";
-import { workflowRunnerFeature } from "../feature";
-import { workflowRunPendingTable } from "../tables";
+import { workflowRunAggregateId } from "../aggregate-id.js";
+import { workflowRunnerFeature } from "../feature.js";
+import { workflowRunPendingTable } from "../tables.js";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

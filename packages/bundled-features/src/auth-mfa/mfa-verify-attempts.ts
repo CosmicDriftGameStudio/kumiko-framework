@@ -18,7 +18,7 @@
 // semantics) live in shared/lockout-counter.ts — this file only wires the
 // mfa-verify key prefixes onto it.
 
-import { createLockoutCounter, type LockoutCounterState } from "../shared";
+import { createLockoutCounter, type LockoutCounterState } from "../shared/index.js";
 
 export type MfaVerifyLockoutState = LockoutCounterState;
 

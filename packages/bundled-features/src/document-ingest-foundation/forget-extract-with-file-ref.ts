@@ -18,9 +18,9 @@ import type { MultiStreamApplyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { createSystemUser } from "@cosmicdrift/kumiko-framework/engine";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { documentExtractsTable } from "./entity";
-import { documentExtractExecutor } from "./executor";
-import { isFileRefLive } from "./file-ref-liveness";
+import { documentExtractsTable } from "./entity.js";
+import { documentExtractExecutor } from "./executor.js";
+import { isFileRefLive } from "./file-ref-liveness.js";
 
 // WriteResult.error is always a plain WriteErrorInfo object, never a
 // KumikoError instance (JSON-serializable for the dispatcher's idempotency-key

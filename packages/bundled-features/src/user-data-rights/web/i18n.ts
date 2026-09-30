@@ -9,7 +9,7 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { USER_DATA_RIGHTS_I18N } from "../i18n";
+import { USER_DATA_RIGHTS_I18N } from "../i18n.js";
 
 const apexTranslations: TranslationsByLocale = {
   en: {

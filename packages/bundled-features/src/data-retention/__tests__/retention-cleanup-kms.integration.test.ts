@@ -21,8 +21,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
-import { runRetentionCleanup } from "../run-retention-cleanup";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
+import { runRetentionCleanup } from "../run-retention-cleanup.js";
 
 // Entity A: `personal: { of: "id" }` → recordOwned — the row IS its own
 // subject. hardDelete must erase this key.

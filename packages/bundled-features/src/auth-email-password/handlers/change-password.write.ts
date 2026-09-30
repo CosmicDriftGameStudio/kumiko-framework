@@ -5,10 +5,10 @@ import {
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { hashPassword, verifyPassword } from "../../shared";
-import { UserHandlers, UserQueries } from "../../user";
-import { invalidCredentials } from "../errors";
-import { passwordSchema } from "../password-policy";
+import { hashPassword, verifyPassword } from "../../shared/index.js";
+import { UserHandlers, UserQueries } from "../../user/index.js";
+import { invalidCredentials } from "../errors.js";
+import { passwordSchema } from "../password-policy.js";
 
 // Change-password — authenticated. The user supplies their current password
 // (re-auth) and the new one. The new hash is written via ctx.writeAs(system)

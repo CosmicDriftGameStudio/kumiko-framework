@@ -3,5 +3,5 @@
 // für legal-pages' Public-API (index.ts exportiert renderMarkdownToHtml +
 // wrapInLayout).
 
-export { wrapInLayout } from "../page-render/layout";
-export { renderSafeMarkdown as renderMarkdownToHtml } from "../page-render/markdown";
+export { wrapInLayout } from "../page-render/layout.js";
+export { renderSafeMarkdown as renderMarkdownToHtml } from "../page-render/markdown.js";

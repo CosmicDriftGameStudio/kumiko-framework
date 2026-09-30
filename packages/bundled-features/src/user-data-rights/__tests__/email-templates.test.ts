@@ -6,7 +6,7 @@ import {
   renderDeletionRequestedEmail,
   renderExportFailedEmail,
   renderExportReadyEmail,
-} from "../email-templates";
+} from "../email-templates.js";
 
 registerMailTranslations("de", localeDeBundle);
 

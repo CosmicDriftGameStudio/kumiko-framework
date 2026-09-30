@@ -5,7 +5,7 @@ export {
   documentExtractEntity,
   documentExtractsTable,
   type IngestPage,
-} from "./entity";
+} from "./entity.js";
 export {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
@@ -16,9 +16,9 @@ export {
   type DocumentIngestSkippedPayload,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
-} from "./events";
-export { documentIngestFoundationFeature } from "./feature";
-export { readIngestPages, writeIngestPages } from "./pages";
+} from "./events.js";
+export { documentIngestFoundationFeature } from "./feature.js";
+export { readIngestPages, writeIngestPages } from "./pages.js";
 export {
   type DocumentIngestProviderOptions,
   documentIngestProviderOptionsSchema,
@@ -27,8 +27,8 @@ export {
   listIngestibleMimeTypes,
   type ResolvedDocumentIngestProvider,
   resolveDocumentIngestProviders,
-} from "./providers";
+} from "./providers.js";
 export {
   type DocumentExtractWriteResult,
   writeDocumentExtractForLiveFileRef,
-} from "./write-document-extract";
+} from "./write-document-extract.js";

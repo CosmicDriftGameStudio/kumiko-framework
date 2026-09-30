@@ -7,11 +7,15 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createTemplateResolverApi } from "../api";
-import { SYSTEM_TENANT_ID } from "../constants";
-import { createTemplateResolverFeature } from "../feature";
-import { seedSystemTemplate } from "../seeding";
-import { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "../table";
+import { createTemplateResolverApi } from "../api.js";
+import { SYSTEM_TENANT_ID } from "../constants.js";
+import { createTemplateResolverFeature } from "../feature.js";
+import { seedSystemTemplate } from "../seeding.js";
+import {
+  type TemplateResourceRow,
+  templateResourceEntity,
+  templateResourcesTable,
+} from "../table.js";
 
 let stack: TestStack;
 

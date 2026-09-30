@@ -3,11 +3,11 @@ export {
   COMPLIANCE_PROFILES_FEATURE,
   ComplianceProfileHandlers,
   ComplianceProfileQueries,
-} from "./constants";
+} from "./constants.js";
 export {
   type ComplianceProfilesFeatureOptions,
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "./feature";
-export { resolveProfileForTenant } from "./resolve-for-tenant";
+} from "./feature.js";
+export { resolveProfileForTenant } from "./resolve-for-tenant.js";

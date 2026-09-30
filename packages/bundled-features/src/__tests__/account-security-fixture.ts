@@ -5,8 +5,8 @@ import {
   MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
-} from "../auth-mfa";
-import { SESSION_MINE_SCREEN_ID } from "../sessions";
+} from "../auth-mfa/index.js";
+import { SESSION_MINE_SCREEN_ID } from "../sessions/index.js";
 
 export const ACCOUNT_SECURITY_SCREEN_ID = "account-security";
 

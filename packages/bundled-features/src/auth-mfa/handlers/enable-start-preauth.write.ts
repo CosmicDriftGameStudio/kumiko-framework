@@ -1,15 +1,15 @@
 import { createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { base32Encode } from "../base32";
-import { MFA_SETUP_TOKEN_TTL_MINUTES } from "../constants";
-import { findUserMfaRow } from "../db/queries";
-import { invalidChallengeToken, mfaAlreadyEnabled } from "../errors";
-import { verifyMfaPreauthSetupToken } from "../mfa-preauth-setup-token";
-import { signMfaSetupToken } from "../mfa-setup-token";
-import { buildOtpauthUri } from "../otpauth-uri";
-import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes";
-import { generateTotpSecret } from "../totp";
+import { base32Encode } from "../base32.js";
+import { MFA_SETUP_TOKEN_TTL_MINUTES } from "../constants.js";
+import { findUserMfaRow } from "../db/queries.js";
+import { invalidChallengeToken, mfaAlreadyEnabled } from "../errors.js";
+import { verifyMfaPreauthSetupToken } from "../mfa-preauth-setup-token.js";
+import { signMfaSetupToken } from "../mfa-setup-token.js";
+import { buildOtpauthUri } from "../otpauth-uri.js";
+import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes.js";
+import { generateTotpSecret } from "../totp.js";
 
 const ENABLE_START_PREAUTH_TENANT_REASON =
   "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant";

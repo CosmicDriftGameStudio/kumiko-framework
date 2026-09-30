@@ -19,8 +19,8 @@ import {
   STRIPE_BILLING_LIVE_CONFIG,
   STRIPE_WEBHOOK_SECRET_CONFIG,
   SUBSCRIPTION_STRIPE_FEATURE,
-} from "../constants";
-import { createStripeClientCache, createStripeRuntimes } from "../runtime";
+} from "../constants.js";
+import { createStripeClientCache, createStripeRuntimes } from "../runtime.js";
 
 // Handle-Namen aus den kanonischen Konstanten + demselben Qualifier ableiten,
 // den r.config zur Build-Zeit anwendet (define-feature.ts: qn(toKebab(feature),

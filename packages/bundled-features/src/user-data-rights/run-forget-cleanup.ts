@@ -63,12 +63,15 @@ import {
   type SearchAdapter,
 } from "@cosmicdrift/kumiko-framework/search";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { resolveRetentionPolicyForTenant, resolveTenantRetentionPreset } from "../data-retention";
-import { decryptStoredPii, runInSubTransaction } from "../shared";
-import { tenantMembershipsTable } from "../tenant";
-import { USER_STATUS, userTable } from "../user";
-import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup";
-import { updateUserLifecycle } from "./lib/update-user-lifecycle";
+import {
+  resolveRetentionPolicyForTenant,
+  resolveTenantRetentionPreset,
+} from "../data-retention/index.js";
+import { decryptStoredPii, runInSubTransaction } from "../shared/index.js";
+import { tenantMembershipsTable } from "../tenant/index.js";
+import { USER_STATUS, userTable } from "../user/index.js";
+import { selectUsersDueForForgetCleanup } from "./db/queries/forget-cleanup.js";
+import { updateUserLifecycle } from "./lib/update-user-lifecycle.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

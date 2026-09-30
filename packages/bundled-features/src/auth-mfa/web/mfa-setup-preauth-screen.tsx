@@ -17,11 +17,11 @@
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 // qrcode's package.json#browser remap avoids Node-only deps (yargs/pngjs)
 // for bundlers that honor it — Metro doesn't, hence the explicit subpath.
-import QRCode from "qrcode/lib/browser";
+import QRCode from "qrcode/lib/browser.js";
 import { type FormEvent, type ReactNode, useState } from "react";
 // kumiko-lint-ignore cross-feature-import client-only component, the feature's server barrel has no web/ re-export
-import { AuthCard } from "../../auth-email-password/web";
-import { confirmMfaSetupPreauth, startMfaSetupPreauth } from "./mfa-client";
+import { AuthCard } from "../../auth-email-password/web/index.js";
+import { confirmMfaSetupPreauth, startMfaSetupPreauth } from "./mfa-client.js";
 
 type SetupState = {
   readonly setupToken: string;

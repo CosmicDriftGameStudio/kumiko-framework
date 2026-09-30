@@ -2,7 +2,7 @@
 // Pure math with no runtime deps — both the query handlers (runtime → client
 // is allowed by the compat matrix) and cap-usage-bar.tsx (client → client)
 // import it.
-import type { CapUsageTone } from "./types";
+import type { CapUsageTone } from "./types.js";
 
 const WARN_THRESHOLD = 0.8;
 const DANGER_THRESHOLD = 1;

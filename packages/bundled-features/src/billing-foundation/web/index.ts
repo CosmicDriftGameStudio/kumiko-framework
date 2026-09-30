@@ -12,12 +12,12 @@ export {
   SubscriptionFoundationQueries,
   type SubscriptionStatus,
   SubscriptionStatuses,
-} from "../constants";
+} from "../constants.js";
 export type {
   BillingPlanBenefit,
   BillingPlanCatalog,
   BillingPlansResult,
   BillingPlanView,
-} from "../types";
-export { BillingPlansPanel } from "./billing-plans-panel";
-export { type BillingFoundationClientOptions, billingFoundationClient } from "./client-plugin";
+} from "../types.js";
+export { BillingPlansPanel } from "./billing-plans-panel.js";
+export { type BillingFoundationClientOptions, billingFoundationClient } from "./client-plugin.js";

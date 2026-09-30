@@ -4,11 +4,11 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "./constants";
-import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink";
-import { detailsQuery } from "./handlers/details.query";
-import { listQuery } from "./handlers/list.query";
-import { AUDIT_I18N } from "./i18n";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "./constants.js";
+import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.js";
+import { detailsQuery } from "./handlers/details.query.js";
+import { listQuery } from "./handlers/list.query.js";
+import { AUDIT_I18N } from "./i18n.js";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //

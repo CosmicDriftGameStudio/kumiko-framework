@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { type AddOnMap, composeApp, type TierMap } from "../compose-app";
+import { type AddOnMap, composeApp, type TierMap } from "../compose-app.js";
 
 // --- App-spezifischer Cap-Shape (typed, kein Record<string, unknown>) ---
 

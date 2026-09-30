@@ -7,11 +7,11 @@ import {
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { DELIVERY_CHANNEL_EXTENSION, DELIVERY_LOG_SCREEN_ID } from "../constants";
-import { collectChannels } from "../delivery-service";
-import { createDeliveryFeature } from "../feature";
+import { createConfigFeature } from "../../config/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { DELIVERY_CHANNEL_EXTENSION, DELIVERY_LOG_SCREEN_ID } from "../constants.js";
+import { collectChannels } from "../delivery-service.js";
+import { createDeliveryFeature } from "../feature.js";
 
 describe("delivery screens + handler access alignment", () => {
   const features = [createConfigFeature(), createTenantFeature(), createDeliveryFeature()];

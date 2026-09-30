@@ -5,7 +5,7 @@ import {
   projectSchedule,
   type ScheduleDef,
   scheduleReference,
-} from "../recurring";
+} from "../recurring.js";
 
 // Pure projection + Soll/Ist merge — no DB, no Date API (the window/asOf are
 // params), so these are deterministic and cover the recurring primitive's logic

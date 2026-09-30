@@ -24,16 +24,16 @@ import {
   resetBlindIndexKeyForTests,
   resetPiiSubjectKmsForTests,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { seedUser } from "../../user/seeding";
-import { seedAdmin, seedAdminGuarded } from "../seeding";
+import { createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { seedUser } from "../../user/seeding.js";
+import { seedAdmin, seedAdminGuarded } from "../seeding.js";
 
 const BLIND_INDEX_KEY_B64 = Buffer.alloc(32, 14).toString("base64");
 const TENANT_114: TenantId = "00000000-0000-4000-8000-0000000001d4" as TenantId;

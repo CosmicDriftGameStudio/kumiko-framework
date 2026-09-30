@@ -11,7 +11,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { setupTestStack, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { redeemRowBoundGrant, signRowBoundGrant } from "../row-bound-grant";
+import { redeemRowBoundGrant, signRowBoundGrant } from "../row-bound-grant.js";
 
 const TABLE = "row_bound_grant_demo";
 const SECRET = "row-bound-grant-integration-secret";

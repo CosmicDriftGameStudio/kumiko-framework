@@ -8,8 +8,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
-import { JobErrors } from "../constants";
-import { isManualTrigger } from "../is-manual-trigger";
+import { JobErrors } from "../constants.js";
+import { isManualTrigger } from "../is-manual-trigger.js";
 
 export const triggerWrite = defineWriteHandler({
   name: "trigger",

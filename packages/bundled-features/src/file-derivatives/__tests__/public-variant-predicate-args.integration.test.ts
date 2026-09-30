@@ -27,10 +27,10 @@ import {
   patchFileInstanceofForBunTest,
 } from "@cosmicdrift/kumiko-framework/testing";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import { createConfigFeature } from "../../config";
-import { fileFoundationFeature } from "../../file-foundation";
-import { createFileDerivativesFeature } from "../feature";
-import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query";
+import { createConfigFeature } from "../../config/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileDerivativesFeature } from "../feature.js";
+import type { DerivativePublicPredicateArgs } from "../handlers/public-variant.query.js";
 
 const VARIANT_BYTES = new Uint8Array([9, 9, 9]);
 const fakeRender: DerivativeRendererPlugin["render"] = async () => VARIANT_BYTES;

@@ -14,4 +14,4 @@ export {
   type MailTransportContext,
   type MailTransportPlugin,
   mailFoundationFeature,
-} from "./feature";
+} from "./feature.js";

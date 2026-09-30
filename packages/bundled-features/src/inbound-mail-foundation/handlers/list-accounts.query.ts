@@ -13,9 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { MAIL_ACCOUNT_PII_FIELDS } from "../entities";
-import { mailAccountsProjectionTable } from "../projection";
-import { isVisibleToCaller } from "./scope-visibility";
+import { MAIL_ACCOUNT_PII_FIELDS } from "../entities.js";
+import { mailAccountsProjectionTable } from "../projection.js";
+import { isVisibleToCaller } from "./scope-visibility.js";
 
 const listAccountsSchema = z.object({}).strict();
 

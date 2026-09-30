@@ -30,24 +30,24 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
-import { notificationPreferencesTable } from "../../delivery/tables";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { signTenantHandoverGrant } from "../../tenant-handover/grant";
-import { createTenantHandoverFeature } from "../../tenant-handover/index";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { notificationPreferencesTable } from "../../delivery/tables.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { signTenantHandoverGrant } from "../../tenant-handover/grant.js";
+import { createTenantHandoverFeature } from "../../tenant-handover/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 const GRANT_SECRET = "signup-handover-test-secret-min-32-chars-long-enough";
 const CLAIM_QN = "tenant-handover:write:claim";

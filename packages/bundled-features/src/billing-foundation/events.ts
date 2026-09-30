@@ -11,7 +11,7 @@
 // type ohne payload-discriminator.
 
 import * as z from "zod";
-import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants";
+import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants.js";
 
 // Aggregate-type für den event-store. Eine subscription pro Tenant ist
 // ein stream; der subscriptionAggregateId-helper liefert die stream-id.

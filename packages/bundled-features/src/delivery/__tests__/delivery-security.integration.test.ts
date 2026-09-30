@@ -9,11 +9,11 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants";
-import { createDeliveryFeature } from "../feature";
-import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables";
+import { createConfigFeature } from "../../config/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { DELIVERY_LOG_SCREEN_ID, DeliveryHandlers, DeliveryQueries } from "../constants.js";
+import { createDeliveryFeature } from "../feature.js";
+import { deliveryAttemptsTable, notificationPreferencesTable } from "../tables.js";
 
 let stack: TestStack;
 

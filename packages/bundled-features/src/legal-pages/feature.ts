@@ -9,14 +9,14 @@ import {
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { cachedSecurePageResponse } from "../page-render";
+import { cachedSecurePageResponse } from "../page-render/index.js";
 import {
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
   type LegalPageRoute,
   type LegalRequiredBlock,
-} from "./constants";
-import { renderMarkdownToHtml, wrapInLayout } from "./markdown";
+} from "./constants.js";
+import { renderMarkdownToHtml, wrapInLayout } from "./markdown.js";
 
 // QN-Konstante als dokumentierter Public-Contract des template-resolver-
 // Features. Ein magic-string statt eines Code-Imports ist hier explizit

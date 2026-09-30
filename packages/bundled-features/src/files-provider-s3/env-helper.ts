@@ -1,5 +1,5 @@
 import type { FileStorageProvider } from "@cosmicdrift/kumiko-framework/files";
-import { createS3Provider, type S3ProviderConfig } from "./s3-provider";
+import { createS3Provider, type S3ProviderConfig } from "./s3-provider.js";
 
 // Reads S3 connection details from process.env with a configurable prefix so
 // multi-tenant deploys can wire more than one bucket (S3_* for user-uploads,

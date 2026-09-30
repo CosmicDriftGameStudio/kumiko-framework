@@ -15,7 +15,10 @@
   "homepage": "https://kumiko.rocks",
   "type": "module",
   "kumiko": {
-    "runtime": "runtime"
+    "runtime": "runtime",
+    "bunOnlyExports": [
+      "./template-resolver/testing"
+    ]
   },
   "exports": {
     "./agent-tools": "./src/agent-tools/index.ts",
@@ -146,6 +149,7 @@
     "@types/qrcode": "^1.5.5",
     "clsx": "^2.1.1",
     "imapflow": "^1.7.8",
+    "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
     "mailparser": "^3.9.32",
     "marked": "^18.0.3",
@@ -154,14 +158,476 @@
     "react": "^19.2.6",
     "sharp": "^0.35.4",
     "stripe": "^22.6.2",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "temporal-polyfill": "^0.3.2",
+    "uuid": "^14.0.0",
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      "./agent-tools": {
+        "types": "./dist/agent-tools/index.d.ts",
+        "default": "./dist/agent-tools/index.js"
+      },
+      "./audit": {
+        "types": "./dist/audit/index.d.ts",
+        "default": "./dist/audit/index.js"
+      },
+      "./audit/web": {
+        "types": "./dist/audit/web/index.d.ts",
+        "default": "./dist/audit/web/index.js"
+      },
+      "./admin-shell": {
+        "types": "./dist/admin-shell/index.d.ts",
+        "default": "./dist/admin-shell/index.js"
+      },
+      "./admin-shell/web": {
+        "types": "./dist/admin-shell/web/index.d.ts",
+        "default": "./dist/admin-shell/web/index.js"
+      },
+      "./compliance-profiles": {
+        "types": "./dist/compliance-profiles/index.d.ts",
+        "default": "./dist/compliance-profiles/index.js"
+      },
+      "./compliance-profiles/web": {
+        "types": "./dist/compliance-profiles/web/index.d.ts",
+        "default": "./dist/compliance-profiles/web/index.js"
+      },
+      "./compliance-profiles-ops": {
+        "types": "./dist/compliance-profiles-ops/index.d.ts",
+        "default": "./dist/compliance-profiles-ops/index.js"
+      },
+      "./config": {
+        "types": "./dist/config/index.d.ts",
+        "default": "./dist/config/index.js"
+      },
+      "./crypto-shredding": {
+        "types": "./dist/crypto-shredding/index.d.ts",
+        "default": "./dist/crypto-shredding/index.js"
+      },
+      "./config/web": {
+        "types": "./dist/config/web/index.d.ts",
+        "default": "./dist/config/web/index.js"
+      },
+      "./data-retention": {
+        "types": "./dist/data-retention/index.d.ts",
+        "default": "./dist/data-retention/index.js"
+      },
+      "./readiness": {
+        "types": "./dist/readiness/index.d.ts",
+        "default": "./dist/readiness/index.js"
+      },
+      "./jobs": {
+        "types": "./dist/jobs/index.d.ts",
+        "default": "./dist/jobs/index.js"
+      },
+      "./jobs/web": {
+        "types": "./dist/jobs/web/index.d.ts",
+        "default": "./dist/jobs/web/index.js"
+      },
+      "./tier-engine": {
+        "types": "./dist/tier-engine/index.d.ts",
+        "default": "./dist/tier-engine/index.js"
+      },
+      "./tier-engine/web": {
+        "types": "./dist/tier-engine/web/index.d.ts",
+        "default": "./dist/tier-engine/web/index.js"
+      },
+      "./cap-counter": {
+        "types": "./dist/cap-counter/index.d.ts",
+        "default": "./dist/cap-counter/index.js"
+      },
+      "./cap-overview": {
+        "types": "./dist/cap-overview/index.d.ts",
+        "default": "./dist/cap-overview/index.js"
+      },
+      "./cap-overview/web": {
+        "types": "./dist/cap-overview/web/index.d.ts",
+        "default": "./dist/cap-overview/web/index.js"
+      },
+      "./custom-fields": {
+        "types": "./dist/custom-fields/index.d.ts",
+        "default": "./dist/custom-fields/index.js"
+      },
+      "./custom-fields/web": {
+        "types": "./dist/custom-fields/web/index.d.ts",
+        "default": "./dist/custom-fields/web/index.js"
+      },
+      "./tags": {
+        "types": "./dist/tags/index.d.ts",
+        "default": "./dist/tags/index.js"
+      },
+      "./tenant-settings": {
+        "types": "./dist/tenant-settings/index.d.ts",
+        "default": "./dist/tenant-settings/index.js"
+      },
+      "./tags/web": {
+        "types": "./dist/tags/web/index.d.ts",
+        "default": "./dist/tags/web/index.js"
+      },
+      "./folders": {
+        "types": "./dist/folders/index.d.ts",
+        "default": "./dist/folders/index.js"
+      },
+      "./folders/web": {
+        "types": "./dist/folders/web/index.d.ts",
+        "default": "./dist/folders/web/index.js"
+      },
+      "./notes-history": {
+        "types": "./dist/notes-history/index.d.ts",
+        "default": "./dist/notes-history/index.js"
+      },
+      "./notes-history/web": {
+        "types": "./dist/notes-history/web/index.d.ts",
+        "default": "./dist/notes-history/web/index.js"
+      },
+      "./notes-history-user-data": {
+        "types": "./dist/notes-history-user-data/index.d.ts",
+        "default": "./dist/notes-history-user-data/index.js"
+      },
+      "./form-draft": {
+        "types": "./dist/form-draft/index.d.ts",
+        "default": "./dist/form-draft/index.js"
+      },
+      "./form-draft-user-data": {
+        "types": "./dist/form-draft-user-data/index.d.ts",
+        "default": "./dist/form-draft-user-data/index.js"
+      },
+      "./template-resolver-user-data": {
+        "types": "./dist/template-resolver-user-data/index.d.ts",
+        "default": "./dist/template-resolver-user-data/index.js"
+      },
+      "./folders-user-data": {
+        "types": "./dist/folders-user-data/index.d.ts",
+        "default": "./dist/folders-user-data/index.js"
+      },
+      "./ledger": {
+        "types": "./dist/ledger/index.d.ts",
+        "default": "./dist/ledger/index.js"
+      },
+      "./ledger/web": {
+        "types": "./dist/ledger/web/index.d.ts",
+        "default": "./dist/ledger/web/index.js"
+      },
+      "./billing-foundation": {
+        "types": "./dist/billing-foundation/index.d.ts",
+        "default": "./dist/billing-foundation/index.js"
+      },
+      "./billing-foundation/web": {
+        "types": "./dist/billing-foundation/web/index.d.ts",
+        "default": "./dist/billing-foundation/web/index.js"
+      },
+      "./subscription-stripe": {
+        "types": "./dist/subscription-stripe/index.d.ts",
+        "default": "./dist/subscription-stripe/index.js"
+      },
+      "./subscription-mollie": {
+        "types": "./dist/subscription-mollie/index.d.ts",
+        "default": "./dist/subscription-mollie/index.js"
+      },
+      "./foundation-shared": {
+        "types": "./dist/foundation-shared/index.d.ts",
+        "default": "./dist/foundation-shared/index.js"
+      },
+      "./auth-foundation": {
+        "types": "./dist/auth-foundation/index.d.ts",
+        "default": "./dist/auth-foundation/index.js"
+      },
+      "./mail-foundation": {
+        "types": "./dist/mail-foundation/index.d.ts",
+        "default": "./dist/mail-foundation/index.js"
+      },
+      "./inbound-mail-foundation": {
+        "types": "./dist/inbound-mail-foundation/index.d.ts",
+        "default": "./dist/inbound-mail-foundation/index.js"
+      },
+      "./inbound-provider-inmemory": {
+        "types": "./dist/inbound-provider-inmemory/index.d.ts",
+        "default": "./dist/inbound-provider-inmemory/index.js"
+      },
+      "./inbound-provider-imap": {
+        "types": "./dist/inbound-provider-imap/index.d.ts",
+        "default": "./dist/inbound-provider-imap/index.js"
+      },
+      "./mail-transport-smtp": {
+        "types": "./dist/mail-transport-smtp/index.d.ts",
+        "default": "./dist/mail-transport-smtp/index.js"
+      },
+      "./mail-transport-inmemory": {
+        "types": "./dist/mail-transport-inmemory/index.d.ts",
+        "default": "./dist/mail-transport-inmemory/index.js"
+      },
+      "./file-foundation": {
+        "types": "./dist/file-foundation/index.d.ts",
+        "default": "./dist/file-foundation/index.js"
+      },
+      "./file-provider-s3": {
+        "types": "./dist/file-provider-s3/index.d.ts",
+        "default": "./dist/file-provider-s3/index.js"
+      },
+      "./document-ingest-foundation": {
+        "types": "./dist/document-ingest-foundation/index.d.ts",
+        "default": "./dist/document-ingest-foundation/index.js"
+      },
+      "./file-provider-s3-env": {
+        "types": "./dist/file-provider-s3-env/index.d.ts",
+        "default": "./dist/file-provider-s3-env/index.js"
+      },
+      "./file-provider-inmemory": {
+        "types": "./dist/file-provider-inmemory/index.d.ts",
+        "default": "./dist/file-provider-inmemory/index.js"
+      },
+      "./file-derivatives": {
+        "types": "./dist/file-derivatives/index.d.ts",
+        "default": "./dist/file-derivatives/index.js"
+      },
+      "./derivatives-sharp": {
+        "types": "./dist/derivatives-sharp/index.d.ts",
+        "default": "./dist/derivatives-sharp/index.js"
+      },
+      "./files": {
+        "types": "./dist/files/index.d.ts",
+        "default": "./dist/files/index.js"
+      },
+      "./files-tenant-data": {
+        "types": "./dist/files-tenant-data/index.d.ts",
+        "default": "./dist/files-tenant-data/index.js"
+      },
+      "./user-data-rights": {
+        "types": "./dist/user-data-rights/index.d.ts",
+        "default": "./dist/user-data-rights/index.js"
+      },
+      "./user-data-rights/web": {
+        "types": "./dist/user-data-rights/web/index.d.ts",
+        "default": "./dist/user-data-rights/web/index.js"
+      },
+      "./user-data-rights-defaults": {
+        "types": "./dist/user-data-rights-defaults/index.d.ts",
+        "default": "./dist/user-data-rights-defaults/index.js"
+      },
+      "./tenant": {
+        "types": "./dist/tenant/index.d.ts",
+        "default": "./dist/tenant/index.js"
+      },
+      "./tenant/constants": {
+        "types": "./dist/tenant/constants.d.ts",
+        "default": "./dist/tenant/constants.js"
+      },
+      "./tenant/web": {
+        "types": "./dist/tenant/web/index.d.ts",
+        "default": "./dist/tenant/web/index.js"
+      },
+      "./tenant/seeding": {
+        "types": "./dist/tenant/seeding.d.ts",
+        "default": "./dist/tenant/seeding.js"
+      },
+      "./tenant-lifecycle": {
+        "types": "./dist/tenant-lifecycle/index.d.ts",
+        "default": "./dist/tenant-lifecycle/index.js"
+      },
+      "./tenant-handover": {
+        "types": "./dist/tenant-handover/index.d.ts",
+        "default": "./dist/tenant-handover/index.js"
+      },
+      "./tenant/testing": {
+        "types": "./dist/tenant/testing.d.ts",
+        "default": "./dist/tenant/testing.js"
+      },
+      "./user": {
+        "types": "./dist/user/index.d.ts",
+        "default": "./dist/user/index.js"
+      },
+      "./user/seeding": {
+        "types": "./dist/user/seeding.d.ts",
+        "default": "./dist/user/seeding.js"
+      },
+      "./user/testing": {
+        "types": "./dist/user/testing.d.ts",
+        "default": "./dist/user/testing.js"
+      },
+      "./user-profile": {
+        "types": "./dist/user-profile/index.d.ts",
+        "default": "./dist/user-profile/index.js"
+      },
+      "./user-profile/web": {
+        "types": "./dist/user-profile/web/index.d.ts",
+        "default": "./dist/user-profile/web/index.js"
+      },
+      "./auth-email-password": {
+        "types": "./dist/auth-email-password/index.d.ts",
+        "default": "./dist/auth-email-password/index.js"
+      },
+      "./auth-email-password/constants": {
+        "types": "./dist/auth-email-password/constants.d.ts",
+        "default": "./dist/auth-email-password/constants.js"
+      },
+      "./auth-email-password/seeding": {
+        "types": "./dist/auth-email-password/seeding.d.ts",
+        "default": "./dist/auth-email-password/seeding.js"
+      },
+      "./auth-email-password/testing": {
+        "types": "./dist/auth-email-password/testing.d.ts",
+        "default": "./dist/auth-email-password/testing.js"
+      },
+      "./auth-email-password/web": {
+        "types": "./dist/auth-email-password/web/index.d.ts",
+        "default": "./dist/auth-email-password/web/index.js"
+      },
+      "./shared/single-use-token-store": {
+        "types": "./dist/shared/single-use-token-store.d.ts",
+        "default": "./dist/shared/single-use-token-store.js"
+      },
+      "./shared/signed-token": {
+        "types": "./dist/shared/signed-token.d.ts",
+        "default": "./dist/shared/signed-token.js"
+      },
+      "./shared/row-bound-grant": {
+        "types": "./dist/shared/row-bound-grant.d.ts",
+        "default": "./dist/shared/row-bound-grant.js"
+      },
+      "./delivery": {
+        "types": "./dist/delivery/index.d.ts",
+        "default": "./dist/delivery/index.js"
+      },
+      "./delivery/web": {
+        "types": "./dist/delivery/web/index.d.ts",
+        "default": "./dist/delivery/web/index.js"
+      },
+      "./channel-in-app": {
+        "types": "./dist/channel-in-app/index.d.ts",
+        "default": "./dist/channel-in-app/index.js"
+      },
+      "./channel-email": {
+        "types": "./dist/channel-email/index.d.ts",
+        "default": "./dist/channel-email/index.js"
+      },
+      "./channel-push": {
+        "types": "./dist/channel-push/index.d.ts",
+        "default": "./dist/channel-push/index.js"
+      },
+      "./renderer-simple": {
+        "types": "./dist/renderer-simple/index.d.ts",
+        "default": "./dist/renderer-simple/index.js"
+      },
+      "./files-provider-s3": {
+        "types": "./dist/files-provider-s3/index.d.ts",
+        "default": "./dist/files-provider-s3/index.js"
+      },
+      "./rate-limiting": {
+        "types": "./dist/rate-limiting/index.d.ts",
+        "default": "./dist/rate-limiting/index.js"
+      },
+      "./presets": {
+        "types": "./dist/presets/index.d.ts",
+        "default": "./dist/presets/index.js"
+      },
+      "./secrets": {
+        "types": "./dist/secrets/index.d.ts",
+        "default": "./dist/secrets/index.js"
+      },
+      "./sessions": {
+        "types": "./dist/sessions/index.d.ts",
+        "default": "./dist/sessions/index.js"
+      },
+      "./auth-mfa": {
+        "types": "./dist/auth-mfa/index.d.ts",
+        "default": "./dist/auth-mfa/index.js"
+      },
+      "./auth-mfa-user-data": {
+        "types": "./dist/auth-mfa-user-data/index.d.ts",
+        "default": "./dist/auth-mfa-user-data/index.js"
+      },
+      "./auth-mfa/web": {
+        "types": "./dist/auth-mfa/web/index.d.ts",
+        "default": "./dist/auth-mfa/web/index.js"
+      },
+      "./auth-mfa/testing": {
+        "types": "./dist/auth-mfa/testing.d.ts",
+        "default": "./dist/auth-mfa/testing.js"
+      },
+      "./sessions/testing": {
+        "types": "./dist/sessions/testing.d.ts",
+        "default": "./dist/sessions/testing.js"
+      },
+      "./personal-access-tokens": {
+        "types": "./dist/personal-access-tokens/index.d.ts",
+        "default": "./dist/personal-access-tokens/index.js"
+      },
+      "./feature-toggles": {
+        "types": "./dist/feature-toggles/index.d.ts",
+        "default": "./dist/feature-toggles/index.js"
+      },
+      "./feature-toggles/web": {
+        "types": "./dist/feature-toggles/web/index.d.ts",
+        "default": "./dist/feature-toggles/web/index.js"
+      },
+      "./template-resolver": {
+        "types": "./dist/template-resolver/index.d.ts",
+        "default": "./dist/template-resolver/index.js"
+      },
+      "./template-resolver/seeding": {
+        "types": "./dist/template-resolver/seeding.d.ts",
+        "default": "./dist/template-resolver/seeding.js"
+      },
+      "./template-resolver/testing": {
+        "types": "./dist/template-resolver/testing.d.ts",
+        "default": "./dist/template-resolver/testing.js"
+      },
+      "./template-resolver/web": {
+        "types": "./dist/template-resolver/web/index.d.ts",
+        "default": "./dist/template-resolver/web/index.js"
+      },
+      "./renderer-foundation": {
+        "types": "./dist/renderer-foundation/index.d.ts",
+        "default": "./dist/renderer-foundation/index.js"
+      },
+      "./legal-pages": {
+        "types": "./dist/legal-pages/index.d.ts",
+        "default": "./dist/legal-pages/index.js"
+      },
+      "./legal-pages/web": {
+        "types": "./dist/legal-pages/web/index.d.ts",
+        "default": "./dist/legal-pages/web/index.js"
+      },
+      "./page-render": {
+        "types": "./dist/page-render/index.d.ts",
+        "default": "./dist/page-render/index.js"
+      },
+      "./page-render/web": {
+        "types": "./dist/page-render/web.d.ts",
+        "default": "./dist/page-render/web.js"
+      },
+      "./managed-pages": {
+        "types": "./dist/managed-pages/index.d.ts",
+        "default": "./dist/managed-pages/index.js"
+      },
+      "./managed-pages/web": {
+        "types": "./dist/managed-pages/web/index.d.ts",
+        "default": "./dist/managed-pages/web/index.js"
+      },
+      "./managed-pages/seeding": {
+        "types": "./dist/managed-pages/seeding.d.ts",
+        "default": "./dist/managed-pages/seeding.js"
+      },
+      "./seo": {
+        "types": "./dist/seo/index.d.ts",
+        "default": "./dist/seo/index.js"
+      },
+      "./step-dispatcher": {
+        "types": "./dist/step-dispatcher/index.d.ts",
+        "default": "./dist/step-dispatcher/index.js"
+      },
+      "./workflow-runner": {
+        "types": "./dist/workflow-runner/index.d.ts",
+        "default": "./dist/workflow-runner/index.js"
+      }
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "src/*/changes.json",
     "README.md",
     "LICENSE"
   ],

@@ -4,7 +4,7 @@ import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 // `Temporal` TYPE that gracePeriodEndCutoff's parameter type resolves
 // against (same #1438 dual-package-hazard pattern as event-store.ts).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
-import { userTable } from "../../../user";
+import { userTable } from "../../../user/index.js";
 
 export async function selectUsersDueForForgetCleanup(
   db: DbConnection,

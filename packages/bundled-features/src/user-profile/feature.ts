@@ -9,8 +9,8 @@ import {
   PROFILE_SCREEN_ID,
   UserDataRightsHandlers,
   UserProfileQueries,
-} from "./constants";
-import { changeEmailWrite } from "./handlers/change-email.write";
+} from "./constants.js";
+import { changeEmailWrite } from "./handlers/change-email.write.js";
 
 export function createUserProfileFeature(): FeatureDefinition {
   return defineFeature("user-profile", (r) => {

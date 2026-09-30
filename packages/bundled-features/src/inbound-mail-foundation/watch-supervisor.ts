@@ -52,10 +52,10 @@ import {
 import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "temporal-polyfill";
-import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants";
-import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities";
-import { mailAccountsProjectionTable } from "./projection";
-import { resolveInboundProviderForAccount } from "./provider-factory";
+import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
+import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities.js";
+import { mailAccountsProjectionTable } from "./projection.js";
+import { resolveInboundProviderForAccount } from "./provider-factory.js";
 import {
   type InboundMailContext,
   type InboundMailProviderPlugin,
@@ -65,7 +65,7 @@ import {
   type MailAccountRecord,
   type RawInboundMessage,
   type SyncCursorPayload,
-} from "./types";
+} from "./types.js";
 
 const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_BACKFILL_WINDOW_DAYS = 30;

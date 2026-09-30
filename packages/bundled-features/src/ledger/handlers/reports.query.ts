@@ -1,7 +1,7 @@
 import type { AccessRule, QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_LEDGER_ACCESS } from "../constants";
-import { accountTable, transactionTable } from "../executor";
+import { DEFAULT_LEDGER_ACCESS } from "../constants.js";
+import { accountTable, transactionTable } from "../executor.js";
 import {
   accountBalances,
   balanceSheet,
@@ -10,7 +10,7 @@ import {
   type LedgerEntry,
   toAccounts,
   toEntries,
-} from "../reports";
+} from "../reports.js";
 
 // Reports take an optional reporting period. Balance-sheet is cumulative → pass
 // { to: asOf }; income-statement is a period → { from, to }.

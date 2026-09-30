@@ -1,6 +1,6 @@
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { jobRunsTable } from "../../jobs";
-import { featureMounted } from "./feature-mounted";
+import { jobRunsTable } from "../../jobs/index.js";
+import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for the jobs run log (deferred from #797, closed by #799).
 // Job runs live on the SYSTEM tenant regardless of who triggered them, so

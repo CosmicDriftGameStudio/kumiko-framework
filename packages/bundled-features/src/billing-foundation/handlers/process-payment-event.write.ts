@@ -16,14 +16,14 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { paymentAggregateId } from "../aggregate-id";
-import { PAYMENT_PII_FIELDS, paymentEntity } from "../entities";
+import { paymentAggregateId } from "../aggregate-id.js";
+import { PAYMENT_PII_FIELDS, paymentEntity } from "../entities.js";
 import {
   PAYMENT_AGGREGATE_TYPE,
   PAYMENT_RECEIVED_EVENT_QN,
   type PaymentEventHeaders,
   type PaymentEventPayload,
-} from "../events";
+} from "../events.js";
 
 export const processPaymentEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),

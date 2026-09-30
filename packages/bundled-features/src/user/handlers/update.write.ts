@@ -8,10 +8,10 @@ import {
 import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { UserErrors } from "../constants";
-import { rolesInputSchema } from "../roles-input-schema";
-import { userEntity, userTable } from "../schema/user";
-import { applyUserRolesUpdate } from "./update-roles";
+import { UserErrors } from "../constants.js";
+import { rolesInputSchema } from "../roles-input-schema.js";
+import { userEntity, userTable } from "../schema/user.js";
+import { applyUserRolesUpdate } from "./update-roles.js";
 
 const crud = createEventStoreExecutor(userTable, userEntity, { entityName: "user" });
 

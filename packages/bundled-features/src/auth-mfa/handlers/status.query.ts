@@ -1,7 +1,7 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { userMfaTable } from "../schema/user-mfa";
+import { userMfaTable } from "../schema/user-mfa.js";
 
 // "Is MFA enabled for me" — the one thing a settings screen needs before it
 // can decide whether to show the enrollment flow or the disable/regenerate

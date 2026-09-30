@@ -1,6 +1,6 @@
 import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
-import type { DeliveryChannel } from "../delivery";
-import { inAppMessagesTable } from "./tables";
+import type { DeliveryChannel } from "../delivery/index.js";
+import { inAppMessagesTable } from "./tables.js";
 
 export const inAppChannel: DeliveryChannel = {
   name: "inApp",

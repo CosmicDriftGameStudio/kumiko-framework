@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
-import { dispatchMagicLinkMail } from "../magic-link-mail";
+import { dispatchMagicLinkMail } from "../magic-link-mail.js";
 
 describe("dispatchMagicLinkMail appUrl locale negotiation", () => {
   beforeAll(() => {

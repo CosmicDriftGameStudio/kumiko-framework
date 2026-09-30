@@ -19,9 +19,9 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { TagsHandlers, TagsQueries } from "../constants";
-import { TagChip } from "./tag-chip";
-import { TagPicker } from "./tag-picker";
+import { TagsHandlers, TagsQueries } from "../constants.js";
+import { TagChip } from "./tag-chip.js";
+import { TagPicker } from "./tag-picker.js";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
 type AssignmentRow = {

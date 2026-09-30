@@ -2,19 +2,19 @@ import {
   type ContentCollectionDefinition,
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { bySlugQuery } from "./handlers/by-slug.query";
-import { byTenantQuery } from "./handlers/by-tenant.query";
-import { makeCollectionItemQuery } from "./handlers/collection-item.query";
-import { makeCollectionListQuery } from "./handlers/collection-list.query";
-import { makeCollectionSetWrite } from "./handlers/collection-set.write";
-import { findByIdQuery } from "./handlers/find-by-id.query";
-import { listQuery } from "./handlers/list.query";
-import { setWrite } from "./handlers/set.write";
-import { archiveWrite, publishWrite } from "./handlers/toggle-status.write";
-import { upsertSystemWrite } from "./handlers/upsert-system.write";
-import { upsertTenantWrite } from "./handlers/upsert-tenant.write";
-import { templateResourceEntity } from "./table";
-import { userContentEntryEntity } from "./user-content-table";
+import { bySlugQuery } from "./handlers/by-slug.query.js";
+import { byTenantQuery } from "./handlers/by-tenant.query.js";
+import { makeCollectionItemQuery } from "./handlers/collection-item.query.js";
+import { makeCollectionListQuery } from "./handlers/collection-list.query.js";
+import { makeCollectionSetWrite } from "./handlers/collection-set.write.js";
+import { findByIdQuery } from "./handlers/find-by-id.query.js";
+import { listQuery } from "./handlers/list.query.js";
+import { setWrite } from "./handlers/set.write.js";
+import { archiveWrite, publishWrite } from "./handlers/toggle-status.write.js";
+import { upsertSystemWrite } from "./handlers/upsert-system.write.js";
+import { upsertTenantWrite } from "./handlers/upsert-tenant.write.js";
+import { templateResourceEntity } from "./table.js";
+import { userContentEntryEntity } from "./user-content-table.js";
 
 // template-resolver — structured template storage with tenant-override
 // hierarchy, locale fallback and resource linking via file-foundation.

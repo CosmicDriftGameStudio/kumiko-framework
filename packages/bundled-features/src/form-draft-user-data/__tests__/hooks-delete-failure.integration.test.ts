@@ -14,9 +14,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../../config";
-import { FormDraftHandlers, formDraftEntity, formDraftFeature } from "../../form-draft";
-import { formDraftDeleteHook } from "../hooks";
+import { createConfigFeature } from "../../config/index.js";
+import { FormDraftHandlers, formDraftEntity, formDraftFeature } from "../../form-draft/index.js";
+import { formDraftDeleteHook } from "../hooks.js";
 
 async function countDraftRows(stack: TestStack, ownerId: string): Promise<number> {
   const rows = await asRawClient(stack.db).unsafe(

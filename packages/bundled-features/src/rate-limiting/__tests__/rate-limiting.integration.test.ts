@@ -14,7 +14,7 @@ import {
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { createRateLimitingFeature } from "../feature";
+import { createRateLimitingFeature } from "../feature.js";
 
 let stack: TestStack;
 const admin = TestUsers.admin;

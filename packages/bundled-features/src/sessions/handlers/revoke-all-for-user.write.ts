@@ -6,12 +6,12 @@ import { append } from "@cosmicdrift/kumiko-framework/event-store";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { userSessionTable } from "../schema/user-session";
+import { userSessionTable } from "../schema/user-session.js";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,
   SESSION_REVOKED_EVENT_QN,
   sessionRevokedSchema,
-} from "../session-revoked-event";
+} from "../session-revoked-event.js";
 
 const REVOKE_ALL_SESSIONS_REASON =
   "revokes the target user's sessions in every tenant and appends the audit event on the SYSTEM stream";

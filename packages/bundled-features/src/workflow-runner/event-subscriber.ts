@@ -32,7 +32,7 @@ import type {
   WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { evaluateEventMatch } from "@cosmicdrift/kumiko-framework/engine";
-import { workflowRunPendingTable } from "./tables";
+import { workflowRunPendingTable } from "./tables.js";
 
 type CandidateRow = {
   readonly runId: string;

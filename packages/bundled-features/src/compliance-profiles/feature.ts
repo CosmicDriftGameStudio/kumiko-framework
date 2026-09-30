@@ -8,19 +8,19 @@ import {
   COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME,
   COMPLIANCE_PROFILE_SCREEN_ID,
   ComplianceProfileHandlers,
-} from "./constants";
-import { forTenantQuery } from "./handlers/for-tenant.query";
-import { listProfilesQuery } from "./handlers/list-profiles.query";
-import { createNeedsProfileQuery } from "./handlers/needs-profile.query";
-import { setProfileWrite } from "./handlers/set-profile.write";
-import { subProcessorsQuery } from "./handlers/sub-processors.query";
-import { COMPLIANCE_PROFILES_I18N } from "./i18n";
-import { tenantComplianceProfileEntity } from "./schema/profile-selection";
+} from "./constants.js";
+import { forTenantQuery } from "./handlers/for-tenant.query.js";
+import { listProfilesQuery } from "./handlers/list-profiles.query.js";
+import { createNeedsProfileQuery } from "./handlers/needs-profile.query.js";
+import { setProfileWrite } from "./handlers/set-profile.write.js";
+import { subProcessorsQuery } from "./handlers/sub-processors.query.js";
+import { COMPLIANCE_PROFILES_I18N } from "./i18n.js";
+import { tenantComplianceProfileEntity } from "./schema/profile-selection.js";
 
 export {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "./schema/profile-selection";
+} from "./schema/profile-selection.js";
 
 // compliance-profiles — Tenant-weite DSGVO/Compliance-Profile-Wahl.
 //

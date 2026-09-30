@@ -5,7 +5,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./constants";
+import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./constants.js";
 
 // UserContentEntry — the per-user half of the content store: mail signatures
 // and personal reply snippets, one row per (tenantId, ownerId, slug, kind,

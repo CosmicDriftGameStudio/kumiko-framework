@@ -34,22 +34,25 @@ import {
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override";
-import { createFilesFeature } from "../../files";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { tenantRetentionOverrideTable } from "../../data-retention/schema/tenant-retention-override.js";
+import { createFilesFeature } from "../../files/index.js";
 import {
   createNotesHistoryFeature,
   NotesHistoryHandlers,
   noteEntryEntity,
   noteEntryExecutor,
   noteMentionEntity,
-} from "../../notes-history";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
-import { notesHistoryUserDataFeature } from "..";
+} from "../../notes-history/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+import { notesHistoryUserDataFeature } from "../index.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 function pastInstant(): Instant {

@@ -7,12 +7,12 @@ import {
   normalizeListColumn,
   sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { createConfigFeature } from "../../config/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { createUserFeature } from "../../user/feature";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
-import { createAuditFeature } from "../feature";
-import { AUDIT_I18N } from "../i18n";
+import { createConfigFeature } from "../../config/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { createUserFeature } from "../../user/feature.js";
+import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.js";
+import { createAuditFeature } from "../feature.js";
+import { AUDIT_I18N } from "../i18n.js";
 
 describe("audit log screen + handler access alignment", () => {
   const features = [

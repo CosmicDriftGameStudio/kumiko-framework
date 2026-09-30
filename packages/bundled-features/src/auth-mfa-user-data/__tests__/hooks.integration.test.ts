@@ -12,18 +12,18 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
-import { base32Decode } from "../../auth-mfa/base32";
-import { AuthMfaHandlers } from "../../auth-mfa/constants";
-import { createAuthMfaFeature } from "../../auth-mfa/feature";
-import { userMfaEntity } from "../../auth-mfa/schema/user-mfa";
-import { currentTotpCode } from "../../auth-mfa/totp";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { userMfaDeleteHook, userMfaExportHook } from "../hooks";
+import { base32Decode } from "../../auth-mfa/base32.js";
+import { AuthMfaHandlers } from "../../auth-mfa/constants.js";
+import { createAuthMfaFeature } from "../../auth-mfa/feature.js";
+import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.js";
+import { currentTotpCode } from "../../auth-mfa/totp.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { userMfaDeleteHook, userMfaExportHook } from "../hooks.js";
 
 let stack: TestStack;
 

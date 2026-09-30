@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { folderAssignmentAggregateId } from "../aggregate-id";
+import { folderAssignmentAggregateId } from "../aggregate-id.js";
 
 // Drift-Pin-Tests — these values are cross-boot contracts. If they go red:
 // stop, think, revert. aggregate-id.ts names this file.

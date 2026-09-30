@@ -7,7 +7,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { createBillingInfoQueryConfig } from "../billing-info-query";
+import { createBillingInfoQueryConfig } from "../billing-info-query.js";
 
 type TestTier = "free" | "starter" | "pro";
 

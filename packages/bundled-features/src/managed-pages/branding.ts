@@ -4,7 +4,7 @@ import {
   type ConfigKeyDefinition,
   createTenantConfig,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { type BrandingTokens, EMPTY_BRANDING } from "../page-render";
+import { type BrandingTokens, EMPTY_BRANDING } from "../page-render/index.js";
 
 // Per-tenant branding, lifted from the publicstatus-local branding-config
 // pattern into the framework so every app + studio-tenant gets tenant-editable

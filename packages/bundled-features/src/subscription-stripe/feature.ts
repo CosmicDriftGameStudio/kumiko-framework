@@ -45,7 +45,7 @@ import {
   STRIPE_PROVIDER_NAME,
   STRIPE_WEBHOOK_SECRET_CONFIG,
   SUBSCRIPTION_STRIPE_FEATURE,
-} from "./constants";
+} from "./constants.js";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
@@ -54,9 +54,9 @@ import {
   createStripePriceCache,
   createStripeRetrievePrices,
   createStripeRetrieveSubscription,
-} from "./plugin-methods";
-import { createStripeRuntimes } from "./runtime";
-import { verifyAndParseStripeWebhook } from "./verify-webhook";
+} from "./plugin-methods.js";
+import { createStripeRuntimes } from "./runtime.js";
+import { verifyAndParseStripeWebhook } from "./verify-webhook.js";
 
 /**
  * Env-vars contract for the `subscription-stripe` feature — now a **bridge

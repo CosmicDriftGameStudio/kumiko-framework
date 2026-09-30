@@ -20,10 +20,10 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createSecretsFeature } from "../feature";
-import { rotateJob } from "../handlers/rotate.job";
-import { createSecretsContext } from "../secrets-context";
-import { type StoredEnvelope, tenantSecretsTable } from "../table";
+import { createSecretsFeature } from "../feature.js";
+import { rotateJob } from "../handlers/rotate.job.js";
+import { createSecretsContext } from "../secrets-context.js";
+import { type StoredEnvelope, tenantSecretsTable } from "../table.js";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",

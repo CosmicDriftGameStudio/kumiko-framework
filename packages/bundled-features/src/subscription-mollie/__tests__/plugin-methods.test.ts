@@ -6,7 +6,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { MollieClient } from "@mollie/api-client";
-import { createMollieCheckoutSession, type MolliePriceConfig } from "../plugin-methods";
+import { createMollieCheckoutSession, type MolliePriceConfig } from "../plugin-methods.js";
 
 const PRICE_CONFIG: Readonly<Record<string, MolliePriceConfig>> = {
   plan_pro: {

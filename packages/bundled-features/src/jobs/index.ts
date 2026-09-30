@@ -1,7 +1,7 @@
-export { JOBS_FEATURE, JobErrors, JobHandlers, JobQueries } from "./constants";
-export { createJobsFeature, type JobsFeatureOptions } from "./feature";
-export type { JobRunLoggerCallbacks } from "./job-run-logger";
-export { createJobRunLogger } from "./job-run-logger";
-export type { JobLogLevel, JobRunStatus } from "./job-run-table";
-export { jobRunLogsTable, jobRunsTable } from "./job-run-table";
-export { tenantJobFailuresTable } from "./tenant-job-failure-table";
+export { JOBS_FEATURE, JobErrors, JobHandlers, JobQueries } from "./constants.js";
+export { createJobsFeature, type JobsFeatureOptions } from "./feature.js";
+export type { JobRunLoggerCallbacks } from "./job-run-logger.js";
+export { createJobRunLogger } from "./job-run-logger.js";
+export type { JobLogLevel, JobRunStatus } from "./job-run-table.js";
+export { jobRunLogsTable, jobRunsTable } from "./job-run-table.js";
+export { tenantJobFailuresTable } from "./tenant-job-failure-table.js";

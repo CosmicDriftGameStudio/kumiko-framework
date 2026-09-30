@@ -10,9 +10,9 @@
 // Screen rein konfigurieren, ohne den Gate selbst ersetzen zu müssen.
 
 import { type ComponentType, type ReactNode, useEffect, useState } from "react";
-import { LoginScreen, type LoginScreenProps } from "./login-screen";
-import { SessionProvider, useSession } from "./session";
-import { SessionBootstrapErrorScreen } from "./session-bootstrap-error";
+import { LoginScreen, type LoginScreenProps } from "./login-screen.js";
+import { SessionProvider, useSession } from "./session.js";
+import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.js";
 
 // Generic — NOT auth-mfa's MfaVerifyScreenProps directly, so this feature
 // stays unaware of auth-mfa's concrete shape (same coupling direction as

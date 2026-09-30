@@ -3,9 +3,9 @@ import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared";
-import { userTable } from "../../user";
-import { tenantMembershipsTable } from "../membership-table";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
+import { userTable } from "../../user/index.js";
+import { tenantMembershipsTable } from "../membership-table.js";
 
 type UserRow = { readonly id: unknown; readonly email?: unknown; readonly displayName?: unknown };
 

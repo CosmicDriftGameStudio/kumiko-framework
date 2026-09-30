@@ -5,7 +5,7 @@
 // row directly would bypass the event store), so the comparator is unit-tested directly here.
 
 import { describe, expect, test } from "bun:test";
-import { byNewestFirst } from "../list.query";
+import { byNewestFirst } from "../list.query.js";
 
 function draft(id: string, savedAt: string) {
   return { id, draftKey: `wizard:${id}`, stepIndex: 0, savedAt };

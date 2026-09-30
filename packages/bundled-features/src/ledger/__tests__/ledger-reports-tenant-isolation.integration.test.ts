@@ -13,10 +13,10 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants";
-import { accountEntity, scheduleEntity, transactionEntity } from "../entity";
-import { createLedgerFeature } from "../feature";
-import type { Posting } from "../schemas";
+import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants.js";
+import { accountEntity, scheduleEntity, transactionEntity } from "../entity.js";
+import { createLedgerFeature } from "../feature.js";
+import type { Posting } from "../schemas.js";
 
 const ledgerFeature = createLedgerFeature();
 

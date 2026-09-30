@@ -8,8 +8,8 @@ import {
   PAT_REVOKED_AGGREGATE_TYPE,
   PAT_REVOKED_EVENT_QN,
   patRevokedSchema,
-} from "./pat-revoked-event";
-import { apiTokenTable } from "./schema/api-token";
+} from "./pat-revoked-event.js";
+import { apiTokenTable } from "./schema/api-token.js";
 
 // Cross-tenant revoke: password-change and MFA-enable/disable are account-
 // level security events, not scoped to one tenant. Mirrors sessions'

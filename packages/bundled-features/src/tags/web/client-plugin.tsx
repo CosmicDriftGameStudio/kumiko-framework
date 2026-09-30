@@ -6,11 +6,11 @@ import {
   TAGS_FEATURE_NAME,
   TAGS_FILTER_EXTENSION_NAME,
   TAGS_SECTION_EXTENSION_NAME,
-} from "../constants";
-import { defaultTranslations } from "./i18n";
-import { TagFilter } from "./tag-filter";
-import { TagSection } from "./tag-section";
-import { TagsCell } from "./tags-cell";
+} from "../constants.js";
+import { defaultTranslations } from "./i18n.js";
+import { TagFilter } from "./tag-filter.js";
+import { TagSection } from "./tag-section.js";
+import { TagsCell } from "./tags-cell.js";
 
 export function tagsClient(): ClientFeatureDefinition {
   return {

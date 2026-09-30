@@ -17,10 +17,10 @@
 
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { EXPORT_SECTION_EXTENSION_NAME, USER_DATA_RIGHTS_FEATURE } from "../constants";
-import { defaultTranslations } from "./i18n";
-import { ExportSection } from "./privacy-center-screen";
-import { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate";
+import { EXPORT_SECTION_EXTENSION_NAME, USER_DATA_RIGHTS_FEATURE } from "../constants.js";
+import { defaultTranslations } from "./i18n.js";
+import { ExportSection } from "./privacy-center-screen.js";
+import { makePublicDeletionGate, type PublicDeletionRoutes } from "./public-deletion-gate.js";
 
 export type UserDataRightsClientOptions = {
   /** Key-weise Overrides über die Default-Bundles (de/en). */

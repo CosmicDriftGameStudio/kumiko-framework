@@ -38,16 +38,16 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { tenantMembershipsTable } from "../../tenant";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { EXPORT_CLEANUP_BACKLOG_AGE_METRIC, runExportJobs } from "../run-export-jobs";
-import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
-import { hashDownloadToken } from "../token-helpers";
+} from "../../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { tenantMembershipsTable } from "../../tenant/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { EXPORT_CLEANUP_BACKLOG_AGE_METRIC, runExportJobs } from "../run-export-jobs.js";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.js";
+import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.js";
+import { hashDownloadToken } from "../token-helpers.js";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;

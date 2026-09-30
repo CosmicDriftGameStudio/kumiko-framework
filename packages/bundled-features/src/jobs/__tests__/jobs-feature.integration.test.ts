@@ -19,10 +19,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
-import { JobHandlers, JobQueries } from "../constants";
-import { createJobsFeature } from "../feature";
-import { createJobRunLogger } from "../job-run-logger";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+import { JobHandlers, JobQueries } from "../constants.js";
+import { createJobsFeature } from "../feature.js";
+import { createJobRunLogger } from "../job-run-logger.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 // --- Setup ---
 

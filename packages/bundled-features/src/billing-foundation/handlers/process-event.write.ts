@@ -18,9 +18,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { subscriptionAggregateId } from "../aggregate-id";
-import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants";
-import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities";
+import { subscriptionAggregateId } from "../aggregate-id.js";
+import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.js";
+import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities.js";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAYMENT_FAILED_EVENT_QN,
@@ -30,7 +30,7 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_QN,
   type SubscriptionEventHeaders,
   type SubscriptionEventPayload,
-} from "../events";
+} from "../events.js";
 
 // =============================================================================
 // Input-Schema = der normalisierte SubscriptionEvent (ohne tenantId, der

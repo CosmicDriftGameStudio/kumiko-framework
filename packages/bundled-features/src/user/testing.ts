@@ -2,4 +2,4 @@
 // Begründung — Helpers sind shared zwischen Tests und Dev-Server-
 // Bootstrap, /seeding ist die stabile Heimat.
 
-export * from "./seeding";
+export * from "./seeding.js";

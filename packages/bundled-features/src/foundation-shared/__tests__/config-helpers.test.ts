@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { InternalError, UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
-import { requireDefined, requireNonEmpty } from "../config-helpers";
+import { requireDefined, requireNonEmpty } from "../config-helpers.js";
 
 describe("requireDefined", () => {
   test("undefined → wirft mit featureName + label + Misconfig-Hinweis", () => {

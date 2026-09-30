@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { signMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge-token";
-import { signMfaPreauthSetupToken, verifyMfaPreauthSetupToken } from "../mfa-preauth-setup-token";
+import { signMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge-token.js";
+import {
+  signMfaPreauthSetupToken,
+  verifyMfaPreauthSetupToken,
+} from "../mfa-preauth-setup-token.js";
 
 const SECRET = "test-mfa-preauth-setup-secret-at-least-32-bytes!!";
 const USER_ID = "11111111-1111-4111-8111-111111111111";

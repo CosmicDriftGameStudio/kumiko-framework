@@ -16,12 +16,12 @@ import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
-import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store";
+import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store.js";
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../invitation-table";
+} from "../invitation-table.js";
 
 const CancelInvitationSchema = z.object({
   invitationId: z.string(),

@@ -10,9 +10,9 @@ import {
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id";
-import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "./constants";
-import { capCounterEntity } from "./entity";
+import { capCounterAggregateId, rollingCapAggregateId } from "./aggregate-id.js";
+import { CAP_COUNTER_ROLLING_AGGREGATE_TYPE, ROLLING_INCREMENTED_EVENT_QN } from "./constants.js";
+import { capCounterEntity } from "./entity.js";
 
 const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
 

@@ -31,18 +31,26 @@ import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { configValuesTable, createConfigFeature, createConfigResolver } from "../../config";
-import { createDataRetentionFeature } from "../../data-retention";
-import { fileFoundationFeature } from "../../file-foundation";
-import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
-import { mailFoundationFeature } from "../../mail-foundation";
-import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { exportDownloadTokenEntity } from "../schema/download-token";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
+} from "../../compliance-profiles/index.js";
+import {
+  configValuesTable,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
+import { mailFoundationFeature } from "../../mail-foundation/index.js";
+import {
+  clearInbox,
+  getInbox,
+  mailTransportInMemoryFeature,
+} from "../../mail-transport-inmemory/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { exportDownloadTokenEntity } from "../schema/download-token.js";
+import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.js";
 
 const TENANT = "00000000-0000-4000-8000-0000000009a1";
 const USER_ID = "00000000-0000-4000-8000-0000000009b1";

@@ -15,7 +15,7 @@ mock.module("../auth-gate", () => ({
   },
 }));
 
-const { emailPasswordClient } = await import("../client-plugin");
+const { emailPasswordClient } = await import("../client-plugin.js");
 
 describe("emailPasswordClient — mfaSetupScreen wiring", () => {
   test("passes options.mfaSetupScreen through to makeSessionAuthGate", () => {

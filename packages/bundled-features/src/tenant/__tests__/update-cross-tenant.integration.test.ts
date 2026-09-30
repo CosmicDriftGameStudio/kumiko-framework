@@ -12,12 +12,12 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { TenantHandlers } from "../constants";
-import { createTenantFeature } from "../feature";
-import { tenantEntity } from "../schema/tenant";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { TenantHandlers } from "../constants.js";
+import { createTenantFeature } from "../feature.js";
+import { tenantEntity } from "../schema/tenant.js";
 
 let stack: TestStack;
 

@@ -1,5 +1,5 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { MY_CAPS_ACCESS_ROLES } from "./access";
+import { MY_CAPS_ACCESS_ROLES } from "./access.js";
 import {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_USAGE_CELL_COMPONENT,
@@ -8,8 +8,8 @@ import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
   TENANT_CAP_LIST_SCREEN_ID,
-} from "./constants";
-import type { CapSpec } from "./types";
+} from "./constants.js";
+import type { CapSpec } from "./types.js";
 
 // `tiers` has no room for a separate per-tier display label (it's just
 // `readonly string[]`) — tier-engine itself has no enumerated tier list to

@@ -5,8 +5,8 @@
 // existing integration coverage with them.
 
 import { describe, expect, test } from "bun:test";
-import { SubscriptionStatuses } from "../constants";
-import { effectiveTierFromSubscription } from "../subscription-tier-sync";
+import { SubscriptionStatuses } from "../constants.js";
+import { effectiveTierFromSubscription } from "../subscription-tier-sync.js";
 
 type TestTier = "free" | "starter" | "pro";
 const isTierName = (v: string): v is TestTier => v === "free" || v === "starter" || v === "pro";

@@ -4,9 +4,9 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { configValueEntity, configValuesTable } from "../../config";
-import { assertErased } from "../../shared";
-import { featureMounted } from "./feature-mounted";
+import { configValueEntity, configValuesTable } from "../../config/index.js";
+import { assertErased } from "../../shared/index.js";
+import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for config's USER-scoped rows (userId set). Tenant-/system-
 // scope rows carry no per-user subject and stay untouched. Event-sourced

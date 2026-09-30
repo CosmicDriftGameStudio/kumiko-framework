@@ -33,7 +33,7 @@ import {
   SUBSCRIPTION_PROVIDER_EXTENSION,
   type SubscriptionEventType,
   type SubscriptionStatus,
-} from "./constants";
+} from "./constants.js";
 
 // =============================================================================
 // Normalisierter Webhook-Event

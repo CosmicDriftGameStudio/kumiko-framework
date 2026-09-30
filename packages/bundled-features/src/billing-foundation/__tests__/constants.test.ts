@@ -7,7 +7,7 @@ import {
   isSubscriptionBlockingCheckout,
   STALE_INCOMPLETE_AFTER,
   SubscriptionStatuses,
-} from "../constants";
+} from "../constants.js";
 
 // @cast-boundary temporal-polyfill-vs-ambient: same TC39 Temporal.Instant at
 // runtime — `isSubscriptionBlockingCheckout`'s params are typed against the

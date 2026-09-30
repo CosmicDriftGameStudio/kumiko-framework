@@ -6,15 +6,15 @@ import { describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { validateTokenVerifierMultiplicity } from "../boot-checks";
-import { authFoundationFeature, resolveTokenVerifier } from "../feature";
+import { validateTokenVerifierMultiplicity } from "../boot-checks.js";
+import { authFoundationFeature, resolveTokenVerifier } from "../feature.js";
 import {
   type AuthProviderPlugin,
   EXT_SESSION_STORE,
   EXT_TOKEN_VERIFIER,
   type SessionStore,
   type SessionStoreProvider,
-} from "../types";
+} from "../types.js";
 
 // Mock providers never read `deps.db` — a real provider (personal-access-
 // tokens/resolver.ts) does a point-read + live-role-resolution against it.

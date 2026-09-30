@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { ReactNode } from "react";
-import { AuthCard, AuthShellProvider } from "../auth-form-primitives";
-import { renderWithProviders } from "./test-utils";
+import { AuthCard, AuthShellProvider } from "../auth-form-primitives.js";
+import { renderWithProviders } from "./test-utils.js";
 
 describe("AuthCard / AuthShell", () => {
   test("ohne Provider → Default-Fullscreen-Wrapper (rückwärtskompatibel)", () => {

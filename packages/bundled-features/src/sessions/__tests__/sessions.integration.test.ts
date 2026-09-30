@@ -29,23 +29,23 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createUserFeature } from "../../user/feature";
-import { USER_STATUS, userEntity, userTable } from "../../user/schema/user";
-import { SessionHandlers, SessionQueries } from "../constants";
-import { createSessionsFeature } from "../feature";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { SESSION_REVOKED_EVENT_QN, sessionRevokedSchema } from "../session-revoked-event";
-import { sessionCallbacksFromLateBound } from "../testing";
-import { makeSessionHelpers } from "./test-helpers";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { USER_STATUS, userEntity, userTable } from "../../user/schema/user.js";
+import { SessionHandlers, SessionQueries } from "../constants.js";
+import { createSessionsFeature } from "../feature.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
+import { SESSION_REVOKED_EVENT_QN, sessionRevokedSchema } from "../session-revoked-event.js";
+import { sessionCallbacksFromLateBound } from "../testing.js";
+import { makeSessionHelpers } from "./test-helpers.js";
 
 // End-to-end test of the sessions feature. Full loop: login persists a
 // session → JWT carries jti → middleware checks it on every subsequent

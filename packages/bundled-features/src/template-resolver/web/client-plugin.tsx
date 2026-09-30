@@ -39,8 +39,8 @@ import {
   collectionQueryName,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "../qualified-names";
-import { defaultTranslations } from "./i18n";
+} from "../qualified-names.js";
+import { defaultTranslations } from "./i18n.js";
 
 // Exported for the unit test — groupBlocksByFolder is a pure function.
 export type BlockSummary = {

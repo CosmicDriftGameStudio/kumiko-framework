@@ -6,10 +6,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { AuthErrors } from "../../auth-email-password";
-import { decryptStoredPii, verifyPassword } from "../../shared";
-import { UserErrors, UserHandlers, UserQueries } from "../../user";
-import { UserProfileErrors } from "../constants";
+import { AuthErrors } from "../../auth-email-password/index.js";
+import { decryptStoredPii, verifyPassword } from "../../shared/index.js";
+import { UserErrors, UserHandlers, UserQueries } from "../../user/index.js";
+import { UserProfileErrors } from "../constants.js";
 
 // Gleiche Failure-Shape wie auth-email-password (anti-enumeration):
 // dessen errors.ts ist nicht Teil des Feature-Barrels, der Reason-Code

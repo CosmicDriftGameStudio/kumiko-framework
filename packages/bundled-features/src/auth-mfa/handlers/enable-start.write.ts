@@ -1,14 +1,14 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { UserQueries } from "../../user";
-import { base32Encode } from "../base32";
-import { MFA_SETUP_TOKEN_TTL_MINUTES } from "../constants";
-import { findUserMfaRow } from "../db/queries";
-import { mfaAlreadyEnabled } from "../errors";
-import { signMfaSetupToken } from "../mfa-setup-token";
-import { buildOtpauthUri } from "../otpauth-uri";
-import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes";
-import { generateTotpSecret } from "../totp";
+import { UserQueries } from "../../user/index.js";
+import { base32Encode } from "../base32.js";
+import { MFA_SETUP_TOKEN_TTL_MINUTES } from "../constants.js";
+import { findUserMfaRow } from "../db/queries.js";
+import { mfaAlreadyEnabled } from "../errors.js";
+import { signMfaSetupToken } from "../mfa-setup-token.js";
+import { buildOtpauthUri } from "../otpauth-uri.js";
+import { generateRecoveryCodes, hashRecoveryCodes } from "../recovery-codes.js";
+import { generateTotpSecret } from "../totp.js";
 
 export type EnableStartOptions = {
   readonly setupTokenSecret: string;

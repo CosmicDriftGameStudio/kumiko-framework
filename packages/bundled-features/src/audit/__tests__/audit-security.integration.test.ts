@@ -23,17 +23,17 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
-import { hashPassword } from "../../shared";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { seedUser } from "../../user/seeding";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants";
-import { createAuditFeature } from "../feature";
+import { createConfigFeature } from "../../config/feature.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { seedUser } from "../../user/seeding.js";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.js";
+import { createAuditFeature } from "../feature.js";
 
 const widgetEntity = createEntity({
   table: "audit_sec_widgets",

@@ -25,12 +25,12 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasWhereRule } from "../shared";
-import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./constants";
-import { createFolderAssignmentEntity, folderEntity } from "./entity";
-import { createClearFolderHandler } from "./handlers/clear-folder.write";
-import { createDeleteFolderHandler } from "./handlers/delete-folder.write";
-import { createSetFolderHandler } from "./handlers/set-folder.write";
+import { hasWhereRule } from "../shared/index.js";
+import { DEFAULT_FOLDER_ACCESS, FOLDERS_FEATURE_NAME } from "./constants.js";
+import { createFolderAssignmentEntity, folderEntity } from "./entity.js";
+import { createClearFolderHandler } from "./handlers/clear-folder.write.js";
+import { createDeleteFolderHandler } from "./handlers/delete-folder.write.js";
+import { createSetFolderHandler } from "./handlers/set-folder.write.js";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { SignupScreen } from "../signup-screen";
-import { renderWithProviders } from "./test-utils";
+import { SignupScreen } from "../signup-screen.js";
+import { renderWithProviders } from "./test-utils.js";
 
 const realFetch = globalThis.fetch;
 

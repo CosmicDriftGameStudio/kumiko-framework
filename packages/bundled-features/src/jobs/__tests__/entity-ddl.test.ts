@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { jobRunEntity } from "../job-run-table";
+import { jobRunEntity } from "../job-run-table.js";
 
 function pgTypeOf(table: unknown, dbName: string): string | undefined {
   const cols = (table as { columns?: ReadonlyArray<{ name: string; pgType?: string }> }).columns;
