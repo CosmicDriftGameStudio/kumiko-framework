@@ -1181,6 +1181,24 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         await worker.close();
         worker = null;
       }
+      // BullMQ close() while a Queue's connection is still 'initializing'
+      // rejects the in-flight INFO with "Connection is closed." on an emitter
+      // without listeners -> unhandled rejection (fw#1805). Wait for readiness
+      // first; a failed/timed-out wait must not block the close itself.
+      const readinessTimeout = timeoutReject(
+        bootRedisTimeoutMs,
+        `job-runner: Queue not ready within ${bootRedisTimeoutMs}ms during stop()`,
+      );
+      try {
+        await Promise.race([
+          Promise.all([queues.api.waitUntilReady(), queues.worker.waitUntilReady()]),
+          readinessTimeout.promise,
+        ]);
+      } catch {
+        // close() below still has to run
+      } finally {
+        readinessTimeout.cancel();
+      }
       await Promise.all([queues.api.close(), queues.worker.close()]);
       if (lockRedis) {
         // quit() drains in-flight commands; disconnect() would cancel them

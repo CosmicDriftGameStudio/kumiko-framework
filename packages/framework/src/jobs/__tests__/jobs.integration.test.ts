@@ -1530,3 +1530,34 @@ describe("boot gates", () => {
     expect(() => createRegistry([validStringForm])).not.toThrow();
   });
 });
+
+describe("runner lifecycle: immediate stop (fw#1805)", () => {
+  test("stop() right after construction leaves no unhandled rejection", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      // @timeout-exception: #1805 the 0-4ms delay is the variable under test (stop during connect), nothing to poll for
+      for (let i = 0; i < 20; i++) {
+        const runner = createJobRunner({
+          registry: createRegistry([testFeature]),
+          context: {},
+          redisUrl,
+          consumerLane: "worker",
+          queueNamePrefix: `kumiko-test-stop-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
+        });
+        // Deterministic 0-4ms delays hit the window where the Queue
+        // connection is still 'initializing'.
+        await sleep(i % 5);
+        await runner.stop();
+      }
+      // Rejections surface on a later tick.
+      await sleep(200);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    expect(unhandled).toEqual([]);
+  });
+});
