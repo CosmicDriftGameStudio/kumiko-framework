@@ -111,6 +111,12 @@ export function createInMemorySearchAdapter(): SearchAdapter {
       }
     },
 
+    async dropAllIndexes() {
+      const dropped = tenants.size;
+      tenants.clear();
+      return dropped;
+    },
+
     async removeBatch(tenantId, items) {
       const tenant = tenants.get(tenantId);
       // skip: tenant has no in-memory index (never configured) — nothing to remove
