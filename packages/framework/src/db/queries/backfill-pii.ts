@@ -37,8 +37,8 @@
 //   Both stages are opt-in and off by default; without them an unresolvable
 //   subject still fails loud into `failures`, as before.
 //
-// Snapshots of touched aggregates are dropped (they may cache plaintext);
-// the next snapshotting load recreates them. AFTER a run, rebuild the
+// Snapshots of touched aggregates are dropped per batch (they may cache
+// plaintext); the next snapshotting load recreates them. AFTER a run, rebuild the
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
@@ -50,6 +50,7 @@ import {
   KeyErasedError,
   KeyNotFoundError,
   type KmsContext,
+  type LocalKeyKmsAdapter,
   type SubjectId,
 } from "../../crypto/kms-adapter";
 import {
@@ -67,7 +68,7 @@ import {
 import type { EntityDefinition, Registry, TenantId } from "../../engine/types";
 import type { DbRunner } from "../connection";
 import { resolveTableName } from "../entity-table-meta";
-import { isUndefinedTable } from "../pg-error";
+import { tableExists } from "../schema-inspection";
 import { toSnakeCase } from "../table-builder";
 
 const LIFECYCLE_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
@@ -92,6 +93,19 @@ export type PiiBackfillResult = {
   readonly failures: readonly PiiBackfillFailure[];
 };
 
+export type PiiBackfillScanCache = {
+  forgottenAggregates?: ReadonlySet<string>;
+};
+
+export type PiiBackfillBatchResult = PiiBackfillResult & {
+  // Last scanned event id; null when the batch was empty.
+  readonly lastEventId: string | null;
+  readonly scannedAll: boolean;
+  readonly firstFailedEventId: string | null;
+  readonly touchedAggregateTypes: readonly string[];
+  readonly touchedEventTypes: readonly string[];
+};
+
 export type PiiBackfillOptions = {
   readonly batchSize?: number;
   // Scan + count only, write nothing — including the subject KMS: outcomes
@@ -105,6 +119,12 @@ export type PiiBackfillOptions = {
   readonly eraseUnresolvableSubjects?: boolean;
 };
 
+export type PiiBackfillBatchOptions = PiiBackfillOptions & {
+  readonly afterEventId?: bigint | string;
+  // Caller-held so the forgotten-set full scan is shared across batches.
+  readonly scanCache?: PiiBackfillScanCache;
+};
+
 type EventRow = {
   readonly id: bigint | string;
   readonly aggregate_id: string;
@@ -116,26 +136,15 @@ type EventRow = {
 
 type FieldOutcome = "unchanged" | "encrypted" | "erased";
 
-export async function backfillEventPiiEncryption(
-  db: DbRunner,
-  registry: Registry,
-  options: PiiBackfillOptions = {},
-): Promise<PiiBackfillResult> {
-  const kms = configuredPiiSubjectKms();
-  if (!kms) {
-    throw new Error(
-      "backfillEventPiiEncryption requires a configured subject KMS — boot with " +
-        "runProdApp({ kms }) / configurePiiSubjectKms(adapter) before running the backfill.",
-    );
-  }
-  if (!isLocalKeyKmsAdapter(kms)) {
-    throw new Error("backfillEventPiiEncryption requires a local-key KMS adapter");
-  }
-  const subjectKms = kms;
-  const batchSize = options.batchSize ?? 500;
-  const raw = asRawClient(db);
-  const kmsCtx: KmsContext = { requestId: "pii-backfill" };
+type PiiTargets = {
+  readonly entityTargets: ReadonlyMap<
+    string,
+    { readonly entity: EntityDefinition; readonly piiFields: readonly string[] }
+  >;
+  readonly eventCatalog: ReturnType<typeof configuredEventPiiCatalog>;
+};
 
+function collectPiiTargets(registry: Registry): PiiTargets {
   const entityTargets = new Map<
     string,
     { readonly entity: EntityDefinition; readonly piiFields: readonly string[] }
@@ -144,8 +153,77 @@ export async function backfillEventPiiEncryption(
     const piiFields = collectPiiSubjectFields(entity);
     if (piiFields.length > 0) entityTargets.set(name, { entity, piiFields });
   }
-  const eventCatalog = configuredEventPiiCatalog();
+  return { entityTargets, eventCatalog: configuredEventPiiCatalog() };
+}
 
+function requireLocalKeySubjectKms(caller: string): LocalKeyKmsAdapter {
+  const kms = configuredPiiSubjectKms();
+  if (!kms) {
+    throw new Error(
+      `${caller} requires a configured subject KMS — boot with ` +
+        "runProdApp({ kms }) / configurePiiSubjectKms(adapter) before running the backfill.",
+    );
+  }
+  if (!isLocalKeyKmsAdapter(kms)) {
+    throw new Error(`${caller} requires a local-key KMS adapter`);
+  }
+  return kms;
+}
+
+export async function backfillEventPiiEncryption(
+  db: DbRunner,
+  registry: Registry,
+  options: PiiBackfillOptions = {},
+): Promise<PiiBackfillResult> {
+  requireLocalKeySubjectKms("backfillEventPiiEncryption");
+  const total = {
+    scannedEvents: 0,
+    updatedEvents: 0,
+    encryptedFields: 0,
+    erasedFields: 0,
+    ownerFromProjection: 0,
+    erasedUnresolvable: 0,
+    deletedSnapshots: 0,
+  };
+  const failures: PiiBackfillFailure[] = [];
+  const scanCache: PiiBackfillScanCache = {};
+  let afterEventId: string = "0";
+
+  for (;;) {
+    const batch = await backfillEventPiiEncryptionBatch(db, registry, {
+      ...options,
+      afterEventId,
+      scanCache,
+    });
+    total.scannedEvents += batch.scannedEvents;
+    total.updatedEvents += batch.updatedEvents;
+    total.encryptedFields += batch.encryptedFields;
+    total.erasedFields += batch.erasedFields;
+    total.ownerFromProjection += batch.ownerFromProjection;
+    total.erasedUnresolvable += batch.erasedUnresolvable;
+    total.deletedSnapshots += batch.deletedSnapshots;
+    failures.push(...batch.failures);
+    if (batch.lastEventId === null || batch.scannedAll) break;
+    afterEventId = batch.lastEventId;
+  }
+  return { ...total, failures };
+}
+
+// Processes exactly one batch. Snapshots of the batch's touched aggregates are
+// dropped inside the same call so an abort between batches never leaves a
+// snapshot that caches plaintext for an already-encrypted stream.
+export async function backfillEventPiiEncryptionBatch(
+  db: DbRunner,
+  registry: Registry,
+  options: PiiBackfillBatchOptions = {},
+): Promise<PiiBackfillBatchResult> {
+  const subjectKms = requireLocalKeySubjectKms("backfillEventPiiEncryptionBatch");
+  const batchSize = options.batchSize ?? 500;
+  const raw = asRawClient(db);
+  const kmsCtx: KmsContext = { requestId: "pii-backfill" };
+  const scanCache = options.scanCache ?? {};
+
+  const { entityTargets, eventCatalog } = collectPiiTargets(registry);
   const aggregateTypes = [...entityTargets.keys()];
   const catalogTypes = [...eventCatalog.keys()];
   const result = {
@@ -158,65 +236,65 @@ export async function backfillEventPiiEncryption(
     deletedSnapshots: 0,
     failures: [] as PiiBackfillFailure[],
   };
-  if (aggregateTypes.length === 0 && catalogTypes.length === 0) return result;
+  const emptyBatch = (): PiiBackfillBatchResult => ({
+    ...result,
+    lastEventId: null,
+    scannedAll: true,
+    firstFailedEventId: null,
+    touchedAggregateTypes: [],
+    touchedEventTypes: [],
+  });
+  if (aggregateTypes.length === 0 && catalogTypes.length === 0) return emptyBatch();
 
-  // Pre-KMS forgets left no key tombstone — the *.forgotten event on the
-  // stream is the only durable marker. Collect once; aggregate_id doubles
-  // as the user id for user-subject lookups.
-  const forgottenRows = (await raw.unsafe(
-    `SELECT DISTINCT "aggregate_id" FROM "kumiko_events" WHERE "type" LIKE '%.forgotten'`,
-  )) as ReadonlyArray<{ aggregate_id: string }>;
-  const forgottenAggregates = new Set(forgottenRows.map((r) => r.aggregate_id));
+  const rows = (await raw.unsafe(
+    `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
+       FROM "kumiko_events"
+      WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
+      ORDER BY "id" ASC
+      LIMIT $4`,
+    [aggregateTypes, catalogTypes, String(options.afterEventId ?? 0), batchSize],
+  )) as ReadonlyArray<EventRow>;
+  const last = rows[rows.length - 1];
+  if (last === undefined) return emptyBatch();
 
+  const projectionOwnersByType = await loadProjectionOwners(rows);
   const touchedAggregates = new Set<string>();
-  let cursor = "0";
+  const touchedAggregateTypes = new Set<string>();
+  const touchedEventTypes = new Set<string>();
+  let firstFailedEventId: string | null = null;
 
-  for (;;) {
-    const rows = (await raw.unsafe(
-      `SELECT "id", "aggregate_id", "aggregate_type", "tenant_id", "type", "payload"
-         FROM "kumiko_events"
-        WHERE ("aggregate_type" = ANY($1::text[]) OR "type" = ANY($2::text[])) AND "id" > $3::bigint
-        ORDER BY "id" ASC
-        LIMIT $4`,
-      [aggregateTypes, catalogTypes, cursor, batchSize],
-    )) as ReadonlyArray<EventRow>;
-    if (rows.length === 0) break;
-
-    const projectionOwnersByType = await loadProjectionOwners(rows);
-
-    for (const row of rows) {
-      result.scannedEvents++;
-      try {
-        const outcome = await transformEvent(row, projectionOwnersByType.get(row.aggregate_type));
-        if (outcome === null) continue;
-        result.encryptedFields += outcome.encrypted;
-        result.erasedFields += outcome.erased;
-        result.ownerFromProjection += outcome.ownerFromProjection;
-        result.erasedUnresolvable += outcome.erasedUnresolvable;
-        if (!options.dryRun) {
-          await raw.unsafe(`UPDATE "kumiko_events" SET "payload" = $1::jsonb WHERE "id" = $2`, [
-            outcome.payload,
-            row.id,
-          ]);
-        }
-        result.updatedEvents++;
-        touchedAggregates.add(row.aggregate_id);
-      } catch (e) {
-        const reason = e instanceof Error ? e.message : String(e);
-        result.failures.push({
-          eventId: String(row.id),
-          reason:
-            e instanceof SubjectResolutionError
-              ? `${reason} (retry with { resolveOwnerFromProjection: true } to resolve the owner ` +
-                "from the entity's projection table, and/or { eraseUnresolvableSubjects: true } to " +
-                "erase fields whose subject stays unresolvable)"
-              : reason,
-        });
+  for (const row of rows) {
+    result.scannedEvents++;
+    try {
+      const outcome = await transformEvent(row, projectionOwnersByType.get(row.aggregate_type));
+      if (outcome === null) continue;
+      result.encryptedFields += outcome.encrypted;
+      result.erasedFields += outcome.erased;
+      result.ownerFromProjection += outcome.ownerFromProjection;
+      result.erasedUnresolvable += outcome.erasedUnresolvable;
+      if (!options.dryRun) {
+        await raw.unsafe(`UPDATE "kumiko_events" SET "payload" = $1::jsonb WHERE "id" = $2`, [
+          outcome.payload,
+          row.id,
+        ]);
       }
+      result.updatedEvents++;
+      touchedAggregates.add(row.aggregate_id);
+      touchedAggregateTypes.add(row.aggregate_type);
+      touchedEventTypes.add(row.type);
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      firstFailedEventId ??= String(row.id);
+      result.failures.push({
+        eventId: String(row.id),
+        reason:
+          e instanceof SubjectResolutionError
+            ? `${reason} (retry with { resolveOwnerFromProjection: true } to resolve the owner ` +
+              "from the entity's projection table, and/or { eraseUnresolvableSubjects: true } to " +
+              "erase fields whose subject stays unresolvable)"
+            : reason,
+      });
     }
-    const last = rows[rows.length - 1];
-    if (last === undefined) break;
-    cursor = String(last.id);
   }
 
   // Snapshots may cache the plaintext state of touched aggregates.
@@ -228,7 +306,28 @@ export async function backfillEventPiiEncryption(
     result.deletedSnapshots = deleted.length;
   }
 
-  return result;
+  return {
+    ...result,
+    lastEventId: String(last.id),
+    scannedAll: rows.length < batchSize,
+    firstFailedEventId,
+    touchedAggregateTypes: [...touchedAggregateTypes],
+    touchedEventTypes: [...touchedEventTypes],
+  };
+
+  // Full-scan of the store — only paid once a plaintext field actually needs
+  // encrypting, so a catch-up run over already-encrypted events never runs it.
+  async function loadForgottenAggregates(): Promise<ReadonlySet<string>> {
+    if (scanCache.forgottenAggregates) return scanCache.forgottenAggregates;
+    // Pre-KMS forgets left no key tombstone — the *.forgotten event on the
+    // stream is the only durable marker. aggregate_id doubles as the user id
+    // for user-subject lookups.
+    const forgottenRows = (await raw.unsafe(
+      `SELECT DISTINCT "aggregate_id" FROM "kumiko_events" WHERE "type" LIKE '%.forgotten'`,
+    )) as ReadonlyArray<{ aggregate_id: string }>;
+    scanCache.forgottenAggregates = new Set(forgottenRows.map((r) => r.aggregate_id));
+    return scanCache.forgottenAggregates;
+  }
 
   async function loadProjectionOwners(
     rows: readonly EventRow[],
@@ -249,7 +348,10 @@ export async function backfillEventPiiEncryption(
       if (!target) continue;
       const tableName = resolveTableName(aggregateType, target.entity, undefined);
       const ownersById = new Map<string, Record<string, unknown>>();
-      try {
+      // Existence check instead of catching undefined_table: a caught SQL error
+      // aborts the surrounding transaction (25P02). Entity never mounted/rebuilt
+      // → stage 3 still gets a chance; this batch just contributes no owners.
+      if (await tableExists(db, `public.${tableName}`)) {
         const projectionRows = (await raw.unsafe(
           `SELECT * FROM ${quoteIdent(tableName)} WHERE "id" = ANY($1::uuid[])`,
           [[...ids]],
@@ -260,10 +362,6 @@ export async function backfillEventPiiEncryption(
             ownersById.set(id, projectionRowToCamel(target.entity, projectionRow));
           }
         }
-      } catch (e) {
-        // Entity never mounted/rebuilt (no projection table yet) — stage 3
-        // still gets a chance; this batch just contributes no owners.
-        if (!isUndefinedTable(e)) throw e;
       }
       byType.set(aggregateType, ownersById);
     }
@@ -367,7 +465,7 @@ export async function backfillEventPiiEncryption(
       if (value === null || value === undefined) return "unchanged";
       if (typeof value !== "string") return "unchanged";
       if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) return "unchanged";
-      if (isForgottenSubject(subject, row.aggregate_id)) {
+      if (await isForgottenSubject(subject, row.aggregate_id)) {
         section[field] = PII_ERASED_SENTINEL;
         return "erased";
       }
@@ -400,7 +498,8 @@ export async function backfillEventPiiEncryption(
     }
   }
 
-  function isForgottenSubject(subject: SubjectId, aggregateId: string): boolean {
+  async function isForgottenSubject(subject: SubjectId, aggregateId: string): Promise<boolean> {
+    const forgottenAggregates = await loadForgottenAggregates();
     if (forgottenAggregates.has(aggregateId)) return true;
     return subject.kind === "user" && forgottenAggregates.has(subject.userId);
   }

@@ -21,5 +21,15 @@ export {
   type RunPendingRebuildsOptions,
   runPendingRebuilds,
 } from "./pending-rebuilds";
+// Boot-time backfill: re-encrypts plaintext events after a PII annotation was added.
+export {
+  createPiiBackfillStateTable,
+  type PiiEventBackfillOptions,
+  type PiiEventBackfillResult,
+  type PiiRebuildRun,
+  piiAnnotationFingerprint,
+  piiBackfillStateTable,
+  runPiiEventBackfill,
+} from "./pii-event-backfill";
 // tableName → projection-name, für den app-seitigen Projection-Rebuild.
 export { buildProjectionTableIndex } from "./projection-table-index";

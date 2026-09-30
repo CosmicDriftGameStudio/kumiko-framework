@@ -142,10 +142,20 @@ Refusing it in the name of append-only purity would leave stream deletion as
 the only Art. 17 remedy for the backlog, which destroys far more of the log
 than re-encrypting one field.
 
-**Operator action:** after declaring a field `record`-owned (or any subject
-kind) on a field that pre-existed, run `backfillEventPiiEncryption(db,
-registry)` once against the estate — `dryRun: true` first to see the
-projected counts — then rebuild the affected projections.
+**Operator action:** none for the common case. `runProdApp` and `runWorkerApp`
+run `runPiiEventBackfill` in the background after start. It re-encrypts the
+plaintext events once per annotation state (a fingerprint over all PII-annotated
+entity and event fields, kept in `kumiko_pii_backfill_state`), queues the
+affected projections in `kumiko_pending_rebuilds` and rebuilds them. Later boots
+only run a cheap catch-up over the newest events. Multiple replicas are
+serialized by an advisory lock, and each batch commits on its own, so an
+interrupted run resumes where it stopped. Failed events are logged with their
+ids and retried on the next boot. Set `KUMIKO_SKIP_PII_BACKFILL=1` to opt out.
+
+Call `backfillEventPiiEncryption(db, registry)` by hand only for what the boot
+run deliberately never does: `eraseUnresolvableSubjects: true` (irreversible,
+writes the erased sentinel for subjects that stay unresolvable) and
+`dryRun: true` to inspect projected counts first.
 
 **Resolved (fw#2801):** `backfillEventPiiEncryption`'s custom-event-catalog
 branch and the live `encryptEventPayloadPii` write path both resolve every
