@@ -895,6 +895,59 @@ describe("Single-Use-Burn (alle Branches)", () => {
   });
 });
 
+describe("remove-member cancels the removed member's open invitations", () => {
+  async function removeBobFromTenantA(): Promise<void> {
+    await stack.http.writeOk(
+      TenantHandlers.removeMember,
+      { userId: bobId, tenantId: TENANT_A_ID },
+      { id: "system-admin", tenantId: TENANT_A_ID, roles: ["SystemAdmin"] },
+    );
+  }
+
+  async function invitationStatusOf(email: string): Promise<unknown> {
+    const [row] = await selectMany(stack.db, tenantInvitationsTable, {
+      email,
+      tenantId: TENANT_A_ID,
+    });
+    return row?.["status"];
+  }
+
+  test("removed member cannot rejoin via an invitation issued before removal", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    const token = await inviteEmail(BOB_EMAIL, "Admin");
+
+    await removeBobFromTenantA();
+
+    const res = await authedRaw("POST", "/api/auth/invite-accept", { token }, bobSession());
+    expect(res.status).toBe(422);
+    const body = (await res.json()) as { error?: { details?: { reason?: string } } };
+    expect(body.error?.details?.reason).toBe(AuthErrors.invalidInviteToken);
+    expect(await invitationStatusOf(BOB_EMAIL)).toBe(INVITATION_STATUS.cancelled);
+    const memberships = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(memberships).toHaveLength(0);
+  });
+
+  test("invitations to other emails stay pending", async () => {
+    await seedTenantMembership(stack.db, {
+      userId: bobId,
+      tenantId: TENANT_A_ID,
+      roles: ["Editor"],
+    });
+    await inviteEmail(CAROL_EMAIL, "Editor");
+
+    await removeBobFromTenantA();
+
+    expect(await invitationStatusOf(CAROL_EMAIL)).toBe(INVITATION_STATUS.pending);
+  });
+});
+
 describe("cancel-invitation", () => {
   test("Admin cancellt → status=cancelled + token weg, accept wird invalid", async () => {
     const token = await inviteEmail(BOB_EMAIL, "Admin");
