@@ -12,20 +12,20 @@ import {
   type FieldIssue,
 } from "@cosmicdrift/kumiko-headless";
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
-import { useAppFeatures } from "../app/app-features-context";
-import { useColumnRenderer } from "../app/column-renderers";
-import { extensionSectionName } from "../app/extension-sections";
-import { toKebab } from "../app/qn";
-import { screenAccessAllows } from "../app/screen-access";
-import { useUserRoles } from "../context/user-roles-context";
-import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits";
-import { useQuery } from "../hooks/use-query";
-import { referenceLookupSource } from "../hooks/use-reference-lookup";
-import { useLocale, useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
-import { EmbeddedListField } from "./embedded-list-field";
-import { MultiSelectCheckboxes } from "./multi-select-checkboxes";
-import { ReferenceCreateDialog } from "./reference-create-dialog";
+import { useAppFeatures } from "../app/app-features-context.js";
+import { useColumnRenderer } from "../app/column-renderers.js";
+import { extensionSectionName } from "../app/extension-sections.js";
+import { toKebab } from "../app/qn.js";
+import { screenAccessAllows } from "../app/screen-access.js";
+import { useUserRoles } from "../context/user-roles-context.js";
+import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.js";
+import { useQuery } from "../hooks/use-query.js";
+import { referenceLookupSource } from "../hooks/use-reference-lookup.js";
+import { useLocale, useTranslation } from "../i18n.js";
+import { usePrimitives } from "../primitives.js";
+import { EmbeddedListField } from "./embedded-list-field.js";
+import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
+import { ReferenceCreateDialog } from "./reference-create-dialog.js";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
 // Kein raw HTML mehr; alle Darstellungsentscheidungen (Label-Position,

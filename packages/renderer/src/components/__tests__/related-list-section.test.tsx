@@ -3,22 +3,22 @@ import type { EntityEditScreenDefinition, RowAction } from "@cosmicdrift/kumiko-
 import type { Dispatcher, EditRelatedListSectionViewModel } from "@cosmicdrift/kumiko-headless";
 import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { AppFeaturesProvider } from "../../app/app-features-context";
-import type { FeatureSchema } from "../../app/feature-schema";
-import { type NavApi, NavProvider } from "../../app/nav";
-import { resetDrawerActionWarningsForTests } from "../../app/row-actions";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { UserRolesProvider } from "../../context/user-roles-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
+import { AppFeaturesProvider } from "../../app/app-features-context.js";
+import type { FeatureSchema } from "../../app/feature-schema.js";
+import { type NavApi, NavProvider } from "../../app/nav.js";
+import { resetDrawerActionWarningsForTests } from "../../app/row-actions.js";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { UserRolesProvider } from "../../context/user-roles-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type CorePrimitives,
   type DataTableProps,
   type InputProps,
   PrimitivesProvider,
   type SectionProps,
-} from "../../primitives";
-import { RelatedListSection } from "../related-list-section";
+} from "../../primitives.js";
+import { RelatedListSection } from "../related-list-section.js";
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => {};

@@ -9,14 +9,14 @@ import type { ProjectionDetailScreenDefinition } from "@cosmicdrift/kumiko-frame
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives";
-import type { FeatureSchema } from "../feature-schema";
-import { KumikoScreen } from "../kumiko-screen";
-import type { NavApi } from "../nav";
-import { NavProvider } from "../nav";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.js";
+import type { FeatureSchema } from "../feature-schema.js";
+import { KumikoScreen } from "../kumiko-screen.js";
+import type { NavApi } from "../nav.js";
+import { NavProvider } from "../nav.js";
 
 const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
 

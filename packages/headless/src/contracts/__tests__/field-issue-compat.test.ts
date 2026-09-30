@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { FieldIssue as FrameworkFieldIssue } from "@cosmicdrift/kumiko-framework/errors";
-import type { FieldIssue as HeadlessFieldIssue } from "../../index";
+import type { FieldIssue as HeadlessFieldIssue } from "../../index.js";
 
 // Lives in headless (not framework) because headless already depends on
 // framework — the reverse import (framework → headless) would introduce a

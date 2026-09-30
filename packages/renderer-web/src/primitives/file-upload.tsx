@@ -6,9 +6,9 @@
 import { CSRF_HEADER_NAME, readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
 import { ImageIcon, Loader2, Upload } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useRef, useState } from "react";
-import { toAcceptAttr } from "../lib/accept-attr";
-import { resizeImageBeforeUpload } from "../lib/resize-image";
-import { Button as UiButton } from "../ui/button";
+import { toAcceptAttr } from "../lib/accept-attr.js";
+import { resizeImageBeforeUpload } from "../lib/resize-image.js";
+import { Button as UiButton } from "../ui/button.js";
 
 export type FileUploadInputProps = {
   readonly kind: "file" | "image";

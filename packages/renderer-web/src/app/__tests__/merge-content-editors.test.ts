@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { ContentEditorComponent } from "@cosmicdrift/kumiko-renderer";
-import type { ClientFeatureDefinition } from "../client-plugin";
-import { mergeContentEditors } from "../create-app";
+import type { ClientFeatureDefinition } from "../client-plugin.js";
+import { mergeContentEditors } from "../create-app.js";
 
 const editor = (): ContentEditorComponent => (() => null) as ContentEditorComponent;
 

@@ -12,5 +12,5 @@ export type {
   StreamOpts,
   WriteOpts,
   WriteResult,
-} from "./types";
-export { StreamFrame, type StreamFrameEvent } from "./types";
+} from "./types.js";
+export { StreamFrame, type StreamFrameEvent } from "./types.js";

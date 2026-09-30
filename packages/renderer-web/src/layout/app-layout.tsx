@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // Linear-Pattern: Sidebar ist Geschwister von <Topbar+Main>-Spalte,
 // nimmt die volle Höhe. Wenn ein Topbar gesetzt ist, lebt er NUR über

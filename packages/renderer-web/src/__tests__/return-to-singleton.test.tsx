@@ -21,9 +21,9 @@ import {
   useNav,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { WebDashboardBody } from "../app/dashboard-body";
-import { useBrowserNavApi } from "../app/nav";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import { WebDashboardBody } from "../app/dashboard-body.js";
+import { useBrowserNavApi } from "../app/nav.js";
+import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.js";
 
 const settingEntity: EntityDefinition = {
   fields: { title: { type: "text", required: false, searchable: false, sortable: false } },

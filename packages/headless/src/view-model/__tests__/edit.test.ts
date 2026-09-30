@@ -4,13 +4,13 @@ import type {
   EntityEditScreenDefinition,
   RowAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { computeEditViewModel } from "../edit";
+import { computeEditViewModel } from "../edit.js";
 import type {
   EditFieldsSectionViewModel,
   EditRelatedListSectionViewModel,
   EditSectionViewModel,
   EditWriteFormSectionViewModel,
-} from "../types";
+} from "../types.js";
 
 function asFields(s: EditSectionViewModel | undefined): EditFieldsSectionViewModel {
   if (s === undefined || s.kind !== "fields") {

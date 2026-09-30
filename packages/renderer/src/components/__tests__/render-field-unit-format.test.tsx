@@ -12,9 +12,9 @@ import { describe, expect, test } from "bun:test";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives";
-import { RenderField } from "../render-field";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { type CorePrimitives, PrimitivesProvider, type TextProps } from "../../primitives.js";
+import { RenderField } from "../render-field.js";
 
 let captured: TextProps | undefined;
 const captureText: ComponentType<TextProps> = (props) => {

@@ -13,9 +13,9 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { WebDashboardBody } from "../app/dashboard-body";
-import { useBrowserNavApi } from "../app/nav";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
+import { WebDashboardBody } from "../app/dashboard-body.js";
+import { useBrowserNavApi } from "../app/nav.js";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 const dashboardScreen: DashboardScreenDefinition = {
   id: "overview",

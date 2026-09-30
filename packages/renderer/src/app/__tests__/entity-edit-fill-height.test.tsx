@@ -8,12 +8,12 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives";
-import type { FeatureSchema } from "../feature-schema";
-import { KumikoScreen } from "../kumiko-screen";
-import { NavProvider } from "../nav";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.js";
+import type { FeatureSchema } from "../feature-schema.js";
+import { KumikoScreen } from "../kumiko-screen.js";
+import { NavProvider } from "../nav.js";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

@@ -16,10 +16,14 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { render } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider, type TranslationsByLocale } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
-import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives";
-import { RenderEdit } from "../render-edit";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  type TranslationsByLocale,
+} from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives.js";
+import { RenderEdit } from "../render-edit.js";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

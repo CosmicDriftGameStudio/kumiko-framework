@@ -23,7 +23,7 @@ import {
   embeddedCellOptionLabelKey,
   fieldLabelKey,
   fieldOptionLabelKey,
-} from "./list";
+} from "./list.js";
 import type {
   EditFieldViewModel,
   EditRelatedListSectionViewModel,
@@ -32,7 +32,7 @@ import type {
   EditWriteFormSectionViewModel,
   EmbeddedListCellViewModel,
   Translate,
-} from "./types";
+} from "./types.js";
 
 // Sub-field shape read off an EmbeddedFieldDef.schema entry. Mirrors
 // EmbeddedSubFieldDef from packages/types/src/fields.ts — headless only

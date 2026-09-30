@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { FloatingPanel } from "../widgets/floating-panel";
-import { act, fireEvent, render, screen } from "./test-utils";
+import { FloatingPanel } from "../widgets/floating-panel.js";
+import { act, fireEvent, render, screen } from "./test-utils.js";
 
 const STORAGE_KEY = "test:floating-panel";
 const WIDE = { width: 1280, height: 800 };

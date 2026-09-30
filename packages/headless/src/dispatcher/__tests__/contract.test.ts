@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createStore } from "../../store";
+import { createStore } from "../../store/index.js";
 import type {
   BatchResult,
   Command,
@@ -9,7 +9,7 @@ import type {
   PendingWrite,
   QueryResult,
   WriteResult,
-} from "../types";
+} from "../types.js";
 
 // A minimal fake dispatcher — proves the Dispatcher interface is sufficient
 // to implement a synchronous in-memory client, and pins the public shape of

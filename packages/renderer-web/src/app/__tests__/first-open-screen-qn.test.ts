@@ -5,7 +5,7 @@ import {
   firstLandingScreenQnForProjectedSchema,
   firstOpenScreenQn,
   resolveRootScreenQn,
-} from "../create-app";
+} from "../create-app.js";
 
 function feature(
   overrides: Partial<FeatureSchema> & { readonly featureName: string },

@@ -29,7 +29,7 @@ import {
   screen,
   waitFor,
   within,
-} from "./test-utils";
+} from "./test-utils.js";
 
 function defaultEnText(key: string): string {
   const value = kumikoDefaultTranslations["en"]?.[key];
@@ -741,7 +741,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
-    const { ToastProvider } = await import("../primitives/toast");
+    const { ToastProvider } = await import("../primitives/toast.js");
     const user = userEvent.setup();
     render(
       <ToastProvider>
@@ -806,7 +806,7 @@ describe("KumikoScreen", () => {
       ],
     };
 
-    const { ToastProvider } = await import("../primitives/toast");
+    const { ToastProvider } = await import("../primitives/toast.js");
     const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } = await import(
       "@cosmicdrift/kumiko-renderer"
     );
@@ -1006,7 +1006,7 @@ describe("KumikoScreen", () => {
     };
 
     const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
-    const { useBrowserNavApi } = await import("../app/nav");
+    const { useBrowserNavApi } = await import("../app/nav.js");
     function BrowserNav({ children }: { readonly children: React.ReactNode }): React.ReactNode {
       const api = useBrowserNavApi({ hasWorkspaces: false });
       return <NavProvider value={api}>{children}</NavProvider>;

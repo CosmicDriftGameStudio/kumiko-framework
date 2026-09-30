@@ -2,8 +2,8 @@ export type {
   AssetResolution,
   AssetResolveContext,
   AssetResolver,
-} from "./asset";
-export type { LocaleResolver } from "./locale";
+} from "./asset.js";
+export type { LocaleResolver } from "./locale.js";
 export type {
   BadgeProps,
   ButtonProps,
@@ -20,4 +20,4 @@ export type {
   ToastIntent,
   ToastProps,
   ToggleProps,
-} from "./primitives";
+} from "./primitives.js";

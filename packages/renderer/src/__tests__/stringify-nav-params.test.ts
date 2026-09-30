@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { stringifyNavParams } from "../app/row-actions";
+import { stringifyNavParams } from "../app/row-actions.js";
 
 describe("stringifyNavParams", () => {
   test("plain object encodes as JSON (fw#2763)", () => {

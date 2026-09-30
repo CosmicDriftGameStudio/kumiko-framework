@@ -10,7 +10,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { MoneyInput, parseLocaleNumber } from "../primitives/money-input";
+import { MoneyInput, parseLocaleNumber } from "../primitives/money-input.js";
 
 describe("MoneyInput", () => {
   test("blur-view: de-DE EUR zeigt €-Symbol + Punkt-Tausender + Komma-Decimal", () => {

@@ -1,6 +1,6 @@
 import type { NavDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { NavNode, NavTree, ResolveNavigationOptions } from "./types";
+import type { NavNode, NavTree, ResolveNavigationOptions } from "./types.js";
 
 // Assembles the renderable nav tree from the registry's pre-grouped
 // indexes (topLevel + byParent). Walks top-down: each node is

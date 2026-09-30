@@ -1,7 +1,7 @@
 import type { PageHeaderProps } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { usePageHeaderSlot } from "../layout/page-header-slot";
+import { usePageHeaderSlot } from "../layout/page-header-slot.js";
 
 export function DefaultPageHeader({ title, status, actions }: PageHeaderProps): ReactNode {
   const slot = usePageHeaderSlot();

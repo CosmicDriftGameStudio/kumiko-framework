@@ -10,7 +10,7 @@
 
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type ComponentType, createContext, type ReactNode, useContext } from "react";
-import { usePrimitives } from "../primitives";
+import { usePrimitives } from "../primitives.js";
 
 export type ContentEditorProps = {
   /** DOM id every registered editor must render onto its own focusable

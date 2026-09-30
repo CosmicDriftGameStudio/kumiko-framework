@@ -3,4 +3,4 @@
 // Diese Datei hält nur das öffentliche Mapping; die Logik ist in
 // date-field.tsx, die Date-Parse-Utils in date-parse.ts.
 
-export { DateField as DateInput, type DateFieldProps as DateInputProps } from "./date-field";
+export { DateField as DateInput, type DateFieldProps as DateInputProps } from "./date-field.js";

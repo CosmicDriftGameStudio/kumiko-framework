@@ -1,6 +1,6 @@
 import type { DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useDispatcher } from "../context/dispatcher-context";
+import { useDispatcher } from "../context/dispatcher-context.js";
 
 // AiTextField/AiTextArea's client-side surface. Deliberately duplicates the
 // wire-contract shape from kumiko-enterprise's `ai-text` feature instead of

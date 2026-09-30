@@ -10,9 +10,9 @@ import type {
 import { computeEditViewModel, type EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives";
-import { RenderField } from "../render-field";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.js";
+import { RenderField } from "../render-field.js";
 
 let captured: InputProps | undefined;
 const captureInput: ComponentType<InputProps> = (props) => {

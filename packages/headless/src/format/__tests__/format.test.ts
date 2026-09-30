@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index";
+import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.js";
 
 describe("applyFormatSpec — priority", () => {
   test("rendert emptyLabel für undefined/null/leer/0 (nicht den globalen ''-Collapse)", () => {

@@ -1,17 +1,17 @@
-export type { ComputeEditViewModelInput } from "./edit";
-export { computeEditViewModel } from "./edit";
+export type { ComputeEditViewModelInput } from "./edit.js";
+export { computeEditViewModel } from "./edit.js";
 export type {
   DerivedCellRoundingTarget,
   EmbeddedDerivedOp,
   EmbeddedListIssueGroups,
-} from "./embedded-list";
+} from "./embedded-list.js";
 export {
   computeDerivedCellValue,
   groupEmbeddedListIssues,
   roundDerivedCellValue,
   sumEmbeddedListColumn,
-} from "./embedded-list";
-export type { ComputeListViewModelInput } from "./list";
+} from "./embedded-list.js";
+export type { ComputeListViewModelInput } from "./list.js";
 export {
   computeListViewModel,
   embeddedCellLabelKey,
@@ -19,7 +19,7 @@ export {
   fieldLabelKey,
   fieldOptionLabelKey,
   fieldOptionLabelKeyPrefix,
-} from "./list";
+} from "./list.js";
 export type {
   EditExtensionSectionViewModel,
   EditFieldSpec,
@@ -40,4 +40,4 @@ export type {
   RuntimeRenderer,
   ScreenSlots,
   Translate,
-} from "./types";
+} from "./types.js";

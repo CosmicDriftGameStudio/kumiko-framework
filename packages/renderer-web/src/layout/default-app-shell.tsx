@@ -29,12 +29,12 @@ import {
   SidebarInset,
   SidebarProvider,
   SidebarRail,
-} from "../ui/sidebar";
-import { fillClasses } from "./fill-classes";
-import { NavTree } from "./nav-tree";
-import { PageHeaderSlotProvider } from "./page-header-slot";
-import { ShellHeader } from "./shell-header";
-import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel";
+} from "../ui/sidebar.js";
+import { fillClasses } from "./fill-classes.js";
+import { NavTree } from "./nav-tree.js";
+import { PageHeaderSlotProvider } from "./page-header-slot.js";
+import { ShellHeader } from "./shell-header.js";
+import { SidebarPanelProvider, useSidebarPanelHost } from "./sidebar-panel.js";
 
 export type DefaultAppShellUser = {
   readonly id: string;

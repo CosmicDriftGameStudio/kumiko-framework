@@ -1,6 +1,6 @@
 import type { StatusBadgeProps } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { StatusBadge } from "../widgets/status-badge";
+import { StatusBadge } from "../widgets/status-badge.js";
 
 export function DefaultStatusBadge({ value, tone, testId }: StatusBadgeProps): ReactNode {
   return (

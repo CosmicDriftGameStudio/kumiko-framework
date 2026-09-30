@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
-import { render, screen } from "../../__tests__/test-utils";
-import { PlanCard, PlanGrid } from "../plan-card";
+import { render, screen } from "../../__tests__/test-utils.js";
+import { PlanCard, PlanGrid } from "../plan-card.js";
 
 describe("PlanCard", () => {
   test("current renders the badge and the primary border, and no cta when none is passed", () => {

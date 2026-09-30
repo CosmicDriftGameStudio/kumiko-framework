@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { render } from "@testing-library/react";
-import { FileUploadInput } from "../file-upload";
+import { FileUploadInput } from "../file-upload.js";
 
 const noop = () => {};
 

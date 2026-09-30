@@ -43,12 +43,21 @@
      `../../kumiko-X/src` matches (scoped registry name incl. prefix).
    A path that doesn't exist in a given layout is simply not matched —
    no error — so each pair is a harmless no-op in the other layout.
-   samples is monorepo-only (in-repo sample build), a no-op elsewhere. */
+   samples is monorepo-only (in-repo sample build), a no-op elsewhere.
+
+   The published packages ship compiled dist (class names survive as string
+   literals in the .js), so every src line has a dist twin; src stays for
+   the workspace and for packages that still publish source. */
 @source "./**/*.{ts,tsx}";
+@source "../dist/**/*.js";
 @source "../../renderer/src/**/*.{ts,tsx}";
+@source "../../renderer/dist/**/*.js";
 @source "../../kumiko-renderer/src/**/*.{ts,tsx}";
+@source "../../kumiko-renderer/dist/**/*.js";
 @source "../../bundled-features/src/**/*.{ts,tsx}";
+@source "../../bundled-features/dist/**/*.js";
 @source "../../kumiko-bundled-features/src/**/*.{ts,tsx}";
+@source "../../kumiko-bundled-features/dist/**/*.js";
 @source "../../../samples/**/src/**/*.{ts,tsx}";
 
 /* Dark-Mode via class-selector (nicht media). Erlaubt JS-Toggle

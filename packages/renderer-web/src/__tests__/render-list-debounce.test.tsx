@@ -17,7 +17,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { defaultPrimitives } from "../primitives";
+import { defaultPrimitives } from "../primitives/index.js";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.
 // Eine Spalte reicht — wir testen nur den Search-Debounce-Pfad, nicht

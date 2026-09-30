@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createFormController } from "../form-controller";
+import { createFormController } from "../form-controller.js";
 
 describe("conditional fields — FieldState resolution", () => {
   test("unlisted fields get the default {visible:true, readonly:false, required:false}", () => {

@@ -10,68 +10,71 @@
 // @cosmicdrift/kumiko-renderer-web/createKumikoApp, das alle Provider verdrahtet.
 
 export { type Formality, formalLocaleTag } from "@cosmicdrift/kumiko-framework/ui-types";
-export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim";
-export type { AppFeaturesProviderProps } from "./app/app-features-context";
-export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context";
+export { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./app/action-form-shim.js";
+export type { AppFeaturesProviderProps } from "./app/app-features-context.js";
+export { AppFeaturesProvider, useAppFeatures } from "./app/app-features-context.js";
 export type {
   ColumnRendererComponent,
   ColumnRendererProps,
   ColumnRenderersMap,
   ColumnRenderersProviderProps,
-} from "./app/column-renderers";
-export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers";
+} from "./app/column-renderers.js";
+export { ColumnRenderersProvider, useColumnRenderer } from "./app/column-renderers.js";
 export type {
   ContentEditorComponent,
   ContentEditorProps,
   ContentEditorsMap,
   ContentEditorsProviderProps,
-} from "./app/content-editors";
+} from "./app/content-editors.js";
 export {
   CONTENT_EDITOR_ELEMENT_ID,
   ContentEditorsProvider,
   TextareaContentEditor,
   useContentEditor,
-} from "./app/content-editors";
-export type { ContentPreviewProps } from "./app/content-preview";
-export { ContentPreview, substituteVariables } from "./app/content-preview";
-export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens";
-export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens";
-export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body";
-export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body";
+} from "./app/content-editors.js";
+export type { ContentPreviewProps } from "./app/content-preview.js";
+export { ContentPreview, substituteVariables } from "./app/content-preview.js";
+export type { CustomScreensMap, CustomScreensProviderProps } from "./app/custom-screens.js";
+export { CustomScreensProvider, useCustomScreenComponent } from "./app/custom-screens.js";
+export type { DashboardBodyProps, DashboardBodyProviderProps } from "./app/dashboard-body.js";
+export { DashboardBodyProvider, useDashboardBody } from "./app/dashboard-body.js";
 export type {
   ExtensionFormRegistry,
   ExtensionFormSubmitHandler,
   ExtensionSubmitContext,
   ExtensionSubmitResult,
-} from "./app/extension-form-submit";
-export { ExtensionFormRegistryProvider, useExtensionFormSubmit } from "./app/extension-form-submit";
+} from "./app/extension-form-submit.js";
+export {
+  ExtensionFormRegistryProvider,
+  useExtensionFormSubmit,
+} from "./app/extension-form-submit.js";
 export type {
   ExtensionSectionComponent,
   ExtensionSectionProps,
   ExtensionSectionsMap,
   ExtensionSectionsProviderProps,
-} from "./app/extension-sections";
+} from "./app/extension-sections.js";
 export {
   ExtensionSectionsProvider,
   extensionSectionName,
   useExtensionSectionComponent,
-} from "./app/extension-sections";
+} from "./app/extension-sections.js";
 export type {
   AppSchema,
   FeatureSchema,
   QualifiedContentCollection,
   WorkspaceSchema,
-} from "./app/feature-schema";
-export { isAppSchema, toAppSchema } from "./app/feature-schema";
-export type { KumikoScreenProps } from "./app/kumiko-screen";
-export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen";
-export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets";
+} from "./app/feature-schema.js";
+export { isAppSchema, toAppSchema } from "./app/feature-schema.js";
+export type { KumikoScreenProps } from "./app/kumiko-screen.js";
+export { KumikoScreen, qualifyNavId, qualifyScreenId } from "./app/kumiko-screen.js";
+export type { DateRangeBound, DateRangeValue, ResolvedDateRangeFacet } from "./app/list-facets.js";
 export {
   buildDateRangePayload,
   clampDateRange,
   readDateRange,
   resolveDateRangeFacets,
-} from "./app/list-facets";
+} from "./app/list-facets.js";
 export type {
   NavApi,
   NavProviderProps,
@@ -79,7 +82,7 @@ export type {
   NavTarget,
   ObjectTarget,
   ScreenTarget,
-} from "./app/nav";
+} from "./app/nav.js";
 export {
   formatPath,
   hasDetailScreen,
@@ -88,9 +91,9 @@ export {
   resolveTarget,
   useNav,
   useNavigateWithInitialValues,
-} from "./app/nav";
-export { lastSegment } from "./app/qn";
-export type { ReturnHost, ReturnTo } from "./app/return-to";
+} from "./app/nav.js";
+export { lastSegment } from "./app/qn.js";
+export type { ReturnHost, ReturnTo } from "./app/return-to.js";
 export {
   navigateToReturn,
   navigateToReturnOr,
@@ -101,41 +104,41 @@ export {
   splitReturnTo,
   useReturnHost,
   useReturnTarget,
-} from "./app/return-to";
-export type { EmbeddedScreenTarget } from "./app/use-embedded-screen";
-export { useEmbeddedScreen } from "./app/use-embedded-screen";
-export type { VariableChipsProps } from "./app/variable-chips";
-export { VariableChips } from "./app/variable-chips";
-export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error";
-export { RelatedListSection } from "./components/related-list-section";
+} from "./app/return-to.js";
+export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.js";
+export { useEmbeddedScreen } from "./app/use-embedded-screen.js";
+export type { VariableChipsProps } from "./app/variable-chips.js";
+export { VariableChips } from "./app/variable-chips.js";
+export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error.js";
+export { RelatedListSection } from "./components/related-list-section.js";
 export type {
   RenderEditAction,
   RenderEditChangeState,
   RenderEditControls,
   RenderEditProps,
-} from "./components/render-edit";
-export { RenderEdit } from "./components/render-edit";
-export type { RenderFieldProps } from "./components/render-field";
-export { RenderField } from "./components/render-field";
-export type { RenderListProps } from "./components/render-list";
-export { RenderList } from "./components/render-list";
-export type { DispatcherProviderProps } from "./context/dispatcher-context";
+} from "./components/render-edit.js";
+export { RenderEdit } from "./components/render-edit.js";
+export type { RenderFieldProps } from "./components/render-field.js";
+export { RenderField } from "./components/render-field.js";
+export type { RenderListProps } from "./components/render-list.js";
+export { RenderList } from "./components/render-list.js";
+export type { DispatcherProviderProps } from "./context/dispatcher-context.js";
 export {
   DispatcherProvider,
   useDispatcher,
   useDispatcherStatus,
   useOptionalDispatcher,
-} from "./context/dispatcher-context";
-export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context";
-export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context";
-export type { UserRolesProviderProps } from "./context/user-roles-context";
-export { UserRolesProvider, useUserRoles } from "./context/user-roles-context";
-export { formatWhen } from "./format-when";
+} from "./context/dispatcher-context.js";
+export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context.js";
+export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context.js";
+export type { UserRolesProviderProps } from "./context/user-roles-context.js";
+export { UserRolesProvider, useUserRoles } from "./context/user-roles-context.js";
+export { formatWhen } from "./format-when.js";
 export {
   REFERENCE_COMBOBOX_LIMIT,
   REFERENCE_LIST_LOOKUP_LIMIT,
   REFERENCE_SEARCH_DEBOUNCE_MS,
-} from "./hooks/reference-limits";
+} from "./hooks/reference-limits.js";
 export type {
   AiTextActionState,
   AiTextMode,
@@ -145,36 +148,36 @@ export type {
   AiTextUsage,
   UseAiTextActionResult,
   UseCompletionResult,
-} from "./hooks/use-ai-text";
-export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text";
-export type { UseDisclosureResult } from "./hooks/use-disclosure";
-export { useDisclosure } from "./hooks/use-disclosure";
-export type { UseFormOptions, UseFormResult } from "./hooks/use-form";
-export { useForm } from "./hooks/use-form";
+} from "./hooks/use-ai-text.js";
+export { AI_TEXT_RUN_QN, useAiTextAction, useCompletion } from "./hooks/use-ai-text.js";
+export type { UseDisclosureResult } from "./hooks/use-disclosure.js";
+export { useDisclosure } from "./hooks/use-disclosure.js";
+export type { UseFormOptions, UseFormResult } from "./hooks/use-form.js";
+export { useForm } from "./hooks/use-form.js";
 export type {
   ListSort,
   ListSortDir,
   ListUrlState,
   ListUrlStateApi,
-} from "./hooks/use-list-url-state";
-export { useListUrlState } from "./hooks/use-list-url-state";
-export type { UseMutationResult } from "./hooks/use-mutation";
-export { useMutation } from "./hooks/use-mutation";
-export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query";
-export { entityFromQueryType, useQuery } from "./hooks/use-query";
-export { useStore, useStoreSelector } from "./hooks/use-store";
+} from "./hooks/use-list-url-state.js";
+export { useListUrlState } from "./hooks/use-list-url-state.js";
+export type { UseMutationResult } from "./hooks/use-mutation.js";
+export { useMutation } from "./hooks/use-mutation.js";
+export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.js";
+export { entityFromQueryType, useQuery } from "./hooks/use-query.js";
+export { useStore, useStoreSelector } from "./hooks/use-store.js";
 export type {
   StreamStatus,
   UseStreamHandlerOptions,
   UseStreamHandlerResult,
-} from "./hooks/use-stream-handler";
-export { useStreamHandler } from "./hooks/use-stream-handler";
+} from "./hooks/use-stream-handler.js";
+export { useStreamHandler } from "./hooks/use-stream-handler.js";
 export type {
   LocaleProviderProps,
   TranslationBundle,
   TranslationsByKey,
   TranslationsByLocale,
-} from "./i18n";
+} from "./i18n.js";
 export {
   createStaticLocaleResolver,
   FormalityProvider,
@@ -186,10 +189,10 @@ export {
   useOptionalLocale,
   useOptionalTranslation,
   useTranslation,
-} from "./i18n";
-export { kumikoDefaultTranslations } from "./i18n-defaults";
-export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer";
-export { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "./page-header-slot";
+} from "./i18n.js";
+export { kumikoDefaultTranslations } from "./i18n-defaults.js";
+export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer.js";
+export { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "./page-header-slot.js";
 export type {
   ActionMenuItemSpec,
   ActionOverflowMenuProps,
@@ -250,7 +253,7 @@ export type {
   TabsProps,
   TextProps,
   WizardStepGroupProps,
-} from "./primitives";
+} from "./primitives.js";
 export {
   PrimitivesProvider,
   STICKY_PRIMARY_ACTION_PROP,
@@ -258,11 +261,11 @@ export {
   statusToneForOptionTone,
   statusToneForValue,
   usePrimitives,
-} from "./primitives";
-export { buildWhatsAppShareUrl } from "./share-links";
-export { sortByAccessor } from "./sort-by-accessor";
-export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events";
-export { LiveEventsProvider, useLiveEvents } from "./sse/live-events";
+} from "./primitives.js";
+export { buildWhatsAppShareUrl } from "./share-links.js";
+export { sortByAccessor } from "./sort-by-accessor.js";
+export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events.js";
+export { LiveEventsProvider, useLiveEvents } from "./sse/live-events.js";
 export type {
   AppTokens,
   ColorTokens,
@@ -275,5 +278,5 @@ export type {
   Tokens,
   TokensApi,
   TokensProviderProps,
-} from "./tokens";
-export { cssVarTokens, TokensProvider, useTokenController, useTokens } from "./tokens";
+} from "./tokens.js";
+export { cssVarTokens, TokensProvider, useTokenController, useTokens } from "./tokens.js";

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { CONTENT_EDITOR_ELEMENT_ID } from "@cosmicdrift/kumiko-renderer";
-import { render, screen } from "../../__tests__/test-utils";
-import { RichContentEditor } from "../rich-content-editor";
+import { render, screen } from "../../__tests__/test-utils.js";
+import { RichContentEditor } from "../rich-content-editor.js";
 
 describe("RichContentEditor", () => {
   test("falls back to the plain textarea while the tiptap chunk loads, then swaps in the editor", async () => {

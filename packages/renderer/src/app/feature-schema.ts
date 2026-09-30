@@ -21,7 +21,7 @@
 //   };
 //
 //   // feature.ts  (server-only — imports defineFeature)
-//   import { taskEntity, editScreen, ... } from "./feature-schema";
+//   import { taskEntity, editScreen, ... } from "./feature-schema.js";
 //   export const taskFeature = defineFeature("tasks", (r) => {
 //     r.entity("task", taskEntity);
 //     r.writeHandler(...);

@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { useAiTextAction, useCompletion } from "../use-ai-text";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { useAiTextAction, useCompletion } from "../use-ai-text.js";
 
 function makeDispatcher(query: Dispatcher["query"]): Dispatcher {
   return {

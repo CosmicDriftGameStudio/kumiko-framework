@@ -1,6 +1,6 @@
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // KPI-Kacheln. `tone` steuert Value-/Chip-Farbe semantisch (default |
 // positive | warn), `accentColor` färbt NUR den Icon-Chip mit einer

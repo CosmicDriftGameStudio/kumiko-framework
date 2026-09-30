@@ -1,11 +1,11 @@
 import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { useDispatcher } from "../context/dispatcher-context";
-import { useQuery } from "../hooks/use-query";
-import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
-import { dispatcherErrorText } from "./write-failed-error";
+import { useDispatcher } from "../context/dispatcher-context.js";
+import { useQuery } from "../hooks/use-query.js";
+import { useTranslation } from "../i18n.js";
+import { usePrimitives } from "../primitives.js";
+import { dispatcherErrorText } from "./write-failed-error.js";
 
 type SecretListRow = {
   readonly key: string;

@@ -13,7 +13,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Calendar as CalendarIcon } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { DayPicker, type DropdownProps } from "react-day-picker";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 export type CalendarPopoverProps = {
   readonly selected: Date | undefined;

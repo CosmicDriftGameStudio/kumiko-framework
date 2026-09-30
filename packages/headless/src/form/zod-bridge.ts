@@ -1,5 +1,5 @@
 import type { ZodError, ZodIssue } from "zod";
-import type { FieldIssue } from "../dispatcher";
+import type { FieldIssue } from "../dispatcher/index.js";
 
 // Translates a ZodError into the same FieldIssue shape the server emits via
 // its own zod-bridge (packages/framework/src/errors/zod-bridge.ts). The two

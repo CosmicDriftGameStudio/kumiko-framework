@@ -9,9 +9,9 @@ import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import * as z from "zod";
-import { defaultPrimitives } from "../primitives";
-import { inputValueToTimestamp, timestampToInputValue } from "../primitives/timestamp-input";
-import { render } from "./test-utils";
+import { defaultPrimitives } from "../primitives/index.js";
+import { inputValueToTimestamp, timestampToInputValue } from "../primitives/timestamp-input.js";
+import { render } from "./test-utils.js";
 
 const utcSchema = z.iso.datetime();
 const wallClockSchema = z.iso.datetime({ local: true });

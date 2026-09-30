@@ -1,5 +1,5 @@
 // @ts-nocheck — vendored shadcn, regenerate via scripts/sync-shadcn.ts
-import { cn } from "../lib/cn"
+import { cn } from "../lib/cn.js"
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

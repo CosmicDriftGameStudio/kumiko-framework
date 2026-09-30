@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as z from "zod";
-import { createFormController } from "../form-controller";
+import { createFormController } from "../form-controller.js";
 
 describe("createFormController — core state machine", () => {
   test("initial state: values === initial, no changes, not dirty, no errors", () => {

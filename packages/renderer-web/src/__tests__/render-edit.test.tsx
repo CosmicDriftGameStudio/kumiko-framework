@@ -16,8 +16,8 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useState } from "react";
 import * as z from "zod";
-import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../../renderer/src/components/render-edit";
-import { defaultPrimitives, ScreenWidthProvider } from "../primitives";
+import { PATCH_DRAFT_SAVE_DEBOUNCE_MS } from "../../../renderer/src/components/render-edit.js";
+import { defaultPrimitives, ScreenWidthProvider } from "../primitives/index.js";
 import {
   act,
   createFakeDraftStorage,
@@ -27,7 +27,7 @@ import {
   screen,
   waitFor,
   within,
-} from "./test-utils";
+} from "./test-utils.js";
 
 const orderEntity = {
   fields: {

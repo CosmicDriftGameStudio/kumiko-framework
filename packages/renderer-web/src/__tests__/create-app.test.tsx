@@ -22,10 +22,10 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactNode, useSyncExternalStore } from "react";
-import { APP_SCHEMA_API_PATH } from "../app/app-schema-boot";
-import type { ClientFeatureDefinition } from "../app/client-plugin";
-import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app";
-import { createMockDispatcher } from "./test-utils";
+import { APP_SCHEMA_API_PATH } from "../app/app-schema-boot.js";
+import type { ClientFeatureDefinition } from "../app/client-plugin.js";
+import { type CreateKumikoAppOptions, createKumikoApp } from "../app/create-app.js";
+import { createMockDispatcher } from "./test-utils.js";
 
 const taskEntity = {
   fields: {

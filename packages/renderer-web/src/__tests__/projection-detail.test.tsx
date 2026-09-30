@@ -26,7 +26,7 @@ import {
   usePrimitives,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { BareFormProvider } from "../primitives";
+import { BareFormProvider } from "../primitives/index.js";
 import {
   act,
   createMockDispatcher,
@@ -35,7 +35,7 @@ import {
   screen,
   waitFor,
   within,
-} from "./test-utils";
+} from "./test-utils.js";
 
 const detailScreen: ProjectionDetailScreenDefinition = {
   id: "session-detail",

@@ -4,7 +4,7 @@
 
 import type { FormWidth } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 export type ScreenWidth = FormWidth;
 

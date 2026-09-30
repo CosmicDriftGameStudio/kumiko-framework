@@ -1,15 +1,15 @@
 import { describe, expect, mock, test } from "bun:test";
-import { fireEvent, render, screen } from "../../__tests__/test-utils";
-import { StatusBarChart, smoothPath, TimeseriesChart } from "../charts";
-import { CollapsibleSection } from "../collapsible-section";
-import { DetailList } from "../detail-list";
-import { ModeSwitch } from "../mode-switch";
-import { ProgressBar } from "../progress-bar";
-import { SectionCard } from "../section-card";
-import { MiniStat, StatCard } from "../stat";
-import { EmptyState } from "../states";
-import { StatusBadge } from "../status-badge";
-import { StepBar } from "../step-bar";
+import { fireEvent, render, screen } from "../../__tests__/test-utils.js";
+import { StatusBarChart, smoothPath, TimeseriesChart } from "../charts.js";
+import { CollapsibleSection } from "../collapsible-section.js";
+import { DetailList } from "../detail-list.js";
+import { ModeSwitch } from "../mode-switch.js";
+import { ProgressBar } from "../progress-bar.js";
+import { SectionCard } from "../section-card.js";
+import { MiniStat, StatCard } from "../stat.js";
+import { EmptyState } from "../states.js";
+import { StatusBadge } from "../status-badge.js";
+import { StepBar } from "../step-bar.js";
 
 describe("StatusBadge", () => {
   test("rendert Label mit Tone-Klassen", () => {

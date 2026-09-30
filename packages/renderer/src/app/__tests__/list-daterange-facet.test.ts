@@ -12,7 +12,7 @@ import {
   readDateRange,
   resolveDateRangeFacets,
   resolveProjectionFacetSpecs,
-} from "../list-facets";
+} from "../list-facets.js";
 
 const VIENNA = "Europe/Vienna";
 

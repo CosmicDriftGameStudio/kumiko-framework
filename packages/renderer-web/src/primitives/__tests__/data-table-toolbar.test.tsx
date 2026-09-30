@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createStaticLocaleResolver, LocaleProvider } from "@cosmicdrift/kumiko-renderer";
 import { render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { defaultPrimitives } from "../index";
+import { defaultPrimitives } from "../index.js";
 
 const { DataTable, Button } = defaultPrimitives;
 

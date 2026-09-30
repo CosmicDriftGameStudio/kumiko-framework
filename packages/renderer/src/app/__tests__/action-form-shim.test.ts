@@ -3,7 +3,7 @@ import {
   synthesizeActionFormEntity,
   synthesizeActionFormScreen,
   synthesizeSecretMintConfirmScreen,
-} from "../action-form-shim";
+} from "../action-form-shim.js";
 
 describe("synthesizeActionFormEntity", () => {
   test("wraps inline fields as minimal EntityDefinition", () => {

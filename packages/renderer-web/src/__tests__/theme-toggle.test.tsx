@@ -11,7 +11,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { ThemeToggle } from "../layout/theme-toggle";
+import { ThemeToggle } from "../layout/theme-toggle.js";
 
 type StubApi = {
   mode: "light" | "dark";

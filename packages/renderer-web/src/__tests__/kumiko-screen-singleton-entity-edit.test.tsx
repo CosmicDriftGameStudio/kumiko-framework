@@ -11,7 +11,7 @@ import {
   KumikoScreen,
   kumikoDefaultTranslations,
 } from "@cosmicdrift/kumiko-renderer";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.js";
 
 // Split out of kumiko-screen.test.tsx (#2495): the create->update submit
 // test below fires fireEvent.change immediately followed by fireEvent.click

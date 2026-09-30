@@ -19,11 +19,11 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../ui/breadcrumb";
-import { SidebarTrigger } from "../ui/sidebar";
-import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree";
-import { usePageHeaderSlot } from "./page-header-slot";
-import { type BreadcrumbCrumb, resolveDetailBreadcrumb } from "./shell-breadcrumb";
+} from "../ui/breadcrumb.js";
+import { SidebarTrigger } from "../ui/sidebar.js";
+import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree.js";
+import { usePageHeaderSlot } from "./page-header-slot.js";
+import { type BreadcrumbCrumb, resolveDetailBreadcrumb } from "./shell-breadcrumb.js";
 
 type ShellHeaderUser = {
   readonly id: string;

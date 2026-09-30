@@ -5,7 +5,7 @@ import {
   embeddedCellOptionLabelKey,
   fieldLabelKey,
   fieldOptionLabelKey,
-} from "../list";
+} from "../list.js";
 
 describe("fieldLabelKey", () => {
   test("follows feature:entity:field convention", () => {

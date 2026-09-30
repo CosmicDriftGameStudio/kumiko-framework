@@ -5,8 +5,8 @@
 // an t() durch (Platzhalter wie {minimum} blieben uninterpoliert).
 import { describe, expect, test } from "bun:test";
 import type { FieldIssue } from "@cosmicdrift/kumiko-headless";
-import { defaultPrimitives } from "../primitives";
-import { render } from "./test-utils";
+import { defaultPrimitives } from "../primitives/index.js";
+import { render } from "./test-utils.js";
 
 function renderFieldWithIssues(issues: readonly FieldIssue[]) {
   const { Field } = defaultPrimitives;

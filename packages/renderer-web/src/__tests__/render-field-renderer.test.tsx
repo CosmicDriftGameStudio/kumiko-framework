@@ -10,7 +10,7 @@ import {
   RenderEdit,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement, ReactNode } from "react";
-import { render, screen } from "./test-utils";
+import { render, screen } from "./test-utils.js";
 
 // fw#2245 Teil 1: `EditFieldSpec.renderer` (kumiko-types/src/screen.ts) is
 // validated and survives into the ViewModel (headless/view-model/edit.ts)

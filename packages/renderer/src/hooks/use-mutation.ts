@@ -1,6 +1,6 @@
 import type { DispatcherError, WriteResult } from "@cosmicdrift/kumiko-headless";
 import { useCallback, useRef, useState } from "react";
-import { useDispatcher } from "../context/dispatcher-context";
+import { useDispatcher } from "../context/dispatcher-context.js";
 
 // React wrapper around dispatcher.write — the write-side sibling of
 // useQuery. One hook instance per handler-type; `mutate` carries the

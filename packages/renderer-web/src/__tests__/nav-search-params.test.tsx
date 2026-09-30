@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
-import { useBrowserNavApi } from "../app/nav";
+import { useBrowserNavApi } from "../app/nav.js";
 
 function setLocation(pathname: string, search: string): void {
   window.history.replaceState(null, "", `${pathname}${search}`);

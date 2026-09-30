@@ -5,7 +5,7 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ExtensionSectionProps } from "@cosmicdrift/kumiko-renderer";
 import { ExtensionSectionsProvider, RenderList } from "@cosmicdrift/kumiko-renderer";
-import { fireEvent, render, screen } from "./test-utils";
+import { fireEvent, render, screen } from "./test-utils.js";
 
 const taskEntity = {
   fields: {

@@ -1,24 +1,24 @@
 import type { SecretMintScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FormValues, SubmitResult, Translate } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
-import { RenderEdit } from "../components/render-edit";
-import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
+import { RenderEdit } from "../components/render-edit.js";
+import { useTranslation } from "../i18n.js";
+import { usePrimitives } from "../primitives.js";
 import {
   synthesizeActionFormEntity,
   synthesizeActionFormScreen,
   synthesizeSecretMintConfirmScreen,
-} from "./action-form-shim";
-import type { FeatureSchema } from "./feature-schema";
+} from "./action-form-shim.js";
+import type { FeatureSchema } from "./feature-schema.js";
 import {
   buildInitialValues,
   literalCurrencyOverrides,
   mergeSearchParamsIntoInitial,
-} from "./kumiko-screen";
-import { layoutFieldNames } from "./layout-fields";
-import { useInitialValuesHandoff, useNav } from "./nav";
-import { lastSegment } from "./qn";
-import { navigateToReturnOr, useReturnTarget } from "./return-to";
+} from "./kumiko-screen.js";
+import { layoutFieldNames } from "./layout-fields.js";
+import { useInitialValuesHandoff, useNav } from "./nav.js";
+import { lastSegment } from "./qn.js";
+import { navigateToReturnOr, useReturnTarget } from "./return-to.js";
 
 export type SecretMintBodyProps = {
   readonly schema: FeatureSchema;

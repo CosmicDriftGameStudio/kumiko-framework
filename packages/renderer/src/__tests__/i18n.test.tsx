@@ -12,7 +12,7 @@ import {
   useLocale,
   useOptionalTranslation,
   useTranslation,
-} from "../i18n";
+} from "../i18n.js";
 
 // Stateful resolver fixture: we drive locale changes with setState
 // and the test asserts re-render via subscribe.

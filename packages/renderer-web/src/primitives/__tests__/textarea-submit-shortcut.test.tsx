@@ -5,7 +5,7 @@
 // the browser's native newline insertion.
 import { describe, expect, test } from "bun:test";
 import { fireEvent, render } from "@testing-library/react";
-import { defaultPrimitives } from "../index";
+import { defaultPrimitives } from "../index.js";
 
 const { Input } = defaultPrimitives;
 const noop = () => {};

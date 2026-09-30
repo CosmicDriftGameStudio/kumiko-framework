@@ -14,8 +14,8 @@ import {
   render,
   screen,
   waitFor,
-} from "../../__tests__/test-utils";
-import { InfinityList, type InfinityListSelection } from "../infinity-list";
+} from "../../__tests__/test-utils.js";
+import { InfinityList, type InfinityListSelection } from "../infinity-list.js";
 
 // Fake LiveEventSubscriber for live-mode tests — collects subscribers,
 // `inject(type, data)` fires the ones matching `data.aggregateType`.

@@ -6,7 +6,7 @@
 
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type ReactNode, useId } from "react";
-import { useContentEditor } from "./content-editors";
+import { useContentEditor } from "./content-editors.js";
 
 const VARIABLE_PATTERN = /\{\{\s*(\w+)\s*\}\}/g;
 

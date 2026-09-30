@@ -11,7 +11,7 @@ import {
   hasIssueWithoutRenderedField,
   resolveExtensionEntityId,
   shouldNotifyCaller,
-} from "../render-edit-logic";
+} from "../render-edit-logic.js";
 
 const error: DispatcherError = {
   code: "internal_error",

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives";
-import { type ContentEditorProps, ContentEditorsProvider } from "../content-editors";
-import { ContentPreview, substituteVariables } from "../content-preview";
+import { type CorePrimitives, type InputProps, PrimitivesProvider } from "../../primitives.js";
+import { type ContentEditorProps, ContentEditorsProvider } from "../content-editors.js";
+import { ContentPreview, substituteVariables } from "../content-preview.js";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

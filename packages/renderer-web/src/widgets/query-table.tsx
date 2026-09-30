@@ -6,7 +6,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { EmptyState, ErrorState, LoadingState } from "./states";
+import { EmptyState, ErrorState, LoadingState } from "./states.js";
 
 // Query-backed Tabelle für Custom-Screens: ein Widget statt der
 // handgebauten useState+fetch+<table>-Trios. Deklarativ: Query-Type +

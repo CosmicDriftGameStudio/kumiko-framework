@@ -1,7 +1,7 @@
 import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
-import type { FieldCellWidth, usePrimitives } from "../primitives";
-import { RenderField } from "./render-field";
+import type { FieldCellWidth, usePrimitives } from "../primitives.js";
+import { RenderField } from "./render-field.js";
 
 // Extracted out of render-edit.tsx so write-form-section.tsx can reuse it
 // without a circular import between the two components.

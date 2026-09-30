@@ -42,10 +42,29 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./dispatcher": {
+        "types": "./dist/dispatcher/index.d.ts",
+        "default": "./dist/dispatcher/index.js"
+      },
+      "./apex": {
+        "types": "./dist/apex/index.d.ts",
+        "default": "./dist/apex/index.js"
+      },
+      "./locale-routing": {
+        "types": "./dist/locale-routing/index.d.ts",
+        "default": "./dist/locale-routing/index.js"
+      }
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "src/changes.json",
     "README.md",
     "LICENSE"
   ]

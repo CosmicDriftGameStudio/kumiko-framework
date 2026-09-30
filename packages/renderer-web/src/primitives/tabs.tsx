@@ -2,8 +2,8 @@
 
 import type { TabsProps } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useCallback, useLayoutEffect, useRef, useState } from "react";
-import { cn } from "../lib/cn";
-import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+import { cn } from "../lib/cn.js";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs.js";
 
 // The underline is a real border-b-2 (board) instead of the vendored ::after bar, so the
 // vendored active/dark border resets are overridden with identical variant chains.

@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import userEvent from "@testing-library/user-event";
-import { defaultPrimitives } from "../primitives";
-import { render, screen } from "./test-utils";
+import { defaultPrimitives } from "../primitives/index.js";
+import { render, screen } from "./test-utils.js";
 
 const { Lightbox } = defaultPrimitives;
 

@@ -3,7 +3,7 @@
 
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import type { Dispatcher, QueryResult } from "@cosmicdrift/kumiko-headless";
-import { postWithDownload } from "../download";
+import { postWithDownload } from "../download.js";
 
 function stubDispatcher(result: QueryResult<{ url?: string }>): Dispatcher {
   return { query: async () => result } as unknown as Dispatcher;

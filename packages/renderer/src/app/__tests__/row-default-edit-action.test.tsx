@@ -16,21 +16,21 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { DispatcherProvider } from "../../context/dispatcher-context";
-import { UserRolesProvider } from "../../context/user-roles-context";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
+import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { UserRolesProvider } from "../../context/user-roles-context.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type CorePrimitives,
   type DataTableProps,
   type DataTableRowAction,
   PrimitivesProvider,
-} from "../../primitives";
-import { AppFeaturesProvider } from "../app-features-context";
-import type { FeatureSchema } from "../feature-schema";
-import { KumikoScreen } from "../kumiko-screen";
-import type { NavTarget } from "../nav";
-import { NavProvider } from "../nav";
+} from "../../primitives.js";
+import { AppFeaturesProvider } from "../app-features-context.js";
+import type { FeatureSchema } from "../feature-schema.js";
+import { KumikoScreen } from "../kumiko-screen.js";
+import type { NavTarget } from "../nav.js";
+import { NavProvider } from "../nav.js";
 
 function stubDispatcher(rows: readonly Record<string, unknown>[]): Dispatcher {
   return {

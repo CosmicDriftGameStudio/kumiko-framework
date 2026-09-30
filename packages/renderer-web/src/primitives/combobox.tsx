@@ -18,7 +18,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 export type ComboboxOption = { readonly value: string; readonly label: string };
 

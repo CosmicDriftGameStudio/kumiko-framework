@@ -12,7 +12,7 @@
 
 import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // Re-exported for backward compat — callers used to import this from here
 // before it moved to headless (shared with RenderField, kumiko-framework#1923).

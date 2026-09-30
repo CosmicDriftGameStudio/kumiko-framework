@@ -20,8 +20,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../lib/cn";
-import type { StatusTone } from "../widgets/status-badge";
+import { cn } from "../lib/cn.js";
+import type { StatusTone } from "../widgets/status-badge.js";
 
 export type ToastVariant = StatusTone;
 

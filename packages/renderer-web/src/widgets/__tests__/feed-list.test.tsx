@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { render, screen } from "@testing-library/react";
-import { FeedList, type FeedRow } from "../feed-list";
+import { FeedList, type FeedRow } from "../feed-list.js";
 
 const rows: FeedRow[] = [
   { id: "r1", primary: "First row", trailing: "3 min" },

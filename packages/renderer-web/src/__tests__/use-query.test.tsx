@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test";
 import type { Dispatcher, DispatcherError } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils";
+import { act, createMockDispatcher, renderHook, waitFor } from "./test-utils.js";
 
 function makeDispatcher(queryFn?: Dispatcher["query"]): Dispatcher {
   return createMockDispatcher({ query: queryFn });

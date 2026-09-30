@@ -14,8 +14,8 @@
 // Sort/Filter-Toggles nicht die Browser-History fluten.
 
 import { useCallback, useMemo } from "react";
-import { useNav } from "../app/nav";
-import type { DataTableSort, DataTableSortDir } from "../primitives";
+import { useNav } from "../app/nav.js";
+import type { DataTableSort, DataTableSortDir } from "../primitives.js";
 
 // ListSort + DataTableSort hatten dieselbe Shape und drohten zu driften
 // — aliased auf den primitives-Type (eine Quelle, kein Cast in RenderList).

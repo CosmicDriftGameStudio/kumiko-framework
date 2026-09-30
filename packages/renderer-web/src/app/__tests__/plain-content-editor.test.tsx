@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { CONTENT_EDITOR_ELEMENT_ID } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { fireEvent, render, screen } from "../../__tests__/test-utils";
-import { PlainContentEditor } from "../plain-content-editor";
+import { fireEvent, render, screen } from "../../__tests__/test-utils.js";
+import { PlainContentEditor } from "../plain-content-editor.js";
 
 function Controlled({ initial }: { readonly initial: string }): ReactNode {
   const [value, setValue] = useState(initial);

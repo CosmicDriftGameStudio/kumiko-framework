@@ -4,8 +4,8 @@ import type { LightboxProps } from "@cosmicdrift/kumiko-renderer";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
-import { ModalShell } from "./modal-shell";
+import { cn } from "../lib/cn.js";
+import { ModalShell } from "./modal-shell.js";
 
 export function DefaultLightbox({
   open,

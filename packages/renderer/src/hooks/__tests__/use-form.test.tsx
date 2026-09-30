@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { Dispatcher, WriteResult } from "@cosmicdrift/kumiko-headless";
 import { act, renderHook } from "@testing-library/react";
-import { useForm } from "../use-form";
+import { useForm } from "../use-form.js";
 
 function makeDispatcher(response?: WriteResult): Dispatcher & {
   readonly writeSpy: ReturnType<typeof mock>;

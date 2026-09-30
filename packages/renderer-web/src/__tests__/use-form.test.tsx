@@ -3,7 +3,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { DispatcherProvider, useForm } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
 import * as z from "zod";
-import { act, createMockDispatcher, renderHook } from "./test-utils";
+import { act, createMockDispatcher, renderHook } from "./test-utils.js";
 
 type Values = { title: string; count?: number };
 

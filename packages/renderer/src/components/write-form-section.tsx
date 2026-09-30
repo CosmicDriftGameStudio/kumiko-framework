@@ -6,12 +6,12 @@ import type {
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo, useState } from "react";
 import * as z from "zod";
-import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema";
-import { dispatcherErrorText } from "../app/write-failed-error";
-import { useForm } from "../hooks/use-form";
-import { useTranslation } from "../i18n";
-import { usePrimitives } from "../primitives";
-import { GridCellForField } from "./grid-cell-for-field";
+import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.js";
+import { dispatcherErrorText } from "../app/write-failed-error.js";
+import { useForm } from "../hooks/use-form.js";
+import { useTranslation } from "../i18n.js";
+import { usePrimitives } from "../primitives.js";
+import { GridCellForField } from "./grid-cell-for-field.js";
 
 // Same "has a value" rule as buildFormSchema's isPresent (app/form-schema.ts)
 // — duplicated because that helper walks raw EditFieldSpec + EntityDefinition,

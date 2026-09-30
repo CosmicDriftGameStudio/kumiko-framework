@@ -6,7 +6,7 @@ import type {
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.js";
 
 // writeHandler-Row/Toolbar-Actions auf projectionList — der entityList-
 // Dispatch-Pfad gilt jetzt auch hier (vorher v1: nur navigate).
@@ -99,7 +99,7 @@ describe("projectionList writeHandler-Actions", () => {
       isSuccess: false,
       error: { code: "internal_error", httpStatus: 500, message: "maintenance start failed" },
     }));
-    const { ToastProvider } = await import("../primitives/toast");
+    const { ToastProvider } = await import("../primitives/toast.js");
     render(
       <ToastProvider>
         <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>
@@ -118,7 +118,7 @@ describe("projectionList writeHandler-Actions", () => {
       isSuccess: false,
       error: { code: "internal_error", httpStatus: 500, message: "maintenance sync failed" },
     }));
-    const { ToastProvider } = await import("../primitives/toast");
+    const { ToastProvider } = await import("../primitives/toast.js");
     render(
       <ToastProvider>
         <DispatcherProvider dispatcher={makeDispatcher(write as unknown as Dispatcher["write"])}>

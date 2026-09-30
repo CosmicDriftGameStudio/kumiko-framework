@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import { resolveDetailBreadcrumb } from "../shell-breadcrumb";
+import { resolveDetailBreadcrumb } from "../shell-breadcrumb.js";
 
 const t = (key: string): string => key;
 

@@ -9,7 +9,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactElement, ReactNode } from "react";
-import { render, screen } from "./test-utils";
+import { render, screen } from "./test-utils.js";
 
 // Tests für die JSX-Renderer-Form von ListColumn-Spalten:
 // `{ react: { __component: "Name" } }` wird via ColumnRenderersProvider

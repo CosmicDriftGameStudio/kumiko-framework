@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { act, fireEvent, render, screen } from "../../__tests__/test-utils";
-import { Drawer } from "../drawer";
+import { act, fireEvent, render, screen } from "../../__tests__/test-utils.js";
+import { Drawer } from "../drawer.js";
 
 describe("Drawer", () => {
   test("rendert Titel + Inhalt wenn open", () => {

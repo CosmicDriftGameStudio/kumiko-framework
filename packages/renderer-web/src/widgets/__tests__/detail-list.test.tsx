@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { render, screen } from "../../__tests__/test-utils";
-import { DetailList } from "../detail-list";
+import { render, screen } from "../../__tests__/test-utils.js";
+import { DetailList } from "../detail-list.js";
 
 describe("DetailList", () => {
   test("sizes the label column from the container, not the viewport", () => {

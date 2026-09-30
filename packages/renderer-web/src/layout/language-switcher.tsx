@@ -13,13 +13,13 @@
 
 import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useMemo } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "../primitives/dropdown-menu";
+} from "../primitives/dropdown-menu.js";
 
 export type LocaleOption = {
   /** BCP-47 code, e.g. "de", "en-US", "fr-CA". Passed through 1:1 to

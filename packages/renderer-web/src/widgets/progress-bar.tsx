@@ -1,6 +1,6 @@
 import type { ProgressTone } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 // Fully spelled out (no interpolation) — Tailwind's scanner only picks up
 // literal class strings, not `bg-status-${tone}`.

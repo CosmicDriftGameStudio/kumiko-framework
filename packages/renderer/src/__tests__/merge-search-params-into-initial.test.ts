@@ -4,8 +4,8 @@ import {
   buildInitialValues,
   literalCurrencyOverrides,
   mergeSearchParamsIntoInitial,
-} from "../app/kumiko-screen";
-import { layoutFieldNames } from "../app/layout-fields";
+} from "../app/kumiko-screen.js";
+import { layoutFieldNames } from "../app/layout-fields.js";
 
 type FieldDef = {
   type?: string;

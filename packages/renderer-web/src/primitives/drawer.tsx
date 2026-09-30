@@ -8,8 +8,8 @@ import type { DrawerProps } from "@cosmicdrift/kumiko-renderer";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { XIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { SheetTitle } from "../ui/sheet";
-import { Drawer } from "../widgets/drawer";
+import { SheetTitle } from "../ui/sheet.js";
+import { Drawer } from "../widgets/drawer.js";
 
 const DRAWER_WIDTH_PX = 480;
 const DRAWER_DIM_PERCENT = 32;

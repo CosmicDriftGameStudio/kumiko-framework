@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AccessRule } from "@cosmicdrift/kumiko-framework/ui-types";
-import { screenAccessAllows } from "../kumiko-screen";
+import { screenAccessAllows } from "../kumiko-screen.js";
 
 describe("screenAccessAllows", () => {
   test("allows when no access rule is set", () => {

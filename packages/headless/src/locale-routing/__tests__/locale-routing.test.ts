@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { LocaleResolver } from "../../contracts";
-import { createLocaleRouter, wrapUrlLocaleResolver } from "../index";
+import type { LocaleResolver } from "../../contracts/index.js";
+import { createLocaleRouter, wrapUrlLocaleResolver } from "../index.js";
 
 type MoneyHorsePage = "home" | "features" | "rechner" | "budget" | "ltv";
 

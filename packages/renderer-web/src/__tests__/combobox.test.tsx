@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
-import { ComboboxInput } from "../primitives/combobox";
-import { render, screen } from "./test-utils";
+import { ComboboxInput } from "../primitives/combobox.js";
+import { render, screen } from "./test-utils.js";
 
 // Tier 2.1c: Combobox-Primitive Smoke-Tests. cmdk + Radix-Popover
 // rendern Portals; jsdom resolved sie auf document.body. Wir testen

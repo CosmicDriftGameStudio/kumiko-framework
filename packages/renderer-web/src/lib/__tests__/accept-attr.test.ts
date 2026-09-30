@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { toAcceptAttr } from "../accept-attr";
+import { toAcceptAttr } from "../accept-attr.js";
 
 describe("toAcceptAttr", () => {
   test("bare extensions get a leading dot", () => {

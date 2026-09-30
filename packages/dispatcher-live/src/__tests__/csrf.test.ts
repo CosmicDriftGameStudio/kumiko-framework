@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, readCsrfToken } from "../csrf";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, readCsrfToken } from "../csrf.js";
 
 describe("CSRF token extraction", () => {
   test("constants match server-side expectations", () => {

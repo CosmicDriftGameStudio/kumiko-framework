@@ -13,10 +13,10 @@ import {
   type WriteOpts,
   type WriteResult,
 } from "@cosmicdrift/kumiko-headless";
-import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf";
-import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping";
-import { LOCALE_HEADER_NAME, readActiveLocale } from "./locale";
-import { iterateSseChunks } from "./sse-stream";
+import { CSRF_HEADER_NAME, readCsrfToken } from "./csrf.js";
+import { buildAbortError, buildNetworkError, mapServerError } from "./error-mapping.js";
+import { LOCALE_HEADER_NAME, readActiveLocale } from "./locale.js";
+import { iterateSseChunks } from "./sse-stream.js";
 
 // HTTP-only dispatcher. Maps Kumiko's client-side Dispatcher contract to
 // `POST /api/{write,query,batch}`. No local store, no queue, no retry —

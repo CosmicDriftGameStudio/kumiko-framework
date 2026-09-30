@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { buildAbortError, buildNetworkError, mapServerError } from "../error-mapping";
+import { buildAbortError, buildNetworkError, mapServerError } from "../error-mapping.js";
 
 describe("mapServerError", () => {
   test("maps a minimal error envelope 1:1", () => {

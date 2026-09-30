@@ -5,16 +5,16 @@
 // cacheable HTTP response. See APEX_STRUCTURAL_CSS for the CSS contract.
 
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { escapeHtml } from "../format";
-import { APEX_STRUCTURAL_CSS } from "./css";
-import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox";
+import { escapeHtml } from "../format/index.js";
+import { APEX_STRUCTURAL_CSS } from "./css.js";
+import { APEX_LIGHTBOX_HTML, APEX_LIGHTBOX_SCRIPT } from "./lightbox.js";
 
-export { APEX_NAV_MENU_CSS, APEX_NAV_TOGGLE_RESPONSIVE_CSS, APEX_STRUCTURAL_CSS } from "./css";
+export { APEX_NAV_MENU_CSS, APEX_NAV_TOGGLE_RESPONSIVE_CSS, APEX_STRUCTURAL_CSS } from "./css.js";
 export {
   APEX_LIGHTBOX_HTML,
   APEX_LIGHTBOX_SCRIPT,
   APEX_LIGHTBOX_SCRIPT_CSP_HASH,
-} from "./lightbox";
+} from "./lightbox.js";
 
 export type ApexTheme = "light" | "dark";
 

@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { createStore, shallowEqual } from "@cosmicdrift/kumiko-headless";
 import { useStore, useStoreSelector } from "@cosmicdrift/kumiko-renderer";
-import { act, renderHook } from "./test-utils";
+import { act, renderHook } from "./test-utils.js";
 
 describe("useStore", () => {
   test("returns the current snapshot", () => {

@@ -37,16 +37,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "../lib/cn";
-import { Button as UiButton } from "../ui/button";
-import { Checkbox } from "../ui/checkbox";
-import { Input as UiInput } from "../ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import { ComboboxInput } from "./combobox";
-import { DateInput } from "./date-input";
-import { formatMoney, MoneyInput } from "./money-input";
-import { TimestampInput } from "./timestamp-input";
-import { useIsNarrowViewport } from "./use-narrow-viewport";
+import { cn } from "../lib/cn.js";
+import { Button as UiButton } from "../ui/button.js";
+import { Checkbox } from "../ui/checkbox.js";
+import { Input as UiInput } from "../ui/input.js";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table.js";
+import { ComboboxInput } from "./combobox.js";
+import { DateInput } from "./date-input.js";
+import { formatMoney, MoneyInput } from "./money-input.js";
+import { TimestampInput } from "./timestamp-input.js";
+import { useIsNarrowViewport } from "./use-narrow-viewport.js";
 
 // `input[type=hidden]` excluded — ComboboxInput renders one as a plain
 // name-carrier before its focusable trigger button.

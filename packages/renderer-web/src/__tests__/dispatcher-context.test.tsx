@@ -7,7 +7,7 @@ import {
   useOptionalDispatcher,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { act, createMockDispatcher, render, renderHook } from "./test-utils";
+import { act, createMockDispatcher, render, renderHook } from "./test-utils.js";
 
 // Minimal fake dispatcher: write/query/batch throwen, damit klar wird
 // wenn ein Hook unter Test irgendwohin greift wo er nicht hingehört.

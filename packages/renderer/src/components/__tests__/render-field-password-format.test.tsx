@@ -6,14 +6,14 @@ import { describe, expect, test } from "bun:test";
 import type { EditFieldViewModel } from "@cosmicdrift/kumiko-headless";
 import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
 import {
   type CorePrimitives,
   type InputProps,
   PrimitivesProvider,
   type TextProps,
-} from "../../primitives";
-import { RenderField } from "../render-field";
+} from "../../primitives.js";
+import { RenderField } from "../render-field.js";
 
 let capturedInput: InputProps | undefined;
 const captureInput: ComponentType<InputProps> = (props) => {

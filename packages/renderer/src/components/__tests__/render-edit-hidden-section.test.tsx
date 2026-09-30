@@ -24,10 +24,10 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { type RenderResult, render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { kumikoDefaultTranslations } from "../../i18n-defaults";
-import { type CorePrimitives, PrimitivesProvider, type SectionProps } from "../../primitives";
-import { RenderEdit } from "../render-edit";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { type CorePrimitives, PrimitivesProvider, type SectionProps } from "../../primitives.js";
+import { RenderEdit } from "../render-edit.js";
 
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;

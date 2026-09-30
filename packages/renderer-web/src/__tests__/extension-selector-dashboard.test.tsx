@@ -27,9 +27,9 @@ import {
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import * as z from "zod";
-import { WebDashboardBody } from "../app/dashboard-body";
-import { useBrowserNavApi } from "../app/nav";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils";
+import { WebDashboardBody } from "../app/dashboard-body.js";
+import { useBrowserNavApi } from "../app/nav.js";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin");
 

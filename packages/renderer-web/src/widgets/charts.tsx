@@ -1,5 +1,5 @@
 import { type ReactNode, useId } from "react";
-import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge";
+import { STATUS_TONE_TEXT, type StatusTone } from "./status-badge.js";
 
 // Inline-SVG-Charts — kein Chart-Dep. Farben ausschließlich über die
 // --color-status-* / --color-foreground Theme-Tokens; Achsen-Labels

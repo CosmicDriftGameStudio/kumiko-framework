@@ -7,7 +7,7 @@ import {
   LIST_ROW_META_COLUMNS,
   LIST_ROW_META_REFERENCES,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { computeListViewModel } from "../list";
+import { computeListViewModel } from "../list.js";
 
 // Minimal EntityDefinition-shape. ui-core's view-model only reads
 // entity.fields and per-field metadata; tests stay untyped-casted via

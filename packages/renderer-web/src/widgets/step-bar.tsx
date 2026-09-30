@@ -1,7 +1,7 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Check } from "lucide-react";
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn";
+import { cn } from "../lib/cn.js";
 
 const CHIP_CLASS = "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors";
 

@@ -7,9 +7,9 @@
 import { describe, expect, mock, test } from "bun:test";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { NavApi } from "../app/nav";
-import { NavProvider } from "../app/nav";
-import { useListUrlState } from "../hooks/use-list-url-state";
+import type { NavApi } from "../app/nav.js";
+import { NavProvider } from "../app/nav.js";
+import { useListUrlState } from "../hooks/use-list-url-state.js";
 
 function makeNav(initial: Record<string, string> = {}): NavApi & {
   readonly current: { params: Record<string, string> };

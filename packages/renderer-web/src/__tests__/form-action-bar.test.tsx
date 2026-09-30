@@ -9,8 +9,8 @@ import type {
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
-import { BareFormProvider, defaultPrimitives } from "../primitives";
-import { createMockDispatcher, render, screen } from "./test-utils";
+import { BareFormProvider, defaultPrimitives } from "../primitives/index.js";
+import { createMockDispatcher, render, screen } from "./test-utils.js";
 
 const { Form, Section, Button } = defaultPrimitives;
 

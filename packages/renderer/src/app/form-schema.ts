@@ -6,7 +6,7 @@ import type {
 import { evalFieldCondition, NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-framework/ui-types";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import * as z from "zod";
-import { layoutEditFields } from "./layout-fields";
+import { layoutEditFields } from "./layout-fields.js";
 
 // `required` means "has a value", not "is truthy" — `false` and `0` count
 // as present, only the actually-empty representations don't.
