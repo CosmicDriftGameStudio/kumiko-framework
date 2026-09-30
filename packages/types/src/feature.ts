@@ -77,6 +77,7 @@ import type {
 import type { EntityRelations, RelationDefinition } from "./relations";
 import type { ScreenDefinition } from "./screen";
 import type { TreeActionDef, TreeActionsHandle } from "./tree-node";
+import type { WebSocketRouteDefinition } from "./websocket-route";
 import type { WorkspaceDefinition } from "./workspace";
 
 // --- Metrics (declared by features via r.metric()) ---
@@ -371,6 +372,8 @@ export type FeatureDefinition = {
   // den Hono-app (außerhalb /api/*). Pattern symmetrisch zu queryHandlers/
   // writeHandlers — Routes leben mit dem Feature, nicht im Bootstrap.
   readonly httpRoutes: Readonly<Record<string, HttpRouteDefinition>>;
+  // WebSocket routes declared via r.webSocketRoute(), keyed by path.
+  readonly webSocketRoutes: Readonly<Record<string, WebSocketRouteDefinition>>;
   // Store tables declared via r.storeTable() — bypass the event-sourcing
   // system. Keyed by feature-local short name (derived from
   // meta.tableName). The registry attaches featureName on aggregation,
@@ -858,6 +861,12 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   // not in the bootstrap. Escape-hatch for non-feature-bound routes stays
   // runProdApp.extraRoutes (declarative list with `entry` tier).
   httpRoute(definition: HttpRouteDefinition): void;
+
+  // Register a WebSocket endpoint under /api/ws/*. Rides the /api/* auth
+  // chain; the framework adds a cookie-session origin check, a per-message
+  // size cap and a heartbeat with session re-validation. Duplicate paths are
+  // rejected per feature here and across features in buildServer.
+  webSocketRoute(definition: WebSocketRouteDefinition): void;
 
   // Declare an "unmanaged" framework-native table that bypasses the
   // event-sourcing system. Reserved for legacy-import, read-only caches,

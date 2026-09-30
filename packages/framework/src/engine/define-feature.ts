@@ -160,6 +160,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     contentCollections: state.contentCollections,
     workspaces: state.workspaces,
     httpRoutes: state.httpRoutes,
+    webSocketRoutes: state.webSocketRoutes,
     storeTables: state.storeTables,
     ...(state.treeActions !== undefined && { treeActions: state.treeActions }),
     ...(state.envSchema !== undefined && { envSchema: state.envSchema }),

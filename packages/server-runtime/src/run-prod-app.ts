@@ -74,6 +74,7 @@ import {
   createDefaultSseBroker,
   createRedisLoginRateLimiter,
   type ExtraRouteDefinition,
+  type KumikoServeEnv,
   type LoginRateLimiter,
   loadJwtSecretOrKeyring,
   type PostAuthLandingResolver,
@@ -246,6 +247,7 @@ function makeDryRunHandle(): ProdAppHandle {
     // entrypoint is never reached by callers in dry-run.
     entrypoint: undefined as unknown as ApiEntrypoint,
     fetch: () => new Response("dry-run", { status: 503 }),
+    webSocketUpgradeFetch: async () => new Response("dry-run", { status: 503 }),
     listen: noop,
     stop: noop,
   };
@@ -711,6 +713,11 @@ export type ProdAppHandle = {
    *  outermost Bun fetch callback — `requestIP` only resolves for Bun's
    *  original Request instance, never a cloned/rebuilt one. */
   readonly fetch: (req: Request, socketAddress?: string) => Promise<Response> | Response;
+  /** Serves WebSocket-upgrade requests (r.webSocketRoute) with Bun's original
+   *  Request. Apps with `autoListen: false` that run their own `Bun.serve`
+   *  must pass it as the 4th argument of `buildBunServeOptions` to get
+   *  WebSockets; `listen()` already wires it. */
+  readonly webSocketUpgradeFetch: (req: Request, env: KumikoServeEnv) => Promise<Response>;
   /** Active Bun-server (only set when listen() was called — tests skip
    *  listen() because Bun.serve isn't available under vitest/node). */
   server?: ReturnType<typeof Bun.serve>;
@@ -1324,9 +1331,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // 11. Mark lifecycle ready — health/ready flips to 200 after this.
   entrypoint.lifecycle.markReady();
 
+  // Upgrade rejections (401/403/426...) are ordinary responses and get the same headers as fetchHandler.
+  const securedUpgradeFetch = withSecurityHeaders<KumikoServeEnv>(
+    async (req, env) => stripNoRouteMatchHeader(await entrypoint.app.fetch(req, env)),
+    options.securityHeaders,
+  );
+  const webSocketUpgradeFetch = async (req: Request, env: KumikoServeEnv): Promise<Response> =>
+    securedUpgradeFetch(req, env);
+
   const handle: ProdAppHandle = {
     entrypoint,
     fetch: fetchHandler,
+    webSocketUpgradeFetch,
     listen: async (listenPort = port) => {
       // Bun.serve is the production HTTP. Tests don't call listen()
       // because vitest runs under Node where Bun.serve doesn't exist.
@@ -1347,6 +1363,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           listenPort,
           fetchHandler,
           options.maxRequestBodySize ?? resolveDerivedMaxRequestBodySize(registry),
+          webSocketUpgradeFetch,
         ),
       );
 

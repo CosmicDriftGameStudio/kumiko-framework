@@ -12,6 +12,7 @@ import {
   DetailList,
   Drawer,
   EmptyState,
+  FloatingPanel,
   InfinityList,
   MiniStat,
   ModeSwitch,
@@ -51,6 +52,7 @@ export function Widgets(): ReactNode {
   const [mode, setMode] = useState<"annuity" | "fixed">("annuity");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [belowHeaderDrawerOpen, setBelowHeaderDrawerOpen] = useState(false);
+  const [floatingPanelOpen, setFloatingPanelOpen] = useState(false);
   const { Button } = usePrimitives();
 
   const uptime = useMemo(
@@ -241,6 +243,40 @@ export function Widgets(): ReactNode {
           edge — this footer button must stay visible.
         </p>
       </Drawer>
+
+      <SectionCard
+        title={t("widgets:catalog:floating-panel")}
+        action={
+          <Button onClick={() => setFloatingPanelOpen(true)}>
+            {t("widgets:catalog:floating-panel-open")}
+          </Button>
+        }
+      >
+        <DetailList
+          rows={[
+            {
+              label: t("widgets:catalog:status"),
+              value: floatingPanelOpen
+                ? t("widgets:catalog:open-status")
+                : t("widgets:catalog:closed-status"),
+            },
+          ]}
+        />
+      </SectionCard>
+      {floatingPanelOpen && (
+        <FloatingPanel
+          title={t("widgets:catalog:floating-panel")}
+          headerActions={
+            <Button variant="secondary" onClick={() => setFloatingPanelOpen(false)}>
+              {t("widgets:catalog:floating-panel-close")}
+            </Button>
+          }
+          storageKey="styleguide:floating-panel"
+          testId="floating-panel-demo"
+        >
+          <p className="text-sm">{t("widgets:catalog:floating-panel-body")}</p>
+        </FloatingPanel>
+      )}
 
       <InboxDemo />
       <FinancingCalculatorDemo />

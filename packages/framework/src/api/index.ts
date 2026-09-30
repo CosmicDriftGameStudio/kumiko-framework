@@ -13,7 +13,13 @@ export type {
   TenantResolver,
   TokenVerifier,
 } from "./auth-middleware";
-export { authMiddleware, getUser, PAT_TOKEN_PREFIX } from "./auth-middleware";
+export {
+  AUTH_COOKIE_NAME,
+  authMiddleware,
+  getUser,
+  PAT_TOKEN_PREFIX,
+  sessionCheckStatus,
+} from "./auth-middleware";
 export type {
   AuthRoutesConfig,
   LoginRateLimiter,
@@ -92,3 +98,16 @@ export type { SseBroker, SseClient, SseEvent } from "./sse-broker";
 export { createSseBroker } from "./sse-broker";
 export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
 export { generateToken } from "./tokens";
+export type {
+  KumikoServeEnv,
+  KumikoServerWebSocket,
+  KumikoWebSocketData,
+  WebSocketUpgradeServer,
+} from "./websocket-route";
+export {
+  isWebSocketUpgradeRequest,
+  kumikoWebSocketHandler,
+  WEBSOCKET_HEARTBEAT_INTERVAL_MS,
+  WEBSOCKET_MAX_PAYLOAD_BYTES,
+  WEBSOCKET_ROUTE_PATH_PREFIX,
+} from "./websocket-route";

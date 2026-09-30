@@ -12,6 +12,7 @@ import { createJwtHelper } from "../jwt";
 import {
   assertOriginGuardConfig,
   isOriginAllowed,
+  isWebSocketOriginAllowed,
   normalizeOrigin,
   originMiddleware,
 } from "../origin-middleware";
@@ -210,5 +211,69 @@ describe("originMiddleware", () => {
     });
     expect(res.status).toBe(403);
     expect(await readErrorCode(res)).toBe("origin_not_allowed");
+  });
+});
+
+describe("isWebSocketOriginAllowed", () => {
+  const HOST = "app.example.eu";
+  const SAME_HOST_ORIGIN = `https://${HOST}`;
+  const allowlist: ReadonlySet<string> = new Set([normalizeOrigin(ALLOWED)]);
+
+  // Probe route: reports the predicate's verdict for the request it received.
+  async function verdict(
+    headers: Record<string, string>,
+    list: ReadonlySet<string> | undefined,
+    transport: "cookie" | "bearer" = "cookie",
+  ): Promise<boolean> {
+    const jwt = createJwtHelper(JWT_SECRET);
+    const token = await jwt.sign(TestUsers.user);
+    const app = new Hono();
+    app.use("/api/*", authMiddleware(jwt));
+    app.get("/api/ws/probe", (c) => c.json({ allowed: isWebSocketOriginAllowed(c, list) }));
+    const auth: Record<string, string> =
+      transport === "cookie"
+        ? { Cookie: `${AUTH_COOKIE_NAME}=${token}` }
+        : { Authorization: `Bearer ${token}` };
+    const res = await app.request("/api/ws/probe", {
+      headers: { Host: HOST, ...auth, ...headers },
+    });
+    const body: unknown = await res.json();
+    if (typeof body !== "object" || body === null || !("allowed" in body)) {
+      throw new Error(`unexpected probe body ${JSON.stringify(body)}`);
+    }
+    return body.allowed === true;
+  }
+
+  test("bearer transport is always allowed, even with a foreign Origin", async () => {
+    expect(await verdict({ Origin: DISALLOWED }, allowlist, "bearer")).toBe(true);
+    expect(await verdict({}, undefined, "bearer")).toBe(true);
+  });
+
+  test("cookie without Origin header is rejected", async () => {
+    expect(await verdict({}, undefined)).toBe(false);
+    expect(await verdict({}, allowlist)).toBe(false);
+  });
+
+  test("Origin 'null' and unparsable origins are rejected", async () => {
+    expect(await verdict({ Origin: "null" }, undefined)).toBe(false);
+    expect(await verdict({ Origin: "not a url" }, undefined)).toBe(false);
+  });
+
+  test("non-empty allowlist: listed origin passes, case/trailing slash normalized", async () => {
+    expect(await verdict({ Origin: ALLOWED }, allowlist)).toBe(true);
+    expect(await verdict({ Origin: `${ALLOWED.toUpperCase()}/` }, allowlist)).toBe(true);
+    expect(await verdict({ Origin: DISALLOWED }, allowlist)).toBe(false);
+  });
+
+  test("non-empty allowlist has no same-host fallback", async () => {
+    expect(await verdict({ Origin: SAME_HOST_ORIGIN }, allowlist)).toBe(false);
+  });
+
+  test("empty or absent allowlist: same host passes (case-insensitive), other host fails", async () => {
+    expect(await verdict({ Origin: SAME_HOST_ORIGIN }, undefined)).toBe(true);
+    expect(await verdict({ Origin: SAME_HOST_ORIGIN }, new Set())).toBe(true);
+    expect(await verdict({ Origin: `https://${HOST.toUpperCase()}` }, undefined)).toBe(true);
+    expect(await verdict({ Origin: DISALLOWED }, undefined)).toBe(false);
+    expect(await verdict({ Origin: `https://${HOST}:8443` }, undefined)).toBe(false);
   });
 });

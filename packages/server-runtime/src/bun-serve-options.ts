@@ -1,4 +1,12 @@
-import { DEFAULT_MAX_REQUEST_BYTES } from "@cosmicdrift/kumiko-framework/api";
+import {
+  DEFAULT_MAX_REQUEST_BYTES,
+  isWebSocketUpgradeRequest,
+  type KumikoServeEnv,
+  type KumikoWebSocketData,
+  kumikoWebSocketHandler,
+  WEBSOCKET_MAX_PAYLOAD_BYTES,
+  WEBSOCKET_ROUTE_PATH_PREFIX,
+} from "@cosmicdrift/kumiko-framework/api";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine/types";
 import {
   readFilesRouteOptions,
@@ -26,6 +34,14 @@ export function resolveDerivedMaxRequestBodySize(registry: Registry): number {
   );
 }
 
+// Other upgrades (dev HMR, ...) keep going through fetchHandler.
+function isKumikoWebSocketUpgrade(req: Request): boolean {
+  return (
+    isWebSocketUpgradeRequest(req) &&
+    new URL(req.url).pathname.startsWith(WEBSOCKET_ROUTE_PATH_PREFIX)
+  );
+}
+
 /**
  * Bun.serve-Options für Production.
  *
@@ -37,24 +53,43 @@ export function resolveDerivedMaxRequestBodySize(registry: Registry): number {
  *
  * Spec-Test in __tests__/run-prod-app-spec.test.ts pinst die 0 gegen
  * "looks like a leak"-Reverts.
+ *
+ * WebSocket: upgrade requests are branched off here, before `fetchHandler`
+ * (whose static/SPA layers clone the request, which `server.upgrade` can't
+ * use), into `webSocketUpgradeFetch` with the original Request.
  */
 export function buildBunServeOptions(
   port: number,
   fetchHandler: (req: Request, socketAddress?: string) => Response | Promise<Response>,
   maxRequestBodySize: number = DEFAULT_MAX_REQUEST_BODY_SIZE_BYTES,
+  webSocketUpgradeFetch?: (req: Request, env: KumikoServeEnv) => Response | Promise<Response>,
 ): {
   readonly port: number;
-  readonly fetch: (req: Request, server: Bun.Server<unknown>) => Response | Promise<Response>;
+  readonly fetch: (
+    req: Request,
+    server: Bun.Server<KumikoWebSocketData>,
+  ) => Response | Promise<Response>;
   readonly idleTimeout: number;
   readonly maxRequestBodySize: number;
+  readonly websocket: Bun.WebSocketHandler<KumikoWebSocketData>;
 } {
   // `server.requestIP(req)` only resolves for the exact Request instance
   // Bun created — extracted here, once, before any downstream req.clone()
   // (tryHonoFirst et al.) can invalidate it.
   return {
     port,
-    fetch: (req, server) => fetchHandler(req, server.requestIP(req)?.address),
+    fetch: (req, server) => {
+      const socketAddress = server.requestIP(req)?.address;
+      if (webSocketUpgradeFetch && isKumikoWebSocketUpgrade(req)) {
+        return webSocketUpgradeFetch(req, {
+          ...(socketAddress !== undefined ? { socketAddress } : {}),
+          server,
+        });
+      }
+      return fetchHandler(req, socketAddress);
+    },
     idleTimeout: 0,
     maxRequestBodySize,
+    websocket: { ...kumikoWebSocketHandler, maxPayloadLength: WEBSOCKET_MAX_PAYLOAD_BYTES },
   };
 }

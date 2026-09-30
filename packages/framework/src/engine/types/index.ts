@@ -367,6 +367,13 @@ export type {
   TreeNode,
   TreeNodeState,
 } from "@cosmicdrift/kumiko-types/tree-node";
+export type {
+  WebSocketConnection,
+  WebSocketMessageData,
+  WebSocketRouteConnectDeps,
+  WebSocketRouteDefinition,
+  WebSocketSessionHandlers,
+} from "@cosmicdrift/kumiko-types/websocket-route";
 export type { WorkspaceDefinition } from "@cosmicdrift/kumiko-types/workspace";
 // Re-export types that were duplicated in types.ts but are canonical in constants.ts
 export type {

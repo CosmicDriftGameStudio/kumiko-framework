@@ -15,6 +15,7 @@ import {
   type RunIn,
   type SessionUser,
   type TenantId,
+  type WebSocketRouteDefinition,
   type WriteResult,
 } from "../engine/types";
 import { createFileContext } from "../files/file-handle";
@@ -60,6 +61,7 @@ import { assertUnreachable, generateId } from "../utils";
 import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants";
 import {
   type AnonymousAccessResolved,
+  type AuthSessionChecker,
   authMiddleware,
   getUser,
   type TenantLifecycleStatusResolver,
@@ -82,11 +84,17 @@ import {
 import { computeStrongEtag, etagMatches } from "./http-cache";
 import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
 import { observabilityMiddleware } from "./observability-middleware";
-import { assertOriginGuardConfig, normalizeOrigin, originMiddleware } from "./origin-middleware";
+import {
+  assertOriginGuardConfig,
+  isWebSocketOriginAllowed,
+  normalizeOrigin,
+  originMiddleware,
+  rejectOrigin,
+} from "./origin-middleware";
 import { patRouteGuard } from "./pat-route-guard";
 import { piiCiphertextResponseGuard } from "./pii-leak-guard";
 import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker";
-import { requestContext } from "./request-context";
+import { type RequestContextData, requestContext } from "./request-context";
 import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
@@ -98,6 +106,12 @@ import {
 import { createApiRoutes } from "./routes";
 import type { SseBroker } from "./sse-broker";
 import { createSseRoute } from "./sse-route";
+import {
+  buildWebSocketSessionRevalidator,
+  hasWebSocketUpgradeServer,
+  isWebSocketUpgradeRequest,
+  WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
+} from "./websocket-route";
 
 export type ServerOptions = {
   registry: Registry;
@@ -985,6 +999,37 @@ export function buildServer(options: ServerOptions): KumikoServer {
     }
   }
 
+  // r.webSocketRoute — GET routes under /api/ws/*, so the jwt/pat/rate-limit
+  // chain above already ran. Origin/CSRF guards skip GETs, hence the own check.
+  const webSocketOriginAllowlist = allowedOrigins?.length
+    ? new Set(allowedOrigins.map(normalizeOrigin))
+    : undefined;
+  const webSocketRoutePaths = new Map<string, string>();
+  for (const feature of options.registry.features.values()) {
+    for (const route of Object.values(feature.webSocketRoutes)) {
+      const owner = webSocketRoutePaths.get(route.path);
+      if (owner !== undefined) {
+        throw new Error(
+          `[kumiko] WebSocket route "${route.path}" is declared by both feature "${owner}" and ` +
+            `"${feature.name}" — paths must be unique across features.`,
+        );
+      }
+      webSocketRoutePaths.set(route.path, feature.name);
+      app.get(
+        route.path,
+        buildWebSocketRouteHandler(route, {
+          dispatcher,
+          clientIpResolver,
+          originAllowlist: webSocketOriginAllowlist,
+          ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
+          ...(tenantLifecycleResolver
+            ? { resolveTenantLifecycleStatus: tenantLifecycleResolver }
+            : {}),
+        }),
+      );
+    }
+  }
+
   // extraRoutes (kumiko-framework#3050) — declarative HTTP-routes with a
   // Pflicht `entry` tier. Mounted after r.httpRoute for the same reason: an
   // extraRoute dispatching through `dispatcher` builds Hono's matcher, so
@@ -1216,6 +1261,92 @@ function unauthenticatedResponse(c: import("hono").Context): Response {
     },
     401,
   );
+}
+
+type WebSocketRouteHandlerDeps = {
+  readonly dispatcher: Dispatcher;
+  readonly clientIpResolver: ClientIpResolver;
+  readonly originAllowlist: ReadonlySet<string> | undefined;
+  readonly sessionChecker?: AuthSessionChecker;
+  readonly resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver;
+};
+
+function webSocketErrorResponse(
+  c: import("hono").Context,
+  status: 400 | 426 | 500,
+  code: string,
+  message: string,
+): Response {
+  return c.json({ error: { code, httpStatus: status, message } }, status);
+}
+
+function buildWebSocketRouteHandler(
+  route: WebSocketRouteDefinition,
+  shared: WebSocketRouteHandlerDeps,
+  // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
+): (c: import("hono").Context<any, any>) => Promise<Response> {
+  return async (c) => {
+    if (!isWebSocketOriginAllowed(c, shared.originAllowlist)) return rejectOrigin(c);
+    const user = getUser(c);
+    if (isMissingOrAnonymousUser(user)) return unauthenticatedResponse(c);
+    if (!isWebSocketUpgradeRequest(c.req.raw)) {
+      return webSocketErrorResponse(
+        c,
+        426,
+        "websocket_upgrade_required",
+        "this route only accepts WebSocket upgrade requests",
+      );
+    }
+    const honoEnv: unknown = c.env;
+    if (!hasWebSocketUpgradeServer(honoEnv)) {
+      return webSocketErrorResponse(
+        c,
+        500,
+        "websocket_upgrade_unavailable",
+        "the server was not wired for WebSocket upgrades",
+      );
+    }
+    const handlers = await route.connect(c, {
+      user,
+      query: (type, payload) => shared.dispatcher.query(type, payload, user),
+      write: (type, payload) => shared.dispatcher.write(type, payload, user),
+      clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
+    });
+    if (handlers instanceof Response) return handlers;
+
+    const captured = requestContext.get();
+    const requestContextData = captured ? withoutAbortSignal(captured) : undefined;
+    const revalidateSession = buildWebSocketSessionRevalidator({
+      user,
+      sessionChecker: shared.sessionChecker,
+      resolveTenantLifecycleStatus: shared.resolveTenantLifecycleStatus,
+    });
+    const upgraded = honoEnv.server.upgrade(c.req.raw, {
+      data: {
+        handlers,
+        maxMessageBytes: route.maxMessageBytes ?? WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
+        requestContextData,
+        revalidateSession,
+      },
+    });
+    if (!upgraded) {
+      return webSocketErrorResponse(
+        c,
+        400,
+        "websocket_upgrade_failed",
+        "the WebSocket upgrade was rejected",
+      );
+    }
+    // Bun ignores the returned Response after a successful upgrade.
+    return new Response(null);
+  };
+}
+
+// The request's AbortSignal fires when the upgrade request ends, which would
+// abort every later handler running under the captured context.
+function withoutAbortSignal(data: RequestContextData): RequestContextData {
+  const { signal: _signal, ...rest } = data;
+  return rest;
 }
 
 function isKnownExtraRouteEntry(entry: unknown): entry is ExtraRouteEntry {

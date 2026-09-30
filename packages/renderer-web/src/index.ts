@@ -166,6 +166,7 @@ export { PageSection, Stack } from "./primitives/layout";
 export { formatMoney } from "./primitives/money-input";
 export type { ToastOptions, ToastProviderProps, ToastVariant } from "./primitives/toast";
 export { ToastProvider, useToast } from "./primitives/toast";
+export { useIsNarrowViewport } from "./primitives/use-narrow-viewport";
 export type { CreateEventSourceLiveEventsOptions } from "./sse/live-events";
 export { createEventSourceLiveEvents } from "./sse/live-events";
 export {
@@ -185,6 +186,8 @@ export type {
   DrawerProps,
   FeedRow,
   FileFieldProps,
+  FloatingPanelGeometry,
+  FloatingPanelProps,
   InfinityListProps,
   NumberFieldProps,
   PhotoSlotSpec,
@@ -223,6 +226,7 @@ export {
   ErrorState,
   FeedList,
   FileField,
+  FloatingPanel,
   InfinityList,
   LoadingState,
   MiniStat,

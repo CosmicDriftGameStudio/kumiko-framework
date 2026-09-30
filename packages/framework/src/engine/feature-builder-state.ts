@@ -1,3 +1,4 @@
+import type { WebSocketRouteDefinition } from "@cosmicdrift/kumiko-types/websocket-route";
 import type * as z from "zod";
 import type { ZodType } from "zod";
 import { LifecycleHookTypes } from "./constants";
@@ -99,6 +100,7 @@ export type FeatureBuilderState = {
   contentCollections: Record<string, ContentCollectionDefinition>;
   workspaces: Record<string, WorkspaceDefinition>;
   httpRoutes: Record<string, HttpRouteDefinition>;
+  webSocketRoutes: Record<string, WebSocketRouteDefinition>;
   translations: TranslationKeys;
   isSystemScoped: boolean;
   toggleableDefault: boolean | undefined;
@@ -160,6 +162,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     contentCollections: {},
     workspaces: {},
     httpRoutes: {},
+    webSocketRoutes: {},
     translations: {},
     isSystemScoped: false,
     toggleableDefault: undefined,

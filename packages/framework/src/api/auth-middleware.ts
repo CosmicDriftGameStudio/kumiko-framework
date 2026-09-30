@@ -48,6 +48,10 @@ export type AuthSessionCheckResult =
   | AuthSessionStatus
   | { readonly status: "live"; readonly roles: readonly string[] };
 
+export function sessionCheckStatus(result: AuthSessionCheckResult): AuthSessionStatus {
+  return typeof result === "string" ? result : result.status;
+}
+
 // Called by the middleware after JWT-verify. Gets the sid AND the expected
 // userId from the JWT's `sub` — the checker MUST confirm the session row
 // both exists + is live AND belongs to expectedUserId. Without the userId
@@ -321,7 +325,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     if (sessionChecker) {
       if (payload.jti) {
         const result = await sessionChecker(payload.jti, payload.sub);
-        const status = typeof result === "string" ? result : result.status;
+        const status = sessionCheckStatus(result);
         if (status !== "live") {
           return sessionInvalid(c, status);
         }
@@ -651,22 +655,32 @@ async function requestsCancelDestruction(c: Context): Promise<boolean> {
   return false;
 }
 
+// The teardown status the HTTP guard rejects on, shared with the WebSocket
+// revalidator so both agree on what "tenant unavailable" means.
+export async function resolveTenantTeardownStatus(
+  tenantId: TenantId,
+  resolveTenantLifecycleStatus: TenantLifecycleStatusResolver | undefined,
+): Promise<string | undefined> {
+  if (!resolveTenantLifecycleStatus) return undefined;
+  const lifecycle = await resolveTenantLifecycleStatus(tenantId);
+  return lifecycle && TENANT_TEARDOWN_STATUSES.has(lifecycle.status) ? lifecycle.status : undefined;
+}
+
 async function rejectIfTenantTeardown(
   c: Context,
   tenantId: TenantId,
   resolveTenantLifecycleStatus: TenantLifecycleStatusResolver | undefined,
 ): Promise<Response | undefined> {
-  if (!resolveTenantLifecycleStatus) return undefined;
-  const lifecycle = await resolveTenantLifecycleStatus(tenantId);
-  if (!lifecycle || !TENANT_TEARDOWN_STATUSES.has(lifecycle.status)) return undefined;
-  if (lifecycle.status === "destroyRequested" && (await requestsCancelDestruction(c))) {
+  const status = await resolveTenantTeardownStatus(tenantId, resolveTenantLifecycleStatus);
+  if (status === undefined) return undefined;
+  if (status === "destroyRequested" && (await requestsCancelDestruction(c))) {
     return undefined;
   }
   return middlewareReject(c, {
     code: "tenant_unavailable",
     status: 410,
-    message: `tenant "${tenantId}" is unavailable (${lifecycle.status})`,
+    message: `tenant "${tenantId}" is unavailable (${status})`,
     i18nKey: "auth.errors.tenantUnavailable",
-    details: { tenantId, status: lifecycle.status },
+    details: { tenantId, status },
   });
 }

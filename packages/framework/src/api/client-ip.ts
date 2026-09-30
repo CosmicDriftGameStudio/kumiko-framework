@@ -34,8 +34,21 @@ export type ClientIpResolver = {
 // created, and a cloned/rebuilt Request (tryHonoFirst's req.clone(), etc.)
 // would silently return null. The address is extracted once at the
 // outermost Bun.serve fetch handler and threaded down as a plain value.
-export function extractSocketAddress(env: unknown): string | undefined {
-  return typeof env === "string" && env.length > 0 ? env : undefined;
+// WebSocket-upgrade requests carry `{ socketAddress, server }` instead (see
+// KumikoServeEnv) — the server handle is needed for `server.upgrade`.
+export function extractSocketAddress(honoEnv: unknown): string | undefined {
+  if (typeof honoEnv === "string") return honoEnv.length > 0 ? honoEnv : undefined;
+  if (hasSocketAddress(honoEnv) && honoEnv.socketAddress.length > 0) return honoEnv.socketAddress;
+  return undefined;
+}
+
+function hasSocketAddress(value: unknown): value is { readonly socketAddress: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "socketAddress" in value &&
+    typeof value.socketAddress === "string"
+  );
 }
 
 export function assertValidTrustedProxyHops(value: number | undefined, context: string): void {

@@ -5,7 +5,13 @@
 // Tweaks.
 
 import { describe, expect, test } from "bun:test";
-import { SSE_HEARTBEAT_INTERVAL_MS } from "@cosmicdrift/kumiko-framework/api";
+import {
+  type KumikoServeEnv,
+  type KumikoWebSocketData,
+  SSE_HEARTBEAT_INTERVAL_MS,
+  WEBSOCKET_HEARTBEAT_INTERVAL_MS,
+  WEBSOCKET_MAX_PAYLOAD_BYTES,
+} from "@cosmicdrift/kumiko-framework/api";
 import {
   createEntity,
   createFileField,
@@ -28,6 +34,47 @@ describe("Bun.serve options for production", () => {
     // Browser-Seite, Idle-Timer feuert).
     const opts = buildBunServeOptions(0, () => new Response("ok"));
     expect(opts.idleTimeout).toBe(0);
+  });
+
+  test("websocket payload cap is 1 MiB and the ping cadence stays under nginx's 60 s", () => {
+    // ingress-nginx's default proxy-read-timeout is 60 s: a quiet socket needs a server ping below it.
+    const opts = buildBunServeOptions(0, () => new Response("ok"));
+    expect(opts.websocket.maxPayloadLength).toBe(1024 * 1024);
+    expect(WEBSOCKET_MAX_PAYLOAD_BYTES).toBe(1024 * 1024);
+    expect(WEBSOCKET_HEARTBEAT_INTERVAL_MS).toBeLessThan(60_000);
+  });
+
+  test("upgrade requests go to webSocketUpgradeFetch with the server handle, others to fetchHandler", async () => {
+    const plain: string[] = [];
+    const upgraded: KumikoServeEnv[] = [];
+    const opts = buildBunServeOptions(
+      0,
+      (_req, socketAddress) => {
+        plain.push(socketAddress ?? "none");
+        return new Response("plain");
+      },
+      undefined,
+      (_req, env) => {
+        upgraded.push(env);
+        return new Response("upgrade");
+      },
+    );
+    const fakeServer = { requestIP: () => ({ address: "203.0.113.9", port: 1, family: "IPv4" }) };
+    const server = fakeServer as unknown as Bun.Server<KumikoWebSocketData>;
+    await opts.fetch(new Request("http://localhost/api/x"), server);
+    await opts.fetch(
+      new Request("http://localhost/api/ws/x", { headers: { Upgrade: "WebSocket" } }),
+      server,
+    );
+    // An upgrade outside /api/ws/ (dev HMR etc.) stays on the normal fetch path.
+    await opts.fetch(
+      new Request("http://localhost/__hmr", { headers: { Upgrade: "websocket" } }),
+      server,
+    );
+    expect(plain).toEqual(["203.0.113.9", "203.0.113.9"]);
+    expect(upgraded).toHaveLength(1);
+    expect(upgraded[0]?.socketAddress).toBe("203.0.113.9");
+    expect(upgraded[0]?.server).toBe(server);
   });
 
   test("port wird 1:1 durchgereicht, fetch reicht req + Socket-Adresse an den Handler weiter", async () => {
