@@ -16,6 +16,7 @@ import type {
   WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  describeWorkflowStepError,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -72,7 +73,7 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             payload: {
               workflowName: workflow.name,
               stepIndex: 0,
-              error: String(error),
+              error: describeWorkflowStepError(error),
             },
           });
           throw error;

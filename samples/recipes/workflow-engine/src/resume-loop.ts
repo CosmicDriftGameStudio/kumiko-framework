@@ -18,6 +18,7 @@ import type { HandlerContext, WorkflowDefinition } from "@cosmicdrift/kumiko-fra
 import {
   buildPipelineSteps,
   computeDefinitionFingerprint,
+  describeWorkflowStepError,
   runStepList,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RESUMED_TYPE,
@@ -188,7 +189,7 @@ export async function runResumeLoop(
         type: WORKFLOW_RUN_FAILED_TYPE,
         payload: {
           stepIndex: run.stepIndex,
-          error: String(error),
+          error: describeWorkflowStepError(error),
         },
       });
     }

@@ -79,7 +79,7 @@ const retryWorkflow: WorkflowDefinition = defineWorkflow({
       do: [
         r.step.compute("gate", (ctx) => {
           const attempt = ctx.workflow?.retryAttempt ?? 1;
-          if (attempt === 1) throw new Error("first-attempt-fails");
+          if (attempt === 1) throw new Error("send to jane.doe@example.com failed");
           return attempt;
         }),
       ],
@@ -289,6 +289,9 @@ describe("workflow-runner resume loop", () => {
       WORKFLOW_RETRY_SCHEDULED_TYPE,
     ]);
     expect(rowsAfterSuspend[1]!["payload"]).toMatchObject({ stepIndex: 0, attempt: 1 });
+    // The event outlives an erase, so it carries the error class only.
+    expect(rowsAfterSuspend[1]!["payload"]["error"]).toBe("workflow step failed (Error)");
+    expect(JSON.stringify(rowsAfterSuspend[1]!["payload"])).not.toContain("jane.doe@example.com");
 
     await tamperWakeAtToPast(runId, 0);
     await runResumeDueRunsJob();

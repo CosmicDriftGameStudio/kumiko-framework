@@ -57,10 +57,12 @@ export type WorkflowRunCompletedPayload = {
 export type WorkflowRunFailedPayload = {
   readonly workflowName: string;
   readonly stepIndex: number;
+  // Generic text (class name only), never the raw error message: the event
+  // survives an erase. The raw error goes to the log.
   readonly error: string;
   // Machine-readable failure category — set by resume-run for a Q7
   // fingerprint mismatch ("workflow_definition_changed"); absent for a
-  // plain pipeline-step failure (the `error` string is human-readable only).
+  // plain pipeline-step failure (the `error` string is generic).
   readonly reason?: string;
 };
 

@@ -16,13 +16,17 @@ import type {
   WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  describeWorkflowStepError,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RUN_FAILED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { workflowRunAggregateId } from "./aggregate-id";
 import { registerEventWakeup } from "./event-subscriber";
 import { startAndRunWorkflow, type WorkflowRunFailedPayload } from "./runner";
 import { registerWorkflow } from "./workflow-registry";
+
+const log = createFallbackLogger("workflow-runner");
 
 export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefinition): void {
   // Populate the workflow-registry unconditionally, before the event-trigger
@@ -89,10 +93,16 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             handlerCtx: ctx as never,
           });
         } catch (error) {
-          const failedPayload: WorkflowRunFailedPayload = {
+          log.warn("workflow run failed", {
+            runId,
             workflowName: workflow.name,
             stepIndex: 0,
             error: String(error),
+          });
+          const failedPayload: WorkflowRunFailedPayload = {
+            workflowName: workflow.name,
+            stepIndex: 0,
+            error: describeWorkflowStepError(error),
           };
           await ctx.unsafeAppendEvent({
             aggregateId: runId,

@@ -1,0 +1,14 @@
+---
+"@cosmicdrift/kumiko-framework": minor
+"@cosmicdrift/kumiko-bundled-features": minor
+---
+
+Workflow run-failed and retry.scheduled events store a generic error text instead of the raw error
+
+<!-- kumiko-changes
+feature: workflow-runner
+type: breaking
+title: Workflow run-failed and retry.scheduled events store a generic error text instead of the raw error
+migration: |
+  The `error` field of workflow.run-failed and workflow.retry.scheduled events is now generic, "workflow step failed (<error class>)" (or "(unknown error)" for non-Error throwables), because the raw text can contain recipients or payload fragments and would survive an erase. The raw error goes to the log (namespace workflow-runner, and the framework logger for retry). Code that parses the `error` text must switch to `reason` (machine-readable, set for definition changes) or to the logs. Already stored events keep their old text. The texts for an unregistered workflow and a definition-fingerprint mismatch are unchanged. describeWorkflowStepError is exported from @cosmicdrift/kumiko-framework/engine.
+-->
