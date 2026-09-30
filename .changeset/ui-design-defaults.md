@@ -6,6 +6,7 @@
 "@cosmicdrift/kumiko-dev-server": minor
 "@cosmicdrift/kumiko-renderer": minor
 "@cosmicdrift/kumiko-renderer-web": minor
+"@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-locale-de": minor
 "@cosmicdrift/kumiko-locale-es": minor
 ---
@@ -182,6 +183,14 @@ type: improvement
 title: Production build copies the renderer-web fonts
 detail: |
   `buildProdBundle` copies the IBM Plex woff2 files to `dist/assets/kumiko/fonts/`, where the compiled CSS expects them. The new export `@cosmicdrift/kumiko-server-runtime/renderer-web-fonts` holds the URL prefix, the file name allowlist and the resolver, and the woff2 MIME type is known to the static file server.
+-->
+
+<!-- kumiko-changes
+feature: auth-email-password
+type: improvement
+title: User menu and tenant menu items fit the new shell
+detail: |
+  The web user menu and tenant menu items are adapted to the sidebar footer user block, which now hosts the tenant, language and theme controls.
 -->
 
 <!-- kumiko-changes

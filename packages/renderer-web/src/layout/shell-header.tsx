@@ -12,7 +12,7 @@ import type { NavNode } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useMemo } from "react";
+import { Fragment, type ReactNode, useMemo } from "react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -53,12 +53,19 @@ export function ShellHeader({
     [appSchema.features],
   );
   const screenId = nav.route?.screenId;
+  const entityId = nav.route?.entityId;
   const crumbs = useMemo((): readonly BreadcrumbCrumb[] | undefined => {
     if (screenId === undefined) return undefined;
+    // A nav entry on an edit screen means "create"; an existing record (entityId in
+    // the route) is reached from the list, so the list crumb wins over the nav label.
+    if (entityId !== undefined) {
+      const detailCrumbs = resolveDetailBreadcrumb(allScreens, screenId, t);
+      if (detailCrumbs !== undefined && detailCrumbs.length > 1) return detailCrumbs;
+    }
     const navLabel = activeNavLabel(tree, screenId, (k) => t(k));
     if (navLabel !== undefined) return [{ label: navLabel }];
     return resolveDetailBreadcrumb(allScreens, screenId, t);
-  }, [allScreens, screenId, t, tree]);
+  }, [allScreens, screenId, entityId, t, tree]);
 
   const slot = usePageHeaderSlot();
   const setStatusElement = slot?.setStatusElement;
@@ -79,34 +86,36 @@ export function ShellHeader({
                 const screenId = crumb.screenId;
                 const isLast = index === crumbs.length - 1;
                 return (
-                  <BreadcrumbItem key={screenId ?? crumb.label} className="min-w-0">
+                  <Fragment key={screenId ?? crumb.label}>
                     {index > 0 && (
                       <BreadcrumbSeparator className="text-muted-foreground [&>svg]:size-3.5" />
                     )}
-                    {screenId !== undefined && !isLast ? (
-                      <BreadcrumbLink
-                        href="#"
-                        className="text-foreground-secondary"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          nav.navigate({ screenId });
-                        }}
-                      >
-                        {crumb.label}
-                      </BreadcrumbLink>
-                    ) : isLast ? (
-                      <h1
-                        aria-current="page"
-                        className="truncate text-lg font-semibold text-foreground"
-                      >
-                        {titleOverride ?? crumb.label}
-                      </h1>
-                    ) : (
-                      <BreadcrumbPage className="text-foreground-secondary">
-                        {crumb.label}
-                      </BreadcrumbPage>
-                    )}
-                  </BreadcrumbItem>
+                    <BreadcrumbItem className="min-w-0">
+                      {screenId !== undefined && !isLast ? (
+                        <BreadcrumbLink
+                          href="#"
+                          className="text-foreground-secondary"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            nav.navigate({ screenId });
+                          }}
+                        >
+                          {crumb.label}
+                        </BreadcrumbLink>
+                      ) : isLast ? (
+                        <h1
+                          aria-current="page"
+                          className="truncate text-lg font-semibold text-foreground"
+                        >
+                          {titleOverride ?? crumb.label}
+                        </h1>
+                      ) : (
+                        <BreadcrumbPage className="text-foreground-secondary">
+                          {crumb.label}
+                        </BreadcrumbPage>
+                      )}
+                    </BreadcrumbItem>
+                  </Fragment>
                 );
               })}
             </BreadcrumbList>

@@ -77,6 +77,31 @@ describe("list board fidelity", () => {
     expect(screen.getByTestId("cell-r2-status").querySelector("[data-status-dot]")).toBeNull();
   });
 
+  test("an inherited Object key as select value does not read as a declared tone", () => {
+    render(
+      <DataTable
+        columns={[
+          {
+            field: "status",
+            label: "Status",
+            type: "select",
+            sortable: false,
+            optionLabels: { constructor: "Constructor", aktiv: "Aktiv" },
+            optionTones: { aktiv: "ok" },
+          },
+        ]}
+        rows={[
+          { id: "r1", values: { status: "constructor" } },
+          { id: "r2", values: { status: "aktiv" } },
+        ]}
+      />,
+    );
+    const cell = screen.getByTestId("cell-r1-status");
+    expect(cell.textContent).toContain("Constructor");
+    expect(cell.querySelector("[data-status-dot]")).toBeNull();
+    expect(screen.getByTestId("cell-r2-status").querySelector("[data-status-dot]")).not.toBeNull();
+  });
+
   test("footer names the entity plural and offers a page-size select", () => {
     const onPageSizeChange = mock();
     render(

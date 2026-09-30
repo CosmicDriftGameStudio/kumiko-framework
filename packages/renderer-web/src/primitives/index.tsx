@@ -2673,7 +2673,10 @@ function DataTableCell({
   // keep the neutral outline pill.
   if (type === "select" && value !== null && value !== undefined && value !== "") {
     const label = defaultCellRender(value, type, optionLabels, locale);
-    const declaredTone = typeof value === "string" ? optionTones?.[value] : undefined;
+    const declaredTone =
+      typeof value === "string" && optionTones && Object.hasOwn(optionTones, value)
+        ? optionTones[value]
+        : undefined;
     const tone =
       declaredTone !== undefined
         ? statusToneForOptionTone(declaredTone)

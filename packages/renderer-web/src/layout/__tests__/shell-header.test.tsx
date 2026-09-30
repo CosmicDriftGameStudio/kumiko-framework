@@ -47,6 +47,47 @@ describe("ShellHeader", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Orders");
   });
 
+  describe("edit screen that is also a nav entry", () => {
+    const editSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "item-list", type: "entityList", entity: "item", columns: [] },
+        { id: "item-edit", type: "entityEdit", entity: "item", listScreenId: "item-list" },
+      ],
+      navs: [
+        { id: "item-list", label: "Items", screen: "item-list", order: 10 },
+        { id: "item-new", label: "New item", screen: "item-edit", order: 20 },
+      ],
+    } as unknown as FeatureSchema;
+
+    function crumbLabels(entityId: string | undefined): string[] {
+      renderWithSidebar(
+        <NavProvider
+          value={{
+            ...routedNav,
+            route: { screenId: "item-edit", ...(entityId !== undefined && { entityId }) },
+          }}
+        >
+          <ShellHeader schema={editSchema} />
+        </NavProvider>,
+      );
+      return Array.from(document.querySelectorAll("[data-slot='breadcrumb-item']")).map(
+        (item) => item.textContent ?? "",
+      );
+    }
+
+    test("create route keeps the nav label as the only crumb", () => {
+      expect(crumbLabels(undefined)).toEqual(["New item"]);
+    });
+
+    test("existing record shows the parent list before the title", () => {
+      const labels = crumbLabels("item-1");
+      expect(labels).toHaveLength(2);
+      expect(labels[0]).toContain("item-list");
+    });
+  });
+
   test("PageHeader portals status and actions into the header slots", () => {
     renderWithSidebar(
       <NavProvider value={routedNav}>

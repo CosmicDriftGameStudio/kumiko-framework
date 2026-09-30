@@ -24,7 +24,7 @@ export const vehicleEntity = createEntity({
     fin: createTextField({ ...DEMO_DATA, maxLength: 17 }),
     marke: createTextField({ ...DEMO_DATA, searchable: true, sortable: true }),
     modell: createTextField({ ...DEMO_DATA, searchable: true, sortable: true }),
-    baujahr: createNumberField({ integer: true, sortable: true }),
+    baujahr: createNumberField({ integer: true, sortable: true, grouping: false }),
     preis: createMoneyField({ sortable: true }),
     kilometerstand: createNumberField({ integer: true }),
     kilometerEinheit: createSelectField({ options: MILEAGE_UNITS, default: "km" }),
