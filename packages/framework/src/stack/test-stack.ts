@@ -189,6 +189,14 @@ export type TestStackOptions = {
      *  query, same as prod. Only needed for suites that fan a job over
      *  tenants without mounting the tenant feature. */
     getActiveTenantIds?: JobRunnerOptions["getActiveTenantIds"];
+    /** Run-log callbacks (job_runs / tenant job failures), built once registry
+     *  and db exist. The framework can't import the bundled jobs feature, so the
+     *  dev-server wrapper supplies prod's `jobRunLoggerCallbacks` here. They are
+     *  awaited before drainJobs() observes the job's outcome. */
+    runLogger?: (deps: {
+      registry: Registry;
+      db: import("../db").DbConnection;
+    }) => Pick<JobRunnerOptions, "onJobStart" | "onJobComplete" | "onJobFailed"> | undefined;
   };
   /** Override the event dispatcher's polling-timer interval. Default 50ms.
    *  Tests that assert LISTEN/NOTIFY wake-up latency need this pushed far
@@ -378,6 +386,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // existing, so the returned drainJobs() closure always has one to read.
   const jobFailureTracker = createJobFailureTracker();
   if (options.jobs && registry.getAllJobs().size > 0) {
+    const runLogger = options.jobs.runLogger?.({ registry, db: testDb.db });
     jobRunner = createJobRunner({
       registry,
       context: { ...appContext, tracer: observability.tracer, meter: observability.meter },
@@ -390,8 +399,23 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.jobs.getActiveTenantIds !== undefined && {
         getActiveTenantIds: options.jobs.getActiveTenantIds,
       }),
-      onJobComplete: (jobName, jobId) => jobFailureTracker.onJobComplete(jobName, jobId),
-      onJobFailed: (jobName, jobId, error) => jobFailureTracker.onJobFailed(jobName, jobId, error),
+      ...(runLogger?.onJobStart !== undefined && { onJobStart: runLogger.onJobStart }),
+      // Tracker fires in finally: drainJobs wakes on it, so the log row must
+      // be written first, and a throwing logger must not swallow the signal.
+      onJobComplete: async (jobName, jobId, ...rest) => {
+        try {
+          await runLogger?.onJobComplete?.(jobName, jobId, ...rest);
+        } finally {
+          jobFailureTracker.onJobComplete(jobName, jobId);
+        }
+      },
+      onJobFailed: async (jobName, jobId, error, ...rest) => {
+        try {
+          await runLogger?.onJobFailed?.(jobName, jobId, error, ...rest);
+        } finally {
+          jobFailureTracker.onJobFailed(jobName, jobId, error);
+        }
+      },
     });
   }
 
