@@ -14,6 +14,7 @@ import {
 } from "../../crypto";
 import { resetBlindIndexKeyForTests } from "../../crypto/blind-index";
 import { resetPiiSubjectKmsForTests } from "../../crypto/pii-field-encryption";
+import { table as pgTable, text as pgText, uuid as pgUuid } from "../../db/dialect";
 import { asRawClient } from "../../db/query";
 import {
   createEntity,
@@ -25,14 +26,26 @@ import {
 } from "../../engine";
 import type { EntityDefinition, Registry, TenantId } from "../../engine/types";
 import { createSnapshotsTable, saveSnapshot } from "../../event-store";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { getConsumerState } from "../../pipeline";
+import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack";
 import { createPendingRebuildsTable } from "../pending-rebuilds";
 import { type PiiEventBackfillResult, runPiiEventBackfill } from "../pii-event-backfill";
 
 const BIDX_KEY = Buffer.alloc(32, 7).toString("base64");
 const CONTACT_TABLE = "read_pii_backfill_contacts";
+const MSP_TABLE = "read_pii_backfill_contact_phones";
+const MSP_NAME = "crm:projection:contact-phones";
 const KMS_CTX: KmsContext = { requestId: "pii-event-backfill-test" };
 const admin = TestUsers.admin;
+
+const contactPhonesTable = pgTable(MSP_TABLE, {
+  id: pgUuid("id").primaryKey(),
+  tenantId: pgUuid("tenant_id").notNull(),
+  phone: pgText("phone"),
+});
+
+// MSP apply receives the raw event payload, so this table holds whatever the event held.
+let failMspApply = false;
 
 function buildContactEntity(phoneIsPii: boolean): EntityDefinition {
   return createEntity({
@@ -55,6 +68,21 @@ function buildCrmFeature(entity: EntityDefinition) {
     r.queryHandler(
       defineEntityQueryHandler("contact:detail", entity, { access: { roles: ["Admin"] } }),
     );
+    r.multiStreamProjection({
+      name: "contact-phones",
+      table: contactPhonesTable,
+      apply: {
+        "contact.created": async (event, tx) => {
+          if (failMspApply) throw new Error("msp apply failure (test)");
+          const payload = event.payload as { phone?: string };
+          await asRawClient(tx).unsafe(
+            `INSERT INTO "${MSP_TABLE}" (id, tenant_id, phone) VALUES ($1::uuid, $2::uuid, $3)
+             ON CONFLICT (id) DO UPDATE SET phone = EXCLUDED.phone`,
+            [event.aggregateId, event.tenantId, payload.phone ?? null],
+          );
+        },
+      },
+    });
   });
 }
 
@@ -93,9 +121,8 @@ afterAll(async () => {
 
 beforeEach(async () => {
   const raw = asRawClient(stack.db);
-  await raw.unsafe(
-    `TRUNCATE "kumiko_events", "kumiko_snapshots", "${CONTACT_TABLE}" RESTART IDENTITY`,
-  );
+  await resetEventStore(stack, [CONTACT_TABLE, MSP_TABLE]);
+  failMspApply = false;
   await raw.unsafe(`DROP TABLE IF EXISTS "kumiko_pii_backfill_state", "kumiko_pending_rebuilds"`);
   resetPiiSubjectKmsForTests();
   resetBlindIndexKeyForTests();
@@ -126,6 +153,23 @@ async function createContact(index: number): Promise<{ id: string; email: string
     admin,
   );
   return { id, email, phone };
+}
+
+async function drainDispatcher(): Promise<void> {
+  await stack.eventDispatcher?.runOnce();
+}
+
+async function readMspRows(): Promise<ReadonlyArray<{ id: string; phone: string | null }>> {
+  return (await asRawClient(stack.db).unsafe(
+    `SELECT "id", "phone" FROM "${MSP_TABLE}" ORDER BY "phone"`,
+  )) as ReadonlyArray<{ id: string; phone: string | null }>;
+}
+
+async function countPendingRebuilds(): Promise<number> {
+  const rows = (await asRawClient(stack.db).unsafe(
+    `SELECT count(*)::int AS "n" FROM "kumiko_pending_rebuilds"`,
+  )) as ReadonlyArray<{ n: number }>;
+  return rows[0]?.n ?? 0;
 }
 
 async function readEvents(): Promise<readonly EventPayloadRow[]> {
@@ -222,9 +266,9 @@ describe("runPiiEventBackfill", () => {
     armKms();
     const result = expectRan(await runPiiEventBackfill(stack.db, registryV2));
 
-    expect(result.queuedTables).toEqual([CONTACT_TABLE]);
+    expect([...result.queuedTables].sort()).toEqual([CONTACT_TABLE, MSP_TABLE].sort());
     expect(result.rebuild?.failed).toEqual([]);
-    expect(result.rebuild?.rebuilt.length).toBe(1);
+    expect(result.rebuild?.rebuilt.length).toBe(2);
     const rows = (await raw.unsafe(`SELECT * FROM "${CONTACT_TABLE}"`)) as ReadonlyArray<
       Record<string, unknown>
     >;
@@ -246,6 +290,52 @@ describe("runPiiEventBackfill", () => {
     expect(detail["phone"]).toBe(contact.phone);
   });
 
+  test("multi-stream projection with a table is rebuilt: plaintext becomes ciphertext, live consumer keeps going", async () => {
+    const first = await createContact(1);
+    await drainDispatcher();
+    expect((await readMspRows()).map((r) => r.phone)).toEqual([first.phone]);
+
+    armKms();
+    const result = expectRan(await runPiiEventBackfill(stack.db, registryV2));
+
+    expect(result.queuedTables).toContain(MSP_TABLE);
+    expect(result.rebuild?.failed).toEqual([]);
+    expect(result.rebuild?.rebuilt.map((r) => r.projection)).toContain(MSP_NAME);
+    const rows = await readMspRows();
+    expect(rows).toHaveLength(1);
+    expect(isPiiCiphertext(rows[0]?.phone)).toBe(true);
+    expect(await countPendingRebuilds()).toBe(0);
+    expect((await getConsumerState(stack.db, MSP_NAME))?.status).toBe("idle");
+
+    const second = await createContact(2);
+    await drainDispatcher();
+    const afterLive = await readMspRows();
+    expect(afterLive).toHaveLength(2);
+    expect(isPiiCiphertext(afterLive.find((r) => r.id === second.id)?.phone)).toBe(true);
+  });
+
+  test("failing multi-stream rebuild stays queued, keeps old rows and does not mark the consumer dead", async () => {
+    const contact = await createContact(1);
+    await drainDispatcher();
+    const cursorBefore = (await getConsumerState(stack.db, MSP_NAME))?.lastProcessedEventId;
+    expect(cursorBefore).toBeGreaterThan(0n);
+    armKms();
+    failMspApply = true;
+
+    const result = expectRan(await runPiiEventBackfill(stack.db, registryV2));
+
+    expect(result.rebuild?.failed.map((f) => f.projection)).toEqual([MSP_NAME]);
+    expect(result.rebuild?.failed[0]?.error).toContain("msp apply failure");
+    const pending = (await asRawClient(stack.db).unsafe(
+      `SELECT "table_name" FROM "kumiko_pending_rebuilds"`,
+    )) as ReadonlyArray<{ table_name: string }>;
+    expect(pending.map((p) => p.table_name)).toEqual([MSP_TABLE]);
+    const consumerAfter = await getConsumerState(stack.db, MSP_NAME);
+    expect(consumerAfter?.status).toBe("idle");
+    expect(consumerAfter?.lastProcessedEventId).toBe(cursorBefore);
+    expect((await readMspRows()).map((r) => r.phone)).toEqual([contact.phone]);
+  });
+
   test("a rebuilding run leaves foreign and unmappable queue rows untouched", async () => {
     await createContact(1);
     armKms();
@@ -259,7 +349,7 @@ describe("runPiiEventBackfill", () => {
 
     const result = expectRan(await runPiiEventBackfill(stack.db, registryV2));
 
-    expect(result.rebuild?.rebuilt.length).toBe(1);
+    expect(result.rebuild?.rebuilt.length).toBe(2);
     expect(result.rebuild?.skippedTables).toEqual(["read_unmounted_pii_table"]);
     const rows = (await raw.unsafe(
       `SELECT "table_name" FROM "kumiko_pending_rebuilds" ORDER BY "table_name"`,
