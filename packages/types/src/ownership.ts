@@ -3,7 +3,7 @@
 // matchesRule(), buildOwnershipClause()) stays in engine/ownership.ts, which
 // re-exports these for backwards compatibility.
 
-import type { SessionUser } from "./handlers";
+import type { SessionUser } from "./handlers.js";
 
 // Parameterised SQL fragment — produced by buildOwnershipClause + by the
 // WhereRule escape-hatch. Caller weaves `sqlText` into a larger statement,

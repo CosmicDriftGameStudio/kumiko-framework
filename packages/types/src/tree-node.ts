@@ -20,7 +20,7 @@
 // Spielt natürlich mit existing SSE-Frame: ein Provider kann intern
 // auf Entity-Update-Events abonnieren und bei Änderung emit() aufrufen.
 
-import type { TargetRef } from "./target-ref";
+import type { TargetRef } from "./target-ref.js";
 
 export type TreeNodeState = "filled" | "stub" | "empty" | "loading" | "error";
 

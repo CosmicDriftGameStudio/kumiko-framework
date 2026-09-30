@@ -4,7 +4,7 @@
 // `@ts-expect-error` turns into an "unused directive" compile error.
 
 import { expect, test } from "bun:test";
-import type { PluralForms } from "../config";
+import type { PluralForms } from "../config.js";
 
 function _pluralFormsRequireOther(): readonly PluralForms[] {
   const withOther: PluralForms = { other: "items" };

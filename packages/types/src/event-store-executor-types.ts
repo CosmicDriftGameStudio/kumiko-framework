@@ -1,10 +1,10 @@
-import type { CursorResult } from "./cursor-types";
-import type { EntityDefinition } from "./fields";
-import type { SessionUser, WriteResult } from "./handlers";
-import type { DeleteContext, SaveContext } from "./hooks";
-import type { EntityId } from "./identifiers";
-import type { SearchAdapter } from "./search-adapter";
-import type { TenantDb } from "./tenant-db-types";
+import type { CursorResult } from "./cursor-types.js";
+import type { EntityDefinition } from "./fields.js";
+import type { SessionUser, WriteResult } from "./handlers.js";
+import type { DeleteContext, SaveContext } from "./hooks.js";
+import type { EntityId } from "./identifiers.js";
+import type { SearchAdapter } from "./search-adapter.js";
+import type { TenantDb } from "./tenant-db-types.js";
 
 // Read-time gate for join-row entities (EntityDefinition.parentRef): the
 // registered-entity map the SQL clause checks host candidates against.

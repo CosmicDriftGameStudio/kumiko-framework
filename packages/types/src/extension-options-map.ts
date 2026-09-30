@@ -2,7 +2,7 @@
 // Augmented per extension point via `declare module "@cosmicdrift/kumiko-framework/engine"`,
 // mirroring event-type-map.ts; names without augmentation stay untyped.
 
-import type { EscapeHatchDeclaration } from "./handlers";
+import type { EscapeHatchDeclaration } from "./handlers.js";
 
 // MUST be `interface` (not `type`): only interfaces support TS declaration-
 // merging. See event-type-map.ts for the same constraint.

@@ -1,14 +1,14 @@
 // --- Field Types ---
 
-import type { VariantSpec } from "./derivatives-types";
+import type { VariantSpec } from "./derivatives-types.js";
 
 // OwnershipMap is declared in ./ownership.ts — field-access maps to
 // per-role ownership rules. A legacy `readonly string[]` form is still
 // accepted at the type layer during migration: features that pass an
 // array are auto-normalized to { [role]: "all" } at registry build.
 // Long-term: string[] disappears.
-import type { OwnershipMap } from "./ownership";
-import type { EntityTenancy } from "./tenancy-brand";
+import type { OwnershipMap } from "./ownership.js";
+import type { EntityTenancy } from "./tenancy-brand.js";
 
 export type FieldAccess = {
   readonly read?: OwnershipMap | readonly string[];

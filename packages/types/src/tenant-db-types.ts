@@ -1,10 +1,10 @@
-import type { DbRunner } from "./db-connection";
-import type { EntityTableMeta } from "./entity-table-meta-types";
-import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand";
-import type { TenantId } from "./identifiers";
-import type { SchemaTable } from "./schema-table-types";
-import type { TenancyBrand } from "./tenancy-brand";
-import type { SelectOptions, WhereObject } from "./where-clause-types";
+import type { DbRunner } from "./db-connection.js";
+import type { EntityTableMeta } from "./entity-table-meta-types.js";
+import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand.js";
+import type { TenantId } from "./identifiers.js";
+import type { SchemaTable } from "./schema-table-types.js";
+import type { TenancyBrand } from "./tenancy-brand.js";
+import type { SelectOptions, WhereObject } from "./where-clause-types.js";
 
 // Method-form writes reject the executor-only brand exactly like the free-function
 // helpers (#742): a managed EntityTable is a rebuildable projection, so writing it

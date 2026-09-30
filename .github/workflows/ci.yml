@@ -112,6 +112,9 @@ jobs:
           ulimit -n 65536 || true
           sh scripts/ci-memlog-run.sh bun kumiko check
 
+      - name: Verify dist packages
+        run: bun run check:dist
+
       - name: Upload unit coverage
         # lcov aus demselben "Run tests"-Lauf oben (kein zweiter Testrun).
         # Merge mit dem integration-lcov + Badge-Commit passiert im

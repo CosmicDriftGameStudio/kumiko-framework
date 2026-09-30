@@ -2,7 +2,7 @@
 // is what makes key rotation cheap: on rotation we only re-wrap the small
 // encryptedDek, never touch the ciphertext.
 
-import type { TenantId } from "./identifiers";
+import type { TenantId } from "./identifiers.js";
 
 // Plaintext-secret wrapper (branded). Carries the actual string internally
 // but the nominal typing stops it from landing in an HTTP response by

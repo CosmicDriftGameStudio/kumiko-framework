@@ -1,7 +1,7 @@
-import type { StoredEvent } from "./event-store-types";
-import type { AppContext } from "./handlers";
-import type { HookPhase } from "./hook-phase";
-import type { EntityId } from "./identifiers";
+import type { StoredEvent } from "./event-store-types.js";
+import type { AppContext } from "./handlers.js";
+import type { HookPhase } from "./hook-phase.js";
+import type { EntityId } from "./identifiers.js";
 
 // --- Validation ---
 
@@ -102,7 +102,7 @@ export type LifecycleHookFn =
   | PreQueryHookFn
   | PostQueryHookFn;
 
-export type { HookPhase } from "./hook-phase";
+export type { HookPhase } from "./hook-phase.js";
 
 // Owner-tag shared across every hook structure. The lifecycle pipeline uses
 // it to skip hooks whose owning feature is globally disabled:

@@ -1,4 +1,4 @@
-import type { KeyScope } from "./secrets-types";
+import type { KeyScope } from "./secrets-types.js";
 
 export type EnvelopeCipher = {
   encrypt(plaintext: string, scope?: KeyScope): Promise<string>;

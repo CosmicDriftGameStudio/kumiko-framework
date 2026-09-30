@@ -1,11 +1,11 @@
-import type { EntityDefinition } from "./fields";
+import type { EntityDefinition } from "./fields.js";
 import type {
   AccessRule,
   AgentHandlerHints,
   EscapeHatchDeclaration,
   QueryHandlerDef,
   WriteHandlerDef,
-} from "./handlers";
+} from "./handlers.js";
 
 export type EntityHandlerOptions = {
   readonly access: AccessRule;

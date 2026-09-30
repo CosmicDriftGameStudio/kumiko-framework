@@ -267,10 +267,249 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./identifiers": {
+        "types": "./dist/identifiers.d.ts",
+        "default": "./dist/identifiers.js"
+      },
+      "./target-ref": {
+        "types": "./dist/target-ref.d.ts",
+        "default": "./dist/target-ref.js"
+      },
+      "./event-type-map": {
+        "types": "./dist/event-type-map.d.ts",
+        "default": "./dist/event-type-map.js"
+      },
+      "./extension-options-map": {
+        "types": "./dist/extension-options-map.d.ts",
+        "default": "./dist/extension-options-map.js"
+      },
+      "./http-route": {
+        "types": "./dist/http-route.d.ts",
+        "default": "./dist/http-route.js"
+      },
+      "./websocket-route": {
+        "types": "./dist/websocket-route.d.ts",
+        "default": "./dist/websocket-route.js"
+      },
+      "./relations": {
+        "types": "./dist/relations.d.ts",
+        "default": "./dist/relations.js"
+      },
+      "./tree-node": {
+        "types": "./dist/tree-node.d.ts",
+        "default": "./dist/tree-node.js"
+      },
+      "./logger": {
+        "types": "./dist/logger.d.ts",
+        "default": "./dist/logger.js"
+      },
+      "./search-adapter": {
+        "types": "./dist/search-adapter.d.ts",
+        "default": "./dist/search-adapter.js"
+      },
+      "./geo-tz": {
+        "types": "./dist/geo-tz.d.ts",
+        "default": "./dist/geo-tz.js"
+      },
+      "./tz-context": {
+        "types": "./dist/tz-context.d.ts",
+        "default": "./dist/tz-context.js"
+      },
+      "./observability": {
+        "types": "./dist/observability/index.d.ts",
+        "default": "./dist/observability/index.js"
+      },
+      "./observability/metric": {
+        "types": "./dist/observability/metric.d.ts",
+        "default": "./dist/observability/metric.js"
+      },
+      "./observability/provider": {
+        "types": "./dist/observability/provider.d.ts",
+        "default": "./dist/observability/provider.js"
+      },
+      "./observability/span": {
+        "types": "./dist/observability/span.d.ts",
+        "default": "./dist/observability/span.js"
+      },
+      "./db-connection": {
+        "types": "./dist/db-connection.d.ts",
+        "default": "./dist/db-connection.js"
+      },
+      "./entity-cache": {
+        "types": "./dist/entity-cache.d.ts",
+        "default": "./dist/entity-cache.js"
+      },
+      "./file-handle-types": {
+        "types": "./dist/file-handle-types.d.ts",
+        "default": "./dist/file-handle-types.js"
+      },
+      "./concurrency-mode": {
+        "types": "./dist/concurrency-mode.d.ts",
+        "default": "./dist/concurrency-mode.js"
+      },
+      "./config-scope": {
+        "types": "./dist/config-scope.d.ts",
+        "default": "./dist/config-scope.js"
+      },
+      "./write-error-info-types": {
+        "types": "./dist/write-error-info-types.d.ts",
+        "default": "./dist/write-error-info-types.js"
+      },
+      "./entity-table-meta-types": {
+        "types": "./dist/entity-table-meta-types.d.ts",
+        "default": "./dist/entity-table-meta-types.js"
+      },
+      "./event-store-types": {
+        "types": "./dist/event-store-types.d.ts",
+        "default": "./dist/event-store-types.js"
+      },
+      "./hook-phase": {
+        "types": "./dist/hook-phase.d.ts",
+        "default": "./dist/hook-phase.js"
+      },
+      "./schema-table-types": {
+        "types": "./dist/schema-table-types.d.ts",
+        "default": "./dist/schema-table-types.js"
+      },
+      "./executor-brand": {
+        "types": "./dist/executor-brand.d.ts",
+        "default": "./dist/executor-brand.js"
+      },
+      "./tenancy-brand": {
+        "types": "./dist/tenancy-brand.d.ts",
+        "default": "./dist/tenancy-brand.js"
+      },
+      "./where-clause-types": {
+        "types": "./dist/where-clause-types.d.ts",
+        "default": "./dist/where-clause-types.js"
+      },
+      "./tenant-db-types": {
+        "types": "./dist/tenant-db-types.d.ts",
+        "default": "./dist/tenant-db-types.js"
+      },
+      "./config": {
+        "types": "./dist/config.d.ts",
+        "default": "./dist/config.js"
+      },
+      "./define-handler": {
+        "types": "./dist/define-handler.d.ts",
+        "default": "./dist/define-handler.js"
+      },
+      "./entity-handlers": {
+        "types": "./dist/entity-handlers.d.ts",
+        "default": "./dist/entity-handlers.js"
+      },
+      "./feature": {
+        "types": "./dist/feature.d.ts",
+        "default": "./dist/feature.js"
+      },
+      "./fields": {
+        "types": "./dist/fields.d.ts",
+        "default": "./dist/fields.js"
+      },
+      "./handlers": {
+        "types": "./dist/handlers.d.ts",
+        "default": "./dist/handlers.js"
+      },
+      "./hooks": {
+        "types": "./dist/hooks.d.ts",
+        "default": "./dist/hooks.js"
+      },
+      "./nav": {
+        "types": "./dist/nav.d.ts",
+        "default": "./dist/nav.js"
+      },
+      "./nav-icon": {
+        "types": "./dist/nav-icon.d.ts",
+        "default": "./dist/nav-icon.js"
+      },
+      "./action-icon": {
+        "types": "./dist/action-icon.d.ts",
+        "default": "./dist/action-icon.js"
+      },
+      "./field-icon": {
+        "types": "./dist/field-icon.d.ts",
+        "default": "./dist/field-icon.js"
+      },
+      "./ownership": {
+        "types": "./dist/ownership.d.ts",
+        "default": "./dist/ownership.js"
+      },
+      "./projection": {
+        "types": "./dist/projection.d.ts",
+        "default": "./dist/projection.js"
+      },
+      "./screen": {
+        "types": "./dist/screen.d.ts",
+        "default": "./dist/screen.js"
+      },
+      "./step": {
+        "types": "./dist/step.d.ts",
+        "default": "./dist/step.js"
+      },
+      "./workspace": {
+        "types": "./dist/workspace.d.ts",
+        "default": "./dist/workspace.js"
+      },
+      "./cursor-types": {
+        "types": "./dist/cursor-types.d.ts",
+        "default": "./dist/cursor-types.js"
+      },
+      "./file-storage-provider-types": {
+        "types": "./dist/file-storage-provider-types.d.ts",
+        "default": "./dist/file-storage-provider-types.js"
+      },
+      "./file-provider-resolver-types": {
+        "types": "./dist/file-provider-resolver-types.d.ts",
+        "default": "./dist/file-provider-resolver-types.js"
+      },
+      "./derivatives-types": {
+        "types": "./dist/derivatives-types.d.ts",
+        "default": "./dist/derivatives-types.js"
+      },
+      "./event-store-executor-types": {
+        "types": "./dist/event-store-executor-types.d.ts",
+        "default": "./dist/event-store-executor-types.js"
+      },
+      "./multi-stream-apply-context-types": {
+        "types": "./dist/multi-stream-apply-context-types.d.ts",
+        "default": "./dist/multi-stream-apply-context-types.js"
+      },
+      "./secrets-types": {
+        "types": "./dist/secrets-types.d.ts",
+        "default": "./dist/secrets-types.js"
+      },
+      "./kms-adapter-types": {
+        "types": "./dist/kms-adapter-types.d.ts",
+        "default": "./dist/kms-adapter-types.js"
+      },
+      "./envelope-cipher-types": {
+        "types": "./dist/envelope-cipher-types.d.ts",
+        "default": "./dist/envelope-cipher-types.js"
+      },
+      "./rate-limit-types": {
+        "types": "./dist/rate-limit-types.d.ts",
+        "default": "./dist/rate-limit-types.js"
+      },
+      "./snapshot-types": {
+        "types": "./dist/snapshot-types.d.ts",
+        "default": "./dist/snapshot-types.js"
+      },
+      "./agent-exposure": {
+        "types": "./dist/agent-exposure.d.ts",
+        "default": "./dist/agent-exposure.js"
+      }
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "src/changes.json",
     "README.md",
     "LICENSE"
   ]

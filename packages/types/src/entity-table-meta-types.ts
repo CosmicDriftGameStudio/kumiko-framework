@@ -4,8 +4,8 @@
 // (#1283) — this file must have ONLY `import type`, no value imports
 // (crypto/DB deps).
 
-import type { EntityRelations } from "./relations";
-import type { EntityTenancy } from "./tenancy-brand";
+import type { EntityRelations } from "./relations.js";
+import type { EntityTenancy } from "./tenancy-brand.js";
 
 // PG type repertoire the read-model tables need. Deliberately narrow — no
 // vendor-specific types (TSVECTOR, HSTORE, etc.). An app-author who needs

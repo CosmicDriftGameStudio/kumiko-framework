@@ -153,14 +153,14 @@ for pkg_json in packages/*/package.json; do
   # `npm publish` würde workspace:* in die registry schreiben → Konsumenten
   # bekommen "Workspace not found" beim install. `bun publish` rewrited richtig,
   # unterstützt aber kein OIDC-Trusted-Publishing.
-  # --quiet emittet den Tarball-Basename auf stdout (im pkg_dir erzeugt), aber
-  # mit führender Leerzeile (bun 1.3.14, unter 1.4.0 nicht neu geprüft) →
-  # .tgz-Zeile rausfiltern. Die pack-
-  # Substitution bleibt in der if-Condition, damit `set -e` einen Pack-Fehler
-  # nicht zum Script-Abbruch macht (er soll nur dieses Paket als failed zählen).
+  # pack-with-publish-config.sh prints the tarball basename (created in
+  # pkg_dir). bun pm pack ignores publishConfig.exports, so for packages that
+  # declare it the script rebuilds dist and swaps exports inside the tarball.
+  # The pack substitution stays in the if-condition so `set -e` turns a pack
+  # failure into a failed package instead of aborting the whole run.
   TARBALL=""
   pin_drift=""
-  if TARBALL="$(cd "$pkg_dir" && bun pm pack --quiet | grep -E '\.tgz$' | tail -n1)" \
+  if TARBALL="$(bash "$REPO_ROOT/scripts/pack-with-publish-config.sh" "$pkg_dir")" \
      && [ -n "$TARBALL" ]; then
     # Guard (#410): the packed manifest must pin every internal @cosmicdrift/*
     # dependency to that dependency's release version. workspace:* is substituted
