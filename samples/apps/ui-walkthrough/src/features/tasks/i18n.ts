@@ -5,6 +5,7 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const tasksTranslations: TranslationsByLocale = {
   de: {
+    "tasks.nav.group": "Allgemein",
     "tasks.nav.list": "Aufgaben",
     "tasks.nav.new": "Neue Aufgabe",
     "tasks:actions.edit": "Bearbeiten",
@@ -20,6 +21,7 @@ export const tasksTranslations: TranslationsByLocale = {
     "tasks:entity:task:field:notes": "Notizen",
   },
   en: {
+    "tasks.nav.group": "General",
     "tasks.nav.list": "Tasks",
     "tasks.nav.new": "New task",
     "tasks:actions.edit": "Edit",

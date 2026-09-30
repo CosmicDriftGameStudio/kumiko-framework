@@ -183,6 +183,7 @@ const BUTTON_VARIANT = {
   danger: "destructive",
   link: "link",
   "danger-ghost": "ghost",
+  ghost: "ghost",
 } as const;
 
 const BUTTON_SIZE = {
@@ -223,6 +224,8 @@ function DefaultButton({
     variant === "danger-ghost"
       ? "text-destructive hover:text-destructive hover:bg-destructive/10"
       : "",
+    variant === "ghost" ? "text-primary hover:text-primary hover:bg-primary/10" : "",
+    variant === "secondary" ? "border-input hover:bg-muted" : "",
     width === "full" ? "w-full" : "",
     className,
   );
@@ -318,6 +321,7 @@ const FieldLayoutContext = createContext<FieldProps["layout"]>("stacked");
 // True inside the sections of a card-less screen form: sections then drop their
 // own horizontal padding, the screen form's scroll surface provides it.
 const ScreenFormContext = createContext(false);
+const DrawerBodyContext = createContext(false);
 
 function DefaultField({
   id,
@@ -748,7 +752,7 @@ function DefaultInput(props: InputProps): ReactNode {
             }}
             {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
             className={cn(
-              "text-right tabular-nums",
+              "text-left tabular-nums",
               fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
               props.unit !== undefined ? "pr-8" : undefined,
             )}
@@ -2945,7 +2949,7 @@ function FormFooter({
       className={cn(
         pinned
           ? cn(
-              "flex h-14 shrink-0 items-center justify-between gap-2 border-t border-border bg-card px-6",
+              "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6",
               !railed && "md:pl-10",
             )
           : "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
@@ -2957,7 +2961,7 @@ function FormFooter({
       {pinned && unsavedCount > 0 && (
         <div
           data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
-          className="flex items-center gap-2 text-[13px] text-foreground-secondary"
+          className="mr-auto flex items-center gap-2 text-[13px] text-foreground-secondary"
         >
           <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
           {unsavedCount === 1
@@ -2968,7 +2972,10 @@ function FormFooter({
       {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
         <div
           data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
-          className="flex flex-wrap items-center gap-1 max-sm:[&_button]:text-xs"
+          className={cn(
+            "flex flex-wrap items-center gap-2 max-sm:[&_button]:text-xs",
+            pinned && hasNonPrimaryOverflow && "mr-auto",
+          )}
         >
           {renderedSecondary}
         </div>
@@ -2979,7 +2986,7 @@ function FormFooter({
           className={cn(
             "flex flex-wrap items-center gap-2",
             pinned
-              ? "ml-auto max-md:[&>button]:min-h-11"
+              ? "max-md:[&>button]:min-h-11"
               : "max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
             // Below sm (640px): pin only the primary action to the viewport
             // bottom instead of normal flow, so a virtual keyboard shrinking
@@ -3115,7 +3122,9 @@ function DrawerFormLayout({
         <InsideFormContext.Provider value={true}>
           <ScreenFormContext.Provider value={true}>
             <InsideDrawerProvider value={false}>
-              <div className="flex flex-col gap-5">{children}</div>
+              <DrawerBodyContext.Provider value={true}>
+                <div className="flex flex-col gap-5">{children}</div>
+              </DrawerBodyContext.Provider>
             </InsideDrawerProvider>
           </ScreenFormContext.Provider>
         </InsideFormContext.Provider>
@@ -3520,10 +3529,15 @@ function DefaultFillContainer({ children, testId, grow }: FillContainerProps): R
   );
 }
 
+const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
+  money: "w-full sm:w-[200px] [&_label]:whitespace-nowrap",
+  select: "w-full",
+};
+
 const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   text: "w-full sm:w-60",
-  number: "w-24",
-  money: "w-40",
+  number: "w-24 min-w-max [&_label]:whitespace-nowrap",
+  money: "w-40 min-w-max [&_label]:whitespace-nowrap",
   date: "w-full sm:w-[200px]",
   select: "w-full sm:w-auto sm:min-w-[200px]",
   full: "w-full",
@@ -3531,9 +3545,16 @@ const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
 };
 
 function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): ReactNode {
+  const insideDrawerBody = useContext(DrawerBodyContext);
   if (flow === true) {
     return (
-      <div data-testid={testId} className="flex flex-wrap items-start gap-4">
+      <div
+        data-testid={testId}
+        className={cn(
+          "flex gap-4",
+          insideDrawerBody ? "flex-col items-start" : "flex-wrap items-end",
+        )}
+      >
         {children}
       </div>
     );
@@ -3586,9 +3607,19 @@ function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): R
 }
 
 function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
+  const insideDrawerBody = useContext(DrawerBodyContext);
   if (width !== undefined) {
     return (
-      <div className={cn("min-w-0 max-w-full", FIELD_CELL_WIDTH_CLASS[width])}>{children}</div>
+      <div
+        className={cn(
+          "min-w-0 max-w-full",
+          insideDrawerBody
+            ? (DRAWER_FIELD_CELL_WIDTH_CLASS[width] ?? FIELD_CELL_WIDTH_CLASS[width])
+            : FIELD_CELL_WIDTH_CLASS[width],
+        )}
+      >
+        {children}
+      </div>
     );
   }
   const s = span !== undefined ? Math.min(span, 12) : 1;

@@ -125,8 +125,30 @@ export const campaignListScreen: EntityListScreenDefinition = {
   id: "campaign-list",
   type: "entityList",
   entity: "campaign",
-  columns: ["name", "status", "meta"],
+  columns: ["name", "status", "meta", "gestartetAm"],
   searchPlaceholder: "vehicles.search.placeholder",
-  defaultSort: { field: "meta", dir: "desc" },
+  defaultSort: { field: "gestartetAm", dir: "desc" },
+  rowActions: [
+    {
+      kind: "navigate",
+      id: "edit",
+      label: "vehicles.action.edit",
+      screen: "campaign-edit",
+      entityId: "id",
+      rowClick: true,
+    },
+  ],
+  access: OPEN_ACCESS,
+};
+
+export const campaignEditScreen: EntityEditScreenDefinition = {
+  id: "campaign-edit",
+  type: "entityEdit",
+  entity: "campaign",
+  dormant: true,
+  listScreenId: "campaign-list",
+  layout: {
+    sections: [{ columns: 2, fields: ["name", "status", "meta", "gestartetAm"] }],
+  },
   access: OPEN_ACCESS,
 };

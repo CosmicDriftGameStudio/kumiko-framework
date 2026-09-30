@@ -970,14 +970,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return idx === -1 ? undefined : idx;
   }
 
-  async function handleSubmit(): Promise<void> {
+  async function handleSubmit(options?: { readonly saveNow?: boolean }): Promise<void> {
     // Enter in the active step triggers the native form submit (Next is
     // type="submit" for Enter support) — on intermediate steps that means
     // "Next", not "Save". Checked BEFORE the `disabled` guard below:
     // `disabled` means "no input/no write", not "no navigation" — a
     // disabled wizard must still be steppable (handleWizardNext itself
-    // blocks validate()/saveDraft() while disabled).
-    if (isWizard && !isLastWizardStep) {
+    // blocks validate()/saveDraft() while disabled). `saveNow` is the explicit
+    // "Save and close" button and skips the step advance.
+    if (isWizard && !isLastWizardStep && options?.saveNow !== true) {
       handleWizardNext();
       return;
     }
@@ -1296,6 +1297,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {...(screen.slots?.footerPrimary === true && { [STICKY_PRIMARY_ACTION_PROP]: true })}
         />
       )}
+      {isWizard && !isLastWizardStep && showsSubmit && !isCreateMode && (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={isSubmitting || disabled}
+          onClick={() => void handleSubmit({ saveNow: true })}
+          testId="render-edit-wizard-save-close"
+          {...{ [STICKY_PRIMARY_ACTION_PROP]: true }}
+        >
+          {translate("kumiko.wizard.save-and-close")}
+        </Button>
+      )}
       {isWizard && !isLastWizardStep && (
         <Button
           type="submit"
@@ -1361,6 +1374,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       : undefined;
 
   const usesFieldFlow = isScreenForm || insideDrawer;
+  const allRequiredHint = (
+    <Text variant="muted" testId="render-edit-all-required-hint">
+      {translate("kumiko.form.all-required")}
+    </Text>
+  );
   const stepRail = isWizard && isScreenForm && StepBar !== undefined;
   const changedFieldCount = isCreate ? 0 : Object.keys(snapshot.changes).length;
   const unsavedCount =
@@ -1450,11 +1468,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(summary !== undefined && { summary })}
       >
         <AllFieldsRequiredProvider value={showsAllRequiredHint}>
-          {showsAllRequiredHint && (
-            <Text variant="muted" testId="render-edit-all-required-hint">
-              {translate("kumiko.form.all-required")}
-            </Text>
-          )}
+          {showsAllRequiredHint && !insideDrawer && allRequiredHint}
           {draftCandidates !== null && (
             <Banner
               variant="info"
@@ -1799,6 +1813,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
                 testId={`section-${sectionKey}`}
               >
+                {showsAllRequiredHint && insideDrawer && sectionIndex === 0 && allRequiredHint}
                 {renderFieldGrid(section.fields, section.columns, `${sectionKey}-grid`)}
               </Section>
             );

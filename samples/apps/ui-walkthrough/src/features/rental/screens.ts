@@ -118,7 +118,7 @@ export const positionEditScreen: EntityEditScreenDefinition = {
 const POSITION_COLUMNS = [
   { field: "art", label: "rental:entity:leasePosition:field:art" },
   { field: "einheit", label: "rental:entity:leasePosition:field:einheit" },
-  { field: "betrag", label: "rental:entity:leasePosition:field:betrag" },
+  { field: "betrag", label: "rental:entity:leasePosition:field:betrag", valueType: "money" },
   {
     field: "gueltigVon",
     label: "rental:entity:leasePosition:field:gueltigVon",
@@ -237,6 +237,13 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
       handler: RENTAL_WRITES.leaseTerminate,
       payload: { pick: ["id"] },
       confirm: "rental.action.terminateConfirm",
+    },
+    {
+      kind: "navigate",
+      id: "edit-lease",
+      label: "rental.action.editLease",
+      screen: "lease-edit",
+      entityId: "id",
     },
   ],
   access: OPEN_ACCESS,

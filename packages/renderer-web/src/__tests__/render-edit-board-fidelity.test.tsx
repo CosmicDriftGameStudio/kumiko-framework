@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -7,7 +7,7 @@ import { DispatcherProvider, InsideDrawerProvider, RenderEdit } from "@cosmicdri
 import type { ReactNode } from "react";
 import { PageHeaderSlotProvider, usePageHeaderSlot } from "../layout/page-header-slot";
 import { defaultPrimitives } from "../primitives";
-import { createMockDispatcher, fireEvent, render, screen, within } from "./test-utils";
+import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils";
 
 const allRequiredEntity = {
   fields: {
@@ -136,6 +136,98 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.getByTestId("render-edit-wizard-back").querySelector("svg")).not.toBeNull();
     expect(screen.queryByTestId("render-edit-delete")).toBeNull();
     expect(screen.queryByTestId("render-edit-cancel")).toBeNull();
+  });
+
+  describe("wizard Save and close", () => {
+    const wizard: EntityEditScreenDefinition = {
+      id: "orders:screen:order-wizard",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "wizard",
+        sections: [
+          { title: "One", fields: ["price"] },
+          { title: "Two", fields: ["reason"] },
+        ],
+      },
+    };
+
+    function renderWizard(
+      entityId: string | undefined,
+      onSubmit: () => void,
+      write = mock(async () => ({ isSuccess: true, data: { id: "o1" } })),
+    ) {
+      render(
+        <DispatcherProvider dispatcher={createMockDispatcher({ write: write as never })}>
+          <RenderEdit
+            screen={wizard}
+            entity={allRequiredEntity}
+            featureName="orders"
+            initial={{ price: 1, reason: "x" }}
+            {...(entityId !== undefined && { entityId })}
+            writeCommand="order:update"
+            onSubmit={onSubmit}
+          />
+        </DispatcherProvider>,
+      );
+      return write;
+    }
+
+    test("an existing record shows a ghost button that saves and closes through onSubmit", async () => {
+      const onSubmit = mock(() => {});
+      const write = renderWizard("o1", onSubmit);
+      const button = screen.getByTestId("render-edit-wizard-save-close");
+      expect(button.className).toContain("text-primary");
+      fireEvent.click(button);
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+      expect(write).toHaveBeenCalledTimes(1);
+    });
+
+    test("creating a new record hides it", () => {
+      renderWizard(undefined, () => {});
+      expect(screen.queryByTestId("render-edit-wizard-save-close")).toBeNull();
+    });
+
+    test("the last step hides it because the primary action already saves", () => {
+      renderWizard("o1", () => {});
+      fireEvent.click(screen.getByTestId("render-edit-wizard-next"));
+      expect(screen.queryByTestId("render-edit-wizard-save-close")).toBeNull();
+    });
+  });
+
+  test("drawer form: description, hint and fields stack in one column without a divider", () => {
+    const { Form, Section, Grid, GridCell } = defaultPrimitives;
+    render(
+      <InsideDrawerProvider value>
+        <Form onSubmit={() => {}} testId="drawer-form">
+          <Section subtitle="Beschreibung" testId="s">
+            <Grid columns={2} flow testId="g">
+              <GridCell width="money">
+                <span />
+              </GridCell>
+            </Grid>
+          </Section>
+        </Form>
+      </InsideDrawerProvider>,
+    );
+    const grid = screen.getByTestId("g");
+    expect(grid.className).toContain("flex-col");
+    expect(grid.className).not.toContain("flex-wrap");
+    expect(grid.firstElementChild?.className).toContain("sm:w-[200px]");
+    expect(screen.getByTestId("drawer-form").querySelector("hr")).toBeNull();
+  });
+
+  test("flow grid aligns controls at the bottom and keeps number labels on one line", () => {
+    const { Grid, GridCell } = defaultPrimitives;
+    render(
+      <Grid columns={2} flow testId="g">
+        <GridCell width="number">
+          <span />
+        </GridCell>
+      </Grid>,
+    );
+    expect(screen.getByTestId("g").className).toContain("items-end");
+    expect(screen.getByTestId("g").firstElementChild?.className).toContain("whitespace-nowrap");
   });
 
   test("drawer form renders the summary box above the fields", () => {

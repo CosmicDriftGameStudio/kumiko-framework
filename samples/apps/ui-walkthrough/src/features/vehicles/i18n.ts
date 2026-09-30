@@ -84,6 +84,8 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "vehicles:entity:campaign:field:status:option:abgeschlossen": "Abgeschlossen",
     "vehicles:entity:campaign:field:status:option:entwurf": "Entwurf",
     "vehicles:entity:campaign:field:meta": "Laufzeit",
+    "vehicles:entity:campaign:field:gestartetAm": "Gestartet",
+    "screen:campaign-edit.title": "Kampagne bearbeiten",
   },
   en: {
     "vehicles.nav.group": "Vehicles",
@@ -168,5 +170,7 @@ export const vehiclesTranslations: TranslationsByLocale = {
     "vehicles:entity:campaign:field:status:option:abgeschlossen": "Finished",
     "vehicles:entity:campaign:field:status:option:entwurf": "Draft",
     "vehicles:entity:campaign:field:meta": "Duration",
+    "vehicles:entity:campaign:field:gestartetAm": "Started",
+    "screen:campaign-edit.title": "Edit campaign",
   },
 };

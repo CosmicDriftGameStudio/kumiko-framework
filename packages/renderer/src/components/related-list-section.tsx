@@ -59,10 +59,13 @@ type PagedRows = {
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
 ): EntityDefinition {
-  const fields: Record<string, { type: "text"; sortable: boolean }> = {};
+  const fields: Record<string, { type: string; sortable: boolean }> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    fields[normalized.field] = { type: "text", sortable: normalized.sortable === true };
+    fields[normalized.field] = {
+      type: normalized.valueType ?? "text",
+      sortable: normalized.sortable === true,
+    };
   }
   return { fields } as unknown as EntityDefinition;
 }

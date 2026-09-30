@@ -197,6 +197,42 @@ function renderRelatedList(
   );
 }
 
+describe("RelatedListSection column value type", () => {
+  test("a column declaring valueType money reaches the table as a money column", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedTypes: Record<string, string | undefined> = {};
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedTypes = Object.fromEntries(props.columns.map((c) => [c.field, c.type]));
+      return testDataTable(props);
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  ...historySection,
+                  columns: [{ field: "name" }, { field: "betrag", valueType: "money" }],
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(capturedTypes["betrag"]).toBe("money");
+    expect(capturedTypes["name"]).toBe("text");
+  });
+});
+
 describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
   test("hideTitle (tabs mode) renders the list without a Section wrapper, drops the table frame (the tab card frames it), and marks scrollBody", async () => {
     const { dispatcher } = stubDispatcher();

@@ -141,6 +141,11 @@ export type ListColumnSpec =
        *  `sortable` on. Ignored on `entityList` columns, where the entity
        *  field's own `sortable` flag wins. */
       readonly sortable?: boolean;
+      /** Value type of a relatedList column, which has no `EntityDefinition`
+       *  field to derive it from. Numeric types right-align the column and its
+       *  header with tabular figures, like an entityList column of that field
+       *  type. Ignored on entityList columns, where the field's own type wins. */
+      readonly valueType?: "number" | "decimal" | "bigInt" | "money";
     };
 
 // Pagination-Modi für entityList:

@@ -132,3 +132,16 @@ describe("DefaultTabs counts and active state", () => {
     expect(screen.getByTestId("tabs-payments").getAttribute("aria-selected")).toBe("false");
   });
 });
+
+describe("DefaultTabs underline", () => {
+  test("only the active tab carries the primary underline, inactive tabs stay transparent", () => {
+    render(<Tabs items={ITEMS} activeId="payments" onSelect={() => {}} />);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.className).toContain("border-transparent");
+      expect(tab.className).toContain("data-[state=active]:border-primary");
+      expect(tab.getAttribute("data-state")).toBe(
+        tab.textContent === "Payments" ? "active" : "inactive",
+      );
+    }
+  });
+});

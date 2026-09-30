@@ -35,18 +35,26 @@ const CAMPAIGNS = [
     name: "Škoda Octavia (2021)",
     status: "aktiv",
     meta: "Tag 1 von 30 · 4 Besuche · 1 Interessent",
+    gestartetAm: "2026-09-29",
   },
   {
     name: "VW Golf (2019)",
     status: "aktiv",
     meta: "Tag 12 von 30 · 86 Besuche · 5 Interessenten",
+    gestartetAm: "2026-09-18",
   },
   {
     name: "BMW 320d Touring (2020)",
     status: "abgeschlossen",
     meta: "30 Tage · 212 Besuche · 9 Interessenten",
+    gestartetAm: "2026-08-30",
   },
-  { name: "Ford Focus (2018)", status: "entwurf", meta: "Noch nicht gestartet" },
+  {
+    name: "Ford Focus (2018)",
+    status: "entwurf",
+    meta: "Noch nicht gestartet",
+    gestartetAm: "2026-08-01",
+  },
 ] as const;
 
 export const seedVehicles: SeedFn = async (stack) => {

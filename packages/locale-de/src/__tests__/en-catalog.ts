@@ -627,6 +627,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.form.unsaved.one": "1 unsaved change",
   "kumiko.form.unsaved.other": "{count} unsaved changes",
   "kumiko.wizard.next-with-title": "Next: {title}",
+  "kumiko.wizard.save-and-close": "Save and close",
   "kumiko.rowAction.failed": "Action failed",
   "kumiko.toast.learn-more": "Learn more",
   "kumiko.validation.invalid": "Invalid value.",

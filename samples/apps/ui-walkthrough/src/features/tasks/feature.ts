@@ -31,15 +31,18 @@ export const taskFeature = defineFeature("tasks", (r) => {
   r.crud("task", taskEntity, { write: open, read: open });
   r.screen(editScreen);
   r.screen(listScreen);
+  r.nav({ id: "general", label: i18nKey("tasks.nav.group"), order: 90 });
   r.nav({
     id: "task-list",
     label: i18nKey("tasks.nav.list"),
+    parent: "tasks:nav:general",
     screen: "tasks:screen:task-list",
     order: 10,
   });
   r.nav({
     id: "task-new",
     label: i18nKey("tasks.nav.new"),
+    parent: "tasks:nav:general",
     screen: "tasks:screen:task-edit",
     order: 20,
   });

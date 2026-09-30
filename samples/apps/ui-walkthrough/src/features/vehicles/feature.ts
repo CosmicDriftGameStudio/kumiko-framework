@@ -3,6 +3,7 @@ import { openToAllSignedIn, toKeyFirst } from "../translations";
 import { campaignEntity, vehicleEntity } from "./entities";
 import { vehiclesTranslations } from "./i18n";
 import {
+  campaignEditScreen,
   campaignListScreen,
   vehicleEditScreen,
   vehicleListScreen,
@@ -25,6 +26,7 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
   r.screen(vehicleEditScreen);
   r.screen(vehicleWizardScreen);
   r.screen(campaignListScreen);
+  r.screen(campaignEditScreen);
 
   r.nav({ id: "vehicles", label: i18nKey("vehicles.nav.group"), order: 40 });
   r.nav({

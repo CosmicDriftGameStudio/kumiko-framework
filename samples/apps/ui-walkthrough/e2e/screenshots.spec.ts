@@ -18,7 +18,10 @@ test.use({ locale: "de-DE", viewport: DESKTOP });
 
 async function shot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
-  await page.screenshot({ path: `${SHOTS_DIR}/${name}.png` });
+  await page.waitForFunction(() =>
+    document.getAnimations().every((animation) => animation.playState !== "running"),
+  );
+  await page.screenshot({ path: `${SHOTS_DIR}/${name}.png`, animations: "disabled" });
 }
 
 async function openLeaseList(page: Page): Promise<void> {

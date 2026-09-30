@@ -79,3 +79,26 @@ describe("DefaultButton icon (fw-ui-defaults)", () => {
     expect(btn.textContent).toBe("Delete");
   });
 });
+
+describe("DefaultButton secondary variant", () => {
+  test("renders surface plus the input-token border, not a grey fill", () => {
+    render(
+      <Button variant="secondary" testId="btn">
+        Cancel
+      </Button>,
+    );
+    const { className } = screen.getByTestId("btn");
+    expect(className).toContain("border-input");
+    expect(className).toContain("bg-card");
+    expect(className).not.toContain("bg-secondary");
+  });
+
+  test("ghost variant is primary-coloured text without a border", () => {
+    render(
+      <Button variant="ghost" testId="btn">
+        Save and close
+      </Button>,
+    );
+    expect(screen.getByTestId("btn").className).toContain("text-primary");
+  });
+});

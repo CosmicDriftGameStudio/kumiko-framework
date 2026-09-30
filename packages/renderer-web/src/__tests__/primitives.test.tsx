@@ -246,11 +246,13 @@ describe("Input kind mapping", () => {
     expect(document.querySelector("svg[aria-hidden='true']")).toBeNull();
   });
 
-  test('kind="number" icon="hash": renders prefix icon alongside existing right-align classes', () => {
+  test('kind="number" icon="hash": renders prefix icon and keeps the value left-aligned', () => {
     render(<Input id="i" name="i" kind="number" value={0} icon="hash" onChange={() => {}} />);
     const input = screen.getByRole("spinbutton");
     expect(input.className).toContain("pl-8");
-    expect(input.className).toContain("text-right");
+    expect(input.className).toContain("text-left");
+    expect(input.className).toContain("tabular-nums");
+    expect(input.className).not.toContain("text-right");
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
   });
 

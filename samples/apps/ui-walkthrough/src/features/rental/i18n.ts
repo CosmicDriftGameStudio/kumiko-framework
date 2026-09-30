@@ -20,6 +20,7 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "rental.action.open": "Öffnen",
     "rental.action.terminate": "Mietvertrag kündigen",
+    "rental.action.editLease": "Vertragsdaten bearbeiten",
     "rental.action.terminateConfirm": "Soll dieser Mietvertrag gekündigt werden?",
     "rental.action.addPosition": "Position hinzufügen",
     "rental.action.adjustRent": "Miete anpassen",
@@ -90,6 +91,7 @@ export const rentalTranslations: TranslationsByLocale = {
 
     "rental.action.open": "Open",
     "rental.action.terminate": "Terminate lease",
+    "rental.action.editLease": "Edit lease details",
     "rental.action.terminateConfirm": "Terminate this lease?",
     "rental.action.addPosition": "Add position",
     "rental.action.adjustRent": "Adjust rent",

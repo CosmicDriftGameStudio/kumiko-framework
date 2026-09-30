@@ -647,6 +647,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.form.unsaved.one": "1 ungespeicherte Änderung",
   "kumiko.form.unsaved.other": "{count} ungespeicherte Änderungen",
   "kumiko.wizard.next-with-title": "Weiter: {title}",
+  "kumiko.wizard.save-and-close": "Speichern und schließen",
   "kumiko.rowAction.failed": "Aktion fehlgeschlagen",
   "kumiko.toast.learn-more": "Mehr erfahren",
   "kumiko.validation.invalid": "Ungültiger Wert.",

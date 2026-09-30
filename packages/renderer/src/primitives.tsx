@@ -92,8 +92,9 @@ export type ButtonProps = {
    *  becomes visually; the renderers use "primary" for Save, "danger" for
    *  Delete, "secondary" for a Confirm state, "link" for inline actions in
    *  running text (no background, underline), "danger-ghost" for a
-   *  destructive action as red text instead of a red fill. */
-  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost";
+   *  destructive action as red text instead of a red fill, "ghost" for a
+   *  low-emphasis primary-colored text action beside a filled primary. */
+  readonly variant?: "primary" | "secondary" | "danger" | "link" | "danger-ghost" | "ghost";
   /** Größe — default="md". "sm" für kompakte Inline-Aktionen (Toolbar,
    *  Listen-Zeilen), "icon" für quadratische Icon-only-Buttons. */
   readonly size?: "sm" | "md" | "icon";

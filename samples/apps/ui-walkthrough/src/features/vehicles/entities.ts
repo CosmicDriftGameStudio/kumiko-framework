@@ -1,4 +1,5 @@
 import {
+  createDateField,
   createEntity,
   createMoneyField,
   createNumberField,
@@ -54,5 +55,6 @@ export const campaignEntity = createEntity({
       filterable: true,
     }),
     meta: createTextField({ ...DEMO_DATA, sortable: true }),
+    gestartetAm: createDateField({ sortable: true }),
   },
 });
