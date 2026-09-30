@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createEntityCache } from "../entity-cache";
-import { createEventDedup } from "../event-dedup";
-import { createIdempotencyGuard } from "../idempotency";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createEntityCache } from "../entity-cache.js";
+import { createEventDedup } from "../event-dedup.js";
+import { createIdempotencyGuard } from "../idempotency.js";
 
 let testRedis: TestRedis;
 

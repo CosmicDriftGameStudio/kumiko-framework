@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query";
-import { asRawClient, unsafeReadRetrying } from "../query";
+import type { AnyDb } from "../query.js";
+import { asRawClient, unsafeReadRetrying } from "../query.js";
 
 export async function markProjectionRebuilding(db: AnyDb, projectionName: string): Promise<void> {
   await asRawClient(db).unsafe(

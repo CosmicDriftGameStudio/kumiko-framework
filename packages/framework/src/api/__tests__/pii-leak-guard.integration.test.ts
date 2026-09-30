@@ -6,10 +6,10 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto";
-import { defineFeature } from "../../engine/define-feature";
-import { defineQueryHandler } from "../../engine/define-handler";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.js";
+import { defineFeature } from "../../engine/define-feature.js";
+import { defineQueryHandler } from "../../engine/define-handler.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
 const CIPHERTEXT = "kumiko-pii:v1:user:6b2f4a0e-1c9d-4f3a-9d2e-00000000000a:8e2Rkjj+ww==";
 

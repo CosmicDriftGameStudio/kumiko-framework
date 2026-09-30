@@ -12,8 +12,8 @@ import {
   text,
   timestamp,
   uuid,
-} from "../dialect";
-import { renderTableDdl } from "../render-ddl";
+} from "../dialect.js";
+import { renderTableDdl } from "../render-ddl.js";
 
 function findIndex(ddl: readonly string[], pattern: RegExp): boolean {
   return ddl.some((s) => pattern.test(s));

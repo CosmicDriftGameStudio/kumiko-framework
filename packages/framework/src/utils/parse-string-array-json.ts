@@ -1,4 +1,4 @@
-import { parseJsonSafe } from "./safe-json";
+import { parseJsonSafe } from "./safe-json.js";
 
 /** Parses a JSON-encoded string array from DB/cache columns; returns fallback on invalid input. */
 export function parseStringArrayJson(

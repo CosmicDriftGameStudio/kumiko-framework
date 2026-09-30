@@ -11,17 +11,21 @@
 // der zugehörigen Projektion gelöscht. Ein erneuter apply (auch ohne neue
 // Migrations) holt offene Rebuilds über `runPendingRebuilds` nach.
 
-import type { DbConnection } from "../db/connection";
-import { instant, table as pgTable, sql, text } from "../db/dialect";
-import { deleteMany, selectMany, upsertOnConflict } from "../db/query";
-import { readRebuildMarker } from "../db/rebuild-marker";
-import { tableExists } from "../db/schema-inspection";
-import type { Registry } from "../engine/types";
-import type { JobRunner } from "../jobs";
-import { createFallbackLogger } from "../logging/utils";
-import { type RebuildResult, rebuildMultiStreamProjection, rebuildProjection } from "../pipeline";
-import { unsafePushTables } from "../stack";
-import { buildProjectionTableIndex } from "./projection-table-index";
+import type { DbConnection } from "../db/connection.js";
+import { instant, table as pgTable, sql, text } from "../db/dialect.js";
+import { deleteMany, selectMany, upsertOnConflict } from "../db/query.js";
+import { readRebuildMarker } from "../db/rebuild-marker.js";
+import { tableExists } from "../db/schema-inspection.js";
+import type { Registry } from "../engine/types/index.js";
+import type { JobRunner } from "../jobs/index.js";
+import { createFallbackLogger } from "../logging/utils.js";
+import {
+  type RebuildResult,
+  rebuildMultiStreamProjection,
+  rebuildProjection,
+} from "../pipeline/index.js";
+import { unsafePushTables } from "../stack/index.js";
+import { buildProjectionTableIndex } from "./projection-table-index.js";
 
 export const pendingRebuildsTable = pgTable("kumiko_pending_rebuilds", {
   tableName: text("table_name").primaryKey(),

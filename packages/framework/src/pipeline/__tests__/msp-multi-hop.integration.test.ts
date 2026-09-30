@@ -12,18 +12,18 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { eventsTable } from "../../event-store";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { eventsTable } from "../../event-store/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 // --- Feature ---
 

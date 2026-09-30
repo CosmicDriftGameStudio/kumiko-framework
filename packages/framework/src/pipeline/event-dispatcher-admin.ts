@@ -1,15 +1,18 @@
-import type { DbConnection, DbTx } from "../db/connection";
+import type { DbConnection, DbTx } from "../db/connection.js";
 import {
   advanceConsumerPastEventReturning,
   removePendingGapReturning,
   updateConsumerStatusReturning,
-} from "../db/queries/event-consumer";
-import { selectNextEventIdAfter, selectSmallestVisibleIdInRanges } from "../db/queries/event-store";
-import { coerceRow, extractTableInfo, selectMany } from "../db/query";
-import { getEventsHighWaterMark } from "../event-store";
-import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
-import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery";
-import { rangeContainsId, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges";
+} from "../db/queries/event-consumer.js";
+import {
+  selectNextEventIdAfter,
+  selectSmallestVisibleIdInRanges,
+} from "../db/queries/event-store.js";
+import { coerceRow, extractTableInfo, selectMany } from "../db/query.js";
+import { getEventsHighWaterMark } from "../event-store/index.js";
+import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.js";
+import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery.js";
+import { rangeContainsId, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges.js";
 
 // --- Ops recovery surface ---
 //

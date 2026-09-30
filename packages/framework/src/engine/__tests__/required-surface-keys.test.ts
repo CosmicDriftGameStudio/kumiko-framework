@@ -9,13 +9,13 @@ import {
   requiredKeysFromWorkspace,
   screenTitleKey,
   WRITE_FORM_SECTION_ENTITY,
-} from "../../i18n/required-surface-keys";
-import { i18nKey } from "../i18n-key";
+} from "../../i18n/required-surface-keys.js";
+import { i18nKey } from "../i18n-key.js";
 import type {
   ConfigEditScreenDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
-} from "../types";
+} from "../types/index.js";
 
 describe("requiredKeysFromScreen", () => {
   test("entityList emits screen title + column field labels", () => {

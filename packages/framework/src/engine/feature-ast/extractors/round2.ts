@@ -1,12 +1,12 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { EntityDefinition } from "../../types/fields";
-import type { NavDefinition } from "../../types/nav";
-import type { RelationDefinition } from "../../types/relations";
-import type { WorkspaceDefinition } from "../../types/workspace";
-import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types";
-import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns";
-import { sourceLocationFromNode } from "../source-location";
+import type { EntityDefinition } from "../../types/fields.js";
+import type { NavDefinition } from "../../types/nav.js";
+import type { RelationDefinition } from "../../types/relations.js";
+import type { WorkspaceDefinition } from "../../types/workspace.js";
+import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "../entity-field-types.js";
+import type { EntityPattern, NavPattern, RelationPattern, WorkspacePattern } from "../patterns.js";
+import { sourceLocationFromNode } from "../source-location.js";
 import {
   type ExtractOutput,
   fail,
@@ -15,7 +15,7 @@ import {
   readDataLiteralNode,
   readNameLiteral,
   readNameOrRef,
-} from "./shared";
+} from "./shared.js";
 
 export function extractEntity(
   call: CallExpression,

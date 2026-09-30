@@ -1,4 +1,4 @@
-import type { Registry } from "./types/feature";
+import type { Registry } from "./types/feature.js";
 
 // Pinned QN of config's selected-extensions query — framework cannot import
 // bundled-features, so a pin test bundled-side keeps it equal to the handler.

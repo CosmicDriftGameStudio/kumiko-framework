@@ -1,9 +1,9 @@
 import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { fetchOne, insertOne, updateMany } from "../db/query";
-import type { ReferenceDataDef } from "../engine/types";
-import { SYSTEM_TENANT_ID } from "../engine/types";
-import type { DbConnection, DbRow } from "./connection";
-import type { TableColumns } from "./dialect";
+import { fetchOne, insertOne, updateMany } from "../db/query.js";
+import type { ReferenceDataDef } from "../engine/types/index.js";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.js";
+import type { DbConnection, DbRow } from "./connection.js";
+import type { TableColumns } from "./dialect.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

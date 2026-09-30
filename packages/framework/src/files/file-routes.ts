@@ -1,19 +1,23 @@
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { getUser } from "../api/auth-middleware";
-import { requestContext } from "../api/request-context";
+import { getUser } from "../api/auth-middleware.js";
+import { requestContext } from "../api/request-context.js";
+import { selectMany } from "../bun-db/index.js";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   isPiiCiphertext,
   type KmsContext,
-} from "../crypto";
-import type { DbConnection } from "../db/connection";
-import { createEventStoreExecutor } from "../db/event-store-executor";
-import { createTenantDb } from "../db/tenant-db";
-import { createDerivativesContext, resolveFieldVariant, resolveRenderer } from "../derivatives";
+} from "../crypto/index.js";
+import type { DbConnection } from "../db/connection.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { createTenantDb } from "../db/tenant-db.js";
+import {
+  createDerivativesContext,
+  resolveFieldVariant,
+  resolveRenderer,
+} from "../derivatives/index.js";
 import {
   type FieldDefinition,
   isFileField,
@@ -21,13 +25,13 @@ import {
   type Registry,
   type SessionUser,
   type TenantId,
-} from "../engine/types";
-import { generateId } from "../utils";
-import { buildContentDispositionHeader } from "./content-disposition";
-import { createFileContext } from "./file-handle";
-import { fileRefEntity } from "./file-ref-entity";
-import { fileRefsTable } from "./file-ref-table";
-import type { FileProviderResolver } from "./provider-resolver";
+} from "../engine/types/index.js";
+import { generateId } from "../utils/index.js";
+import { buildContentDispositionHeader } from "./content-disposition.js";
+import { createFileContext } from "./file-handle.js";
+import { fileRefEntity } from "./file-ref-entity.js";
+import { fileRefsTable } from "./file-ref-table.js";
+import type { FileProviderResolver } from "./provider-resolver.js";
 import {
   buildStorageKey,
   parseMaxSize,
@@ -35,7 +39,7 @@ import {
   resolveUploadMimeType,
   validateFile,
   validateFileContent,
-} from "./types";
+} from "./types.js";
 
 // Decision returned by a FileAccessGuard — distinct from boolean so callers
 // can't accidentally negate or default it.

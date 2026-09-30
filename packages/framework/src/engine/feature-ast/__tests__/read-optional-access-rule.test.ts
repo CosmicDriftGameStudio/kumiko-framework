@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readOptionalAccessRule } from "../extractors/hooks";
+import { readOptionalAccessRule } from "../extractors/hooks.js";
 
 describe("readOptionalAccessRule — openToAll.personalData", () => {
   test("keeps personalData: tenant-members on the object form", () => {

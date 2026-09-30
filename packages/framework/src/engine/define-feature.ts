@@ -1,10 +1,10 @@
-import { createInitialFeatureBuilderState } from "./feature-builder-state";
-import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs";
-import { buildEntityHandlerMethods } from "./feature-entity-handlers";
-import { buildUiExtensionsMethods } from "./feature-ui-extensions";
-import { unwrapArrayForm } from "./object-form";
-import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types";
-import type { RequiresApi } from "./types/feature";
+import { createInitialFeatureBuilderState } from "./feature-builder-state.js";
+import { buildConfigEventsJobsMethods } from "./feature-config-events-jobs.js";
+import { buildEntityHandlerMethods } from "./feature-entity-handlers.js";
+import { buildUiExtensionsMethods } from "./feature-ui-extensions.js";
+import { unwrapArrayForm } from "./object-form.js";
+import type { RequiresApi } from "./types/feature.js";
+import type { FeatureDefinition, FeatureRegistrar, HookMap, UiHints } from "./types/index.js";
 
 // `TExports` lets the setup callback hand back a typed object that
 // downstream features can import (e.g. `tenantFeature.exports.config`). The

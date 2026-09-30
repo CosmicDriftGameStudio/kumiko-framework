@@ -2,16 +2,16 @@ import {
   accessAllowsAnonymous,
   declaredPersonalData,
   personalFieldNames,
-} from "../personal-data-fields";
-import { ANONYMOUS_ROLE } from "../system-user";
+} from "../personal-data-fields.js";
+import { ANONYMOUS_ROLE } from "../system-user.js";
 import type {
   AccessRule,
   FeatureDefinition,
   QueryHandlerDef,
   StreamHandlerDef,
   WriteHandlerDef,
-} from "../types";
-import { collectZodObjectKeys } from "./zod-shape";
+} from "../types/index.js";
+import { collectZodObjectKeys } from "./zod-shape.js";
 
 type HandlerKind = "write" | "query" | "stream";
 

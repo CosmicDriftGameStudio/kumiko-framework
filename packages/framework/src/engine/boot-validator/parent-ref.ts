@@ -1,5 +1,5 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
-import type { EntityDefinition, FeatureDefinition, QueryHandlerDef } from "../types";
+import type { EntityDefinition, FeatureDefinition, QueryHandlerDef } from "../types/index.js";
 
 // --- Parent-ref boot validation (fw#2766) ---
 //

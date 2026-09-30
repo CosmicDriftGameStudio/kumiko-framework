@@ -3,9 +3,9 @@ import {
   isLockNotAvailable,
   isTableAlreadyExists,
   isUniqueViolation,
-} from "../pg-error";
-import type { AnyDb } from "../query";
-import { asRawClient, unsafeReadRetrying } from "../query";
+} from "../pg-error.js";
+import type { AnyDb } from "../query.js";
+import { asRawClient, unsafeReadRetrying } from "../query.js";
 
 // Gap-finality (event-dispatcher pending_gaps) needs every holder of an
 // event id to already have a *real* xact id by the time it inserts — Postgres

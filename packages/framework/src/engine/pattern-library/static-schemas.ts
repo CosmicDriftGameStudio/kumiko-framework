@@ -1,7 +1,7 @@
 // Static pattern schemas (form-only, no closures).
 
-import { CLAIM_KEY_TYPE_OPTIONS, ID_TYPE_OPTIONS } from "./shared-fields";
-import type { PatternFormSchema } from "./types";
+import { CLAIM_KEY_TYPE_OPTIONS, ID_TYPE_OPTIONS } from "./shared-fields.js";
+import type { PatternFormSchema } from "./types.js";
 
 // --- Static patterns (form-only, no closures) -----------------------------
 

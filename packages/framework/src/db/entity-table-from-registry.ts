@@ -11,9 +11,9 @@
 // executor: seeds, jobs and consumers that talk to a feature's read model
 // directly.
 
-import type { Registry } from "../engine";
-import type { SchemaTable } from "./dialect";
-import { buildEntityTable } from "./table-builder";
+import type { Registry } from "../engine/index.js";
+import type { SchemaTable } from "./dialect.js";
+import { buildEntityTable } from "./table-builder.js";
 
 export function entityTableFromRegistry(
   registry: Registry,

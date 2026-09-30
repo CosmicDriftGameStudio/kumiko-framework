@@ -2,14 +2,19 @@
 // can never present one (SYSTEM_ROLE is reserved), so both halves are pinned end to end here.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 import {
   createEntity,
   createSystemUser,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../index";
+} from "../index.js";
 
 const thingEntity = createEntity({
   table: "callerid_things",

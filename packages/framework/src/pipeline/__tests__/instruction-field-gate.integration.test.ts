@@ -6,12 +6,17 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createLongTextField, createTextField, defineFeature } from "../../engine";
-import type { Registry } from "../../engine/types";
-import { resolveAgentExposure } from "../../engine/types";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import {
+  createEntity,
+  createLongTextField,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import type { Registry } from "../../engine/types/index.js";
+import { resolveAgentExposure } from "../../engine/types/index.js";
+import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
 const admin = TestUsers.admin;
 

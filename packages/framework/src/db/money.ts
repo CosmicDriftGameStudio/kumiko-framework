@@ -31,8 +31,8 @@
 // amount-Spalte (Legacy DB-Convention für Money — `SUM(buying_price)` bleibt
 // idiomatisch). `<name>Currency` ist die zusätzliche Spalte.
 
-import type { EntityDefinition } from "../engine/types";
-import { DEFAULT_CURRENCIES } from "../engine/types";
+import type { EntityDefinition } from "../engine/types/index.js";
+import { DEFAULT_CURRENCIES } from "../engine/types/index.js";
 
 const FRAMEWORK_DEFAULT_CURRENCY = DEFAULT_CURRENCIES[0]; // "EUR"
 

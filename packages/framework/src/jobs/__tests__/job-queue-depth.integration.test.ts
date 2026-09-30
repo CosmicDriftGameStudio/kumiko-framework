@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createRegistry, defineFeature } from "../../engine";
-import type { AppContext, Registry } from "../../engine/types";
-import { createPrometheusMeter, registerStandardMetrics } from "../../observability";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { sleep } from "../../testing";
-import { createJobRunner } from "../job-runner";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import type { AppContext, Registry } from "../../engine/types/index.js";
+import { createPrometheusMeter, registerStandardMetrics } from "../../observability/index.js";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { sleep } from "../../testing/index.js";
+import { createJobRunner } from "../job-runner.js";
 
 let testRedis: TestRedis;
 let redisUrl: string;

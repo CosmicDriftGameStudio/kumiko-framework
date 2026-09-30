@@ -9,7 +9,7 @@
 //   - maxEntries (default 1000): LRU eviction kicks in on insert when full.
 
 import { createHash } from "node:crypto";
-import type { KeyScope, MasterKeyProvider } from "./types";
+import type { KeyScope, MasterKeyProvider } from "./types.js";
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_MAX_ENTRIES = 1000;

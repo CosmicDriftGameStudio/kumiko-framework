@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { buildAppSchema } from "../build-app-schema";
-import { defineFeature } from "../define-feature";
-import { createRegistry } from "../registry";
-import type { EntityDefinition } from "../types/fields";
-import type { ScreenDefinition } from "../types/screen";
+import { buildAppSchema } from "../build-app-schema.js";
+import { defineFeature } from "../define-feature.js";
+import { createRegistry } from "../registry.js";
+import type { EntityDefinition } from "../types/fields.js";
+import type { ScreenDefinition } from "../types/screen.js";
 
 const leaseEntity = {
   fields: { name: { type: "text" }, iban: { type: "text" } },

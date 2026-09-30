@@ -1,8 +1,8 @@
 // principalStatus / tenantLifecycleStatus contracts consumed by
 // pipeline/active-membership.ts. Kept in engine/ (extension-registry surface), same split as tier-resolver-extension.ts.
 
-import type { DbConnection } from "../db/connection";
-import type { TenantId } from "./types/identifiers";
+import type { DbConnection } from "../db/connection.js";
+import type { TenantId } from "./types/identifiers.js";
 
 // "unknown" = no persisted principal row for this userId — the caller
 // (INTERACTIVE_SIGN_IN_POLICY.allowUnknownPrincipal) decides whether that

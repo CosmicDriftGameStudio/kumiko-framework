@@ -7,7 +7,7 @@
 // config:write:set/reset for this key, so the TTL below only covers writes
 // that bypass that path (migrations, seeds, direct DB edits).
 
-import type { TenantId } from "../engine/types/identifiers";
+import type { TenantId } from "../engine/types/identifiers.js";
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_ENTRIES = 1000;

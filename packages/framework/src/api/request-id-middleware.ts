@@ -1,8 +1,12 @@
 import type { Context, Next } from "hono";
-import { resolveHeaderLocale } from "../i18n/request-locale";
-import { LOCALE_HEADER_NAME } from "./api-constants";
-import { type ClientIpResolver, createClientIpResolver, extractSocketAddress } from "./client-ip";
-import { type RequestContextData, requestContext } from "./request-context";
+import { resolveHeaderLocale } from "../i18n/request-locale.js";
+import { LOCALE_HEADER_NAME } from "./api-constants.js";
+import {
+  type ClientIpResolver,
+  createClientIpResolver,
+  extractSocketAddress,
+} from "./client-ip.js";
+import { type RequestContextData, requestContext } from "./request-context.js";
 
 // Fallback for the few call-sites that build a RequestContextData without a
 // caller-configured resolver (e.g. an internal system-query mount reached

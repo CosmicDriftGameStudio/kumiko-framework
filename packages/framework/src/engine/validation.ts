@@ -1,5 +1,5 @@
-import { parseQn, toKebab } from "./qualified-name";
-import type { Registry, ValidationError } from "./types";
+import { parseQn, toKebab } from "./qualified-name.js";
+import type { Registry, ValidationError } from "./types/index.js";
 
 export type { ValidationError };
 

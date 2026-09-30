@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { ColumnMeta } from "../../db/entity-table-meta";
-import { fileRefsTable } from "../file-ref-table";
+import type { ColumnMeta } from "../../db/entity-table-meta.js";
+import { fileRefsTable } from "../file-ref-table.js";
 
 // `fileRefsTable` is the live buildEntityTable() output the app boots with.
 // Its runtime shape is a SchemaTable (EntityTableMeta & drizzle table), so the

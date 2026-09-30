@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { DbConnection } from "../connection";
-import { columnNamesOf, tableExists } from "../schema-inspection";
+import type { DbConnection } from "../connection.js";
+import { columnNamesOf, tableExists } from "../schema-inspection.js";
 
 describe("schema-inspection — resolveUnsafeClient guard", () => {
   // A db handle without `.unsafe` on $client / session.client / itself used to

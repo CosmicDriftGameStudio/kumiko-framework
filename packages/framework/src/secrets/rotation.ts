@@ -2,7 +2,7 @@
 // CURRENT one. The ciphertext never changes — this is why envelope
 // encryption makes rotation affordable on large tables.
 
-import type { Envelope, MasterKeyProvider } from "./types";
+import type { Envelope, MasterKeyProvider } from "./types.js";
 
 // Re-wrap the DEK of a single envelope so it references the current KEK
 // version. No-op when the envelope is already current (caller-side this

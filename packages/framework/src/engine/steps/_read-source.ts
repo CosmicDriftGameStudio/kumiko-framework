@@ -1,6 +1,6 @@
-import type { DbRunner } from "../../db/connection";
-import { type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db";
-import type { PipelineCtx } from "../types/step";
+import type { DbRunner } from "../../db/connection.js";
+import { type TenantDb, unsafeRawForDeclaredStep } from "../../db/tenant-db.js";
+import type { PipelineCtx } from "../types/step.js";
 
 // unsafeRaw fails closed without the handler's escapeHatch (or systemScope) and reports the use.
 export function readSourceFor(

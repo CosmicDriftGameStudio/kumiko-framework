@@ -1,4 +1,4 @@
-import type { EntityDefinition } from "./types";
+import type { EntityDefinition } from "./types/index.js";
 
 // Shared between the executor gate (payload-presence check on create/update)
 // and the define-time floor (resolveEntityWriteAgentHints) so both read the

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { AgentReasons, FrameworkReasons } from "../reasons";
+import { AgentReasons, FrameworkReasons } from "../reasons.js";
 
 type ReasonEntry = { readonly endUser?: string; readonly developer?: string };
 

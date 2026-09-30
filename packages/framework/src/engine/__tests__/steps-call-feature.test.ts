@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { getStep } from "../define-step";
-import { buildCallFeatureStep } from "../steps/call-feature";
-import type { PipelineCtx } from "../types/step";
+import { getStep } from "../define-step.js";
+import { buildCallFeatureStep } from "../steps/call-feature.js";
+import type { PipelineCtx } from "../types/step.js";
 
 const mockWrite = mock();
 const mockWriteAs = mock();

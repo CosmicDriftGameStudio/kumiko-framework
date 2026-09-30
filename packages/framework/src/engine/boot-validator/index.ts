@@ -1,13 +1,13 @@
-import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption";
-import { dedupeFeatures } from "../dedupe-features";
-import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names";
-import { QnTypes, qualifyEntityName } from "../qualified-name";
-import type { FeatureDefinition } from "../types";
-import { validateAccessDeclarations } from "./access-declarations";
-import { warnOnUniqueAccessRoles } from "./access-roles";
-import { validateActionWiring, validateFieldWiring } from "./action-wiring";
-import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext";
-import { validateFeatureBootChecks } from "./boot-check";
+import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption.js";
+import { dedupeFeatures } from "../dedupe-features.js";
+import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.js";
+import { QnTypes, qualifyEntityName } from "../qualified-name.js";
+import type { FeatureDefinition } from "../types/index.js";
+import { validateAccessDeclarations } from "./access-declarations.js";
+import { warnOnUniqueAccessRoles } from "./access-roles.js";
+import { validateActionWiring, validateFieldWiring } from "./action-wiring.js";
+import { validateApiExposureMatching, validateExtensionUsages } from "./api-ext.js";
+import { validateFeatureBootChecks } from "./boot-check.js";
 import {
   validateCircularDeps,
   validateConfigKeyAllowPerRequest,
@@ -18,8 +18,8 @@ import {
   validateConfigKeyRequired,
   validateConfigReads,
   warnOnToggleableDependencies,
-} from "./config-deps";
-import { collectDetailForScreens } from "./detail-screens";
+} from "./config-deps.js";
+import { collectDetailForScreens } from "./detail-screens.js";
 import {
   validateDerivedFieldCollisions,
   validateEmbeddedFields,
@@ -35,11 +35,11 @@ import {
   validateMultiStreamProjections,
   validateReferenceFields,
   validateTransitions,
-} from "./entity-handler";
-import { validateEntityListScreens } from "./entity-list-screens";
-import { validateGdprStoragePersistence } from "./gdpr-storage";
-import { validateGlobalTenancyEntities } from "./global-tenancy";
-import { validateI18nSurfaceKeys } from "./i18n-keys";
+} from "./entity-handler.js";
+import { validateEntityListScreens } from "./entity-list-screens.js";
+import { validateGdprStoragePersistence } from "./gdpr-storage.js";
+import { validateGlobalTenancyEntities } from "./global-tenancy.js";
+import { validateI18nSurfaceKeys } from "./i18n-keys.js";
 import {
   collectKnownRoles,
   collectNavQns,
@@ -48,40 +48,40 @@ import {
   validateNavs,
   warnOnNavAccessInversion,
   warnOnUnreachableNavScreens,
-} from "./nav";
-import { collectClaimKeys, validateOwnershipRules } from "./ownership";
-import { validateParentRefs } from "./parent-ref";
-import { validatePiiAndRetention } from "./pii-retention";
+} from "./nav.js";
+import { collectClaimKeys, validateOwnershipRules } from "./ownership.js";
+import { validateParentRefs } from "./parent-ref.js";
+import { validatePiiAndRetention } from "./pii-retention.js";
 import {
   buildQueryHandlerMap,
   validateProjectionListScreens,
   validateRelatedListSectionQueries,
-} from "./projection-list-screens";
-import { validateQueryOutputColumns } from "./query-output-columns";
-import { validateQueryRefs } from "./query-refs";
-import { validateRecordOwnedSubjects } from "./record-owned";
+} from "./projection-list-screens.js";
+import { validateQueryOutputColumns } from "./query-output-columns.js";
+import { validateQueryRefs } from "./query-refs.js";
+import { validateRecordOwnedSubjects } from "./record-owned.js";
 import {
   collectScreenQns,
   collectScreensByShortId,
   validateScreenShortIdCollisions,
   validateScreens,
-} from "./screens";
-import { warnOnMissingSecurityBaseline } from "./security-baseline";
-import { validateTransferGraph } from "./transfer-graph";
+} from "./screens.js";
+import { warnOnMissingSecurityBaseline } from "./security-baseline.js";
+import { validateTransferGraph } from "./transfer-graph.js";
 import {
   collectWorkspaceQns,
   resolveNavAllowlist,
   validateDefaultWorkspaceUniqueness,
   validateWorkspaces,
-} from "./workspaces";
+} from "./workspaces.js";
 
-export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns";
+export { validateAppCustomScreenWriteQns } from "./custom-screen-write-qns.js";
 // Re-export: wird von run-dev-app.ts benötigt um Write-Handler-QNs
 // an den Codegen zu übergeben. Nicht Teil von validateBoot, aber
 // dieselbe Extraktionslogik.
-export { collectWriteHandlerQns } from "./nav";
-export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline";
-export { MAX_TRANSFER_DEPTH } from "./transfer-graph";
+export { collectWriteHandlerQns } from "./nav.js";
+export { SECURITY_BASELINE_FEATURE_NAMES } from "./security-baseline.js";
+export { MAX_TRANSFER_DEPTH } from "./transfer-graph.js";
 
 export type ValidateBootOptions = {
   /** Warn when an access role is used by exactly one handler/config-key/

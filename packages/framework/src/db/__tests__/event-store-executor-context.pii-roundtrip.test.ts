@@ -4,11 +4,11 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   type KmsContext,
-} from "../../crypto";
-import { createEntity, createTextField } from "../../engine";
-import { createTestUser, testUserId } from "../../stack/test-users";
-import { createTestEnvelopeCipher } from "../../testing";
-import { buildExecutorContext, type Table } from "../event-store-executor-context";
+} from "../../crypto/index.js";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { createTestUser, testUserId } from "../../stack/test-users.js";
+import { createTestEnvelopeCipher } from "../../testing/index.js";
+import { buildExecutorContext, type Table } from "../event-store-executor-context.js";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 

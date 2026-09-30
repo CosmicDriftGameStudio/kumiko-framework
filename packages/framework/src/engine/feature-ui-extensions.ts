@@ -4,12 +4,13 @@ import {
   WEBSOCKET_ROUTE_PATH_PREFIX,
   type WebSocketRouteDefinition,
 } from "@cosmicdrift/kumiko-types/websocket-route";
-import type { EntityTableMeta } from "../db/entity-table-meta";
-import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
-import { LifecycleHookTypes } from "./constants";
-import type { FeatureBuilderState } from "./feature-builder-state";
-import { resolveName } from "./handler-helpers";
-import { isKebabSegment, toKebab } from "./qualified-name";
+import type { EntityTableMeta } from "../db/entity-table-meta.js";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js";
+import { LifecycleHookTypes } from "./constants.js";
+import type { FeatureBuilderState } from "./feature-builder-state.js";
+import { resolveName } from "./handler-helpers.js";
+import { isKebabSegment, toKebab } from "./qualified-name.js";
+import type { HttpRouteDefinition } from "./types/http-route.js";
 import type {
   BootCheckFn,
   EntityProjectionExtension,
@@ -30,12 +31,11 @@ import type {
   TreeActionDef,
   TreeActionsHandle,
   ValidationHookFn,
-} from "./types";
-import { HookPhases } from "./types";
-import type { HttpRouteDefinition } from "./types/http-route";
-import type { ContentCollectionDefinition, NavDefinition } from "./types/nav";
-import type { ScreenDefinition } from "./types/screen";
-import type { WorkspaceDefinition } from "./types/workspace";
+} from "./types/index.js";
+import { HookPhases } from "./types/index.js";
+import type { ContentCollectionDefinition, NavDefinition } from "./types/nav.js";
+import type { ScreenDefinition } from "./types/screen.js";
+import type { WorkspaceDefinition } from "./types/workspace.js";
 
 // Builds hooks/extensions/projections/screens/nav/workspace/tables/tree-actions
 // registrar methods.

@@ -44,13 +44,13 @@
 //   - "skipped" → Event ist kein Auto-Verb (Domain-Event auf demselben
 //     Aggregate). Caller no-op.
 
-import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index";
-import { deleteMany, insertOne, updateMany } from "../db/query";
-import type { EntityDefinition } from "../engine/types";
-import { InternalError } from "../errors";
-import type { StoredEvent } from "../event-store";
-import type { DbRow, DbRunner } from "./connection";
-import type { TableColumns } from "./dialect";
+import { collectLookupableFields, computeBlindIndexValues } from "../crypto/blind-index.js";
+import { deleteMany, insertOne, updateMany } from "../db/query.js";
+import type { EntityDefinition } from "../engine/types/index.js";
+import { InternalError } from "../errors/index.js";
+import type { StoredEvent } from "../event-store/index.js";
+import type { DbRow, DbRunner } from "./connection.js";
+import type { TableColumns } from "./dialect.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle-Tabellen sind generisch typed; framework code erasiert die Spalten-Union absichtlich.
 type Table = TableColumns<any>;

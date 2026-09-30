@@ -7,8 +7,8 @@ import {
   userCanCreateFieldRow,
   userCanReadFieldRow,
   userCanWriteFieldRow,
-} from "../ownership";
-import type { SessionUser } from "../types";
+} from "../ownership.js";
+import type { SessionUser } from "../types/index.js";
 
 // Helper — builds SessionUser with optional claims.
 function mkUser(

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
-import type { ValidationError } from "../validation";
-import { runValidation } from "../validation";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../index.js";
+import type { ValidationError } from "../validation.js";
+import { runValidation } from "../validation.js";
 
 describe("validation hooks", () => {
   test("r.hook registers validation hook", () => {

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../query";
-import { ensureIdempotencyKeyIndex } from "../event-store";
+import { type BunTestDb, createTestDb } from "../../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../query.js";
+import { ensureIdempotencyKeyIndex } from "../event-store.js";
 
 let testDb: BunTestDb;
 

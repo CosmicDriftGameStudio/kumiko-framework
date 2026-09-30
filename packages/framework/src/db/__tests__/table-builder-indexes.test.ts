@@ -13,8 +13,8 @@ import {
   createTextField,
   defineFeature,
   validateBoot,
-} from "../../engine";
-import { buildEntityTable } from "../table-builder";
+} from "../../engine/index.js";
+import { buildEntityTable } from "../table-builder.js";
 
 // Native dialect equivalent of drizzle's getTableConfig: reads the
 // EntityTableMeta-shape exposed on every SchemaTable.

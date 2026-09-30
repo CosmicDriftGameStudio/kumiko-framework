@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { buildServer } from "../api/server";
-import { createEventStoreExecutor } from "../db/event-store-executor";
-import { buildEntityTable } from "../db/table-builder";
+import { buildServer } from "../api/server.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { buildEntityTable } from "../db/table-builder.js";
 import {
   createEntity,
   createNumberField,
@@ -10,7 +10,7 @@ import {
   createTextField,
   defineFeature,
   type SessionUser,
-} from "../engine";
+} from "../engine/index.js";
 import {
   createTestDb,
   createTestRedis,
@@ -19,7 +19,7 @@ import {
   type TestRedis,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../stack";
+} from "../stack/index.js";
 
 // --- Entity with field-level access ---
 

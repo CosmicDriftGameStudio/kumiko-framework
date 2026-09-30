@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import type { Span } from "./types";
+import type { Span } from "./types/index.js";
 
 // Separate ALS from requestContext so observability stays optional — the
 // request-id pipeline doesn't need to know about spans, and the span stack

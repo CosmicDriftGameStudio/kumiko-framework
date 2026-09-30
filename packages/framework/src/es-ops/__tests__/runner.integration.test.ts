@@ -18,23 +18,23 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, insertOne, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
   SYSTEM_TENANT_ID,
-} from "../../engine";
-import { VersionConflictError } from "../../errors";
-import { createDispatcher, type Dispatcher } from "../../pipeline";
-import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createSeedMigrationContext } from "../context";
-import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
-import { runPendingSeedMigrations } from "../runner";
+} from "../../engine/index.js";
+import { VersionConflictError } from "../../errors/index.js";
+import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
+import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createSeedMigrationContext } from "../context.js";
+import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";
+import { runPendingSeedMigrations } from "../runner.js";
 
 // Minimal real feature whose handlers the seeds target. probe:create emits a
 // real event through the real dispatcher; probe:fail returns a failed

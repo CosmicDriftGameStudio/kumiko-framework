@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { AnyFileFieldDef, FieldDefinition } from "../types";
-import { isFileField } from "../types";
+import type { AnyFileFieldDef, FieldDefinition } from "../types/index.js";
+import { isFileField } from "../types/index.js";
 
 describe("isFileField()", () => {
   test("accepts all four file variants", () => {

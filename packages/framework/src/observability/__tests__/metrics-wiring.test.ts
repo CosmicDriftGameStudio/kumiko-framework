@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { composeEnvSchema, readKumikoMeta } from "../../env";
-import { prometheusMetricsEnvSchema, resolveObservabilityWiring } from "../metrics-wiring";
+import { composeEnvSchema, readKumikoMeta } from "../../env/index.js";
+import { prometheusMetricsEnvSchema, resolveObservabilityWiring } from "../metrics-wiring.js";
 
 describe("resolveObservabilityWiring", () => {
   it("returns {} without a token", () => {

@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query";
-import { unsafeReadRetrying } from "../query";
+import type { AnyDb } from "../query.js";
+import { unsafeReadRetrying } from "../query.js";
 
 export type SeedUserRow = {
   readonly id: string;

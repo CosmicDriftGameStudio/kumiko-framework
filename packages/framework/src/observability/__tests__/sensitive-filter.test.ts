@@ -7,7 +7,7 @@ import {
   redactHeaders,
   redactQueryString,
   shouldRedactAttribute,
-} from "../sensitive-filter";
+} from "../sensitive-filter.js";
 
 describe("redactHeaders", () => {
   it("redacts default sensitive headers case-insensitive", () => {
@@ -77,7 +77,7 @@ describe("shouldRedactAttribute + redactAttributes", () => {
   });
 
   it("redactValue preserves type while neutralising the value", async () => {
-    const { redactValue } = await import("../sensitive-filter");
+    const { redactValue } = await import("../sensitive-filter.js");
     expect(redactValue("secret")).toBe(REDACTED);
     expect(redactValue(42)).toBe(0);
     expect(redactValue(true)).toBe(false);

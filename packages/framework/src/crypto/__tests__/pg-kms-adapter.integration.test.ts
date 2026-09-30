@@ -1,11 +1,11 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { randomBytes, randomUUID } from "node:crypto";
 import postgres from "postgres";
-import { createTestDb } from "../../stack/db";
-import { type KmsContext, type SubjectId, subjectIdToKey } from "../kms-adapter";
-import { resolveKmsWiring } from "../kms-wiring";
-import { PgKmsAdapter } from "../pg-kms-adapter";
-import { describeKmsAdapterContract } from "./kms-adapter-contract";
+import { createTestDb } from "../../stack/db.js";
+import { type KmsContext, type SubjectId, subjectIdToKey } from "../kms-adapter.js";
+import { resolveKmsWiring } from "../kms-wiring.js";
+import { PgKmsAdapter } from "../pg-kms-adapter.js";
+import { describeKmsAdapterContract } from "./kms-adapter-contract.js";
 
 const baseUrl = process.env["TEST_DATABASE_URL"];
 if (!baseUrl) throw new Error("Missing required env var: TEST_DATABASE_URL");

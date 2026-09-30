@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { derivePurposeSecret } from "../derive-purpose-secret";
+import { derivePurposeSecret } from "../derive-purpose-secret.js";
 
 const MASTER = "master-secret-for-tests-32-bytes-min";
 

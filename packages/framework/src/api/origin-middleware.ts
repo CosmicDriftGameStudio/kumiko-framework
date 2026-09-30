@@ -1,6 +1,6 @@
 import type { Context, Next } from "hono";
-import { STATE_CHANGING_METHODS } from "./api-constants";
-import { getAuthTransport } from "./auth-middleware";
+import { STATE_CHANGING_METHODS } from "./api-constants.js";
+import { getAuthTransport } from "./auth-middleware.js";
 
 // Canonical comparable form for an Origin / allowlist entry: lowercased, no
 // trailing slash. Origin headers are scheme+host(+port) without a path, but

@@ -14,10 +14,15 @@
 // hand-rolled test handler.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
+import { asRawClient } from "../../db/query.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../factories.js";
 
 const memberEntity = createEntity({
   table: "pl_filter_members",

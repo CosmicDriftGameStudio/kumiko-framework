@@ -8,11 +8,16 @@
 // if LISTEN is dead the timer cannot rescue the assertion.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
 
 // --- Fixture ---
 

@@ -16,22 +16,22 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { UNATTRIBUTED_ORIGIN, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import type { TenantId } from "../../engine/types";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { generateId as uuid } from "../../utils";
-import { appendRaw } from "../admin-api";
-import { append } from "../event-store";
-import { eventsTable } from "../events-schema";
+} from "../../stack/index.js";
+import { generateId as uuid } from "../../utils/index.js";
+import { appendRaw } from "../admin-api.js";
+import { append } from "../event-store.js";
+import { eventsTable } from "../events-schema.js";
 
 const orderEntity = createEntity({
   table: "read_attribution_orders",

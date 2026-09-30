@@ -12,7 +12,7 @@
 // ops tooling. Replay (re-apply the migration after a code fix) is a
 // separate CLI step — not implemented here, tracked as follow-up.
 
-import type { DbConnection, DbRunner } from "../db/connection";
+import type { DbConnection, DbRunner } from "../db/connection.js";
 import {
   bigint,
   index,
@@ -22,10 +22,10 @@ import {
   text,
   timestamp,
   uuid,
-} from "../db/dialect";
-import { tableExists } from "../db/schema-inspection";
-import { unsafePushTables } from "../stack";
-import type { StoredEvent } from "./event-store";
+} from "../db/dialect.js";
+import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../stack/index.js";
+import type { StoredEvent } from "./event-store.js";
 
 export const upcasterDeadLetterTable = pgTable(
   "kumiko_upcaster_dead_letters",
@@ -75,7 +75,7 @@ export async function recordUpcasterDeadLetter(
   },
 ): Promise<void> {
   const message = args.error instanceof Error ? args.error.message : String(args.error);
-  const { insertOne } = await import("../bun-db/query");
+  const { insertOne } = await import("../bun-db/query.js");
   await insertOne(db, upcasterDeadLetterTable, {
     eventId: args.event.id,
     tenantId: args.event.tenantId,
@@ -109,7 +109,7 @@ export async function listDeadLetters(
   db: DbConnection,
   options: { eventType?: string; limit?: number } = {},
 ): Promise<readonly DeadLetterRow[]> {
-  const { selectMany } = await import("../bun-db/query");
+  const { selectMany } = await import("../bun-db/query.js");
   const limit = options.limit ?? 100;
   const where = options.eventType !== undefined ? { eventType: options.eventType } : undefined;
   const rows = await selectMany<DeadLetterRow>(db, upcasterDeadLetterTable, where, {

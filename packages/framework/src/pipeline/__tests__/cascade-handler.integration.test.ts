@@ -1,19 +1,22 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import type { TableColumns } from "../../db/dialect";
-import { createEventStoreExecutor, type EventStoreExecutor } from "../../db/event-store-executor";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import type { TableColumns } from "../../db/dialect.js";
+import {
+  createEventStoreExecutor,
+  type EventStoreExecutor,
+} from "../../db/event-store-executor.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineFeature,
   type Registry,
-} from "../../engine";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createCascadeDeleteHook } from "../cascade-handler";
+} from "../../engine/index.js";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createCascadeDeleteHook } from "../cascade-handler.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type Table = TableColumns<any>;

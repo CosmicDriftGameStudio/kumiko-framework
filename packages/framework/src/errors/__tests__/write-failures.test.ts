@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { InternalError, NotFoundError } from "../classes";
+import { InternalError, NotFoundError } from "../classes.js";
 import {
   failNotFound,
   failTransition,
   failUnprocessable,
   reraiseAsKumikoError,
   toWriteErrorInfo,
-} from "../write-error-info";
+} from "../write-error-info.js";
 
 describe("failNotFound", () => {
   test("baut WriteFailure mit reason=not_found + entity-id-details", () => {
@@ -79,7 +79,7 @@ describe("failTransition", () => {
 // Production-Pfad).
 describe("toWriteErrorInfo — dev cause-snapshot", () => {
   test("InternalError mit cause exposed cause-Snapshot in details (dev)", async () => {
-    const { toWriteErrorInfo } = await import("../write-error-info");
+    const { toWriteErrorInfo } = await import("../write-error-info.js");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
     try {
@@ -98,7 +98,7 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
   });
 
   test("Production: InternalError lässt details undefined (kein Stack-Leak)", async () => {
-    const { toWriteErrorInfo } = await import("../write-error-info");
+    const { toWriteErrorInfo } = await import("../write-error-info.js");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "production";
     try {
@@ -111,7 +111,7 @@ describe("toWriteErrorInfo — dev cause-snapshot", () => {
   });
 
   test("InternalError MIT bereits gesetztem details → Author-details gewinnt (kein Overwrite)", async () => {
-    const { toWriteErrorInfo } = await import("../write-error-info");
+    const { toWriteErrorInfo } = await import("../write-error-info.js");
     const previous = process.env["NODE_ENV"];
     process.env["NODE_ENV"] = "development";
     try {

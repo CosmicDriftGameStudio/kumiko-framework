@@ -4,5 +4,5 @@ export {
   generateAdjNounName,
   generateNoConfusableId,
   generateUniqueName,
-} from "./generate";
-export { ADJECTIVES, NOUNS } from "./words";
+} from "./generate.js";
+export { ADJECTIVES, NOUNS } from "./words.js";

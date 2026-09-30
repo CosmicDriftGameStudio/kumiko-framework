@@ -1,13 +1,13 @@
 import type { CallExpression, Node, ObjectLiteralExpression } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import { isPlainObject } from "../../../utils/is-plain-object";
-import type { ParseError } from "../parse";
+import { isPlainObject } from "../../../utils/is-plain-object.js";
+import type { ParseError } from "../parse.js";
 import {
   findImportBindingForLocalName,
   findScopedVariableDeclaration,
   resolveExportedVariable,
   resolveModuleFile,
-} from "./resolve-import";
+} from "./resolve-import.js";
 
 export type ExtractOutput<TPattern> =
   | { readonly kind: "pattern"; readonly pattern: TPattern }
@@ -181,7 +181,7 @@ export function readStringOrRawArgs(
   return out;
 }
 
-export { isPlainObject } from "../../../utils/is-plain-object";
+export { isPlainObject } from "../../../utils/is-plain-object.js";
 
 export function readPropertyKey(propAssign: import("ts-morph").PropertyAssignment): string {
   const nameNode = propAssign.getNameNode();

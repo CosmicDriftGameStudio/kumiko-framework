@@ -1,4 +1,4 @@
-import { getTemporal } from "../time";
+import { getTemporal } from "../time/index.js";
 
 // Streaming-ZIP-Builder (S2.U3 Atom 3a) — pure-JS, dependency-frei.
 //

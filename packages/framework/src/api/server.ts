@@ -1,12 +1,12 @@
 import { Hono, type MiddlewareHandler } from "hono";
-import { ROLES } from "../auth/roles";
-import type { DbConnection, PgClient } from "../db/connection";
-import { createDerivativesContext } from "../derivatives/derivatives-context";
-import { buildAppSchema } from "../engine/build-app-schema";
-import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names";
-import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles";
-import { runsInLane } from "../engine/run-in";
-import { ANONYMOUS_ROLE, createAnonymousUser, createSystemUser } from "../engine/system-user";
+import { ROLES } from "../auth/roles.js";
+import type { DbConnection, PgClient } from "../db/connection.js";
+import { createDerivativesContext } from "../derivatives/derivatives-context.js";
+import { buildAppSchema } from "../engine/build-app-schema.js";
+import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.js";
+import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles.js";
+import { runsInLane } from "../engine/run-in.js";
+import { ANONYMOUS_ROLE, createAnonymousUser, createSystemUser } from "../engine/system-user.js";
 import {
   type AppContext,
   type HttpRouteMethod,
@@ -17,13 +17,13 @@ import {
   type TenantId,
   type WebSocketRouteDefinition,
   type WriteResult,
-} from "../engine/types";
-import { createFileContext } from "../files/file-handle";
-import type { FileRoutesOptions } from "../files/file-routes";
-import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes";
-import { makeFileProviderResolver } from "../files/provider-resolver";
-import type { Lifecycle } from "../lifecycle";
-import { createFallbackLogger } from "../logging";
+} from "../engine/types/index.js";
+import { createFileContext } from "../files/file-handle.js";
+import type { FileRoutesOptions } from "../files/file-routes.js";
+import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes.js";
+import { makeFileProviderResolver } from "../files/provider-resolver.js";
+import type { Lifecycle } from "../lifecycle/index.js";
+import { createFallbackLogger } from "../logging/index.js";
 import {
   createNoopProvider,
   DEFAULT_SENSITIVE_CONFIG,
@@ -32,34 +32,34 @@ import {
   type ObservabilityProvider,
   registerStandardMetrics,
   wrapRedisClient,
-} from "../observability";
-import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership";
-import type { DispatcherOptions } from "../pipeline/dispatcher";
-import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher";
-import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state";
-import type { EventDedup } from "../pipeline/event-dedup";
-import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher";
-import { createEventDispatcher } from "../pipeline/event-dispatcher";
-import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline";
-import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context";
+} from "../observability/index.js";
+import { resolveTenantLifecyclePlugin } from "../pipeline/active-membership.js";
+import type { DispatcherOptions } from "../pipeline/dispatcher.js";
+import { createDispatcher, type Dispatcher } from "../pipeline/dispatcher.js";
+import { SHARED_INSTANCE_SENTINEL } from "../pipeline/event-consumer-state.js";
+import type { EventDedup } from "../pipeline/event-dedup.js";
+import type { EventConsumer, EventDispatcher } from "../pipeline/event-dispatcher.js";
+import { createEventDispatcher } from "../pipeline/event-dispatcher.js";
+import { createLifecycleHooks, type SystemHooks } from "../pipeline/lifecycle-pipeline.js";
+import { createMultiStreamApplyContext } from "../pipeline/multi-stream-apply-context.js";
 import {
   createAccessInvalidationEventConsumer,
   createJobTriggerEventConsumer,
   createSearchEventConsumer,
   createSseBroadcastEventConsumer,
-} from "../pipeline/system-hooks";
+} from "../pipeline/system-hooks.js";
 import {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
   createRateLimitResolver,
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
-} from "../rate-limit";
-import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config";
-import type { SearchAdapter } from "../search/types";
-import type { AppSchema } from "../ui-types/app-schema";
-import { assertUnreachable, generateId } from "../utils";
-import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants";
+} from "../rate-limit/index.js";
+import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config.js";
+import type { SearchAdapter } from "../search/types.js";
+import type { AppSchema } from "../ui-types/app-schema.js";
+import { assertUnreachable, generateId } from "../utils/index.js";
+import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants.js";
 import {
   type AnonymousAccessResolved,
   type AuthSessionChecker,
@@ -67,47 +67,47 @@ import {
   getAuthTokenExpiry,
   getUser,
   type TenantLifecycleStatusResolver,
-} from "./auth-middleware";
-import { type AuthRoutesConfig, createAuthRoutes, type LoginRateLimiter } from "./auth-routes";
+} from "./auth-middleware.js";
+import { type AuthRoutesConfig, createAuthRoutes, type LoginRateLimiter } from "./auth-routes.js";
 import {
   assertValidTrustedProxyHops,
   type ClientIpResolver,
   clientIpSourceFromHonoContext,
   createClientIpResolver,
-} from "./client-ip";
-import { csrfMiddleware } from "./csrf-middleware";
+} from "./client-ip.js";
+import { csrfMiddleware } from "./csrf-middleware.js";
 import {
   type ExtraRouteDefinition,
   ExtraRouteEntries,
   type ExtraRouteEntry,
   ExtraRouteRejection,
   type SystemDispatchArgs,
-} from "./extra-route";
-import { computeStrongEtag, etagMatches } from "./http-cache";
-import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt";
-import { observabilityMiddleware } from "./observability-middleware";
+} from "./extra-route.js";
+import { computeStrongEtag, etagMatches } from "./http-cache.js";
+import { createJwtHelper, type JwtHelper, type JwtKeyring } from "./jwt.js";
+import { observabilityMiddleware } from "./observability-middleware.js";
 import {
   assertOriginGuardConfig,
   isWebSocketOriginAllowed,
   normalizeOrigin,
   originMiddleware,
   rejectOrigin,
-} from "./origin-middleware";
-import { patRouteGuard } from "./pat-route-guard";
-import { piiCiphertextResponseGuard } from "./pii-leak-guard";
-import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker";
-import { type RequestContextData, requestContext } from "./request-context";
-import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware";
+} from "./origin-middleware.js";
+import { patRouteGuard } from "./pat-route-guard.js";
+import { piiCiphertextResponseGuard } from "./pii-leak-guard.js";
+import { createDefaultSseBroker, type RedisSseBroker } from "./redis-sse-broker.js";
+import { type RequestContextData, requestContext } from "./request-context.js";
+import { buildRequestContextData, requestIdMiddleware } from "./request-id-middleware.js";
 import {
   DEFAULT_MAX_REQUEST_BYTES,
   registerBodyLimit,
   registerHealthRoutes,
   registerMetricsRoute,
   registerVersionRoute,
-} from "./route-registrars";
-import { createApiRoutes } from "./routes";
-import type { SseBroker } from "./sse-broker";
-import { createSseRoute } from "./sse-route";
+} from "./route-registrars.js";
+import { createApiRoutes } from "./routes.js";
+import type { SseBroker } from "./sse-broker.js";
+import { createSseRoute } from "./sse-route.js";
 import {
   buildWebSocketSessionRevalidator,
   createWebSocketConnectionLimiter,
@@ -116,7 +116,7 @@ import {
   WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
   WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
   type WebSocketConnectionLimiter,
-} from "./websocket-route";
+} from "./websocket-route.js";
 
 export type ServerOptions = {
   registry: Registry;
@@ -1417,7 +1417,7 @@ type ExtraRouteHonoHandlerDeps = {
   readonly app: Hono;
   readonly dispatcher: Dispatcher;
   readonly registry: Registry;
-  readonly secrets: import("../secrets").SecretsContext | undefined;
+  readonly secrets: import("../secrets/index.js").SecretsContext | undefined;
   readonly dispatchSystemWrite: (args: SystemDispatchArgs) => Promise<WriteResult>;
   readonly dispatchSystemQuery: (args: SystemDispatchArgs) => Promise<unknown>;
   readonly clientIpResolver: ClientIpResolver;

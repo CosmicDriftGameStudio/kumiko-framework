@@ -1,10 +1,10 @@
-import type { FeatureDefinition } from "../types";
-import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields";
+import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields.js";
+import type { FeatureDefinition } from "../types/index.js";
 import {
   PII_DIRECT_NAME_HINTS,
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
-} from "./entity-handler";
+} from "./entity-handler.js";
 
 // Framework-managed Timestamp-Spalten — dürfen als retention.reference
 // genutzt werden auch wenn nicht in entity.fields deklariert.

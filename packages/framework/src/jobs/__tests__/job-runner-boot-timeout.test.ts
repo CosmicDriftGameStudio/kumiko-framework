@@ -34,9 +34,9 @@ mock.module("bullmq", () => {
   return { Queue: FakeQueue, Worker: FakeWorker };
 });
 
-import { createRegistry } from "../../engine";
-import type { AppContext } from "../../engine/types";
-import { createJobRunner } from "../job-runner";
+import { createRegistry } from "../../engine/index.js";
+import type { AppContext } from "../../engine/types/index.js";
+import { createJobRunner } from "../job-runner.js";
 
 describe("createJobRunner start() boot timeout", () => {
   test("rejects instead of hanging forever when the worker's Redis connection never becomes ready", async () => {

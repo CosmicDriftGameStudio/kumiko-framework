@@ -9,7 +9,7 @@ import type {
   ScreenNavSugar,
   UnitKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { requiredKeysFromScreen, screenTitleKey } from "../../i18n/required-surface-keys";
+import { requiredKeysFromScreen, screenTitleKey } from "../../i18n/required-surface-keys.js";
 
 // fw#2519: the engine barrel exported ScreenDefinition (the union) but not
 // its individual members — apps splitting screens out of feature.ts into

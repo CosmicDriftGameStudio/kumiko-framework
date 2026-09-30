@@ -42,9 +42,9 @@
 // affected projections — applyEntityEvent materializes ciphertext AND the
 // blind-index columns, which keeps equality lookups (login by email) alive.
 
-import { asRawClient } from "../../bun-db";
-import { quoteIdent } from "../../crypto/ciphertext-pattern";
-import { configuredEventPiiCatalog } from "../../crypto/event-pii";
+import { asRawClient } from "../../bun-db/index.js";
+import { quoteIdent } from "../../crypto/ciphertext-pattern.js";
+import { configuredEventPiiCatalog } from "../../crypto/event-pii.js";
 import {
   isLocalKeyKmsAdapter,
   KeyErasedError,
@@ -52,24 +52,24 @@ import {
   type KmsContext,
   type LocalKeyKmsAdapter,
   type SubjectId,
-} from "../../crypto/kms-adapter";
+} from "../../crypto/kms-adapter.js";
 import {
   configuredPiiSubjectKms,
   encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-} from "../../crypto/pii-field-encryption";
+} from "../../crypto/pii-field-encryption.js";
 import {
   collectPiiSubjectFields,
   resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
-} from "../../crypto/subject-resolver";
-import type { EntityDefinition, Registry, TenantId } from "../../engine/types";
-import type { DbRunner } from "../connection";
-import { resolveTableName } from "../entity-table-meta";
-import { tableExists } from "../schema-inspection";
-import { toSnakeCase } from "../table-builder";
+} from "../../crypto/subject-resolver.js";
+import type { EntityDefinition, Registry, TenantId } from "../../engine/types/index.js";
+import type { DbRunner } from "../connection.js";
+import { resolveTableName } from "../entity-table-meta.js";
+import { tableExists } from "../schema-inspection.js";
+import { toSnakeCase } from "../table-builder.js";
 
 const LIFECYCLE_VERBS = ["created", "updated", "deleted", "restored", "forgotten"] as const;
 

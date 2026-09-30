@@ -3,8 +3,8 @@ import type {
   RegistryState,
   SearchableReferenceField,
   SortableReferenceField,
-} from "./registry-state";
-import { filterByPhase, filterOwned } from "./registry-state";
+} from "./registry-state.js";
+import { filterByPhase, filterOwned } from "./registry-state.js";
 import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
@@ -40,7 +40,7 @@ import type {
   TreeActionDef,
   WorkspaceDefinition,
   WriteHandlerDef,
-} from "./types";
+} from "./types/index.js";
 
 // Builds the public Registry surface (64 getters) bound to a specific
 // RegistryState instance — pure move-diff from createRegistry's former

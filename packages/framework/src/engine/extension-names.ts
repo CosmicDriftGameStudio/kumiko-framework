@@ -1,11 +1,11 @@
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
-import type { OverlayResolverPlugin } from "../derivatives/derivatives-context";
-import type { FileProviderPlugin } from "../files/provider-resolver";
-import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./active-membership";
-import type { TenantDataExtensionHooks } from "./extensions/tenant-data";
-import type { TenantResourceExtensionHooks } from "./extensions/tenant-resource";
-import type { UserDataExtensionOptions } from "./extensions/user-data";
-import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension";
+import type { OverlayResolverPlugin } from "../derivatives/derivatives-context.js";
+import type { FileProviderPlugin } from "../files/provider-resolver.js";
+import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./active-membership.js";
+import type { TenantDataExtensionHooks } from "./extensions/tenant-data.js";
+import type { TenantResourceExtensionHooks } from "./extensions/tenant-resource.js";
+import type { UserDataExtensionOptions } from "./extensions/user-data.js";
+import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension.js";
 
 // Standardisierte Extension-Namen fuer Datenschutz-Hook-Achsen.
 //

@@ -1,9 +1,9 @@
-import { buildEntityTable } from "../../db/table-builder";
-import type { OwnershipMap, OwnershipRule, SqlFragment, WhereRule } from "../ownership";
-import { SYSTEM_USER_ID } from "../system-user";
-import type { ClaimKeyDefinition, FeatureDefinition, SessionUser } from "../types";
-import { SYSTEM_TENANT_ID } from "../types/identifiers";
-import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint";
+import { buildEntityTable } from "../../db/table-builder.js";
+import type { OwnershipMap, OwnershipRule, SqlFragment, WhereRule } from "../ownership.js";
+import { SYSTEM_USER_ID } from "../system-user.js";
+import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
+import type { ClaimKeyDefinition, FeatureDefinition, SessionUser } from "../types/index.js";
+import { assertQualifiedWhereFragment, tableColumnSqlNames } from "../where-rule-lint.js";
 
 // --- Ownership rule validation (H.2) ---
 //

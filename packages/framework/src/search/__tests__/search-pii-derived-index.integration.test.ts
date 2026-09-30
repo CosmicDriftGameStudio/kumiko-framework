@@ -8,11 +8,26 @@ import {
   InMemoryKmsAdapter,
   isPiiCiphertext,
   subjectIdToKey,
-} from "../../crypto";
-import { asRawClient, buildEntityTable, createEventStoreExecutor, createTenantDb } from "../../db";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { purgeSearchDocumentsForSubject } from "../purge-subject";
+} from "../../crypto/index.js";
+import {
+  asRawClient,
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "../../db/index.js";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { purgeSearchDocumentsForSubject } from "../purge-subject.js";
 
 const contactEntity = createEntity({
   table: "read_search_pii_contacts",

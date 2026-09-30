@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import type { NavDefinition, WorkspaceDefinition } from "../../types";
-import { warnOnUnreachableNavScreens } from "../nav";
-import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces";
+import type { NavDefinition, WorkspaceDefinition } from "../../types/index.js";
+import { warnOnUnreachableNavScreens } from "../nav.js";
+import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.js";
 
 function navMap(
   entries: ReadonlyArray<[string, NavDefinition & { readonly featureName: string }]>,

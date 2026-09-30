@@ -12,8 +12,8 @@
 // IMMER via ctx.systemWriteAs damit Event-Store-Invariants bleiben
 // (Source-of-Truth + Projection läuft automatisch).
 
-import type { DbRunner } from "../db";
-import type { TenantId, WriteResult } from "../engine";
+import type { DbRunner } from "../db/index.js";
+import type { TenantId, WriteResult } from "../engine/index.js";
 
 export type EsOperationAppliedBy = "boot" | "cli" | "ci-pipeline";
 

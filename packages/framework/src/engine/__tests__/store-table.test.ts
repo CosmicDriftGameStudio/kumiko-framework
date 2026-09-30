@@ -10,10 +10,10 @@ import {
   defineUnmanagedTable,
   deriveEntityTableMeta,
   resolveTableName,
-} from "../../db/entity-table-meta";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../index";
-import { createRegistry } from "../registry";
+} from "../../db/entity-table-meta.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../index.js";
+import { createRegistry } from "../registry.js";
 
 const probeMeta = defineUnmanagedTable({
   tableName: "rt_probe",

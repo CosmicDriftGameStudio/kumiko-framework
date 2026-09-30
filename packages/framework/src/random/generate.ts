@@ -13,7 +13,7 @@
 // Universal-safe: Math.random() läuft in Bun, Node, Metro/RN, Expo-Web.
 // Keine node:crypto-Imports.
 
-import { ADJECTIVES, NOUNS } from "./words";
+import { ADJECTIVES, NOUNS } from "./words.js";
 
 // Alphabet ohne handgetippt verwechselbare Zeichen:
 //   - keine 0/O (Null vs Großbuchstabe O)

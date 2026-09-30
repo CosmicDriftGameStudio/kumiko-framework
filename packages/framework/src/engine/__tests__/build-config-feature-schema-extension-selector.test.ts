@@ -1,19 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { requiredKeysFromScreen } from "../../i18n/required-surface-keys";
-import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys";
-import { validateBoot } from "../boot-validator";
-import { buildConfigFeatureSchema, SETTINGS_HUB_FEATURE } from "../build-config-feature-schema";
-import { access, createSystemConfig, createTenantConfig } from "../config-helpers";
-import { defineFeature } from "../define-feature";
-import { SELECTED_EXTENSIONS_QUERY } from "../extension-selector-plugins";
-import { createRegistry } from "../registry";
+import { requiredKeysFromScreen } from "../../i18n/required-surface-keys.js";
+import { SETTINGS_HUB_I18N } from "../../i18n/settings-hub-keys.js";
+import { validateBoot } from "../boot-validator.js";
+import { buildConfigFeatureSchema, SETTINGS_HUB_FEATURE } from "../build-config-feature-schema.js";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
+import { defineFeature } from "../define-feature.js";
+import { SELECTED_EXTENSIONS_QUERY } from "../extension-selector-plugins.js";
+import { createRegistry } from "../registry.js";
 import type {
   ConfigEditScreenDefinition,
   FeatureDefinition,
   ScreenDefinition,
   SecretsEditScreenDefinition,
-} from "../types";
+} from "../types/index.js";
 
 const TENANT_ADMIN_WRITE = access.roles("TenantAdmin", "Admin");
 

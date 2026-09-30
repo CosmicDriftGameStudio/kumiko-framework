@@ -3,13 +3,13 @@ import type {
   RateLimitDecision,
   RateLimitResolver,
 } from "@cosmicdrift/kumiko-types/rate-limit-types";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 // Value-only import, aliased to avoid shadowing the ambient global
 // `Temporal` TYPE that RateLimitDecision.resetAt resolves against (see
 // event-store.ts for the same #1438 dual-package-hazard pattern).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
-import { RateLimitError } from "../errors";
-import { RedisKeys } from "../pipeline/redis-keys";
+import { RateLimitError } from "../errors/index.js";
+import { RedisKeys } from "../pipeline/redis-keys.js";
 
 // Token-Bucket rate limiter, atomic via Redis Lua. One round-trip per
 // check — the script computes the bucket state inline and either deducts

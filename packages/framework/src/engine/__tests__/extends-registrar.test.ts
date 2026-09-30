@@ -1,16 +1,19 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as z from "zod";
-import { AccessDeniedError } from "../../errors";
-import { createGatedIdentitySwitch, type QueryAsFn } from "../../pipeline/system-identity-switch";
+import { AccessDeniedError } from "../../errors/index.js";
+import {
+  createGatedIdentitySwitch,
+  type QueryAsFn,
+} from "../../pipeline/system-identity-switch.js";
 import {
   createEntity,
   createRegistry,
   createSystemUser,
   createTextField,
   defineFeature,
-} from "../index";
-import type { AppContext, SaveContext } from "../types";
-import type { TenantId } from "../types/identifiers";
+} from "../index.js";
+import type { TenantId } from "../types/identifiers.js";
+import type { AppContext, SaveContext } from "../types/index.js";
 
 const TENANT = "00000000-0000-4000-8000-00000000ee01" as TenantId;
 const dummySaveContext: SaveContext = {

@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { createCipheriv, randomBytes } from "node:crypto";
-import { createEntity, createTextField } from "../../engine/factories";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
 import {
   KeyErasedError,
   KeyNotFoundError,
   type KmsContext,
   subjectIdFromKey,
   subjectIdToKey,
-} from "../kms-adapter";
+} from "../kms-adapter.js";
 import {
   decryptPiiFieldValues,
   decryptPiiValueForSubject,
@@ -17,8 +17,8 @@ import {
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
-} from "../pii-field-encryption";
-import { collectPiiSubjectFields } from "../subject-resolver";
+} from "../pii-field-encryption.js";
+import { collectPiiSubjectFields } from "../subject-resolver.js";
 
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 const UUID_B = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000b";

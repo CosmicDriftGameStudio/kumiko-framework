@@ -7,12 +7,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { DerivativeRendererPlugin } from "@cosmicdrift/kumiko-types/derivatives-types";
 import * as z from "zod";
-import { defineFeature, EXT_DERIVATIVE_RENDERER } from "../../engine";
-import { InternalError, NotFoundError, writeFailure } from "../../errors";
-import { createFilesFeature } from "../../files/feature";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider";
-import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack";
-import { buildMultipartBody, patchFileInstanceofForBunTest, waitFor } from "../../testing";
+import { defineFeature, EXT_DERIVATIVE_RENDERER } from "../../engine/index.js";
+import { InternalError, NotFoundError, writeFailure } from "../../errors/index.js";
+import { createFilesFeature } from "../../files/feature.js";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
+import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack/index.js";
+import { buildMultipartBody, patchFileInstanceofForBunTest, waitFor } from "../../testing/index.js";
 
 const fakeRender: DerivativeRendererPlugin["render"] = async () => new Uint8Array([9, 9, 9]);
 

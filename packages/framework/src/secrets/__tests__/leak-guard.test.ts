@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { assertNoSecretLeak } from "../leak-guard";
-import { createSecret } from "../types";
+import { assertNoSecretLeak } from "../leak-guard.js";
+import { createSecret } from "../types.js";
 
 describe("assertNoSecretLeak — walks the response tree for branded values", () => {
   test("plain data passes through silently", () => {

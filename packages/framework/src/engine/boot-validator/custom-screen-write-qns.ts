@@ -3,7 +3,7 @@ import { join, relative } from "node:path";
 import {
   extractDispatcherWriteQnsFromSource,
   validateDispatcherWriteQn,
-} from "../write-handler-qn-extract";
+} from "../write-handler-qn-extract.js";
 
 const SKIP_SEGMENTS = new Set(["node_modules", ".kumiko", "dist", "dist-server", "__tests__"]);
 

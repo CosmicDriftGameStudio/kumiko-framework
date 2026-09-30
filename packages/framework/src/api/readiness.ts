@@ -11,10 +11,10 @@
 //   - Checks run in parallel — the probe is called on every kubelet/ALB poll,
 //     so total latency must stay ≈ slowest check, not sum.
 
-import type Redis from "ioredis";
-import type { DbConnection } from "../db/connection";
-import { pingDatabase } from "../db/queries/raw-sql";
-import { getAllConsumerProgress } from "../pipeline/event-dispatcher";
+import type { Redis } from "ioredis";
+import type { DbConnection } from "../db/connection.js";
+import { pingDatabase } from "../db/queries/raw-sql.js";
+import { getAllConsumerProgress } from "../pipeline/event-dispatcher.js";
 
 export type ReadinessCheck = {
   readonly name: string;

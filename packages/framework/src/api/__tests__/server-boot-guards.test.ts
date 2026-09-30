@@ -11,9 +11,9 @@ import {
   defineQueryHandler,
   EXT_PRINCIPAL_STATUS,
   EXT_TENANT_LIFECYCLE_STATUS,
-} from "../../engine";
-import { createInMemorySearchAdapter } from "../../search";
-import { buildServer } from "../server";
+} from "../../engine/index.js";
+import { createInMemorySearchAdapter } from "../../search/index.js";
+import { buildServer } from "../server.js";
 
 const JWT_SECRET = "server-boot-guards-test-secret-min-32-chars";
 

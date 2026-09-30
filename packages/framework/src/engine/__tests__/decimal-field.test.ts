@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createDecimalField, createEntity } from "../factories";
-import { buildInsertSchema, isRepresentableAtScale } from "../schema-builder";
+import { createDecimalField, createEntity } from "../factories.js";
+import { buildInsertSchema, isRepresentableAtScale } from "../schema-builder.js";
 
 describe("isRepresentableAtScale", () => {
   test("accepts a float-artifact value that is in-scale (0.1 + 0.2 @ scale 2)", () => {

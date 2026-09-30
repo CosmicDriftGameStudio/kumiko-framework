@@ -1,4 +1,4 @@
-import type { RateLimitOption, SessionUser } from "../engine/types";
+import type { RateLimitOption, SessionUser } from "../engine/types/index.js";
 
 // Build the Redis bucket key for a handler-level rate limit. Format:
 //   <handler>:<dimension-tag>:<dimension-value>

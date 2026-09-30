@@ -1,8 +1,8 @@
 import type { CallExpression, SourceFile } from "ts-morph";
-import type { TreeActionDef } from "../../types/tree-node";
-import type { TreeActionsPattern } from "../patterns";
-import { sourceLocationFromNode } from "../source-location";
-import { type ExtractOutput, fail, isPlainObject, ok, readDataLiteralNode } from "./shared";
+import type { TreeActionDef } from "../../types/tree-node.js";
+import type { TreeActionsPattern } from "../patterns.js";
+import { sourceLocationFromNode } from "../source-location.js";
+import { type ExtractOutput, fail, isPlainObject, ok, readDataLiteralNode } from "./shared.js";
 
 export function extractTreeActions(
   call: CallExpression,

@@ -10,18 +10,18 @@
 // consumer stays "idle".
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
-import { getConsumerState } from "../../pipeline";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import { getConsumerState } from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
 
 // --- Feature ---
 

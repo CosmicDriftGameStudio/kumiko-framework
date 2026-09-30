@@ -10,9 +10,9 @@ import {
   defineEntityQueryHandler,
   defineFeature,
   from,
-} from "../../engine";
-import type { WhereRule } from "../../engine/types";
-import { setupTestStack } from "../test-stack";
+} from "../../engine/index.js";
+import type { WhereRule } from "../../engine/types/index.js";
+import { setupTestStack } from "../test-stack.js";
 
 // Bare `owner_id` inside the subquery binds to fwbootguard_shares, not to the
 // outer memo table — the predicate collapses into a tautology and grants every

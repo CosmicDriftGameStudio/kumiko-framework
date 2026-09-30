@@ -1,15 +1,15 @@
-import type { DbRow, DbRunner, DbTx } from "../db/connection";
-import { selectRowForUpdateById } from "../db/queries/entity-read";
-import { asEntityTableMeta, selectMany } from "../db/query";
-import { buildEntityTable, toSnakeCase } from "../db/table-builder";
-import { tenantDbRunner } from "../db/tenant-db-runner";
-import { hasAccess } from "../engine/access";
-import { ConfigScopes } from "../engine/constants";
-import { checkWriteFieldOwnership, checkWriteFieldRoles } from "../engine/field-access";
-import { defineTransitions, guardTransition } from "../engine/state-machine";
-import type { HandlerContext, SessionUser, WriteResult } from "../engine/types";
-import { HookPhases } from "../engine/types";
-import { runValidation } from "../engine/validation";
+import type { DbRow, DbRunner, DbTx } from "../db/connection.js";
+import { selectRowForUpdateById } from "../db/queries/entity-read.js";
+import { asEntityTableMeta, selectMany } from "../db/query.js";
+import { buildEntityTable, toSnakeCase } from "../db/table-builder.js";
+import { tenantDbRunner } from "../db/tenant-db-runner.js";
+import { hasAccess } from "../engine/access.js";
+import { ConfigScopes } from "../engine/constants.js";
+import { checkWriteFieldOwnership, checkWriteFieldRoles } from "../engine/field-access.js";
+import { defineTransitions, guardTransition } from "../engine/state-machine.js";
+import type { HandlerContext, SessionUser, WriteResult } from "../engine/types/index.js";
+import { HookPhases } from "../engine/types/index.js";
+import { runValidation } from "../engine/validation.js";
 import {
   AccessDeniedError,
   FrameworkReasons,
@@ -20,9 +20,9 @@ import {
   ValidationError,
   validationErrorFromZod,
   writeFailure,
-} from "../errors";
-import { assertNoSecretLeak } from "../secrets";
-import type { DispatchContext, WriteOrigin } from "./dispatch-shared";
+} from "../errors/index.js";
+import { assertNoSecretLeak } from "../secrets/index.js";
+import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
 import {
   buildHandlerContext,
   CONFIG_WRITE_RESET_TYPE,
@@ -33,7 +33,7 @@ import {
   resolveDbSource,
   runHandlerInstrumented,
   TENANT_TIMEZONE_CONFIG_KEY,
-} from "./dispatch-shared";
+} from "./dispatch-shared.js";
 import {
   type AfterCommitHook,
   describeShape,
@@ -42,8 +42,8 @@ import {
   isWriteResultShape,
   prefixValidationPath,
   wrapToKumiko,
-} from "./dispatcher-utils";
-import { runProjections } from "./projections-runner";
+} from "./dispatcher-utils.js";
+import { runProjections } from "./projections-runner.js";
 
 function getTable(
   ctx: DispatchContext,

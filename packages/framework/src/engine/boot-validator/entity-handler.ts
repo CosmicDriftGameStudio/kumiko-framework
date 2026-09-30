@@ -1,14 +1,14 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
-import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key";
-import { parseRefTarget } from "../parse-ref-target";
+import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.js";
+import { parseRefTarget } from "../parse-ref-target.js";
 import type {
   EmbeddedFieldDef,
   EntityDefinition,
   FeatureDefinition,
   MultiSelectFieldDef,
   QueryHandlerDef,
-} from "../types";
+} from "../types/index.js";
 
 export const FILE_FIELD_TYPES = new Set(["file", "image", "files", "images"]);
 

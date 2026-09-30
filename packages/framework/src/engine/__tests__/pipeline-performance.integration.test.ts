@@ -24,11 +24,16 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { defineFeature } from "../define-feature";
-import { defineWriteHandler } from "../define-handler";
-import { createEntity, createNumberField, createTextField } from "../factories";
-import { stepsPipeline } from "../pipeline";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { defineFeature } from "../define-feature.js";
+import { defineWriteHandler } from "../define-handler.js";
+import { createEntity, createNumberField, createTextField } from "../factories.js";
+import { stepsPipeline } from "../pipeline.js";
 
 // Same logical operation in both handler-forms: read input, return a
 // trivial transformed payload. No DB-write — the goal is to compare

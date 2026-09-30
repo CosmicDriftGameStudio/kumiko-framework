@@ -27,10 +27,10 @@ import {
   KUMIKO_META_SYMBOL,
   KUMIKO_NAME_SYMBOL,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { getStep } from "./define-step";
-import { buildPipelineSteps } from "./pipeline";
-import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types";
-import type { PipelineDef, StepInstance } from "./types/step";
+import { getStep } from "./define-step.js";
+import { buildPipelineSteps } from "./pipeline.js";
+import type { FeatureDefinition, SessionUser, TenantId, WriteEvent } from "./types/index.js";
+import type { PipelineDef, StepInstance } from "./types/step.js";
 
 // Listed step-kinds whose `args.table` must be in the owning feature's
 // r.requires.projection allowlist. Extend as further unsafeProjection.*

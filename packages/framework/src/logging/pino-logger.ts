@@ -1,6 +1,6 @@
 import pino, { type DestinationStream } from "pino";
-import { observabilityContext } from "../observability";
-import type { Logger } from "./types";
+import { observabilityContext } from "../observability/index.js";
+import type { Logger } from "./types.js";
 
 export type LoggerOptions = {
   level?: "debug" | "info" | "warn" | "error";

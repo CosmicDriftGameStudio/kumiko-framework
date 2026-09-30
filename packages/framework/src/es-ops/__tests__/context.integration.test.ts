@@ -18,14 +18,14 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient, selectMany } from "../../db/query";
-import { createRegistry } from "../../engine";
-import { createDispatcher, type Dispatcher } from "../../pipeline";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createSeedMigrationContext } from "../context";
-import { createEsOperationsTable, esOperationsTable } from "../operations-schema";
-import { runPendingSeedMigrations } from "../runner";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { createRegistry } from "../../engine/index.js";
+import { createDispatcher, type Dispatcher } from "../../pipeline/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createSeedMigrationContext } from "../context.js";
+import { createEsOperationsTable, esOperationsTable } from "../operations-schema.js";
+import { runPendingSeedMigrations } from "../runner.js";
 
 let testDb: BunTestDb;
 // Real (feature-less) dispatcher — these tests exercise the read-helper layer

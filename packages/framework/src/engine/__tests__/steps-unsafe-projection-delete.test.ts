@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import type { DbRunner } from "../../db/connection";
-import { table, text, uuid } from "../../db/dialect";
-import { createTenantDb } from "../../db/tenant-db";
-import { testTenantId } from "../../stack";
-import { getStep } from "../define-step";
-import { buildUnsafeProjectionDeleteStep } from "../steps/unsafe-projection-delete";
-import type { PipelineCtx } from "../types/step";
+import type { DbRunner } from "../../db/connection.js";
+import { table, text, uuid } from "../../db/dialect.js";
+import { createTenantDb } from "../../db/tenant-db.js";
+import { testTenantId } from "../../stack/index.js";
+import { getStep } from "../define-step.js";
+import { buildUnsafeProjectionDeleteStep } from "../steps/unsafe-projection-delete.js";
+import type { PipelineCtx } from "../types/step.js";
 
 const testTable = table("test_projection", {
   id: uuid("id").primaryKey().defaultRandom(),

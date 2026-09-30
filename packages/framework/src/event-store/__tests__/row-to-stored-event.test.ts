@@ -3,9 +3,9 @@
 // fallengelassenes/falsches Feld wäre stiller Datenverlust beim Replay.
 
 import { describe, expect, test } from "bun:test";
-import type { TenantId } from "../../engine/types";
-import type { EventMetadata, StoredEvent } from "../event-store";
-import { toStoredEvent } from "../row-to-stored-event";
+import type { TenantId } from "../../engine/types/index.js";
+import type { EventMetadata, StoredEvent } from "../event-store.js";
+import { toStoredEvent } from "../row-to-stored-event.js";
 
 const metadata: EventMetadata = {
   userId: "user-1",

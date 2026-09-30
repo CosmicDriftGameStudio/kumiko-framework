@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { defineFeature } from "../../engine/index.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
 const retryRuns: [number, boolean][] = [];
 const singleRuns: [number, boolean][] = [];

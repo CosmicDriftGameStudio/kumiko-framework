@@ -1,6 +1,13 @@
-import { assertUnreachable } from "../utils";
-import { validateLabelKey } from "./metric-validator";
-import type { Counter, Gauge, Histogram, Meter, MetricDefinition, MetricLabels } from "./types";
+import { assertUnreachable } from "../utils/index.js";
+import { validateLabelKey } from "./metric-validator.js";
+import type {
+  Counter,
+  Gauge,
+  Histogram,
+  Meter,
+  MetricDefinition,
+  MetricLabels,
+} from "./types/index.js";
 
 // Event type emitted when any metric changes — feeds into provider emitters.
 export type MetricEvent =

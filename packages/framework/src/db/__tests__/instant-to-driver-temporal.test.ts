@@ -5,7 +5,7 @@
 // proving the write path no longer depends on the global either.
 
 import { describe, expect, test } from "bun:test";
-import { instantToDriver } from "../dialect";
+import { instantToDriver } from "../dialect.js";
 
 describe("instantToDriver — without a global Temporal", () => {
   test("coerces an ISO string without relying on a global Temporal", () => {

@@ -25,11 +25,11 @@
 //   5. Default-workspace drop: a workspace with no surviving nav members
 //      is removed from the switcher list.
 import { describe, expect, test } from "bun:test";
-import { buildAppSchema } from "../build-app-schema";
-import { access, createSystemConfig, createTenantConfig } from "../config-helpers";
-import { defineFeature } from "../define-feature";
-import { projectAppSchemaForRoles } from "../project-app-schema-for-roles";
-import { createRegistry } from "../registry";
+import { buildAppSchema } from "../build-app-schema.js";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
+import { defineFeature } from "../define-feature.js";
+import { projectAppSchemaForRoles } from "../project-app-schema-for-roles.js";
+import { createRegistry } from "../registry.js";
 
 const SECRET_SCREEN_ID = "zz-secret-audit";
 const ADMIN_ONLY = { roles: ["Admin"] } as const;

@@ -11,36 +11,36 @@
 //   - never-rebuilt projection has sensible default state
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { DbConnection, DbTx } from "../../db/connection";
-import { integer, table as pgTable, uuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
+import type { DbConnection, DbTx } from "../../db/connection.js";
+import { integer, table as pgTable, uuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { fenceLiveTable, swapShadowIntoLive } from "../../db/queries/shadow-swap.js";
+import { asRawClient, insertOne, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import {
   createEntity,
   createRegistry,
   createTextField,
   defineApply,
   defineFeature,
-} from "../../engine";
-import type { ProjectionDefinition } from "../../engine/types";
-import { archiveStream } from "../../event-store";
+} from "../../engine/index.js";
+import type { ProjectionDefinition } from "../../engine/types/index.js";
+import { archiveStream } from "../../event-store/index.js";
 import {
   createProjectionStateTable,
   getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,
-} from "../../pipeline";
+} from "../../pipeline/index.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
+} from "../../stack/index.js";
 
 // --- Test fixtures ---
 
@@ -443,8 +443,8 @@ describe("rebuildProjection — metrics callback", () => {
 
 describe("rebuildProjection — meter emission", () => {
   test("emits success=true metric + events counter on happy path", async () => {
-    const { RecordingMeter } = await import("../../observability/recording-meter");
-    const { registerStandardMetrics } = await import("../../observability/standard-metrics");
+    const { RecordingMeter } = await import("../../observability/recording-meter.js");
+    const { registerStandardMetrics } = await import("../../observability/standard-metrics.js");
 
     const group = "00000000-0000-4000-8000-000000000060";
     await appendCreatedEvent(group, "a");
@@ -484,8 +484,8 @@ describe("rebuildProjection — meter emission", () => {
   });
 
   test("emits success=false metric when apply throws", async () => {
-    const { RecordingMeter } = await import("../../observability/recording-meter");
-    const { registerStandardMetrics } = await import("../../observability/standard-metrics");
+    const { RecordingMeter } = await import("../../observability/recording-meter.js");
+    const { registerStandardMetrics } = await import("../../observability/standard-metrics.js");
 
     const group = "00000000-0000-4000-8000-000000000061";
     await appendCreatedEvent(group, "a");

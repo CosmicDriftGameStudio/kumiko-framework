@@ -21,29 +21,29 @@
 //     change-list as a single JSON array.
 
 import type { SourceFile } from "ts-morph";
-import type { LifecycleHookType } from "../constants";
+import type { LifecycleHookType } from "../constants.js";
 import type {
   ConfigKeyDefinition,
   ConfigKeyType,
   JobDefinition,
   RunIn,
   TranslationKeys,
-} from "../types/config";
-import type { MetricOptions, SecretOptions } from "../types/feature";
-import type { EntityDefinition } from "../types/fields";
+} from "../types/config.js";
+import type { MetricOptions, SecretOptions } from "../types/feature.js";
+import type { EntityDefinition } from "../types/fields.js";
 import type {
   AccessRule,
   ClaimKeyType,
   EscapeHatchDeclaration,
   RateLimitOption,
-} from "../types/handlers";
-import type { HookPhase } from "../types/hooks";
-import type { HttpRouteMethod } from "../types/http-route";
-import type { NavDefinition } from "../types/nav";
-import type { MspErrorMode } from "../types/projection";
-import type { RelationDefinition } from "../types/relations";
-import type { ScreenDefinition } from "../types/screen";
-import type { WorkspaceDefinition } from "../types/workspace";
+} from "../types/handlers.js";
+import type { HookPhase } from "../types/hooks.js";
+import type { HttpRouteMethod } from "../types/http-route.js";
+import type { NavDefinition } from "../types/nav.js";
+import type { MspErrorMode } from "../types/projection.js";
+import type { RelationDefinition } from "../types/relations.js";
+import type { ScreenDefinition } from "../types/screen.js";
+import type { WorkspaceDefinition } from "../types/workspace.js";
 import {
   addPattern,
   applyChanges,
@@ -51,9 +51,9 @@ import {
   type PatternId,
   removePattern,
   replacePattern,
-} from "./patch";
-import type { FeaturePattern, OpaquePropMap } from "./patterns";
-import type { SourceLocation } from "./source-location";
+} from "./patch.js";
+import type { FeaturePattern, OpaquePropMap } from "./patterns.js";
+import type { SourceLocation } from "./source-location.js";
 
 // =============================================================================
 // Synthetic SourceLocation — for new patterns that don't have a real file

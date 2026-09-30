@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
-import { assertSafeStorageKey, type FileStorageProvider } from "./types";
+import { assertSafeStorageKey, type FileStorageProvider } from "./types.js";
 
 // Local-filesystem backend — intended for dev + tests. Production deploys
 // pick an object-store provider (S3/R2/…). mimeType is ignored here; the

@@ -12,12 +12,12 @@
 // r.step.aggregate.*.
 
 import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { extractTableName } from "../../db";
-import { executeRawQuery } from "../../db/queries/raw-sql";
-import { tenantDbRunner } from "../../db/tenant-db-runner";
-import { defineStep } from "../define-step";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { resolveRequired } from "./_resolver-utils";
+import { extractTableName } from "../../db/index.js";
+import { executeRawQuery } from "../../db/queries/raw-sql.js";
+import { tenantDbRunner } from "../../db/tenant-db-runner.js";
+import { defineStep } from "../define-step.js";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
+import { resolveRequired } from "./_resolver-utils.js";
 
 type UnsafeProjectionUpsertArgs = {
   readonly table: unknown;

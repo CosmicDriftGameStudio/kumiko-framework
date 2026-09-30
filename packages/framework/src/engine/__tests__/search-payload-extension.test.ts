@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from "bun:test";
-import { buildSearchDocument } from "../../pipeline/system-hooks";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../index";
-import type { SearchPayloadContributorFn } from "../types";
+import { buildSearchDocument } from "../../pipeline/system-hooks.js";
+import { createEntity, createRegistry, createTextField, defineFeature } from "../index.js";
+import type { SearchPayloadContributorFn } from "../types/index.js";
 
 // F3 — Search-Payload-Extension registers per-entity contributors that
 // enrich the search-index doc during `buildSearchDocument`. Tests pin:

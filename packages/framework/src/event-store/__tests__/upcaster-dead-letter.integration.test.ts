@@ -7,17 +7,17 @@
 //   - listDeadLetters filtert per eventType
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import type { StoredEvent } from "../event-store";
-import { eventsTable } from "../events-schema";
-import { type EventUpcasters, makeUpcastCtx, upcastStoredEvents } from "../upcaster";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient, insertOne, selectMany } from "../../db/query.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import type { StoredEvent } from "../event-store.js";
+import { eventsTable } from "../events-schema.js";
+import { type EventUpcasters, makeUpcastCtx, upcastStoredEvents } from "../upcaster.js";
 import {
   createUpcasterDeadLetterTable,
   listDeadLetters,
   upcasterDeadLetterTable,
-} from "../upcaster-dead-letter";
+} from "../upcaster-dead-letter.js";
 
 let testDb: BunTestDb;
 

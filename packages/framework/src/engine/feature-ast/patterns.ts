@@ -55,7 +55,7 @@
 // the ALL_KINDS array in 7 are silent if forgotten — pin them with the
 // library.test.ts coverage tests.
 
-import type { LifecycleHookType } from "../constants";
+import type { LifecycleHookType } from "../constants.js";
 import type {
   ConfigKeyDefinition,
   ConfigKeyType,
@@ -63,26 +63,26 @@ import type {
   ReferenceDataDef,
   RunIn,
   TranslationKeys,
-} from "../types/config";
-import type { MetricOptions, SecretOptions } from "../types/feature";
-import type { EntityDefinition } from "../types/fields";
+} from "../types/config.js";
+import type { MetricOptions, SecretOptions } from "../types/feature.js";
+import type { EntityDefinition } from "../types/fields.js";
 import type {
   AccessRule,
   AgentHandlerHints,
   ClaimKeyType,
   EscapeHatchDeclaration,
   RateLimitDeclaration,
-} from "../types/handlers";
-import type { HookPhase } from "../types/hooks";
-import type { HttpRouteMethod } from "../types/http-route";
-import type { NavDefinition } from "../types/nav";
-import type { MspErrorMode } from "../types/projection";
-import type { RelationDefinition } from "../types/relations";
-import type { ScreenDefinition } from "../types/screen";
-import type { TreeActionDef } from "../types/tree-node";
-import type { WorkspaceDefinition } from "../types/workspace";
-import type { RawRefSentinel } from "./extractors/shared";
-import type { SourceLocation } from "./source-location";
+} from "../types/handlers.js";
+import type { HookPhase } from "../types/hooks.js";
+import type { HttpRouteMethod } from "../types/http-route.js";
+import type { NavDefinition } from "../types/nav.js";
+import type { MspErrorMode } from "../types/projection.js";
+import type { RelationDefinition } from "../types/relations.js";
+import type { ScreenDefinition } from "../types/screen.js";
+import type { TreeActionDef } from "../types/tree-node.js";
+import type { WorkspaceDefinition } from "../types/workspace.js";
+import type { RawRefSentinel } from "./extractors/shared.js";
+import type { SourceLocation } from "./source-location.js";
 
 // =============================================================================
 // Static patterns — fully declarative. Designer renders forms, AI

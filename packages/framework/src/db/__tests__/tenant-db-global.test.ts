@@ -2,19 +2,19 @@ import { describe, expect, test } from "bun:test";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type { EscapeHatchReporter, EscapeHatchTarget } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
-import { createEntity, createTextField } from "../../engine";
-import { AccessDeniedError } from "../../errors";
-import { testTenantId } from "../../stack";
-import type { DbRunner } from "../connection";
-import type { TableColumns } from "../dialect";
-import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta";
-import { buildEntityTable } from "../table-builder";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { AccessDeniedError } from "../../errors/index.js";
+import { testTenantId } from "../../stack/index.js";
+import type { DbRunner } from "../connection.js";
+import type { TableColumns } from "../dialect.js";
+import { defineUnmanagedTable, deriveEntityTableMeta } from "../entity-table-meta.js";
+import { buildEntityTable } from "../table-builder.js";
 import {
   createTenantDb,
   createUncheckedSystemDb,
   type TenantDb,
   withUnsafeRawGrant,
-} from "../tenant-db";
+} from "../tenant-db.js";
 
 // db.global()'s runtime + write-gate behaviour (fw#2855). No Postgres needed —
 // the stub runner throws on first touch, so a test that reaches it fails loudly

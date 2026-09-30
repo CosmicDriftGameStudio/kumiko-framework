@@ -1,6 +1,6 @@
-import type { DbRow } from "../db/connection";
-import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership";
-import type { EntityDefinition, SessionUser } from "./types";
+import type { DbRow } from "../db/connection.js";
+import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership.js";
+import type { EntityDefinition, SessionUser } from "./types/index.js";
 
 // Field-level read filtering. Returns a copy of `data` with fields stripped
 // if the user's roles don't grant read access OR the ownership-rule for the

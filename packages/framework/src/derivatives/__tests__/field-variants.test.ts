@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
-import type { EntityDefinition, FieldDefinition, Registry } from "../../engine/types";
-import { resolveFieldVariant } from "../field-variants";
+import type { EntityDefinition, FieldDefinition, Registry } from "../../engine/types/index.js";
+import { resolveFieldVariant } from "../field-variants.js";
 
 // Minimal fake Registry — same pattern as derivatives-context.test.ts's
 // fakeRegistry: only getEntity is exercised by resolveFieldVariant.

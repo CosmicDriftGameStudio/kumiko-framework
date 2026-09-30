@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
-import type { DbRunner } from "../../db/connection";
-import { table, text, uuid } from "../../db/dialect";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db";
-import { AccessDeniedError } from "../../errors";
-import { testTenantId } from "../../stack";
-import { getStep } from "../define-step";
-import { buildReadFindManyStep } from "../steps/read-find-many";
-import { buildReadFindOneStep } from "../steps/read-find-one";
-import { SYSTEM_TENANT_ID } from "../types/identifiers";
-import type { PipelineCtx } from "../types/step";
+import type { DbRunner } from "../../db/connection.js";
+import { table, text, uuid } from "../../db/dialect.js";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db.js";
+import { AccessDeniedError } from "../../errors/index.js";
+import { testTenantId } from "../../stack/index.js";
+import { getStep } from "../define-step.js";
+import { buildReadFindManyStep } from "../steps/read-find-many.js";
+import { buildReadFindOneStep } from "../steps/read-find-one.js";
+import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
+import type { PipelineCtx } from "../types/step.js";
 
 const testTable = table("test_read", {
   id: uuid("id").primaryKey().defaultRandom(),

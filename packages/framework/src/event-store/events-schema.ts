@@ -1,5 +1,5 @@
 // sql now comes from native dialect
-import { type DbConnection, tableExists } from "../db";
+
 import {
   bigserial,
   index,
@@ -11,12 +11,13 @@ import {
   text,
   uniqueIndex,
   uuid,
-} from "../db/dialect";
-import { ensureIdempotencyKeyIndex } from "../db/queries/event-store";
-import { unsafePushTables } from "../stack";
-import { createArchivedStreamsTable } from "./archive";
-import { createSnapshotsTable } from "./snapshot";
-import type { EventMetadata } from "./types";
+} from "../db/dialect.js";
+import { type DbConnection, tableExists } from "../db/index.js";
+import { ensureIdempotencyKeyIndex } from "../db/queries/event-store.js";
+import { unsafePushTables } from "../stack/index.js";
+import { createArchivedStreamsTable } from "./archive.js";
+import { createSnapshotsTable } from "./snapshot.js";
+import type { EventMetadata } from "./types.js";
 
 // Event-store schema as a Drizzle table. The typed select/insert path handles
 // most operations; append() for subsequent versions uses raw SQL because

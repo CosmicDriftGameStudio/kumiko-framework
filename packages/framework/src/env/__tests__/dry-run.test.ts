@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine/define-feature";
-import { prometheusMetricsEnvSchema } from "../../observability/metrics-wiring";
-import { renderDryRun } from "../dry-run";
-import { composeEnvSchema } from "../index";
+import { defineFeature } from "../../engine/define-feature.js";
+import { prometheusMetricsEnvSchema } from "../../observability/metrics-wiring.js";
+import { renderDryRun } from "../dry-run.js";
+import { composeEnvSchema } from "../index.js";
 
 function buildComposed() {
   const secretsFeature = defineFeature("secrets", (r) => {

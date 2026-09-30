@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createTenantConfig, createUserConfig } from "../config-helpers";
-import { type ClampInfo, resolveConfigOrParam } from "../resolve-config-or-param";
+import { createTenantConfig, createUserConfig } from "../config-helpers.js";
+import { type ClampInfo, resolveConfigOrParam } from "../resolve-config-or-param.js";
 import type {
   ConfigAccessor,
   ConfigKeyDefinition,
@@ -8,7 +8,7 @@ import type {
   ConfigKeyType,
   ConfigValue,
   Registry,
-} from "../types";
+} from "../types/index.js";
 
 // Tests build keydefs through the public factories (createTenantConfig etc.)
 // — identical to what a feature-dev writes in r.config. Hand-rolled

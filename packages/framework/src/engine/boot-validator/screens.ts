@@ -8,11 +8,11 @@ import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
-import { rowMetaFieldNames } from "../../db/table-builder";
-import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
-import { parseRefTarget } from "../parse-ref-target";
-import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name";
-import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
+import { rowMetaFieldNames } from "../../db/table-builder.js";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
+import { parseRefTarget } from "../parse-ref-target.js";
+import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.js";
+import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
 import {
   isExtensionEditSection,
   isWriteFormEditSection,
@@ -20,9 +20,9 @@ import {
   normalizeListColumn,
   resolveNavParentScreen,
   sectionFieldSpecs,
-} from "../screen-helpers";
-import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types";
-import { metricField } from "../types";
+} from "../screen-helpers.js";
+import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types/index.js";
+import { metricField } from "../types/index.js";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -44,7 +44,7 @@ import type {
   ScreenDefinition,
   SecretMintScreenDefinition,
   ToolbarAction,
-} from "../types/screen";
+} from "../types/screen.js";
 
 // entityList columns accept exactly the row-meta columns the renderer
 // (computeListViewModel) knows how to type — LIST_ROW_META_COLUMNS, NOT the

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import type { DbRunner } from "../../db/connection";
-import type { EntityTableMeta } from "../../db/entity-table-meta";
-import { createTenantDb } from "../../db/tenant-db";
-import { testTenantId } from "../../stack";
-import { asRawClient, countWhere, incrementCounter, selectMany, transaction } from "../query";
+import type { DbRunner } from "../../db/connection.js";
+import type { EntityTableMeta } from "../../db/entity-table-meta.js";
+import { createTenantDb } from "../../db/tenant-db.js";
+import { testTenantId } from "../../stack/index.js";
+import { asRawClient, countWhere, incrementCounter, selectMany, transaction } from "../query.js";
 
 const meta: EntityTableMeta = {
   source: "unmanaged",

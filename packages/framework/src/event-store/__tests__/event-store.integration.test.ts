@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { generateId as uuid } from "../../utils";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { generateId as uuid } from "../../utils/index.js";
 import {
   append,
   IdempotentAppendConflictError,
@@ -13,7 +13,7 @@ import {
   type StoredEvent,
   streamAllEventsByType,
   VersionConflictError,
-} from "../index";
+} from "../index.js";
 
 let testDb: BunTestDb;
 

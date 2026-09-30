@@ -16,7 +16,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { asRawClient } from "../../db/query";
+import { asRawClient } from "../../db/query.js";
 import {
   createEntity,
   createFileField,
@@ -28,17 +28,17 @@ import {
   defineEntityDetailHandler,
   defineEntityUpdateHandler,
   defineFeature,
-} from "../../engine";
+} from "../../engine/index.js";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
-import { createFilesFeature } from "../feature";
-import { createLocalProvider } from "../local-provider";
+} from "../../stack/index.js";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
+import { createFilesFeature } from "../feature.js";
+import { createLocalProvider } from "../local-provider.js";
 
 // Covers ALL four file-field variants: singular (file/image) stores a UUID in
 // the entity column; plural (files/images) has no entity column — the array

@@ -22,12 +22,12 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import type { DbConnection, DbRunner } from "../db";
-import { acquireEsOpsAdvisoryLock, esOperationExists } from "../db/queries/es-ops";
-import { insertOne, selectMany } from "../db/query";
-import type { Registry } from "../engine";
-import { esOperationsTable } from "./operations-schema";
-import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "./types";
+import type { DbConnection, DbRunner } from "../db/index.js";
+import { acquireEsOpsAdvisoryLock, esOperationExists } from "../db/queries/es-ops.js";
+import { insertOne, selectMany } from "../db/query.js";
+import type { Registry } from "../engine/index.js";
+import { esOperationsTable } from "./operations-schema.js";
+import type { EsOperationAppliedBy, SeedMigration, SeedMigrationContext } from "./types.js";
 
 export type RunPendingSeedMigrationsArgs = {
   readonly db: DbConnection;

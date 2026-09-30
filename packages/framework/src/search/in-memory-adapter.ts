@@ -1,5 +1,5 @@
-import type { EntityId, TenantId } from "../engine/types/identifiers";
-import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
+import type { EntityId, TenantId } from "../engine/types/identifiers.js";
+import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.js";
 
 type StoredDoc = {
   entityType: string;

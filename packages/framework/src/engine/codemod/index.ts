@@ -4,7 +4,7 @@ export type {
   CodemodResult,
   FileAnalysis,
   ParsedHandlerInfo,
-} from "./pipeline-codemod";
+} from "./pipeline-codemod.js";
 export {
   analyzeFile,
   analyzeHandlerArrow,
@@ -12,4 +12,4 @@ export {
   generatePerformBlock,
   runCodemod,
   scanForCandidates,
-} from "./pipeline-codemod";
+} from "./pipeline-codemod.js";

@@ -1,5 +1,5 @@
-import { buildMetricName } from "./metric-validator";
-import type { Meter, MetricLabels, MetricsHandle } from "./types";
+import { buildMetricName } from "./metric-validator.js";
+import type { Meter, MetricLabels, MetricsHandle } from "./types/index.js";
 
 // Feature-bound MetricsHandle: the short name a handler writes
 // (e.g. "created_total") is resolved to the fully qualified name

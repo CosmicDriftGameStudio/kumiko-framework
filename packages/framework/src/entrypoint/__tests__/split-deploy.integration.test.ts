@@ -14,14 +14,14 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
-import { createRegistry, defineFeature } from "../../engine";
-import { createArchivedStreamsTable } from "../../event-store";
-import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { waitFor } from "../../testing";
-import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import { createArchivedStreamsTable } from "../../event-store/index.js";
+import { createEventConsumerStateTable } from "../../pipeline/index.js";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { createAllInOneEntrypoint, createApiEntrypoint, createWorkerEntrypoint } from "../index.js";
 
 const splitFeature = defineFeature("split", (r) => {
   const tick = r.defineEvent("tick", z.object({ note: z.string() }), {

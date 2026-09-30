@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import type { TenantId } from "../../engine";
-import { defineQueryHandler } from "../../engine/define-handler";
-import { type ContainsSecret, createSecret, type Secret } from "../index";
+import { defineQueryHandler } from "../../engine/define-handler.js";
+import type { TenantId } from "../../engine/index.js";
+import { type ContainsSecret, createSecret, type Secret } from "../index.js";
 
 // R6 is a COMPILE-TIME guard. The type-level assertions below are the real
 // coverage — they are checked by tsc (the bun runtime strips types without

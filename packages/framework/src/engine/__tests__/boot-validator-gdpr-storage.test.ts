@@ -9,8 +9,8 @@
 // for their coverage.
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { validateGdprStoragePersistence } from "../boot-validator/gdpr-storage";
-import { defineFeature } from "../define-feature";
+import { validateGdprStoragePersistence } from "../boot-validator/gdpr-storage.js";
+import { defineFeature } from "../define-feature.js";
 
 const udr = () => defineFeature("user-data-rights", () => {});
 const fileProvider = (name: string) =>

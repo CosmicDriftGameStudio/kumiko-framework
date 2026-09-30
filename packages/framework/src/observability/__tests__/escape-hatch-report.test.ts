@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import type { EscapeHatchUseEvent } from "../../engine/types";
-import type { Logger } from "../../logging/types";
-import { testTenantId } from "../../stack";
+import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
+import type { Logger } from "../../logging/types.js";
+import { testTenantId } from "../../stack/index.js";
 import {
   createEscapeHatchReportWindow,
   ESCAPE_HATCH_USED_SIGNAL,
   reportEscapeHatchUse,
-} from "../escape-hatch-report";
+} from "../escape-hatch-report.js";
 
 const tenantId = testTenantId(1);
 

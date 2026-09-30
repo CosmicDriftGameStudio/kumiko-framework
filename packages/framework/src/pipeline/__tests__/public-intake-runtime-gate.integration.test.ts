@@ -3,16 +3,26 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import type { SchemaTable } from "../../db";
-import type { DbRunner } from "../../db/connection";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, runInSavepoint, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createSystemUser, createTextField, defineFeature } from "../../engine";
-import { SYSTEM_ROLE } from "../../engine/system-user";
-import type { TenantId } from "../../engine/types";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import type { DbRunner } from "../../db/connection.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import type { SchemaTable } from "../../db/index.js";
+import { asRawClient, runInSavepoint, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import {
+  createEntity,
+  createSystemUser,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import { SYSTEM_ROLE } from "../../engine/system-user.js";
+import type { TenantId } from "../../engine/types/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const RATE_LIMIT = { per: "ip", limit: 1000, windowSeconds: 60 } as const;

@@ -1,6 +1,6 @@
-import type { AnyDb } from "../query";
-import { executeRawQuery } from "./raw-sql";
-import { quoteTableIdent } from "./table-ops";
+import type { AnyDb } from "../query.js";
+import { executeRawQuery } from "./raw-sql.js";
+import { quoteTableIdent } from "./table-ops.js";
 
 export async function selectRowForUpdateById(
   db: AnyDb,

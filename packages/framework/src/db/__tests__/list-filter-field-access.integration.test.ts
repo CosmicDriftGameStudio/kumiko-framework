@@ -8,11 +8,16 @@
 // to the default id-ASC order.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
-import { defineFeature } from "../../engine/define-feature";
-import { createEntity, createTextField } from "../../engine/factories";
-import { from } from "../../engine/ownership";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { asRawClient } from "../../db/query.js";
+import { defineFeature } from "../../engine/define-feature.js";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import { from } from "../../engine/ownership.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 const filterNoteEntity = createEntity({
   table: "fa_filter_notes",

@@ -11,10 +11,10 @@ import {
 // as a runtime value on globalThis, so the un-aliased call below crashed
 // with "Temporal is not defined" outside boot paths that install it (#1480).
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
-import { requestContext } from "../api/request-context";
-import { encryptEventPayloadPii } from "../crypto/event-pii";
-import type { DbRunner } from "../db";
-import { constraintOf, isUniqueViolation } from "../db/pg-error";
+import { requestContext } from "../api/request-context.js";
+import { encryptEventPayloadPii } from "../crypto/event-pii.js";
+import type { DbRunner } from "../db/index.js";
+import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
 import {
   claimXactId,
   insertSubsequentEventRow,
@@ -22,13 +22,13 @@ import {
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectStreamMaxVersion,
-} from "../db/queries/event-store";
-import { insertOne, selectMany } from "../db/query";
-import type { TenantId } from "../engine/types";
-import { isStreamArchived } from "./archive";
-import { IdempotentAppendConflictError, VersionConflictError } from "./errors";
-import { eventsTable } from "./events-schema";
-import { toStoredEvent } from "./row-to-stored-event";
+} from "../db/queries/event-store.js";
+import { insertOne, selectMany } from "../db/query.js";
+import type { TenantId } from "../engine/types/index.js";
+import { isStreamArchived } from "./archive.js";
+import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
+import { eventsTable } from "./events-schema.js";
+import { toStoredEvent } from "./row-to-stored-event.js";
 
 export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 

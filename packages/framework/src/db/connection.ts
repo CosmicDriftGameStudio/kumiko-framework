@@ -2,21 +2,21 @@
 // createConnection delegiert an postgres-provider (default) oder bun-provider (DB_PROVIDER=bun).
 import type { DbConnection, PgClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
-import { readPositiveIntEnv } from "../utils/env-parse";
-import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "./api";
+import { readPositiveIntEnv } from "../utils/env-parse.js";
+import { DEFAULT_DB_CLOSE_TIMEOUT_SECONDS } from "./api.js";
 
 // Raw client types (postgres-js | Bun.SQL) — the name used across query/
 // event-store/pipeline call sites. The structural pool handle from ./api is
 // `DbPoolHandle` (createConnection's return type) to avoid colliding with this.
 export type * from "@cosmicdrift/kumiko-types/db-connection";
-export type { DbConnectionOptions, DbPoolHandle } from "./api";
-export { createConnection } from "./api";
+export type { DbConnectionOptions, DbPoolHandle } from "./api.js";
+export { createConnection } from "./api.js";
 
 // Legacy: postgres-js only. Neue Aufrufer: createConnection() aus api.ts.
 // guard:dup-ok — andere Layer als createPgConnection (gibt DbConnection zurück, nicht postgres-Instanz)
 export function createDbConnection(
   url: string,
-  options: import("./api").DbConnectionOptions = {},
+  options: import("./api.js").DbConnectionOptions = {},
 ): {
   db: DbConnection;
   client: PgClient;
@@ -41,8 +41,8 @@ export function createDbConnection(
 
 export function dbConnectionOptionsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
-): import("./api").DbConnectionOptions {
-  const opts: import("./api").DbConnectionOptions & {
+): import("./api.js").DbConnectionOptions {
+  const opts: import("./api.js").DbConnectionOptions & {
     maxConnections?: number;
     idleTimeoutSeconds?: number;
     connectTimeoutSeconds?: number;

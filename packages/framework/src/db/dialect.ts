@@ -30,7 +30,7 @@ import type {
   EntityTableMeta,
   IndexMeta,
   PgType,
-} from "./entity-table-meta";
+} from "./entity-table-meta.js";
 
 export type { ColumnHandle, SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
 

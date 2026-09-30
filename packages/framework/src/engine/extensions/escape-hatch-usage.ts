@@ -4,7 +4,7 @@
 // empty reason, but options stays `Record<string, unknown>`, so orchestrators
 // re-narrow at read time instead of trusting the shape.
 
-import type { RegistrarExtensionRegistration } from "../types/config";
+import type { RegistrarExtensionRegistration } from "../types/config.js";
 
 export function extensionUsageEscapeHatchReason(
   usage: Pick<RegistrarExtensionRegistration, "options">,

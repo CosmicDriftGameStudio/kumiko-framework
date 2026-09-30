@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { createDecimalField, createMoneyField, createNumberField } from "../factories";
-import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops";
-import type { ScreenFilterOp } from "../types";
+import { createDecimalField, createMoneyField, createNumberField } from "../factories.js";
+import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
+import type { ScreenFilterOp } from "../types/index.js";
 
 const COMPARABLE: ScreenFilterOp[] = ["eq", "ne", "lt", "gt", "lte", "gte", "in"];
 

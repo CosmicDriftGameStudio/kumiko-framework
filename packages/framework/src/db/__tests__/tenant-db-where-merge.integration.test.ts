@@ -7,21 +7,21 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { selectMany } from "../../bun-db";
+import { selectMany } from "../../bun-db/index.js";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../../engine";
+} from "../../engine/index.js";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { buildEntityTable } from "../table-builder";
+} from "../../stack/index.js";
+import { buildEntityTable } from "../table-builder.js";
 
 const noteEntity = createEntity({
   fields: {

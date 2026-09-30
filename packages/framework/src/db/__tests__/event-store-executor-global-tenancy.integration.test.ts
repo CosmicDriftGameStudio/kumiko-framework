@@ -3,18 +3,18 @@
 // the projection insert/update. Modelled on event-store-system-stream.integration.test.ts.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine";
-import { AccessDeniedError } from "../../errors";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { AccessDeniedError } from "../../errors/index.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb } from "../tenant-db";
+} from "../../stack/index.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb } from "../tenant-db.js";
 
 const globalEntity = createEntity({
   table: "gtenancy_global",

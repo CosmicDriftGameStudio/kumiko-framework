@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { defineFeature } from "../../define-feature";
-import type { FeatureDefinition } from "../../types";
-import { validateBoot } from "../index";
+import { defineFeature } from "../../define-feature.js";
+import type { FeatureDefinition } from "../../types/index.js";
+import { validateBoot } from "../index.js";
 import {
   SECURITY_BASELINE_FEATURE_NAMES,
   warnOnMissingSecurityBaseline,
-} from "../security-baseline";
+} from "../security-baseline.js";
 
 function stubFeature(name: string): FeatureDefinition {
   return defineFeature(name, () => {});

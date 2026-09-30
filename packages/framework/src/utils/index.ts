@@ -1,9 +1,9 @@
-export { assertUnreachable } from "./assert";
-export { toSnakeCase } from "./case";
-export { compareByCodepoint } from "./compare";
-export { readPositiveIntEnv } from "./env-parse";
-export { generateDeterministicId, generateId } from "./ids";
-export { isPlainObject } from "./is-plain-object";
-export { parseStringArrayJson } from "./parse-string-array-json";
-export { parseJsonOrThrow, parseJsonSafe, stringifyJson } from "./safe-json";
-export { parseRoles } from "./serialization";
+export { assertUnreachable } from "./assert.js";
+export { toSnakeCase } from "./case.js";
+export { compareByCodepoint } from "./compare.js";
+export { readPositiveIntEnv } from "./env-parse.js";
+export { generateDeterministicId, generateId } from "./ids.js";
+export { isPlainObject } from "./is-plain-object.js";
+export { parseStringArrayJson } from "./parse-string-array-json.js";
+export { parseJsonOrThrow, parseJsonSafe, stringifyJson } from "./safe-json.js";
+export { parseRoles } from "./serialization.js";

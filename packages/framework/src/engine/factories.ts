@@ -30,7 +30,7 @@ import type {
   TextFieldDef,
   TimestampFieldDef,
   TzFieldDef,
-} from "./types";
+} from "./types/index.js";
 
 type PersonalOverridesInput = {
   readonly personal?: PersonalSubject | "ref" | false;

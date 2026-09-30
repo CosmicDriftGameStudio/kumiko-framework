@@ -25,6 +25,11 @@
 
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
+import {
+  PII_DIRECT_NAME_HINTS,
+  PII_USER_OWNED_NAME_HINTS,
+  PII_USER_REFERENCE_NAME_HINTS,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { Glob } from "bun";
 import {
   type CallExpression,
@@ -35,11 +40,6 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import {
-  PII_DIRECT_NAME_HINTS,
-  PII_USER_OWNED_NAME_HINTS,
-  PII_USER_REFERENCE_NAME_HINTS,
-} from "../../engine/boot-validator/entity-handler";
 
 const SUBJECT_FLAG_NAMES = [
   "pii",

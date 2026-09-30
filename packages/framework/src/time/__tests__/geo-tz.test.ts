@@ -3,9 +3,9 @@
 // geworfen statt still zu raten.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import type { GeoTzProvider } from "../geo-tz";
-import { ensureTemporalPolyfill } from "../polyfill";
-import { createTzContext } from "../tz-context";
+import type { GeoTzProvider } from "../geo-tz.js";
+import { ensureTemporalPolyfill } from "../polyfill.js";
+import { createTzContext } from "../tz-context.js";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

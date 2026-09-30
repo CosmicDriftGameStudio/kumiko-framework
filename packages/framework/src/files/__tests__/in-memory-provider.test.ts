@@ -6,7 +6,7 @@
 // erkennbare memory://-Fake-URL.
 
 import { describe, expect, test } from "bun:test";
-import { createInMemoryFileProvider } from "../in-memory-provider";
+import { createInMemoryFileProvider } from "../in-memory-provider.js";
 
 const bytes = (s: string) => new TextEncoder().encode(s);
 const decode = (u: Uint8Array) => new TextDecoder().decode(u);

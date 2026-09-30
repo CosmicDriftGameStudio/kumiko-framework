@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { constraintOf, extractPgError, isTableAlreadyExists, isUniqueViolation } from "../pg-error";
+import {
+  constraintOf,
+  extractPgError,
+  isTableAlreadyExists,
+  isUniqueViolation,
+} from "../pg-error.js";
 
 describe("extractPgError", () => {
   test("reads code from top-level postgres-js error", () => {

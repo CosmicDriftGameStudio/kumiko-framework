@@ -9,10 +9,10 @@ export type {
   FormInputType,
   PatternCategory,
   PatternFormSchema,
-} from "../pattern-library";
-export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library";
-export type { ParseError, ParseResult } from "./parse";
-export { parseFeatureFile, parseSourceFile } from "./parse";
+} from "../pattern-library/index.js";
+export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "../pattern-library/index.js";
+export type { ParseError, ParseResult } from "./parse.js";
+export { parseFeatureFile, parseSourceFile } from "./parse.js";
 export type {
   HandlerHeaderUpdate,
   PatternChange,
@@ -20,7 +20,7 @@ export type {
   QueryHandlerHeaderKey,
   StreamHandlerHeaderKey,
   WriteHandlerHeaderKey,
-} from "./patch";
+} from "./patch.js";
 export {
   addPattern,
   applyChanges,
@@ -28,7 +28,7 @@ export {
   replacePattern,
   SINGLETON_KINDS,
   updatePattern,
-} from "./patch";
+} from "./patch.js";
 export type {
   AddAuthClaimsArgs,
   AddClaimKeyArgs,
@@ -58,10 +58,10 @@ export type {
   AddWorkspaceArgs,
   AddWriteHandlerArgs,
   FeaturePatcher,
-} from "./patcher";
-export { createFeaturePatcher } from "./patcher";
-export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema";
-export { parsePatternChanges } from "./pattern-change-schema";
+} from "./patcher.js";
+export { createFeaturePatcher } from "./patcher.js";
+export type { PatternChangeIssue, PatternChangesParseResult } from "./pattern-change-schema.js";
+export { parsePatternChanges } from "./pattern-change-schema.js";
 export type {
   AuthClaimsPattern,
   ClaimKeyPattern,
@@ -99,15 +99,15 @@ export type {
   UseExtensionPattern,
   WorkspacePattern,
   WriteHandlerPattern,
-} from "./patterns";
-export { getEditability } from "./patterns";
-export type { RenderFeatureFileInput } from "./render";
+} from "./patterns.js";
+export { getEditability } from "./patterns.js";
+export type { RenderFeatureFileInput } from "./render.js";
 export {
   FEATURE_FILE_VERSION,
   renderFeatureFile,
   renderPattern,
   renderValue,
   VERSION_HEADER,
-} from "./render";
-export type { SourceLocation, SourcePosition } from "./source-location";
-export { sourceLocationFromNode } from "./source-location";
+} from "./render.js";
+export type { SourceLocation, SourcePosition } from "./source-location.js";
+export { sourceLocationFromNode } from "./source-location.js";

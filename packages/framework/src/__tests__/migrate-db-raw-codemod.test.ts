@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { migrateDbRawSource } from "../scripts/codemod/migrate-db-raw";
+import { migrateDbRawSource } from "../scripts/codemod/migrate-db-raw.js";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-db-raw");
 const DEFAULT_GLOBAL_TABLES = new Set(["userTable", "globalFeatureStateTable"]);

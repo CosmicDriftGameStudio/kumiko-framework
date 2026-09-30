@@ -1,12 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import type { EscapeHatchKind } from "@cosmicdrift/kumiko-types/handlers";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { InternalError } from "../../errors";
-import { testTenantId } from "../../stack";
-import type { DbRunner } from "../connection";
-import * as dbIndex from "../index";
-import { acknowledgeConventionCrossTenant, createTenantDb, withUnsafeRawGrant } from "../tenant-db";
-import { tenantDbRunner } from "../tenant-db-runner";
+import { InternalError } from "../../errors/index.js";
+import { testTenantId } from "../../stack/index.js";
+import type { DbRunner } from "../connection.js";
+import * as dbIndex from "../index.js";
+import {
+  acknowledgeConventionCrossTenant,
+  createTenantDb,
+  withUnsafeRawGrant,
+} from "../tenant-db.js";
+import { tenantDbRunner } from "../tenant-db-runner.js";
 
 const tenantId = testTenantId(1);
 const REASON = "operator scan across every tenant";

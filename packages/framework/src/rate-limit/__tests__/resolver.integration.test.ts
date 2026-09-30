@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { RateLimitError } from "../../errors";
-import { createTestRedis, type TestRedis } from "../../stack";
+import { RateLimitError } from "../../errors/index.js";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
 import {
   createRateLimitResolver,
   type RateLimitDecision,
   type RateLimitResolver,
-} from "../resolver";
+} from "../resolver.js";
 
 let testRedis: TestRedis;
 let resolver: RateLimitResolver;

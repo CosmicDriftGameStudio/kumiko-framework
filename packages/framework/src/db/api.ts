@@ -35,7 +35,7 @@ export type DbPoolHandle = {
   close: () => Promise<void>;
 };
 
-let _provider: undefined | (() => Promise<typeof import("./postgres-provider")>);
+let _provider: undefined | (() => Promise<typeof import("./postgres-provider.js")>);
 
 export async function createConnection(
   url: string,
@@ -43,10 +43,10 @@ export async function createConnection(
 ): Promise<DbPoolHandle> {
   const p = process.env["DB_PROVIDER"];
   if (p === "bun" || p === "bun-sql") {
-    const { createBunConnection } = await import("./bun-provider");
+    const { createBunConnection } = await import("./bun-provider.js");
     return createBunConnection(url, options);
   }
   // postgres-js: sync, kein async import nötig
-  const { createPgConnection } = await import("./postgres-provider");
+  const { createPgConnection } = await import("./postgres-provider.js");
   return createPgConnection(url, options);
 }

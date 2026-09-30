@@ -16,16 +16,21 @@
 //   6. deep-equal: identische Rows in identischer Reihenfolge
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { createBooleanField, createEntity, createTextField, defineFeature } from "../../engine";
-import { createRegistry } from "../../engine/registry";
-import { rebuildProjection } from "../../pipeline";
-import { createProjectionStateTable } from "../../pipeline/projection-state";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import {
+  createBooleanField,
+  createEntity,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import { createRegistry } from "../../engine/registry.js";
+import { rebuildProjection } from "../../pipeline/index.js";
+import { createProjectionStateTable } from "../../pipeline/projection-state.js";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const userEntity = createEntity({
   table: "read_implicit_users",
@@ -239,8 +244,8 @@ import {
   decryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-} from "../../crypto";
-import { asRawClient, selectMany } from "../../db/query";
+} from "../../crypto/index.js";
+import { asRawClient, selectMany } from "../../db/query.js";
 
 const sensitiveTable = "read_implicit_sensitive_users";
 const SENSITIVE_BIDX_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
@@ -312,7 +317,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
     expect(liveRow["api_key_bidx"]).toBe(computeBlindIndex(SENSITIVE_BIDX_KEY, "secret-token-abc"));
 
     // Event-Payload trägt exakt den Tabellen-Ciphertext (byte-gleich).
-    const { eventsTable } = await import("../../event-store");
+    const { eventsTable } = await import("../../event-store/index.js");
     const [event] = await selectMany(
       testDb.db,
       eventsTable,
@@ -348,7 +353,7 @@ describe("implicit-projection / sensitive Rebuild-Parität (#967)", () => {
 
     // Created-Event (v1-Ciphertext) muss mit dem aktuellen DEK lesbar bleiben —
     // eine DEK-Rotation beim Update würde das immutable Log unlesbar machen.
-    const { eventsTable } = await import("../../event-store");
+    const { eventsTable } = await import("../../event-store/index.js");
     const [createdEvent] = await selectMany(
       testDb.db,
       eventsTable,

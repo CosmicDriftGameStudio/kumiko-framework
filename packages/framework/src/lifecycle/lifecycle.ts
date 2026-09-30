@@ -1,7 +1,7 @@
 // Process lifecycle: 4-state machine + LIFO shutdown hooks.
 // Signal wiring lives in signal-handlers.ts; v1 scope in architecture/lifecycle.md.
 
-import type { Logger } from "../logging/types";
+import type { Logger } from "../logging/types.js";
 
 export type LifecycleState = "starting" | "ready" | "draining" | "stopped";
 

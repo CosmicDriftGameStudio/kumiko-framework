@@ -1,7 +1,7 @@
 import * as z from "zod";
-import { createNoopProvider } from "./noop-provider";
-import { createPrometheusMeter, type PrometheusMeter } from "./prometheus-meter";
-import type { ObservabilityProvider } from "./types";
+import { createNoopProvider } from "./noop-provider.js";
+import { createPrometheusMeter, type PrometheusMeter } from "./prometheus-meter.js";
+import type { ObservabilityProvider } from "./types/index.js";
 
 export const prometheusMetricsEnvSchema = z.object({
   PROMETHEUS_METRICS_TOKEN: z

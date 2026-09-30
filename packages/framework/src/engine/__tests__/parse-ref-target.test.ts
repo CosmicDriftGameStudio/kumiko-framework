@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseRefTarget } from "../parse-ref-target";
+import { parseRefTarget } from "../parse-ref-target.js";
 
 // Tier 2.7e Cross-Feature: parser-Konvention für ReferenceFieldDef.
 // Same-feature default ist der häufige Pfad; cross-feature verlangt

@@ -15,8 +15,8 @@
 // `<set-me>` placeholder for the value, no `--secret` flag.
 
 import * as z from "zod";
-import type { FeatureDefinition } from "../engine/types/feature";
-import { zodDef, zodDescription, zodMeta, zodShape, zodShapeField } from "./_zod-introspect";
+import type { FeatureDefinition } from "../engine/types/feature.js";
+import { zodDef, zodDescription, zodMeta, zodShape, zodShapeField } from "./_zod-introspect.js";
 
 // --- Per-env-var metadata (attach via Zod's `.meta()`) ---
 

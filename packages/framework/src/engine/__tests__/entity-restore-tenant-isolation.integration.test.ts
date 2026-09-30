@@ -11,15 +11,15 @@
 // `crossTenant: true`, one with `escapeHatch: { reason }`.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 import {
   createEntity,
   createTextField,
@@ -28,7 +28,7 @@ import {
   defineEntityRestoreHandler,
   defineFeature,
   from,
-} from "../index";
+} from "../index.js";
 
 const thingEntity = createEntity({
   table: "ctrestore_things",

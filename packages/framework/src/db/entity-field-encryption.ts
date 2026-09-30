@@ -4,11 +4,11 @@
 // single-key ciphertexts (pre-envelope ENCRYPTION_KEY era) readable via
 // the cipher's legacy fallback until re-encrypted.
 
-import { collectPiiSubjectFields } from "../crypto";
-import type { EntityDefinition, TenantId } from "../engine/types";
-import { createEnvMasterKeyProvider } from "../secrets/env-master-key-provider";
-import type { EnvelopeCipher } from "../secrets/envelope-cipher";
-import type { KeyScope } from "../secrets/types";
+import { collectPiiSubjectFields } from "../crypto/index.js";
+import type { EntityDefinition, TenantId } from "../engine/types/index.js";
+import { createEnvMasterKeyProvider } from "../secrets/env-master-key-provider.js";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher.js";
+import type { KeyScope } from "../secrets/types.js";
 
 export function collectEncryptedFieldNames(entity: EntityDefinition): ReadonlySet<string> {
   const names = new Set<string>();

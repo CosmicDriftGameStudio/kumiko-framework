@@ -1,7 +1,7 @@
 import type { EntityCache } from "@cosmicdrift/kumiko-types/entity-cache";
-import type Redis from "ioredis";
-import type { EntityId, TenantId } from "../engine/types/identifiers";
-import { RedisKeys } from "./redis-keys";
+import type { Redis } from "ioredis";
+import type { EntityId, TenantId } from "../engine/types/identifiers.js";
+import { RedisKeys } from "./redis-keys.js";
 
 // JSON.stringify turns Date into an ISO string, but DB reads return Date
 // objects. Without a reviver the cache path would yield strings where the

@@ -4,13 +4,13 @@
 // diagnostics when a consumer is stuck.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { insertOne } from "../../db";
-import { defineFeature } from "../../engine";
-import { eventsTable } from "../../event-store";
-import { drainEventConsumers } from "../drain-event-consumers";
-import { resetEventStore } from "../table-helpers";
-import { setupTestStack, type TestStack } from "../test-stack";
-import { TestUsers } from "../test-users";
+import { insertOne } from "../../db/index.js";
+import { defineFeature } from "../../engine/index.js";
+import { eventsTable } from "../../event-store/index.js";
+import { drainEventConsumers } from "../drain-event-consumers.js";
+import { resetEventStore } from "../table-helpers.js";
+import { setupTestStack, type TestStack } from "../test-stack.js";
+import { TestUsers } from "../test-users.js";
 
 const admin = TestUsers.admin;
 const TRACKER_QN = "drain-test:projection:tracker";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { PendingGapEntry } from "../event-consumer-state";
-import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "../pending-gap-ranges";
+import type { PendingGapEntry } from "../event-consumer-state.js";
+import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "../pending-gap-ranges.js";
 
 function gap(from: string, to: string, xmax = "100"): PendingGapEntry {
   return { from, to, xmax };

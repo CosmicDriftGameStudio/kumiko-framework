@@ -1,7 +1,7 @@
 import { type Context, Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { SessionUser } from "../engine/types/handlers";
+import type { SessionUser } from "../engine/types/handlers.js";
 import {
   AccessDeniedError,
   type KumikoError,
@@ -9,15 +9,15 @@ import {
   serializeError,
   toKumikoError,
   ValidationError,
-} from "../errors";
-import { createFallbackLogger } from "../logging";
-import type { Dispatcher } from "../pipeline/dispatcher";
-import { stringifyJson } from "../utils/safe-json";
-import { Routes } from "./api-constants";
-import { getUser } from "./auth-middleware";
-import { patAllows } from "./pat-scope";
-import { requestContext } from "./request-context";
-import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
+} from "../errors/index.js";
+import { createFallbackLogger } from "../logging/index.js";
+import type { Dispatcher } from "../pipeline/dispatcher.js";
+import { stringifyJson } from "../utils/safe-json.js";
+import { Routes } from "./api-constants.js";
+import { getUser } from "./auth-middleware.js";
+import { patAllows } from "./pat-scope.js";
+import { requestContext } from "./request-context.js";
+import { SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.js";
 
 // SSE frame event names for POST /api/stream. Parallel definition lives in
 // @cosmicdrift/kumiko-headless (dispatcher-live imports that one) — framework

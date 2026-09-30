@@ -10,8 +10,8 @@ import {
   createTimestampField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../../engine";
-import { generateE2ESpec, generateZodFixture } from "../e2e-generator";
+} from "../../engine/index.js";
+import { generateE2ESpec, generateZodFixture } from "../e2e-generator.js";
 
 const taskEntity = createEntity({
   table: "tasks",

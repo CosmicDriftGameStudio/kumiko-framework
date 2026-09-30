@@ -2,13 +2,13 @@
 // Tier-2: requires r.requires.step("mail.send"). Mirrors webhook.send.
 
 import { randomUUID } from "node:crypto";
-import { defineStep } from "../define-step";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { resolveOptional, resolveRequired } from "./_resolver-utils";
+import { defineStep } from "../define-step.js";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
+import { resolveOptional, resolveRequired } from "./_resolver-utils.js";
 import {
   STEP_DISPATCH_AGGREGATE_TYPE,
   STEP_DISPATCH_REQUESTED_TYPE,
-} from "./_step-dispatch-constants";
+} from "./_step-dispatch-constants.js";
 
 type MailSendArgs = {
   readonly to: StepResolver<string | readonly string[]>;

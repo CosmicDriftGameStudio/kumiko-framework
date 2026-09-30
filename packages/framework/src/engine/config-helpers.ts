@@ -1,5 +1,5 @@
-import type { ConfigScope } from "./constants";
-import { SYSTEM_ROLE } from "./system-user";
+import type { ConfigScope } from "./constants.js";
+import { SYSTEM_ROLE } from "./system-user.js";
 import type {
   ConfigBacking,
   ConfigBounds,
@@ -12,7 +12,7 @@ import type {
   CreateSeedOptions,
   CreateTenantSeedOptions,
   CreateUserSeedOptions,
-} from "./types";
+} from "./types/index.js";
 
 // A key backed by "secrets" is at-rest encrypted by the secrets store itself
 // (MasterKeyProvider), even without an explicit `encrypted: true` — callers

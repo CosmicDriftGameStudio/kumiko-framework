@@ -1,12 +1,12 @@
 import { v5 as uuidv5 } from "uuid";
-import type { EntityDefinition } from "../engine";
-import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
-import type { ConfigSeedDef, Registry } from "../engine/types";
-import type { EnvelopeCipher } from "../secrets/envelope-cipher";
-import type { DbConnection } from "./connection";
-import { createEventStoreExecutor } from "./event-store-executor";
-import type { EntityTable } from "./table-builder";
-import { createTenantDb } from "./tenant-db";
+import type { EntityDefinition } from "../engine/index.js";
+import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.js";
+import type { ConfigSeedDef, Registry } from "../engine/types/index.js";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher.js";
+import type { DbConnection } from "./connection.js";
+import { createEventStoreExecutor } from "./event-store-executor.js";
+import type { EntityTable } from "./table-builder.js";
+import { createTenantDb } from "./tenant-db.js";
 
 // Namespace UUID for deterministic seed aggregate IDs. Same namespace +
 // (key, tenantId, userId) triple always produces the same UUIDv5, which

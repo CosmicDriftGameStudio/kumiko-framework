@@ -1,4 +1,4 @@
-import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types";
+import type { EmbeddedDerivedCellDef, EmbeddedSubFieldDef } from "./types/index.js";
 
 /** Computes a derived cell from its source values. Missing/non-numeric
  *  sources: "multiply" with any missing source → undefined; "sum"/"subtract"

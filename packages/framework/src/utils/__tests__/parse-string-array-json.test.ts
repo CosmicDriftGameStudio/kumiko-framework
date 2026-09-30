@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStringArrayJson } from "../parse-string-array-json";
+import { parseStringArrayJson } from "../parse-string-array-json.js";
 
 describe("parseStringArrayJson", () => {
   test("parses string array", () => {

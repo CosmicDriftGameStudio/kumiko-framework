@@ -45,22 +45,22 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { table, text, timestamp, uuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { eventsTable } from "../../event-store";
+import { table, text, timestamp, uuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { eventsTable } from "../../event-store/index.js";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
-import { defineFeature } from "../define-feature";
-import { defineWriteHandler } from "../define-handler";
-import { createEntity, createTextField } from "../factories";
-import { stepsPipeline } from "../pipeline";
+} from "../../stack/index.js";
+import { defineFeature } from "../define-feature.js";
+import { defineWriteHandler } from "../define-handler.js";
+import { createEntity, createTextField } from "../factories.js";
+import { stepsPipeline } from "../pipeline.js";
 
 const echoSchema = z.object({ greeting: z.string() });
 

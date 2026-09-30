@@ -2,9 +2,14 @@
 // validation in index.ts — thematically adjacent to ownership.ts, kept
 // here since this is a structural move, not a semantic reorg).
 
-import { qualifyEntityName } from "../qualified-name";
-import type { AccessRule, FeatureDefinition, NavDefinition, WorkspaceDefinition } from "../types";
-import { isOpenToAllGranted } from "../types";
+import { qualifyEntityName } from "../qualified-name.js";
+import type {
+  AccessRule,
+  FeatureDefinition,
+  NavDefinition,
+  WorkspaceDefinition,
+} from "../types/index.js";
+import { isOpenToAllGranted } from "../types/index.js";
 
 export function collectWriteHandlerQns(features: readonly FeatureDefinition[]): Set<string> {
   const set = new Set<string>();

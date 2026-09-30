@@ -18,8 +18,8 @@ import {
   selectMany,
   transaction,
   updateMany,
-} from "../query";
-import { closeDb, withTable } from "./_helpers";
+} from "../query.js";
+import { closeDb, withTable } from "./_helpers.js";
 
 afterAll(async () => {
   await closeDb();

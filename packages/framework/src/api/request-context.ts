@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import type { AgentRisk } from "@cosmicdrift/kumiko-types/handlers";
-import { generateId } from "../utils";
+import { generateId } from "../utils/index.js";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
 // event-dispatcher when it runs an MSP-apply, so ctx.appendEvent downstream

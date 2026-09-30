@@ -1,14 +1,14 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { LifecycleHookType } from "../../constants";
+import type { LifecycleHookType } from "../../constants.js";
 import type {
   AccessRule,
   EscapeHatchDeclaration,
   RateLimitDeclaration,
-} from "../../types/handlers";
-import type { HookPhase } from "../../types/hooks";
-import type { AuthClaimsPattern, HookPattern } from "../patterns";
-import { sourceLocationFromNode } from "../source-location";
+} from "../../types/handlers.js";
+import type { HookPhase } from "../../types/hooks.js";
+import type { AuthClaimsPattern, HookPattern } from "../patterns.js";
+import { sourceLocationFromNode } from "../source-location.js";
 import {
   containsRawRefSentinel,
   type ExtractOutput,
@@ -22,7 +22,7 @@ import {
   readNameOrRef,
   readNameOrRefOrList,
   readObjectPropertyInitializer,
-} from "./shared";
+} from "./shared.js";
 
 export type HeaderReadResult<T> =
   | { readonly kind: "value"; readonly value: T }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { patAllows, qnMatches } from "../pat-scope";
+import { patAllows, qnMatches } from "../pat-scope.js";
 
 describe("qnMatches", () => {
   it("exact match", () => {

@@ -21,21 +21,21 @@
 // suspends (never returns a real result), so a subsequent step only ever
 // sees the matched event's payload after a resume seeds it in.
 
-import { defineStep } from "../define-step";
+import { defineStep } from "../define-step.js";
 import type {
   AwaitedEventType,
   EventMatch,
   PipelineCtx,
   StepInstance,
   StepResolver,
-} from "../types/step";
-import { addDuration } from "./_duration-utils";
-import { resolveOptional, resolveRequired } from "./_resolver-utils";
+} from "../types/step.js";
+import { addDuration } from "./_duration-utils.js";
+import { resolveOptional, resolveRequired } from "./_resolver-utils.js";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
-} from "./_step-dispatch-constants";
+} from "./_step-dispatch-constants.js";
 
 type WaitForEventArgs = {
   readonly event: AwaitedEventType;

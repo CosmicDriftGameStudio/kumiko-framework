@@ -1,5 +1,5 @@
-import type { Registry } from "../engine/types";
-import type { SearchAdapterConfig } from "./types";
+import type { Registry } from "../engine/types/index.js";
+import type { SearchAdapterConfig } from "./types.js";
 
 // Union of getSearchableFields() across every registered entity, in stable
 // first-occurrence order and deduplicated. Feeds SearchAdapter.setDefaultConfig

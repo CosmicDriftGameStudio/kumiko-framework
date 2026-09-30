@@ -3,7 +3,7 @@
 // carries everything needed to decrypt later.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import type { Envelope, KeyScope, MasterKeyProvider } from "./types";
+import type { Envelope, KeyScope, MasterKeyProvider } from "./types.js";
 
 const ALGORITHM = "aes-256-gcm";
 const DEK_LENGTH = 32; // AES-256

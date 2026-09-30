@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseChangesetChanges } from "../changeset-changes";
+import { parseChangesetChanges } from "../changeset-changes.js";
 
 describe("parseChangesetChanges", () => {
   test("parses a structured change and derives detail from the body", () => {

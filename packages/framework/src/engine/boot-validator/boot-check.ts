@@ -1,4 +1,4 @@
-import type { BootCheckContext, FeatureDefinition } from "../types";
+import type { BootCheckContext, FeatureDefinition } from "../types/index.js";
 
 // r.bootCheck(fn) lets a feature declare its own mount-invariant instead of
 // relying on framework-internal knowledge (the gdpr-storage.ts guards are

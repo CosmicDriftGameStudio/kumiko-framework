@@ -6,10 +6,10 @@
 // AST-Parser kann die imperativen Factory-Helper der bundled features nicht
 // lesen.
 
-import { compareByCodepoint } from "../utils";
-import { isEncryptedAtRest } from "./config-helpers";
-import { qualifyEntityName } from "./qualified-name";
-import type { Registry, UiHints } from "./types/feature";
+import { compareByCodepoint } from "../utils/index.js";
+import { isEncryptedAtRest } from "./config-helpers.js";
+import { qualifyEntityName } from "./qualified-name.js";
+import type { Registry, UiHints } from "./types/feature.js";
 
 export type ManifestConfigKey = {
   readonly key: string;

@@ -13,7 +13,7 @@ import {
   type EnvelopeCipher,
   type EnvelopeCipherOptions,
   type MasterKeyProvider,
-} from "../secrets";
+} from "../secrets/index.js";
 
 export type MutableMasterKeyProvider = MasterKeyProvider & {
   // Replace the backing provider. All future wrapDek/unwrapDek/currentVersion

@@ -1,6 +1,6 @@
-import { type RequestContextData, requestContext } from "../api/request-context";
-import type { EntityDefinition } from "../engine/types";
-import { AccessDeniedError, type FrameworkReason, FrameworkReasons } from "../errors";
+import { type RequestContextData, requestContext } from "../api/request-context.js";
+import type { EntityDefinition } from "../engine/types/index.js";
+import { AccessDeniedError, type FrameworkReason, FrameworkReasons } from "../errors/index.js";
 
 type EntryHandler = NonNullable<RequestContextData["entryHandler"]>;
 

@@ -7,7 +7,7 @@ import {
   type DbConnectionOptions,
   type DbPoolHandle,
   DEFAULT_DB_CLOSE_TIMEOUT_SECONDS,
-} from "./api";
+} from "./api.js";
 
 export function createPgConnection(url: string, options: DbConnectionOptions = {}): DbPoolHandle {
   const pgOptions: Parameters<typeof postgres>[1] = {};

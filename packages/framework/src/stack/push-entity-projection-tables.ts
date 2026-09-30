@@ -1,9 +1,9 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import type { DbConnection } from "../db/connection";
-import type { ColumnMeta } from "../db/entity-table-meta";
-import { columnNamesOf, tableExists } from "../db/schema-inspection";
-import type { Registry } from "../engine/types";
-import { addMissingColumns, tableToMeta, unsafePushTables } from "./table-helpers";
+import type { DbConnection } from "../db/connection.js";
+import type { ColumnMeta } from "../db/entity-table-meta.js";
+import { columnNamesOf, tableExists } from "../db/schema-inspection.js";
+import type { Registry } from "../engine/types/index.js";
+import { addMissingColumns, tableToMeta, unsafePushTables } from "./table-helpers.js";
 
 type DbHolder = { readonly db: DbConnection };
 

@@ -12,7 +12,7 @@ import {
   type DbConnectionOptions,
   type DbPoolHandle,
   DEFAULT_DB_CLOSE_TIMEOUT_SECONDS,
-} from "./api";
+} from "./api.js";
 
 export function createBunConnection(url: string, options: DbConnectionOptions = {}): DbPoolHandle {
   const bunOpts: { max?: number; idleTimeout?: number; connectionTimeout?: number } = {};

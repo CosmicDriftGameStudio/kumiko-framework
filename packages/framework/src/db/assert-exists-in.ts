@@ -1,8 +1,8 @@
-import { fetchOne } from "../db/query";
-import type { TenantId } from "../engine/types/identifiers";
-import { NotFoundError } from "../errors";
-import type { DbConnection } from "./connection";
-import type { TenantDb } from "./tenant-db";
+import { fetchOne } from "../db/query.js";
+import type { TenantId } from "../engine/types/identifiers.js";
+import { NotFoundError } from "../errors/index.js";
+import type { DbConnection } from "./connection.js";
+import type { TenantDb } from "./tenant-db.js";
 
 function isTenantDb(db: DbConnection | TenantDb): db is TenantDb {
   return "tenantId" in db && "fetchOne" in db && typeof db.fetchOne === "function";

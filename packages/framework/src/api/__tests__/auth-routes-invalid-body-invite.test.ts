@@ -4,14 +4,14 @@
 import { describe, expect, test } from "bun:test";
 import type { Hono } from "hono";
 import { Hono as HonoCtor } from "hono";
-import type { SessionUser, TenantId } from "../../engine/types";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
-import { TestUsers } from "../../stack";
-import { getSetCookies } from "../../testing/http-cookies";
-import { PUBLIC_API_PATHS } from "../api-constants";
-import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware";
-import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes";
-import { createJwtHelper } from "../jwt";
+import type { SessionUser, TenantId } from "../../engine/types/index.js";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
+import { TestUsers } from "../../stack/index.js";
+import { getSetCookies } from "../../testing/http-cookies.js";
+import { PUBLIC_API_PATHS } from "../api-constants.js";
+import { AUTH_COOKIE_NAME, authMiddleware, CSRF_COOKIE_NAME } from "../auth-middleware.js";
+import { type AuthRoutesConfig, createAuthRoutes } from "../auth-routes.js";
+import { createJwtHelper } from "../jwt.js";
 
 const JWT_SECRET = "auth-routes-invalid-body-invite-secret-min-32-chars";
 const INVITE_ACCEPT_QN = "auth:write:invite-accept";

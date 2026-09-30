@@ -5,30 +5,30 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../db/event-store-executor";
-import { asRawClient } from "../db/query";
-import { buildEntityTable } from "../db/table-builder";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { asRawClient } from "../db/query.js";
+import { buildEntityTable } from "../db/table-builder.js";
 import {
   createEntity,
   createNumberField,
   createTextField,
   defineFeature,
   type TenantId,
-} from "../engine";
+} from "../engine/index.js";
 import {
   AccessDeniedError,
   ConflictError,
   NotFoundError,
   UnprocessableError,
   writeFailure,
-} from "../errors";
+} from "../errors/index.js";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../stack";
+} from "../stack/index.js";
 
 // --- Entity + handlers that deliberately raise each Kumiko error class ---
 

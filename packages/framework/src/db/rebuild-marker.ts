@@ -19,7 +19,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { managedChangeRequiresRecreate, type SchemaDiff } from "./migrate-generator";
+import { managedChangeRequiresRecreate, type SchemaDiff } from "./migrate-generator.js";
 
 const MARKER_VERSION = 1 as const;
 

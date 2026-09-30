@@ -1,4 +1,4 @@
-import type { Meter, MetricDefinition } from "./types";
+import type { Meter, MetricDefinition } from "./types/index.js";
 
 // Framework-level metrics registered automatically at boot. Names match the
 // Prometheus + OTel-friendly shape documented in observability-naming.md.

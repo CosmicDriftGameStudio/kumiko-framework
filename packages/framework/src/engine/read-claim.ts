@@ -1,4 +1,4 @@
-import type { ClaimKeyHandle, ClaimKeyJsType, ClaimKeyType, SessionUser } from "./types";
+import type { ClaimKeyHandle, ClaimKeyJsType, ClaimKeyType, SessionUser } from "./types/index.js";
 
 // Read a feature-declared claim from a SessionUser.
 //

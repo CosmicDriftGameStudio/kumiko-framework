@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature";
-import { createEntity, createTextField } from "../../factories";
-import { from } from "../../ownership";
-import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder";
-import type { AccessRule, EntityDefinition, OwnershipMap, WriteHandlerDef } from "../../types";
-import { validateAccessDeclarations } from "../access-declarations";
+import { defineFeature } from "../../define-feature.js";
+import { createEntity, createTextField } from "../../factories.js";
+import { from } from "../../ownership.js";
+import { buildInsertSchema, buildUpdateSchema } from "../../schema-builder.js";
+import type {
+  AccessRule,
+  EntityDefinition,
+  OwnershipMap,
+  WriteHandlerDef,
+} from "../../types/index.js";
+import { validateAccessDeclarations } from "../access-declarations.js";
 
 const noteEntity = createEntity({
   table: "fw2855_guard_notes",

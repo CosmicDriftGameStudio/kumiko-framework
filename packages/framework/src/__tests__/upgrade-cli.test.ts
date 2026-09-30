@@ -19,7 +19,7 @@ import {
   resolveCodemodScript,
   runUpgradeCli,
   type UpgradeCliOut,
-} from "../upgrade-cli";
+} from "../upgrade-cli.js";
 
 function makeSpyOutput(): {
   readonly out: UpgradeCliOut;

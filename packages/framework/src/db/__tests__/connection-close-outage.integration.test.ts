@@ -9,9 +9,9 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import net from "node:net";
-import { waitFor } from "../../testing";
-import { testDatabaseUrl } from "../../testing/closed-connection-error";
-import { createDbConnection } from "../connection";
+import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
+import { waitFor } from "../../testing/index.js";
+import { createDbConnection } from "../connection.js";
 
 function startBlackholeProxy(dbUrl: URL): {
   readonly server: net.Server;

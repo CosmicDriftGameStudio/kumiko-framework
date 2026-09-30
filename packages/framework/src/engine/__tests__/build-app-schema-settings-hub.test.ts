@@ -1,10 +1,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { validateBoot } from "../boot-validator";
-import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema";
-import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema";
-import { access, createSystemConfig, createTenantConfig } from "../config-helpers";
-import { defineFeature } from "../define-feature";
-import { createRegistry } from "../registry";
+import { validateBoot } from "../boot-validator.js";
+import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.js";
+import { SETTINGS_HUB_FEATURE, SETTINGS_HUB_WORKSPACE } from "../build-config-feature-schema.js";
+import { access, createSystemConfig, createTenantConfig } from "../config-helpers.js";
+import { defineFeature } from "../define-feature.js";
+import { createRegistry } from "../registry.js";
 
 // A feature that opts config keys into the Settings-Hub via `mask`. platformFee
 // is a system-home key with a human writer (SystemAdmin); stripeKey is tenant-

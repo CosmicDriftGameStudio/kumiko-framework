@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEntity, createRegistry, defineFeature } from "../index";
-import type { PostSaveHookFn, PreDeleteHookFn, PreSaveHookFn, SaveContext } from "../types";
+import { createEntity, createRegistry, defineFeature } from "../index.js";
+import type {
+  PostSaveHookFn,
+  PreDeleteHookFn,
+  PreSaveHookFn,
+  SaveContext,
+} from "../types/index.js";
 
 const stubHandler = async () => ({ isSuccess: true as const, data: null });
 

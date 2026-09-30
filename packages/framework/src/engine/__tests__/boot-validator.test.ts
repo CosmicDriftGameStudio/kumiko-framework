@@ -1,13 +1,13 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
-import type { SchemaTable } from "../../db/dialect";
-import { table, text } from "../../db/dialect";
-import { rowMetaFieldNames } from "../../db/table-builder";
-import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
-import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
-import { validateBoot as validateBootRaw } from "../boot-validator";
-import { validateEntityListScreens } from "../boot-validator/entity-list-screens";
-import { createSystemConfig, createTenantConfig } from "../config-helpers";
+import type { SchemaTable } from "../../db/dialect.js";
+import { table, text } from "../../db/dialect.js";
+import { rowMetaFieldNames } from "../../db/table-builder.js";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
+import { validateEntityListScreens } from "../boot-validator/entity-list-screens.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.js";
+import { createSystemConfig, createTenantConfig } from "../config-helpers.js";
 import {
   createDerivedField,
   createEmbeddedField,
@@ -22,8 +22,8 @@ import {
   defineFeature,
   from,
   registerEntityCrud,
-} from "../index";
-import type { RowFieldExtractor } from "../types/screen";
+} from "../index.js";
+import type { RowFieldExtractor } from "../types/screen.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

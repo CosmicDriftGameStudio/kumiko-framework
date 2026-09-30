@@ -1,12 +1,12 @@
-import { SEARCHABLE_FALSE_WHITELIST } from "../engine/boot-validator/entity-list-screens";
-import { normalizeListColumn } from "../engine/screen-helpers";
+import { SEARCHABLE_FALSE_WHITELIST } from "../engine/boot-validator/entity-list-screens.js";
+import { normalizeListColumn } from "../engine/screen-helpers.js";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
   FeatureDefinition,
   TranslationEntry,
-} from "../engine/types";
-import { featureHasI18nSurface, requiredKeysFromFeature } from "../i18n/required-surface-keys";
+} from "../engine/types/index.js";
+import { featureHasI18nSurface, requiredKeysFromFeature } from "../i18n/required-surface-keys.js";
 
 function ensureEntityListSortable(feature: FeatureDefinition): FeatureDefinition {
   if (!feature.entities) return feature;

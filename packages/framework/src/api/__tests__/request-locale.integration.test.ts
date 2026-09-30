@@ -11,7 +11,7 @@ import {
   type TestStack,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { LOCALE_HEADER_NAME } from "../api-constants";
+import { LOCALE_HEADER_NAME } from "../api-constants.js";
 
 const localeProbe = defineFeature("locale-probe", (r) => {
   r.writeHandler(

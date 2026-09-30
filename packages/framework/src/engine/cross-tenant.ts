@@ -1,5 +1,5 @@
-import { AccessDeniedError } from "../errors";
-import type { SessionUser } from "./types";
+import { AccessDeniedError } from "../errors/index.js";
+import type { SessionUser } from "./types/index.js";
 
 // A payload-supplied target tenant (tenantIdOverride) on a TenantAdmin-reachable
 // handler is the cross-tenant escape hatch: hasAccess passes the handler for any

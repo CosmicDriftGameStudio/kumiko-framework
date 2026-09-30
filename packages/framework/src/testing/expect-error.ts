@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { WriteErrorInfo } from "../errors";
+import type { WriteErrorInfo } from "../errors/index.js";
 
 // Vitest's toContain doesn't operate on plain objects, so after the move from
 // string errors to typed WriteErrorInfo the legacy `expect(error).toContain(x)`

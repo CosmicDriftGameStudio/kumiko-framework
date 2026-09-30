@@ -1,4 +1,4 @@
-import type { TranslationKeys } from "../engine/types/config";
+import type { TranslationKeys } from "../engine/types/config.js";
 
 /**
  * Settings-Hub chrome keys (parent-nav labels, secrets-screen title/strings)

@@ -15,26 +15,26 @@
 //      pollIntervalMs.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query";
-import { defineFeature } from "../../engine";
-import { eventsTable } from "../../event-store";
+import { asRawClient, insertOne, selectMany, updateMany } from "../../db/query.js";
+import { defineFeature } from "../../engine/index.js";
+import { eventsTable } from "../../event-store/index.js";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
   type ObservabilityProvider,
   RecordingMeter,
   RecordingTracer,
-} from "../../observability";
-import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline";
+} from "../../observability/index.js";
+import { ConsumerLagError, eventConsumerStateTable, pruneEvents } from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, waitFor } from "../../testing";
-import { generateId } from "../../utils";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, waitFor } from "../../testing/index.js";
+import { generateId } from "../../utils/index.js";
 
 // --- Fixture ---
 

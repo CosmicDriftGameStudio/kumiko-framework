@@ -3,15 +3,15 @@ import type {
   DerivativeRendererPlugin,
   VariantSpec,
 } from "@cosmicdrift/kumiko-types/derivatives-types";
-import type { Registry } from "../../engine/types";
-import { InternalError } from "../../errors";
-import { createFileContext } from "../../files/file-handle";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider";
+import type { Registry } from "../../engine/types/index.js";
+import { InternalError } from "../../errors/index.js";
+import { createFileContext } from "../../files/file-handle.js";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
 import {
   createDerivativesContext,
   type OverlayResolverPlugin,
   resolveRenderer,
-} from "../derivatives-context";
+} from "../derivatives-context.js";
 
 const FILE_REF_ID = "11111111-1111-4111-8111-111111111111";
 const TENANT_ID = "22222222-2222-4222-8222-222222222222";

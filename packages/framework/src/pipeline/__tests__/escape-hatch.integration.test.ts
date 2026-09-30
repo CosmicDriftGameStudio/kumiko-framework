@@ -4,9 +4,9 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineUnmanagedTable } from "../../db/entity-table-meta";
-import { defineFeature } from "../../engine";
-import { createTestUser, setupTestStack, type TestStack } from "../../stack";
+import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
+import { defineFeature } from "../../engine/index.js";
+import { createTestUser, setupTestStack, type TestStack } from "../../stack/index.js";
 
 const globalStoreTable = defineUnmanagedTable({
   tableName: "store_fw2855_escape_hatch_items",

@@ -1,6 +1,6 @@
 import { type EnqueuedTaskPromise, ErrorStatusCode, Meilisearch, type Task } from "meilisearch";
-import type { EntityId, TenantId } from "../engine/types/identifiers";
-import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types";
+import type { EntityId, TenantId } from "../engine/types/identifiers.js";
+import type { SearchAdapter, SearchAdapterConfig, SearchResult } from "./types.js";
 
 // meilisearch's waitTask() RESOLVES (never rejects) once the server task
 // reaches a terminal state, even "failed" — a rejected doc (e.g. an id over

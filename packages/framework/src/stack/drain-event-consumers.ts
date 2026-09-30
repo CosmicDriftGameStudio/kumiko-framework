@@ -1,7 +1,7 @@
-import type { DbConnection } from "../db";
-import { getEventsHighWaterMark } from "../event-store";
-import { type ConsumerRecoveryState, getConsumerState } from "../pipeline";
-import type { TestStack } from "./test-stack";
+import type { DbConnection } from "../db/index.js";
+import { getEventsHighWaterMark } from "../event-store/index.js";
+import { type ConsumerRecoveryState, getConsumerState } from "../pipeline/index.js";
+import type { TestStack } from "./test-stack.js";
 
 const DEFAULT_MAX_PASSES = 25;
 

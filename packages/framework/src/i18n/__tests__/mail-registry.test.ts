@@ -4,7 +4,7 @@ import {
   mailT,
   registerMailTranslations,
   resolveMailLocale,
-} from "../mail-registry";
+} from "../mail-registry.js";
 
 describe("mail-registry", () => {
   registerMailTranslations("en", { "test.hi": "Hello {name}" });

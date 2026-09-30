@@ -9,7 +9,7 @@ export type {
   UnprocessableOpts,
   ValidationDetails,
   VersionConflictDetails,
-} from "./classes";
+} from "./classes.js";
 export {
   AccessDeniedError,
   ConflictError,
@@ -24,18 +24,18 @@ export {
   UnprocessableError,
   ValidationError,
   VersionConflictError,
-} from "./classes";
-export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error";
-export { isKumikoError, KumikoError } from "./kumiko-error";
-export { memberResolutionReadOnlyDenied } from "./member-resolution";
-export type { AgentReason, FrameworkReason } from "./reasons";
-export { AgentReasons, FrameworkReasons } from "./reasons";
-export type { ErrorLogEntry, ErrorResponseBody } from "./serialize";
-export { buildErrorLog, serializeError } from "./serialize";
-export { toKumikoError } from "./to-kumiko-error";
-export type { InvalidTransitionDetails } from "./transition-details";
-export { buildInvalidTransitionDetails } from "./transition-details";
-export type { WriteErrorInfo, WriteFailure } from "./write-error-info";
+} from "./classes.js";
+export type { ErrorCtorInput, ErrorOpts } from "./kumiko-error.js";
+export { isKumikoError, KumikoError } from "./kumiko-error.js";
+export { memberResolutionReadOnlyDenied } from "./member-resolution.js";
+export type { AgentReason, FrameworkReason } from "./reasons.js";
+export { AgentReasons, FrameworkReasons } from "./reasons.js";
+export type { ErrorLogEntry, ErrorResponseBody } from "./serialize.js";
+export { buildErrorLog, serializeError } from "./serialize.js";
+export { toKumikoError } from "./to-kumiko-error.js";
+export type { InvalidTransitionDetails } from "./transition-details.js";
+export { buildInvalidTransitionDetails } from "./transition-details.js";
+export type { WriteErrorInfo, WriteFailure } from "./write-error-info.js";
 export {
   failNotFound,
   failTransition,
@@ -43,5 +43,5 @@ export {
   reraiseAsKumikoError,
   toWriteErrorInfo,
   writeFailure,
-} from "./write-error-info";
-export { validationErrorFromZod } from "./zod-bridge";
+} from "./write-error-info.js";
+export { validationErrorFromZod } from "./zod-bridge.js";

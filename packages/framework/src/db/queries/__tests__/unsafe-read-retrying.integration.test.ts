@@ -4,17 +4,17 @@
 // out of scope — unretried by design.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { captureClosedConnectionError } from "../../../testing/closed-connection-error";
+import { captureClosedConnectionError } from "../../../testing/closed-connection-error.js";
 import {
   selectAggregateMaxVersion,
   selectEventsHighWaterMark,
   selectNextEventIdAfter,
   selectStreamMaxVersion,
-} from "../event-store";
+} from "../event-store.js";
 import {
   countSubscribedEvents,
   selectEventsForProjectionRebuildBatch,
-} from "../projection-rebuild";
+} from "../projection-rebuild.js";
 
 let closedConnectionError: unknown;
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "../boot-validator";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
+import { validateBoot } from "../boot-validator.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../factories.js";
 
 describe("validateBoot — detailFor screens (fw#2163)", () => {
   test("two screens with the same detailFor fail boot, naming both screen ids", () => {

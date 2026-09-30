@@ -1,7 +1,11 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { AuthClaimsContext, AuthClaimsHookDef, SessionUser } from "../../engine/types";
-import type { Logger } from "../../logging/types";
-import { resolveAuthClaims } from "../auth-claims-resolver";
+import type {
+  AuthClaimsContext,
+  AuthClaimsHookDef,
+  SessionUser,
+} from "../../engine/types/index.js";
+import type { Logger } from "../../logging/types.js";
+import { resolveAuthClaims } from "../auth-claims-resolver.js";
 
 type TestLogger = {
   readonly log: Logger;

@@ -6,7 +6,7 @@
 // app-supplied resolver is untrusted input from the framework's perspective,
 // and a bad value would otherwise become a same-response open redirect.
 
-import { createFallbackLogger } from "../logging";
+import { createFallbackLogger } from "../logging/index.js";
 
 export type PostAuthLandingFlow = "login" | "signup" | "invite";
 

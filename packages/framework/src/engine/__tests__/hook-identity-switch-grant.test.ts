@@ -1,13 +1,18 @@
 import { describe, expect, mock, test } from "bun:test";
-import { AccessDeniedError, FrameworkReasons } from "../../errors";
+import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
 import {
   createGatedIdentitySwitch,
   type QueryAsFn,
   type ResolveActiveMembershipFn,
-} from "../../pipeline/system-identity-switch";
-import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index";
-import type { ActiveMembershipResult, AppContext, PostSaveHookFn, SaveContext } from "../types";
-import type { TenantId } from "../types/identifiers";
+} from "../../pipeline/system-identity-switch.js";
+import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index.js";
+import type { TenantId } from "../types/identifiers.js";
+import type {
+  ActiveMembershipResult,
+  AppContext,
+  PostSaveHookFn,
+  SaveContext,
+} from "../types/index.js";
 
 // fw#2859: r.hook({ allOf }, ...) must get the same identity-switch gate as the handler-keyed path.
 

@@ -2,9 +2,9 @@
 // locatedTimestamp-Felder. Keine DB, kein Stack, nur Daten-Transform.
 
 import { describe, expect, test } from "bun:test";
-import { createEntity, createLocatedTimestampField, createTextField } from "../../engine";
-import type { EntityDefinition } from "../../engine/types";
-import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "../located-timestamp";
+import { createEntity, createLocatedTimestampField, createTextField } from "../../engine/index.js";
+import type { EntityDefinition } from "../../engine/types/index.js";
+import { flattenLocatedTimestamp, rehydrateLocatedTimestamp } from "../located-timestamp.js";
 
 const orderEntity: EntityDefinition = createEntity({
   fields: {

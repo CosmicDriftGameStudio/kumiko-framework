@@ -15,10 +15,10 @@ import {
   test,
 } from "bun:test";
 import * as z from "zod";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import type { TenantId } from "../../engine/types/identifiers";
-import { RateLimitError } from "../../errors";
-import { setupTestStack, type TestStack } from "../../stack";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
+import { RateLimitError } from "../../errors/index.js";
+import { setupTestStack, type TestStack } from "../../stack/index.js";
 
 const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000" as TenantId;
 

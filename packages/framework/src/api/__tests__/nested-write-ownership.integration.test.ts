@@ -9,18 +9,18 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { executeRawQuery } from "../../db/queries/raw-sql";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature, from } from "../../engine";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { executeRawQuery } from "../../db/queries/raw-sql.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature, from } from "../../engine/index.js";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 // project2/task2: same-tenant ownership scenario (b/c). ownerId is an
 // ownership-bound field — checkWriteFieldOwnership evaluates it.

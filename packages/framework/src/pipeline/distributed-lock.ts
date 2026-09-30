@@ -1,6 +1,6 @@
-import type Redis from "ioredis";
-import { generateId } from "../utils";
-import { RedisKeys } from "./redis-keys";
+import type { Redis } from "ioredis";
+import { generateId } from "../utils/index.js";
+import { RedisKeys } from "./redis-keys.js";
 
 export type DistributedLock = {
   acquire(key: string, options?: { ttlSeconds?: number }): Promise<string | null>;

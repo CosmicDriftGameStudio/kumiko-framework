@@ -10,22 +10,22 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { ROLES } from "../../auth/roles";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
+import { ROLES } from "../../auth/roles.js";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
 import {
   createRegistry,
   createSystemUser,
   defineFeature,
   type SessionUser,
   type WriteResult,
-} from "../../engine";
-import { createWorkerEntrypoint } from "../../entrypoint";
-import { createArchivedStreamsTable } from "../../event-store";
-import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { waitFor } from "../../testing";
-import { createJobRunner } from "../job-runner";
+} from "../../engine/index.js";
+import { createWorkerEntrypoint } from "../../entrypoint/index.js";
+import { createArchivedStreamsTable } from "../../event-store/index.js";
+import { createEventConsumerStateTable } from "../../pipeline/index.js";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { createJobRunner } from "../job-runner.js";
 
 const ADMIN_USER_ID = "11111111-1111-4111-8111-111111111111";
 

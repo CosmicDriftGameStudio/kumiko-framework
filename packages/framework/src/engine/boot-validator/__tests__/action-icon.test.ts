@@ -6,7 +6,7 @@
 // share this one function.
 
 import { describe, expect, test } from "bun:test";
-import { validateActionHasIcon } from "../screens";
+import { validateActionHasIcon } from "../screens.js";
 
 describe("validateActionHasIcon", () => {
   test("rejects a screen-level action with no declared icon and an id that resolves none", () => {

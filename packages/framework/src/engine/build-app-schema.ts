@@ -35,16 +35,16 @@ import type {
   ProjectionListScreenDefinition,
   ScreenDefinition,
   WorkspaceSchema,
-} from "../ui-types";
-import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields";
+} from "../ui-types/index.js";
+import { collectUrlPrefillFieldsByScreenQn } from "./boot-validator/url-prefill-fields.js";
 import {
   buildConfigFeatureSchema,
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
-} from "./build-config-feature-schema";
-import { qualifyEntityName } from "./qualified-name";
-import type { Registry } from "./types/feature";
-import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields";
+} from "./build-config-feature-schema.js";
+import { qualifyEntityName } from "./qualified-name.js";
+import type { Registry } from "./types/feature.js";
+import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields.js";
 
 export type BuildAppSchemaOptions = {
   /** Dev-server authoring hints (Settings-Hub placement). Default off — only

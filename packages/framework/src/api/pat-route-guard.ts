@@ -1,7 +1,7 @@
 import type { Context, MiddlewareHandler, Next } from "hono";
-import { AccessDeniedError } from "../errors";
-import { Routes } from "./api-constants";
-import { getUser } from "./auth-middleware";
+import { AccessDeniedError } from "../errors/index.js";
+import { Routes } from "./api-constants.js";
+import { getUser } from "./auth-middleware.js";
 
 // Personal Access Tokens are minted for headless dispatcher access only.
 // Every other /api/* surface (SSE, files, auth/*, feature httpRoutes,

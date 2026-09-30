@@ -11,7 +11,7 @@ import {
   createClientIpResolver,
   extractSocketAddress,
   parseTrustedProxyHopsEnv,
-} from "../client-ip";
+} from "../client-ip.js";
 
 describe("extractSocketAddress", () => {
   test("accepts the bare string shape", () => {

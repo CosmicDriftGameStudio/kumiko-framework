@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys";
-import { buildConfigFeatureSchema } from "../../build-config-feature-schema";
-import { access, createTenantConfig } from "../../config-helpers";
-import { defineFeature } from "../../define-feature";
-import { i18nKey } from "../../i18n-key";
-import { createRegistry } from "../../registry";
-import { isFieldsEditSection } from "../../screen-helpers";
-import type { ConfigEditScreenDefinition } from "../../types";
-import { validateBoot } from "../index";
+import { SETTINGS_HUB_I18N } from "../../../i18n/settings-hub-keys.js";
+import { buildConfigFeatureSchema } from "../../build-config-feature-schema.js";
+import { access, createTenantConfig } from "../../config-helpers.js";
+import { defineFeature } from "../../define-feature.js";
+import { i18nKey } from "../../i18n-key.js";
+import { createRegistry } from "../../registry.js";
+import { isFieldsEditSection } from "../../screen-helpers.js";
+import type { ConfigEditScreenDefinition } from "../../types/index.js";
+import { validateBoot } from "../index.js";
 
 // Mirrors packages/bundled-features/src/config/i18n.ts — the audience-parent
 // labels every masked config key's generated hub requires regardless of

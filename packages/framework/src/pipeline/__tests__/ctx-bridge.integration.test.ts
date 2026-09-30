@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
 import {
   access,
   createEntity,
@@ -11,10 +11,15 @@ import {
   createTextField,
   defineFeature,
   HookPhases,
-} from "../../engine";
-import type { HandlerContext } from "../../engine/types";
-import { UnprocessableError, writeFailure } from "../../errors";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+} from "../../engine/index.js";
+import type { HandlerContext } from "../../engine/types/index.js";
+import { UnprocessableError, writeFailure } from "../../errors/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 // Two entities: `bag` (outer) + `secret` (inner). The outer handler calls
 // the inner via ctx.queryAs / ctx.writeAs. We verify:

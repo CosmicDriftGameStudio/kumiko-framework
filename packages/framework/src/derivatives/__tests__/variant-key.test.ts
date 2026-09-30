@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { deriveKey } from "../../files/file-handle";
-import { buildStorageKey } from "../../files/types";
+import { deriveKey } from "../../files/file-handle.js";
+import { buildStorageKey } from "../../files/types.js";
 import {
   derivativeListPrefix,
   isDerivativeKeyOf,
   parseDerivativeKey,
   specHash,
   variantSuffix,
-} from "../variant-key";
+} from "../variant-key.js";
 
 describe("specHash — key stability", () => {
   test("key order doesn't matter", () => {

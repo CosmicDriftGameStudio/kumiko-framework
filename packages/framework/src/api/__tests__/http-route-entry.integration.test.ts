@@ -10,10 +10,15 @@
 // 401 test exists to catch.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature } from "../../engine";
-import type { TenantId } from "../../engine/types/identifiers";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
-import { AUTH_COOKIE_NAME, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getUser } from "../auth-middleware";
+import { defineFeature } from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import {
+  AUTH_COOKIE_NAME,
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  getUser,
+} from "../auth-middleware.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 

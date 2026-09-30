@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
-import type { EntityDefinition } from "../../engine/types";
+import { asRawClient } from "../../db/query.js";
+import type { EntityDefinition } from "../../engine/types/index.js";
 import {
   createTestDb,
   type TestDb,
   unsafeCreateEntityTable,
   unsafeEnsureEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 // unsafeEnsureEntityTable ist die idempotente Variante von unsafeCreateEntityTable —
 // existiert wegen des dev-server-Boot-Pfads (persistente DB, Table von

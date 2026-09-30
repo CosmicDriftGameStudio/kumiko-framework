@@ -1,4 +1,4 @@
-import type { KumikoError } from "./kumiko-error";
+import type { KumikoError } from "./kumiko-error.js";
 
 // Wire format every 4xx/5xx response must match. The API routes use this
 // verbatim; keep it stable — the client SDK keys off these field names.

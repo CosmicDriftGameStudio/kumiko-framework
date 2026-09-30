@@ -3,11 +3,11 @@
 // provider instead of the app repeating navId + kind.
 
 import { describe, expect, test } from "bun:test";
-import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
-import { validateBoot as validateBootRaw } from "../boot-validator";
-import { buildAppSchema } from "../build-app-schema";
-import { defineFeature } from "../define-feature";
-import { createRegistry } from "../registry";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.js";
+import { buildAppSchema } from "../build-app-schema.js";
+import { defineFeature } from "../define-feature.js";
+import { createRegistry } from "../registry.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

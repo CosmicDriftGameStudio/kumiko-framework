@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { SseEvent } from "../../api/sse-broker";
-import type { SaveContext } from "../../engine/types";
-import { createEventCollector } from "../event-collector";
+import type { SseEvent } from "../../api/sse-broker.js";
+import type { SaveContext } from "../../engine/types/index.js";
+import { createEventCollector } from "../event-collector.js";
 
 const probeSseEvent: SseEvent = { type: "probe", data: {} };
 const probeSaveContext: SaveContext = {

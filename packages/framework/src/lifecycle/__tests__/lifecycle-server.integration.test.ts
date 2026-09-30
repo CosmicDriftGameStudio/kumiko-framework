@@ -2,10 +2,10 @@
 // Drives drain() directly — SIGTERM plumbing has its own unit test.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { defineFeature } from "../../engine";
-import { setupTestStack, type TestStack } from "../../stack";
-import { sharedWidgetEntity } from "../../testing";
-import { createLifecycle, type Lifecycle } from "../lifecycle";
+import { defineFeature } from "../../engine/index.js";
+import { setupTestStack, type TestStack } from "../../stack/index.js";
+import { sharedWidgetEntity } from "../../testing/index.js";
+import { createLifecycle, type Lifecycle } from "../lifecycle.js";
 
 const widgetFeature = defineFeature("lifecycle-probe", (r) => {
   r.entity("widget", sharedWidgetEntity);

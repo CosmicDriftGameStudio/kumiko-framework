@@ -5,7 +5,7 @@ import {
   findForbiddenMembershipRole,
   isForbiddenMembershipRole,
   stripForbiddenMembershipRoles,
-} from "../membership-roles";
+} from "../membership-roles.js";
 
 describe("forbidden membership roles", () => {
   test("set covers the platform-global/reserved roles", () => {

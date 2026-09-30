@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { Registry } from "../../engine/types";
-import { makeFileProviderResolver } from "../provider-resolver";
-import type { FileStorageProvider } from "../types";
+import type { Registry } from "../../engine/types/index.js";
+import { makeFileProviderResolver } from "../provider-resolver.js";
+import type { FileStorageProvider } from "../types.js";
 
 const fakeProvider = { name: "fake" } as unknown as FileStorageProvider;
 

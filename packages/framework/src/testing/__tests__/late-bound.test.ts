@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createLateBoundHolder } from "../late-bound";
+import { createLateBoundHolder } from "../late-bound.js";
 
 describe("createLateBoundHolder", () => {
   test("isReady is false and get() throws before set()", () => {

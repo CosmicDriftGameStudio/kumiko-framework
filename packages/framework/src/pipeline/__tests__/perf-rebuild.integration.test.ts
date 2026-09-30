@@ -11,15 +11,20 @@
 // cdgs-runner under Docker-PG typically lands ~2–4k, isolated dev ~14k.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect";
-import { asRawClient } from "../../db/query";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import type { ProjectionDefinition } from "../../engine/types";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
-import { TestUsers, unsafePushTables } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { generateId as uuid } from "../../utils";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { integer, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
+import { asRawClient } from "../../db/query.js";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import type { ProjectionDefinition } from "../../engine/types/index.js";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
+import { TestUsers, unsafePushTables } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { generateId as uuid } from "../../utils/index.js";
 
 // Counter projection: every task.created bumps a counter, every
 // task.updated is a no-op. Enough to exercise the apply path —

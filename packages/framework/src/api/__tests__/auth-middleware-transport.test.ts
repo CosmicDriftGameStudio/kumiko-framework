@@ -4,15 +4,15 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../stack";
+import { TestUsers } from "../../stack/index.js";
 import {
   AUTH_COOKIE_NAME,
   authMiddleware,
   getAuthTokenExpiry,
   getAuthTransport,
   getUser,
-} from "../auth-middleware";
-import { createJwtHelper } from "../jwt";
+} from "../auth-middleware.js";
+import { createJwtHelper } from "../jwt.js";
 
 const JWT_SECRET = "auth-middleware-transport-test-secret-min-32-chars";
 

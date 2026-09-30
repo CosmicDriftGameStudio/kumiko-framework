@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { asRawClient, selectMany } from "../../db/query";
-import { createBooleanField, createEntity, createTextField } from "../../engine";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
 import {
   createTestDb,
   type TestDb,
@@ -9,10 +9,10 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
-import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb } from "../tenant-db";
+} from "../../stack/index.js";
+import { table as pgTable, serial, type TableColumns, text, timestamp } from "../dialect.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb } from "../tenant-db.js";
 
 // --- Entity table (has tenantId via buildBaseColumns) ---
 

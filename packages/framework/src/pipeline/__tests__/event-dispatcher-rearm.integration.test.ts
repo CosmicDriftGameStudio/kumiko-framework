@@ -7,28 +7,28 @@
 // mechanism is a bounded number of extra chances, not unlimited retry.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient } from "../../db/query";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient } from "../../db/query.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
   type ObservabilityProvider,
   RecordingMeter,
   RecordingTracer,
-} from "../../observability";
-import { getConsumerState } from "../../pipeline";
+} from "../../observability/index.js";
+import { getConsumerState } from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
-import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal";
-import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
+import { withoutAmbientTemporal } from "../../testing/without-ambient-temporal.js";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

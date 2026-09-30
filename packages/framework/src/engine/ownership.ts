@@ -21,9 +21,9 @@ import {
   KUMIKO_COLUMNS_SYMBOL,
   KUMIKO_NAME_SYMBOL,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { toSnakeCase } from "../db/table-builder";
-import type { SessionUser } from "./types";
-import { assertQualifiedWhereFragment, tableColumnSqlNames } from "./where-rule-lint";
+import { toSnakeCase } from "../db/table-builder.js";
+import type { SessionUser } from "./types/index.js";
+import { assertQualifiedWhereFragment, tableColumnSqlNames } from "./where-rule-lint.js";
 
 // Types live in engine/types/ownership.ts (no runtime dependency); re-exported
 // here for backwards compatibility with existing importers of this file.
@@ -37,7 +37,7 @@ export type {
   SqlFragment,
   WhereRule,
   WhereRuleContext,
-} from "./types/ownership";
+} from "./types/ownership.js";
 
 import type {
   FromRule,
@@ -46,7 +46,7 @@ import type {
   OwnershipRef,
   OwnershipRule,
   SqlFragment,
-} from "./types/ownership";
+} from "./types/ownership.js";
 
 // Parse an OwnershipRef into kind + resolved path + default column.
 // Throws on malformed input so the error surfaces at `from()`-call-site (in

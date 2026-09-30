@@ -8,11 +8,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine";
-import type { AppContext, TenantId } from "../../engine/types";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { sleep, waitFor } from "../../testing";
-import { bootJobIdForJobName, createJobRunner } from "../job-runner";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import type { AppContext, TenantId } from "../../engine/types/index.js";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { sleep, waitFor } from "../../testing/index.js";
+import { bootJobIdForJobName, createJobRunner } from "../job-runner.js";
 
 let testRedis: TestRedis;
 let redisUrl: string;

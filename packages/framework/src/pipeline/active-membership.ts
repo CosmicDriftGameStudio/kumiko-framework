@@ -1,22 +1,22 @@
 // One framework-owned composition of membership / principal-status /
 // tenant-lifecycle checks so login, switch-tenant and MFA completion can't independently drift.
 
-import type { DbConnection } from "../db/connection";
+import type { DbConnection } from "../db/connection.js";
 import {
   isPrincipalStatusPlugin,
   isTenantLifecycleStatusPlugin,
   type PrincipalStatusPlugin,
   TENANT_TEARDOWN_STATUSES,
   type TenantLifecycleStatusPlugin,
-} from "../engine/active-membership";
-import { EXT_PRINCIPAL_STATUS, EXT_TENANT_LIFECYCLE_STATUS } from "../engine/extension-names";
-import { createSystemUser } from "../engine/system-user";
-import type { ActiveMembershipResult, Registry } from "../engine/types";
-import type { TenantId } from "../engine/types/identifiers";
-import { InternalError } from "../errors";
-import { executeQuery } from "./dispatch-query";
-import { type DispatchContext, resolveDbSource } from "./dispatch-shared";
-import { rootWriteOrigin } from "./write-origin";
+} from "../engine/active-membership.js";
+import { EXT_PRINCIPAL_STATUS, EXT_TENANT_LIFECYCLE_STATUS } from "../engine/extension-names.js";
+import { createSystemUser } from "../engine/system-user.js";
+import type { TenantId } from "../engine/types/identifiers.js";
+import type { ActiveMembershipResult, Registry } from "../engine/types/index.js";
+import { InternalError } from "../errors/index.js";
+import { executeQuery } from "./dispatch-query.js";
+import { type DispatchContext, resolveDbSource } from "./dispatch-shared.js";
+import { rootWriteOrigin } from "./write-origin.js";
 
 export type ActiveMembershipPolicy = {
   // destroyRequested still counts as active — owners must be able to cancel

@@ -7,12 +7,12 @@ import type {
   EntityRelations,
   FieldDefinition,
   FieldsMap,
-} from "../engine/types";
-import { assertUnreachable } from "../utils";
-import { toSnakeCase } from "../utils/case";
-import type { Table } from "./event-store-executor-context";
+} from "../engine/types/index.js";
+import { toSnakeCase } from "../utils/case.js";
+import { assertUnreachable } from "../utils/index.js";
+import type { Table } from "./event-store-executor-context.js";
 
-export { toSnakeCase } from "../utils/case";
+export { toSnakeCase } from "../utils/case.js";
 
 import {
   bigint,
@@ -38,7 +38,7 @@ import {
   text,
   uniqueIndex,
   uuid,
-} from "./dialect";
+} from "./dialect.js";
 
 // Shared by the CRUD executor and the parent-ref read-gate — a field's
 // declared column name if it has one, else its snake_case default.

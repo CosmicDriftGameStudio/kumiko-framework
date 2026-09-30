@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { createRegistry, defineFeature, readClaim } from "../index";
-import type { ClaimKeyHandle, SessionUser } from "../types";
+import { createRegistry, defineFeature, readClaim } from "../index.js";
+import type { ClaimKeyHandle, SessionUser } from "../types/index.js";
 
 // --- r.claimKey() registration ---
 
@@ -213,7 +213,7 @@ describe("round-trip: claimKey ↔ authClaims return ↔ readClaim", () => {
     });
 
     // Run the resolver directly — same code path the Dispatcher walks.
-    const { resolveAuthClaims } = await import("../../pipeline/auth-claims-resolver");
+    const { resolveAuthClaims } = await import("../../pipeline/auth-claims-resolver.js");
     const reg = createRegistry([feature]);
     const user: SessionUser = {
       id: "user-1",
@@ -248,7 +248,7 @@ describe("round-trip: claimKey ↔ authClaims return ↔ readClaim", () => {
       return { Claims: { regionId } as const };
     });
 
-    const { resolveAuthClaims } = await import("../../pipeline/auth-claims-resolver");
+    const { resolveAuthClaims } = await import("../../pipeline/auth-claims-resolver.js");
     const reg = createRegistry([feature]);
     const user: SessionUser = {
       id: "user-1",

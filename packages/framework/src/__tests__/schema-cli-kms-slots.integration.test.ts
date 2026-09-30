@@ -7,12 +7,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetBlindIndexKeyForTests } from "../crypto/blind-index";
-import { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption";
-import { defineFeature } from "../engine";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
-import { createTestDb, type TestDb } from "../stack";
-import { ensureTemporalPolyfill } from "../time/polyfill";
+import { resetBlindIndexKeyForTests } from "../crypto/blind-index.js";
+import { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption.js";
+import { defineFeature } from "../engine/index.js";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
+import { createTestDb, type TestDb } from "../stack/index.js";
+import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 const feature = defineFeature("kmsslotstest", () => {});
 

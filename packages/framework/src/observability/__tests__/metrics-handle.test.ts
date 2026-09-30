@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
-import { createSafeMetricsHandle } from "../metrics-handle";
-import { RecordingMeter } from "../recording-meter";
+import { createSafeMetricsHandle } from "../metrics-handle.js";
+import { RecordingMeter } from "../recording-meter.js";
 
 describe("createSafeMetricsHandle", () => {
   it("an invalid featureName is a no-op, not a throw", () => {

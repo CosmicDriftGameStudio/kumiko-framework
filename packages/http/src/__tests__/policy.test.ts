@@ -9,7 +9,7 @@ import {
   isPublicHost,
   resolvePublicHost,
   resolvePublicHostname,
-} from "../policy";
+} from "../policy.js";
 
 describe("isBlockedIp", () => {
   test.each([

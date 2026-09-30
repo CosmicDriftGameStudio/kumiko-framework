@@ -1,13 +1,13 @@
-import { requestContext } from "../api/request-context";
-import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii";
-import type { DbRunner } from "../db/connection";
-import { qnScope, toKebab } from "../engine/qualified-name";
-import type { AppendEventArgs, Registry, TenantId } from "../engine/types";
-import { InternalError, validationErrorFromZod } from "../errors";
-import { isStreamArchived } from "../event-store/archive";
-import { ArchivedStreamError } from "../event-store/errors";
-import { append, getStreamVersion, type StoredEvent } from "../event-store/event-store";
-import { runProjectionsForEvent } from "./projections-runner";
+import { requestContext } from "../api/request-context.js";
+import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.js";
+import type { DbRunner } from "../db/connection.js";
+import { qnScope, toKebab } from "../engine/qualified-name.js";
+import type { AppendEventArgs, Registry, TenantId } from "../engine/types/index.js";
+import { InternalError, validationErrorFromZod } from "../errors/index.js";
+import { isStreamArchived } from "../event-store/archive.js";
+import { ArchivedStreamError } from "../event-store/errors.js";
+import { append, getStreamVersion, type StoredEvent } from "../event-store/event-store.js";
+import { runProjectionsForEvent } from "./projections-runner.js";
 
 // Shared append-pipeline: Schema-validate → archive-guard → stream-version →
 // append → inline-projections. One implementation for both

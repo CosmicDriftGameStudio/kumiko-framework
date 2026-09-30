@@ -5,17 +5,17 @@
 // re-derives a SearchDocument straight from the read-table row for every
 // existing row and indexes it, same as a live write would.
 
-import type { DbRunner } from "../db/connection";
-import { resolveTableName } from "../db/entity-table-meta";
-import { executeRawQueryRead } from "../db/queries/raw-sql";
-import type { Registry, TenantId } from "../engine/types";
+import type { DbRunner } from "../db/connection.js";
+import { resolveTableName } from "../db/entity-table-meta.js";
+import { executeRawQueryRead } from "../db/queries/raw-sql.js";
+import type { Registry, TenantId } from "../engine/types/index.js";
 import {
   buildSearchDocument,
   decryptSearchableSubjectFields,
   hasErasedSearchableSubjectField,
-} from "../pipeline/system-hooks";
-import { toSnakeCase } from "../utils/case";
-import type { SearchAdapter, SearchDocument } from "./types";
+} from "../pipeline/system-hooks.js";
+import { toSnakeCase } from "../utils/case.js";
+import type { SearchAdapter, SearchDocument } from "./types.js";
 
 export type ReindexEntityFailure = {
   readonly entityId: string;

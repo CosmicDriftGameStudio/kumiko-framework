@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildMetricName, validateLabelKey, validateMetricName } from "../metric-validator";
+import { buildMetricName, validateLabelKey, validateMetricName } from "../metric-validator.js";
 
 describe("validateMetricName", () => {
   describe("counter", () => {

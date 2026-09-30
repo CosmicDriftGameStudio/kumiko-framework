@@ -6,12 +6,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { integer, table as pgTable, text, uuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { writeRebuildMarker } from "../../db/rebuild-marker";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
+import { integer, table as pgTable, text, uuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { writeRebuildMarker } from "../../db/rebuild-marker.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import {
   createEntity,
   createRegistry,
@@ -19,16 +19,16 @@ import {
   defineApply,
   defineFeature,
   type ProjectionDefinition,
-} from "../../engine";
-import type { JobRunner } from "../../jobs/job-runner";
-import { createEventConsumerStateTable, createProjectionStateTable } from "../../pipeline";
+} from "../../engine/index.js";
+import type { JobRunner } from "../../jobs/job-runner.js";
+import { createEventConsumerStateTable, createProjectionStateTable } from "../../pipeline/index.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
+} from "../../stack/index.js";
 import {
   clearPendingRebuilds,
   enqueueProjectionRebuild,
@@ -37,7 +37,7 @@ import {
   PROJECTION_REBUILD_JOB,
   queueRebuildsFromMarkers,
   runPendingRebuilds,
-} from "../pending-rebuilds";
+} from "../pending-rebuilds.js";
 
 const itemEntity = createEntity({
   table: "read_pending_items",

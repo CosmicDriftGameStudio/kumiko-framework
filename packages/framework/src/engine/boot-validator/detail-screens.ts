@@ -1,7 +1,7 @@
-import { qualifyEntityName } from "../qualified-name";
-import type { FeatureDefinition } from "../types";
-import type { ScreenDefinition } from "../types/screen";
-import { findEntityFeature } from "./screens";
+import { qualifyEntityName } from "../qualified-name.js";
+import type { FeatureDefinition } from "../types/index.js";
+import type { ScreenDefinition } from "../types/screen.js";
+import { findEntityFeature } from "./screens.js";
 
 // Entity name → the one screen that declares detailFor: "<entity>". Built
 // once, up front (before the per-feature validateScreens loop) so both this

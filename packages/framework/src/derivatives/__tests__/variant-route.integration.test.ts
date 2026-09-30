@@ -10,11 +10,11 @@ import {
   createImageField,
   defineFeature,
   EXT_DERIVATIVE_RENDERER,
-} from "../../engine";
-import { createFilesFeature } from "../../files/feature";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider";
-import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
+} from "../../engine/index.js";
+import { createFilesFeature } from "../../files/feature.js";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
+import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack/index.js";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
 
 const VARIANT_BYTES = new Uint8Array([9, 9, 9]);
 

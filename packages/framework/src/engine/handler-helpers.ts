@@ -1,4 +1,4 @@
-import type { NameOrRef, WriteResult } from "./types/handlers";
+import type { NameOrRef, WriteResult } from "./types/handlers.js";
 
 /**
  * Override the success-side `data` of a WriteResult while forwarding the

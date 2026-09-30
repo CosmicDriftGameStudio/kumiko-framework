@@ -21,11 +21,11 @@
 // helper with no cross-module side-effects.
 
 export { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
-export type { DerivedCellRoundingTarget } from "../engine/embedded-derived";
-export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived";
-export type { ParsedRefTarget } from "../engine/parse-ref-target";
-export { parseRefTarget } from "../engine/parse-ref-target";
-export type { FieldsOrGroupsSection } from "../engine/screen-helpers";
+export type { DerivedCellRoundingTarget } from "../engine/embedded-derived.js";
+export { computeDerivedCellValue, roundDerivedCellValue } from "../engine/embedded-derived.js";
+export type { ParsedRefTarget } from "../engine/parse-ref-target.js";
+export { parseRefTarget } from "../engine/parse-ref-target.js";
+export type { FieldsOrGroupsSection } from "../engine/screen-helpers.js";
 export {
   evalFieldCondition,
   explicitListScreenId,
@@ -37,7 +37,7 @@ export {
   normalizeListColumn,
   resolveNavParentScreen,
   sectionFieldSpecs,
-} from "../engine/screen-helpers";
+} from "../engine/screen-helpers.js";
 // Entity + field types. EntityDefinition is the canonical shape that
 // view-model builders iterate; FieldDefinition is the per-field union
 // (text, number, boolean, ...) they branch on. AccessRule is used by
@@ -56,7 +56,7 @@ export type {
   SelectFieldDef,
   SelectOptionTone,
   TextFieldDef,
-} from "../engine/types/fields";
+} from "../engine/types/fields.js";
 export type {
   AccessRule,
   OpenToAllAccessRule,
@@ -64,9 +64,9 @@ export type {
   OpenToAllPersonalData,
   RoleAccessPersonalData,
   RoleAccessRule,
-} from "../engine/types/handlers";
-export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers";
-export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav";
+} from "../engine/types/handlers.js";
+export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers.js";
+export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav.js";
 export type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -123,37 +123,37 @@ export type {
   SecretsEditScreenDefinition,
   SecretsEditSection,
   ToolbarAction,
-} from "../engine/types/screen";
-export { metricField } from "../engine/types/screen";
-export type { TargetRef } from "../engine/types/target-ref";
-export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node";
-export type { WorkspaceDefinition } from "../engine/types/workspace";
+} from "../engine/types/screen.js";
+export { metricField } from "../engine/types/screen.js";
+export type { TargetRef } from "../engine/types/target-ref.js";
+export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node.js";
+export type { WorkspaceDefinition } from "../engine/types/workspace.js";
 export {
   PROJECTION_DETAIL_ENTITY,
   WRITE_FORM_SECTION_ENTITY,
-} from "../i18n/required-surface-keys";
+} from "../i18n/required-surface-keys.js";
 export type {
   AppSchema,
   FeatureSchema,
   QualifiedContentCollection,
   WorkspaceSchema,
-} from "./app-schema";
-export { type Formality, formalLocaleTag } from "./formality";
+} from "./app-schema.js";
+export { type Formality, formalLocaleTag } from "./formality.js";
 export type {
   ListRowMetaColumnType,
   ListRowMetaReference,
   ReferenceLookupSource,
   SystemReferenceLabel,
-} from "./list-row-meta";
+} from "./list-row-meta.js";
 export {
   LIST_ROW_META_COLUMNS,
   LIST_ROW_META_REFERENCES,
   REFERENCE_LOOKUP_SOURCES,
   SYSTEM_REFERENCE_LABELS,
-} from "./list-row-meta";
+} from "./list-row-meta.js";
 export {
   type PluralForms,
   resolveTranslationValue,
   type TranslationValue,
   translationValueOtherText,
-} from "./plural";
+} from "./plural.js";

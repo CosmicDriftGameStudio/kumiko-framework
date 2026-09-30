@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { EntityTableMeta } from "../../entity-table-meta";
-import { fenceLiveTable, rebuildMetaOrThrow } from "../shadow-swap";
+import type { EntityTableMeta } from "../../entity-table-meta.js";
+import { fenceLiveTable, rebuildMetaOrThrow } from "../shadow-swap.js";
 
 const cleanMeta: EntityTableMeta = {
   tableName: "read_x",

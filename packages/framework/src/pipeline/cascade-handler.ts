@@ -1,9 +1,9 @@
-import type { TableColumns } from "../db/dialect";
-import { deleteMany, fetchOne, updateMany } from "../db/query";
-import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants";
-import type { PreDeleteHookFn, Registry } from "../engine/types";
-import { ConflictError, FrameworkReasons } from "../errors";
-import type { SystemHookDef } from "./lifecycle-pipeline";
+import type { TableColumns } from "../db/dialect.js";
+import { deleteMany, fetchOne, updateMany } from "../db/query.js";
+import { OnDeleteStrategies, SystemHookNames, SystemHookPriorities } from "../engine/constants.js";
+import type { PreDeleteHookFn, Registry } from "../engine/types/index.js";
+import { ConflictError, FrameworkReasons } from "../errors/index.js";
+import type { SystemHookDef } from "./lifecycle-pipeline.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle dynamic tables
 type TableMap = ReadonlyMap<string, TableColumns<any>>;

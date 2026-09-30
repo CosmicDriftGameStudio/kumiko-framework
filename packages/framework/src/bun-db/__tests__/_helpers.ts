@@ -11,8 +11,8 @@
 // Schema-Tabellen bestehen aus einer id (uuid) + den getesteten Spalten.
 
 import { randomUUID } from "node:crypto";
-import { createConnection } from "../../db/api";
-import type { ColumnMeta, EntityTableMeta } from "../../db/entity-table-meta";
+import { createConnection } from "../../db/api.js";
+import type { ColumnMeta, EntityTableMeta } from "../../db/entity-table-meta.js";
 
 const DATABASE_URL =
   process.env["TEST_DATABASE_URL"] ??
@@ -94,7 +94,7 @@ export async function withTable<T>(
   const db = await getDb();
   const tableName = uniqueTableName(prefix);
   const meta = makeTableMeta(tableName, columns);
-  const { asRawClient } = await import("../query");
+  const { asRawClient } = await import("../query.js");
   await asRawClient(db).unsafe(renderCreateTable(meta));
   try {
     return await fn({ db, meta });

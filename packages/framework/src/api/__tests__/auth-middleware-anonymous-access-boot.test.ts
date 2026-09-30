@@ -4,8 +4,8 @@
 // override a host-derived resolver at request time (#1452).
 
 import { describe, expect, test } from "bun:test";
-import { authMiddleware } from "../auth-middleware";
-import { createJwtHelper } from "../jwt";
+import { authMiddleware } from "../auth-middleware.js";
+import { createJwtHelper } from "../jwt.js";
 
 const JWT_SECRET = "auth-middleware-anon-access-boot-test-secret-32ch";
 

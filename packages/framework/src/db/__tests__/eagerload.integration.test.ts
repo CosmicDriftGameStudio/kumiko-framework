@@ -8,25 +8,34 @@ import {
   encryptPiiFieldValues,
   InMemoryKmsAdapter,
   isPiiCiphertext,
-} from "../../crypto";
-import { createEntity, createTextField, from } from "../../engine";
-import type { EntityDefinition } from "../../engine/types";
-import { setupTestStack, type TestStack, testTenantId, unsafeCreateEntityTable } from "../../stack";
-import { createTestEnvelopeCipher, resetPiiSubjectKmsForTests, seedRows } from "../../testing";
+} from "../../crypto/index.js";
+import { createEntity, createTextField, from } from "../../engine/index.js";
+import type { EntityDefinition } from "../../engine/types/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  testTenantId,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import {
+  createTestEnvelopeCipher,
+  resetPiiSubjectKmsForTests,
+  seedRows,
+} from "../../testing/index.js";
 import {
   collectReferenceFields,
   type EagerloadedRow,
   enrichRowWithReferences,
   enrichWithReferences,
-} from "../eagerload";
+} from "../eagerload.js";
 import {
   collectEncryptedFieldNames,
   configureEntityFieldEncryption,
   encryptEntityFieldValues,
   resetEntityFieldEncryptionCacheForTests,
-} from "../entity-field-encryption";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb } from "../tenant-db";
+} from "../entity-field-encryption.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb } from "../tenant-db.js";
 
 const authorEntity = createEntity({
   table: "el_authors",

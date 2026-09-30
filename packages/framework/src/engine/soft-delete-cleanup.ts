@@ -11,9 +11,9 @@
 // table growth; irreversible event-log purging is data-retention's job
 // (pruneEvents), a separate, consumer-lag-guarded path.
 
-import { deleteMany, type WhereObject } from "../db/query";
-import { SYSTEM_USER_ID } from "./system-user";
-import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config";
+import { deleteMany, type WhereObject } from "../db/query.js";
+import { SYSTEM_USER_ID } from "./system-user.js";
+import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.js";
 
 // qualifyEntityName convention (feature:type:kebab-name) with a reserved
 // "soft-delete" owner — no real feature owns these; the framework synthesizes

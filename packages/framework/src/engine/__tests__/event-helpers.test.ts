@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as z from "zod";
-import { emitEvent, typedPayload } from "../event-helpers";
-import type { EventDef } from "../types/handlers";
+import { emitEvent, typedPayload } from "../event-helpers.js";
+import type { EventDef } from "../types/handlers.js";
 
 describe("emitEvent", () => {
   const orderPlaced: EventDef<{ id: string; customer: string }> = {

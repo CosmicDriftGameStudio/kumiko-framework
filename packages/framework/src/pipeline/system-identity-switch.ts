@@ -3,8 +3,9 @@ import {
   type UncheckedSystemDb,
   withSystemDbUnsafeRawGrant,
   withUnsafeRawGrant,
-} from "../db/tenant-db";
-import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
+} from "../db/tenant-db.js";
+import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
+import type { TenantId } from "../engine/types/identifiers.js";
 import type {
   ActiveMembershipResult,
   EscapeHatchDeclaration,
@@ -14,9 +15,8 @@ import type {
   MemberReader,
   SessionUser,
   WriteResult,
-} from "../engine/types";
-import type { TenantId } from "../engine/types/identifiers";
-import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors";
+} from "../engine/types/index.js";
+import { AccessDeniedError, FrameworkReasons, InternalError } from "../errors/index.js";
 
 export type QueryAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;
 export type WriteAsFn = (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;

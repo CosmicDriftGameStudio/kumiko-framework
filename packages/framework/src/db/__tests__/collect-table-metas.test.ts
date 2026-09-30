@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../engine/define-feature";
-import { createEntity, createTextField } from "../../engine/factories";
-import { collectTableMetas } from "../collect-table-metas";
-import { integer, jsonb, type SchemaTable, table, text, uniqueIndex, uuid } from "../dialect";
-import { defineUnmanagedTable } from "../entity-table-meta";
-import { asEntityTableMeta } from "../query";
-import { buildBaseColumns, buildEntityTable } from "../table-builder";
+import { defineFeature } from "../../engine/define-feature.js";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import { collectTableMetas } from "../collect-table-metas.js";
+import { integer, jsonb, type SchemaTable, table, text, uniqueIndex, uuid } from "../dialect.js";
+import { defineUnmanagedTable } from "../entity-table-meta.js";
+import { asEntityTableMeta } from "../query.js";
+import { buildBaseColumns, buildEntityTable } from "../table-builder.js";
 
 function exampleEntity() {
   return createEntity({

@@ -24,7 +24,11 @@
   ],
   "type": "module",
   "kumiko": {
-    "runtime": "runtime"
+    "runtime": "runtime",
+    "bunOnlyExports": [
+      "./engine/codemod",
+      "./testing"
+    ]
   },
   "exports": {
     "./compliance": {
@@ -225,10 +229,187 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      "./compliance": {
+        "types": "./dist/compliance/index.d.ts",
+        "default": "./dist/compliance/index.js"
+      },
+      "./es-ops": {
+        "types": "./dist/es-ops/index.d.ts",
+        "default": "./dist/es-ops/index.js"
+      },
+      "./engine": {
+        "types": "./dist/engine/index.d.ts",
+        "default": "./dist/engine/index.js"
+      },
+      "./engine/types": {
+        "types": "./dist/engine/types/index.d.ts",
+        "default": "./dist/engine/types/index.js"
+      },
+      "./env": {
+        "types": "./dist/env/index.d.ts",
+        "default": "./dist/env/index.js"
+      },
+      "./env/dry-run": {
+        "types": "./dist/env/dry-run.d.ts",
+        "default": "./dist/env/dry-run.js"
+      },
+      "./engine/codemod": {
+        "types": "./dist/engine/codemod/index.d.ts",
+        "default": "./dist/engine/codemod/index.js"
+      },
+      "./errors": {
+        "types": "./dist/errors/index.d.ts",
+        "default": "./dist/errors/index.js"
+      },
+      "./bun-db": {
+        "types": "./dist/bun-db/index.d.ts",
+        "default": "./dist/bun-db/index.js"
+      },
+      "./db": {
+        "types": "./dist/db/index.d.ts",
+        "default": "./dist/db/index.js"
+      },
+      "./event-store": {
+        "types": "./dist/event-store/index.d.ts",
+        "default": "./dist/event-store/index.js"
+      },
+      "./event-store/admin-api": {
+        "types": "./dist/event-store/admin-api.d.ts",
+        "default": "./dist/event-store/admin-api.js"
+      },
+      "./pipeline": {
+        "types": "./dist/pipeline/index.d.ts",
+        "default": "./dist/pipeline/index.js"
+      },
+      "./api": {
+        "types": "./dist/api/index.d.ts",
+        "default": "./dist/api/index.js"
+      },
+      "./i18n": {
+        "types": "./dist/i18n/index.d.ts",
+        "default": "./dist/i18n/index.js"
+      },
+      "./http": {
+        "types": "./dist/http/index.d.ts",
+        "default": "./dist/http/index.js"
+      },
+      "./auth": {
+        "types": "./dist/auth/index.d.ts",
+        "default": "./dist/auth/index.js"
+      },
+      "./files": {
+        "types": "./dist/files/index.d.ts",
+        "default": "./dist/files/index.js"
+      },
+      "./derivatives": {
+        "types": "./dist/derivatives/index.d.ts",
+        "default": "./dist/derivatives/index.js"
+      },
+      "./jobs": {
+        "types": "./dist/jobs/index.d.ts",
+        "default": "./dist/jobs/index.js"
+      },
+      "./observability": {
+        "types": "./dist/observability/index.d.ts",
+        "default": "./dist/observability/index.js"
+      },
+      "./migrations": {
+        "types": "./dist/migrations/index.d.ts",
+        "default": "./dist/migrations/index.js"
+      },
+      "./entrypoint": {
+        "types": "./dist/entrypoint/index.d.ts",
+        "default": "./dist/entrypoint/index.js"
+      },
+      "./random": {
+        "types": "./dist/random/index.d.ts",
+        "default": "./dist/random/index.js"
+      },
+      "./redis": {
+        "types": "./dist/redis/index.d.ts",
+        "default": "./dist/redis/index.js"
+      },
+      "./search": {
+        "types": "./dist/search/index.d.ts",
+        "default": "./dist/search/index.js"
+      },
+      "./search/meilisearch": {
+        "types": "./dist/search/meilisearch-adapter.d.ts",
+        "default": "./dist/search/meilisearch-adapter.js"
+      },
+      "./seeding": {
+        "types": "./dist/seeding/index.d.ts",
+        "default": "./dist/seeding/index.js"
+      },
+      "./secrets": {
+        "types": "./dist/secrets/index.d.ts",
+        "default": "./dist/secrets/index.js"
+      },
+      "./crypto": {
+        "types": "./dist/crypto/index.d.ts",
+        "default": "./dist/crypto/index.js"
+      },
+      "./logging": {
+        "types": "./dist/logging/index.d.ts",
+        "default": "./dist/logging/index.js"
+      },
+      "./schema-cli": {
+        "types": "./dist/schema-cli.d.ts",
+        "default": "./dist/schema-cli.js"
+      },
+      "./consumer-cli": {
+        "types": "./dist/consumer-cli.d.ts",
+        "default": "./dist/consumer-cli.js"
+      },
+      "./upgrade-cli": {
+        "types": "./dist/upgrade-cli.d.ts",
+        "default": "./dist/upgrade-cli.js"
+      },
+      "./arg-parser": {
+        "types": "./dist/arg-parser.d.ts",
+        "default": "./dist/arg-parser.js"
+      },
+      "./stack": {
+        "types": "./dist/stack/index.d.ts",
+        "default": "./dist/stack/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
+      },
+      "./testing/handler-context": {
+        "types": "./dist/testing/handler-context.d.ts",
+        "default": "./dist/testing/handler-context.js"
+      },
+      "./testing/real-providers": {
+        "types": "./dist/testing/real-providers.d.ts",
+        "default": "./dist/testing/real-providers.js"
+      },
+      "./testing/e2e-generator": {
+        "types": "./dist/testing/e2e-generator.d.ts",
+        "default": "./dist/testing/e2e-generator.js"
+      },
+      "./time": {
+        "types": "./dist/time/index.d.ts",
+        "default": "./dist/time/index.js"
+      },
+      "./ui-types": {
+        "types": "./dist/ui-types/index.d.ts",
+        "default": "./dist/ui-types/index.js"
+      },
+      "./utils": {
+        "types": "./dist/utils/index.d.ts",
+        "default": "./dist/utils/index.js"
+      },
+      "./package.json": "./package.json"
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "src/changes.json",
+    "src/scripts/codemod",
     "README.md",
     "LICENSE"
   ]

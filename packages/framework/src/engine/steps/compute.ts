@@ -15,8 +15,8 @@
 // sites cast or guard at the read end. Strict-typed result-key
 // accumulation is a follow-up (see step-vocabulary.md M.1-Followups).
 
-import { defineStep } from "../define-step";
-import type { PipelineCtx, StepInstance } from "../types/step";
+import { defineStep } from "../define-step.js";
+import type { PipelineCtx, StepInstance } from "../types/step.js";
 
 type ComputeStepArgs = {
   readonly name: string;

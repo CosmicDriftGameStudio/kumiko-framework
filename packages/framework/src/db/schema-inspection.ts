@@ -1,4 +1,4 @@
-import type { DbConnection, DbTx } from "./connection";
+import type { DbConnection, DbTx } from "./connection.js";
 
 type UnsafeFn = (s: string, p?: readonly unknown[]) => Promise<readonly Record<string, unknown>[]>;
 

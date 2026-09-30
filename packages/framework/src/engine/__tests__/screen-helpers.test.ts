@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { evalFieldCondition } from "../screen-helpers";
-import type { FieldCondition } from "../types/screen";
+import { evalFieldCondition } from "../screen-helpers.js";
+import type { FieldCondition } from "../types/screen.js";
 
 describe("evalFieldCondition()", () => {
   test("boolean forms pass through unchanged", () => {

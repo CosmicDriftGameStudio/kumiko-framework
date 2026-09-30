@@ -77,9 +77,9 @@ import {
   readObjectPropertyInitializer,
   resolveModuleFile,
   resolveSameFileObjectLiteral,
-} from "./extractors";
-import type { FeaturePattern, UnknownPattern } from "./patterns";
-import { type SourceLocation, sourceLocationFromNode } from "./source-location";
+} from "./extractors/index.js";
+import type { FeaturePattern, UnknownPattern } from "./patterns.js";
+import { type SourceLocation, sourceLocationFromNode } from "./source-location.js";
 
 // =============================================================================
 // Public API

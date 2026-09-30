@@ -3,9 +3,9 @@
 // is closed only because applyMemberResolutionReadOnly drops systemDb and
 // dbOutsideTransaction — this pins that, plus the write surfaces it neutralizes.
 import { describe, expect, test } from "bun:test";
-import type { HandlerContext } from "../../engine/types";
-import { AccessDeniedError, FrameworkReasons } from "../../errors";
-import { applyMemberResolutionReadOnly } from "../dispatch-shared";
+import type { HandlerContext } from "../../engine/types/index.js";
+import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
+import { applyMemberResolutionReadOnly } from "../dispatch-shared.js";
 
 const DROPPED_SURFACES = ["systemDb", "dbOutsideTransaction", "runPreSave", "files", "derivatives"];
 

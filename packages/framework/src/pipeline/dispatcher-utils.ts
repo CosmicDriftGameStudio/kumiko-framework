@@ -1,19 +1,19 @@
-import { parseQn, qn } from "../engine/qualified-name";
+import { parseQn, qn } from "../engine/qualified-name.js";
 import type {
   HandlerRef,
   LifecycleResult,
   Registry,
   SessionUser,
   WriteResult,
-} from "../engine/types";
+} from "../engine/types/index.js";
 import {
   type FieldIssue,
   type KumikoError,
   toKumikoError,
   VersionConflictError,
   type WriteErrorInfo,
-} from "../errors";
-import { VersionConflictError as EventStoreVersionConflictError } from "../event-store/errors";
+} from "../errors/index.js";
+import { VersionConflictError as EventStoreVersionConflictError } from "../event-store/errors.js";
 
 export type FailedWriteResult = Extract<WriteResult, { isSuccess: false }>;
 

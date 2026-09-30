@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { insertConsumerIfAbsent } from "../../db/queries/event-consumer";
-import { asRawClient } from "../../db/query";
-import { createTestDb, type TestDb } from "../../stack";
-import { createEventConsumerStateTable } from "../event-consumer-state";
+import { insertConsumerIfAbsent } from "../../db/queries/event-consumer.js";
+import { asRawClient } from "../../db/query.js";
+import { createTestDb, type TestDb } from "../../stack/index.js";
+import { createEventConsumerStateTable } from "../event-consumer-state.js";
 
 // #1362: two dispatcher instances booting concurrently against the same DB
 // both see kumiko_event_consumers already present but rearm_count missing,

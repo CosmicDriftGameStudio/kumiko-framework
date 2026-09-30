@@ -10,7 +10,7 @@
 // column, and a literal self-comparison.
 
 import { KUMIKO_COLUMNS_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { toSnakeCase } from "../db/table-builder";
+import { toSnakeCase } from "../db/table-builder.js";
 
 const IDENT_SRC = `"(?:[^"]|"")+"|[A-Za-z_][A-Za-z0-9_$]*`;
 const QUALIFIED_SRC = `(?:${IDENT_SRC})(?:\\.(?:${IDENT_SRC}))?`;

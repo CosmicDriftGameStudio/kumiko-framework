@@ -4,8 +4,8 @@ import {
   createFileHandle,
   deriveKey,
   storageKeyStemPrefix,
-} from "../file-handle";
-import { createInMemoryFileProvider } from "../in-memory-provider";
+} from "../file-handle.js";
+import { createInMemoryFileProvider } from "../in-memory-provider.js";
 
 describe("deriveKey", () => {
   test("inserts suffix before extension", () => {

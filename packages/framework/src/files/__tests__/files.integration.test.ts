@@ -3,9 +3,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Hono } from "hono";
-import type { JwtHelper } from "../../api/jwt";
-import { buildServer } from "../../api/server";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto";
+import type { JwtHelper } from "../../api/jwt.js";
+import { buildServer } from "../../api/server.js";
+import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.js";
 import {
   createEntity,
   createFileField,
@@ -14,8 +14,8 @@ import {
   createTextField,
   defineFeature,
   type SessionUser,
-} from "../../engine";
-import { loadAggregate } from "../../event-store";
+} from "../../engine/index.js";
+import { loadAggregate } from "../../event-store/index.js";
 import {
   createTestDb,
   createTestUser,
@@ -23,26 +23,26 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
+} from "../../stack/index.js";
 import {
   buildMultipartBody,
   expectErrorIncludes,
   patchFileInstanceofForBunTest,
   resetPiiSubjectKmsForTests,
-} from "../../testing";
-import { createFilesFeature } from "../feature";
-import { fileRefsTable } from "../file-ref-table";
-import type { FileRoutesOptions } from "../file-routes";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider";
-import { createLocalProvider } from "../local-provider";
-import type { FileStorageProvider, SignedUrlOptions } from "../types";
+} from "../../testing/index.js";
+import { createFilesFeature } from "../feature.js";
+import { fileRefsTable } from "../file-ref-table.js";
+import type { FileRoutesOptions } from "../file-routes.js";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../in-memory-provider.js";
+import { createLocalProvider } from "../local-provider.js";
+import type { FileStorageProvider, SignedUrlOptions } from "../types.js";
 import {
   parseMaxSize,
   resolveUploadMimeType,
   sniffMimeType,
   validateFile,
   validateFileContent,
-} from "../types";
+} from "../types.js";
 
 // UUID for "this row doesn't exist" assertions. Valid v4 format so PG accepts
 // the query — the row just isn't there. Pre-v1 files-feature tests used

@@ -18,7 +18,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse";
+import { parseSourceFile } from "../parse.js";
 
 const CANONICAL_FEATURE = `
 // kumiko-feature-version: 1

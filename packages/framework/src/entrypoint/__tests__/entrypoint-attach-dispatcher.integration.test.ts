@@ -11,15 +11,15 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
-import { createRegistry, defineFeature } from "../../engine";
-import { createArchivedStreamsTable } from "../../event-store";
-import { createJobRunner } from "../../jobs/job-runner";
-import { createEventConsumerStateTable } from "../../pipeline";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { waitFor } from "../../testing";
-import { createWorkerEntrypoint } from "../index";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import { createArchivedStreamsTable } from "../../event-store/index.js";
+import { createJobRunner } from "../../jobs/job-runner.js";
+import { createEventConsumerStateTable } from "../../pipeline/index.js";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { createWorkerEntrypoint } from "../index.js";
 
 const writeProbeResults: Array<{ isSuccess: boolean }> = [];
 const writeProbeFailures: string[] = [];

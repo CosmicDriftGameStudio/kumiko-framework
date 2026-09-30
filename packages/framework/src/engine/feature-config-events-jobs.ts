@@ -1,10 +1,10 @@
 import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
 import type * as z from "zod";
 import { ZodObject, type ZodType } from "zod";
-import type { FeatureBuilderState } from "./feature-builder-state";
-import { resolveName } from "./handler-helpers";
-import { splitNamedDefinition, unwrapArrayForm } from "./object-form";
-import { QnTypes, qn, toKebab } from "./qualified-name";
+import type { FeatureBuilderState } from "./feature-builder-state.js";
+import { resolveName } from "./handler-helpers.js";
+import { splitNamedDefinition, unwrapArrayForm } from "./object-form.js";
+import { QnTypes, qn, toKebab } from "./qualified-name.js";
 import type {
   AuthClaimsFn,
   ClaimKeyHandle,
@@ -29,7 +29,7 @@ import type {
   SecretKeyHandle,
   SecretOptions,
   TranslationsDef,
-} from "./types";
+} from "./types/index.js";
 
 // A payload field that still holds null/undefined after parsing — the case
 // where an event-PII owner field yields no subject at append time (fw#2776).

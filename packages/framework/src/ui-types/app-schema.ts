@@ -7,11 +7,11 @@
 // web), Runtime-Helpers (toAppSchema, isAppSchema) bleiben renderer-side
 // weil das die Layer ist die mit den AppSchemas zur Laufzeit arbeitet.
 
-import type { TranslationKeys } from "../engine/types/config";
-import type { EntityDefinition } from "../engine/types/fields";
-import type { ContentCollectionDefinition, NavDefinition } from "../engine/types/nav";
-import type { ScreenDefinition } from "../engine/types/screen";
-import type { WorkspaceDefinition } from "../engine/types/workspace";
+import type { TranslationKeys } from "../engine/types/config.js";
+import type { EntityDefinition } from "../engine/types/fields.js";
+import type { ContentCollectionDefinition, NavDefinition } from "../engine/types/nav.js";
+import type { ScreenDefinition } from "../engine/types/screen.js";
+import type { WorkspaceDefinition } from "../engine/types/workspace.js";
 
 export type FeatureSchema = {
   readonly featureName: string;

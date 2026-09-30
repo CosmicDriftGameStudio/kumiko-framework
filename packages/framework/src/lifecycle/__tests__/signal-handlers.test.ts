@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
-import { waitFor } from "../../testing";
-import { createLifecycle } from "../lifecycle";
-import { attachSignalHandlers } from "../signal-handlers";
-import { createTestLifecycle } from "./create-test-lifecycle";
+import { waitFor } from "../../testing/index.js";
+import { createLifecycle } from "../lifecycle.js";
+import { attachSignalHandlers } from "../signal-handlers.js";
+import { createTestLifecycle } from "./create-test-lifecycle.js";
 
 describe("attachSignalHandlers", () => {
   test("SIGTERM triggers drain and calls exit(0)", async () => {

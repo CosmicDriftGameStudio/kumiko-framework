@@ -14,7 +14,7 @@ import {
   ValidationError,
   VersionConflictError,
   validationErrorFromZod,
-} from "../index";
+} from "../index.js";
 
 describe("KumikoError: abstract base", () => {
   test("sets i18nKey, details, name from subclass, and preserves cause chain", () => {

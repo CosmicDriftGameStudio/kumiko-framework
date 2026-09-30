@@ -3,10 +3,10 @@
 // postgres-js = default. DB_PROVIDER=bun = Bun.SQL (experimentell).
 
 import type { DbConnection } from "@cosmicdrift/kumiko-types/db-connection";
-import { createConnection } from "../db/api";
-import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack";
-import { ensureTemporalPolyfill } from "../time/polyfill";
-import { generateId } from "../utils";
+import { createConnection } from "../db/api.js";
+import { createDatabase, databaseExists, dropDatabaseIfExists } from "../db/queries/test-stack.js";
+import { ensureTemporalPolyfill } from "../time/polyfill.js";
+import { generateId } from "../utils/index.js";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -58,7 +58,7 @@ export async function createTestDb(arg?: string | CreateTestDbOptions): Promise<
   const testUrl = url.replace(/\/[^/]+$/, `/${dbName}`);
   const conn = await createConnection(testUrl);
 
-  const { createEventsTable } = await import("../event-store");
+  const { createEventsTable } = await import("../event-store/index.js");
   await createEventsTable(conn.db);
 
   return {

@@ -4,7 +4,7 @@ import {
   type KmsWiringEnv,
   requireKmsWiring,
   resolveKmsWiring,
-} from "../kms-wiring";
+} from "../kms-wiring.js";
 
 // 32 raw bytes -> base64, the shape PgKmsAdapter's decodePlatformKek demands.
 const KEK_A = Buffer.alloc(32, 1).toString("base64");

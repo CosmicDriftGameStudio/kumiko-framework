@@ -8,11 +8,11 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import {
   createTestUser,
   resetEventStore,
@@ -20,7 +20,7 @@ import {
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 // --- Two aggregate types that feed one MSP ---
 

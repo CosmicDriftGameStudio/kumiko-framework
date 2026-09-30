@@ -1,10 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { Temporal } from "temporal-polyfill";
-import { createSystemUser } from "../../engine";
-import type { RateLimitConfig, RateLimitDecision, RateLimitResolver } from "../../rate-limit";
-import { createTestUser, testTenantId } from "../../stack";
-import type { DispatchContext } from "../dispatch-shared";
-import { enforceRateLimit } from "../dispatch-shared";
+import { createSystemUser } from "../../engine/index.js";
+import type {
+  RateLimitConfig,
+  RateLimitDecision,
+  RateLimitResolver,
+} from "../../rate-limit/index.js";
+import { createTestUser, testTenantId } from "../../stack/index.js";
+import type { DispatchContext } from "../dispatch-shared.js";
+import { enforceRateLimit } from "../dispatch-shared.js";
 
 const TENANT = testTenantId(9001);
 

@@ -23,7 +23,7 @@
 // `findUnknownEntityFieldTypes` helper (kept in sync with `extractEntity`).
 
 import * as z from "zod";
-import { type LifecycleHookType, LifecycleHookTypes } from "../constants";
+import { type LifecycleHookType, LifecycleHookTypes } from "../constants.js";
 import type {
   ConfigKeyDefinition,
   ConfigKeyType,
@@ -31,30 +31,30 @@ import type {
   ReferenceDataDef,
   RunIn,
   TranslationKeys,
-} from "../types/config";
-import type { MetricOptions, SecretOptions } from "../types/feature";
-import type { EntityDefinition } from "../types/fields";
-import type { AgentRisk, ClaimKeyType, RateLimitPer } from "../types/handlers";
-import type { HookPhase } from "../types/hooks";
-import type { HttpRouteMethod } from "../types/http-route";
-import type { NavDefinition } from "../types/nav";
-import type { RelationDefinition } from "../types/relations";
-import type { ScreenDefinition } from "../types/screen";
-import type { TreeActionDef } from "../types/tree-node";
-import type { WorkspaceDefinition } from "../types/workspace";
-import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "./entity-field-types";
-import { AGENT_RISK_VALUES } from "./extractors/handlers";
-import { isPlainObject, isRawRefSentinel } from "./extractors/shared";
+} from "../types/config.js";
+import type { MetricOptions, SecretOptions } from "../types/feature.js";
+import type { EntityDefinition } from "../types/fields.js";
+import type { AgentRisk, ClaimKeyType, RateLimitPer } from "../types/handlers.js";
+import type { HookPhase } from "../types/hooks.js";
+import type { HttpRouteMethod } from "../types/http-route.js";
+import type { NavDefinition } from "../types/nav.js";
+import type { RelationDefinition } from "../types/relations.js";
+import type { ScreenDefinition } from "../types/screen.js";
+import type { TreeActionDef } from "../types/tree-node.js";
+import type { WorkspaceDefinition } from "../types/workspace.js";
+import { describeUnknownFieldType, findUnknownEntityFieldTypes } from "./entity-field-types.js";
+import { AGENT_RISK_VALUES } from "./extractors/handlers.js";
+import { isPlainObject, isRawRefSentinel } from "./extractors/shared.js";
 import type {
   PatternChange,
   PatternId,
   QueryHandlerHeaderKey,
   StreamHandlerHeaderKey,
   WriteHandlerHeaderKey,
-} from "./patch";
-import { SYNTHETIC_LOC } from "./patcher";
-import type { FeaturePatternKind } from "./patterns";
-import type { SourceLocation, SourcePosition } from "./source-location";
+} from "./patch.js";
+import { SYNTHETIC_LOC } from "./patcher.js";
+import type { FeaturePatternKind } from "./patterns.js";
+import type { SourceLocation, SourcePosition } from "./source-location.js";
 
 // Derives an exhaustive literal-value array from a `Record<T, true>` flag
 // map: an added/removed union member fails to compile here instead of

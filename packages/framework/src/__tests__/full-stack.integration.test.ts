@@ -1,19 +1,24 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../db/event-store-executor";
-import { selectMany } from "../db/query";
-import { defineFeature, type EntityId, type HandlerContext, type SaveContext } from "../engine";
-import { UnprocessableError, writeFailure } from "../errors";
-import { eventsTable } from "../event-store";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { selectMany } from "../db/query.js";
+import {
+  defineFeature,
+  type EntityId,
+  type HandlerContext,
+  type SaveContext,
+} from "../engine/index.js";
+import { UnprocessableError, writeFailure } from "../errors/index.js";
+import { eventsTable } from "../event-store/index.js";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../stack";
-import { expectErrorIncludes, sharedUserEntity, sharedUserTable } from "../testing";
+} from "../stack/index.js";
+import { expectErrorIncludes, sharedUserEntity, sharedUserTable } from "../testing/index.js";
 
 // --- Entities ---
 
@@ -30,10 +35,10 @@ function userExecutor(ctx: { searchAdapter?: unknown; entityCache?: unknown }) {
   return createEventStoreExecutor(userTable, userEntity, {
     entityName: "user",
     ...(ctx.searchAdapter
-      ? { searchAdapter: ctx.searchAdapter as import("../search").SearchAdapter }
+      ? { searchAdapter: ctx.searchAdapter as import("../search/index.js").SearchAdapter }
       : {}),
     ...(ctx.entityCache
-      ? { entityCache: ctx.entityCache as import("../pipeline/entity-cache").EntityCache }
+      ? { entityCache: ctx.entityCache as import("../pipeline/entity-cache.js").EntityCache }
       : {}),
   });
 }

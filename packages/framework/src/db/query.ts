@@ -32,4 +32,4 @@ export {
   type WhereObject,
   type WhereOperator,
   type WhereValue,
-} from "../bun-db/query";
+} from "../bun-db/query.js";

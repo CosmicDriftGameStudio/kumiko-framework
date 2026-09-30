@@ -1,8 +1,12 @@
-import type { DbTx } from "../db/connection";
-import { extractPgError } from "../db/pg-error";
-import { asRawClient, runInSavepoint, transaction } from "../db/query";
-import { AccessDeniedError, InternalError, memberResolutionReadOnlyDenied } from "../errors";
-import { type DispatchContext, resolveDbSource } from "./dispatch-shared";
+import type { DbTx } from "../db/connection.js";
+import { extractPgError } from "../db/pg-error.js";
+import { asRawClient, runInSavepoint, transaction } from "../db/query.js";
+import {
+  AccessDeniedError,
+  InternalError,
+  memberResolutionReadOnlyDenied,
+} from "../errors/index.js";
+import { type DispatchContext, resolveDbSource } from "./dispatch-shared.js";
 
 const PG_READ_ONLY_SQLSTATE = "25006";
 

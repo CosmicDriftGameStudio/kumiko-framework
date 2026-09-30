@@ -8,18 +8,23 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import type { AnonymousAccessConfig } from "../api/auth-middleware";
-import { createEventStoreExecutor } from "../db/event-store-executor";
-import { asRawClient, selectMany } from "../db/query";
-import { buildEntityTable } from "../db/table-builder";
+import type { AnonymousAccessConfig } from "../api/auth-middleware.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../db/query.js";
+import { buildEntityTable } from "../db/table-builder.js";
 import {
   ANONYMOUS_USER_ID,
   createEntity,
   createTextField,
   defineFeature,
   type TenantId,
-} from "../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
+} from "../engine/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../stack/index.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const OTHER_TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;

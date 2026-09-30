@@ -1,4 +1,8 @@
-import { buildInvalidTransitionDetails, FrameworkReasons, UnprocessableError } from "../errors";
+import {
+  buildInvalidTransitionDetails,
+  FrameworkReasons,
+  UnprocessableError,
+} from "../errors/index.js";
 
 /**
  * Type-safe transition graph. Wraps the underlying Map so callers don't

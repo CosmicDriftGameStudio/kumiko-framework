@@ -10,24 +10,24 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeRebuildMarker } from "../db";
-import { integer, table as pgTable, uuid } from "../db/dialect";
-import { createEventStoreExecutor } from "../db/event-store-executor";
-import { asRawClient, selectMany } from "../db/query";
-import { buildEntityTable } from "../db/table-builder";
-import { createTenantDb, type TenantDb } from "../db/tenant-db";
-import { createEntity, createTextField, defineApply, defineFeature } from "../engine";
-import type { ProjectionDefinition } from "../engine/types";
-import { createProjectionStateTable } from "../pipeline";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
+import { integer, table as pgTable, uuid } from "../db/dialect.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { writeRebuildMarker } from "../db/index.js";
+import { asRawClient, selectMany } from "../db/query.js";
+import { buildEntityTable } from "../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../db/tenant-db.js";
+import { createEntity, createTextField, defineApply, defineFeature } from "../engine/index.js";
+import type { ProjectionDefinition } from "../engine/types/index.js";
+import { createProjectionStateTable } from "../pipeline/index.js";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../stack";
-import { ensureTemporalPolyfill } from "../time/polyfill";
+} from "../stack/index.js";
+import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 const itemEntity = createEntity({
   table: "read_apply_items",

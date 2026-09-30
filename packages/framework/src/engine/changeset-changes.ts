@@ -1,4 +1,4 @@
-import { type ChangelogType, validateChangelog } from "./feature-changelog";
+import { type ChangelogType, validateChangelog } from "./feature-changelog.js";
 
 export type PendingChange = {
   readonly feature: string;

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories";
-import { combineClauses, from } from "../../engine/ownership";
-import type { EntityDefinition, SessionUser } from "../../engine/types";
-import { buildParentRefClause } from "../parent-ref-clause";
-import { buildEntityTable } from "../table-builder";
-import type { TenantDb } from "../tenant-db";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import { combineClauses, from } from "../../engine/ownership.js";
+import type { EntityDefinition, SessionUser } from "../../engine/types/index.js";
+import { buildParentRefClause } from "../parent-ref-clause.js";
+import { buildEntityTable } from "../table-builder.js";
+import type { TenantDb } from "../tenant-db.js";
 
 const TENANT = "11111111-1111-4111-8111-111111111111";
 

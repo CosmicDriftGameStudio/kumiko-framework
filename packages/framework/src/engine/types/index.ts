@@ -382,13 +382,13 @@ export type {
   ConfigScope,
   LifecycleHookType,
   OnDeleteStrategy,
-} from "../constants";
-export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, isFileField } from "../field-helpers";
-export { resolveName, withResponseData } from "../handler-helpers";
-export { HookPhases } from "../hook-helpers";
+} from "../constants.js";
+export { DEFAULT_CURRENCIES, DEFAULT_LOCALES, isFileField } from "../field-helpers.js";
+export { resolveName, withResponseData } from "../handler-helpers.js";
+export { HookPhases } from "../hook-helpers.js";
 export {
   isExtensionEditSection,
   isFormatSpec,
   normalizeEditField,
   normalizeListColumn,
-} from "../screen-helpers";
+} from "../screen-helpers.js";

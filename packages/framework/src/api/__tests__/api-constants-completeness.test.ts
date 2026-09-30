@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { NON_PUBLIC_API_PATHS, PUBLIC_API_PATHS, Routes } from "../api-constants";
+import { NON_PUBLIC_API_PATHS, PUBLIC_API_PATHS, Routes } from "../api-constants.js";
 
 // PUBLIC_API_PATHS is an allowlist: a missing entry (typo, forgotten route)
 // fails CLOSED — the route stays behind auth, never accidentally public.

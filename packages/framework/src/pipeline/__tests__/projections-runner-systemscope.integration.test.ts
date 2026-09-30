@@ -7,21 +7,21 @@ import {
   table as pgTable,
   text as pgText,
   uuid as pgUuid,
-} from "../../db/dialect";
-import { insertOne, selectMany } from "../../db/query";
+} from "../../db/dialect.js";
+import { insertOne, selectMany } from "../../db/query.js";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../../engine";
+} from "../../engine/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 const sysItemEntity = createEntity({
   table: "read_sysproj_items",

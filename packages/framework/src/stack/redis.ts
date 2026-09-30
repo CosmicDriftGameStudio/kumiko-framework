@@ -1,8 +1,8 @@
-import { generateId } from "../utils";
-import { requireEnv } from "./db";
+import { generateId } from "../utils/index.js";
+import { requireEnv } from "./db.js";
 
 export type TestRedis = {
-  redis: import("ioredis").default;
+  redis: import("ioredis").Redis;
   // The exact REDIS_URL used to build `redis` above — for a second, unrelated
   // connection (e.g. the test-stack's JobRunner) that needs its own client
   // rather than sharing this one's keyPrefix. Reconstructing a URL from
@@ -19,7 +19,7 @@ export type TestRedis = {
 };
 
 export async function createTestRedis(): Promise<TestRedis> {
-  const Redis = (await import("ioredis")).default;
+  const Redis = (await import("ioredis")).Redis;
   const redisUrl = requireEnv("REDIS_URL");
   // Every test gets a per-file key prefix on a shared DB (no DB-pool-of-15
   // round-robin). Collisions at birthday-paradox rates are gone — the

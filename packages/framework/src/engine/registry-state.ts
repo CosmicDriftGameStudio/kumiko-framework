@@ -1,8 +1,8 @@
-import { applyEntityEvent } from "../db/apply-entity-event";
-import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-table-meta";
-import { asEntityTableMeta } from "../db/query";
-import { buildEntityTable } from "../db/table-builder";
-import { type QnType, qualifyEntityName } from "./qualified-name";
+import { applyEntityEvent } from "../db/apply-entity-event.js";
+import { assertBackingTableSuperset, deriveEntityTableMeta } from "../db/entity-table-meta.js";
+import { asEntityTableMeta } from "../db/query.js";
+import { buildEntityTable } from "../db/table-builder.js";
+import { type QnType, qualifyEntityName } from "./qualified-name.js";
 import type {
   AuthClaimsHookDef,
   ClaimKeyDefinition,
@@ -42,7 +42,7 @@ import type {
   TreeActionDef,
   WorkspaceDefinition,
   WriteHandlerDef,
-} from "./types";
+} from "./types/index.js";
 
 export type IncomingRelation = {
   sourceEntity: string;

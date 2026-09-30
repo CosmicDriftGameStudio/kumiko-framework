@@ -14,8 +14,13 @@ import {
   defineEntityCreateHandler,
   defineEntityListHandler,
   defineFeature,
-} from "../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
+} from "../engine/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../stack/index.js";
 
 const itemEntity = createEntity({
   table: "akte_items",

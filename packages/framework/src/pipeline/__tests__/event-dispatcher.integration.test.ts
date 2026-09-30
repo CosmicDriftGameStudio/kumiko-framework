@@ -14,13 +14,17 @@
 // calls in the test — only the registry round-trip.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { integer, table as pgTable, uuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { selectMany } from "../../db/query";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature, type FeatureDefinition } from "../../engine";
-import type { StoredEvent } from "../../event-store";
-import { eventConsumerStateTable, getAllConsumerProgress, getConsumerState } from "../../pipeline";
+import { integer, table as pgTable, uuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { selectMany } from "../../db/query.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature, type FeatureDefinition } from "../../engine/index.js";
+import type { StoredEvent } from "../../event-store/index.js";
+import {
+  eventConsumerStateTable,
+  getAllConsumerProgress,
+  getConsumerState,
+} from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
@@ -28,8 +32,8 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
 
 // --- Test fixtures ---
 

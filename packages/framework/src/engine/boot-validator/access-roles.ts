@@ -1,5 +1,5 @@
-import { normalizeAccessEntry } from "../ownership";
-import type { FeatureDefinition } from "../types";
+import { normalizeAccessEntry } from "../ownership.js";
+import type { FeatureDefinition } from "../types/index.js";
 
 const BUILTIN_ROLES = new Set(["all", "system"]);
 

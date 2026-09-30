@@ -4,14 +4,28 @@
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetBlindIndexKeyForTests } from "@cosmicdrift/kumiko-framework/testing";
-import { computeBlindIndex, configureBlindIndexKey, decodeBlindIndexKey } from "../../crypto";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import {
+  computeBlindIndex,
+  configureBlindIndexKey,
+  decodeBlindIndexKey,
+} from "../../crypto/index.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
+import {
+  createTestDb,
+  type TestDb,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 const TEST_KEY_B64 = Buffer.alloc(32, 9).toString("base64");
 const TEST_KEY = decodeBlindIndexKey(TEST_KEY_B64);

@@ -3,7 +3,7 @@
 // render as a valid Retry-After delta-seconds header.
 
 import { describe, expect, test } from "bun:test";
-import { ExtraRouteRejection } from "../extra-route";
+import { ExtraRouteRejection } from "../extra-route.js";
 
 describe("ExtraRouteRejection retryAfterSeconds invariants", () => {
   test("retryAfterSeconds with a non-503 status throws RangeError", () => {

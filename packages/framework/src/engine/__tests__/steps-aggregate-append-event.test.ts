@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { getStep } from "../define-step";
-import { buildAggregateAppendEventStep } from "../steps/aggregate-append-event";
-import type { PipelineCtx } from "../types/step";
+import { getStep } from "../define-step.js";
+import { buildAggregateAppendEventStep } from "../steps/aggregate-append-event.js";
+import type { PipelineCtx } from "../types/step.js";
 
 const mockUnsafeAppendEvent = mock();
 

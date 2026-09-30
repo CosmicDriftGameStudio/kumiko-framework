@@ -2,21 +2,21 @@ import type { CursorResult } from "@cosmicdrift/kumiko-types/cursor-types";
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type * as z from "zod";
 import type { ZodType } from "zod";
-import type { ContainsSecret } from "../secrets/types";
-import { runPipeline } from "./run-pipeline";
-import type { HandlerContext, KumikoEventTypeMap, WriteEvent, WriteResult } from "./types";
+import type { ContainsSecret } from "../secrets/types.js";
+import { runPipeline } from "./run-pipeline.js";
 import type {
   QueryHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
-} from "./types/define-handler";
+} from "./types/define-handler.js";
+import type { HandlerContext, KumikoEventTypeMap, WriteEvent, WriteResult } from "./types/index.js";
 
 export type {
   QueryHandlerDefinition,
   StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
-} from "./types/define-handler";
+} from "./types/define-handler.js";
 
 export function defineWriteHandler<
   const TName extends string,

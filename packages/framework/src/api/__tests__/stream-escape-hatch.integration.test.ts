@@ -7,10 +7,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import * as z from "zod";
-import { generateToken } from "../../api/tokens";
-import { createSystemUser, defineFeature } from "../../engine";
-import type { SessionUser } from "../../engine/types";
-import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { generateToken } from "../../api/tokens.js";
+import { createSystemUser, defineFeature } from "../../engine/index.js";
+import type { SessionUser } from "../../engine/types/index.js";
+import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
 const user = TestUsers.user;
 const otherUserNoRole: SessionUser = createTestUser({

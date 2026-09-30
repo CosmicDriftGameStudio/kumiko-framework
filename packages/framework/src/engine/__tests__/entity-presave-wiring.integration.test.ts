@@ -4,11 +4,16 @@
 // HTTP dispatcher (not a hand-fed handler context) so the fix is proven at
 // the layer app authors actually depend on.
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
-import { from } from "../ownership";
+import { asRawClient } from "../../db/query.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../factories.js";
+import { from } from "../ownership.js";
 
 const contactEntity = createEntity({
   table: "presave_wiring_contacts",
@@ -31,7 +36,7 @@ const contactEntity = createEntity({
 
 const seenIsNew: boolean[] = [];
 
-const deriveDisplayName: import("../types").PreSaveHookFn = async (changes, ctx) => {
+const deriveDisplayName: import("../types/index.js").PreSaveHookFn = async (changes, ctx) => {
   seenIsNew.push(ctx.isNew);
   const first =
     (changes["firstName"] as string | undefined) ??
@@ -41,13 +46,13 @@ const deriveDisplayName: import("../types").PreSaveHookFn = async (changes, ctx)
   return { ...changes, displayName: `${first ?? ""} ${last ?? ""}`.trim() };
 };
 
-const deriveAuthorId: import("../types").PreSaveHookFn = async (changes) => ({
+const deriveAuthorId: import("../types/index.js").PreSaveHookFn = async (changes) => ({
   ...changes,
   authorId: TestUsers.user.id,
 });
 
 const THROWING_HOOK_MESSAGE = "business rule violated";
-const throwOnPreSave: import("../types").PreSaveHookFn = async () => {
+const throwOnPreSave: import("../types/index.js").PreSaveHookFn = async () => {
   throw new Error(THROWING_HOOK_MESSAGE);
 };
 

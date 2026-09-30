@@ -9,15 +9,15 @@
 //   - warnIfNonUtcServerTimeZone: Boot-Warnung bei nicht-UTC Prozess-TZ
 //   - GeoTzProvider: optionaler Geo→Zone-Adapter (ctx.tz.fromCoordinates/fromAddress)
 
-export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning";
-export type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz";
-export { isValidIanaTimeZone } from "./iana";
-export { instantToLegacyDate, legacyDateToInstant } from "./legacy-date";
-export { ensureTemporalPolyfill, getTemporal } from "./polyfill";
+export { warnIfNonUtcServerTimeZone } from "./boot-tz-warning.js";
+export type { GeoAddress, GeoCoordinates, GeoTzProvider } from "./geo-tz.js";
+export { isValidIanaTimeZone } from "./iana.js";
+export { instantToLegacyDate, legacyDateToInstant } from "./legacy-date.js";
+export { ensureTemporalPolyfill, getTemporal } from "./polyfill.js";
 export {
   createTzContext,
   createTzContextAsync,
   type LocatedTimestampJson,
   type TzContext,
   type TzContextOptions,
-} from "./tz-context";
+} from "./tz-context.js";

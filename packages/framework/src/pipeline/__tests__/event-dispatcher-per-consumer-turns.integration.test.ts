@@ -2,23 +2,23 @@
 // not hold back delivery to the other consumers.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
 import {
   createEventDispatcher,
   type EventConsumer,
   type EventDispatcher,
   getConsumerState,
-} from "../../pipeline";
+} from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

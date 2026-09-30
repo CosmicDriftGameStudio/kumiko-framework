@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine/factories";
-import type { TenantId } from "../../engine/types/identifiers";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
 import {
   collectPiiSubjectFields,
   resolveEventSubject,
   resolveSubjectForField,
   SubjectResolutionError,
-} from "../subject-resolver";
+} from "../subject-resolver.js";
 
 const userLikeEntity = createEntity({
   fields: {

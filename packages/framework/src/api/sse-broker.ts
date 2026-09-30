@@ -1,5 +1,5 @@
-import { userAccessChannel } from "../engine/constants";
-import { generateId } from "../utils";
+import { userAccessChannel } from "../engine/constants.js";
+import { generateId } from "../utils/index.js";
 
 export type SseClient = {
   id: string;

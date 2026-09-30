@@ -1,5 +1,5 @@
 // sql now comes from native dialect
-import type { DbConnection } from "../db/connection";
+import type { DbConnection } from "../db/connection.js";
 import {
   bigint,
   index,
@@ -10,11 +10,11 @@ import {
   primaryKey,
   sql,
   text,
-} from "../db/dialect";
-import { alterTableAddColumn } from "../db/queries/ddl";
-import { deleteOrphanedPerInstanceConsumerRows } from "../db/queries/event-consumer";
-import { tableExists } from "../db/schema-inspection";
-import { unsafePushTables } from "../stack";
+} from "../db/dialect.js";
+import { alterTableAddColumn } from "../db/queries/ddl.js";
+import { deleteOrphanedPerInstanceConsumerRows } from "../db/queries/event-consumer.js";
+import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../stack/index.js";
 
 // Reserved sentinel used in the instance_id column for consumers whose
 // delivery is "shared" — i.e. one cursor across all dispatcher instances

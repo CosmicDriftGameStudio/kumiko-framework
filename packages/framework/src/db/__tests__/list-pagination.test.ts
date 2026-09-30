@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { UnprocessableError } from "../../errors";
-import { resolveListPagination } from "../event-store-executor-read";
+import { UnprocessableError } from "../../errors/index.js";
+import { resolveListPagination } from "../event-store-executor-read.js";
 
 describe("resolveListPagination — executor-level guard", () => {
   test("defaults: limit 50, offset 0", () => {

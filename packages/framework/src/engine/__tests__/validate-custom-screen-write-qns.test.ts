@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validateAppCustomScreenWriteQns } from "../boot-validator/custom-screen-write-qns";
+import { validateAppCustomScreenWriteQns } from "../boot-validator/custom-screen-write-qns.js";
 
 describe("validateAppCustomScreenWriteQns", () => {
   test("throws on unknown dispatcher.write QN in app src", () => {

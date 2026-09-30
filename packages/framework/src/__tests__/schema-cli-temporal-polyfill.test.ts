@@ -2,8 +2,8 @@ import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
-import * as timeModule from "../time";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
+import * as timeModule from "../time/index.js";
 
 function captureOut(): { out: SchemaCliOut; log: string[]; err: string[] } {
   const log: string[] = [];

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { migrateCrossTenantSource } from "../scripts/codemod/migrate-cross-tenant";
+import { migrateCrossTenantSource } from "../scripts/codemod/migrate-cross-tenant.js";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-cross-tenant");
 const PLACEHOLDER_PREFIXES = ["todo:", "fixme:", "tbd:"];

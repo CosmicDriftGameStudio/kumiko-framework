@@ -9,8 +9,8 @@
 // searchable / filterable. Type-level enforcement statt soft-defaults.
 
 import { describe, expect, expectTypeOf, test } from "bun:test";
-import { createLongTextField } from "../factories";
-import type { LongTextFieldDef } from "../types";
+import { createLongTextField } from "../factories.js";
+import type { LongTextFieldDef } from "../types/index.js";
 
 // =============================================================================
 // Runtime shape

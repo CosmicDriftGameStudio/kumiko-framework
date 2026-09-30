@@ -8,15 +8,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { getFlag, getStringFlag, parseArgs } from "./arg-parser";
+import { getFlag, getStringFlag, parseArgs } from "./arg-parser.js";
 import {
   type ChangelogEntry,
   compareVersions,
   filterEntriesAfter,
   parseFeatureChangelog,
   sortEntries,
-} from "./engine";
-import { ensureTemporalPolyfill } from "./time";
+} from "./engine/index.js";
+import { ensureTemporalPolyfill } from "./time/index.js";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 const CODEMOD_SUBDIR = "scripts/codemod";

@@ -1,22 +1,26 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { InMemoryKmsAdapter, PII_CIPHERTEXT_PREFIX, PII_ERASED_SENTINEL } from "../../crypto";
-import { asRawClient } from "../../db/query";
-import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { append, loadEventsAfterVersion } from "../../event-store";
-import type { EntityCache } from "../../pipeline/entity-cache";
+import {
+  InMemoryKmsAdapter,
+  PII_CIPHERTEXT_PREFIX,
+  PII_ERASED_SENTINEL,
+} from "../../crypto/index.js";
+import { asRawClient } from "../../db/query.js";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
+import { append, loadEventsAfterVersion } from "../../event-store/index.js";
+import type { EntityCache } from "../../pipeline/entity-cache.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { createTestEnvelopeCipher } from "../../testing";
-import { applyEntityEvent } from "../apply-entity-event";
-import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+} from "../../stack/index.js";
+import { createTestEnvelopeCipher } from "../../testing/index.js";
+import { applyEntityEvent } from "../apply-entity-event.js";
+import { resetEntityFieldEncryptionCacheForTests } from "../entity-field-encryption.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const entity = createEntity({
   table: "read_es_exec_users",

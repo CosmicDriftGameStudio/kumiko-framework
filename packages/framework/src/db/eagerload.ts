@@ -23,18 +23,26 @@
 // keine framework-engine-Internals und kann auch von custom
 // query-handlern manuell aufgerufen werden.
 
-import { requestContext } from "../api/request-context";
-import { collectPiiSubjectFields, configuredPiiSubjectKms, decryptPiiFieldValues } from "../crypto";
-import { selectMany } from "../db/query";
-import { parseRefTargetEntityName } from "../engine/parse-ref-target";
-import type { EntityDefinition, FieldDefinition, ReferenceFieldDef } from "../engine/types";
+import { requestContext } from "../api/request-context.js";
+import {
+  collectPiiSubjectFields,
+  configuredPiiSubjectKms,
+  decryptPiiFieldValues,
+} from "../crypto/index.js";
+import { selectMany } from "../db/query.js";
+import { parseRefTargetEntityName } from "../engine/parse-ref-target.js";
+import type {
+  EntityDefinition,
+  FieldDefinition,
+  ReferenceFieldDef,
+} from "../engine/types/index.js";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   resolveEntityFieldEncryption,
-} from "./entity-field-encryption";
-import { buildEntityTable } from "./table-builder";
-import type { TenantDb } from "./tenant-db";
+} from "./entity-field-encryption.js";
+import { buildEntityTable } from "./table-builder.js";
+import type { TenantDb } from "./tenant-db.js";
 
 // Minimaler Registry-Lookup-Contract: pro entity-name → EntityDefinition.
 // Wir importieren NICHT den ganzen Registry-Type weil das einen

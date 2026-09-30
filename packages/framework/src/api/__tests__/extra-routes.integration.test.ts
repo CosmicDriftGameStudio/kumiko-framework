@@ -5,9 +5,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import * as z from "zod";
-import { createRegistry, defineFeature, type TenantId } from "../../engine";
-import { RateLimitError } from "../../errors";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { createRegistry, defineFeature, type TenantId } from "../../engine/index.js";
+import { RateLimitError } from "../../errors/index.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 import {
   type AnonymousExtraRoute,
   type ExtraRouteDefinition,
@@ -15,8 +15,8 @@ import {
   type SignatureExtraRoute,
   signatureRoute,
   type UserExtraRoute,
-} from "../extra-route";
-import { buildServer } from "../server";
+} from "../extra-route.js";
+import { buildServer } from "../server.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const JWT_SECRET = "test-extra-routes-secret-32-chars-min!!";
