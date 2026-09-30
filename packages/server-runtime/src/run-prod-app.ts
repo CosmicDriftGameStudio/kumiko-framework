@@ -149,6 +149,7 @@ import Redis from "ioredis";
 import { applyBootSeeds } from "./boot/apply-boot-seeds";
 import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
+import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
@@ -1301,6 +1302,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
 
   await entrypoint.start();
+  startPiiEventBackfillOnBoot({
+    db,
+    registry,
+    lifecycle: entrypoint.lifecycle,
+    envSource,
+  });
 
   // 11. Build the fetch-handler. Static-fallback for non-/api/ paths
   //     wired via a wrapper so Hono owns /api/* + extraRoutes and disk

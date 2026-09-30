@@ -1,8 +1,12 @@
 export {
   backfillEventPiiEncryption,
+  backfillEventPiiEncryptionBatch,
+  type PiiBackfillBatchOptions,
+  type PiiBackfillBatchResult,
   type PiiBackfillFailure,
   type PiiBackfillOptions,
   type PiiBackfillResult,
+  type PiiBackfillScanCache,
 } from "../db/queries/backfill-pii";
 export {
   type ArchiveStreamArgs,

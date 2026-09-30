@@ -60,6 +60,7 @@ import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import Redis from "ioredis";
 import { resolveBootCrypto } from "./boot/boot-crypto";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger";
+import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot";
 import { composeFeatures } from "./compose-features";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps";
 import { assertPiiBootInvariants } from "./pii-boot-gate";
@@ -320,6 +321,12 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   };
 
   await entrypoint.start();
+  startPiiEventBackfillOnBoot({
+    db,
+    registry,
+    lifecycle: entrypoint.lifecycle,
+    envSource,
+  });
 
   if (options.wireComponents) {
     await options.wireComponents({
