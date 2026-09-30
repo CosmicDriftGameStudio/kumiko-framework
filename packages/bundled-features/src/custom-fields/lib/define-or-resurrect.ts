@@ -1,5 +1,5 @@
-import { fieldDefinitionExecutor } from "../executor";
-import type { FieldDefinitionColumns } from "./field-definition-row";
+import { fieldDefinitionExecutor } from "../executor.js";
+import type { FieldDefinitionColumns } from "./field-definition-row.js";
 
 type DefineUser = Parameters<typeof fieldDefinitionExecutor.create>[1];
 type DefineDb = Parameters<typeof fieldDefinitionExecutor.create>[2];

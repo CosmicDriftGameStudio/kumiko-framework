@@ -3,7 +3,7 @@ import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemDbView } from "@cosmicdrift/kumiko-framework/db";
 import type { HandlerContext, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { requireSystemDb } from "../feature";
+import { requireSystemDb } from "../feature.js";
 
 // Minimal TenantDb stub — only .tenantId is read by assertTenantMatch /
 // createSystemDbView; the real db-query methods are never called by

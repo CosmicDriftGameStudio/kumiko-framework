@@ -10,7 +10,7 @@ import {
   SESSION_MINE_SCREEN_ID,
   SessionHandlers,
   SessionQueries,
-} from "./constants";
+} from "./constants.js";
 
 const listAccess = { roles: access.admin };
 

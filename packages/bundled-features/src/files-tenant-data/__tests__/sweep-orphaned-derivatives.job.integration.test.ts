@@ -29,14 +29,14 @@ import {
   createTestEnvelopeCipher,
   resetTestTables,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createFilesFeature } from "../../files";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { sweepOrphanedDerivativesJob } from "../handlers/sweep-orphaned-derivatives.job";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createFilesFeature } from "../../files/index.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { sweepOrphanedDerivativesJob } from "../handlers/sweep-orphaned-derivatives.job.js";
 
 const fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, {
   entityName: "fileRef",

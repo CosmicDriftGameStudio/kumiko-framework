@@ -44,8 +44,8 @@ import {
   type ChunkedMigrationStopReason,
   classifyStoredEnvelope,
   runChunkedMigration,
-} from "../../shared";
-import { configValueEntity, configValuesTable } from "../table";
+} from "../../shared/index.js";
+import { configValueEntity, configValuesTable } from "../table.js";
 
 const DEFAULT_MAX_FAILURES = 10;
 const SCAN_SLICE_SIZE = 100;

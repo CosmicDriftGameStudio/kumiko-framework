@@ -10,9 +10,9 @@ import {
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
-import { JobErrors } from "../constants";
-import { jobRunsTable } from "../job-run-table";
+import { decryptStoredPii } from "../../shared/index.js";
+import { JobErrors } from "../constants.js";
+import { jobRunsTable } from "../job-run-table.js";
 
 type JobRunRow = {
   readonly status: string;

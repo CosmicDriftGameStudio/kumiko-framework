@@ -7,9 +7,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import type { TemplateResourceRow } from "../table";
-import { templateResourcesTable } from "../table";
-import { executor, upsertPayloadSchema } from "./shared";
+import type { TemplateResourceRow } from "../table.js";
+import { templateResourcesTable } from "../table.js";
+import { executor, upsertPayloadSchema } from "./shared.js";
 
 // Tenant-Override anlegen/updaten. Liegt unter event.user.tenantId,
 // scope='tenant'. Default-Status='draft' — User publisht explizit

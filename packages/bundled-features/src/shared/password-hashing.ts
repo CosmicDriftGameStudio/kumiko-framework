@@ -1,5 +1,5 @@
 import { hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
-import { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash";
+import { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.js";
 
 // OWASP-recommended argon2id parameters (2024 guidance):
 //   memoryCost: 19 MiB, timeCost: 2, parallelism: 1

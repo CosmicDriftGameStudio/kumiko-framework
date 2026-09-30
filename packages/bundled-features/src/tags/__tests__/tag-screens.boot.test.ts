@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "../constants";
-import { createTagsFeature } from "../feature";
+import { TAGS_EDIT_SCREEN_ID, TAGS_SCREEN_ID } from "../constants.js";
+import { createTagsFeature } from "../feature.js";
 
 // QN convention: entityList loads tags:query:tag:list; entityEdit loads
 // tags:query:tag:detail and saves via tags:write:tag:{create,update,delete}.

@@ -16,23 +16,23 @@ import {
   createTestEnvelopeCipher,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { TenantQueries } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantInvitationEntity } from "../../tenant/invitation-table";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { createSessionsFeature } from "../feature";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { sessionCallbacksFromLateBound } from "../testing";
-import { makeSessionHelpers } from "./test-helpers";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { TenantQueries } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { createSessionsFeature } from "../feature.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
+import { sessionCallbacksFromLateBound } from "../testing.js";
+import { makeSessionHelpers } from "./test-helpers.js";
 
 // Proves the core DoD of #2148: a role change written directly to
 // tenantMembershipsTable takes effect on the very next request made with an

@@ -12,8 +12,8 @@
 
 import { deleteManyBatched } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { jobRunLogsTable, jobRunsTable } from "../../job-run-table";
-import { tenantJobFailuresTable } from "../../tenant-job-failure-table";
+import { jobRunLogsTable, jobRunsTable } from "../../job-run-table.js";
+import { tenantJobFailuresTable } from "../../tenant-job-failure-table.js";
 
 const RETENTION_DELETE_BATCH_SIZE = 500;
 

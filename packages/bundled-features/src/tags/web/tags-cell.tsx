@@ -17,8 +17,8 @@
 
 import { type ColumnRendererProps, useQuery } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { TagsQueries } from "../constants";
-import { TagChip } from "./tag-chip";
+import { TagsQueries } from "../constants.js";
+import { TagChip } from "./tag-chip.js";
 
 type TagRow = { readonly id: string; readonly name: string; readonly color?: string | null };
 type AssignmentRow = { readonly tagId: string; readonly entityId: string };

@@ -3,7 +3,7 @@
 // auth-mfa/mfa-verify-attempts.ts (infra#446) — both were byte-identical
 // INCR/NX logic, differing only in their Redis key prefixes.
 
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 
 export type LockoutCounterState = {
   readonly failureCount: number;

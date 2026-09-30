@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { UserDataHookCtx } from "@cosmicdrift/kumiko-framework/engine";
-import { featureMounted } from "../hooks/feature-mounted";
+import { featureMounted } from "../hooks/feature-mounted.js";
 
 function ctxWithFeatures(mounted: readonly string[]): UserDataHookCtx {
   return {

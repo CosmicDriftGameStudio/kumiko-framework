@@ -10,7 +10,7 @@ import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import type { NotifyFn } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { resolveMailLocale } from "@cosmicdrift/kumiko-framework/i18n";
-import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "./email-templates";
+import type { AuthMailContent, AuthMailLocale, RenderTokenContentArgs } from "./email-templates.js";
 
 // Per-flow constants: which notification type to dispatch and how to render the
 // body. renderContent is the flow's template (renderResetPasswordEmail / … /

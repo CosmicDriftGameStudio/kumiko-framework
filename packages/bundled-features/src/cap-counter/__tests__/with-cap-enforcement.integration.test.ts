@@ -25,12 +25,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { bookCapUsage, readRollingCapUsage } from "../book-cap-usage";
-import { CapCounterQueries } from "../constants";
-import type { SoftHitNotifier } from "../enforce-cap";
-import { capCounterEntity } from "../entity";
-import { capCounterFeature } from "../feature";
-import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement";
+import { bookCapUsage, readRollingCapUsage } from "../book-cap-usage.js";
+import { CapCounterQueries } from "../constants.js";
+import type { SoftHitNotifier } from "../enforce-cap.js";
+import { capCounterEntity } from "../entity.js";
+import { capCounterFeature } from "../feature.js";
+import { withCapEnforcement, withRollingCapEnforcement } from "../with-cap-enforcement.js";
 
 // =============================================================================
 // Test-Probe — newsletter-send-Handler with cap-enforcement

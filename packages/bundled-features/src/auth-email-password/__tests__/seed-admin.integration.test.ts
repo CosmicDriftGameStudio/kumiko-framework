@@ -20,16 +20,16 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { verifyPassword } from "../../shared";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { seedAdmin } from "../testing";
+import { createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { verifyPassword } from "../../shared/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { seedAdmin } from "../testing.js";
 
 let stack: TestStack;
 

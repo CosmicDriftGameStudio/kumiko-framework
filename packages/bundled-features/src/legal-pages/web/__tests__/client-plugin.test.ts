@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { TreeNode } from "@cosmicdrift/kumiko-framework/engine";
-import { legalPagesClient } from "../client-plugin";
+import { legalPagesClient } from "../client-plugin.js";
 
 // Deckt die drei neuen Migrations-Pfade (advisor-Gap): navId-Attach,
 // no-leak ohne navId, und der Unwrap (Provider emittiert die slug-Folder

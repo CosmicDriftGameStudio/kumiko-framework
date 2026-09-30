@@ -15,7 +15,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { COMPLIANCE_PROFILES } from "@cosmicdrift/kumiko-framework/compliance";
-import { EXPORT_JOB_STATUS, exportJobEntity } from "../schema/export-job";
+import { EXPORT_JOB_STATUS, exportJobEntity } from "../schema/export-job.js";
 
 describe("EXPORT_JOB_STATUS Drift-Guard", () => {
   test("hat genau 4 Werte (pending/running/done/failed)", () => {

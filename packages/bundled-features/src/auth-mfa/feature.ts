@@ -1,20 +1,20 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { mfaRequiredConfigKey } from "./config";
-import { createDisableHandler } from "./handlers/disable.write";
-import { createEnableConfirmHandler } from "./handlers/enable-confirm.write";
-import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write";
-import { createEnableStartHandler } from "./handlers/enable-start.write";
-import { createEnableStartPreauthHandler } from "./handlers/enable-start-preauth.write";
-import { mfaReencryptJob } from "./handlers/reencrypt.job";
-import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write";
-import { mfaStatusQuery } from "./handlers/status.query";
-import { createMfaVerifyHandler } from "./handlers/verify.write";
-import { AUTH_MFA_FEATURE_I18N } from "./i18n";
-import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier";
-import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker";
-import { userMfaEntity } from "./schema/user-mfa";
-import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens";
+import { mfaRequiredConfigKey } from "./config.js";
+import { createDisableHandler } from "./handlers/disable.write.js";
+import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";
+import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.js";
+import { createEnableStartHandler } from "./handlers/enable-start.write.js";
+import { createEnableStartPreauthHandler } from "./handlers/enable-start-preauth.write.js";
+import { mfaReencryptJob } from "./handlers/reencrypt.job.js";
+import { createRegenerateRecoveryHandler } from "./handlers/regenerate-recovery.write.js";
+import { mfaStatusQuery } from "./handlers/status.query.js";
+import { createMfaVerifyHandler } from "./handlers/verify.write.js";
+import { AUTH_MFA_FEATURE_I18N } from "./i18n.js";
+import { createMfaCodeVerifier, type MfaCodeVerifier } from "./mfa-code-verifier.js";
+import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-checker.js";
+import { userMfaEntity } from "./schema/user-mfa.js";
+import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.js";
 
 export type AuthMfaFeatureOptions = {
   // HMAC secret for the stateless enable-flow token (carries the generated

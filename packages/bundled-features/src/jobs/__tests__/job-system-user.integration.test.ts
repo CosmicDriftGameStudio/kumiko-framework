@@ -24,10 +24,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub, createTestEnvelopeCipher, sleep } from "@cosmicdrift/kumiko-framework/testing";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessor, createConfigFeature } from "../../config/feature";
-import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessor, createConfigFeature } from "../../config/feature.js";
+import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
 
 // --- Setup ---
 

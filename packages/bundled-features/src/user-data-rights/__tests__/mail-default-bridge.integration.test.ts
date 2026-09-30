@@ -24,16 +24,27 @@ import {
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { configValuesTable, createConfigFeature, createConfigResolver } from "../../config";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { createFilesFeature } from "../../files";
-import { mailFoundationFeature } from "../../mail-foundation";
-import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults";
-import { createUserDataRightsFeature } from "../feature";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import {
+  configValuesTable,
+  createConfigFeature,
+  createConfigResolver,
+} from "../../config/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { createFilesFeature } from "../../files/index.js";
+import { mailFoundationFeature } from "../../mail-foundation/index.js";
+import {
+  clearInbox,
+  getInbox,
+  mailTransportInMemoryFeature,
+} from "../../mail-transport-inmemory/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
 
 const TENANT_A = "00000000-0000-4000-8000-0000000006a1";
 const TENANT_SYSTEM = SYSTEM_TENANT_ID;

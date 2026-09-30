@@ -1,12 +1,12 @@
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { FORM_DRAFT_ACCESS } from "../constants";
-import { filterOwnedFileRefs } from "../db/queries/owned-file-refs";
-import { formDraftExecutor } from "../executor";
-import { lookupDraft } from "../lookup";
-import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs";
-import { discardDraftPayloadSchema } from "../schemas";
+import { FORM_DRAFT_ACCESS } from "../constants.js";
+import { filterOwnedFileRefs } from "../db/queries/owned-file-refs.js";
+import { formDraftExecutor } from "../executor.js";
+import { lookupDraft } from "../lookup.js";
+import { collectDraftFileRefKeys, releaseDraftFileRefs } from "../release-file-refs.js";
+import { discardDraftPayloadSchema } from "../schemas.js";
 
 // Same construction as file-routes.ts/user-data-rights-defaults' fileRef
 // hook — self-contained (table + entity), no registry needed. `.forget()`

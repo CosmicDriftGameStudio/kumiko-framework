@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { SYSTEM_ACTOR_ID, SYSTEM_ACTOR_IDS } from "../constants";
+import { SYSTEM_ACTOR_ID, SYSTEM_ACTOR_IDS } from "../constants.js";
 
 describe("audit constants", () => {
   test("SYSTEM_ACTOR_ID matches the event-store system user id", () => {

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { fieldLabelKey } from "@cosmicdrift/kumiko-headless";
-import { AuthMfaHandlers, MFA_ENABLE_SCREEN_ID } from "../constants";
-import { createAuthMfaFeature } from "../feature";
-import { AUTH_MFA_FEATURE_I18N } from "../i18n";
-import { mfaEnableScreen } from "../screens";
+import { AuthMfaHandlers, MFA_ENABLE_SCREEN_ID } from "../constants.js";
+import { createAuthMfaFeature } from "../feature.js";
+import { AUTH_MFA_FEATURE_I18N } from "../i18n.js";
+import { mfaEnableScreen } from "../screens.js";
 
 const feature = createAuthMfaFeature({
   setupTokenSecret: "test-setup-token-secret-do-not-use-in-prod",

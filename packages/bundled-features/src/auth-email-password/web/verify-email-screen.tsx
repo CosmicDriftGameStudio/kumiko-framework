@@ -12,8 +12,8 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { verifyEmail } from "./auth-client";
-import { AuthCard, useUrlToken } from "./auth-form-primitives";
+import { verifyEmail } from "./auth-client.js";
+import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
 
 export type VerifyEmailScreenProps = {
   readonly title?: string;

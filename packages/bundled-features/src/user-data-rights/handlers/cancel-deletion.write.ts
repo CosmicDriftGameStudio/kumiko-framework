@@ -1,9 +1,9 @@
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { isWithinGracePeriod } from "../../shared";
-import { USER_STATUS, userTable } from "../../user";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle";
+import { isWithinGracePeriod } from "../../shared/index.js";
+import { USER_STATUS, userTable } from "../../user/index.js";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 
 const APPEND_LIFECYCLE_EVENT_REASON =
   "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream";

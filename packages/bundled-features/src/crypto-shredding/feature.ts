@@ -1,10 +1,10 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants";
+import { CRYPTO_SHREDDING_FEATURE_NAME } from "./constants.js";
 import {
   forgetSubjectWrite,
   subjectForgetDeniedSchema,
   subjectForgottenSchema,
-} from "./handlers/forget-subject.write";
+} from "./handlers/forget-subject.write.js";
 
 export function createCryptoShreddingFeature(): FeatureDefinition {
   return defineFeature(

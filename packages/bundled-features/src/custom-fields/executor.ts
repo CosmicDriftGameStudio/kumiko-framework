@@ -1,5 +1,5 @@
 import { createEntityExecutor } from "@cosmicdrift/kumiko-framework/engine";
-import { fieldDefinitionEntity } from "./entity";
+import { fieldDefinitionEntity } from "./entity.js";
 
 // Single field-definition executor shared by the four define/delete handlers.
 // createEntityExecutor is side-effect-free; instantiating it once keeps the

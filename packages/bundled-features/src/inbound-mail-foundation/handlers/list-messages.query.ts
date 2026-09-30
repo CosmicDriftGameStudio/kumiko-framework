@@ -14,9 +14,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { INBOUND_MESSAGE_PII_FIELDS } from "../entities";
-import { inboundMessagesProjectionTable } from "../projection";
-import { isVisibleToCaller } from "./scope-visibility";
+import { INBOUND_MESSAGE_PII_FIELDS } from "../entities.js";
+import { inboundMessagesProjectionTable } from "../projection.js";
+import { isVisibleToCaller } from "./scope-visibility.js";
 
 const listMessagesSchema = z
   .object({

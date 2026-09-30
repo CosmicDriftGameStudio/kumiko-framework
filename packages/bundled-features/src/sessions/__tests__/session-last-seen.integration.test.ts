@@ -17,22 +17,22 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { LAST_SEEN_REFRESH_MS } from "../constants";
-import { createSessionsFeature } from "../feature";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { sessionCallbacksFromLateBound } from "../testing";
-import { makeSessionHelpers } from "./test-helpers";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { LAST_SEEN_REFRESH_MS } from "../constants.js";
+import { createSessionsFeature } from "../feature.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
+import { sessionCallbacksFromLateBound } from "../testing.js";
+import { makeSessionHelpers } from "./test-helpers.js";
 
 // Proves the #2220 lastSeenAt refresh: sessionChecker stamps a coarse
 // activity marker on the session row, but only once per LAST_SEEN_REFRESH_MS

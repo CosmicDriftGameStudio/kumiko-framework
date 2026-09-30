@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type BrandingTokens, EMPTY_BRANDING } from "../../page-render";
-import { coerceBranding } from "../branding";
+import { type BrandingTokens, EMPTY_BRANDING } from "../../page-render/index.js";
+import { coerceBranding } from "../branding.js";
 
 // IO-boundary coercion: untrusted `unknown` → BrandingTokens, no `as` cast —
 // every missing/non-string field collapses to "" instead of throwing.

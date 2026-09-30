@@ -1,15 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { JobQueries } from "../../jobs/constants";
-import { TenantQueries } from "../../tenant/constants";
-import { UserQueries } from "../../user/constants";
-import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants";
-import { createAdminShellFeature } from "../feature";
+import { JobQueries } from "../../jobs/constants.js";
+import { TenantQueries } from "../../tenant/constants.js";
+import { UserQueries } from "../../user/constants.js";
+import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.js";
+import { createAdminShellFeature } from "../feature.js";
 import {
   isOverviewQueryAllowed,
   PLATFORM_OVERVIEW_ALLOWED_QUERIES,
   TENANT_OVERVIEW_ALLOWED_QUERIES,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
-} from "../overview-allowlist";
+} from "../overview-allowlist.js";
 
 // Every screen dispatches only the queries baked into its own panel
 // definitions (no client-side allowlist gate anymore, fw#2312) — the

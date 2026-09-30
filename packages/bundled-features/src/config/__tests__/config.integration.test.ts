@@ -25,10 +25,14 @@ import {
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { ConfigHandlers, ConfigQueries } from "../constants";
-import { createConfigAccessor, createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver";
-import { configValueEntity, configValuesTable } from "../table";
+import { ConfigHandlers, ConfigQueries } from "../constants.js";
+import {
+  createConfigAccessor,
+  createConfigAccessorFactory,
+  createConfigFeature,
+} from "../feature.js";
+import { type ConfigResolver, createConfigResolver, validateAppOverrides } from "../resolver.js";
+import { configValueEntity, configValuesTable } from "../table.js";
 
 // --- Setup ---
 

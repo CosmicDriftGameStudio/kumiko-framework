@@ -1,5 +1,5 @@
 import { access, defineEntityListHandler } from "@cosmicdrift/kumiko-framework/engine";
-import { downloadAttemptEntity } from "../schema/download-attempt";
+import { downloadAttemptEntity } from "../schema/download-attempt.js";
 
 // SystemAdmin operator view of invalid download attempts (DPO brute-force
 // triage). A bespoke list-download-attempts query already exists but sits on a

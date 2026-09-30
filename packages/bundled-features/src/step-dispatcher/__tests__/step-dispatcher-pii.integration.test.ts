@@ -29,7 +29,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { createSecretsFeature } from "../../secrets";
+import { createSecretsFeature } from "../../secrets/index.js";
 import {
   createStepDispatcherFeature,
   type MailDispatchResult,
@@ -37,7 +37,7 @@ import {
   setMailRunner,
   setWebhookFetch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
-} from "../index";
+} from "../index.js";
 
 const DISPATCH_REQUESTED = "kumiko:system:step.dispatch-requested";
 const DISPATCHED = "kumiko:system:step.dispatched";

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isFieldDefinitionRow, parseSerializedField } from "../lib/parse-serialized-field";
+import { isFieldDefinitionRow, parseSerializedField } from "../lib/parse-serialized-field.js";
 
 describe("parseSerializedField", () => {
   test("parses a valid JSON string into the typed shape", () => {

@@ -4,9 +4,9 @@ import type {
   ChannelMessage,
   NotificationRenderer,
   RenderedMessage,
-} from "../../delivery";
-import { createEmailChannel } from "../email-channel";
-import { createInMemoryTransport } from "../types";
+} from "../../delivery/index.js";
+import { createEmailChannel } from "../email-channel.js";
+import { createInMemoryTransport } from "../types.js";
 
 const stubRenderer: NotificationRenderer = {
   name: "stub",

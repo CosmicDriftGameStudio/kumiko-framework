@@ -19,11 +19,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
-import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants";
-import { accountEntity, scheduleEntity, transactionEntity } from "../entity";
-import { createLedgerFeature } from "../feature";
-import { scheduleReference } from "../recurring";
-import type { Posting } from "../schemas";
+import { type AccountType, LedgerHandlers, LedgerQueries } from "../constants.js";
+import { accountEntity, scheduleEntity, transactionEntity } from "../entity.js";
+import { createLedgerFeature } from "../feature.js";
+import { scheduleReference } from "../recurring.js";
+import type { Posting } from "../schemas.js";
 
 const ledgerFeature = createLedgerFeature();
 

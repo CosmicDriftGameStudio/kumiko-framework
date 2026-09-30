@@ -7,9 +7,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { TEMPLATE_KINDS, TEXT_BLOCK_KIND } from "../constants";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
-import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared";
+import { TEMPLATE_KINDS, TEXT_BLOCK_KIND } from "../constants.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
+import { contentFormatSchema, executor, folderSchema, localeSchema, slugSchema } from "./shared.js";
 
 // Upsert of a single resource, one operation per (tenantId, slug, kind,
 // locale). This is the content-tree authoring path: unlike upsertTenant it

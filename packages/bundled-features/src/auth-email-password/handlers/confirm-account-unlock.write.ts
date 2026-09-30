@@ -5,10 +5,10 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { AuthErrors } from "../constants";
-import { invalidUnlockToken } from "../errors";
-import { clearLockoutState } from "../lockout-store";
-import { verifyUnlockToken } from "../unlock-token";
+import { AuthErrors } from "../constants.js";
+import { invalidUnlockToken } from "../errors.js";
+import { clearLockoutState } from "../lockout-store.js";
+import { verifyUnlockToken } from "../unlock-token.js";
 
 export type ConfirmAccountUnlockOptions = {
   readonly hmacSecret: string;

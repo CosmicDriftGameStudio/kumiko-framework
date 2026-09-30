@@ -5,8 +5,8 @@ import {
   MAX_LIST_LIMIT,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
-import { userSessionTable } from "../schema/user-session";
+import { decryptStoredPii } from "../../shared/index.js";
+import { userSessionTable } from "../schema/user-session.js";
 
 // `sort` arrives raw from the client's query string. selectMany's orderBy
 // has no column-existence check — an unrecognised field just gets

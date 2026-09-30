@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { authFoundationFeature } from "../../auth-foundation";
-import { createConfigFeature } from "../../config/feature";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user/feature";
-import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID } from "../constants";
-import { createSessionsFeature } from "../feature";
+import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { SESSION_DETAIL_SCREEN_ID, SESSION_LIST_SCREEN_ID } from "../constants.js";
+import { createSessionsFeature } from "../feature.js";
 
 describe("sessions screens + query access alignment (kumiko-framework#255)", () => {
   const features = [

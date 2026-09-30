@@ -8,11 +8,11 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { userSessionTable } from "../../sessions";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared";
-import { userTable } from "../../user";
-import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table";
-import { tenantMembershipsTable } from "../membership-table";
+import { userSessionTable } from "../../sessions/index.js";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
+import { userTable } from "../../user/index.js";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
+import { tenantMembershipsTable } from "../membership-table.js";
 
 const KMS_POOL_CONCURRENCY = 4;
 

@@ -1,10 +1,10 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { joinRowParentIsVisible } from "../../shared";
-import { tagAssignmentAggregateId } from "../aggregate-id";
-import { DEFAULT_TAG_ACCESS } from "../constants";
-import { tagAssignmentExecutor } from "../executor";
-import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas";
+import { joinRowParentIsVisible } from "../../shared/index.js";
+import { tagAssignmentAggregateId } from "../aggregate-id.js";
+import { DEFAULT_TAG_ACCESS } from "../constants.js";
+import { tagAssignmentExecutor } from "../executor.js";
+import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas.js";
 
 // remove-tag — unlinks a tag from a host entity. Idempotent: removing an
 // assignment that doesn't exist is already the requested end state (not

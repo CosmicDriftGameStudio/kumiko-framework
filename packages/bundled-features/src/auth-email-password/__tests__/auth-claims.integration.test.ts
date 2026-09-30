@@ -12,19 +12,19 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { hashPassword } from "../../shared";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { UserHandlers } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserHandlers } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 // Sample-style extension feature that shows the real-world shape of a claims
 // hook: look something up in a tenant-scoped table and stuff it into the JWT.

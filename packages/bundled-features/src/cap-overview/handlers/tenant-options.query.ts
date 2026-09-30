@@ -2,7 +2,7 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantTable } from "../../tenant";
+import { tenantTable } from "../../tenant/index.js";
 
 type TenantRow = { readonly id: string; readonly name: string };
 

@@ -4,14 +4,14 @@ import {
   FeatureToggleHandlers,
   FeatureToggleQueries,
   TOGGLE_ADMIN_SCREEN_ID,
-} from "./constants";
-import { featureToggleSetSchema } from "./events";
-import { globalFeatureStateTableMeta } from "./global-feature-state-table";
-import { listQuery } from "./handlers/list.query";
-import { registeredQuery } from "./handlers/registered.query";
-import { createSetWriteHandler } from "./handlers/set.write";
-import { FEATURE_TOGGLES_I18N } from "./i18n";
-import type { GlobalFeatureToggleRuntime } from "./toggle-runtime";
+} from "./constants.js";
+import { featureToggleSetSchema } from "./events.js";
+import { globalFeatureStateTableMeta } from "./global-feature-state-table.js";
+import { listQuery } from "./handlers/list.query.js";
+import { registeredQuery } from "./handlers/registered.query.js";
+import { createSetWriteHandler } from "./handlers/set.write.js";
+import { FEATURE_TOGGLES_I18N } from "./i18n.js";
+import type { GlobalFeatureToggleRuntime } from "./toggle-runtime.js";
 
 // IMPORTANT: feature-toggles itself is NOT r.toggleable. Making it
 // toggleable would brick the system — once disabled, no handler of this
@@ -158,13 +158,16 @@ export function createFeatureTogglesFeature(
   });
 }
 
-export { FEATURE_TOGGLE_SET_EVENT_NAME, FeatureToggleErrors } from "./constants";
-export { globalFeatureStateTable, globalFeatureStateTableMeta } from "./global-feature-state-table";
+export { FEATURE_TOGGLE_SET_EVENT_NAME, FeatureToggleErrors } from "./constants.js";
+export {
+  globalFeatureStateTable,
+  globalFeatureStateTableMeta,
+} from "./global-feature-state-table.js";
 // Re-export the runtime factory + class so app-boot code has a single
 // import path: "@cosmicdrift/kumiko-bundled-features/feature-toggles".
 export {
   createFeatureToggleRuntime,
   GlobalFeatureToggleRuntime,
   type ToggleSyncSignal,
-} from "./toggle-runtime";
-export { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "./toggle-sync-signal";
+} from "./toggle-runtime.js";
+export { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "./toggle-sync-signal.js";

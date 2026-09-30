@@ -1,8 +1,8 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { RENDER_KINDS, TEMPLATE_STATUSES } from "../constants";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
+import { RENDER_KINDS, TEMPLATE_STATUSES } from "../constants.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 
 // List für Admin-UI: filterbar nach kind / locale / status. Liefert
 // system-templates + tenant's eigene zusammen — Admin-UI rendert beide

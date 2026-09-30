@@ -6,11 +6,11 @@ export {
   type LegalPageRoute,
   LegalPagesErrors,
   type LegalRequiredBlock,
-} from "./constants";
+} from "./constants.js";
 export {
   createLegalPagesFeature,
   type LegalPagesBootCheckCtx,
   type LegalPagesOptions,
   runLegalPagesBootCheck,
-} from "./feature";
-export { renderMarkdownToHtml, wrapInLayout } from "./markdown";
+} from "./feature.js";
+export { renderMarkdownToHtml, wrapInLayout } from "./markdown.js";

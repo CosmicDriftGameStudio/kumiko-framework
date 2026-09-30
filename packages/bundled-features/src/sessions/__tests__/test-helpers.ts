@@ -13,10 +13,10 @@ import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import * as jose from "jose";
-import { hashPassword } from "../../shared";
-import { seedTenantMembership } from "../../tenant/seeding";
-import { UserHandlers } from "../../user";
-import { withMintedSession } from "../testing";
+import { hashPassword } from "../../shared/index.js";
+import { seedTenantMembership } from "../../tenant/seeding.js";
+import { UserHandlers } from "../../user/index.js";
+import { withMintedSession } from "../testing.js";
 
 export type LoginResult = {
   readonly token: string;

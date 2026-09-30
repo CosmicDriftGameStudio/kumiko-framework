@@ -19,7 +19,7 @@ import * as z from "zod";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../schema/profile-selection";
+} from "../schema/profile-selection.js";
 
 const crud = createEventStoreExecutor(tenantComplianceProfileTable, tenantComplianceProfileEntity, {
   entityName: "tenant-compliance-profile",

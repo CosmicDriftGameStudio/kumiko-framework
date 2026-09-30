@@ -17,9 +17,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow, waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { createJobsFeature } from "../feature";
-import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../handlers/retention-cleanup.job";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+import { createJobsFeature } from "../feature.js";
+import { DEFAULT_JOB_RUN_RETENTION_DAYS } from "../handlers/retention-cleanup.job.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 const RETENTION_JOB = "jobs:job:retention-cleanup";
 

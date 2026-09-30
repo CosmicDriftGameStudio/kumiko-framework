@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createLockoutCounter } from "./lockout-counter";
+import { createLockoutCounter } from "./lockout-counter.js";
 
 // Production Redis has active lockout/mfa-verify entries under these exact
 // keys — only asserting the generated Redis key strings (not just behavior

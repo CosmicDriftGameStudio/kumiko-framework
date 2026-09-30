@@ -1,20 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { billingFoundationFeature } from "../../billing-foundation";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config/feature";
-import { createTenantFeature } from "../../tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { tierEngineFeature } from "../../tier-engine";
-import { MY_CAPS_ACCESS_ROLES } from "../access";
+import { billingFoundationFeature } from "../../billing-foundation/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { tierEngineFeature } from "../../tier-engine/index.js";
+import { MY_CAPS_ACCESS_ROLES } from "../access.js";
 import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
   TENANT_CAP_LIST_SCREEN_ID,
-} from "../constants";
-import { createCapOverviewFeature } from "../feature";
-import type { CapSpec } from "../types";
+} from "../constants.js";
+import { createCapOverviewFeature } from "../feature.js";
+import type { CapSpec } from "../types.js";
 
 const testCap: CapSpec = {
   id: "widgets",

@@ -41,29 +41,29 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks";
-import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing";
-import { hashPassword } from "../../shared";
-import { createTenantFeature, tenantMembershipsTable } from "../../tenant";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/seeding";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { UserHandlers } from "../../user/constants";
-import { createUserDataRightsFeature } from "../feature";
-import { backfillUserLifecycleEvents, updateUserLifecycle } from "../lib/update-user-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { userSessionEntity, userSessionTable } from "../../sessions/schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../../sessions/session-callbacks.js";
+import { sessionCallbacksFromLateBound, withMintedSession } from "../../sessions/testing.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTenantFeature, tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/seeding.js";
+import { UserHandlers } from "../../user/constants.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { backfillUserLifecycleEvents, updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 
 const RESTRICT = "user-data-rights:write:restrict-account";
 const USER_PROJECTION = "user:projection:user-entity";

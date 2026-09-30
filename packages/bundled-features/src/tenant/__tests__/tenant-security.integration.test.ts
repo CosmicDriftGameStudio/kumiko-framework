@@ -15,29 +15,33 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes, rolesOf, seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { authFoundationFeature } from "../../auth-foundation";
-import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery";
-import { notificationPreferencesTable } from "../../delivery/tables";
-import { createRendererFoundationFeature } from "../../renderer-foundation/feature";
-import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple";
-import { createSessionsFeature, userSessionEntity, userSessionTable } from "../../sessions";
-import { hashPassword } from "../../shared";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { seedUser } from "../../user/seeding";
-import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants";
-import { createTenantFeature } from "../feature";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table";
-import { tenantMembershipsTable } from "../membership-table";
-import { tenantEntity, tenantTable } from "../schema/tenant";
-import { seedTenant, seedTenantMembership } from "../seeding";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { notificationPreferencesTable } from "../../delivery/tables.js";
+import { createRendererFoundationFeature } from "../../renderer-foundation/feature.js";
+import { createRendererSimpleFeature, simpleRenderer } from "../../renderer-simple/index.js";
+import {
+  createSessionsFeature,
+  userSessionEntity,
+  userSessionTable,
+} from "../../sessions/index.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { seedUser } from "../../user/seeding.js";
+import { MEMBERS_SCREEN_ID, TenantHandlers, TenantQueries } from "../constants.js";
+import { createTenantFeature } from "../feature.js";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../invitation-table.js";
+import { tenantMembershipsTable } from "../membership-table.js";
+import { tenantEntity, tenantTable } from "../schema/tenant.js";
+import { seedTenant, seedTenantMembership } from "../seeding.js";
 
 const emailTransport = createInMemoryTransport();
 const APP_ACCEPT_URL = "https://app.example.com/invite/accept";

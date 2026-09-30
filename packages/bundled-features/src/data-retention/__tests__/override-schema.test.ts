@@ -2,7 +2,7 @@
 // faengt Sub-Level-Tippfehler + Strategy-Enum-Drift + keepFor-Format-Drift.
 
 import { describe, expect, test } from "bun:test";
-import { retentionOverrideSchema } from "../override-schema";
+import { retentionOverrideSchema } from "../override-schema.js";
 
 describe("retentionOverrideSchema — accept-Faelle", () => {
   test("Empty Object ist valid (alle Felder optional, Resolver-Fallback)", () => {

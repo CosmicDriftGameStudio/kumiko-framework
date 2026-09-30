@@ -11,7 +11,7 @@ import {
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { type PageRow, pageEntity, pagesTable } from "./table";
+import { type PageRow, pageEntity, pagesTable } from "./table.js";
 
 const executor = createEventStoreExecutor(pagesTable, pageEntity, { entityName: "page" });
 

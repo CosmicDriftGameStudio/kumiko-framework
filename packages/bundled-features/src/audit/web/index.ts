@@ -1,3 +1,3 @@
 // @runtime client
 
-export { type AuditClientOptions, auditClient } from "./client-plugin";
+export { type AuditClientOptions, auditClient } from "./client-plugin.js";

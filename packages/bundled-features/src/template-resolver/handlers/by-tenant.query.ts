@@ -5,8 +5,8 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { TEXT_BLOCK_KIND } from "../constants";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
+import { TEXT_BLOCK_KIND } from "../constants.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 
 // All text-blocks of one tenant — feeds the public content tree sidebar.
 // Anonymous is listed explicitly so no-JWT visitors get the sidebar on public

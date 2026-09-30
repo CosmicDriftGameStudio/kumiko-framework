@@ -11,19 +11,19 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature } from "../compliance-profiles/feature";
+import { createComplianceProfilesFeature } from "../compliance-profiles/feature.js";
 import {
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../compliance-profiles/schema/profile-selection";
-import { seedComplianceProfile } from "../compliance-profiles/seeding";
-import { createTemplateResolverFeature } from "../template-resolver/feature";
-import { seedTextBlock } from "../template-resolver/seeding";
+} from "../compliance-profiles/schema/profile-selection.js";
+import { seedComplianceProfile } from "../compliance-profiles/seeding.js";
+import { createTemplateResolverFeature } from "../template-resolver/feature.js";
+import { seedTextBlock } from "../template-resolver/seeding.js";
 import {
   type TemplateResourceRow,
   templateResourceEntity,
   templateResourcesTable,
-} from "../template-resolver/table";
+} from "../template-resolver/table.js";
 
 let stack: TestStack;
 

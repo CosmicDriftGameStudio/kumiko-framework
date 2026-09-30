@@ -11,7 +11,7 @@ import {
   collectionStore,
   DEFAULT_COLLECTION_ACCESS,
   toCollectionEntry,
-} from "./collection-shared";
+} from "./collection-shared.js";
 
 // One list handler per declared collection: `kind`, `ownership` and `access`
 // come from the declaration, never from the payload.

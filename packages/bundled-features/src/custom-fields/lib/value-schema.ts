@@ -4,7 +4,7 @@ import {
   fieldToZod,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type * as z from "zod";
-import { SUPPORTED_FIELD_TYPES } from "../constants";
+import { SUPPORTED_FIELD_TYPES } from "../constants.js";
 
 // Builds a Zod schema that validates a custom-field VALUE against its
 // fieldDefinition. Reuses the framework's `fieldToZod` (Builder-Reuse /

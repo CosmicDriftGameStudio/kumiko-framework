@@ -11,7 +11,7 @@ import {
   noteEntryExportHook,
   noteMentionDeleteHook,
   noteMentionExportHook,
-} from "./hooks";
+} from "./hooks.js";
 
 export const notesHistoryUserDataFeature = defineFeature("notes-history-user-data", (r) => {
   r.describe(

@@ -8,16 +8,16 @@ import {
   isInboundAuthError,
   isInboundCursorInvalidError,
   isInboundTransientError,
-} from "../../inbound-mail-foundation";
-import { parseImapCredentialDocument } from "../credential-document";
-import { inboundProviderImapFeature } from "../feature";
+} from "../../inbound-mail-foundation/index.js";
+import { parseImapCredentialDocument } from "../credential-document.js";
+import { inboundProviderImapFeature } from "../feature.js";
 import {
   assertUidValidity,
   buildProviderMessageId,
   mapImapError,
   normalizeReferences,
   parseImapCursor,
-} from "../imap-client";
+} from "../imap-client.js";
 
 describe("inboundProviderImapFeature — shape", () => {
   test("has the expected name + requirements", () => {

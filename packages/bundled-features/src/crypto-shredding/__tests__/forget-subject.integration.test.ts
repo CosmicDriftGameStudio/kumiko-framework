@@ -35,19 +35,19 @@ import {
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
-import { authFoundationFeature } from "../../auth-foundation";
-import { createConfigFeature } from "../../config";
-import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature";
-import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token";
-import { createTenantFeature } from "../../tenant";
-import { tenantInvitationEntity } from "../../tenant/invitation-table";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { seedTenantMembership } from "../../tenant/seeding";
-import { USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { seedUser } from "../../user/seeding";
-import { SUBJECT_FORGET_DENIED_EVENT_NAME, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants";
-import { createCryptoShreddingFeature } from "../feature";
+import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createPersonalAccessTokensFeature } from "../../personal-access-tokens/feature.js";
+import { apiTokenEntity, apiTokenTable } from "../../personal-access-tokens/schema/api-token.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { seedTenantMembership } from "../../tenant/seeding.js";
+import { createUserFeature } from "../../user/feature.js";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { seedUser } from "../../user/seeding.js";
+import { SUBJECT_FORGET_DENIED_EVENT_NAME, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.js";
+import { createCryptoShreddingFeature } from "../feature.js";
 
 const FORGET = "crypto-shredding:write:forget-subject";
 

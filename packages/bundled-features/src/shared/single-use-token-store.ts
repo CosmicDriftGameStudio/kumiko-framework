@@ -47,7 +47,7 @@
 // race window).
 
 import { createHash } from "node:crypto";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 
 // Exported so a caller that needs a byte-compatible key in a sibling Redis
 // namespace (e.g. a token↔binding side-mapping) can derive it without

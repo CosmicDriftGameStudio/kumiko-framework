@@ -1,7 +1,7 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { DEFAULT_SECRETS_ACCESS } from "../constants";
-import { requireSecretsContext } from "../feature";
+import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
+import { requireSecretsContext } from "../feature.js";
 
 export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({

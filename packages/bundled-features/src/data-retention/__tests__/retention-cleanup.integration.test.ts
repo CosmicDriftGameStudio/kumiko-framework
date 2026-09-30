@@ -23,8 +23,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature";
-import { runRetentionCleanup } from "../run-retention-cleanup";
+import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../feature.js";
+import { runRetentionCleanup } from "../run-retention-cleanup.js";
 
 // hardDelete, default-reference (createdAt → alias insertedAt → Spalte inserted_at).
 const widgetEntity = createEntity({

@@ -3,8 +3,8 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { AuthCard } from "./auth-form-primitives";
-import type { SessionBootstrapFailure } from "./session";
+import { AuthCard } from "./auth-form-primitives.js";
+import type { SessionBootstrapFailure } from "./session.js";
 
 export type SessionBootstrapErrorScreenProps = {
   readonly failure: SessionBootstrapFailure;

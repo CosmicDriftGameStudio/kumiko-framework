@@ -5,17 +5,17 @@ import {
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./constants";
-import { buildAvailableScopesQuery } from "./handlers/available-scopes.query";
-import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write";
-import { listPatQuery } from "./handlers/list.query";
-import { revokePatWrite } from "./handlers/revoke.write";
-import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n";
-import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event";
-import { createPatResolver } from "./resolver";
-import { apiTokenEntity } from "./schema/api-token";
-import type { PatScopeConfig } from "./scopes";
-import { createPatMintScreen, patListScreen } from "./screens";
+import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./constants.js";
+import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.js";
+import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.js";
+import { listPatQuery } from "./handlers/list.query.js";
+import { revokePatWrite } from "./handlers/revoke.write.js";
+import { PAT_FEATURE_I18N, patScopeOptionTranslations } from "./i18n.js";
+import { PAT_REVOKED_EVENT_SHORT, patRevokedSchema } from "./pat-revoked-event.js";
+import { createPatResolver } from "./resolver.js";
+import { apiTokenEntity } from "./schema/api-token.js";
+import type { PatScopeConfig } from "./scopes.js";
+import { createPatMintScreen, patListScreen } from "./screens.js";
 
 // Password-change is the only field-level trigger — see the postSave hook
 // below. MFA-enable/disable is wired separately (auth-mfa's

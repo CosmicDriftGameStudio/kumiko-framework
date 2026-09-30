@@ -8,7 +8,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ReferenceFieldDef, TextFieldDef } from "@cosmicdrift/kumiko-framework/engine/types";
 import * as z from "zod";
-import { buildAgentManifest } from "../agent-manifest";
+import { buildAgentManifest } from "../agent-manifest.js";
 
 const gatedEntity = createEntity({
   fields: {

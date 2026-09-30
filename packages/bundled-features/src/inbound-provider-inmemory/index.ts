@@ -9,4 +9,4 @@ export {
   isWatching,
   resetInboundInMemory,
   seedInboundMessage,
-} from "./feature";
+} from "./feature.js";

@@ -2,20 +2,24 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestEnvelopeCipher } from "@cosmicdrift/kumiko-framework/testing";
-import { authFoundationFeature } from "../auth-foundation";
+import { authFoundationFeature } from "../auth-foundation/index.js";
 import {
   AuthMfaHandlers,
   createAuthMfaFeature,
   MFA_DISABLE_SCREEN_ID,
   MFA_ENABLE_SCREEN_ID,
   MFA_REGENERATE_RECOVERY_SCREEN_ID,
-} from "../auth-mfa";
-import { createConfigFeature } from "../config/feature";
-import { createPersonalAccessTokensFeature } from "../personal-access-tokens";
-import { createSessionsFeature, SESSION_MINE_SCREEN_ID, SessionHandlers } from "../sessions";
-import { createTenantFeature } from "../tenant";
-import { createUserFeature } from "../user/feature";
-import { accountSecurityFeature, testAuthMfaOptions } from "./account-security-fixture";
+} from "../auth-mfa/index.js";
+import { createConfigFeature } from "../config/feature.js";
+import { createPersonalAccessTokensFeature } from "../personal-access-tokens/index.js";
+import {
+  createSessionsFeature,
+  SESSION_MINE_SCREEN_ID,
+  SessionHandlers,
+} from "../sessions/index.js";
+import { createTenantFeature } from "../tenant/index.js";
+import { createUserFeature } from "../user/feature.js";
+import { accountSecurityFeature, testAuthMfaOptions } from "./account-security-fixture.js";
 
 function bootFeatures() {
   return [

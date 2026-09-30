@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import type { RendererContext } from "../../renderer-foundation";
-import { resolveNotificationVariables } from "../resolve-variables";
+import type { RendererContext } from "../../renderer-foundation/index.js";
+import { resolveNotificationVariables } from "../resolve-variables.js";
 
 describe("resolveNotificationVariables :: template-resolver not mounted", () => {
   test("template slug set but template-resolver isn't mounted → falls back to variables, never touches ctx.db", async () => {

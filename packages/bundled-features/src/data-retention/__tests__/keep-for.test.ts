@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { computeCutoff, InvalidKeepForError, isPastCutoff } from "../keep-for";
+import { computeCutoff, InvalidKeepForError, isPastCutoff } from "../keep-for.js";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

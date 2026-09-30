@@ -57,9 +57,9 @@ import {
   type WorkflowRunFailedPayload,
   type WorkflowRunStartedPayload,
   WorkflowSuspensionUnsupportedError,
-} from "../runner";
-import { workflowRunPendingTable } from "../tables";
-import { getWorkflow } from "../workflow-registry";
+} from "../runner.js";
+import { workflowRunPendingTable } from "../tables.js";
+import { getWorkflow } from "../workflow-registry.js";
 
 const log = createFallbackLogger("workflow-runner");
 

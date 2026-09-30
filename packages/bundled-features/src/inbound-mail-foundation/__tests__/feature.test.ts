@@ -2,16 +2,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
+import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
 import {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
   inboundCredentialSecretKey,
-} from "../constants";
-import { inboundMailFoundationFeature } from "../feature";
-import { isVisibleToCaller } from "../handlers/scope-visibility";
-import { signOAuthState, verifyOAuthState } from "../oauth-state";
-import { isInboundMailProviderPlugin } from "../types";
+} from "../constants.js";
+import { inboundMailFoundationFeature } from "../feature.js";
+import { isVisibleToCaller } from "../handlers/scope-visibility.js";
+import { signOAuthState, verifyOAuthState } from "../oauth-state.js";
+import { isInboundMailProviderPlugin } from "../types.js";
 
 describe("inboundMailFoundationFeature — shape", () => {
   test("has the expected name", () => {

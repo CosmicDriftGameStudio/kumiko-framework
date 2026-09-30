@@ -6,7 +6,7 @@
 // (verify/wrong-credentials semantics don't line up across providers).
 
 import { describe, expect, test } from "bun:test";
-import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord } from "../types";
+import type { InboundMailContext, InboundMailProviderPlugin, MailAccountRecord } from "../types.js";
 
 export type InboundMailProviderContractFixture = {
   readonly plugin: InboundMailProviderPlugin;

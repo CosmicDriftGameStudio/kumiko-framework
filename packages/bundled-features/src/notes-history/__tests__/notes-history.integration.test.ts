@@ -26,9 +26,9 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
-import { noteEntryEntity, noteMentionEntity } from "../entity";
-import { createNotesHistoryFeature } from "../feature";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.js";
+import { noteEntryEntity, noteMentionEntity } from "../entity.js";
+import { createNotesHistoryFeature } from "../feature.js";
 
 const notesHistoryFeature = createNotesHistoryFeature();
 

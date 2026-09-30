@@ -10,9 +10,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { BillingPlanActions, SubscriptionFoundationHandlers } from "../../constants";
-import type { BillingPlansResult, BillingPlanView } from "../../types";
-import { BillingPlansPanel } from "../billing-plans-panel";
+import { BillingPlanActions, SubscriptionFoundationHandlers } from "../../constants.js";
+import type { BillingPlansResult, BillingPlanView } from "../../types.js";
+import { BillingPlansPanel } from "../billing-plans-panel.js";
 
 type QueryState = {
   readonly data: BillingPlansResult | null;

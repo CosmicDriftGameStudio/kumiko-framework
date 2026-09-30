@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { simpleRenderer } from "../simple-renderer";
+import { simpleRenderer } from "../simple-renderer.js";
 
 describe("simple renderer", () => {
   test("renders header", async () => {

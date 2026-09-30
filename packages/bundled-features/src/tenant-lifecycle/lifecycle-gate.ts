@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { tenantTable } from "../tenant";
+import { tenantTable } from "../tenant/index.js";
 
 export type TenantLifecycleGate = {
   readonly status: string;

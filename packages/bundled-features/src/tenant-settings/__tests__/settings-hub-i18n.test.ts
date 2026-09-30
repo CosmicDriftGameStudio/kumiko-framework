@@ -18,7 +18,7 @@ import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-type
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
 import { type TranslationsByKey, translationsByLocaleFromKeys } from "@cosmicdrift/kumiko-renderer";
-import { createTenantSettingsFeature } from "../feature";
+import { createTenantSettingsFeature } from "../feature.js";
 
 function translate(translations: TranslationsByKey, key: string, locale = "en"): string {
   const byLocale = translationsByLocaleFromKeys(translations);

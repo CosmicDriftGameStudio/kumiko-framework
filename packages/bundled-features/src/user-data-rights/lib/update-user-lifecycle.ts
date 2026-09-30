@@ -3,7 +3,7 @@ import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import { USER_STATUS, userEntity, userTable } from "../../user";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
 
 // #494 — Lifecycle-Mutationen der user-Entity MUESSEN als `user.updated`-Event
 // laufen. Roh per updateMany geschrieben, wischt ein read_users-Rebuild sie

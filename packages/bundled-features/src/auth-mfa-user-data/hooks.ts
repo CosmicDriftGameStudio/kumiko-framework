@@ -13,8 +13,8 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { userMfaEntity, userMfaTable } from "../auth-mfa";
-import { assertErased } from "../shared";
+import { userMfaEntity, userMfaTable } from "../auth-mfa/index.js";
+import { assertErased } from "../shared/index.js";
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",

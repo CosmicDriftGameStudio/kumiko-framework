@@ -25,22 +25,22 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { tenantMembershipEntity } from "../../tenant";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipEntity } from "../../tenant/index.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy";
-import { subscriptionAggregateId } from "../aggregate-id";
-import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants";
-import { billingFoundationFeature } from "../feature";
-import { subscriptionsProjectionTable } from "../projection";
+} from "../../tenant-lifecycle/constants.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
+import { subscriptionAggregateId } from "../aggregate-id.js";
+import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
+import { billingFoundationFeature } from "../feature.js";
+import { subscriptionsProjectionTable } from "../projection.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 

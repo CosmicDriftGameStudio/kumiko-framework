@@ -27,11 +27,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention";
-import { fieldDefinitionEntity } from "../entity";
-import { createCustomFieldsFeature } from "../feature";
-import { runCustomFieldsRetention } from "../run-retention";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
+import { applyRetentionRemovals, selectHostRowsWithCustomFields } from "../db/queries/retention.js";
+import { fieldDefinitionEntity } from "../entity.js";
+import { createCustomFieldsFeature } from "../feature.js";
+import { runCustomFieldsRetention } from "../run-retention.js";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
 
 const propertyEntity = createEntity({
   table: "read_t15d_properties",

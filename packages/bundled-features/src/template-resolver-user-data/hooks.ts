@@ -4,7 +4,7 @@
 // Mirrors notes-history-user-data: export-only, erasure via crypto-shredding.
 
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { userContentEntriesTable } from "../template-resolver";
+import { userContentEntriesTable } from "../template-resolver/index.js";
 
 // Genuinely per-user content — the export filters by ownerId alone. Tenant
 // scoping comes from the tenant-scoped ctx.db; a user who belongs to two

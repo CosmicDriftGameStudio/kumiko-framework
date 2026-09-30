@@ -8,20 +8,24 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { billingFoundationFeature } from "../../billing-foundation";
+import { billingFoundationFeature } from "../../billing-foundation/index.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenant } from "../../tenant/seeding";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { TierEngineHandlers, tierAssignmentEntity, tierEngineFeature } from "../../tier-engine";
-import { CapOverviewQueries } from "../constants";
-import { createCapOverviewFeature } from "../feature";
-import type { CapSpec } from "../types";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenant } from "../../tenant/seeding.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import {
+  TierEngineHandlers,
+  tierAssignmentEntity,
+  tierEngineFeature,
+} from "../../tier-engine/index.js";
+import { CapOverviewQueries } from "../constants.js";
+import { createCapOverviewFeature } from "../feature.js";
+import type { CapSpec } from "../types.js";
 
 // Two tenants with distinct usage numbers — proves reads are scoped by
 // tenantId, not "whichever row comes back first" or a summed total.

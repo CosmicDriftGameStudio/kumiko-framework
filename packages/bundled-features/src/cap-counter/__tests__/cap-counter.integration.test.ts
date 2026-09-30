@@ -24,7 +24,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { CapCounterHandlers, CapCounterQueries } from "../constants";
+import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import {
   CapExceededError,
   currentCalendarMonthStartIso,
@@ -33,9 +33,9 @@ import {
   enforceRollingCap,
   enforceRollingCapAndMaybeNotify,
   type SoftHitNotifier,
-} from "../enforce-cap";
-import { capCounterEntity } from "../entity";
-import { capCounterFeature } from "../feature";
+} from "../enforce-cap.js";
+import { capCounterEntity } from "../entity.js";
+import { capCounterFeature } from "../feature.js";
 
 // --- Test-Probe-Feature: drives enforceCap from inside a real handler ---
 

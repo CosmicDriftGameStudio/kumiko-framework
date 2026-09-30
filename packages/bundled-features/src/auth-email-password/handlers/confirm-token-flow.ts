@@ -31,11 +31,11 @@ import {
   type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import type Redis from "ioredis";
-import { burnToken, unburnToken } from "../../shared";
-import { UserHandlers, UserQueries } from "../../user";
-import type { AuthUserRow } from "../auth-user-row";
-import { parseAuthUserRow } from "../auth-user-row";
+import type { Redis } from "ioredis";
+import { burnToken, unburnToken } from "../../shared/index.js";
+import { UserHandlers, UserQueries } from "../../user/index.js";
+import type { AuthUserRow } from "../auth-user-row.js";
+import { parseAuthUserRow } from "../auth-user-row.js";
 
 export type ConfirmTokenFlowSpec<TSuccessData> = {
   // Short purpose-tag used in the burn-store key. Must NOT overlap with

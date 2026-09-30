@@ -15,9 +15,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { createUserFeature } from "../../user/feature";
-import { createSessionsFeature } from "../feature";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
+import { createUserFeature } from "../../user/feature.js";
+import { createSessionsFeature } from "../feature.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
 
 // store_user_sessions is a hot-path direct-write store: sessionCreator inserts
 // rows and the revoke handlers update them WITHOUT emitting lifecycle events.

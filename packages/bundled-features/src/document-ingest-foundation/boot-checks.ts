@@ -3,8 +3,8 @@
 // to it — otherwise requested ingests for that provider never get picked up.
 
 import type { FeatureDefinition, JobDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "./events";
-import { resolveDocumentIngestProviders } from "./providers";
+import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "./events.js";
+import { resolveDocumentIngestProviders } from "./providers.js";
 
 // undefined = job isn't triggered on documentIngest.requested at all (not our
 // concern here). "" = triggered without a usable where.provider filter.

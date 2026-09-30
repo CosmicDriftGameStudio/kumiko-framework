@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { IngestPage } from "../entity";
-import { readIngestPages, writeIngestPages } from "../pages";
+import type { IngestPage } from "../entity.js";
+import { readIngestPages, writeIngestPages } from "../pages.js";
 
 const SAMPLE: readonly IngestPage[] = [
   { pageNumber: 1, text: "Hello" },

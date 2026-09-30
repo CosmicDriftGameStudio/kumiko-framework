@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { buildFileRefZipPath, sanitizeZipFilename } from "../zip-path";
+import { buildFileRefZipPath, sanitizeZipFilename } from "../zip-path.js";
 
 const TENANT = "00000000-0000-0000-0000-000000000001" as TenantId;
 

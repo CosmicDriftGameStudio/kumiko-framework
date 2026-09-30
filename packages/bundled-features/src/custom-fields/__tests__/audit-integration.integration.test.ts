@@ -28,14 +28,14 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { AuditQueries } from "../../audit/constants";
-import { createAuditFeature } from "../../audit/feature";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user";
-import { fieldDefinitionEntity } from "../entity";
-import { createCustomFieldsFeature } from "../feature";
-import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity";
+import { AuditQueries } from "../../audit/constants.js";
+import { createAuditFeature } from "../../audit/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { fieldDefinitionEntity } from "../entity.js";
+import { createCustomFieldsFeature } from "../feature.js";
+import { customFieldsField, wireCustomFieldsFor } from "../wire-for-entity.js";
 
 const propertyEntity = createEntity({
   table: "read_t15a_properties",

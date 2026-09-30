@@ -1,7 +1,7 @@
 // Trial-Fenster: reine epochMs-Arithmetik, Rand inklusive.
 
 import { describe, expect, test } from "bun:test";
-import { isTrialActive } from "../trial";
+import { isTrialActive } from "../trial.js";
 
 const HOUR_MS = 3_600_000;
 const start = 1_700_000_000_000;

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
-import { assertAssignableMembershipRoles, findForbiddenMembershipRole } from "./membership-roles";
+import {
+  assertAssignableMembershipRoles,
+  findForbiddenMembershipRole,
+} from "./membership-roles.js";
 
 describe("membership-roles", () => {
   const FORBIDDEN = ["system", "SystemAdmin", "all", "anonymous"];

@@ -12,8 +12,8 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { requestAccountUnlock } from "./auth-client";
-import { AuthCard } from "./auth-form-primitives";
+import { requestAccountUnlock } from "./auth-client.js";
+import { AuthCard } from "./auth-form-primitives.js";
 
 export type RequestAccountUnlockScreenProps = {
   readonly title?: string;

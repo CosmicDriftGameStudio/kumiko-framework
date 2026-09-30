@@ -15,7 +15,7 @@ import type {
   ToolCatalogOptions,
   ToolDefinition,
   ToolDispatchDescriptor,
-} from "./types";
+} from "./types.js";
 
 const FILTER_OPS = ["eq", "ne", "lt", "gt", "lte", "gte", "in"] as const;
 const MAX_TOOL_NAME_LENGTH = 64;

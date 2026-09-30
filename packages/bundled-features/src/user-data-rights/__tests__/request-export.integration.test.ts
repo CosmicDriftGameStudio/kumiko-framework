@@ -30,12 +30,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables, seedRow, updateRows } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.js";
 
 const REQUEST_EXPORT = "user-data-rights:write:request-export";
 const EXPORT_STATUS = "user-data-rights:query:export-status";

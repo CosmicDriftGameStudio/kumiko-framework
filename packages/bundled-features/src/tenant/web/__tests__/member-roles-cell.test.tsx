@@ -8,8 +8,8 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { TENANT_I18N } from "../../i18n";
-import { MemberRolesCell } from "../member-roles-cell";
+import { TENANT_I18N } from "../../i18n.js";
+import { MemberRolesCell } from "../member-roles-cell.js";
 
 const fallbackBundles = [translationsByLocaleFromKeys(TENANT_I18N)];
 

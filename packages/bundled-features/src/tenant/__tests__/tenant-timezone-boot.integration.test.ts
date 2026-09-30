@@ -14,10 +14,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../feature";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../feature.js";
 
 const probeFeature = defineFeature("tz-probe", (r) => {
   r.requires("tenant");

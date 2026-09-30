@@ -3,7 +3,7 @@
 // are tested in their own provider-feature (file-provider-s3/__tests__).
 
 import { describe, expect, test } from "bun:test";
-import { fileFoundationFeature } from "../feature";
+import { fileFoundationFeature } from "../feature.js";
 
 describe("fileFoundationFeature — shape", () => {
   test("has the expected name", () => {

@@ -6,7 +6,7 @@
 // pull a hard dependency. Mirrors notes-history-user-data.
 
 import { defineFeature, EXT_USER_DATA } from "@cosmicdrift/kumiko-framework/engine";
-import { formDraftDeleteHook, formDraftExportHook } from "./hooks";
+import { formDraftDeleteHook, formDraftExportHook } from "./hooks.js";
 
 export const formDraftUserDataFeature = defineFeature("form-draft-user-data", (r) => {
   r.describe(

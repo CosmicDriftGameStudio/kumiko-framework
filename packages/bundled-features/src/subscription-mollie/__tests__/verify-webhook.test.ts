@@ -14,7 +14,7 @@ import {
   mapMollieEventType,
   mapMollieStatus,
   verifyAndParseMollieWebhook,
-} from "../verify-webhook";
+} from "../verify-webhook.js";
 
 // =============================================================================
 // Test-helpers

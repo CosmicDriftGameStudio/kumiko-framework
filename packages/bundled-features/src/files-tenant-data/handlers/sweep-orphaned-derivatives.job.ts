@@ -29,8 +29,8 @@ import {
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
-import { runChunkedMigration } from "../../shared";
-import { tenantTable } from "../../tenant";
+import { runChunkedMigration } from "../../shared/index.js";
+import { tenantTable } from "../../tenant/index.js";
 
 const DEFAULT_TENANT_PAGE_SIZE = 50;
 const DEFAULT_CANDIDATE_BATCH_SIZE = 100;

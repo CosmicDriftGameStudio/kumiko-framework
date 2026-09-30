@@ -7,8 +7,8 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import type { CapUsage } from "../../types";
-import { CapUsageBar } from "../cap-usage-bar";
+import type { CapUsage } from "../../types.js";
+import { CapUsageBar } from "../cap-usage-bar.js";
 
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (

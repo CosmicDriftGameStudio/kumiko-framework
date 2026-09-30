@@ -2,11 +2,17 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { redeemRowBoundGrant, SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE } from "../../shared";
-import { TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE, TENANT_HANDOVER_CLAIMED_EVENT_QN } from "../events";
-import { tenantHandoverPurpose } from "../grant";
-import { moveRootRow, moveTransferGraph } from "../move-entity-graph";
-import { resolveRootAnchorLocation } from "../root-anchor";
+import {
+  redeemRowBoundGrant,
+  SIGNUP_HANDOVER_BENIGN_CLAIM_REJECTION_CODE,
+} from "../../shared/index.js";
+import {
+  TENANT_HANDOVER_CLAIM_AGGREGATE_TYPE,
+  TENANT_HANDOVER_CLAIMED_EVENT_QN,
+} from "../events.js";
+import { tenantHandoverPurpose } from "../grant.js";
+import { moveRootRow, moveTransferGraph } from "../move-entity-graph.js";
+import { resolveRootAnchorLocation } from "../root-anchor.js";
 
 export type ClaimTenantHandoverOptions = {
   readonly grantSecret?: string;

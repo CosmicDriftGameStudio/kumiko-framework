@@ -22,24 +22,30 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { hashPassword } from "../../shared";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { hashPassword } from "../../shared/index.js";
 import {
   createTenantFeature,
   TenantHandlers,
   type TenantLifecycleStatus,
   tenantMembershipsTable,
-} from "../../tenant";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate";
-import { createUserFeature, USER_STATUS, UserHandlers, userEntity, userTable } from "../../user";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+} from "../../tenant/index.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.js";
+import {
+  createUserFeature,
+  USER_STATUS,
+  UserHandlers,
+  userEntity,
+  userTable,
+} from "../../user/index.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 let stack: TestStack;
 

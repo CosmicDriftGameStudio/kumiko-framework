@@ -13,7 +13,7 @@ import {
   USER_STATUS,
   userEntity,
   userTable,
-} from "../../user";
+} from "../../user/index.js";
 
 // Forget writes go through the executor (events), not a raw UPDATE: a
 // projection rebuild replays the events, so the anonymization survives it.

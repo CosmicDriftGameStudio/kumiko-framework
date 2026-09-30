@@ -5,9 +5,9 @@
 import { describe, expect, test } from "bun:test";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { validateSessionStoreMultiplicity } from "../boot-checks";
-import { authFoundationFeature, resolveSessionStore } from "../feature";
-import { EXT_SESSION_STORE, type SessionStore, type SessionStoreProvider } from "../types";
+import { validateSessionStoreMultiplicity } from "../boot-checks.js";
+import { authFoundationFeature, resolveSessionStore } from "../feature.js";
+import { EXT_SESSION_STORE, type SessionStore, type SessionStoreProvider } from "../types.js";
 
 const fakeDb = {} as DbConnection; // @cast-boundary test fixture, unused by mock providers
 

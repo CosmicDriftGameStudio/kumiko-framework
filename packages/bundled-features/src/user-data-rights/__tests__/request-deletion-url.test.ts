@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildDeletionVerifyUrl } from "../handlers/request-deletion-by-email.write";
+import { buildDeletionVerifyUrl } from "../handlers/request-deletion-by-email.write.js";
 
 describe("buildDeletionVerifyUrl", () => {
   // fw#1554: the token goes in the URL fragment, not a query param —

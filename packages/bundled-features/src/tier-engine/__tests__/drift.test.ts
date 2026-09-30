@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { tierAssignmentAggregateId } from "../aggregate-id";
-import { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "../constants";
-import { tierEngineFeature } from "../feature";
+import { tierAssignmentAggregateId } from "../aggregate-id.js";
+import { TIER_ENGINE_FEATURE, TierEngineHandlers, TierEngineQueries } from "../constants.js";
+import { tierEngineFeature } from "../feature.js";
 
 // Drift-Pin-Tests — diese Werte sind Cross-File-Contracts, ein Wechsel
 // muss bewusst geschehen und die anderen Stellen mitziehen. Wenn diese

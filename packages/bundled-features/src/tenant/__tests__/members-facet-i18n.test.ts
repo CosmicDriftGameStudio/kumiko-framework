@@ -9,8 +9,8 @@ import { describe, expect, test } from "bun:test";
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import { localeEsBundle } from "@cosmicdrift/kumiko-locale-es";
-import { MEMBERS_SCREEN_ID } from "../constants";
-import { createTenantFeature } from "../feature";
+import { MEMBERS_SCREEN_ID } from "../constants.js";
+import { createTenantFeature } from "../feature.js";
 
 function membersFacetLabelKeys(): readonly string[] {
   const screen = createTenantFeature().screens[MEMBERS_SCREEN_ID];

@@ -4,9 +4,9 @@ import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
 import {
   COMPLIANCE_PROFILE_CATALOG_EXTENSION_NAME,
   COMPLIANCE_PROFILES_FEATURE,
-} from "../constants";
-import { ComplianceProfileCatalog } from "./compliance-profile-catalog";
-import { defaultTranslations } from "./i18n";
+} from "../constants.js";
+import { ComplianceProfileCatalog } from "./compliance-profile-catalog.js";
+import { defaultTranslations } from "./i18n.js";
 
 export type ComplianceProfilesClientOptions = {
   readonly translations?: TranslationsByLocale;

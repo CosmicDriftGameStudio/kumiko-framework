@@ -15,7 +15,7 @@ import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import {
   makeDefaultDeletionExecutedEmail,
   makeDefaultExportReadyEmail,
-} from "../lib/default-mailers";
+} from "../lib/default-mailers.js";
 
 function capturingTransport(): { transport: EmailTransport; sent: EmailMessage[] } {
   const sent: EmailMessage[] = [];

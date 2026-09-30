@@ -7,10 +7,10 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { defaultTranslations } from "../../i18n";
-import { createLoginRoute, makeAuthGate } from "../auth-gate";
-import { SessionProvider } from "../session";
-import { makeSessionApi, renderWithProviders } from "./test-utils";
+import { defaultTranslations } from "../../i18n.js";
+import { createLoginRoute, makeAuthGate } from "../auth-gate.js";
+import { SessionProvider } from "../session.js";
+import { makeSessionApi, renderWithProviders } from "./test-utils.js";
 
 describe("makeAuthGate", () => {
   function CustomLogin(): ReactNode {

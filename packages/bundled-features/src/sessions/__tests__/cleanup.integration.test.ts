@@ -16,11 +16,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables, seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { createSessionsFeature } from "../feature";
-import { cleanupJob } from "../handlers/cleanup.job";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { createSessionsFeature } from "../feature.js";
+import { cleanupJob } from "../handlers/cleanup.job.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
 
 type Log = NonNullable<AppContext["log"]>;
 function silentLogger(): Log {

@@ -10,9 +10,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { JobErrors, JobHandlers, JobQueries } from "../constants";
-import { createJobsFeature } from "../feature";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+import { JobErrors, JobHandlers, JobQueries } from "../constants.js";
+import { createJobsFeature } from "../feature.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 let stack: TestStack;
 

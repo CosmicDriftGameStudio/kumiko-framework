@@ -18,7 +18,7 @@ import {
   UnprocessableError,
 } from "@cosmicdrift/kumiko-framework/errors";
 import Stripe from "stripe";
-import { SUBSCRIPTION_STRIPE_FEATURE } from "../constants";
+import { SUBSCRIPTION_STRIPE_FEATURE } from "../constants.js";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
@@ -27,8 +27,8 @@ import {
   createStripePriceCache,
   createStripeRetrievePrices,
   createStripeRetrieveSubscription,
-} from "../plugin-methods";
-import type { StripeCtxRuntime } from "../runtime";
+} from "../plugin-methods.js";
+import type { StripeCtxRuntime } from "../runtime.js";
 
 const TEST_API_KEY = "sk_test_dummy";
 

@@ -4,13 +4,13 @@
 
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { findCatalogProvider } from "../checkout-core";
-import { buildBillingPlans } from "../plan-catalog";
+import { findCatalogProvider } from "../checkout-core.js";
+import { buildBillingPlans } from "../plan-catalog.js";
 import type {
   BillingPlanCatalog,
   BillingPlansResult,
   ResolvedBillingFoundationOptions,
-} from "../types";
+} from "../types.js";
 
 const billingPlansSchema = z.object({}).strict();
 

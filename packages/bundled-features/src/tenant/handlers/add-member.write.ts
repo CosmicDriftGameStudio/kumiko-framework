@@ -3,9 +3,9 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { TenantErrors } from "../constants";
-import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
+import { TenantErrors } from "../constants.js";
+import { findForbiddenMembershipRole, reservedMembershipRoleError } from "../membership-roles.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

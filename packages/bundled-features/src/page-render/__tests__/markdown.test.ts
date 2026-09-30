@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderSafeMarkdown } from "../markdown";
+import { renderSafeMarkdown } from "../markdown.js";
 
 describe("renderSafeMarkdown — XSS-Härtung", () => {
   test("block-level <script> wird als Text escaped, nicht durchgereicht", () => {

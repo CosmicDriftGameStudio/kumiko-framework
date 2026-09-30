@@ -1,9 +1,9 @@
 // feature.ts contract tests for mail-transport-inmemory.
 
 import { describe, expect, test } from "bun:test";
-import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation";
-import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract";
-import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../feature";
+import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract.js";
+import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation/index.js";
+import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../feature.js";
 
 function registeredPlugin(): MailTransportPlugin {
   const usage = mailTransportInMemoryFeature.extensionUsages.find(

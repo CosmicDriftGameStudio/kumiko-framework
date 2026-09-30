@@ -6,9 +6,9 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import type { ContentFormat, TemplateKind } from "./constants";
-import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants";
-import { type TemplateResourceRow, templateResourcesTable } from "./table";
+import type { ContentFormat, TemplateKind } from "./constants.js";
+import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 
 // Public TemplateResource — was Konsumenten sehen. Versteckt DB-interne
 // Spalten (createdBy, internal id-type), behält Felder die zum Rendern

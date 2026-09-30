@@ -28,9 +28,9 @@ import {
   getUnscopedStreamMaxVersionForSeed,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import { runEventStoreSeed, type SeedIfExists } from "@cosmicdrift/kumiko-framework/seeding";
-import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants";
-import { executor } from "./handlers/shared";
-import { type TemplateResourceRow, templateResourcesTable } from "./table";
+import { type ContentFormat, TEXT_BLOCK_KIND, type UpsertKind } from "./constants.js";
+import { executor } from "./handlers/shared.js";
+import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 
 /** Drop projection orphans (no events anywhere) so boot seeds can recreate. */
 async function resolveExistingForEventStoreSeed(

@@ -21,8 +21,8 @@ import {
   SubscriptionFoundationHandlers,
   SubscriptionFoundationQueries,
   SubscriptionStatuses,
-} from "../constants";
-import type { BillingPlansResult, BillingPlanView } from "../types";
+} from "../constants.js";
+import type { BillingPlansResult, BillingPlanView } from "../types.js";
 
 type UseTranslation = ReturnType<typeof useTranslation>;
 

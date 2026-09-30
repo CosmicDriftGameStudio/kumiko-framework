@@ -6,9 +6,9 @@
 
 import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveRetentionPolicyForTenant } from "../data-retention";
-import { noteEntryTable, noteMentionTable } from "../notes-history";
-import { policyToStrategy } from "../user-data-rights";
+import { resolveRetentionPolicyForTenant } from "../data-retention/index.js";
+import { noteEntryTable, noteMentionTable } from "../notes-history/index.js";
+import { policyToStrategy } from "../user-data-rights/index.js";
 
 // note-entry has no per-tenant scope quirk (unlike folders) — it's genuinely
 // per-user content, so the export filters by authorId directly.

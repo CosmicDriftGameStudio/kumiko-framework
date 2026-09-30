@@ -9,20 +9,20 @@ import {
   type Registry,
   validateBoot,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { validateDocumentIngestProviderWiring } from "../boot-checks";
-import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events";
-import { documentIngestFoundationFeature } from "../feature";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { validateDocumentIngestProviderWiring } from "../boot-checks.js";
+import { DOCUMENT_INGEST_REQUESTED_EVENT_QN } from "../events.js";
+import { documentIngestFoundationFeature } from "../feature.js";
 import {
   type DocumentIngestProviderOptions,
   documentIngestProviderTrigger,
   EXT_DOCUMENT_INGEST_PROVIDER,
   listIngestibleMimeTypes,
   resolveDocumentIngestProviders,
-} from "../providers";
+} from "../providers.js";
 
 function makeProviderFeature(name: string, options: DocumentIngestProviderOptions) {
   return defineFeature(`test-provider-${name}`, (r) => {

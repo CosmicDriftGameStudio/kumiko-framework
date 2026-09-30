@@ -48,8 +48,8 @@ import {
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type Stripe from "stripe";
 import { Temporal } from "temporal-polyfill";
-import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants";
-import type { StripeWebhookRuntime } from "./runtime";
+import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants.js";
+import type { StripeWebhookRuntime } from "./runtime.js";
 
 // =============================================================================
 // Sig-verify + parse

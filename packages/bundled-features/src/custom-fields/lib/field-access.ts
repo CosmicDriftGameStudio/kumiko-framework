@@ -3,8 +3,8 @@
 // value-validation off one DB read (no double fetch).
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { selectSerializedFieldDefinition } from "../db/queries/field-access";
-import { parseSerializedField, type SerializedFieldShape } from "./parse-serialized-field";
+import { selectSerializedFieldDefinition } from "../db/queries/field-access.js";
+import { parseSerializedField, type SerializedFieldShape } from "./parse-serialized-field.js";
 
 export type FieldAccessCheckResult =
   | { ok: true }

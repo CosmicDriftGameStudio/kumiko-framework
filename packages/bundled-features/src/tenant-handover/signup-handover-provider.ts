@@ -6,11 +6,11 @@
 // mints) — see shared/signup-handover.ts for the extension contract and
 // grant.ts for the row-bound-grant mechanics being verified.
 
-import type { SignupHandoverBinding, SignupHandoverProvider } from "../shared";
-import { redeemRowBoundGrant } from "../shared";
-import { TENANT_HANDOVER_CLAIM_WRITE_QN } from "./events";
-import { signTenantHandoverGrant, tenantHandoverPurpose } from "./grant";
-import { resolveRootAnchorLocation } from "./root-anchor";
+import type { SignupHandoverBinding, SignupHandoverProvider } from "../shared/index.js";
+import { redeemRowBoundGrant } from "../shared/index.js";
+import { TENANT_HANDOVER_CLAIM_WRITE_QN } from "./events.js";
+import { signTenantHandoverGrant, tenantHandoverPurpose } from "./grant.js";
+import { resolveRootAnchorLocation } from "./root-anchor.js";
 
 const MINTED_CLAIM_GRANT_TTL_MINUTES = 5;
 

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config/feature";
-import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "../constants";
-import { createJobsFeature } from "../feature";
+import { createConfigFeature } from "../../config/feature.js";
+import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID } from "../constants.js";
+import { createJobsFeature } from "../feature.js";
 
 const SYSTEM_ADMIN_ROLES = ["SystemAdmin"] as const;
 

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { wrapInLayout } from "../layout";
+import { wrapInLayout } from "../layout.js";
 
 describe("wrapInLayout :: seo (opt-in OG/JSON-LD extension)", () => {
   test("without `seo` — unchanged minimal title+description head (no regression)", () => {

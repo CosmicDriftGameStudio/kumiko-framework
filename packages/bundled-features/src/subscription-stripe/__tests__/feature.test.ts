@@ -3,16 +3,20 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import Stripe from "stripe";
-import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract";
-import { STRIPE_PROVIDER_NAME, StripeEventTypes, SUBSCRIPTION_STRIPE_FEATURE } from "../constants";
-import { createSubscriptionStripeFeature } from "../feature";
+import { describeSubscriptionProviderContract } from "../../billing-foundation/__tests__/subscription-provider-contract.js";
+import {
+  STRIPE_PROVIDER_NAME,
+  StripeEventTypes,
+  SUBSCRIPTION_STRIPE_FEATURE,
+} from "../constants.js";
+import { createSubscriptionStripeFeature } from "../feature.js";
 import {
   createStripeCancelSubscription,
   createStripeCheckoutSession,
   createStripePortalSession,
-} from "../plugin-methods";
-import type { StripeCtxRuntime } from "../runtime";
-import { verifyAndParseStripeWebhook } from "../verify-webhook";
+} from "../plugin-methods.js";
+import type { StripeCtxRuntime } from "../runtime.js";
+import { verifyAndParseStripeWebhook } from "../verify-webhook.js";
 
 const OPTIONS = {
   priceToTier: { price_test: "pro" },

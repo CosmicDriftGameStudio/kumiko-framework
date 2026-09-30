@@ -8,9 +8,9 @@ import type { Registry } from "@cosmicdrift/kumiko-framework/engine";
 import { append, getStreamVersion } from "@cosmicdrift/kumiko-framework/event-store";
 import { runProjectionsForEvent } from "@cosmicdrift/kumiko-framework/pipeline";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { DELIVERY_ATTEMPT_EVENT } from "./constants";
-import { deliveryAttemptSchema } from "./events";
-import type { DeliveryLogEntry } from "./types";
+import { DELIVERY_ATTEMPT_EVENT } from "./constants.js";
+import { deliveryAttemptSchema } from "./events.js";
+import type { DeliveryLogEntry } from "./types.js";
 
 // Shared append + inline-projection write (low-level append() does not
 // auto-fire projections — only the dispatcher/executor paths do).

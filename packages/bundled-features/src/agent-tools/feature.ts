@@ -1,5 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { findAgentDocGaps, formatAgentDocGap } from "./agent-doc-lint";
+import { findAgentDocGaps, formatAgentDocGap } from "./agent-doc-lint.js";
 
 export const AGENT_TOOLS_FEATURE_NAME = "agent-tools";
 

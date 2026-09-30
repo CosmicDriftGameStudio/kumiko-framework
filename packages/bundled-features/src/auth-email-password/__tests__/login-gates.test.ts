@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { USER_STATUS } from "../../user";
-import type { AuthUserRow } from "../auth-user-row";
-import { accountRestricted, emailNotVerified, invalidCredentials } from "../errors";
+import { USER_STATUS } from "../../user/index.js";
+import type { AuthUserRow } from "../auth-user-row.js";
+import { accountRestricted, emailNotVerified, invalidCredentials } from "../errors.js";
 import {
   gateBuildSession,
   gateEnforceAccountStatus,
   gateEnforceEmailVerified,
-} from "../handlers/login.write";
+} from "../handlers/login.write.js";
 
 // resolveAuthClaims is the only ctx member gateBuildSession touches.
 const authClaimsCtx = {

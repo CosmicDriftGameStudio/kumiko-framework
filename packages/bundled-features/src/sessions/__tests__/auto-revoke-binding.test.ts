@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import type { AppContext, SaveContext } from "@cosmicdrift/kumiko-framework/engine";
-import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature";
+import { bindAutoRevokeFromFeature, createSessionsFeature } from "../feature.js";
 
 // The postSave hook is registered unconditionally; the revoker arrives either
 // as the explicit constructor option or late-bound by run{Prod,Dev}App via

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { deserializeValue } from "../resolver";
+import { deserializeValue } from "../resolver.js";
 
 // Type mismatches are coerced, not rejected (number via Number(), boolean
 // only via literal true/"true", text via String()) — pinned so a refactor

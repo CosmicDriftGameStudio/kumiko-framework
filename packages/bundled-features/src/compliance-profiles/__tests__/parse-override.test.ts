@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { parseComplianceProfileOverride } from "../_internal/parse-override";
+import { parseComplianceProfileOverride } from "../_internal/parse-override.js";
 
 describe("parseComplianceProfileOverride", () => {
   test("empty / whitespace / null → undefined, no warning", () => {

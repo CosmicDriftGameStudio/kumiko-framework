@@ -9,11 +9,11 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { encryptForDirectWrite, verifyPassword } from "../../shared";
-import { UserQueries } from "../../user";
-import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../constants";
-import { mintPatToken } from "../hash";
-import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
+import { encryptForDirectWrite, verifyPassword } from "../../shared/index.js";
+import { UserQueries } from "../../user/index.js";
+import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../constants.js";
+import { mintPatToken } from "../hash.js";
+import { apiTokenEntity, apiTokenTable } from "../schema/api-token.js";
 
 export type PatMfaVerifyResult = { readonly enrolled: boolean; readonly ok: boolean };
 

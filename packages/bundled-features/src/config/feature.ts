@@ -14,17 +14,17 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-framework/secrets";
-import { cascadeQuery } from "./handlers/cascade.query";
-import { readinessQuery } from "./handlers/readiness.query";
-import { reencryptJob } from "./handlers/reencrypt.job";
-import { resetWrite } from "./handlers/reset.write";
-import { schemaQuery } from "./handlers/schema.query";
-import { selectedExtensionsQuery } from "./handlers/selected-extensions.query";
-import { setWrite } from "./handlers/set.write";
-import { valuesQuery } from "./handlers/values.query";
-import { CONFIG_FEATURE_I18N } from "./i18n";
-import type { ConfigResolver } from "./resolver";
-import { configValueEntity } from "./table";
+import { cascadeQuery } from "./handlers/cascade.query.js";
+import { readinessQuery } from "./handlers/readiness.query.js";
+import { reencryptJob } from "./handlers/reencrypt.job.js";
+import { resetWrite } from "./handlers/reset.write.js";
+import { schemaQuery } from "./handlers/schema.query.js";
+import { selectedExtensionsQuery } from "./handlers/selected-extensions.query.js";
+import { setWrite } from "./handlers/set.write.js";
+import { valuesQuery } from "./handlers/values.query.js";
+import { CONFIG_FEATURE_I18N } from "./i18n.js";
+import type { ConfigResolver } from "./resolver.js";
+import { configValueEntity } from "./table.js";
 
 export type ConfigContext = { readonly config: ConfigAccessor };
 

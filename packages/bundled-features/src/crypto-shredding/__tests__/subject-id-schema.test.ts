@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { subjectKeyForRecord } from "@cosmicdrift/kumiko-framework/crypto";
-import { subjectIdSchema } from "../handlers/forget-subject.write";
+import { subjectIdSchema } from "../handlers/forget-subject.write.js";
 
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 

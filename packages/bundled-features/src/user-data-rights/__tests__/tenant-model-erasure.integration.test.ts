@@ -38,24 +38,27 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver";
-import { configValueEntity } from "../../config/table";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant";
-import { seedTenantMembership } from "../../tenant/seeding";
-import { createUserFeature, userEntity } from "../../user";
-import { TENANT_MODEL_CONFIG_KEY } from "../constants";
-import { createUserDataRightsFeature } from "../feature";
-import { resolveAppTenantModel } from "../lib/resolve-tenant-model";
-import { runForgetCleanup } from "../run-forget-cleanup";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { buildEnvConfigOverrides, createConfigResolver } from "../../config/resolver.js";
+import { configValueEntity } from "../../config/table.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../../tenant/index.js";
+import { seedTenantMembership } from "../../tenant/seeding.js";
+import { createUserFeature, userEntity } from "../../user/index.js";
+import { TENANT_MODEL_CONFIG_KEY } from "../constants.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { resolveAppTenantModel } from "../lib/resolve-tenant-model.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
 import {
   createForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers";
+} from "./forget-test-helpers.js";
 
 const TENANT = "00000000-0000-4000-8000-0000000000c1";
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000c1";

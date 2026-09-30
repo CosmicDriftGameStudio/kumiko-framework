@@ -5,22 +5,22 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { type DbConnection, deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { cleanupJob } from "./handlers/cleanup.job";
-import { detailQuery } from "./handlers/detail.query";
-import { listQuery } from "./handlers/list.query";
-import { mineQuery } from "./handlers/mine.query";
-import { revokeWrite } from "./handlers/revoke.write";
-import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write";
-import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write";
-import { SESSIONS_I18N } from "./i18n";
-import { userSessionEntity } from "./schema/user-session";
-import { sessionDetailScreen, sessionListScreen, sessionMineScreen } from "./screens";
+import { cleanupJob } from "./handlers/cleanup.job.js";
+import { detailQuery } from "./handlers/detail.query.js";
+import { listQuery } from "./handlers/list.query.js";
+import { mineQuery } from "./handlers/mine.query.js";
+import { revokeWrite } from "./handlers/revoke.write.js";
+import { revokeAllForUserWrite } from "./handlers/revoke-all-for-user.write.js";
+import { revokeAllOthersWrite } from "./handlers/revoke-all-others.write.js";
+import { SESSIONS_I18N } from "./i18n.js";
+import { userSessionEntity } from "./schema/user-session.js";
+import { sessionDetailScreen, sessionListScreen, sessionMineScreen } from "./screens.js";
 import {
   createSessionCallbacks,
   type SessionAllOthersRevoker,
   type SessionMassRevoker,
-} from "./session-callbacks";
-import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event";
+} from "./session-callbacks.js";
+import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event.js";
 
 export type SessionsFeatureOptions = {
   // A successful update on the `user` entity that changes `passwordHash`

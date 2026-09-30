@@ -2,8 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { SELECTABLE_PROFILE_KEYS } from "@cosmicdrift/kumiko-framework/compliance";
 import { access, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
-import { COMPLIANCE_PROFILE_SCREEN_ID, ComplianceProfileHandlers } from "../constants";
-import { createComplianceProfilesFeature } from "../feature";
+import { COMPLIANCE_PROFILE_SCREEN_ID, ComplianceProfileHandlers } from "../constants.js";
+import { createComplianceProfilesFeature } from "../feature.js";
 
 describe("compliance profile screen + handler access alignment", () => {
   const features = [createComplianceProfilesFeature()];

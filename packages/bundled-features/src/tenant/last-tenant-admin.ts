@@ -2,8 +2,8 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { acquireNamespacedAdvisoryLock } from "@cosmicdrift/kumiko-framework/db";
 import { ConflictError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { TenantErrors } from "./constants";
-import { tenantMembershipsTable } from "./membership-table";
+import { TenantErrors } from "./constants.js";
+import { tenantMembershipsTable } from "./membership-table.js";
 
 // Serializes last-TenantAdmin demotion/removal checks per tenant inside the write TX
 // (dispatcher batch wraps handlers in transaction — xact lock holds through update).

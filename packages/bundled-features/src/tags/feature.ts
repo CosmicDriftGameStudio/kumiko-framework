@@ -27,16 +27,16 @@ import {
   type EntityDefinition,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasWhereRule } from "../shared";
-import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants";
-import { createTagAssignmentEntity, tagEntity } from "./entity";
-import { createAssignTagHandler } from "./handlers/assign-tag.write";
-import { createCreateTagHandler } from "./handlers/create-tag.write";
-import { createDeleteTagHandler } from "./handlers/delete-tag.write";
-import { createRemoveTagHandler } from "./handlers/remove-tag.write";
-import { createUpdateTagHandler } from "./handlers/update-tag.write";
-import { TAGS_FEATURE_I18N } from "./i18n";
-import { createTagEditScreen, createTagListScreen } from "./screens";
+import { hasWhereRule } from "../shared/index.js";
+import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants.js";
+import { createTagAssignmentEntity, tagEntity } from "./entity.js";
+import { createAssignTagHandler } from "./handlers/assign-tag.write.js";
+import { createCreateTagHandler } from "./handlers/create-tag.write.js";
+import { createDeleteTagHandler } from "./handlers/delete-tag.write.js";
+import { createRemoveTagHandler } from "./handlers/remove-tag.write.js";
+import { createUpdateTagHandler } from "./handlers/update-tag.write.js";
+import { TAGS_FEATURE_I18N } from "./i18n.js";
+import { createTagEditScreen, createTagListScreen } from "./screens.js";
 
 // Opt-in tier-gating: when set, the feature declares itself r.toggleable so the
 // dispatcher gate + feature-toggles + tier-engine can switch the WHOLE feature

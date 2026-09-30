@@ -6,9 +6,9 @@ import {
   isEncryptedAtRest,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { requireConfigResolver, requireSystemDb } from "../feature";
-import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction";
-import { hasConfigAccess } from "../write-helpers";
+import { requireConfigResolver, requireSystemDb } from "../feature.js";
+import { MASKED, redactInheritedCascade, shouldRedactInherited } from "../read-redaction.js";
+import { hasConfigAccess } from "../write-helpers.js";
 
 export const valuesQuery = defineQueryHandler({
   name: "values",

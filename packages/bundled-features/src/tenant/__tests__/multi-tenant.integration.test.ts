@@ -25,15 +25,15 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub, sleep } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
-import { createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { TenantHandlers, TenantQueries } from "../constants";
-import { createTenantFeature } from "../feature";
-import { tenantMembershipsTable } from "../membership-table";
-import { tenantEntity } from "../schema/tenant";
+import { createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { TenantHandlers, TenantQueries } from "../constants.js";
+import { createTenantFeature } from "../feature.js";
+import { tenantMembershipsTable } from "../membership-table.js";
+import { tenantEntity } from "../schema/tenant.js";
 
 // --- Track job executions ---
 

@@ -1,10 +1,10 @@
-export type { AgentDocGap, AgentDocGapKind } from "./agent-doc-lint";
-export { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "./agent-doc-lint";
-export { buildAgentManifest } from "./agent-manifest";
-export { AGENT_TOOLS_FEATURE_NAME, createAgentToolsFeature } from "./feature";
-export { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "./tool-catalog";
-export type { ToolCallRequest, ToolCallResult, ToolDispatcher } from "./tool-dispatch";
-export { dispatchToolCall } from "./tool-dispatch";
+export type { AgentDocGap, AgentDocGapKind } from "./agent-doc-lint.js";
+export { AgentDocGapKinds, findAgentDocGaps, formatAgentDocGap } from "./agent-doc-lint.js";
+export { buildAgentManifest } from "./agent-manifest.js";
+export { AGENT_TOOLS_FEATURE_NAME, createAgentToolsFeature } from "./feature.js";
+export { buildToolCatalog, OPEN_FORM_TOOL_NAME, toolNameForQn } from "./tool-catalog.js";
+export type { ToolCallRequest, ToolCallResult, ToolDispatcher } from "./tool-dispatch.js";
+export { dispatchToolCall } from "./tool-dispatch.js";
 export type {
   AgentManifest,
   AgentManifestEntity,
@@ -22,4 +22,4 @@ export type {
   ToolCatalogOptions,
   ToolDefinition,
   ToolDispatchDescriptor,
-} from "./types";
+} from "./types.js";

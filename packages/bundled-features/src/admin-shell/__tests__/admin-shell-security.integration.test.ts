@@ -15,34 +15,37 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createAuditFeature } from "../../audit/feature";
-import { ConfigQueries } from "../../config/constants";
-import { createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createFeatureTogglesFeature } from "../../feature-toggles/feature";
-import { JobQueries } from "../../jobs/constants";
-import { createJobsFeature } from "../../jobs/feature";
-import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table";
-import { hashPassword } from "../../shared";
-import { TenantQueries } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantInvitationEntity } from "../../tenant/invitation-table";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenant, seedTenantMembership } from "../../tenant/seeding";
-import { tierEngineFeature } from "../../tier-engine/feature";
-import { createUserFeature } from "../../user/feature";
-import { userEntity } from "../../user/schema/user";
-import { seedUser } from "../../user/seeding";
+import { createAuditFeature } from "../../audit/feature.js";
+import { ConfigQueries } from "../../config/constants.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createFeatureTogglesFeature } from "../../feature-toggles/feature.js";
+import { JobQueries } from "../../jobs/constants.js";
+import { createJobsFeature } from "../../jobs/feature.js";
+import { jobRunLogsTable, jobRunsTable } from "../../jobs/job-run-table.js";
+import { hashPassword } from "../../shared/index.js";
+import { TenantQueries } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantInvitationEntity } from "../../tenant/invitation-table.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
+import { tierEngineFeature } from "../../tier-engine/feature.js";
+import { createUserFeature } from "../../user/feature.js";
+import { userEntity } from "../../user/schema/user.js";
+import { seedUser } from "../../user/seeding.js";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
   TENANT_OVERVIEW_SCREEN_ID,
-} from "../constants";
-import { createAdminShellFeature } from "../feature";
-import { isOverviewQueryAllowed, TENANT_OVERVIEW_FORBIDDEN_QUERIES } from "../overview-allowlist";
+} from "../constants.js";
+import { createAdminShellFeature } from "../feature.js";
+import {
+  isOverviewQueryAllowed,
+  TENANT_OVERVIEW_FORBIDDEN_QUERIES,
+} from "../overview-allowlist.js";
 
 let stack: TestStack;
 let TENANT_ID: TenantId;

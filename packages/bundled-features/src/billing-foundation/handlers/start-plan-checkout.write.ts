@@ -13,9 +13,9 @@ import {
   joinBaseUrl,
   openCheckout,
   resolveCatalogProvider,
-} from "../checkout-core";
-import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog";
-import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types";
+} from "../checkout-core.js";
+import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.js";
+import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types.js";
 
 export function createStartPlanCheckoutHandler(
   options: ResolvedBillingFoundationOptions,

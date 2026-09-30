@@ -28,22 +28,30 @@ import {
   type MutableMasterKeyProvider,
 } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { createConfigFeature } from "../../config";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory } from "../../config/feature";
-import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
-import { clearInbox, getInbox, mailTransportInMemoryFeature } from "../../mail-transport-inmemory";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared/index.js";
+import {
+  clearInbox,
+  getInbox,
+  mailTransportInMemoryFeature,
+} from "../../mail-transport-inmemory/index.js";
 import {
   mailTransportSmtpFeature,
   SMTP_PASSWORD,
   setSmtpMailHostLookup,
-} from "../../mail-transport-smtp";
-import { createSecretsContext, createSecretsFeature, tenantSecretsTable } from "../../secrets";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTransportForTenant, mailFoundationFeature } from "../feature";
+} from "../../mail-transport-smtp/index.js";
+import {
+  createSecretsContext,
+  createSecretsFeature,
+  tenantSecretsTable,
+} from "../../secrets/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTransportForTenant, mailFoundationFeature } from "../feature.js";
 
 // --- Test-Handler that exercises the factory end-to-end ---
 

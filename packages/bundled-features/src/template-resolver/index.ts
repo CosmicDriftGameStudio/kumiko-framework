@@ -5,7 +5,7 @@ export {
   TemplateNotFoundError,
   type TemplateResolverApi,
   type TemplateResource,
-} from "./api";
+} from "./api.js";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -24,17 +24,21 @@ export {
   type TemplateStatus,
   UPSERT_KINDS,
   type UpsertKind,
-} from "./constants";
-export { createTemplateResolverFeature } from "./feature";
+} from "./constants.js";
+export { createTemplateResolverFeature } from "./feature.js";
 export {
   TEMPLATE_RESOLVER_FEATURE,
   TemplateResolverErrors,
   TemplateResolverHandlers,
   TemplateResolverQueries,
-} from "./qualified-names";
-export { type TemplateResourceRow, templateResourceEntity, templateResourcesTable } from "./table";
+} from "./qualified-names.js";
+export {
+  type TemplateResourceRow,
+  templateResourceEntity,
+  templateResourcesTable,
+} from "./table.js";
 export {
   type UserContentEntryRow,
   userContentEntriesTable,
   userContentEntryEntity,
-} from "./user-content-table";
+} from "./user-content-table.js";

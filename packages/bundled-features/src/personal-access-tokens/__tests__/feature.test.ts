@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
-import { EXT_TOKEN_VERIFIER } from "../../auth-foundation";
-import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "../constants";
-import { createPersonalAccessTokensFeature } from "../feature";
-import { patScopeOptionTranslations } from "../i18n";
-import { expandScopes, type PatScopeConfig, parseGrant } from "../scopes";
-import { patGrantOptions } from "../screens";
+import { EXT_TOKEN_VERIFIER } from "../../auth-foundation/index.js";
+import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "../constants.js";
+import { createPersonalAccessTokensFeature } from "../feature.js";
+import { patScopeOptionTranslations } from "../i18n.js";
+import { expandScopes, type PatScopeConfig, parseGrant } from "../scopes.js";
+import { patGrantOptions } from "../screens.js";
 
 describe("createPersonalAccessTokensFeature toggleable-option (tier-gating)", () => {
   test("without toggleable: feature is always-on (toggleableDefault undefined)", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { rolesInputSchema } from "../roles-input-schema";
+import { rolesInputSchema } from "../roles-input-schema.js";
 
 describe("rolesInputSchema", () => {
   test("accepts string[]", () => {

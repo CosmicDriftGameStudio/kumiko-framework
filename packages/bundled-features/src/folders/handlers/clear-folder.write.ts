@@ -1,10 +1,10 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { joinRowParentIsVisible } from "../../shared";
-import { folderAssignmentAggregateId } from "../aggregate-id";
-import { DEFAULT_FOLDER_ACCESS } from "../constants";
-import { folderAssignmentExecutor } from "../executor";
-import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas";
+import { joinRowParentIsVisible } from "../../shared/index.js";
+import { folderAssignmentAggregateId } from "../aggregate-id.js";
+import { DEFAULT_FOLDER_ACCESS } from "../constants.js";
+import { folderAssignmentExecutor } from "../executor.js";
+import { type ClearFolderPayload, clearFolderPayloadSchema } from "../schemas.js";
 
 // clear-folder — removes a host entity from its folder (back to "unfiled").
 // Idempotent: clearing an entity that isn't in any folder is already the

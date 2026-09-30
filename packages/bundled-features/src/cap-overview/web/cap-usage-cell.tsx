@@ -1,8 +1,8 @@
 // @runtime client
 import type { ColumnRendererProps } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import type { CapUsage } from "../types";
-import { CapUsageBar } from "./cap-usage-bar";
+import type { CapUsage } from "../types.js";
+import { CapUsageBar } from "./cap-usage-bar.js";
 
 function isCapUsage(value: unknown): value is CapUsage {
   if (typeof value !== "object" || value === null) return false;

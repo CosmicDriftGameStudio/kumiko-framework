@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { isCommonPassword, passwordSchema } from "../password-policy";
+import { isCommonPassword, passwordSchema } from "../password-policy.js";
 
 test("rejects a breach-list password (case-insensitive)", () => {
   expect(isCommonPassword("Password1")).toBe(true);

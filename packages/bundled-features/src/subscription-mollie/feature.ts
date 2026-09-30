@@ -43,9 +43,9 @@ import type { SubscriptionProviderPlugin } from "@cosmicdrift/kumiko-bundled-fea
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { createMollieClient } from "@mollie/api-client";
 import * as z from "zod";
-import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants";
-import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods";
-import { type MollieClientShape, verifyAndParseMollieWebhook } from "./verify-webhook";
+import { MOLLIE_PROVIDER_NAME, SUBSCRIPTION_MOLLIE_FEATURE } from "./constants.js";
+import { createMollieCheckoutSession, type MolliePriceConfig } from "./plugin-methods.js";
+import { type MollieClientShape, verifyAndParseMollieWebhook } from "./verify-webhook.js";
 
 /**
  * Env-vars contract for the `subscription-mollie` feature.

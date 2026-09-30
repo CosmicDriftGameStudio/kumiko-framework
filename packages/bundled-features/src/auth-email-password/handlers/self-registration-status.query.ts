@@ -1,6 +1,6 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
+import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.js";
 
 // Anonymous-readable status for the (unauthenticated) signup page: lets it
 // hide its own link/form when an operator has flipped self-registration

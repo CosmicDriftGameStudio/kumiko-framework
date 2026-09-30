@@ -1,9 +1,12 @@
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createComplianceProfilesFeature } from "../compliance-profiles";
-import { createDataRetentionFeature } from "../data-retention";
-import { createSessionsFeature } from "../sessions";
-import { createUserDataRightsFeature, type UserDataRightsOptions } from "../user-data-rights";
-import { createUserProfileFeature } from "../user-profile";
+import { createComplianceProfilesFeature } from "../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../data-retention/index.js";
+import { createSessionsFeature } from "../sessions/index.js";
+import {
+  createUserDataRightsFeature,
+  type UserDataRightsOptions,
+} from "../user-data-rights/index.js";
+import { createUserProfileFeature } from "../user-profile/index.js";
 
 export type DsgvoSelfServiceOptions = {
   /** Passed through to createUserDataRightsFeature — export/deletion mail

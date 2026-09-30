@@ -14,8 +14,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { normalizeMimeType } from "@cosmicdrift/kumiko-framework/files";
 import * as z from "zod";
-import { validateDocumentIngestProviderWiring } from "./boot-checks";
-import { documentExtractEntity } from "./entity";
+import { validateDocumentIngestProviderWiring } from "./boot-checks.js";
+import { documentExtractEntity } from "./entity.js";
 import {
   DOCUMENT_INGEST_AGGREGATE_TYPE,
   DOCUMENT_INGEST_REQUESTED_EVENT_QN,
@@ -24,14 +24,14 @@ import {
   DOCUMENT_INGEST_SKIPPED_EVENT_SHORT,
   documentIngestRequestedPayloadSchema,
   documentIngestSkippedPayloadSchema,
-} from "./events";
+} from "./events.js";
 import {
   forgetExtractOnFileRefDeletedHook,
   forgetExtractOnFileRefForgottenHook,
   forgetOrphanedDocumentExtractHook,
-} from "./forget-extract-with-file-ref";
-import { EXT_DOCUMENT_INGEST_PROVIDER, resolveDocumentIngestProviders } from "./providers";
-import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook";
+} from "./forget-extract-with-file-ref.js";
+import { EXT_DOCUMENT_INGEST_PROVIDER, resolveDocumentIngestProviders } from "./providers.js";
+import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook.js";
 
 const FEATURE_NAME = "document-ingest-foundation";
 

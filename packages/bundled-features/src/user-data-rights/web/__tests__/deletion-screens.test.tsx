@@ -10,9 +10,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen";
-import { defaultTranslations } from "../i18n";
-import { RequestAccountDeletionScreen } from "../request-deletion-screen";
+import { ConfirmAccountDeletionScreen } from "../confirm-deletion-screen.js";
+import { defaultTranslations } from "../i18n.js";
+import { RequestAccountDeletionScreen } from "../request-deletion-screen.js";
 
 const resolver = createStaticLocaleResolver({ locale: "en" });
 

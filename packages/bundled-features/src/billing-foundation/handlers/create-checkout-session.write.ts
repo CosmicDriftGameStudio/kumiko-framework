@@ -24,8 +24,8 @@
 
 import type { WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { openCheckout } from "../checkout-core";
-import type { ResolvedBillingFoundationOptions } from "../types";
+import { openCheckout } from "../checkout-core.js";
+import type { ResolvedBillingFoundationOptions } from "../types.js";
 
 const createCheckoutSessionSchema = z.object({
   /** Welcher Provider — entityName eines registrierten subscription-

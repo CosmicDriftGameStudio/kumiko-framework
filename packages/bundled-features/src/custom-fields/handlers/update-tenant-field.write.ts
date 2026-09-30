@@ -1,10 +1,10 @@
 import { isSystemTenant, type WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound, failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
-import { fieldDefinitionAggregateId } from "../aggregate-id";
-import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants";
-import { fieldDefinitionExecutor } from "../executor";
-import { buildFieldDefinitionColumns } from "../lib/field-definition-row";
-import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas";
+import { fieldDefinitionAggregateId } from "../aggregate-id.js";
+import { DEFAULT_FIELD_DEFINITION_WRITE_ROLES } from "../constants.js";
+import { fieldDefinitionExecutor } from "../executor.js";
+import { buildFieldDefinitionColumns } from "../lib/field-definition-row.js";
+import { type UpdateFieldPayload, updateFieldPayloadSchema } from "../schemas.js";
 
 // update-tenant-field — TenantAdmin ersetzt den Stand einer bestehenden
 // Field-Definition (Vollersatz: Payload-Shape = define, der Edit-Screen

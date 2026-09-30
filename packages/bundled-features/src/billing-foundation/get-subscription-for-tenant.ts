@@ -6,9 +6,9 @@ import {
   decryptPiiFieldValues,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { subscriptionAggregateId } from "./aggregate-id";
-import { SUBSCRIPTION_PII_FIELDS } from "./entities";
-import { subscriptionsProjectionTable } from "./projection";
+import { subscriptionAggregateId } from "./aggregate-id.js";
+import { SUBSCRIPTION_PII_FIELDS } from "./entities.js";
+import { subscriptionsProjectionTable } from "./projection.js";
 
 export type SubscriptionView = {
   readonly tier: string;

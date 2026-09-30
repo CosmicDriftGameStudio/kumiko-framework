@@ -1,6 +1,6 @@
 import type { NotifyPriority } from "@cosmicdrift/kumiko-framework/engine";
 import { QnTypes, qn } from "@cosmicdrift/kumiko-framework/engine";
-import { DELIVERY_FEATURE, DeliveryJobNames } from "./public-names";
+import { DELIVERY_FEATURE, DeliveryJobNames } from "./public-names.js";
 
 // Extension-point name for delivery-channel plugins (channel-email,
 // channel-in-app, channel-push, ...).
@@ -19,7 +19,7 @@ export {
   DeliveryQueries,
   DeliveryStatus,
   type DeliveryStatusValue,
-} from "./public-names";
+} from "./public-names.js";
 
 // notify() priority → BullMQ job priority. Lower number = processed first; all
 // > 0 so prioritised delivery jobs never mix with BullMQ's "0 = unprioritised

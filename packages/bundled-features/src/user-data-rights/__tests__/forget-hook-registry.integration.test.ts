@@ -23,18 +23,21 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, userEntity } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runForgetCleanup } from "../run-forget-cleanup";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature, userEntity } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
 import {
   createForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
   TENANT_SYSTEM,
-} from "./forget-test-helpers";
+} from "./forget-test-helpers.js";
 
 const PROBE = "forget-registry-probe";
 let capturedRegistry: Registry | undefined;

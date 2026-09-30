@@ -43,22 +43,22 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createFilesFeature } from "../../files";
-import { tenantMembershipEntity } from "../../tenant";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createFilesFeature } from "../../files/index.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipEntity } from "../../tenant/index.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy";
-import { createFilesTenantDataFeature } from "../index";
+} from "../../tenant-lifecycle/constants.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
+import { createFilesTenantDataFeature } from "../index.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const SWEEP_JOB = "files-tenant-data:job:sweep-orphaned-derivatives";

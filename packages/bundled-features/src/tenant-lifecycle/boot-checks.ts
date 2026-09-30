@@ -3,7 +3,7 @@ import {
   type FeatureDefinition,
   type ResolvedPiiFlags,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { entitiesOf } from "../shared";
+import { entitiesOf } from "../shared/index.js";
 
 // V4: tenantOwned-entity-without-hook gate. Mirrors user-data-rights' V3
 // (validateGdprPiiHookCoverage) but for EXT_TENANT_DATA. Registered as this

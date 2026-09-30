@@ -11,8 +11,8 @@
 // pipeline's later `subject-keys` stage erases the tenant subject key.
 
 import { createSystemUser, type TenantDataDestroyHook } from "@cosmicdrift/kumiko-framework/engine";
-import { documentExtractsTable } from "./entity";
-import { documentExtractExecutor } from "./executor";
+import { documentExtractsTable } from "./entity.js";
+import { documentExtractExecutor } from "./executor.js";
 
 export const documentExtractTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
   const rows = await ctx.db.selectMany<{ id: string }>(documentExtractsTable, {

@@ -1,12 +1,12 @@
-export { UserCommandSchemas } from "./command-schemas";
-export { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "./constants";
+export { UserCommandSchemas } from "./command-schemas.js";
+export { USER_FEATURE, UserErrors, UserHandlers, UserQueries } from "./constants.js";
 export {
   backfillUserStreamTenants,
   type UserStreamBackfillResult,
-} from "./db/queries/stream-tenant-backfill";
-export { createUserFeature } from "./feature";
-export { isPrincipalBlocked, principalStatusPlugin } from "./principal-status";
-export type { UserStatus } from "./schema/user";
+} from "./db/queries/stream-tenant-backfill.js";
+export { createUserFeature } from "./feature.js";
+export { isPrincipalBlocked, principalStatusPlugin } from "./principal-status.js";
+export type { UserStatus } from "./schema/user.js";
 export {
   USER_ANONYMIZED_DISPLAY_NAME,
   USER_ANONYMIZED_EMAIL_DOMAIN,
@@ -16,4 +16,4 @@ export {
   USER_STATUS,
   userEntity,
   userTable,
-} from "./schema/user";
+} from "./schema/user.js";

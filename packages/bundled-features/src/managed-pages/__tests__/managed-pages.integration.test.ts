@@ -9,14 +9,14 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { expectErrorIncludes } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding";
-import { createManagedPagesCssFeature } from "../css-gate";
-import { createManagedPagesFeature } from "../feature";
-import { seedPage } from "../seeding";
-import { type PageRow, pageEntity, pagesTable } from "../table";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { BRANDING_QN, BRANDING_QUERY_QN } from "../branding.js";
+import { createManagedPagesCssFeature } from "../css-gate.js";
+import { createManagedPagesFeature } from "../feature.js";
+import { seedPage } from "../seeding.js";
+import { type PageRow, pageEntity, pagesTable } from "../table.js";
 
 const TENANT_A = "11111111-1111-4111-8111-111111111111";
 const TENANT_B = "22222222-2222-4222-8222-222222222222";

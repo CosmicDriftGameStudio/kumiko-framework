@@ -25,14 +25,14 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createTestEnvelopeCipher, waitFor } from "@cosmicdrift/kumiko-framework/testing";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants";
-import { formDraftEntity } from "../entity";
-import { formDraftFeature } from "../feature";
-import { FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY } from "../handlers/cleanup.job";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory, createConfigFeature } from "../../config/feature.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { FORM_DRAFT_FEATURE_NAME, FormDraftHandlers } from "../constants.js";
+import { formDraftEntity } from "../entity.js";
+import { formDraftFeature } from "../feature.js";
+import { FORM_DRAFT_RETENTION_DAYS_CONFIG_KEY } from "../handlers/cleanup.job.js";
 
 let stack: TestStack;
 

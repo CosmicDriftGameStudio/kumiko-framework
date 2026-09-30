@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTenantConfig, createUserConfig } from "@cosmicdrift/kumiko-framework/engine";
-import { validateAppOverrides } from "../resolver";
+import { validateAppOverrides } from "../resolver.js";
 
 // Minimal registry stub — validateAppOverrides only reads getConfigKey.
 // Cast keeps the test isolated from the rest of the Registry surface.

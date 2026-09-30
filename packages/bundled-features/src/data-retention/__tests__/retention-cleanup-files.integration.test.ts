@@ -38,8 +38,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createDataRetentionFeature } from "../feature";
-import { runRetentionCleanup } from "../run-retention-cleanup";
+import { createDataRetentionFeature } from "../feature.js";
+import { runRetentionCleanup } from "../run-retention-cleanup.js";
 
 // hardDelete entity with BOTH a single (image) and a plural (files) field —
 // covers the column-value path AND the file_refs-lookup path in one entity.

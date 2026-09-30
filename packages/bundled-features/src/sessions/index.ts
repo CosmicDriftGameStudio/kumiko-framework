@@ -6,20 +6,20 @@ export {
   SessionErrors,
   SessionHandlers,
   SessionQueries,
-} from "./constants";
-export type { BindAutoRevokeOnPasswordChange, SessionsFeatureOptions } from "./feature";
-export { bindAutoRevokeFromFeature, createSessionsFeature } from "./feature";
-export { userSessionEntity, userSessionTable } from "./schema/user-session";
+} from "./constants.js";
+export type { BindAutoRevokeOnPasswordChange, SessionsFeatureOptions } from "./feature.js";
+export { bindAutoRevokeFromFeature, createSessionsFeature } from "./feature.js";
+export { userSessionEntity, userSessionTable } from "./schema/user-session.js";
 export type {
   SessionCallbacks,
   SessionCallbacksOptions,
   SessionMassRevoker,
-} from "./session-callbacks";
-export { createSessionCallbacks, isPrincipalBlocked } from "./session-callbacks";
-export type { SessionRevokedPayload } from "./session-revoked-event";
+} from "./session-callbacks.js";
+export { createSessionCallbacks, isPrincipalBlocked } from "./session-callbacks.js";
+export type { SessionRevokedPayload } from "./session-revoked-event.js";
 export {
   SESSION_REVOKED_AGGREGATE_TYPE,
   SESSION_REVOKED_EVENT_QN,
   SESSION_REVOKED_EVENT_SHORT,
   sessionRevokedSchema,
-} from "./session-revoked-event";
+} from "./session-revoked-event.js";

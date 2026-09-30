@@ -1,7 +1,7 @@
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants";
-import { globalFeatureStateTable } from "../global-feature-state-table";
+import { FEATURE_TOGGLE_CROSS_TENANT_REASON } from "../constants.js";
+import { globalFeatureStateTable } from "../global-feature-state-table.js";
 
 // List every row in the global_feature_state table — i.e. every feature
 // that has ever been explicitly flipped. Features without a row aren't

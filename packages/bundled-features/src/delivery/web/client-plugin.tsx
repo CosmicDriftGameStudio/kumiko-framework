@@ -1,8 +1,8 @@
 // @runtime client
 import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { DELIVERY_FEATURE, DELIVERY_STATUS_CELL_COMPONENT } from "../public-names";
-import { DeliveryStatusCell } from "./delivery-status-cell";
+import { DELIVERY_FEATURE, DELIVERY_STATUS_CELL_COMPONENT } from "../public-names.js";
+import { DeliveryStatusCell } from "./delivery-status-cell.js";
 
 export type DeliveryClientOptions = {
   readonly translations?: TranslationsByLocale;

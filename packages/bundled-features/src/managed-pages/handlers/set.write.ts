@@ -7,7 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { type PageRow, pageEntity, pagesTable } from "../table";
+import { type PageRow, pageEntity, pagesTable } from "../table.js";
 
 const slugSchema = z
   .string()

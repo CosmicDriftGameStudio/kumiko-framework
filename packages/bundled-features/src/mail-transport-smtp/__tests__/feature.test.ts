@@ -9,10 +9,13 @@ import type { ConfigAccessor } from "@cosmicdrift/kumiko-framework/engine";
 import { UnconfiguredError } from "@cosmicdrift/kumiko-framework/errors";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { createSecret } from "@cosmicdrift/kumiko-framework/secrets";
-import { HostResolutionError, MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR } from "../../foundation-shared";
-import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation";
-import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract";
-import { mailTransportSmtpFeature, SMTP_PASSWORD, setSmtpMailHostLookup } from "../feature";
+import {
+  HostResolutionError,
+  MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+} from "../../foundation-shared/index.js";
+import { describeMailTransportContract } from "../../mail-foundation/__tests__/mail-transport-contract.js";
+import { isMailTransportPlugin, type MailTransportPlugin } from "../../mail-foundation/index.js";
+import { mailTransportSmtpFeature, SMTP_PASSWORD, setSmtpMailHostLookup } from "../feature.js";
 
 // The contract fixture's host never actually connects (nodemailer's pool
 // connects lazily on send, never on construction) — "localhost" only needs

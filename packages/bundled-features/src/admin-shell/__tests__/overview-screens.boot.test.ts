@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
-import { ConfigQueries } from "../../config/constants";
-import { JobQueries } from "../../jobs/constants";
-import { TenantQueries } from "../../tenant/constants";
-import { UserQueries } from "../../user/constants";
-import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants";
-import { createAdminShellFeature } from "../feature";
+import { ConfigQueries } from "../../config/constants.js";
+import { JobQueries } from "../../jobs/constants.js";
+import { TenantQueries } from "../../tenant/constants.js";
+import { UserQueries } from "../../user/constants.js";
+import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.js";
+import { createAdminShellFeature } from "../feature.js";
 
 const adminShell = createAdminShellFeature();
 

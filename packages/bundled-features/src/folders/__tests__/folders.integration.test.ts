@@ -26,10 +26,10 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { v5 as uuidv5 } from "uuid";
-import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks";
-import { FoldersHandlers, FoldersQueries } from "../constants";
-import { folderAssignmentEntity, folderEntity } from "../entity";
-import { createFoldersFeature } from "../feature";
+import { folderAssignmentDeleteHook, folderDeleteHook } from "../../folders-user-data/hooks.js";
+import { FoldersHandlers, FoldersQueries } from "../constants.js";
+import { folderAssignmentEntity, folderEntity } from "../entity.js";
+import { createFoldersFeature } from "../feature.js";
 
 const foldersFeature = createFoldersFeature();
 

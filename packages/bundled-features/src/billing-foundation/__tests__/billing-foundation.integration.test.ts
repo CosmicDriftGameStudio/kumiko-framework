@@ -35,22 +35,22 @@ import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testin
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import {
   BillingEventKinds,
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
-} from "../constants";
-import { createBillingFoundationFeature } from "../feature";
-import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection";
-import type { PaymentEvent, SubscriptionProviderPlugin } from "../types";
-import { createSubscriptionWebhookRoute } from "../webhook-handler";
+} from "../constants.js";
+import { createBillingFoundationFeature } from "../feature.js";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
+import type { PaymentEvent, SubscriptionProviderPlugin } from "../types.js";
+import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
 
 // =============================================================================
 // Mock-plugin für create-checkout-session + create-portal-session-Tests.

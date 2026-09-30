@@ -1,5 +1,5 @@
 import { createRedisPubSubSignal } from "@cosmicdrift/kumiko-framework/redis";
-import type { ToggleSyncSignal } from "./toggle-runtime";
+import type { ToggleSyncSignal } from "./toggle-runtime.js";
 
 // Single fixed channel — unlike the SSE broker there's no per-tenant/
 // per-user variance to multiplex, every toggle flip is global.

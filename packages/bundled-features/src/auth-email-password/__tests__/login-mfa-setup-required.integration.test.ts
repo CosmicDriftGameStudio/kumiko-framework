@@ -24,22 +24,22 @@ import {
   createAuthMfaFeature,
   mfaRequiredConfigHandle,
   mfaStatusCheckerFromFeature,
-} from "../../auth-mfa";
-import { userMfaEntity } from "../../auth-mfa/schema/user-mfa";
-import { currentTotpCode } from "../../auth-mfa/totp";
-import { ConfigHandlers, createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { hashPassword } from "../../shared";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { UserHandlers } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { AuthErrors, AuthHandlers } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+} from "../../auth-mfa/index.js";
+import { userMfaEntity } from "../../auth-mfa/schema/user-mfa.js";
+import { currentTotpCode } from "../../auth-mfa/totp.js";
+import { ConfigHandlers, createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserHandlers } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { AuthErrors, AuthHandlers } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 let stack: TestStack;
 
@@ -135,7 +135,9 @@ describe("login: mfa-setup-required carries a verifiable preauthSetupToken", () 
     expect(body.token).toBeUndefined();
     expect(typeof body.preauthSetupToken).toBe("string");
 
-    const { verifyMfaPreauthSetupToken } = await import("../../auth-mfa/mfa-preauth-setup-token");
+    const { verifyMfaPreauthSetupToken } = await import(
+      "../../auth-mfa/mfa-preauth-setup-token.js"
+    );
     const verified = verifyMfaPreauthSetupToken(body.preauthSetupToken, CHALLENGE_TOKEN_SECRET);
     expect(verified.ok).toBe(true);
     if (verified.ok) {

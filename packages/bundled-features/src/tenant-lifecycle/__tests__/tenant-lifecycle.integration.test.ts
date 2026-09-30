@@ -26,29 +26,29 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { createSessionsFeature } from "../../sessions";
-import { userSessionTable } from "../../sessions/schema/user-session";
-import { tenantMembershipsTable } from "../../tenant";
-import { TenantHandlers, TenantQueries } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantTable } from "../../tenant/schema/tenant";
-import { seedTenantMembership } from "../../tenant/testing";
-import { createUserFeature } from "../../user/feature";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { userSessionTable } from "../../sessions/schema/user-session.js";
+import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipsTable } from "../../tenant/index.js";
+import { tenantTable } from "../../tenant/schema/tenant.js";
+import { seedTenantMembership } from "../../tenant/testing.js";
+import { createUserFeature } from "../../user/feature.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_FAILED_EVENT_QN,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../constants";
+} from "../constants.js";
 import {
   createTenantLifecycleFeature,
   resolveTenantLifecycleGate,
   TenantLifecycleHandlers,
-} from "../index";
-import { resetTenantLifecycleGateCacheForTests } from "../lifecycle-gate";
-import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy";
+} from "../index.js";
+import { resetTenantLifecycleGateCacheForTests } from "../lifecycle-gate.js";
+import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy.js";
 
 const REQUEST = TenantLifecycleHandlers.requestDestruction;
 const CANCEL = TenantLifecycleHandlers.cancelDestruction;

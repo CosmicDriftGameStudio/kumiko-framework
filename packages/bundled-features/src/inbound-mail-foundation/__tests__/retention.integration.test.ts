@@ -23,18 +23,18 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { inboundMessageAggregateId } from "../aggregate-id";
-import { InboundMailFoundationHandlers } from "../constants";
-import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities";
-import { inboundMailFoundationFeature } from "../feature";
-import { inboundMessagesProjectionTable } from "../projection";
-import { runInboundMailRetention } from "../retention-sweep";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { inboundMessageAggregateId } from "../aggregate-id.js";
+import { InboundMailFoundationHandlers } from "../constants.js";
+import { seenMessageEntity, seenMessageTable, syncCursorEntity } from "../entities.js";
+import { inboundMailFoundationFeature } from "../feature.js";
+import { inboundMessagesProjectionTable } from "../projection.js";
+import { runInboundMailRetention } from "../retention-sweep.js";
 
 let stack: TestStack;
 let db: DbConnection;

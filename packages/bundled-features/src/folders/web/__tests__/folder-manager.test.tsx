@@ -7,9 +7,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { FoldersHandlers, FoldersQueries } from "../../constants";
-import { type FolderFiling, FolderManager } from "../folder-manager";
-import { defaultTranslations } from "../i18n";
+import { FoldersHandlers, FoldersQueries } from "../../constants.js";
+import { type FolderFiling, FolderManager } from "../folder-manager.js";
+import { defaultTranslations } from "../i18n.js";
 
 type FolderRow = { id: string; name: string; parentId: string | null; version: number };
 

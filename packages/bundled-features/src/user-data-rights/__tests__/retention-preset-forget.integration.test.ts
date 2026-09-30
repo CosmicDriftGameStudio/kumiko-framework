@@ -47,22 +47,22 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
+} from "../../compliance-profiles/index.js";
 import {
   createDataRetentionFeature,
   resolveRetentionPolicyForTenant,
   tenantRetentionOverrideEntity,
   tenantRetentionOverrideTable,
-} from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, userEntity, userTable } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runForgetCleanup } from "../run-forget-cleanup";
+} from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
 import {
   createForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers";
+} from "./forget-test-helpers.js";
 
 const POLICY_FOR = "data-retention:query:policy-for";
 const CREATE_INVOICE = "test-invoice:write:create";

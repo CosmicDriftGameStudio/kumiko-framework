@@ -21,16 +21,16 @@ import {
   defineFeature,
   type FeatureRegistrar,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { DEFAULT_LEDGER_ACCESS, LEDGER_FEATURE_NAME } from "./constants";
-import { accountEntity, scheduleEntity, transactionEntity } from "./entity";
-import { createConfirmSchedulePeriodHandler } from "./handlers/confirm-schedule-period.write";
-import { createCreateTransactionHandler } from "./handlers/create-transaction.write";
+import { DEFAULT_LEDGER_ACCESS, LEDGER_FEATURE_NAME } from "./constants.js";
+import { accountEntity, scheduleEntity, transactionEntity } from "./entity.js";
+import { createConfirmSchedulePeriodHandler } from "./handlers/confirm-schedule-period.write.js";
+import { createCreateTransactionHandler } from "./handlers/create-transaction.write.js";
 import {
   createBalanceSheetHandler,
   createBalancesReportHandler,
   createIncomeStatementHandler,
-} from "./handlers/reports.query";
-import { createReverseTransactionHandler } from "./handlers/reverse-transaction.write";
+} from "./handlers/reports.query.js";
+import { createReverseTransactionHandler } from "./handlers/reverse-transaction.write.js";
 
 // Opt-in tier-gating (mirrors folders): when set, the feature declares itself
 // r.toggleable so the dispatcher gate + tier-engine can switch the WHOLE ledger

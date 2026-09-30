@@ -1,4 +1,4 @@
-import type { DefineFieldPayload } from "../schemas";
+import type { DefineFieldPayload } from "../schemas.js";
 
 export interface FieldDefinitionColumns {
   readonly entityName: string;

@@ -1,11 +1,11 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { decryptStoredPii, joinRowParentIsVisible } from "../../shared";
-import { userTable } from "../../user";
-import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants";
-import { noteEntryExecutor, noteMentionExecutor } from "../executor";
-import { type AddNotePayload, addNotePayloadSchema } from "../schemas";
+import { decryptStoredPii, joinRowParentIsVisible } from "../../shared/index.js";
+import { userTable } from "../../user/index.js";
+import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.js";
+import { noteEntryExecutor, noteMentionExecutor } from "../executor.js";
+import { type AddNotePayload, addNotePayloadSchema } from "../schemas.js";
 
 const READ_AUTHOR_DISPLAY_NAME_REASON =
   "reads the author's displayName from the global users table inside a savepoint so a missing user feature cannot poison the note transaction";

@@ -5,7 +5,7 @@
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { captureClosedConnectionError } from "@cosmicdrift/kumiko-framework/testing";
-import { backfillUserStreamTenants } from "../stream-tenant-backfill";
+import { backfillUserStreamTenants } from "../stream-tenant-backfill.js";
 
 let closedConnectionError: unknown;
 

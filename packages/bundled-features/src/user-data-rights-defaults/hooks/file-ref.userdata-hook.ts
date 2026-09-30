@@ -11,7 +11,7 @@ import {
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { assertErased } from "../../shared";
+import { assertErased } from "../../shared/index.js";
 
 const ERROR_CONTEXT = "user-data-rights-defaults:fileRef";
 

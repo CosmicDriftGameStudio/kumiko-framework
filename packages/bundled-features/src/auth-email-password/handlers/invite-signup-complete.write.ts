@@ -32,32 +32,32 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
+import { decryptStoredPii } from "../../shared/index.js";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table";
+} from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import reserved-role check owned by tenant-feature
 import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
-} from "../../tenant/membership-roles";
+} from "../../tenant/membership-roles.js";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
-import { seedTenantMembership } from "../../tenant/seeding";
+import { seedTenantMembership } from "../../tenant/seeding.js";
 // kumiko-lint-ignore cross-feature-import existence-check
-import { userTable } from "../../user/schema/user";
-import { invalidInviteToken } from "../errors";
+import { userTable } from "../../user/schema/user.js";
+import { invalidInviteToken } from "../errors.js";
 import {
   burnInviteToken,
   deleteInviteToken,
   getInvitationIdForToken,
   unburnInviteToken,
-} from "../invite-token-store";
-import { passwordSchema } from "../password-policy";
+} from "../invite-token-store.js";
+import { passwordSchema } from "../password-policy.js";
 // kumiko-lint-ignore cross-feature-import provisioning needs cross-feature seeding helpers
-import { seedUserWithPassword } from "../seeding";
+import { seedUserWithPassword } from "../seeding.js";
 
 const InviteSignupCompleteSchema = z.object({
   token: z.string().min(1),

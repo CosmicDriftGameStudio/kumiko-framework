@@ -1,9 +1,9 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { USER_STATUS, userTable } from "../../user";
-import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant";
-import { updateUserLifecycle } from "../lib/update-user-lifecycle";
+import { USER_STATUS, userTable } from "../../user/index.js";
+import { denyIfTargetOutsideAdminTenant } from "../lib/deny-if-target-outside-admin-tenant.js";
+import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 
 const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
   "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.";

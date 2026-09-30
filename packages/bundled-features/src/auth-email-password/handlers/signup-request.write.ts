@@ -26,19 +26,19 @@ import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared";
-import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants";
-import type { AuthMailLocale } from "../email-templates";
-import { renderActivationEmail } from "../email-templates";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail";
-import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle";
+import { findSignupHandoverProvider, type SignupHandoverBinding } from "../../shared/index.js";
+import { AUTH_SIGNUP_DEFAULT_TTL_MINUTES } from "../constants.js";
+import type { AuthMailLocale } from "../email-templates.js";
+import { renderActivationEmail } from "../email-templates.js";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
+import { AUTH_SELF_REGISTRATION_FEATURE } from "../self-registration-toggle.js";
 import {
   invalidateExistingSignupToken,
   normalizeEmail,
   storeSignupHandover,
   storeSignupToken,
   takeOverSignupHandoverForResend,
-} from "../signup-token-store";
+} from "../signup-token-store.js";
 
 const SIGNUP_NOTIFICATION_TYPE = "auth-email-password:signup-activation";
 

@@ -6,8 +6,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { tierAssignmentAggregateId } from "../aggregate-id";
-import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
+import { tierAssignmentAggregateId } from "../aggregate-id.js";
+import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 
 // SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
 // Billing. Cross-tenant, daher SystemAdmin-only (kein TenantAdmin: sonst

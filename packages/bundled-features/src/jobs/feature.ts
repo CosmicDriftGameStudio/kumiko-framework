@@ -3,29 +3,34 @@ import {
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { JOB_RUN_DETAIL_SCREEN_ID, JOB_RUNS_SCREEN_ID, JobHandlers, JobQueries } from "./constants";
-import { catalogQuery } from "./handlers/catalog.query";
-import { detailQuery } from "./handlers/detail.query";
-import { listQuery } from "./handlers/list.query";
+import {
+  JOB_RUN_DETAIL_SCREEN_ID,
+  JOB_RUNS_SCREEN_ID,
+  JobHandlers,
+  JobQueries,
+} from "./constants.js";
+import { catalogQuery } from "./handlers/catalog.query.js";
+import { detailQuery } from "./handlers/detail.query.js";
+import { listQuery } from "./handlers/list.query.js";
 import {
   projectionRebuildJob,
   projectionRebuildPayloadSchema,
-} from "./handlers/projection-rebuild.job";
-import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex-entity.job";
+} from "./handlers/projection-rebuild.job.js";
+import { reindexEntityJob, reindexEntityPayloadSchema } from "./handlers/reindex-entity.job.js";
 import {
   createRetentionCleanupJob,
   DEFAULT_JOB_RUN_RETENTION_DAYS,
-} from "./handlers/retention-cleanup.job";
-import { retryWrite } from "./handlers/retry.write";
+} from "./handlers/retention-cleanup.job.js";
+import { retryWrite } from "./handlers/retry.write.js";
 import {
   createStaleRunSweepJob,
   DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS,
-} from "./handlers/stale-run-sweep.job";
-import { tenantFailuresQuery } from "./handlers/tenant-failures.query";
-import { triggerWrite } from "./handlers/trigger.write";
-import { JOBS_I18N } from "./i18n";
-import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table";
-import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table";
+} from "./handlers/stale-run-sweep.job.js";
+import { tenantFailuresQuery } from "./handlers/tenant-failures.query.js";
+import { triggerWrite } from "./handlers/trigger.write.js";
+import { JOBS_I18N } from "./i18n.js";
+import { jobRunLogsTableMeta, jobRunsTableMeta } from "./job-run-table.js";
+import { tenantJobFailuresTableMeta } from "./tenant-job-failure-table.js";
 
 export type JobsFeatureOptions = {
   // How long a job run (and its logs) stays in store_job_runs/

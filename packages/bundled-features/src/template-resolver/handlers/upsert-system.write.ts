@@ -4,9 +4,9 @@ import {
   SYSTEM_TENANT_ID,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
-import type { TemplateResourceRow } from "../table";
-import { templateResourcesTable } from "../table";
-import { executor, upsertPayloadSchema } from "./shared";
+import type { TemplateResourceRow } from "../table.js";
+import { templateResourcesTable } from "../table.js";
+import { executor, upsertPayloadSchema } from "./shared.js";
 
 // System-Template anlegen/updaten. Liegt unter SYSTEM_TENANT_ID,
 // scope='system'. Nur SystemAdmin (globale Rolle). TenantAdmin kann

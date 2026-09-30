@@ -13,10 +13,10 @@ import { describe, expect, test } from "bun:test";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
 import { setupTestStack, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../../config";
-import { fileFoundationFeature } from "../../file-foundation";
-import { createFileDerivativesFeature } from "../feature";
-import { PUBLIC_VARIANT_QN } from "../handlers/public-variant.query";
+import { createConfigFeature } from "../../config/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { createFileDerivativesFeature } from "../feature.js";
+import { PUBLIC_VARIANT_QN } from "../handlers/public-variant.query.js";
 
 describe("file-derivatives :: publicVariant query gating without resolveApexTenant", () => {
   test("PUBLIC_VARIANT_QN is not dispatchable via the generic /api/query path — 404, same as any unknown query", async () => {

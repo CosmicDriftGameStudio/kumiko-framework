@@ -13,8 +13,8 @@
 // samples/recipes/managed-config.
 
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { buildTenantSettingsKeys, type TenantSettingsKeyOptions } from "./config";
-import { TENANT_SETTINGS_FEATURE_NAME } from "./constants";
+import { buildTenantSettingsKeys, type TenantSettingsKeyOptions } from "./config.js";
+import { TENANT_SETTINGS_FEATURE_NAME } from "./constants.js";
 
 export type TenantSettingsFeatureOptions = TenantSettingsKeyOptions;
 

@@ -11,7 +11,7 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { folderAssignmentEntity, folderEntity } from "../folders";
+import { folderAssignmentEntity, folderEntity } from "../folders/index.js";
 
 const { table: folderTable, executor: folderExecutor } = createEntityExecutor(
   "folder",

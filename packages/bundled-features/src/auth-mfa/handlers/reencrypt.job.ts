@@ -43,8 +43,8 @@ import {
   type ChunkedMigrationStopReason,
   classifyStoredEnvelope,
   runChunkedMigration,
-} from "../../shared";
-import { userMfaEntity, userMfaTable } from "../schema/user-mfa";
+} from "../../shared/index.js";
+import { userMfaEntity, userMfaTable } from "../schema/user-mfa.js";
 
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_MAX_FAILURES = 10;

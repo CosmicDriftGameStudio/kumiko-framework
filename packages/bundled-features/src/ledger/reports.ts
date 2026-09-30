@@ -1,6 +1,6 @@
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
-import type { AccountType } from "./constants";
-import type { Posting } from "./schemas";
+import type { AccountType } from "./constants.js";
+import type { Posting } from "./schemas.js";
 
 // Pure report aggregation over posted journal entries. No DB, no IO — the query
 // handlers fetch accounts + transactions (selectMany) and feed them here, so the

@@ -19,13 +19,16 @@
 
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
-import { insertIgnoreProjectionRow, upsertProjectionRow } from "./db/queries/inbound-projections";
-import { inboundMessageEntity, mailAccountEntity, mailThreadEntity } from "./entities";
+import {
+  insertIgnoreProjectionRow,
+  upsertProjectionRow,
+} from "./db/queries/inbound-projections.js";
+import { inboundMessageEntity, mailAccountEntity, mailThreadEntity } from "./entities.js";
 import type {
   InboundMessageEventPayload,
   MailAccountEventPayload,
   MailThreadEventPayload,
-} from "./events";
+} from "./events.js";
 
 // Drizzle-table-instances aus den entity-shapes — geteilt zwischen
 // projection-applies und list-queries (ein column-namespace).

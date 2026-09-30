@@ -19,7 +19,7 @@
 // fragt blockDelete-Felder ab + anonymisiert sie statt zu löschen.
 
 import type { EntityDefinition, RetentionDef } from "@cosmicdrift/kumiko-framework/engine";
-import { RETENTION_PRESETS, type RetentionPresetKey } from "./presets";
+import { RETENTION_PRESETS, type RetentionPresetKey } from "./presets.js";
 
 /**
  * Roh-Override aus der DB-Tabelle (config-Spalte als JSON-String).

@@ -35,11 +35,11 @@ import {
 import { NotFoundError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
-import { recordDownloadUse, recordInvalidAttempt } from "../audit-download";
-import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver";
-import { exportDownloadTokensTable } from "../schema/download-token";
-import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job";
-import { hashDownloadToken } from "../token-helpers";
+import { recordDownloadUse, recordInvalidAttempt } from "../audit-download.js";
+import { makeTenantStorageProviderResolver } from "../lib/storage-provider-resolver.js";
+import { exportDownloadTokensTable } from "../schema/download-token.js";
+import { EXPORT_JOB_STATUS, exportJobsTable } from "../schema/export-job.js";
+import { hashDownloadToken } from "../token-helpers.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

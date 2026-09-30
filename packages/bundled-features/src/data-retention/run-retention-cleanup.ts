@@ -70,11 +70,11 @@ import {
   fileRefEntity,
   fileRefsTable,
 } from "@cosmicdrift/kumiko-framework/files";
-import { runInSubTransaction } from "../shared";
-import { computeCutoff, type Instant } from "./keep-for";
-import type { RetentionPresetKey } from "./presets";
-import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant";
-import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override";
+import { runInSubTransaction } from "../shared/index.js";
+import { computeCutoff, type Instant } from "./keep-for.js";
+import type { RetentionPresetKey } from "./presets.js";
+import { resolveRetentionPolicyForTenant } from "./resolve-for-tenant.js";
+import { tenantRetentionOverrideTable } from "./schema/tenant-retention-override.js";
 
 const DEFAULT_BATCH_LIMIT = 1000;
 const DEFAULT_REFERENCE_FIELD = "createdAt";

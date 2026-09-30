@@ -7,11 +7,11 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import type { RendererContext } from "../../renderer-foundation";
-import { SYSTEM_TENANT_ID } from "../../template-resolver/constants";
-import { createTemplateResolverFeature } from "../../template-resolver/feature";
-import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table";
-import { adaptToFoundation } from "../feature";
+import type { RendererContext } from "../../renderer-foundation/index.js";
+import { SYSTEM_TENANT_ID } from "../../template-resolver/constants.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
+import { adaptToFoundation } from "../feature.js";
 
 let stack: TestStack;
 let db: DbConnection;

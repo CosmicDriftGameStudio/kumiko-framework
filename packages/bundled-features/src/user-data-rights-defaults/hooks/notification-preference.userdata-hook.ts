@@ -4,9 +4,12 @@ import {
   type UserDataDeleteHook,
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { notificationPreferenceEntity, notificationPreferencesTable } from "../../delivery";
-import { assertErased } from "../../shared";
-import { featureMounted } from "./feature-mounted";
+import {
+  notificationPreferenceEntity,
+  notificationPreferencesTable,
+} from "../../delivery/index.js";
+import { assertErased } from "../../shared/index.js";
+import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for delivery's notification-preference rows. Event-sourced
 // entity → forget goes through the executor so a rebuild replays the erasure.

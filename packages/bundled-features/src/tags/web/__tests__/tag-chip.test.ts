@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { contrastText } from "../tag-chip";
+import { contrastText } from "../tag-chip.js";
 
 // contrastText is the only non-trivial logic in TagChip: the YIQ pick must put
 // white on dark labels and black on light ones, and reject non-hex input so the

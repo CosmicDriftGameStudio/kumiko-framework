@@ -13,7 +13,7 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { MANAGED_PAGES_I18N } from "../i18n";
+import { MANAGED_PAGES_I18N } from "../i18n.js";
 
 export const defaultTranslations: TranslationsByLocale =
   translationsByLocaleFromKeys(MANAGED_PAGES_I18N);

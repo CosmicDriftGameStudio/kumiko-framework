@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_FOLDER_ROLES } from "../constants";
-import { createFoldersFeature } from "../feature";
-import { clearFolderPayloadSchema, setFolderPayloadSchema } from "../schemas";
+import { DEFAULT_FOLDER_ROLES } from "../constants.js";
+import { createFoldersFeature } from "../feature.js";
+import { clearFolderPayloadSchema, setFolderPayloadSchema } from "../schemas.js";
 
 // Unit tests: feature-shape, role-options, schema-validation. The ES-loop
 // behaviour (single-membership set/move/clear, projection, tenant-isolation,

@@ -1,6 +1,6 @@
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
-import { sessionField } from "./session-field";
+import { sessionField } from "./session-field.js";
 
 export function sessionLocaleField(
   locale: string | null | undefined,

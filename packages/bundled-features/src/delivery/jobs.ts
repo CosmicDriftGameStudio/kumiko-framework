@@ -15,11 +15,16 @@ import type {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import * as z from "zod";
-import { appendAttemptEvent } from "./attempt-log";
-import { buildChannelContext } from "./channel-context";
-import { DeliveryJobs, deliveryPriorityRank } from "./constants";
-import { collectChannels } from "./delivery-service";
-import type { ChannelMessage, DeliveryChannel, DeliveryLogEntry, RenderedMessage } from "./types";
+import { appendAttemptEvent } from "./attempt-log.js";
+import { buildChannelContext } from "./channel-context.js";
+import { DeliveryJobs, deliveryPriorityRank } from "./constants.js";
+import { collectChannels } from "./delivery-service.js";
+import type {
+  ChannelMessage,
+  DeliveryChannel,
+  DeliveryLogEntry,
+  RenderedMessage,
+} from "./types.js";
 
 const channelMessageSchema = z.object({
   notificationType: z.string(),

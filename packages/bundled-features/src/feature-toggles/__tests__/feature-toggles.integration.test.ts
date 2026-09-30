@@ -30,10 +30,10 @@ import { createLateBoundHolder, seedRow, waitFor } from "@cosmicdrift/kumiko-fra
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { createFeatureTogglesFeature } from "../feature";
-import { globalFeatureStateTable } from "../global-feature-state-table";
-import { GlobalFeatureToggleRuntime } from "../toggle-runtime";
-import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../toggle-sync-signal";
+import { createFeatureTogglesFeature } from "../feature.js";
+import { globalFeatureStateTable } from "../global-feature-state-table.js";
+import { GlobalFeatureToggleRuntime } from "../toggle-runtime.js";
+import { createRedisToggleSyncSignal, type RedisToggleSyncSignal } from "../toggle-sync-signal.js";
 
 // Widget — the "tenant" under test. toggleable(default=true), owns a
 // simple entity and a create-handler that writes via the event-store

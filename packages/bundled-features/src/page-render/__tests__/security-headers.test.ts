@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { securePageHeaders } from "../security-headers";
+import { securePageHeaders } from "../security-headers.js";
 
 describe("securePageHeaders", () => {
   test("merges caller headers alongside the security defaults", () => {

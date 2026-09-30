@@ -1,11 +1,11 @@
-import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants";
-import { renderVerifyEmail } from "../email-templates";
-import { signVerificationToken } from "../verification-token";
+import { AUTH_VERIFY_DEFAULT_TTL_MINUTES, AuthErrors } from "../constants.js";
+import { renderVerifyEmail } from "../email-templates.js";
+import { signVerificationToken } from "../verification-token.js";
 import {
   createTokenRequestHandler,
   type TokenRequestData,
   type TokenRequestOptions,
-} from "./token-request-handler";
+} from "./token-request-handler.js";
 
 const VERIFY_NOTIFICATION_TYPE = "auth-email-password:email-verification";
 

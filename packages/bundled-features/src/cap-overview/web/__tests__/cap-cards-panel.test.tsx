@@ -10,9 +10,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { CapOverviewQueries } from "../../constants";
-import type { CapUsageTone, CapUsageWithMeta } from "../../types";
-import { CapCardsPanel } from "../cap-cards-panel";
+import { CapOverviewQueries } from "../../constants.js";
+import type { CapUsageTone, CapUsageWithMeta } from "../../types.js";
+import { CapCardsPanel } from "../cap-cards-panel.js";
 
 type CapsUsageResponse = { readonly rows: readonly CapUsageWithMeta[] };
 

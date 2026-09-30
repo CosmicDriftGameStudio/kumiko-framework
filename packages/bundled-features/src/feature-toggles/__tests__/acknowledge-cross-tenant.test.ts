@@ -9,8 +9,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { createRegistry } from "@cosmicdrift/kumiko-framework/engine";
-import { FeatureToggleHandlers, FeatureToggleQueries } from "../constants";
-import { createFeatureTogglesFeature } from "../feature";
+import { FeatureToggleHandlers, FeatureToggleQueries } from "../constants.js";
+import { createFeatureTogglesFeature } from "../feature.js";
 
 describe("feature-toggles handlers stay r.systemScope()-coupled", () => {
   const registry = createRegistry([createFeatureTogglesFeature()]);

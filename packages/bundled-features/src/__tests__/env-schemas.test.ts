@@ -1,16 +1,19 @@
 import { describe, expect, it } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { composeEnvSchema, KumikoBootError, parseEnv } from "@cosmicdrift/kumiko-framework/env";
-import { authEmailPasswordEnvSchema, createAuthEmailPasswordFeature } from "../auth-email-password";
-import { createSecretsFeature, secretsEnvSchema } from "../secrets";
+import {
+  authEmailPasswordEnvSchema,
+  createAuthEmailPasswordFeature,
+} from "../auth-email-password/index.js";
+import { createSecretsFeature, secretsEnvSchema } from "../secrets/index.js";
 import {
   createSubscriptionMollieFeature,
   subscriptionMollieEnvSchema,
-} from "../subscription-mollie";
+} from "../subscription-mollie/index.js";
 import {
   createSubscriptionStripeFeature,
   subscriptionStripeEnvSchema,
-} from "../subscription-stripe";
+} from "../subscription-stripe/index.js";
 
 const validKek = randomBytes(32).toString("base64");
 

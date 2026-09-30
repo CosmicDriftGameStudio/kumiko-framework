@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { confirmMfaSetupPreauth, startMfaSetupPreauth, verifyMfaChallenge } from "../mfa-client";
+import { confirmMfaSetupPreauth, startMfaSetupPreauth, verifyMfaChallenge } from "../mfa-client.js";
 
 const originalFetch = globalThis.fetch;
 

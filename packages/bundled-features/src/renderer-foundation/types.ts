@@ -1,6 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants";
+import { type ContentFormat, RENDERER_EXTENSION, type RenderKind } from "./constants.js";
 
 // RenderRequest — Plugins erhalten das. Resource-Mode wählt der Caller
 // (renderer-foundation api) je nach kind oder explizit. Plugin selbst

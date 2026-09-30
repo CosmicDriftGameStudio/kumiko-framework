@@ -5,10 +5,10 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { assertErased, decryptStoredPii, mapWithConcurrency } from "../../shared";
-import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant";
-import { userTable } from "../../user";
-import { featureMounted } from "./feature-mounted";
+import { assertErased, decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
+import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/index.js";
+import { userTable } from "../../user/index.js";
+import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for tenant-invitation rows. Event-sourced entity → all
 // forget writes go through the executor so a projection rebuild replays the

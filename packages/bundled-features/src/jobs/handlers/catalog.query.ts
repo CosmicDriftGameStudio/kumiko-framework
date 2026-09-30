@@ -1,6 +1,6 @@
 import { defineQueryHandler, type JobDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { isManualTrigger } from "../is-manual-trigger";
+import { isManualTrigger } from "../is-manual-trigger.js";
 
 export type ManualJobCatalogEntry = {
   readonly jobName: string;

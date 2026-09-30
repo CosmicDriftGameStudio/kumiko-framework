@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { sanitizeTenantCss } from "../css-sanitize";
+import { sanitizeTenantCss } from "../css-sanitize.js";
 
 const SCOPE = "[data-tenant-content]";
 const css = (input: string): string => sanitizeTenantCss(input, SCOPE);

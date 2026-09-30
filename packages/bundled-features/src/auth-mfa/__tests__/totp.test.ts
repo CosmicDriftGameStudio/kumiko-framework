@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { base32Decode, base32Encode } from "../base32";
-import { buildOtpauthUri } from "../otpauth-uri";
-import { generateTotpSecret, verifyTotp } from "../totp";
+import { base32Decode, base32Encode } from "../base32.js";
+import { buildOtpauthUri } from "../otpauth-uri.js";
+import { generateTotpSecret, verifyTotp } from "../totp.js";
 
 // RFC 6238 Appendix B test vectors use the ASCII secret "12345678901234567890"
 // (20 bytes) with SHA1 — the same algorithm this implementation hardcodes

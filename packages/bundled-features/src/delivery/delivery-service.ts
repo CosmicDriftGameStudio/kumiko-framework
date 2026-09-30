@@ -14,12 +14,12 @@ import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipelin
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing/handler-context";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
-import { hashUnsubscribeAddress } from "./address-opt-out";
-import { appendAttemptEvent, logAttempt } from "./attempt-log";
-import { buildChannelContext } from "./channel-context";
-import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs, deliveryPriorityRank } from "./constants";
-import { isAddressOptedOut } from "./db/queries/address-opt-outs";
-import { selectNotificationPreferences } from "./db/queries/preferences";
+import { hashUnsubscribeAddress } from "./address-opt-out.js";
+import { appendAttemptEvent, logAttempt } from "./attempt-log.js";
+import { buildChannelContext } from "./channel-context.js";
+import { DELIVERY_CHANNEL_EXTENSION, DeliveryJobs, deliveryPriorityRank } from "./constants.js";
+import { isAddressOptedOut } from "./db/queries/address-opt-outs.js";
+import { selectNotificationPreferences } from "./db/queries/preferences.js";
 import {
   type ChannelContext,
   type ChannelMessage,
@@ -27,7 +27,7 @@ import {
   type DeliveryLogEntry,
   type DeliveryService,
   isDeliveryChannelPlugin,
-} from "./types";
+} from "./types.js";
 
 export type RateLimitConfig = {
   readonly redis: Redis;

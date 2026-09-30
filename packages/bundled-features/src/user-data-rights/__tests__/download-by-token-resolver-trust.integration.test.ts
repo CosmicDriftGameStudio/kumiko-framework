@@ -31,21 +31,21 @@ import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDataRetentionFeature } from "../../data-retention";
-import { fileFoundationFeature } from "../../file-foundation";
-import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runExportJobs } from "../run-export-jobs";
-import { exportDownloadTokenEntity } from "../schema/download-token";
-import { exportJobEntity } from "../schema/export-job";
+} from "../../compliance-profiles/index.js";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runExportJobs } from "../run-export-jobs.js";
+import { exportDownloadTokenEntity } from "../schema/download-token.js";
+import { exportJobEntity } from "../schema/export-job.js";
 
 const jobTenant = testTenantId(1);
 const hostTenant = testTenantId(2);

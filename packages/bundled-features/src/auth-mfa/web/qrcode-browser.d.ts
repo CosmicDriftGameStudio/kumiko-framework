@@ -7,6 +7,6 @@
 // allowSyntheticDefaultImports (which synthesizes a default from the
 // namespace). Copy this file into apps that need it, but note that
 // requirement — without it, the default import comes back undefined.
-declare module "qrcode/lib/browser" {
+declare module "qrcode/lib/browser.js" {
   export * from "qrcode";
 }

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { createRendererFoundationApi } from "../api";
+import { createRendererFoundationApi } from "../api.js";
 import {
   type RendererContext,
   RendererError,
   type RendererPlugin,
   type RenderRequest,
   type RenderResponse,
-} from "../types";
+} from "../types.js";
 
 // Stub-Context für Plugin-Render-Calls in Unit-Tests. makePlugin ignoriert
 // ctx; db+registry sind hier null-cast weil Unit-Tests keinen echten

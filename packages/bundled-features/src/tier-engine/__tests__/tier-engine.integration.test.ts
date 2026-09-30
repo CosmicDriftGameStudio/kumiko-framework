@@ -14,14 +14,14 @@ import {
   createTestEnvelopeCipher,
   expectErrorIncludes,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../../config";
-import { type ConfigResolver, createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { TierEngineHandlers, TierEngineQueries } from "../constants";
-import { tierAssignmentEntity } from "../entity";
-import { tierEngineFeature } from "../feature";
+import { createConfigFeature } from "../../config/index.js";
+import { type ConfigResolver, createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { TierEngineHandlers, TierEngineQueries } from "../constants.js";
+import { tierAssignmentEntity } from "../entity.js";
+import { tierEngineFeature } from "../feature.js";
 
 // --- Setup ---
 //

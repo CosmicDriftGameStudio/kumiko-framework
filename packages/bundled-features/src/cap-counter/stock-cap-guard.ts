@@ -15,7 +15,7 @@ import {
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { enforceStockCap } from "./enforce-cap";
+import { enforceStockCap } from "./enforce-cap.js";
 
 // Runtime inputs a tier's cap limit may depend on, e.g. a SystemAdmin-edited
 // budget config key. `config` is the calling handler's accessor, so it is

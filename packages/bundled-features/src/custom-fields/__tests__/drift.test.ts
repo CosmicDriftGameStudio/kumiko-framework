@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { fieldDefinitionAggregateId } from "../aggregate-id";
+import { fieldDefinitionAggregateId } from "../aggregate-id.js";
 
 // Drift-Pin-Tests — diese Werte sind Cross-File-Contracts, ein Wechsel muss
 // bewusst geschehen. Wenn diese Tests rot werden: stop, denk nach, revert.

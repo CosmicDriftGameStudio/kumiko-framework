@@ -1,7 +1,7 @@
 // Public API of foundation-shared — utilities consumed by the per-tenant
 // Foundation packages (ai-foundation, mail-foundation, file-foundation).
 
-export { requireDefined, requireNonEmpty, requireSecretSet } from "./config-helpers";
+export { requireDefined, requireNonEmpty, requireSecretSet } from "./config-helpers.js";
 export {
   BlockedHostError,
   HostResolutionError,
@@ -10,4 +10,4 @@ export {
   type MailHostGuardOptions,
   readAllowedPrivateMailHostsFromEnv,
   resolveMailConnectTarget,
-} from "./mail-host-policy";
+} from "./mail-host-policy.js";

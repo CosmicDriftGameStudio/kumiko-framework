@@ -7,13 +7,13 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureRegistrar } from "@cosmicdrift/kumiko-framework/engine";
-import { FORM_DRAFT_FEATURE_NAME } from "./constants";
-import { formDraftEntity } from "./entity";
-import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job";
-import { discardDraftWrite } from "./handlers/discard.write";
-import { getDraftQuery } from "./handlers/get.query";
-import { listDraftsQuery } from "./handlers/list.query";
-import { saveDraftWrite } from "./handlers/save.write";
+import { FORM_DRAFT_FEATURE_NAME } from "./constants.js";
+import { formDraftEntity } from "./entity.js";
+import { cleanupDraftsJob, formDraftRetentionDaysConfig } from "./handlers/cleanup.job.js";
+import { discardDraftWrite } from "./handlers/discard.write.js";
+import { getDraftQuery } from "./handlers/get.query.js";
+import { listDraftsQuery } from "./handlers/list.query.js";
+import { saveDraftWrite } from "./handlers/save.write.js";
 
 function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>): void {
   r.describe(

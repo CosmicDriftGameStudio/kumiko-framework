@@ -44,8 +44,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantMembershipsTable } from "../tenant";
-import { buildFileRefZipPath } from "./zip-path";
+import { tenantMembershipsTable } from "../tenant/index.js";
+import { buildFileRefZipPath } from "./zip-path.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 

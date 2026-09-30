@@ -1,6 +1,6 @@
 import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import type { ToolDispatchDescriptor } from "./types";
+import type { ToolDispatchDescriptor } from "./types.js";
 
 /** Narrow view of `Dispatcher` (packages/framework/src/pipeline/dispatcher.ts) — kept out of
  *  `ToolDispatchDescriptor`'s reach and small enough for tests to build a plain object instead

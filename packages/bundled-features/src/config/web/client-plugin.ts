@@ -1,7 +1,7 @@
 // @runtime client
 import { mergeTranslations, type TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
-import { CONFIG_FEATURE } from "../constants";
-import { defaultTranslations } from "./i18n";
+import { CONFIG_FEATURE } from "../constants.js";
+import { defaultTranslations } from "./i18n.js";
 
 export type ConfigClientOptions = {
   /** Key-wise overrides over the default bundles (de/en). */

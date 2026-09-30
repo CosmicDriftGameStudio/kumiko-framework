@@ -3,7 +3,7 @@
 // concerns (app-feature-structure guard's 300-line budget). Internal — not
 // re-exported from index.ts.
 
-import type { BillingFoundationOptions } from "./types";
+import type { BillingFoundationOptions } from "./types.js";
 
 function isRootRelativePath(path: string): boolean {
   return path.startsWith("/") && !path.startsWith("//");

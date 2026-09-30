@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { createFilesFeature } from "@cosmicdrift/kumiko-framework/files";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { authFoundationFeature } from "../../auth-foundation";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/feature";
-import { createConfigFeature } from "../../config/feature";
-import { createDataRetentionFeature } from "../../data-retention/feature";
-import { createSessionsFeature } from "../../sessions/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { createUserFeature } from "../../user/feature";
-import { createUserDataRightsFeature } from "../../user-data-rights/feature";
-import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature";
-import { createUserProfileFeature } from "../feature";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/feature.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { createDataRetentionFeature } from "../../data-retention/feature.js";
+import { createSessionsFeature } from "../../sessions/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { createUserFeature } from "../../user/feature.js";
+import { createUserDataRightsFeature } from "../../user-data-rights/feature.js";
+import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/feature.js";
+import { createUserProfileFeature } from "../feature.js";
 
 // fw#2312 — the `profile` screen converted from a custom React component to
 // a declarative projectionDetail (change-password/change-email stay

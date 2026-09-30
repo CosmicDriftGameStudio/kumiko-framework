@@ -3,7 +3,7 @@ import {
   createJsonbField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { FORM_DRAFT_KEY_MAX_LENGTH, FORM_DRAFT_UNIQUE_KEY_CONSTRAINT } from "./constants";
+import { FORM_DRAFT_KEY_MAX_LENGTH, FORM_DRAFT_UNIQUE_KEY_CONSTRAINT } from "./constants.js";
 
 // form-draft — a per-user, pre-submission working copy of an in-progress
 // form (e.g. a wizard-mode EditLayout). `draftKey` is caller-assigned

@@ -47,14 +47,14 @@ import {
   createFileProviderForTenant,
   type FileStorageProvider,
 } from "@cosmicdrift/kumiko-framework/files";
-import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants";
+import { INBOUND_MAIL_FOUNDATION_FEATURE, INBOUND_MAIL_PROVIDER_EXTENSION } from "./constants.js";
 import {
   inboundMessageEntity,
   mailAccountEntity,
   mailThreadEntity,
   seenMessageTable,
   syncCursorTable,
-} from "./entities";
+} from "./entities.js";
 import {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
@@ -72,13 +72,13 @@ import {
   MAIL_THREAD_UPDATED_EVENT_SHORT,
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
-} from "./events";
-import { connectAccountHandler } from "./handlers/connect-account.write";
-import { disconnectAccountHandler } from "./handlers/disconnect-account.write";
-import { ingestMessageHandler } from "./handlers/ingest-message.write";
-import { listAccountsQuery } from "./handlers/list-accounts.query";
-import { listMessagesQuery } from "./handlers/list-messages.query";
-import { updateAccountHandler } from "./handlers/update-account.write";
+} from "./events.js";
+import { connectAccountHandler } from "./handlers/connect-account.write.js";
+import { disconnectAccountHandler } from "./handlers/disconnect-account.write.js";
+import { ingestMessageHandler } from "./handlers/ingest-message.write.js";
+import { listAccountsQuery } from "./handlers/list-accounts.query.js";
+import { listMessagesQuery } from "./handlers/list-messages.query.js";
+import { updateAccountHandler } from "./handlers/update-account.write.js";
 import {
   applyInboundMessageReceived,
   applyMailAccountConnected,
@@ -88,14 +88,14 @@ import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "./projection";
-import { runInboundMailRetention } from "./retention-sweep";
+} from "./projection.js";
+import { runInboundMailRetention } from "./retention-sweep.js";
 import {
   INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON,
   inboundMessageTenantDestroyHook,
   mailAccountTenantDestroyHook,
   mailThreadTenantDestroyHook,
-} from "./tenant-destroy-hook";
+} from "./tenant-destroy-hook.js";
 
 export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATION_FEATURE, (r) => {
   r.describe(

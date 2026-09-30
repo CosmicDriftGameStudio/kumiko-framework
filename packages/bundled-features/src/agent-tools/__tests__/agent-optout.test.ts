@@ -8,16 +8,19 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { authFoundationFeature } from "../../auth-foundation";
-import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa";
-import { createConfigFeature } from "../../config";
-import { createCryptoShreddingFeature } from "../../crypto-shredding";
-import { createPersonalAccessTokensFeature, PatHandlers } from "../../personal-access-tokens";
-import { createSecretsFeature } from "../../secrets";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user/feature";
-import { buildAgentManifest } from "../agent-manifest";
-import { buildToolCatalog, toolNameForQn } from "../tool-catalog";
+import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createCryptoShreddingFeature } from "../../crypto-shredding/index.js";
+import {
+  createPersonalAccessTokensFeature,
+  PatHandlers,
+} from "../../personal-access-tokens/index.js";
+import { createSecretsFeature } from "../../secrets/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { buildAgentManifest } from "../agent-manifest.js";
+import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";
 
 // #2700/#2702 — bundled handlers that carry secrets/irreversible-erase risk are now
 // opted out of the agent tool catalog via `agent: { expose: false }`, and the app-side

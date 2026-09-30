@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { collectTableMetas } from "@cosmicdrift/kumiko-framework/db";
-import { createChannelInAppFeature } from "../feature";
+import { createChannelInAppFeature } from "../feature.js";
 
 describe("channel-in-app — in_app_messages store table", () => {
   test("registers in_app_messages via r.storeTable", () => {

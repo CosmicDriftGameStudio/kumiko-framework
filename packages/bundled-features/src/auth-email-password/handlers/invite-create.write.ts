@@ -28,19 +28,19 @@ import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table";
+} from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import membership-role validation owned by tenant-feature
 import {
   findForbiddenMembershipRole,
   findForbiddenRoleAssignment,
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
-} from "../../tenant/membership-roles";
-import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants";
-import type { AuthMailLocale } from "../email-templates";
-import { renderInviteEmail } from "../email-templates";
-import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store";
-import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail";
+} from "../../tenant/membership-roles.js";
+import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
+import type { AuthMailLocale } from "../email-templates.js";
+import { renderInviteEmail } from "../email-templates.js";
+import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.js";
+import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 
 const INVITE_NOTIFICATION_TYPE = "auth-email-password:invite";
 

@@ -2,7 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantTable } from "../schema/tenant";
+import { tenantTable } from "../schema/tenant.js";
 
 // Direct query — query handlers don't have a tenant-crud handle. A direct
 // select is trivial: WHERE id = tenantId (both UUID). No CRUD detour needed.

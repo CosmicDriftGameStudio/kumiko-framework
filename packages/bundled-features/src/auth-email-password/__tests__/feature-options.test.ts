@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { MIN_HMAC_SECRET_LENGTH } from "../constants";
-import { createAuthEmailPasswordFeature } from "../feature";
+import { MIN_HMAC_SECRET_LENGTH } from "../constants.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 // A short HMAC secret makes reset/verify tokens forgeable (account takeover),
 // so the factory must fail fast — same bar as the ≥32-char JWT_SECRET check.

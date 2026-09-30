@@ -19,21 +19,21 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { tenantMembershipEntity } from "../../tenant";
-import { TenantHandlers } from "../../tenant/constants";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { TenantHandlers } from "../../tenant/constants.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantMembershipEntity } from "../../tenant/index.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_STARTED_EVENT_QN,
-} from "../../tenant-lifecycle/constants";
-import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy";
-import { documentExtractEntity, documentExtractsTable } from "../entity";
-import { documentIngestFoundationFeature } from "../feature";
-import { writeIngestPages } from "../pages";
+} from "../../tenant-lifecycle/constants.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
+import { documentExtractEntity, documentExtractsTable } from "../entity.js";
+import { documentIngestFoundationFeature } from "../feature.js";
+import { writeIngestPages } from "../pages.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 

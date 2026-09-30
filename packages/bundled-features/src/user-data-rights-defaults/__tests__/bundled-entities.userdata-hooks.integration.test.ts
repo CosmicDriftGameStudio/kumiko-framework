@@ -21,25 +21,25 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { authFoundationFeature } from "../../auth-foundation";
-import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { configValueEntity, createConfigFeature } from "../../config";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createDeliveryFeature, notificationPreferenceEntity } from "../../delivery";
-import { createFilesFeature } from "../../files";
-import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs";
+import { authFoundationFeature } from "../../auth-foundation/index.js";
+import { createChannelInAppFeature, inAppMessagesTable } from "../../channel-in-app/index.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { configValueEntity, createConfigFeature } from "../../config/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createDeliveryFeature, notificationPreferenceEntity } from "../../delivery/index.js";
+import { createFilesFeature } from "../../files/index.js";
+import { createJobsFeature, jobRunLogsTable, jobRunsTable } from "../../jobs/index.js";
 import {
   apiTokenEntity,
   createPersonalAccessTokensFeature,
   PatQueries,
   type PatScopeConfig,
-} from "../../personal-access-tokens";
-import { createSessionsFeature, userSessionEntity } from "../../sessions";
-import { createTenantFeature, tenantInvitationEntity } from "../../tenant";
-import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserDataRightsFeature } from "../../user-data-rights";
-import { createUserDataRightsDefaultsFeature } from "../feature";
+} from "../../personal-access-tokens/index.js";
+import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { createTenantFeature, tenantInvitationEntity } from "../../tenant/index.js";
+import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../../user-data-rights/index.js";
+import { createUserDataRightsDefaultsFeature } from "../feature.js";
 import {
   apiTokenDeleteHook,
   apiTokenExportHook,
@@ -55,7 +55,7 @@ import {
   tenantInvitationExportHook,
   userSessionDeleteHook,
   userSessionExportHook,
-} from "../index";
+} from "../index.js";
 
 const PAT_SCOPES: PatScopeConfig = {
   tokens: { label: "Tokens", read: [PatQueries.mine] },

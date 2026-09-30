@@ -5,7 +5,7 @@ import {
   type TranslationsByLocale,
   translationsByLocaleFromKeys,
 } from "@cosmicdrift/kumiko-renderer";
-import { ADMIN_SHELL_I18N } from "../i18n";
+import { ADMIN_SHELL_I18N } from "../i18n.js";
 
 export const defaultTranslations: TranslationsByLocale =
   translationsByLocaleFromKeys(ADMIN_SHELL_I18N);

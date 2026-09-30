@@ -17,7 +17,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
 import { generateDeterministicId } from "@cosmicdrift/kumiko-framework/utils";
-import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables";
+import { notificationPreferenceEntity, notificationPreferencesTable } from "./tables.js";
 
 const executor = createEventStoreExecutor(
   notificationPreferencesTable,

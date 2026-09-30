@@ -13,9 +13,9 @@ import type {
   SignatureExtraRouteDeps,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import { subscriptionAggregateId } from "./aggregate-id";
-import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./constants";
-import { createSubscriptionWebhookRoute } from "./webhook-handler";
+import { subscriptionAggregateId } from "./aggregate-id.js";
+import { SubscriptionFoundationQueries, SubscriptionStatuses } from "./constants.js";
+import { createSubscriptionWebhookRoute } from "./webhook-handler.js";
 
 // Outside /api — signature routes carry their own auth (verify()) and are
 // not JWT-guarded, so provider dashboards (Stripe, PayPal, ...) point here.

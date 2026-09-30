@@ -41,27 +41,27 @@ import { bridgeStub, resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-fram
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory";
-import { createTenantFeature } from "../../tenant/feature";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id";
-import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants";
-import { seenMessageEntity, syncCursorEntity } from "../entities";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { inboundProviderInMemoryFeature } from "../../inbound-provider-inmemory/index.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { inboundMessageAggregateId, mailThreadAggregateId } from "../aggregate-id.js";
+import { InboundMailFoundationHandlers, InboundMailFoundationQueries } from "../constants.js";
+import { seenMessageEntity, syncCursorEntity } from "../entities.js";
 import {
   MAIL_THREAD_AGGREGATE_TYPE,
   MAIL_THREAD_UPDATED_EVENT_QN,
   type MailThreadEventPayload,
-} from "../events";
-import { inboundMailFoundationFeature } from "../feature";
-import { ingestMessageHandler } from "../handlers/ingest-message.write";
+} from "../events.js";
+import { inboundMailFoundationFeature } from "../feature.js";
+import { ingestMessageHandler } from "../handlers/ingest-message.write.js";
 import {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "../projection";
+} from "../projection.js";
 
 // =============================================================================
 // Setup

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { SETTINGS_HUB_FEATURE } from "@cosmicdrift/kumiko-framework/engine";
-import { CONFIG_FEATURE } from "../constants";
+import { CONFIG_FEATURE } from "../constants.js";
 
 // Cross-package pin: buildAppSchema merges the generated Settings-Hub into the
 // FeatureSchema named SETTINGS_HUB_FEATURE. The framework hard-codes that name

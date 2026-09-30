@@ -14,30 +14,30 @@ import {
   expectErrorIncludes,
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthHandlers as AuthEmailPasswordHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
+import { AuthHandlers as AuthEmailPasswordHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
 import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { hashPassword } from "../../shared";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity, tenantTable } from "../../tenant/schema/tenant";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate";
-import { USER_STATUS } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { base32Decode } from "../base32";
-import { AuthMfaHandlers } from "../constants";
-import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../feature";
-import { signMfaChallengeToken } from "../mfa-challenge-token";
-import { userMfaEntity } from "../schema/user-mfa";
-import { currentTotpCode } from "../totp";
+} from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { hashPassword } from "../../shared/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity, tenantTable } from "../../tenant/schema/tenant.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { resetTenantLifecycleGateCacheForTests } from "../../tenant-lifecycle/lifecycle-gate.js";
+import { createUserFeature } from "../../user/feature.js";
+import { USER_STATUS } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { base32Decode } from "../base32.js";
+import { AuthMfaHandlers } from "../constants.js";
+import { createAuthMfaFeature, mfaStatusCheckerFromFeature } from "../feature.js";
+import { signMfaChallengeToken } from "../mfa-challenge-token.js";
+import { userMfaEntity } from "../schema/user-mfa.js";
+import { currentTotpCode } from "../totp.js";
 
 let stack: TestStack;
 

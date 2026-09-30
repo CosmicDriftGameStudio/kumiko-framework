@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { type RendererContext, RendererError } from "../../renderer-foundation";
-import { adaptToFoundation } from "../feature";
+import { type RendererContext, RendererError } from "../../renderer-foundation/index.js";
+import { adaptToFoundation } from "../feature.js";
 
 const STUB_CTX: RendererContext = {
   db: null as never,

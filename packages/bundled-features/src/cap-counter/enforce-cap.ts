@@ -1,7 +1,7 @@
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage";
-import { capCounterEntity } from "./entity";
+import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage.js";
+import { capCounterEntity } from "./entity.js";
 
 // Temporal globally provided by the framework's polyfill init
 // (ensureTemporalPolyfill() in time/polyfill.ts, called from

@@ -26,8 +26,8 @@ import {
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
-import { createJobsFeature } from "../feature";
-import { reindexEntityJob } from "../handlers/reindex-entity.job";
+import { createJobsFeature } from "../feature.js";
+import { reindexEntityJob } from "../handlers/reindex-entity.job.js";
 
 // Resolved job name — operators trigger this via jobs:write:trigger with
 // { jobName: "jobs:job:reindex-entity", payload: { entity: "..." } }.

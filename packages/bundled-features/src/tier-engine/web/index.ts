@@ -4,4 +4,4 @@
 // Server-Seite (createTierEngineFeature) lebt unter
 // `@cosmicdrift/kumiko-bundled-features/tier-engine` und hat keine React-Deps.
 
-export { type TierEngineClientOptions, tierEngineClient } from "./client-plugin";
+export { type TierEngineClientOptions, tierEngineClient } from "./client-plugin.js";

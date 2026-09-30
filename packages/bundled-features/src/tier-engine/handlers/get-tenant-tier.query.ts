@@ -2,7 +2,7 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type TierAssignmentRow, tierAssignmentEntity } from "../entity";
+import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 
 // Liest das Tier-Assignment eines BELIEBIGEN Tenants (cross-tenant) für den
 // tier-admin-Screen. SystemAdmin-only. get-active-tier liest nur den eigenen

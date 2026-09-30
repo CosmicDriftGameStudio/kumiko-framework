@@ -37,8 +37,8 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { signTenantHandoverGrant } from "../grant";
-import { createTenantHandoverFeature } from "../index";
+import { signTenantHandoverGrant } from "../grant.js";
+import { createTenantHandoverFeature } from "../index.js";
 
 const CLAIM = "tenant-handover:write:claim";
 const SECRET = "tenant-handover-storage-usage-secret";

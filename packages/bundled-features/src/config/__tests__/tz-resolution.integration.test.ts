@@ -12,9 +12,9 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { createConfigAccessorFactory, createConfigFeature } from "../feature";
-import { createConfigResolver } from "../resolver";
-import { configValuesTable } from "../table";
+import { createConfigAccessorFactory, createConfigFeature } from "../feature.js";
+import { createConfigResolver } from "../resolver.js";
+import { configValuesTable } from "../table.js";
 
 const tenantFeature = defineFeature("tenant", (r) => {
   r.requires("config");

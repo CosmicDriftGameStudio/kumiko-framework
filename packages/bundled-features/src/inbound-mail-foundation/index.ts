@@ -3,11 +3,11 @@
 export {
   inboundMessageAggregateId,
   mailThreadAggregateId,
-} from "./aggregate-id";
+} from "./aggregate-id.js";
 export {
   createInboundMailConnectRoutes,
   type InboundMailConnectRoutesOptions,
-} from "./connect-routes";
+} from "./connect-routes.js";
 export {
   INBOUND_MAIL_FOUNDATION_FEATURE,
   INBOUND_MAIL_PROVIDER_EXTENSION,
@@ -18,7 +18,7 @@ export {
   InboundMailFoundationHandlers,
   InboundMailFoundationQueries,
   inboundCredentialSecretKey,
-} from "./constants";
+} from "./constants.js";
 export {
   INBOUND_MESSAGE_PII_FIELDS,
   inboundMessageEntity,
@@ -30,7 +30,7 @@ export {
   seenMessageTable,
   syncCursorEntity,
   syncCursorTable,
-} from "./entities";
+} from "./entities.js";
 export {
   INBOUND_MESSAGE_AGGREGATE_TYPE,
   INBOUND_MESSAGE_RECEIVED_EVENT_QN,
@@ -53,23 +53,23 @@ export {
   type MailThreadEventPayload,
   mailAccountEventPayloadSchema,
   mailThreadEventPayloadSchema,
-} from "./events";
-export { inboundMailFoundationFeature } from "./feature";
+} from "./events.js";
+export { inboundMailFoundationFeature } from "./feature.js";
 export {
   type OAuthStatePayload,
   signOAuthState,
   type VerifyOAuthStateResult,
   verifyOAuthState,
-} from "./oauth-state";
+} from "./oauth-state.js";
 export {
   inboundMessagesProjectionTable,
   mailAccountsProjectionTable,
   mailThreadsProjectionTable,
-} from "./projection";
+} from "./projection.js";
 export {
   resolveInboundProviderForAccount,
   resolveInboundProviderForKey,
-} from "./provider-factory";
+} from "./provider-factory.js";
 export {
   InboundAuthError,
   InboundCursorInvalidError,
@@ -88,9 +88,9 @@ export {
   type OAuthTokenSet,
   type RawInboundMessage,
   type SyncCursorPayload,
-} from "./types";
+} from "./types.js";
 export {
   createInboundMailSupervisor,
   type InboundMailSupervisor,
   type InboundMailSupervisorDeps,
-} from "./watch-supervisor";
+} from "./watch-supervisor.js";

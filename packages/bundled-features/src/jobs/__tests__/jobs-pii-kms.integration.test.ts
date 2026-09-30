@@ -38,11 +38,11 @@ import {
   sleep,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { JobHandlers, JobQueries } from "../constants";
-import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep";
-import { createJobsFeature } from "../feature";
-import { createJobRunLogger } from "../job-run-logger";
-import { jobRunLogsTable, jobRunsTable } from "../job-run-table";
+import { JobHandlers, JobQueries } from "../constants.js";
+import { markStaleJobRunsFailed, STALE_JOB_RUN_ERROR } from "../db/queries/stale-run-sweep.js";
+import { createJobsFeature } from "../feature.js";
+import { createJobRunLogger } from "../job-run-logger.js";
+import { jobRunLogsTable, jobRunsTable } from "../job-run-table.js";
 
 let testDb: TestDb;
 let testRedis: TestRedis;

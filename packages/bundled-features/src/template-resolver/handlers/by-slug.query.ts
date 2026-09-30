@@ -4,8 +4,8 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { TEXT_BLOCK_KIND } from "../constants";
-import { type TemplateResourceRow, templateResourcesTable } from "../table";
+import { TEXT_BLOCK_KIND } from "../constants.js";
+import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
 
 // Public read of a single text-block by (tenantId, slug, locale). Anonymous
 // must be listed explicitly — `openToAll` alone is auth-only (regression

@@ -1,5 +1,5 @@
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { AuthErrors } from "./constants";
+import { AuthErrors } from "./constants.js";
 
 // @wrapper-known error-helper
 export function invalidCredentials() {

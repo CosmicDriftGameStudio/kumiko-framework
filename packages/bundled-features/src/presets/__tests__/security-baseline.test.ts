@@ -12,8 +12,8 @@ import {
   defineFeature,
   SECURITY_BASELINE_FEATURE_NAMES,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { dsgvoSelfServiceFeatures } from "../dsgvo-self-service";
-import { securityBaselineFeatures } from "../security-baseline";
+import { dsgvoSelfServiceFeatures } from "../dsgvo-self-service.js";
+import { securityBaselineFeatures } from "../security-baseline.js";
 
 // Minimal host every combo below needs: sessions requires user +
 // auth-foundation, audit requires tenant, tenant requires config.

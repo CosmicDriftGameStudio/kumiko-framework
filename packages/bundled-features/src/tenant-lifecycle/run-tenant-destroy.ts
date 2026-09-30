@@ -14,7 +14,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/event-store";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { tenantEntity, tenantTable } from "../tenant";
+import { tenantEntity, tenantTable } from "../tenant/index.js";
 import {
   TENANT_AGGREGATE_TYPE,
   TENANT_DESTRUCTION_COMPLETED_EVENT_QN,
@@ -24,9 +24,13 @@ import {
   TENANT_DESTRUCTION_STAGE_STARTED_EVENT_SHORT,
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
-} from "./constants";
-import { invalidateTenantLifecycleGate } from "./lifecycle-gate";
-import { type DestructionStageCtx, isDestructionPipelineComplete, pickNextStage } from "./stages";
+} from "./constants.js";
+import { invalidateTenantLifecycleGate } from "./lifecycle-gate.js";
+import {
+  type DestructionStageCtx,
+  isDestructionPipelineComplete,
+  pickNextStage,
+} from "./stages.js";
 
 const tenantCrud = createEventStoreExecutor(tenantTable, tenantEntity, { entityName: "tenant" });
 
@@ -379,4 +383,4 @@ export async function runTenantDestructionSweep(args: {
   return { triggered, advanced };
 }
 
-export { invalidateTenantLifecycleGate, resolveTenantLifecycleGate } from "./lifecycle-gate";
+export { invalidateTenantLifecycleGate, resolveTenantLifecycleGate } from "./lifecycle-gate.js";

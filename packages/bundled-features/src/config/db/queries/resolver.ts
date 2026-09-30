@@ -1,7 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner, TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
-import { configValuesTable } from "../../table";
+import { configValuesTable } from "../../table.js";
 
 export type ConfigRow = {
   readonly id: string;

@@ -25,27 +25,27 @@ import {
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { authFoundationFeature, resolveTokenVerifier } from "../../auth-foundation";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { makeSessionHelpers } from "../../sessions/__tests__/test-helpers";
-import { SessionQueries } from "../../sessions/constants";
-import { createSessionsFeature } from "../../sessions/feature";
-import { userSessionEntity } from "../../sessions/schema/user-session";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { USER_STATUS, UserHandlers, UserQueries } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors, PatHandlers, PatQueries } from "../constants";
-import { createPersonalAccessTokensFeature } from "../feature";
-import { revokeAllPatTokensForUser } from "../revoke-for-user";
-import { apiTokenEntity, apiTokenTable } from "../schema/api-token";
-import type { PatScopeConfig } from "../scopes";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { authFoundationFeature, resolveTokenVerifier } from "../../auth-foundation/index.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { makeSessionHelpers } from "../../sessions/__tests__/test-helpers.js";
+import { SessionQueries } from "../../sessions/constants.js";
+import { createSessionsFeature } from "../../sessions/feature.js";
+import { userSessionEntity } from "../../sessions/schema/user-session.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { USER_STATUS, UserHandlers, UserQueries } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors, PatHandlers, PatQueries } from "../constants.js";
+import { createPersonalAccessTokensFeature } from "../feature.js";
+import { revokeAllPatTokensForUser } from "../revoke-for-user.js";
+import { apiTokenEntity, apiTokenTable } from "../schema/api-token.js";
+import type { PatScopeConfig } from "../scopes.js";
 
 // Full loop, no mocks: mint a PAT via the create handler → use it as a bearer
 // token over real HTTP. The resolver hashes it, resolves live roles, and the

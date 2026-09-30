@@ -5,7 +5,7 @@ import type {
   PrincipalStatusPlugin,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
-import { USER_STATUS, type UserStatus, userTable } from "./schema/user";
+import { USER_STATUS, type UserStatus, userTable } from "./schema/user.js";
 
 // Locked accounts whose live sessions must be refused. deletionRequested is
 // intentionally absent — it's a reversible grace period and the user needs their session to reach cancel-deletion.

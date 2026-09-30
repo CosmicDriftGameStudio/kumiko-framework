@@ -38,7 +38,7 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { instantToLegacyDate } from "@cosmicdrift/kumiko-framework/time";
 import type { ImapFlow, MailboxObject } from "imapflow";
 import { Temporal } from "temporal-polyfill";
-import { type ImapCredentialDocument, parseImapCredentialDocument } from "./credential-document";
+import { type ImapCredentialDocument, parseImapCredentialDocument } from "./credential-document.js";
 import {
   assertUidValidity,
   coerceDate,
@@ -48,12 +48,12 @@ import {
   mapImapError,
   parseImapCursor,
   toRawInboundMessage,
-} from "./imap-client";
+} from "./imap-client.js";
 
 const FEATURE_NAME = "inbound-provider-imap";
 export const IMAP_PROVIDER_KEY = "imap";
 
-export { setImapMailHostLookup } from "./imap-client";
+export { setImapMailHostLookup } from "./imap-client.js";
 
 // =============================================================================
 // Credential-Read — per-Account-Slot, Worker-tauglich (slim ctx).

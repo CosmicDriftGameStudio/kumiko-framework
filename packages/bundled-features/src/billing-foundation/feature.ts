@@ -63,8 +63,8 @@ import {
   BILLING_FOUNDATION_FEATURE,
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
-} from "./constants";
-import { paymentEntity, subscriptionEntity } from "./entities";
+} from "./constants.js";
+import { paymentEntity, subscriptionEntity } from "./entities.js";
 import {
   INVOICE_PAID_EVENT_QN,
   INVOICE_PAID_EVENT_SHORT,
@@ -82,17 +82,17 @@ import {
   SUBSCRIPTION_UPDATED_EVENT_QN,
   SUBSCRIPTION_UPDATED_EVENT_SHORT,
   subscriptionEventPayloadSchema,
-} from "./events";
-import { createBillingPlansQuery } from "./handlers/billing-plans.query";
-import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write";
-import { createPortalSessionHandler } from "./handlers/create-portal-session.write";
-import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query";
-import { processEventHandler } from "./handlers/process-event.write";
-import { processPaymentEventHandler } from "./handlers/process-payment-event.write";
-import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write";
-import { createSwitchPlanHandler } from "./handlers/switch-plan.write";
-import { syncSubscriptionHandler } from "./handlers/sync-subscription.write";
-import { BILLING_FOUNDATION_I18N } from "./i18n";
+} from "./events.js";
+import { createBillingPlansQuery } from "./handlers/billing-plans.query.js";
+import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write.js";
+import { createPortalSessionHandler } from "./handlers/create-portal-session.write.js";
+import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query.js";
+import { processEventHandler } from "./handlers/process-event.write.js";
+import { processPaymentEventHandler } from "./handlers/process-payment-event.write.js";
+import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.js";
+import { createSwitchPlanHandler } from "./handlers/switch-plan.write.js";
+import { syncSubscriptionHandler } from "./handlers/sync-subscription.write.js";
+import { BILLING_FOUNDATION_I18N } from "./i18n.js";
 import {
   applyInvoicePaid,
   applyInvoicePaymentFailed,
@@ -102,16 +102,16 @@ import {
   applySubscriptionUpdated,
   paymentsProjectionTable,
   subscriptionsProjectionTable,
-} from "./projection";
-import { createBillingPlansScreen } from "./screens";
+} from "./projection.js";
+import { createBillingPlansScreen } from "./screens.js";
 import {
   PAYMENT_TENANT_DESTROY_ARCHIVE_REASON,
   paymentTenantDestroyHook,
   SUBSCRIPTION_TENANT_DESTROY_ARCHIVE_REASON,
   subscriptionTenantDestroyHook,
-} from "./tenant-destroy-hook";
-import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types";
-import { validateOptions } from "./validate-options";
+} from "./tenant-destroy-hook.js";
+import type { BillingFoundationOptions, ResolvedBillingFoundationOptions } from "./types.js";
+import { validateOptions } from "./validate-options.js";
 
 export function createBillingFoundationFeature<TTier extends string = string>(
   options: BillingFoundationOptions<TTier> = {},

@@ -7,9 +7,9 @@ import {
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { TagsQueries } from "../../constants";
-import { defaultTranslations } from "../i18n";
-import { TagsCell } from "../tags-cell";
+import { TagsQueries } from "../../constants.js";
+import { defaultTranslations } from "../i18n.js";
+import { TagsCell } from "../tags-cell.js";
 
 type TagRow = { id: string; name: string; color?: string };
 type AssignmentRow = { tagId: string; entityType: string; entityId: string };

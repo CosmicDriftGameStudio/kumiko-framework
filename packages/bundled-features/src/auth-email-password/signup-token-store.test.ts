@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { normalizeEmail, storeSignupToken } from "./signup-token-store";
+import { normalizeEmail, storeSignupToken } from "./signup-token-store.js";
 
 // Only integration tests (signup-flow.integration.test.ts) exercised this
 // module before — none assert on the raw Redis key, so a case-sensitivity

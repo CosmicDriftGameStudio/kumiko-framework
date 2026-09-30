@@ -2,8 +2,8 @@ import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { defineQueryHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { tenantComplianceProfileTable } from "../../compliance-profiles";
-import { tenantTable } from "../../tenant";
+import { tenantComplianceProfileTable } from "../../compliance-profiles/index.js";
+import { tenantTable } from "../../tenant/index.js";
 
 // SystemAdmin platform-wide counterpart to needs-profile (#2089).
 //

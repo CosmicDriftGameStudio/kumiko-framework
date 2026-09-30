@@ -2,9 +2,9 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import type { TemplateResourceRow } from "../table";
-import { templateResourcesTable } from "../table";
-import { executor } from "./shared";
+import type { TemplateResourceRow } from "../table.js";
+import { templateResourcesTable } from "../table.js";
+import { executor } from "./shared.js";
 
 type TemplateStatus = "active" | "archived";
 

@@ -37,13 +37,13 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../config/feature";
-import { createConfigResolver } from "../config/resolver";
-import { configValuesTable } from "../config/table";
-import { TenantHandlers } from "../tenant/constants";
-import { createTenantFeature } from "../tenant/feature";
-import { tenantMembershipsTable } from "../tenant/membership-table";
-import { tenantEntity } from "../tenant/schema/tenant";
+import { createConfigFeature } from "../config/feature.js";
+import { createConfigResolver } from "../config/resolver.js";
+import { configValuesTable } from "../config/table.js";
+import { TenantHandlers } from "../tenant/constants.js";
+import { createTenantFeature } from "../tenant/feature.js";
+import { tenantMembershipsTable } from "../tenant/membership-table.js";
+import { tenantEntity } from "../tenant/schema/tenant.js";
 
 let testDb: TestDb;
 let dispatcher: Dispatcher;

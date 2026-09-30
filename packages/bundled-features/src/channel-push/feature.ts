@@ -1,6 +1,6 @@
 import { DELIVERY_CHANNEL_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createPushChannel, type PushChannelOptions } from "./push-channel";
+import { createPushChannel, type PushChannelOptions } from "./push-channel.js";
 
 export function createChannelPushFeature(options: PushChannelOptions): FeatureDefinition {
   const channel = createPushChannel(options);

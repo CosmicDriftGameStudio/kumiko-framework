@@ -21,11 +21,11 @@ import type {
   JobRunnerOptions,
 } from "@cosmicdrift/kumiko-framework/jobs";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
-import { mapWithConcurrency } from "../shared";
-import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events";
-import { parseJobInstant } from "./job-instant";
-import { jobRunLogsTable, jobRunsTable } from "./job-run-table";
-import { tenantJobFailuresTable } from "./tenant-job-failure-table";
+import { mapWithConcurrency } from "../shared/index.js";
+import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.js";
+import { parseJobInstant } from "./job-instant.js";
+import { jobRunLogsTable, jobRunsTable } from "./job-run-table.js";
+import { tenantJobFailuresTable } from "./tenant-job-failure-table.js";
 
 // Matches PgKmsAdapter's default pool size (see tenant/handlers/*.query.ts) —
 // bounds concurrent getOrCreateDek calls so a large log batch doesn't claim

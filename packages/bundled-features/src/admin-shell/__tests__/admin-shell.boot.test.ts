@@ -1,22 +1,22 @@
 import { describe, expect, test } from "bun:test";
 import { access, createRegistry, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
-import { createAuditFeature } from "../../audit/feature";
-import { billingFoundationFeature } from "../../billing-foundation";
-import { createCapOverviewFeature } from "../../cap-overview/feature";
-import type { CapSpec } from "../../cap-overview/types";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createConfigFeature } from "../../config/feature";
-import { createJobsFeature } from "../../jobs/feature";
-import { createTenantFeature } from "../../tenant/feature";
-import { createTenantLifecycleFeature } from "../../tenant-lifecycle";
-import { tierEngineFeature } from "../../tier-engine/feature";
-import { createUserFeature } from "../../user/feature";
+import { createAuditFeature } from "../../audit/feature.js";
+import { billingFoundationFeature } from "../../billing-foundation/index.js";
+import { createCapOverviewFeature } from "../../cap-overview/feature.js";
+import type { CapSpec } from "../../cap-overview/types.js";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import { createConfigFeature } from "../../config/feature.js";
+import { createJobsFeature } from "../../jobs/feature.js";
+import { createTenantFeature } from "../../tenant/feature.js";
+import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { tierEngineFeature } from "../../tier-engine/feature.js";
+import { createUserFeature } from "../../user/feature.js";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
   DEFAULT_TENANT_WORKSPACE_ID,
-} from "../constants";
-import { createAdminShellFeature } from "../feature";
+} from "../constants.js";
+import { createAdminShellFeature } from "../feature.js";
 
 const features = [
   createConfigFeature(),

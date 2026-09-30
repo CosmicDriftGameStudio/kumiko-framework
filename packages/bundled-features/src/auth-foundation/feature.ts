@@ -17,7 +17,7 @@ import {
   validateTenantExistenceMultiplicity,
   validateTenantResolverMultiplicity,
   validateTokenVerifierMultiplicity,
-} from "./boot-checks";
+} from "./boot-checks.js";
 import {
   type AuthProviderBuildDeps,
   EXT_SESSION_STORE,
@@ -33,14 +33,14 @@ import {
   type TenantResolverFn,
   type TenantResolverTrust,
   tokenShapeMatches,
-} from "./types";
+} from "./types.js";
 
 export {
   EXT_SESSION_STORE,
   EXT_TENANT_EXISTENCE,
   EXT_TENANT_RESOLVER,
   EXT_TOKEN_VERIFIER,
-} from "./types";
+} from "./types.js";
 
 const FEATURE_NAME = "auth-foundation";
 

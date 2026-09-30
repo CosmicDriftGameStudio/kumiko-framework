@@ -36,10 +36,10 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { createMutableMasterKeyProvider } from "@cosmicdrift/kumiko-framework/testing";
-import { createConfigFeature } from "../feature";
-import { reencryptJob } from "../handlers/reencrypt.job";
-import { createConfigResolver } from "../resolver";
-import { configValueEntity, configValuesTable } from "../table";
+import { createConfigFeature } from "../feature.js";
+import { reencryptJob } from "../handlers/reencrypt.job.js";
+import { createConfigResolver } from "../resolver.js";
+import { configValueEntity, configValuesTable } from "../table.js";
 
 const KEY = "tenant-check-rot:config:secret-pass";
 const TENANT_A = testTenantId(201);

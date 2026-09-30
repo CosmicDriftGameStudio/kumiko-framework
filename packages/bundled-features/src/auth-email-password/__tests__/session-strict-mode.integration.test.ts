@@ -10,10 +10,10 @@ import {
   TestUsers,
   testTenantId,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createConfigFeature } from "../../config";
-import { createTenantFeature } from "../../tenant";
-import { createUserFeature } from "../../user";
-import { createAuthEmailPasswordFeature } from "../feature";
+import { createConfigFeature } from "../../config/index.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createAuthEmailPasswordFeature } from "../feature.js";
 
 let stack: TestStack;
 const TENANT: TenantId = testTenantId(1);

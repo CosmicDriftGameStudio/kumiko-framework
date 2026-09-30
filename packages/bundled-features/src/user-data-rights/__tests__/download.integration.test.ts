@@ -35,22 +35,22 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createConfigFeature } from "../../config";
-import { ConfigHandlers } from "../../config/constants";
-import { createConfigAccessorFactory } from "../../config/feature";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createDataRetentionFeature } from "../../data-retention";
-import { fileFoundationFeature } from "../../file-foundation";
-import { fileProviderInMemoryFeature } from "../../file-provider-inmemory";
-import { createSessionsFeature } from "../../sessions";
-import { tenantMembershipsTable } from "../../tenant";
-import { createUserFeature } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runExportJobs } from "../run-export-jobs";
-import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token";
-import { exportJobEntity, exportJobsTable } from "../schema/export-job";
+} from "../../compliance-profiles/index.js";
+import { ConfigHandlers } from "../../config/constants.js";
+import { createConfigAccessorFactory } from "../../config/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { fileFoundationFeature } from "../../file-foundation/index.js";
+import { fileProviderInMemoryFeature } from "../../file-provider-inmemory/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { tenantMembershipsTable } from "../../tenant/index.js";
+import { createUserFeature } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runExportJobs } from "../run-export-jobs.js";
+import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.js";
+import { exportJobEntity, exportJobsTable } from "../schema/export-job.js";
 
 let stack: TestStack;
 let providerPerTenant: Map<string, ReturnType<typeof createInMemoryFileProvider>>;

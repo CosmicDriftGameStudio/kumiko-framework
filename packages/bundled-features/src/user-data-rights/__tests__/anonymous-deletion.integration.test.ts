@@ -21,14 +21,14 @@ import {
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
-} from "../../compliance-profiles";
-import { createDataRetentionFeature } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { USER_STATUS, userEntity, userTable } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { signDeletionToken } from "../deletion-token";
-import { createUserDataRightsFeature } from "../feature";
-import type { SendDeletionVerificationEmailFn } from "../handlers/request-deletion-by-email.write";
+} from "../../compliance-profiles/index.js";
+import { createDataRetentionFeature } from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature } from "../../user/feature.js";
+import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
+import { signDeletionToken } from "../deletion-token.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import type { SendDeletionVerificationEmailFn } from "../handlers/request-deletion-by-email.write.js";
 
 const REQUEST_BY_EMAIL = "user-data-rights:write:request-deletion-by-email";
 const CONFIRM_BY_TOKEN = "user-data-rights:write:confirm-deletion-by-token";

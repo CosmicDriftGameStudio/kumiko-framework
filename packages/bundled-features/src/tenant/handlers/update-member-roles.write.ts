@@ -15,13 +15,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { assertNotLastTenantAdmin } from "../last-tenant-admin";
+import { assertNotLastTenantAdmin } from "../last-tenant-admin.js";
 import {
   findForbiddenMembershipRole,
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
-} from "../membership-roles";
-import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table";
+} from "../membership-roles.js";
+import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",

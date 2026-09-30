@@ -1,5 +1,5 @@
 import { PII_CIPHERTEXT_PREFIX } from "@cosmicdrift/kumiko-framework/crypto";
-import type { EmailMessage, EmailTransport } from "./types";
+import type { EmailMessage, EmailTransport } from "./types.js";
 
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
 // Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any

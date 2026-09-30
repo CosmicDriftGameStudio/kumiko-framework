@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildFolderTree, type FolderRow, folderPath } from "../tree";
+import { buildFolderTree, type FolderRow, folderPath } from "../tree.js";
 
 const f = (id: string, name: string, parentId: string | null = null): FolderRow => ({
   id,

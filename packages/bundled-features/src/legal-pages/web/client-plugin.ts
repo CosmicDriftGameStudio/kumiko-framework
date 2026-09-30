@@ -18,7 +18,7 @@
 
 import type { TreeChildrenSubscribe, TreeNode } from "@cosmicdrift/kumiko-framework/engine";
 import type { ClientFeatureDefinition } from "@cosmicdrift/kumiko-renderer-web";
-import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "../constants";
+import { LEGAL_OPTIONAL_BLOCKS, LEGAL_REQUIRED_BLOCKS } from "../constants.js";
 
 const treeProvider: TreeChildrenSubscribe = () => (emit) => {
   // V.1.5d Slug-first Verschachtelung (Variante C):

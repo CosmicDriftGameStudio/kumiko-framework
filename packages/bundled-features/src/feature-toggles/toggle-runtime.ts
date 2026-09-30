@@ -5,7 +5,7 @@ import {
   type Registry,
   type ToggleReader,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { globalFeatureStateTable } from "./global-feature-state-table";
+import { globalFeatureStateTable } from "./global-feature-state-table.js";
 
 // Cross-replica transport for a toggle flip (fw#2625). Deliberately narrow
 // (featureName + enabled, not a generic channel/payload pair) so a caller

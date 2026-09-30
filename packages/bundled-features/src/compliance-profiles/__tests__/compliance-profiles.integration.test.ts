@@ -8,7 +8,7 @@ import {
   testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature";
+import { createComplianceProfilesFeature, tenantComplianceProfileEntity } from "../feature.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const FOR_TENANT = "compliance-profiles:query:for-tenant";

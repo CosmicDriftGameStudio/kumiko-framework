@@ -5,7 +5,7 @@ import {
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { type PageRow, pagesTable } from "../table";
+import { type PageRow, pagesTable } from "../table.js";
 
 // Public-Read aller published Pages eines Tenants — Discovery-Quelle für
 // sitemap.xml/llms.txt (siehe seo-Feature). Anders als by-slug (single-row,

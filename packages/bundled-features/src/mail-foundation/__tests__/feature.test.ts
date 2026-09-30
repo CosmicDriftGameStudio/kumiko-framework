@@ -7,7 +7,7 @@
 // provider-concrete.
 
 import { describe, expect, test } from "bun:test";
-import { mailFoundationFeature } from "../feature";
+import { mailFoundationFeature } from "../feature.js";
 
 describe("mailFoundationFeature — shape", () => {
   test("has the expected name", () => {

@@ -24,7 +24,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { defineCreateWithTenantDefaults } from "../tenant-defaults";
+import { defineCreateWithTenantDefaults } from "../tenant-defaults.js";
 
 const invoiceEntity = createEntity({
   table: "read_invoices",

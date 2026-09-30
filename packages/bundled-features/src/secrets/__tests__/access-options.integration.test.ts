@@ -19,9 +19,9 @@ import {
   type TestStack,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createSecretsFeature } from "../feature";
-import { createSecretsContext } from "../secrets-context";
-import { tenantSecretsTable } from "../table";
+import { createSecretsFeature } from "../feature.js";
+import { createSecretsContext } from "../secrets-context.js";
+import { tenantSecretsTable } from "../table.js";
 
 function masterKeyProvider(): MasterKeyProvider {
   return createEnvMasterKeyProvider({

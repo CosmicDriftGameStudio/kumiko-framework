@@ -7,10 +7,10 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { decryptStoredPii, mapWithConcurrency } from "../../shared";
-import { userTable } from "../../user";
-import { tenantMembershipsTable } from "../membership-table";
-import { isSystemAdmin } from "./is-system-admin";
+import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
+import { userTable } from "../../user/index.js";
+import { tenantMembershipsTable } from "../membership-table.js";
+import { isSystemAdmin } from "./is-system-admin.js";
 
 // Shares the KMS adapter's small dedicated pool, same rationale as
 // members.query.ts.

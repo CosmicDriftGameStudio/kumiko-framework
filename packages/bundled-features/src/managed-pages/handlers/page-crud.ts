@@ -5,7 +5,7 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { pageEntity } from "../table";
+import { pageEntity } from "../table.js";
 
 // Admin authoring runs as TenantAdmin (self-service) or SystemAdmin (app-wide
 // pages). Mirrors set.write's ACL — an app with its own role alias

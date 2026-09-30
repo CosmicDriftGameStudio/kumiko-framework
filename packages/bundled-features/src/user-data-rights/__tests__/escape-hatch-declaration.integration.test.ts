@@ -28,17 +28,20 @@ import {
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { createComplianceProfilesFeature } from "../../compliance-profiles";
-import { createDataRetentionFeature, tenantRetentionOverrideEntity } from "../../data-retention";
-import { createSessionsFeature } from "../../sessions";
-import { createUserFeature, userEntity } from "../../user";
-import { createUserDataRightsFeature } from "../feature";
-import { runForgetCleanup } from "../run-forget-cleanup";
+import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+} from "../../data-retention/index.js";
+import { createSessionsFeature } from "../../sessions/index.js";
+import { createUserFeature, userEntity } from "../../user/index.js";
+import { createUserDataRightsFeature } from "../feature.js";
+import { runForgetCleanup } from "../run-forget-cleanup.js";
 import {
   createForgetSeeders,
   nowInstant,
   READ_TENANT_MEMBERSHIPS_DDL,
-} from "./forget-test-helpers";
+} from "./forget-test-helpers.js";
 
 const FORGET_USER = "eeeeeeee-eeee-4eee-8eee-000000000001";
 const TENANT_A = "00000000-0000-4000-8000-0000000000e1";

@@ -28,8 +28,8 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { assertUnreachable } from "@cosmicdrift/kumiko-framework/utils";
-import { ConfigErrors } from "./constants";
-import { configValuesTable } from "./table";
+import { ConfigErrors } from "./constants.js";
+import { configValuesTable } from "./table.js";
 
 export type ConfigRowLookup = {
   readonly id: string;

@@ -35,7 +35,7 @@ import { FeatureDisabledError, UnconfiguredError } from "@cosmicdrift/kumiko-fra
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import Stripe from "stripe";
-import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants";
+import { SUBSCRIPTION_STRIPE_FEATURE } from "./constants.js";
 
 const API_KEY_HINT =
   "Set the Stripe API key via config:write:set on `subscription-stripe:config:api-key` (or seed it from STRIPE_API_KEY during the env bridge).";

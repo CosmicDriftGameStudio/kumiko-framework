@@ -1,7 +1,7 @@
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { upsertAddressOptOut } from "../address-opt-out";
+import { upsertAddressOptOut } from "../address-opt-out.js";
 
 export const unsubscribeAddressWrite = defineWriteHandler({
   name: "unsubscribeAddress",

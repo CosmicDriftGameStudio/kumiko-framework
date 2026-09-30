@@ -19,7 +19,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useState } from "react";
-import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants";
+import { NotesHistoryHandlers, NotesHistoryQueries } from "../constants.js";
 
 type NoteRow = {
   readonly id: string;

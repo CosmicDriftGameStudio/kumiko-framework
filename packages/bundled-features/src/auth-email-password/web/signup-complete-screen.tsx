@@ -19,9 +19,9 @@
 
 import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type FormEvent, type ReactNode, useState } from "react";
-import { confirmSignup, type SignupConfirmSuccess } from "./auth-client";
-import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic";
-import { AuthCard, useUrlToken } from "./auth-form-primitives";
+import { confirmSignup, type SignupConfirmSuccess } from "./auth-client.js";
+import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic.js";
+import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;

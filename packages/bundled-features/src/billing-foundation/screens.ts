@@ -1,5 +1,5 @@
 import type { DashboardCustomPanel, ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { BILLING_PLANS_PANEL_COMPONENT, BILLING_PLANS_SCREEN_ID } from "./constants";
+import { BILLING_PLANS_PANEL_COMPONENT, BILLING_PLANS_SCREEN_ID } from "./constants.js";
 
 /** The billing-plans panel, meant to be dropped into an app's own dashboard
  *  screen alongside its own panels — not just the dormant single-panel

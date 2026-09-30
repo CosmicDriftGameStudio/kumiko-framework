@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { dsgvoSelfServiceFeatures } from "../dsgvo-self-service";
+import { dsgvoSelfServiceFeatures } from "../dsgvo-self-service.js";
 
 // Pins the DSGVO/self-service bundle: the five features in dependency order
 // (user-data-rights requires data-retention + compliance-profiles + sessions;

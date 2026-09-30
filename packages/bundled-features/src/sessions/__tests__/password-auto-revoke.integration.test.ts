@@ -14,22 +14,22 @@ import {
   createLateBoundHolder,
   createTestEnvelopeCipher,
 } from "@cosmicdrift/kumiko-framework/testing";
-import { AuthHandlers } from "../../auth-email-password/constants";
-import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature";
-import { createConfigFeature } from "../../config";
-import { createConfigResolver } from "../../config/resolver";
-import { configValuesTable } from "../../config/table";
-import { createTenantFeature } from "../../tenant";
-import { tenantMembershipsTable } from "../../tenant/membership-table";
-import { tenantEntity } from "../../tenant/schema/tenant";
-import { UserHandlers } from "../../user";
-import { createUserFeature } from "../../user/feature";
-import { userEntity, userTable } from "../../user/schema/user";
-import { createSessionsFeature } from "../feature";
-import { userSessionEntity, userSessionTable } from "../schema/user-session";
-import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks";
-import { sessionCallbacksFromLateBound } from "../testing";
-import { makeSessionHelpers } from "./test-helpers";
+import { AuthHandlers } from "../../auth-email-password/constants.js";
+import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
+import { createConfigFeature } from "../../config/index.js";
+import { createConfigResolver } from "../../config/resolver.js";
+import { configValuesTable } from "../../config/table.js";
+import { createTenantFeature } from "../../tenant/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantEntity } from "../../tenant/schema/tenant.js";
+import { createUserFeature } from "../../user/feature.js";
+import { UserHandlers } from "../../user/index.js";
+import { userEntity, userTable } from "../../user/schema/user.js";
+import { createSessionsFeature } from "../feature.js";
+import { userSessionEntity, userSessionTable } from "../schema/user-session.js";
+import { createSessionCallbacks, type SessionCallbacks } from "../session-callbacks.js";
+import { sessionCallbacksFromLateBound } from "../testing.js";
+import { makeSessionHelpers } from "./test-helpers.js";
 
 // When a user changes their password, every live session for that user must
 // stop working — the industry-standard "signs you out everywhere" rule.

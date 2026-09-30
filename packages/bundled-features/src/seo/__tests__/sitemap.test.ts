@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildSitemapXml } from "../sitemap";
+import { buildSitemapXml } from "../sitemap.js";
 
 describe("buildSitemapXml", () => {
   test("emits urlset with loc/lastmod/changefreq", () => {

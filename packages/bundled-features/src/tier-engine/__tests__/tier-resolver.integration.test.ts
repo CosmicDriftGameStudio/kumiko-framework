@@ -20,9 +20,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import * as z from "zod";
-import { tierAssignmentEntity } from "../entity";
-import { tierEngineFeature } from "../feature";
-import { createTierResolver } from "../tier-resolver";
+import { tierAssignmentEntity } from "../entity.js";
+import { tierEngineFeature } from "../feature.js";
+import { createTierResolver } from "../tier-resolver.js";
 
 type TestCaps = { readonly maxItems: number };
 type TestTier = "free" | "pro";

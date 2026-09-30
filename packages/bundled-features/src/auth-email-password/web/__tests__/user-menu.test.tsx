@@ -3,9 +3,9 @@ import { TokensProvider } from "@cosmicdrift/kumiko-renderer";
 import { SidebarProvider, ThemeMenuItem } from "@cosmicdrift/kumiko-renderer-web";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { TenantMenuItems } from "../tenant-menu-items";
-import { UserMenu } from "../user-menu";
-import { makeSessionApi, renderWithProviders } from "./test-utils";
+import { TenantMenuItems } from "../tenant-menu-items.js";
+import { UserMenu } from "../user-menu.js";
+import { makeSessionApi, renderWithProviders } from "./test-utils.js";
 
 // Radix-DropdownMenu reagiert auf pointerdown — fireEvent.click greift
 // dort nicht. userEvent simuliert die volle Pointer-Sequenz und Radix

@@ -13,17 +13,17 @@ import {
   DELIVERY_STATUS_CELL_COMPONENT,
   DeliveryJobNames,
   DeliveryQueries,
-} from "./constants";
-import { deliveryAttemptSchema } from "./events";
-import { logQuery } from "./handlers/log.query";
-import { preferencesQuery } from "./handlers/preferences.query";
-import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write";
-import { resubscribeUserWrite } from "./handlers/resubscribe-user.write";
-import { setPreferenceWrite } from "./handlers/set-preference.write";
-import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write";
-import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write";
-import { DELIVERY_I18N } from "./i18n";
-import { deliveryRenderJob, deliverySendJob } from "./jobs";
+} from "./constants.js";
+import { deliveryAttemptSchema } from "./events.js";
+import { logQuery } from "./handlers/log.query.js";
+import { preferencesQuery } from "./handlers/preferences.query.js";
+import { resubscribeAddressWrite } from "./handlers/resubscribe-address.write.js";
+import { resubscribeUserWrite } from "./handlers/resubscribe-user.write.js";
+import { setPreferenceWrite } from "./handlers/set-preference.write.js";
+import { unsubscribeAddressWrite } from "./handlers/unsubscribe-address.write.js";
+import { unsubscribeUserWrite } from "./handlers/unsubscribe-user.write.js";
+import { DELIVERY_I18N } from "./i18n.js";
+import { deliveryRenderJob, deliverySendJob } from "./jobs.js";
 import {
   deliveryAttemptsTable,
   deliveryAttemptsTableMeta,
@@ -31,7 +31,7 @@ import {
   notificationAddressOptOutsTable,
   notificationPreferenceEntity,
   notificationPreferencesTable,
-} from "./tables";
+} from "./tables.js";
 
 export type DeliveryFeatureOptions = {
   // Access gate for the delivery-log screen and the `log` query it reads —

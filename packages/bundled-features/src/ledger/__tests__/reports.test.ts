@@ -6,7 +6,7 @@ import {
   type LedgerAccount,
   type LedgerEntry,
   normalizeLines,
-} from "../reports";
+} from "../reports.js";
 
 // Pure report math — no DB. A small but complete set of books:
 //   1. owner capital:  bank +500000 / equity −500000

@@ -33,29 +33,29 @@ import {
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared";
+import { decryptStoredPii, sessionLocaleField, sessionTimezoneField } from "../../shared/index.js";
 // kumiko-lint-ignore cross-feature-import invite-flow
 import {
   INVITATION_STATUS,
   tenantInvitationEntity,
   tenantInvitationsTable,
-} from "../../tenant/invitation-table";
+} from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
-import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership";
+import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership.js";
 // kumiko-lint-ignore cross-feature-import login-style password-check
-import { userTable } from "../../user/schema/user";
+import { userTable } from "../../user/schema/user.js";
 import {
   AUTH_LOCKOUT_DEFAULT_DURATION_MINUTES,
   AUTH_LOCKOUT_DEFAULT_MAX_FAILED_ATTEMPTS,
-} from "../constants";
-import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors";
+} from "../constants.js";
+import { invalidCredentials, invalidInviteToken, inviteEmailMismatch } from "../errors.js";
 import {
   burnInviteToken,
   deleteInviteToken,
   getInvitationIdForToken,
   unburnInviteToken,
-} from "../invite-token-store";
-import { passwordSchema } from "../password-policy";
+} from "../invite-token-store.js";
+import { passwordSchema } from "../password-policy.js";
 import {
   gateEnforceAccountStatus,
   gateEnforceEmailVerified,
@@ -64,7 +64,7 @@ import {
   gateVerifyPassword,
   type LoginHandlerOptions,
   type LoginResult,
-} from "./login.write";
+} from "./login.write.js";
 
 const InviteAcceptWithLoginSchema = z.object({
   token: z.string().min(1),

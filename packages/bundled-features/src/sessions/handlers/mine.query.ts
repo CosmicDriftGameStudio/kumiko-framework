@@ -1,8 +1,8 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { definePagedQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
-import { decryptStoredPii } from "../../shared";
-import { userSessionTable } from "../schema/user-session";
+import { decryptStoredPii } from "../../shared/index.js";
+import { userSessionTable } from "../schema/user-session.js";
 
 // "My live sessions" — the backing data for a devices/sessions UI. Returns
 // ONLY the current user's own, currently-live sessions, ordered by most-

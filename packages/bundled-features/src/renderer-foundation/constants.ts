@@ -2,7 +2,7 @@
 // Bundles teilen sich die Enum, damit Plugins (renderer-mail-html etc.)
 // nicht zwei Quellen importieren müssen. Cross-feature-Imports gehen
 // über das Barrel (../template-resolver), nicht via deep-import.
-import type { RenderKind as RenderKindLocal } from "../template-resolver";
+import type { RenderKind as RenderKindLocal } from "../template-resolver/index.js";
 
 // Extension-point name for renderer plugins (renderer-simple,
 // renderer-mail-html, renderer-puppeteer-client, ...).
@@ -13,7 +13,7 @@ export {
   type ContentFormat,
   RENDER_KINDS,
   type RenderKind,
-} from "../template-resolver";
+} from "../template-resolver/index.js";
 
 // Standard-Default-Plugin pro Kind, wenn Tenant keine explizite Config
 // gesetzt hat. App-Bootstrap kann das via TenantConfigKey überschreiben.

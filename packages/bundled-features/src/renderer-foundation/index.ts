@@ -2,7 +2,7 @@ export {
   createRendererFoundationApi,
   type RendererFoundationApi,
   requireRendererFoundation,
-} from "./api";
+} from "./api.js";
 export {
   CONTENT_FORMATS,
   type ContentFormat,
@@ -10,8 +10,8 @@ export {
   RENDER_KINDS,
   RENDERER_EXTENSION,
   type RenderKind,
-} from "./constants";
-export { collectRendererPlugins, createRendererFoundationFeature } from "./feature";
+} from "./constants.js";
+export { collectRendererPlugins, createRendererFoundationFeature } from "./feature.js";
 export {
   type DocumentPayload,
   type ImageOptions,
@@ -25,4 +25,4 @@ export {
   type RendererRegistrationPlugin,
   type RenderRequest,
   type RenderResponse,
-} from "./types";
+} from "./types.js";

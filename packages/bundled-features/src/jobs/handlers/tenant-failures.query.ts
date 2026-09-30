@@ -3,7 +3,7 @@ import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { tenantJobFailuresTable } from "../tenant-job-failure-table";
+import { tenantJobFailuresTable } from "../tenant-job-failure-table.js";
 
 type TenantJobFailureRow = {
   readonly tenantId: string;

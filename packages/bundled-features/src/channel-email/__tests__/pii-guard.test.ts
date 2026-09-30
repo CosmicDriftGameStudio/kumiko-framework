@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { guardEmailMessage, withPiiCiphertextGuard } from "../pii-guard";
-import { createInMemoryTransport } from "../types";
+import { guardEmailMessage, withPiiCiphertextGuard } from "../pii-guard.js";
+import { createInMemoryTransport } from "../types.js";
 
 const CIPHERTEXT = "kumiko-pii:v1:user:6b2f4a0e-1c9d-4f3a-9d2e-00000000000a:8e2Rkjj+ww==";
 const originalNodeEnv = process.env["NODE_ENV"];
