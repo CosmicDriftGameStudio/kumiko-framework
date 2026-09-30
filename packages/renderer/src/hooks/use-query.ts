@@ -135,10 +135,12 @@ export function useQuery<TData = unknown>(
   }, [enabled, run]);
 
   useEffect(() => {
-    // skip: polling off, disabled query, or non-positive/non-finite interval
+    // skip: polling off or disabled query
     if (!enabled || refetchIntervalMs === undefined) return;
+    // skip: non-positive or non-finite interval disables polling
     if (!Number.isFinite(refetchIntervalMs) || refetchIntervalMs <= 0) return;
     const timer = setInterval(() => {
+      // skip: a fetch is still running, the next tick retries
       if (fetchInFlight.current) return;
       void runFetch(true);
     }, refetchIntervalMs);
