@@ -6,7 +6,11 @@ import postgres from "postgres";
 import { constraintOf, extractPgError, isUniqueViolation } from "../../db/pg-error";
 import { testDatabaseUrl } from "../../testing/closed-connection-error";
 import { waitFor } from "../../testing/wait-for";
-import { isClosedConnectionError, unsafeReadRetrying } from "../query";
+import {
+  describeClosedConnectionFailure,
+  isClosedConnectionError,
+  unsafeReadRetrying,
+} from "../query";
 
 const DATABASE_URL = testDatabaseUrl();
 
@@ -155,5 +159,94 @@ describe.each(drivers)("extractPgError — %s unique-violation SQLSTATE", (kind)
       await pool.unsafe(`drop table if exists "${tableName}"`);
       await closePool(kind, pool);
     }
+  });
+});
+
+describe("describeClosedConnectionFailure", () => {
+  test("describes a real postgres-js pool error without SQL text or params", async () => {
+    const applicationName = randomAppName();
+    const pool = postgres(DATABASE_URL, {
+      max: 2,
+      connection: { application_name: applicationName },
+    });
+    try {
+      await Promise.all([pool.unsafe("select 1"), pool.unsafe("select 1")]);
+      const secretParam = `secret-${crypto.randomUUID()}`;
+      const pending = pool
+        .unsafe("select $1::text as x from pg_sleep(0.3)", [secretParam])
+        .catch((e: unknown) => e);
+      const pid = await pollForActivePid(applicationName, "%pg_sleep(0.3)%");
+      await terminateBackendPid(pid);
+      const caught = await pending;
+
+      const described = describeClosedConnectionFailure(pool, caught, 3);
+      expect(described).toMatchObject({
+        driver: "postgres-js",
+        pooled: true,
+        attempts: 3,
+        poolMax: 2,
+      });
+      expect(described?.["errorCode"]).toBe(extractPgError(caught)?.code);
+      const serialized = JSON.stringify(described);
+      expect(serialized).not.toContain(secretParam);
+      expect(serialized).not.toContain("pg_sleep");
+    } finally {
+      await pool.end({ timeout: 0 });
+    }
+  });
+
+  test("describes a real postgres-js transaction handle as not pooled", async () => {
+    const applicationName = randomAppName();
+    const pool = postgres(DATABASE_URL, {
+      max: 2,
+      connection: { application_name: applicationName },
+    });
+    try {
+      let described: Record<string, unknown> | undefined;
+      await pool
+        .begin(async (tx) => {
+          const pending = tx.unsafe("select 1 from pg_sleep(0.3)").catch((e: unknown) => e);
+          const pid = await pollForActivePid(applicationName, "%pg_sleep(0.3)%");
+          await terminateBackendPid(pid);
+          described = describeClosedConnectionFailure(tx, await pending, 1);
+        })
+        .catch(() => undefined);
+      expect(described).toMatchObject({ driver: "postgres-js", pooled: false, attempts: 1 });
+    } finally {
+      await pool.end({ timeout: 0 });
+    }
+  });
+
+  test("describes a real Bun.SQL closed-pool error", async () => {
+    const pool = new Bun.SQL({ url: DATABASE_URL, max: 1, idleTimeout: 5, maxLifetime: 10 });
+    await pool.unsafe("select 1");
+    await pool.close();
+    const caught = await pool.unsafe("select 1").catch((e: unknown) => e);
+
+    expect(describeClosedConnectionFailure(pool, caught, 1)).toMatchObject({
+      driver: "bun-sql",
+      pooled: true,
+      poolMax: 1,
+      idleTimeoutMs: 5000,
+      maxLifetimeMs: 10000,
+      errorCode: "ERR_POSTGRES_CONNECTION_CLOSED",
+    });
+  });
+
+  test("returns undefined for an unrelated error", () => {
+    expect(describeClosedConnectionFailure({}, new Error("boom"), 1)).toBeUndefined();
+    expect(describeClosedConnectionFailure({}, "not an error", 1)).toBeUndefined();
+  });
+
+  test("matches the driver's AbortError for a closed connection", () => {
+    const abort = new DOMException("The connection was closed.", "AbortError");
+    expect(describeClosedConnectionFailure({}, abort, 2)).toMatchObject({
+      driver: "unknown",
+      attempts: 2,
+      errorName: "AbortError",
+    });
+    expect(
+      describeClosedConnectionFailure({}, new DOMException("other", "AbortError"), 1),
+    ).toBeUndefined();
   });
 });

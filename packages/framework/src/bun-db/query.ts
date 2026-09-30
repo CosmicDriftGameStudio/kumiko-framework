@@ -28,6 +28,7 @@ import type {
 // Static polyfill import (not getTemporal()): coercion results stay on one
 // Temporal implementation repo-wide, even when Bun exposes a global (#1480).
 import { Temporal } from "temporal-polyfill";
+import { requestContext } from "../api/request-context";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
 import { SQL_EXPR_BRAND } from "../db/dialect";
 import type { EntityTableMeta } from "../db/entity-table-meta";
@@ -35,6 +36,7 @@ import { extractPgError } from "../db/pg-error";
 import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
 import { camelCase as envCamelCase } from "../env";
 import { InternalError } from "../errors";
+import { createFallbackLogger } from "../logging";
 import { parseJsonSafe } from "../utils/safe-json";
 
 // Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
@@ -755,6 +757,120 @@ function isPooledClient(raw: unknown): boolean {
   );
 }
 
+const closedConnectionLog = createFallbackLogger("bun-db");
+
+// The driver rejects in-flight queries with this AbortError (no code) when the
+// pool closes under them, so isClosedConnectionError can't see it.
+const DRIVER_CLOSED_ABORT_MESSAGE = "The connection was closed.";
+
+function isDriverClosedAbort(err: unknown): boolean {
+  return (
+    err instanceof Error && err.name === "AbortError" && err.message === DRIVER_CLOSED_ABORT_MESSAGE
+  );
+}
+
+function isHandleLike(raw: unknown): raw is Record<string, unknown> {
+  return raw !== null && (typeof raw === "object" || typeof raw === "function");
+}
+
+type ClosedConnectionDriver = "bun-sql" | "postgres-js" | "unknown";
+
+// Bun.SQL is not instanceof-checkable (Bun.SQL.prototype is invalid) and its tx
+// handles are plain function objects, so discriminate by members only one driver
+// has: `flush` on Bun.SQL (pool and tx), `typed` on postgres-js (pool and tx).
+function driverOf(raw: unknown): ClosedConnectionDriver {
+  if (!isHandleLike(raw)) return "unknown";
+  if (typeof raw["flush"] === "function") return "bun-sql";
+  if (typeof raw["typed"] === "function") return "postgres-js";
+  return "unknown";
+}
+
+function positiveNumber(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
+}
+
+// postgres-js configures timeouts in seconds, Bun.SQL in milliseconds.
+function timeoutOptionMs(
+  options: Record<string, unknown>,
+  driver: ClosedConnectionDriver,
+  bunName: string,
+  postgresJsName: string,
+): number | undefined {
+  if (driver === "postgres-js") {
+    const seconds = positiveNumber(options[postgresJsName]);
+    return seconds === undefined ? undefined : seconds * 1000;
+  }
+  return positiveNumber(options[bunName]);
+}
+
+function errorProp(err: unknown, name: string): unknown {
+  return isHandleLike(err) ? err[name] : undefined;
+}
+
+// Deliberately excludes SQL text and parameters: app SQL can carry PII.
+export function describeClosedConnectionFailure(
+  raw: unknown,
+  err: unknown,
+  attempts: number,
+): Record<string, unknown> | undefined {
+  if (!isClosedConnectionError(err) && !isDriverClosedAbort(err)) return undefined;
+  const driver = driverOf(raw);
+  const rawOptions = isHandleLike(raw) ? raw["options"] : undefined;
+  const options = isHandleLike(rawOptions) ? rawOptions : {};
+  return {
+    driver,
+    pooled: isPooledClient(raw),
+    attempts,
+    poolMax: positiveNumber(options["max"]),
+    idleTimeoutMs: timeoutOptionMs(options, driver, "idleTimeout", "idle_timeout"),
+    maxLifetimeMs: timeoutOptionMs(options, driver, "maxLifetime", "max_lifetime"),
+    connectionTimeoutMs: timeoutOptionMs(options, driver, "connectionTimeout", "connect_timeout"),
+    errorName: errorProp(err, "name"),
+    errorCode: extractPgError(err)?.code ?? errorProp(err, "code"),
+    errorErrno: errorProp(err, "errno"),
+    errorMessage: errorProp(err, "message"),
+  };
+}
+
+type ClosedConnectionContext = { readonly operation: string; readonly table?: string };
+
+function logClosedConnection(
+  raw: unknown,
+  err: unknown,
+  attempts: number,
+  context?: ClosedConnectionContext,
+): void {
+  const failure = describeClosedConnectionFailure(raw, err, attempts);
+  // skip: not a closed-connection error, nothing to diagnose
+  if (!failure) return;
+  // Request identity lets this line be joined to the route's `handler failed` log.
+  const request = requestContext.get();
+  closedConnectionLog.warn("closed connection surfaced", {
+    ...failure,
+    ...context,
+    requestId: request?.requestId,
+    correlationId: request?.correlationId,
+    handler: request?.handler,
+  });
+}
+
+// Write and other non-retried paths: log when a closed-connection error leaves
+// bun-db, rethrow unchanged.
+async function unsafeLoggingClosedConnection(
+  db: AnyDb,
+  sqlText: string,
+  params: readonly unknown[],
+  context: ClosedConnectionContext,
+): Promise<readonly unknown[]> {
+  const raw = asRawClient(db);
+  try {
+    return await raw.unsafe(sqlText, params);
+  } catch (err) {
+    logClosedConnection(raw, err, 1, context);
+    throw err;
+  }
+}
+
 function poolMaxOf(raw: unknown): number {
   // @cast-boundary driver pool options — both postgres-js and Bun.SQL expose options.max
   const max = (raw as { options?: { max?: unknown } }).options?.max;
@@ -774,7 +890,10 @@ export async function unsafeReadRetrying<TRow>(
   try {
     return (await raw.unsafe(sqlText, params)) as readonly TRow[];
   } catch (err) {
-    if (!isPooledClient(raw) || !isClosedConnectionError(err)) throw err;
+    if (!isPooledClient(raw) || !isClosedConnectionError(err)) {
+      logClosedConnection(raw, err, 1);
+      throw err;
+    }
     const maxAttempts = poolMaxOf(raw) + 1;
     let lastErr: unknown = err;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -782,9 +901,13 @@ export async function unsafeReadRetrying<TRow>(
         return (await raw.unsafe(sqlText, params)) as readonly TRow[];
       } catch (retryErr) {
         lastErr = retryErr;
-        if (!isClosedConnectionError(retryErr)) throw retryErr;
+        if (!isClosedConnectionError(retryErr)) {
+          logClosedConnection(raw, retryErr, attempt + 2);
+          throw retryErr;
+        }
       }
     }
+    logClosedConnection(raw, lastErr, maxAttempts + 1);
     throw lastErr;
   }
 }
@@ -876,7 +999,10 @@ export async function insertMany<TRow = any>(
     valuesClauses.push(`(${placeholders.join(", ")})`);
   }
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES ${valuesClauses.join(", ")} RETURNING *`;
-  const raw = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<string, unknown>[];
+  const raw = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+    operation: "insertMany",
+    table: info.name,
+  })) as readonly Record<string, unknown>[];
   return coerceRows(raw, info) as readonly TRow[];
 }
 
@@ -909,10 +1035,10 @@ export async function insertOne<TRow = any>(
     })
     .join(", ");
   const sqlText = `INSERT INTO ${quoteIdent(info.name)} (${cols}) VALUES (${placeholders}) RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<
-    string,
-    unknown
-  >[];
+  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+    operation: "insertOne",
+    table: info.name,
+  })) as readonly Record<string, unknown>[];
   const first = rows[0];
   if (!first) return undefined;
   return coerceRow(first, info) as TRow;
@@ -956,7 +1082,10 @@ export async function updateMany<TRow = any>(
     for (const v of w.values) values.push(v);
   }
   sqlText += " RETURNING *";
-  const raw = (await asRawClient(db).unsafe(sqlText, values)) as readonly Record<string, unknown>[];
+  const raw = (await unsafeLoggingClosedConnection(db, sqlText, values, {
+    operation: "updateMany",
+    table: info.name,
+  })) as readonly Record<string, unknown>[];
   return coerceRows(raw, info) as readonly TRow[];
 }
 
@@ -973,7 +1102,10 @@ export async function deleteMany(
   const w = buildWhereClause(info, where, 1);
   let sqlText = `DELETE FROM ${quoteIdent(info.name)}`;
   if (w.sqlText) sqlText += ` WHERE ${w.sqlText}`;
-  await asRawClient(db).unsafe(sqlText, w.values);
+  await unsafeLoggingClosedConnection(db, sqlText, w.values, {
+    operation: "deleteMany",
+    table: info.name,
+  });
 }
 
 type InsertEntry = {
@@ -1106,10 +1238,10 @@ export async function upsertOnConflict<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<
-    string,
-    unknown
-  >[];
+  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+    operation: "upsertOnConflict",
+    table: info.name,
+  })) as readonly Record<string, unknown>[];
   const first = rows[0];
   if (!first) return undefined;
   return coerceRow(first, info) as TRow;
@@ -1188,10 +1320,10 @@ export async function incrementCounter<TRow = any>(
 
   const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
   const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO UPDATE SET ${updateParts.join(", ")} RETURNING *`;
-  const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly Record<
-    string,
-    unknown
-  >[];
+  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+    operation: "incrementCounter",
+    table: info.name,
+  })) as readonly Record<string, unknown>[];
   const first = rows[0];
   if (!first) return undefined;
   return coerceRow(first, info) as TRow;
@@ -1227,7 +1359,10 @@ export async function deleteManyBatched(
     const sqlText = `DELETE FROM ${tableQ} WHERE ${idQ} IN (
       SELECT ${idQ} FROM ${tableQ} WHERE ${w.sqlText} LIMIT $${limitIdx}
     ) RETURNING ${idQ}`;
-    const rows = (await asRawClient(db).unsafe(sqlText, params)) as readonly unknown[];
+    const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+      operation: "deleteManyBatched",
+      table: info.name,
+    })) as readonly unknown[];
     batches++;
     deleted += rows.length;
     if (rows.length < limit) break;
