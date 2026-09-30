@@ -21,6 +21,19 @@ describe("StatusBadge", () => {
     const badge = screen.getByTestId("badge");
     expect(badge.textContent).toBe("Operational");
     expect(badge.className).toContain("text-status-ok");
+    expect(badge.className).toContain("bg-status-ok-surface");
+  });
+
+  test("rendert den dekorativen Statuspunkt in der Textfarbe", () => {
+    render(
+      <StatusBadge tone="warn" testId="badge">
+        Investigating
+      </StatusBadge>,
+    );
+    const dot = screen.getByTestId("badge").querySelector("[data-status-dot]");
+    expect(dot).not.toBeNull();
+    expect(dot?.getAttribute("aria-hidden")).toBe("true");
+    expect(dot?.className).toContain("bg-current");
   });
 
   test("muted nutzt die neutralen Theme-Tokens", () => {
@@ -29,7 +42,9 @@ describe("StatusBadge", () => {
         Resolved
       </StatusBadge>,
     );
-    expect(screen.getByTestId("badge").className).toContain("text-muted-foreground");
+    const { className } = screen.getByTestId("badge");
+    expect(className).toContain("text-status-neutral");
+    expect(className).toContain("bg-status-neutral-surface");
   });
 });
 

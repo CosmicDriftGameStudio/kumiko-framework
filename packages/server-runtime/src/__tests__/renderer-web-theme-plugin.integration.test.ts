@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { runTailwindOnce } from "../build-prod-bundle";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
-const FRAMEWORK_LIGHT_PRIMARY = "--color-primary:#171717";
+const FRAMEWORK_LIGHT_PRIMARY = "--color-primary:#1a1c1e";
 
 function bunAvailable(): boolean {
   try {

@@ -56,6 +56,11 @@ import {
   type SystemWireDeps,
 } from "@cosmicdrift/kumiko-server-runtime/extra-routes-deps";
 import {
+  RENDERER_WEB_FONT_FILE_PATTERN,
+  RENDERER_WEB_FONTS_URL_PREFIX,
+  resolveRendererWebFontsDir,
+} from "@cosmicdrift/kumiko-server-runtime/renderer-web-fonts";
+import {
   canResolveTailwindStylesheet,
   resolveTailwindCli,
 } from "@cosmicdrift/kumiko-server-runtime/resolve-tailwind-cli";
@@ -458,6 +463,7 @@ const PUBLIC_FILE_MIME_TYPES = new Map<string, string>([
   ["txt", "text/plain; charset=utf-8"],
   ["xml", "application/xml; charset=utf-8"],
   ["webmanifest", "application/manifest+json"],
+  ["woff2", "font/woff2"],
 ]);
 
 function publicFileMimeType(filePath: string): string {
@@ -1081,6 +1087,9 @@ export async function createKumikoServer(
   // App-root convention (same as expandWatchPatterns/resolveStylesheet above):
   // process.cwd() is the app workspace, so public/ is its static asset dir.
   const publicDir = resolve(process.cwd(), "public");
+  // The app's cwd first, this package's own location as fallback (the cwd may
+  // not have renderer-web installed, e.g. a fixture dir).
+  const rendererWebFontsDir = resolveRendererWebFontsDir([process.cwd(), import.meta.dir]);
 
   const handleFetch = async (req: Request, socketAddress?: string): Promise<Response> => {
     const url = new URL(req.url);
@@ -1119,6 +1128,26 @@ export async function createKumikoServer(
             headers: { "Content-Type": "application/json; charset=utf-8" },
           });
         }
+      }
+    }
+
+    if (url.pathname.startsWith(RENDERER_WEB_FONTS_URL_PREFIX) && req.method === "GET") {
+      const fontFile = url.pathname.slice(RENDERER_WEB_FONTS_URL_PREFIX.length);
+      // The allowlist pattern excludes "/", "." segments and encoded traversal.
+      if (rendererWebFontsDir === undefined || !RENDERER_WEB_FONT_FILE_PATTERN.test(fontFile)) {
+        return new Response("not found", { status: 404 });
+      }
+      try {
+        const bytes = await readFile(join(rendererWebFontsDir, fontFile));
+        // @cast-boundary Buffer satisfies BodyInit at runtime, bun-types just doesn't say so.
+        return new Response(bytes as unknown as BodyInit, {
+          headers: { "Content-Type": "font/woff2", "Cache-Control": "public, max-age=86400" },
+        });
+      } catch (err) {
+        if ((err as { code?: string }).code === "ENOENT") {
+          return new Response("not found", { status: 404 });
+        }
+        throw err;
       }
     }
 

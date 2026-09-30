@@ -53,6 +53,11 @@ import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
+import {
+  RENDERER_WEB_FONT_FILE_PATTERN,
+  RENDERER_WEB_FONTS_DIST_DIR,
+  resolveRendererWebFontsDir,
+} from "./renderer-web-fonts";
 import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
 
 // Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
@@ -186,6 +191,7 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
     const filename = `styles-${hash}.css`;
     await writeFile(join(assetsDir, filename), css);
     manifest["styles.css"] = `/${ASSETS_DIR}/${filename}`;
+    await copyRendererWebFonts(cwd, outDir);
   }
 
   // 4. Bun.build pro Entry (multi-entry produces N bundles + shared chunks).
@@ -639,6 +645,21 @@ export function assertRendererWebShellPresent(css: string, stylesheet: ResolvedS
       'Fix: src/styles.css anlegen mit `@import "@cosmicdrift/kumiko-renderer-web/styles.css";` ' +
       '(+ `@source "./**/*.{ts,tsx}";` um auch eigene Komponenten zu scannen).',
   );
+}
+
+// The compiled CSS points at absolute /assets/kumiko/fonts/<file>.woff2 URLs
+// (see renderer-web-fonts.ts), so the files have to sit at exactly that path in
+// dist. Skipped when renderer-web isn't resolvable — then no such CSS exists.
+async function copyRendererWebFonts(cwd: string, outDir: string): Promise<void> {
+  const fontsDir = resolveRendererWebFontsDir([cwd]);
+  if (fontsDir === undefined || !existsSync(fontsDir)) return;
+  const target = join(outDir, RENDERER_WEB_FONTS_DIST_DIR);
+  await mkdir(target, { recursive: true });
+  for (const file of readdirSync(fontsDir)) {
+    if (RENDERER_WEB_FONT_FILE_PATTERN.test(file)) {
+      await cp(join(fontsDir, file), join(target, file));
+    }
+  }
 }
 
 // @internal — exported nur für Unit-Tests.

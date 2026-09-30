@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -924,6 +924,55 @@ describe("createKumikoServer — public/ static files", () => {
       process.chdir(cwdBefore);
       rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("createKumikoServer — renderer-web fonts under /assets/kumiko/fonts", () => {
+  const FONTS_SOURCE_DIR = join(import.meta.dir, "../../../renderer-web/src/fonts");
+
+  async function withFixtureCwd(run: () => Promise<void>): Promise<void> {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-fonts-")));
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      await run();
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  test("GET on a shipped font → 200, font/woff2, the file's bytes", async () => {
+    await withFixtureCwd(async () => {
+      const res = await handle?.fetch(
+        new Request("http://localhost/assets/kumiko/fonts/ibm-plex-sans-latin-400.woff2"),
+      );
+      expect(res?.status).toBe(200);
+      expect(res?.headers.get("content-type")).toBe("font/woff2");
+      const expected = readFileSync(join(FONTS_SOURCE_DIR, "ibm-plex-sans-latin-400.woff2"));
+      expect(Buffer.from(await (res as Response).arrayBuffer()).equals(expected)).toBe(true);
+    });
+  });
+
+  test("unknown names and traversal attempts → 404, never file content", async () => {
+    await withFixtureCwd(async () => {
+      for (const path of [
+        "/assets/kumiko/fonts/nope.woff2",
+        "/assets/kumiko/fonts/OFL.txt",
+        "/assets/kumiko/fonts/../styles.css",
+        "/assets/kumiko/fonts/..%2fstyles.css",
+        "/assets/kumiko/fonts/%2e%2e%2f%2e%2e%2fpackage.json",
+        "/assets/kumiko/fonts/ibm-plex-sans-latin-400.woff2/x",
+      ]) {
+        const res = await handle?.fetch(new Request(`http://localhost${path}`));
+        expect(res?.status, path).toBe(404);
+      }
+    });
   });
 });
 

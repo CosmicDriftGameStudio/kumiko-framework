@@ -1,12 +1,14 @@
-/* Tailwind v4 + shadcn-Token-Schema. Die :root + .dark Blocks
-   halten die Design-Tokens als CSS-Variablen. Theme-Toggle =
-   `document.documentElement.classList.toggle("dark")` — keine
-   JS-State-Management-Pipeline nötig.
+/* Tailwind v4 + shadcn-Token-Schema. Die Design-Tokens liegen als CSS-
+   Variablen in @theme (Dark-Default) und `:root:not(.dark)` (Light).
+   Theme-Toggle = `document.documentElement.classList.toggle("dark")` —
+   keine JS-State-Management-Pipeline nötig.
 
-   Tokens-Namen folgen der shadcn-Konvention (background/foreground/
-   primary/secondary/muted/accent/destructive/border/input/ring).
-   Werte sind HSL-triplets ohne hsl() wrapper, damit Tailwind-
-   Klassen wie `bg-primary` direkt funktionieren.
+   Token-Namen folgen der shadcn-Konvention (background/foreground/primary/
+   secondary/muted/accent/destructive/border/input/ring), ergänzt um
+   border-strong/border-row, foreground-secondary/-disabled und
+   status-*-surface. Farben sind warm-neutral (Papier-Grau statt reinem
+   Grau) und komplett als Werte hinterlegt, damit Tailwind-Klassen wie
+   `bg-primary` direkt funktionieren.
 */
 
 @import "tailwindcss";
@@ -54,57 +56,70 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  /* Dark-Mode (Default) — shadcn preset "Rhea"/Neutral (hue 0, pure gray,
-     no zinc blue tint). Card is raised above background (8% vs. 3.9%) so it
-     separates by surface color, not just border + shadow. Primary
-     near-white, apps override with their own brand. */
-  --color-background: hsl(0 0% 3.9%);
-  --color-foreground: hsl(0 0% 98%);
-  --color-card: hsl(0 0% 8%);
-  --color-card-foreground: hsl(0 0% 98%);
-  --color-popover: hsl(0 0% 9%);
-  --color-popover-foreground: hsl(0 0% 98%);
-  --color-primary: hsl(0 0% 98%);
-  --color-primary-foreground: hsl(0 0% 9%);
-  --color-secondary: hsl(0 0% 14.9%);
-  --color-secondary-foreground: hsl(0 0% 98%);
-  --color-muted: hsl(0 0% 14.9%);
-  --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 14.9%);
-  --color-accent-foreground: hsl(0 0% 98%);
-  --color-destructive: hsl(0 62.8% 30.6%);
-  --color-destructive-foreground: hsl(0 0% 98%);
-  --color-border: hsl(0 0% 14.9%);
-  --color-input: hsl(0 0% 14.9%);
-  --color-ring: hsl(0 0% 83.1%);
+  /* Dark-Mode (Default), warm-neutral. Card liegt über dem Seitenhintergrund,
+     "abgesenkt" (muted/secondary/accent) darüber, so trennen Flächenfarben
+     statt nur Border + Schatten. Kontrast der Text-Rollen prüft
+     __tests__/token-contrast.test.ts. Primary ist der Text-Ton auf Fläche;
+     Apps überschreiben ihn mit der eigenen Brand. */
+  --color-background: #121211;
+  --color-foreground: #ecebe7;
+  --color-foreground-secondary: #c2c0b9;
+  --color-foreground-disabled: #74726c;
+  --color-card: #1a1a19;
+  --color-card-foreground: #ecebe7;
+  --color-popover: #1a1a19;
+  --color-popover-foreground: #ecebe7;
+  --color-primary: #ecebe7;
+  --color-primary-foreground: #1a1a19;
+  --color-secondary: #232321;
+  --color-secondary-foreground: #ecebe7;
+  --color-muted: #232321;
+  --color-muted-foreground: #a3a19a;
+  --color-accent: #232321;
+  --color-accent-foreground: #ecebe7;
+  --color-destructive: #b8483d;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #34332f;
+  --color-border-strong: #484641;
+  --color-border-row: #2a2926;
+  /* Rahmen von Bedienelementen (Input, Checkbox): heller als die Trennlinien,
+     damit das Element als Ziel erkennbar bleibt. */
+  --color-input: #7c7970;
+  --color-ring: #ecebe7;
 
-  /* Sidebar-Familie Dark (Neutral). Eigene Werte (KEIN Alias auf background) —
-     Rail braucht Kontrast zum Content. Hierarchie: background 3.9% < rail 10% <
-     aktiv 20%. */
-  --color-sidebar: hsl(0 0% 10%);
-  --color-sidebar-foreground: hsl(0 0% 95.9%);
-  --color-sidebar-primary: hsl(0 0% 98%);
-  --color-sidebar-primary-foreground: hsl(0 0% 9%);
-  --color-sidebar-accent: hsl(0 0% 20%);
-  --color-sidebar-accent-foreground: hsl(0 0% 98%);
-  --color-sidebar-border: hsl(0 0% 14.9%);
-  --color-sidebar-ring: hsl(0 0% 83.1%);
+  /* Sidebar-Familie Dark. Eigene Werte (KEIN Alias auf background). */
+  --color-sidebar: #121211;
+  --color-sidebar-foreground: #ecebe7;
+  --color-sidebar-primary: #ecebe7;
+  --color-sidebar-primary-foreground: #1a1a19;
+  --color-sidebar-accent: #2a2926;
+  --color-sidebar-accent-foreground: #ecebe7;
+  --color-sidebar-border: #34332f;
+  --color-sidebar-ring: #ecebe7;
 
-  /* Radius — shadcn-Default 0.625rem (runder als new-yorks 0.5rem). Skala
+  /* Radius — Bedienelemente nutzen rounded-md = 6px, Pillen rounded-full. Skala
      wird per calc vom Basiswert abgeleitet (shadcn-Konvention). */
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Semantische Status-Farben (Widgets: StatusBadge, Charts, StatCard-Tones).
-     @theme generiert die Utilities (text-status-ok, bg-status-warn/10, …).
-     Dark-Werte; Light-Overrides unten. Apps überschreiben in ihrer styles.css. */
-  --color-status-ok: #22c55e;
-  --color-status-warn: #f59e0b;
-  --color-status-bad: #ef4444;
-  --color-status-critical: #f87171;
+     `status-X` ist die Textfarbe, `status-X-surface` die Fläche dahinter
+     (Kontrast >= 4.5:1, im Test geprüft). @theme generiert die Utilities
+     (text-status-ok, bg-status-ok-surface, …). Dark-Werte; Light-Overrides
+     unten. Apps überschreiben in ihrer styles.css. */
+  --color-status-ok: #86d39f;
+  --color-status-ok-surface: #173322;
+  --color-status-warn: #edbe6a;
+  --color-status-warn-surface: #3a2a10;
+  --color-status-bad: #f3a89f;
+  --color-status-bad-surface: #3b1d1a;
+  --color-status-critical: #ffb4aa;
+  --color-status-critical-surface: #4a1a16;
+  --color-status-neutral: #c2c0b9;
+  --color-status-neutral-surface: #2a2926;
 
   /* JSON-Syntax-Highlighting (JsonView). Eigene, gedämpfte Palette statt der
      Status-Ampel — ein `false` oder eine Zahl ist kein Fehler-/Warn-Signal.
@@ -122,7 +137,106 @@
   --color-promo-accent: hsl(0 0% 98%);
   --color-promo-accent-foreground: hsl(0 0% 9%);
 
+  /* IBM Plex, ausgeliefert unter /assets/kumiko/fonts (siehe @font-face unten).
+     Apps überschreiben --font-sans/--font-mono (createThemePlugin). */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-sans);
+}
+
+/* Absoluter Same-Origin-Pfad mit Absicht: das CSS wird aus einem temp-dir
+   (dev) bzw. als gehashtes dist/assets/styles-*.css (prod) ausgeliefert, ein
+   relatives url() würde dort 404en. data:-URIs scheiden aus, weil Apps mit
+   `font-src 'self'` laufen. Dev-Server und Prod-Build liefern die Dateien
+   unter diesem Präfix aus (server-runtime/renderer-web-fonts.ts). */
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-sans-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-sans-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-sans-latin-600.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-sans-latin-ext-400.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-sans-latin-ext-500.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-sans-latin-ext-600.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-mono-latin-500.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-mono-latin-ext-400.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/assets/kumiko/fonts/ibm-plex-mono-latin-ext-500.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
 /* Card chrome defaults (reproduce p-6 / rounded-xl / shadow-sm). In the base
@@ -162,49 +276,56 @@
    auf light, greifen diese Werte. */
 @layer base {
   :root:not(.dark) {
-    /* Light-Mode — Neutral (hue 0, pure gray). Background is tinted slightly
-       (96.5%), card stays pure white — card lifts off the page instead of
-       blending into it. Border + shadow remain additional cues. Primary
-       near-black; apps override with brand. Values = shadcn preset, adapted
-       to this hue-0 elevation scheme. */
-    --color-background: hsl(0 0% 96.5%);
-    --color-foreground: hsl(0 0% 3.9%);
-    --color-card: hsl(0 0% 100%);
-    --color-card-foreground: hsl(0 0% 3.9%);
-    --color-popover: hsl(0 0% 100%);
-    --color-popover-foreground: hsl(0 0% 3.9%);
-    --color-primary: hsl(0 0% 9%);
-    --color-primary-foreground: hsl(0 0% 98%);
-    --color-secondary: hsl(0 0% 94%);
-    --color-secondary-foreground: hsl(0 0% 9%);
-    --color-muted: hsl(0 0% 94%);
-    --color-muted-foreground: hsl(0 0% 42%);
-    --color-accent: hsl(0 0% 94%);
-    --color-accent-foreground: hsl(0 0% 9%);
-    --color-destructive: hsl(0 84.2% 60.2%);
-    --color-destructive-foreground: hsl(0 0% 98%);
-    --color-border: hsl(0 0% 89.8%);
-    --color-input: hsl(0 0% 89.8%);
-    --color-ring: hsl(0 0% 63%);
+    /* Light-Mode, warm-neutral. Seite (#F3F2EE) getönt, Card reines Weiß —
+       die Card hebt sich von der Seite ab statt zu verschwimmen; "abgesenkt"
+       (muted/secondary/accent) für Tabellenkopf, Eingabefläche, Hover.
+       Primary ist der Text-Ton auf Fläche; Apps überschreiben ihn mit Brand. */
+    --color-background: #f3f2ee;
+    --color-foreground: #1a1c1e;
+    --color-foreground-secondary: #474b50;
+    --color-foreground-disabled: #8a8e93;
+    --color-card: #ffffff;
+    --color-card-foreground: #1a1c1e;
+    --color-popover: #ffffff;
+    --color-popover-foreground: #1a1c1e;
+    --color-primary: #1a1c1e;
+    --color-primary-foreground: #ffffff;
+    --color-secondary: #f6f5f1;
+    --color-secondary-foreground: #1a1c1e;
+    --color-muted: #f6f5f1;
+    --color-muted-foreground: #5f6368;
+    --color-accent: #f6f5f1;
+    --color-accent-foreground: #1a1c1e;
+    --color-destructive: #9b2c23;
+    --color-destructive-foreground: #ffffff;
+    --color-border: #e2e0d9;
+    --color-border-strong: #cfccc3;
+    --color-border-row: #eceae4;
+    --color-input: #908d85;
+    --color-ring: #1a1c1e;
 
-    /* Sidebar family light (neutral): rail 98.5% (clearly between background
-       96.5% and card 100%, otherwise the tinted page would swallow the
-       rail), active 96.1%, border 89.8%. Inset panel (100%) floats via
-       shadow + rounded on the rail. */
-    --color-sidebar: hsl(0 0% 98.5%);
-    --color-sidebar-foreground: hsl(0 0% 26.1%);
-    --color-sidebar-primary: hsl(0 0% 9%);
-    --color-sidebar-primary-foreground: hsl(0 0% 98%);
-    --color-sidebar-accent: hsl(0 0% 96.1%);
-    --color-sidebar-accent-foreground: hsl(0 0% 9%);
-    --color-sidebar-border: hsl(0 0% 89.8%);
-    --color-sidebar-ring: hsl(0 0% 63%);
+    /* Sidebar-Familie Light: Rail auf Seitenfarbe, aktiver Eintrag eine Stufe
+       dunkler. */
+    --color-sidebar: #f3f2ee;
+    --color-sidebar-foreground: #1a1c1e;
+    --color-sidebar-primary: #1a1c1e;
+    --color-sidebar-primary-foreground: #ffffff;
+    --color-sidebar-accent: #e9e7e1;
+    --color-sidebar-accent-foreground: #1a1c1e;
+    --color-sidebar-border: #e2e0d9;
+    --color-sidebar-ring: #1a1c1e;
 
-    /* Status-Farben Light — kräftiger/dunkler als die Dark-Werte. */
-    --color-status-ok: #16a34a;
-    --color-status-warn: #d97706;
-    --color-status-bad: #dc2626;
-    --color-status-critical: #991b1b;
+    /* Status-Farben Light — Text dunkel auf heller Tönung. */
+    --color-status-ok: #1d5e36;
+    --color-status-ok-surface: #e6f2ea;
+    --color-status-warn: #7a4b00;
+    --color-status-warn-surface: #fbf0d9;
+    --color-status-bad: #9b2c23;
+    --color-status-bad-surface: #f9e5e2;
+    --color-status-critical: #7f1d16;
+    --color-status-critical-surface: #f4d3ce;
+    --color-status-neutral: #474b50;
+    --color-status-neutral-surface: #f0eee8;
 
     /* JSON-Syntax-Highlighting Light — dunkler/gesättigter, Kontrast gegen
        bg-muted geprüft (>=6:1). */
@@ -226,13 +347,12 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    /* shadcn-Preset-Font: Inter (Heading + Body). Apps laden Inter selbst
-       (z.B. Google Fonts / self-hosted); ohne geladene Inter greift der
-       System-Fallback. */
-    font-family:
-      "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    /* Über den Token, nicht hardcodiert: so greifen App-Overrides und
+       createThemePlugin. tabular-nums, damit Zahlenspalten bündig laufen. */
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.4;
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

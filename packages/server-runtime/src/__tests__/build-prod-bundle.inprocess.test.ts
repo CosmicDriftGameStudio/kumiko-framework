@@ -118,6 +118,46 @@ describe("buildProdBundle in-process (Bun.build)", () => {
     }
   });
 
+  test("renderer-web stylesheet → woff2 files land where the CSS points, no external font URL", async () => {
+    const dir = await mkdtemp(join(REPO_ROOT, ".inproc-fonts-"));
+    const cwd = join(dir, "app");
+    try {
+      await mkdir(join(cwd, "src"), { recursive: true });
+      await writeFile(
+        join(cwd, "src/client.ts"),
+        `const root = document.getElementById("root"); if (root) root.textContent = "hi";`,
+      );
+      await writeFile(
+        join(cwd, "src/styles.css"),
+        `@import "@cosmicdrift/kumiko-renderer-web/styles.css";\n`,
+      );
+      await mkdir(join(cwd, "public"), { recursive: true });
+      await writeFile(
+        join(cwd, "public/index.html"),
+        `<!doctype html><html><head><link rel="stylesheet" href="/styles.css" /></head><body><div id="root"></div><script type="module" src="/client.js"></script></body></html>`,
+      );
+      await writeFile(join(cwd, "package.json"), `{"name":"inproc-fonts","private":true}`);
+
+      const result = await buildProdBundle({ cwd, stylesheet: "src/styles.css" });
+
+      const css = await readFile(join(cwd, "dist", result.manifest["styles.css"] ?? ""), "utf8");
+      const referenced = [
+        ...css.matchAll(/url\("?(\/assets\/kumiko\/fonts\/[a-z0-9-]+\.woff2)"?\)/g),
+      ].map((m) => m[1] ?? "");
+      expect(referenced.length).toBeGreaterThanOrEqual(10);
+      for (const url of referenced) {
+        const file = join(cwd, "dist", url);
+        expect(existsSync(file)).toBe(true);
+        // woff2 magic number
+        expect((await readFile(file)).subarray(0, 4).toString("latin1")).toBe("wOF2");
+      }
+      expect(css).not.toMatch(/url\(\s*["']?(https?:)?\/\//);
+      expect(css).not.toContain("data:font");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   test("missing stylesheet override → tailwind rejects", async () => {
     const dir = await mkdtemp(join(REPO_ROOT, ".inproc-styles-miss-"));
     const cwd = join(dir, "app");

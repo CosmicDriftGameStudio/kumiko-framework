@@ -478,7 +478,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.getByTestId("kumiko-screen-projection-detail-status").className).toContain(
-      "text-muted-foreground",
+      "text-status-neutral",
     );
   });
 
