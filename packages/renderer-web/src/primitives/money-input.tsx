@@ -11,7 +11,7 @@
 // trotzdem.
 
 import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn";
 
 // Re-exported for backward compat — callers used to import this from here
@@ -30,11 +30,16 @@ export type MoneyInputProps = {
   readonly hasError?: boolean;
 };
 
+// The border and focus ring live on the wrapper so the currency symbol can be
+// a flex sibling of the input: a symbol of any width ("€", "CHF", "R$") takes
+// its own space instead of overlapping the digits.
+const wrapperClass =
+  "flex h-9 w-full items-center rounded-md border border-input bg-transparent text-sm shadow-sm " +
+  "transition-colors focus-within:ring-1 focus-within:ring-ring";
+
 const inputClass =
-  "flex h-9 w-full rounded-md border border-input bg-transparent pl-3 pr-3 text-sm shadow-sm " +
-  "transition-colors placeholder:text-muted-foreground focus-visible:outline-none " +
-  "focus-visible:ring-1 focus-visible:ring-ring " +
-  "disabled:cursor-not-allowed disabled:opacity-50 " +
+  "h-full min-w-0 flex-1 bg-transparent px-3 placeholder:text-muted-foreground " +
+  "focus-visible:outline-none disabled:cursor-not-allowed " +
   // Numerische Inputs rechtsbündig — wie native type=number — damit
   // Beträge unter Listen-Spalten an den Tausender-Stellen alignen.
   "text-right tabular-nums";
@@ -60,7 +65,10 @@ export function MoneyInput({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const major = value === "" ? null : value / factor;
-  const { symbol, symbolPosition, formatNumber } = moneyFormatParts(currency, resolvedLocale);
+  const { symbol, symbolPosition, formatNumber } = useMemo(
+    () => moneyFormatParts(currency, resolvedLocale),
+    [currency, resolvedLocale],
+  );
   const formatted = value === "" ? "" : formatNumber(value / factor);
 
   // Edit-Mode: Decimal-String ohne Tausender-Trenner.
@@ -105,8 +113,29 @@ export function MoneyInput({
     onChange(Math.round(parsed * factor));
   };
 
+  const symbolEl =
+    symbol !== "" ? (
+      <span
+        id={`${id}-currency`}
+        data-testid={`${id}-currency`}
+        className={cn(
+          "shrink-0 select-none text-muted-foreground",
+          symbolPosition === "prefix" ? "pl-3" : "pr-3",
+        )}
+      >
+        {symbol}
+      </span>
+    ) : null;
+
   return (
-    <div className="relative w-full">
+    <div
+      className={cn(
+        wrapperClass,
+        hasError === true && "border-destructive focus-within:ring-destructive",
+        disabled === true && "cursor-not-allowed opacity-50",
+      )}
+    >
+      {symbolPosition === "prefix" && symbolEl}
       <input
         ref={inputRef}
         id={id}
@@ -122,24 +151,9 @@ export function MoneyInput({
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={(e) => setDraft(e.target.value)}
-        className={cn(
-          inputClass,
-          symbolPosition === "prefix" ? "pl-8" : "pr-8",
-          hasError === true && "border-destructive focus-visible:ring-destructive",
-        )}
+        className={cn(inputClass, symbolPosition === "prefix" ? "pl-2" : "pr-2")}
       />
-      {symbol !== "" && (
-        <span
-          id={`${id}-currency`}
-          data-testid={`${id}-currency`}
-          className={cn(
-            "pointer-events-none absolute inset-y-0 flex items-center text-sm text-muted-foreground",
-            symbolPosition === "prefix" ? "left-3" : "right-3",
-          )}
-        >
-          {symbol}
-        </span>
-      )}
+      {symbolPosition === "suffix" && symbolEl}
     </div>
   );
 }
@@ -182,26 +196,32 @@ function moneyFormatParts(
     return { symbol: "", symbolPosition: "suffix", formatNumber: String };
   }
   const decimals = currencyDecimals(currency);
-  const formatter = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  const sample = formatter.formatToParts(1);
-  const symbolIndex = sample.findIndex((p) => p.type === "currency");
-  const integerIndex = sample.findIndex((p) => p.type === "integer");
-  return {
-    symbol: sample[symbolIndex]?.value ?? currency,
-    symbolPosition: symbolIndex !== -1 && symbolIndex < integerIndex ? "prefix" : "suffix",
-    formatNumber: (major) =>
-      formatter
-        .formatToParts(major)
-        .filter((p) => p.type !== "currency")
-        .map((p) => p.value)
-        .join("")
-        .trim(),
-  };
+  try {
+    const formatter = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    const sample = formatter.formatToParts(1);
+    const symbolIndex = sample.findIndex((p) => p.type === "currency");
+    const integerIndex = sample.findIndex((p) => p.type === "integer");
+    return {
+      symbol: sample[symbolIndex]?.value ?? currency,
+      symbolPosition: symbolIndex !== -1 && symbolIndex < integerIndex ? "prefix" : "suffix",
+      formatNumber: (major) =>
+        formatter
+          .formatToParts(major)
+          .filter((p) => p.type !== "currency")
+          .map((p) => p.value)
+          .join("")
+          .trim(),
+    };
+  } catch {
+    // An invalid locale tag makes Intl throw a RangeError; without an
+    // ErrorBoundary that would take down the page over a display adornment.
+    return { symbol: "", symbolPosition: "suffix", formatNumber: String };
+  }
 }
 
 // Locale-Decimal-Parse: erkennt automatisch ob Komma oder Punkt der

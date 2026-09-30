@@ -139,6 +139,67 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(onChange).toHaveBeenCalledWith(2550);
   });
 
+  test("an invalid locale renders without crashing, with and without a value", () => {
+    const { rerender } = render(
+      <MoneyInput
+        id="amt"
+        name="amt"
+        value=""
+        onChange={() => {}}
+        currency="EUR"
+        locale="not_a_locale!"
+      />,
+    );
+    expect(inputEl().value).toBe("");
+    expect(screen.queryByTestId("amt-currency")).toBeNull();
+    rerender(
+      <MoneyInput
+        id="amt"
+        name="amt"
+        value={1234}
+        onChange={() => {}}
+        currency="EUR"
+        locale="not_a_locale!"
+      />,
+    );
+    expect(inputEl().value).toBe("12.34");
+    expect(screen.queryByTestId("amt-currency")).toBeNull();
+  });
+
+  test("a multi-character symbol takes its own space next to the input instead of overlapping it", () => {
+    render(
+      <MoneyInput
+        id="amt"
+        name="amt"
+        value={123456}
+        onChange={() => {}}
+        currency="CHF"
+        locale="de-CH"
+      />,
+    );
+    const symbol = screen.getByTestId("amt-currency");
+    expect(symbol.textContent).toBe("CHF");
+    expect(symbol.className).not.toContain("absolute");
+    expect(symbol.parentElement).toBe(inputEl().parentElement);
+    // de-CH puts the symbol first, so the symbol precedes the input.
+    expect(symbol.nextElementSibling).toBe(inputEl());
+    expect(inputEl().value).toBe("1'234.56");
+  });
+
+  test("a suffix symbol follows the input", () => {
+    render(
+      <MoneyInput
+        id="amt"
+        name="amt"
+        value={1000}
+        onChange={() => {}}
+        currency="EUR"
+        locale="de-DE"
+      />,
+    );
+    expect(inputEl().nextElementSibling).toBe(screen.getByTestId("amt-currency"));
+  });
+
   test("renders no step buttons", () => {
     render(
       <MoneyInput

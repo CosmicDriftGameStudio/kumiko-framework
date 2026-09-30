@@ -29,7 +29,7 @@ describe("MoneyInput", () => {
     const symbol = screen.getByTestId("eur-currency");
     expect(symbol.textContent).toBe("€");
     expect(symbol.className).toContain("text-muted-foreground");
-    expect(symbol.className).toContain("right-3");
+    expect(symbol.className).toContain("pr-3");
   });
 
   test("blur-view: en-US USD zeigt $-Prefix + Komma-Tausender + Punkt-Decimal", () => {
@@ -47,7 +47,7 @@ describe("MoneyInput", () => {
     expect(input.value).toBe("25.99");
     const symbol = screen.getByTestId("usd-currency");
     expect(symbol.textContent).toBe("$");
-    expect(symbol.className).toContain("left-3");
+    expect(symbol.className).toContain("pl-3");
   });
 
   test("blur-view: ja-JP JPY zeigt Yen-Symbol ohne Decimals", () => {

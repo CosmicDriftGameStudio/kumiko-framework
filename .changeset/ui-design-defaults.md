@@ -226,3 +226,19 @@ title: Sidebar marks the list while an existing record is edited
 detail: |
   When the route carries an `entityId`, the nav entry of the screen's parent list is active instead of the edit screen's own nav entry (for example "Add vehicle"), the same rule the shell breadcrumb already applies.
 -->
+
+<!-- kumiko-changes
+feature: renderer
+type: improvement
+title: writeForm section Save button without icon, parity with entityEdit
+detail: |
+  The Save button of a writeForm section no longer shows a check icon; it matches the entityEdit submit button. Tests that look for the icon inside the section Save button need updating.
+-->
+
+<!-- kumiko-changes
+feature: renderer-web
+type: improvement
+title: Money input keeps the currency symbol beside the value and survives an invalid locale
+detail: |
+  The currency symbol is a flex sibling of the input inside one bordered wrapper, so multi-character symbols (CHF, R$, kr) never overlap the digits; without a symbol there is no extra padding. An invalid locale tag renders the plain number without a symbol instead of throwing. Native controls (date input, scrollbars, select) follow the theme through `color-scheme`.
+-->

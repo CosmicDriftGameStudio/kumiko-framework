@@ -257,6 +257,8 @@
    @theme so they are always emitted. */
 @layer base {
   :root {
+    /* Native controls (date input, scrollbars, select) follow the theme. */
+    color-scheme: dark;
     --card-padding: 1.5rem;
     --card-radius: var(--radius-xl);
     --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
@@ -287,6 +289,7 @@
    auf light, greifen diese Werte. */
 @layer base {
   :root:not(.dark) {
+    color-scheme: light;
     /* Light-Mode, warm-neutral. Seite (#F3F2EE) getönt, Card reines Weiß —
        die Card hebt sich von der Seite ab statt zu verschwimmen; "abgesenkt"
        (muted/secondary/accent) für Tabellenkopf, Eingabefläche, Hover.
