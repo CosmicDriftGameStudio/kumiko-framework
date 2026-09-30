@@ -71,6 +71,8 @@ export type ListColumnViewModel = {
    *  multi-year statement grid. DataTable renders it with a distinct
    *  header/cell background. */
   readonly highlighted?: boolean;
+  /** Mirrors `ListColumnSpec.hideOnNarrow`: card layout skips the column. */
+  readonly hideOnNarrow?: boolean;
   /** Only for `type: "number"` — mirrors `NumberFieldDef.grouping` (default
    *  `true`). `false` renders without thousands-separators (e.g. a model
    *  year). */

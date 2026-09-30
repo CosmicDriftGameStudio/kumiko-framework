@@ -29,18 +29,18 @@ export type DrawerProps = {
    *  footer already has a dedicated close/cancel action, so there is only
    *  one way to dismiss the drawer. */
   readonly showCloseButton?: boolean;
-  /** Panel treatment. `"floating"` (default) keeps the detached-panel look
-   *  (margin to the viewport edge, full corner radius). `"flush"` docks the
-   *  panel against the edge instead — full extent, no radius, and a border
-   *  only on the edge facing the app content. Ignored in the narrow-viewport
+  /** Panel treatment. `"flush"` (default) docks the panel against the edge —
+   *  full extent, no radius, and a border only on the edge facing the app
+   *  content. `"floating"` gives the detached-panel look (margin to the
+   *  viewport edge, full corner radius). Ignored in the narrow-viewport
    *  fullscreen layout. */
   readonly variant?: "floating" | "flush";
   /** `variant="flush"` only: dock the panel below the app's ShellHeader
    *  (offset top by `--shell-header-height`, height shrunk to match)
-   *  instead of covering it. Default `false` keeps today's edge-to-edge
-   *  behavior. No ShellHeader mounted → the variable is `0`, so this is a
-   *  no-op. Ignored in the narrow-viewport fullscreen layout, which already
-   *  takes over the whole screen including the header. */
+   *  instead of covering it. Default `false` is edge-to-edge. No ShellHeader
+   *  mounted → the variable is `0`, so this is a no-op. Ignored in the
+   *  narrow-viewport fullscreen layout, which already takes over the whole
+   *  screen including the header. */
   readonly belowHeader?: boolean;
   /** Panel width for `side="left"|"right"` (ignored for top/bottom and in
    *  the narrow-viewport layout). A number is pixels, a string any CSS
@@ -172,7 +172,7 @@ export function Drawer({
   children,
   testId,
   showCloseButton = true,
-  variant = "floating",
+  variant = "flush",
   belowHeader = false,
   width,
   resize,

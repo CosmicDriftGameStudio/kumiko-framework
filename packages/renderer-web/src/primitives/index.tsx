@@ -616,12 +616,18 @@ function SegmentedSelect({
   );
 }
 
+const RADIO_CARD_CLASS =
+  "flex items-start gap-3 rounded-lg border border-input bg-background px-[15px] py-[13px] text-sm font-normal text-foreground " +
+  "has-[:checked]:border-2 has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:px-[14px] has-[:checked]:py-3 " +
+  "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:disabled]:opacity-50";
+
 function RadioListSelect({
   id,
   name,
   value,
   onChange,
   options,
+  variant = "list",
   disabled,
   required,
   hasError,
@@ -630,11 +636,17 @@ function RadioListSelect({
   readonly name: string;
   readonly value: string;
   readonly onChange: (v: string) => void;
-  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+    readonly description?: string;
+  }[];
+  readonly variant?: "list" | "card";
   readonly disabled?: boolean;
   readonly required?: boolean;
   readonly hasError?: boolean;
 }): ReactNode {
+  const card = variant === "card";
   return (
     <div
       role="radiogroup"
@@ -642,12 +654,15 @@ function RadioListSelect({
       aria-required={required}
       aria-invalid={hasError === true ? true : undefined}
       data-testid={`radio-list-${id}`}
+      data-radio-list=""
       className="flex flex-col gap-2"
     >
       {options.map((opt) => (
         <label
           key={opt.value}
-          className="flex items-center gap-2 text-sm font-normal text-foreground"
+          className={
+            card ? RADIO_CARD_CLASS : "flex items-center gap-2 text-sm font-normal text-foreground"
+          }
         >
           <input
             type="radio"
@@ -657,9 +672,18 @@ function RadioListSelect({
             disabled={disabled}
             data-testid={`radio-list-${id}-${opt.value}`}
             onChange={() => onChange(opt.value)}
-            className="size-4 accent-primary"
+            className={cn("size-4 accent-primary", card && "mt-0.5 shrink-0")}
           />
-          {opt.label}
+          {card ? (
+            <span className="flex flex-col gap-0.5">
+              <span className="font-semibold">{opt.label}</span>
+              {opt.description !== undefined && (
+                <span className="text-[13px] text-foreground-secondary">{opt.description}</span>
+              )}
+            </span>
+          ) : (
+            opt.label
+          )}
         </label>
       ))}
     </div>
@@ -850,11 +874,13 @@ function DefaultInput(props: InputProps): ReactNode {
       // heuristic in both directions — a requested radio group renders as
       // one even when the options outnumber the heuristic's threshold (#2711).
       const presentation =
-        props.display === "radio"
-          ? "segmented"
-          : props.display === "dropdown"
-            ? "dropdown"
-            : defaultSelectPresentation(radioGroupOptions);
+        props.radioVariant === "card"
+          ? "radioList"
+          : props.display === "radio"
+            ? "segmented"
+            : props.display === "dropdown"
+              ? "dropdown"
+              : defaultSelectPresentation(radioGroupOptions);
       if (presentation === "radioList" && radioGroupOptions.length > 0) {
         return (
           <RadioListSelect
@@ -863,6 +889,7 @@ function DefaultInput(props: InputProps): ReactNode {
             value={props.value}
             onChange={props.onChange}
             options={radioGroupOptions}
+            {...(props.radioVariant !== undefined && { variant: props.radioVariant })}
             {...(props.disabled !== undefined && { disabled: props.disabled })}
             {...(props.required !== undefined && { required: props.required })}
             {...(props.hasError !== undefined && { hasError: props.hasError })}
@@ -1387,7 +1414,7 @@ function DefaultDataTable({
     (col) => col !== cardTitleColumn && col.type === "select" && col.renderer === undefined,
   );
   const cardMetaColumns = columns.filter(
-    (col) => col !== cardTitleColumn && col !== cardStatusColumn,
+    (col) => col !== cardTitleColumn && col !== cardStatusColumn && col.hideOnNarrow !== true,
   );
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
@@ -1417,6 +1444,10 @@ function DefaultDataTable({
     const showStatus =
       cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
     const rowIsLink = onRowClick !== undefined;
+    const menuActions =
+      rowActions !== undefined && rowIsLink
+        ? rowActions.filter((action) => action.rowClick !== true)
+        : rowActions;
     const body = (
       <>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -1488,12 +1519,12 @@ function DefaultDataTable({
         ) : (
           body
         )}
-        {hasTableActions && (
+        {menuActions !== undefined && menuActions.length > 0 && (
           // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
           <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             <RowActionsCell
               row={row}
-              actions={rowActions}
+              actions={menuActions}
               mode={rowActionMode}
               rowIsLink={rowIsLink}
             />
@@ -3536,10 +3567,10 @@ const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
 
 const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   text: "w-full sm:w-60",
-  number: "w-24 min-w-max [&_label]:whitespace-nowrap",
-  money: "w-40 min-w-max [&_label]:whitespace-nowrap",
+  number: "w-24 shrink-0 [&_label]:whitespace-nowrap",
+  money: "w-40 shrink-0 [&_label]:whitespace-nowrap",
   date: "w-full sm:w-[200px]",
-  select: "w-full sm:w-auto sm:min-w-[200px]",
+  select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",
   full: "w-full",
   auto: "w-auto",
 };
@@ -3674,6 +3705,7 @@ function DefaultLink({
   href,
   variant = "default",
   target,
+  rel,
   className,
   children,
   testId,
@@ -3689,7 +3721,7 @@ function DefaultLink({
     <a
       href={isSafeHref(href) ? href : "#"}
       target={target}
-      rel={target === "_blank" ? "noreferrer" : undefined}
+      rel={rel ?? (target === "_blank" ? "noopener noreferrer" : undefined)}
       {...dataAttributes}
       data-testid={testId}
       className={cn(variantClass, className)}
@@ -3699,8 +3731,8 @@ function DefaultLink({
   );
 }
 
-function DefaultProgress({ value, tone, testId }: ProgressProps): ReactNode {
-  return <ProgressBar value={value} tone={tone} testId={testId} />;
+function DefaultProgress({ value, tone, ariaLabel, testId }: ProgressProps): ReactNode {
+  return <ProgressBar value={value} tone={tone} ariaLabel={ariaLabel} testId={testId} />;
 }
 
 function DefaultStepBar({

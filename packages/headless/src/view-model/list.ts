@@ -178,6 +178,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
       ...(refFeature !== undefined && { refFeature }),
       ...(refLabelField !== undefined && { refLabelField }),
       ...(grouping !== undefined && { grouping }),
+      ...(normalized.hideOnNarrow === true && { hideOnNarrow: true }),
     };
     columns.push(column);
   }

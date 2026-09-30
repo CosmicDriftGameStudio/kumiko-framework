@@ -14,8 +14,13 @@ export const STATUS_TONE_TEXT: Record<StatusTone, string> = {
   muted: "text-muted-foreground",
 };
 
+/** `accent` is a brand-colored call-out (e.g. "3 suggestions"), not a status —
+ *  hence not part of `StatusTone`, which toasts and select options share. */
+export type StatusBadgeTone = StatusTone | "accent";
+
 // Fläche + Textfarbe pro Tone; `muted` läuft über die neutral-Tokens.
-const TONE_PILL: Record<StatusTone, string> = {
+const TONE_PILL: Record<StatusBadgeTone, string> = {
+  accent: "bg-primary/10 text-primary",
   ok: "bg-status-ok-surface text-status-ok",
   warn: "bg-status-warn-surface text-status-warn",
   bad: "bg-status-bad-surface text-status-bad",
@@ -32,7 +37,7 @@ export function StatusBadge({
   className,
   testId,
 }: {
-  readonly tone: StatusTone;
+  readonly tone: StatusBadgeTone;
   readonly children: ReactNode;
   readonly className?: string;
   readonly testId?: string;

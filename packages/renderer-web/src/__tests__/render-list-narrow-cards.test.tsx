@@ -198,3 +198,51 @@ describe("DataTable — card-mode sort select", () => {
     });
   });
 });
+
+describe("DataTable — card-mode row menu and hideOnNarrow", () => {
+  test("the rowClick action alone leaves no menu next to the chevron", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          onRowClick={() => {}}
+          rowActions={[{ id: "edit", label: "Edit", rowClick: true, onTrigger: mock() }]}
+          testId="t"
+        />,
+      );
+      expect(within(screen.getByTestId("row-u1")).queryAllByRole("button")).toHaveLength(1);
+    });
+  });
+
+  test("an action beyond the rowClick one keeps its menu", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          onRowClick={() => {}}
+          rowActions={[
+            { id: "edit", label: "Edit", rowClick: true, onTrigger: mock() },
+            { id: "wizard", label: "Wizard", onTrigger: mock() },
+          ]}
+          testId="t"
+        />,
+      );
+      expect(within(screen.getByTestId("row-u1")).queryAllByRole("button")).toHaveLength(2);
+    });
+  });
+
+  test("hideOnNarrow keeps a column out of the cards but in the table", () => {
+    const columns = COLUMNS.map((c) => (c.field === "role" ? { ...c, hideOnNarrow: true } : c));
+    withViewportWidth(500, () => {
+      render(<DataTable columns={columns} rows={ROWS} testId="t" />);
+      expect(screen.queryByTestId("cell-u1-role")).toBeNull();
+      expect(screen.getByTestId("cell-u1-email")).not.toBeNull();
+    });
+    withViewportWidth(1024, () => {
+      render(<DataTable columns={columns} rows={ROWS} testId="t2" />);
+      expect(screen.getByTestId("cell-u1-role")).not.toBeNull();
+    });
+  });
+});

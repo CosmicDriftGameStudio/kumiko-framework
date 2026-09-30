@@ -230,6 +230,40 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.getByTestId("g").firstElementChild?.className).toContain("whitespace-nowrap");
   });
 
+  test("number and money cells keep their fixed control width instead of growing with their content", () => {
+    const { Grid, GridCell } = defaultPrimitives;
+    render(
+      <Grid columns={2} flow testId="g">
+        <GridCell width="number">
+          <span />
+        </GridCell>
+        <GridCell width="money">
+          <span />
+        </GridCell>
+      </Grid>,
+    );
+    for (const cell of Array.from(screen.getByTestId("g").children)) {
+      expect(cell.className).not.toContain("min-w-max");
+      expect(cell.className).toContain("shrink-0");
+    }
+    expect(screen.getByTestId("g").children[0]?.className).toContain("w-24");
+    expect(screen.getByTestId("g").children[1]?.className).toContain("w-40");
+  });
+
+  test("a select cell takes a full row when it renders as a radio list", () => {
+    const { GridCell } = defaultPrimitives;
+    render(
+      <defaultPrimitives.Grid columns={2} flow testId="g">
+        <GridCell width="select">
+          <span />
+        </GridCell>
+      </defaultPrimitives.Grid>,
+    );
+    expect(screen.getByTestId("g").firstElementChild?.className).toContain(
+      "has-[[data-radio-list]]:w-full",
+    );
+  });
+
   test("drawer form renders the summary box above the fields", () => {
     const { Form } = defaultPrimitives;
     render(

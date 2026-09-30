@@ -146,6 +146,10 @@ export type ListColumnSpec =
        *  header with tabular figures, like an entityList column of that field
        *  type. Ignored on entityList columns, where the field's own type wins. */
       readonly valueType?: "number" | "decimal" | "bigInt" | "money";
+      /** Leaves the column out of the compact card layout used below the
+       *  `md` breakpoint (tables keep it). For columns that only make sense
+       *  next to the others, like a sort key. */
+      readonly hideOnNarrow?: boolean;
     };
 
 // Pagination-Modi für entityList:

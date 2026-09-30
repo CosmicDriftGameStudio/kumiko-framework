@@ -2097,6 +2097,7 @@ function EntityListBody({
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
             confirmRequired: false,
+            ...(navigateAction.rowClick === true && { rowClick: true }),
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => runNavigate(navigateAction, row),
             ...(actionVisible !== undefined && {

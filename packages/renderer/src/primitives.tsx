@@ -132,8 +132,10 @@ export type ButtonProps = {
 export type LinkProps = {
   readonly href: string;
   readonly variant?: "default" | "button" | "muted";
-  /** `_blank` setzt in der Web-Impl automatisch rel="noreferrer". */
-  readonly target?: "_blank";
+  /** `_blank` setzt in der Web-Impl `rel="noopener noreferrer"`, sofern
+   *  `rel` nicht selbst gesetzt ist. */
+  readonly target?: "_blank" | "_self" | "_parent" | "_top";
+  readonly rel?: string;
   /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
    *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
   readonly className?: string;
@@ -356,10 +358,19 @@ export type InputProps =
        *  {value,label}-Form für DB-getragene Refs (Tier 2.7e-3). */
       readonly options:
         | readonly string[]
-        | readonly { readonly value: string; readonly label: string }[];
+        | readonly {
+            readonly value: string;
+            readonly label: string;
+            /** Second line under the label; shown by `radioVariant="card"`. */
+            readonly description?: string;
+          }[];
       readonly disabled?: boolean;
       readonly required?: boolean;
       readonly hasError?: boolean;
+      /** `"card"` renders the radio group as bordered cards with label plus
+       *  optional description per option and always uses the radio group,
+       *  regardless of option count or `display`. Default `"list"`. */
+      readonly radioVariant?: "list" | "card";
       /** Requested presentation. `"radio"` renders the options as a visible
        *  radio group (WAI-ARIA radiogroup, one click per choice),
        *  `"dropdown"` renders the combobox. Omitted = the implementation
@@ -558,6 +569,9 @@ export type DataTableRowAction = {
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
   /** Conditional Visibility pro Row (z.B. "Start" nur wenn status==="scheduled"). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
+  /** This action is what a click on the row does. The card layout drops it
+   *  from the row menu, since the whole card is already the tap target. */
+  readonly rowClick?: boolean;
   /** Resolved icon (author `RowAction.icon` or the id-derived default) —
    *  drives both the icon-left-of-text render and the icon-only collapse
    *  rule (see `shouldRenderActionsIconOnly`). */
@@ -1166,6 +1180,7 @@ export type ProgressTone = "default" | "success" | "warn" | "danger";
 export type ProgressProps = {
   readonly value: number;
   readonly tone?: ProgressTone;
+  readonly ariaLabel?: string;
   readonly testId?: string;
 };
 

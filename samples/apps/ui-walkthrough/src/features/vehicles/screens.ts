@@ -125,7 +125,7 @@ export const campaignListScreen: EntityListScreenDefinition = {
   id: "campaign-list",
   type: "entityList",
   entity: "campaign",
-  columns: ["name", "status", "meta", "gestartetAm"],
+  columns: ["name", "status", "meta", { field: "gestartetAm", hideOnNarrow: true }],
   searchPlaceholder: "vehicles.search.placeholder",
   defaultSort: { field: "gestartetAm", dir: "desc" },
   rowActions: [
@@ -146,6 +146,7 @@ export const campaignEditScreen: EntityEditScreenDefinition = {
   type: "entityEdit",
   entity: "campaign",
   dormant: true,
+  allowCreate: false,
   listScreenId: "campaign-list",
   layout: {
     sections: [{ columns: 2, fields: ["name", "status", "meta", "gestartetAm"] }],
