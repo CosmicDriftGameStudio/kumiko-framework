@@ -930,11 +930,13 @@ export async function updateMany<TRow = any>(
     return scoped.updateMany<TRow>(table, set, where);
   }
   const info = extractTableInfo(table);
-  const setEntries = Object.entries(set).map(([k, v]) => {
-    const col = info.columnOf(k);
-    const pgType = info.pgTypeOf(col);
-    return { col, prepared: prepareValue(v, pgType) };
-  });
+  const setEntries = Object.entries(set)
+    .filter(([k]) => info.hasColumn(k))
+    .map(([k, v]) => {
+      const col = info.columnOf(k);
+      const pgType = info.pgTypeOf(col);
+      return { col, prepared: prepareValue(v, pgType) };
+    });
   if (setEntries.length === 0) throw new Error("updateMany: empty set object");
   const values: unknown[] = [];
   let idx = 1;
