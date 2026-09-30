@@ -1,8 +1,8 @@
 // ShellHeader — die Inset-Kopfzeile für Sidebar-basierte Shells: SidebarTrigger
 // (Rail-/Mobile-Sheet-Toggle) + Breadcrumb mit dem aktiven Screen + optionale
 // rechtsbündige headerActions. Geteilt von DefaultAppShell und WorkspaceShell,
-// damit beide dieselbe Kopfzeile tragen (Höhe h-16, kollabiert auf h-12 mit
-// der Icon-Rail).
+// damit beide dieselbe Kopfzeile tragen (Höhe h-14, auch
+// mit kollabierter Icon-Rail).
 //
 // The `data-kumiko-layout="shell-header"` marker drives `--shell-header-height`
 // in styles.css (:has() selector) — the single source for the header height
@@ -63,9 +63,9 @@ export function ShellHeader({
   return (
     <header
       data-kumiko-layout="shell-header"
-      className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12"
+      className="flex h-14 shrink-0 items-center gap-2 border-b border-border pl-4 pr-6"
     >
-      <div className="flex items-center gap-2 px-4">
+      <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
         {crumbs !== undefined && crumbs.length > 0 && (
@@ -97,7 +97,7 @@ export function ShellHeader({
         )}
       </div>
       {headerActions !== undefined && (
-        <div data-kumiko-layout="header-actions" className="ml-auto flex items-center gap-2 px-4">
+        <div data-kumiko-layout="header-actions" className="ml-auto flex items-center gap-2">
           {headerActions}
         </div>
       )}

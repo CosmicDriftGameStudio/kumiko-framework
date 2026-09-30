@@ -317,6 +317,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     hideActions,
     valueDisplay = "form",
     hideSectionTitles,
+    fillScreenHeight,
     headerRegion,
     buildSectionActions,
   } = props;
@@ -751,7 +752,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // of stretching the panel to the bottom (fw#2778). Any other layout —
   // multiple sections, a non-relatedList tab, stacked (non-tabs) forms —
   // keeps normal document-flow height untouched.
-  const fillHeight = hideSectionTitles === true && filteredSections[0]?.kind === "relatedList";
+  const fillHeight =
+    fillScreenHeight === true ||
+    (hideSectionTitles === true && filteredSections[0]?.kind === "relatedList");
 
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
@@ -1279,7 +1282,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(hideActions !== true &&
           hasSecondaryFormActions && { secondaryActions: secondaryFormActions })}
         testId="render-edit-form"
-        stickyActions={isWizard}
+        stickyActions={isWizard || fillScreenHeight === true}
         {...(screen.layout.width !== undefined && { width: screen.layout.width })}
         {...(formHeaderRegion !== undefined && { headerRegion: formHeaderRegion })}
         {...(titleActionMount !== undefined && { titleAction: titleActionMount })}

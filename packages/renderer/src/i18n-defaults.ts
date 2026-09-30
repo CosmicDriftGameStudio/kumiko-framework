@@ -71,9 +71,11 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.reference.system-user": "System",
 
     "kumiko.pager.status": "{from}–{to} of {total}",
+    "kumiko.pager.pageOf": "Page {page} of {pages}",
+    "kumiko.list.count.one": "1 entry",
+    "kumiko.list.count.other": "{count} entries",
     "kumiko.pager.previousPage": "Previous page",
     "kumiko.pager.nextPage": "Next page",
-    "kumiko.pager.page": "Page {entry}",
 
     "kumiko.combobox.search-placeholder": "Search…",
     "kumiko.combobox.empty": "No matches.",

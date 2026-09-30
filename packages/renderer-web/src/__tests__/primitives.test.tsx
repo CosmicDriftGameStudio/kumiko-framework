@@ -487,7 +487,7 @@ describe("DataTable", () => {
     test("scrollBody: a long list fills its flex container and scrolls internally", () => {
       render(<DataTable columns={cols} rows={longRows} testId="t" scrollBody />);
       const wrapper = screen.getByTestId("t").parentElement?.parentElement;
-      expect(wrapper?.className).toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("overflow-auto");
       expect(wrapper?.className).toContain("flex-1");
       expect(wrapper?.className).toContain("min-h-0");
       expect(screen.getAllByTestId(/^row-/)).toHaveLength(50);
@@ -496,7 +496,7 @@ describe("DataTable", () => {
     test("scrollBody: a short list gets the same flex-fill treatment (fills space instead of shrinking)", () => {
       render(<DataTable columns={cols} rows={shortRows} testId="t" scrollBody />);
       const wrapper = screen.getByTestId("t").parentElement?.parentElement;
-      expect(wrapper?.className).toContain("overflow-y-auto");
+      expect(wrapper?.className).toContain("overflow-auto");
       expect(wrapper?.className).toContain("flex-1");
       expect(wrapper?.className).toContain("min-h-0");
     });
@@ -615,9 +615,8 @@ describe("DataTable", () => {
     });
   });
 
-  // Pager: Window-of-7 Logik + 3 State-Pfade (first/middle/last page),
-  // disabled-Edges, Click-Callback. Server-Wiring (offset etc.) liegt
-  // im KumikoScreen — hier nur das UI.
+  // Pager: Status links, "Seite X von Y", Prev/Next. Server-Wiring (offset
+  // etc.) liegt im KumikoScreen — hier nur das UI.
   describe("Pager", () => {
     const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
     const oneRow = [{ id: "r1", values: { name: "A" } }];
@@ -664,7 +663,7 @@ describe("DataTable", () => {
       expect((screen.getByTestId("dt-pager-next") as HTMLButtonElement).disabled).toBe(true);
     });
 
-    test("Click auf Page-Button: onPageChange feuert mit der Seite", () => {
+    test("Click auf Next von page=1: onPageChange(2)", () => {
       const onPageChange = mock();
       render(
         <DataTable
@@ -674,7 +673,7 @@ describe("DataTable", () => {
           pager={{ page: 1, limit: 50, total: 3000, onPageChange }}
         />,
       );
-      fireEvent.click(screen.getByTestId("dt-pager-page-2"));
+      fireEvent.click(screen.getByTestId("dt-pager-next"));
       expect(onPageChange).toHaveBeenCalledWith(2);
     });
 
@@ -692,35 +691,7 @@ describe("DataTable", () => {
       expect(onPageChange).toHaveBeenCalledWith(2);
     });
 
-    test("aria-current='page' auf der aktiven Seite", () => {
-      render(
-        <DataTable
-          columns={cols}
-          rows={oneRow}
-          testId="dt"
-          pager={{ page: 5, limit: 50, total: 3000, onPageChange: mock() }}
-        />,
-      );
-      expect(screen.getByTestId("dt-pager-page-5").getAttribute("aria-current")).toBe("page");
-    });
-
-    test("totalPages ≤ 7: alle Seiten ohne Ellipse", () => {
-      render(
-        <DataTable
-          columns={cols}
-          rows={oneRow}
-          testId="dt"
-          pager={{ page: 1, limit: 50, total: 200, onPageChange: mock() }}
-        />,
-      );
-      // total=200, limit=50 → 4 Seiten, kein Window
-      expect(screen.queryByTestId("dt-pager-page-1")).not.toBeNull();
-      expect(screen.queryByTestId("dt-pager-page-4")).not.toBeNull();
-      // Kein Ellipsis-Glyph im DOM
-      expect(screen.queryByText("…")).toBeNull();
-    });
-
-    test("totalPages > 7 und page in der Mitte: Ellipsen außen", () => {
+    test("keine nummerierte Seitenliste: nur Prev/Next-Buttons", () => {
       render(
         <DataTable
           columns={cols}
@@ -729,29 +700,26 @@ describe("DataTable", () => {
           pager={{ page: 30, limit: 50, total: 3000, onPageChange: mock() }}
         />,
       );
-      // Window: 1 ... 28 29 [30] 31 32 ... 60
-      expect(screen.getAllByText("…")).toHaveLength(2);
-      expect(screen.queryByTestId("dt-pager-page-1")).not.toBeNull();
-      expect(screen.queryByTestId("dt-pager-page-60")).not.toBeNull();
-      expect(screen.queryByTestId("dt-pager-page-30")).not.toBeNull();
+      expect(screen.getByTestId("dt-pager").querySelectorAll("button")).toHaveLength(2);
+      expect(screen.queryByText("…")).toBeNull();
     });
 
-    test("Default-Locale (en): Status-Text + aria-Labels aus i18n-Fallback statt hartcodiert", () => {
+    test("Default-Locale (en): Status, Seite X von Y und aria-Labels aus i18n-Fallback", () => {
       render(
         <DataTable
           columns={cols}
           rows={oneRow}
           testId="dt"
-          pager={{ page: 1, limit: 50, total: 3000, onPageChange: mock() }}
+          pager={{ page: 2, limit: 50, total: 3000, onPageChange: mock() }}
         />,
       );
-      expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 of 3,000");
+      expect(screen.getByTestId("dt-pager-status").textContent).toBe("51–100 of 3,000");
+      expect(screen.getByTestId("dt-pager").textContent).toContain("Page 2 of 60");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe("Previous page");
       expect(screen.getByTestId("dt-pager-next").getAttribute("aria-label")).toBe("Next page");
-      expect(screen.getByTestId("dt-pager-page-2").getAttribute("aria-label")).toBe("Page 2");
     });
 
-    test("de-Locale: Status-Text + aria-Labels kommen aus i18n statt hartcodiertem Englisch (issue #2007)", async () => {
+    test("de-Locale: Status, Seite X von Y und aria-Labels kommen aus i18n statt hartcodiertem Englisch (issue #2007)", async () => {
       const { LocaleProvider, createStaticLocaleResolver, kumikoDefaultTranslations } =
         await import("@cosmicdrift/kumiko-renderer");
       const { localeDeBundle } = await import("@cosmicdrift/kumiko-locale-de");
@@ -772,11 +740,86 @@ describe("DataTable", () => {
       // resolver locale) — out of scope for #2007, which only addresses the
       // untranslated word/aria-labels.
       expect(screen.getByTestId("dt-pager-status").textContent).toBe("1–50 von 3,000");
+      expect(screen.getByTestId("dt-pager").textContent).toContain("Seite 1 von 60");
       expect(screen.getByTestId("dt-pager-prev").getAttribute("aria-label")).toBe(
         "Vorherige Seite",
       );
       expect(screen.getByTestId("dt-pager-next").getAttribute("aria-label")).toBe("Nächste Seite");
-      expect(screen.getByTestId("dt-pager-page-2").getAttribute("aria-label")).toBe("Seite 2");
+    });
+  });
+
+  // scrollBody: toolbar and footer are pinned outside the scroll surface, so
+  // the footer sits at the same spot at any row count.
+  describe("scrollBody layout", () => {
+    const cols = [{ field: "name", label: "Name", type: "string", sortable: false }] as const;
+    const threeRows = [1, 2, 3].map((n) => ({ id: `r${n}`, values: { name: `A${n}` } }));
+
+    test("Pager ist Geschwister des Scroll-Containers, nicht sein Kind", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={threeRows}
+          testId="dt"
+          scrollBody
+          pager={{ page: 1, limit: 50, total: 3, onPageChange: mock() }}
+        />,
+      );
+      const scroll = screen.getByTestId("dt-scroll");
+      const pager = screen.getByTestId("dt-pager");
+      expect(scroll.contains(pager)).toBe(false);
+      expect(scroll.parentElement).toBe(pager.parentElement);
+      expect(scroll.contains(screen.getByTestId("dt"))).toBe(true);
+    });
+
+    test("ohne scrollBody bleibt der Pager unverändert unter der Tabelle, ohne Scroll-Container", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={threeRows}
+          testId="dt"
+          pager={{ page: 1, limit: 50, total: 3, onPageChange: mock() }}
+        />,
+      );
+      expect(screen.queryByTestId("dt-scroll")).toBeNull();
+      expect(screen.getByTestId("dt-pager")).not.toBeNull();
+    });
+
+    test("ohne Pager zeigt der Footer die Anzahl (Singular und Plural)", () => {
+      const { rerender } = render(
+        <DataTable columns={cols} rows={threeRows} testId="dt" scrollBody />,
+      );
+      expect(screen.getByTestId("dt-footer-count").textContent).toBe("3 entries");
+      rerender(<DataTable columns={cols} rows={threeRows.slice(0, 1)} testId="dt" scrollBody />);
+      expect(screen.getByTestId("dt-footer-count").textContent).toBe("1 entry");
+    });
+
+    test("Footer bleibt bei 0 Zeilen stehen, Empty-State liegt im Scroll-Container", () => {
+      render(<DataTable columns={cols} rows={[]} testId="dt" scrollBody />);
+      expect(screen.getByTestId("dt-footer-count").textContent).toBe("0 entries");
+      expect(screen.getByTestId("dt-scroll").contains(screen.getByTestId("dt-empty"))).toBe(true);
+      expect(screen.getByTestId("dt-scroll").contains(screen.getByTestId("dt-footer"))).toBe(false);
+    });
+
+    test("infinite: Sentinel liegt im Scroll-Container, Footer zählt die geladenen Zeilen", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={threeRows}
+          testId="dt"
+          scrollBody
+          onReachEnd={mock()}
+          hasMore
+        />,
+      );
+      expect(screen.getByTestId("dt-scroll").contains(screen.getByTestId("dt-sentinel"))).toBe(
+        true,
+      );
+      expect(screen.getByTestId("dt-footer-count").textContent).toBe("3 entries");
+    });
+
+    test("ohne scrollBody gibt es keinen Anzahl-Footer", () => {
+      render(<DataTable columns={cols} rows={threeRows} testId="dt" />);
+      expect(screen.queryByTestId("dt-footer")).toBeNull();
     });
   });
 

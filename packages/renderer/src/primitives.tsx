@@ -693,8 +693,12 @@ export type DataTableProps = {
    *  leave dead space below it (a tab panel, fw#2722). Requires the same
    *  flex-fill chain FormProps.fillHeight sets up above it; without that
    *  ancestor chain this collapses to zero height (Web: `flex-1 min-h-0`
-   *  has no effect outside a sized flex-col ancestor). Default false:
-   *  unchanged document-flow table that grows with its content. */
+   *  has no effect outside a sized flex-col ancestor). When true the table
+   *  also takes the full board layout: the wrapper fills its container
+   *  (`h-full`), toolbar and footer (pager or entry count) stay pinned
+   *  outside the scrolling body, no card frame and no outer padding.
+   *  Default false: unchanged document-flow table that grows with its
+   *  content, pager below the last row. */
   readonly scrollBody?: boolean;
   /** Uses the shared screen padding (wider bottom inset) instead of the
    *  table's symmetric embedded inset — for a table that IS the screen body
@@ -843,8 +847,10 @@ export type FormProps = {
   /** Sizes the form to fill its container's height (instead of the page's
    *  natural content height) so a single scrolling child — a lone
    *  relatedList tab's table — can scroll internally instead of stretching
-   *  the whole page (fw#2722). Only set by RenderEdit for a lone relatedList
-   *  tab section; every other caller leaves it unset and keeps normal
+   *  the whole page (fw#2722). Set by RenderEdit for a lone relatedList tab
+   *  section and for screens that fill the shell height (together with
+   *  `stickyActions`: sections scroll, footer stays pinned without
+   *  `position: fixed`); every other caller leaves it unset and keeps normal
    *  document-flow height. Native impls may ignore this prop (already a
    *  bounded viewport there). */
   readonly fillHeight?: boolean;

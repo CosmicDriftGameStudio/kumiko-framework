@@ -88,6 +88,7 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
+  type TableHTMLAttributes,
   useContext,
   useEffect,
   useRef,
@@ -962,7 +963,7 @@ function DateRangeFacetFilter({
   onChange: (field: string, bound: "from" | "to", value: string) => void;
 }): ReactNode {
   const inputClass =
-    "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
+    "h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 max-md:min-h-11";
   return (
     <div className="flex items-center gap-2" data-testid={`facet-daterange-${facet.field}`}>
       <span className="text-sm text-muted-foreground">{facet.label}</span>
@@ -985,6 +986,52 @@ function DateRangeFacetFilter({
         data-testid={`facet-daterange-${facet.field}-to`}
         onChange={(e) => onChange(facet.field, "to", e.target.value)}
       />
+    </div>
+  );
+}
+
+// The vendored Table wraps <table> in an `overflow-x-auto` container, which
+// would become the scrollport of a sticky header. A scrollBody table scrolls
+// in its parent instead, so it renders the bare <table>.
+function FlushTable({ className, ...props }: TableHTMLAttributes<HTMLTableElement>): ReactNode {
+  return (
+    <table
+      data-slot="table"
+      className={cn("w-full caption-bottom text-sm", className)}
+      {...props}
+    />
+  );
+}
+
+// Header cells stick to the scroll surface; the bottom rule is an inset
+// shadow because a border on a sticky cell scrolls away under border-collapse.
+const FILL_TABLE_CLASS = cn(
+  "[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-9 [&_th]:bg-muted [&_th]:text-[13px]",
+  "[&_th]:font-medium [&_th]:shadow-[inset_0_-1px_0_var(--color-border)] [&_th_button]:text-[13px]",
+  "[&_tr>:first-child]:pl-6 [&_tr>:last-child]:pr-6",
+);
+
+const TABLE_FOOTER_BAR_CLASS = cn(
+  "flex h-15 shrink-0 items-center gap-4 border-t border-border bg-card pl-4 pr-2",
+  "text-[13px] tabular-nums text-foreground-secondary md:h-11 md:px-6",
+);
+
+function DataTableFooter({
+  count,
+  testId,
+}: {
+  readonly count: number;
+  readonly testId: string;
+}): ReactNode {
+  const t = useOptionalTranslation();
+  const label =
+    count === 1
+      ? (t?.("kumiko.list.count.one") ?? "1 entry")
+      : (t?.("kumiko.list.count.other", { count: count.toLocaleString() }) ??
+        `${count.toLocaleString()} entries`);
+  return (
+    <div data-testid={testId} className={TABLE_FOOTER_BAR_CLASS}>
+      <span data-testid={`${testId}-count`}>{label}</span>
     </div>
   );
 }
@@ -1033,12 +1080,14 @@ function DefaultDataTable({
   // Sticky würde mit der Topbar konkurrieren.
   const hasTableActions = rowActions !== undefined && rowActions.length > 0;
   const isEmpty = rows.length === 0;
+  const fillsHeight = scrollBody === true;
+  const TableRoot = fillsHeight ? FlushTable : Table;
   const emptyBlock: ReactNode = (
     <div
       data-testid={testId !== undefined ? `${testId}-empty` : "render-list-empty"}
       className={cn(
         "flex flex-col items-center justify-center p-12 text-sm text-muted-foreground gap-3",
-        chromeless !== true && "rounded-md border border-dashed",
+        chromeless !== true && !fillsHeight && "rounded-md border border-dashed",
       )}
     >
       {emptyState ?? <span>{tableTranslate?.("kumiko.list.no-entries") ?? "No entries."}</span>}
@@ -1053,23 +1102,17 @@ function DefaultDataTable({
       // sitzt auf derselben Card-Fläche wie Forms; auf Themes mit farbigem
       // Page-Background (z.B. Cream) matchen Listen sonst nicht die Cards.
       // `chromeless` drops that frame for a host with its own boundary already (a tab panel, fw#2722).
-      // `scrollBody` is the terminal link in the DefaultForm/FormScreenShell
-      // `fillHeight` chain (fw#2722) — every ancestor in that chain sizes to
-      // its own content (no flex-1) and only shrinks once the chain's
-      // `h-full` root runs out of room, so THIS is the one div that still
-      // claims the leftover height (`flex-1`) and scrolls rows internally
-      // instead of `overflow-hidden` (document-flow height, grows with row
-      // count) — a short list keeps a content-sized card, a long one scrolls
-      // in place instead of stretching the whole page (fw#2722, fw#2778).
-      // `min-h-0` overrides flex's default min-height:auto, which would
-      // otherwise keep this at its content's height regardless of flex-shrink.
+      // `scrollBody`: the scroll surface and its border live on the wrapper
+      // in `content` below, so the table renders frameless and without the
+      // vendored `overflow-x-auto` container — that container would become
+      // the sticky header's scrollport and the header would never stick.
       <div
         className={cn(
-          scrollBody === true ? "flex-1 min-h-0 overflow-y-auto" : "overflow-hidden",
-          chromeless !== true && "rounded-lg border bg-card",
+          !fillsHeight && "overflow-hidden",
+          !fillsHeight && chromeless !== true && "rounded-lg border bg-card",
         )}
       >
-        <Table data-testid={testId}>
+        <TableRoot data-testid={testId} className={fillsHeight ? FILL_TABLE_CLASS : undefined}>
           <TableHeader className="bg-muted">
             <TableRow className="hover:bg-transparent">
               {columns.map((col) => (
@@ -1105,7 +1148,10 @@ function DefaultDataTable({
                 key={row.id}
                 data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
                 onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-                className={cn(onRowClick !== undefined && "cursor-pointer")}
+                className={cn(
+                  onRowClick !== undefined && "cursor-pointer",
+                  fillsHeight && "h-10 border-border-row hover:bg-muted",
+                )}
               >
                 {columns.map((col) => (
                   <TableCell
@@ -1159,7 +1205,7 @@ function DefaultDataTable({
               </TableRow>
             ))}
           </TableBody>
-        </Table>
+        </TableRoot>
       </div>
     );
   }
@@ -1273,10 +1319,7 @@ function DefaultDataTable({
     return (
       <div
         data-testid={testId !== undefined ? `${testId}-cards` : "render-list-cards"}
-        className={cn(
-          "flex flex-col gap-3",
-          scrollBody === true && "flex-1 min-h-0 overflow-y-auto",
-        )}
+        className={cn("flex flex-col gap-3", fillsHeight && "p-4")}
       >
         {onSortChange !== undefined && sortableColumns.length > 0 && (
           <select
@@ -1293,7 +1336,7 @@ function DefaultDataTable({
               if (picked === undefined) return;
               onSortChange({ field: picked.field, dir: picked.dir });
             }}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 max-md:min-h-11"
           >
             <option value="">{tableTranslate?.("kumiko.list.sort.unsorted") ?? "Unsorted"}</option>
             {sortOptions.map((o) => (
@@ -1315,32 +1358,54 @@ function DefaultDataTable({
   // ohne die Liste zu verlieren. Außer total === 0 — dann gibt's
   // nichts zu paginieren. Inkompatibel mit Infinite-Scroll: Caller
   // setzt entweder pager ODER onReachEnd.
-  const content =
+  const pagerElement =
     pager !== undefined && pager.total > 0 ? (
-      <>
+      <Pager
+        page={pager.page}
+        limit={pager.limit}
+        total={pager.total}
+        onPageChange={pager.onPageChange}
+        testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
+        pinned={fillsHeight}
+      />
+    ) : undefined;
+  const sentinelElement =
+    pagerElement === undefined && onReachEnd !== undefined ? (
+      <InfiniteSentinel
+        onReachEnd={onReachEnd}
+        loadingMore={loadingMore === true}
+        hasMore={hasMore !== false}
+        rowsCount={rows.length}
+        testId={testId !== undefined ? `${testId}-sentinel` : "render-list-sentinel"}
+      />
+    ) : undefined;
+
+  // With scrollBody the footer (pager, else the entry count) sits OUTSIDE the
+  // scroll surface so it stays put at any row count; the infinite sentinel
+  // stays INSIDE, or it would never intersect the scrollport.
+  const content = fillsHeight ? (
+    <>
+      <div
+        data-testid={testId !== undefined ? `${testId}-scroll` : "render-list-scroll"}
+        className="min-h-0 flex-1 overflow-auto border-t border-border bg-card"
+      >
         {tableContent}
-        <Pager
-          page={pager.page}
-          limit={pager.limit}
-          total={pager.total}
-          onPageChange={pager.onPageChange}
-          testId={testId !== undefined ? `${testId}-pager` : "render-list-pager"}
+        {sentinelElement}
+      </div>
+      {pagerElement ?? (
+        <DataTableFooter
+          count={rows.length}
+          testId={testId !== undefined ? `${testId}-footer` : "render-list-footer"}
         />
-      </>
-    ) : onReachEnd !== undefined ? (
-      <>
-        {tableContent}
-        <InfiniteSentinel
-          onReachEnd={onReachEnd}
-          loadingMore={loadingMore === true}
-          hasMore={hasMore !== false}
-          rowsCount={rows.length}
-          testId={testId !== undefined ? `${testId}-sentinel` : "render-list-sentinel"}
-        />
-      </>
-    ) : (
-      tableContent
-    );
+      )}
+    </>
+  ) : (
+    <>
+      {tableContent}
+      {pagerElement}
+      {sentinelElement}
+    </>
+  );
 
   const hasFacets =
     filterFacets !== undefined && filterFacets.length > 0 && onFilterChange !== undefined;
@@ -1396,28 +1461,41 @@ function DefaultDataTable({
     // same Card body.
     <div
       className={cn(
-        "flex flex-col gap-4 w-full",
-        screenPadding === true
-          ? screenPaddingClassName
-          : screenPadding === false
-            ? undefined
-            : "p-6",
-        // No flex-1: this wrapper sizes to its content (toolbar + table) and
-        // only shrinks (min-h-0) once its ancestor chain is itself
-        // height-constrained — the actual scroll surface is tableInner/
-        // cardsInner below, which do keep flex-1 to claim whatever height
-        // that shrink leaves them (fw#2778).
-        scrollBody === true && "min-h-0",
+        "flex flex-col w-full",
+        // scrollBody: the wrapper fills its container so the footer sits at the
+        // same spot at 3 and 300 rows; the 24px insets live in toolbar, cells
+        // and footer, so no outer padding.
+        fillsHeight
+          ? "h-full min-h-0"
+          : cn(
+              "gap-4",
+              screenPadding === true
+                ? screenPaddingClassName
+                : screenPadding === false
+                  ? undefined
+                  : "p-6",
+            ),
       )}
     >
       {hasToolbar && (
         <div
           data-testid={testId !== undefined ? `${testId}-toolbar` : "render-list-toolbar"}
-          className={cn("flex flex-wrap items-center gap-3", scrollBody === true && "shrink-0")}
+          className={cn(
+            "flex flex-wrap items-center",
+            fillsHeight ? "min-h-13 shrink-0 gap-2 px-6 py-2 md:py-0" : "gap-3",
+          )}
         >
           {/* min-w-48: without a floor, flex shrinks the search instead of wrapping the facet cluster onto its own line (fw#3116). */}
           {toolbarStart !== undefined && (
-            <div className="flex-1 min-w-48 max-w-sm">{toolbarStart}</div>
+            <div
+              className={cn(
+                fillsHeight
+                  ? "w-full md:w-[300px] [&_input]:border-border-strong [&_input]:max-md:h-11 md:[&_input]:h-8"
+                  : "flex-1 min-w-48 max-w-sm",
+              )}
+            >
+              {toolbarStart}
+            </div>
           )}
           {facetCluster}
           {toolbarEnd !== undefined && (
@@ -1810,85 +1888,73 @@ function InfiniteSentinel({
   );
 }
 
-// Pager — classic page pager (← 1 … N →) for DataTables with
-// pagination="pages". Layout: status text on the left ("X – Y of Z"),
-// page buttons in the middle, prev/next arrows on the outside. The
-// window-of-7 doesn't show all pages for large lists — the user sees
-// the current range plus first/last as anchors.
+// Pager — status text on the left ("X – Y of Z"), "Page X of Y" and the
+// prev/next arrows on the right. No numbered page list: the board shows none.
+// `pinned` renders the footer bar of a scrollBody table (fixed height, top
+// border); unpinned it sits as a plain row below the table.
 //
-// Status text and prev/next/page aria-labels go through t(...), which
-// requires a LocaleProvider in the tree — same requirement as
-// InfiniteSentinel above, already established for DataTable consumers.
+// Status text and aria-labels go through t(...), which requires a
+// LocaleProvider in the tree — same requirement as InfiniteSentinel above,
+// already established for DataTable consumers.
 function Pager({
   page,
   limit,
   total,
   onPageChange,
   testId,
+  pinned,
 }: {
   readonly page: number;
   readonly limit: number;
   readonly total: number;
   readonly onPageChange: (next: number) => void;
   readonly testId?: string;
+  readonly pinned?: boolean;
 }): ReactNode {
   const t = useTranslation();
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.max(1, Math.min(page, totalPages));
   const from = (safePage - 1) * limit + 1;
   const to = Math.min(safePage * limit, total);
-  const visible = computeVisiblePages(safePage, totalPages);
 
   return (
     <div
       data-testid={testId}
-      className="flex items-center justify-between mt-3 gap-3 text-sm text-muted-foreground"
+      className={
+        pinned === true
+          ? TABLE_FOOTER_BAR_CLASS
+          : "mt-3 flex items-center gap-4 text-[13px] tabular-nums text-foreground-secondary"
+      }
     >
-      <div data-testid={testId !== undefined ? `${testId}-status` : undefined}>
+      <div data-testid={testId !== undefined ? `${testId}-status` : undefined} className="flex-1">
         {t("kumiko.pager.status", {
           from: from.toLocaleString(),
           to: to.toLocaleString(),
           total: total.toLocaleString(),
         })}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="hidden md:block">
+        {t("kumiko.pager.pageOf", {
+          page: safePage.toLocaleString(),
+          pages: totalPages.toLocaleString(),
+        })}
+      </div>
+      <div className="flex items-center gap-2">
         <PagerButton
           ariaLabel={t("kumiko.pager.previousPage")}
           disabled={safePage <= 1}
           onClick={() => onPageChange(safePage - 1)}
           testId={testId !== undefined ? `${testId}-prev` : undefined}
         >
-          <ChevronLeft className="size-4" aria-hidden="true" />
+          <ChevronLeft className="size-3.5" aria-hidden="true" />
         </PagerButton>
-        {visible.map((entry, idx) =>
-          entry === "ellipsis" ? (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: visible array is pure-derived from safePage/totalPages, so idx is stable across renders. No DnD/Reorder.
-              key={`ellipsis-${idx}`}
-              className="px-2 text-muted-foreground"
-            >
-              …
-            </span>
-          ) : (
-            <PagerButton
-              key={entry}
-              ariaLabel={t("kumiko.pager.page", { entry })}
-              ariaCurrent={entry === safePage ? "page" : undefined}
-              active={entry === safePage}
-              onClick={() => onPageChange(entry)}
-              testId={testId !== undefined ? `${testId}-page-${entry}` : undefined}
-            >
-              {entry}
-            </PagerButton>
-          ),
-        )}
         <PagerButton
           ariaLabel={t("kumiko.pager.nextPage")}
           disabled={safePage >= totalPages}
           onClick={() => onPageChange(safePage + 1)}
           testId={testId !== undefined ? `${testId}-next` : undefined}
         >
-          <ChevronRight className="size-4" aria-hidden="true" />
+          <ChevronRight className="size-3.5" aria-hidden="true" />
         </PagerButton>
       </div>
     </div>
@@ -1899,16 +1965,12 @@ function PagerButton({
   children,
   onClick,
   ariaLabel,
-  ariaCurrent,
-  active,
   disabled,
   testId,
 }: {
   readonly children: ReactNode;
   readonly onClick: () => void;
   readonly ariaLabel: string;
-  readonly ariaCurrent?: "page";
-  readonly active?: boolean;
   readonly disabled?: boolean;
   readonly testId?: string;
 }): ReactNode {
@@ -1918,57 +1980,16 @@ function PagerButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      aria-current={ariaCurrent}
       data-testid={testId}
       className={cn(
-        "inline-flex h-8 min-w-8 items-center justify-center rounded-sm px-2 text-sm",
-        "hover:bg-accent hover:text-accent-foreground",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-        "disabled:opacity-40 disabled:pointer-events-none",
-        active === true && "bg-accent text-accent-foreground font-medium",
+        "inline-flex size-11 items-center justify-center rounded-md border border-border md:size-7",
+        "hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        "disabled:pointer-events-none disabled:text-foreground-disabled",
       )}
     >
       {children}
     </button>
   );
-}
-
-// Window-of-7 Strategie: erste + letzte Page immer sichtbar als Anker,
-// 5 Pages um den aktuellen Wert + Ellipsen wenn Distanz zu first/last
-// > 1. Beispiele:
-//   p=1, total=20:  [1] 2 3 4 5 … 20
-//   p=10, total=20: 1 … 8 9 [10] 11 12 … 20
-//   p=20, total=20: 1 … 16 17 18 19 [20]
-//   total=5: 1 2 3 4 5 (kein Window nötig)
-export function computeVisiblePages(
-  page: number,
-  totalPages: number,
-): readonly (number | "ellipsis")[] {
-  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
-
-  // Fenster von 5 Seiten um die aktuelle Seite. An den Rändern wird das
-  // Fenster verschoben (nicht abgeschnitten), damit immer 5 Zahlen + die
-  // gegenüberliegende Anker-Seite sichtbar sind:
-  //   p=1,  total=20: 1 2 3 4 5 … 20
-  //   p=10, total=20: 1 … 8 9 10 11 12 … 20
-  //   p=20, total=20: 1 … 16 17 18 19 20
-  const leftSibling = Math.max(page - 2, 1);
-  const rightSibling = Math.min(page + 2, totalPages);
-  const showLeftEllipsis = leftSibling > 2;
-  const showRightEllipsis = rightSibling < totalPages - 1;
-
-  if (!showLeftEllipsis) {
-    return [1, 2, 3, 4, 5, "ellipsis", totalPages];
-  }
-  if (!showRightEllipsis) {
-    const tail: (number | "ellipsis")[] = [1, "ellipsis"];
-    for (let i = totalPages - 4; i <= totalPages; i++) tail.push(i);
-    return tail;
-  }
-  const out: (number | "ellipsis")[] = [1, "ellipsis"];
-  for (let i = leftSibling; i <= rightSibling; i++) out.push(i);
-  out.push("ellipsis", totalPages);
-  return out;
 }
 
 // SortableHeader — rendert pro Spalte den th-Header, mit oder ohne
@@ -2361,6 +2382,16 @@ function FormRoot({
   );
 }
 
+// stickyActions alone pins the primary action with `position: fixed` on
+// narrow viewports; together with fillHeight the flex chain pins the footer
+// on every viewport instead.
+function isPinnedFooter(
+  stickyActions: boolean | undefined,
+  fillHeight: boolean | undefined,
+): boolean {
+  return stickyActions === true && fillHeight === true;
+}
+
 // Sections wrapper for DefaultForm's card and chromeless layouts alike —
 // only the card-derived padding on non-section children differs between
 // them (see `chromeless` doc on FormProps).
@@ -2389,11 +2420,13 @@ function FormSections({
         // button row + its own p-4, fw#2606) instead of the whole footer —
         // shrunk from pb-32 accordingly. Widen again if a wizard's primary
         // action ever wraps to two rows.
-        stickyActions === true && STICKY_FOOTER_SPACER_CLASS,
+        stickyActions === true && fillHeight !== true && STICKY_FOOTER_SPACER_CLASS,
         // Same "no flex-1" reasoning as the card above: this is the
         // one section allowed to shrink (min-h-0) inside the card, not
         // one forced to grow past its content.
         fillHeight === true && "min-h-0",
+        // The flex chain pins the footer, so the sections are the scroll surface.
+        isPinnedFooter(stickyActions, fillHeight) && "flex-1 overflow-y-auto",
       )}
     >
       <InsideFormContext.Provider value={true}>{children}</InsideFormContext.Provider>
@@ -2527,13 +2560,16 @@ function FormFooter({
     ) : (
       secondaryActions
     );
+  const pinned = isPinnedFooter(stickyActions, fillHeight);
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
-        !chromeless && "px-[var(--card-padding)]",
-        !chromeless && cardFooterBorder,
-        fillHeight === true && "shrink-0",
+        pinned
+          ? "flex h-14 shrink-0 items-center justify-between gap-3 border-t border-border bg-card px-6 md:pl-10"
+          : "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
+        !pinned && !chromeless && "px-[var(--card-padding)]",
+        !pinned && !chromeless && cardFooterBorder,
+        !pinned && fillHeight === true && "shrink-0",
       )}
     >
       {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
@@ -2548,7 +2584,10 @@ function FormFooter({
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
           className={cn(
-            "flex flex-wrap items-center gap-2 max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
+            "flex flex-wrap items-center gap-2",
+            pinned
+              ? "ml-auto max-md:[&>button]:min-h-11"
+              : "max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
             // Below sm (640px): pin only the primary action to the viewport
             // bottom instead of normal flow, so a virtual keyboard shrinking
             // the viewport can't push it out of reach (fw#1918). `fixed`
@@ -2556,6 +2595,7 @@ function FormFooter({
             // contain ancestors trap it, confirmed against
             // AppLayout/SidebarInset — neither sets those).
             stickyActions === true &&
+              !pinned &&
               cn(
                 "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:bg-background max-sm:p-4 max-sm:shadow-[0_-4px_12px_-4px_rgb(0_0_0_/_0.15)]",
                 STICKY_FOOTER_SAFE_AREA_CLASS,
@@ -2629,6 +2669,12 @@ function DefaultForm({
     />
   );
 
+  // Pinned footer (fillHeight + stickyActions): the footer is a full-bleed
+  // sibling BELOW the padded shell, so the shell's bottom inset does not float
+  // it above the viewport edge; the shell shrinks (`flex-1`) to make room.
+  const pinnedFooter = isPinnedFooter(stickyActions, fillHeight);
+  const pinnedShellClassName = pinnedFooter ? "h-auto flex-1 pb-6" : undefined;
+
   // Tab content (bedienkonzept A1): the head card is the ONLY card on the
   // screen, so a tabbed projectionDetail's tab content must render as a
   // sibling of that card, not nest another one around itself — chromeless
@@ -2648,6 +2694,7 @@ function DefaultForm({
         <FormScreenShell
           {...(width !== undefined && { maxWidth: width })}
           {...(fillHeight === true && { fillHeight: true })}
+          {...(pinnedShellClassName !== undefined && { className: pinnedShellClassName })}
         >
           {headerRegion !== undefined && (
             <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
@@ -2663,8 +2710,9 @@ function DefaultForm({
             fillHeight={fillHeight}
           />
           {sections}
-          {footer}
+          {!pinnedFooter && footer}
         </FormScreenShell>
+        {pinnedFooter && footer}
       </FormRoot>
     );
   }
@@ -2681,6 +2729,7 @@ function DefaultForm({
       <FormScreenShell
         {...(width !== undefined && { maxWidth: width })}
         {...(fillHeight === true && { fillHeight: true })}
+        {...(pinnedShellClassName !== undefined && { className: pinnedShellClassName })}
       >
         {headerRegion !== undefined && (
           <div className={cn("flex flex-col gap-6 mb-8", fillHeight === true && "shrink-0")}>
@@ -2699,6 +2748,7 @@ function DefaultForm({
             // it to always fill the remaining height, stretching a short
             // relatedList tab to the bottom of the panel (fw#2778).
             fillHeight === true && "min-h-0 flex flex-col",
+            pinnedFooter && "flex-1",
           )}
         >
           <FormTitleBlock
@@ -2710,9 +2760,10 @@ function DefaultForm({
             fillHeight={fillHeight}
           />
           {sections}
-          {footer}
+          {!pinnedFooter && footer}
         </div>
       </FormScreenShell>
+      {pinnedFooter && footer}
     </FormRoot>
   );
 }

@@ -63,5 +63,6 @@ export function synthesizeProjectionScreen(
     ...(screen.searchable !== undefined && { searchable: screen.searchable }),
     ...(screen.slots !== undefined && { slots: screen.slots }),
     ...(screen.access !== undefined && { access: screen.access }),
+    ...(screen.fillHeight !== undefined && { fillHeight: screen.fillHeight }),
   };
 }

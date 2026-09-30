@@ -1,19 +1,16 @@
-// A list screen's chrome is the DataTable's own outer wrapper — no
-// FormScreenShell/PageSection sits around it. `screenPadding` is how that
-// wrapper reaches the shared screen-padding token, so it has to be set on the
-// real list path (KumikoScreen → EntityListScreen → EntityListBody →
-// RenderList), not just be available on the primitive (fw#2640).
+// fw#3381: an entityEdit screen pins its action bar to the shell height by
+// default (Form fillHeight + stickyActions); `fillHeight: false` opts out.
 import { describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
-  EntityListScreenDefinition,
+  EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { render, waitFor } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n";
-import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives";
+import { type CorePrimitives, type FormProps, PrimitivesProvider } from "../../primitives";
 import type { FeatureSchema } from "../feature-schema";
 import { KumikoScreen } from "../kumiko-screen";
 import { NavProvider } from "../nav";
@@ -24,10 +21,7 @@ const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNod
 function stubDispatcher(): Dispatcher {
   return {
     write: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["write"],
-    query: (async () => ({
-      isSuccess: true,
-      data: { rows: [], total: 0 },
-    })) as unknown as Dispatcher["query"],
+    query: (async () => ({ isSuccess: true, data: {} })) as unknown as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
     statusStore: {
       getState: () => "online",
@@ -45,23 +39,23 @@ function buildSchema(fillHeight?: boolean): FeatureSchema {
       name: { type: "text", maxLength: 200, required: false, searchable: false, sortable: false },
     },
   };
-  const listScreen: EntityListScreenDefinition = {
-    id: "org-list",
-    type: "entityList",
-    entity: "org",
-    columns: ["name"],
+  const screen: EntityEditScreenDefinition = {
+    id: "unit-edit",
+    type: "entityEdit",
+    entity: "unit",
+    layout: { sections: [{ columns: 1, fields: ["name"] }] },
     ...(fillHeight !== undefined && { fillHeight }),
   };
   return {
-    featureName: "orgs",
-    entities: { org: entity },
-    screens: [listScreen],
+    featureName: "housing",
+    entities: { unit: entity },
+    screens: [screen],
   } as FeatureSchema;
 }
 
-async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
-  let captured: DataTableProps | undefined;
-  const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+function captureFormProps(fillHeight?: boolean): FormProps {
+  let captured: FormProps | undefined;
+  const capturingForm: ComponentType<FormProps> = (props) => {
     captured = props;
     return null;
   };
@@ -70,8 +64,8 @@ async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
     Banner: passChildren,
     Field: passChildren,
     Input: noop,
-    DataTable: capturingDataTable,
-    Form: passChildren,
+    DataTable: noop,
+    Form: capturingForm,
     Section: passChildren,
     Card: passChildren,
     Grid: passChildren,
@@ -90,7 +84,7 @@ async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
       <DispatcherProvider dispatcher={stubDispatcher()}>
         <NavProvider
           value={{
-            route: { screenId: "orgs:org-list" },
+            route: { screenId: "housing:unit-edit" },
             navigate: () => {},
             replace: () => {},
             hrefFor: () => "",
@@ -99,30 +93,26 @@ async function captureListProps(fillHeight?: boolean): Promise<DataTableProps> {
           }}
         >
           <PrimitivesProvider value={primitives}>
-            <KumikoScreen schema={buildSchema(fillHeight)} qn="orgs:screen:org-list" />
+            <KumikoScreen schema={buildSchema(fillHeight)} qn="housing:screen:unit-edit" />
           </PrimitivesProvider>
         </NavProvider>
       </DispatcherProvider>
     </LocaleProvider>,
   );
-
-  await waitFor(() => expect(captured).toBeDefined());
-  if (captured === undefined) throw new Error("DataTable was not rendered");
+  if (captured === undefined) throw new Error("Form was not rendered");
   return captured;
 }
 
-describe("entityList screen padding (fw#2640)", () => {
-  test("the list screen marks its table as the screen body", async () => {
-    expect((await captureListProps()).screenPadding).toBe(true);
-  });
-});
-
-describe("entityList fillHeight (fw#3381)", () => {
-  test("fills the shell height by default (scrollBody)", async () => {
-    expect((await captureListProps()).scrollBody).toBe(true);
+describe("entityEdit fillHeight (fw#3381)", () => {
+  test("default: form fills the height with a pinned action bar", () => {
+    const props = captureFormProps();
+    expect(props.fillHeight).toBe(true);
+    expect(props.stickyActions).toBe(true);
   });
 
-  test("fillHeight: false restores page scroll (no scrollBody)", async () => {
-    expect((await captureListProps(false)).scrollBody).toBeUndefined();
+  test("fillHeight: false restores page scroll", () => {
+    const props = captureFormProps(false);
+    expect(props.fillHeight).toBeFalsy();
+    expect(props.stickyActions).toBeFalsy();
   });
 });

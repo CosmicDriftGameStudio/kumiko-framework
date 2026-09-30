@@ -4,59 +4,7 @@
 // money-input seine Pure-Logik exportiert). Kein DOM.
 
 import { describe, expect, spyOn, test } from "bun:test";
-import {
-  applyFormatSpec,
-  computeVisiblePages,
-  defaultCellRender,
-  isComponentRendererRef,
-} from "../index";
-
-describe("computeVisiblePages", () => {
-  test("<= 7 Seiten: alle Seiten, keine Ellipsis", () => {
-    expect(computeVisiblePages(1, 5)).toEqual([1, 2, 3, 4, 5]);
-    expect(computeVisiblePages(3, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
-  });
-
-  test("erste + letzte Seite immer als Anker enthalten", () => {
-    const pages = computeVisiblePages(10, 20);
-    expect(pages[0]).toBe(1);
-    expect(pages.at(-1)).toBe(20);
-  });
-
-  test("Mitte (p=10/20): page±2-Window mit Ellipsen beidseitig", () => {
-    expect(computeVisiblePages(10, 20)).toEqual([1, "ellipsis", 8, 9, 10, 11, 12, "ellipsis", 20]);
-  });
-
-  test("Rand p=1/20: 5 Zahlen links sichtbar (Fenster verschoben, nicht abgeschnitten)", () => {
-    expect(computeVisiblePages(1, 20)).toEqual([1, 2, 3, 4, 5, "ellipsis", 20]);
-  });
-
-  test("Rand p=20/20: 5 Zahlen rechts sichtbar", () => {
-    expect(computeVisiblePages(20, 20)).toEqual([1, "ellipsis", 16, 17, 18, 19, 20]);
-  });
-
-  test("page=5/20: Übergang Rand→Mitte (Ellipsis links erscheint)", () => {
-    expect(computeVisiblePages(5, 20)).toEqual([1, "ellipsis", 3, 4, 5, 6, 7, "ellipsis", 20]);
-  });
-
-  test("page=16/20: letzte Mitte-Position (Ellipsis rechts noch da)", () => {
-    expect(computeVisiblePages(16, 20)).toEqual([
-      1,
-      "ellipsis",
-      14,
-      15,
-      16,
-      17,
-      18,
-      "ellipsis",
-      20,
-    ]);
-  });
-
-  test("page=17/20: Übergang Mitte→Rand (Ellipsis rechts verschwindet, 5er-Tail)", () => {
-    expect(computeVisiblePages(17, 20)).toEqual([1, "ellipsis", 16, 17, 18, 19, 20]);
-  });
-});
+import { applyFormatSpec, defaultCellRender, isComponentRendererRef } from "../index";
 
 describe("isComponentRendererRef", () => {
   test("erkennt { react: { __component: 'Name' } }", () => {

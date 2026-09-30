@@ -418,6 +418,11 @@ export type RelatedListToolbarAction =
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
+  /** Default true: the screen fills the shell content height, its body scrolls
+   *  inside and the pager / action bar stays pinned. `false` restores page
+   *  scroll (table grows with its rows, pager below the last row, form footer
+   *  in the flow). */
+  readonly fillHeight?: boolean;
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
@@ -528,6 +533,11 @@ export type ListFacetSpec =
 export type ProjectionListScreenDefinition = {
   readonly id: string;
   readonly type: "projectionList";
+  /** Default true: the screen fills the shell content height, its body scrolls
+   *  inside and the pager / action bar stays pinned. `false` restores page
+   *  scroll (table grows with its rows, pager below the last row, form footer
+   *  in the flow). */
+  readonly fillHeight?: boolean;
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
@@ -627,6 +637,11 @@ export function metricField(metric: MetricSpec): string {
 export type ProjectionDetailScreenDefinition = {
   readonly id: string;
   readonly type: "projectionDetail";
+  /** Default true: the screen fills the shell content height, its body scrolls
+   *  inside and the pager / action bar stays pinned. `false` restores page
+   *  scroll (table grows with its rows, pager below the last row, form footer
+   *  in the flow). */
+  readonly fillHeight?: boolean;
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
@@ -1125,6 +1140,11 @@ export type EditLayout = {
 export type EntityEditScreenDefinition = {
   readonly id: string;
   readonly type: "entityEdit";
+  /** Default true: the screen fills the shell content height, its body scrolls
+   *  inside and the pager / action bar stays pinned. `false` restores page
+   *  scroll (table grows with its rows, pager below the last row, form footer
+   *  in the flow). */
+  readonly fillHeight?: boolean;
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;
@@ -1225,6 +1245,11 @@ export type EntityEditScreenDefinition = {
 export type ActionFormScreenDefinition = {
   readonly id: string;
   readonly type: "actionForm";
+  /** Default true: the screen fills the shell content height, its body scrolls
+   *  inside and the pager / action bar stays pinned. `false` restores page
+   *  scroll (table grows with its rows, pager below the last row, form footer
+   *  in the flow). */
+  readonly fillHeight?: boolean;
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;

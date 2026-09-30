@@ -161,6 +161,11 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  redundant title above its content. Omitting this prop keeps unchanged
    *  behavior. */
   readonly hideSectionTitles?: boolean;
+  /** Screen body fills the shell height: the form gets `fillHeight` and
+   *  `stickyActions` (sections scroll, footer pinned). Set by KumikoScreen for
+   *  screens with `fillHeight !== false`; dialogs and other embedded hosts
+   *  omit it and keep document-flow height. */
+  readonly fillScreenHeight?: boolean;
   /** Extra content rendered above the card, sharing its left padding and
    *  width — for a host with its own header region (title/metrics/tabs)
    *  that would otherwise render as unpadded siblings before RenderEdit.

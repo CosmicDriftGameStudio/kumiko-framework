@@ -59,6 +59,7 @@ import {
   statusToneForValue,
   usePrimitives,
 } from "../primitives";
+import { screenFillsHeight } from "../screen-fills-height";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim";
 import { useAppFeatures } from "./app-features-context";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim";
@@ -1021,6 +1022,7 @@ function EntityEditCreateBody({
       onSubmit={handleSubmitted}
       onControlsReady={handleControlsReady}
       onCancel={handleCancel}
+      {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
     />
@@ -1328,6 +1330,7 @@ function EntityEditUpdateForm({
         {...(screen.allowDelete !== false && { onDelete: handleDelete })}
         onCancel={handleCancel}
         onReload={() => void onReload()}
+        {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
         {...(translate !== undefined && { translate })}
         {...(onCopyLink !== undefined && { onCopyLink })}
@@ -2187,6 +2190,7 @@ function EntityListBody({
         sort={effectiveSort}
         onSortChange={urlState.setSort}
         screenPadding
+        {...(screenFillsHeight(screen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
@@ -2511,6 +2515,7 @@ function ProjectionListBody({
         sort={activeSort}
         onSortChange={urlState.setSort}
         screenPadding
+        {...(screenFillsHeight(listScreen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
         {...(toolbarActions !== undefined && { toolbarActions })}
@@ -3120,6 +3125,7 @@ function ProjectionDetailBody({
         onRelatedListDrawerAction={openDrawer}
         {...(translate !== undefined && { translate })}
         {...(hasTabs && { hideSectionTitles: true })}
+        {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
         {...((hasHeaderCard || hasTabs || screen.slots?.header !== undefined) && {
           headerRegion: renderHeaderContent,
         })}
@@ -3363,6 +3369,7 @@ function ActionFormBody({
       payloadMode="values"
       onSubmit={handleSubmitted}
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
+      {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
       {...(translate !== undefined && { translate })}
