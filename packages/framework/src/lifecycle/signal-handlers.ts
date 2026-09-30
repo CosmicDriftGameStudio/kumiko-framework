@@ -2,7 +2,7 @@
 // processes don't accidentally hijack SIGTERM/SIGINT — production `main.ts`
 // calls this explicitly, tests drive drain() directly.
 
-import type { Lifecycle } from "./lifecycle";
+import type { Lifecycle } from "./lifecycle.js";
 
 export type AttachSignalHandlersOptions = {
   readonly timeoutMs?: number;

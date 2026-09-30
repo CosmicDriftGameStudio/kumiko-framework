@@ -1,4 +1,4 @@
-import type { TenantId } from "../engine/types/identifiers";
+import type { TenantId } from "../engine/types/identifiers.js";
 
 export type FileMetadata = {
   readonly fileName: string;

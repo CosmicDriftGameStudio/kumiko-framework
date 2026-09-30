@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { InMemoryKmsAdapter } from "../in-memory-kms-adapter";
+import { InMemoryKmsAdapter } from "../in-memory-kms-adapter.js";
 import {
   KeyErasedError,
   type KmsContext,
   type LocalKeyKmsAdapter,
   type SubjectId,
-} from "../kms-adapter";
-import { createRequestKmsCache } from "../request-kms-cache";
+} from "../kms-adapter.js";
+import { createRequestKmsCache } from "../request-kms-cache.js";
 
 const ctx: KmsContext = { requestId: "cache-test" };
 const userA: SubjectId = { kind: "user", userId: "6b2f4a0e-1c9d-4f3a-9d2e-0000000000aa" };

@@ -16,7 +16,7 @@
 //
 // Followup #10 (closed at the M.1.6 cleanup-pass).
 
-import type { PipelineCtx, StepResolver } from "../types/step";
+import type { PipelineCtx, StepResolver } from "../types/step.js";
 
 /**
  * Resolve a required StepResolver — either a static value or a function.

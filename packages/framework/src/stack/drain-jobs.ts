@@ -1,7 +1,7 @@
-import type { DbConnection } from "../db";
-import { getEventsHighWaterMark } from "../event-store";
-import type { JobRunner } from "../jobs";
-import { type EventDispatcher, getConsumerState } from "../pipeline";
+import type { DbConnection } from "../db/index.js";
+import { getEventsHighWaterMark } from "../event-store/index.js";
+import type { JobRunner } from "../jobs/index.js";
+import { type EventDispatcher, getConsumerState } from "../pipeline/index.js";
 
 // Gap between idle-checks while waiting for a job hook to fire. Short enough
 // that a test never feels it, long enough that consecutive idle passes don't

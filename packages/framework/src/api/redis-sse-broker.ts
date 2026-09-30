@@ -1,6 +1,6 @@
-import { createRedisPubSubSignal } from "../redis/pubsub-signal";
-import type { AccessInvalidationScope } from "./sse-broker";
-import { createSseBroker, type SseBroker, type SseEvent } from "./sse-broker";
+import { createRedisPubSubSignal } from "../redis/pubsub-signal.js";
+import type { AccessInvalidationScope } from "./sse-broker.js";
+import { createSseBroker, type SseBroker, type SseEvent } from "./sse-broker.js";
 
 // Channel namespace for cross-replica fanout (fw#2625). Every pod publishes
 // here and every pod's psubscribe listens here, so a push on one instance

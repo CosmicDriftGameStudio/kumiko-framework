@@ -3,7 +3,7 @@
 // stays out of the type graph, same steps/-vs-packages/types split as
 // _duration-utils.ts.
 
-import type { EventMatch, EventMatchExpr, EventMatchOp } from "../types/step";
+import type { EventMatch, EventMatchExpr, EventMatchOp } from "../types/step.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

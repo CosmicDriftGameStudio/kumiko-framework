@@ -6,7 +6,7 @@
 // provider-neutral. Aliase BunTestDb/createBunTestDb existieren damit
 // die migrierten Test-Files importierbar bleiben ohne weitere Refactors.
 
-import { type CreateTestDbOptions, createTestDb, type TestDb } from "../../stack/db";
+import { type CreateTestDbOptions, createTestDb, type TestDb } from "../../stack/db.js";
 
 export type { TestDb };
 export type BunTestDb = TestDb;

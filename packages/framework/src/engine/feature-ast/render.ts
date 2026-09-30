@@ -21,7 +21,7 @@
 // `// kumiko-feature-version: 1`. Future format bumps run a dedicated
 // migrator over the version comment.
 
-import { isRawRefSentinel } from "./extractors/shared";
+import { isRawRefSentinel } from "./extractors/shared.js";
 import type {
   AiClassifyPattern,
   AiExtractPattern,
@@ -65,8 +65,8 @@ import type {
   UsesApiPattern,
   WorkspacePattern,
   WriteHandlerPattern,
-} from "./patterns";
-import { SCREEN_OPAQUE_MARKER } from "./patterns";
+} from "./patterns.js";
+import { SCREEN_OPAQUE_MARKER } from "./patterns.js";
 
 export const FEATURE_FILE_VERSION = 1 as const;
 export const VERSION_HEADER = `// kumiko-feature-version: ${FEATURE_FILE_VERSION}`;

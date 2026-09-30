@@ -8,11 +8,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createTestDb, type TestDb } from "../../stack";
-import type { ColumnMeta, EntityTableMeta } from "../entity-table-meta";
-import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator";
-import { runMigrationsFromDir } from "../migrate-runner";
-import { asRawClient } from "../query";
+import { createTestDb, type TestDb } from "../../stack/index.js";
+import type { ColumnMeta, EntityTableMeta } from "../entity-table-meta.js";
+import { diffSnapshots, renderMigrationSql, snapshotFromMetas } from "../migrate-generator.js";
+import { runMigrationsFromDir } from "../migrate-runner.js";
+import { asRawClient } from "../query.js";
 
 const ID_COL: ColumnMeta = { name: "id", pgType: "uuid", notNull: true, primaryKey: true };
 const NAME_COL: ColumnMeta = { name: "name", pgType: "text", notNull: true };

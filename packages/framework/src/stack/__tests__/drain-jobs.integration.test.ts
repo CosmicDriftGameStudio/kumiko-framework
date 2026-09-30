@@ -4,10 +4,10 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine";
-import { SYSTEM_ROLE } from "../../engine/system-user";
-import { setupTestStack, type TestStack } from "../test-stack";
-import { TestUsers } from "../test-users";
+import { defineFeature } from "../../engine/index.js";
+import { SYSTEM_ROLE } from "../../engine/system-user.js";
+import { setupTestStack, type TestStack } from "../test-stack.js";
+import { TestUsers } from "../test-users.js";
 
 const chainResults: Array<{ value: string }> = [];
 

@@ -1,22 +1,22 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { createBooleanField, createEntity, createTextField } from "../../engine";
-import { AccessDeniedError, InternalError } from "../../errors";
+import { createBooleanField, createEntity, createTextField } from "../../engine/index.js";
+import { AccessDeniedError, InternalError } from "../../errors/index.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import type { TableColumns } from "../dialect";
-import { buildEntityTable } from "../table-builder";
+} from "../../stack/index.js";
+import type { TableColumns } from "../dialect.js";
+import { buildEntityTable } from "../table-builder.js";
 import {
   assertPersonalDataWrite,
   createTenantDb,
   type PersonalDataGate,
   runInOwnTransaction,
-} from "../tenant-db";
+} from "../tenant-db.js";
 
 const entity = createEntity({
   table: "run_in_own_tx_items",

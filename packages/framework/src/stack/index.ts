@@ -13,22 +13,22 @@ export {
   type CreateTestDbOptions,
   createTestDb,
   type TestDb,
-} from "./db";
-export { drainEventConsumers } from "./drain-event-consumers";
-export { createEventCollector, type EventCollector } from "./event-collector";
-export { pushEntityProjectionTables } from "./push-entity-projection-tables";
-export { createTestRedis, type TestRedis } from "./redis";
-export { createRequestHelper, type RequestHelper } from "./request-helper";
+} from "./db.js";
+export { drainEventConsumers } from "./drain-event-consumers.js";
+export { createEventCollector, type EventCollector } from "./event-collector.js";
+export { pushEntityProjectionTables } from "./push-entity-projection-tables.js";
+export { createTestRedis, type TestRedis } from "./redis.js";
+export { createRequestHelper, type RequestHelper } from "./request-helper.js";
 export {
   resetEventStore,
   unsafeCreateEntityTable,
   unsafeEnsureEntityTable,
   unsafePushTables,
-} from "./table-helpers";
-export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack";
+} from "./table-helpers.js";
+export { setupTestStack, type TestStack, type TestStackOptions } from "./test-stack.js";
 export {
   createTestUser,
   TestUsers,
   testTenantId,
   testUserId,
-} from "./test-users";
+} from "./test-users.js";

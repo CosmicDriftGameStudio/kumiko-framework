@@ -26,12 +26,12 @@
 // (Q12) rejects nested `r.step.return` — branch is not a mid-flight
 // exit (would trigger the discriminated-union TData-Inference trap).
 
-import { defineStep } from "../define-step";
-import { runStepList } from "../run-pipeline";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { validateNoReturnSteps } from "./_no-return-guard";
-import { resolveRequired } from "./_resolver-utils";
-import { SUSPEND_SENTINEL } from "./_step-dispatch-constants";
+import { defineStep } from "../define-step.js";
+import { runStepList } from "../run-pipeline.js";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
+import { validateNoReturnSteps } from "./_no-return-guard.js";
+import { resolveRequired } from "./_resolver-utils.js";
+import { SUSPEND_SENTINEL } from "./_step-dispatch-constants.js";
 
 type BranchArgs = {
   readonly if: StepResolver<boolean>;

@@ -10,23 +10,31 @@
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import net from "node:net";
 import postgres from "postgres";
-import { createDbConnection } from "../../db/connection";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
-import type { StoredEvent } from "../../event-store";
-import type { Logger } from "../../logging/types";
-import { type MetricEvent, RecordingMeter, registerStandardMetrics } from "../../observability";
-import { createEventDispatcher, type EventConsumer, type EventDispatcher } from "../../pipeline";
+import { createDbConnection } from "../../db/connection.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import type { StoredEvent } from "../../event-store/index.js";
+import type { Logger } from "../../logging/types.js";
+import {
+  type MetricEvent,
+  RecordingMeter,
+  registerStandardMetrics,
+} from "../../observability/index.js";
+import {
+  createEventDispatcher,
+  type EventConsumer,
+  type EventDispatcher,
+} from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
-import { testDatabaseUrl } from "../../testing/closed-connection-error";
+} from "../../stack/index.js";
+import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

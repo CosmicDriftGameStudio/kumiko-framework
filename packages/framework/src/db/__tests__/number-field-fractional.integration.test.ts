@@ -8,10 +8,10 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createNumberField } from "../../engine";
-import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createNumberField } from "../../engine/index.js";
+import { setupTestStack, type TestStack, unsafeCreateEntityTable } from "../../stack/index.js";
 
 const statsEntity = createEntity({
   table: "nff_stats",

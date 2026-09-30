@@ -5,8 +5,8 @@
 // Bun.SQL-only setup via setupTestStack.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, selectMany } from "../db/query";
-import { buildEntityTable } from "../db/table-builder";
+import { asRawClient, selectMany } from "../db/query.js";
+import { buildEntityTable } from "../db/table-builder.js";
 import {
   createDerivedField,
   createEntity,
@@ -15,8 +15,13 @@ import {
   defineEntityCreateHandler,
   defineEntityListHandler,
   defineFeature,
-} from "../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
+} from "../engine/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../stack/index.js";
 
 // `priceCents` + `name` are stored; the three derived fields are computed from
 // them (and the clock) at read-time only.

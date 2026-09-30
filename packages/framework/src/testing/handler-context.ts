@@ -6,7 +6,7 @@
 // calls without a real dispatcher). Hence the runtime classification despite
 // living under `testing/` — no vitest imports, no test side-effects.
 
-import { ANONYMOUS_ROLE } from "../engine/system-user";
+import { ANONYMOUS_ROLE } from "../engine/system-user.js";
 import type {
   AppendEventArgs,
   FetchForWritingArgs,
@@ -14,10 +14,10 @@ import type {
   MemberReader,
   SessionUser,
   WriteResult,
-} from "../engine/types";
-import { DEFAULT_LOCALE } from "../i18n/request-locale";
-import { createNoopMetricsHandle, getFallbackTracer } from "../observability";
-import { createTzContext } from "../time";
+} from "../engine/types/index.js";
+import { DEFAULT_LOCALE } from "../i18n/request-locale.js";
+import { createNoopMetricsHandle, getFallbackTracer } from "../observability/index.js";
+import { createTzContext } from "../time/index.js";
 
 // Test/service helper: cross-feature bridge methods that throw on use.
 //

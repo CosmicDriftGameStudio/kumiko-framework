@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEntity, createRegistry, defineFeature } from "../index";
-import type { AppContext, PostQueryHookFn } from "../types";
+import { createEntity, createRegistry, defineFeature } from "../index.js";
+import type { AppContext, PostQueryHookFn } from "../types/index.js";
 
 // The hooks under test never read context (they only transform rows), so a
 // stub at the cast-boundary is sufficient — no real db/redis/registry needed.

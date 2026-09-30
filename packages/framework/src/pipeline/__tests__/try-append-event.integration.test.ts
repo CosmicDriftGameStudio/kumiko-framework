@@ -22,12 +22,17 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { loadAggregate } from "../../event-store";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { loadAggregate } from "../../event-store/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 const TAE_AGGREGATE_TYPE = "taeDoc";
 

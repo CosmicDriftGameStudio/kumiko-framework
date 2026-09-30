@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { reportStanceForSource } from "../scripts/codemod/pii-personal-migration";
+import { reportStanceForSource } from "../scripts/codemod/pii-personal-migration.js";
 
 function wrapField(fieldSrc: string): string {
   return `

@@ -3,8 +3,8 @@
 
 import { describe, expect, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
-import { parseSourceFile } from "../parse";
-import { applyChanges, type HandlerHeaderUpdate, updatePattern } from "../patch";
+import { parseSourceFile } from "../parse.js";
+import { applyChanges, type HandlerHeaderUpdate, updatePattern } from "../patch.js";
 
 let fileCounter = 0;
 

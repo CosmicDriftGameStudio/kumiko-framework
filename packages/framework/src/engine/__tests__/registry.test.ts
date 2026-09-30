@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createTenantConfig } from "../config-helpers";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
-import { createRegistry } from "../registry";
-import type { FeatureDefinition } from "../types/feature";
+import { createTenantConfig } from "../config-helpers.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../factories.js";
+import { createRegistry } from "../registry.js";
+import type { FeatureDefinition } from "../types/feature.js";
 
 // Hand-built FeatureDefinition that bypasses defineFeature() — the latter
 // initializes every slot (entities, entityHooks, …) to an empty map. A

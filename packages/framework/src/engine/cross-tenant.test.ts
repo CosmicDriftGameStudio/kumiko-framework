@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { AccessDeniedError } from "../errors";
-import { crossTenantOverrideDenied } from "./cross-tenant";
-import type { SessionUser } from "./types";
+import { AccessDeniedError } from "../errors/index.js";
+import { crossTenantOverrideDenied } from "./cross-tenant.js";
+import type { SessionUser } from "./types/index.js";
 
 const KEY = "feature.errors.tenantOverrideRequiresSystemAdmin";
 

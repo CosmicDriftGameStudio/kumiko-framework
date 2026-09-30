@@ -19,12 +19,12 @@
 // numbers aren't comparable to a default-config local container.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
-import type { TenantId } from "../../engine/types";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { generateId as uuid } from "../../utils";
-import { append, loadAggregate, loadAggregateWithSnapshot, saveSnapshot } from "../index";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
+import type { TenantId } from "../../engine/types/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { generateId as uuid } from "../../utils/index.js";
+import { append, loadAggregate, loadAggregateWithSnapshot, saveSnapshot } from "../index.js";
 
 let testDb: BunTestDb;
 const tenantId = uuid() as TenantId;

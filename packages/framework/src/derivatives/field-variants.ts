@@ -1,5 +1,5 @@
 import type { VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
-import type { Registry } from "../engine/types";
+import type { Registry } from "../engine/types/index.js";
 
 // The field definition IS the whitelist: a request carries a variant NAME,
 // never a spec, so no caller can drive an arbitrary render. `hasOwn` and not

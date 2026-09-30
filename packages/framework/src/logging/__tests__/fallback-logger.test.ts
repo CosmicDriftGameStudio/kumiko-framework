@@ -5,7 +5,7 @@
 // nicht divergieren (Log-Parser/Grep-Konsistenz).
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
-import { createFallbackLogger } from "../utils";
+import { createFallbackLogger } from "../utils.js";
 
 describe("createFallbackLogger", () => {
   describe("mit wrapped logger", () => {

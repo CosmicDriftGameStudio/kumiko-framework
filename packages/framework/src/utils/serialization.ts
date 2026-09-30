@@ -1,4 +1,4 @@
-import { parseJsonSafe } from "./safe-json";
+import { parseJsonSafe } from "./safe-json.js";
 
 function toStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((e): e is string => typeof e === "string") : [];

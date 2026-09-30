@@ -20,8 +20,8 @@
 //
 // Siehe docs/plans/architecture/visual-tree.md A5.
 
-import type { TargetRef } from "./types/target-ref";
-import type { TreeActionDef } from "./types/tree-node";
+import type { TargetRef } from "./types/target-ref.js";
+import type { TreeActionDef } from "./types/tree-node.js";
 
 // FeatureWithTreeActions — internal Generic-Constraint für den Builder.
 // **Bewusst nicht exportiert** — Phase-0-Stub, wird in V.1.1 durch echte

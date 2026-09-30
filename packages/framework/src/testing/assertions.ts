@@ -1,5 +1,5 @@
-import type { WriteResult } from "../engine/types";
-import type { WriteErrorInfo } from "../errors";
+import type { WriteResult } from "../engine/types/index.js";
+import type { WriteErrorInfo } from "../errors/index.js";
 
 export function expectSuccess<T>(
   result: WriteResult<T>,

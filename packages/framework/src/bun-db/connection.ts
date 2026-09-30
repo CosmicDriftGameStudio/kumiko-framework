@@ -8,7 +8,7 @@
 
 import type { PgListenClient } from "@cosmicdrift/kumiko-types/db-connection";
 import postgres from "postgres";
-import { readPositiveIntEnv } from "../utils/env-parse";
+import { readPositiveIntEnv } from "../utils/env-parse.js";
 
 export type { PgListenClient };
 

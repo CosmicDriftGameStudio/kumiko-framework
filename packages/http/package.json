@@ -25,11 +25,17 @@
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   },
   "files": [
-    "src",
-    "!src/**/__tests__/**",
+    "dist",
+    "src/changes.json",
     "README.md",
     "LICENSE"
   ]

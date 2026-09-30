@@ -17,9 +17,9 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 
-import { compareByCodepoint } from "../utils";
-import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta";
-import { renderIndex, renderTableDdl } from "./render-ddl";
+import { compareByCodepoint } from "../utils/index.js";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";
+import { renderIndex, renderTableDdl } from "./render-ddl.js";
 
 const SNAPSHOT_VERSION = 1 as const;
 

@@ -10,8 +10,8 @@
 //   - Feature ruft eigene exposesApi via usesApi (Refactor-Leftover)
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { validateBoot } from "../boot-validator";
-import { defineFeature } from "../define-feature";
+import { validateBoot } from "../boot-validator.js";
+import { defineFeature } from "../define-feature.js";
 
 describe("validateBoot — r.exposesApi / r.usesApi", () => {
   let warnSpy: ReturnType<typeof spyOn>;

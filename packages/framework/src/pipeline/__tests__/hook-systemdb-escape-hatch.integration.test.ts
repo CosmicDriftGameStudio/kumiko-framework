@@ -6,24 +6,24 @@
 // and escape-hatch-audit.integration.test.ts (recordingSink for EscapeHatchUseEvent).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { defineUnmanagedTable } from "../../db/entity-table-meta";
-import { selectMany } from "../../db/query";
-import { createTenantDb } from "../../db/tenant-db";
+import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
+import { selectMany } from "../../db/query.js";
+import { createTenantDb } from "../../db/tenant-db.js";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
   HookPhases,
-} from "../../engine";
-import type { EscapeHatchUseEvent } from "../../engine/types";
+} from "../../engine/index.js";
+import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 const OTHER_TENANT_ID = testTenantId(2);
 const HOOK_ESCAPE_HATCH_REASON = "fw#3198 integration test — hook's own cross-tenant audit write";

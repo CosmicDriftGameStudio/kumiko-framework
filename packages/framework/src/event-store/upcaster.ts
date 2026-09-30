@@ -1,7 +1,7 @@
-import type { DbRunner } from "../db";
-import type { EventUpcastCtx, EventUpcastFn, TenantId } from "../engine/types";
-import type { StoredEvent } from "./event-store";
-import { recordUpcasterDeadLetter } from "./upcaster-dead-letter";
+import type { DbRunner } from "../db/index.js";
+import type { EventUpcastCtx, EventUpcastFn, TenantId } from "../engine/types/index.js";
+import type { StoredEvent } from "./event-store.js";
+import { recordUpcasterDeadLetter } from "./upcaster-dead-letter.js";
 
 // Error-handling contract for the upcast pass.
 //

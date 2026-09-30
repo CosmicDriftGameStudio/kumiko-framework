@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import type { TableColumns } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
+import type { TableColumns } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createEntity,
   createNumberField,
@@ -13,10 +13,15 @@ import {
   type EntityId,
   HookPhases,
   type SaveContext,
-} from "../../engine";
-import { UnprocessableError, writeFailure } from "../../errors";
-import { RedisKeys } from "../../pipeline/redis-keys";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+} from "../../engine/index.js";
+import { UnprocessableError, writeFailure } from "../../errors/index.js";
+import { RedisKeys } from "../../pipeline/redis-keys.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 // Entity: a simple "item" with name + counter
 const itemEntity = createEntity({

@@ -7,46 +7,46 @@
 // and /db as of #1631. A production call to resetPiiSubjectKmsForTests() silently
 // switches the PII layer off, and subject-annotated fields are written in
 // plaintext from then on: no error, no log.
-export { resetBlindIndexKeyForTests } from "../crypto/blind-index";
-export { resetEventPiiCatalogForTests } from "../crypto/event-pii";
-export { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption";
-export { resetEntityFieldEncryptionCacheForTests } from "../db/entity-field-encryption";
+export { resetBlindIndexKeyForTests } from "../crypto/blind-index.js";
+export { resetEventPiiCatalogForTests } from "../crypto/event-pii.js";
+export { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption.js";
+export { resetEntityFieldEncryptionCacheForTests } from "../db/entity-field-encryption.js";
 
-export { rolesOf } from "./access-assertions";
-export { expectError, expectSuccess } from "./assertions";
-export { withBootValidatorFixture } from "./boot-validator-fixture";
-export { captureClosedConnectionError } from "./closed-connection-error";
-export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup";
+export { rolesOf } from "./access-assertions.js";
+export { expectError, expectSuccess } from "./assertions.js";
+export { withBootValidatorFixture } from "./boot-validator-fixture.js";
+export { captureClosedConnectionError } from "./closed-connection-error.js";
+export { type ClearableTable, clearTables, resetTestTables } from "./db-cleanup.js";
 export {
   type E2EGeneratorOptions,
   type E2ETestSpec,
   type EditFillOp,
   generateE2ESpec,
   generateZodFixture,
-} from "./e2e-generator";
-export { expectErrorIncludes } from "./expect-error";
-export { describeFileProviderContract } from "./file-provider-contract";
-export { bridgeStub } from "./handler-context";
+} from "./e2e-generator.js";
+export { expectErrorIncludes } from "./expect-error.js";
+export { describeFileProviderContract } from "./file-provider-contract.js";
+export { bridgeStub } from "./handler-context.js";
 export {
   getSetCookieRaw,
   getSetCookies,
   getSetCookieValue,
   type ParsedSetCookie,
-} from "./http-cookies";
-export { createLateBoundHolder, type LateBoundHolder } from "./late-bound";
-export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper";
+} from "./http-cookies.js";
+export { createLateBoundHolder, type LateBoundHolder } from "./late-bound.js";
+export { buildMultipartBody, patchFileInstanceofForBunTest } from "./multipart-helper.js";
 export {
   createMutableMasterKeyProvider,
   createTestEnvelopeCipher,
   createTestMasterKeyProvider,
   type MutableMasterKeyProvider,
-} from "./mutable-master-key-provider";
+} from "./mutable-master-key-provider.js";
 export {
   createRecordingProvider,
   type RecordingProvider,
-} from "./observability-recorder";
-export { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "./real-providers";
-export { deleteRows, seedRow, seedRows, updateRows } from "./seed";
+} from "./observability-recorder.js";
+export { isRealProviderRun, REAL_PROVIDERS_ENV, requireRealProviders } from "./real-providers.js";
+export { deleteRows, seedRow, seedRows, updateRows } from "./seed.js";
 export {
   sharedItemEntity,
   sharedItemTable,
@@ -54,7 +54,7 @@ export {
   sharedUserTable,
   sharedWidgetEntity,
   sharedWidgetTable,
-} from "./shared-entities";
-export { sleep } from "./utils";
-export { waitFor } from "./wait-for";
-export { withoutAmbientTemporal } from "./without-ambient-temporal";
+} from "./shared-entities.js";
+export { sleep } from "./utils.js";
+export { waitFor } from "./wait-for.js";
+export { withoutAmbientTemporal } from "./without-ambient-temporal.js";

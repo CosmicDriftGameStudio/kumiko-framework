@@ -1,12 +1,12 @@
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
-import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership";
-import { createAnonymousUser } from "../engine/system-user";
-import type { SessionUser, TenantId } from "../engine/types";
-import { parseTenantId } from "../engine/types/identifiers";
-import { TENANT_COOKIE_NAME, TENANT_HEADER_NAME } from "./api-constants";
-import type { JwtHelper } from "./jwt";
-import { isForeignCookieOrigin } from "./origin-middleware";
+import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.js";
+import { createAnonymousUser } from "../engine/system-user.js";
+import { parseTenantId } from "../engine/types/identifiers.js";
+import type { SessionUser, TenantId } from "../engine/types/index.js";
+import { TENANT_COOKIE_NAME, TENANT_HEADER_NAME } from "./api-constants.js";
+import type { JwtHelper } from "./jwt.js";
+import { isForeignCookieOrigin } from "./origin-middleware.js";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";

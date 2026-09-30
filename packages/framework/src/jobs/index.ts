@@ -4,5 +4,5 @@ export type {
   JobOutcomeMeta,
   JobRunner,
   JobRunnerOptions,
-} from "./job-runner";
-export { createJobRunner } from "./job-runner";
+} from "./job-runner.js";
+export { createJobRunner } from "./job-runner.js";

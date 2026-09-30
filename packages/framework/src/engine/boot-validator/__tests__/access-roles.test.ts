@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import type { FeatureDefinition } from "../../types";
-import { warnOnUniqueAccessRoles } from "../access-roles";
+import type { FeatureDefinition } from "../../types/index.js";
+import { warnOnUniqueAccessRoles } from "../access-roles.js";
 
 function fakeFeature(overrides: Partial<FeatureDefinition> & { name: string }): FeatureDefinition {
   return {

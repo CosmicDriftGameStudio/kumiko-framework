@@ -1,6 +1,6 @@
 // Public API
 
-export { hasAccess } from "./access";
+export { hasAccess } from "./access.js";
 export {
   isPrincipalStatusPlugin,
   isTenantLifecycleStatusPlugin,
@@ -9,7 +9,12 @@ export {
   type PrincipalStatusPlugin,
   TENANT_TEARDOWN_STATUSES,
   type TenantLifecycleStatusPlugin,
-} from "./active-membership";
+} from "./active-membership.js";
+export {
+  PII_DIRECT_NAME_HINTS,
+  PII_USER_OWNED_NAME_HINTS,
+  PII_USER_REFERENCE_NAME_HINTS,
+} from "./boot-validator/entity-handler.js";
 export {
   collectWriteHandlerQns,
   MAX_TRANSFER_DEPTH,
@@ -17,16 +22,16 @@ export {
   type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
-} from "./boot-validator";
-export { type BuildAppSchemaOptions, buildAppSchema } from "./build-app-schema";
-export type { ConfigFeatureSchema } from "./build-config-feature-schema";
+} from "./boot-validator.js";
+export { type BuildAppSchemaOptions, buildAppSchema } from "./build-app-schema.js";
+export type { ConfigFeatureSchema } from "./build-config-feature-schema.js";
 export {
   buildConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
   SETTINGS_HUB_WORKSPACE,
-} from "./build-config-feature-schema";
-export { buildTarget } from "./build-target";
-export { type PendingChange, parseChangesetChanges } from "./changeset-changes";
+} from "./build-config-feature-schema.js";
+export { buildTarget } from "./build-target.js";
+export { type PendingChange, parseChangesetChanges } from "./changeset-changes.js";
 export {
   access,
   createSeed,
@@ -37,8 +42,8 @@ export {
   createUserConfig,
   createUserSeed,
   isEncryptedAtRest,
-} from "./config-helpers";
-export type { SystemHookName } from "./constants";
+} from "./config-helpers.js";
+export type { SystemHookName } from "./constants.js";
 export {
   ConcurrencyModes,
   ConfigScopes,
@@ -49,31 +54,31 @@ export {
   SystemHookPriorities,
   TENANT_CURRENCY_CONFIG_KEY,
   tenantChannel,
-} from "./constants";
-export type { App, AppConfig } from "./create-app";
-export { createApp } from "./create-app";
-export { crossTenantOverrideDenied } from "./cross-tenant";
-export { dedupeFeatures } from "./dedupe-features";
-export { defineFeature } from "./define-feature";
+} from "./constants.js";
+export type { App, AppConfig } from "./create-app.js";
+export { createApp } from "./create-app.js";
+export { crossTenantOverrideDenied } from "./cross-tenant.js";
+export { dedupeFeatures } from "./dedupe-features.js";
+export { defineFeature } from "./define-feature.js";
 export type {
   PagedQueryHandlerDefinition,
   QueryHandlerDefinition,
   StreamHandlerDefinition,
   WriteHandlerDefinition,
   WriteHandlerInput,
-} from "./define-handler";
+} from "./define-handler.js";
 export {
   definePagedQueryHandler,
   defineQueryHandler,
   defineWriteHandler,
   isPagedQueryHandler,
-} from "./define-handler";
-export { defineRoles } from "./define-roles";
-export { defineStep, getStep, listStepKinds } from "./define-step";
-export type { WorkflowDefinition, WorkflowInput, WorkflowTrigger } from "./define-workflow";
-export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow";
-export type { ToggleReader } from "./effective-features";
-export { computeEffectiveFeatures, isToggleableFeature } from "./effective-features";
+} from "./define-handler.js";
+export { defineRoles } from "./define-roles.js";
+export { defineStep, getStep, listStepKinds } from "./define-step.js";
+export type { WorkflowDefinition, WorkflowInput, WorkflowTrigger } from "./define-workflow.js";
+export { computeDefinitionFingerprint, defineWorkflow } from "./define-workflow.js";
+export type { ToggleReader } from "./effective-features.js";
+export { computeEffectiveFeatures, isToggleableFeature } from "./effective-features.js";
 export {
   createEntityExecutor,
   defineEntityCreateHandler,
@@ -94,11 +99,11 @@ export {
   MAX_LIST_LIMIT,
   type RegisterEntityCrudOptions,
   registerEntityCrud,
-} from "./entity-handlers";
-export { declareEscapeHatch } from "./escape-hatch-declaration";
-export type { EmitCtx } from "./event-helpers";
-export { emitEvent, typedPayload } from "./event-helpers";
-export type { KumikoExtensionName, TenantResourceExtensionName } from "./extension-names";
+} from "./entity-handlers.js";
+export { declareEscapeHatch } from "./escape-hatch-declaration.js";
+export type { EmitCtx } from "./event-helpers.js";
+export { emitEvent, typedPayload } from "./event-helpers.js";
+export type { KumikoExtensionName, TenantResourceExtensionName } from "./extension-names.js";
 export {
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
@@ -117,31 +122,31 @@ export {
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
   FILE_STORAGE_PROVIDER_ENV,
   TENANT_MEMBERSHIPS_QUERY,
-} from "./extension-names";
+} from "./extension-names.js";
 export {
   EXTENSION_SELECTOR_HINT_KEY,
   extensionSelectorTargets,
   SELECTED_EXTENSIONS_QUERY,
   selectablePluginIds,
-} from "./extension-selector-plugins";
-export { extensionUsageEscapeHatchReason } from "./extensions/escape-hatch-usage";
+} from "./extension-selector-plugins.js";
+export { extensionUsageEscapeHatchReason } from "./extensions/escape-hatch-usage.js";
 export type {
   StorageProviderDestroyTenantHook,
   StorageProviderExtensionHooks,
   StorageProviderHookCtx,
-} from "./extensions/storage-provider";
+} from "./extensions/storage-provider.js";
 export {
   isTenantDataExtensionHooks,
   type TenantDataDestroyHook,
   type TenantDataExtensionHooks,
   type TenantDataHookCtx,
-} from "./extensions/tenant-data";
+} from "./extensions/tenant-data.js";
 export {
   isTenantResourceExtensionHooks,
   type TenantResourceDestroyHook,
   type TenantResourceExtensionHooks,
   type TenantResourceHookCtx,
-} from "./extensions/tenant-resource";
+} from "./extensions/tenant-resource.js";
 export type {
   TenantUserModel,
   UserDataDeleteHook,
@@ -152,7 +157,7 @@ export type {
   UserDataExtensionOptions,
   UserDataHookCtx,
   UserDataStorageProvider,
-} from "./extensions/user-data";
+} from "./extensions/user-data.js";
 export {
   createBigIntField,
   createBooleanField,
@@ -176,7 +181,7 @@ export {
   createTextField,
   createTimestampField,
   createTzField,
-} from "./factories";
+} from "./factories.js";
 // AST inspection + patching pipeline — used by the CLI scaffolder, the
 // Designer (C5/C6), and the AI-Builder (L2). See feature-ast/index.ts
 // for the full surface area; we re-export the most-used types/functions
@@ -203,7 +208,7 @@ export type {
   PatternId,
   RenderFeatureFileInput,
   SourceLocation,
-} from "./feature-ast";
+} from "./feature-ast/index.js";
 export {
   addPattern,
   applyChanges,
@@ -220,7 +225,7 @@ export {
   replacePattern,
   updatePattern,
   VERSION_HEADER,
-} from "./feature-ast";
+} from "./feature-ast/index.js";
 export {
   type ChangelogEntry,
   type ChangelogType,
@@ -230,7 +235,7 @@ export {
   parseFeatureChangelog,
   sortEntries,
   validateChangelog,
-} from "./feature-changelog";
+} from "./feature-changelog.js";
 export {
   type BuildManifestOptions,
   buildManifestFromRegistry,
@@ -240,14 +245,14 @@ export {
   type ManifestFeature,
   type ManifestSecret,
   serializeManifest,
-} from "./feature-manifest";
+} from "./feature-manifest.js";
 export {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,
   filterReadFields,
-} from "./field-access";
-export { resolveName, withResponseData } from "./handler-helpers";
-export { i18nKey } from "./i18n-key";
+} from "./field-access.js";
+export { resolveName, withResponseData } from "./handler-helpers.js";
+export { i18nKey } from "./i18n-key.js";
 // findForbiddenMembershipRole/isForbiddenMembershipRole/
 // stripForbiddenMembershipRoles/buildSessionRoles are Public API for host
 // apps that build their own membership handlers. FORBIDDEN_MEMBERSHIP_ROLES
@@ -259,8 +264,8 @@ export {
   findForbiddenMembershipRole,
   isForbiddenMembershipRole,
   stripForbiddenMembershipRoles,
-} from "./membership-roles";
-export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership";
+} from "./membership-roles.js";
+export type { OwnershipClause, OwnershipMap, OwnershipRef, OwnershipRule } from "./ownership.js";
 export {
   buildOwnershipClause,
   combineClauses,
@@ -269,23 +274,23 @@ export {
   userCanCreateFieldRow,
   userCanReadFieldRow,
   userCanWriteFieldRow,
-} from "./ownership";
-export type { ParsedRefTarget } from "./parse-ref-target";
-export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target";
-export { buildPipelineSteps, stepsPipeline } from "./pipeline";
-export { projectAppSchemaForRoles } from "./project-app-schema-for-roles";
-export { defineApply, defineMspApply, setFields } from "./projection-helpers";
-export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name";
-export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name";
-export { readClaim } from "./read-claim";
-export { createRegistry } from "./registry";
-export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param";
-export { resolveConfigOrParam } from "./resolve-config-or-param";
-export { findForbiddenRoleAssignment } from "./role-assignment";
-export { runsInLane } from "./run-in";
-export type { StepListOutcome } from "./run-pipeline";
-export { runPipeline, runStepList } from "./run-pipeline";
-export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-builder";
+} from "./ownership.js";
+export type { ParsedRefTarget } from "./parse-ref-target.js";
+export { parseRefTarget, parseRefTargetEntityName } from "./parse-ref-target.js";
+export { buildPipelineSteps, stepsPipeline } from "./pipeline.js";
+export { projectAppSchemaForRoles } from "./project-app-schema-for-roles.js";
+export { defineApply, defineMspApply, setFields } from "./projection-helpers.js";
+export type { BuiltinQnType, ParsedQn, QnType } from "./qualified-name.js";
+export { isValidQn, parseQn, QnTypes, qn, toKebab } from "./qualified-name.js";
+export { readClaim } from "./read-claim.js";
+export { createRegistry } from "./registry.js";
+export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param.js";
+export { resolveConfigOrParam } from "./resolve-config-or-param.js";
+export { findForbiddenRoleAssignment } from "./role-assignment.js";
+export { runsInLane } from "./run-in.js";
+export type { StepListOutcome } from "./run-pipeline.js";
+export { runPipeline, runStepList } from "./run-pipeline.js";
+export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-builder.js";
 export {
   isExtensionEditSection,
   isFieldsEditSection,
@@ -293,10 +298,10 @@ export {
   normalizeEditField,
   normalizeListColumn,
   sectionFieldSpecs,
-} from "./screen-helpers";
-export type { TransitionGraph } from "./state-machine";
-export { defineTransitions, guardTransition } from "./state-machine";
-export { evaluateEventMatch } from "./steps/_event-match";
+} from "./screen-helpers.js";
+export type { TransitionGraph } from "./state-machine.js";
+export { defineTransitions, guardTransition } from "./state-machine.js";
+export { evaluateEventMatch } from "./steps/_event-match.js";
 export {
   STEP_DISPATCH_AGGREGATE_TYPE,
   STEP_DISPATCH_FAILED_TYPE,
@@ -311,8 +316,8 @@ export {
   WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
-} from "./steps/_step-dispatch-constants";
-export { describeWorkflowStepError } from "./steps/describe-workflow-step-error";
+} from "./steps/_step-dispatch-constants.js";
+export { describeWorkflowStepError } from "./steps/describe-workflow-step-error.js";
 export {
   ANONYMOUS_ROLE,
   ANONYMOUS_USER_ID,
@@ -320,7 +325,7 @@ export {
   createSystemUser,
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
-} from "./system-user";
+} from "./system-user.js";
 export {
   type EffectiveFeaturesResolver,
   findTierResolverUsage,
@@ -328,7 +333,8 @@ export {
   TENANT_TIER_RESOLVER_EXT,
   type TierResolverPlugin,
   type TrialGate,
-} from "./tier-resolver-extension";
+} from "./tier-resolver-extension.js";
+export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers.js";
 // Types
 export type {
   AccessRule,
@@ -559,7 +565,7 @@ export type {
   WriteHandlerDef,
   WriteHandlerFn,
   WriteResult,
-} from "./types";
+} from "./types/index.js";
 export {
   DEFAULT_CURRENCIES,
   DEFAULT_LOCALES,
@@ -567,8 +573,7 @@ export {
   isAgentVisibleScreen,
   isOpenToAllGranted,
   resolveAgentExposure,
-} from "./types";
-export { isSystemTenant, isUuid, parseTenantId, SYSTEM_TENANT_ID } from "./types/identifiers";
+} from "./types/index.js";
 export type {
   AwaitedEventType,
   PipelineBuildCtx,
@@ -581,5 +586,5 @@ export type {
   StepKind,
   StepNamespace,
   StepResolver,
-} from "./types/step";
-export { runValidation } from "./validation";
+} from "./types/step.js";
+export { runValidation } from "./validation.js";

@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from "hono";
-import { PII_CIPHERTEXT_PREFIX } from "../crypto";
+import { PII_CIPHERTEXT_PREFIX } from "../crypto/index.js";
 
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
 // Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any

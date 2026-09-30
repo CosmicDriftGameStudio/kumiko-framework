@@ -40,15 +40,19 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { readNameLiteral, readNameOrRef, resolveSameFileObjectLiteral } from "./extractors/shared";
+import {
+  readNameLiteral,
+  readNameOrRef,
+  resolveSameFileObjectLiteral,
+} from "./extractors/shared.js";
 import type {
   FeaturePattern,
   FeaturePatternKind,
   QueryHandlerPattern,
   StreamHandlerPattern,
   WriteHandlerPattern,
-} from "./patterns";
-import { indent, PATTERN_INDENT, renderPattern, renderValue } from "./render";
+} from "./patterns.js";
+import { indent, PATTERN_INDENT, renderPattern, renderValue } from "./render.js";
 
 // =============================================================================
 // PatternId — natural-key per pattern kind

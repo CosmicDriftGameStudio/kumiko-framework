@@ -8,12 +8,12 @@ import {
   createTextField,
   defineFeature,
   type TenantId,
-} from "../../engine";
-import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher";
-import { createTestUser, TestUsers } from "../../stack";
-import { waitFor } from "../../testing";
-import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes";
-import { buildServer } from "../server";
+} from "../../engine/index.js";
+import type { BatchResult, Dispatcher, WriteResult } from "../../pipeline/dispatcher.js";
+import { createTestUser, TestUsers } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { createApiRoutes, MAX_PAYLOAD_DEPTH, pumpStream, StreamFrame } from "../routes.js";
+import { buildServer } from "../server.js";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 

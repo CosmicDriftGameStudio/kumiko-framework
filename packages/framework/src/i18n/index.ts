@@ -1,20 +1,20 @@
-import type { Registry, TranslationKeys } from "../engine/types";
-import { resolveTranslationValue } from "../ui-types/plural";
+import type { Registry, TranslationKeys } from "../engine/types/index.js";
+import { resolveTranslationValue } from "../ui-types/plural.js";
 
 export {
   hasMailTranslations,
   mailT,
   registerMailTranslations,
   resolveMailLocale,
-} from "./mail-registry";
+} from "./mail-registry.js";
 export {
   canonicalizeLocaleTag,
   DEFAULT_LOCALE,
   isValidLocaleTag,
   pickAcceptLanguage,
   resolveHeaderLocale,
-} from "./request-locale";
-export { SETTINGS_HUB_I18N } from "./settings-hub-keys";
+} from "./request-locale.js";
+export { SETTINGS_HUB_I18N } from "./settings-hub-keys.js";
 
 export type I18nOptions = {
   defaultLocale: string;

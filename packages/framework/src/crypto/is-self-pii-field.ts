@@ -1,4 +1,4 @@
-import type { EntityDefinition } from "../engine/types/fields";
+import type { EntityDefinition } from "../engine/types/fields.js";
 
 type AnyField = EntityDefinition["fields"][string];
 

@@ -8,11 +8,11 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature, type SessionUser } from "../../engine";
-import type { TenantId } from "../../engine/types/identifiers";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
-import type { TokenVerifier } from "../auth-middleware";
-import type { UserExtraRoute } from "../extra-route";
+import { defineFeature, type SessionUser } from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import type { TokenVerifier } from "../auth-middleware.js";
+import type { UserExtraRoute } from "../extra-route.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const PAT_TEST_TOKEN = "kpat_route-guard-test-token";

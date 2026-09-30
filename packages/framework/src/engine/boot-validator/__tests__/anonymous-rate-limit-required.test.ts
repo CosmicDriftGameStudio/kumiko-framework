@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature";
-import { validateHandlerAccess } from "../entity-handler";
+import { defineFeature } from "../../define-feature.js";
+import { validateHandlerAccess } from "../entity-handler.js";
 
 describe("validateHandlerAccess — anonymous handlers require a rateLimit", () => {
   test("an anonymous handler with no rateLimit throws, naming the handler", () => {

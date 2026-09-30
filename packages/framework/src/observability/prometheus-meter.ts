@@ -22,8 +22,15 @@
 // for dev), they can build a composite meter that forwards to both —
 // PrometheusMeter is a leaf, not an aggregator.
 
-import { validateLabelKey } from "./metric-validator";
-import type { Counter, Gauge, Histogram, Meter, MetricDefinition, MetricLabels } from "./types";
+import { validateLabelKey } from "./metric-validator.js";
+import type {
+  Counter,
+  Gauge,
+  Histogram,
+  Meter,
+  MetricDefinition,
+  MetricLabels,
+} from "./types/index.js";
 
 // Default buckets follow Prometheus' histogram convention (seconds-scale).
 // Callers can override per-metric via MetricDefinition.buckets.

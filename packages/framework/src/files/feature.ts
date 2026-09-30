@@ -1,8 +1,8 @@
-import { defineFeature, type FeatureDefinition } from "../engine";
-import { fileRefEntity } from "./file-ref-entity";
-import type { FileAccessGuard } from "./file-routes";
+import { defineFeature, type FeatureDefinition } from "../engine/index.js";
+import { fileRefEntity } from "./file-ref-entity.js";
+import type { FileAccessGuard } from "./file-routes.js";
 
-export { fileRefEntity } from "./file-ref-entity";
+export { fileRefEntity } from "./file-ref-entity.js";
 
 // Upload-route policy. buildServer reads these off the `files` feature's
 // exports (no parallel ServerOptions surface) and applies them to the

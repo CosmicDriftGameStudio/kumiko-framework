@@ -15,12 +15,12 @@
 // dispatcher's catch maps it to the standard write-failure shape on the
 // HTTP response.
 
-import type { EventStoreExecutor } from "../../db/event-store-executor";
-import { reraiseAsKumikoError } from "../../errors/write-error-info";
-import { defineStep } from "../define-step";
-import type { SaveContext } from "../types/hooks";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { resolveRequired } from "./_resolver-utils";
+import type { EventStoreExecutor } from "../../db/event-store-executor.js";
+import { reraiseAsKumikoError } from "../../errors/write-error-info.js";
+import { defineStep } from "../define-step.js";
+import type { SaveContext } from "../types/hooks.js";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
+import { resolveRequired } from "./_resolver-utils.js";
 
 type AggregateCreateArgs = {
   readonly name: string;

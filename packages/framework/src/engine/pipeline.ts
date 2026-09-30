@@ -13,31 +13,31 @@
 // lifecycle, outbox-poller), which made repo-wide grep for `pipeline`
 // return mixed results.
 
-import { buildAggregateAppendEventStep } from "./steps/aggregate-append-event";
-import { buildAggregateCreateStep } from "./steps/aggregate-create";
-import { buildAggregateUpdateStep } from "./steps/aggregate-update";
-import { buildBranchStep } from "./steps/branch";
-import { buildCallFeatureStep } from "./steps/call-feature";
-import { buildComputeStep } from "./steps/compute";
-import { buildForEachStep } from "./steps/for-each";
-import { buildMailSendStep } from "./steps/mail-send";
-import { buildReadFindManyStep } from "./steps/read-find-many";
-import { buildReadFindOneStep } from "./steps/read-find-one";
-import { buildRetryStep } from "./steps/retry";
-import { buildReturnStep } from "./steps/return";
-import { buildUnsafeProjectionDeleteStep } from "./steps/unsafe-projection-delete";
-import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert";
-import { buildWaitStep } from "./steps/wait";
-import { buildWaitForEventStep } from "./steps/wait-for-event";
-import { buildWebhookSendStep } from "./steps/webhook-send";
-import type { WriteEvent } from "./types/handlers";
+import { buildAggregateAppendEventStep } from "./steps/aggregate-append-event.js";
+import { buildAggregateCreateStep } from "./steps/aggregate-create.js";
+import { buildAggregateUpdateStep } from "./steps/aggregate-update.js";
+import { buildBranchStep } from "./steps/branch.js";
+import { buildCallFeatureStep } from "./steps/call-feature.js";
+import { buildComputeStep } from "./steps/compute.js";
+import { buildForEachStep } from "./steps/for-each.js";
+import { buildMailSendStep } from "./steps/mail-send.js";
+import { buildReadFindManyStep } from "./steps/read-find-many.js";
+import { buildReadFindOneStep } from "./steps/read-find-one.js";
+import { buildRetryStep } from "./steps/retry.js";
+import { buildReturnStep } from "./steps/return.js";
+import { buildUnsafeProjectionDeleteStep } from "./steps/unsafe-projection-delete.js";
+import { buildUnsafeProjectionUpsertStep } from "./steps/unsafe-projection-upsert.js";
+import { buildWaitStep } from "./steps/wait.js";
+import { buildWaitForEventStep } from "./steps/wait-for-event.js";
+import { buildWebhookSendStep } from "./steps/webhook-send.js";
+import type { WriteEvent } from "./types/handlers.js";
 import type {
   AwaitedEventType,
   PipelineBuildCtx,
   PipelineDef,
   StepBuilder,
   StepInstance,
-} from "./types/step";
+} from "./types/step.js";
 
 const stepBuilder: StepBuilder = {
   step: {

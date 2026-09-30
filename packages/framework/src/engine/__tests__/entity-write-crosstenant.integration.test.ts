@@ -14,18 +14,18 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { EscapeHatchUseEvent } from "@cosmicdrift/kumiko-types/handlers";
-import { selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { eventsTable } from "../../event-store";
-import type { Logger } from "../../logging/types";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { eventsTable } from "../../event-store/index.js";
+import type { Logger } from "../../logging/types.js";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { DEPRECATED_CROSS_TENANT_SIGNAL } from "../entity-handlers";
+} from "../../stack/index.js";
+import { DEPRECATED_CROSS_TENANT_SIGNAL } from "../entity-handlers.js";
 import {
   createEntity,
   createTextField,
@@ -34,7 +34,7 @@ import {
   defineEntityUpdateHandler,
   defineFeature,
   from,
-} from "../index";
+} from "../index.js";
 
 // "Admin" passes unconditionally (any tenant may create its own rows).
 // "SystemAdmin" is tenant-scoped — this is the entity-level rule the

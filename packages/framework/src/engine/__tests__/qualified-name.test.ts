@@ -7,8 +7,8 @@ import {
   QnTypes,
   qn,
   toKebab,
-} from "../qualified-name";
-import type { CamelToKebab } from "../types/handlers";
+} from "../qualified-name.js";
+import type { CamelToKebab } from "../types/handlers.js";
 
 describe("qn()", () => {
   test("builds scope:type:name string", () => {

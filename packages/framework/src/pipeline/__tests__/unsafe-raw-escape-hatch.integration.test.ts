@@ -5,9 +5,9 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { executeRawQuery } from "../../db/queries/raw-sql";
-import { defineFeature } from "../../engine";
-import { createTestUser, setupTestStack, type TestStack } from "../../stack";
+import { executeRawQuery } from "../../db/queries/raw-sql.js";
+import { defineFeature } from "../../engine/index.js";
+import { createTestUser, setupTestStack, type TestStack } from "../../stack/index.js";
 
 const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
   r.writeHandler({

@@ -1,13 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
-import { validateBoot as validateBootRaw } from "../boot-validator";
-import { createTenantConfig } from "../config-helpers";
-import { defineFeature } from "../define-feature";
-import { defineEntityListHandler } from "../entity-handlers";
-import { createDerivedField, createEntity, createTextField } from "../factories";
-import { createRegistry } from "../registry";
-import type { ScreenDefinition } from "../types/screen";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.js";
+import { createTenantConfig } from "../config-helpers.js";
+import { defineFeature } from "../define-feature.js";
+import { defineEntityListHandler } from "../entity-handlers.js";
+import { createDerivedField, createEntity, createTextField } from "../factories.js";
+import { createRegistry } from "../registry.js";
+import type { ScreenDefinition } from "../types/screen.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

@@ -3,7 +3,7 @@
 // without repeating an 8-field boilerplate that breaks silently when the
 // Lifecycle interface grows.
 
-import type { Lifecycle } from "../lifecycle";
+import type { Lifecycle } from "../lifecycle.js";
 
 export function createTestLifecycle(overrides: Partial<Lifecycle> = {}): Lifecycle {
   const defaults: Lifecycle = {

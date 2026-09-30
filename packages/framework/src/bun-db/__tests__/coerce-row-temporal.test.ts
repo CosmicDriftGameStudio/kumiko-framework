@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { coerceRow, type TableInfo } from "../query";
+import { coerceRow, type TableInfo } from "../query.js";
 
 function timestamptzTableInfo(): TableInfo {
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { generateDeterministicId, generateId } from "../ids";
+import { generateDeterministicId, generateId } from "../ids.js";
 
 // generateId is the row/stream/correlation ID source. The callers rely on
 // it being a UUIDv7 (time-sortable → dense B-Tree indexes), not a v4 — a

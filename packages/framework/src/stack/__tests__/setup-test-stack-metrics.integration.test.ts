@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine";
-import { resolveObservabilityWiring } from "../../observability/metrics-wiring";
-import { setupTestStack, type TestStack } from "../test-stack";
-import { TestUsers } from "../test-users";
+import { defineFeature } from "../../engine/index.js";
+import { resolveObservabilityWiring } from "../../observability/metrics-wiring.js";
+import { setupTestStack, type TestStack } from "../test-stack.js";
+import { TestUsers } from "../test-users.js";
 
 const METRICS_TOKEN = "setup-test-stack-metrics-token-minimum-32-chars!!";
 

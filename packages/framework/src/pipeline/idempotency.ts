@@ -1,7 +1,7 @@
-import type Redis from "ioredis";
-import { InternalError } from "../errors";
-import { generateId } from "../utils";
-import { RedisKeys } from "./redis-keys";
+import type { Redis } from "ioredis";
+import { InternalError } from "../errors/index.js";
+import { generateId } from "../utils/index.js";
+import { RedisKeys } from "./redis-keys.js";
 
 // Discriminated so a truthy "acquired" object can never be misread as a
 // cache hit by a callsite doing `if (result)` — the caller must switch on

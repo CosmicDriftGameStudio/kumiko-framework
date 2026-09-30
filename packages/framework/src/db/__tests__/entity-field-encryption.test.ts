@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine";
-import { createTestEnvelopeCipher } from "../../testing";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { createTestEnvelopeCipher } from "../../testing/index.js";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
   validateEntityFieldEncryptionAvailable,
-} from "../entity-field-encryption";
+} from "../entity-field-encryption.js";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 

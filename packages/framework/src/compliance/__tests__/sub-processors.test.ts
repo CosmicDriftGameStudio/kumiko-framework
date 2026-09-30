@@ -9,7 +9,7 @@ import {
   getActiveSubProcessors,
   getPlannedSubProcessors,
   KUMIKO_SUB_PROCESSORS,
-} from "../sub-processors";
+} from "../sub-processors.js";
 
 describe("KUMIKO_SUB_PROCESSORS", () => {
   test("Liste ist nicht leer (Plattform hat mindestens Hetzner+Cloudflare)", () => {

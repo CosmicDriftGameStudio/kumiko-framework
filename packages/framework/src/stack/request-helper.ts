@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
-import type { SessionCreator } from "../api/auth-routes";
-import type { JwtHelper } from "../api/jwt";
-import type { SessionUser } from "../engine/types";
+import type { SessionCreator } from "../api/auth-routes.js";
+import type { JwtHelper } from "../api/jwt.js";
+import type { SessionUser } from "../engine/types/index.js";
 
 export type BatchCommand = { type: string; payload: unknown };
 
@@ -77,7 +77,7 @@ export type RequestHelper = {
     type: string,
     payload: unknown,
     user: SessionUser,
-  ) => Promise<import("../errors").WriteErrorInfo>;
+  ) => Promise<import("../errors/index.js").WriteErrorInfo>;
   /** query + json — returns data directly */
   queryOk: <T = unknown>(type: string, payload: unknown, user: SessionUser) => Promise<T>;
   /** query + json + assert the response is an error — returns the structured
@@ -86,7 +86,7 @@ export type RequestHelper = {
     type: string,
     payload: unknown,
     user: SessionUser,
-  ) => Promise<import("../errors").WriteErrorInfo>;
+  ) => Promise<import("../errors/index.js").WriteErrorInfo>;
 
   /** write + additional HTTP headers (e.g. X-Correlation-ID). Returns the
    *  raw Response so callers can assert on status + headers + body as needed. */
@@ -221,13 +221,13 @@ export function createRequestHelper(
       type: string,
       payload: unknown,
       user: SessionUser,
-    ): Promise<import("../errors").WriteErrorInfo> {
+    ): Promise<import("../errors/index.js").WriteErrorInfo> {
       const res = await writeRaw(type, payload, user);
       const rawErrorBody = await res.json();
       const body = rawErrorBody as {
         // @cast-boundary engine-bridge
         isSuccess?: boolean;
-        error?: Omit<import("../errors").WriteErrorInfo, "httpStatus">;
+        error?: Omit<import("../errors/index.js").WriteErrorInfo, "httpStatus">;
       };
       if (body.isSuccess === true) {
         throw new Error(`Expected write "${type}" to fail but it succeeded`);
@@ -264,12 +264,12 @@ export function createRequestHelper(
       type: string,
       payload: unknown,
       user: SessionUser,
-    ): Promise<import("../errors").WriteErrorInfo> {
+    ): Promise<import("../errors/index.js").WriteErrorInfo> {
       const res = await queryRaw(type, payload, user);
       const rawErrorBody = await res.json();
       const body = rawErrorBody as {
         // @cast-boundary engine-bridge
-        error?: Omit<import("../errors").WriteErrorInfo, "httpStatus">;
+        error?: Omit<import("../errors/index.js").WriteErrorInfo, "httpStatus">;
       };
       if (res.ok) {
         throw new Error(`Expected query "${type}" to fail but it succeeded`);

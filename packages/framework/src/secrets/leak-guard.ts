@@ -4,8 +4,8 @@
 // response body becomes a runtime error at the handler boundary rather
 // than a silent exfiltration to the client.
 
-import { InternalError } from "../errors";
-import { isSecret } from "./types";
+import { InternalError } from "../errors/index.js";
+import { isSecret } from "./types.js";
 
 // Maximum depth the walker descends. A legitimate result tree is rarely
 // deeper than a few levels; the cap is a safety net against cyclic or

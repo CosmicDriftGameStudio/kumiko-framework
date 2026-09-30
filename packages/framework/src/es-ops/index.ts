@@ -13,22 +13,22 @@
 export {
   type CreateSeedMigrationContextArgs,
   createSeedMigrationContext,
-} from "./context";
+} from "./context.js";
 export {
   createEsOperationsTable,
   type EsOperationAppliedBy,
   type EsOperationType,
   esOperationsTable,
-} from "./operations-schema";
+} from "./operations-schema.js";
 export {
   type RunPendingSeedMigrationsArgs,
   type RunPendingSeedMigrationsResult,
   runPendingSeedMigrations,
-} from "./runner";
+} from "./runner.js";
 export type {
   SeedMembershipRow,
   SeedMigration,
   SeedMigrationContext,
   SeedTenantRow,
   SeedUserRow,
-} from "./types";
+} from "./types.js";

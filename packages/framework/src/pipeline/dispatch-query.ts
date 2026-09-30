@@ -1,17 +1,17 @@
-import type { DbRow, DbTx } from "../db/connection";
-import { hasAccess } from "../engine/access";
-import { filterReadFields } from "../engine/field-access";
-import type { QueryHandlerDef, SessionUser } from "../engine/types";
-import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors";
-import { assertNoSecretLeak } from "../secrets";
-import type { DispatchContext, WriteOrigin } from "./dispatch-shared";
+import type { DbRow, DbTx } from "../db/connection.js";
+import { hasAccess } from "../engine/access.js";
+import { filterReadFields } from "../engine/field-access.js";
+import type { QueryHandlerDef, SessionUser } from "../engine/types/index.js";
+import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors/index.js";
+import { assertNoSecretLeak } from "../secrets/index.js";
+import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
 import {
   buildHandlerContext,
   enforceRateLimit,
   ensureFeatureEnabled,
   runHandlerInstrumented,
-} from "./dispatch-shared";
-import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction";
+} from "./dispatch-shared.js";
+import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.js";
 
 // Standalone query execution — used by the public dispatcher.query() and
 // by ctx.query/ctx.queryAs inside handlers. Runs the handler, applies

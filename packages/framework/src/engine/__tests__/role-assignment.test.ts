@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { findForbiddenRoleAssignment } from "../role-assignment";
+import { findForbiddenRoleAssignment } from "../role-assignment.js";
 
 // Mirror DEFAULT_INVITE_ROLE_OPTIONS — framework must not import bundled-features
 // (tsc pulls source into framework's rootDir and fails the package build).

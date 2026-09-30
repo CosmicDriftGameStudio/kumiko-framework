@@ -1,15 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { buildServer } from "../../api/server";
-import { createRegistry, defineFeature } from "../../engine";
-import type { AppContext, Registry } from "../../engine/types";
+import { buildServer } from "../../api/server.js";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import type { AppContext, Registry } from "../../engine/types/index.js";
 import {
   createNoopProvider,
   createPrometheusMeter,
   registerStandardMetrics,
-} from "../../observability";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { waitFor } from "../../testing";
-import { createJobRunner } from "../job-runner";
+} from "../../observability/index.js";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { createJobRunner } from "../job-runner.js";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";
 const SUCCEEDS = "liveness:job:succeeds";

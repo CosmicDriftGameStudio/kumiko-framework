@@ -4,11 +4,11 @@
 // row at all. Without the guard such a map boots and only ever denies.
 
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../../define-feature";
-import { createEntity, createTextField } from "../../factories";
-import type { ClaimKeyDefinition, FeatureDefinition } from "../../types";
-import type { OwnershipMap, WhereRule } from "../../types/ownership";
-import { validateOwnershipRules } from "../ownership";
+import { defineFeature } from "../../define-feature.js";
+import { createEntity, createTextField } from "../../factories.js";
+import type { ClaimKeyDefinition, FeatureDefinition } from "../../types/index.js";
+import type { OwnershipMap, WhereRule } from "../../types/ownership.js";
+import { validateOwnershipRules } from "../ownership.js";
 
 const NO_CLAIMS: ReadonlyMap<string, ClaimKeyDefinition> = new Map();
 // Empty corpus keeps canValidateRoles() false, so role-existence checks

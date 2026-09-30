@@ -22,9 +22,9 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
-} from "../../engine";
-import type { ReferenceFieldDef } from "../../engine/types";
-import { buildEntityTable } from "../table-builder";
+} from "../../engine/index.js";
+import type { ReferenceFieldDef } from "../../engine/types/index.js";
+import { buildEntityTable } from "../table-builder.js";
 
 // Reference-fields haben keinen Factory-Helper — direkt-typed inline.
 function refField(args: Omit<ReferenceFieldDef, "type">): ReferenceFieldDef {

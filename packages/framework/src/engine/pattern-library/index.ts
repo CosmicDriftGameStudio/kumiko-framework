@@ -1,7 +1,7 @@
 // Public API of the pattern-library — Designer (C5/C6), AI-Builder (L2),
 // MCP-Server (L9) consume from here.
 
-export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "./library";
+export { getPatternSchema, groupByCategory, PATTERN_LIBRARY } from "./library.js";
 export type {
   BooleanField,
   CodeBlockField,
@@ -21,4 +21,4 @@ export type {
   StringListField,
   TextareaField,
   TextField,
-} from "./types";
+} from "./types.js";

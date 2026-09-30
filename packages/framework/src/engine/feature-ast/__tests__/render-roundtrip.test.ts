@@ -11,9 +11,9 @@
 import { describe, expect, test } from "bun:test";
 import * as path from "node:path";
 import { Project, ts } from "ts-morph";
-import { parseSourceFile } from "../parse";
-import type { FeaturePattern } from "../patterns";
-import { indent, renderFeatureFile, renderPattern } from "../render";
+import { parseSourceFile } from "../parse.js";
+import type { FeaturePattern } from "../patterns.js";
+import { indent, renderFeatureFile, renderPattern } from "../render.js";
 
 const STATIC_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

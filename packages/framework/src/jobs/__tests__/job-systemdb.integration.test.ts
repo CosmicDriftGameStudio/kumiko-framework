@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { tenantDbRunner } from "../../db/tenant-db-runner";
-import { createRegistry, defineFeature, type Registry } from "../../engine";
-import { createTestRedis, type TestRedis, testTenantId } from "../../stack";
-import { waitFor } from "../../testing";
-import { createJobRunner, type JobRunner } from "../job-runner";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { tenantDbRunner } from "../../db/tenant-db-runner.js";
+import { createRegistry, defineFeature, type Registry } from "../../engine/index.js";
+import { createTestRedis, type TestRedis, testTenantId } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { createJobRunner, type JobRunner } from "../job-runner.js";
 
 // r.systemScope() is feature-level (define-feature.ts), not per-job — so two
 // features prove both sides, mirroring pipeline/__tests__/ctx-systemdb.integration.test.ts

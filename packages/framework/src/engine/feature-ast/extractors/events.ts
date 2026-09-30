@@ -1,8 +1,8 @@
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
-import type { DefineEventPattern, NotificationPattern } from "../patterns";
-import type { SourceLocation } from "../source-location";
-import { sourceLocationFromNode } from "../source-location";
+import type { DefineEventPattern, NotificationPattern } from "../patterns.js";
+import type { SourceLocation } from "../source-location.js";
+import { sourceLocationFromNode } from "../source-location.js";
 import {
   type ExtractOutput,
   fail,
@@ -13,7 +13,7 @@ import {
   readNameLiteralRef,
   readNameOrRef,
   readPropertyKey,
-} from "./shared";
+} from "./shared.js";
 
 // Reads defineEvent's `migrations` option — either the array-of-steps shape
 // used by hand-authored calls (`[{ fromVersion, toVersion, transform }]`,

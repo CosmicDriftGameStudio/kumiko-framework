@@ -5,12 +5,17 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRows } from "@cosmicdrift/kumiko-framework/testing";
-import { createEntity, createTextField } from "../../engine";
-import { NotFoundError } from "../../errors";
-import { setupTestStack, type TestStack, testTenantId, unsafeCreateEntityTable } from "../../stack";
-import { assertExistsIn } from "../assert-exists-in";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb } from "../tenant-db";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { NotFoundError } from "../../errors/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  testTenantId,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { assertExistsIn } from "../assert-exists-in.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb } from "../tenant-db.js";
 
 const orderEntity = createEntity({
   table: "ax_orders",

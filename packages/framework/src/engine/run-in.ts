@@ -18,7 +18,7 @@
 //   - "api" / "worker" — single-role deploy, filter strictly.
 //   - "both"           — all-in-one, no filtering (one process does it all).
 
-import type { RunIn } from "./types";
+import type { RunIn } from "./types/index.js";
 
 // Does a consumer with `runIn` want to run on a process of the given lane?
 export function runsInLane(runIn: RunIn | undefined, processLane: RunIn): boolean {

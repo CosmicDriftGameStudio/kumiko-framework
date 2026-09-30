@@ -5,10 +5,10 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine";
-import { NotFoundError, UnprocessableError, writeFailure } from "../../errors";
-import { setupTestStack, type TestStack } from "../test-stack";
-import { TestUsers } from "../test-users";
+import { defineFeature } from "../../engine/index.js";
+import { NotFoundError, UnprocessableError, writeFailure } from "../../errors/index.js";
+import { setupTestStack, type TestStack } from "../test-stack.js";
+import { TestUsers } from "../test-users.js";
 
 let stack: TestStack | undefined;
 

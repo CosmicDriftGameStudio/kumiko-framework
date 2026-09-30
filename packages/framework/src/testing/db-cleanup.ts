@@ -3,8 +3,8 @@
  * beforeEach hooks. All table clears go through typed `deleteMany` (empty
  * where = full table wipe). Raw SQL stays out of test files.
  */
-import type { EntityTableMeta } from "../db/entity-table-meta";
-import { type AnyDb, deleteMany } from "../db/query";
+import type { EntityTableMeta } from "../db/entity-table-meta.js";
+import { type AnyDb, deleteMany } from "../db/query.js";
 
 /** EntityTableMeta, a built table, or a plain table name string. */
 export type ClearableTable = string | { readonly tableName?: string } | unknown;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import * as jose from "jose";
-import type { SessionUser } from "../../engine/types";
-import { createJwtHelper, loadJwtSecretOrKeyring } from "../jwt";
+import type { SessionUser } from "../../engine/types/index.js";
+import { createJwtHelper, loadJwtSecretOrKeyring } from "../jwt.js";
 
 const SECRET = "test-secret-at-least-32-characters-long-aa";
 const TENANT = "11111111-1111-4111-8111-111111111111";

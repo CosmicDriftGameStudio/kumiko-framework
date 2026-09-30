@@ -1,5 +1,5 @@
-import type { PendingIdRange } from "../db/queries/event-store";
-import type { PendingGapEntry } from "./event-consumer-state";
+import type { PendingIdRange } from "../db/queries/event-store.js";
+import type { PendingGapEntry } from "./event-consumer-state.js";
 
 export function toIdRanges(gaps: readonly PendingGapEntry[]): PendingIdRange[] {
   return gaps.map((g) => ({ from: BigInt(g.from), to: BigInt(g.to) }));

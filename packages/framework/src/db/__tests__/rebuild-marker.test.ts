@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EntityTableMeta } from "../entity-table-meta";
-import { diffSnapshots, snapshotFromMetas } from "../migrate-generator";
-import { readRebuildMarker, rebuildTablesFromDiff, writeRebuildMarker } from "../rebuild-marker";
+import type { EntityTableMeta } from "../entity-table-meta.js";
+import { diffSnapshots, snapshotFromMetas } from "../migrate-generator.js";
+import { readRebuildMarker, rebuildTablesFromDiff, writeRebuildMarker } from "../rebuild-marker.js";
 
 function meta(
   tableName: string,

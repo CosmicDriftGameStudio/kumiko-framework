@@ -1,5 +1,5 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { requestContext } from "../api/request-context";
+import { requestContext } from "../api/request-context.js";
 import {
   collectPiiSubjectFields,
   configuredPiiSubjectKms,
@@ -7,38 +7,38 @@ import {
   encryptPiiFieldValues,
   type KmsContext,
   type LocalKeyKmsAdapter,
-} from "../crypto";
-import { executeRawQueryRead } from "../db/queries/raw-sql";
-import type { WhereObject } from "../db/query";
-import { shiftParams } from "../engine/ownership";
+} from "../crypto/index.js";
+import { executeRawQueryRead } from "../db/queries/raw-sql.js";
+import type { WhereObject } from "../db/query.js";
+import { shiftParams } from "../engine/ownership.js";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type {
   EntityDefinition,
   EntityId,
   FieldDefinition,
   SessionUser,
   TenantId,
-} from "../engine/types";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
-import { UniqueViolationError, type WriteFailure, writeFailure } from "../errors";
-import { ArchivedStreamError, type EventMetadata, isStreamArchived } from "../event-store";
-import type { EntityCache } from "../pipeline/entity-cache";
-import type { SearchAdapter } from "../search/types";
-import type { EnvelopeCipher } from "../secrets/envelope-cipher";
-import { assertUnreachable } from "../utils";
-import { rehydrateCompoundTypes } from "./compound-types";
-import type { DbRow } from "./connection";
-import type { TableColumns } from "./dialect";
+} from "../engine/types/index.js";
+import { UniqueViolationError, type WriteFailure, writeFailure } from "../errors/index.js";
+import { ArchivedStreamError, type EventMetadata, isStreamArchived } from "../event-store/index.js";
+import type { EntityCache } from "../pipeline/entity-cache.js";
+import type { SearchAdapter } from "../search/types.js";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher.js";
+import { assertUnreachable } from "../utils/index.js";
+import { rehydrateCompoundTypes } from "./compound-types.js";
+import type { DbRow } from "./connection.js";
+import type { TableColumns } from "./dialect.js";
 import {
   collectEncryptedFieldNames,
   decryptEntityFieldValues,
   encryptEntityFieldValues,
   resolveEntityFieldEncryption,
-} from "./entity-field-encryption";
-import type { EventStoreExecutorOptions } from "./event-store-executor";
-import { constraintOf, isUniqueViolation } from "./pg-error";
-import { toSnakeCase } from "./table-builder";
-import type { TenantDb } from "./tenant-db";
-import { tenantDbRunner } from "./tenant-db-runner";
+} from "./entity-field-encryption.js";
+import type { EventStoreExecutorOptions } from "./event-store-executor.js";
+import { constraintOf, isUniqueViolation } from "./pg-error.js";
+import { toSnakeCase } from "./table-builder.js";
+import type { TenantDb } from "./tenant-db.js";
+import { tenantDbRunner } from "./tenant-db-runner.js";
 
 // Shared context-building for the event-store-executor CRUD verbs (create/
 // update/delete/forget/restore/list/detail — see event-store-executor-write.ts

@@ -6,7 +6,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runPendingSeedMigrations } from "../runner";
+import { runPendingSeedMigrations } from "../runner.js";
 
 function makeTempSeedsDir(files: readonly { name: string; content: string }[]): string {
   const dir = mkdtempSync(join(tmpdir(), "es-ops-test-"));

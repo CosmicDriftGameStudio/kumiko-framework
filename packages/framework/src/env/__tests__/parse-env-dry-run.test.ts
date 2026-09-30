@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { parseEnvDryRun } from "../index";
+import { parseEnvDryRun } from "../index.js";
 
 const schema = z.object({
   DATABASE_URL: z.string().min(1),

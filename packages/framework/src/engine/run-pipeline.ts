@@ -22,13 +22,13 @@
 // WriteFailure / HTTP. "return" / "skip" / fallback strategies land in
 // later slices together with their own integration tests.
 
-import { getStep } from "./define-step";
-import { buildPipelineSteps } from "./pipeline";
-import { SUSPEND_SENTINEL } from "./steps/_step-dispatch-constants";
-import { RETURN_RESULT_KEY } from "./steps/return";
-import type { KumikoEventTypeMap } from "./types/event-type-map";
-import type { HandlerContext, WriteEvent, WriteResult } from "./types/handlers";
-import type { PipelineCtx, PipelineDef, StepInstance } from "./types/step";
+import { getStep } from "./define-step.js";
+import { buildPipelineSteps } from "./pipeline.js";
+import { SUSPEND_SENTINEL } from "./steps/_step-dispatch-constants.js";
+import { RETURN_RESULT_KEY } from "./steps/return.js";
+import type { KumikoEventTypeMap } from "./types/event-type-map.js";
+import type { HandlerContext, WriteEvent, WriteResult } from "./types/handlers.js";
+import type { PipelineCtx, PipelineDef, StepInstance } from "./types/step.js";
 
 // Result of walking a step-list. "return" surfaces the WriteResult of an
 // r.step.return; "exhausted" means all steps ran without hitting a return

@@ -16,29 +16,29 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineApply, defineFeature } from "../../engine";
-import type { ProjectionDefinition } from "../../engine/types";
-import { append } from "../../event-store";
-import { listRebuildDeadLetters } from "../../event-store/rebuild-dead-letter";
+import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { createEntity, createTextField, defineApply, defineFeature } from "../../engine/index.js";
+import type { ProjectionDefinition } from "../../engine/types/index.js";
+import { append } from "../../event-store/index.js";
+import { listRebuildDeadLetters } from "../../event-store/rebuild-dead-letter.js";
 import {
   createProjectionStateTable,
   getConsumerState,
   getProjectionState,
   rebuildMultiStreamProjection,
   rebuildProjection,
-} from "../../pipeline";
+} from "../../pipeline/index.js";
 import {
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
+} from "../../stack/index.js";
 
 // --- Fixtures ---
 

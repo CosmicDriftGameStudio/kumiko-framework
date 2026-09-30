@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { roundDerivedCellValue } from "../embedded-derived";
+import { roundDerivedCellValue } from "../embedded-derived.js";
 
 describe("roundDerivedCellValue — float-noise vs. genuine near-half values", () => {
   test("money: float-multiplication noise just below a half-step still rounds up (deliberate)", () => {

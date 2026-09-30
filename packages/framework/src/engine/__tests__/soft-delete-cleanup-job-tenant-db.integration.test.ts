@@ -1,19 +1,24 @@
 // fw#2914 — soft-delete cleanup runs through the real job runner with ctx.db as a
 // tenant-filtered TenantDb: a run purges only its own tenant's expired rows.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../bun-db/query";
-import { selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { waitFor } from "../../testing";
+import { asRawClient } from "../../bun-db/query.js";
+import { selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
 import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
   defineEntityDeleteHandler,
   defineFeature,
-} from "../index";
-import { SOFT_DELETE_CLEANUP_JOB } from "../soft-delete-cleanup";
+} from "../index.js";
+import { SOFT_DELETE_CLEANUP_JOB } from "../soft-delete-cleanup.js";
 
 const itemEntity = createEntity({
   table: "fw2914_sdc_items",

@@ -20,7 +20,7 @@
 
 import type { TzContext, TzContextOptions } from "@cosmicdrift/kumiko-types/tz-context";
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
-import { ensureTemporalPolyfill } from "./polyfill";
+import { ensureTemporalPolyfill } from "./polyfill.js";
 
 // Back-compat shim: re-exported so existing `from "@cosmicdrift/kumiko-framework/time/tz-context"`
 // imports keep working. Prefer importing from @cosmicdrift/kumiko-types/tz-context directly in

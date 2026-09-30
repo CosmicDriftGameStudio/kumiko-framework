@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
-import { createRegistry, defineFeature } from "../../engine";
-import { RateLimitError, UnprocessableError } from "../../errors";
-import { TestUsers } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time";
-import { buildServer } from "../server";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import { RateLimitError, UnprocessableError } from "../../errors/index.js";
+import { TestUsers } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/index.js";
+import { buildServer } from "../server.js";
 
 // Self-ensure Temporal rather than rely on the suite-level preload: the check
 // runs `bun test` from packages/framework where the root preload path doesn't

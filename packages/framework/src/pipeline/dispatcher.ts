@@ -1,14 +1,15 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { runWithWriteOrigin } from "../api/request-context";
-import type { SseBroker } from "../api/sse-broker";
-import type { buildEntityTable } from "../db/table-builder";
+import { runWithWriteOrigin } from "../api/request-context.js";
+import type { SseBroker } from "../api/sse-broker.js";
+import type { buildEntityTable } from "../db/table-builder.js";
 import {
   DEPRECATED_CROSS_TENANT_SIGNAL,
   isDeprecatedCrossTenantHandler,
-} from "../engine/entity-handlers";
-import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names";
-import type { defineTransitions } from "../engine/state-machine";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
+} from "../engine/entity-handlers.js";
+import { TENANT_MEMBERSHIPS_QUERY } from "../engine/extension-names.js";
+import type { defineTransitions } from "../engine/state-machine.js";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
+import type { TenantId } from "../engine/types/identifiers.js";
 import type {
   ActiveMembershipResult,
   AppContext,
@@ -18,29 +19,32 @@ import type {
   Registry,
   SessionUser,
   WriteResult,
-} from "../engine/types";
-import type { TenantId } from "../engine/types/identifiers";
-import { InternalError, reraiseAsKumikoError } from "../errors";
-import { getFallbackMeter, getFallbackTracer, registerStandardMetrics } from "../observability";
-import { createEscapeHatchReportWindow } from "../observability/escape-hatch-report";
-import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
-import { runBatch, unwrapSingle } from "./dispatch-batch";
-import { executeQuery } from "./dispatch-query";
-import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared";
-import { resolveAuthClaimsFn } from "./dispatch-shared";
-import { executeStream } from "./dispatch-stream";
-import { type HandlerType, resolveType } from "./dispatcher-utils";
-import type { IdempotencyGuard } from "./idempotency";
-import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { createMemberReaderFn } from "./member-reader";
-import { createTenantTimezoneCache } from "./tenant-timezone-cache";
-import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin";
+} from "../engine/types/index.js";
+import { InternalError, reraiseAsKumikoError } from "../errors/index.js";
+import { createEscapeHatchReportWindow } from "../observability/escape-hatch-report.js";
+import {
+  getFallbackMeter,
+  getFallbackTracer,
+  registerStandardMetrics,
+} from "../observability/index.js";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
+import { runBatch, unwrapSingle } from "./dispatch-batch.js";
+import { executeQuery } from "./dispatch-query.js";
+import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
+import { resolveAuthClaimsFn } from "./dispatch-shared.js";
+import { executeStream } from "./dispatch-stream.js";
+import { type HandlerType, resolveType } from "./dispatcher-utils.js";
+import type { IdempotencyGuard } from "./idempotency.js";
+import type { LifecycleHooks } from "./lifecycle-pipeline.js";
+import { createMemberReaderFn } from "./member-reader.js";
+import { createTenantTimezoneCache } from "./tenant-timezone-cache.js";
+import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
 // HTTP-layer stubs) — dispatch consumes these, grouping the type-surface
 // here keeps imports single-source.
-export type { WriteResult } from "../engine/types";
-export type { BatchCommand, BatchResult } from "./dispatch-shared";
+export type { WriteResult } from "../engine/types/index.js";
+export type { BatchCommand, BatchResult } from "./dispatch-shared.js";
 
 export type DispatcherOptions = {
   idempotency?: IdempotencyGuard;

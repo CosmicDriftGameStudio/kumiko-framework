@@ -13,14 +13,21 @@
 // event-triggered workflow hits in production.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { DbConnection, DbTx } from "../../db/connection";
-import { asRawClient, insertOne } from "../../db/query";
-import type { AppContext } from "../../engine/types";
-import { eventsTable } from "../../event-store";
-import { createTestDb, type TestDb, TestUsers } from "../../stack";
-import { createEventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
-import { createEventDispatcher, type EventConsumer, getConsumerState } from "../event-dispatcher";
-import { fetchPendingEvents } from "../event-dispatcher-delivery";
+import type { DbConnection, DbTx } from "../../db/connection.js";
+import { asRawClient, insertOne } from "../../db/query.js";
+import type { AppContext } from "../../engine/types/index.js";
+import { eventsTable } from "../../event-store/index.js";
+import { createTestDb, type TestDb, TestUsers } from "../../stack/index.js";
+import {
+  createEventConsumerStateTable,
+  SHARED_INSTANCE_SENTINEL,
+} from "../event-consumer-state.js";
+import {
+  createEventDispatcher,
+  type EventConsumer,
+  getConsumerState,
+} from "../event-dispatcher.js";
+import { fetchPendingEvents } from "../event-dispatcher-delivery.js";
 
 const admin = TestUsers.admin;
 let testDb: TestDb;

@@ -7,21 +7,21 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import {
   ArchivedStreamError,
   isStreamArchived,
   loadAggregate as loadAggregateRaw,
-} from "../../event-store";
+} from "../../event-store/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 const itemEntity = createEntity({
   table: "read_arch_items",

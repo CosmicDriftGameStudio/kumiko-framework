@@ -1,5 +1,5 @@
-import type { AnyDb } from "../query";
-import { asRawClient } from "../query";
+import type { AnyDb } from "../query.js";
+import { asRawClient } from "../query.js";
 
 export type PiiBackfillStateRow = { readonly cursor: string; readonly completed: boolean };
 

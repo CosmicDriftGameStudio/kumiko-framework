@@ -1,33 +1,41 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
-import { collectPiiSubjectFields, computeBlindIndex, configuredBlindIndexKey } from "../crypto";
-import { escapeLikePattern } from "../crypto/ciphertext-pattern";
-import { executeRawQueryRead } from "../db/queries/raw-sql";
-import { coerceRow, extractTableInfo } from "../db/query";
+import { escapeLikePattern } from "../crypto/ciphertext-pattern.js";
+import {
+  collectPiiSubjectFields,
+  computeBlindIndex,
+  configuredBlindIndexKey,
+} from "../crypto/index.js";
+import { executeRawQueryRead } from "../db/queries/raw-sql.js";
+import { coerceRow, extractTableInfo } from "../db/query.js";
 import {
   buildOwnershipClause,
   combineClauses,
   normalizeAccessEntry,
   shiftParams,
-} from "../engine/ownership";
-import type { EntityDefinition, EntityId, SessionUser } from "../engine/types";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
-import { UnprocessableError } from "../errors";
-import { getStreamVersion } from "../event-store";
-import type { SearchAdapter } from "../search/types";
-import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta";
-import { rehydrateCompoundTypes } from "./compound-types";
-import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor";
+} from "../engine/ownership.js";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
+import type { EntityDefinition, EntityId, SessionUser } from "../engine/types/index.js";
+import { UnprocessableError } from "../errors/index.js";
+import { getStreamVersion } from "../event-store/index.js";
+import type { SearchAdapter } from "../search/types.js";
+import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.js";
+import { rehydrateCompoundTypes } from "./compound-types.js";
+import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.js";
 import {
   collectEncryptedFieldNames,
   hasSearchablePlaintext,
   isSensitiveLabelField,
-} from "./entity-field-encryption";
-import type { EventStoreExecutor } from "./event-store-executor";
-import { buildFilterWhere, type ExecutorContext, type Table } from "./event-store-executor-context";
-import { buildParentRefClause } from "./parent-ref-clause";
-import { buildEntityTable, physicalColumnName } from "./table-builder";
-import type { TenantDb, TenantDbMode } from "./tenant-db";
-import { tenantDbRunner } from "./tenant-db-runner";
+} from "./entity-field-encryption.js";
+import type { EventStoreExecutor } from "./event-store-executor.js";
+import {
+  buildFilterWhere,
+  type ExecutorContext,
+  type Table,
+} from "./event-store-executor-context.js";
+import { buildParentRefClause } from "./parent-ref-clause.js";
+import { buildEntityTable, physicalColumnName } from "./table-builder.js";
+import type { TenantDb, TenantDbMode } from "./tenant-db.js";
+import { tenantDbRunner } from "./tenant-db-runner.js";
 
 // The two read verbs (list/detail) of the event-store-executor. Split out
 // of event-store-executor.ts (#1005, Welle 2) — behavior-preserving

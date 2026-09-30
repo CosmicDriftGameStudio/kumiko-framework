@@ -18,7 +18,7 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { DbConnection, DbRunner } from "./connection";
+import type { DbConnection, DbRunner } from "./connection.js";
 
 // Adapter: extract raw postgres-js client from drizzle DbConnection,
 // or use Bun.sql instance directly. Either way `.unsafe()` is the

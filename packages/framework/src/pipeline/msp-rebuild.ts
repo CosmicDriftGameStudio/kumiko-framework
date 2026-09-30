@@ -1,4 +1,4 @@
-import type { DbConnection, DbRunner, DbTx } from "../db/connection";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection.js";
 import {
   markConsumerRebuildFailed,
   resetConsumerForMspRebuild,
@@ -6,7 +6,7 @@ import {
   selectEventIdHorizonWithMissingRanges,
   selectSnapshotXmax,
   updateConsumerRebuildCursor,
-} from "../db/queries/event-consumer";
+} from "../db/queries/event-consumer.js";
 import {
   assertLiveColumnsMatchMeta,
   assertLiveTableHasNoRowLevelSecurity,
@@ -14,24 +14,24 @@ import {
   ensureRebuildSchema,
   rebuildMetaOrThrow,
   swapShadowIntoLive,
-} from "../db/queries/shadow-swap";
-import { runInSavepoint, selectMany } from "../db/query";
-import type { Registry, TenantId } from "../engine/types";
-import { InternalError } from "../errors";
-import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store";
-import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store";
+} from "../db/queries/shadow-swap.js";
+import { runInSavepoint, selectMany } from "../db/query.js";
+import type { Registry, TenantId } from "../engine/types/index.js";
+import { InternalError } from "../errors/index.js";
+import { loadAggregate, loadAggregateAsOf } from "../event-store/event-store.js";
+import { eventsTable, type StoredEvent, upcastStoredEvent } from "../event-store/index.js";
 import {
   createRebuildDeadLetterTable,
   recordRebuildDeadLetters,
   type SkippedApply,
-} from "../event-store/rebuild-dead-letter";
-import { upcastStoredEvents } from "../event-store/upcaster";
-import { emitProjectionRebuild } from "../observability/standard-metrics";
-import type { Meter } from "../observability/types/metric";
-import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
-import type { MultiStreamApplyContext } from "./multi-stream-apply-context";
-import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "./pending-gap-ranges";
-import type { RebuildResult } from "./projection-rebuild";
+} from "../event-store/rebuild-dead-letter.js";
+import { upcastStoredEvents } from "../event-store/upcaster.js";
+import { emitProjectionRebuild } from "../observability/standard-metrics.js";
+import type { Meter } from "../observability/types/metric.js";
+import { SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.js";
+import type { MultiStreamApplyContext } from "./multi-stream-apply-context.js";
+import { capPendingGapsBelowCursor, subtractSortedIdsFromRanges } from "./pending-gap-ranges.js";
+import type { RebuildResult } from "./projection-rebuild.js";
 
 // Rebuild a multi-stream projection (MSP) from the event log. Symmetric to
 // `rebuildProjection` for single-stream projections — same single-TX online
@@ -189,7 +189,7 @@ export async function rebuildMultiStreamProjection(
           type: string;
           eventVersion: number;
           payload: Record<string, unknown>;
-          metadata: import("../event-store/event-store").EventMetadata;
+          metadata: import("../event-store/event-store.js").EventMetadata;
           createdAt: Temporal.Instant;
           createdBy: string;
         };

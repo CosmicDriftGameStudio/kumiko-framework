@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import type { EventStoreExecutor } from "../../db/event-store-executor";
-import { getStep } from "../define-step";
-import { buildAggregateUpdateStep } from "../steps/aggregate-update";
-import type { PipelineCtx } from "../types/step";
+import type { EventStoreExecutor } from "../../db/event-store-executor.js";
+import { getStep } from "../define-step.js";
+import { buildAggregateUpdateStep } from "../steps/aggregate-update.js";
+import type { PipelineCtx } from "../types/step.js";
 
 const mockUpdate = mock();
 const mockExecutor = { update: mockUpdate } as unknown as EventStoreExecutor & {

@@ -1,14 +1,14 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createTestRedis, type TestRedis } from "../../stack";
-import { waitFor } from "../../testing/wait-for";
-import { generateId } from "../../utils";
+import { createTestRedis, type TestRedis } from "../../stack/index.js";
+import { waitFor } from "../../testing/wait-for.js";
+import { generateId } from "../../utils/index.js";
 import {
   createDefaultSseBroker,
   createRedisSseBroker,
   isRedisSseBroker,
   type RedisSseBroker,
-} from "../redis-sse-broker";
-import type { SseEvent } from "../sse-broker";
+} from "../redis-sse-broker.js";
+import type { SseEvent } from "../sse-broker.js";
 
 let testRedis: TestRedis;
 // keyPrefix on testRedis.redis does not apply to pub/sub channel names

@@ -4,15 +4,15 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../stack";
+import { TestUsers } from "../../stack/index.js";
 import {
   AUTH_COOKIE_NAME,
   authMiddleware,
   CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME,
-} from "../auth-middleware";
-import { csrfMiddleware } from "../csrf-middleware";
-import { createJwtHelper } from "../jwt";
+} from "../auth-middleware.js";
+import { csrfMiddleware } from "../csrf-middleware.js";
+import { createJwtHelper } from "../jwt.js";
 
 const JWT_SECRET = "csrf-middleware-test-secret-min-32-characters-long";
 const CSRF = "csrf-token-fixed-for-test";

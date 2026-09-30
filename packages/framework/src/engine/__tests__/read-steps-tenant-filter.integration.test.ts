@@ -9,12 +9,12 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { table, text, uuid } from "../../db/dialect";
-import { insertOne } from "../../db/query";
-import { defineFeature, defineWriteHandler } from "../../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack";
-import { stepsPipeline } from "../pipeline";
-import type { EscapeHatchUseEvent } from "../types";
+import { table, text, uuid } from "../../db/dialect.js";
+import { insertOne } from "../../db/query.js";
+import { defineFeature, defineWriteHandler } from "../../engine/index.js";
+import { setupTestStack, type TestStack, TestUsers, unsafePushTables } from "../../stack/index.js";
+import { stepsPipeline } from "../pipeline.js";
+import type { EscapeHatchUseEvent } from "../types/index.js";
 
 const readFilterTable = table("fw2914_read_filter_items", {
   id: uuid("id").primaryKey().defaultRandom(),

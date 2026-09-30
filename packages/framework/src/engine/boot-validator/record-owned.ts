@@ -1,5 +1,5 @@
-import type { FeatureDefinition } from "../types";
-import type { ResolvedPiiFlags } from "../types/fields";
+import type { ResolvedPiiFlags } from "../types/fields.js";
+import type { FeatureDefinition } from "../types/index.js";
 
 // A recordOwned field is encrypted under `record:<entity>:<id>` (kms-adapter-types.ts)
 // and forgetSubject's subjectIdSchema (crypto/kms-adapter.ts) requires that id

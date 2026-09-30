@@ -2,18 +2,18 @@ export {
   extractAiClassify,
   extractAiExtract,
   extractAiGenerate,
-} from "./ai-steps";
+} from "./ai-steps.js";
 export {
   extractDefineEvent,
   extractNotification,
-} from "./events";
+} from "./events.js";
 export {
   extractQueryHandler,
   extractStreamHandler,
   extractWriteHandler,
   type ParsedHandlerCall,
   parseHandlerCall,
-} from "./handlers";
+} from "./handlers.js";
 export {
   extractAuthClaims,
   extractHook,
@@ -21,12 +21,12 @@ export {
   readOptionalAccessRule,
   readOptionalPhase,
   readOptionalRateLimit,
-} from "./hooks";
+} from "./hooks.js";
 export {
   extractHttpRoute,
   extractJob,
   isHttpRouteMethod,
-} from "./jobs-routes";
+} from "./jobs-routes.js";
 export {
   collectScreenOpaqueProps,
   extractMultiStreamProjection,
@@ -34,11 +34,11 @@ export {
   extractScreen,
   readApplyBodies,
   readScreenStatic,
-} from "./projections-screens";
+} from "./projections-screens.js";
 export {
   findImportBindingForLocalName,
   resolveModuleFile,
-} from "./resolve-import";
+} from "./resolve-import.js";
 export {
   extractDescribe,
   extractOptionalRequires,
@@ -47,13 +47,13 @@ export {
   extractSystemScope,
   extractToggleable,
   extractUiHints,
-} from "./round1";
+} from "./round1.js";
 export {
   extractEntity,
   extractNav,
   extractRelation,
   extractWorkspace,
-} from "./round2";
+} from "./round2.js";
 export {
   extractClaimKey,
   extractConfig,
@@ -65,16 +65,16 @@ export {
   isClaimKeyType,
   type NamedOptionsResult,
   readNamedOptions,
-} from "./round3";
+} from "./round3.js";
 export {
   extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,
   extractStoreTable,
   extractUsesApi,
-} from "./round5";
-export { extractTreeActions } from "./round6";
-export type { ExtractOutput } from "./shared";
+} from "./round5.js";
+export { extractTreeActions } from "./round6.js";
+export type { ExtractOutput } from "./shared.js";
 export {
   fail,
   findFunctionLiteral,
@@ -89,4 +89,4 @@ export {
   readStringLiteralArgs,
   readVarargsOrArrayProp,
   resolveSameFileObjectLiteral,
-} from "./shared";
+} from "./shared.js";

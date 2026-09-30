@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildPinnedRequest, egress, withManualRedirect, withOriginalUrl } from "../egress";
+import { buildPinnedRequest, egress, withManualRedirect, withOriginalUrl } from "../egress.js";
 
 let server: ReturnType<typeof Bun.serve>;
 let port: number;

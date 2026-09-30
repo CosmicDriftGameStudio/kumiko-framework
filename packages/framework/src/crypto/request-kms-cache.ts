@@ -4,8 +4,8 @@ import type {
   SubjectDek,
   SubjectId,
   SubjectKey,
-} from "./kms-adapter";
-import { subjectIdToKey } from "./kms-adapter";
+} from "./kms-adapter.js";
+import { subjectIdToKey } from "./kms-adapter.js";
 
 // Per-request DEK cache: a list rendering 50 comments of one author does one
 // adapter round-trip, not 50. Only meaningful for local-key adapters —

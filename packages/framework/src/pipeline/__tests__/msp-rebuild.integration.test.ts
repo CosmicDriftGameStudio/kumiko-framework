@@ -18,26 +18,26 @@
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { sql } from "@cosmicdrift/kumiko-framework/db";
 import * as z from "zod";
-import type { DbConnection, DbTx } from "../../db/connection";
-import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany, updateMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import type { DbConnection, DbTx } from "../../db/connection.js";
+import { integer as pgInteger, table as pgTable, uuid as pgUuid } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany, updateMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import {
   eventConsumerStateTable,
   getConsumerState,
   rebuildMultiStreamProjection,
-} from "../../pipeline";
+} from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { waitFor } from "../../testing";
-import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
+} from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
 
 // --- Fixtures: two aggregates feeding one MSP + two cornered MSPs ---
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createTestUser } from "../../stack";
-import { rolesOf } from "../../testing/access-assertions";
-import { hasAccess } from "../access";
-import { createSystemConfig, createTenantConfig, createUserConfig } from "../config-helpers";
-import { defineQueryHandler, defineWriteHandler } from "../define-handler";
+import { createTestUser } from "../../stack/index.js";
+import { rolesOf } from "../../testing/access-assertions.js";
+import { hasAccess } from "../access.js";
+import { createSystemConfig, createTenantConfig, createUserConfig } from "../config-helpers.js";
+import { defineQueryHandler, defineWriteHandler } from "../define-handler.js";
 import {
   createBooleanField,
   createEmbeddedField,
@@ -13,10 +13,10 @@ import {
   createMoneyField,
   createSelectField,
   createTextField,
-} from "../factories";
-import { createApp, createRegistry, defineFeature } from "../index";
-import type { AccessRule } from "../types";
-import { buildMinimalCtx } from "./_pipeline-test-utils";
+} from "../factories.js";
+import { createApp, createRegistry, defineFeature } from "../index.js";
+import type { AccessRule } from "../types/index.js";
+import { buildMinimalCtx } from "./_pipeline-test-utils.js";
 
 // --- defineFeature ---
 
@@ -2214,7 +2214,7 @@ describe("registry relations", () => {
 
 describe("global search", () => {
   test("searches across entity types in same tenant", async () => {
-    const { createInMemorySearchAdapter } = await import("../../search");
+    const { createInMemorySearchAdapter } = await import("../../search/index.js");
     const adapter = createInMemorySearchAdapter();
     await adapter.configure("00000000-0000-4000-8000-000000000001", {
       searchableFields: ["email", "name", "title"],
@@ -2240,7 +2240,7 @@ describe("global search", () => {
   });
 
   test("no filter = all types, filterType = one type", async () => {
-    const { createInMemorySearchAdapter } = await import("../../search");
+    const { createInMemorySearchAdapter } = await import("../../search/index.js");
     const adapter = createInMemorySearchAdapter();
     await adapter.configure("00000000-0000-4000-8000-000000000001", { searchableFields: ["name"] });
 

@@ -11,16 +11,16 @@
 // bidx recomputed automatically there; this sweep covers the rows left
 // behind (foreign entities with userOwned fields).
 
-import { collectLookupableFields } from "../crypto/blind-index";
-import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
-import { isSelfPiiField } from "../crypto/is-self-pii-field";
-import type { FeatureDefinition } from "../engine/types";
-import type { EntityDefinition } from "../engine/types/fields";
-import { toSnakeCase } from "../utils/case";
-import type { DbRunner } from "./connection";
-import { resolveTableName } from "./entity-table-meta";
-import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql";
-import { tableExists } from "./schema-inspection";
+import { collectLookupableFields } from "../crypto/blind-index.js";
+import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.js";
+import { isSelfPiiField } from "../crypto/is-self-pii-field.js";
+import type { EntityDefinition } from "../engine/types/fields.js";
+import type { FeatureDefinition } from "../engine/types/index.js";
+import { toSnakeCase } from "../utils/case.js";
+import type { DbRunner } from "./connection.js";
+import { resolveTableName } from "./entity-table-meta.js";
+import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
+import { tableExists } from "./schema-inspection.js";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,

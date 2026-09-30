@@ -11,8 +11,8 @@
 // Split out of index.ts (fw#2625) so pubsub-signal.ts can import this
 // without a same-directory cycle back through the barrel.
 
-import IoRedis, { type Redis, type RedisOptions } from "ioredis";
-import { readPositiveIntEnv } from "../utils/env-parse";
+import { Redis, type RedisOptions } from "ioredis";
+import { readPositiveIntEnv } from "../utils/env-parse.js";
 
 // Connection-tuning options. The fields mirror the most consequential
 // ioredis settings; anything else can be passed through via `extra` to
@@ -48,7 +48,7 @@ export function createRedisClient(url: string, options: RedisClientOptions = {})
   const commandTimeout = options.commandTimeoutMs ?? DEFAULT_COMMAND_TIMEOUT_MS;
   const maxRetriesPerRequest = options.maxRetriesPerRequest ?? DEFAULT_MAX_RETRIES_PER_REQUEST;
 
-  return new IoRedis(url, {
+  return new Redis(url, {
     ...options.extra,
     connectTimeout,
     commandTimeout,

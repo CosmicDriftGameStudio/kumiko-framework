@@ -1,5 +1,5 @@
-import { AccessDeniedError } from "./classes";
-import { FrameworkReasons } from "./reasons";
+import { AccessDeniedError } from "./classes.js";
+import { FrameworkReasons } from "./reasons.js";
 
 // Lives in errors/ (not pipeline/) so db/tenant-db.ts can throw it without importing pipeline.
 export function memberResolutionReadOnlyDenied(cause?: unknown): AccessDeniedError {

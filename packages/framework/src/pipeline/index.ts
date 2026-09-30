@@ -1,29 +1,29 @@
-export type { EscapeHatchReportWindow } from "../observability/escape-hatch-report";
+export type { EscapeHatchReportWindow } from "../observability/escape-hatch-report.js";
 export {
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
   ESCAPE_HATCH_USED_SIGNAL,
   fallbackEscapeHatchReporter,
   reportEscapeHatchUse,
-} from "../observability/escape-hatch-report";
-export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver";
-export { resolveAuthClaims } from "./auth-claims-resolver";
-export { createCascadeDeleteHook } from "./cascade-handler";
-export type { Dispatcher } from "./dispatcher";
-export { createDispatcher, dispatcherToWriteRef } from "./dispatcher";
-export type { DistributedLock } from "./distributed-lock";
-export { createDistributedLock } from "./distributed-lock";
-export type { EntityCache, EntityCacheOptions } from "./entity-cache";
-export { createEntityCache } from "./entity-cache";
-export type { ConsumerStatus, PendingGapEntry } from "./event-consumer-state";
+} from "../observability/escape-hatch-report.js";
+export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.js";
+export { resolveAuthClaims } from "./auth-claims-resolver.js";
+export { createCascadeDeleteHook } from "./cascade-handler.js";
+export type { Dispatcher } from "./dispatcher.js";
+export { createDispatcher, dispatcherToWriteRef } from "./dispatcher.js";
+export type { DistributedLock } from "./distributed-lock.js";
+export { createDistributedLock } from "./distributed-lock.js";
+export type { EntityCache, EntityCacheOptions } from "./entity-cache.js";
+export { createEntityCache } from "./entity-cache.js";
+export type { ConsumerStatus, PendingGapEntry } from "./event-consumer-state.js";
 export {
   ConsumerStatuses,
   createEventConsumerStateTable,
   eventConsumerStateTable,
   SHARED_INSTANCE_SENTINEL,
-} from "./event-consumer-state";
-export type { EventDedup } from "./event-dedup";
-export { createEventDedup } from "./event-dedup";
+} from "./event-consumer-state.js";
+export type { EventDedup } from "./event-dedup.js";
+export { createEventDedup } from "./event-dedup.js";
 export type {
   ConsumerProgress,
   ConsumerRecoveryState,
@@ -33,7 +33,7 @@ export type {
   EventConsumerHandler,
   EventDispatcher,
   EventDispatcherOptions,
-} from "./event-dispatcher";
+} from "./event-dispatcher.js";
 export {
   createEventDispatcher,
   disableConsumer,
@@ -43,36 +43,36 @@ export {
   listConsumersWithState,
   restartConsumer,
   skipPoisonEvent,
-} from "./event-dispatcher";
-export type { ConsumerCursor } from "./event-dispatcher-delivery";
-export { selectConsumerCursorForUpdate } from "./event-dispatcher-delivery";
-export type { PruneEventsOptions, PruneEventsResult } from "./event-retention";
-export { ConsumerLagError, pruneEvents } from "./event-retention";
-export type { IdempotencyGuard } from "./idempotency";
-export { createIdempotencyGuard } from "./idempotency";
+} from "./event-dispatcher.js";
+export type { ConsumerCursor } from "./event-dispatcher-delivery.js";
+export { selectConsumerCursorForUpdate } from "./event-dispatcher-delivery.js";
+export type { PruneEventsOptions, PruneEventsResult } from "./event-retention.js";
+export { ConsumerLagError, pruneEvents } from "./event-retention.js";
+export type { IdempotencyGuard } from "./idempotency.js";
+export { createIdempotencyGuard } from "./idempotency.js";
 export {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
-} from "./irreversible-operation-gate";
-export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline";
-export { createLifecycleHooks } from "./lifecycle-pipeline";
-export type { MspRebuildDeps } from "./msp-rebuild";
-export { rebuildMultiStreamProjection } from "./msp-rebuild";
-export type { ProjectionProgress, RebuildResult } from "./projection-rebuild";
+} from "./irreversible-operation-gate.js";
+export type { LifecycleHooks, SystemHookDef, SystemHooks } from "./lifecycle-pipeline.js";
+export { createLifecycleHooks } from "./lifecycle-pipeline.js";
+export type { MspRebuildDeps } from "./msp-rebuild.js";
+export { rebuildMultiStreamProjection } from "./msp-rebuild.js";
+export type { ProjectionProgress, RebuildResult } from "./projection-rebuild.js";
 export {
   getAllProjectionProgress,
   getProjectionState,
   listProjectionsWithState,
   rebuildProjection,
-} from "./projection-rebuild";
-export type { ProjectionStatus } from "./projection-state";
+} from "./projection-rebuild.js";
+export type { ProjectionStatus } from "./projection-state.js";
 export {
   createProjectionStateTable,
   ProjectionStatuses,
   projectionStateTable,
-} from "./projection-state";
-export { runProjectionsForEvent } from "./projections-runner";
+} from "./projection-state.js";
+export { runProjectionsForEvent } from "./projections-runner.js";
 export {
   ACCESS_INVALIDATION_CONSUMER_NAME,
   createAccessInvalidationEventConsumer,
@@ -80,4 +80,4 @@ export {
   createSseBroadcastEventConsumer,
   SEARCH_CONSUMER_NAME,
   SSE_BROADCAST_CONSUMER_NAME,
-} from "./system-hooks";
+} from "./system-hooks.js";

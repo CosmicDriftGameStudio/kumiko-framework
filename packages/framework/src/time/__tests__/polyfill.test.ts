@@ -3,7 +3,7 @@
 // (Instant, PlainDate, ZonedDateTime) konstruktor-fähig sind.
 
 import { describe, expect, test } from "bun:test";
-import { ensureTemporalPolyfill, getTemporal } from "../polyfill";
+import { ensureTemporalPolyfill, getTemporal } from "../polyfill.js";
 
 describe("Temporal Polyfill", () => {
   test("ensureTemporalPolyfill ist idempotent + Temporal nach dreifachem Aufruf nutzbar", async () => {

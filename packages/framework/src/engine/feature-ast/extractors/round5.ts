@@ -4,9 +4,9 @@ import type {
   ExposesApiPattern,
   ExtendsRegistrarPattern,
   UsesApiPattern,
-} from "../patterns";
-import { sourceLocationFromNode } from "../source-location";
-import { type ExtractOutput, fail, ok, readNameLiteral, readNameLiteralRef } from "./shared";
+} from "../patterns.js";
+import { sourceLocationFromNode } from "../source-location.js";
+import { type ExtractOutput, fail, ok, readNameLiteral, readNameLiteralRef } from "./shared.js";
 
 export function extractEnvSchema(
   call: CallExpression,

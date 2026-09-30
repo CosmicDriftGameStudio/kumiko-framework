@@ -2,11 +2,11 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db";
-import { tableExists } from "../db";
-import { asRawClient } from "../db/query";
-import { runSchemaCli, type SchemaCliOut } from "../schema-cli";
-import { ensureTemporalPolyfill } from "../time/polyfill";
+import { type BunTestDb, createTestDb } from "../bun-db/__tests__/bun-test-db.js";
+import { tableExists } from "../db/index.js";
+import { asRawClient } from "../db/query.js";
+import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
+import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 function captureOut(): { out: SchemaCliOut; log: string[]; err: string[] } {
   const log: string[] = [];

@@ -11,9 +11,9 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import type { PostQueryHookFn } from "../../engine/types";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import type { PostQueryHookFn } from "../../engine/types/index.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
 // --- Fixture entity ---
 

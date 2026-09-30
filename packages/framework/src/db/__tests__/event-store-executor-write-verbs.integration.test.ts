@@ -5,21 +5,21 @@
 // verb entirely, and restore()'s two precondition failures.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient, transaction } from "../../db/query";
-import { createEntity, createTextField } from "../../engine";
-import { from } from "../../engine/ownership";
-import { createSystemUser } from "../../engine/system-user";
-import type { EntityCache } from "../../pipeline/entity-cache";
+import { asRawClient, transaction } from "../../db/query.js";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { from } from "../../engine/ownership.js";
+import { createSystemUser } from "../../engine/system-user.js";
+import type { EntityCache } from "../../pipeline/entity-cache.js";
 import {
   createTestDb,
   createTestUser,
   type TestDb,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+} from "../../stack/index.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 let testDb: TestDb;
 let tdb: TenantDb;

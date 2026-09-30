@@ -10,23 +10,28 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, insertOne, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import type { StoredEvent } from "../../event-store";
-import { rebuildProjection } from "../../pipeline";
+import { integer as pgInteger, table as pgTable, text as pgText } from "../../db/dialect.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, insertOne, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import type { StoredEvent } from "../../event-store/index.js";
+import { rebuildProjection } from "../../pipeline/index.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   unsafeCreateEntityTable,
   unsafePushTables,
-} from "../../stack";
-import { append } from "../index";
-import { upcastStoredEvent } from "../upcaster";
+} from "../../stack/index.js";
+import { append } from "../index.js";
+import { upcastStoredEvent } from "../upcaster.js";
 
 // --- Fixture entity + projection table ---
 
@@ -113,7 +118,7 @@ const orderExecutor = createEventStoreExecutor(orderTable, orderEntity, {
 beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, orderEntity, "upcast-order");
-  const { createProjectionStateTable } = await import("../../pipeline");
+  const { createProjectionStateTable } = await import("../../pipeline/index.js");
   await createProjectionStateTable(testDb.db);
   await unsafePushTables(testDb.db, { upcastOrderSummary: orderSummaryTable });
   tdb = createTenantDb(testDb.db, admin.tenantId);

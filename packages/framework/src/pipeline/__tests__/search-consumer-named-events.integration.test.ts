@@ -4,16 +4,21 @@
 // field slice, so the consumer reads the live projection row instead.
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { asRawClient, buildEntityTable, createEventStoreExecutor, createTenantDb } from "../../db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
+import {
+  asRawClient,
+  buildEntityTable,
+  createEventStoreExecutor,
+  createTenantDb,
+} from "../../db/index.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { SEARCH_CONSUMER_NAME } from "../system-hooks";
+} from "../../stack/index.js";
+import { SEARCH_CONSUMER_NAME } from "../system-hooks.js";
 
 const noteEntity = createEntity({
   table: "read_named_search_notes",

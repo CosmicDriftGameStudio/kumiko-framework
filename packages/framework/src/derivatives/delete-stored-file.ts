@@ -12,8 +12,8 @@
 // Used by both the user-data-rights-defaults forget hook and the
 // data-retention hardDelete cleanup — moved here so neither copies the logic.
 
-import { assertSafeStorageKey } from "../files/types";
-import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key";
+import { assertSafeStorageKey } from "../files/types.js";
+import { derivativeListPrefix, isDerivativeKeyOf } from "./variant-key.js";
 
 export type StoredFileStore = {
   list(prefix: string): Promise<readonly string[]>;

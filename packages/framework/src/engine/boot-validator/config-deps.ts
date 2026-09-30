@@ -1,5 +1,5 @@
-import { isEncryptedAtRest } from "../config-helpers";
-import type { FeatureDefinition } from "../types";
+import { isEncryptedAtRest } from "../config-helpers.js";
+import type { FeatureDefinition } from "../types/index.js";
 
 // --- Toggleable-dependency warnings ---
 //

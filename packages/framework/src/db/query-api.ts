@@ -9,7 +9,7 @@ export type {
   WhereObject,
   WhereOperator,
   WhereValue,
-} from "../db/query";
+} from "../db/query.js";
 export {
   asRawClient,
   countWhere,
@@ -21,4 +21,4 @@ export {
   selectMany,
   transaction,
   updateMany,
-} from "../db/query";
+} from "../db/query.js";

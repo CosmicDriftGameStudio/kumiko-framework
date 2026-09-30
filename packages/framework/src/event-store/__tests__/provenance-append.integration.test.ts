@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient, transaction } from "../../db/query";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { AccessDeniedError, InternalError } from "../../errors";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { generateId as uuid } from "../../utils";
-import { loadAggregate, VersionConflictError } from "../index";
-import { appendProvenanceEvent, type ProvenanceEventInput } from "../provenance-append";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient, transaction } from "../../db/query.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { AccessDeniedError, InternalError } from "../../errors/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { generateId as uuid } from "../../utils/index.js";
+import { loadAggregate, VersionConflictError } from "../index.js";
+import { appendProvenanceEvent, type ProvenanceEventInput } from "../provenance-append.js";
 
 let testDb: BunTestDb;
 let tdb: TenantDb;

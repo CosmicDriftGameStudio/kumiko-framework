@@ -1,20 +1,28 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import type { ZodType } from "zod";
 import * as z from "zod";
-import type { DbRow } from "../db/connection";
+import type { DbRow } from "../db/connection.js";
 import {
   collectReferenceFields,
   enrichRowWithReferences,
   enrichWithReferences,
-} from "../db/eagerload";
-import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor";
-import { buildEntityTable, type EntityTable } from "../db/table-builder";
-import { acknowledgeConventionCrossTenant, type TenantDb } from "../db/tenant-db";
-import { isSystemIdentity } from "../pipeline/system-identity-switch";
-import { assertUnreachable } from "../utils";
-import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler";
-import { instructionFieldNames } from "./instruction-fields";
-import { buildInsertSchema, buildUpdateSchema } from "./schema-builder";
+} from "../db/eagerload.js";
+import { createEventStoreExecutor, type EventStoreExecutor } from "../db/event-store-executor.js";
+import { buildEntityTable, type EntityTable } from "../db/table-builder.js";
+import { acknowledgeConventionCrossTenant, type TenantDb } from "../db/tenant-db.js";
+import { isSystemIdentity } from "../pipeline/system-identity-switch.js";
+import { assertUnreachable } from "../utils/index.js";
+import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.js";
+import { instructionFieldNames } from "./instruction-fields.js";
+import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.js";
+import type {
+  EntityCrudRegistrar,
+  EntityCrudVerb,
+  EntityHandlerOptions,
+  EntityQueryHandlerOptions,
+  EntityWriteHandlerOptions,
+  RegisterEntityCrudOptions,
+} from "./types/entity-handlers.js";
 import type {
   AccessRule,
   AgentHandlerHints,
@@ -25,15 +33,7 @@ import type {
   QueryHandlerDef,
   SessionUser,
   WriteHandlerDef,
-} from "./types";
-import type {
-  EntityCrudRegistrar,
-  EntityCrudVerb,
-  EntityHandlerOptions,
-  EntityQueryHandlerOptions,
-  EntityWriteHandlerOptions,
-  RegisterEntityCrudOptions,
-} from "./types/entity-handlers";
+} from "./types/index.js";
 
 export type {
   EntityCrudHandlerDefaults,
@@ -43,7 +43,7 @@ export type {
   EntityQueryHandlerOptions,
   EntityWriteHandlerOptions,
   RegisterEntityCrudOptions,
-} from "./types/entity-handlers";
+} from "./types/entity-handlers.js";
 
 // Convention-based handler factories for event-sourced aggregates.
 //

@@ -5,7 +5,7 @@ import {
   generateNoConfusableId,
   generateUniqueName,
   NOUNS,
-} from "../index";
+} from "../index.js";
 
 describe("generateAdjNounName", () => {
   test("default: <adj>-<noun> aus den Standard-Listen", () => {

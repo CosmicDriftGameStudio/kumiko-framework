@@ -3,14 +3,19 @@
 // rebuild must drop the unknown column instead of failing the whole rebuild.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { append } from "../../event-store";
-import { createProjectionStateTable, rebuildProjection } from "../../pipeline";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { asRawClient } from "../query";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { append } from "../../event-store/index.js";
+import { createProjectionStateTable, rebuildProjection } from "../../pipeline/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { asRawClient } from "../query.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const noteEntity = createEntity({
   table: "read_removed_column_notes",

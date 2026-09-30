@@ -1,4 +1,4 @@
-import { DEFAULT_SEED_IF_EXISTS, type SeedIfExists } from "./types";
+import { DEFAULT_SEED_IF_EXISTS, type SeedIfExists } from "./types.js";
 
 export type EventStoreSeedExisting<TId extends string | number = string> = {
   readonly id: TId;

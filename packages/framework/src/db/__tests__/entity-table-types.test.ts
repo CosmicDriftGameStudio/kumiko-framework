@@ -21,8 +21,8 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
-} from "../../engine";
-import { buildEntityTable } from "../table-builder";
+} from "../../engine/index.js";
+import { buildEntityTable } from "../table-builder.js";
 
 describe("EntityTable<E> — Property-Names existieren", () => {
   const sampleEntity = createEntity({

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readPositiveIntEnv } from "../env-parse";
+import { readPositiveIntEnv } from "../env-parse.js";
 
 describe("readPositiveIntEnv", () => {
   test("returns undefined when the key is absent", () => {

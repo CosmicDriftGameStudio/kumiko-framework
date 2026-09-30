@@ -7,16 +7,16 @@
 // config-seed.ts:40). Events haben createdBy = SYSTEM_TENANT_ID-User
 // → audit-fähig.
 
-import type { DbRunner } from "../db";
+import type { DbRunner } from "../db/index.js";
 import {
   selectAllTenants,
   selectMembershipsOfUser,
   selectUserByEmail,
-} from "../db/queries/seed-context";
-import { createSystemUser, SYSTEM_TENANT_ID } from "../engine";
-import type { Dispatcher } from "../pipeline/dispatcher";
-import { parseStringArrayJson } from "../utils/parse-string-array-json";
-import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types";
+} from "../db/queries/seed-context.js";
+import { createSystemUser, SYSTEM_TENANT_ID } from "../engine/index.js";
+import type { Dispatcher } from "../pipeline/dispatcher.js";
+import { parseStringArrayJson } from "../utils/parse-string-array-json.js";
+import type { SeedMembershipRow, SeedMigrationContext, SeedTenantRow } from "./types.js";
 
 export type CreateSeedMigrationContextArgs = {
   readonly dispatcher: Dispatcher;
@@ -95,4 +95,4 @@ export function createSeedMigrationContext(
 }
 
 // Re-export für Caller-Convenience.
-export type { SeedMigrationContext } from "./types";
+export type { SeedMigrationContext } from "./types.js";

@@ -14,9 +14,9 @@ import {
   insertOne,
   updateMany,
   type WhereObject,
-} from "../bun-db/query";
-import type { EntityTableMeta } from "../db/entity-table-meta";
-import type { EntityTable } from "../db/table-builder";
+} from "../bun-db/query.js";
+import type { EntityTableMeta } from "../db/entity-table-meta.js";
+import type { EntityTable } from "../db/table-builder.js";
 
 type SeedTable = EntityTable | EntityTableMeta;
 

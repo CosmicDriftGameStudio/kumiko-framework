@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveTranslationValue, translationValueOtherText } from "../plural";
+import { resolveTranslationValue, translationValueOtherText } from "../plural.js";
 
 const messageCount = {
   de: { one: "{count} ungelesene Nachricht", other: "{count} ungelesene Nachrichten" },

@@ -1,8 +1,8 @@
-import { resolveTableName } from "../db/entity-table-meta";
-import { buildMetricName, validateMetricName } from "../observability";
-import type { RegistryState } from "./registry-state";
-import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state";
-import type { FeatureDefinition } from "./types";
+import { resolveTableName } from "../db/entity-table-meta.js";
+import { buildMetricName, validateMetricName } from "../observability/index.js";
+import type { RegistryState } from "./registry-state.js";
+import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state.js";
+import type { FeatureDefinition } from "./types/index.js";
 
 // Feature registration + entities (globally-unique, physical-table-checked) + relations
 // (additive per entity, duplicate-per-name guarded).

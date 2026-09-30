@@ -5,7 +5,7 @@
 // landete in einer Sackgasse.
 
 import { describe, expect, test } from "bun:test";
-import { formatKumikoDriftReport, type KumikoDriftReport } from "../kumiko-drift";
+import { formatKumikoDriftReport, type KumikoDriftReport } from "../kumiko-drift.js";
 
 const empty: KumikoDriftReport = {
   ok: true,

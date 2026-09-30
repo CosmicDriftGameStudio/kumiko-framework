@@ -4,20 +4,20 @@
 // Routing is per-entity (createEntity flag), NOT inherited from r.systemScope().
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createEntity, createTextField } from "../../engine";
-import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers";
-import { eventsTable } from "../../event-store";
+import { createEntity, createTextField } from "../../engine/index.js";
+import { SYSTEM_TENANT_ID } from "../../engine/types/identifiers.js";
+import { eventsTable } from "../../event-store/index.js";
 import {
   createTestDb,
   type TestDb,
   TestUsers,
   testTenantId,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { selectMany } from "../query";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb } from "../tenant-db";
+} from "../../stack/index.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { selectMany } from "../query.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb } from "../tenant-db.js";
 
 const systemEntity = createEntity({
   table: "sstream_sys",

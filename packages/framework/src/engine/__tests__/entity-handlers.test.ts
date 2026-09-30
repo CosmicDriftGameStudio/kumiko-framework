@@ -12,12 +12,12 @@ import {
   defineProjectionQueryHandler,
   type EntityCrudRegistrar,
   registerEntityCrud,
-} from "../entity-handlers";
-import { createEntity, createLongTextField, createTextField } from "../factories";
+} from "../entity-handlers.js";
+import { createEntity, createLongTextField, createTextField } from "../factories.js";
 // Barrel import, not "../entity-handlers": covers that entityListSchema is
 // actually re-exported through engine/index.ts.
-import { entityListSchema, resolveAgentExposure } from "../index";
-import type { QueryHandlerDef, WriteHandlerDef } from "../types";
+import { entityListSchema, resolveAgentExposure } from "../index.js";
+import type { QueryHandlerDef, WriteHandlerDef } from "../types/index.js";
 
 const VALID_UUID = "00000000-0000-4000-8000-000000000001";
 

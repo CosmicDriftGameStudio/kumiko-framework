@@ -4,12 +4,12 @@
 // keyring.
 
 import type { EnvelopeCipher } from "@cosmicdrift/kumiko-types/envelope-cipher-types";
-import { InternalError } from "../errors/classes";
-import type { DekCache } from "./dek-cache";
-import { createDekCache, withDekCache } from "./dek-cache";
-import { decryptValue, encryptValue } from "./envelope";
-import { decodeStoredEnvelope, encodeStoredEnvelope, isStoredEnvelope } from "./stored-envelope";
-import type { MasterKeyProvider } from "./types";
+import { InternalError } from "../errors/classes.js";
+import type { DekCache } from "./dek-cache.js";
+import { createDekCache, withDekCache } from "./dek-cache.js";
+import { decryptValue, encryptValue } from "./envelope.js";
+import { decodeStoredEnvelope, encodeStoredEnvelope, isStoredEnvelope } from "./stored-envelope.js";
+import type { MasterKeyProvider } from "./types.js";
 
 export type { EnvelopeCipher } from "@cosmicdrift/kumiko-types/envelope-cipher-types";
 

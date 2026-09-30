@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { toSnakeCase } from "../case";
+import { toSnakeCase } from "../case.js";
 
 describe("toSnakeCase", () => {
   test("camelCase → snake_case", () => {

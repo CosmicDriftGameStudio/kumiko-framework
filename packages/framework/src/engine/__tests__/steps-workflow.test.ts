@@ -1,16 +1,16 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { getStep } from "../define-step";
-import { evaluateEventMatch } from "../steps/_event-match";
+import { getStep } from "../define-step.js";
+import { evaluateEventMatch } from "../steps/_event-match.js";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
-} from "../steps/_step-dispatch-constants";
-import { buildRetryStep, calculateBackoff } from "../steps/retry";
-import { buildWaitStep } from "../steps/wait";
-import { buildWaitForEventStep } from "../steps/wait-for-event";
-import type { AwaitedEventType, EventMatch, PipelineCtx } from "../types/step";
+} from "../steps/_step-dispatch-constants.js";
+import { buildRetryStep, calculateBackoff } from "../steps/retry.js";
+import { buildWaitStep } from "../steps/wait.js";
+import { buildWaitForEventStep } from "../steps/wait-for-event.js";
+import type { AwaitedEventType, EventMatch, PipelineCtx } from "../types/step.js";
 
 // Test-only helper for the low-level step-builder unit tests below, which
 // call buildWaitForEventStep directly instead of going through a

@@ -3,14 +3,14 @@
 
 import { afterAll, describe, expect, test } from "bun:test";
 import postgres from "postgres";
-import { constraintOf, extractPgError, isUniqueViolation } from "../../db/pg-error";
-import { testDatabaseUrl } from "../../testing/closed-connection-error";
-import { waitFor } from "../../testing/wait-for";
+import { constraintOf, extractPgError, isUniqueViolation } from "../../db/pg-error.js";
+import { testDatabaseUrl } from "../../testing/closed-connection-error.js";
+import { waitFor } from "../../testing/wait-for.js";
 import {
   describeClosedConnectionFailure,
   isClosedConnectionError,
   unsafeReadRetrying,
-} from "../query";
+} from "../query.js";
 
 const DATABASE_URL = testDatabaseUrl();
 

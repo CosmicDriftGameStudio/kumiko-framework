@@ -1,8 +1,8 @@
-export type { StoredFileStore } from "./delete-stored-file";
-export { deleteStoredFileAndDerivatives, listDerivativeKeys } from "./delete-stored-file";
-export type { DerivativesContextDeps } from "./derivatives-context";
-export { createDerivativesContext, resolveRenderer } from "./derivatives-context";
-export { resolveFieldVariant } from "./field-variants";
+export type { StoredFileStore } from "./delete-stored-file.js";
+export { deleteStoredFileAndDerivatives, listDerivativeKeys } from "./delete-stored-file.js";
+export type { DerivativesContextDeps } from "./derivatives-context.js";
+export { createDerivativesContext, resolveRenderer } from "./derivatives-context.js";
+export { resolveFieldVariant } from "./field-variants.js";
 export {
   canonicalJson,
   derivativeListPrefix,
@@ -11,4 +11,4 @@ export {
   specHash,
   VARIANT_NAME_PATTERN,
   variantSuffix,
-} from "./variant-key";
+} from "./variant-key.js";

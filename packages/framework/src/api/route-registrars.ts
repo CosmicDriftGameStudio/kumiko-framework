@@ -6,19 +6,19 @@
 
 import type { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import type { DbConnection } from "../db/connection";
-import type { Lifecycle } from "../lifecycle";
-import type { Meter, PrometheusMeter } from "../observability";
-import { serializeOpenMetrics } from "../observability";
-import type { EventConsumer } from "../pipeline/event-dispatcher";
-import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "./api-constants";
+import type { DbConnection } from "../db/connection.js";
+import type { Lifecycle } from "../lifecycle/index.js";
+import type { Meter, PrometheusMeter } from "../observability/index.js";
+import { serializeOpenMetrics } from "../observability/index.js";
+import type { EventConsumer } from "../pipeline/event-dispatcher.js";
+import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "./api-constants.js";
 import {
   createReadinessProbe,
   dbPingCheck,
   dispatcherLagCheck,
   type ReadinessCheck,
   redisPingCheck,
-} from "./readiness";
+} from "./readiness.js";
 
 // --- Body size limit ------------------------------------------------------
 
@@ -128,7 +128,7 @@ export type HealthRoutesOptions = {
   readonly lifecycle?: Lifecycle;
   readonly readiness?: {
     readonly db?: DbConnection;
-    readonly redis?: import("ioredis").default;
+    readonly redis?: import("ioredis").Redis;
     readonly consumers?: readonly EventConsumer[];
     readonly timeoutMs?: number;
     // Opt-in dispatcher-lag gate. Off by default — a default threshold

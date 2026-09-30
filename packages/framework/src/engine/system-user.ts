@@ -1,5 +1,5 @@
-import type { SessionUser } from "./types";
-import { SYSTEM_USER_ID, type TenantId } from "./types/identifiers";
+import { SYSTEM_USER_ID, type TenantId } from "./types/identifiers.js";
+import type { SessionUser } from "./types/index.js";
 
 export { SYSTEM_USER_ID };
 

@@ -4,8 +4,8 @@
 // Q7 (Snapshot-at-Start) for the in-flight upgrade story.
 
 import { createHash } from "node:crypto";
-import type { WriteEvent } from "./types/handlers";
-import type { AwaitedEventType, PipelineDef } from "./types/step";
+import type { WriteEvent } from "./types/handlers.js";
+import type { AwaitedEventType, PipelineDef } from "./types/step.js";
 
 /**
  * Trigger configuration for a workflow. Determines what starts a run.

@@ -1,12 +1,12 @@
 import type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-executor-types";
-import type { LocalKeyKmsAdapter } from "../crypto";
-import type { EntityDefinition } from "../engine/types";
-import type { EntityCache } from "../pipeline/entity-cache";
-import type { SearchAdapter } from "../search/types";
-import type { EnvelopeCipher } from "../secrets/envelope-cipher";
-import { buildExecutorContext, type Table } from "./event-store-executor-context";
-import { createReadVerbs } from "./event-store-executor-read";
-import { createWriteVerbs } from "./event-store-executor-write";
+import type { LocalKeyKmsAdapter } from "../crypto/index.js";
+import type { EntityDefinition } from "../engine/types/index.js";
+import type { EntityCache } from "../pipeline/entity-cache.js";
+import type { SearchAdapter } from "../search/types.js";
+import type { EnvelopeCipher } from "../secrets/envelope-cipher.js";
+import { buildExecutorContext, type Table } from "./event-store-executor-context.js";
+import { createReadVerbs } from "./event-store-executor-read.js";
+import { createWriteVerbs } from "./event-store-executor-write.js";
 
 export type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-executor-types";
 
@@ -24,8 +24,8 @@ export type { EventStoreExecutor } from "@cosmicdrift/kumiko-types/event-store-e
 // forget/restore) in event-store-executor-write.ts; the read verbs (list/
 // detail) in event-store-executor-read.ts.
 
-export type { EntityLifecycleVerb } from "./event-store-executor-context";
-export { entityEventName } from "./event-store-executor-context";
+export type { EntityLifecycleVerb } from "./event-store-executor-context.js";
+export { entityEventName } from "./event-store-executor-context.js";
 
 export type EventStoreExecutorOptions = {
   searchAdapter?: SearchAdapter;

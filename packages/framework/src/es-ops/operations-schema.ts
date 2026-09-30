@@ -10,10 +10,10 @@
 //   bunx kumiko ops seed:status      → operation_type = "seed-migration"
 //   bunx kumiko ops projection:status → operation_type = "projection-rebuild"
 
+import { index, integer, table as pgTable, sql, text, timestamp } from "../db/dialect.js";
 // sql now comes from native dialect
-import { type DbConnection, tableExists } from "../db";
-import { index, integer, table as pgTable, sql, text, timestamp } from "../db/dialect";
-import { unsafePushTables } from "../stack";
+import { type DbConnection, tableExists } from "../db/index.js";
+import { unsafePushTables } from "../stack/index.js";
 
 export type EsOperationType = "seed-migration";
 // Phase 2+ extensions — append here when implemented:

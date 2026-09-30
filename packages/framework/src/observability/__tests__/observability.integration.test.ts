@@ -1,19 +1,19 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "bun:test";
 import * as z from "zod";
-import type { TableColumns } from "../../db/dialect";
-import { buildEntityTable } from "../../db/table-builder";
-import { createRegistry, defineFeature } from "../../engine";
-import type { AppContext, SaveContext } from "../../engine/types";
-import { createJobRunner } from "../../jobs";
-import { createLogger } from "../../logging/pino-logger";
+import type { TableColumns } from "../../db/dialect.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createRegistry, defineFeature } from "../../engine/index.js";
+import type { AppContext, SaveContext } from "../../engine/types/index.js";
+import { createJobRunner } from "../../jobs/index.js";
+import { createLogger } from "../../logging/pino-logger.js";
 import {
   createTestRedis,
   setupTestStack,
   type TestRedis,
   type TestStack,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing";
+} from "../../stack/index.js";
+import { createRecordingProvider, type RecordingProvider, waitFor } from "../../testing/index.js";
 
 // End-to-end observability integration: wires a full Kumiko stack with a
 // RecordingProvider so we can assert on the span tree and metric events.

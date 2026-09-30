@@ -11,8 +11,8 @@
 // cross-tenant, bulk operation, not a row-scoped one — there is no
 // escapeHatch/unsafeRaw gate here because nothing ever wraps `db`.
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import type { DbRunner } from "../../db/connection";
-import type { TenantId } from "../types";
+import type { DbRunner } from "../../db/connection.js";
+import type { TenantId } from "../types/index.js";
 
 export interface TenantResourceHookCtx {
   readonly tenantId: TenantId;

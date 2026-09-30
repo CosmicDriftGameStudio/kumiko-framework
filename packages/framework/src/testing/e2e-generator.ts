@@ -38,7 +38,7 @@ import {
   type Registry,
   sectionFieldSpecs,
   toKebab,
-} from "../engine";
+} from "../engine/index.js";
 
 // --- Spec-Shape ---
 

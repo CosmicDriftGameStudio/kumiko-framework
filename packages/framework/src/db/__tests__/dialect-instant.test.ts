@@ -13,7 +13,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { instantToDriver as toDriver } from "../dialect";
+import { instantToDriver as toDriver } from "../dialect.js";
 
 describe("instant() customType — toDriver", () => {
   test("ISO-datetime mit Z: durchgereicht", () => {

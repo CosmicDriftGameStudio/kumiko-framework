@@ -3,7 +3,7 @@
 // (EnvelopeCipher for config values / entity fields). One wire shape for
 // every envelope-encrypted store in the framework.
 
-import type { Envelope } from "./types";
+import type { Envelope } from "./types.js";
 
 export type StoredEnvelope = {
   readonly ciphertext: string; // base64

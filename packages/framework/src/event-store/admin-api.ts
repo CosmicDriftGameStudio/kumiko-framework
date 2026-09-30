@@ -7,19 +7,19 @@
 // Allowlist: samples/*/migration/, scripts/migrations/, die Definition
 // selbst, das Guard-Script selbst.
 
-import type { DbRunner } from "../db";
-import { constraintOf, isUniqueViolation } from "../db/pg-error";
-import { claimXactId } from "../db/queries/event-store";
+import type { DbRunner } from "../db/index.js";
+import { constraintOf, isUniqueViolation } from "../db/pg-error.js";
+import { claimXactId } from "../db/queries/event-store.js";
 import {
   eventPredecessorExists,
   findExistingEventVersion,
   insertRawEventBatch,
   insertRawFirstEvent,
   insertRawSubsequentEvent,
-} from "../db/queries/event-store-admin";
-import type { TenantId } from "../engine/types";
-import { IdempotentAppendConflictError, VersionConflictError } from "./errors";
-import type { EventMetadata } from "./event-store";
+} from "../db/queries/event-store-admin.js";
+import type { TenantId } from "../engine/types/index.js";
+import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
+import type { EventMetadata } from "./event-store.js";
 
 export type RawEventToAppend = {
   readonly aggregateId: string;

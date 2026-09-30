@@ -1,7 +1,7 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { StoredEvent } from "../../event-store/event-store";
-import { setFields } from "../projection-helpers";
-import type { ProjectionTable } from "../types/projection";
+import type { StoredEvent } from "../../event-store/event-store.js";
+import { setFields } from "../projection-helpers.js";
+import type { ProjectionTable } from "../types/projection.js";
 
 // Minimal fake table: an EntityTableMeta (what bun-db introspects for
 // table-name + column-mapping) plus a top-level `id` handle, which setFields

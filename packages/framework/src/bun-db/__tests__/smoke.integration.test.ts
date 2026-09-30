@@ -2,8 +2,8 @@
 // Wenn dieser File grün ist, kann sql-matrix.integration.ts dranbauen.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { deleteMany, fetchOne, insertOne, selectMany } from "../query";
-import { closeDb, withTable } from "./_helpers";
+import { deleteMany, fetchOne, insertOne, selectMany } from "../query.js";
+import { closeDb, withTable } from "./_helpers.js";
 
 afterAll(async () => {
   await closeDb();

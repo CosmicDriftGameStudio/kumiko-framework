@@ -13,22 +13,26 @@
 // the live dispatcher has no such fence — it has pending_gaps instead).
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import type { DbConnection, DbTx } from "../../db/connection";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient } from "../../db/query";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
-import { createEventDispatcher, type EventConsumer, type EventDispatcher } from "../../pipeline";
+import type { DbConnection, DbTx } from "../../db/connection.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient } from "../../db/query.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import {
+  createEventDispatcher,
+  type EventConsumer,
+  type EventDispatcher,
+} from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
-import { generateId } from "../../utils";
-import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
+import { generateId } from "../../utils/index.js";
+import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",

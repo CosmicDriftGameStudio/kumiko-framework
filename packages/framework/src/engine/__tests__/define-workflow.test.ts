@@ -3,9 +3,9 @@ import {
   computeDefinitionFingerprint,
   defineWorkflow,
   type WorkflowTrigger,
-} from "../define-workflow";
-import { stepsPipeline } from "../pipeline";
-import type { PipelineDef } from "../types/step";
+} from "../define-workflow.js";
+import { stepsPipeline } from "../pipeline.js";
+import type { PipelineDef } from "../types/step.js";
 
 const pipe = (build: PipelineDef["build"]): PipelineDef => ({ __kind: "pipeline", build });
 const eventTrigger: WorkflowTrigger = { kind: "event", eventType: "user.signed-up" };

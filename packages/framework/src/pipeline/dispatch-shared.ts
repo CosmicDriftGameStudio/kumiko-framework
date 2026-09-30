@@ -1,17 +1,18 @@
-import { requestContext, runWithOrigin } from "../api/request-context";
-import type { SseBroker } from "../api/sse-broker";
-import type { DbConnection, DbRunner, DbTx } from "../db/connection";
-import { runInSavepoint, selectMany } from "../db/query";
-import type { buildEntityTable } from "../db/table-builder";
+import { requestContext, runWithOrigin } from "../api/request-context.js";
+import type { SseBroker } from "../api/sse-broker.js";
+import type { DbConnection, DbRunner, DbTx } from "../db/connection.js";
+import { runInSavepoint, selectMany } from "../db/query.js";
+import type { buildEntityTable } from "../db/table-builder.js";
 import {
   createTenantDb,
   createUncheckedSystemDb,
   hasTenantColumn,
   type TenantDb,
-} from "../db/tenant-db";
-import { createDerivativesContext } from "../derivatives/derivatives-context";
-import type { defineTransitions } from "../engine/state-machine";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
+} from "../db/tenant-db.js";
+import { createDerivativesContext } from "../derivatives/derivatives-context.js";
+import type { defineTransitions } from "../engine/state-machine.js";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
+import type { TenantId } from "../engine/types/identifiers.js";
 import type {
   AgentRisk,
   AggregateStreamHandle,
@@ -28,41 +29,44 @@ import type {
   Registry,
   SessionUser,
   WriteResult,
-} from "../engine/types";
-import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types";
-import type { TenantId } from "../engine/types/identifiers";
+} from "../engine/types/index.js";
+import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types/index.js";
 import {
   FeatureDisabledError,
   InternalError,
   memberResolutionReadOnlyDenied,
   VersionConflictError,
   type WriteErrorInfo,
-} from "../errors";
+} from "../errors/index.js";
 import {
   archiveStream as archiveStreamHelper,
   isStreamArchived,
   restoreStream as restoreStreamHelper,
-} from "../event-store/archive";
+} from "../event-store/archive.js";
 import {
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflictError,
   VersionConflictError as EventStoreVersionConflictError,
-} from "../event-store/errors";
+} from "../event-store/errors.js";
 import {
   getStreamVersion,
   loadAggregate,
   loadAggregateAsOf,
   type StoredEvent,
-} from "../event-store/event-store";
+} from "../event-store/event-store.js";
 import {
   type LoadAggregateWithSnapshotOptions,
   type LoadAggregateWithSnapshotResult,
   loadAggregateWithSnapshot,
   type SnapshotReducer,
   saveSnapshot,
-} from "../event-store/snapshot";
-import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster";
-import { createFileContext } from "../files/file-handle";
-import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale";
+} from "../event-store/snapshot.js";
+import { upcastStoredEvent, upcastStoredEvents } from "../event-store/upcaster.js";
+import { createFileContext } from "../files/file-handle.js";
+import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.js";
+import {
+  createEscapeHatchReporter,
+  type EscapeHatchReportWindow,
+} from "../observability/escape-hatch-report.js";
 import {
   createMetricsHandle,
   createNoopMetricsHandle,
@@ -72,26 +76,22 @@ import {
   type getFallbackMeter,
   getFallbackTracer,
   observabilityContext,
-} from "../observability";
-import {
-  createEscapeHatchReporter,
-  type EscapeHatchReportWindow,
-} from "../observability/escape-hatch-report";
-import { buildBucketKey } from "../rate-limit";
-import { createTzContext, isValidIanaTimeZone } from "../time";
-import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership";
-import { appendDomainEventCore } from "./append-event-core";
-import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver";
-import { executeQuery } from "./dispatch-query";
-import { executeWrite } from "./dispatch-write";
+} from "../observability/index.js";
+import { buildBucketKey } from "../rate-limit/index.js";
+import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
+import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
+import { appendDomainEventCore } from "./append-event-core.js";
+import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.js";
+import { executeQuery } from "./dispatch-query.js";
+import { executeWrite } from "./dispatch-write.js";
 import {
   type AfterCommitHook,
   dispatcherSpanAttributes,
   isFailedWriteResult,
-} from "./dispatcher-utils";
-import type { IdempotencyGuard } from "./idempotency";
-import type { LifecycleHooks } from "./lifecycle-pipeline";
-import { createMemberReaderFn } from "./member-reader";
+} from "./dispatcher-utils.js";
+import type { IdempotencyGuard } from "./idempotency.js";
+import type { LifecycleHooks } from "./lifecycle-pipeline.js";
+import { createMemberReaderFn } from "./member-reader.js";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
@@ -99,11 +99,11 @@ import {
   isSystemIdentity,
   type ProjectionReader,
   systemIdentitySwitchDenied,
-} from "./system-identity-switch";
-import type { TenantTimezoneCache } from "./tenant-timezone-cache";
-import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin";
+} from "./system-identity-switch.js";
+import type { TenantTimezoneCache } from "./tenant-timezone-cache.js";
+import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.js";
 
-export type { WriteOrigin } from "./write-origin";
+export type { WriteOrigin } from "./write-origin.js";
 
 // Framework/pipeline stays bundled-features-free, so this can't import the
 // `tenant` feature — the literal below IS the coupling to its `timezone`
@@ -1069,7 +1069,7 @@ export async function checkFeatureEnabled(
   ctx: DispatchContext,
   qualifiedHandler: string,
   tenantId: TenantId,
-): Promise<import("../errors").FeatureDisabledError | undefined> {
+): Promise<import("../errors/index.js").FeatureDisabledError | undefined> {
   const { effectiveFeatures, registry } = ctx;
   if (!effectiveFeatures) return undefined;
   const owner = registry.getHandlerFeature(qualifiedHandler);

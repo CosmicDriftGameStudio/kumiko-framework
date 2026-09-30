@@ -5,12 +5,17 @@
 // Follows tenant-db-where-merge.integration.test.ts's setupTestStack pattern.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { AccessDeniedError } from "../../errors";
-import { setupTestStack, type TestStack, testTenantId, unsafePushTables } from "../../stack";
-import type { TableColumns } from "../dialect";
-import { defineUnmanagedTable } from "../entity-table-meta";
-import { insertOne } from "../query";
-import { createTenantDb } from "../tenant-db";
+import { AccessDeniedError } from "../../errors/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  testTenantId,
+  unsafePushTables,
+} from "../../stack/index.js";
+import type { TableColumns } from "../dialect.js";
+import { defineUnmanagedTable } from "../entity-table-meta.js";
+import { insertOne } from "../query.js";
+import { createTenantDb } from "../tenant-db.js";
 
 const globalItemsTable = defineUnmanagedTable({
   tableName: "store_fw2858_global_items_it",

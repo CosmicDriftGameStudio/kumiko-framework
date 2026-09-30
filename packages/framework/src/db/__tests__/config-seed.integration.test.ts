@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
 import {
   createEntity,
   createSystemConfig,
@@ -8,14 +8,14 @@ import {
   createTextField,
   createUserConfig,
   SYSTEM_TENANT_ID,
-} from "../../engine";
-import type { ConfigSeedDef, Registry } from "../../engine/types";
-import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider";
-import { createEnvelopeCipher } from "../../secrets/envelope-cipher";
-import { unsafeCreateEntityTable } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { seedConfigValues } from "../config-seed";
-import { buildEntityTable } from "../table-builder";
+} from "../../engine/index.js";
+import type { ConfigSeedDef, Registry } from "../../engine/types/index.js";
+import { createEnvMasterKeyProvider } from "../../secrets/env-master-key-provider.js";
+import { createEnvelopeCipher } from "../../secrets/envelope-cipher.js";
+import { unsafeCreateEntityTable } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { seedConfigValues } from "../config-seed.js";
+import { buildEntityTable } from "../table-builder.js";
 
 // --- Test Entity ---
 // Mirrors the config-value entity from bundled-features with a unique

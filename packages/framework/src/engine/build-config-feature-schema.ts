@@ -15,26 +15,26 @@
 // qualifiziert die kurzen ids/refs mit "config". Daher hier durchweg KURZE
 // ids/parent/screen-Refs (buildNavRegistrySliceForApp qualifiziert selbst).
 
-import type { WorkspaceSchema } from "../ui-types";
-import type { ConfigScope } from "./constants";
+import type { WorkspaceSchema } from "../ui-types/index.js";
+import type { ConfigScope } from "./constants.js";
 import {
   EXTENSION_SELECTOR_HINT_KEY,
   SELECTED_EXTENSIONS_QUERY,
   selectablePluginIds,
-} from "./extension-selector-plugins";
+} from "./extension-selector-plugins.js";
 import {
   createBooleanField,
   createNumberField,
   createSelectField,
   createTextField,
-} from "./factories";
-import { isKebabSegment, toKebab } from "./qualified-name";
-import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config";
-import type { Registry, SecretKeyDefinition } from "./types/feature";
-import type { FieldDefinition } from "./types/fields";
-import type { AccessRule } from "./types/handlers";
-import { isOpenToAllGranted } from "./types/handlers";
-import type { NavDefinition, NavIconKey } from "./types/nav";
+} from "./factories.js";
+import { isKebabSegment, toKebab } from "./qualified-name.js";
+import type { ConfigKeyDefinition, TranslationEntry, TranslationKeys } from "./types/config.js";
+import type { Registry, SecretKeyDefinition } from "./types/feature.js";
+import type { FieldDefinition } from "./types/fields.js";
+import type { AccessRule } from "./types/handlers.js";
+import { isOpenToAllGranted } from "./types/handlers.js";
+import type { NavDefinition, NavIconKey } from "./types/nav.js";
 import type {
   ConfigEditScreenDefinition,
   DashboardPanelDefinition,
@@ -43,7 +43,7 @@ import type {
   ScreenDefinition,
   SecretsEditScreenDefinition,
   SecretsEditSection,
-} from "./types/screen";
+} from "./types/screen.js";
 
 // Namespace, unter dem buildAppSchema die generierten Screens/Navs einhängt
 // (find-or-create FeatureSchema). MUSS gleich CONFIG_FEATURE aus dem config

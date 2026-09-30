@@ -1,8 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
-import { STATE_CHANGING_METHODS } from "./api-constants";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getAuthTransport } from "./auth-middleware";
+import { STATE_CHANGING_METHODS } from "./api-constants.js";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME, getAuthTransport } from "./auth-middleware.js";
 
 // Constant-time byte compare. `a !== b` short-circuits at the first
 // differing byte and leaks the common prefix length to anyone who can

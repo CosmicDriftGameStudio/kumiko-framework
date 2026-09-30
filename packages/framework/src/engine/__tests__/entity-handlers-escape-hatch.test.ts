@@ -3,8 +3,8 @@ import {
   defineEntityListHandler,
   defineEntityUpdateHandler,
   isDeprecatedCrossTenantHandler,
-} from "../entity-handlers";
-import { createEntity, createTextField } from "../factories";
+} from "../entity-handlers.js";
+import { createEntity, createTextField } from "../factories.js";
 
 const thingEntity = createEntity({
   table: "escape_hatch_things",

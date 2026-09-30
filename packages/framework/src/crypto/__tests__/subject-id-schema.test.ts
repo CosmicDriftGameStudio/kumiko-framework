@@ -4,7 +4,7 @@
 // the three SubjectId shapes parse, everything else is refused.
 
 import { describe, expect, test } from "bun:test";
-import { subjectIdSchema } from "../kms-adapter";
+import { subjectIdSchema } from "../kms-adapter.js";
 
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 

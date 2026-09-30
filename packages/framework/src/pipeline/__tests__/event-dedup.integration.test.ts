@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { defineFeature, type SaveContext } from "../../engine";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { defineFeature, type SaveContext } from "../../engine/index.js";
 import {
   createTestRedis,
   setupTestStack,
@@ -9,9 +9,9 @@ import {
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedItemEntity, sharedItemTable } from "../../testing";
-import { createEventDedup } from "../event-dedup";
+} from "../../stack/index.js";
+import { sharedItemEntity, sharedItemTable } from "../../testing/index.js";
+import { createEventDedup } from "../event-dedup.js";
 
 // --- Feature ---
 

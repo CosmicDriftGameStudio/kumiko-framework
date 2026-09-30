@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { type SqlExpression, sql, uuid } from "../../db/dialect";
-import type { EntityTableMeta } from "../../db/entity-table-meta";
-import { insertOne, updateMany } from "../query";
+import { type SqlExpression, sql, uuid } from "../../db/dialect.js";
+import type { EntityTableMeta } from "../../db/entity-table-meta.js";
+import { insertOne, updateMany } from "../query.js";
 
 const meta: EntityTableMeta = {
   source: "unmanaged",

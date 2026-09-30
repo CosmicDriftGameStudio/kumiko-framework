@@ -1,6 +1,6 @@
-export type { SetTenantCookieOptions } from "./anonymous-cookie";
-export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie";
-export { LOCALE_HEADER_NAME, NO_ROUTE_MATCH_HEADER_NAME } from "./api-constants";
+export type { SetTenantCookieOptions } from "./anonymous-cookie.js";
+export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie.js";
+export { LOCALE_HEADER_NAME, NO_ROUTE_MATCH_HEADER_NAME } from "./api-constants.js";
 export type {
   AnonymousAccessConfig,
   AnonymousAccessResolved,
@@ -12,14 +12,14 @@ export type {
   TenantLifecycleStatusResolver,
   TenantResolver,
   TokenVerifier,
-} from "./auth-middleware";
+} from "./auth-middleware.js";
 export {
   AUTH_COOKIE_NAME,
   authMiddleware,
   getUser,
   PAT_TOKEN_PREFIX,
   sessionCheckStatus,
-} from "./auth-middleware";
+} from "./auth-middleware.js";
 export type {
   AuthRoutesConfig,
   LoginRateLimiter,
@@ -28,13 +28,13 @@ export type {
   SessionMassRevoker,
   SessionMetadata,
   SessionRevoker,
-} from "./auth-routes";
+} from "./auth-routes.js";
 export {
   createAuthRoutes,
   createInMemoryLoginRateLimiter,
   createRedisLoginRateLimiter,
-} from "./auth-routes";
-export type { ClientIpHeaderSource, ClientIpResolver } from "./client-ip";
+} from "./auth-routes.js";
+export type { ClientIpHeaderSource, ClientIpResolver } from "./client-ip.js";
 export {
   assertValidTrustedProxyHops,
   clientIpSourceFromHonoContext,
@@ -43,7 +43,7 @@ export {
   parseTrustedProxyHopsEnv,
   TRUSTED_PROXY_HOPS_ENV,
   UNKNOWN_CLIENT_IP,
-} from "./client-ip";
+} from "./client-ip.js";
 export type {
   AnonymousExtraRoute,
   AnonymousExtraRouteDeps,
@@ -58,9 +58,9 @@ export type {
   SystemDispatchArgs,
   UserExtraRoute,
   UserExtraRouteDeps,
-} from "./extra-route";
-export { ExtraRouteEntries, ExtraRouteRejection, signatureRoute } from "./extra-route";
-export type { CachedResponseInit, CachePolicy } from "./http-cache";
+} from "./extra-route.js";
+export { ExtraRouteEntries, ExtraRouteRejection, signatureRoute } from "./extra-route.js";
+export type { CachedResponseInit, CachePolicy } from "./http-cache.js";
 export {
   cacheControlHeader,
   cachedResponse,
@@ -69,41 +69,45 @@ export {
   computeWeakEtag,
   etagMatches,
   parseIfNoneMatch,
-} from "./http-cache";
-export type { JwtHelper, JwtKeyring, JwtPayload } from "./jwt";
-export { createJwtHelper, loadJwtSecretOrKeyring } from "./jwt";
-export { patAllows, qnMatches } from "./pat-scope";
+} from "./http-cache.js";
+export type { JwtHelper, JwtKeyring, JwtPayload } from "./jwt.js";
+export { createJwtHelper, loadJwtSecretOrKeyring } from "./jwt.js";
+export { patAllows, qnMatches } from "./pat-scope.js";
 export type {
   PostAuthLandingArgs,
   PostAuthLandingFlow,
   PostAuthLandingResolver,
-} from "./post-auth-landing";
-export { isSafeLandingPath } from "./post-auth-landing";
-export type { RedisSseBroker, RedisSseBrokerOptions } from "./redis-sse-broker";
-export { createDefaultSseBroker, createRedisSseBroker, isRedisSseBroker } from "./redis-sse-broker";
+} from "./post-auth-landing.js";
+export { isSafeLandingPath } from "./post-auth-landing.js";
+export type { RedisSseBroker, RedisSseBrokerOptions } from "./redis-sse-broker.js";
+export {
+  createDefaultSseBroker,
+  createRedisSseBroker,
+  isRedisSseBroker,
+} from "./redis-sse-broker.js";
 export {
   type RequestContextData,
   requestContext,
   runAsDirectCallEntry,
-} from "./request-context";
+} from "./request-context.js";
 export {
   buildRequestContextDataFromRequest,
   requestIdMiddleware,
-} from "./request-id-middleware";
-export { DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars";
-export { createApiRoutes } from "./routes";
-export type { KumikoServer, ServerOptions } from "./server";
-export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server";
-export type { SseBroker, SseClient, SseEvent } from "./sse-broker";
-export { createSseBroker } from "./sse-broker";
-export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route";
-export { generateToken } from "./tokens";
+} from "./request-id-middleware.js";
+export { DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars.js";
+export { createApiRoutes } from "./routes.js";
+export type { KumikoServer, ServerOptions } from "./server.js";
+export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server.js";
+export type { SseBroker, SseClient, SseEvent } from "./sse-broker.js";
+export { createSseBroker } from "./sse-broker.js";
+export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.js";
+export { generateToken } from "./tokens.js";
 export type {
   KumikoServeEnv,
   KumikoServerWebSocket,
   KumikoWebSocketData,
   WebSocketUpgradeServer,
-} from "./websocket-route";
+} from "./websocket-route.js";
 export {
   createKumikoWebSocketHandler,
   isWebSocketUpgradeRequest,
@@ -114,4 +118,4 @@ export {
   WEBSOCKET_MAX_PAYLOAD_BYTES,
   WEBSOCKET_REVALIDATION_FAILURE_LIMIT,
   WEBSOCKET_ROUTE_PATH_PREFIX,
-} from "./websocket-route";
+} from "./websocket-route.js";

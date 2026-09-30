@@ -1,16 +1,16 @@
-import { qualifyEntityName } from "../qualified-name";
-import type { FeatureDefinition } from "../types";
+import { qualifyEntityName } from "../qualified-name.js";
+import type { FeatureDefinition } from "../types/index.js";
 import type {
   EditRelatedListSection,
   ProjectionDetailScreenDefinition,
   RowFieldExtractor,
   ScreenDefinition,
-} from "../types/screen";
+} from "../types/screen.js";
 import {
   collectScreensByShortId,
   readsNavigateParamsAsFormPrefill,
   rowFieldExtractorKeys,
-} from "./screens";
+} from "./screens.js";
 
 type NavigateParamsSource = {
   readonly screen?: string;

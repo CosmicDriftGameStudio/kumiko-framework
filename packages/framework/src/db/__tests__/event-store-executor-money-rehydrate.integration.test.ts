@@ -6,19 +6,19 @@
 // list()/detail() path through raw SQL, which is why this went unnoticed.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
-import { createEntity, createMoneyField, createTextField, from } from "../../engine";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { createTestEnvelopeCipher } from "../../testing";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
+import { createEntity, createMoneyField, createTextField, from } from "../../engine/index.js";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { createTestEnvelopeCipher } from "../../testing/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import {
   configureEntityFieldEncryption,
   resetEntityFieldEncryptionCacheForTests,
-} from "../entity-field-encryption";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+} from "../entity-field-encryption.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const TEST_KEY = Buffer.from("a]bJm#kP9xQ2@wN!vL$hR5yT8eU0iO3f").toString("base64");
 const cipher = createTestEnvelopeCipher(TEST_KEY);

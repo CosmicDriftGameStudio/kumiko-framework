@@ -1,8 +1,8 @@
-import { checkWriteFieldOwnership } from "../engine/field-access";
-import { instructionFieldNames } from "../engine/instruction-fields";
-import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership";
-import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user";
-import type { EntityId, SessionUser } from "../engine/types";
+import { checkWriteFieldOwnership } from "../engine/field-access.js";
+import { instructionFieldNames } from "../engine/instruction-fields.js";
+import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.js";
+import { SYSTEM_ROLE, SYSTEM_USER_ID } from "../engine/system-user.js";
+import type { EntityId, SessionUser } from "../engine/types/index.js";
 import {
   AccessDeniedError,
   VersionConflictError as FrameworkVersionConflict,
@@ -12,33 +12,33 @@ import {
   PreconditionFailedError,
   UnprocessableError,
   writeFailure,
-} from "../errors";
+} from "../errors/index.js";
 import {
   append,
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
-} from "../event-store";
+} from "../event-store/index.js";
 import {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
-} from "../pipeline/irreversible-operation-gate";
-import { generateId } from "../utils";
-import { applyEntityEvent } from "./apply-entity-event";
-import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types";
-import type { DbRow } from "./connection";
-import type { EventStoreExecutor } from "./event-store-executor";
+} from "../pipeline/irreversible-operation-gate.js";
+import { generateId } from "../utils/index.js";
+import { applyEntityEvent } from "./apply-entity-event.js";
+import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
+import type { DbRow } from "./connection.js";
+import type { EventStoreExecutor } from "./event-store-executor.js";
 import {
   buildEventMetadata,
   type ExecutorContext,
   entityEventName,
   isForeignTenantOnGlobalEntity,
   tryMapUniqueViolation,
-} from "./event-store-executor-context";
-import { runInSavepointIfSupported } from "./query";
-import { assertPersonalDataWrite, tableNameOf } from "./tenant-db";
-import { tenantDbRunner } from "./tenant-db-runner";
+} from "./event-store-executor-context.js";
+import { runInSavepointIfSupported } from "./query.js";
+import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
+import { tenantDbRunner } from "./tenant-db-runner.js";
 
 // Art. 17 erasure runs as the framework operator, not as a row owner; a
 // per-role ownership map can never cover it, and a silent deny means the

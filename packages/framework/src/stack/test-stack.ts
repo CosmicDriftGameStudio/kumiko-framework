@@ -1,38 +1,44 @@
 import type { Hono } from "hono";
-import type { AuthRoutesConfig } from "../api/auth-routes";
-import type { JwtHelper } from "../api/jwt";
-import { buildServer } from "../api/server";
-import { createSseBroker, type SseBroker } from "../api/sse-broker";
-import type { PgClient } from "../db/connection";
-import { validateOwnershipBoot } from "../engine/boot-validator/ownership";
-import { createRegistry } from "../engine/registry";
-import type { AppContext, FeatureDefinition, JobRunIn, Registry, TenantId } from "../engine/types";
-import { createArchivedStreamsTable, createEventsTable } from "../event-store";
-import { createJobRunner, type JobRunner, type JobRunnerOptions } from "../jobs";
-import type { Lifecycle } from "../lifecycle";
-import { createNoopProvider, type ObservabilityProvider } from "../observability";
-import type { Dispatcher, EventDispatcher } from "../pipeline";
+import type { AuthRoutesConfig } from "../api/auth-routes.js";
+import type { JwtHelper } from "../api/jwt.js";
+import { buildServer } from "../api/server.js";
+import { createSseBroker, type SseBroker } from "../api/sse-broker.js";
+import type { PgClient } from "../db/connection.js";
+import { validateOwnershipBoot } from "../engine/boot-validator/ownership.js";
+import { createRegistry } from "../engine/registry.js";
+import type {
+  AppContext,
+  FeatureDefinition,
+  JobRunIn,
+  Registry,
+  TenantId,
+} from "../engine/types/index.js";
+import { createArchivedStreamsTable, createEventsTable } from "../event-store/index.js";
+import { createJobRunner, type JobRunner, type JobRunnerOptions } from "../jobs/index.js";
+import type { Lifecycle } from "../lifecycle/index.js";
+import { createNoopProvider, type ObservabilityProvider } from "../observability/index.js";
+import type { Dispatcher, EventDispatcher } from "../pipeline/index.js";
 import {
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
   dispatcherToWriteRef,
-} from "../pipeline";
-import { createRateLimitResolver } from "../rate-limit";
-import { createInMemorySearchAdapter } from "../search";
-import type { SearchAdapter } from "../search/types";
-import { createTestDb } from "./db";
-import { createJobFailureTracker, drainJobs } from "./drain-jobs";
-import { createEventCollector, type EventCollector } from "./event-collector";
-import { createTestRedis, type TestRedis } from "./redis";
-import { createRequestHelper, type RequestHelper } from "./request-helper";
-import { unsafePushTables } from "./table-helpers";
+} from "../pipeline/index.js";
+import { createRateLimitResolver } from "../rate-limit/index.js";
+import { createInMemorySearchAdapter } from "../search/index.js";
+import type { SearchAdapter } from "../search/types.js";
+import { createTestDb } from "./db.js";
+import { createJobFailureTracker, drainJobs } from "./drain-jobs.js";
+import { createEventCollector, type EventCollector } from "./event-collector.js";
+import { createTestRedis, type TestRedis } from "./redis.js";
+import { createRequestHelper, type RequestHelper } from "./request-helper.js";
+import { unsafePushTables } from "./table-helpers.js";
 
 export type TestStack = {
   app: Hono;
   jwt: JwtHelper;
   registry: Registry;
-  db: import("../db").DbConnection;
+  db: import("../db/index.js").DbConnection;
   redis: TestRedis;
   search: SearchAdapter;
   events: EventCollector;
@@ -97,16 +103,16 @@ export type TestStackOptions = {
     | Record<string, unknown>
     | ((deps: {
         registry: Registry;
-        db: import("../db").DbConnection;
-        sseBroker: import("../api/sse-broker").SseBroker;
-        redis: import("ioredis").default;
+        db: import("../db/index.js").DbConnection;
+        sseBroker: import("../api/sse-broker.js").SseBroker;
+        redis: import("ioredis").Redis;
       }) => Record<string, unknown>);
   /** Wire up auth routes (login, tenant-switch). Leave undefined to skip. */
   authConfig?: AuthRoutesConfig;
   /** Register a file storage provider so uploads via POST /api/files work and
    *  `ctx.files.ref(key)` is available to hooks/MSPs. Omit to skip — tests
    *  without file handling don't need it. */
-  files?: { storageProvider: import("../files").FileStorageProvider };
+  files?: { storageProvider: import("../files/index.js").FileStorageProvider };
   /** Observability provider — omit for NoopProvider (no spans/metrics).
    *  Pass a ConsoleProvider to see the span tree in stdout, or a custom
    *  provider (e.g. a recording provider for assertions in tests). */
@@ -117,19 +123,19 @@ export type TestStackOptions = {
   /** Wire L1 (global-IP) and/or L2 (auth-endpoint) rate-limit middleware.
    *  The resolver is auto-built from the test Redis. Mirrors
    *  buildServer's `rateLimit` option 1:1 — see there for shape. */
-  rateLimit?: import("../api/server").ServerOptions["rateLimit"];
+  rateLimit?: import("../api/server.js").ServerOptions["rateLimit"];
   /** Forwarded to buildServer — Integration-Tests that exercise `extraRoutes`
    *  MUST go through here (real HTTP via `stack.http`/`stack.app.fetch`),
    *  never `createTestDispatcher`. */
-  extraRoutes?: import("../api/server").ServerOptions["extraRoutes"];
+  extraRoutes?: import("../api/server.js").ServerOptions["extraRoutes"];
   /** Forwarded to buildServer like runProdApp. Without a PrometheusMeter-backed
    *  `observability` the route answers 503, so spread `resolveObservabilityWiring(token)`
    *  rather than setting `metrics` alone. */
-  metrics?: import("../api/server").ServerOptions["metrics"];
+  metrics?: import("../api/server.js").ServerOptions["metrics"];
   /** Inject a MasterKeyProvider for secrets-backed tests. Lands typed in
    *  AppContext — set/delete/get + rotation job pick it up. Omit for
    *  suites that don't touch secrets. */
-  masterKeyProvider?: import("../secrets").MasterKeyProvider;
+  masterKeyProvider?: import("../secrets/index.js").MasterKeyProvider;
   /** Feature-toggle resolver. When present the dispatcher's feature-gate,
    *  hook-filter, and MSP-filter all consult it; absent = every feature
    *  treated as always-on. Pass the callback from
@@ -154,22 +160,22 @@ export type TestStackOptions = {
    *  TenantResolver darin closure'd typischerweise `db` für Subdomain-
    *  Lookups. */
   anonymousAccess?:
-    | import("../api/server").ServerOptions["anonymousAccess"]
+    | import("../api/server.js").ServerOptions["anonymousAccess"]
     | ((deps: {
         registry: Registry;
-        db: import("../db").DbConnection;
-        sseBroker: import("../api/sse-broker").SseBroker;
-        redis: import("ioredis").default;
-      }) => import("../api/server").ServerOptions["anonymousAccess"]);
+        db: import("../db/index.js").DbConnection;
+        sseBroker: import("../api/sse-broker.js").SseBroker;
+        redis: import("ioredis").Redis;
+      }) => import("../api/server.js").ServerOptions["anonymousAccess"]);
   /** Optional post-factory enricher (e.g. merge auth-foundation tenant
    *  providers). Keeps framework free of a bundled-features dependency. */
   enrichAnonymousAccess?: (
-    base: import("../api/server").ServerOptions["anonymousAccess"] | undefined,
+    base: import("../api/server.js").ServerOptions["anonymousAccess"] | undefined,
     deps: {
       registry: Registry;
-      db: import("../db").DbConnection;
+      db: import("../db/index.js").DbConnection;
     },
-  ) => Promise<import("../api/server").ServerOptions["anonymousAccess"] | undefined>;
+  ) => Promise<import("../api/server.js").ServerOptions["anonymousAccess"] | undefined>;
   /** Opt-in JobRunner wired into ctx.jobRunner and merged into
    *  dispatcherOptions so event-triggered jobs enqueue on commit — mirrors
    *  the prod entrypoint's `buildJobRunnerWithHook`. Unlike prod (which
@@ -195,7 +201,7 @@ export type TestStackOptions = {
      *  awaited before drainJobs() observes the job's outcome. */
     runLogger?: (deps: {
       registry: Registry;
-      db: import("../db").DbConnection;
+      db: import("../db/index.js").DbConnection;
     }) => Pick<JobRunnerOptions, "onJobStart" | "onJobComplete" | "onJobFailed"> | undefined;
   };
   /** Override the event dispatcher's polling-timer interval. Default 50ms.
@@ -228,7 +234,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // Temporal-Polyfill installieren bevor Feature-Code läuft. Idempotent —
   // Production-Server-Boot ruft das gleich. Auf Runtimes mit nativem
   // Temporal ein No-Op.
-  const { ensureTemporalPolyfill } = await import("../time/polyfill");
+  const { ensureTemporalPolyfill } = await import("../time/polyfill.js");
   await ensureTemporalPolyfill();
 
   // Ownership boot-guards (fw#2639 unqualified where-fragments, fw#2626
@@ -269,7 +275,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // Framework state for projection rebuild/status + event-consumer cursors.
     // Idempotent — production boot flows run the same calls.
     const { createProjectionStateTable, createEventConsumerStateTable } = await import(
-      "../pipeline"
+      "../pipeline/index.js"
     );
     await createProjectionStateTable(testDb.db);
     await createEventConsumerStateTable(testDb.db);
@@ -278,18 +284,18 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     // exist before the first upload. Skipped when no provider — the table
     // stays off tenant test DBs that never touch files.
     if (options.files) {
-      const { fileRefsTable } = await import("../files");
+      const { fileRefsTable } = await import("../files/index.js");
       await unsafePushTables(testDb.db, { fileRefsTable });
     }
 
     // Same table list as `kumiko schema generate` (collectTableMetas) — divergence
     // was the #255 prod-crash and the #3102 missing r.entity() tables.
-    const { collectTableMetas } = await import("../db/collect-table-metas");
-    const { tableExists } = await import("../db/schema-inspection");
+    const { collectTableMetas } = await import("../db/collect-table-metas.js");
+    const { tableExists } = await import("../db/schema-inspection.js");
     let metas = collectTableMetas(options.features);
     if (options.entityTables === false) {
-      const { enumerateFeatureTableSources } = await import("../db/feature-table-sources");
-      const { extractTableInfo } = await import("../db/query");
+      const { enumerateFeatureTableSources } = await import("../db/feature-table-sources.js");
+      const { extractTableInfo } = await import("../db/query.js");
       const nonEntityNames = new Set(
         options.features.flatMap((f) =>
           enumerateFeatureTableSources(f).map((s) => extractTableInfo(s.table).name),
@@ -337,7 +343,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
   // A static `files.storageProvider` is wired as the per-tenant resolver — the
   // framework test seam that doesn't require mounting config + file-foundation.
   // (Bundled GDPR tests mount the real provider features instead.)
-  let fileProviderResolver: import("../files").FileProviderResolver | undefined;
+  let fileProviderResolver: import("../files/index.js").FileProviderResolver | undefined;
   if (options.files) {
     const provider = options.files.storageProvider;
     fileProviderResolver = () => Promise.resolve(provider);

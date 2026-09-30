@@ -13,17 +13,17 @@
 // (moved here from there) so existing imports keep working.
 
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import type { DbConnection } from "../db/connection";
-import type { TenantDb } from "../db/tenant-db";
+import type { DbConnection } from "../db/connection.js";
+import type { TenantDb } from "../db/tenant-db.js";
 import {
   EXT_FILE_PROVIDER,
   FILE_PROVIDER_CONFIG_KEY,
   FILE_STORAGE_PROVIDER_BOOT_SENTINEL,
-} from "../engine/extension-names";
-import { SYSTEM_USER_ID } from "../engine/system-user";
-import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types";
-import type { SecretsContext } from "../secrets";
-import type { FileStorageProvider } from "./types";
+} from "../engine/extension-names.js";
+import { SYSTEM_USER_ID } from "../engine/system-user.js";
+import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types/index.js";
+import type { SecretsContext } from "../secrets/index.js";
+import type { FileStorageProvider } from "./types.js";
 
 const FEATURE_NAME = "file-foundation";
 

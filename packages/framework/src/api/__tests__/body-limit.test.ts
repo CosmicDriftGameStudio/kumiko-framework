@@ -1,8 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "../api-constants";
-import { buildServer } from "../server";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import { BODY_LIMIT_OPT_OUT_PATHS, Routes } from "../api-constants.js";
+import { buildServer } from "../server.js";
 
 const JWT_SECRET = "test-secret-at-least-32-chars-long!!";
 

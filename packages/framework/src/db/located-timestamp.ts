@@ -13,7 +13,7 @@
 // globalThis, so this crashed with "Temporal is not defined" outside boot
 // paths that install it (#1480).
 import { Temporal } from "temporal-polyfill";
-import type { EntityDefinition } from "../engine/types";
+import type { EntityDefinition } from "../engine/types/index.js";
 
 // Sprint F: <name>Utc-Spalte ist jetzt instant() (siehe dialect.ts) —
 // Drizzle gibt direkt Temporal.Instant zurück. Vor Sprint F kam ein PG-

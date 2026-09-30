@@ -16,8 +16,8 @@
 
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as z from "zod";
-import { validateBoot } from "../boot-validator";
-import { defineFeature } from "../define-feature";
+import { validateBoot } from "../boot-validator.js";
+import { defineFeature } from "../define-feature.js";
 import {
   createBooleanField,
   createDateField,
@@ -31,8 +31,8 @@ import {
   createTextField,
   createTimestampField,
   createTzField,
-} from "../factories";
-import type { LongTextFieldDef, TextFieldDef } from "../types";
+} from "../factories.js";
+import type { LongTextFieldDef, TextFieldDef } from "../types/index.js";
 
 // The new personal/find union can no longer express some flag combinations
 // on purpose (e.g. two subjects on one field) — these tests deliberately

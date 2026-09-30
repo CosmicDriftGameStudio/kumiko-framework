@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { integer, type SchemaTable, table, uuid } from "../../db/dialect";
-import type { ProjectionDefinition } from "../../engine/types";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
-import { createRegistry } from "../registry";
+import { integer, type SchemaTable, table, uuid } from "../../db/dialect.js";
+import type { ProjectionDefinition } from "../../engine/types/index.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../factories.js";
+import { createRegistry } from "../registry.js";
 
 // Throwaway Drizzle table reused across these tests. The runtime-behaviour of
 // the projection itself (apply, TX semantics) is covered by the MietNomade

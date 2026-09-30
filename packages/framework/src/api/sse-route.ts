@@ -1,9 +1,9 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import { tenantChannel } from "../engine/constants";
-import { Routes } from "./api-constants";
-import { getUser } from "./auth-middleware";
-import type { SseBroker } from "./sse-broker";
+import { tenantChannel } from "../engine/constants.js";
+import { Routes } from "./api-constants.js";
+import { getUser } from "./auth-middleware.js";
+import type { SseBroker } from "./sse-broker.js";
 
 /**
  * Heartbeat-Cadence für SSE-Streams.

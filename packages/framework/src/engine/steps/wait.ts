@@ -9,15 +9,15 @@
 // The `for` resolver accepts ISO-8601 duration strings ("PT1H", "P1D")
 // or absolute ISO timestamps ("2026-05-16T12:00:00Z").
 
-import { defineStep } from "../define-step";
-import type { PipelineCtx, StepInstance, StepResolver } from "../types/step";
-import { addDuration } from "./_duration-utils";
-import { resolveRequired } from "./_resolver-utils";
+import { defineStep } from "../define-step.js";
+import type { PipelineCtx, StepInstance, StepResolver } from "../types/step.js";
+import { addDuration } from "./_duration-utils.js";
+import { resolveRequired } from "./_resolver-utils.js";
 import {
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_WAITING_TYPE,
-} from "./_step-dispatch-constants";
+} from "./_step-dispatch-constants.js";
 
 type WaitStepArgs = {
   readonly for: StepResolver<string>;

@@ -11,20 +11,20 @@ import {
   table as pgTable,
   text as pgText,
   uuid as pgUuid,
-} from "../../db/dialect";
-import { defineUnmanagedTable } from "../../db/entity-table-meta";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { insertOne } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import type { EscapeHatchUseEvent, ProjectionTable } from "../../engine/types";
+} from "../../db/dialect.js";
+import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { insertOne } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import type { EscapeHatchUseEvent, ProjectionTable } from "../../engine/types/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 const widgetEntity = createEntity({
   table: "read_qp_widgets",

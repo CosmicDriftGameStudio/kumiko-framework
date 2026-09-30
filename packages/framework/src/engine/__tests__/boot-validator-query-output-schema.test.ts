@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
-import { validateBoot as validateBootRaw } from "../boot-validator";
-import { defineFeature } from "../define-feature";
-import { definePagedQueryHandler, defineQueryHandler } from "../define-handler";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.js";
+import { defineFeature } from "../define-feature.js";
+import { definePagedQueryHandler, defineQueryHandler } from "../define-handler.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

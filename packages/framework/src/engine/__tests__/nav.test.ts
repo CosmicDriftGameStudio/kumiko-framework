@@ -1,9 +1,9 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { withBootValidatorFixture } from "../../testing/boot-validator-fixture";
-import { validateBoot as validateBootRaw } from "../boot-validator";
-import { defineFeature } from "../define-feature";
-import { createEntity, createTextField } from "../factories";
-import { createRegistry } from "../registry";
+import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { validateBoot as validateBootRaw } from "../boot-validator.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createTextField } from "../factories.js";
+import { createRegistry } from "../registry.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));

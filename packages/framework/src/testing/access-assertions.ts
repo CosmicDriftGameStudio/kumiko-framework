@@ -1,4 +1,4 @@
-import type { AccessRule } from "../engine/types";
+import type { AccessRule } from "../engine/types/index.js";
 
 // Test-only helper: extracts the role list from a role-based AccessRule,
 // narrowing the union safely. Throws when the rule is openToAll or missing —

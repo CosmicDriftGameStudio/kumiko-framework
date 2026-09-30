@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { createEnvMasterKeyProvider } from "../env-master-key-provider";
-import { decryptValue, encryptValue } from "../envelope";
-import { rewrapDek } from "../rotation";
+import { createEnvMasterKeyProvider } from "../env-master-key-provider.js";
+import { decryptValue, encryptValue } from "../envelope.js";
+import { rewrapDek } from "../rotation.js";
 
 // Shared KEK bytes across provider reconstructions — mimics ops setting
 // the same env var across deploys. This is how we model "the KEK didn't

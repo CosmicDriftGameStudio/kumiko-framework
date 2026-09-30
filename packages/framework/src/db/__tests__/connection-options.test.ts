@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { dbConnectionOptionsFromEnv } from "../connection";
+import { dbConnectionOptionsFromEnv } from "../connection.js";
 
 // createDbConnection itself opens a real postgres.js socket, so it's
 // exercised in the DB-integration suite. The env-parsing + validation

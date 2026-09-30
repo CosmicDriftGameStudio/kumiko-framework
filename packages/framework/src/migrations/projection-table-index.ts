@@ -5,8 +5,8 @@
 // Drizzle-frei: der Tabellen-Name kommt aus dem kumiko-Symbol das
 // buildEntityTable/deriveEntityTableMeta an die Table-Definition hängt.
 
-import { extractTableName } from "../db";
-import type { Registry } from "../engine/types/feature";
+import { extractTableName } from "../db/index.js";
+import type { Registry } from "../engine/types/feature.js";
 
 /** Index `tableName → projection-name` aus der Registry. Nur Projections mit
  *  table-Definition (single-stream + multi-stream-with-table) zählen.

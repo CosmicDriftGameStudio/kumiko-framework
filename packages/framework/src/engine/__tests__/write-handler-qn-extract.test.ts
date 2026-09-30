@@ -3,7 +3,7 @@ import {
   extractDispatcherWriteQnsFromSource,
   validateDispatcherWriteQn,
   WRITE_HANDLER_QN_FORMAT_RE,
-} from "../write-handler-qn-extract";
+} from "../write-handler-qn-extract.js";
 
 describe("extractDispatcherWriteQnsFromSource", () => {
   test("extracts string literals from dispatcher.write and .write calls", () => {

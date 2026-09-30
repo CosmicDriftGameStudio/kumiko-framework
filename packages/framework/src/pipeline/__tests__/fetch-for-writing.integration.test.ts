@@ -9,13 +9,18 @@
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient } from "../../db/query-api";
-import { buildEntityTable } from "../../db/table-builder";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { UnprocessableError, writeFailure } from "../../errors";
-import { append, loadAggregate } from "../../event-store";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient } from "../../db/query-api.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { UnprocessableError, writeFailure } from "../../errors/index.js";
+import { append, loadAggregate } from "../../event-store/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 // --- Feature ---
 

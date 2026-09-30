@@ -4,10 +4,10 @@ import {
   createTextField,
   defineEntityCreateHandler,
   defineFeature,
-} from "../../engine";
-import { pushEntityProjectionTables } from "../push-entity-projection-tables";
-import { setupTestStack } from "../test-stack";
-import { TestUsers } from "../test-users";
+} from "../../engine/index.js";
+import { pushEntityProjectionTables } from "../push-entity-projection-tables.js";
+import { setupTestStack } from "../test-stack.js";
+import { TestUsers } from "../test-users.js";
 
 function freshDbName(tag: string): string {
   return `kumiko_test_${tag}_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;

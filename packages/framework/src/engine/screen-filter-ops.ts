@@ -14,7 +14,7 @@
 // transparent: neuer Field-Type → hier eintragen + sortable/filterable-
 // Flag im Type-Def, sonst lehnt der Validator das Field generell ab.
 
-import type { FieldDefinition, ScreenFilterOp } from "./types";
+import type { FieldDefinition, ScreenFilterOp } from "./types/index.js";
 
 const EQUALITY_ONLY = ["eq", "ne", "in"] as const satisfies readonly ScreenFilterOp[];
 const COMPARABLE = [

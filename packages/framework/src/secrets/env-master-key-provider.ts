@@ -4,8 +4,8 @@
 // the bottom for the env contract.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { InternalError } from "../errors";
-import type { MasterKeyProvider } from "./types";
+import { InternalError } from "../errors/index.js";
+import type { MasterKeyProvider } from "./types.js";
 
 const ALGORITHM = "aes-256-gcm";
 const KEK_LENGTH = 32; // AES-256

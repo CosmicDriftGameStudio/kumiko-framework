@@ -14,8 +14,13 @@ import {
   defineEntityListHandler,
   defineFeature,
   MAX_LIST_LIMIT,
-} from "../engine";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../stack";
+} from "../engine/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../stack/index.js";
 
 const widgetEntity = createEntity({
   table: "limit_widgets",

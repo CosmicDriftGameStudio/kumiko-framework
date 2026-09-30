@@ -1,7 +1,7 @@
 // Mixed pattern schemas (header form + opaque body source).
 
-import { accessRuleField, HOOK_TYPE_OPTIONS, HTTP_METHOD_OPTIONS } from "./shared-fields";
-import type { FormFieldSpec, PatternFormSchema } from "./types";
+import { accessRuleField, HOOK_TYPE_OPTIONS, HTTP_METHOD_OPTIONS } from "./shared-fields.js";
+import type { FormFieldSpec, PatternFormSchema } from "./types.js";
 
 // --- Mixed patterns (header form + opaque body source) --------------------
 

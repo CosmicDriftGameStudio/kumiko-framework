@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { lookup } from "node:dns/promises";
-import { egress } from "../egress";
+import { egress } from "../egress.js";
 
 // fw#2149 DoD requires proving TLS/SNI validation stays intact against a
 // real HTTPS endpoint, not just a mock — the self-signed-cert tests in

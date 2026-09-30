@@ -1,5 +1,5 @@
-import type Redis from "ioredis";
-import type { Tracer } from "./types";
+import type { Redis } from "ioredis";
+import type { Tracer } from "./types/index.js";
 
 // List of Redis commands we want to trace. Everything else (connection
 // methods like `on`, `off`, `disconnect`, `duplicate`, plus pipeline/multi)

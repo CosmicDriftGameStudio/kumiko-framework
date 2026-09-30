@@ -18,13 +18,13 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { entityEventName } from "../../db";
-import { defineFeature, type JobContext } from "../../engine";
-import { loadAggregate } from "../../event-store";
-import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files";
-import { setupTestStack, type TestStack, TestUsers } from "../../stack";
-import { waitFor } from "../../testing";
-import { generateId } from "../../utils";
+import { entityEventName } from "../../db/index.js";
+import { defineFeature, type JobContext } from "../../engine/index.js";
+import { loadAggregate } from "../../event-store/index.js";
+import { createInMemoryFileProvider, type InMemoryFileProvider } from "../../files/index.js";
+import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { generateId } from "../../utils/index.js";
 
 const ITEM_REQUESTED_EVENT_QN = "job-trigger-fixture:event:item-requested";
 const FILE_REF_CREATED = entityEventName("fileRef", "created");

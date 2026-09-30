@@ -15,7 +15,7 @@ import type {
   ScreenDefinition,
   SecretMintScreenDefinition,
   ToolbarAction,
-} from "./types/screen";
+} from "./types/screen.js";
 
 // Every screen type carrying `listScreenId` declares it identically; centralizing
 // here keeps the switch the only place that grows for a new screen type.

@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
 
 describe("getIncomingRelations", () => {
   const feature = defineFeature("core", (r) => {

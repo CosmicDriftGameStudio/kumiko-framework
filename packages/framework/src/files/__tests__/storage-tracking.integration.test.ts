@@ -10,12 +10,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { createTenantDb } from "../../db/tenant-db";
-import type { SessionUser } from "../../engine";
-import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack";
-import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { createTenantDb } from "../../db/tenant-db.js";
+import type { SessionUser } from "../../engine/index.js";
+import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import { buildMultipartBody, patchFileInstanceofForBunTest } from "../../testing/index.js";
 import {
   createFilesFeature,
   createInMemoryFileProvider,
@@ -24,7 +24,7 @@ import {
   filesStorageTrackingFeature,
   type InMemoryFileProvider,
   tenantStorageUsageTable,
-} from "..";
+} from "../index.js";
 
 let stack: TestStack;
 let provider: InMemoryFileProvider;

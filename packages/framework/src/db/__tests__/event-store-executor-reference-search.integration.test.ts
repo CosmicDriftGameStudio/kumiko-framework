@@ -7,17 +7,17 @@
 // the reference clause, native search still applies).
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
-import { createEntity, createTextField, from } from "../../engine";
-import type { EntityDefinition } from "../../engine/types";
-import { createInMemorySearchAdapter } from "../../search";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { seedRows } from "../../testing";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
+import { createEntity, createTextField, from } from "../../engine/index.js";
+import type { EntityDefinition } from "../../engine/types/index.js";
+import { createInMemorySearchAdapter } from "../../search/index.js";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { seedRows } from "../../testing/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const customerEntity = createEntity({
   table: "read_ref_search_customers",

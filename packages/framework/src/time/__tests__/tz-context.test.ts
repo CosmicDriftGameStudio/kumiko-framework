@@ -2,8 +2,8 @@
 // Test-Fokus: korrekte Konvertierung Wall-Clock+TZ ↔ Instant ↔ JSON-Pair.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { ensureTemporalPolyfill } from "../polyfill";
-import { createTzContext } from "../tz-context";
+import { ensureTemporalPolyfill } from "../polyfill.js";
+import { createTzContext } from "../tz-context.js";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

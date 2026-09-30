@@ -1,45 +1,45 @@
 // Public surface of the observability module.
 
-export { type ConsoleProviderOptions, createConsoleProvider } from "./console-provider";
+export { type ConsoleProviderOptions, createConsoleProvider } from "./console-provider.js";
 
-export { observabilityContext } from "./context";
-export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback";
-export { generateSpanId, generateTraceId } from "./ids";
+export { observabilityContext } from "./context.js";
+export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback.js";
+export { generateSpanId, generateTraceId } from "./ids.js";
 export {
   buildMetricName,
   validateLabelKey,
   validateMetricName,
-} from "./metric-validator";
+} from "./metric-validator.js";
 export {
   createMetricsHandle,
   createNoopMetricsHandle,
   createSafeMetricsHandle,
   createUnboundMetricsHandle,
-} from "./metrics-handle";
+} from "./metrics-handle.js";
 export {
   type ObservabilityWiring,
   prometheusMetricsEnvSchema,
   resolveObservabilityWiring,
-} from "./metrics-wiring";
-export { createNoopProvider } from "./noop-provider";
+} from "./metrics-wiring.js";
+export { createNoopProvider } from "./noop-provider.js";
 export {
   createPrometheusMeter,
   type PrometheusMeter,
   type PrometheusMeterSnapshot,
   serializeOpenMetrics,
-} from "./prometheus-meter";
+} from "./prometheus-meter.js";
 export {
   type MetricEvent,
   type MetricEventHandler,
   RecordingMeter,
-} from "./recording-meter";
+} from "./recording-meter.js";
 export {
   type RecordedSpan,
   RecordingTracer,
   type RecordingTracerOptions,
   serializeSpanContext,
-} from "./recording-tracer";
-export { wrapRedisClient } from "./redis-wrapper";
+} from "./recording-tracer.js";
+export { wrapRedisClient } from "./redis-wrapper.js";
 export {
   DEFAULT_SENSITIVE_CONFIG,
   mergeSensitiveConfig,
@@ -49,7 +49,7 @@ export {
   redactQueryString,
   redactValue,
   shouldRedactAttribute,
-} from "./sensitive-filter";
+} from "./sensitive-filter.js";
 export {
   emitDbQuery,
   emitDispatcherError,
@@ -63,7 +63,7 @@ export {
   emitJobQueueDepth,
   registerStandardMetrics,
   STANDARD_METRIC_DEFS,
-} from "./standard-metrics";
+} from "./standard-metrics.js";
 export type {
   Counter,
   Gauge,
@@ -85,4 +85,4 @@ export type {
   SpanStatus,
   StartSpanOptions,
   Tracer,
-} from "./types";
+} from "./types/index.js";

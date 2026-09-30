@@ -28,16 +28,16 @@ import type {
 // Static polyfill import (not getTemporal()): coercion results stay on one
 // Temporal implementation repo-wide, even when Bun exposes a global (#1480).
 import { Temporal } from "temporal-polyfill";
-import { requestContext } from "../api/request-context";
-import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index";
-import { SQL_EXPR_BRAND } from "../db/dialect";
-import type { EntityTableMeta } from "../db/entity-table-meta";
-import { extractPgError } from "../db/pg-error";
-import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder";
-import { camelCase as envCamelCase } from "../env";
-import { InternalError } from "../errors";
-import { createFallbackLogger } from "../logging";
-import { parseJsonSafe } from "../utils/safe-json";
+import { requestContext } from "../api/request-context.js";
+import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.js";
+import { SQL_EXPR_BRAND } from "../db/dialect.js";
+import type { EntityTableMeta } from "../db/entity-table-meta.js";
+import { extractPgError } from "../db/pg-error.js";
+import { type NotExecutorOnly, toSnakeCase } from "../db/table-builder.js";
+import { camelCase as envCamelCase } from "../env/index.js";
+import { InternalError } from "../errors/index.js";
+import { createFallbackLogger } from "../logging/index.js";
+import { parseJsonSafe } from "../utils/safe-json.js";
 
 // Idempotent snake_case → camelCase. `env.camelCase` always lowercases first
 // (designed for SHOUT_CASE input) — for already-camelCase keys (mock rows
@@ -50,7 +50,7 @@ function snakeToCamel(key: string): string {
 }
 
 import type { DbRunner } from "@cosmicdrift/kumiko-types/db-connection";
-import type { BunDbRunner } from "./connection";
+import type { BunDbRunner } from "./connection.js";
 
 // Drizzle pgTable inspection via raw Symbol access (no drizzle-orm import).
 // table() (dialect) stores the canonical, shadow-proof EntityTableMeta under

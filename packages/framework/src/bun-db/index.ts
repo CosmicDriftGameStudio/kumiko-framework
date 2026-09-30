@@ -7,9 +7,9 @@ export type {
   BunDbRunner,
   BunDbTx,
   PgListenClient,
-} from "./connection";
-export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection";
-export type { SelectOptions, TableInfo, WhereObject, WhereOperator, WhereValue } from "./query";
+} from "./connection.js";
+export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection.js";
+export type { SelectOptions, TableInfo, WhereObject, WhereOperator, WhereValue } from "./query.js";
 export {
   asEntityTableMeta,
   asRawClient,
@@ -33,4 +33,4 @@ export {
   updateMany,
   upsertByPk,
   upsertOnConflict,
-} from "./query";
+} from "./query.js";

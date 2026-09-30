@@ -22,18 +22,18 @@ import {
   PgKmsAdapter,
   PII_CIPHERTEXT_PREFIX,
   PII_ERASED_SENTINEL,
-} from "../../crypto";
-import { applyEntityEvent } from "../../db/apply-entity-event";
-import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii";
-import { asRawClient, fetchOne } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { defineFeature } from "../../engine/define-feature";
-import { createEntity, createTextField } from "../../engine/factories";
-import { createRegistry } from "../../engine/registry";
-import type { Registry, TenantId } from "../../engine/types";
-import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack";
-import { generateId } from "../../utils";
-import { append, loadAggregate } from "../event-store";
+} from "../../crypto/index.js";
+import { applyEntityEvent } from "../../db/apply-entity-event.js";
+import { backfillEventPiiEncryption } from "../../db/queries/backfill-pii.js";
+import { asRawClient, fetchOne } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { defineFeature } from "../../engine/define-feature.js";
+import { createEntity, createTextField } from "../../engine/factories.js";
+import { createRegistry } from "../../engine/registry.js";
+import type { Registry, TenantId } from "../../engine/types/index.js";
+import { createTestDb, type TestDb, unsafeCreateEntityTable } from "../../stack/index.js";
+import { generateId } from "../../utils/index.js";
+import { append, loadAggregate } from "../event-store.js";
 
 const TENANT = "00000000-0000-4000-8000-000000000001" as TenantId;
 const BIDX_KEY = Buffer.alloc(32, 5).toString("base64");

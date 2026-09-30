@@ -11,9 +11,9 @@
 // every new write emits v2.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import type { EntityDefinition } from "../engine/types/fields";
-import type { TenantId } from "../engine/types/identifiers";
-import { assertIrreversibleOperationAllowed } from "../pipeline/irreversible-operation-gate";
+import type { EntityDefinition } from "../engine/types/fields.js";
+import type { TenantId } from "../engine/types/identifiers.js";
+import { assertIrreversibleOperationAllowed } from "../pipeline/irreversible-operation-gate.js";
 import {
   isLocalKeyKmsAdapter,
   KeyAlreadyExistsError,
@@ -26,8 +26,8 @@ import {
   type SubjectId,
   subjectIdFromKey,
   subjectIdToKey,
-} from "./kms-adapter";
-import { resolveSubjectForField } from "./subject-resolver";
+} from "./kms-adapter.js";
+import { resolveSubjectForField } from "./subject-resolver.js";
 
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
 export const PII_ERASED_SENTINEL = "[[erased]]";

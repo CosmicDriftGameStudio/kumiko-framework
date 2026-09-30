@@ -1,5 +1,5 @@
-import { parseRefTargetEntityName } from "../parse-ref-target";
-import type { EntityDefinition, FeatureDefinition } from "../types";
+import { parseRefTargetEntityName } from "../parse-ref-target.js";
+import type { EntityDefinition, FeatureDefinition } from "../types/index.js";
 
 // --- Transfer-graph boot validation (fw#3088) ---
 //

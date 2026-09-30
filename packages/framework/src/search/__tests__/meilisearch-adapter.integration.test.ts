@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { generateId as uuid } from "@cosmicdrift/kumiko-framework/utils";
 import { Meilisearch } from "meilisearch";
-import { createMeilisearchAdapter, meilisearchTenantIndex } from "../meilisearch-adapter";
-import type { SearchAdapter } from "../types";
+import { createMeilisearchAdapter, meilisearchTenantIndex } from "../meilisearch-adapter.js";
+import type { SearchAdapter } from "../types.js";
 
 const MEILI_URL = process.env["MEILI_URL"] ?? "http://localhost:17700";
 const MEILI_KEY = process.env["MEILI_MASTER_KEY"] ?? "kumiko-dev-key";

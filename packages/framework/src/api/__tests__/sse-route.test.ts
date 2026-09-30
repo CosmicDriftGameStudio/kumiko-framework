@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../stack";
-import { authMiddleware } from "../auth-middleware";
-import { createJwtHelper } from "../jwt";
-import type { SseBroker, SseEvent } from "../sse-broker";
-import { createSseRoute } from "../sse-route";
+import { TestUsers } from "../../stack/index.js";
+import { authMiddleware } from "../auth-middleware.js";
+import { createJwtHelper } from "../jwt.js";
+import type { SseBroker, SseEvent } from "../sse-broker.js";
+import { createSseRoute } from "../sse-route.js";
 
 const JWT_SECRET = "sse-route-unit-test-secret-at-least-32-characters";
 

@@ -10,8 +10,8 @@ import type {
   SessionUser,
   TenantId,
   WriteResult,
-} from "../engine/types";
-import type { SecretsContext } from "../secrets";
+} from "../engine/types/index.js";
+import type { SecretsContext } from "../secrets/index.js";
 
 export const ExtraRouteEntries = {
   anonymous: "anonymous",

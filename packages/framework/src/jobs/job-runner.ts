@@ -1,12 +1,12 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { type JobsOptions, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
-import { requestContext } from "../api/request-context";
-import type { DbConnection, DbRow } from "../db/connection";
-import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db";
-import { createDerivativesContext } from "../derivatives/derivatives-context";
-import { qnScope } from "../engine/qualified-name";
-import { createSystemUser } from "../engine/system-user";
+import { requestContext } from "../api/request-context.js";
+import type { DbConnection, DbRow } from "../db/connection.js";
+import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../db/tenant-db.js";
+import { createDerivativesContext } from "../derivatives/derivatives-context.js";
+import { qnScope } from "../engine/qualified-name.js";
+import { createSystemUser } from "../engine/system-user.js";
 import {
   type AppContext,
   type DispatchWriteRef,
@@ -19,12 +19,13 @@ import {
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
-} from "../engine/types";
-import { InternalError } from "../errors";
-import { isKumikoError } from "../errors/kumiko-error";
-import { createFileContext } from "../files/file-handle";
-import { createFallbackLogger } from "../logging";
-import type { Logger } from "../logging/types";
+} from "../engine/types/index.js";
+import { InternalError } from "../errors/index.js";
+import { isKumikoError } from "../errors/kumiko-error.js";
+import { createFileContext } from "../files/file-handle.js";
+import { createFallbackLogger } from "../logging/index.js";
+import type { Logger } from "../logging/types.js";
+import { createEscapeHatchReporter } from "../observability/escape-hatch-report.js";
 import {
   emitJobLastSuccess,
   emitJobQueueDepth,
@@ -32,16 +33,15 @@ import {
   type Meter,
   type SerializedTraceContext,
   type Tracer,
-} from "../observability";
-import { createEscapeHatchReporter } from "../observability/escape-hatch-report";
-import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock";
-import { RedisKeys } from "../pipeline/redis-keys";
+} from "../observability/index.js";
+import { createDistributedLock, type DistributedLock } from "../pipeline/distributed-lock.js";
+import { RedisKeys } from "../pipeline/redis-keys.js";
 import {
   buildPersonalDataGate,
   isPersonalDataGated,
   parseWriteOrigin,
-} from "../pipeline/write-origin";
-import { bridgeStub } from "../testing/handler-context";
+} from "../pipeline/write-origin.js";
+import { bridgeStub } from "../testing/handler-context.js";
 
 // Shape-checked after the BullMQ/Redis JSON round-trip. Unlike `_writeOrigin`
 // (a security-relevant escape hatch that must fail the run closed), a

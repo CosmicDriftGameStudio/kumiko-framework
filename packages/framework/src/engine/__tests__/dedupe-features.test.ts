@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createApp, createRegistry, dedupeFeatures, defineFeature } from "../index";
+import { createApp, createRegistry, dedupeFeatures, defineFeature } from "../index.js";
 
 describe("dedupeFeatures", () => {
   test("same reference mounted twice collapses to one entry, order preserved", () => {

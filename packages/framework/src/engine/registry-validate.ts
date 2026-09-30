@@ -1,14 +1,14 @@
-import { configureEventPiiCatalog } from "../crypto/event-pii";
-import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption";
-import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
-import { resolveName } from "./handler-helpers";
-import { parseRefTargetEntityName } from "./parse-ref-target";
+import { configureEventPiiCatalog } from "../crypto/event-pii.js";
+import { hasSearchablePlaintext, isSensitiveLabelField } from "../db/entity-field-encryption.js";
+import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js";
+import { resolveName } from "./handler-helpers.js";
+import { parseRefTargetEntityName } from "./parse-ref-target.js";
 import type {
   RegistryState,
   SearchableReferenceField,
   SortableReferenceField,
-} from "./registry-state";
-import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state";
+} from "./registry-state.js";
+import { buildImplicitProjection, hasFieldAccessRules, qualify } from "./registry-state.js";
 import {
   buildSoftDeleteCleanupJob,
   buildSoftDeleteCleanupSystemJob,
@@ -16,7 +16,7 @@ import {
   SOFT_DELETE_CLEANUP_SYSTEM_JOB,
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteGraceDaysConfig,
-} from "./soft-delete-cleanup";
+} from "./soft-delete-cleanup.js";
 import type {
   EntityDefinition,
   EventPiiFields,
@@ -27,8 +27,8 @@ import type {
   PreDeleteHookFn,
   PreSaveHookFn,
   ReferenceFieldDef,
-} from "./types";
-import { HookPhases, isRateLimitDisabled } from "./types";
+} from "./types/index.js";
+import { HookPhases, isRateLimitDisabled } from "./types/index.js";
 
 function allHandlerQns(state: RegistryState): ReadonlySet<string> {
   return new Set([...state.writeHandlerMap.keys(), ...state.queryHandlerMap.keys()]);

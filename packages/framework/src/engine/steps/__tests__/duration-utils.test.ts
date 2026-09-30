@@ -3,7 +3,7 @@
 // run ensureTemporalPolyfill() on every code path.
 
 import { describe, expect, test } from "bun:test";
-import { addDuration } from "../_duration-utils";
+import { addDuration } from "../_duration-utils.js";
 
 describe("addDuration — kumiko-framework#1525: no ambient Temporal global", () => {
   test("adds a duration without relying on globalThis.Temporal", () => {

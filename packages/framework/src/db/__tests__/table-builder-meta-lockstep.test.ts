@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity } from "../../engine/factories";
-import { sql } from "../dialect";
-import type { ColumnMeta, IndexMeta } from "../entity-table-meta";
-import { deriveEntityTableMeta } from "../entity-table-meta";
-import { asEntityTableMeta } from "../query";
-import { buildEntityTable } from "../table-builder";
+import { createEntity } from "../../engine/factories.js";
+import { sql } from "../dialect.js";
+import type { ColumnMeta, IndexMeta } from "../entity-table-meta.js";
+import { deriveEntityTableMeta } from "../entity-table-meta.js";
+import { asEntityTableMeta } from "../query.js";
+import { buildEntityTable } from "../table-builder.js";
 
 // Lock-step-Guard: buildEntityTable (Runtime-/Test-Stack-Pfad, Meta am
 // KUMIKO_META_SYMBOL) und deriveEntityTableMeta (Migrations-Pfad) müssen

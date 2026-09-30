@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse";
+import { parseSourceFile } from "../parse.js";
 
 const INLINE_FEATURE = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

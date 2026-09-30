@@ -5,22 +5,22 @@
 // für Framework-Code der von jeder App genutzt wird.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { asRawClient } from "../../db/query";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { asRawClient } from "../../db/query.js";
 import {
   createDateField,
   createEntity,
   createNumberField,
   createTextField,
   SYSTEM_TENANT_ID,
-} from "../../engine";
-import { UnprocessableError } from "../../errors";
-import { TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { encodeCursor } from "../cursor";
-import { createEventStoreExecutor } from "../event-store-executor";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb, type TenantDb } from "../tenant-db";
+} from "../../engine/index.js";
+import { UnprocessableError } from "../../errors/index.js";
+import { TestUsers, unsafeCreateEntityTable } from "../../stack/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { encodeCursor } from "../cursor.js";
+import { createEventStoreExecutor } from "../event-store-executor.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const entity = createEntity({
   table: "read_pager_items",

@@ -4,9 +4,9 @@
 
 import { describe, expect, test } from "bun:test";
 import { Project } from "ts-morph";
-import { parseSourceFile } from "../parse";
-import type { FeaturePattern } from "../patterns";
-import { renderFeatureFile } from "../render";
+import { parseSourceFile } from "../parse.js";
+import type { FeaturePattern } from "../patterns.js";
+import { renderFeatureFile } from "../render.js";
 
 let fileCounter = 0;
 

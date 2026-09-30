@@ -6,11 +6,16 @@
 // multiSelect field must use jsonb containment (`@>`), not scalar equality.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { deriveEntityTableMeta } from "../../db/entity-table-meta";
-import { asRawClient, selectMany } from "../../db/query";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { defineFeature } from "../define-feature";
-import { createEntity, createMultiSelectField, createTextField } from "../factories";
+import { deriveEntityTableMeta } from "../../db/entity-table-meta.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { defineFeature } from "../define-feature.js";
+import { createEntity, createMultiSelectField, createTextField } from "../factories.js";
 
 const equipmentEntity = createEntity({
   table: "ms_filter_equipment",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { booleanFacetOptionKeys, selectFacetOptionKey } from "../required-surface-keys";
+import { booleanFacetOptionKeys, selectFacetOptionKey } from "../required-surface-keys.js";
 
 describe("required-surface-keys helpers", () => {
   test("booleanFacetOptionKeys emits true/false option keys", () => {

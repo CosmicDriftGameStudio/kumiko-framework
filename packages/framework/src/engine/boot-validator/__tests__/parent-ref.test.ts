@@ -6,11 +6,11 @@
 
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../define-feature";
-import { defineEntityDetailHandler, defineEntityListHandler } from "../../entity-handlers";
-import { createEntity, createTextField } from "../../factories";
-import type { FeatureDefinition } from "../../types";
-import { validateParentRefs } from "../parent-ref";
+import { defineFeature } from "../../define-feature.js";
+import { defineEntityDetailHandler, defineEntityListHandler } from "../../entity-handlers.js";
+import { createEntity, createTextField } from "../../factories.js";
+import type { FeatureDefinition } from "../../types/index.js";
+import { validateParentRefs } from "../parent-ref.js";
 
 const textField = () =>
   createTextField({

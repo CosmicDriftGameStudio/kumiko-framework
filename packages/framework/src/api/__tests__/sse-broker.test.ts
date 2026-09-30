@@ -4,7 +4,7 @@ import {
   type SseBroker,
   type SseEvent,
   shouldInvalidateListener,
-} from "../sse-broker";
+} from "../sse-broker.js";
 
 function requireAccessInvalidation(broker: SseBroker) {
   const subscribe = broker.subscribeAccessInvalidation;

@@ -18,13 +18,13 @@
 // expressed in meta (hand-added in a migration) is not reconstructed, and a
 // partial index whose WHERE the renderer can't express is rejected up-front.
 
-import { configuredBlindIndexKey } from "../../crypto";
-import type { DbConnection, DbTx } from "../connection";
-import type { EntityTableMeta } from "../entity-table-meta";
-import { type AnyDb, asEntityTableMeta, asRawClient } from "../query";
-import { renderTableDdl } from "../render-ddl";
-import { columnNamesOf, tableExists } from "../schema-inspection";
-import { quoteTableIdent } from "./table-ops";
+import { configuredBlindIndexKey } from "../../crypto/index.js";
+import type { DbConnection, DbTx } from "../connection.js";
+import type { EntityTableMeta } from "../entity-table-meta.js";
+import { type AnyDb, asEntityTableMeta, asRawClient } from "../query.js";
+import { renderTableDdl } from "../render-ddl.js";
+import { columnNamesOf, tableExists } from "../schema-inspection.js";
+import { quoteTableIdent } from "./table-ops.js";
 
 export const PROJECTION_REBUILD_SCHEMA = "kumiko_rebuild";
 

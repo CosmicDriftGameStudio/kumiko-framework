@@ -1,10 +1,10 @@
-import { buildEntityTable } from "../db/table-builder";
+import { buildEntityTable } from "../db/table-builder.js";
 import {
   createBooleanField,
   createEntity,
   createNumberField,
   createTextField,
-} from "../engine/factories";
+} from "../engine/factories.js";
 
 // --- Shared Entity Fixtures -------------------------------------------------
 //

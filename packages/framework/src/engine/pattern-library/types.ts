@@ -34,7 +34,7 @@
 // the patcher (C2) consumes pattern-level updates only, so paths are
 // purely a UI concern at this stage.
 
-import type { FeaturePatternKind } from "../feature-ast/patterns";
+import type { FeaturePatternKind } from "../feature-ast/patterns.js";
 
 // =============================================================================
 // Field input types

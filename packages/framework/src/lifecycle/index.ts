@@ -5,9 +5,9 @@ export {
   type LifecycleState,
   type ShutdownHookFn,
   type StateChangeListener,
-} from "./lifecycle";
+} from "./lifecycle.js";
 export {
   type AttachSignalHandlersOptions,
   attachSignalHandlers,
   type SignalHandlerHandle,
-} from "./signal-handlers";
+} from "./signal-handlers.js";

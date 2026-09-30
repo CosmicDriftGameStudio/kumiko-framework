@@ -3,9 +3,9 @@
 // first write with 42P01 unless the test manually created the table.
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { asRawClient } from "../../db/query";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { setupTestStack, type TestStack } from "../test-stack";
+import { asRawClient } from "../../db/query.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { setupTestStack, type TestStack } from "../test-stack.js";
 
 const widgetEntity = createEntity({
   table: "widgets",

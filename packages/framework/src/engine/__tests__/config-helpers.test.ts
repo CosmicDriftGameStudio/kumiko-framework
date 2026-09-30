@@ -4,8 +4,8 @@ import {
   createSystemConfig,
   createTenantConfig,
   createUserConfig,
-} from "../config-helpers";
-import type { ConfigKeyDefinition } from "../types";
+} from "../config-helpers.js";
+import type { ConfigKeyDefinition } from "../types/index.js";
 
 describe("access presets", () => {
   test("access.all", () => {

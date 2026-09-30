@@ -20,14 +20,14 @@
 // nach Key-Erase recomputet der Rebuild sie zu NULL.
 
 import { createHmac } from "node:crypto";
-import { requestContext } from "../api/request-context";
-import type { EntityDefinition } from "../engine/types/fields";
+import { requestContext } from "../api/request-context.js";
+import type { EntityDefinition } from "../engine/types/fields.js";
 import {
   configuredPiiSubjectKms,
   decryptPiiFieldValues,
   isPiiCiphertext,
   PII_ERASED_SENTINEL,
-} from "./pii-field-encryption";
+} from "./pii-field-encryption.js";
 
 const BLIND_INDEX_PREFIX = "kumiko-bidx:v1:";
 const BLIND_INDEX_KEY_LENGTH = 32;

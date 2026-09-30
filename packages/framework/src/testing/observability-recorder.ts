@@ -7,7 +7,7 @@ import {
   type RecordedSpan,
   RecordingMeter,
   RecordingTracer,
-} from "../observability";
+} from "../observability/index.js";
 
 // Provider that keeps every emitted span + metric event in arrays for
 // assertion in integration tests. Use instead of ConsoleProvider when the

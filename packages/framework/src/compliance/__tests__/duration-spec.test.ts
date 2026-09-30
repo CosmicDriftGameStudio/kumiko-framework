@@ -7,7 +7,7 @@
 
 import { beforeAll, describe, expect, test } from "bun:test";
 import { ensureTemporalPolyfill, getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { addDurationSpec, describeDurationSpec, durationSpecToMs } from "../duration-spec";
+import { addDurationSpec, describeDurationSpec, durationSpecToMs } from "../duration-spec.js";
 
 beforeAll(async () => {
   await ensureTemporalPolyfill();

@@ -1,21 +1,26 @@
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { requestContext, runWithWriteOrigin } from "../api/request-context";
-import type { DbConnection } from "../db/connection";
-import { transaction } from "../db/query";
-import type { DeleteContext, SaveContext, SessionUser, WriteResult } from "../engine/types";
-import { InternalError, toWriteErrorInfo, writeFailure } from "../errors";
-import { createFallbackLogger } from "../logging/utils";
-import { parseJsonSafe } from "../utils/safe-json";
-import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared";
-import { resolveDbSource } from "./dispatch-shared";
-import { executeNestedWrite } from "./dispatch-write";
+import { requestContext, runWithWriteOrigin } from "../api/request-context.js";
+import type { DbConnection } from "../db/connection.js";
+import { transaction } from "../db/query.js";
+import type {
+  DeleteContext,
+  SaveContext,
+  SessionUser,
+  WriteResult,
+} from "../engine/types/index.js";
+import { InternalError, toWriteErrorInfo, writeFailure } from "../errors/index.js";
+import { createFallbackLogger } from "../logging/utils.js";
+import { parseJsonSafe } from "../utils/safe-json.js";
+import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
+import { resolveDbSource } from "./dispatch-shared.js";
+import { executeNestedWrite } from "./dispatch-write.js";
 import {
   type AfterCommitHook,
   BatchRollback,
   isLifecycleResult,
   wrapToKumiko,
-} from "./dispatcher-utils";
-import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin";
+} from "./dispatcher-utils.js";
+import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 
 // afterCommit hooks fire in flushAfterCommit, outside the command's scope.
 function rewrapHooksWithOrigin(

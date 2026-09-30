@@ -8,19 +8,19 @@
 //   2. Ciphertext LIKE prefix (same as nullBlindIndexesForSubject) for rows
 //      that still carry the subject key in encrypted columns.
 
-import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern";
-import { isSelfPiiField } from "../crypto/is-self-pii-field";
-import type { SubjectId } from "../crypto/kms-adapter";
-import { collectSearchableSubjectFields } from "../crypto/subject-resolver";
-import type { DbRunner } from "../db/connection";
-import { resolveTableName } from "../db/entity-table-meta";
-import { executeRawQueryRead } from "../db/queries/raw-sql";
-import { tableExists } from "../db/schema-inspection";
-import type { FeatureDefinition } from "../engine/types";
-import type { EntityDefinition } from "../engine/types/fields";
-import type { EntityId, TenantId } from "../engine/types/identifiers";
-import { toSnakeCase } from "../utils/case";
-import type { SearchAdapter } from "./types";
+import { quoteIdent, subjectCiphertextLikePattern } from "../crypto/ciphertext-pattern.js";
+import { isSelfPiiField } from "../crypto/is-self-pii-field.js";
+import type { SubjectId } from "../crypto/kms-adapter.js";
+import { collectSearchableSubjectFields } from "../crypto/subject-resolver.js";
+import type { DbRunner } from "../db/connection.js";
+import { resolveTableName } from "../db/entity-table-meta.js";
+import { executeRawQueryRead } from "../db/queries/raw-sql.js";
+import { tableExists } from "../db/schema-inspection.js";
+import type { EntityDefinition } from "../engine/types/fields.js";
+import type { EntityId, TenantId } from "../engine/types/identifiers.js";
+import type { FeatureDefinition } from "../engine/types/index.js";
+import { toSnakeCase } from "../utils/case.js";
+import type { SearchAdapter } from "./types.js";
 
 function finalizePredicateParts(
   parts: readonly string[],

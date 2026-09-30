@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import type { JwtHelper } from "../../api/jwt";
-import type { SessionUser } from "../../engine/types";
-import { createRequestHelper } from "../request-helper";
+import type { JwtHelper } from "../../api/jwt.js";
+import type { SessionUser } from "../../engine/types/index.js";
+import { createRequestHelper } from "../request-helper.js";
 
 const user: SessionUser = {
   id: "u1",

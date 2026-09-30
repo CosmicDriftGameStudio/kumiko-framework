@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
-import { createLifecycle } from "../lifecycle";
+import { createLifecycle } from "../lifecycle.js";
 
 describe("lifecycle — state machine", () => {
   test("starts in 'starting' by default", () => {

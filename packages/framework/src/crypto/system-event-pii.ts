@@ -16,7 +16,7 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
-} from "../engine/steps/_step-dispatch-constants";
+} from "../engine/steps/_step-dispatch-constants.js";
 
 export const SYSTEM_EVENT_PREFIX = "kumiko:system:";
 

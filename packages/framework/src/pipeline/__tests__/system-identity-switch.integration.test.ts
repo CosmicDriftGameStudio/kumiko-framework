@@ -3,23 +3,23 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { buildEntityTable } from "../../db/table-builder";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createEntity,
   createSystemUser,
   createTextField,
   defineFeature,
   HookPhases,
-} from "../../engine";
-import type { HandlerContext, SessionUser } from "../../engine/types";
+} from "../../engine/index.js";
+import type { HandlerContext, SessionUser } from "../../engine/types/index.js";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
+} from "../../stack/index.js";
 
 const user = TestUsers.user;
 const otherUserNoRole: SessionUser = createTestUser({

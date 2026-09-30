@@ -2,10 +2,10 @@ import type {
   WriteErrorInfo,
   WriteFailure,
 } from "@cosmicdrift/kumiko-types/write-error-info-types";
-import { NotFoundError, UnprocessableError } from "./classes";
-import { KumikoError } from "./kumiko-error";
-import { FrameworkReasons } from "./reasons";
-import { buildInvalidTransitionDetails } from "./transition-details";
+import { NotFoundError, UnprocessableError } from "./classes.js";
+import { KumikoError } from "./kumiko-error.js";
+import { FrameworkReasons } from "./reasons.js";
+import { buildInvalidTransitionDetails } from "./transition-details.js";
 
 // Re-exported so a caller importing this module directly (instead of via
 // the `./errors` barrel, which already re-exports these by name) still

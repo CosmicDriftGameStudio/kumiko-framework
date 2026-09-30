@@ -7,7 +7,7 @@ export {
   type PiiBackfillOptions,
   type PiiBackfillResult,
   type PiiBackfillScanCache,
-} from "../db/queries/backfill-pii";
+} from "../db/queries/backfill-pii.js";
 export {
   type ArchiveStreamArgs,
   archivedStreamsTable,
@@ -15,8 +15,12 @@ export {
   createArchivedStreamsTable,
   isStreamArchived,
   restoreStream,
-} from "./archive";
-export { ArchivedStreamError, IdempotentAppendConflictError, VersionConflictError } from "./errors";
+} from "./archive.js";
+export {
+  ArchivedStreamError,
+  IdempotentAppendConflictError,
+  VersionConflictError,
+} from "./errors.js";
 export {
   append,
   EVENTS_PUBSUB_CHANNEL,
@@ -33,9 +37,9 @@ export {
   loadEventsAfterVersion,
   type StoredEvent,
   streamAllEventsByType,
-} from "./event-store";
-export { createEventsTable, eventsTable } from "./events-schema";
-export { appendProvenanceEvent, type ProvenanceEventInput } from "./provenance-append";
+} from "./event-store.js";
+export { createEventsTable, eventsTable } from "./events-schema.js";
+export { appendProvenanceEvent, type ProvenanceEventInput } from "./provenance-append.js";
 export {
   createRebuildDeadLetterTable,
   listRebuildDeadLetters,
@@ -43,8 +47,8 @@ export {
   rebuildDeadLetterTable,
   recordRebuildDeadLetters,
   type SkippedApply,
-} from "./rebuild-dead-letter";
-export { toStoredEvent } from "./row-to-stored-event";
+} from "./rebuild-dead-letter.js";
+export { toStoredEvent } from "./row-to-stored-event.js";
 export {
   createSnapshotsTable,
   type LoadAggregateWithSnapshotOptions,
@@ -56,13 +60,13 @@ export {
   type SnapshotReducer,
   saveSnapshot,
   snapshotsTable,
-} from "./snapshot";
+} from "./snapshot.js";
 export {
   AGGREGATE_TRANSFER_STREAM_TYPE,
   AGGREGATE_TRANSFERRED_EVENT_TYPE,
   type TransferAggregateStreamsArgs,
   transferAggregateStreams,
-} from "./transfer";
+} from "./transfer.js";
 export {
   type EventUpcasters,
   makeUpcastCtx,
@@ -70,11 +74,11 @@ export {
   type UpcastOptions,
   upcastStoredEvent,
   upcastStoredEvents,
-} from "./upcaster";
+} from "./upcaster.js";
 export {
   createUpcasterDeadLetterTable,
   type DeadLetterRow,
   listDeadLetters,
   recordUpcasterDeadLetter,
   upcasterDeadLetterTable,
-} from "./upcaster-dead-letter";
+} from "./upcaster-dead-letter.js";

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../index";
+import { defineFeature } from "../index.js";
 
 // Object-Form is the shape the feature-ast renderer emits for Designer/
 // AI-generated code (`r.entity({ name: "item", ... })` instead of

@@ -13,8 +13,8 @@
 import { describe, expect, test } from "bun:test";
 import { resolve } from "node:path";
 import { Project } from "ts-morph";
-import { isRawRefSentinel, readDataLiteralNode } from "../extractors/shared";
-import { parseFeatureFile, parseSourceFile } from "../parse";
+import { isRawRefSentinel, readDataLiteralNode } from "../extractors/shared.js";
+import { parseFeatureFile, parseSourceFile } from "../parse.js";
 
 function createProject() {
   return new Project({

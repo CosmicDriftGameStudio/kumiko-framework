@@ -5,8 +5,8 @@ import type {
   EscapeHatchTarget,
   EscapeHatchUseEvent,
   TenantId,
-} from "../engine/types";
-import type { Logger } from "../logging/types";
+} from "../engine/types/index.js";
+import type { Logger } from "../logging/types.js";
 
 export const ESCAPE_HATCH_USED_SIGNAL = "security:escape-hatch-used";
 

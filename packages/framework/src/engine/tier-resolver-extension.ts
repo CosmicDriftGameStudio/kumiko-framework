@@ -20,10 +20,10 @@
 // **Apps ohne tier-engine:** wenn keine plugin registriert ist, framework
 // macht nichts — `effectiveFeatures` bleibt undefined, alle features sind on.
 
-import type { DbConnection } from "../db/connection";
-import type { RegistrarExtensionRegistration } from "./types/config";
-import type { FeatureDefinition, Registry } from "./types/feature";
-import type { TenantId } from "./types/identifiers";
+import type { DbConnection } from "../db/connection.js";
+import type { RegistrarExtensionRegistration } from "./types/config.js";
+import type { FeatureDefinition, Registry } from "./types/feature.js";
+import type { TenantId } from "./types/identifiers.js";
 
 /**
  * Extension-name unter dem ein tier-resolver-plugin im registry registriert

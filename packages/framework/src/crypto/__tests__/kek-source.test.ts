@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source";
-import { buildPgKmsOptions } from "../kms-wiring";
+import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source.js";
+import { buildPgKmsOptions } from "../kms-wiring.js";
 
 const TOKEN = "scw-secret-token";
 const CIPHERTEXT_A = Buffer.from("ciphertext-a").toString("base64");

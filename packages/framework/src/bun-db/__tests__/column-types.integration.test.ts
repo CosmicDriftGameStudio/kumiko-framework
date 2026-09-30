@@ -7,8 +7,8 @@
 // Temporal-Drift bei timestamptz, etc.).
 
 import { afterAll, describe, expect, test } from "bun:test";
-import { fetchOne, insertOne } from "../query";
-import { closeDb, withTable } from "./_helpers";
+import { fetchOne, insertOne } from "../query.js";
+import { closeDb, withTable } from "./_helpers.js";
 
 afterAll(async () => {
   await closeDb();

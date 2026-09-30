@@ -11,7 +11,7 @@
 // `foo/bar.medium.jpg`. Stable, reversible, no extra lookup tables.
 
 import type { FileContext, FileHandle } from "@cosmicdrift/kumiko-types/file-handle-types";
-import type { FileStorageProvider } from "./types";
+import type { FileStorageProvider } from "./types.js";
 
 export type { FileContext, FileHandle };
 

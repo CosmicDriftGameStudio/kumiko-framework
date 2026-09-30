@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { defineFeature } from "../define-feature";
-import { createRegistry } from "../registry";
+import { defineFeature } from "../define-feature.js";
+import { createRegistry } from "../registry.js";
 import {
   DEFAULT_GRACE_DAYS,
   SOFT_DELETE_CLEANUP_JOB,
@@ -8,8 +8,8 @@ import {
   SOFT_DELETE_GRACE_DAYS_KEY,
   softDeleteCleanupJob,
   softDeleteCleanupSystemJob,
-} from "../soft-delete-cleanup";
-import type { JobContext } from "../types/handlers";
+} from "../soft-delete-cleanup.js";
+import type { JobContext } from "../types/handlers.js";
 
 function featureWith(softDelete: boolean | undefined) {
   return defineFeature("probe-sd", (r) => {

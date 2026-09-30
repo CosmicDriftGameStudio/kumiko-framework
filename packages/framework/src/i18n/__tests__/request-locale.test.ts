@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { canonicalizeLocaleTag, resolveHeaderLocale } from "../request-locale";
+import { canonicalizeLocaleTag, resolveHeaderLocale } from "../request-locale.js";
 
 describe("canonicalizeLocaleTag", () => {
   test("lowercases the primary subtag", () => {

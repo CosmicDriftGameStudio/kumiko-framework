@@ -5,12 +5,12 @@
 
 import { afterEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { defineFeature } from "../../engine";
-import { InternalError, writeFailure } from "../../errors";
-import { waitFor } from "../../testing";
-import { generateId } from "../../utils";
-import { setupTestStack, type TestStack } from "../test-stack";
-import { TestUsers } from "../test-users";
+import { defineFeature } from "../../engine/index.js";
+import { InternalError, writeFailure } from "../../errors/index.js";
+import { waitFor } from "../../testing/index.js";
+import { generateId } from "../../utils/index.js";
+import { setupTestStack, type TestStack } from "../test-stack.js";
+import { TestUsers } from "../test-users.js";
 
 const jobRuns: Array<{ name: string; payload: Record<string, unknown> }> = [];
 

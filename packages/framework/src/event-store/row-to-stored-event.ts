@@ -1,5 +1,5 @@
-import type { TenantId } from "../engine/types";
-import type { EventMetadata, StoredEvent } from "./event-store";
+import type { TenantId } from "../engine/types/index.js";
+import type { EventMetadata, StoredEvent } from "./event-store.js";
 
 // Minimal row shape accepted by toStoredEvent. Both SelectedEvent
 // (event-store) and StoredEventRow (event-dispatcher) satisfy it.

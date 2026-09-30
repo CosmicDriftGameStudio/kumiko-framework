@@ -7,7 +7,7 @@
 // harten Invarianten + die dokumentierte Mindest-Diversität.
 
 import { describe, expect, test } from "bun:test";
-import { ADJECTIVES, NOUNS } from "../index";
+import { ADJECTIVES, NOUNS } from "../index.js";
 
 const LISTS: ReadonlyArray<readonly [string, readonly string[]]> = [
   ["ADJECTIVES", ADJECTIVES],

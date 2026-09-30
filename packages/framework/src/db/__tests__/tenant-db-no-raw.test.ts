@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
-import { InternalError } from "../../errors";
-import { testTenantId } from "../../stack";
-import type { DbRunner } from "../connection";
-import { asRawClient } from "../query";
-import { createTenantDb, createUncheckedSystemDb, withUnsafeRawGrant } from "../tenant-db";
-import { tenantDbRunner } from "../tenant-db-runner";
+import { InternalError } from "../../errors/index.js";
+import { testTenantId } from "../../stack/index.js";
+import type { DbRunner } from "../connection.js";
+import { asRawClient } from "../query.js";
+import { createTenantDb, createUncheckedSystemDb, withUnsafeRawGrant } from "../tenant-db.js";
+import { tenantDbRunner } from "../tenant-db-runner.js";
 
 // TenantDb.raw is gone from the type; framework-internal callers resolve
 // the bound DbRunner through tenant-db-runner.ts's WeakMap instead.

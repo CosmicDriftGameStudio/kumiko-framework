@@ -16,8 +16,8 @@ import { spawn } from "node:child_process";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getTemporal } from "../../time";
-import { createZipStream, type ZipEntry } from "../zip-stream";
+import { getTemporal } from "../../time/index.js";
+import { createZipStream, type ZipEntry } from "../zip-stream.js";
 
 async function* fromString(s: string): AsyncIterable<Uint8Array> {
   yield new TextEncoder().encode(s);

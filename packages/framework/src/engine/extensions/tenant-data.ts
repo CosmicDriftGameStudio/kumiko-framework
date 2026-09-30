@@ -4,8 +4,8 @@
 // tenant-lifecycle orchestrates destroy via registry.getExtensionUsages(EXT_TENANT_DATA).
 
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
-import type { TenantDb } from "../../db/tenant-db";
-import type { Registry, TenantId } from "../types";
+import type { TenantDb } from "../../db/tenant-db.js";
+import type { Registry, TenantId } from "../types/index.js";
 
 // fw#2914 — db is tenant-filtered; unfiltered access needs
 // `escapeHatch: { reason }` on the owning `r.useExtension(...)` registration.

@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { EntityTableMeta } from "../entity-table-meta";
-import { snapshotFromMetas } from "../migrate-generator";
-import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../replay-migration-sql";
+import type { EntityTableMeta } from "../entity-table-meta.js";
+import { snapshotFromMetas } from "../migrate-generator.js";
+import { diffReplayAgainstSnapshot, replayMigrationsDir } from "../replay-migration-sql.js";
 
 function tmpMigrationsDir(): string {
   return mkdtempSync(join(tmpdir(), "replay-migration-sql-"));

@@ -5,9 +5,13 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createSystemUser, defineFeature } from "../../engine";
-import type { RateLimitConfig, RateLimitDecision, RateLimitResolver } from "../../rate-limit";
-import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack";
+import { createSystemUser, defineFeature } from "../../engine/index.js";
+import type {
+  RateLimitConfig,
+  RateLimitDecision,
+  RateLimitResolver,
+} from "../../rate-limit/index.js";
+import { createTestUser, setupTestStack, type TestStack, testTenantId } from "../../stack/index.js";
 
 function fakeResolver(): {
   readonly resolver: RateLimitResolver;

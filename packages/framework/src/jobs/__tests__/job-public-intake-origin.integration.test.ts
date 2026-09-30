@@ -3,17 +3,22 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
 import * as z from "zod";
-import type { SchemaTable } from "../../db";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { asRawClient, selectMany } from "../../db/query";
-import { buildEntityTable } from "../../db/table-builder";
-import { createTenantDb } from "../../db/tenant-db";
-import { createEntity, createTextField, defineFeature } from "../../engine";
-import { SYSTEM_ROLE } from "../../engine/system-user";
-import type { TenantId } from "../../engine/types";
-import { AccessDeniedError, FrameworkReasons } from "../../errors";
-import { setupTestStack, type TestStack, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import { waitFor } from "../../testing";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import type { SchemaTable } from "../../db/index.js";
+import { asRawClient, selectMany } from "../../db/query.js";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { createTenantDb } from "../../db/tenant-db.js";
+import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
+import { SYSTEM_ROLE } from "../../engine/system-user.js";
+import type { TenantId } from "../../engine/types/index.js";
+import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
+import {
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
 
 // #983: ctx.jobRunner is typed as the narrow JobRunnerRef (handleEvent only);
 // manual dispatch from a handler/job is a dynamic context extension, same

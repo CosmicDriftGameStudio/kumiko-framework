@@ -1,13 +1,13 @@
-import type { AccessInvalidationCredential } from "../api/sse-broker";
-import { hasAccess } from "../engine/access";
-import type { SessionUser } from "../engine/types";
+import type { AccessInvalidationCredential } from "../api/sse-broker.js";
+import { hasAccess } from "../engine/access.js";
+import type { SessionUser } from "../engine/types/index.js";
 import {
   AccessDeniedError,
   memberResolutionReadOnlyDenied,
   NotFoundError,
   validationErrorFromZod,
-} from "../errors";
-import { assertNoSecretLeak } from "../secrets";
+} from "../errors/index.js";
+import { assertNoSecretLeak } from "../secrets/index.js";
 import {
   buildHandlerContext,
   type DispatchContext,
@@ -16,7 +16,7 @@ import {
   isMemberResolutionPrincipal,
   runStreamInstrumented,
   type WriteOrigin,
-} from "./dispatch-shared";
+} from "./dispatch-shared.js";
 
 // Standalone stream execution — used by the public dispatcher.stream().
 // Chunk-by-chunk analog of executeQuery: same gate order (feature → rate-

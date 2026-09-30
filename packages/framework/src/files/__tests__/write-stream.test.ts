@@ -16,9 +16,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { waitFor } from "../../testing";
-import { createInMemoryFileProvider } from "../in-memory-provider";
-import { createLocalProvider } from "../local-provider";
+import { waitFor } from "../../testing/index.js";
+import { createInMemoryFileProvider } from "../in-memory-provider.js";
+import { createLocalProvider } from "../local-provider.js";
 
 async function* fromChunks(chunks: Uint8Array[]): AsyncIterable<Uint8Array> {
   for (const c of chunks) {

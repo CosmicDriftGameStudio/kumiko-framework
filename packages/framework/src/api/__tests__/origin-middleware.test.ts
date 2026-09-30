@@ -6,16 +6,16 @@
 
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
-import { TestUsers } from "../../stack";
-import { AUTH_COOKIE_NAME, authMiddleware } from "../auth-middleware";
-import { createJwtHelper } from "../jwt";
+import { TestUsers } from "../../stack/index.js";
+import { AUTH_COOKIE_NAME, authMiddleware } from "../auth-middleware.js";
+import { createJwtHelper } from "../jwt.js";
 import {
   assertOriginGuardConfig,
   isOriginAllowed,
   isWebSocketOriginAllowed,
   normalizeOrigin,
   originMiddleware,
-} from "../origin-middleware";
+} from "../origin-middleware.js";
 
 function isErrorBody(v: unknown): v is { error: { code: string } } {
   if (typeof v !== "object" || v === null || !("error" in v)) return false;

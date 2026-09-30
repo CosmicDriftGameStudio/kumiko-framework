@@ -1,8 +1,8 @@
-import type { DbConnection } from "../db/connection";
-import { lockEventConsumersShareMode } from "../db/queries/event-consumer";
-import { deleteMany, selectMany, transaction } from "../db/query";
-import { eventsTable } from "../event-store";
-import { eventConsumerStateTable } from "./event-consumer-state";
+import type { DbConnection } from "../db/connection.js";
+import { lockEventConsumersShareMode } from "../db/queries/event-consumer.js";
+import { deleteMany, selectMany, transaction } from "../db/query.js";
+import { eventsTable } from "../event-store/index.js";
+import { eventConsumerStateTable } from "./event-consumer-state.js";
 
 // Retention for the events-table. Aggregate events are source of truth —
 // they power loadAggregate, projection rebuilds, asOf queries, audit.

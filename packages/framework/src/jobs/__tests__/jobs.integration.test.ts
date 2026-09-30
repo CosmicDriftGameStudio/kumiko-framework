@@ -2,9 +2,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
 import * as z from "zod";
-import { requestContext } from "../../api/request-context";
-import { tenantDbRunner } from "../../db/tenant-db-runner";
-import { createRegistry, defineFeature } from "../../engine";
+import { requestContext } from "../../api/request-context.js";
+import { tenantDbRunner } from "../../db/tenant-db-runner.js";
+import { createRegistry, defineFeature } from "../../engine/index.js";
 import type {
   AppContext,
   ConfigAccessor,
@@ -12,11 +12,11 @@ import type {
   NotifyFactory,
   Registry,
   TenantId,
-} from "../../engine/types";
-import { createInMemoryFileProvider } from "../../files/in-memory-provider";
-import { RedisKeys } from "../../pipeline/redis-keys";
-import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { sleep, waitFor } from "../../testing";
+} from "../../engine/types/index.js";
+import { createInMemoryFileProvider } from "../../files/in-memory-provider.js";
+import { RedisKeys } from "../../pipeline/redis-keys.js";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack/index.js";
+import { sleep, waitFor } from "../../testing/index.js";
 import {
   bootJobIdForJobName,
   createJobRunner,
@@ -24,7 +24,7 @@ import {
   type JobMeta,
   type JobRunner,
   type JobRunnerOptions,
-} from "../job-runner";
+} from "../job-runner.js";
 
 // --- Shared state ---
 
@@ -649,7 +649,7 @@ describe("concurrency: sequential", () => {
     // been claimed by someone else must NOT delete the new owner's lock.
     // Tested at the lock layer because we can't reliably race a TTL
     // expiration inside the job-runner inside a 5s test budget.
-    const { createDistributedLock } = await import("../../pipeline/distributed-lock");
+    const { createDistributedLock } = await import("../../pipeline/distributed-lock.js");
     const prefix = "kumiko:lock:seq:test-vmd:";
     const lock = createDistributedLock(testRedis.redis, prefix);
 

@@ -1,8 +1,8 @@
-import type { DbTx, PgClient } from "../db/connection";
-import { selectSnapshotXmax, selectSnapshotXmin } from "../db/queries/event-consumer";
-import type { AppContext } from "../engine/types";
-import { SYSTEM_TENANT_ID } from "../engine/types/identifiers";
-import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store";
+import type { DbTx, PgClient } from "../db/connection.js";
+import { selectSnapshotXmax, selectSnapshotXmin } from "../db/queries/event-consumer.js";
+import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
+import type { AppContext } from "../engine/types/index.js";
+import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.js";
 import {
   emitEventConsumerPassOutcome,
   emitEventConsumerRearmExhausted,
@@ -11,8 +11,8 @@ import {
   getFallbackTracer,
   type Meter,
   type Tracer,
-} from "../observability";
-import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state";
+} from "../observability/index.js";
+import { type PendingGapEntry, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.js";
 import {
   acquireConsumerState,
   consumerInstanceId,
@@ -26,8 +26,8 @@ import {
   persistConsumerPassFailure,
   preRegisterConsumers,
   selectIdleConsumerKeys,
-} from "./event-dispatcher-delivery";
-import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges";
+} from "./event-dispatcher-delivery.js";
+import { partitionBurntGaps, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges.js";
 
 // Async event-dispatcher — the "AsyncDaemon"-pendant for Kumiko.
 //
@@ -168,7 +168,7 @@ export type EventDispatcher = {
 };
 
 export type EventDispatcherOptions = {
-  readonly db: import("../db/connection").DbConnection;
+  readonly db: import("../db/connection.js").DbConnection;
   readonly consumers: readonly EventConsumer[];
   readonly context: AppContext;
   readonly batchSize?: number;
@@ -805,7 +805,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   };
 }
 
-export type { ConsumerProgress, ConsumerRecoveryState } from "./event-dispatcher-admin";
+export type { ConsumerProgress, ConsumerRecoveryState } from "./event-dispatcher-admin.js";
 export {
   disableConsumer,
   enableConsumer,
@@ -814,4 +814,4 @@ export {
   listConsumersWithState,
   restartConsumer,
   skipPoisonEvent,
-} from "./event-dispatcher-admin";
+} from "./event-dispatcher-admin.js";

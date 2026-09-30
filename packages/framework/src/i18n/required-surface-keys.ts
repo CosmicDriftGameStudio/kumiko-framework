@@ -1,11 +1,11 @@
-import { isExplicitDotFormKey } from "../engine/i18n-key";
-import type { FieldsOrGroupsSection } from "../engine/screen-helpers";
+import { isExplicitDotFormKey } from "../engine/i18n-key.js";
+import type { FieldsOrGroupsSection } from "../engine/screen-helpers.js";
 import {
   isExtensionEditSection,
   isWriteFormEditSection,
   normalizeListColumn,
   sectionFieldSpecs,
-} from "../engine/screen-helpers";
+} from "../engine/screen-helpers.js";
 import type {
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -24,7 +24,7 @@ import type {
   SecretsEditScreenDefinition,
   ToolbarAction,
   WorkspaceDefinition,
-} from "../engine/types";
+} from "../engine/types/index.js";
 
 /** Pseudo-entity for actionForm field labels (renderer action-form-shim). */
 export const ACTION_FORM_ENTITY = "__action-form__";

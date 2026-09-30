@@ -1,11 +1,11 @@
-import type { Registry } from "./types";
 import type {
   ConfigAccessor,
   ConfigBounds,
   ConfigKeyHandle,
   ConfigKeyType,
   ConfigValue,
-} from "./types/config";
+} from "./types/config.js";
+import type { Registry } from "./types/index.js";
 
 // Per-Request Config-Resolver für Routes.
 //

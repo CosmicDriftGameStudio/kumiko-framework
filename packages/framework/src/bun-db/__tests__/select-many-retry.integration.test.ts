@@ -3,9 +3,9 @@
 // closed-connection-retry.integration.test.ts.
 
 import { beforeAll, describe, expect, test } from "bun:test";
-import { buildEntityTable } from "../../db/table-builder";
-import { captureClosedConnectionError } from "../../testing/closed-connection-error";
-import { selectMany } from "../query";
+import { buildEntityTable } from "../../db/table-builder.js";
+import { captureClosedConnectionError } from "../../testing/closed-connection-error.js";
+import { selectMany } from "../query.js";
 
 let closedConnectionError: unknown;
 

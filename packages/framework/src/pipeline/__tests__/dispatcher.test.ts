@@ -1,12 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import type { SseBroker } from "../../api/sse-broker";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import type { TenantId } from "../../engine/types/identifiers";
-import { createSecret } from "../../secrets/types";
-import { createTestUser } from "../../stack";
-import { createRecordingProvider } from "../../testing";
-import { createDispatcher } from "../dispatcher";
+import type { SseBroker } from "../../api/sse-broker.js";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
+import { createSecret } from "../../secrets/types.js";
+import { createTestUser } from "../../stack/index.js";
+import { createRecordingProvider } from "../../testing/index.js";
+import { createDispatcher } from "../dispatcher.js";
 
 const streamCleanupState = { closed: false };
 

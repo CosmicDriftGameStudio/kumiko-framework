@@ -1,8 +1,8 @@
 // sql now comes from native dialect
-import type { DbConnection } from "../db/connection";
-import { bigint, index, instant, table as pgTable, sql, text } from "../db/dialect";
-import { tableExists } from "../db/schema-inspection";
-import { unsafePushTables } from "../stack";
+import type { DbConnection } from "../db/connection.js";
+import { bigint, index, instant, table as pgTable, sql, text } from "../db/dialect.js";
+import { tableExists } from "../db/schema-inspection.js";
+import { unsafePushTables } from "../stack/index.js";
 
 // Framework-level state for every registered projection. One row per qualified
 // projection name. Written by the rebuild machinery; read by the CLI + any

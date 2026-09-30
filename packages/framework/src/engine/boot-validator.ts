@@ -5,4 +5,4 @@ export {
   type ValidateBootOptions,
   validateAppCustomScreenWriteQns,
   validateBoot,
-} from "./boot-validator/index";
+} from "./boot-validator/index.js";

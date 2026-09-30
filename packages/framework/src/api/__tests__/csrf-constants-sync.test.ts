@@ -3,7 +3,7 @@ import {
   CSRF_COOKIE_NAME as DISPATCHER_CSRF_COOKIE_NAME,
   CSRF_HEADER_NAME as DISPATCHER_CSRF_HEADER_NAME,
 } from "@cosmicdrift/kumiko-dispatcher-live";
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "../auth-middleware";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "../auth-middleware.js";
 
 // dispatcher-live keeps its own literal copies of these two constants
 // (see packages/dispatcher-live/src/csrf.ts) because it must stay

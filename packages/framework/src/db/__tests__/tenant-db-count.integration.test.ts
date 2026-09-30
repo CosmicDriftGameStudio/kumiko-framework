@@ -1,10 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
-import { createEntity, createTextField } from "../../engine";
-import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../../stack";
-import type { TableColumns } from "../dialect";
-import { buildEntityTable } from "../table-builder";
-import { createTenantDb } from "../tenant-db";
+import { createEntity, createTextField } from "../../engine/index.js";
+import {
+  createTestDb,
+  type TestDb,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
+import type { TableColumns } from "../dialect.js";
+import { buildEntityTable } from "../table-builder.js";
+import { createTenantDb } from "../tenant-db.js";
 
 const entity = createEntity({
   table: "tenant_db_count_items",

@@ -3,19 +3,19 @@
 // tables are only visible at the actual write, so the gate runs there at runtime.
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import * as z from "zod";
-import { buildEntityTable } from "../db/table-builder";
-import { type PersonalDataGate, tableNameOf } from "../db/tenant-db";
+import { buildEntityTable } from "../db/table-builder.js";
+import { type PersonalDataGate, tableNameOf } from "../db/tenant-db.js";
 import {
   accessAllowsAnonymous,
   declaredPersonalData,
   personalFieldNames,
-} from "../engine/personal-data-fields";
-import { ANONYMOUS_ROLE } from "../engine/system-user";
-import type { AccessRule, Registry, SessionUser } from "../engine/types";
-import type { EntityDefinition } from "../engine/types/fields";
-import { AccessDeniedError } from "../errors";
-import { FrameworkReasons } from "../errors/reasons";
-import { toSnakeCase } from "../utils/case";
+} from "../engine/personal-data-fields.js";
+import { ANONYMOUS_ROLE } from "../engine/system-user.js";
+import type { EntityDefinition } from "../engine/types/fields.js";
+import type { AccessRule, Registry, SessionUser } from "../engine/types/index.js";
+import { AccessDeniedError } from "../errors/index.js";
+import { FrameworkReasons } from "../errors/reasons.js";
+import { toSnakeCase } from "../utils/case.js";
 
 export { isPersonalDataGated, type WriteOrigin };
 

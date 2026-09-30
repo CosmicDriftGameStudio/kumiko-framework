@@ -4,7 +4,7 @@
 // into reporting different "unknown field type" catalogues (#3137).
 
 import { FIELD_TYPE_NAMES } from "@cosmicdrift/kumiko-types/fields";
-import { isPlainObject, isRawRefSentinel } from "./extractors/shared";
+import { isPlainObject, isRawRefSentinel } from "./extractors/shared.js";
 
 export type UnknownEntityFieldType = {
   readonly fieldName: string;

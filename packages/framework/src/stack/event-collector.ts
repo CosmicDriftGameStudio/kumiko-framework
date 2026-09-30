@@ -1,5 +1,5 @@
-import type { SseEvent } from "../api/sse-broker";
-import type { SaveContext } from "../engine/types";
+import type { SseEvent } from "../api/sse-broker.js";
+import type { SaveContext } from "../engine/types/index.js";
 
 export type EventCollector = {
   readonly sse: SseEvent[];

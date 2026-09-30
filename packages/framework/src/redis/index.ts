@@ -1,4 +1,4 @@
-export type { RedisClientOptions } from "./client";
-export { createRedisClient, redisClientOptionsFromEnv } from "./client";
-export type { PubSubSignal, PubSubSignalOptions } from "./pubsub-signal";
-export { createRedisPubSubSignal } from "./pubsub-signal";
+export type { RedisClientOptions } from "./client.js";
+export { createRedisClient, redisClientOptionsFromEnv } from "./client.js";
+export type { PubSubSignal, PubSubSignalOptions } from "./pubsub-signal.js";
+export { createRedisPubSubSignal } from "./pubsub-signal.js";

@@ -1,15 +1,15 @@
 import { describe, expect, mock, test } from "bun:test";
-import type { DbRunner } from "../../db/connection";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine";
+import type { DbRunner } from "../../db/connection.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { createSystemUser, SYSTEM_ROLE, SYSTEM_USER_ID } from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
 import type {
   EscapeHatchReporter,
   EscapeHatchTarget,
   MemberReader,
   SessionUser,
-} from "../../engine/types";
-import type { TenantId } from "../../engine/types/identifiers";
-import { AccessDeniedError, FrameworkReasons } from "../../errors";
+} from "../../engine/types/index.js";
+import { AccessDeniedError, FrameworkReasons } from "../../errors/index.js";
 import {
   createGatedIdentitySwitch,
   createGatedMemberReader,
@@ -20,7 +20,7 @@ import {
   type ProjectionReader,
   type WriteAsFn,
   withHookEscapeHatchGrant,
-} from "../system-identity-switch";
+} from "../system-identity-switch.js";
 
 function recordingReporter(): {
   readonly report: EscapeHatchReporter;

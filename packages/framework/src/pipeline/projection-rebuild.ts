@@ -1,11 +1,11 @@
-import type { DbConnection, DbTx } from "../db/connection";
+import type { DbConnection, DbTx } from "../db/connection.js";
 import {
   countSubscribedEvents,
   finalizeProjectionRebuild,
   markProjectionRebuildFailed,
   markProjectionRebuilding,
   selectEventsForProjectionRebuildBatch,
-} from "../db/queries/projection-rebuild";
+} from "../db/queries/projection-rebuild.js";
 import {
   assertLiveColumnsMatchMeta,
   assertLiveTableHasNoRowLevelSecurity,
@@ -18,24 +18,24 @@ import {
   fenceLiveTable,
   rebuildMetaOrThrow,
   swapShadowIntoLive,
-} from "../db/queries/shadow-swap";
-import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query";
-import type { Registry, TenantId } from "../engine/types";
+} from "../db/queries/shadow-swap.js";
+import { coerceRow, extractTableInfo, runInSavepoint, selectMany } from "../db/query.js";
+import type { Registry, TenantId } from "../engine/types/index.js";
+import type { EventMetadata } from "../event-store/event-store.js";
 import {
   eventsTable,
   getEventsHighWaterMark,
   type StoredEvent,
   upcastStoredEvent,
-} from "../event-store";
-import type { EventMetadata } from "../event-store/event-store";
+} from "../event-store/index.js";
 import {
   createRebuildDeadLetterTable,
   recordRebuildDeadLetters,
   type SkippedApply,
-} from "../event-store/rebuild-dead-letter";
-import { emitProjectionRebuild } from "../observability/standard-metrics";
-import type { Meter } from "../observability/types/metric";
-import { projectionStateTable } from "./projection-state";
+} from "../event-store/rebuild-dead-letter.js";
+import { emitProjectionRebuild } from "../observability/standard-metrics.js";
+import type { Meter } from "../observability/types/metric.js";
+import { projectionStateTable } from "./projection-state.js";
 
 // Events replayed per catch-up batch. Each batch is a fresh READ COMMITTED
 // SELECT, so a batch shorter than this means the currently-committed tail is

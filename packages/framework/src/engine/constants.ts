@@ -1,7 +1,7 @@
 import type { ConcurrencyMode } from "@cosmicdrift/kumiko-types/concurrency-mode";
 import type { ConfigScope } from "@cosmicdrift/kumiko-types/config-scope";
 import type { OnDeleteStrategy as OnDeleteStrategyType } from "@cosmicdrift/kumiko-types/relations";
-import type { TenantId } from "./types/identifiers";
+import type { TenantId } from "./types/identifiers.js";
 
 // All framework constants as `as const` objects with inferred union types.
 // No enums — only const objects + typeof inference.

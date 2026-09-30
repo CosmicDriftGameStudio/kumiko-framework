@@ -2,7 +2,7 @@
 // the production matcher checks driver-specific codes a fake can't reproduce.
 
 import postgres from "postgres";
-import { isClosedConnectionError } from "../bun-db/query";
+import { isClosedConnectionError } from "../bun-db/query.js";
 
 export function testDatabaseUrl(): string {
   return (

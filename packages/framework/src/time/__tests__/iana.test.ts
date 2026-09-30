@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isValidIanaTimeZone } from "../iana";
+import { isValidIanaTimeZone } from "../iana.js";
 
 describe("isValidIanaTimeZone", () => {
   // Die 5 Zonen der geplanten CI-TZ-Matrix (timezones.md) müssen alle gültig

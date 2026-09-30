@@ -13,25 +13,25 @@
 // tested in multi-stream-projection.integration.ts.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
-import type { StoredEvent } from "../../event-store";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import type { StoredEvent } from "../../event-store/index.js";
 import {
   DEFAULT_SENSITIVE_CONFIG,
   type MetricEvent,
   type ObservabilityProvider,
   RecordingMeter,
   RecordingTracer,
-} from "../../observability";
+} from "../../observability/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
 
 // --- Test fixtures ---
 

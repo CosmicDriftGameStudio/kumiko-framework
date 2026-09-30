@@ -2,19 +2,19 @@ import {
   KUMIKO_META_SYMBOL,
   KUMIKO_NAME_SYMBOL,
 } from "@cosmicdrift/kumiko-types/schema-table-types";
-import type { DbConnection } from "../db/connection";
-import { pgTypeToSqlType } from "../db/dialect";
-import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta";
+import type { DbConnection } from "../db/connection.js";
+import { pgTypeToSqlType } from "../db/dialect.js";
+import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta.js";
 import {
   alterTableAddColumn,
   createIndexIfNotExists,
   executeDdlStatement,
-} from "../db/queries/ddl";
-import { truncateTablesRestartIdentity } from "../db/queries/test-stack";
-import { renderTableDdl } from "../db/render-ddl";
-import { tableExists } from "../db/schema-inspection";
-import { buildEntityTable, toTableName } from "../db/table-builder";
-import type { EventDispatcher } from "../pipeline";
+} from "../db/queries/ddl.js";
+import { truncateTablesRestartIdentity } from "../db/queries/test-stack.js";
+import { renderTableDdl } from "../db/render-ddl.js";
+import { tableExists } from "../db/schema-inspection.js";
+import { buildEntityTable, toTableName } from "../db/table-builder.js";
+import type { EventDispatcher } from "../pipeline/index.js";
 
 function tableNameOf(table: unknown): string {
   if (typeof table !== "object" || table === null) {
@@ -35,7 +35,7 @@ function tableNameOf(table: unknown): string {
  */
 export async function unsafeCreateEntityTable(
   db: DbConnection,
-  entity: import("../engine/types").EntityDefinition,
+  entity: import("../engine/types/index.js").EntityDefinition,
   entityName?: string,
 ): Promise<void> {
   const table = buildEntityTable(entityName ?? "entity", entity);
@@ -44,7 +44,7 @@ export async function unsafeCreateEntityTable(
 
 export async function unsafeEnsureEntityTable(
   db: DbConnection,
-  entity: import("../engine/types").EntityDefinition,
+  entity: import("../engine/types/index.js").EntityDefinition,
   entityName?: string,
 ): Promise<boolean> {
   const resolvedName = entity.table ?? toTableName(entityName ?? "entity");

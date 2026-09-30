@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
-import { createEntity, createRegistry, defineFeature, HookPhases } from "../index";
-import type { AppContext, PostSaveHookFn, SaveContext } from "../types";
+import { createEntity, createRegistry, defineFeature, HookPhases } from "../index.js";
+import type { AppContext, PostSaveHookFn, SaveContext } from "../types/index.js";
 
 const dummySaveContext: SaveContext = {
   kind: "save",

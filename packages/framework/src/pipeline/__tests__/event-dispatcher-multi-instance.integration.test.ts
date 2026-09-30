@@ -19,26 +19,26 @@
 // here first.
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
-import { createEventStoreExecutor } from "../../db/event-store-executor";
-import { insertMany } from "../../db/query";
-import { createTenantDb, type TenantDb } from "../../db/tenant-db";
-import { defineFeature } from "../../engine";
-import { eventsTable, type StoredEvent } from "../../event-store";
+import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { insertMany } from "../../db/query.js";
+import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
+import { defineFeature } from "../../engine/index.js";
+import { eventsTable, type StoredEvent } from "../../event-store/index.js";
 import {
   createEventDispatcher,
   type EventConsumer,
   type EventDispatcher,
   getConsumerState,
-} from "../../pipeline";
+} from "../../pipeline/index.js";
 import {
   resetEventStore,
   setupTestStack,
   type TestStack,
   TestUsers,
   unsafeCreateEntityTable,
-} from "../../stack";
-import { sharedWidgetEntity, sharedWidgetTable } from "../../testing";
-import { generateId } from "../../utils";
+} from "../../stack/index.js";
+import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
+import { generateId } from "../../utils/index.js";
 
 // --- Fixture ---
 

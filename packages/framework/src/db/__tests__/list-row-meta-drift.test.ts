@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta";
-import { rowMetaFieldNames } from "../table-builder";
+import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
+import { rowMetaFieldNames } from "../table-builder.js";
 
 // Drift-Guard: LIST_ROW_META_COLUMNS (client-safe subpath, headless's
 // computeListViewModel) duplicates the base row-meta column names instead

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildStorageKey } from "../types";
+import { buildStorageKey } from "../types.js";
 
 describe("buildStorageKey", () => {
   test("uses the lowercased extension for a normal filename", () => {

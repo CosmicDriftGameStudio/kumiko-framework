@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createReadinessProbe, type ReadinessCheck } from "../readiness";
+import { createReadinessProbe, type ReadinessCheck } from "../readiness.js";
 
 function okCheck(name: string, delayMs = 0): ReadinessCheck {
   return {

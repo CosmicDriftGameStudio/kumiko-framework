@@ -42,24 +42,24 @@
 // reaches clients on the same process.
 
 import type { Hono } from "hono";
-import type { AuthRoutesConfig } from "../api/auth-routes";
-import type { JwtHelper, JwtKeyring } from "../api/jwt";
-import type { KumikoServer, ServerOptions } from "../api/server";
-import { buildServer, withFileProviderResolver } from "../api/server";
-import type { SseBroker } from "../api/sse-broker";
-import type { PgClient } from "../db/connection";
-import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension";
-import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types";
-import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner";
-import { createJobRunner } from "../jobs/job-runner";
-import type { Lifecycle } from "../lifecycle";
-import { createLifecycle } from "../lifecycle";
-import type { ObservabilityOptions, ObservabilityProvider } from "../observability";
-import { createNoopProvider } from "../observability";
-import type { EventDedup, EventDispatcher } from "../pipeline";
-import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher";
-import { dispatcherToWriteRef } from "../pipeline/dispatcher";
-import type { SystemHooks } from "../pipeline/lifecycle-pipeline";
+import type { AuthRoutesConfig } from "../api/auth-routes.js";
+import type { JwtHelper, JwtKeyring } from "../api/jwt.js";
+import type { KumikoServer, ServerOptions } from "../api/server.js";
+import { buildServer, withFileProviderResolver } from "../api/server.js";
+import type { SseBroker } from "../api/sse-broker.js";
+import type { PgClient } from "../db/connection.js";
+import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
+import type { AppContext, JobRunIn, Registry, RunIn } from "../engine/types/index.js";
+import type { JobRunner, JobRunnerOptions } from "../jobs/job-runner.js";
+import { createJobRunner } from "../jobs/job-runner.js";
+import type { Lifecycle } from "../lifecycle/index.js";
+import { createLifecycle } from "../lifecycle/index.js";
+import type { ObservabilityOptions, ObservabilityProvider } from "../observability/index.js";
+import { createNoopProvider } from "../observability/index.js";
+import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.js";
+import { dispatcherToWriteRef } from "../pipeline/dispatcher.js";
+import type { EventDedup, EventDispatcher } from "../pipeline/index.js";
+import type { SystemHooks } from "../pipeline/lifecycle-pipeline.js";
 
 // Shared fields across all three modes. A caller that swaps between
 // modes can reuse the same options object.

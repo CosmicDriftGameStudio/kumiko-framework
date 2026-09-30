@@ -11,16 +11,16 @@
 // consumer-cursor row. Apps that want it pass filesStorageTrackingFeature
 // into createApp / setupTestStack alongside their domain features.
 
-import { type DbRunner, entityEventName, executeRawQueryRead } from "../db";
-import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect";
-import { incrementCounter } from "../db/query";
-import { defineFeature, qn, type Registry, toKebab } from "../engine";
+import { bigint, instant, integer, table as pgTable, sql, uuid } from "../db/dialect.js";
+import { type DbRunner, entityEventName, executeRawQueryRead } from "../db/index.js";
+import { incrementCounter } from "../db/query.js";
+import { defineFeature, qn, type Registry, toKebab } from "../engine/index.js";
 import {
   type PendingGapEntry,
   SHARED_INSTANCE_SENTINEL,
   selectConsumerCursorForUpdate,
-} from "../pipeline";
-import { parseJsonOrThrow } from "../utils";
+} from "../pipeline/index.js";
+import { parseJsonOrThrow } from "../utils/index.js";
 
 const FILE_REF_AGGREGATE_TYPE = "fileRef";
 const STORAGE_TRACKING_FEATURE_NAME = "files-storage-tracking";

@@ -1,4 +1,4 @@
-import { createBigIntField, createEntity, createTextField } from "../engine";
+import { createBigIntField, createEntity, createTextField } from "../engine/index.js";
 
 // fileRef — das File-Metadata-Entity. Ganz normales ES-Entity: Upload/Delete
 // laufen über den Standard-Executor (file-routes.ts), die Tabelle `file_refs`

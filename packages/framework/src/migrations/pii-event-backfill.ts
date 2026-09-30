@@ -7,39 +7,39 @@
 // ciphertext and blind-index columns get materialized.
 
 import { createHash } from "node:crypto";
-import { configuredEventPiiCatalog } from "../crypto/event-pii";
-import { isLocalKeyKmsAdapter } from "../crypto/kms-adapter";
-import { configuredPiiSubjectKms } from "../crypto/pii-field-encryption";
-import { collectPiiSubjectFields } from "../crypto/subject-resolver";
-import { extractTableName } from "../db";
-import type { DbConnection, DbRunner } from "../db/connection";
-import { bigint, instant, table as pgTable, sql, text } from "../db/dialect";
-import { acquireNamespacedAdvisoryLock } from "../db/queries/advisory-lock";
+import { configuredEventPiiCatalog } from "../crypto/event-pii.js";
+import { isLocalKeyKmsAdapter } from "../crypto/kms-adapter.js";
+import { configuredPiiSubjectKms } from "../crypto/pii-field-encryption.js";
+import { collectPiiSubjectFields } from "../crypto/subject-resolver.js";
+import type { DbConnection, DbRunner } from "../db/connection.js";
+import { bigint, instant, table as pgTable, sql, text } from "../db/dialect.js";
+import { extractTableName } from "../db/index.js";
+import { acquireNamespacedAdvisoryLock } from "../db/queries/advisory-lock.js";
 import {
   backfillEventPiiEncryptionBatch,
   type PiiBackfillBatchResult,
   type PiiBackfillFailure,
   type PiiBackfillScanCache,
-} from "../db/queries/backfill-pii";
+} from "../db/queries/backfill-pii.js";
 import {
   type PiiBackfillStateRow,
   persistPiiBackfillState,
   readPiiBackfillState,
-} from "../db/queries/pii-backfill-state";
-import { upsertOnConflict } from "../db/query";
-import { tableExists } from "../db/schema-inspection";
-import type { Registry } from "../engine/types";
-import type { Logger } from "../logging/types";
-import { createFallbackLogger } from "../logging/utils";
-import { unsafePushTables } from "../stack";
+} from "../db/queries/pii-backfill-state.js";
+import { upsertOnConflict } from "../db/query.js";
+import { tableExists } from "../db/schema-inspection.js";
+import type { Registry } from "../engine/types/index.js";
+import type { Logger } from "../logging/types.js";
+import { createFallbackLogger } from "../logging/utils.js";
+import { unsafePushTables } from "../stack/index.js";
 import {
   clearPendingRebuilds,
   createPendingRebuildsTable,
   listPendingRebuildRows,
   pendingRebuildsTable,
   rebuildProjectionOrMultiStream,
-} from "./pending-rebuilds";
-import { buildProjectionTableIndex } from "./projection-table-index";
+} from "./pending-rebuilds.js";
+import { buildProjectionTableIndex } from "./projection-table-index.js";
 
 const PII_EVENT_BACKFILL_LOCK_NAMESPACE = 0x70_69_69_62; // 'piib'
 const PII_EVENT_BACKFILL_LOCK_KEY = "pii-event-backfill";

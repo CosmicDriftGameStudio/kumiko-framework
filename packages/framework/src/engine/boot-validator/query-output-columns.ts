@@ -1,6 +1,6 @@
 import type { ZodType } from "zod";
-import { isPagedQueryHandler } from "../define-handler";
-import { normalizeListColumn } from "../screen-helpers";
+import { isPagedQueryHandler } from "../define-handler.js";
+import { normalizeListColumn } from "../screen-helpers.js";
 import type {
   DashboardScreenDefinition,
   DashboardStatPanel,
@@ -11,11 +11,11 @@ import type {
   ProjectionListScreenDefinition,
   QueryHandlerDef,
   ScreenDefinition,
-} from "../types";
-import { metricField } from "../types";
-import { buildQueryHandlerMap } from "./projection-list-screens";
-import { validateActionFieldRefs } from "./screens";
-import { getZodObjectShape, getZodRowShape } from "./zod-shape";
+} from "../types/index.js";
+import { metricField } from "../types/index.js";
+import { buildQueryHandlerMap } from "./projection-list-screens.js";
+import { validateActionFieldRefs } from "./screens.js";
+import { getZodObjectShape, getZodRowShape } from "./zod-shape.js";
 
 // fw#2493: query handlers can now declare `outputSchema` (the Zod shape of
 // their actual return value). This validator is entirely opt-in and

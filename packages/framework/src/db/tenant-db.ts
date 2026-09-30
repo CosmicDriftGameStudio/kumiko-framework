@@ -24,14 +24,23 @@ import {
   runInNewTransaction,
   type SelectOptions,
   type WhereObject,
-} from "../db/query";
-import type { EntityDefinition } from "../engine/types/fields";
-import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers";
-import { AccessDeniedError, InternalError, memberResolutionReadOnlyDenied } from "../errors";
-import { emitDbQuery, type Meter, registerStandardMetrics, type Tracer } from "../observability";
-import { fallbackEscapeHatchReporter } from "../observability/escape-hatch-report";
-import type { DbRunner } from "./connection";
-import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner";
+} from "../db/query.js";
+import type { EntityDefinition } from "../engine/types/fields.js";
+import { SYSTEM_TENANT_ID, type TenantId } from "../engine/types/identifiers.js";
+import {
+  AccessDeniedError,
+  InternalError,
+  memberResolutionReadOnlyDenied,
+} from "../errors/index.js";
+import { fallbackEscapeHatchReporter } from "../observability/escape-hatch-report.js";
+import {
+  emitDbQuery,
+  type Meter,
+  registerStandardMetrics,
+  type Tracer,
+} from "../observability/index.js";
+import type { DbRunner } from "./connection.js";
+import { bindTenantDbRunner, tenantDbRunner } from "./tenant-db-runner.js";
 
 type Table = SchemaTable;
 

@@ -9,13 +9,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Hono } from "hono";
 import * as z from "zod";
-import { buildServer, type JwtHelper } from "../../api";
-import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db";
-import { createRegistry, defineFeature, type SessionUser } from "../../engine";
-import { createTestRedis, type TestRedis, TestUsers } from "../../stack";
-import { waitFor } from "../../testing";
-import { ensureTemporalPolyfill } from "../../time/polyfill";
-import { createJobRunner, type JobRunner } from "../job-runner";
+import { buildServer, type JwtHelper } from "../../api/index.js";
+import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";
+import { createRegistry, defineFeature, type SessionUser } from "../../engine/index.js";
+import { createTestRedis, type TestRedis, TestUsers } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
+import { ensureTemporalPolyfill } from "../../time/polyfill.js";
+import { createJobRunner, type JobRunner } from "../job-runner.js";
 
 const jobExecutions: Array<{ trigger: string; payload: Record<string, unknown> }> = [];
 

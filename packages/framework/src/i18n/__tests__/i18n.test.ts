@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { createEntity, createRegistry, createTextField, defineFeature } from "../../engine";
-import { createI18n } from "../index";
+import {
+  createEntity,
+  createRegistry,
+  createTextField,
+  defineFeature,
+} from "../../engine/index.js";
+import { createI18n } from "../index.js";
 
 describe("createI18n", () => {
   const adminFeature = defineFeature("adminUsers", (r) => {
