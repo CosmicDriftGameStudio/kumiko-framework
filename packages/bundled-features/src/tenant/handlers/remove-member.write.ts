@@ -142,7 +142,7 @@ export const removeMemberWrite = defineWriteHandler({
     );
     if (!result.isSuccess) return result;
 
-    // Actor tenant = invitation tenant so the update hits the invitation's stream (#2401).
+    // Actor tenant = invitation tenant so the update hits the invitation's stream.
     const cancelFailure = await cancelPendingInvitationsOfUser(db, {
       userId: event.payload.userId,
       tenantId: event.payload.tenantId,
