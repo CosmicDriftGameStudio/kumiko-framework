@@ -29,6 +29,8 @@ async function awaitSucceededTask(
 // would fail forever.
 const REMOVE_TOLERATED_ERROR_CODES: readonly string[] = [ErrorStatusCode.INDEX_NOT_FOUND];
 
+const INDEX_LIST_PAGE_SIZE = 100;
+
 export type MeilisearchAdapterOptions = {
   url: string;
   apiKey: string;
@@ -141,6 +143,28 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       // the payload server-side as one indexing job — waitTask blocks until
       // that job is done, but it's one round-trip instead of N.
       await awaitSucceededTask(index.addDocuments(payload, { primaryKey: "_id" }));
+    },
+
+    async dropAllIndexes() {
+      // An empty prefix matches every index, which would wipe the whole Meili instance.
+      if (prefix === "") {
+        throw new Error("refusing to drop Meilisearch indexes with an empty prefix");
+      }
+      const uids: string[] = [];
+      for (let offset = 0; ; offset += INDEX_LIST_PAGE_SIZE) {
+        const page = await client.getIndexes({ limit: INDEX_LIST_PAGE_SIZE, offset });
+        for (const index of page.results) {
+          if (index.uid.startsWith(prefix)) uids.push(index.uid);
+        }
+        if (page.results.length === 0 || offset + page.results.length >= page.total) break;
+      }
+      for (const uid of uids) {
+        await awaitSucceededTask(client.deleteIndex(uid), REMOVE_TOLERATED_ERROR_CODES);
+      }
+      // Otherwise ensureConfigured treats the dropped tenants as configured and the
+      // next index() recreates an unconfigured index ("not filterable" on filtered search).
+      configuredTenants.clear();
+      return uids.length;
     },
 
     async removeBatch(tenantId, items) {

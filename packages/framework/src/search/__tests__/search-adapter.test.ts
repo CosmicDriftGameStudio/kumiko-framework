@@ -254,3 +254,18 @@ describe("limit", () => {
     expect(results).toHaveLength(3);
   });
 });
+
+describe("dropAllIndexes", () => {
+  test("empties every tenant and returns how many were dropped", async () => {
+    const otherTenant = "00000000-0000-4000-8000-000000000002";
+    const doc = { entityType: "user", entityId: 1, weight: 1, fields: { firstName: "Marc" } };
+    await adapter.index(TENANT, doc);
+    await adapter.index(otherTenant, doc);
+    expect(await adapter.search(TENANT, "marc")).toHaveLength(1);
+
+    expect(await adapter.dropAllIndexes?.()).toBe(2);
+
+    expect(await adapter.search(TENANT, "marc")).toEqual([]);
+    expect(await adapter.search(otherTenant, "marc")).toEqual([]);
+  });
+});

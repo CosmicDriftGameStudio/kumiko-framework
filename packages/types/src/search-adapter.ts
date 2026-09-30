@@ -42,4 +42,8 @@ export type SearchAdapter = {
     tenantId: TenantId,
     items: readonly { entityType: string; entityId: EntityId }[],
   ): Promise<void>;
+  // Deletes every tenant index this adapter owns and returns how many were
+  // deleted. A persistent index outlives a DB reset, so a rebuild has to start
+  // from empty; the DB is the source of truth and repopulates it.
+  dropAllIndexes?(): Promise<number>;
 };

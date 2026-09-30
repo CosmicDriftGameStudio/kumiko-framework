@@ -346,3 +346,68 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     expect(await index.getSearchableAttributes()).toEqual(["a"]);
   });
 });
+
+describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
+  const dropClient = new Meilisearch({ host: MEILI_URL, apiKey: MEILI_KEY });
+  const createdPrefixes: string[] = [];
+
+  function adapterWithFreshPrefix(): { adapter: SearchAdapter; prefix: string } {
+    const prefix = `test_drop_${uuid()}_`;
+    createdPrefixes.push(prefix);
+    const created = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: prefix,
+    });
+    created.setDefaultConfig?.({ searchableFields: ["firstName"] });
+    return { adapter: created, prefix };
+  }
+
+  async function indexUids(prefix: string): Promise<string[]> {
+    const all = await dropClient.getIndexes({ limit: 1000 });
+    return all.results.map((i) => i.uid).filter((uid) => uid.startsWith(prefix));
+  }
+
+  afterAll(async () => {
+    for (const prefix of createdPrefixes) {
+      for (const uid of await indexUids(prefix)) {
+        await dropClient.deleteIndex(uid).waitTask();
+      }
+    }
+  });
+
+  const doc = { entityType: "user", entityId: 1, weight: 1, fields: { firstName: "Dropme" } };
+
+  test("drops only this adapter's prefix and returns the count", async () => {
+    const { adapter: dropAdapter, prefix } = adapterWithFreshPrefix();
+    const { adapter: foreignAdapter, prefix: foreignPrefix } = adapterWithFreshPrefix();
+    await dropAdapter.index(uuid(), doc);
+    await dropAdapter.index(uuid(), doc);
+    await foreignAdapter.index(uuid(), doc);
+
+    expect(await dropAdapter.dropAllIndexes?.()).toBe(2);
+
+    expect(await indexUids(prefix)).toEqual([]);
+    expect(await indexUids(foreignPrefix)).toHaveLength(1);
+  });
+
+  test("index and filtered search work again after a drop (configured state is reset)", async () => {
+    const { adapter: dropAdapter } = adapterWithFreshPrefix();
+    const tenant = uuid();
+    await dropAdapter.index(tenant, doc);
+    await dropAdapter.dropAllIndexes?.();
+
+    await dropAdapter.index(tenant, doc);
+    const results = await dropAdapter.search(tenant, "dropme", { filterType: "user" });
+    expect(results.map((r) => r.entityId)).toEqual([1]);
+  });
+
+  test("refuses an empty prefix", async () => {
+    const noPrefix = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: "",
+    });
+    await expect(noPrefix.dropAllIndexes?.()).rejects.toThrow("empty prefix");
+  });
+});
