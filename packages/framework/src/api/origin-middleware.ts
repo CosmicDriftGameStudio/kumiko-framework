@@ -31,7 +31,7 @@ export function isForeignCookieOrigin(c: Context, allowlist: ReadonlySet<string>
   return c.req.header("sec-fetch-site") === "cross-site";
 }
 
-function rejectOrigin(c: Context): Response {
+export function rejectOrigin(c: Context): Response {
   return c.json(
     {
       error: {
@@ -43,6 +43,32 @@ function rejectOrigin(c: Context): Response {
     },
     403,
   );
+}
+
+// WebSocket upgrades are GETs, so originMiddleware/csrfMiddleware never see
+// them — yet a cookie-authenticated upgrade from a foreign page is a
+// cross-site WebSocket hijack. Bearer transports can't be set by a browser
+// WebSocket and need no check.
+export function isWebSocketOriginAllowed(
+  c: Context,
+  normalizedAllowlist: ReadonlySet<string> | undefined,
+): boolean {
+  if (getAuthTransport(c) !== "cookie") return true;
+  const origin = c.req.header("origin");
+  if (origin === undefined || origin === "null") return false;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host.toLowerCase();
+  } catch {
+    return false;
+  }
+  // With an allowlist there is deliberately no same-host fallback: wide
+  // cookieDomain setups are exactly where a sibling subdomain is the attacker.
+  if (normalizedAllowlist !== undefined && normalizedAllowlist.size > 0) {
+    return isOriginAllowed(origin, normalizedAllowlist);
+  }
+  const requestHost = c.req.header("host")?.toLowerCase();
+  return requestHost !== undefined && originHost === requestHost;
 }
 
 // Server-side Origin-allowlist guard — an additional CSRF-hardening layer on

@@ -5,7 +5,13 @@
 import { describe, expect, test } from "bun:test";
 import { Hono } from "hono";
 import { TestUsers } from "../../stack";
-import { AUTH_COOKIE_NAME, authMiddleware, getAuthTransport, getUser } from "../auth-middleware";
+import {
+  AUTH_COOKIE_NAME,
+  authMiddleware,
+  getAuthTokenExpiry,
+  getAuthTransport,
+  getUser,
+} from "../auth-middleware";
 import { createJwtHelper } from "../jwt";
 
 const JWT_SECRET = "auth-middleware-transport-test-secret-min-32-chars";
@@ -76,5 +82,21 @@ describe("auth-middleware transport selection", () => {
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("invalid_token");
+  });
+});
+
+describe("auth-middleware token expiry", () => {
+  test("exposes the JWT exp (epoch seconds) to downstream handlers", async () => {
+    const ttlSeconds = 600;
+    const jwt = createJwtHelper(JWT_SECRET, "kumiko", ttlSeconds);
+    const token = await jwt.sign(TestUsers.user);
+    const app = new Hono();
+    app.use("/api/*", authMiddleware(jwt));
+    app.get("/api/exp", (c) => c.json({ exp: getAuthTokenExpiry(c) }));
+    const beforeSec = Math.floor(Date.now() / 1000);
+    const res = await app.request("/api/exp", { headers: { Authorization: `Bearer ${token}` } });
+    const { exp } = (await res.json()) as { exp: number };
+    expect(exp).toBeGreaterThanOrEqual(beforeSec + ttlSeconds - 5);
+    expect(exp).toBeLessThanOrEqual(beforeSec + ttlSeconds + 5);
   });
 });

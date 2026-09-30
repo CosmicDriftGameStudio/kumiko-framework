@@ -42,6 +42,10 @@
       "types": "./src/http-route.ts",
       "default": "./src/http-route.ts"
     },
+    "./websocket-route": {
+      "types": "./src/websocket-route.ts",
+      "default": "./src/websocket-route.ts"
+    },
     "./relations": {
       "types": "./src/relations.ts",
       "default": "./src/relations.ts"

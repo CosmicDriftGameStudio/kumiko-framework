@@ -90,6 +90,13 @@ export const WIDGETS_I18N = {
   "widgets:catalog:open-status": { de: "offen", en: "open" },
   "widgets:catalog:closed-status": { de: "geschlossen", en: "closed" },
   "widgets:catalog:drawer-message-title": { de: "Nachricht", en: "Message" },
+  "widgets:catalog:floating-panel": { de: "Floating Panel", en: "Floating panel" },
+  "widgets:catalog:floating-panel-open": { de: "Panel öffnen", en: "Open panel" },
+  "widgets:catalog:floating-panel-close": { de: "Panel schließen", en: "Close panel" },
+  "widgets:catalog:floating-panel-body": {
+    de: "Verschiebbar per Kopfzeile, Größe über Kanten und Ecken. Die Seite dahinter bleibt bedienbar.",
+    en: "Drag the header to move it, resize from the edges and corners. The page behind stays usable.",
+  },
   "widgets:catalog:inbox": { de: "Inbox (InfinityList)", en: "Inbox (InfinityList)" },
   "widgets:catalog:filter-all": { de: "Alle", en: "All" },
   "widgets:catalog:filter-unread": { de: "Ungelesen", en: "Unread" },

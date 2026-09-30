@@ -1,3 +1,9 @@
+import {
+  WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT,
+  WEBSOCKET_MAX_PAYLOAD_BYTES,
+  WEBSOCKET_ROUTE_PATH_PREFIX,
+  type WebSocketRouteDefinition,
+} from "@cosmicdrift/kumiko-types/websocket-route";
 import type { EntityTableMeta } from "../db/entity-table-meta";
 import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch";
 import { LifecycleHookTypes } from "./constants";
@@ -513,6 +519,52 @@ export function buildUiExtensionsMethods<TName extends string>(
         );
       }
       state.httpRoutes[key] = definition;
+    },
+    webSocketRoute(definition: WebSocketRouteDefinition): void {
+      if (!definition.path.startsWith(WEBSOCKET_ROUTE_PATH_PREFIX)) {
+        throw new Error(
+          `[Feature ${name}] webSocketRoute path "${definition.path}" must start with ` +
+            `"${WEBSOCKET_ROUTE_PATH_PREFIX}" — only that namespace rides the /api/* auth chain ` +
+            "the upgrade relies on.",
+        );
+      }
+      if (definition.path.includes("*")) {
+        throw new Error(
+          `[Feature ${name}] webSocketRoute path "${definition.path}" must not contain "*" — ` +
+            "wildcards would let one route swallow unrelated /api/ws/* paths.",
+        );
+      }
+      const { maxMessageBytes } = definition;
+      if (
+        maxMessageBytes !== undefined &&
+        (!Number.isInteger(maxMessageBytes) ||
+          maxMessageBytes < 1 ||
+          maxMessageBytes > WEBSOCKET_MAX_PAYLOAD_BYTES)
+      ) {
+        throw new Error(
+          `[Feature ${name}] webSocketRoute "${definition.path}" maxMessageBytes must be an ` +
+            `integer between 1 and ${WEBSOCKET_MAX_PAYLOAD_BYTES}, got ${maxMessageBytes}.`,
+        );
+      }
+      const { maxConnectionsPerUser } = definition;
+      if (
+        maxConnectionsPerUser !== undefined &&
+        (!Number.isInteger(maxConnectionsPerUser) ||
+          maxConnectionsPerUser < 1 ||
+          maxConnectionsPerUser > WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT)
+      ) {
+        throw new Error(
+          `[Feature ${name}] webSocketRoute "${definition.path}" maxConnectionsPerUser must be an ` +
+            `integer between 1 and ${WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT}, got ${maxConnectionsPerUser}.`,
+        );
+      }
+      if (state.webSocketRoutes[definition.path]) {
+        throw new Error(
+          `[Feature ${name}] WebSocket route "${definition.path}" already registered. ` +
+            "path must be unique per feature.",
+        );
+      }
+      state.webSocketRoutes[definition.path] = definition;
     },
     storeTable(meta: EntityTableMeta, options: StoreTableOptions): void {
       // Name comes from the meta itself — apps already give the table a

@@ -72,8 +72,8 @@ import {
 // Bun.serve + real sockets.
 const hasBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
 
-// Bun.serve returns a parametrised Server<WebSocketData>; we don't
-// touch WebSockets here, so the narrow `unknown` binding is plenty.
+// Bun.serve returns a parametrised Server<WebSocketData>; nothing here reads
+// the socket data, so the narrow `unknown` binding is plenty.
 // `Bun` isn't declared in Node types, so we fall back to `unknown`
 // and only resolve the type when Bun is actually around.
 type BunServer = typeof Bun extends undefined ? unknown : ReturnType<typeof Bun.serve>;
@@ -1239,7 +1239,10 @@ export async function createKumikoServer(
   // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
   const server = hasBun
     ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve(
-        buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry)),
+        buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry), {
+          upgradeFetch: async (req, env) =>
+            stripNoRouteMatchHeader(await stack.app.fetch(req, env)),
+        }),
       )
     : undefined;
 

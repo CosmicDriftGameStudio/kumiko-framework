@@ -4,6 +4,87 @@
 
 import { expect, test } from "@playwright/test";
 
+test("FloatingPanel moves, resizes, keeps the page usable and restores geometry", async ({
+  page,
+}) => {
+  const shotDir = process.env["SCREENSHOT_DIR"];
+  await page.goto("/widgets");
+  await page.getByRole("button", { name: "Open panel" }).click();
+  const panel = page.getByTestId("floating-panel-demo");
+  await expect(panel).toBeVisible();
+  if (shotDir) {
+    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    await page.screenshot({ path: `${shotDir}/floating-panel-default.png` });
+  }
+
+  const before = await panel.boundingBox();
+  if (before === null) throw new Error("expected the panel to have a bounding box");
+
+  // Header drag: grab the title text, move by a known delta.
+  const title = panel.getByText("Floating panel", { exact: true });
+  const titleBox = await title.boundingBox();
+  if (titleBox === null) throw new Error("expected the title to have a bounding box");
+  const grabX = titleBox.x + 4;
+  const grabY = titleBox.y + titleBox.height / 2;
+  await page.mouse.move(grabX, grabY);
+  await page.mouse.down();
+  await page.mouse.move(grabX - 60, grabY - 40, { steps: 5 });
+  await page.mouse.up();
+  const moved = await panel.boundingBox();
+  if (moved === null) throw new Error("expected the moved panel to have a bounding box");
+  expect(Math.round(moved.x - before.x)).toBe(-60);
+  expect(Math.round(moved.y - before.y)).toBe(-40);
+
+  // Bottom-right corner handle grows the panel.
+  const cornerBox = await panel
+    .locator('[aria-hidden="true"].cursor-nwse-resize')
+    .last()
+    .boundingBox();
+  if (cornerBox === null) throw new Error("expected the corner handle to have a bounding box");
+  const cornerX = cornerBox.x + cornerBox.width / 2;
+  const cornerY = cornerBox.y + cornerBox.height / 2;
+  await page.mouse.move(cornerX, cornerY);
+  await page.mouse.down();
+  await page.mouse.move(cornerX + 40, cornerY + 30, { steps: 5 });
+  await page.mouse.up();
+  const resized = await panel.boundingBox();
+  if (resized === null) throw new Error("expected the resized panel to have a bounding box");
+  expect(resized.width).toBeGreaterThan(moved.width);
+  expect(resized.height).toBeGreaterThan(moved.height);
+  if (shotDir) {
+    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    await page.screenshot({ path: `${shotDir}/floating-panel-moved-resized.png` });
+  }
+
+  // Non-modal: the page behind still takes clicks.
+  const fixed = page.getByRole("button", { name: "Fixed rate" });
+  await expect(fixed).toHaveAttribute("aria-pressed", "false");
+  await fixed.click();
+  await expect(fixed).toHaveAttribute("aria-pressed", "true");
+
+  // Geometry survives a reload (reopen, since open state is component state).
+  await page.reload();
+  await page.getByRole("button", { name: "Open panel" }).click();
+  const restored = await panel.boundingBox();
+  if (restored === null) throw new Error("expected the restored panel to have a bounding box");
+  expect(Math.round(restored.x)).toBe(Math.round(resized.x));
+  expect(Math.round(restored.width)).toBe(Math.round(resized.width));
+  expect(Math.round(restored.height)).toBe(Math.round(resized.height));
+
+  // Narrow viewport: the panel becomes a full-screen sheet.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(async () => {
+      const box = await panel.boundingBox();
+      return box === null ? null : [box.x, box.y, box.width, box.height];
+    })
+    .toEqual([0, 0, 390, 844]);
+  if (shotDir) {
+    // @template-drift-exception: #3372 ad hoc local debug dump, not a docs-pipeline capture
+    await page.screenshot({ path: `${shotDir}/floating-panel-narrow.png` });
+  }
+});
+
 test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   await page.goto("/widgets");
 

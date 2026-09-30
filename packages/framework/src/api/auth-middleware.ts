@@ -10,6 +10,7 @@ import { isForeignCookieOrigin } from "./origin-middleware";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";
+const AUTH_TOKEN_EXPIRY_KEY = "authTokenExpiry";
 
 // Names used across middleware and auth-routes. Kept here so csrf-middleware
 // and auth-routes import them from a single source of truth — renaming a
@@ -47,6 +48,10 @@ export type AuthSessionStatus = "live" | "revoked" | "expired" | "missing" | "bl
 export type AuthSessionCheckResult =
   | AuthSessionStatus
   | { readonly status: "live"; readonly roles: readonly string[] };
+
+export function sessionCheckStatus(result: AuthSessionCheckResult): AuthSessionStatus {
+  return typeof result === "string" ? result : result.status;
+}
 
 // Called by the middleware after JWT-verify. Gets the sid AND the expected
 // userId from the JWT's `sub` — the checker MUST confirm the session row
@@ -321,7 +326,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     if (sessionChecker) {
       if (payload.jti) {
         const result = await sessionChecker(payload.jti, payload.sub);
-        const status = typeof result === "string" ? result : result.status;
+        const status = sessionCheckStatus(result);
         if (status !== "live") {
           return sessionInvalid(c, status);
         }
@@ -366,6 +371,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     if (lifecycleReject) return lifecycleReject;
     c.set(USER_KEY, user);
     c.set(AUTH_TRANSPORT_KEY, transport);
+    if (payload.exp !== undefined) c.set(AUTH_TOKEN_EXPIRY_KEY, payload.exp);
     await next();
   };
 }
@@ -378,6 +384,12 @@ export function getUser(c: Context): SessionUser {
 export function getAuthTransport(c: Context): AuthTransport | undefined {
   // @cast-boundary engine-bridge — Hono context.get returns unknown
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
+}
+
+/** JWT `exp` (epoch seconds) of the request's token; undefined for anonymous and verified-bearer (PAT) callers. */
+export function getAuthTokenExpiry(c: Context): number | undefined {
+  // @cast-boundary engine-bridge — Hono context.get returns unknown
+  return c.get(AUTH_TOKEN_EXPIRY_KEY) as number | undefined;
 }
 
 // Verified-bearer request flow. `user` was already resolved by the wired
@@ -651,22 +663,32 @@ async function requestsCancelDestruction(c: Context): Promise<boolean> {
   return false;
 }
 
+// The teardown status the HTTP guard rejects on, shared with the WebSocket
+// revalidator so both agree on what "tenant unavailable" means.
+export async function resolveTenantTeardownStatus(
+  tenantId: TenantId,
+  resolveTenantLifecycleStatus: TenantLifecycleStatusResolver | undefined,
+): Promise<string | undefined> {
+  if (!resolveTenantLifecycleStatus) return undefined;
+  const lifecycle = await resolveTenantLifecycleStatus(tenantId);
+  return lifecycle && TENANT_TEARDOWN_STATUSES.has(lifecycle.status) ? lifecycle.status : undefined;
+}
+
 async function rejectIfTenantTeardown(
   c: Context,
   tenantId: TenantId,
   resolveTenantLifecycleStatus: TenantLifecycleStatusResolver | undefined,
 ): Promise<Response | undefined> {
-  if (!resolveTenantLifecycleStatus) return undefined;
-  const lifecycle = await resolveTenantLifecycleStatus(tenantId);
-  if (!lifecycle || !TENANT_TEARDOWN_STATUSES.has(lifecycle.status)) return undefined;
-  if (lifecycle.status === "destroyRequested" && (await requestsCancelDestruction(c))) {
+  const status = await resolveTenantTeardownStatus(tenantId, resolveTenantLifecycleStatus);
+  if (status === undefined) return undefined;
+  if (status === "destroyRequested" && (await requestsCancelDestruction(c))) {
     return undefined;
   }
   return middlewareReject(c, {
     code: "tenant_unavailable",
     status: 410,
-    message: `tenant "${tenantId}" is unavailable (${lifecycle.status})`,
+    message: `tenant "${tenantId}" is unavailable (${status})`,
     i18nKey: "auth.errors.tenantUnavailable",
-    details: { tenantId, status: lifecycle.status },
+    details: { tenantId, status },
   });
 }

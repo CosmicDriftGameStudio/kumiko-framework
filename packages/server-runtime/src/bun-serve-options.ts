@@ -1,4 +1,13 @@
-import { DEFAULT_MAX_REQUEST_BYTES } from "@cosmicdrift/kumiko-framework/api";
+import {
+  createKumikoWebSocketHandler,
+  DEFAULT_MAX_REQUEST_BYTES,
+  isWebSocketUpgradeRequest,
+  type KumikoServeEnv,
+  type KumikoWebSocketData,
+  WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
+  WEBSOCKET_MAX_PAYLOAD_BYTES,
+  WEBSOCKET_ROUTE_PATH_PREFIX,
+} from "@cosmicdrift/kumiko-framework/api";
 import type { Registry } from "@cosmicdrift/kumiko-framework/engine/types";
 import {
   readFilesRouteOptions,
@@ -26,35 +35,76 @@ export function resolveDerivedMaxRequestBodySize(registry: Registry): number {
   );
 }
 
+// Other upgrades (dev HMR, ...) keep going through fetchHandler.
+function isKumikoWebSocketUpgrade(req: Request): boolean {
+  return (
+    isWebSocketUpgradeRequest(req) &&
+    new URL(req.url).pathname.startsWith(WEBSOCKET_ROUTE_PATH_PREFIX)
+  );
+}
+
 /**
- * Bun.serve-Options für Production.
+ * Bun.serve options for production.
  *
- * Spec: idleTimeout: 0 (= disabled). SSE-Streams werden via Heartbeat
- * lebend gehalten (siehe SSE_HEARTBEAT_INTERVAL_MS in framework/api/
- * sse-route.ts), kein Bun-side Idle-Cleanup nötig. Mit dem Default
- * von 10 s killt Bun nach jedem Heartbeat-Gap die Connection mit
- * halbem HTTP/2-RST_STREAM → Browser ERR_HTTP2_PROTOCOL_ERROR.
+ * idleTimeout: 0 (disabled): SSE streams stay alive through their own
+ * heartbeat (SSE_HEARTBEAT_INTERVAL_MS in framework/api/sse-route.ts). With
+ * Bun's 10 s default, every heartbeat gap killed the connection with a half
+ * HTTP/2 RST_STREAM, which browsers report as ERR_HTTP2_PROTOCOL_ERROR.
  *
- * Spec-Test in __tests__/run-prod-app-spec.test.ts pinst die 0 gegen
- * "looks like a leak"-Reverts.
+ * __tests__/run-prod-app-spec.test.ts pins the 0 against "looks like a
+ * leak" reverts.
+ *
+ * WebSocket: upgrade requests are branched off here, before `fetchHandler`
+ * (whose static/SPA layers clone the request, which `server.upgrade` can't
+ * use), into `webSocketOptions.upgradeFetch` with the original Request.
+ * `heartbeatIntervalMs` overrides the 25 s ping/revalidation cadence.
  */
+export type WebSocketServeOptions = {
+  readonly upgradeFetch: (req: Request, env: KumikoServeEnv) => Response | Promise<Response>;
+  readonly heartbeatIntervalMs?: number;
+};
+
 export function buildBunServeOptions(
   port: number,
   fetchHandler: (req: Request, socketAddress?: string) => Response | Promise<Response>,
   maxRequestBodySize: number = DEFAULT_MAX_REQUEST_BODY_SIZE_BYTES,
+  webSocketOptions?: WebSocketServeOptions,
 ): {
   readonly port: number;
-  readonly fetch: (req: Request, server: Bun.Server<unknown>) => Response | Promise<Response>;
+  readonly fetch: (
+    req: Request,
+    server: Bun.Server<KumikoWebSocketData>,
+  ) => Response | Promise<Response>;
   readonly idleTimeout: number;
   readonly maxRequestBodySize: number;
+  readonly websocket: Bun.WebSocketHandler<KumikoWebSocketData>;
 } {
   // `server.requestIP(req)` only resolves for the exact Request instance
   // Bun created — extracted here, once, before any downstream req.clone()
   // (tryHonoFirst et al.) can invalidate it.
   return {
     port,
-    fetch: (req, server) => fetchHandler(req, server.requestIP(req)?.address),
+    fetch: (req, server) => {
+      const socketAddress = server.requestIP(req)?.address;
+      if (webSocketOptions && isKumikoWebSocketUpgrade(req)) {
+        return webSocketOptions.upgradeFetch(req, {
+          ...(socketAddress !== undefined ? { socketAddress } : {}),
+          server,
+        });
+      }
+      return fetchHandler(req, socketAddress);
+    },
     idleTimeout: 0,
     maxRequestBodySize,
+    websocket: {
+      ...createKumikoWebSocketHandler(
+        webSocketOptions?.heartbeatIntervalMs !== undefined
+          ? { heartbeatIntervalMs: webSocketOptions.heartbeatIntervalMs }
+          : {},
+      ),
+      maxPayloadLength: WEBSOCKET_MAX_PAYLOAD_BYTES,
+      backpressureLimit: WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
+      closeOnBackpressureLimit: true,
+    },
   };
 }

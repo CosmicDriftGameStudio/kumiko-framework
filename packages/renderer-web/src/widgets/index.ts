@@ -21,6 +21,11 @@ export { DetailList } from "./detail-list";
 export { Drawer, type DrawerProps } from "./drawer";
 export { FeedList, type FeedRow } from "./feed-list";
 export {
+  FloatingPanel,
+  type FloatingPanelGeometry,
+  type FloatingPanelProps,
+} from "./floating-panel";
+export {
   BooleanField,
   type BooleanFieldProps,
   DateField,

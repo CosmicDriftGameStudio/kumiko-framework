@@ -102,6 +102,12 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.widget.drawer.maximize": "Maximize drawer width",
     "kumiko.widget.drawer.resize": "Resize drawer",
 
+    "kumiko.widget.floatingPanel.move": "Move panel",
+    "kumiko.widget.floatingPanel.resizeTop": "Resize panel from the top edge",
+    "kumiko.widget.floatingPanel.resizeRight": "Resize panel from the right edge",
+    "kumiko.widget.floatingPanel.resizeBottom": "Resize panel from the bottom edge",
+    "kumiko.widget.floatingPanel.resizeLeft": "Resize panel from the left edge",
+
     "kumiko.planCard.current": "Current plan",
     "kumiko.planCard.priceUnavailable": "Price not available",
 

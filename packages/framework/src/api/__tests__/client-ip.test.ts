@@ -9,8 +9,28 @@ import {
   assertValidTrustedProxyHops,
   type ClientIpHeaderSource,
   createClientIpResolver,
+  extractSocketAddress,
   parseTrustedProxyHopsEnv,
 } from "../client-ip";
+
+describe("extractSocketAddress", () => {
+  test("accepts the bare string shape", () => {
+    expect(extractSocketAddress("10.0.0.1")).toBe("10.0.0.1");
+  });
+
+  test("accepts the object shape used by WebSocket-upgrade requests", () => {
+    expect(extractSocketAddress({ socketAddress: "10.0.0.2", server: {} })).toBe("10.0.0.2");
+  });
+
+  test("returns undefined for empty, missing or wrongly typed values", () => {
+    expect(extractSocketAddress("")).toBeUndefined();
+    expect(extractSocketAddress({ socketAddress: "" })).toBeUndefined();
+    expect(extractSocketAddress({ socketAddress: 42 })).toBeUndefined();
+    expect(extractSocketAddress({})).toBeUndefined();
+    expect(extractSocketAddress(undefined)).toBeUndefined();
+    expect(extractSocketAddress(null)).toBeUndefined();
+  });
+});
 
 function sourceOf(headers: Record<string, string>, socketAddress?: string): ClientIpHeaderSource {
   return {

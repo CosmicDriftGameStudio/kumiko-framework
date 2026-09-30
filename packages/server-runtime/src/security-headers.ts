@@ -42,14 +42,14 @@ export function resolveSecurityHeaders(
 
 // Sets each header only when absent so per-response values (e.g. the
 // per-host CSP from hostDispatch) always win over the runtime default.
-export function withSecurityHeaders(
-  handler: (req: Request, socketAddress?: string) => Response | Promise<Response>,
+export function withSecurityHeaders<TServeArg = string>(
+  handler: (req: Request, serveArg?: TServeArg) => Response | Promise<Response>,
   option: SecurityHeadersOption | undefined,
-): (req: Request, socketAddress?: string) => Response | Promise<Response> {
+): (req: Request, serveArg?: TServeArg) => Response | Promise<Response> {
   const defaults = resolveSecurityHeaders(option);
   if (defaults.length === 0) return handler;
-  return async (req: Request, socketAddress?: string): Promise<Response> => {
-    const res = await handler(req, socketAddress);
+  return async (req: Request, serveArg?: TServeArg): Promise<Response> => {
+    const res = await handler(req, serveArg);
     try {
       for (const [name, value] of defaults) {
         if (!res.headers.has(name)) res.headers.set(name, value);

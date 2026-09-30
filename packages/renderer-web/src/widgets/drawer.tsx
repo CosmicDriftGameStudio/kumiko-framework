@@ -1,11 +1,12 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { clamp } from "../lib/clamp";
 import { cn } from "../lib/cn";
 import { useIsNarrowViewport } from "../primitives/use-narrow-viewport";
 import { Sheet, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "../ui/sheet";
 import { DrawerSheetContent } from "./sheet-parts";
+import { arrowKeyDelta, usePointerDrag } from "./use-pointer-drag";
 
 // Mirrors primitives/index.tsx's cardFooter + cardFooterBorder (row layout,
 // end-justified actions, top border, panel surface instead of the card
@@ -189,7 +190,6 @@ export function Drawer({
     clamp(resize?.defaultWidthPx ?? defaultWidthFromViewport(), minWidthPx, effectiveMaxWidthPx()),
   );
   const [maximized, setMaximized] = useState(false);
-  const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const blurPx = backdrop?.blurPx ?? DEFAULT_BLUR_PX;
   const dimPercent = backdrop?.dimPercent ?? DEFAULT_DIM_PERCENT;
   const overlayStyle: React.CSSProperties = {
@@ -210,39 +210,22 @@ export function Drawer({
       ? { top: "var(--shell-header-height)", bottom: 0 }
       : undefined;
 
-  const onHandlePointerDown = (event: React.PointerEvent<HTMLDivElement>): void => {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { startX: event.clientX, startWidth: effectiveWidthPx };
-    setMaximized(false);
-    // Handle already carries `cursor-col-resize`, so only the text-selection
-    // lock is needed here — without it, a fast drag over the drawer content
-    // selects the text underneath instead of just resizing.
-    document.body.style.setProperty("user-select", "none");
-  };
-  const onHandlePointerMove = (event: React.PointerEvent<HTMLDivElement>): void => {
-    if (dragRef.current === null) return;
-    const deltaX = event.clientX - dragRef.current.startX;
-    const signedDelta = side === "right" ? -deltaX : deltaX;
-    setResizedWidthPx(
-      clamp(dragRef.current.startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()),
-    );
-  };
-  const endHandlePointerDrag = (event: React.PointerEvent<HTMLDivElement>): void => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    dragRef.current = null;
-    document.body.style.removeProperty("user-select");
-  };
+  const handleDrag = usePointerDrag({
+    onStart: () => {
+      setMaximized(false);
+      return { startWidth: effectiveWidthPx };
+    },
+    onMove: ({ startWidth }, { dx }) => {
+      const signedDelta = side === "right" ? -dx : dx;
+      setResizedWidthPx(clamp(startWidth + signedDelta, minWidthPx, effectiveMaxWidthPx()));
+    },
+  });
   const onHandleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
-    const step = event.shiftKey ? 40 : 16;
-    const grow = side === "right" ? "ArrowLeft" : "ArrowRight";
-    const shrink = side === "right" ? "ArrowRight" : "ArrowLeft";
-    if (event.key !== grow && event.key !== shrink) return;
+    const keyDelta = arrowKeyDelta(event);
+    if (keyDelta === undefined || keyDelta.dx === 0) return;
     event.preventDefault();
     setMaximized(false);
-    const delta = event.key === grow ? step : -step;
+    const delta = side === "right" ? -keyDelta.dx : keyDelta.dx;
     // Seed from the currently visible width, not the stale `resizedWidthPx`
     // state — while maximized, it still holds the pre-maximize value, so a
     // key press would otherwise jump the drawer back to that old size
@@ -308,11 +291,7 @@ export function Drawer({
             aria-valuemin={minWidthPx}
             aria-valuemax={effectiveMaxWidthPx()}
             tabIndex={0}
-            onPointerDown={onHandlePointerDown}
-            onPointerMove={onHandlePointerMove}
-            onPointerUp={endHandlePointerDrag}
-            onPointerCancel={endHandlePointerDrag}
-            onLostPointerCapture={endHandlePointerDrag}
+            {...handleDrag}
             onKeyDown={onHandleKeyDown}
             className={cn(
               "absolute inset-y-0 z-10 w-1 cursor-col-resize touch-none after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2 hover:bg-border",
