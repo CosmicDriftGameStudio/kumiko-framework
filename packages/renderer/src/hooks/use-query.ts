@@ -38,6 +38,10 @@ export type UseQueryOptions = {
   // `<feature>:query:<entity>:<verb>` convention — if the type
   // doesn't follow that shape, live-mode is a no-op.
   readonly live?: boolean;
+  // Re-runs the query every N ms while enabled. Ticks are silent (no
+  // `loading` flip) and skipped while a fetch is still in flight. Only
+  // timers are used, so it behaves the same on web and React Native.
+  readonly refetchIntervalMs?: number;
 };
 
 // Extract the entity-name from a standard Kumiko query type. Returns
@@ -57,7 +61,7 @@ export function useQuery<TData = unknown>(
   options: UseQueryOptions = {},
 ): UseQueryResult<TData> {
   const dispatcher = useDispatcher();
-  const { enabled = true, live = false } = options;
+  const { enabled = true, live = false, refetchIntervalMs } = options;
 
   const [data, setData] = useState<TData | null>(null);
   const [error, setError] = useState<DispatcherError | null>(null);
@@ -67,6 +71,9 @@ export function useQuery<TData = unknown>(
   // call can cancel the older one. Ref, not state, because the
   // controller identity shouldn't trigger a re-render.
   const activeCtrl = useRef<AbortController | null>(null);
+  // A tick that aborted a running fetch would starve slow queries, so
+  // ticks consult this flag instead.
+  const fetchInFlight = useRef(false);
 
   // Serialize payload so object-identity-changes across renders (the
   // caller building a fresh `{}` every render) don't loop. Strings are
@@ -77,29 +84,36 @@ export function useQuery<TData = unknown>(
   // are the meaningful re-run triggers. `payload` itself is intentionally
   // not in deps — it's serialized into payloadKey above.
   // biome-ignore lint/correctness/useExhaustiveDependencies: payload goes through payloadKey
-  const run = useCallback(async (): Promise<void> => {
-    // Abort whatever's in flight. observer on Safari 17+ handles this
-    // without raising a fetch-throw in the previous caller — they
-    // already set the error path.
-    activeCtrl.current?.abort();
-    const ctrl = new AbortController();
-    activeCtrl.current = ctrl;
+  const runFetch = useCallback(
+    async (background: boolean): Promise<void> => {
+      // Abort whatever's in flight. observer on Safari 17+ handles this
+      // without raising a fetch-throw in the previous caller — they
+      // already set the error path.
+      activeCtrl.current?.abort();
+      const ctrl = new AbortController();
+      activeCtrl.current = ctrl;
 
-    setLoading(true);
-    const result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
-    // skip: a newer fetch already superseded this one, don't clobber its state
-    if (ctrl.signal.aborted) return;
-    if (result.isSuccess) {
-      setData(result.data);
-      setError(null);
-    } else {
-      // A cancelled request comes back with code "aborted" from the
-      // skip: aborted request, a newer run already replaces this result
-      if (result.error.code === "aborted") return;
-      setError(result.error);
-    }
-    setLoading(false);
-  }, [dispatcher, type, payloadKey]);
+      fetchInFlight.current = true;
+      if (!background) setLoading(true);
+      const result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
+      // skip: a newer fetch already superseded this one, don't clobber its state
+      if (ctrl.signal.aborted) return;
+      fetchInFlight.current = false;
+      if (result.isSuccess) {
+        setData(result.data);
+        setError(null);
+      } else {
+        // A cancelled request comes back with code "aborted" from the
+        // skip: aborted request, a newer run already replaces this result
+        if (result.error.code === "aborted") return;
+        setError(result.error);
+      }
+      setLoading(false);
+    },
+    [dispatcher, type, payloadKey],
+  );
+
+  const run = useCallback((): Promise<void> => runFetch(false), [runFetch]);
 
   useEffect(() => {
     if (!enabled) {
@@ -110,8 +124,20 @@ export function useQuery<TData = unknown>(
     void run();
     return () => {
       activeCtrl.current?.abort();
+      fetchInFlight.current = false;
     };
   }, [enabled, run]);
+
+  useEffect(() => {
+    // skip: polling off, disabled query, or non-positive/non-finite interval
+    if (!enabled || refetchIntervalMs === undefined) return;
+    if (!Number.isFinite(refetchIntervalMs) || refetchIntervalMs <= 0) return;
+    const timer = setInterval(() => {
+      if (fetchInFlight.current) return;
+      void runFetch(true);
+    }, refetchIntervalMs);
+    return () => clearInterval(timer);
+  }, [enabled, refetchIntervalMs, runFetch]);
 
   // Live-mode: auf SSE-Events für die Query-Entity hören und refetchen.
   // Separater Effect, damit eine Änderung an `live` oder `type` das
