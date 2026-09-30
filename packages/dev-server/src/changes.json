@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "Dev server serves the renderer-web fonts",
+    "detail": "GET `/assets/kumiko/fonts/<file>.woff2` streams the packaged IBM Plex files with `font/woff2` and a one day cache header. Names outside the allowlist answer 404."
+  },
+  {
     "version": "0.323.0",
     "type": "improvement",
     "title": "Deploy Dockerfile template: NPM_AUTH_TOKEN registry auth, manifest-first or full-tree install by detected layout, BUILD_VERSION/BUILD_TIME in the runtime stage, TZ=UTC; new kumiko-init-deploy bin with --force and a --check drift check",

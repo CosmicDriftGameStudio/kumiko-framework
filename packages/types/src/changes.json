@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "kumiko-types is published as compiled JavaScript plus .d.ts",
+    "detail": "The package now ships `dist` (`.js` and `.d.ts`) instead of TypeScript source. Export keys are unchanged; only the targets behind them move to `dist`. Consumers on plain Node ESM can import every subpath without a TypeScript-aware loader."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "Screen schema gains fillHeight, createLabel, searchPlaceholder, optionTones, statusTones, description, itemNoun, valueType, summary, hideOnNarrow",
+    "detail": "`fillHeight` (default true) on entityList, projectionList, projectionDetail, entityEdit and actionForm. `createLabel` and `searchPlaceholder` (i18n keys) on lists. `optionTones` on select fields and `statusTones` on projectionDetail map values to ok, warn, bad or neutral (`SelectOptionTone`). `description` and `itemNoun` on relatedList sections. `valueType` on relatedList columns (numbers and money align right), `hideOnNarrow` on list columns. `summary: { title, subtitle }` on actionForm with `{name}` placeholders from the drawer prefill. New nav icon `chevron-left`."
+  },
+  {
     "version": "0.320.0",
     "type": "improvement",
     "title": "ToolbarAction's navigate variant gets `tab`",

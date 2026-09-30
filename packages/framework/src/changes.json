@@ -1,5 +1,41 @@
 [
   {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "bun-db logs a diagnostic warning when a closed-connection error surfaces",
+    "detail": "When a closed-connection error leaves bun-db (retries exhausted, a transaction/reserved handle, or a write path), a `[bun-db] closed connection surfaced` warning records driver, pooled vs. transaction handle, attempts, pool size, timeouts and the error code. It never includes SQL text or parameters. Behaviour, retries and timeouts are unchanged."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "runProdApp and runWorkerApp re-encrypt plaintext events after a field gains a PII annotation",
+    "detail": "When an event field is annotated as PII after events were already stored, the stored payloads stay plaintext because a projection rebuild copies them unchanged. After start, `runProdApp` and `runWorkerApp` now run `runPiiEventBackfill` in the background: it encrypts those events in place once per annotation state, queues the affected projections (including multi-stream projections with their own table) in `kumiko_pending_rebuilds` and rebuilds them, so ciphertext and blind-index columns get materialized. Later boots only run a cheap catch-up over the newest events. Replicas are serialized by an advisory lock, each batch commits on its own, and failed events are logged and retried on the next boot. Progress lives in the new table `kumiko_pii_backfill_state`, created on first run. Behavior change: the first boot after the bump rewrites `kumiko_events` payloads for annotated fields; set `KUMIKO_SKIP_PII_BACKFILL=1` to opt out. Calling `backfillEventPiiEncryption` by hand stays necessary for `eraseUnresolvableSubjects`, which the boot run never sets. `backfillEventPiiEncryptionBatch` is the new single-batch primitive both build on. `runPendingRebuilds` (the schema-apply queue drain) now also rebuilds queued multi-stream projection tables instead of failing on them; a failed multi-stream rebuild in either path stays queued and leaves the live consumer running."
+  },
+  {
+    "version": "0.328.0",
+    "type": "fix",
+    "title": "The projection-rebuild job also rebuilds multi-stream projections",
+    "detail": "`enqueueProjectionRebuild` and the `jobs:job:projection-rebuild` worker used to call the single-stream rebuild only, so a multi-stream projection name failed with \"not registered\". Both now go through `rebuildProjectionOrMultiStream` (exported from `@cosmicdrift/kumiko-framework/migrations`), the same helper the pending-rebuild queue uses. For multi-stream projections the skip mode comes from the projection's declared `errorMode`; the job payload's `skipApplyErrors` only applies to single-stream projections."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "SearchAdapter gains an optional dropAllIndexes() for rebuilds on a persistent index",
+    "detail": "`dropAllIndexes()` deletes every tenant index the adapter owns and returns the count. The in-memory adapter clears all tenants; the Meilisearch adapter deletes all indexes under its prefix (and refuses an empty prefix) and resets its configured-tenant state so the next write recreates a filterable index."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "setupTestStack can wire job run-logger callbacks, and setupTestStackFromFeatures does so by default",
+    "detail": "`TestStackOptions.jobs.runLogger` receives `{ registry, db }` and returns `onJobStart`/`onJobComplete`/`onJobFailed`. The stack awaits them before drainJobs() observes the outcome, so a log row is always written before drainJobs() resolves or rejects. `setupTestStackFromFeatures` (and with it `setupAppTestStack`) defaults to the same `jobRunLoggerCallbacks` prod uses whenever `jobs` is set and the jobs feature is mounted, so `tenantVisibleFailure` rows and `jobs:query:failures` work in tests without a hand-built harness. Such suites now write `job_runs` and tenant failure rows for every job run; a suite that counts those rows, or that wants the old behavior, passes its own `jobs.runLogger` (for example one returning `undefined`)."
+  },
+  {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "build-app-schema carries optionTones and collects the new screen i18n keys",
+    "detail": "Select `optionTones` reach the client schema. `createLabel`, `searchPlaceholder`, `summary`, related list `description` and `itemNoun` are collected as i18n keys of the screen, so they are translated like other screen text."
+  },
+  {
     "version": "0.327.0",
     "type": "improvement",
     "title": "r.webSocketRoute for authenticated WebSocket routes under /api/ws/",

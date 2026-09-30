@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.328.0",
+    "type": "improvement",
+    "title": "New pager, list, form, wizard and drawer strings",
+    "detail": "Adds the keys for the pager, list counts, sort label, form changed marker, unsaved counter, \"All fields are required.\", the on-this-page nav, wizard \"Save and close\" and \"Next: {title}\" and the drawer discard dialog."
+  },
+  {
     "version": "0.319.0",
     "type": "improvement",
     "title": "German strings for the new billing-plans cancel-scheduled banner and reactivate label",
