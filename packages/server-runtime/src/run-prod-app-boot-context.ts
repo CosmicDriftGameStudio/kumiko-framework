@@ -45,14 +45,14 @@ import type {
   Registry,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
-import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto";
+import { type BootCrypto, resolveBootCrypto } from "./boot/boot-crypto.js";
 import type {
   AuthMailOptions,
   EmailVerificationSetup,
   InviteSetup,
   PasswordResetSetup,
   SignupSetup,
-} from "./run-prod-app";
+} from "./run-prod-app.js";
 
 // Boot-time context helpers for runProdApp: ctx-extra-context wiring
 // (templateResolver/delivery/secrets/config-resolver), auth-mail convenience

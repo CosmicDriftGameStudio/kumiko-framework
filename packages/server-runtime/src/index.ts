@@ -2,7 +2,7 @@
 // runDevApp (kumiko-dev-server), aber ohne Dev-/Scaffold-/Codegen-
 // Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
 // Dev-Tooling mehr in ihre node_modules.
-export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features";
+export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.js";
 export type {
   AccountUnlockSetup,
   EmailVerificationSetup,
@@ -16,12 +16,12 @@ export type {
   RunProdAppAuthOptions,
   RunProdAppOptions,
   SignupSetup,
-} from "./run-prod-app";
-export { requireEnv, runProdApp } from "./run-prod-app";
+} from "./run-prod-app.js";
+export { requireEnv, runProdApp } from "./run-prod-app.js";
 export type {
   RunWorkerAppOptions,
   WorkerAppHandle,
   WorkerWireDeps,
-} from "./run-worker-app";
-export { runWorkerApp } from "./run-worker-app";
-export type { SecurityHeadersOption } from "./security-headers";
+} from "./run-worker-app.js";
+export { runWorkerApp } from "./run-worker-app.js";
+export type { SecurityHeadersOption } from "./security-headers.js";

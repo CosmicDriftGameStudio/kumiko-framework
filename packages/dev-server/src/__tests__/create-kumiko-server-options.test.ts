@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { createKumikoServer } from "../create-kumiko-server";
+import { createKumikoServer } from "../create-kumiko-server.js";
 
 const emptyFeature = defineFeature("prod-packaging-options-probe", () => {});
 

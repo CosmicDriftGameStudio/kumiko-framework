@@ -23,8 +23,8 @@
 // doesn't reload every 100ms.
 
 import { basename, relative } from "node:path";
-import type { ScannedEvent } from "./scan-events";
-import { rewriteImportPath } from "./scan-events";
+import type { ScannedEvent } from "./scan-events.js";
+import { rewriteImportPath } from "./scan-events.js";
 
 /**
  * Start-of-block markers for the two handler-derived sections that

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderWelcomeBanner } from "../welcome-banner";
+import { renderWelcomeBanner } from "../welcome-banner.js";
 
 describe("renderWelcomeBanner", () => {
   test("includes URL + admin login + features dir + docs link", () => {

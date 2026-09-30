@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { runDevApp } from "../run-dev-app";
+import { runDevApp } from "../run-dev-app.js";
 
 function unresolvableNavFeature() {
   return defineFeature("shop", (r) => {

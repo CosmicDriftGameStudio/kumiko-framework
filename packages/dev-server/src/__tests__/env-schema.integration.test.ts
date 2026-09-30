@@ -9,8 +9,8 @@ import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { composeEnvSchema, KumikoBootError } from "@cosmicdrift/kumiko-framework/env";
 import { runProdApp } from "@cosmicdrift/kumiko-server-runtime/run-prod-app";
 import * as z from "zod";
-import { frameworkCoreEnvSchema } from "../env-schema";
-import * as devServerPublicApi from "../index";
+import { frameworkCoreEnvSchema } from "../env-schema.js";
+import * as devServerPublicApi from "../index.js";
 
 const secretsFeature = defineFeature("secrets", (r) => {
   r.envSchema(

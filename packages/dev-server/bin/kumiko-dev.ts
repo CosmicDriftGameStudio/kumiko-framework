@@ -19,7 +19,7 @@
 
 import { spawn } from "node:child_process";
 import process from "node:process";
-import { createCrashTracker } from "../src/crash-tracker";
+import { createCrashTracker } from "@cosmicdrift/kumiko-dev-server/cli";
 
 const SCHEMA_RESTART_EXIT_CODE = 75;
 const MAX_CRASHES = 5;

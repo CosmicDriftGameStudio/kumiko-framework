@@ -10,7 +10,7 @@ import {
   mimeTypeFor,
   readStaticFile,
   serveDiskFile,
-} from "../run-prod-app-static-files";
+} from "../run-prod-app-static-files.js";
 
 // Stand-in for a real Hono app's fetch when the test wants "no route
 // matched" — must carry NO_ROUTE_MATCH_HEADER_NAME, same as buildServer's

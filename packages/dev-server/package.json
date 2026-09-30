@@ -49,6 +49,10 @@
     "./schema-tables-minimal": {
       "types": "./src/schema-tables-minimal.ts",
       "default": "./src/schema-tables-minimal.ts"
+    },
+    "./cli": {
+      "types": "./src/cli.ts",
+      "default": "./src/cli.ts"
     }
   },
   "bin": {
@@ -64,15 +68,56 @@
     "@cosmicdrift/kumiko-framework": "workspace:*",
     "@cosmicdrift/kumiko-headless": "workspace:*",
     "@cosmicdrift/kumiko-server-runtime": "workspace:*",
-    "ts-morph": "^28.0.0"
+    "ts-morph": "^28.0.0",
+    "zod": "^4.4.3"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org",
-    "access": "public"
+    "access": "public",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./build": {
+        "types": "./dist/build.d.ts",
+        "default": "./dist/build.js"
+      },
+      "./compose-stacks": {
+        "types": "./dist/compose-stacks.d.ts",
+        "default": "./dist/compose-stacks.js"
+      },
+      "./env-schema": {
+        "types": "./dist/env-schema.d.ts",
+        "default": "./dist/env-schema.js"
+      },
+      "./setup-test-stack-from-features": {
+        "types": "./dist/setup-test-stack-from-features.d.ts",
+        "default": "./dist/setup-test-stack-from-features.js"
+      },
+      "./schema-apply": {
+        "types": "./dist/schema-apply.d.ts",
+        "default": "./dist/schema-apply.js"
+      },
+      "./schema-tables-auth-mode": {
+        "types": "./dist/schema-tables-auth-mode.d.ts",
+        "default": "./dist/schema-tables-auth-mode.js"
+      },
+      "./schema-tables-minimal": {
+        "types": "./dist/schema-tables-minimal.d.ts",
+        "default": "./dist/schema-tables-minimal.js"
+      },
+      "./cli": {
+        "types": "./dist/cli.d.ts",
+        "default": "./dist/cli.js"
+      }
+    }
   },
   "files": [
-    "src",
+    "dist",
+    "bin",
     "templates",
+    "src/changes.json",
     "README.md",
     "LICENSE"
   ]

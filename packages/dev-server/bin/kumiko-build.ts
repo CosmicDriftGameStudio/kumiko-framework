@@ -23,12 +23,13 @@ import {
   buildServerBundle,
   discoverServerEntry,
   formatBuildResult,
+  formatScanWarning,
   formatServerBuildResult,
   readClientEntriesConfig,
   readExtraRuntimeExternals,
   resolveClientEntries,
-} from "../src/build";
-import { formatScanWarning, runCodegen } from "../src/codegen";
+  runCodegen,
+} from "@cosmicdrift/kumiko-dev-server/cli";
 
 const explicit = process.argv[2];
 const cwd = explicit ? resolve(process.cwd(), explicit) : process.cwd();

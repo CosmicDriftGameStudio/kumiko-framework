@@ -1,6 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { Registry, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 
 export type { SystemDispatchArgs } from "@cosmicdrift/kumiko-framework/api";
 // Re-export the SystemAdmin write/query builders — the single source of

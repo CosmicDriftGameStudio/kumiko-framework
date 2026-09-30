@@ -6,7 +6,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { requireEnv as requireEnvFromPackageExport } from "@cosmicdrift/kumiko-server-runtime";
-import { requireEnv } from "../run-prod-app";
+import { requireEnv } from "../run-prod-app.js";
 
 describe("requireEnv", () => {
   test("is part of the package's public export, not just the internal run-prod-app module", () => {

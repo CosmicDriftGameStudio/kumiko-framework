@@ -37,7 +37,7 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { runSchemaApply } from "../schema-apply";
+import { runSchemaApply } from "../schema-apply.js";
 
 let testDb: TestDb;
 let conn: { readonly db: DbConnection; readonly close: () => Promise<void> };

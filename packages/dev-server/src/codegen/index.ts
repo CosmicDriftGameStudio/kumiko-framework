@@ -3,8 +3,8 @@ export {
   renderInlineSchemasFile,
   renderTypesAugmentation,
   renderWriteHandlerTypes,
-} from "./render";
-export { type CodegenOptions, type CodegenResult, runCodegen } from "./run-codegen";
+} from "./render.js";
+export { type CodegenOptions, type CodegenResult, runCodegen } from "./run-codegen.js";
 export {
   formatScanWarning,
   qualifiedNameToConstName,
@@ -15,5 +15,5 @@ export {
   type ScanWarning,
   type SchemaSource,
   scanEvents,
-} from "./scan-events";
-export { type WatchHandle, type WatchOptions, watchAndRegenerate } from "./watch";
+} from "./scan-events.js";
+export { type WatchHandle, type WatchOptions, watchAndRegenerate } from "./watch.js";

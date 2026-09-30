@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as z from "zod";
-import { isKebabSegment } from "./kebab";
+import { isKebabSegment } from "./kebab.js";
 
 export type RenderDeployFilesOptions = {
   /** App name, kebab-case (e.g. "publicstatus", "kumiko-studio"). */

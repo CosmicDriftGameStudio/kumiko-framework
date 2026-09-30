@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createRegistry, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { jobRunLoggerCallbacks } from "../job-run-logger";
+import { jobRunLoggerCallbacks } from "../job-run-logger.js";
 
 // ponytail: callbacks shape only — no DB I/O; createTestDb needs TEST_DATABASE_URL (CI unit job has none).
 const mockDb = {} as DbConnection;

@@ -6,7 +6,7 @@
 // nicht durch (UX broken). Beide sind teuer — daher pinnen wir.
 
 import { describe, expect, test } from "bun:test";
-import { classifyChange } from "../create-kumiko-server";
+import { classifyChange } from "../create-kumiko-server.js";
 
 describe("classifyChange", () => {
   test("server-side feature.ts → restart", () => {

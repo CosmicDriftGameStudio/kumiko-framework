@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildServerBundle, readExtraRuntimeExternals } from "../build-server-bundle";
+import { buildServerBundle, readExtraRuntimeExternals } from "../build-server-bundle.js";
 
 // Baut ein Mini-App-Fixture (bin/main.ts + bin/kumiko.ts teilen ein Modul) und
 // prüft das Variante-B-Verhalten: ein Bun.build-Call → server.js + kumiko.js als

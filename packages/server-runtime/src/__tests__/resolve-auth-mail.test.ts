@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { type RunProdAppAuthOptions, resolveAuthMail } from "../run-prod-app";
+import { type RunProdAppAuthOptions, resolveAuthMail } from "../run-prod-app.js";
 
 // Pins the auth.mail convenience (resolveAuthMail): one mail block expands
 // into the four explicit flow setups built from DEFAULT_AUTH_PATHS, the

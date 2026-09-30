@@ -56,7 +56,7 @@ import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Queue } from "bullmq";
 import postgres from "postgres";
 import * as z from "zod";
-import { type ProdAppHandle, runProdApp } from "../run-prod-app";
+import { type ProdAppHandle, runProdApp } from "../run-prod-app.js";
 
 // tmp-Verzeichnisse pro Test, in afterEach geräumt. Tests die staticDir
 // brauchen registrieren ihren Pfad hier.
@@ -1153,7 +1153,7 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
   test(
     "Write → appendEvent → MSP wendet async an; Consumer-Cursor wandert",
     async () => {
-      let dispatchSystemWrite: import("../extra-routes-deps").SystemWireDeps["dispatchSystemWrite"];
+      let dispatchSystemWrite: import("../extra-routes-deps.js").SystemWireDeps["dispatchSystemWrite"];
       const handle = await boot(undefined, {
         eventDispatcher: { pollIntervalMs: 50 },
         wire: (deps) => {

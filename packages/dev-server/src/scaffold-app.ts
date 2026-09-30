@@ -21,7 +21,7 @@ import {
 import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { IndentationText, Project, VariableDeclarationKind } from "ts-morph";
-import { isKebabSegment } from "./kebab";
+import { isKebabSegment } from "./kebab.js";
 import {
   createDemoTasksFeature,
   renderDemoSeedFile,
@@ -29,8 +29,8 @@ import {
   renderDemoTasksI18n,
   renderDemoTasksIndex,
   renderDemoTasksWebIndex,
-} from "./scaffold-demo-tasks";
-import { scaffoldDeploy } from "./scaffold-deploy";
+} from "./scaffold-demo-tasks.js";
+import { scaffoldDeploy } from "./scaffold-deploy.js";
 
 // Single bundled-feature entry the scaffolder mounts into run-config.ts.
 // importPath is the from-spec ("@cosmicdrift/kumiko-bundled-features/files"),
@@ -719,7 +719,7 @@ function renderClient(appName: string): string {
     "// here — symmetric to APP_FEATURES on the server side.",
     "",
     'import { emailPasswordClient } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/web";',
-    'import { tasksClient } from "./features/tasks/web";',
+    `import { tasksClient } from "./features/tasks/web";`,
     'import { type AppSchema, createKumikoApp, DefaultAppShell } from "@cosmicdrift/kumiko-renderer-web";',
     'import type { ReactNode } from "react";',
     "",
@@ -909,7 +909,7 @@ function renderKumikoSchema(): string {
     'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { collectTableMetas, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";',
     'import type { FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";',
-    'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
+    `import { APP_FEATURES, HAS_AUTH } from "../src/run-config";`,
     "",
     "export const FEATURES: readonly FeatureDefinition[] = composeFeatures([...APP_FEATURES], {",
     "  includeBundled: HAS_AUTH,",
@@ -932,7 +932,7 @@ function renderBinKumiko(): string {
     'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
-    'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
+    `import { APP_FEATURES, HAS_AUTH } from "../src/run-config";`,
     "",
     "const [, , cmd, ...rest] = Bun.argv;",
     "// biome-ignore lint/suspicious/noConsole: CLI output is the feature.",

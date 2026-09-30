@@ -20,7 +20,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runCodegen } from "../run-codegen";
+import { runCodegen } from "../run-codegen.js";
 
 function makeAppDir(): string {
   return mkdtempSync(join(tmpdir(), "kumiko-codegen-"));

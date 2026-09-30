@@ -21,7 +21,7 @@ import {
   injectAssetTags,
   readClientEntriesConfig,
   resolveClientEntries,
-} from "../build-prod-bundle";
+} from "../build-prod-bundle.js";
 
 // Synthetic single-entry: injectAssetTags only needs the shape, not a
 // resolveClientEntries round-trip.

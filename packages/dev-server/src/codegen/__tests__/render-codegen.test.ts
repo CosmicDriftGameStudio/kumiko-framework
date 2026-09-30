@@ -7,8 +7,8 @@ import {
   renderInlineSchemasFile,
   renderTypesAugmentation,
   renderWriteHandlerTypes,
-} from "../render";
-import type { ScannedEvent } from "../scan-events";
+} from "../render.js";
+import type { ScannedEvent } from "../scan-events.js";
 
 describe("renderTypesAugmentation", () => {
   test("emits empty augmentation when no events", () => {

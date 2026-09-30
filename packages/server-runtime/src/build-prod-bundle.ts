@@ -57,8 +57,8 @@ import {
   RENDERER_WEB_FONT_FILE_PATTERN,
   RENDERER_WEB_FONTS_DIST_DIR,
   resolveRendererWebFontsDir,
-} from "./renderer-web-fonts";
-import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli";
+} from "./renderer-web-fonts.js";
+import { canResolveTailwindStylesheet, resolveTailwindCli } from "./resolve-tailwind-cli.js";
 
 // Bun-Runtime-Check als module-level Konstante: alle Build-Schritte
 // (Tailwind via Bun.spawn, Client-Bundle via Bun.build, Stylesheet-

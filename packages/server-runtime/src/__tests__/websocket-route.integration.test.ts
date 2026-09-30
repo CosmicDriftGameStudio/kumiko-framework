@@ -13,7 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { buildBunServeOptions } from "../bun-serve-options";
+import { buildBunServeOptions } from "../bun-serve-options.js";
 
 const APP_ORIGIN = "https://app.example";
 const EVIL_ORIGIN = "https://evil.example";

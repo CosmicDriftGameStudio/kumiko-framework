@@ -10,9 +10,9 @@ import {
 } from "@cosmicdrift/kumiko-framework/api";
 import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
-import { ASSETS_DIR } from "./build-prod-bundle";
-import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app";
-import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first";
+import { ASSETS_DIR } from "./build-prod-bundle.js";
+import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app.js";
+import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.js";
 
 // Static-asset + SPA-fallback serving for runProdApp's HTTP handler. Split
 // out of run-prod-app.ts (#1005, Welle 2) — mechanical relocation, these

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
-import { setupTestStackFromFeatures } from "../setup-test-stack-from-features";
+import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.js";
 
 const noopFeature = defineFeature("noop-app", () => {});
 

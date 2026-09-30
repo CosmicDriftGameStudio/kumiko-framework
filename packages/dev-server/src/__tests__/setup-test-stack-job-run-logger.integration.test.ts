@@ -7,7 +7,7 @@ import { createJobsFeature, JobQueries } from "@cosmicdrift/kumiko-bundled-featu
 import { defineFeature, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { createTestUser, type TestStack, testTenantId } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
-import { setupTestStackFromFeatures } from "../setup-test-stack-from-features";
+import { setupTestStackFromFeatures } from "../setup-test-stack-from-features.js";
 
 const FAILURE_KEY = "app:errors.generationFailed";
 const PROVIDER_MESSAGE = "provider 429: prompt with customer data rejected";

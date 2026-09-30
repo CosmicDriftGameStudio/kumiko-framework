@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { resolveSecurityHeaders, withSecurityHeaders } from "../security-headers";
+import { resolveSecurityHeaders, withSecurityHeaders } from "../security-headers.js";
 
 const okHandler = (_req: Request) => new Response("ok");
 const req = new Request("http://localhost/");

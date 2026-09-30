@@ -1,5 +1,5 @@
 import { describe, expect, spyOn, test } from "bun:test";
-import { assertSessionBootInvariants } from "../session-boot-gate";
+import { assertSessionBootInvariants } from "../session-boot-gate.js";
 
 describe("assertSessionBootInvariants (#1372)", () => {
   test("no auth → no throw", () => {

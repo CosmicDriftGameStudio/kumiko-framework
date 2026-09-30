@@ -68,7 +68,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import * as jose from "jose";
-import { composeIdentityStack, composeOpsStack, composeRendererStack } from "../compose-stacks";
+import { composeIdentityStack, composeOpsStack, composeRendererStack } from "../compose-stacks.js";
 
 const SETUP_TOKEN_SECRET = "wire-mfa-setup-secret-at-least-32-bytes-long!!";
 const CHALLENGE_TOKEN_SECRET = "wire-mfa-challenge-secret-at-least-32-bytes!!";

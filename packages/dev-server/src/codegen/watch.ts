@@ -16,8 +16,8 @@
 
 import { type FSWatcher, watch } from "node:fs";
 import { join } from "node:path";
-import { runCodegen } from "./run-codegen";
-import { formatScanWarning } from "./scan-events";
+import { runCodegen } from "./run-codegen.js";
+import { formatScanWarning } from "./scan-events.js";
 
 export type WatchOptions = {
   /** App-Wurzel — gleiche Bedeutung wie für `runCodegen`. */

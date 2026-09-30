@@ -23,8 +23,8 @@ import { createFilesFeature, resolveMaxUploadBodyBytes } from "@cosmicdrift/kumi
 import {
   DEFAULT_MAX_REQUEST_BODY_SIZE_BYTES,
   resolveDerivedMaxRequestBodySize,
-} from "../bun-serve-options";
-import { buildBunServeOptions } from "../run-prod-app";
+} from "../bun-serve-options.js";
+import { buildBunServeOptions } from "../run-prod-app.js";
 
 describe("Bun.serve options for production", () => {
   test("idleTimeout is 0 (disabled) — required for SSE long-lived connections", () => {
