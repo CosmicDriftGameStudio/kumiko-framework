@@ -152,6 +152,11 @@ type OpenDrawer = (
 // builders re-run inside a useMemo on every dep change.
 const warnedDrawerActionIds = new Set<string>();
 
+/** @internal test-only */
+export function resetDrawerActionWarningsForTests(): void {
+  warnedDrawerActionIds.clear();
+}
+
 function warnDrawerActionDropped(
   actionKind: "rowAction" | "toolbarAction",
   actionId: string,
