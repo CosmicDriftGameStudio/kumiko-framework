@@ -3,7 +3,7 @@
 // then returns the per-connection handlers or a Response that rejects it.
 
 import type { Context } from "hono";
-import type { SessionUser, WriteResult } from "./handlers";
+import type { SessionUser, WriteResult } from "./handlers.js";
 
 export const WEBSOCKET_MAX_PAYLOAD_BYTES = 1024 * 1024;
 export const WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES = 64 * 1024;

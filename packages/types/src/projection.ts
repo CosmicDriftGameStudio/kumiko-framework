@@ -1,9 +1,9 @@
-import type { RunIn } from "./config";
-import type { DbRunner } from "./db-connection";
-import type { StoredEvent } from "./event-store-types";
-import type { EntityDefinition } from "./fields";
-import type { MultiStreamApplyContext } from "./multi-stream-apply-context-types";
-import type { SchemaTable } from "./schema-table-types";
+import type { RunIn } from "./config.js";
+import type { DbRunner } from "./db-connection.js";
+import type { StoredEvent } from "./event-store-types.js";
+import type { EntityDefinition } from "./fields.js";
+import type { MultiStreamApplyContext } from "./multi-stream-apply-context-types.js";
+import type { SchemaTable } from "./schema-table-types.js";
 
 // Drizzle pgTable shape — projections hand their table through to apply() so
 // user code writes upserts/updates directly instead of going through a

@@ -1,9 +1,9 @@
-import type { FieldIconKey } from "./field-icon";
-import type { FieldDefinition, FormFieldDefinition } from "./fields";
-import type { AccessRule, AgentHandlerHints } from "./handlers";
-import type { IconKey, NavIconKey } from "./nav-icon";
+import type { FieldIconKey } from "./field-icon.js";
+import type { FieldDefinition, FormFieldDefinition } from "./fields.js";
+import type { AccessRule, AgentHandlerHints } from "./handlers.js";
+import type { IconKey, NavIconKey } from "./nav-icon.js";
 
-export type { FieldIconKey } from "./field-icon";
+export type { FieldIconKey } from "./field-icon.js";
 
 // Screen definitions describe how a feature surfaces data to the user.
 // Pure data — the engine stores these verbatim and ui-core / the renderer

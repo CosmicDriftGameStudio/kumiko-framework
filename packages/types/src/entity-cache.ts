@@ -1,4 +1,4 @@
-import type { EntityId, TenantId } from "./identifiers";
+import type { EntityId, TenantId } from "./identifiers.js";
 
 export type EntityCache = {
   /** Get a single cached entity. Returns null on miss. */

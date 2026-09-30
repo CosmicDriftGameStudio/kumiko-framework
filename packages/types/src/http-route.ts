@@ -46,7 +46,7 @@ export type HttpRouteHandlerDeps = {
   readonly systemQuery: (
     type: string,
     payload: unknown,
-    tenantId: import("./identifiers").TenantId,
+    tenantId: import("./identifiers.js").TenantId,
   ) => Promise<unknown>;
   /** Caller IP resolved via the server's configured, trustedProxyHops-aware
    *  resolver (same one requestIdMiddleware uses for `/api/*`) — a route

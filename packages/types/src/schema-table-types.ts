@@ -1,4 +1,4 @@
-import type { EntityTableMeta, PgType } from "./entity-table-meta-types";
+import type { EntityTableMeta, PgType } from "./entity-table-meta-types.js";
 
 // Global-registry symbols the native dialect stamps onto every SchemaTable —
 // shared identity so downstream introspection (Symbol.for lookups) matches

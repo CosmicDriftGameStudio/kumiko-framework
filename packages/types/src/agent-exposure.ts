@@ -1,4 +1,4 @@
-import type { AgentExposure, AgentHandlerHints } from "./handlers";
+import type { AgentExposure, AgentHandlerHints } from "./handlers.js";
 
 /** Fail-closed: a handler without a `description` stays invisible to the agent
  *  unless it opts in explicitly. `kind` is a parameter because write and query

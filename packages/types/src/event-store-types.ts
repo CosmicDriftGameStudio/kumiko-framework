@@ -1,4 +1,4 @@
-import type { TenantId } from "./identifiers";
+import type { TenantId } from "./identifiers.js";
 
 // Structural shape of kumiko-framework's VersionConflictError. The class
 // itself cannot live here (#1629) — this package must stay free of

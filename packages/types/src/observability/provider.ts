@@ -2,8 +2,8 @@
 // console, otlp, prometheus) fulfil. Configuration types that consumers
 // (buildServer, setupTestStack) hand in also live here.
 
-import type { Meter } from "./metric";
-import type { Tracer } from "./span";
+import type { Meter } from "./metric.js";
+import type { Tracer } from "./span.js";
 
 export type SamplingConfig = {
   // Base sampling rate 0..1. Default 1 in v1 (sample everything).

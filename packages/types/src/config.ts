@@ -1,19 +1,19 @@
 import type { ZodType } from "zod";
-import type { ConcurrencyMode } from "./concurrency-mode";
-import type { ConfigScope } from "./config-scope";
-import type { DbConnection } from "./db-connection";
-import type { FieldDefinition } from "./fields";
-import type { EscapeHatchDeclaration, JobContext } from "./handlers";
+import type { ConcurrencyMode } from "./concurrency-mode.js";
+import type { ConfigScope } from "./config-scope.js";
+import type { DbConnection } from "./db-connection.js";
+import type { FieldDefinition } from "./fields.js";
+import type { EscapeHatchDeclaration, JobContext } from "./handlers.js";
 import type {
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
   PreQueryHookFn,
   PreSaveHookFn,
-} from "./hooks";
-import type { TenantId } from "./identifiers";
-import type { NavIconKey } from "./nav-icon";
-import type { TenantDb } from "./tenant-db-types";
+} from "./hooks.js";
+import type { TenantId } from "./identifiers.js";
+import type { NavIconKey } from "./nav-icon.js";
+import type { TenantDb } from "./tenant-db-types.js";
 
 // --- Config ---
 
@@ -355,7 +355,7 @@ export type JobTrigger =
   // hooks.ts) — cursor delivery, at-least-once. Handlers triggered on an
   // r.defineEvent QN must be idempotent.
   | {
-      readonly on: import("./handlers").NameOrRef | readonly import("./handlers").NameOrRef[];
+      readonly on: import("./handlers.js").NameOrRef | readonly import("./handlers.js").NameOrRef[];
       // Equality filter on top-level payload fields, checked before enqueue —
       // lets N jobs share one broad event QN, partitioned by a discriminant.
       readonly where?: Readonly<Record<string, string | number | boolean>>;
@@ -434,10 +434,12 @@ export type JobDefinition = {
 // --- Notifications ---
 
 export type NotificationRecipientFn = (
-  result: import("./hooks").SaveContext,
+  result: import("./hooks.js").SaveContext,
 ) => string | readonly string[] | { readonly tenant: string } | null;
 
-export type NotificationDataFn = (result: import("./hooks").SaveContext) => Record<string, unknown>;
+export type NotificationDataFn = (
+  result: import("./hooks.js").SaveContext,
+) => Record<string, unknown>;
 
 // Per-channel template function: transforms raw notification data into channel-specific format.
 // Example: inApp gets { title, body }, email gets { subject, sections }.

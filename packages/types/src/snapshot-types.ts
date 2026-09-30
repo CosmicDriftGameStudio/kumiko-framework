@@ -1,4 +1,4 @@
-import type { StoredEvent } from "./event-store-types";
+import type { StoredEvent } from "./event-store-types.js";
 
 // Reducer used to fold events onto a state. Kept narrow and pure — the
 // caller supplies the shape and update rules. Mirrors the reducer shape

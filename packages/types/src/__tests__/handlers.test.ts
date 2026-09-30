@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { isUiAccessGranted } from "../handlers";
+import { isUiAccessGranted } from "../handlers.js";
 
 describe("isUiAccessGranted", () => {
   test("unset access is visible to every signed-in user", () => {

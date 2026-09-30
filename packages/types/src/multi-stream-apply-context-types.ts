@@ -1,10 +1,10 @@
-import type { DerivativesContext } from "./derivatives-types";
-import type { StoredEvent } from "./event-store-types";
-import type { KumikoEventTypeMap } from "./event-type-map";
-import type { Registry } from "./feature";
-import type { FileContext } from "./file-handle-types";
-import type { AppendEventFn, UnsafeAppendEventFn } from "./handlers";
-import type { SecretsContext } from "./secrets-types";
+import type { DerivativesContext } from "./derivatives-types.js";
+import type { StoredEvent } from "./event-store-types.js";
+import type { KumikoEventTypeMap } from "./event-type-map.js";
+import type { Registry } from "./feature.js";
+import type { FileContext } from "./file-handle-types.js";
+import type { AppendEventFn, UnsafeAppendEventFn } from "./handlers.js";
+import type { SecretsContext } from "./secrets-types.js";
 
 // Minimal, read+write surface handed to a MultiStreamProjection's apply()
 // when it needs to produce follow-up events (saga / process-manager

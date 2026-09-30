@@ -1,4 +1,4 @@
-import type { EntityId, TenantId } from "./identifiers";
+import type { EntityId, TenantId } from "./identifiers.js";
 
 export type SearchAdapterConfig = {
   searchableFields: readonly string[];

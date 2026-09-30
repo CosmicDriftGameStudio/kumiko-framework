@@ -1,4 +1,4 @@
-import type { TenantId } from "./identifiers";
+import type { TenantId } from "./identifiers.js";
 
 // The subject a DEK belongs to. User data is shredded on user-forget,
 // tenant data on tenant-destroy, record data on a row-scoped forget —
