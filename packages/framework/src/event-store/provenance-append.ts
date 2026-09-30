@@ -1,8 +1,8 @@
+import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii";
 import { runInSavepointIfSupported } from "../db/query";
 import { type TenantDb, unsafeRawForDeclaredStep, withUnsafeRawGrant } from "../db/tenant-db";
 import type { TenantId } from "../engine/types";
 import { AccessDeniedError, InternalError } from "../errors";
-import { SYSTEM_EVENT_PREFIX } from "../pipeline/append-event-core";
 import { append, type EventMetadata, getStreamVersion } from "./event-store";
 
 // Fixed by the framework, not the caller — the point of this entry point is

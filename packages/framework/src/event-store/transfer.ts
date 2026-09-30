@@ -8,6 +8,7 @@
 // commits it together with the root row's ownership write — see
 // move-entity-graph.ts's file header for why that matters).
 
+import { AGGREGATE_TRANSFERRED_EVENT_TYPE } from "../crypto/system-event-pii";
 import type { DbRunner } from "../db";
 import {
   deleteSnapshotsForAggregates,
@@ -15,12 +16,11 @@ import {
   transferEventRows,
 } from "../db/queries/event-store-transfer";
 import type { TenantId } from "../engine/types";
-import { SYSTEM_EVENT_PREFIX } from "../pipeline/append-event-core";
 import { generateId } from "../utils/ids";
 import { append } from "./event-store";
 
 export const AGGREGATE_TRANSFER_STREAM_TYPE = "aggregate-transfer";
-export const AGGREGATE_TRANSFERRED_EVENT_TYPE = `${SYSTEM_EVENT_PREFIX}aggregate.transferred`;
+export { AGGREGATE_TRANSFERRED_EVENT_TYPE };
 
 export type TransferAggregateStreamsArgs = {
   readonly sourceTenantId: TenantId;

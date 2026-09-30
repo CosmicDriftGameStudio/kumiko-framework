@@ -298,6 +298,10 @@ export type { TransitionGraph } from "./state-machine";
 export { defineTransitions, guardTransition } from "./state-machine";
 export { evaluateEventMatch } from "./steps/_event-match";
 export {
+  STEP_DISPATCH_AGGREGATE_TYPE,
+  STEP_DISPATCH_FAILED_TYPE,
+  STEP_DISPATCH_REQUESTED_TYPE,
+  STEP_DISPATCHED_TYPE,
   SUSPEND_SENTINEL,
   WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RESUMED_TYPE,

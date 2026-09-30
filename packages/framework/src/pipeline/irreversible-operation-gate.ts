@@ -15,10 +15,11 @@ export function isIrreversibleEntityVerb(
 
 // The gate reads the directly dispatched entry handler; a write dispatched inside a deferred
 // context (afterCommit hook, job, consumer) gets its own entryHandler and is gated too. Direct
-// executor/KMS calls without one stay ungated in exactly two cases: deleting derived data
+// executor/KMS calls without one stay ungated in exactly three cases: deleting derived data
 // rebuildable from a reversible source (document-ingest-foundation's forget-extract-with-file-ref
-// consumer, re-created on fileRef.restored), and pipelines started by a risk "high" handler or a
-// cron scan (forget cleanup, retention, tenant destroy). A deferred context can't return the
+// consumer, re-created on fileRef.restored), pipelines started by a risk "high" handler or a
+// cron scan (forget cleanup, retention, tenant destroy), and the step-dispatcher erasing the
+// per-dispatch record key once the outcome is recorded. A deferred context can't return the
 // reason to the agent synchronously, so the gate sits at the primitives.
 function assertEntryHandlerHighRisk(args: {
   reason: FrameworkReason;

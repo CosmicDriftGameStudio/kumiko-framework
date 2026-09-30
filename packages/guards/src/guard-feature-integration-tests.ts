@@ -120,7 +120,7 @@ function collectImportedFeatureIds(project: Project, roots: readonly RepoRoot[])
  * introduced by this change. Backfilling is its own scope per feature, not
  * a sweep.
  */
-const ALLOWLIST: ReadonlySet<string> = new Set(["step-dispatcher"]);
+const ALLOWLIST: ReadonlySet<string> = new Set<string>();
 
 export function computeOrphans(
   features: ReadonlyMap<string, string>,

@@ -33,7 +33,11 @@ defineStep<MailSendArgs, void>({
       type: STEP_DISPATCH_REQUESTED_TYPE,
       payload: {
         stepKind: "mail.send",
-        spec: { to, subject, body, ...(from && { from }) },
+        // Flat string fields: event PII encryption only handles top-level strings.
+        to: JSON.stringify(to),
+        subject,
+        body,
+        ...(from && { from }),
       },
     });
   },
