@@ -95,10 +95,16 @@ export function useQuery<TData = unknown>(
 
       fetchInFlight.current = true;
       if (!background) setLoading(true);
-      const result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
+      let result: Awaited<ReturnType<typeof dispatcher.query<TData>>>;
+      try {
+        result = await dispatcher.query<TData>(type, payload, { signal: ctrl.signal });
+      } finally {
+        // A rejected fetch must not leave polling stuck; a superseded one must
+        // not clear the newer fetch's flag.
+        if (activeCtrl.current === ctrl) fetchInFlight.current = false;
+      }
       // skip: a newer fetch already superseded this one, don't clobber its state
       if (ctrl.signal.aborted) return;
-      fetchInFlight.current = false;
       if (result.isSuccess) {
         setData(result.data);
         setError(null);
