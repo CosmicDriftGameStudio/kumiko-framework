@@ -25,6 +25,8 @@ export type JwtPayload = {
   // Present when the app wires a `sessionCreator` callback (see sessions
   // feature). Absent → stateless-JWT mode, no revocation possible.
   jti?: string;
+  // Expiry as epoch seconds, so long-lived consumers (WebSocket) can enforce it after the upgrade.
+  exp?: number;
 };
 
 export type JwtHelper = {
@@ -183,6 +185,9 @@ export function createJwtHelper(
       }
       if (typeof payload.jti === "string") {
         result.jti = payload.jti;
+      }
+      if (typeof payload.exp === "number") {
+        result.exp = payload.exp;
       }
       return result;
     },

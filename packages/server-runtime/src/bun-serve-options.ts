@@ -1,9 +1,10 @@
 import {
+  createKumikoWebSocketHandler,
   DEFAULT_MAX_REQUEST_BYTES,
   isWebSocketUpgradeRequest,
   type KumikoServeEnv,
   type KumikoWebSocketData,
-  kumikoWebSocketHandler,
+  WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
   WEBSOCKET_ROUTE_PATH_PREFIX,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -55,13 +56,19 @@ function isKumikoWebSocketUpgrade(req: Request): boolean {
  *
  * WebSocket: upgrade requests are branched off here, before `fetchHandler`
  * (whose static/SPA layers clone the request, which `server.upgrade` can't
- * use), into `webSocketUpgradeFetch` with the original Request.
+ * use), into `webSocketOptions.upgradeFetch` with the original Request.
+ * `heartbeatIntervalMs` overrides the 25 s ping/revalidation cadence.
  */
+export type WebSocketServeOptions = {
+  readonly upgradeFetch: (req: Request, env: KumikoServeEnv) => Response | Promise<Response>;
+  readonly heartbeatIntervalMs?: number;
+};
+
 export function buildBunServeOptions(
   port: number,
   fetchHandler: (req: Request, socketAddress?: string) => Response | Promise<Response>,
   maxRequestBodySize: number = DEFAULT_MAX_REQUEST_BODY_SIZE_BYTES,
-  webSocketUpgradeFetch?: (req: Request, env: KumikoServeEnv) => Response | Promise<Response>,
+  webSocketOptions?: WebSocketServeOptions,
 ): {
   readonly port: number;
   readonly fetch: (
@@ -79,8 +86,8 @@ export function buildBunServeOptions(
     port,
     fetch: (req, server) => {
       const socketAddress = server.requestIP(req)?.address;
-      if (webSocketUpgradeFetch && isKumikoWebSocketUpgrade(req)) {
-        return webSocketUpgradeFetch(req, {
+      if (webSocketOptions && isKumikoWebSocketUpgrade(req)) {
+        return webSocketOptions.upgradeFetch(req, {
           ...(socketAddress !== undefined ? { socketAddress } : {}),
           server,
         });
@@ -89,6 +96,15 @@ export function buildBunServeOptions(
     },
     idleTimeout: 0,
     maxRequestBodySize,
-    websocket: { ...kumikoWebSocketHandler, maxPayloadLength: WEBSOCKET_MAX_PAYLOAD_BYTES },
+    websocket: {
+      ...createKumikoWebSocketHandler(
+        webSocketOptions?.heartbeatIntervalMs !== undefined
+          ? { heartbeatIntervalMs: webSocketOptions.heartbeatIntervalMs }
+          : {},
+      ),
+      maxPayloadLength: WEBSOCKET_MAX_PAYLOAD_BYTES,
+      backpressureLimit: WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
+      closeOnBackpressureLimit: true,
+    },
   };
 }

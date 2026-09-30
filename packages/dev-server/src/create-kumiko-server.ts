@@ -1239,12 +1239,10 @@ export async function createKumikoServer(
   // (idleTimeout: 0). Spec-Test in run-prod-app-spec.test.ts pinst das.
   const server = hasBun
     ? (globalThis as { Bun: { serve: (opts: unknown) => BunServer } }).Bun.serve(
-        buildBunServeOptions(
-          port,
-          handleFetch,
-          resolveDerivedMaxRequestBodySize(stack.registry),
-          async (req, env) => stripNoRouteMatchHeader(await stack.app.fetch(req, env)),
-        ),
+        buildBunServeOptions(port, handleFetch, resolveDerivedMaxRequestBodySize(stack.registry), {
+          upgradeFetch: async (req, env) =>
+            stripNoRouteMatchHeader(await stack.app.fetch(req, env)),
+        }),
       )
     : undefined;
 

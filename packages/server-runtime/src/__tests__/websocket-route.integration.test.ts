@@ -16,7 +16,46 @@ const EVIL_ORIGIN = "https://evil.example";
 const MAX_MESSAGE_BYTES = 1024;
 const membershipQuery = "tenant:query:memberships";
 
+type Deferred = { readonly promise: Promise<void>; readonly resolve: () => void };
+
+function deferred(): Deferred {
+  let resolve: () => void = () => {};
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
+// Per-test gates the routes below wait on, so ordering and slot release are
+// driven by explicit signals instead of timers.
+let orderedGate = deferred();
+let limitedClosed = deferred();
+let limitedConnectCalls = 0;
+let gatedRejects = true;
+
 const wsFeature = defineFeature("ws-test", (r) => {
+  r.webSocketRoute({
+    path: "/api/ws/ordered",
+    connect: () => ({
+      onMessage: async (data, connection) => {
+        if (data === "slow") await orderedGate.promise;
+        connection.send(data);
+      },
+    }),
+  });
+  r.webSocketRoute({
+    path: "/api/ws/limited",
+    maxConnectionsPerUser: 2,
+    connect: () => {
+      limitedConnectCalls += 1;
+      return { onClose: () => limitedClosed.resolve() };
+    },
+  });
+  r.webSocketRoute({
+    path: "/api/ws/gated",
+    maxConnectionsPerUser: 1,
+    connect: () => (gatedRejects ? new Response(null, { status: 409 }) : {}),
+  });
   r.webSocketRoute({
     path: "/api/ws/echo",
     maxMessageBytes: MAX_MESSAGE_BYTES,
@@ -104,25 +143,44 @@ type Harness = {
   readonly httpOrigin: string;
   readonly url: (path: string) => string;
   readonly cookie: (sid?: string) => Promise<string>;
+  /** Call before sending: resolves once Bun's websocket message callback has run `count` more times. */
+  readonly nextMessages: (count: number) => Promise<void>;
 };
 
 async function startHarness(
   authConfig: Parameters<typeof setupTestStack>[0]["authConfig"],
+  heartbeatIntervalMs?: number,
 ): Promise<Harness> {
   const stack = await setupTestStack({
     features: [wsFeature],
     anonymousAccess: { defaultTenantId: TestUsers.user.tenantId },
     ...(authConfig ? { authConfig } : {}),
   });
-  const server = Bun.serve<KumikoWebSocketData>(
-    buildBunServeOptions(
-      0,
-      (req, socketAddress) => stack.app.fetch(req, socketAddress),
-      undefined,
-      (req, env) => stack.app.fetch(req, env),
-    ),
+  const options = buildBunServeOptions(
+    0,
+    (req, socketAddress) => stack.app.fetch(req, socketAddress),
+    undefined,
+    {
+      upgradeFetch: (req, serveEnv) => stack.app.fetch(req, serveEnv),
+      ...(heartbeatIntervalMs !== undefined ? { heartbeatIntervalMs } : {}),
+    },
   );
+  let received = 0;
+  const receivedWaiters: { readonly count: number; readonly resolve: () => void }[] = [];
+  const server = Bun.serve<KumikoWebSocketData>({
+    ...options,
+    websocket: {
+      ...options.websocket,
+      message: (ws, message) => {
+        options.websocket.message?.(ws, message);
+        received += 1;
+        for (const waiter of receivedWaiters) if (received >= waiter.count) waiter.resolve();
+      },
+    },
+  });
   return {
+    nextMessages: (count) =>
+      new Promise<void>((resolve) => receivedWaiters.push({ count: received + count, resolve })),
     stack,
     server,
     httpOrigin: `http://localhost:${server.port}`,
@@ -184,7 +242,7 @@ describe("r.webSocketRoute (integration) — same-host origin, no allowlist", ()
     expect(await errorCode(res)).toBe("websocket_upgrade_required");
   });
 
-  test("upgrade request on a server without the upgrade wiring → 500", async () => {
+  test("upgrade request on a server without the upgrade wiring → 501 websocket_upgrade_not_wired", async () => {
     const res = await harness.stack.app.request(`${harness.httpOrigin}/api/ws/echo`, {
       headers: upgradeHeaders({
         Cookie: cookie,
@@ -192,8 +250,8 @@ describe("r.webSocketRoute (integration) — same-host origin, no allowlist", ()
         Host: new URL(harness.httpOrigin).host,
       }),
     });
-    expect(res.status).toBe(500);
-    expect(await errorCode(res)).toBe("websocket_upgrade_unavailable");
+    expect(res.status).toBe(501);
+    expect(await errorCode(res)).toBe("websocket_upgrade_not_wired");
   });
 
   test("connect() returning a Response rejects the upgrade with it", async () => {
@@ -232,6 +290,25 @@ describe("r.webSocketRoute (integration) — same-host origin, no allowlist", ()
     if (!(echoed instanceof ArrayBuffer)) throw new Error("expected binary echo");
     expect(Array.from(new Uint8Array(echoed))).toEqual(Array.from(bytes));
 
+    socket.close();
+    await socket.closed;
+  });
+
+  test("async handlers run in arrival order even when an earlier one is slower", async () => {
+    orderedGate = deferred();
+    const socket = connectSocket(harness.url("/api/ws/ordered"), {
+      Cookie: cookie,
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    const bothReceived = harness.nextMessages(2);
+    socket.send("slow");
+    socket.send("fast");
+    // Both frames reached the server; unserialized handlers would now answer "fast" first.
+    await bothReceived;
+    orderedGate.resolve();
+    expect(await socket.next()).toBe("slow");
+    expect(await socket.next()).toBe("fast");
     socket.close();
     await socket.closed;
   });
@@ -334,5 +411,131 @@ describe("r.webSocketRoute (integration) — tenant lifecycle", () => {
     });
     expect(res.status).toBe(410);
     expect(await errorCode(res)).toBe("tenant_unavailable");
+  });
+});
+
+describe("r.webSocketRoute (integration) — per-user connection cap", () => {
+  let harness: Harness;
+  let cookie: string;
+
+  beforeAll(async () => {
+    harness = await startHarness({ membershipQuery });
+    cookie = await harness.cookie();
+  });
+  afterAll(() => stopHarness(harness));
+
+  test("the third socket gets 429; closing one frees a slot", async () => {
+    limitedClosed = deferred();
+    const headers = { Cookie: cookie, Origin: harness.httpOrigin };
+    const first = connectSocket(harness.url("/api/ws/limited"), headers);
+    const second = connectSocket(harness.url("/api/ws/limited"), headers);
+    await first.opened;
+    await second.opened;
+
+    limitedConnectCalls = 0;
+    const rejected = await upgradeAttempt(harness, "/api/ws/limited", headers);
+    expect(rejected.status).toBe(429);
+    expect(await errorCode(rejected)).toBe("websocket_connection_limit");
+    // The slot is taken before connect, so a refused attempt never runs it.
+    expect(limitedConnectCalls).toBe(0);
+
+    first.close();
+    // The route's onClose runs after the slot is released.
+    await limitedClosed.promise;
+    const third = connectSocket(harness.url("/api/ws/limited"), headers);
+    await third.opened;
+
+    second.close();
+    third.close();
+    await Promise.all([second.closed, third.closed]);
+  });
+});
+
+describe("r.webSocketRoute (integration) — connect rejection frees the slot", () => {
+  let harness: Harness;
+  let cookie: string;
+
+  beforeAll(async () => {
+    harness = await startHarness({ membershipQuery });
+    cookie = await harness.cookie();
+  });
+  afterAll(() => stopHarness(harness));
+
+  test("a connect() Response does not leak the single slot", async () => {
+    const headers = { Cookie: cookie, Origin: harness.httpOrigin };
+    gatedRejects = true;
+    // With a cap of 1, a leaked slot would turn the second refusal into a 429.
+    expect((await upgradeAttempt(harness, "/api/ws/gated", headers)).status).toBe(409);
+    expect((await upgradeAttempt(harness, "/api/ws/gated", headers)).status).toBe(409);
+
+    gatedRejects = false;
+    const socket = connectSocket(harness.url("/api/ws/gated"), headers);
+    await socket.opened;
+    socket.close();
+    await socket.closed;
+  });
+});
+
+describe("r.webSocketRoute (integration) — revalidation on an open socket", () => {
+  const HEARTBEAT_MS = 20;
+  const revokedSessions = new Set<string>();
+  const hangingSessions = new Set<string>();
+  let currentRoles: readonly string[] = TestUsers.user.roles;
+  let harness: Harness;
+
+  beforeAll(async () => {
+    harness = await startHarness(
+      {
+        membershipQuery,
+        // In-memory checker: only a session listed in hangingSessions ever stalls.
+        sessionChecker: (sid) =>
+          hangingSessions.has(sid)
+            ? new Promise(() => {})
+            : Promise.resolve(
+                revokedSessions.has(sid) ? "revoked" : { status: "live", roles: currentRoles },
+              ),
+      },
+      HEARTBEAT_MS,
+    );
+  });
+  afterAll(() => stopHarness(harness));
+
+  test("a session revoked while the socket is open closes it with 1008", async () => {
+    const socket = connectSocket(harness.url("/api/ws/echo"), {
+      Cookie: await harness.cookie("sid-revoked-live"),
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    await socket.next();
+    revokedSessions.add("sid-revoked-live");
+    const closed = await socket.closed;
+    expect(closed.code).toBe(1008);
+    expect(closed.reason).toBe("session changed");
+  });
+
+  test("changed roles close an open socket with 1008", async () => {
+    currentRoles = TestUsers.user.roles;
+    const socket = connectSocket(harness.url("/api/ws/echo"), {
+      Cookie: await harness.cookie("sid-roles"),
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    await socket.next();
+    currentRoles = [...TestUsers.user.roles, "ExtraRole"];
+    expect((await socket.closed).code).toBe(1008);
+    currentRoles = TestUsers.user.roles;
+  });
+
+  test("a session store that stops answering closes the socket with 1013", async () => {
+    const socket = connectSocket(harness.url("/api/ws/echo"), {
+      Cookie: await harness.cookie("sid-hang"),
+      Origin: harness.httpOrigin,
+    });
+    await socket.opened;
+    await socket.next();
+    hangingSessions.add("sid-hang");
+    const closed = await socket.closed;
+    expect(closed.code).toBe(1013);
+    expect(closed.reason).toBe("try again later");
   });
 });

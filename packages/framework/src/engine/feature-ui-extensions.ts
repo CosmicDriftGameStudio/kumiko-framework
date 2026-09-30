@@ -1,4 +1,5 @@
 import {
+  WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
   WEBSOCKET_ROUTE_PATH_PREFIX,
   type WebSocketRouteDefinition,
@@ -543,6 +544,18 @@ export function buildUiExtensionsMethods<TName extends string>(
         throw new Error(
           `[Feature ${name}] webSocketRoute "${definition.path}" maxMessageBytes must be an ` +
             `integer between 1 and ${WEBSOCKET_MAX_PAYLOAD_BYTES}, got ${maxMessageBytes}.`,
+        );
+      }
+      const { maxConnectionsPerUser } = definition;
+      if (
+        maxConnectionsPerUser !== undefined &&
+        (!Number.isInteger(maxConnectionsPerUser) ||
+          maxConnectionsPerUser < 1 ||
+          maxConnectionsPerUser > WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT)
+      ) {
+        throw new Error(
+          `[Feature ${name}] webSocketRoute "${definition.path}" maxConnectionsPerUser must be an ` +
+            `integer between 1 and ${WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT}, got ${maxConnectionsPerUser}.`,
         );
       }
       if (state.webSocketRoutes[definition.path]) {

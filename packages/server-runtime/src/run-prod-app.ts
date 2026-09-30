@@ -715,7 +715,7 @@ export type ProdAppHandle = {
   readonly fetch: (req: Request, socketAddress?: string) => Promise<Response> | Response;
   /** Serves WebSocket-upgrade requests (r.webSocketRoute) with Bun's original
    *  Request. Apps with `autoListen: false` that run their own `Bun.serve`
-   *  must pass it as the 4th argument of `buildBunServeOptions` to get
+   *  must pass it as `{ upgradeFetch }` in the 4th argument of `buildBunServeOptions` to get
    *  WebSockets; `listen()` already wires it. */
   readonly webSocketUpgradeFetch: (req: Request, env: KumikoServeEnv) => Promise<Response>;
   /** Active Bun-server (only set when listen() was called — tests skip
@@ -1363,7 +1363,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
           listenPort,
           fetchHandler,
           options.maxRequestBodySize ?? resolveDerivedMaxRequestBodySize(registry),
-          webSocketUpgradeFetch,
+          { upgradeFetch: webSocketUpgradeFetch },
         ),
       );
 

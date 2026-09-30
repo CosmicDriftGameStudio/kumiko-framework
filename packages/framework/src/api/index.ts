@@ -105,9 +105,13 @@ export type {
   WebSocketUpgradeServer,
 } from "./websocket-route";
 export {
+  createKumikoWebSocketHandler,
   isWebSocketUpgradeRequest,
   kumikoWebSocketHandler,
+  WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
+  WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
   WEBSOCKET_HEARTBEAT_INTERVAL_MS,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
+  WEBSOCKET_REVALIDATION_FAILURE_LIMIT,
   WEBSOCKET_ROUTE_PATH_PREFIX,
 } from "./websocket-route";

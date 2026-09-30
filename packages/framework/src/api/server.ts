@@ -23,6 +23,7 @@ import type { FileRoutesOptions } from "../files/file-routes";
 import { createFileRoutes, readFilesRouteOptions } from "../files/file-routes";
 import { makeFileProviderResolver } from "../files/provider-resolver";
 import type { Lifecycle } from "../lifecycle";
+import { createFallbackLogger } from "../logging";
 import {
   createNoopProvider,
   DEFAULT_SENSITIVE_CONFIG,
@@ -63,6 +64,7 @@ import {
   type AnonymousAccessResolved,
   type AuthSessionChecker,
   authMiddleware,
+  getAuthTokenExpiry,
   getUser,
   type TenantLifecycleStatusResolver,
 } from "./auth-middleware";
@@ -108,9 +110,12 @@ import type { SseBroker } from "./sse-broker";
 import { createSseRoute } from "./sse-route";
 import {
   buildWebSocketSessionRevalidator,
+  createWebSocketConnectionLimiter,
   hasWebSocketUpgradeServer,
   isWebSocketUpgradeRequest,
+  WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
   WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
+  type WebSocketConnectionLimiter,
 } from "./websocket-route";
 
 export type ServerOptions = {
@@ -1005,6 +1010,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ? new Set(allowedOrigins.map(normalizeOrigin))
     : undefined;
   const webSocketRoutePaths = new Map<string, string>();
+  const webSocketConnectionLimiter = createWebSocketConnectionLimiter();
   for (const feature of options.registry.features.values()) {
     for (const route of Object.values(feature.webSocketRoutes)) {
       const owner = webSocketRoutePaths.get(route.path);
@@ -1025,6 +1031,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
           ...(tenantLifecycleResolver
             ? { resolveTenantLifecycleStatus: tenantLifecycleResolver }
             : {}),
+          connectionLimiter: webSocketConnectionLimiter,
         }),
       );
     }
@@ -1269,11 +1276,14 @@ type WebSocketRouteHandlerDeps = {
   readonly originAllowlist: ReadonlySet<string> | undefined;
   readonly sessionChecker?: AuthSessionChecker;
   readonly resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver;
+  readonly connectionLimiter: WebSocketConnectionLimiter;
 };
+
+const webSocketLog = createFallbackLogger("websocket");
 
 function webSocketErrorResponse(
   c: import("hono").Context,
-  status: 400 | 426 | 500,
+  status: 400 | 426 | 429 | 501,
   code: string,
   message: string,
 ): Response {
@@ -1299,46 +1309,64 @@ function buildWebSocketRouteHandler(
     }
     const honoEnv: unknown = c.env;
     if (!hasWebSocketUpgradeServer(honoEnv)) {
+      const message = "webSocketUpgradeFetch not wired: pass it to buildBunServeOptions";
+      webSocketLog.error(message, { path: route.path });
+      return webSocketErrorResponse(c, 501, "websocket_upgrade_not_wired", message);
+    }
+    // The slot is taken before connect (a refused attempt must not run it) and stays synchronous with
+    // the check, so concurrent upgrades can't overshoot the cap. Every path without a live socket frees it.
+    const releaseConnectionSlot = shared.connectionLimiter.tryAcquire(
+      `${route.path}\n${user.tenantId}\n${user.id}`,
+      route.maxConnectionsPerUser ?? WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
+    );
+    if (!releaseConnectionSlot) {
       return webSocketErrorResponse(
         c,
-        500,
-        "websocket_upgrade_unavailable",
-        "the server was not wired for WebSocket upgrades",
+        429,
+        "websocket_connection_limit",
+        "too many open WebSocket connections for this user",
       );
     }
-    const handlers = await route.connect(c, {
-      user,
-      query: (type, payload) => shared.dispatcher.query(type, payload, user),
-      write: (type, payload) => shared.dispatcher.write(type, payload, user),
-      clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
-    });
-    if (handlers instanceof Response) return handlers;
+    let upgraded = false;
+    try {
+      const handlers = await route.connect(c, {
+        user,
+        query: (type, payload) => shared.dispatcher.query(type, payload, user),
+        write: (type, payload) => shared.dispatcher.write(type, payload, user),
+        clientIp: shared.clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
+      });
+      if (handlers instanceof Response) return handlers;
 
-    const captured = requestContext.get();
-    const requestContextData = captured ? withoutAbortSignal(captured) : undefined;
-    const revalidateSession = buildWebSocketSessionRevalidator({
-      user,
-      sessionChecker: shared.sessionChecker,
-      resolveTenantLifecycleStatus: shared.resolveTenantLifecycleStatus,
-    });
-    const upgraded = honoEnv.server.upgrade(c.req.raw, {
-      data: {
-        handlers,
-        maxMessageBytes: route.maxMessageBytes ?? WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
-        requestContextData,
-        revalidateSession,
-      },
-    });
-    if (!upgraded) {
-      return webSocketErrorResponse(
-        c,
-        400,
-        "websocket_upgrade_failed",
-        "the WebSocket upgrade was rejected",
-      );
+      const captured = requestContext.get();
+      const requestContextData = captured ? withoutAbortSignal(captured) : undefined;
+      const revalidateSession = buildWebSocketSessionRevalidator({
+        user,
+        sessionChecker: shared.sessionChecker,
+        resolveTenantLifecycleStatus: shared.resolveTenantLifecycleStatus,
+        tokenExpiresAtSec: getAuthTokenExpiry(c),
+      });
+      upgraded = honoEnv.server.upgrade(c.req.raw, {
+        data: {
+          handlers,
+          maxMessageBytes: route.maxMessageBytes ?? WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
+          requestContextData,
+          revalidateSession,
+          releaseConnectionSlot,
+        },
+      });
+      if (!upgraded) {
+        return webSocketErrorResponse(
+          c,
+          400,
+          "websocket_upgrade_failed",
+          "the WebSocket upgrade was rejected",
+        );
+      }
+      // Bun ignores the returned Response after a successful upgrade.
+      return new Response(null);
+    } finally {
+      if (!upgraded) releaseConnectionSlot();
     }
-    // Bun ignores the returned Response after a successful upgrade.
-    return new Response(null);
   };
 }
 

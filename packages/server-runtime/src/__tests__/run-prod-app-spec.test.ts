@@ -9,6 +9,7 @@ import {
   type KumikoServeEnv,
   type KumikoWebSocketData,
   SSE_HEARTBEAT_INTERVAL_MS,
+  WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
   WEBSOCKET_HEARTBEAT_INTERVAL_MS,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
 } from "@cosmicdrift/kumiko-framework/api";
@@ -44,6 +45,13 @@ describe("Bun.serve options for production", () => {
     expect(WEBSOCKET_HEARTBEAT_INTERVAL_MS).toBeLessThan(60_000);
   });
 
+  test("a stalled reader is cut off: 4 MiB backpressure limit, close on limit", () => {
+    const opts = buildBunServeOptions(0, () => new Response("ok"));
+    expect(opts.websocket.backpressureLimit).toBe(4 * 1024 * 1024);
+    expect(WEBSOCKET_BACKPRESSURE_LIMIT_BYTES).toBe(4 * 1024 * 1024);
+    expect(opts.websocket.closeOnBackpressureLimit).toBe(true);
+  });
+
   test("upgrade requests go to webSocketUpgradeFetch with the server handle, others to fetchHandler", async () => {
     const plain: string[] = [];
     const upgraded: KumikoServeEnv[] = [];
@@ -54,9 +62,11 @@ describe("Bun.serve options for production", () => {
         return new Response("plain");
       },
       undefined,
-      (_req, env) => {
-        upgraded.push(env);
-        return new Response("upgrade");
+      {
+        upgradeFetch: (_req, serveEnv) => {
+          upgraded.push(serveEnv);
+          return new Response("upgrade");
+        },
       },
     );
     const fakeServer = { requestIP: () => ({ address: "203.0.113.9", port: 1, family: "IPv4" }) };

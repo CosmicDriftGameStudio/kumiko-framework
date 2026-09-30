@@ -8,6 +8,10 @@ import type { SessionUser, WriteResult } from "./handlers";
 export const WEBSOCKET_MAX_PAYLOAD_BYTES = 1024 * 1024;
 export const WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES = 64 * 1024;
 export const WEBSOCKET_ROUTE_PATH_PREFIX = "/api/ws/";
+// Bun closes a socket whose unsent outbound queue exceeds this (slow or stalled reader).
+export const WEBSOCKET_BACKPRESSURE_LIMIT_BYTES = 4 * 1024 * 1024;
+export const WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER = 5;
+export const WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT = 100;
 
 export type WebSocketMessageData = string | Uint8Array;
 
@@ -38,7 +42,12 @@ export type WebSocketRouteDefinition = {
   readonly path: string;
   /** Per-message cap; oversized messages close the socket with 1009. Default 64 KiB, max 1 MiB. */
   readonly maxMessageBytes?: number;
-  /** Runs after auth + origin checks, before the upgrade. Returning a Response rejects the upgrade with it. */
+  /** Concurrent sockets per user and tenant on this route (per server process). Default 5, max 100; above it the upgrade gets 429. */
+  readonly maxConnectionsPerUser?: number;
+  /**
+   * Runs after auth + origin checks, before the upgrade. Returning a Response rejects the upgrade with it.
+   * Allocate per-connection resources in `onOpen`, not here: if the upgrade then fails, no `onClose` runs.
+   */
   readonly connect: (
     // biome-ignore lint/suspicious/noExplicitAny: Hono context generics are invisible at the framework boundary
     c: Context<any, any>,

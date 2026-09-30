@@ -1097,6 +1097,35 @@ describe("runProdApp — real Bun.serve socket resolves the client IP (fw#3260 a
   });
 });
 
+describe("runProdApp — rejected WebSocket upgrades carry the security headers", () => {
+  const wsProbeFeature = defineFeature("ws-probe", (r) => {
+    r.webSocketRoute({ path: "/api/ws/probe", connect: () => ({}) });
+  });
+
+  test("a real upgrade request refused by the route (no session) still gets nosniff", async () => {
+    const handle = await boot(undefined, {
+      features: [widgetFeature, wsProbeFeature],
+      autoListen: true,
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+    });
+    const port = handle.server?.port;
+    if (port === undefined) throw new Error("expected handle.server to be listening");
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/ws/probe`, {
+      headers: {
+        Connection: "Upgrade",
+        Upgrade: "websocket",
+        "Sec-WebSocket-Version": "13",
+        "Sec-WebSocket-Key": Buffer.from(crypto.getRandomValues(new Uint8Array(16))).toString(
+          "base64",
+        ),
+      },
+    });
+    expect(res.status).toBe(401);
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+});
+
 describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Container)", () => {
   // Regression für den 2026-06-11-Incident: runProdApp baute den
   // Event-Dispatcher nie ({disabled:true} im API-Entrypoint) — jede

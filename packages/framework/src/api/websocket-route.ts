@@ -1,4 +1,6 @@
 import {
+  WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
+  WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
   WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
   WEBSOCKET_ROUTE_PATH_PREFIX,
@@ -17,6 +19,8 @@ import {
 import { type RequestContextData, requestContext } from "./request-context";
 
 export {
+  WEBSOCKET_BACKPRESSURE_LIMIT_BYTES,
+  WEBSOCKET_DEFAULT_MAX_CONNECTIONS_PER_USER,
   WEBSOCKET_DEFAULT_MAX_MESSAGE_BYTES,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
   WEBSOCKET_ROUTE_PATH_PREFIX,
@@ -28,6 +32,11 @@ export const WEBSOCKET_HEARTBEAT_INTERVAL_MS = 25_000;
 const CLOSE_POLICY_VIOLATION = 1008;
 const CLOSE_MESSAGE_TOO_BIG = 1009;
 const CLOSE_INTERNAL_ERROR = 1011;
+const CLOSE_TRY_AGAIN_LATER = 1013;
+
+// Consecutive failed session-store checks before a socket is closed: rides out a
+// short store blip, but a socket must not stay unverified forever.
+export const WEBSOCKET_REVALIDATION_FAILURE_LIMIT = 3;
 
 const log = createFallbackLogger("websocket");
 
@@ -37,8 +46,13 @@ export type KumikoWebSocketData = {
   // Socket callbacks run outside the Hono request, so the dispatcher's
   // AsyncLocalStorage context is captured at upgrade time and re-entered.
   readonly requestContextData: RequestContextData | undefined;
-  readonly revalidateSession: (() => Promise<boolean>) | undefined;
+  readonly revalidateSession: WebSocketSessionRevalidator | undefined;
+  // Frees this socket's per-user connection slot; called once on close.
+  readonly releaseConnectionSlot?: (() => void) | undefined;
 };
+
+export type WebSocketRevalidation = "live" | "expired" | "invalid";
+export type WebSocketSessionRevalidator = () => Promise<WebSocketRevalidation>;
 
 // Structural so Bun.Server satisfies it without this package depending on bun types.
 export type WebSocketUpgradeServer = {
@@ -82,30 +96,84 @@ function sameRoles(a: readonly string[], b: readonly string[]): boolean {
   return left.size === new Set(b).size && b.every((role) => left.has(role));
 }
 
-// Same checks the HTTP guard runs per request. query/write stay bound to the
-// upgrade-time user, so changed roles close the socket instead of silently
-// serving stale permissions.
+// Same checks the HTTP guard runs per request, plus the JWT's own expiry (the
+// upgrade request passed the guard once, the socket outlives that). query/write
+// stay bound to the upgrade-time user, so changed roles close the socket
+// instead of silently serving stale permissions.
 export function buildWebSocketSessionRevalidator(deps: {
   readonly user: SessionUser;
   readonly sessionChecker?: AuthSessionChecker | undefined;
   readonly resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver | undefined;
-}): (() => Promise<boolean>) | undefined {
-  const { user, sessionChecker, resolveTenantLifecycleStatus } = deps;
+  /** JWT exp, epoch seconds. */
+  readonly tokenExpiresAtSec?: number | undefined;
+  readonly nowMs?: () => number;
+}): WebSocketSessionRevalidator | undefined {
+  const { user, sessionChecker, resolveTenantLifecycleStatus, tokenExpiresAtSec } = deps;
+  const nowMs = deps.nowMs ?? Date.now;
   const checkSession = sessionChecker && user.sid ? sessionChecker : undefined;
-  if (!checkSession && !resolveTenantLifecycleStatus) return undefined;
+  if (!checkSession && !resolveTenantLifecycleStatus && tokenExpiresAtSec === undefined) {
+    return undefined;
+  }
   return async () => {
+    if (tokenExpiresAtSec !== undefined && nowMs() >= tokenExpiresAtSec * 1000) return "expired";
     if (checkSession && user.sid) {
       const result = await checkSession(user.sid, user.id);
-      if (sessionCheckStatus(result) !== "live") return false;
-      if (typeof result === "object" && !sameRoles(result.roles, user.roles)) return false;
+      if (sessionCheckStatus(result) !== "live") return "invalid";
+      if (typeof result === "object" && !sameRoles(result.roles, user.roles)) return "invalid";
     }
-    return (
-      (await resolveTenantTeardownStatus(user.tenantId, resolveTenantLifecycleStatus)) === undefined
-    );
+    const teardown = await resolveTenantTeardownStatus(user.tenantId, resolveTenantLifecycleStatus);
+    return teardown === undefined ? "live" : "invalid";
   };
 }
 
-const heartbeatTimers = new WeakMap<KumikoWebSocketData, ReturnType<typeof setInterval>>();
+// ponytail: per-process counter, so the cap is per pod, not cluster-wide; move to Redis if that matters.
+export type WebSocketConnectionLimiter = {
+  readonly tryAcquire: (key: string, max: number) => (() => void) | undefined;
+};
+
+export function createWebSocketConnectionLimiter(): WebSocketConnectionLimiter {
+  const counts = new Map<string, number>();
+  return {
+    tryAcquire(key, max) {
+      const current = counts.get(key) ?? 0;
+      if (current >= max) return undefined;
+      counts.set(key, current + 1);
+      let released = false;
+      return () => {
+        // skip: slot already released
+        if (released) return;
+        released = true;
+        const remaining = (counts.get(key) ?? 1) - 1;
+        if (remaining <= 0) counts.delete(key);
+        else counts.set(key, remaining);
+      };
+    },
+  };
+}
+
+type ConnectionState = {
+  timer: ReturnType<typeof setInterval> | undefined;
+  revalidationFailures: number;
+  revalidating: boolean;
+  // onOpen/onMessage/onClose run one after another in arrival order; steps never reject.
+  chain: Promise<void>;
+};
+
+const connectionStates = new WeakMap<KumikoWebSocketData, ConnectionState>();
+
+function stateOf(ws: KumikoServerWebSocket): ConnectionState {
+  let state = connectionStates.get(ws.data);
+  if (!state) {
+    state = {
+      timer: undefined,
+      revalidationFailures: 0,
+      revalidating: false,
+      chain: Promise.resolve(),
+    };
+    connectionStates.set(ws.data, state);
+  }
+  return state;
+}
 
 function toConnection(ws: KumikoServerWebSocket): WebSocketConnection {
   return {
@@ -116,8 +184,8 @@ function toConnection(ws: KumikoServerWebSocket): WebSocketConnection {
   };
 }
 
-function runGuarded(ws: KumikoServerWebSocket, run: () => void | Promise<void>): void {
-  const guarded = async (): Promise<void> => {
+function enqueue(ws: KumikoServerWebSocket, run: () => void | Promise<void>): void {
+  const step = async (): Promise<void> => {
     try {
       await run();
     } catch (error) {
@@ -128,21 +196,56 @@ function runGuarded(ws: KumikoServerWebSocket, run: () => void | Promise<void>):
     }
   };
   const { requestContextData } = ws.data;
-  void (requestContextData ? requestContext.run(requestContextData, guarded) : guarded());
+  const state = stateOf(ws);
+  state.chain = state.chain.then(() =>
+    requestContextData ? requestContext.run(requestContextData, step) : step(),
+  );
+}
+
+function recordRevalidationFailure(
+  ws: KumikoServerWebSocket,
+  state: ConnectionState,
+  reason: string,
+): void {
+  // One failing check must not drop every live socket during a store blip, but persistent failure must.
+  state.revalidationFailures += 1;
+  log.error("websocket heartbeat failed", {
+    error: reason,
+    consecutiveFailures: state.revalidationFailures,
+  });
+  if (state.revalidationFailures >= WEBSOCKET_REVALIDATION_FAILURE_LIMIT) {
+    ws.close(CLOSE_TRY_AGAIN_LATER, "try again later");
+  }
 }
 
 async function heartbeat(ws: KumikoServerWebSocket): Promise<void> {
+  const state = stateOf(ws);
   try {
     ws.ping();
-    const { revalidateSession } = ws.data;
-    if (revalidateSession && !(await revalidateSession())) {
-      ws.close(CLOSE_POLICY_VIOLATION, "session changed");
-    }
   } catch (error) {
-    // A failing session store must not drop every live socket at once.
-    log.error("websocket heartbeat failed", {
+    log.error("websocket ping failed", {
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+  const { revalidateSession } = ws.data;
+  // skip: no revalidation wired for this socket
+  if (!revalidateSession) return;
+  // A store that never answers must not pile up checks; an unanswered one counts as a failed check.
+  if (state.revalidating) {
+    recordRevalidationFailure(ws, state, "previous session check still pending");
+    // skip: the pending check owns the verdict; the failure was logged above
+    return;
+  }
+  state.revalidating = true;
+  try {
+    const verdict = await revalidateSession();
+    state.revalidationFailures = 0;
+    if (verdict === "expired") ws.close(CLOSE_POLICY_VIOLATION, "session expired");
+    else if (verdict === "invalid") ws.close(CLOSE_POLICY_VIOLATION, "session changed");
+  } catch (error) {
+    recordRevalidationFailure(ws, state, error instanceof Error ? error.message : String(error));
+  } finally {
+    state.revalidating = false;
   }
 }
 
@@ -156,37 +259,42 @@ function messageByteLength(message: string | Uint8Array): number {
   return typeof message === "string" ? Buffer.byteLength(message) : message.byteLength;
 }
 
-export const kumikoWebSocketHandler = {
-  open(ws: KumikoServerWebSocket): void {
-    heartbeatTimers.set(
-      ws.data,
-      setInterval(() => {
+export function createKumikoWebSocketHandler(
+  options: { readonly heartbeatIntervalMs?: number } = {},
+) {
+  const heartbeatIntervalMs = options.heartbeatIntervalMs ?? WEBSOCKET_HEARTBEAT_INTERVAL_MS;
+  return {
+    open(ws: KumikoServerWebSocket): void {
+      stateOf(ws).timer = setInterval(() => {
         void heartbeat(ws);
-      }, WEBSOCKET_HEARTBEAT_INTERVAL_MS),
-    );
-    const { onOpen } = ws.data.handlers;
-    if (onOpen) runGuarded(ws, () => onOpen(toConnection(ws)));
-  },
-  message(ws: KumikoServerWebSocket, message: string | Uint8Array): void {
-    const byteLength = messageByteLength(message);
-    if (byteLength > ws.data.maxMessageBytes) {
-      ws.close(CLOSE_MESSAGE_TOO_BIG, "message too big");
-      log.warn("websocket message over cap", {
-        byteLength,
-        maxMessageBytes: ws.data.maxMessageBytes,
-      });
-      return;
-    }
-    const { onMessage } = ws.data.handlers;
-    if (onMessage) runGuarded(ws, () => onMessage(toMessageData(message), toConnection(ws)));
-  },
-  close(ws: KumikoServerWebSocket, code: number, reason: string): void {
-    const timer = heartbeatTimers.get(ws.data);
-    if (timer !== undefined) {
-      clearInterval(timer);
-      heartbeatTimers.delete(ws.data);
-    }
-    const { onClose } = ws.data.handlers;
-    if (onClose) runGuarded(ws, () => onClose(code, reason));
-  },
-};
+      }, heartbeatIntervalMs);
+      const { onOpen } = ws.data.handlers;
+      if (onOpen) enqueue(ws, () => onOpen(toConnection(ws)));
+    },
+    message(ws: KumikoServerWebSocket, message: string | Uint8Array): void {
+      const byteLength = messageByteLength(message);
+      if (byteLength > ws.data.maxMessageBytes) {
+        ws.close(CLOSE_MESSAGE_TOO_BIG, "message too big");
+        log.warn("websocket message over cap", {
+          byteLength,
+          maxMessageBytes: ws.data.maxMessageBytes,
+        });
+        return;
+      }
+      const { onMessage } = ws.data.handlers;
+      if (onMessage) enqueue(ws, () => onMessage(toMessageData(message), toConnection(ws)));
+    },
+    close(ws: KumikoServerWebSocket, code: number, reason: string): void {
+      const state = stateOf(ws);
+      if (state.timer !== undefined) {
+        clearInterval(state.timer);
+        state.timer = undefined;
+      }
+      ws.data.releaseConnectionSlot?.();
+      const { onClose } = ws.data.handlers;
+      if (onClose) enqueue(ws, () => onClose(code, reason));
+    },
+  };
+}
+
+export const kumikoWebSocketHandler = createKumikoWebSocketHandler();

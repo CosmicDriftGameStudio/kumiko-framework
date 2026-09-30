@@ -5,15 +5,18 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { createRegistry, defineFeature } from "../../engine";
 import type { SessionUser, WebSocketRouteDefinition } from "../../engine/types";
+import type { AuthSessionChecker } from "../auth-middleware";
 import { requestContext } from "../request-context";
 import { buildServer } from "../server";
 import {
   buildWebSocketSessionRevalidator,
+  createWebSocketConnectionLimiter,
   isWebSocketUpgradeRequest,
   type KumikoServerWebSocket,
   type KumikoWebSocketData,
   kumikoWebSocketHandler,
   WEBSOCKET_HEARTBEAT_INTERVAL_MS,
+  WEBSOCKET_REVALIDATION_FAILURE_LIMIT,
 } from "../websocket-route";
 
 const JWT_SECRET = "websocket-route-test-secret-min-32-characters";
@@ -45,6 +48,20 @@ describe("r.webSocketRoute validation", () => {
 
   test.each([0, MIB + 1, 1.5, Number.NaN, -1])("rejects maxMessageBytes %p", (maxMessageBytes) => {
     expect(() => routeFeature("cap", { maxMessageBytes })).toThrow(/maxMessageBytes/);
+  });
+
+  test.each([0, 101, 1.5, Number.NaN, -1])(
+    "rejects maxConnectionsPerUser %p",
+    (maxConnectionsPerUser) => {
+      expect(() => routeFeature("conn-cap", { maxConnectionsPerUser })).toThrow(
+        /maxConnectionsPerUser/,
+      );
+    },
+  );
+
+  test("accepts maxConnectionsPerUser 1 and 100", () => {
+    expect(() => routeFeature("conn-min", { maxConnectionsPerUser: 1 })).not.toThrow();
+    expect(() => routeFeature("conn-max", { maxConnectionsPerUser: 100 })).not.toThrow();
   });
 
   test("rejects a duplicate path within a feature", () => {
@@ -94,11 +111,13 @@ describe("buildWebSocketSessionRevalidator", () => {
       user,
       sessionChecker: live(["Admin", "User"]),
     });
-    expect(await check?.()).toBe(true);
+    expect(await check?.()).toBe("live");
   });
 
   test("bare live (no derived roles) stays open", async () => {
-    expect(await buildWebSocketSessionRevalidator({ user, sessionChecker: live() })?.()).toBe(true);
+    expect(await buildWebSocketSessionRevalidator({ user, sessionChecker: live() })?.()).toBe(
+      "live",
+    );
   });
 
   test("revoked session closes", async () => {
@@ -106,7 +125,7 @@ describe("buildWebSocketSessionRevalidator", () => {
       user,
       sessionChecker: async () => "revoked",
     });
-    expect(await check?.()).toBe(false);
+    expect(await check?.()).toBe("invalid");
   });
 
   test("changed roles close", async () => {
@@ -115,8 +134,8 @@ describe("buildWebSocketSessionRevalidator", () => {
       user,
       sessionChecker: live(["User", "Admin", "Auditor"]),
     });
-    expect(await fewer?.()).toBe(false);
-    expect(await more?.()).toBe(false);
+    expect(await fewer?.()).toBe("invalid");
+    expect(await more?.()).toBe("invalid");
   });
 
   test("tenant in teardown closes, a serving tenant stays open", async () => {
@@ -125,9 +144,55 @@ describe("buildWebSocketSessionRevalidator", () => {
       user,
       resolveTenantLifecycleStatus: async () => ({ status: status.current }),
     });
-    expect(await check?.()).toBe(true);
+    expect(await check?.()).toBe("live");
     status.current = "destroying";
-    expect(await check?.()).toBe(false);
+    expect(await check?.()).toBe("invalid");
+  });
+
+  describe("token expiry", () => {
+    const expiresAtSec = 1_000;
+    const at = (ms: number) => () => ms;
+
+    test("live before exp, expired at and after exp — without touching the store", async () => {
+      const calls: string[] = [];
+      const checker: AuthSessionChecker = async () => {
+        calls.push("checked");
+        return "live";
+      };
+      const build = (nowMs: number) =>
+        buildWebSocketSessionRevalidator({
+          user,
+          sessionChecker: checker,
+          tokenExpiresAtSec: expiresAtSec,
+          nowMs: at(nowMs),
+        });
+      expect(await build(999_999)?.()).toBe("live");
+      expect(await build(1_000_000)?.()).toBe("expired");
+      expect(await build(2_000_000)?.()).toBe("expired");
+      expect(calls).toEqual(["checked"]);
+    });
+
+    test("an expiry alone is enough to build a revalidator", () => {
+      expect(
+        buildWebSocketSessionRevalidator({ user, tokenExpiresAtSec: expiresAtSec }),
+      ).toBeDefined();
+    });
+  });
+});
+
+describe("createWebSocketConnectionLimiter", () => {
+  test("caps per key, frees a slot on release, and release is idempotent", () => {
+    const limiter = createWebSocketConnectionLimiter();
+    const first = limiter.tryAcquire("a", 2);
+    const second = limiter.tryAcquire("a", 2);
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(limiter.tryAcquire("a", 2)).toBeUndefined();
+    expect(limiter.tryAcquire("b", 2)).toBeDefined();
+    first?.();
+    first?.();
+    expect(limiter.tryAcquire("a", 2)).toBeDefined();
+    expect(limiter.tryAcquire("a", 2)).toBeUndefined();
   });
 });
 
@@ -281,7 +346,9 @@ describe("kumikoWebSocketHandler", () => {
 
     test("closes with 1008 once the session is no longer live", async () => {
       let live = true;
-      const { ws, log } = fakeSocket({ revalidateSession: async () => live });
+      const { ws, log } = fakeSocket({
+        revalidateSession: async () => (live ? "live" : "invalid"),
+      });
       const heartbeat = captureHeartbeat(ws);
       try {
         heartbeat.tick();
@@ -310,6 +377,131 @@ describe("kumikoWebSocketHandler", () => {
         heartbeat.restore();
         errorLog.mockRestore();
       }
+    });
+
+    test("counts unanswered checks as failures, starts no second check, and closes with 1013", async () => {
+      const errorLog = spyOn(console, "error").mockImplementation(() => {});
+      const started: string[] = [];
+      const { ws, log } = fakeSocket({
+        revalidateSession: () => {
+          started.push("check");
+          return new Promise(() => {});
+        },
+      });
+      const heartbeat = captureHeartbeat(ws);
+      try {
+        // Tick 1 starts the check that never settles; ticks 2..4 find it pending.
+        for (let i = 0; i < WEBSOCKET_REVALIDATION_FAILURE_LIMIT; i += 1) {
+          heartbeat.tick();
+          await settle();
+          expect(log.closed).toEqual([]);
+        }
+        heartbeat.tick();
+        await settle();
+        expect(started).toEqual(["check"]);
+        expect(log.pings).toBe(WEBSOCKET_REVALIDATION_FAILURE_LIMIT + 1);
+        expect(log.closed).toEqual([{ code: 1013, reason: "try again later" }]);
+      } finally {
+        heartbeat.restore();
+        errorLog.mockRestore();
+      }
+    });
+
+    test("an expired token closes with 1008 session expired", async () => {
+      const { ws, log } = fakeSocket({ revalidateSession: async () => "expired" });
+      const heartbeat = captureHeartbeat(ws);
+      try {
+        heartbeat.tick();
+        await settle();
+        expect(log.closed).toEqual([{ code: 1008, reason: "session expired" }]);
+      } finally {
+        heartbeat.restore();
+      }
+    });
+
+    test("only consecutive check failures close the socket (1013), a success resets the count", async () => {
+      const errorLog = spyOn(console, "error").mockImplementation(() => {});
+      const outcomes: ("fail" | "ok")[] = ["fail", "fail", "ok", "fail", "fail"];
+      const { ws, log } = fakeSocket({
+        revalidateSession: async () => {
+          if (outcomes.shift() === "fail") throw new Error("store down");
+          return "live";
+        },
+      });
+      const heartbeat = captureHeartbeat(ws);
+      try {
+        for (let i = 0; i < 5; i += 1) {
+          heartbeat.tick();
+          await settle();
+        }
+        expect(log.closed).toEqual([]);
+
+        outcomes.push("fail");
+        heartbeat.tick();
+        await settle();
+        expect(WEBSOCKET_REVALIDATION_FAILURE_LIMIT).toBe(3);
+        expect(log.closed).toEqual([{ code: 1013, reason: "try again later" }]);
+      } finally {
+        heartbeat.restore();
+        errorLog.mockRestore();
+      }
+    });
+  });
+
+  describe("per-connection ordering and slot release", () => {
+    test("handlers run one after another in arrival order, onClose last", async () => {
+      const events: string[] = [];
+      let releaseFirst: () => void = () => {};
+      const firstGate = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      const { ws } = fakeSocket({
+        handlers: {
+          onMessage: async (data) => {
+            events.push(`start:${String(data)}`);
+            if (data === "slow") await firstGate;
+            events.push(`end:${String(data)}`);
+          },
+          onClose: () => void events.push("close"),
+        },
+      });
+      kumikoWebSocketHandler.message(ws, "slow");
+      kumikoWebSocketHandler.message(ws, "fast");
+      kumikoWebSocketHandler.close(ws, 1000, "");
+      await settle();
+      expect(events).toEqual(["start:slow"]);
+      releaseFirst();
+      await settle();
+      expect(events).toEqual(["start:slow", "end:slow", "start:fast", "end:fast", "close"]);
+    });
+
+    test("a failing step closes with 1011 but later steps (onClose cleanup) still run", async () => {
+      const errorLog = spyOn(console, "error").mockImplementation(() => {});
+      const events: string[] = [];
+      const { ws, log } = fakeSocket({
+        handlers: {
+          onMessage: () => {
+            throw new Error("boom");
+          },
+          onClose: () => void events.push("close"),
+        },
+      });
+      try {
+        kumikoWebSocketHandler.message(ws, "x");
+        kumikoWebSocketHandler.close(ws, 1006, "");
+        await settle();
+        expect(log.closed).toEqual([{ code: 1011, reason: "internal error" }]);
+        expect(events).toEqual(["close"]);
+      } finally {
+        errorLog.mockRestore();
+      }
+    });
+
+    test("close frees the connection slot", () => {
+      const released: string[] = [];
+      const { ws } = fakeSocket({ releaseConnectionSlot: () => void released.push("released") });
+      kumikoWebSocketHandler.close(ws, 1000, "");
+      expect(released).toEqual(["released"]);
     });
   });
 });

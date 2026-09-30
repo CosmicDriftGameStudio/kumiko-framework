@@ -10,6 +10,7 @@ import { isForeignCookieOrigin } from "./origin-middleware";
 
 const USER_KEY = "pipelineUser";
 const AUTH_TRANSPORT_KEY = "authTransport";
+const AUTH_TOKEN_EXPIRY_KEY = "authTokenExpiry";
 
 // Names used across middleware and auth-routes. Kept here so csrf-middleware
 // and auth-routes import them from a single source of truth — renaming a
@@ -370,6 +371,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     if (lifecycleReject) return lifecycleReject;
     c.set(USER_KEY, user);
     c.set(AUTH_TRANSPORT_KEY, transport);
+    if (payload.exp !== undefined) c.set(AUTH_TOKEN_EXPIRY_KEY, payload.exp);
     await next();
   };
 }
@@ -382,6 +384,12 @@ export function getUser(c: Context): SessionUser {
 export function getAuthTransport(c: Context): AuthTransport | undefined {
   // @cast-boundary engine-bridge — Hono context.get returns unknown
   return c.get(AUTH_TRANSPORT_KEY) as AuthTransport | undefined;
+}
+
+/** JWT `exp` (epoch seconds) of the request's token; undefined for anonymous and verified-bearer (PAT) callers. */
+export function getAuthTokenExpiry(c: Context): number | undefined {
+  // @cast-boundary engine-bridge — Hono context.get returns unknown
+  return c.get(AUTH_TOKEN_EXPIRY_KEY) as number | undefined;
 }
 
 // Verified-bearer request flow. `user` was already resolved by the wired
