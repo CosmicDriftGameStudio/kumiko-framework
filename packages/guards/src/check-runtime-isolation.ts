@@ -23,10 +23,11 @@
 //   5. Default                →  runtime
 //
 // Compat matrix: which runtime context may import which.
-//   runtime → runtime, client
+//   runtime → runtime, client, prod
 //   client  → client
-//   dev     → runtime, client, dev, tooling
-//   tooling → runtime, client, dev, tooling, test
+//   prod    → runtime, client, prod
+//   dev     → runtime, client, prod, dev, tooling
+//   tooling → runtime, client, prod, dev, tooling, test
 //   test    → everything
 //
 // Single-repo only (unlike infra/guards' check-runtime-isolation.ts, which

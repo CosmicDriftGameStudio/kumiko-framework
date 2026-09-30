@@ -341,3 +341,57 @@ describe("findRuntimeIsolationViolations — client bundle reaching a server mod
     expect(violations).toHaveLength(0);
   });
 });
+
+describe("findRuntimeIsolationViolations — 'prod' workspace marker", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const c of cleanups) c();
+    cleanups.length = 0;
+  });
+
+  function scan(importerRuntime: "client" | "runtime") {
+    const root = mkdtempSync(join(tmpdir(), "kumiko-runtime-isolation-prod-"));
+    cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+    mkdirSync(join(root, "packages/importer/src"), { recursive: true });
+    mkdirSync(join(root, "packages/server/src"), { recursive: true });
+    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "repo" }), "utf-8");
+    writeFileSync(
+      join(root, "packages/importer/package.json"),
+      JSON.stringify({ name: "importer", kumiko: { runtime: importerRuntime } }),
+      "utf-8",
+    );
+    writeFileSync(
+      join(root, "packages/server/package.json"),
+      JSON.stringify({ name: "server", kumiko: { runtime: "prod" } }),
+      "utf-8",
+    );
+    writeFileSync(join(root, "packages/server/src/boot.ts"), "export const boot = 1;\n", "utf-8");
+    writeFileSync(
+      join(root, "packages/importer/src/use.ts"),
+      'import { boot } from "../../server/src/boot";\nexport const x = boot;\n',
+      "utf-8",
+    );
+    const project = new Project({ skipAddingFilesFromTsConfig: true });
+    const files = [
+      project.addSourceFileAtPath(join(root, "packages/importer/src/use.ts")),
+      project.addSourceFileAtPath(join(root, "packages/server/src/boot.ts")),
+    ];
+    return { root, ...findRuntimeIsolationViolations(files, root, new Map()) };
+  }
+
+  test("the prod marker is recognized as its own runtime", () => {
+    const { root } = scan("runtime");
+    expect(classify(join(root, "packages/server/src/boot.ts"), root, new Map())).toBe("prod");
+  });
+
+  test("client -> prod is a violation", () => {
+    const { violations } = scan("client");
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.fileRuntime).toBe("client");
+    expect(violations[0]?.importedRuntime).toBe("prod");
+  });
+
+  test("runtime -> prod is not a violation", () => {
+    expect(scan("runtime").violations).toHaveLength(0);
+  });
+});

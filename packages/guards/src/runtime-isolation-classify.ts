@@ -15,22 +15,24 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import type { ImportDeclaration, SourceFile } from "ts-morph";
 
-export type Runtime = "runtime" | "client" | "dev" | "tooling" | "test";
+export type Runtime = "runtime" | "client" | "prod" | "dev" | "tooling" | "test";
 
 export const ALL_RUNTIMES: ReadonlySet<string> = new Set([
   "runtime",
   "client",
+  "prod",
   "dev",
   "tooling",
   "test",
 ]);
 
 export const COMPAT: Record<Runtime, ReadonlySet<Runtime>> = {
-  runtime: new Set(["runtime", "client"]),
+  runtime: new Set(["runtime", "client", "prod"]),
   client: new Set(["client"]),
-  dev: new Set(["runtime", "client", "dev", "tooling"]),
-  tooling: new Set(["runtime", "client", "dev", "tooling", "test"]),
-  test: new Set(["runtime", "client", "dev", "tooling", "test"]),
+  prod: new Set(["runtime", "client", "prod"]),
+  dev: new Set(["runtime", "client", "prod", "dev", "tooling"]),
+  tooling: new Set(["runtime", "client", "prod", "dev", "tooling", "test"]),
+  test: new Set(["runtime", "client", "prod", "dev", "tooling", "test"]),
 };
 
 /**
@@ -296,7 +298,14 @@ export function findRuntimeIsolationViolations(
     seenOutside.add(fp);
     outsideRoot.push(fp);
   };
-  const stats: Record<Runtime, number> = { runtime: 0, client: 0, dev: 0, tooling: 0, test: 0 };
+  const stats: Record<Runtime, number> = {
+    runtime: 0,
+    client: 0,
+    prod: 0,
+    dev: 0,
+    tooling: 0,
+    test: 0,
+  };
   const withinRoot = (fp: string) => fp === repoRoot || fp.startsWith(`${repoRoot}/`);
 
   for (const sf of sourceFiles) {
