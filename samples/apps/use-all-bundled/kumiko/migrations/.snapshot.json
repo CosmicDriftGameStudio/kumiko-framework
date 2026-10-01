@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-01T06:43:30.087Z",
+  "generatedAt": "2026-10-01T15:00:56.447Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1273,6 +1273,11 @@
           "name": "subject_id",
           "pgType": "text",
           "notNull": false
+        },
+        {
+          "name": "source_ref",
+          "pgType": "text",
+          "notNull": false
         }
       ],
       "indexes": [
@@ -1283,6 +1288,10 @@
         {
           "name": "read_ledger_schedules_tenant_id_subject_type_subject_id_idx",
           "columns": ["tenant_id", "subject_type", "subject_id"]
+        },
+        {
+          "name": "read_ledger_schedules_tenant_id_source_ref_idx",
+          "columns": ["tenant_id", "source_ref"]
         }
       ],
       "source": "managed"
