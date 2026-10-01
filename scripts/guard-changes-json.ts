@@ -35,7 +35,7 @@ function changedFiles(
   if (!env["GITHUB_BASE_SHA"] && baseRef) {
     const fetched = Bun.spawnSync(["git", "fetch", "--no-tags", "--depth=1", "origin", baseRef], {
       cwd: repoRoot,
-      env: gitEnv(),
+      env: gitEnv(process.env, { transport: true }),
     });
     if (fetched.exitCode !== 0) {
       const detail = new TextDecoder().decode(fetched.stderr).trim();
