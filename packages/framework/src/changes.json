@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.331.0",
+    "type": "fix",
+    "title": "A reference field's optionsQuery now reaches the client schema, so the picker uses the declared handler",
+    "detail": "`ReferenceFieldDef.optionsQuery` was dropped by the client-schema projection, so the picker ignored the declared handler and fell back to the entity's list handler. The projection now keeps it.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.331.0",
+    "type": "improvement",
+    "title": "Select fields in configEdit and actionForm screens and select config keys can load their options from a query (optionsQuery)",
+    "detail": "A `select` config key and a `select` field on configEdit and actionForm screens accept `optionsQuery` (a query QN returning `{ rows: { value, label }[] }`) plus an optional static `optionsQueryPayload`. The Settings-Hub derives the field from the config key, the renderer mounts the query and shows the returned labels as they are. The boot validator rejects dead QNs, static `options` together with `optionsQuery`, `allowPerRequest` keys, and `optionsQuery` on entity fields. The write side does not check the value against the query result.",
+    "migration": "No code change needed. Existing select fields and config keys keep their static options."
+  },
+  {
     "version": "0.330.2",
     "type": "fix",
     "title": "createScreen role projection without a type assertion (no behaviour change)",
