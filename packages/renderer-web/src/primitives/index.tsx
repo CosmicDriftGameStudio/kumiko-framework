@@ -1629,25 +1629,28 @@ function DefaultDataTable({
             )}
           </div>
           {metaColumns.length > 0 && (
-            <div className="min-w-0 line-clamp-2 break-words text-[13px] tabular-nums text-foreground-secondary">
-              {metaColumns.map((col, index) => (
-                <Fragment key={col.field}>
-                  {index > 0 && " "}
-                  <span className={cn(isAtomicCardValue(col) && "whitespace-nowrap")}>
-                    {index > 0 && (
-                      <span aria-hidden="true" className="mr-1">
-                        ·
-                      </span>
+            // Every item carries its "·" as a 12px ::before; the row is shifted 12px left
+            // inside an overflow-hidden box, so the separator of whichever item starts a
+            // line (first item or a wrapped one) is clipped and never shows at a line start.
+            <div className="min-w-0 max-h-10 overflow-hidden text-[13px] leading-5 tabular-nums text-foreground-secondary">
+              <div
+                data-testid={`card-meta-${row.id}`}
+                className="-ml-3 flex flex-wrap items-center"
+              >
+                {metaColumns.map((col) => (
+                  <span
+                    key={col.field}
+                    data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                    className="max-w-full truncate before:inline-block before:w-3 before:text-center before:content-['·'_/_'']"
+                  >
+                    {isBadgeColumn(col) ? (
+                      <span className="inline-flex align-middle">{cardCell(row, col)}</span>
+                    ) : (
+                      cardCell(row, col)
                     )}
-                    <span
-                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                      className={cn(isBadgeColumn(col) && "inline-flex align-middle")}
-                    >
-                      {cardCell(row, col)}
-                    </span>
                   </span>
-                </Fragment>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -2062,18 +2065,6 @@ function showsBareCheckMark(type: string, value: unknown, renderer: unknown): bo
 // Badges (select pills, component renderers) must never be clipped by the card's meta truncation.
 function isBadgeColumn(col: { readonly type: string; readonly renderer?: unknown }): boolean {
   return col.type === "select" || isComponentRendererRef(col.renderer) !== undefined;
-}
-
-const ATOMIC_CARD_VALUE_TYPES: ReadonlySet<string> = new Set([
-  "date",
-  "timestamp",
-  "number",
-  "money",
-]);
-
-// Values that read wrong when split across lines; free text wraps normally.
-function isAtomicCardValue(col: { readonly type: string; readonly renderer?: unknown }): boolean {
-  return ATOMIC_CARD_VALUE_TYPES.has(col.type) || isBadgeColumn(col);
 }
 
 // The first cell is the keyboard-reachable entry point of a clickable row; the
