@@ -129,7 +129,20 @@ function checkProjectionDetailOutputFields(
   };
   if (screen.header !== undefined) {
     checkHeaderField("title", screen.header.title);
-    if (screen.header.subtitle !== undefined) checkHeaderField("subtitle", screen.header.subtitle);
+    const subtitle = screen.header.subtitle;
+    if (typeof subtitle === "string") checkHeaderField("subtitle", subtitle);
+    else if (subtitle !== undefined) {
+      for (const part of subtitle) {
+        if (typeof part === "string") {
+          checkHeaderField("subtitle", part);
+          continue;
+        }
+        checkHeaderField("subtitle", part.field);
+        if (part.navigate?.entityId !== undefined) {
+          checkHeaderField("subtitle", part.navigate.entityId);
+        }
+      }
+    }
     if (screen.header.status !== undefined) checkHeaderField("status", screen.header.status);
   }
   if (screen.recordTitleField !== undefined) {

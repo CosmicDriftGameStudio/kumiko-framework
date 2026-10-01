@@ -373,6 +373,122 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     });
   });
 
+  describe("header.subtitle with several parts", () => {
+    const detailScreen = (
+      id: string,
+      detailFor: string,
+    ): ProjectionDetailScreenDefinition & {
+      readonly detailFor: string;
+    } => ({
+      id,
+      type: "projectionDetail",
+      query: `rentals:query:${detailFor}:detail`,
+      detailFor,
+      layout: { sections: [{ title: id, fields: ["description"] }] },
+    });
+    const linkTargets: readonly FeatureSchema[] = [
+      {
+        featureName: "rentals",
+        entities: {},
+        screens: [detailScreen("unit-detail", "unit"), detailScreen("property-detail", "property")],
+      },
+    ];
+    const subtitleParts: ProjectionDetailScreenDefinition["header"] = {
+      title: "tenantName",
+      subtitle: [
+        { field: "unitName", navigate: { entity: "unit", entityId: "unitId" } },
+        { field: "propertyName", navigate: { entity: "property", entityId: "propertyId" } },
+      ],
+    };
+
+    async function renderSubtitle(
+      data: Readonly<Record<string, unknown>>,
+      features: readonly FeatureSchema[],
+      header: ProjectionDetailScreenDefinition["header"] = subtitleParts,
+    ): Promise<unknown[]> {
+      const navigateCalls: unknown[] = [];
+      const knownEntities = ["unit", "property"];
+      const navApi: NavApi = {
+        route: undefined,
+        navigate: (target) => navigateCalls.push(target),
+        replace: () => {},
+        hrefFor: (target) => {
+          if ("screenId" in target) return `/${target.screenId}`;
+          if (!knownEntities.includes(target.entity)) throw new Error("no detail screen");
+          return `/${target.entity}/${target.id}`;
+        },
+        searchParams: {},
+        setSearchParams: () => {},
+      };
+      const partsScreen: ProjectionDetailScreenDefinition = { ...baseScreen, header };
+      render(
+        <AppFeaturesProvider features={features}>
+          <NavProvider value={navApi}>
+            <DispatcherProvider dispatcher={dispatcherReturning({ ...rowData, ...data })}>
+              <KumikoScreen
+                schema={schemaFor(partsScreen)}
+                qn="rentals:screen:rent-detail"
+                entityId="rent-1"
+              />
+            </DispatcherProvider>
+          </NavProvider>
+        </AppFeaturesProvider>,
+      );
+      await waitFor(() => screen.getByTestId("render-edit-form"));
+      return navigateCalls;
+    }
+
+    const fullData = {
+      unitName: "WE-12",
+      unitId: "unit-1",
+      propertyName: "Haus Ahornweg",
+      propertyId: "prop-1",
+    };
+
+    test("two parts link to their records with one separator between; a click navigates in-app", async () => {
+      const navigateCalls = await renderSubtitle(fullData, linkTargets);
+      const unit = screen.getByTestId("kumiko-screen-projection-detail-subtitle-unitName");
+      const property = screen.getByTestId("kumiko-screen-projection-detail-subtitle-propertyName");
+      expect(unit.tagName).toBe("A");
+      expect(unit.getAttribute("href")).toBe("/unit/unit-1");
+      expect(property.getAttribute("href")).toBe("/property/prop-1");
+      const container = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+      expect(container.textContent).toBe("WE-12 · Haus Ahornweg");
+      expect(container.querySelectorAll("[aria-hidden]")).toHaveLength(1);
+
+      await userEvent.setup().click(unit);
+      expect(navigateCalls).toEqual([{ entity: "unit", id: "unit-1" }]);
+    });
+
+    test("a part with an empty value drops out together with its separator", async () => {
+      await renderSubtitle({ ...fullData, unitName: "" }, linkTargets);
+      const container = screen.getByTestId("kumiko-screen-projection-detail-subtitle");
+      expect(container.textContent).toBe("Haus Ahornweg");
+      expect(container.querySelector("[aria-hidden]")).toBeNull();
+    });
+
+    test("an empty entityId value renders the part as text", async () => {
+      await renderSubtitle({ ...fullData, unitId: "" }, linkTargets);
+      const unit = screen.getByTestId("kumiko-screen-projection-detail-subtitle-unitName");
+      expect(unit.tagName).not.toBe("A");
+      expect(unit.textContent).toBe("WE-12");
+      expect(
+        screen.getByTestId("kumiko-screen-projection-detail-subtitle-propertyName").tagName,
+      ).toBe("A");
+    });
+
+    test("an unresolvable target renders text instead of crashing", async () => {
+      const header: ProjectionDetailScreenDefinition["header"] = {
+        title: "tenantName",
+        subtitle: [{ field: "unitName", navigate: { entity: "garage", entityId: "unitId" } }],
+      };
+      await renderSubtitle(fullData, [], header);
+      const part = screen.getByTestId("kumiko-screen-projection-detail-subtitle-unitName");
+      expect(part.tagName).not.toBe("A");
+      expect(part.textContent).toBe("WE-12");
+    });
+  });
+
   test("header.subtitleHref — an absolute http(s) URL renders the subtitle as an external link", async () => {
     const headerScreen: ProjectionDetailScreenDefinition = {
       ...baseScreen,

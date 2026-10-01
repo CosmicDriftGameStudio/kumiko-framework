@@ -84,7 +84,6 @@ export const rentalFeature = defineFeature("rental", (r) => {
       return {
         id: lease.id,
         mieter: lease.mieter,
-        standort: [lease.einheit, lease.liegenschaft].filter(Boolean).join(" · "),
         statusLabel: germanStatusLabel(lease.status),
         grundmiete: formatGermanMoney(lease.grundmiete),
         beginn: formatGermanDate(lease.beginn),

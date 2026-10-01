@@ -4,6 +4,8 @@ import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.j
 import { validateBoot as validateBootRaw } from "../boot-validator.js";
 import { defineFeature } from "../define-feature.js";
 import { definePagedQueryHandler, defineQueryHandler } from "../define-handler.js";
+import { createEntity, createTextField } from "../factories.js";
+import type { RecordHeaderSubtitlePart } from "../types/index.js";
 
 function validateBoot(features: Parameters<typeof validateBootRaw>[0]): void {
   validateBootRaw(withBootValidatorFixture(features));
@@ -336,6 +338,115 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
       expect(() => validateBoot([featureWithRecordTitleField("name", true)])).toThrow(
         /sets both header and recordTitleField/,
       );
+    });
+  });
+
+  describe("projectionDetail header.subtitle parts", () => {
+    function subtitleFeature(header: {
+      readonly title: string;
+      readonly subtitle: string | readonly RecordHeaderSubtitlePart[];
+      readonly subtitleHref?: string;
+    }) {
+      return defineFeature("app", (r) => {
+        r.entity(
+          "unit",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler("unit:detail", z.object({}), async () => ({ id: "1" }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "unit-detail",
+          type: "projectionDetail",
+          detailFor: "unit",
+          query: "app:query:unit:detail",
+          layout: { sections: [{ fields: ["id"] }] },
+        });
+        r.queryHandler(
+          "tenant:detail",
+          z.object({}),
+          async () => ({ id: "1", name: "x", unitName: "u", unitId: "2" }),
+          {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+            outputSchema: z.object({
+              id: z.string(),
+              name: z.string(),
+              unitName: z.string(),
+              unitId: z.string(),
+            }),
+          },
+        );
+        r.screen({
+          id: "tenant-detail",
+          type: "projectionDetail",
+          query: "app:query:tenant:detail",
+          layout: { sections: [{ fields: ["id"] }] },
+          header,
+        });
+      });
+    }
+
+    test("parts with known fields and a resolvable entity target boot cleanly", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: ["name", { field: "unitName", navigate: { entity: "unit", entityId: "unitId" } }],
+      });
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
+    test("a part field missing from the outputSchema throws", () => {
+      const feature = subtitleFeature({ title: "name", subtitle: [{ field: "ghost" }] });
+      expect(() => validateBoot([feature])).toThrow(
+        /header\.subtitle references field "ghost" which is not present/,
+      );
+    });
+
+    test("a part navigate.entityId missing from the outputSchema throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: [{ field: "unitName", navigate: { entity: "unit", entityId: "ghostId" } }],
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /header\.subtitle references field "ghostId" which is not present/,
+      );
+    });
+
+    test("subtitleHref together with a list throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: ["unitName"],
+        subtitleHref: "unitId",
+      });
+      expect(() => validateBoot([feature])).toThrow(/subtitleHref only works with the string form/);
+    });
+
+    test("the same field listed twice throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: [
+          "unitName",
+          { field: "unitName", navigate: { entity: "unit", entityId: "unitId" } },
+        ],
+      });
+      expect(() => validateBoot([feature])).toThrow(/lists field "unitName" twice/);
+    });
+
+    test("a tab-only navigate on a part throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: [{ field: "unitName", navigate: { tab: "overview" } }],
+      });
+      expect(() => validateBoot([feature])).toThrow(/tab-only navigate has no link target/);
+    });
+
+    test("a part navigate to an entity without a detailFor screen throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: [{ field: "unitName", navigate: { entity: "garage", entityId: "unitId" } }],
+      });
+      expect(() => validateBoot([feature])).toThrow(/has no screen declaring detailFor: "garage"/);
     });
   });
 

@@ -340,6 +340,7 @@ export type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RecordHeaderSpec,
+  RecordHeaderSubtitlePart,
   RowAction,
   RowActionNavigate,
   RowActionNavigateBase,

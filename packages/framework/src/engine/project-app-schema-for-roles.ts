@@ -92,6 +92,8 @@ import type {
   MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
+  RecordHeaderSpec,
+  RecordHeaderSubtitlePart,
   RelatedListToolbarAction,
   RowAction,
   ScreenDefinition,
@@ -584,6 +586,25 @@ function projectMetrics(
   return changed ? next : metrics;
 }
 
+function projectHeader(
+  header: RecordHeaderSpec | undefined,
+  indices: IndexedSchema,
+  keptScreenQns: ReadonlySet<string>,
+): RecordHeaderSpec | undefined {
+  const subtitle = header?.subtitle;
+  if (header === undefined || typeof subtitle === "string" || subtitle === undefined) {
+    return header;
+  }
+  let changed = false;
+  const nextParts = subtitle.map((part): RecordHeaderSubtitlePart => {
+    if (typeof part === "string" || part.navigate === undefined) return part;
+    if (keepMetricNavigate(part.navigate, indices, keptScreenQns)) return part;
+    changed = true;
+    return part.field;
+  });
+  return changed ? { ...header, subtitle: nextParts } : header;
+}
+
 function projectDashboardPanels(
   panels: readonly DashboardPanelDefinition[],
   feature: FeatureSchema,
@@ -676,13 +697,15 @@ function projectProjectionDetailScreen(
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): ScreenDefinition {
-  const { metrics, actions, layout, listScreenId, ...rest } = screen;
+  const { metrics, header, actions, layout, listScreenId, ...rest } = screen;
   const nextMetrics = projectMetrics(metrics, indices, keptScreenQns);
+  const nextHeader = projectHeader(header, indices, keptScreenQns);
   const nextActions = projectRowActionArray(actions, feature, indices, keptScreenQns);
   const nextLayout = projectEditLayout(layout, feature, indices, keptScreenQns);
   const nextListScreenId = projectListScreenId(listScreenId, indices, keptScreenQns);
   const unchanged =
     nextMetrics === metrics &&
+    nextHeader === header &&
     nextActions === actions &&
     nextLayout === layout &&
     nextListScreenId === listScreenId;
@@ -690,6 +713,7 @@ function projectProjectionDetailScreen(
   return {
     ...rest,
     layout: nextLayout,
+    ...(nextHeader !== undefined && { header: nextHeader }),
     ...(nextMetrics !== undefined && { metrics: nextMetrics }),
     ...(nextActions !== undefined && { actions: nextActions }),
     ...(nextListScreenId !== undefined && { listScreenId: nextListScreenId }),

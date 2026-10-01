@@ -11,6 +11,7 @@ import type {
   MetricSpec,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
+  RecordHeaderSubtitlePart,
   RowAction,
   RowActionDrawer,
   RowActionNavigate,
@@ -39,7 +40,7 @@ import {
 } from "@cosmicdrift/kumiko-headless";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog.js";
 import {
   RenderEdit,
@@ -2774,6 +2775,64 @@ function isAbsoluteHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value) && isSafeHref(value);
 }
 
+type SubtitlePartView = {
+  readonly field: string;
+  readonly text: string;
+  readonly href?: string;
+  readonly onPress?: () => void;
+};
+
+// hrefFor throws for an entity without a detailFor screen; outside
+// createKumikoApp the feature list is empty, so navigateTargetAllows can't
+// rule that out beforehand. The NavApi owns target resolution, so asking it
+// and falling back to plain text covers both cases.
+function hrefForNavigate(
+  nav: NavApi,
+  navigate: MetricNavigate,
+  record: Readonly<Record<string, unknown>>,
+): string | undefined {
+  const entityId =
+    navigate.entityId !== undefined ? String(record[navigate.entityId] ?? "") : undefined;
+  try {
+    if (navigate.entity !== undefined) {
+      return entityId === undefined || entityId === ""
+        ? undefined
+        : nav.hrefFor({ entity: navigate.entity, id: entityId });
+    }
+    if (navigate.screen !== undefined) {
+      return nav.hrefFor({
+        screenId: navigate.screen,
+        ...(entityId !== undefined && entityId !== "" && { entityId }),
+      });
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function buildSubtitleParts(
+  parts: readonly RecordHeaderSubtitlePart[],
+  record: Readonly<Record<string, unknown>>,
+  nav: NavApi,
+  appFeatures: readonly FeatureSchema[],
+  userRoles: readonly string[] | undefined,
+  host: ReturnHost | undefined,
+): SubtitlePartView[] {
+  return parts.flatMap((part): SubtitlePartView[] => {
+    const field = typeof part === "string" ? part : part.field;
+    const text = String(record[field] ?? "");
+    if (text === "") return [];
+    const navigate = typeof part === "string" ? undefined : part.navigate;
+    if (navigate === undefined || !navigateTargetAllows(navigate, appFeatures, userRoles)) {
+      return [{ field, text }];
+    }
+    const href = hrefForNavigate(nav, navigate, record);
+    if (href === undefined) return [{ field, text }];
+    return [{ field, text, href, onPress: () => runMetricNavigate(nav, navigate, record, host) }];
+  });
+}
+
 function headerStatusTone(
   header: NonNullable<ProjectionDetailScreenDefinition["header"]>,
   record: Readonly<Record<string, unknown>>,
@@ -3248,8 +3307,40 @@ function ProjectionDetailBody({
         </Text>
       )
     ) : undefined;
+  const subtitleParts =
+    header !== undefined && typeof header.subtitle === "object"
+      ? buildSubtitleParts(header.subtitle, record, nav, appFeatures, userRoles, host)
+      : undefined;
   const headerSubtitleSlot =
-    header?.subtitle !== undefined ? (
+    subtitleParts !== undefined ? (
+      subtitleParts.length > 0 ? (
+        <Text testId="kumiko-screen-projection-detail-subtitle">
+          {subtitleParts.map((part, index) => (
+            <Fragment key={part.field}>
+              {index > 0 && (
+                <Text variant="muted" decorative>
+                  {" · "}
+                </Text>
+              )}
+              {part.href !== undefined ? (
+                <Link
+                  href={part.href}
+                  {...(part.onPress !== undefined && { onPress: part.onPress })}
+                  className="underline"
+                  testId={`kumiko-screen-projection-detail-subtitle-${part.field}`}
+                >
+                  {part.text}
+                </Link>
+              ) : (
+                <Text testId={`kumiko-screen-projection-detail-subtitle-${part.field}`}>
+                  {part.text}
+                </Text>
+              )}
+            </Fragment>
+          ))}
+        </Text>
+      ) : undefined
+    ) : typeof header?.subtitle === "string" ? (
       subtitleHref !== undefined ? (
         <Link href={subtitleHref} target="_blank" testId="kumiko-screen-projection-detail-subtitle">
           {String(record[header.subtitle] ?? "")}

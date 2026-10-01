@@ -1526,6 +1526,52 @@ export function validateScreens(
           }
         }
       }
+      if (Array.isArray(screen.header?.subtitle)) {
+        if (screen.header.subtitleHref !== undefined) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sets header.subtitleHref ` +
+              `together with a multi-part header.subtitle — subtitleHref only works with the string form.`,
+          );
+        }
+        const seenPartFields = new Set<string>();
+        for (const part of screen.header.subtitle) {
+          const partField = typeof part === "string" ? part : part.field;
+          if (seenPartFields.has(partField)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) header.subtitle ` +
+                `lists field "${partField}" twice.`,
+            );
+          }
+          seenPartFields.add(partField);
+          const navigate = typeof part === "string" ? undefined : part.navigate;
+          if (navigate === undefined) continue;
+          if (navigate.screen === undefined && navigate.entity === undefined) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) header.subtitle part ` +
+                `"${partField}" navigates with neither "screen" nor "entity" — a tab-only navigate has no link target.`,
+            );
+          }
+          resolveRowActionNavigateTarget(
+            feature.name,
+            screenId,
+            "projectionDetail",
+            "subtitle part",
+            {
+              kind: "navigate",
+              id: partField,
+              label: partField,
+              ...(navigate.screen !== undefined ? { screen: navigate.screen } : {}),
+              ...(navigate.entity !== undefined ? { entity: navigate.entity } : {}),
+              ...(navigate.entityId !== undefined ? { entityId: navigate.entityId } : {}),
+              ...(navigate.tab !== undefined ? { tab: navigate.tab } : {}),
+            },
+            allScreenQns,
+            navTargetShortIds,
+            screensByShortId,
+            detailForScreens,
+          );
+        }
+      }
       for (const section of screen.layout.sections) {
         const sectionLabel = section.title ?? section.id ?? "(untitled)";
         if (section.actions !== undefined) {
