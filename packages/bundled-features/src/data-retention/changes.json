@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.330.1",
+    "type": "fix",
+    "title": "blockDelete entities without anonymize fields no longer log skips or boot warnings"
+  },
+  {
     "version": "0.315.0",
     "type": "breaking",
     "title": "forget/policy-for now honor the tenant retention preset",

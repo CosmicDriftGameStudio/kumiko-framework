@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.330.1
+
+### Patch Changes
+
+- d064b0d: Boolean fields in flow forms use the new FieldCellWidth "toggle", which replaces "auto"
+
+  In flow forms (screen forms and drawers) a boolean field's label now shares the top line with its neighbours' labels and the switch sits on the input line. The `FieldCellWidth` union loses `"auto"` and gains `"toggle"`; the default web Grid maps it to a fixed minimum width.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Boolean fields in flow forms use FieldCellWidth "toggle" instead of "auto"
+  migration: |
+    Custom Grid/GridCell primitives keyed by FieldCellWidth: rename `auto` to `toggle`.
+  -->
+
+- 39c2fbd: projectionDetail tab panels get page padding, recordTitleField on projectionDetail
+
+  Tab panels on a projectionDetail with `layout.mode: "tabs"` now pad their content like the rest of the page: extension, field-section, groups and writeForm tabs render as an unframed padded panel with space below the tab strip. relatedList tabs stay flush. This fixes extension tabs sitting flush against the shell edge since 0.330.0. `CardOptions.framed` (default true) drops the card frame and keeps the padding. A projectionDetail without `header` can set `recordTitleField`: the query output field then titles the page header (breadcrumb "list > record"). The boot check requires the field to be in the query's outputSchema and rejects it next to `header`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail tab panels get page padding, recordTitleField on projectionDetail
+  migration: |
+    Extension tab panels get their padding back, so extension components that added their own padding to make up for the flush panel in 0.330.0 should drop it. Set `recordTitleField: "<field>"` on a projectionDetail without `header` to show the record name in the breadcrumb.
+  -->
+
+- Updated dependencies [63a63d6]
+- Updated dependencies [39c2fbd]
+- Updated dependencies [03ad4bc]
+  - @cosmicdrift/kumiko-framework@0.330.1
+  - @cosmicdrift/kumiko-types@0.330.1
+  - @cosmicdrift/kumiko-headless@0.330.1
+
 ## 0.330.0
 
 ### Minor Changes

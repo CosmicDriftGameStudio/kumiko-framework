@@ -10,6 +10,16 @@ verified: 2026-10-01
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.330.1
+
+### enterprise:renderer
+
+**Boolean fields in flow forms use FieldCellWidth "toggle" instead of "auto"**
+
+In flow forms (screen forms and drawers) a boolean field's label now shares the top line with its neighbours' labels and the switch sits on the input line. The `FieldCellWidth` union loses `"auto"` and gains `"toggle"`; the default web Grid maps it to a fixed minimum width.
+
+**Migration:** Custom Grid/GridCell primitives keyed by FieldCellWidth: rename `auto` to `toggle`.
+
 ## 0.330.0
 
 ### admin-shell

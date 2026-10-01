@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.330.1",
+    "type": "breaking",
+    "title": "Boolean fields in flow forms use FieldCellWidth \"toggle\" instead of \"auto\"",
+    "detail": "In flow forms (screen forms and drawers) a boolean field's label now shares the top line with its neighbours' labels and the switch sits on the input line. The `FieldCellWidth` union loses `\"auto\"` and gains `\"toggle\"`; the default web Grid maps it to a fixed minimum width.",
+    "migration": "Custom Grid/GridCell primitives keyed by FieldCellWidth: rename `auto` to `toggle`."
+  },
+  {
+    "version": "0.330.1",
+    "type": "improvement",
+    "title": "projectionDetail tab panels get page padding, recordTitleField on projectionDetail",
+    "detail": "Tab panels on a projectionDetail with `layout.mode: \"tabs\"` now pad their content like the rest of the page: extension, field-section, groups and writeForm tabs render as an unframed padded panel with space below the tab strip. relatedList tabs stay flush. This fixes extension tabs sitting flush against the shell edge since 0.330.0. `CardOptions.framed` (default true) drops the card frame and keeps the padding. A projectionDetail without `header` can set `recordTitleField`: the query output field then titles the page header (breadcrumb \"list > record\"). The boot check requires the field to be in the query's outputSchema and rejects it next to `header`.",
+    "migration": "Extension tab panels get their padding back, so extension components that added their own padding to make up for the flush panel in 0.330.0 should drop it. Set `recordTitleField: \"<field>\"` on a projectionDetail without `header` to show the record name in the breadcrumb."
+  },
+  {
     "version": "0.330.0",
     "type": "fix",
     "title": "entityEdit screens show the server's reason when a delete is rejected",
