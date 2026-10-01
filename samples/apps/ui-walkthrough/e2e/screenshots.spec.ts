@@ -5,7 +5,7 @@
 
 import { resolve } from "node:path";
 import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { expect, type Page, test } from "@playwright/test";
+import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const DESKTOP = { width: 1440, height: 900 } as const;
@@ -14,6 +14,19 @@ const LIST_TABLE = '[data-testid="render-list-table"]';
 const EDIT_FORM = '[data-testid="render-edit-form"]';
 
 test.use({ locale: "de-DE", viewport: DESKTOP });
+
+// The login handler allows 20 attempts per IP and minute; one login per worker
+// keeps the whole e2e run (all specs share the IP) under that limit.
+let sessionCookies: Awaited<ReturnType<BrowserContext["cookies"]>> | undefined;
+
+async function login(page: Page): Promise<void> {
+  if (sessionCookies !== undefined) {
+    await page.context().addCookies(sessionCookies);
+    return;
+  }
+  await loginAsAdmin(page);
+  sessionCookies = await page.context().cookies();
+}
 
 async function shot(page: Page, name: string): Promise<void> {
   await page.evaluate(() => document.fonts.ready);
@@ -24,7 +37,7 @@ async function shot(page: Page, name: string): Promise<void> {
 }
 
 async function openLeaseList(page: Page): Promise<void> {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/lease-list");
   await page.locator(LIST_TABLE).waitFor();
 }
@@ -55,7 +68,7 @@ test("drawer-light", async ({ page }) => {
 });
 
 test("formular-light", async ({ page }) => {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByText("Octavia").first().click();
@@ -70,7 +83,7 @@ test("formular-light", async ({ page }) => {
 });
 
 test("wizard-light", async ({ page }) => {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByRole("button", { name: "Weitere Aktionen" }).first().click();
@@ -87,7 +100,7 @@ const LEASE_HUB_URL = "/lease-hub/00000000-0000-4000-8000-000000003103";
 const INTER_FONT = resolve(import.meta.dirname, "../../styleguide/public/fonts/inter-var.woff2");
 
 async function openVehicleForm(page: Page): Promise<void> {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await page.getByText("Octavia").first().click();
@@ -95,13 +108,13 @@ async function openVehicleForm(page: Page): Promise<void> {
 }
 
 async function openLeaseHub(page: Page): Promise<void> {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto(LEASE_HUB_URL);
   await expect(page.getByTestId("lease-hub-header")).toBeVisible();
 }
 
 async function openDashboard(page: Page): Promise<void> {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/rental-dashboard");
   await expect(page.getByText("Restschuld heute")).toBeVisible();
 }
@@ -113,7 +126,7 @@ test("formular-zahlen-light", async ({ page }) => {
 });
 
 test("liste-boolean-light", async ({ page }) => {
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/vehicle-list");
   await page.locator(LIST_TABLE).waitFor();
   await shot(page, "liste-boolean-light");
@@ -137,7 +150,7 @@ test("sidebar-overflow-light", async ({ page }) => {
 
 test("inter-hyphen-light", async ({ page }) => {
   await page.route("**/__inter.woff2", (route) => route.fulfill({ path: INTER_FONT }));
-  await loginAsAdmin(page);
+  await login(page);
   await page.goto("/campaign-list");
   await page.getByText("Herbst - Gebrauchtwagen").waitFor();
   await page.addStyleTag({
@@ -152,14 +165,14 @@ test.describe("mobile", () => {
   test.use({ viewport: MOBILE });
 
   test("mobile-light", async ({ page }) => {
-    await loginAsAdmin(page);
+    await login(page);
     await page.goto("/campaign-list");
     await page.getByText("Škoda Octavia (2021)").waitFor();
     await shot(page, "mobile-light");
   });
 
   test("mobile-nav-light", async ({ page }) => {
-    await loginAsAdmin(page);
+    await login(page);
     await page.goto("/campaign-list");
     await page.getByText("Škoda Octavia (2021)").waitFor();
     await page
