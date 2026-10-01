@@ -132,6 +132,15 @@ function checkProjectionDetailOutputFields(
     if (screen.header.subtitle !== undefined) checkHeaderField("subtitle", screen.header.subtitle);
     if (screen.header.status !== undefined) checkHeaderField("status", screen.header.status);
   }
+  if (screen.recordTitleField !== undefined) {
+    const field = screen.recordTitleField;
+    checkFieldExists(
+      recordShape,
+      field,
+      () =>
+        `${prefix} recordTitleField references field "${field}" which is not present in query "${screen.query}"'s outputSchema.`,
+    );
+  }
   for (const metric of screen.metrics ?? []) {
     const field = metricField(metric);
     checkFieldExists(

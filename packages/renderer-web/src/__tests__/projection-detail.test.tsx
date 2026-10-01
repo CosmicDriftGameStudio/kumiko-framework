@@ -682,7 +682,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(within(screen.getByTestId("section-extension-Notes")).queryByText("Notes")).toBeNull();
   });
 
-  test("layout.mode: 'tabs' — the active extension tab renders unframed like relatedList tabs", async () => {
+  test("layout.mode: 'tabs' — the active extension tab renders in an unframed padded panel", async () => {
     const tabsExtensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -733,8 +733,13 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
       </NavProvider>,
     );
     await waitFor(() => screen.getByTestId("session-notes"));
-    // No card chrome around the extension tab (relatedList tabs are unframed too).
-    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
+    // The extension content sits in a padded panel without card chrome.
+    const panel = screen.getByTestId("session-notes").closest('[data-slot="card"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.className).not.toContain("bg-card");
+    expect(panel?.className).not.toContain("shadow");
+    expect(panel?.innerHTML).toContain("p-[var(--card-padding)]");
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
     // The tab strip already labels the panel (only one "Notes" on screen).
     expect(screen.getAllByText("Notes")).toHaveLength(1);
   });
@@ -1458,6 +1463,91 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     const slotCard = slot.closest('[data-slot="card"]');
     expect(slotCard).not.toBeNull();
     expect(actionButton.closest('[data-slot="card"]')).toBe(slotCard);
+  });
+
+  test("layout.mode: 'tabs' — a fields tab renders as a padded panel without card frame", async () => {
+    const tabsFieldsSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [
+        {
+          ...detailScreen,
+          layout: {
+            mode: "tabs",
+            sections: [{ id: "overview", title: "Session", fields: ["userId"] }],
+          },
+        },
+      ],
+    };
+    const { container } = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={tabsFieldsSchema}
+          qn="sessions:screen:session-detail"
+          entityId="sess-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("field-userId"));
+    const panel = screen.getByTestId("field-userId").closest('[data-slot="card"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.className).not.toContain("bg-card");
+    expect(panel?.innerHTML).toContain("p-[var(--card-padding)]");
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
+  });
+
+  describe("recordTitleField", () => {
+    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
+
+    async function shellHeaderText(recordTitleField: string | undefined): Promise<string> {
+      const titledSchema: FeatureSchema = {
+        featureName: "sessions",
+        entities: {},
+        screens: [
+          {
+            ...detailScreen,
+            layout: { mode: "tabs", sections: detailScreen.layout.sections },
+            slots: { header: { react: { __component: "HubHeader" } } },
+            ...(recordTitleField !== undefined && { recordTitleField }),
+          },
+        ],
+      };
+      renderWithSidebar(
+        <NavProvider
+          value={{
+            route: { screenId: "session-detail", entityId: "sess-1" },
+            navigate: () => {},
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <DispatcherProvider dispatcher={dispatcher}>
+            <ExtensionSectionsProvider value={{ HubHeader }}>
+              <PageHeaderSlotProvider>
+                <ShellHeader schema={{ features: [titledSchema] }} />
+                <KumikoScreen
+                  schema={titledSchema}
+                  qn="sessions:screen:session-detail"
+                  entityId="sess-1"
+                />
+              </PageHeaderSlotProvider>
+            </ExtensionSectionsProvider>
+          </DispatcherProvider>
+        </NavProvider>,
+      );
+      await waitFor(() => screen.getByTestId("hub-header"));
+      return document.querySelector("[data-kumiko-layout='shell-header']")?.textContent ?? "";
+    }
+
+    test("the record's field value joins the header breadcrumb", async () => {
+      expect(await shellHeaderText("userId")).toContain("user-42");
+    });
+
+    test("without recordTitleField the breadcrumb carries no record value", async () => {
+      expect(await shellHeaderText(undefined)).not.toContain("user-42");
+    });
   });
 
   describe("slots.header inside the shell page-header slot", () => {

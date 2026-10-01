@@ -304,6 +304,41 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
     );
   });
 
+  describe("projectionDetail recordTitleField", () => {
+    function featureWithRecordTitleField(recordTitleField: string, withHeader = false) {
+      return defineFeature("app", (r) => {
+        r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          outputSchema: z.object({ id: z.string(), name: z.string() }),
+        });
+        r.screen({
+          id: "tenant-detail",
+          type: "projectionDetail",
+          query: "app:query:tenant:detail",
+          layout: { sections: [{ fields: ["id"] }] },
+          recordTitleField,
+          ...(withHeader && { header: { title: "name" } }),
+        });
+      });
+    }
+
+    test("an unknown field throws", () => {
+      expect(() => validateBoot([featureWithRecordTitleField("ghost")])).toThrow(
+        /recordTitleField references field "ghost" which is not present in query "app:query:tenant:detail"'s outputSchema/,
+      );
+    });
+
+    test("a field of the outputSchema passes", () => {
+      expect(() => validateBoot([featureWithRecordTitleField("name")])).not.toThrow();
+    });
+
+    test("combined with header throws", () => {
+      expect(() => validateBoot([featureWithRecordTitleField("name", true)])).toThrow(
+        /sets both header and recordTitleField/,
+      );
+    });
+  });
+
   test("projectionDetail header.status referencing an unknown field throws", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {

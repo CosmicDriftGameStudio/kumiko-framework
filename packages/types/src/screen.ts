@@ -680,6 +680,8 @@ export type ProjectionDetailScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   readonly query: string;
+  /** Query output field whose value names the record in the header breadcrumb. */
+  readonly recordTitleField?: string;
   /** Query-payload key for the row-id. Default "id". */
   readonly idParam?: string;
   /** The server determines the shown row from the caller's session/context

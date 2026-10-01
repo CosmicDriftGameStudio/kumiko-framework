@@ -40,6 +40,7 @@ import {
   RenderEdit,
   type RenderEditAction,
   type RenderEditControls,
+  resolveRecordTitle,
 } from "../components/render-edit.js";
 import {
   needsActionConfirm,
@@ -3208,12 +3209,17 @@ function ProjectionDetailBody({
       {actionError}
     </Banner>
   );
+  const recordTitle =
+    screen.recordTitleField !== undefined
+      ? resolveRecordTitle(record[screen.recordTitleField])
+      : undefined;
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (
     <>
       {usesPageHeaderSlot ? (
         <>
           <PageHeader
             {...(header !== undefined && { title: String(record[header.title] ?? "") })}
+            {...(recordTitle !== undefined && { recordTitle })}
             {...(header?.status !== undefined &&
               StatusBadge !== undefined && {
                 status: (

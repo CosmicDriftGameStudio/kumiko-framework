@@ -1980,6 +1980,20 @@ describe("Card", () => {
     expect(screen.getByTestId("c").innerHTML).toContain("p-[var(--card-padding)]");
   });
 
+  test("framed=false drops the surface chrome but keeps padding and header", () => {
+    render(
+      <Card testId="c" options={{ framed: false }} slots={{ title: "Title" }}>
+        <span>body</span>
+      </Card>,
+    );
+    const className = screen.getByTestId("c").className;
+    for (const chrome of ["border", "bg-card", "shadow", "rounded"]) {
+      expect(className).not.toContain(chrome);
+    }
+    expect(screen.getByText("Title")).toBeDefined();
+    expect(screen.getByTestId("c").innerHTML).toContain("pb-[var(--card-padding)]");
+  });
+
   test("padded=false renders body without padding classes", () => {
     render(
       <Card testId="c" options={{ padded: false }}>

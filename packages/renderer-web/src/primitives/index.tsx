@@ -3648,7 +3648,9 @@ const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   timestamp: "w-full sm:w-[328px]",
   select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",
   full: "w-full",
-  auto: "w-auto",
+  // self-start: the label shares the top line with neighbouring labels. The
+  // switch (1.15rem) gets (h-9 input − switch) / 2 margin to sit on the input line.
+  toggle: "w-auto min-w-40 shrink-0 self-start [&_[data-slot=switch]]:my-[0.55rem]",
 };
 
 function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): ReactNode {
@@ -3887,6 +3889,7 @@ export function DefaultCard({
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
   const fillHeight = options?.fillHeight ?? false;
+  const framed = options?.framed ?? true;
   const s = slots ?? {};
   const defaultHeader =
     s.title !== undefined ||
@@ -3925,7 +3928,7 @@ export function DefaultCard({
       {...dataAttributes}
       data-testid={testId}
       className={cn(
-        cardSurface({ radius }),
+        framed ? cardSurface({ radius }) : "flex flex-col",
         "overflow-hidden",
         // Same "no flex-1" reasoning as DefaultForm's own fillHeight card
         // (fw#2722/#2778): sizes to content and only shrinks (min-h-0) once
