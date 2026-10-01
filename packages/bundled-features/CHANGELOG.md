@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.330.1
+
+### Patch Changes
+
+- 03ad4bc: Entities with `retention.strategy: "blockDelete"` and no anonymize fields no longer produce a `missing_anonymize_fields` skip in every retention cron run, and the boot warning about the EXT_USER_DATA delete hook for subjectRef-only entities is gone (hook existence is enforced when user-data-rights is mounted; no-op hooks are not detected at boot, with or without the old warning). `strategy: "anonymize"` without anonymize fields is still reported.
+
+  <!-- kumiko-changes
+  feature: data-retention
+  type: fix
+  title: blockDelete entities without anonymize fields no longer log skips or boot warnings
+  -->
+
+- Updated dependencies [d064b0d]
+- Updated dependencies [5bc2a13]
+- Updated dependencies [63a63d6]
+- Updated dependencies [39c2fbd]
+- Updated dependencies [03ad4bc]
+  - @cosmicdrift/kumiko-renderer@0.330.1
+  - @cosmicdrift/kumiko-renderer-web@0.330.1
+  - @cosmicdrift/kumiko-framework@0.330.1
+  - @cosmicdrift/kumiko-types@0.330.1
+  - @cosmicdrift/kumiko-headless@0.330.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.330.1
+
 ## 0.330.0
 
 ### Minor Changes

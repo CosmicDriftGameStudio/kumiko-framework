@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.330.1
+
+### Patch Changes
+
+- 63a63d6: NumberInput selects its value on focus, createScreen counts as nav parent, NumberField passes grouping, mobile card subtitles name boolean columns
+
+  Focusing a prefilled `NumberInput` swapped the grouped display ("10.000") for the raw value and left the cursor at the end, so typing or Playwright's `fill("100")` appended ("10000100"). The raw value is now selected on focus, like `MoneyInput`; a click therefore no longer places the caret. A screen reached only through an entityList's `createScreen` now resolves that list as its parent, so the nav-area boot check passes without `listScreenId` and the breadcrumb shows the list. `NumberField` forwards `grouping` to the number input. In the mobile card layout a true boolean column shows its column label in the subtitle line instead of a bare check mark; false and blank values (including whitespace) are left out together with their separator; a boolean column with its own `trueLabel` keeps it. Role-projected schemas drop an entityList's `createScreen` when the target screen is not granted. `StatCard` labels wrap to two lines (full text in the tooltip) instead of truncating, and the sidebar footer gets a top border. Correction to the 0.328.0 `rowActionMode` note: with `onRowClick` the first cell renders as a keyboard-operable `button`, not a link; tests should query it by role `button`.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: NumberInput selects on focus, createScreen counts as nav parent, mobile card subtitles name boolean columns
+  migration: |
+    None. Tests that read a bare check mark from a mobile card subtitle now find the column label.
+  -->
+
+- 39c2fbd: projectionDetail tab panels get page padding, recordTitleField on projectionDetail
+
+  Tab panels on a projectionDetail with `layout.mode: "tabs"` now pad their content like the rest of the page: extension, field-section, groups and writeForm tabs render as an unframed padded panel with space below the tab strip. relatedList tabs stay flush. This fixes extension tabs sitting flush against the shell edge since 0.330.0. `CardOptions.framed` (default true) drops the card frame and keeps the padding. A projectionDetail without `header` can set `recordTitleField`: the query output field then titles the page header (breadcrumb "list > record"). The boot check requires the field to be in the query's outputSchema and rejects it next to `header`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail tab panels get page padding, recordTitleField on projectionDetail
+  migration: |
+    Extension tab panels get their padding back, so extension components that added their own padding to make up for the flush panel in 0.330.0 should drop it. Set `recordTitleField: "<field>"` on a projectionDetail without `header` to show the record name in the breadcrumb.
+  -->
+
+- 03ad4bc: Entities with `retention.strategy: "blockDelete"` and no anonymize fields no longer produce a `missing_anonymize_fields` skip in every retention cron run, and the boot warning about the EXT_USER_DATA delete hook for subjectRef-only entities is gone (hook existence is enforced when user-data-rights is mounted; no-op hooks are not detected at boot, with or without the old warning). `strategy: "anonymize"` without anonymize fields is still reported.
+
+  <!-- kumiko-changes
+  feature: data-retention
+  type: fix
+  title: blockDelete entities without anonymize fields no longer log skips or boot warnings
+  -->
+
+- Updated dependencies [39c2fbd]
+  - @cosmicdrift/kumiko-types@0.330.1
+  - @cosmicdrift/kumiko-http@0.330.1
+
 ## 0.330.0
 
 ### Minor Changes
