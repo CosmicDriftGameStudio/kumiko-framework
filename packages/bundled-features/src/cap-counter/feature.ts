@@ -18,10 +18,10 @@
 //      Cap-Profile.
 //
 // **Calendar vs. Rolling — wann welches:**
-//   - **Calendar-Period** (incrementCap + enforceCap): Cap resettet
+//   - **Calendar-Period** (bookCapUsage + enforceCap): Cap resettet
 //     sich am Period-Start (1. des Monats etc.). Counter ist 1 Row in
 //     der projection. Schneller Read.
-//   - **Rolling-Window** (incrementRollingCap + enforceRollingCap):
+//   - **Rolling-Window** (CapCounterHandlers.incrementRolling + enforceRollingCap):
 //     Cap rollt kontinuierlich (z.B. "letzten 7 Tage"). Werte
 //     verfallen Event-für-Event ohne Reset. Kein projection — Read
 //     summiert über die letzten N Tage Events.
@@ -30,8 +30,8 @@
 //   - **Kein Foundation-Wiring.** mail-foundation / file-foundation /
 //     ai-foundation sind heute BYOK-default und haben keinen Plattform-
 //     Pool zum Zählen. Cap-Counter ist generic — wenn ein App-Owner
-//     den Counter nutzen will, ruft er `incrementCap(...)` /
-//     `incrementRollingCap(...)` aus seinem eigenen Handler auf.
+//     den Counter nutzen will, ruft er `bookCapUsage(...)` /
+//     `ctx.write(CapCounterHandlers.incrementRolling, ...)` aus seinem eigenen Handler auf.
 //   - **Kein Reset-Cron für Calendar-Period.** Funktioniert ohne —
 //     der periodStartIso-Bestandteil der aggregate-id rollt am
 //     Period-Tick natürlich auf einen frischen Counter. Alte Rows
