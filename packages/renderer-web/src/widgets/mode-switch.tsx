@@ -7,6 +7,7 @@ export function ModeSwitch<T extends string>({
   value,
   options,
   onChange,
+  ariaLabel,
   testId,
 }: {
   readonly value: T;
@@ -17,6 +18,7 @@ export function ModeSwitch<T extends string>({
     readonly count?: number;
   }[];
   readonly onChange: (value: T) => void;
+  readonly ariaLabel?: string;
   readonly testId?: string;
 }): ReactNode {
   return (
@@ -24,6 +26,7 @@ export function ModeSwitch<T extends string>({
     <div
       data-testid={testId}
       role="group"
+      aria-label={ariaLabel}
       className="flex h-8 overflow-hidden rounded-md border border-input bg-background"
     >
       {options.map((o) => {

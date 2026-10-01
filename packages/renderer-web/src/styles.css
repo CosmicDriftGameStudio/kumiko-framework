@@ -131,6 +131,8 @@
   --color-status-critical-surface: #4a1a16;
   --color-status-neutral: #c2c0b9;
   --color-status-neutral-surface: #2a2926;
+  --color-status-active: #7fb3c9;
+  --color-status-active-surface: #14303c;
 
   /* JSON-Syntax-Highlighting (JsonView). Eigene, gedämpfte Palette statt der
      Status-Ampel — ein `false` oder eine Zahl ist kein Fehler-/Warn-Signal.
@@ -351,6 +353,8 @@
     --color-status-critical-surface: #f4d3ce;
     --color-status-neutral: #474b50;
     --color-status-neutral-surface: #f0eee8;
+    --color-status-active: #205265;
+    --color-status-active-surface: #e1edf2;
 
     /* JSON-Syntax-Highlighting Light — dunkler/gesättigter, Kontrast gegen
        bg-muted geprüft (>=6:1). */

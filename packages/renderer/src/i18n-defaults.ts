@@ -96,7 +96,15 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.combobox.loading": "Loading…",
     "kumiko.combobox.placeholder": "—",
 
+    "kumiko.dashboard.chart.forecast": "Forecast",
+    "kumiko.dashboard.chart.markers": "Events",
     "kumiko.dashboard.filter.all": "All",
+    "kumiko.dashboard.panel.error.isolated": "The other panels are not affected.",
+    "kumiko.dashboard.panel.error.retry": "Try again",
+    "kumiko.dashboard.panel.error.title": "{label} could not be loaded",
+    "kumiko.dashboard.time-range": "Time range",
+    "kumiko.dashboard.today": "Today",
+    "kumiko.dashboard.updated-at": "As of {time}",
 
     "kumiko.app-boot.loading": "Loading…",
     "kumiko.app-boot.unauthorized": "You need to sign in to see this.",

@@ -150,7 +150,16 @@ export type ListColumnSpec =
        *  `md` breakpoint (tables keep it). For columns that only make sense
        *  next to the others, like a sort key. */
       readonly hideOnNarrow?: boolean;
+      /** Dashboard list panels only. "bar": field holds a 0..1 fraction, drawn
+       *  as bar + percent. "badge": field holds a label, drawn as a pill whose
+       *  tone comes from `badgeToneField`. Other list renderers ignore it. */
+      readonly display?: ListColumnDisplay;
+      /** Row field naming the badge tone; only with `display: "badge"`. */
+      readonly badgeToneField?: string;
     };
+
+export type ListColumnDisplay = "bar" | "badge";
+export type ListBadgeTone = "positive" | "warn" | "negative" | "neutral";
 
 // Pagination-Modi für entityList:
 //   - "pages":     klassischer Pager (← 1 2 ... N →) — bookmarkable
@@ -718,27 +727,53 @@ export type ProjectionDetailScreenDefinition = {
 // Deklaratives Panel-Grid — Kennzahlen, Verläufe und Kurzlisten ohne
 // Custom-JSX. Jedes Panel zieht seine Daten aus einer eigenen Query
 // (fully-qualified QN, cross-feature erlaubt wie projectionList).
-// Formatierung ist Sache des Query-Handlers: Stat-Werte kommen als
-// anzeigefertige Strings/Zahlen aus der Read-Projection (ES-Read-Models
-// shapen ihre Daten selbst; der Renderer formatiert nicht nach).
+// Formatierung ist Sache des Query-Handlers: String-Werte kommen anzeigefertig
+// aus der Read-Projection; Zahlen formatiert der Renderer mit der User-Locale.
+
+// Shared by every panel that runs a query.
+export type DashboardPanelQueryOptions = {
+  /** Static, author-set query parameters merged on top of the screen's
+   *  dynamic filterParams — lets a panel pin a value (e.g. a status facet)
+   *  the screen-wide filter doesn't cover, without needing its own query.
+   *  The panel wins over the screen filter and the time range. */
+  readonly params?: Readonly<Record<string, unknown>>;
+  /** The screen `filter` value is NOT merged into this panel's query (a tenant
+   *  picker must not hit sources without a tenant column). The screen
+   *  `timeRange` still is. */
+  readonly ignoreScreenFilter?: boolean;
+};
+
+// Grid width of chart/list/feed/progress-list panels. Default: charts and lists
+// span the full row, feed and progress-list half of it.
+export type DashboardPanelSpan = "half" | "full";
+
+// Empty state of chart/list/feed/progress-list panels (i18n keys).
+export type DashboardPanelEmptyState = {
+  readonly span?: DashboardPanelSpan;
+  readonly emptyLabel?: string;
+  /** Second line under `emptyLabel`. */
+  readonly emptyHint?: string;
+};
 
 // Query-Result-Contract: flaches Record; `valueField` zeigt auf den
-// anzeigefertigen Wert, `subField` optional auf eine Sub-Zeile,
-// `toneField` optional auf "default" | "positive" | "warn".
-export type DashboardStatPanel = {
+// Wert (String anzeigefertig, Zahl wird locale-formatiert), `subField`
+// optional auf eine Sub-Zeile, `toneField` optional auf
+// "default" | "positive" | "warn" | "negative".
+export type DashboardStatPanel = DashboardPanelQueryOptions & {
   readonly kind: "stat";
   /** Stable id — kebab-case, eindeutig im Panel-Set. */
   readonly id: string;
   /** Anzeige-Text (i18n-Key). */
   readonly label: string;
   readonly query: string;
-  /** Static, author-set query parameters merged on top of the screen's
-   *  dynamic filterParams — lets a panel pin a value (e.g. a status facet)
-   *  the screen-wide filter doesn't cover, without needing its own query. */
-  readonly params?: Readonly<Record<string, unknown>>;
   readonly valueField: string;
   readonly subField?: string;
   readonly toneField?: string;
+  /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
+  readonly tone?: "default" | "positive" | "warn" | "negative";
+  /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
+   *  drawn as a sparkline next to the value. */
+  readonly sparklineField?: string;
   /** Optionaler Delta-Chip (z.B. "↓23 %") neben dem Label. Nur wenn BEIDE
    *  Felder gesetzt sind UND der Query-Handler sie liefert, rendert der Chip
    *  — sonst bleibt die Kachel wie ohne Delta. `deltaToneField` fällt auf
@@ -760,57 +795,80 @@ export type DashboardStatPanel = {
   readonly accentColor?: string;
 };
 
-// Query-Result-Contract: `{ points: { atMs, value | null }[],
-// windowStartMs, windowEndMs }` — value=null zeichnet einen Einbruch.
-export type DashboardChartPanel = {
-  readonly kind: "chart";
-  readonly id: string;
-  readonly label: string;
-  /** v1: geglättete Zeitreihe. Weitere Chart-Formen additiv. */
-  readonly chart: "timeseries";
-  readonly query: string;
-};
+export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
+export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
+
+// Query-Result-Contracts (Feldnamen wie MetricResult); series/segment/row
+// labels laufen durch t():
+//   timeseries    { points: { atMs, value | null }[], windowStartMs, windowEndMs,
+//                   markers?: { atMs, label }[] } — value=null zeichnet einen
+//                   Einbruch; markers = nummerierte Pins auf der x-Achse plus
+//                   nummerierte Legende darunter.
+//   stacked-bars  { series: { key, label, points: { atMs, value | null }[] }[],
+//                   windowStartMs, windowEndMs } — vertikal gestapelt pro Bucket;
+//                   der letzte Bucket heisst "Heute", wenn er windowEndMs enthaelt.
+//                   Ist `series` leer, aber `points` da, wird `points` als eine
+//                   Serie gezeichnet (schlichtes Balkendiagramm).
+//   segment-bars  { rows: { key, label, value, segments: { key, label, value }[] }[] }
+//                   — ein horizontal gestapelter Balken pro Zeile.
+//   stacked-area  { series, windowStartMs, windowEndMs, todayMs?, markers? } —
+//                   gestapelte Baender; rechts von `todayMs` ist die Prognose
+//                   (hellere Flaeche) mit senkrechter "Heute"-Linie.
+export type DashboardChartPanel = DashboardPanelQueryOptions &
+  DashboardPanelEmptyState & {
+    readonly kind: "chart";
+    readonly id: string;
+    readonly label: string;
+    readonly chart: DashboardChartKind;
+    readonly query: string;
+    /** i18n key under the title, e.g. "7 Tage, nach Erstellungstag". */
+    readonly subtitle?: string;
+    /** Series/segment key -> tone; unmapped keys fall back to a palette. */
+    readonly seriesTones?: Readonly<Record<string, DashboardChartTone>>;
+  };
 
 // Kurzliste im Dashboard — Query-Contract wie projectionList
 // (`{ rows, nextCursor, total? }`), gerendert ohne Pager/Toolbar.
-export type DashboardListPanel = {
-  readonly kind: "list";
-  readonly id: string;
-  readonly label: string;
-  readonly query: string;
-  readonly columns: readonly ListColumnSpec[];
-};
+export type DashboardListPanel = DashboardPanelQueryOptions &
+  DashboardPanelEmptyState & {
+    readonly kind: "list";
+    readonly id: string;
+    readonly label: string;
+    readonly query: string;
+    readonly columns: readonly ListColumnSpec[];
+  };
 
-// Betitelte Sektion aus mehreren Stat-Panels (z.B. "Net Worth": Assets/Debts/
-// Net). Ein Nesting-Level, kein Group-of-Groups — jedes Kind bleibt ein
-// vollwertiges DashboardStatPanel mit eigener Query/id/label, der Renderer
-// zieht sie nur gemeinsam unter einen Sektions-Titel.
+// Sektion aus mehreren Stat-Panels (z.B. "Net Worth": Assets/Debts/Net). Ein
+// Nesting-Level, kein Group-of-Groups — jedes Kind bleibt ein vollwertiges
+// DashboardStatPanel mit eigener Query/id/label. Mit `label` unter einem
+// Sektions-Titel; ohne `label` als flacher KPI-Streifen (Trenner, kein Card).
 export type DashboardStatGroupPanel = {
   readonly kind: "stat-group";
   readonly id: string;
-  readonly label: string;
+  readonly label?: string;
   readonly stats: readonly DashboardStatPanel[];
 };
 
 // Nicht-tabellarische Kurzliste (z.B. "nächste Termine"). Query-Result-
 // Contract: `{ rows: { primary: string; trailing?: string }[] }`.
-export type DashboardFeedPanel = {
-  readonly kind: "feed";
-  readonly id: string;
-  readonly label: string;
-  readonly query: string;
-  readonly emptyLabel?: string;
-};
+export type DashboardFeedPanel = DashboardPanelQueryOptions &
+  DashboardPanelEmptyState & {
+    readonly kind: "feed";
+    readonly id: string;
+    readonly label: string;
+    readonly query: string;
+  };
 
 // Liste aus Label/Wert/Fortschrittsbalken (z.B. Tilgungsfortschritt pro
 // Kredit). Query-Result-Contract: `{ rows: { label: string; value: string;
 // fraction: number }[] }` — fraction wird auf 0..1 geclampt.
-export type DashboardProgressListPanel = {
-  readonly kind: "progress-list";
-  readonly id: string;
-  readonly label: string;
-  readonly query: string;
-};
+export type DashboardProgressListPanel = DashboardPanelQueryOptions &
+  DashboardPanelEmptyState & {
+    readonly kind: "progress-list";
+    readonly id: string;
+    readonly label: string;
+    readonly query: string;
+  };
 
 // Eingehängte App-Komponente, die ihre Daten/Titel selbst verwaltet (wie ein
 // custom Screen, nur als Panel — bleibt an ihrer Array-Position statt in
@@ -866,6 +924,19 @@ export type DashboardFilterDefinition = {
   readonly optionsQuery?: string;
 };
 
+export type DashboardTimeRangeDefinition = {
+  readonly id: string;
+  /** `label` is an i18n key. */
+  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly default: string;
+};
+
+// i18n keys: `badge` is a pill next to the title, `notice` an info strip under the toolbar.
+export type DashboardScopeDefinition = {
+  readonly badge: string;
+  readonly notice?: string;
+};
+
 export type DashboardScreenDefinition = {
   readonly id: string;
   readonly type: "dashboard";
@@ -878,6 +949,11 @@ export type DashboardScreenDefinition = {
   readonly dormant?: boolean;
   readonly panels: readonly DashboardPanelDefinition[];
   readonly filter?: DashboardFilterDefinition;
+  /** Segmented control in the toolbar; the value lives in URL search param
+   *  `id` and is merged into EVERY panel query (also ignoreScreenFilter ones). */
+  readonly timeRange?: DashboardTimeRangeDefinition;
+  /** Marks the screen as spanning more than the caller's own scope. */
+  readonly scope?: DashboardScopeDefinition;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };

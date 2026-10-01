@@ -2,6 +2,17 @@ import { createAdminShellFeature } from "@cosmicdrift/kumiko-bundled-features/ad
 import { createAuditFeature } from "@cosmicdrift/kumiko-bundled-features/audit";
 import { createDeliveryFeature } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { createJobsFeature } from "@cosmicdrift/kumiko-bundled-features/jobs";
+import {
+  activeTenantsMetric,
+  auditWritesMetric,
+  createMetricsFeature,
+  createSystemMetricsFeature,
+  deliveriesByChannelMetric,
+  failedDeliveriesMetric,
+  failedJobRunsMetric,
+  jobRunsByStatusMetric,
+  tenantJobFailuresMetric,
+} from "@cosmicdrift/kumiko-bundled-features/metrics";
 import { createSecretsFeature } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-engine";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
@@ -22,6 +33,17 @@ const homeFeature = defineFeature("home", (r) => {
   });
 });
 
+// No sessions feature in this app, so no active-users metric.
+const CONSOLE_METRICS = [
+  jobRunsByStatusMetric,
+  failedJobRunsMetric,
+  tenantJobFailuresMetric,
+  deliveriesByChannelMetric,
+  failedDeliveriesMetric,
+  activeTenantsMetric,
+  auditWritesMetric,
+] as const;
+
 export const APP_FEATURES = [
   localeDe(),
   createSecretsFeature(),
@@ -29,7 +51,9 @@ export const APP_FEATURES = [
   createDeliveryFeature(),
   createJobsFeature(),
   tierEngineFeature,
-  createAdminShellFeature(),
+  createMetricsFeature({ metrics: CONSOLE_METRICS }),
+  createSystemMetricsFeature({ metrics: CONSOLE_METRICS }),
+  createAdminShellFeature({ metrics: CONSOLE_METRICS }),
   homeFeature,
 ] as const;
 

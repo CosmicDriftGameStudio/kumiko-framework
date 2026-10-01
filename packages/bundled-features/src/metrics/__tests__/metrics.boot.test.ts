@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { QnTypes, qn, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { METRICS_FEATURE, METRICS_SYSTEM_FEATURE, metricQueryName } from "../constants.js";
-import { DEFAULT_METRICS } from "../default-metrics.js";
+import { DEFAULT_METRICS, deliveriesByChannelMetric } from "../default-metrics.js";
 import { createMetricsFeature, createSystemMetricsFeature } from "../feature.js";
+import { METRICS_I18N } from "../i18n.js";
 import { defineMetric } from "../types.js";
 import {
   ALL_TEST_METRICS,
@@ -53,6 +54,14 @@ describe("metrics boot", () => {
       ]),
     );
     expect(Object.keys(tenant.queryHandlers)).not.toContain("job-runs-by-status");
+  });
+
+  test("deliveries-by-channel labels the bundled channels next to the statuses", () => {
+    const labels = deliveriesByChannelMetric.groupLabels ?? {};
+    expect(Object.keys(labels)).toEqual(
+      expect.arrayContaining(["inApp", "email", "push", "queued", "sent", "failed", "skipped"]),
+    );
+    for (const key of Object.values(labels)) expect(METRICS_I18N[key]).toBeDefined();
   });
 
   describe("definition validation", () => {

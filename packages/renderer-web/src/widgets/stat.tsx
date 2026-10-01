@@ -7,18 +7,20 @@ import { cn } from "../lib/cn.js";
 // App-semantischen Farbe (z.B. Finanz-Rollen) — Value/Delta/Sparkline
 // bleiben an `tone`.
 
-export type StatTone = "default" | "positive" | "warn";
+export type StatTone = "default" | "positive" | "warn" | "negative";
 
 const TONE_CHIP: Record<StatTone, string> = {
   default: "bg-muted text-foreground",
   positive: "bg-primary/10 text-primary",
   warn: "bg-destructive/10 text-destructive",
+  negative: "bg-status-bad-surface text-status-bad",
 };
 
 const TONE_VALUE: Record<StatTone, string> = {
   default: "text-foreground",
   positive: "text-primary",
   warn: "text-destructive",
+  negative: "text-status-bad",
 };
 
 export type StatDelta = {
@@ -151,6 +153,52 @@ export function StatCard({
       )}
       {children !== undefined && <div className="mt-3">{children}</div>}
     </Card>
+  );
+}
+
+/** Flache KPI-Zelle für einen Streifen (Trenner statt Card): Label, Wert mit
+ *  Sparkline rechts daneben, Sub-Zeile. */
+export function StatStripCell({
+  label,
+  value,
+  sub,
+  tone = "default",
+  delta,
+  spark,
+  testId,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly sub?: string;
+  readonly tone?: StatTone;
+  readonly delta?: StatDelta;
+  readonly spark?: readonly number[];
+  readonly testId?: string;
+}): ReactNode {
+  return (
+    <div data-testid={testId} className="flex min-w-0 flex-col gap-1 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        {delta !== undefined && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
+              TONE_CHIP[delta.tone ?? tone],
+            )}
+          >
+            {delta.direction === "up" ? "↑" : "↓"}
+            {delta.value}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-3">
+        <span className={cn("text-xl font-semibold tabular-nums", TONE_VALUE[tone])}>{value}</span>
+        {spark !== undefined && (
+          <Sparkline points={spark} className={cn("h-7 w-20 shrink-0", TONE_VALUE[tone])} />
+        )}
+      </div>
+      {sub !== undefined && <div className="text-xs text-muted-foreground">{sub}</div>}
+    </div>
   );
 }
 

@@ -17,6 +17,7 @@ import {
   DEFAULT_TENANT_WORKSPACE_ID,
 } from "../constants.js";
 import { createAdminShellFeature } from "../feature.js";
+import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.js";
 
 const features = [
   createConfigFeature(),
@@ -24,8 +25,9 @@ const features = [
   createTenantFeature(),
   createAuditFeature(),
   createJobsFeature(),
+  ...ADMIN_SHELL_METRICS_FEATURES,
   tierEngineFeature,
-  createAdminShellFeature(),
+  createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS }),
 ];
 
 const testCap: CapSpec = {
@@ -46,8 +48,9 @@ describe("admin-shell boot + workspace composition", () => {
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
+      ...ADMIN_SHELL_METRICS_FEATURES,
       tierEngineFeature,
-      createAdminShellFeature(),
+      createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS }),
     ];
     expect(() => validateBoot(withoutUser)).toThrow();
   });
@@ -103,6 +106,7 @@ describe("admin-shell boot + workspace composition", () => {
 
   test("custom workspace ids via options", () => {
     const custom = createAdminShellFeature({
+      metrics: ADMIN_SHELL_TEST_METRICS,
       workspaceIds: { tenant: "admin", platform: "sysadmin" },
       includeTierAdmin: false,
     });
@@ -112,6 +116,7 @@ describe("admin-shell boot + workspace composition", () => {
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
+      ...ADMIN_SHELL_METRICS_FEATURES,
       custom,
     ]);
     expect(registry.getWorkspace("admin-shell:workspace:admin")?.id).toBeDefined();
@@ -125,6 +130,7 @@ describe("admin-shell boot + workspace composition", () => {
 
   test("registerWorkspaces:false registers overview screens only", () => {
     const shellOnly = createAdminShellFeature({
+      metrics: ADMIN_SHELL_TEST_METRICS,
       registerWorkspaces: false,
       includeTierAdmin: false,
     });
@@ -134,6 +140,7 @@ describe("admin-shell boot + workspace composition", () => {
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
+      ...ADMIN_SHELL_METRICS_FEATURES,
       shellOnly,
     ]);
     expect(
@@ -144,7 +151,10 @@ describe("admin-shell boot + workspace composition", () => {
   });
 
   test("admin-shell nav entries declare icons (sidebar standard)", () => {
-    const shell = createAdminShellFeature({ includeTierAdmin: true });
+    const shell = createAdminShellFeature({
+      metrics: ADMIN_SHELL_TEST_METRICS,
+      includeTierAdmin: true,
+    });
     const navIds = ["tenant-overview", "platform-overview", "tenants", "tier-admin"] as const;
     for (const id of navIds) {
       expect(shell.navs[id]?.icon, `admin-shell:nav:${id}`).toBeDefined();
@@ -152,19 +162,23 @@ describe("admin-shell boot + workspace composition", () => {
   });
 
   test("admin-shell registers server translations bundle", () => {
-    const shell = createAdminShellFeature();
+    const shell = createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS });
     expect(shell.translations?.["admin-shell:nav.tenantOverview"]?.["en"]).toBe("Overview");
     expect(shell.translations?.["screen:tenant-overview.title"]?.["en"]).toBe("Overview");
   });
 
   test("includeCapOverview:true adds cap-overview nav to both workspaces", () => {
-    const withCapOverview = createAdminShellFeature({ includeCapOverview: true });
+    const withCapOverview = createAdminShellFeature({
+      metrics: ADMIN_SHELL_TEST_METRICS,
+      includeCapOverview: true,
+    });
     const registry = createRegistry([
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
       createAuditFeature(),
       createJobsFeature(),
+      ...ADMIN_SHELL_METRICS_FEATURES,
       tierEngineFeature,
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
@@ -209,5 +223,36 @@ describe("admin-shell boot + workspace composition", () => {
     ).not.toContain("admin-shell:nav:tenant-caps");
     expect(registry.getNav("admin-shell:nav:my-caps")).toBeUndefined();
     expect(registry.getNav("admin-shell:nav:tenant-caps")).toBeUndefined();
+  });
+});
+
+describe("admin-shell overview wiring", () => {
+  test("requires metrics and metrics-system", () => {
+    const withoutMetrics = [
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      createAuditFeature(),
+      createJobsFeature(),
+      tierEngineFeature,
+      createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS }),
+    ];
+    expect(() => validateBoot(withoutMetrics)).toThrow();
+  });
+
+  test("overview is the first entry of both workspaces, with a lower order than every sibling", () => {
+    const registry = createRegistry(features);
+    for (const [workspace, overview] of [
+      [DEFAULT_TENANT_WORKSPACE_ID, "admin-shell:nav:tenant-overview"],
+      [DEFAULT_PLATFORM_WORKSPACE_ID, "admin-shell:nav:platform-overview"],
+    ] as const) {
+      const navs = registry.getWorkspaceNavs(`${ADMIN_SHELL_FEATURE}:workspace:${workspace}`);
+      expect(navs[0]).toBe(overview);
+      const overviewOrder = registry.getNav(overview)?.order ?? Number.POSITIVE_INFINITY;
+      for (const other of navs.slice(1)) {
+        const order = registry.getNav(other)?.order ?? Number.POSITIVE_INFINITY;
+        expect(overviewOrder, `${overview} before ${other}`).toBeLessThan(order);
+      }
+    }
   });
 });

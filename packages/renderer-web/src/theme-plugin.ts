@@ -44,6 +44,8 @@ export const FRAMEWORK_COLOR_NAMES = [
   "status-critical-surface",
   "status-neutral",
   "status-neutral-surface",
+  "status-active",
+  "status-active-surface",
   "syntax-key",
   "syntax-string",
   "syntax-number",
