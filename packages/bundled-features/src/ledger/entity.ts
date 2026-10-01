@@ -158,6 +158,20 @@ export const scheduleEntity = createEntity({
       reason: "technical_reference",
       filterable: true,
     }),
+    // Caller-assigned stable key (e.g. one id per lease position) to find the
+    // schedule again. Not unique: callers keep their own find-then-create;
+    // `description` stays pure display text instead of a lookup key.
+    sourceRef: createTextField({
+      maxLength: 128,
+      personal: false,
+      reason: "technical_reference",
+      filterable: true,
+    }),
   },
-  indexes: [{ columns: ["tenantId", "subjectType", "subjectId"] }],
+  // A separate non-unique index: changing the subject index would drop and
+  // recreate it, an additional one is a plain CREATE INDEX.
+  indexes: [
+    { columns: ["tenantId", "subjectType", "subjectId"] },
+    { columns: ["tenantId", "sourceRef"] },
+  ],
 });
