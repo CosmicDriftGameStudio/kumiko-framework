@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled/scripts/gen-sample-index.ts + sample-index.overrides.json",
-  "featureCount": 40,
+  "featureCount": 41,
   "features": {
     "admin-shell": {
       "samples": [
@@ -268,6 +268,13 @@
       "whenToUse": "Tenants need their own public marketing or help pages with branding, Markdown bodies, and optional tier-gated custom CSS.",
       "sampleBlurb": "Tenant-branded public pages with Markdown body and optional tier-gated CSS — from route mount to rendered HTML.",
       "screenshot": "/screenshots/features/managed-pages.png"
+    },
+    "metrics": {
+      "samples": [
+        "apps-admin-console"
+      ],
+      "hasVisualOutput": true,
+      "readmeSummary": "Sample app for the bundled admin shell: one Kumiko instance with a tenant-admin and a platform workspace, both built from owner-feature screens, and role gating that decides which workspace a signed-in user sees."
     },
     "notes-history": {
       "samples": [
