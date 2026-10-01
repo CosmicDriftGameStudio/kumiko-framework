@@ -85,11 +85,24 @@ describe("cli.ts — real process runs, no mocks", () => {
   test("checks runs the repo-checks suite and prints the guard-kit banner", async () => {
     const { exitCode, stdout } = await runCliInFixtureRepo(["checks"]);
 
-    expect([0, 1]).toContain(exitCode);
+    // The one-file fixture scans 0 files for the real-provider-isolation
+    // check, which that check reports as a failure.
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain("✗ Real-Provider-Isolation Guard");
     expect(stdout).toContain("kumiko-guards");
     expect(stdout).toContain("guards registered");
     const bannerCount = stdout.split("guards registered").length - 1;
     expect(bannerCount).toBe(1);
+  }, 30_000);
+
+  test("ui and guards with no args run their whole suite and exit 0 on the fixture repo", async () => {
+    for (const suite of ["ui", "guards"]) {
+      const { exitCode, stdout } = await runCliInFixtureRepo([suite]);
+
+      expect(exitCode).toBe(0);
+      expect(stdout).toContain("guards registered");
+      expect(stdout).not.toContain("✗");
+    }
   }, 30_000);
 
   test("guards --explain reaches run-guards' --explain branch through the bin instead of running the checks", async () => {

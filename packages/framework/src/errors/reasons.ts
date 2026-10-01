@@ -82,20 +82,21 @@ export type FrameworkReason = (typeof FrameworkReasons)[keyof typeof FrameworkRe
 // sister catalog to FrameworkReasons instead of extending it — see the
 // file-header note above for why these carry the `agent.` prefix.
 export const AgentReasons = {
-  // AccessDeniedError: the agent called a tool name outside its allowed
-  // catalog for this run.
+  // Error turn in the agent loop when the model requests a tool outside the
+  // run's catalog; UnprocessableError in rule validation (handler missing from
+  // the caller's role-filtered manifest, or `ai-agent-edit` not mounted).
   toolNotAllowed: "agent.tool_not_allowed",
 
-  // UnprocessableError: the agent loop hit its maximum round count before
-  // producing a final answer.
+  // Not thrown: the run ends with a `clarify` turn (`payload.reason`) once
+  // MAX_AGENT_ROUNDS is reached.
   iterationLimit: "agent.iteration_limit",
 
   // AccessDeniedError: the tool exists, but the caller's roles don't cover
   // the handler behind it.
   permissionDenied: "agent.permission_denied",
 
-  // AccessDeniedError: an `agent.risk: "high"` handler was invoked without
-  // the required explicit confirmation.
+  // UnprocessableError: a permission rule with `always` was requested for an
+  // `agent: { risk: "high" }` handler; `details.handlerQn` names it.
   highRiskNoAlways: "agent.high_risk_no_always",
 } as const;
 
