@@ -399,6 +399,53 @@ describe("kumiko-pre-push", () => {
       expect(output).toContain('FATAL: worktree without a package.json "test" script');
       expect(output).not.toContain("MAIN_CHECK_RAN");
     });
+
+    function writeFakeGuardBin(worktreeDir: string, name: string, exitCode: number): string {
+      const logFile = join(worktreeDir, `${name}.log`);
+      writeUntrackedExecutable(
+        worktreeDir,
+        `node_modules/.bin/${name}`,
+        ["#!/usr/bin/env sh", `echo "$*" >> "${logFile}"`, `exit ${exitCode}`, ""].join("\n"),
+      );
+      return logFile;
+    }
+
+    test("guard bins run with CI arguments when resolvable", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+      const guardsLog = writeFakeGuardBin(worktreeDir, "kumiko-guards", 0);
+      const commentLangLog = writeFakeGuardBin(worktreeDir, "kumiko-guard-comment-lang", 0);
+
+      const { exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(0);
+      expect(readFileSync(guardsLog, "utf-8").trim().split("\n")).toEqual(["guards", "checks"]);
+      expect(readFileSync(commentLangLog, "utf-8").trim()).toBe("--touched --base=origin/main");
+    });
+
+    test("a failing guard bin refuses the push and is named in the failure line", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+      writeFakeGuardBin(worktreeDir, "kumiko-guards", 1);
+      const commentLangLog = writeFakeGuardBin(worktreeDir, "kumiko-guard-comment-lang", 0);
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(1);
+      expect(output).toContain("[pre-push] worktree check failed: guards checks");
+      expect(readFileSync(commentLangLog, "utf-8")).toContain("--touched");
+    });
+
+    test("unresolvable guard bins are skipped with a hint, not fatal", () => {
+      const worktreeDir = setupWorktree({ test: WORKTREE_MARKER_SCRIPTS.test });
+
+      const { output, exitCode } = runHook(worktreeDir, tmp);
+
+      expect(exitCode).toBe(0);
+      expect(output).toContain("kumiko-guards: not resolvable in worktree/parent, skipped");
+      expect(output).toContain(
+        "kumiko-guard-comment-lang: not resolvable in worktree/parent, skipped",
+      );
+      expect(output).not.toContain("FATAL");
+    });
   });
 
   describe("scripts/pre-push-extra.sh", () => {

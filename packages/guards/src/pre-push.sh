@@ -6,9 +6,10 @@
 #      scripts/check-wt.sh, delegate to it.
 #   2. Else if running inside a worktree under the parent workspace (no
 #      check-wt.sh), run this worktree's own package.json scripts
-#      (typecheck, lint, test, test:dom) directly — the parent's
-#      `bun check` would otherwise check the main checkout instead of the
-#      worktree.
+#      (typecheck, lint, test, test:dom) plus the consumer-CI guards
+#      (kumiko-guards guards/checks, kumiko-guard-comment-lang) directly —
+#      the parent's `bun check` would otherwise check the main checkout
+#      instead of the worktree.
 #   3. Else if running inside the cosmicdriftgamestudio Parent-Workspace,
 #      delegate to its `bun check` with KUMIKO_CLI_SCOPE set to THIS
 #      sub-repo only — so a push from one sub-repo doesn't run
@@ -134,10 +135,28 @@ fi
 # worktree's own package.json scripts directly instead (only when nested
 # under the parent workspace; a standalone worktree's own `bun run test`
 # already checks the right code).
+# Runs a guard bin from the worktree's or the parent's node_modules/.bin
+# (same guards consumer CI runs); an unresolvable bin is skipped, not fatal.
+run_guard_bin() {
+  GUARD_LABEL="$1"
+  GUARD_BIN="$2"
+  shift 2
+  for GUARD_CANDIDATE in "$REPO_ROOT/node_modules/.bin/$GUARD_BIN" "$PARENT_DIR/node_modules/.bin/$GUARD_BIN"; do
+    if [ -x "$GUARD_CANDIDATE" ]; then
+      echo "[pre-push] $GUARD_BIN $*"
+      if ! "$GUARD_CANDIDATE" "$@"; then
+        FAILED="$FAILED $GUARD_LABEL"
+      fi
+      return 0
+    fi
+  done
+  echo "[pre-push] $GUARD_BIN: not resolvable in worktree/parent, skipped"
+}
+
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
    && [ -n "$PARENT_DIR" ]; then
   cd "$REPO_ROOT"
-  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom)…"
+  echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom) and guards (guards, checks, comment-lang)…"
   if ! has_package_script test; then
     echo "[pre-push] FATAL: worktree without a package.json \"test\" script — nothing to run, refusing push." >&2
     echo "Add a \"test\" script to package.json, or set PRE_PUSH_SKIP=1 to bypass (use sparingly)." >&2
@@ -154,6 +173,9 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
       echo "[pre-push] $SCRIPT_NAME: no script, skipped"
     fi
   done
+  run_guard_bin guards kumiko-guards guards
+  run_guard_bin checks kumiko-guards checks
+  run_guard_bin comment-lang kumiko-guard-comment-lang --touched --base=origin/main
   if [ -n "$FAILED" ]; then
     echo "[pre-push] worktree check failed:$FAILED" >&2
     exit 1
