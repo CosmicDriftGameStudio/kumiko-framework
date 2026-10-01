@@ -1,4 +1,13 @@
 ---
+"@cosmicdrift/kumiko-framework": patch
 ---
 
-Refactor without a type assertion in the createScreen role projection, plus a test fix; no release needed.
+Role projection drops an unreachable entityList createScreen without a type assertion
+
+Internal cleanup of the createScreen role projection added in the previous release; behaviour is unchanged.
+
+<!-- kumiko-changes
+feature: renderer
+type: fix
+title: createScreen role projection without a type assertion (no behaviour change)
+-->
