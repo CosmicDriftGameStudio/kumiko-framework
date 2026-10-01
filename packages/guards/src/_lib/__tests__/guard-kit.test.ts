@@ -536,6 +536,21 @@ describe("printGuardKitBanner — exits(1) on the two globally-empty cases", () 
     exit.mockRestore();
   });
 
+  test("a mocked process.exit does not fall through to the success banner", () => {
+    const exit = mockExit();
+    const errorLog = spyOn(console, "error").mockImplementation(() => undefined);
+    const log = spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      printGuardKitBanner(30, undefined, { resolution: { roots: [] } });
+      expect(exit).toHaveBeenCalledWith(1);
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+      errorLog.mockRestore();
+      exit.mockRestore();
+    }
+  });
+
   test("a resolved root and guards registered does not exit", () => {
     const exit = mockExit();
     printGuardKitBanner(30, undefined, {

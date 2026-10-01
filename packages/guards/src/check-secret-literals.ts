@@ -22,11 +22,11 @@
  * jedes Repo läuft diesen Check in seiner eigenen CI gegen sich selbst,
  * statt dass ein zentraler Scan in fremde Sibling-Checkouts greift.
  */
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
-import { scanLinesForPredicate } from "./_lib/scan-lines";
 
 // Server-side only: a declared sourceRoot under a mobile/client app has no server secrets to leak.
 const CLIENT_SOURCE_ROOT = /(?:^|\/)mobile(?:\/|$)/;
@@ -42,31 +42,95 @@ const DEV_ENTRYPOINT = /(?:^|\/)bin\/server\.ts$/;
 
 // A `?? "literal"` / `|| "literal"` nullish/or fallback to a string literal.
 const STRING_FALLBACK = /(?:\?\?|\|\|)\s*(['"`])([^'"`\n]+)\1/;
-// ...on a line that is about a secret (assignee name or the literal itself).
-const SECRET_CONTEXT = /secret|password|passphrase|hmac|private[_-]?key|signing[_-]?key/i;
+// A secret-like identifier. Matched only against the text LEFT of the fallback
+// (assignee / property name): `cfg.title ?? "Secret Santa"` is a label, not a secret.
+const SECRET_NAME =
+  /[\w$]*(?:secret|password|passphrase|hmac|private[_-]?key|signing[_-]?key)[\w$]*/i;
 // Short / numeric literals are versions or flags (e.g. `_CURRENT_VERSION ?? "1"`),
 // never a usable secret.
 const TRIVIAL_LITERAL = /^[\d.]+$/;
+const MIN_SECRET_LENGTH = 8;
+const IGNORE_TAG = "kumiko-lint-ignore secret-literal";
 
 export type SecretLiteralFinding = {
   readonly file: string;
   readonly line: number;
-  readonly text: string;
+  /** Assignee / property name left of the fallback. Never the literal. */
+  readonly name: string;
+  readonly literalLength: number;
 };
 
-/** Returns the offending literal, or null when the line is clean. */
-export function secretLiteralOnLine(line: string): string | null {
-  // Only the line start counts as a comment (`//`, or a block-comment line
-  // starting with `*`/`/*`/`*/`): stripping from the first `//` anywhere in
-  // the line would cut connection-string fallbacks (postgres://, redis://,
-  // https://token@host/…) off before their closing quote, losing findings.
-  const code = /^\s*(?:\/\/|\/\*|\*\/|\*)/.test(line) ? "" : line;
-  if (!SECRET_CONTEXT.test(code)) return null;
-  const match = STRING_FALLBACK.exec(code);
-  if (!match) return null;
-  const literal = match[2];
-  if (!literal || literal.length < 8 || TRIVIAL_LITERAL.test(literal)) return null;
-  return literal;
+type CommentStripResult = { readonly code: string; readonly inBlockComment: boolean };
+
+// Drops line comments and block comments (state carries across lines via
+// `startsInBlockComment`). Quote tracking keeps `//` and `/*` inside string
+// literals (postgres://…, "src/*") from being read as comment starts, which
+// would cut connection-string fallbacks off before their closing quote.
+function stripComments(line: string, startsInBlockComment: boolean): CommentStripResult {
+  let code = "";
+  let inBlock = startsInBlockComment;
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i] as string;
+    const next = line[i + 1];
+    if (inBlock) {
+      if (ch === "*" && next === "/") {
+        inBlock = false;
+        i++;
+      }
+      continue;
+    }
+    if (quote !== null) {
+      code += ch;
+      if (ch === "\\" && next !== undefined) {
+        code += next;
+        i++;
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (ch === "/" && next === "/") break;
+    if (ch === "/" && next === "*") {
+      inBlock = true;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") quote = ch;
+    code += ch;
+  }
+  return { code, inBlockComment: inBlock };
+}
+
+export type SecretLiteralHit = {
+  readonly lineNumber: number;
+  readonly name: string;
+  readonly literalLength: number;
+};
+
+/**
+ * Sequential per-file scan: block-comment state carries across lines, so only
+ * text inside an open block comment is skipped (a wrapped code line that
+ * starts with `*` is still checked). Opt-out: `// kumiko-lint-ignore
+ * secret-literal <reason>` on the line itself or the line above.
+ */
+export function scanLinesForSecretLiterals(lines: readonly string[]): SecretLiteralHit[] {
+  const hits: SecretLiteralHit[] = [];
+  let inBlockComment = false;
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i] ?? "";
+    const scanned = stripComments(raw, inBlockComment);
+    inBlockComment = scanned.inBlockComment;
+    const match = STRING_FALLBACK.exec(scanned.code);
+    if (!match) continue;
+    const literal = match[2];
+    if (!literal || literal.length < MIN_SECRET_LENGTH || TRIVIAL_LITERAL.test(literal)) continue;
+    const name = SECRET_NAME.exec(scanned.code.slice(0, match.index))?.[0];
+    if (name === undefined) continue;
+    if (raw.includes(IGNORE_TAG) || (lines[i - 1] ?? "").includes(IGNORE_TAG)) continue;
+    hits.push({ lineNumber: i + 1, name, literalLength: literal.length });
+  }
+  return hits;
 }
 
 async function scanRoot(
@@ -79,9 +143,16 @@ async function scanRoot(
       if (EXCLUDE_DIR.test(`/${rel}`) || IS_TEST.test(rel) || DEV_ENTRYPOINT.test(rel)) {
         continue;
       }
-      const abs = join(root.absPath, rel);
       scannedFiles++;
-      scanLinesForPredicate(abs, rel, (line) => secretLiteralOnLine(line) !== null, findings);
+      const lines = readFileSync(join(root.absPath, rel), "utf8").split("\n");
+      for (const hit of scanLinesForSecretLiterals(lines)) {
+        findings.push({
+          file: rel,
+          line: hit.lineNumber,
+          name: hit.name,
+          literalLength: hit.literalLength,
+        });
+      }
     }
   }
   return { findings, scannedFiles };
@@ -112,7 +183,11 @@ export const check: RepoCheck = {
     }
     const { findings, scannedFiles } = await scanSecretLiterals(roots);
     return {
-      violations: findings.map((f) => ({ file: f.file, line: f.line, message: f.text })),
+      violations: findings.map((f) => ({
+        file: f.file,
+        line: f.line,
+        message: `hardcoded secret fallback for "${f.name}" (${f.literalLength} chars)`,
+      })),
       matchedFiles: scannedFiles,
       notApplicable: false,
     };

@@ -41,6 +41,15 @@ describe("loadAllEventsByType Guard", () => {
     expect(isAllowed("packages/framework/src/features/x/scripts/backfill.ts")).toBe(false);
   });
 
+  test("guard.run() ignores findings in sibling roots rendered as ../other/...", () => {
+    const sf = fileAt(
+      "../other/src/rogue.ts",
+      'declare function loadAllEventsByType(t: string): unknown;\nexport const load = () => loadAllEventsByType("x");',
+    );
+    expect(collectViolations(sf)[0]?.file.startsWith("../")).toBe(true);
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
   test("guard.run() reports the callee and enclosing function in the message", () => {
     const sf = fileAt(
       "packages/bundled-features/src/rogue/feature.ts",

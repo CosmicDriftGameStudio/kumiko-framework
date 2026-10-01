@@ -90,9 +90,14 @@ describe("loadSecurityBaseline", () => {
     });
   });
 
-  test("rejects a repo name that isn't a plain or scoped npm package name", () => {
-    expect(() => loadSecurityBaseline("../x", baselineDir())).toThrow();
-    expect(() => loadSecurityBaseline("a/../../b", baselineDir())).toThrow();
+  test("a repo name that isn't a plain or scoped npm package name is invalid (fail-closed, no throw)", () => {
+    expect(loadSecurityBaseline("../x", baselineDir()).kind).toBe("invalid");
+    expect(loadSecurityBaseline("a/../../b", baselineDir()).kind).toBe("invalid");
+    const upperCase = loadSecurityBaseline("MoneyHorse", baselineDir());
+    expect(upperCase.kind).toBe("invalid");
+    if (upperCase.kind === "invalid") {
+      expect(upperCase.reason).toContain('repo name "MoneyHorse"');
+    }
   });
 
   test("accepts a scoped npm package name", () => {

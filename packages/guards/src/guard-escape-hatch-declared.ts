@@ -561,7 +561,8 @@ function findUnsafeAllTenantsFindings(
       line: prop.getStartLineNumber(),
       rule: "unsafe-all-tenants-outside-declared-scope",
       message:
-        'unsafeAllTenants used outside a declared scope — restrict to a systemScope feature, a .job.ts / r.job(...) job, or declare { escapeHatch: { reason: "..." } } alongside it.',
+        'unsafeAllTenants used outside a declared scope — restrict to a systemScope feature, a .job.ts / r.job(...) job, declare { escapeHatch: { reason: "..." } } alongside it, or call declareEscapeHatch({ reason: "..." }) as a direct body statement of a named hook.' +
+        unresolvableDeclareEscapeHatchHint(call),
     });
   }
   return out;
