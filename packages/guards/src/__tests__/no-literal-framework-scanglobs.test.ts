@@ -52,7 +52,7 @@ describe("no scanGlobs/allRepos/legacy-glob-expansion leftovers in guard-*.ts", 
   }
 });
 
-const VALID_SCAN_SCOPES = new Set(["source", "tests"]);
+const VALID_SCAN_SCOPES = new Set(["source", "tests", "source+tests"]);
 
 describe("every registered AstGuard declares a valid scan spec", () => {
   for (const guard of [...GUARDS, ...UI_GUARDS]) {

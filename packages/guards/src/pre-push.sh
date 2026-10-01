@@ -130,11 +130,6 @@ if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
   cd "$REPO_ROOT" && exec "$REPO_ROOT/scripts/check-wt.sh"
 fi
 
-# infra#899: no tracked scripts/check-wt.sh — the parent-scoped `bun check`
-# branch below would check the main checkout, not this worktree. Run the
-# worktree's own package.json scripts directly instead (only when nested
-# under the parent workspace; a standalone worktree's own `bun run test`
-# already checks the right code).
 # Runs a guard bin from the worktree's or the parent's node_modules/.bin
 # (same guards consumer CI runs); an unresolvable bin is skipped, not fatal.
 run_guard_bin() {
@@ -153,6 +148,11 @@ run_guard_bin() {
   echo "[pre-push] $GUARD_BIN: not resolvable in worktree/parent, skipped"
 }
 
+# infra#899: no tracked scripts/check-wt.sh — the parent-scoped `bun check`
+# branch below would check the main checkout, not this worktree. Run the
+# worktree's own package.json scripts directly instead (only when nested
+# under the parent workspace; a standalone worktree's own `bun run test`
+# already checks the right code).
 if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
    && [ -n "$PARENT_DIR" ]; then
   cd "$REPO_ROOT"
