@@ -724,7 +724,11 @@ export async function runRetentionCleanup(
       case "blockDelete": {
         const targets = await resolveAnonymizeTargets(entity.fields);
         if (!targets) {
-          skipped.push({ entityName, reason: "missing_anonymize_fields" });
+          // blockDelete without anonymize fields is a pure hold: nothing falls
+          // due after expiry, so it is not a misconfiguration worth reporting.
+          if (policy.strategy === "anonymize") {
+            skipped.push({ entityName, reason: "missing_anonymize_fields" });
+          }
           break;
         }
         const executor = createEventStoreExecutor(proj.table, entity, { entityName });
