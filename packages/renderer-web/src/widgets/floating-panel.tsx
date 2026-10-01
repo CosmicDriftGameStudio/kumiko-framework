@@ -302,6 +302,8 @@ export function FloatingPanel({
     onEnd: persistGeometry,
   });
   const onHeaderPointerDown = (event: PointerEvent<HTMLElement>): void => {
+    // React events from portalled children (menus) bubble through the header although their DOM is elsewhere.
+    if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
     if (event.target instanceof Element && event.target.closest(INTERACTIVE_HEADER_TARGET)) return;
     moveDrag.onPointerDown(event);
   };
