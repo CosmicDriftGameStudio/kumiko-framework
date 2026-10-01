@@ -1,4 +1,3 @@
-// @runtime client
 // Hard-coded query allowlists for overview-home screens — security boundary
 // against privilege escalation via accidental cross-workspace fetches.
 
