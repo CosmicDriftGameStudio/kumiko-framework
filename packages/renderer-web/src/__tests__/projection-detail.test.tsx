@@ -1499,13 +1499,15 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
   describe("recordTitleField", () => {
     const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
 
-    async function shellHeaderText(recordTitleField: string | undefined): Promise<string> {
+    async function breadcrumbTitles(recordTitleField: string | undefined): Promise<string[]> {
       const titledSchema: FeatureSchema = {
         featureName: "sessions",
         entities: {},
         screens: [
+          { id: "session-list", type: "entityList", entity: "session", columns: ["userId"] },
           {
             ...detailScreen,
+            listScreenId: "session-list",
             layout: { mode: "tabs", sections: detailScreen.layout.sections },
             slots: { header: { react: { __component: "HubHeader" } } },
             ...(recordTitleField !== undefined && { recordTitleField }),
@@ -1538,15 +1540,23 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
         </NavProvider>,
       );
       await waitFor(() => screen.getByTestId("hub-header"));
-      return document.querySelector("[data-kumiko-layout='shell-header']")?.textContent ?? "";
+      return [
+        ...document.querySelectorAll(
+          "[data-kumiko-layout='shell-header'] [data-slot='breadcrumb-item']",
+        ),
+      ].map((item) => item.textContent ?? "");
     }
 
-    test("the record's field value joins the header breadcrumb", async () => {
-      expect(await shellHeaderText("userId")).toContain("user-42");
+    test("the record's field value is the last breadcrumb, right after the list crumb", async () => {
+      const crumbs = await breadcrumbTitles("userId");
+      expect(crumbs).toHaveLength(2);
+      expect(crumbs[1]).toBe("user-42");
     });
 
-    test("without recordTitleField the breadcrumb carries no record value", async () => {
-      expect(await shellHeaderText(undefined)).not.toContain("user-42");
+    test("without recordTitleField the screen title is the last breadcrumb", async () => {
+      const crumbs = await breadcrumbTitles(undefined);
+      expect(crumbs).toHaveLength(2);
+      expect(crumbs[1]).not.toBe("user-42");
     });
   });
 

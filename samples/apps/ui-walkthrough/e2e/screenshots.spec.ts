@@ -127,7 +127,7 @@ test("formular-zahlen-light", async ({ page }) => {
 
 test("formular-toggle-light", async ({ page }) => {
   await openVehicleForm(page);
-  await page.getByRole("switch").first().scrollIntoViewIfNeeded();
+  await page.getByRole("switch", { name: "Nichtraucherfahrzeug" }).scrollIntoViewIfNeeded();
   await shot(page, "formular-toggle-light");
 });
 
@@ -205,6 +205,19 @@ test.describe("mobile", () => {
   test("detail-slot-mobile", async ({ page }) => {
     await openLeaseHub(page);
     await shot(page, "detail-slot-mobile");
+  });
+
+  test("detail-tab-felder-mobile", async ({ page }) => {
+    await openLeaseHub(page);
+    await page.getByRole("tab", { name: /Vertragsdaten/ }).click();
+    await expect(page.getByText("Liegenschaft").first()).toBeVisible();
+    await shot(page, "detail-tab-felder-mobile");
+  });
+
+  test("detail-tab-extension-mobile", async ({ page }) => {
+    await openLeaseHub(page);
+    await page.getByRole("tab", { name: /Verlauf/ }).click();
+    await shot(page, "detail-tab-extension-mobile");
   });
 
   test("dashboard-mobile", async ({ page }) => {

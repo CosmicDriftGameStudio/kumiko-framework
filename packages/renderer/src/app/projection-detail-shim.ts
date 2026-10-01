@@ -82,6 +82,5 @@ export function synthesizeProjectionDetailScreen(
     ...(screen.slots !== undefined && { slots: screen.slots }),
     ...(screen.access !== undefined && { access: screen.access }),
     ...(screen.fillHeight !== undefined && { fillHeight: screen.fillHeight }),
-    ...(screen.recordTitleField !== undefined && { recordTitleField: screen.recordTitleField }),
   };
 }

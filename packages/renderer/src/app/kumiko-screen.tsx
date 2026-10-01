@@ -3117,6 +3117,10 @@ function ProjectionDetailBody({
   // this shares the same page padding/width as the record's edit card below
   // it, instead of sitting flush against the screen edge (fw record-screen
   // header polish).
+  const recordTitle =
+    screen.recordTitleField !== undefined
+      ? resolveRecordTitle(record[screen.recordTitleField])
+      : undefined;
   const header = screen.header;
   const subtitleHref = resolveSubtitleHref(header, record);
   // Plain Text, not Heading — the Card title slot already renders as its own
@@ -3209,17 +3213,13 @@ function ProjectionDetailBody({
       {actionError}
     </Banner>
   );
-  const recordTitle =
-    screen.recordTitleField !== undefined
-      ? resolveRecordTitle(record[screen.recordTitleField])
-      : undefined;
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (
     <>
       {usesPageHeaderSlot ? (
         <>
           <PageHeader
             {...(header !== undefined && { title: String(record[header.title] ?? "") })}
-            {...(recordTitle !== undefined && { recordTitle })}
+            {...(header === undefined && recordTitle !== undefined && { title: recordTitle })}
             {...(header?.status !== undefined &&
               StatusBadge !== undefined && {
                 status: (
@@ -3254,10 +3254,12 @@ function ProjectionDetailBody({
           {actionErrorBanner}
         </>
       ) : (
-        (hasHeaderCard || headerSlot !== undefined) && (
+        (hasHeaderCard || headerSlot !== undefined || recordTitle !== undefined) && (
           <Card
             slots={{
               ...(headerTitleSlot !== undefined && { title: headerTitleSlot }),
+              ...(headerTitleSlot === undefined &&
+                recordTitle !== undefined && { title: recordTitle }),
               ...(headerSubtitleSlot !== undefined && { subtitle: headerSubtitleSlot }),
               ...(headerSlot !== undefined && { headerContent: headerSlot }),
               ...(hasHeaderActions && { headerActions: headerActionsContent }),
@@ -3305,7 +3307,10 @@ function ProjectionDetailBody({
         {...(translate !== undefined && { translate })}
         {...(hasTabs && { hideSectionTitles: true })}
         {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
-        {...((hasHeaderCard || hasTabs || screen.slots?.header !== undefined) && {
+        {...((hasHeaderCard ||
+          hasTabs ||
+          screen.slots?.header !== undefined ||
+          screen.recordTitleField !== undefined) && {
           headerRegion: renderHeaderContent,
         })}
         buildSectionActions={buildSectionActions}

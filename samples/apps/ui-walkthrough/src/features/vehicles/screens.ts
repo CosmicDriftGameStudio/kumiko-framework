@@ -17,7 +17,7 @@ const DETAIL_FIELDS = [
   "ausstattungslinie",
   "zustand",
   "vorbesitzer",
-  "scheckheftGepflegt",
+  "nichtraucher",
   "garantieMonate",
   "garantieJahre",
   "inspektion",

@@ -29,6 +29,7 @@ const OCTAVIA = {
   inspektion: "12",
   scheckheft: "complete",
   scheckheftGepflegt: true,
+  nichtraucher: true,
   beschreibung: OCTAVIA_DESCRIPTION,
   ausstattung: "Klimaautomatik, Navigation, Sitzheizung, Anhängerkupplung",
 } as const;
