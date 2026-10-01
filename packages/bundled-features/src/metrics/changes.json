@@ -1,0 +1,15 @@
+[
+  {
+    "version": "0.330.0",
+    "type": "fix",
+    "title": "deliveries-by-channel shows readable channel labels instead of raw channel ids",
+    "detail": "Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels."
+  },
+  {
+    "version": "0.330.0",
+    "type": "improvement",
+    "title": "Add metrics feature: declarative dashboard metrics over TenantDb.aggregate (fw#3396)",
+    "detail": "New bundled features `metrics` (tenant scope, `access.admin`) and `metrics-system` (platform-wide, `access.systemAdmin`). A metric is declared once with `defineMetric` (source table, measure, optional timeField, window, bucket, groupBy, stackBy, where) and becomes the query `<feature>:query:<metric.id>` returning a `MetricResult` (total, delta against the previous period, bucketed series, group rows, segments). Definitions are validated when the feature is built. Eight default metrics ship: job-runs-by-status, failed-job-runs, tenant-job-failures, deliveries-by-channel, failed-deliveries, active-users, active-tenants, audit-writes. Pass your own list via `createMetricsFeature({ metrics })`.",
+    "migration": "Opt-in: mount `createMetricsFeature(...)` and/or `createSystemMetricsFeature(...)`. The new indexes on jobs, delivery and sessions need `kumiko migrate generate`."
+  }
+]

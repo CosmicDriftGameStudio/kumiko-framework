@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.330.0",
+    "type": "fix",
+    "title": "The switch-plan error for a subscription with a scheduled cancellation says \"scheduled to end\", matching the plan badge",
+    "detail": "The error for switching plans on a subscription with a scheduled cancellation now says \"scheduled to end\", like the plan badge, and the invalid-credentials message reads the same in every source that registers it."
+  },
+  {
     "version": "0.321.0",
     "type": "breaking",
     "title": "switch-plan rejects a subscription with a scheduled cancellation",

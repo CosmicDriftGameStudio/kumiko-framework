@@ -1,5 +1,81 @@
 # @cosmicdrift/kumiko-types
 
+## 0.330.0
+
+### Minor Changes
+
+- dc5981b: Dashboard screens get new chart kinds, panel states and a time range; admin-shell overviews are built from metrics
+
+  Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Dashboard screens get stacked-bars, segment-bars and stacked-area charts, panel states, time range, scope badge and bar/badge list columns
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: breaking
+  title: Dashboard screens show screen.description only when it is an i18n key; plain-text descriptions stay agent-facing and are no longer rendered
+  migration: |
+    To keep a visible subtitle under a dashboard title, set screen.description to an i18n key (for example "my-feature:screen.overview.description") and register its translations.
+  -->
+
+  <!-- kumiko-changes
+  feature: metrics
+  type: fix
+  title: deliveries-by-channel shows readable channel labels instead of raw channel ids
+  -->
+
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: breaking
+  title: admin-shell requires the metrics and metrics-system features and builds its overview dashboards from a metrics list
+  migration: |
+    Mount createMetricsFeature({ metrics: DEFAULT_METRICS }) and createSystemMetricsFeature({ metrics: DEFAULT_METRICS }) from the metrics bundled feature before admin-shell. DEFAULT_METRICS also requires the delivery, sessions, jobs and tenant features.
+
+    If you do not mount all of them, pass the same reduced list to all three: createMetricsFeature({ metrics }), createSystemMetricsFeature({ metrics }) and createAdminShellFeature({ metrics }). Overview panels exist only for metric ids in that list.
+  -->
+
+- 89e32ce: TenantDb.aggregate and aggregateWhere: grouped count, countDistinct, sum and avg with time buckets (fw#3396)
+
+  `tenantDb.aggregate(table, { measure, groupBy?, orderByValue?, limit? }, where?)` and the standalone `aggregateWhere(db, table, spec, where?)` run one grouped aggregate with the same tenant scoping as `read`/`count`. A dimension can be a plain column or a time bucket (`{ field, bucket: 'hour' | 'day' | ..., timeZone }`) on a timestamptz column; bucket keys come back as epoch milliseconds. Types live in `@cosmicdrift/kumiko-types/aggregate-types`. Unknown fields, non-timestamptz bucket columns and bad limits throw before any SQL runs.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: TenantDb.aggregate and aggregateWhere: grouped count, countDistinct, sum and avg with time buckets (fw#3396)
+  migration: |
+    Only code that implements the `TenantDb` interface itself (for example a hand-written mock) must add an `aggregate` method; `createTenantDb` already provides it.
+  -->
+
+- f19fb5c: Add metrics feature: declarative dashboard metrics over TenantDb.aggregate (fw#3396)
+
+  New bundled features `metrics` (tenant scope, `access.admin`) and `metrics-system` (platform-wide, `access.systemAdmin`). A metric is declared once with `defineMetric` (source table, measure, optional timeField, window, bucket, groupBy, stackBy, where) and becomes the query `<feature>:query:<metric.id>` returning a `MetricResult` (total, delta against the previous period, bucketed series, group rows, segments). Definitions are validated when the feature is built. Eight default metrics ship: job-runs-by-status, failed-job-runs, tenant-job-failures, deliveries-by-channel, failed-deliveries, active-users, active-tenants, audit-writes. Pass your own list via `createMetricsFeature({ metrics })`.
+
+  <!-- kumiko-changes
+  feature: metrics
+  type: improvement
+  title: Add metrics feature: declarative dashboard metrics over TenantDb.aggregate (fw#3396)
+  migration: |
+    Opt-in: mount `createMetricsFeature(...)` and/or `createSystemMetricsFeature(...)`. The new indexes on jobs, delivery and sessions need `kumiko migrate generate`.
+  -->
+
+### Patch Changes
+
+- 1e18129: Screen schema gains createScreen on entityList, recordTitleField on entityEdit and fillHeight on configEdit; extension tabs render unframed
+
+  `createScreen` on an entityList names the screen opened by the create button. `recordTitleField` on an entityEdit shows a field value as the record title in the header breadcrumb (list > record > screen title). `fillHeight` on a configEdit (default true) switches it to the screen-form layout with a pinned footer; `false` restores the card layout. All three are optional and validated at boot. Extension tabs on a projectionDetail no longer wrap their content in a Card, like relatedList tabs. A `headerSlot` now renders inside the page-header slot instead of replacing the header.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Screen schema gains createScreen, recordTitleField and configEdit fillHeight; extension tabs render unframed
+  migration: |
+    Additive. Set `createScreen: "<screen-id>"` on an entityList and `recordTitleField: "<field>"` on an entityEdit to use them. configEdit screens now fill the shell height; set `fillHeight: false` to keep the card layout. Apps with screenshot tests of extension tabs lose the surrounding card frame.
+  -->
+
 ## 0.329.0
 
 ### Minor Changes

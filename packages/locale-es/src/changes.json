@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.330.0",
+    "type": "improvement",
+    "title": "Spanish strings cover every registered key",
+    "detail": "The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses \"Ereignisprotokoll\" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature."
+  },
+  {
+    "version": "0.330.0",
+    "type": "breaking",
+    "title": "locale-es drops the same keys that no framework feature registers any more",
+    "detail": "The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses \"Ereignisprotokoll\" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature.",
+    "migration": "Same as locale-de: register any removed key your app still calls in the app's own translations, or switch to the key the framework screen uses now."
+  },
+  {
     "version": "0.328.0",
     "type": "improvement",
     "title": "New pager, list, form, wizard and drawer strings",

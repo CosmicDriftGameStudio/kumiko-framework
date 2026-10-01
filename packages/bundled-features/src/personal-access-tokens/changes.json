@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.330.0",
+    "type": "fix",
+    "title": "The token list status column shows translated labels instead of raw status values"
+  },
+  {
     "version": "0.202.0",
     "type": "breaking",
     "title": "personal-access-tokens: `write:create` now requires `currentPassword` (+ `mfaCode` if MFA enrolled) (e91d4cb).",
