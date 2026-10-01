@@ -75,6 +75,51 @@ describe("guard-primitives-discipline checkFile()", () => {
     expect(violationsFor('<div className="bg-card-elevated">x</div>\n')).toHaveLength(0);
   });
 
+  test("mx-auto + max-w-* in einer className wird gemeldet (→ PageSection)", () => {
+    const v = violationsFor('<div className="mx-auto max-w-4xl p-6">x</div>\n');
+    expect(v).toHaveLength(1);
+    expect(v[0]?.kind).toBe("class");
+    expect(v[0]?.counterpart).toContain("PageSection");
+  });
+
+  test("umgekehrte Reihenfolge, Arbitrary-Wert und Varianten-Prefix werden erkannt", () => {
+    expect(violationsFor('<div className="max-w-4xl mx-auto">x</div>\n')).toHaveLength(1);
+    expect(violationsFor('<div className="mx-auto max-w-[1100px]">x</div>\n')).toHaveLength(1);
+    expect(violationsFor('<div className="md:max-w-3xl mx-auto">x</div>\n')).toHaveLength(1);
+  });
+
+  test("max-w-* allein, mx-auto allein und bindestrich-praefixierte Teilstrings sind KEIN Treffer", () => {
+    expect(violationsFor('<div className="max-w-4xl p-6">x</div>\n')).toHaveLength(0);
+    expect(violationsFor('<div className="mx-auto p-6">x</div>\n')).toHaveLength(0);
+    expect(violationsFor('<div className="my-mx-auto max-w-4xl">x</div>\n')).toHaveLength(0);
+    expect(violationsFor('<div className="mx-auto my-max-w-4xl">x</div>\n')).toHaveLength(0);
+    expect(violationsFor('<div className="mx-auto-x max-w-4xl">x</div>\n')).toHaveLength(0);
+  });
+
+  test("kumiko-lint-ignore unterdrückt den Screen-Container-Treffer", () => {
+    const src =
+      '{/* kumiko-lint-ignore primitives-discipline narrow confirmation card */}\n<div className="mx-auto max-w-sm">x</div>\n';
+    expect(violationsFor(src)).toHaveLength(0);
+  });
+
+  test("Dateien unter einem public/-Segment sind vom Screen-Container-Check ausgenommen", () => {
+    const dir = mkdtempSync(join(tmpdir(), "prim-guard-public-"));
+    try {
+      const pub = join(dir, "public");
+      mkdirSync(pub, { recursive: true });
+      const file = join(pub, "Landing.tsx");
+      writeFileSync(file, '<div className="mx-auto max-w-4xl">x</div>\n');
+      expect(checkFile(file, "app", dir)).toHaveLength(0);
+      const other = join(dir, "web");
+      mkdirSync(other, { recursive: true });
+      const webFile = join(other, "Landing.tsx");
+      writeFileSync(webFile, '<div className="mx-auto max-w-4xl">x</div>\n');
+      expect(checkFile(webFile, "app", dir)).toHaveLength(1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('checkFile(file, "app") klassifiziert Violations mit scope="app"', () => {
     const dir = mkdtempSync(join(tmpdir(), "prim-guard-"));
     const file = join(dir, "probe.tsx");
@@ -219,6 +264,29 @@ describe("check.run — RepoCheck seam", () => {
       expect(files).toEqual([
         "packages/ai-foundation/src/web/Panel.tsx",
         "packages/designer/src/web/Screen.tsx",
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("client/-Segment (enterprise ai-foundation) wird gescannt", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "prim-guard-client-"));
+    try {
+      const client = join(dir, "packages/ai-foundation/src/client");
+      mkdirSync(client, { recursive: true });
+      writeFileSync(
+        join(client, "Screen.tsx"),
+        'export const S = () => <div className="mx-auto max-w-4xl">x</div>;\n',
+      );
+      const root = fixtureRoot("kumiko-enterprise", dir, {
+        kind: "library",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations.map((v) => v.file)).toEqual([
+        "packages/ai-foundation/src/client/Screen.tsx",
       ]);
     } finally {
       rmSync(dir, { recursive: true, force: true });

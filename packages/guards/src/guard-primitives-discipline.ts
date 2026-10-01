@@ -22,6 +22,8 @@
  *   <dialog>                                →  <DefaultDialog>
  *   alert() / window.alert()               →  <DefaultDialog> from @cosmicdrift/kumiko-renderer-web
  *   className "bg-card" (hand-rolled card) →  <Card> (slots/options)
+ *   className "mx-auto" + "max-w-*" (hand-rolled screen container)
+ *                                           →  <PageSection maxWidth> (3xl/4xl/full)
  *
  * Allowed: containers and text — `<div>`, `<span>`, `<section>`,
  *   `<header>`, `<main>`, `<nav>`, `<aside>`, `<article>`,
@@ -72,6 +74,16 @@ const FORBIDDEN_CLASSES: ReadonlyArray<{
   readonly token: string;
   readonly counterpart: string;
 }> = [{ token: "bg-card", counterpart: "<Card>" }];
+
+// Hand-rolled screen container: `mx-auto` and a `max-w-*` token in the same
+// line. Screens get their width from `<PageSection maxWidth>`; a private
+// container drifts from the shell (an ai-models screen rendered 896px wide).
+const SCREEN_CONTAINER_LABEL = "mx-auto + max-w-*";
+const SCREEN_CONTAINER_COUNTERPART = "<PageSection maxWidth> (3xl/4xl/full)";
+const MX_AUTO_PATTERN = /(?<![\w-])mx-auto(?![\w-])/u;
+// Arbitrary values (`max-w-[1100px]`) contain `[`/`]`/`.`, so the token body
+// is any non-whitespace/non-quote run.
+const MAX_W_PATTERN = /(?<![\w-])max-w-[^\s"'`}]+/u;
 
 const IGNORE_TAG = "kumiko-lint-ignore primitives-discipline";
 
@@ -127,13 +139,14 @@ type Violation = {
 };
 
 function isWebFile(absPath: string, scopeRoot: string): boolean {
-  // Only .tsx files under a `web/` or `public/` path segment (prevents
+  // Only .tsx files under a `web/`, `client/` or `public/` path segment
+  // (`client` = enterprise ai-foundation keeps its web code there; prevents
   // scanning random .tsx in screens/ or feature roots — those are schema
   // definitions, not web code).
   if (!absPath.endsWith(".tsx")) return false;
   const rel = path.relative(scopeRoot, absPath);
   const parts = rel.split(path.sep);
-  return parts.includes("web") || parts.includes("public");
+  return parts.includes("web") || parts.includes("client") || parts.includes("public");
 }
 
 function walk(dir: string, out: string[]): void {
@@ -178,6 +191,12 @@ const CLASS_PATTERNS = FORBIDDEN_CLASSES.map((c) => ({
   pattern: new RegExp(`(?<![\\w-])${c.token}(?![\\w-])`, "u"),
 }));
 
+function isPublicPage(file: string): boolean {
+  // Public pages live outside the app shell; PublicShell is their container,
+  // so a centered max-width there is not a screen container.
+  return file.split(path.sep).includes("public");
+}
+
 function hasIgnore(currentLine: string, prevLine: string): boolean {
   return currentLine.includes(IGNORE_TAG) || prevLine.includes(IGNORE_TAG);
 }
@@ -190,6 +209,7 @@ export function checkFile(
   const text = fs.readFileSync(file, "utf-8");
   const lines = text.split("\n");
   const violations: Violation[] = [];
+  const publicPage = isPublicPage(path.relative(root, file));
   let inBlockComment = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i] ?? "";
@@ -251,6 +271,17 @@ export function checkFile(
           scope,
         });
       }
+    }
+    if (!publicPage && MX_AUTO_PATTERN.test(codeOnly) && MAX_W_PATTERN.test(codeOnly)) {
+      violations.push({
+        file: path.relative(root, file),
+        line: i + 1,
+        kind: "class",
+        tag: SCREEN_CONTAINER_LABEL,
+        counterpart: SCREEN_CONTAINER_COUNTERPART,
+        excerpt: trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed,
+        scope,
+      });
     }
   }
   return violations;
