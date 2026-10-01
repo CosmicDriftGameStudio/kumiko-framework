@@ -33,6 +33,7 @@ import {
 import { sharedWidgetEntity, sharedWidgetTable, waitFor } from "../../testing/index.js";
 import { generateId } from "../../utils/index.js";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
+import { skipPoisonEvent } from "../event-dispatcher-admin.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",
@@ -278,5 +279,66 @@ describe("event-dispatcher — commit order vs. id order", () => {
       { delays: [20, 100, 500, 1000, 3000] },
     );
     expect(pendingGaps).toEqual([]);
+  });
+
+  test("skipPoisonEvent skips the event that failed, not a healthy late-committing writer in a pending gap (#3217)", async () => {
+    const seen: string[] = [];
+    const consumer: EventConsumer = {
+      name: "commitorder:skip-poison-consumer",
+      handler: async (event) => {
+        const name = String(event.payload["name"]);
+        if (name === "P") throw new Error("poisoned: P");
+        seen.push(name);
+      },
+    };
+    const dispatcher = createEventDispatcher({
+      db: stack.db,
+      consumers: [consumer],
+      context: { db: stack.db, redis: stack.redis.redis, registry: stack.registry },
+      batchSize: 200,
+      pollIntervalMs: 5000,
+      maxAttempts: 1,
+    });
+    await dispatcher.ensureRegistered();
+    const db = stack.db as DbConnection;
+
+    // A grabs the lowest id but stays uncommitted.
+    let releaseA!: () => void;
+    const aGate = new Promise<void>((resolve) => {
+      releaseA = resolve;
+    });
+    let markAInserted!: () => void;
+    const aInserted = new Promise<void>((resolve) => {
+      markAInserted = resolve;
+    });
+    const aDone = db.begin(async (tx: DbTx) => {
+      await insertWidgetCreatedEvent(tx, "A");
+      markAInserted();
+      await aGate;
+    });
+    await aInserted;
+
+    // B delivers and moves the cursor above A's id, recording A as a pending gap.
+    await appendWidget("B");
+    expect((await dispatcher.runOnce()).processed).toBe(1);
+    expect(await readPendingGaps(db, consumer.name)).not.toEqual([]);
+
+    // P fails with maxAttempts 1 and parks the consumer dead.
+    await appendWidget("P");
+    await dispatcher.runOnce();
+
+    releaseA();
+    await aDone;
+
+    const [poisonRow] = (await asRawClient(db).unsafe(
+      `SELECT "id" FROM "kumiko_events" WHERE "payload"->>'name' = 'P'`,
+    )) as ReadonlyArray<{ id: string | bigint }>;
+    const poisonId = BigInt(poisonRow?.id ?? 0);
+
+    const skipped = await skipPoisonEvent(db, consumer.name);
+    expect(skipped.skippedEventId).toBe(poisonId);
+
+    await dispatcher.runOnce();
+    expect(seen).toEqual(["B", "A"]);
   });
 });

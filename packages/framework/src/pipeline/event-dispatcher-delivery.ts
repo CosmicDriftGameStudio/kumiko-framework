@@ -67,6 +67,7 @@ export type ConsumerStateRowShape = {
   readonly attempts: number;
   readonly rearmCount: number;
   readonly pendingGaps: readonly PendingGapEntry[];
+  readonly lastFailedEventId: bigint | null;
   readonly lastError: string | null;
   readonly updatedAt: Temporal.Instant;
 };
@@ -283,6 +284,8 @@ export type DeliveryOutcome = {
   readonly deadLettered: boolean;
   readonly processed: number;
   readonly failed: number;
+  // The event whose handler threw and halted this pass; null when nothing failed.
+  readonly failedEventId: bigint | null;
   // Which of the *pending* ids in `events` (id <= the cursor this delivery
   // started from) got resolved this pass — delivered or skip-applied. The
   // caller (event-dispatcher.ts) splits exactly these out of pending_gaps;
@@ -314,6 +317,7 @@ export async function deliverEvents(
   const effectiveMaxAttempts = consumer.errorPolicy?.maxAttempts ?? maxAttempts;
   let processed = 0;
   let failed = 0;
+  let failedEventId: bigint | null = null;
   const resolvedPendingIds: bigint[] = [];
 
   // A pending row sits below startCursor: it resolves its gap but never moves
@@ -330,7 +334,16 @@ export async function deliverEvents(
     if (batchSucceeded) {
       for (const row of events) resolve(row.id);
       processed = events.length;
-      return { cursor, attempts, lastError, deadLettered, processed, failed, resolvedPendingIds };
+      return {
+        cursor,
+        attempts,
+        lastError,
+        deadLettered,
+        processed,
+        failed,
+        failedEventId,
+        resolvedPendingIds,
+      };
     }
     // fall through to the per-event loop below; the batch failure itself
     // does NOT bump attempts — only a per-event failure does.
@@ -351,12 +364,22 @@ export async function deliverEvents(
       }
       attempts += 1;
       lastError = errMessage;
+      failedEventId = row.id;
       if (attempts >= effectiveMaxAttempts) deadLettered = true;
       break;
     }
   }
 
-  return { cursor, attempts, lastError, deadLettered, processed, failed, resolvedPendingIds };
+  return {
+    cursor,
+    attempts,
+    lastError,
+    deadLettered,
+    processed,
+    failed,
+    failedEventId,
+    resolvedPendingIds,
+  };
 }
 
 // Shared requestContext scope for one apply — event-derived fields

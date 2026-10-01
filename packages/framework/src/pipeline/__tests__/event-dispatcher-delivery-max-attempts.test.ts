@@ -52,6 +52,7 @@ function stubState(): ConsumerStateRow {
     attempts: 0,
     rearmCount: 0,
     pendingGaps: [],
+    lastFailedEventId: null,
     lastError: null,
     updatedAt: Temporal.Now.instant(),
   };

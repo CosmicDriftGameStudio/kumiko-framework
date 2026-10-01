@@ -135,13 +135,13 @@ export async function enableConsumer(
   return applyConsumerStatusTransition(db, name, instanceId, "idle");
 }
 
-// skipPoisonEvent advances past whatever is currently blocking the consumer.
-// If the smallest visible id inside pending_gaps exists, THAT'S the poison —
-// halt-on-poison walks gap ids before any id past the cursor — so it's split
-// out of its range directly; the cursor stays put (it's already above this
-// id). Otherwise the poison is the usual next event after the cursor. Single
-// TX so concurrent dispatcher passes can't double-advance. Neither exists →
-// idempotent no-op.
+// skipPoisonEvent skips the event whose handler failed last
+// (last_failed_event_id, set by the delivery's halt-on-poison branch): inside
+// pending_gaps it is split out of its range, otherwise the cursor moves onto
+// it. Without a recorded id (consumer parked before that column existed) it
+// falls back to a guess: the smallest visible pending-gap id, else the next
+// event after the cursor. Single TX so concurrent dispatcher passes can't
+// double-advance. Nothing to skip → idempotent no-op.
 export async function skipPoisonEvent(
   db: DbConnection,
   name: string,
@@ -150,15 +150,22 @@ export async function skipPoisonEvent(
   const before = await requireConsumerRow(db, name, instanceId);
   return db.begin(async (tx: DbTx) => {
     const pendingGaps = before.pendingGaps;
-    const smallestVisiblePending = await selectSmallestVisibleIdInRanges(
-      tx,
-      toIdRanges(pendingGaps),
-    );
+    const failedEventId = before.lastFailedEventId;
+    const failedIsPending =
+      failedEventId !== null && pendingGaps.some((gap) => rangeContainsId(gap, failedEventId));
+    const failedIsAboveCursor =
+      failedEventId !== null && failedEventId > before.lastProcessedEventId;
 
-    if (smallestVisiblePending !== null) {
+    const pendingPoisonId = failedIsPending
+      ? failedEventId
+      : failedIsAboveCursor
+        ? null
+        : await selectSmallestVisibleIdInRanges(tx, toIdRanges(pendingGaps));
+
+    if (pendingPoisonId !== null) {
       const newPendingGaps = pendingGaps.flatMap((gap) =>
-        rangeContainsId(gap, smallestVisiblePending)
-          ? splitRangeExcludingIds(gap, [smallestVisiblePending])
+        rangeContainsId(gap, pendingPoisonId)
+          ? splitRangeExcludingIds(gap, [pendingPoisonId])
           : [gap],
       );
       const raw = await removePendingGapReturning(tx, name, instanceId, newPendingGaps);
@@ -168,10 +175,12 @@ export async function skipPoisonEvent(
         throw new Error(
           `Consumer "${name}" (instance_id="${instanceId}") vanished mid-skip — retry.`,
         );
-      return { ...normalizeConsumerState(updated), skippedEventId: smallestVisiblePending };
+      return { ...normalizeConsumerState(updated), skippedEventId: pendingPoisonId };
     }
 
-    const poisonId = await selectNextEventIdAfter(tx, before.lastProcessedEventId);
+    const poisonId = failedIsAboveCursor
+      ? failedEventId
+      : await selectNextEventIdAfter(tx, before.lastProcessedEventId);
     if (poisonId === null) {
       const [unchanged] = await selectMany<ConsumerStateRow>(tx, eventConsumerStateTable, {
         name,

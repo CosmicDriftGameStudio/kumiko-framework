@@ -230,6 +230,7 @@ export type ConsumerDeliveryOutcome = {
   readonly deadLettered: boolean;
   readonly processed: number;
   readonly pendingGaps: readonly PendingGapEntry[];
+  readonly failedEventId: bigint | null;
 };
 
 export async function updateConsumerDeliveryOutcome(
@@ -252,6 +253,7 @@ export async function updateConsumerDeliveryOutcome(
        "rearm_count" = CASE WHEN $5 THEN 0 ELSE "rearm_count" END,
        -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
        "pending_gaps" = $6::text::jsonb,
+       "last_failed_event_id" = $9,
        "updated_at" = now()
      WHERE "name" = $7 AND "instance_id" = $8`,
     [
@@ -263,6 +265,7 @@ export async function updateConsumerDeliveryOutcome(
       JSON.stringify(outcome.pendingGaps),
       name,
       instanceId,
+      outcome.failedEventId,
     ],
   );
 }
@@ -295,6 +298,7 @@ export async function advanceConsumerPastEventReturning(
        "attempts" = 0,
        "last_error" = NULL,
        "rearm_count" = 0,
+       "last_failed_event_id" = NULL,
        "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3
      RETURNING *`,
@@ -317,6 +321,7 @@ export async function resetConsumerForMspRebuild(
        "attempts" = 0,
        "last_error" = NULL,
        "pending_gaps" = '[]'::jsonb,
+       "last_failed_event_id" = NULL,
        "updated_at" = now()`,
     [name, instanceId],
   );
@@ -349,6 +354,7 @@ export async function updateConsumerRebuildCursor(
        "last_error" = NULL,
        -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
        "pending_gaps" = $2::text::jsonb,
+       "last_failed_event_id" = NULL,
        "updated_at" = now()
      WHERE "name" = $3 AND "instance_id" = $4`,
     [lastProcessedEventId, JSON.stringify(pendingGaps), name, instanceId],
@@ -409,6 +415,7 @@ export async function removePendingGapReturning(
        "attempts" = 0,
        "last_error" = NULL,
        "rearm_count" = 0,
+       "last_failed_event_id" = NULL,
        "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3
      RETURNING *`,
