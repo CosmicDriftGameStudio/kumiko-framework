@@ -11,6 +11,7 @@ export type {
 export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection.js";
 export type { SelectOptions, TableInfo, WhereObject, WhereOperator, WhereValue } from "./query.js";
 export {
+  aggregateWhere,
   asEntityTableMeta,
   asRawClient,
   countWhere,
@@ -24,6 +25,7 @@ export {
   incrementCounter,
   insertMany,
   insertOne,
+  isTimestamptzType,
   runInSavepoint,
   runInSavepointIfSupported,
   selectMany,

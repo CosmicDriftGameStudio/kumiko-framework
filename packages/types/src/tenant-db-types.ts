@@ -1,3 +1,4 @@
+import type { AggregateRow, AggregateSpec } from "./aggregate-types.js";
 import type { DbRunner } from "./db-connection.js";
 import type { EntityTableMeta } from "./entity-table-meta-types.js";
 import type { ExecutorOnly, NotExecutorOnly } from "./executor-brand.js";
@@ -75,6 +76,11 @@ export type TenantDb = {
     where: WhereObject,
   ): Promise<T | undefined>;
   count(table: SchemaTable | EntityTableMeta, where?: WhereObject): Promise<number>;
+  aggregate(
+    table: SchemaTable | EntityTableMeta,
+    spec: AggregateSpec,
+    where?: WhereObject,
+  ): Promise<readonly AggregateRow[]>;
   insertOne<T = Record<string, unknown>>(
     table: WritableTable,
     values: Record<string, unknown>,

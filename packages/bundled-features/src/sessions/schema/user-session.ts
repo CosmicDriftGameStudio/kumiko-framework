@@ -77,6 +77,7 @@ export const userSessionEntity = createEntity({
       find: "none",
     }),
   },
+  indexes: [{ columns: ["tenantId", "lastSeenAt"] }],
 });
 
 // Plain EntityTableMeta, NOT a branded EntityTable: user-session is an

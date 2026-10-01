@@ -11,6 +11,7 @@ export type {
   WhereValue,
 } from "../db/query.js";
 export {
+  aggregateWhere,
   asRawClient,
   countWhere,
   deleteMany,

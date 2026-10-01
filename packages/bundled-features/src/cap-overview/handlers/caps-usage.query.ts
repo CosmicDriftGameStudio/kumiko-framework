@@ -23,11 +23,11 @@ export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefi
       "Returns the calling user's own tenant's configured caps with used amount, tier limit and utilisation fraction; use it to answer how close a tenant is to its quota (only SystemAdmin may target another tenant via tenantId).",
     schema: z.object({ tenantId: z.string().min(1).optional() }),
     access: { roles: MY_CAPS_ACCESS_ROLES },
-    // App-owned CapSpec.usage() providers get this handler's db; a SUM has
-    // no TenantDb helper (count() is COUNT(*)-only), so they need raw SQL.
+    // COUNT/SUM/AVG are covered by TenantDb.count/TenantDb.aggregate; the grant
+    // stays for app-owned CapSpec.usage() providers that still use unsafeRaw.
     escapeHatch: {
       reason:
-        "cap-overview:caps:usage — grants app-owned CapSpec.usage() providers raw SQL for aggregates TenantDb has no typed helper for (e.g. a SUM)",
+        "cap-overview:caps:usage — grants app-owned CapSpec.usage() providers that still use unsafeRaw; COUNT/SUM/AVG are covered by TenantDb.count/TenantDb.aggregate",
     },
     handler: async (query, ctx) => {
       if (!ctx.systemDb) {

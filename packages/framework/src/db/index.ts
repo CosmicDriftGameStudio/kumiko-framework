@@ -117,6 +117,7 @@ export { acquireNamespacedAdvisoryLock } from "./queries/advisory-lock.js";
 export { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
 export type { SelectOptions, WhereObject, WhereValue } from "./query-api.js";
 export {
+  aggregateWhere,
   asRawClient,
   countWhere,
   deleteMany,
