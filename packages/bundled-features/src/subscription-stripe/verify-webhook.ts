@@ -25,13 +25,12 @@
 // sig-verify, kein split-brain.
 //
 // **Invoice-event lazy-fetch:**
-// Bei `invoice.paid` und `invoice.payment_failed` enthält der webhook-
-// payload nur die subscription-id (Stripe-Webhooks expanden subscription
-// nicht automatisch). Plugin macht einen lazy-fetch via
-// `stripe.subscriptions.retrieve(subId)` um an das full subscription-
-// Object für status/tier/period-end-mapping zu kommen. Bei resource_missing
-// (= subscription gelöscht zwischen webhook + retrieve) returnt der
-// Plugin null; jeder andere Stripe-Fehler wird zu 503, damit Stripe retried.
+// Invoice payloads carry only the subscription id (Stripe does not expand
+// subscription in webhooks), so the plugin lazy-fetches via
+// `stripe.subscriptions.retrieve(subId)` to get the full subscription for
+// status/tier/period-end mapping. resource_missing (deleted between webhook
+// and retrieve) returns null; any other Stripe error becomes 503 so Stripe
+// redelivers.
 
 import type {
   PaymentEvent,
@@ -317,8 +316,9 @@ async function extractSubscriptionFromEvent(
       try {
         return await stripe.subscriptions.retrieve(subId);
       } catch (error) {
-        // Subscription gelöscht zwischen webhook + retrieve: null → foundation
-        // 200 ignored, der nächste subscription-event handhabt den State.
+        // Subscription deleted between webhook and retrieve: null makes the
+        // foundation answer 200 ignored; the next subscription event carries
+        // the state.
         if (isResourceMissingStripeError(error)) return null;
         throw transientProviderRejection(error);
       }
