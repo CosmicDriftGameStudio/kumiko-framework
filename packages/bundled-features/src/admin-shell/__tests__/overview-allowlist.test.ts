@@ -37,10 +37,11 @@ describe("overview query allowlist", () => {
     }
   });
 
-  test("tenant allowlist includes members, invitations, readiness", () => {
-    expect(TENANT_OVERVIEW_ALLOWED_QUERIES).toContain(TenantQueries.members);
-    expect(TENANT_OVERVIEW_ALLOWED_QUERIES).toContain(TenantQueries.invitations);
-    expect(TENANT_OVERVIEW_ALLOWED_QUERIES).toContain("config:query:readiness");
+  test("tenant allowlist is the failures list + the caps-usage query", () => {
+    expect(TENANT_OVERVIEW_ALLOWED_QUERIES).toEqual([
+      JobQueries.failures,
+      CapOverviewQueries.capsUsage,
+    ]);
   });
 
   test("platform allowlist is jobs:list + the tenant-options picker query", () => {

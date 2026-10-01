@@ -25,7 +25,7 @@ export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
   "admin-shell:overview.chart.auditWrites": { en: "Changes per day" },
   "admin-shell:overview.chart.auditWritesSubtitle": { en: "Audit log, 14 days" },
   "admin-shell:overview.list.recentFailures": { en: "Recent failures" },
-  "admin-shell:overview.list.recentFailuresEmpty": { en: "No failures in the selected period" },
+  "admin-shell:overview.list.recentFailuresEmpty": { en: "No failed jobs" },
   "admin-shell:overview.list.quotas": { en: "Quotas" },
   "admin-shell:overview.list.quotasEmpty": { en: "No quotas configured" },
   "admin-shell:overview.col.job": { en: "Job" },

@@ -10,10 +10,6 @@ export type OverviewWorkspaceKind = "tenant" | "platform";
 
 /** Tenant workspace overview may only call these queries. */
 export const TENANT_OVERVIEW_ALLOWED_QUERIES = [
-  "tenant:query:invitations",
-  "tenant:query:members",
-  "config:query:readiness",
-  "cap-counter:query:get-counter",
   JobQueries.failures,
   CapOverviewQueries.capsUsage,
 ] as const;

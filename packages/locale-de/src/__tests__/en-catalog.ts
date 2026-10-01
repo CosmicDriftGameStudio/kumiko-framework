@@ -31,7 +31,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "admin-shell:overview.list.quotas": "Quotas",
   "admin-shell:overview.list.quotasEmpty": "No quotas configured",
   "admin-shell:overview.list.recentFailures": "Recent failures",
-  "admin-shell:overview.list.recentFailuresEmpty": "No failures in the selected period",
+  "admin-shell:overview.list.recentFailuresEmpty": "No failed jobs",
   "admin-shell:overview.range.24h": "24 hours",
   "admin-shell:overview.range.30d": "30 days",
   "admin-shell:overview.range.7d": "7 days",
