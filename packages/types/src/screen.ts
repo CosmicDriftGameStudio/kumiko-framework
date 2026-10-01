@@ -725,10 +725,10 @@ export type ProjectionDetailScreenDefinition = {
 // --- dashboard ---
 
 // Deklaratives Panel-Grid — Kennzahlen, Verläufe und Kurzlisten ohne
-// Custom-JSX. Jedes Panel zieht seine Daten aus einer eigenen Query
-// (fully-qualified QN, cross-feature erlaubt wie projectionList).
-// Formatierung ist Sache des Query-Handlers: String-Werte kommen anzeigefertig
-// aus der Read-Projection; Zahlen formatiert der Renderer mit der User-Locale.
+// Custom JSX. Each panel pulls its data from its own query
+// (fully-qualified QN, cross-feature allowed like projectionList).
+// Formatting is the query handler's job: string values arrive display-ready
+// from the read projection; the renderer formats numbers with the user locale.
 
 // Shared by every panel that runs a query.
 export type DashboardPanelQueryOptions = {
@@ -755,13 +755,13 @@ export type DashboardPanelEmptyState = {
   readonly emptyHint?: string;
 };
 
-// Query-Result-Contract: flaches Record; `valueField` zeigt auf den
-// Wert (String anzeigefertig, Zahl wird locale-formatiert), `subField`
-// optional auf eine Sub-Zeile, `toneField` optional auf
+// Query result contract: flat record; `valueField` points at the
+// value (string is display-ready, number is locale-formatted), `subField`
+// optionally at a sub line, `toneField` optionally at
 // "default" | "positive" | "warn" | "negative".
 export type DashboardStatPanel = DashboardPanelQueryOptions & {
   readonly kind: "stat";
-  /** Stable id — kebab-case, eindeutig im Panel-Set. */
+  /** Stable id: kebab-case, unique within the panel set. */
   readonly id: string;
   /** Anzeige-Text (i18n-Key). */
   readonly label: string;
@@ -798,22 +798,22 @@ export type DashboardStatPanel = DashboardPanelQueryOptions & {
 export type DashboardChartKind = "timeseries" | "stacked-bars" | "segment-bars" | "stacked-area";
 export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
 
-// Query-Result-Contracts (Feldnamen wie MetricResult); series/segment/row
-// labels laufen durch t():
+// Query result contracts (field names like MetricResult); series/segment/row
+// labels go through t():
 //   timeseries    { points: { atMs, value | null }[], windowStartMs, windowEndMs,
-//                   markers?: { atMs, label }[] } — value=null zeichnet einen
-//                   Einbruch; markers = nummerierte Pins auf der x-Achse plus
-//                   nummerierte Legende darunter.
+//                   markers?: { atMs, label }[] } — value=null draws a
+//                   dip; markers = numbered pins on the x axis plus a
+//                   numbered legend below.
 //   stacked-bars  { series: { key, label, points: { atMs, value | null }[] }[],
-//                   windowStartMs, windowEndMs } — vertikal gestapelt pro Bucket;
-//                   der letzte Bucket heisst "Heute", wenn er windowEndMs enthaelt.
-//                   Ist `series` leer, aber `points` da, wird `points` als eine
-//                   Serie gezeichnet (schlichtes Balkendiagramm).
+//                   windowStartMs, windowEndMs } — vertically stacked per bucket;
+//                   the last bucket is labeled "today" when it contains windowEndMs.
+//                   If `series` is empty but `points` is present, `points` is drawn
+//                   as a single series (plain bar chart).
 //   segment-bars  { rows: { key, label, value, segments: { key, label, value }[] }[] }
-//                   — ein horizontal gestapelter Balken pro Zeile.
+//                   — one horizontally stacked bar per row.
 //   stacked-area  { series, windowStartMs, windowEndMs, todayMs?, markers? } —
-//                   gestapelte Baender; rechts von `todayMs` ist die Prognose
-//                   (hellere Flaeche) mit senkrechter "Heute"-Linie.
+//                   stacked bands; right of `todayMs` is the forecast
+//                   (lighter fill) with a vertical "today" line.
 export type DashboardChartPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState & {
     readonly kind: "chart";
@@ -821,7 +821,7 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly label: string;
     readonly chart: DashboardChartKind;
     readonly query: string;
-    /** i18n key under the title, e.g. "7 Tage, nach Erstellungstag". */
+    /** i18n key under the title, e.g. "7 days, by creation day". */
     readonly subtitle?: string;
     /** Series/segment key -> tone; unmapped keys fall back to a palette. */
     readonly seriesTones?: Readonly<Record<string, DashboardChartTone>>;
@@ -838,10 +838,10 @@ export type DashboardListPanel = DashboardPanelQueryOptions &
     readonly columns: readonly ListColumnSpec[];
   };
 
-// Sektion aus mehreren Stat-Panels (z.B. "Net Worth": Assets/Debts/Net). Ein
-// Nesting-Level, kein Group-of-Groups — jedes Kind bleibt ein vollwertiges
-// DashboardStatPanel mit eigener Query/id/label. Mit `label` unter einem
-// Sektions-Titel; ohne `label` als flacher KPI-Streifen (Trenner, kein Card).
+// Section of several stat panels (e.g. "Net Worth": Assets/Debts/Net). One
+// nesting level, no group-of-groups: each child stays a full
+// DashboardStatPanel with its own query/id/label. With `label` it sits under a
+// section title; without `label` it renders as a flat KPI strip (dividers, no card).
 export type DashboardStatGroupPanel = {
   readonly kind: "stat-group";
   readonly id: string;

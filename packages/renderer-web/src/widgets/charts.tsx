@@ -263,7 +263,7 @@ export function TimeseriesChart({
   );
 }
 
-// --- Dashboard-Charts: gestapelte Balken/Bänder, Segment-Balken, Marker ---
+// --- Dashboard charts: stacked bars/areas, segment bars, markers ---
 
 export type ChartTone = "positive" | "negative" | "active" | "neutral";
 
@@ -392,9 +392,9 @@ function YTicks({
 
 const BAR_LABEL_TARGET = 8;
 
-/** Vertikal gestapelte Balken pro Bucket (x-Achse = Bucket, nicht Zeit).
- *  Der letzte Bucket trägt `todayLabel`, wenn er `windowEndMs` enthält und
- *  Tages-Granularität hat. */
+/** Vertically stacked bars per bucket (x axis = bucket, not time).
+ *  The last bucket carries `todayLabel` when it contains `windowEndMs` and
+ *  has day granularity. */
 export function StackedBarChart({
   series,
   windowEndMs,
@@ -487,8 +487,8 @@ export function StackedBarChart({
   );
 }
 
-/** Ein horizontal gestapelter Balken pro Zeile; Balkenlänge relativ zur
- *  größten Zeile, damit Zeilen vergleichbar bleiben. */
+/** One horizontally stacked bar per row; bar length is relative to the
+ *  largest row so rows stay comparable. */
 export function SegmentBarChart({
   rows,
   tones,
@@ -612,8 +612,8 @@ function MarkerLegend({
   );
 }
 
-/** Gestapelte Bänder über die Zeit. Rechts von `todayMs` ist die Prognose:
- *  hellere Füllung plus senkrechte "Heute"-Linie. */
+/** Stacked bands over time. Right of `todayMs` is the forecast: lighter
+ *  fill plus a vertical "today" line. */
 export function StackedAreaChart({
   series,
   windowStartMs,

@@ -156,8 +156,8 @@ export function StatCard({
   );
 }
 
-/** Flache KPI-Zelle für einen Streifen (Trenner statt Card): Label, Wert mit
- *  Sparkline rechts daneben, Sub-Zeile. */
+/** Flat KPI cell for a strip (divider instead of card): label, value with
+ *  sparkline beside it, sub line. */
 export function StatStripCell({
   label,
   value,
