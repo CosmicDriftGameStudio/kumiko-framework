@@ -243,6 +243,13 @@ export const demoFeature = defineFeature("styleguide", (r) => {
         screen: "item-edit",
         rowClick: true,
       },
+      // The rowClick action alone gets no actions column; the sticky-column
+      // test needs one.
+      {
+        id: "publish",
+        label: "Publish",
+        handler: "styleguide:write:item:publish",
+      },
     ],
   });
 
