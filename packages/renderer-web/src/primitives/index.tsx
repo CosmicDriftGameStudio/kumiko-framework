@@ -2766,8 +2766,9 @@ export function defaultCellRender(
 }
 
 function humanizeSlug(slug: string): string {
-  // "degraded-performance" → "Degraded performance"
-  if (slug.length === 0) return slug;
+  // "degraded-performance" → "Degraded performance". A dotted value such as
+  // "mobile.de" is a domain, not a slug, and must stay as stored.
+  if (slug.includes(".")) return slug;
   const spaced = slug.replace(/[-_]/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

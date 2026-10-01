@@ -29,6 +29,7 @@ afterEach(cleanup);
 const postEntity = {
   fields: {
     datum: { type: "date" },
+    kanal: { type: "select", options: ["mobile.de", "instagram"] },
     status: {
       type: "select",
       options: ["geplant", "gepostet"],
@@ -45,7 +46,7 @@ const bundles = {
   de: { "campaigns:entity:post:field:status:option:gepostet": "Veröffentlicht" },
 };
 
-const rows = [{ id: "p1", datum: "2026-09-29", status: "gepostet" }];
+const rows = [{ id: "p1", datum: "2026-09-29", status: "gepostet", kanal: "mobile.de" }];
 
 const dispatcher = {
   query: async () => ({ isSuccess: true, data: { rows, nextCursor: null } }),
@@ -77,7 +78,7 @@ const baseSection: EditRelatedListSectionViewModel = {
   kind: "relatedList",
   title: "Posts",
   query: "campaigns:query:post:list",
-  columns: ["datum", "status"],
+  columns: ["datum", "status", "kanal"],
 };
 
 function renderSection(section: EditRelatedListSectionViewModel): void {
@@ -120,6 +121,11 @@ describe("RelatedListSection entity-backed columns", () => {
     renderSection({ ...baseSection, entity: "post" });
     const cell = await screen.findByTestId("cell-p1-datum");
     expect(cell.textContent).toBe("29.09.2026");
+  });
+
+  test("an untranslated dotted option value stays as stored, not capitalized", async () => {
+    renderSection({ ...baseSection, entity: "post" });
+    expect((await screen.findByTestId("cell-p1-kanal")).textContent).toBe("mobile.de");
   });
 
   test("without entity the columns stay plain text", async () => {
