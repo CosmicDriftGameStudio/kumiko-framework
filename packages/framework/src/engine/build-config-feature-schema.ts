@@ -34,6 +34,7 @@ import type { Registry, SecretKeyDefinition } from "./types/feature.js";
 import type { FieldDefinition } from "./types/fields.js";
 import type { AccessRule } from "./types/handlers.js";
 import { isOpenToAllGranted } from "./types/handlers.js";
+import type { ExtensionSelectorPanel } from "./types/index.js";
 import type { NavDefinition, NavIconKey } from "./types/nav.js";
 import type {
   ConfigEditScreenDefinition,
@@ -135,12 +136,14 @@ type GatedPlugin = {
 
 type SelectorGating = {
   readonly pluginsByOwnerGroup: ReadonlyMap<string, readonly GatedPlugin[]>;
+  readonly ownerPanelsByGroup: ReadonlyMap<string, readonly ExtensionSelectorPanel[]>;
   readonly pluginFeatures: ReadonlySet<string>;
   readonly secretQns: ReadonlySet<string>;
 };
 
 const NO_SELECTOR_GATING: SelectorGating = {
   pluginsByOwnerGroup: new Map(),
+  ownerPanelsByGroup: new Map(),
   pluginFeatures: new Set(),
   secretQns: new Set(),
 };
@@ -188,6 +191,21 @@ function collectVisibleSelectorOwners(
   return { ownerGroupByExtension, selectorFeatures };
 }
 
+function collectOwnerPanelsByGroup(
+  registry: Registry,
+  ownerGroupByExtension: ReadonlyMap<string, string>,
+): Map<string, ExtensionSelectorPanel[]> {
+  const panelsByGroup = new Map<string, ExtensionSelectorPanel[]>();
+  for (const [extension, ownerGroup] of [...ownerGroupByExtension].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const panels = registry.getExtensionSelectorPanels(extension);
+    if (panels.length === 0) continue;
+    panelsByGroup.set(ownerGroup, [...(panelsByGroup.get(ownerGroup) ?? []), ...panels]);
+  }
+  return panelsByGroup;
+}
+
 function countSelectorUsagesByFeature(registry: Registry): Map<string, number> {
   const usageCountByFeature = new Map<string, number>();
   for (const [extensionName] of registry.getAllExtensionSelectors()) {
@@ -215,7 +233,11 @@ function planSelectorGating(
   if (ownerGroupByExtension.size === 0) return NO_SELECTOR_GATING;
   const usageCountByFeature = countSelectorUsagesByFeature(registry);
 
-  const pluginsByOwnerGroup = new Map<string, GatedPlugin[]>();
+  const ownerPanelsByGroup = collectOwnerPanelsByGroup(registry, ownerGroupByExtension);
+  // A selector with panels but no gated plugin still becomes a dashboard.
+  const pluginsByOwnerGroup = new Map<string, GatedPlugin[]>(
+    [...ownerPanelsByGroup.keys()].map((ownerGroup) => [ownerGroup, []]),
+  );
   const pluginFeatures = new Set<string>();
   const secretQns = new Set<string>();
   for (const [extension, ownerGroup] of [...ownerGroupByExtension].sort(([a], [b]) =>
@@ -238,7 +260,7 @@ function planSelectorGating(
       for (const s of secrets) secretQns.add(s.qn);
     }
   }
-  return { pluginsByOwnerGroup, pluginFeatures, secretQns };
+  return { pluginsByOwnerGroup, ownerPanelsByGroup, pluginFeatures, secretQns };
 }
 
 type FeatureScreens = {
@@ -302,6 +324,7 @@ function buildFeatureScreensAndNavs(
       ordered,
       access,
       plugins,
+      gating.ownerPanelsByGroup.get(feature) ?? [],
       hub,
       secretsAccess,
     );
@@ -318,6 +341,23 @@ function pluginTenantScreenId(plugin: GatedPlugin): string {
   return `${plugin.feature}-tenant`;
 }
 
+function assertUniquePanelIds(
+  ownerGroup: string,
+  panels: DashboardPanelDefinition[],
+): DashboardPanelDefinition[] {
+  const seen = new Set<string>();
+  for (const panel of panels) {
+    if (seen.has(panel.id)) {
+      throw new Error(
+        `Settings dashboard "${ownerGroup}-tenant" has duplicate panel id "${panel.id}" — an ` +
+          `extensionSelector panel id collides with another panel of the same dashboard.`,
+      );
+    }
+    seen.add(panel.id);
+  }
+  return panels;
+}
+
 // Plugin screens keep their `${F}-tenant` ids so consumer title keys stay valid;
 // they are dormant because only this dashboard embeds them.
 function buildSelectorOwnerDashboard(
@@ -325,6 +365,7 @@ function buildSelectorOwnerDashboard(
   ownerKeys: readonly MaskedKey[],
   ownerAccess: AccessRule,
   plugins: readonly GatedPlugin[],
+  ownerPanels: readonly ExtensionSelectorPanel[],
   hub: HubContext,
   secretsAccess: AccessRule | undefined,
 ): {
@@ -403,11 +444,12 @@ function buildSelectorOwnerDashboard(
     id: `${ownerGroup}-tenant`,
     type: "dashboard",
     description: EXTENSION_SELECTOR_HINT_KEY,
-    panels: [
+    panels: assertUniquePanelIds(ownerGroup, [
       { kind: "screen", id: "selection", screen: selectionScreenId },
+      ...ownerPanels,
       ...configPanels,
       ...secretsPanels,
-    ],
+    ]),
     access,
   };
   return { screens: [dashboard, ...screens], access, translations };

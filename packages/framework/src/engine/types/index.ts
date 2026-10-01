@@ -32,6 +32,7 @@ export type {
   CreateTenantSeedOptions,
   CreateUserSeedOptions,
   ExtensionSelectorDef,
+  ExtensionSelectorPanel,
   JobBackoff,
   JobBackoffStrategy,
   JobDefinition,

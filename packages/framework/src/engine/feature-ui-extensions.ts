@@ -9,12 +9,13 @@ import { bindHookEscapeHatchGrant } from "../pipeline/system-identity-switch.js"
 import { LifecycleHookTypes } from "./constants.js";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
 import { resolveName } from "./handler-helpers.js";
-import { isKebabSegment, toKebab } from "./qualified-name.js";
+import { isKebabSegment, isValidQn, qualifyEntityName, toKebab } from "./qualified-name.js";
 import type { HttpRouteDefinition } from "./types/http-route.js";
 import type {
   BootCheckFn,
   EntityProjectionExtension,
   EscapeHatchDeclaration,
+  ExtensionSelectorPanel,
   HookPhase,
   LifecycleHookFn,
   LifecycleHookType,
@@ -39,6 +40,49 @@ import type { WorkspaceDefinition } from "./types/workspace.js";
 
 // Builds hooks/extensions/projections/screens/nav/workspace/tables/tree-actions
 // registrar methods.
+
+// Id the generated owner dashboard reserves for its selector panel.
+const RESERVED_SELECTION_PANEL_ID = "selection";
+
+function assertSelectorPanelIds(
+  featureName: string,
+  extensionName: string,
+  panels: readonly ExtensionSelectorPanel[],
+): void {
+  const seen = new Set<string>();
+  for (const { id } of panels) {
+    if (id === "" || id === RESERVED_SELECTION_PANEL_ID || seen.has(id)) {
+      throw new Error(
+        `[Feature ${featureName}] extensionSelector("${extensionName}") panel id "${id}" must be unique, ` +
+          `non-empty and not "${RESERVED_SELECTION_PANEL_ID}" (reserved for the selector panel).`,
+      );
+    }
+    seen.add(id);
+  }
+}
+
+// The owner dashboard lives in the "config" namespace, so a short screen ref must be
+// qualified against the declaring feature here. Untyped authors can pass other kinds.
+function qualifySelectorPanel(
+  featureName: string,
+  panel: ExtensionSelectorPanel,
+): ExtensionSelectorPanel {
+  if (panel.kind === "custom") return panel;
+  if (panel.kind === "screen") {
+    if ("label" in panel) {
+      throw new Error(
+        `[Feature ${featureName}] extensionSelector screen panel "${panel.id}" must not set a label — ` +
+          `the settings dashboard has no i18n namespace for it; the embedded screen carries its own title.`,
+      );
+    }
+    if (panel.screen === "" || isValidQn(panel.screen)) return panel;
+    return { ...panel, screen: qualifyEntityName(featureName, "screen", panel.screen) };
+  }
+  throw new Error(
+    `[Feature ${featureName}] extensionSelector panel ${JSON.stringify(panel)} has an unsupported kind — ` +
+      `only "custom" and "screen" panels are allowed.`,
+  );
+}
 
 type EntityWideHookType = "postSave" | "preDelete" | "postDelete" | "postQuery";
 
@@ -271,7 +315,11 @@ export function buildUiExtensionsMethods<TName extends string>(
         options: optionsBag,
       });
     },
-    extensionSelector(extensionName: string, key: { readonly name: string } | string): void {
+    extensionSelector(
+      extensionName: string,
+      key: { readonly name: string } | string,
+      options?: { readonly panels?: readonly ExtensionSelectorPanel[] },
+    ): void {
       if (state.extensionSelectors.some((s) => s.extensionName === extensionName)) {
         throw new Error(
           `[Feature ${name}] extensionSelector("${extensionName}") declared twice — ` +
@@ -279,7 +327,13 @@ export function buildUiExtensionsMethods<TName extends string>(
         );
       }
       const qualifiedKey = typeof key === "string" ? key : key.name;
-      state.extensionSelectors.push({ extensionName, qualifiedKey });
+      const panels = options?.panels?.map((panel) => qualifySelectorPanel(name, panel));
+      assertSelectorPanelIds(name, extensionName, panels ?? []);
+      state.extensionSelectors.push({
+        extensionName,
+        qualifiedKey,
+        ...(panels !== undefined && { panels }),
+      });
     },
     /**
      * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API

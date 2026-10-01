@@ -13,6 +13,7 @@ import type {
   EntityDefinition,
   EntityRelations,
   EventDef,
+  ExtensionSelectorPanel,
   FeatureDefinition,
   HookPhase,
   JobDefinition,
@@ -272,6 +273,10 @@ export function buildRegistryFacade(state: RegistryState): Registry {
 
     getAllExtensionSelectors(): ReadonlyMap<string, string> {
       return state.extensionSelectorMap;
+    },
+
+    getExtensionSelectorPanels(extensionName: string): readonly ExtensionSelectorPanel[] {
+      return state.extensionSelectorPanelsMap.get(extensionName) ?? [];
     },
 
     getAllNotifications(): ReadonlyMap<string, NotificationDefinition> {

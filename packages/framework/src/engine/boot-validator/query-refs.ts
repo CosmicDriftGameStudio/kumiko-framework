@@ -16,7 +16,7 @@ function isNonEmptyQueryString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
-function checkQueryRef(
+export function checkQueryRef(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   query: string,
   buildPrefix: () => string,

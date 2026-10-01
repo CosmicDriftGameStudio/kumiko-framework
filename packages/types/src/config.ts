@@ -13,6 +13,7 @@ import type {
 } from "./hooks.js";
 import type { TenantId } from "./identifiers.js";
 import type { NavIconKey } from "./nav-icon.js";
+import type { DashboardCustomPanel, DashboardScreenPanel } from "./screen.js";
 import type { TenantDb } from "./tenant-db-types.js";
 
 // --- Config ---
@@ -517,9 +518,19 @@ export type RegistrarExtensionRegistration = {
 // Declared by the extension-point-owning foundation via r.extensionSelector:
 // "which provider under <extensionName> is active is chosen by <qualifiedKey>".
 // Readiness counts a provider-feature's required keys only when selected.
+// No `label` on screen panels: the dashboard lives in the "config" namespace, so the key would
+// fail the hub i18n check; the embedded screen carries its own title.
+export type ExtensionSelectorPanel = DashboardCustomPanel | Omit<DashboardScreenPanel, "label">;
+
 export type ExtensionSelectorDef = {
   readonly extensionName: string;
   readonly qualifiedKey: string;
+  // Go onto the selector owner's generated settings dashboard, after the selection
+  // panel and before the plugin panels. Only rendered where that dashboard exists
+  // (a tenant-masked selector key); `screen` refs are qualified at declaration. A target
+  // screen embedded only here has no nav, so it needs `dormant: true`. A `custom` panel is
+  // visible to everyone who sees the dashboard: secure its data via its own query's access.
+  readonly panels?: readonly ExtensionSelectorPanel[];
 };
 
 // --- Reference Data ---
