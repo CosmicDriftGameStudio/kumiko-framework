@@ -313,6 +313,15 @@ test.describe("mobile", () => {
     await openDashboard(page);
     await shot(page, "dashboard-mobile");
   });
+
+  test("dashboard-statcard-narrow-mobile", async ({ page }) => {
+    await openDashboard(page);
+    // Two-column phone grid width, so the delta badge competes with the label.
+    await page
+      .locator("div.p-4", { hasText: "Restschuld heute" })
+      .evaluate((card) => card.style.setProperty("width", "165px"));
+    await shot(page, "dashboard-statcard-narrow-mobile");
+  });
 });
 
 test("liste-dark", async ({ page }) => {
