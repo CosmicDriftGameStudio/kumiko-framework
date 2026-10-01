@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { createPortal } from "react-dom";
 import { FloatingPanel } from "../widgets/floating-panel.js";
 import { act, fireEvent, render, screen } from "./test-utils.js";
 
@@ -159,6 +160,24 @@ describe("FloatingPanel", () => {
       const close = screen.getByRole("button", { name: "Close" });
       fireEvent.pointerDown(close, { pointerId: 1, clientX: 500, clientY: 300 });
       fireEvent.pointerMove(header(), { pointerId: 1, clientX: 400, clientY: 200 });
+      expect(geometryOf(panel())).toMatchObject({ x: 856, y: 216 });
+    });
+
+    test("pointer-down on a portalled header menu item neither starts a drag nor swallows the click", () => {
+      const onSelect = mock(() => {});
+      renderPanel({
+        headerActions: createPortal(
+          <div role="menuitem" tabIndex={-1} onClick={onSelect} onKeyDown={onSelect}>
+            Clear
+          </div>,
+          document.body,
+        ),
+      });
+      const item = screen.getByRole("menuitem", { name: "Clear" });
+      fireEvent.pointerDown(item, { pointerId: 1, clientX: 500, clientY: 300 });
+      fireEvent.pointerMove(header(), { pointerId: 1, clientX: 400, clientY: 200 });
+      fireEvent.click(item);
+      expect(onSelect).toHaveBeenCalledTimes(1);
       expect(geometryOf(panel())).toMatchObject({ x: 856, y: 216 });
     });
 
