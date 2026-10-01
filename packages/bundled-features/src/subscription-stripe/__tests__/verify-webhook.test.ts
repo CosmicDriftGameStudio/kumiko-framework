@@ -14,6 +14,7 @@ import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
 import Stripe from "stripe";
 import type { StripeWebhookRuntime } from "../runtime.js";
 import {
@@ -340,6 +341,55 @@ describe("verifyAndParseStripeWebhook — kumiko-framework#1525: no ambient Temp
 // =============================================================================
 // Mapping-helpers (pure functions, kein Stripe-mock nötig)
 // =============================================================================
+
+describe("verifyAndParseStripeWebhook — transient Stripe lookup failure (#2793)", () => {
+  test("checkout.sessions.retrieve answered 503 by Stripe → ExtraRouteRejection 503 subscription_provider_transient", async () => {
+    const stripeApi = Bun.serve({
+      port: 0,
+      fetch: () =>
+        new Response(JSON.stringify({ error: { message: "unavailable" } }), { status: 503 }),
+    });
+    // maxNetworkRetries 0 is client config: the SDK would otherwise back off and retry the 503.
+    const stripeAgainstLocalApi = new Stripe(TEST_API_KEY, {
+      host: "127.0.0.1",
+      port: stripeApi.port,
+      protocol: "http",
+      maxNetworkRetries: 0,
+    });
+    const verify = verifyAndParseStripeWebhook(
+      { resolve: async () => ({ stripe: stripeAgainstLocalApi, webhookSecret: TEST_SECRET }) },
+      { priceToTier: { price_pro_monthly: "pro" } },
+    );
+    const payload = JSON.stringify({
+      id: "evt_4020_transient",
+      object: "event",
+      api_version: "2026-04-22.dahlia",
+      created: 1_770_000_000,
+      type: "checkout.session.completed",
+      livemode: false,
+      pending_webhooks: 1,
+      request: { id: null, idempotency_key: null },
+      data: {
+        object: {
+          id: "cs_test_4020",
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "paid",
+        },
+      },
+    });
+    const sig = await signEvent(payload);
+    try {
+      const rejection = await verify(payload, { "stripe-signature": sig }).catch((e: unknown) => e);
+      expect(rejection).toBeInstanceOf(ExtraRouteRejection);
+      const { status, body } = rejection as ExtraRouteRejection;
+      expect(status).toBe(503);
+      expect(body).toEqual({ error: { code: "subscription_provider_transient" } });
+    } finally {
+      await stripeApi.stop(true);
+    }
+  });
+});
 
 describe("mapStripeEventType — drift-pin pro mapping", () => {
   test("alle 5 Stripe-event-types → SubscriptionEventTypes", () => {
