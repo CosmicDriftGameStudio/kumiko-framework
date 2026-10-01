@@ -11,6 +11,7 @@ import {
   type DbRunner,
   nullBlindIndexesForSubject,
   recordRowExistsInTenant,
+  recordRowOwningTenantId,
   subjectRowExistsInTenant,
 } from "@cosmicdrift/kumiko-framework/db";
 import {
@@ -19,6 +20,7 @@ import {
   type FeatureDefinition,
   type HandlerContext,
   type SessionUser,
+  type TenantId,
   type WriteEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -32,6 +34,7 @@ import { assertIrreversibleOperationAllowed } from "@cosmicdrift/kumiko-framewor
 import { purgeSearchDocumentsForSubject } from "@cosmicdrift/kumiko-framework/search";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
+import { resolveRetentionPolicyForTenant } from "../../data-retention/index.js";
 import { revokeAllPatTokensForUser } from "../../personal-access-tokens/index.js";
 import { USER_STATUS } from "../../user/index.js";
 import {
@@ -162,26 +165,39 @@ async function resolveTenantScopeDenial(
   return ownedInTenant ? undefined : memberDenied;
 }
 
-// fw#2789: the host entity's OWN retention declaration gets the last word on
-// a targeted row-shred — blockDelete (legally mandated physical retention,
-// e.g. ledger/invoice text) means this command must refuse, not silently
-// anonymize or proceed. Deliberately independent of the tenant feature/gate
-// above: a retention obligation holds in single-tenant apps too, and running
-// unconditionally (not nested under `features.has("tenant")`) keeps that
-// true. Only the entity's declared `retention.strategy` is consulted here —
-// NOT the data-retention feature's tenant-preset/override layering
-// (resolveRetentionPolicy) — so a tenant cannot override its own way past a
-// blockDelete declared on the entity.
-function resolveRetentionDenial(
-  features: ReadonlyMap<string, FeatureDefinition>,
+// fw#2789/#2805: blockDelete (legally mandated physical retention, e.g.
+// ledger/invoice text) means this command must refuse, not silently
+// anonymize or proceed. Refused when the host entity itself declares
+// blockDelete OR the owning tenant's effective data-retention policy
+// (preset/override layering) does, so a tenant preset cannot be bypassed here.
+// The entity declaration is checked first and independent of the tenant
+// feature/gate and of data-retention being mounted: a retention obligation
+// holds in single-tenant apps too.
+async function resolveRetentionDenial(
+  ctx: HandlerContext,
   raw: SubjectIdInput,
-): WriteFailure | undefined {
+  runner: DbRunner,
+): Promise<WriteFailure | undefined> {
   if (raw.kind !== "record") return undefined;
+  const features = ctx.registry.features;
+  const deny = () =>
+    writeFailure(
+      new AccessDeniedError({ details: { reason: TARGET_RECORD_RETENTION_BLOCK_DELETE } }),
+    );
   const entity = findRegisteredEntity(features, raw.entity);
-  if (entity?.retention?.strategy !== "blockDelete") return undefined;
-  return writeFailure(
-    new AccessDeniedError({ details: { reason: TARGET_RECORD_RETENTION_BLOCK_DELETE } }),
-  );
+  if (entity?.retention?.strategy === "blockDelete") return deny();
+  if (!features.has("data-retention")) return undefined;
+
+  // The row's own tenant, not the actor's: a SystemAdmin acts across tenants.
+  const owningTenantId = await recordRowOwningTenantId(runner, features, raw.entity, raw.id);
+  if (owningTenantId === undefined) return undefined;
+  const effective = await resolveRetentionPolicyForTenant({
+    db: runner,
+    registry: ctx.registry,
+    tenantId: owningTenantId as TenantId,
+    entityName: raw.entity,
+  });
+  return effective.policy?.strategy === "blockDelete" ? deny() : undefined;
 }
 
 // Denied cross-tenant probes must still leave an audit trail (fw#2348).
@@ -272,7 +288,7 @@ export const forgetSubjectWrite = defineWriteHandler({
   escapeHatch: {
     reason:
       "denial audit append names the prober's own tenant stream on the outside-transaction db; " +
-      "the tenant-scope check runs against the subject's tenant, not necessarily the caller's; " +
+      "the tenant-scope and retention checks run against the subject's tenant, not necessarily the caller's; " +
       "the blind-index sweep and search purge address the subject across tenants; the user " +
       "lifecycle update and PAT revoke run on the SYSTEM user stream.",
   },
@@ -323,7 +339,11 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Runs AFTER the tenant gate (VORHER only means "before the shred"): a
     // retention check ahead of the tenant gate would leak a foreign
     // entity's retention posture to a cross-tenant prober.
-    const retentionDenial = resolveRetentionDenial(ctx.registry.features, raw);
+    const retentionDenial = await resolveRetentionDenial(
+      ctx,
+      raw,
+      ctx.db.unsafeRaw("retention check reads the record row's owning tenant, not the caller's"),
+    );
     if (retentionDenial) {
       // Own reason constant, not tenantScopeDenial's `.error.code` pattern:
       // AccessDeniedError.code is the generic "access_denied" for every

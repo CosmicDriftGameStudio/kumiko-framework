@@ -2,6 +2,7 @@ export { assertExistsIn } from "./assert-exists-in.js";
 export {
   nullBlindIndexesForSubject,
   recordRowExistsInTenant,
+  recordRowOwningTenantId,
   subjectRowExistsInTenant,
 } from "./blind-index-cleanup.js";
 export { collectTableMetas } from "./collect-table-metas.js";

@@ -76,25 +76,26 @@ user-subject branch.
 
 ## Retention gate
 
-The host entity's own `retention.strategy` (as declared via `createEntity({
-retention })`) is consulted before a record forget shreds anything: a
-`blockDelete` entity — legally mandated physical retention, e.g. ledger or
-invoice text (Art. 17(3)(b)) — **refuses** the request instead of silently
-anonymizing or proceeding. This runs after the tenant gate (a retention
-check ahead of it would leak a foreign entity's retention posture to a
-cross-tenant prober) but always before any key is touched, and independently
-of whether a `tenant` feature is mounted — a retention obligation holds in
+A record forget is refused when either the host entity's own
+`retention.strategy` (as declared via `createEntity({ retention })`) or, if the
+`data-retention` feature is mounted, the **effective** retention policy of the
+row's owning tenant (entity default, tenant preset and tenant override, as
+resolved by `resolveRetentionPolicyForTenant`) is `blockDelete` — legally
+mandated physical retention, e.g. ledger or invoice text (Art. 17(3)(b)). The
+command refuses instead of silently anonymizing or proceeding. The owning
+tenant is the tenant of the target row, not the acting user's, so a
+SystemAdmin forgetting a row in another tenant is held to that tenant's policy.
+The check runs after the tenant gate (a retention check ahead of it would leak
+a foreign entity's retention posture to a cross-tenant prober) but always
+before any key is touched. The entity-declaration part also applies without a
+`tenant` or `data-retention` feature: a retention obligation holds in
 single-tenant apps too.
 
-Only the entity's own declaration is consulted here, **not** the
-`data-retention` feature's tenant-preset/override layering
-(`resolveRetentionPolicy`/`policy-for`). A tenant cannot override its way
-past a `blockDelete` declared on the entity through this command. This is
-different from the automated Art.-17 cleanup pipeline
+This is different from the automated Art.-17 cleanup pipeline
 (`user-data-rights/run-forget-cleanup.ts`'s `policyToStrategy`), which maps
 `blockDelete` to `anonymize` and proceeds — that pipeline runs the retention
 strategy's own remediation; this operator command only ever deletes the row
-subject's key outright, so for a `blockDelete` entity it must decline rather
+subject's key outright, so for a `blockDelete` policy it must decline rather
 than pick a strategy on the operator's behalf.
 
 This check runs after the tenant gate's `isSystemAdminActor` early-return, so
