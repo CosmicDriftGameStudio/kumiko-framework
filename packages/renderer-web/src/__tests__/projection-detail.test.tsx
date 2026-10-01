@@ -1558,9 +1558,12 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     });
 
     test("without recordTitleField the screen title is the last breadcrumb", async () => {
-      const crumbs = await breadcrumbTitles(undefined);
-      expect(crumbs).toHaveLength(2);
-      expect(crumbs[1]).not.toBe("user-42");
+      await breadcrumbTitles(undefined);
+      // Only meaningful once the record is loaded; before that no crumb could show it anyway.
+      await waitFor(() =>
+        expect(screen.getByTestId("field-userId").textContent).toContain("user-42"),
+      );
+      expect(readBreadcrumbTitles()).toEqual([expect.any(String), "screen:session-detail.title"]);
     });
   });
 
