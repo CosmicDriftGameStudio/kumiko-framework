@@ -12,7 +12,7 @@
 // Stripe-output liefert). Dieser Test fängt das Spalten-Mapping +
 // Verdrahtungs-Bugs ab.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import {
   billingFoundationFeature,
@@ -277,6 +277,46 @@ describe("scenario 2: invalid sig → 401, kein DB-write", () => {
       admin,
     )) as { rows: Array<Record<string, unknown>> };
     expect(subs.rows).toHaveLength(0);
+  });
+});
+
+describe("scenario 2b: transient Stripe lookup failure → 503 over HTTP (#2793)", () => {
+  test("checkout.sessions.retrieve network error → 503 subscription_provider_transient", async () => {
+    const payload = JSON.stringify({
+      id: "evt_4020_transient",
+      object: "event",
+      api_version: "2026-04-22.dahlia",
+      created: 1_770_000_000,
+      type: "checkout.session.completed",
+      livemode: false,
+      pending_webhooks: 1,
+      request: { id: null, idempotency_key: null },
+      data: {
+        object: {
+          id: "cs_test_4020",
+          object: "checkout.session",
+          mode: "payment",
+          payment_status: "paid",
+        },
+      },
+    });
+    const sig = await signEvent(payload);
+
+    // The runtime builds its own client from the api-key; the resource prototype is the
+    // only seam that reaches it without replacing the plugin under test.
+    const sessionsPrototype = Object.getPrototypeOf(stripeForFixtures.checkout.sessions);
+    const retrieve = spyOn(sessionsPrototype, "retrieve").mockRejectedValue(
+      new Stripe.errors.StripeConnectionError({ message: "socket hang up" }),
+    );
+    try {
+      const res = await postStripeWebhook(payload, sig);
+      expect(retrieve).toHaveBeenCalledTimes(1);
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("subscription_provider_transient");
+    } finally {
+      retrieve.mockRestore();
+    }
   });
 });
 
