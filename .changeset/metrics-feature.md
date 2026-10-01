@@ -4,12 +4,14 @@
 "@cosmicdrift/kumiko-types": minor
 ---
 
-Add the metrics bundled feature and TenantDb.aggregate
+Add metrics feature: declarative dashboard metrics over TenantDb.aggregate (fw#3396)
 
-New `metrics` and `metrics-system` features turn declarative `defineMetric` definitions into dashboard queries (eight defaults for jobs, delivery, sessions, tenants and audit). They are built on the new `TenantDb.aggregate` / `aggregateWhere` (grouped count, countDistinct, sum, avg with time buckets). `store_job_runs`, `store_delivery_attempts` and `store_user_sessions` get indexes for the windowed reads; run `kumiko migrate generate` after upgrading.
+New bundled features `metrics` (tenant scope, `access.admin`) and `metrics-system` (platform-wide, `access.systemAdmin`). A metric is declared once with `defineMetric` (source table, measure, optional timeField, window, bucket, groupBy, stackBy, where) and becomes the query `<feature>:query:<metric.id>` returning a `MetricResult` (total, delta against the previous period, bucketed series, group rows, segments). Definitions are validated when the feature is built. Eight default metrics ship: job-runs-by-status, failed-job-runs, tenant-job-failures, deliveries-by-channel, failed-deliveries, active-users, active-tenants, audit-writes. Pass your own list via `createMetricsFeature({ metrics })`.
 
 <!-- kumiko-changes
 feature: metrics
 type: improvement
 title: Add metrics feature: declarative dashboard metrics over TenantDb.aggregate (fw#3396)
+migration: |
+  Opt-in: mount `createMetricsFeature(...)` and/or `createSystemMetricsFeature(...)`. The new indexes on jobs, delivery and sessions need `kumiko migrate generate`.
 -->

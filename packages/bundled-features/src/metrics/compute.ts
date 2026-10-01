@@ -49,6 +49,130 @@ function fractionOf(value: number, total: number | null): number {
   return Math.min(1, Math.max(0, value / total));
 }
 
+type MetricWindow = ReturnType<typeof computeWindow>;
+
+type MetricWheres = {
+  readonly current: WhereObject;
+  readonly previous: WhereObject | undefined;
+};
+
+type MetricAggregates = {
+  readonly total: readonly AggregateRow[];
+  readonly previous: readonly AggregateRow[] | undefined;
+  readonly points: readonly AggregateRow[];
+  readonly groups: readonly AggregateRow[];
+  readonly stacks: readonly AggregateRow[];
+  readonly series: readonly AggregateRow[];
+};
+
+function buildWheres(
+  metric: MetricDefinition,
+  window: MetricWindow | undefined,
+  scopeWhere: WhereObject,
+): MetricWheres {
+  const baseWhere: WhereObject = { ...metric.where, ...scopeWhere };
+  const { timeField } = metric;
+  if (timeField === undefined || window === undefined) {
+    return { current: baseWhere, previous: undefined };
+  }
+  return {
+    current: { ...baseWhere, [timeField]: { gte: window.start, lte: window.end } },
+    previous:
+      metric.comparePrevious === false
+        ? undefined
+        : { ...baseWhere, [timeField]: { gte: window.previousStart, lt: window.start } },
+  };
+}
+
+async function fetchAggregates(
+  db: TenantDb,
+  metric: MetricDefinition,
+  wheres: MetricWheres,
+  bucketDimension: AggregateDimension | undefined,
+): Promise<MetricAggregates> {
+  const aggregate = (
+    groupBy: readonly AggregateDimension[],
+    where: WhereObject,
+    extra: { readonly orderByValue?: "desc"; readonly limit?: number } = {},
+  ): Promise<readonly AggregateRow[]> =>
+    db.aggregate(metric.source, { measure: metric.measure, groupBy, ...extra }, where);
+  const { groupBy, stackBy } = metric;
+  const { current } = wheres;
+
+  const [total, previous, points, groups, stacks, series] = await Promise.all([
+    aggregate([], current),
+    wheres.previous === undefined ? Promise.resolve(undefined) : aggregate([], wheres.previous),
+    bucketDimension !== undefined && groupBy === undefined
+      ? aggregate([bucketDimension], current)
+      : Promise.resolve([]),
+    groupBy === undefined
+      ? Promise.resolve([])
+      : aggregate([{ field: groupBy }], current, { orderByValue: "desc", limit: MAX_GROUP_ROWS }),
+    groupBy !== undefined && stackBy !== undefined
+      ? aggregate([{ field: groupBy }, { field: stackBy }], current)
+      : Promise.resolve([]),
+    bucketDimension !== undefined && groupBy !== undefined
+      ? aggregate([{ field: groupBy }, bucketDimension], current)
+      : Promise.resolve([]),
+  ]);
+  return { total, previous, points, groups, stacks, series };
+}
+
+function groupSegments(
+  stackRows: readonly AggregateRow[],
+  labelOf: (key: string) => string,
+): ReadonlyMap<string, readonly MetricSegment[]> {
+  const segmentsByGroup = new Map<string, MetricSegment[]>();
+  for (const row of stackRows) {
+    const groupKey = keyText(row.keys[0]);
+    const stackKey = keyText(row.keys[1]);
+    const segments = segmentsByGroup.get(groupKey) ?? [];
+    segments.push({ key: stackKey, label: labelOf(stackKey), value: row.value ?? 0 });
+    segmentsByGroup.set(groupKey, segments);
+  }
+  return segmentsByGroup;
+}
+
+function buildRows(
+  metric: MetricDefinition,
+  aggregates: MetricAggregates,
+  total: number | null,
+  labelOf: (key: string) => string,
+): readonly MetricRow[] {
+  const segmentsByGroup = groupSegments(aggregates.stacks, labelOf);
+  return aggregates.groups.map((row) => {
+    const key = keyText(row.keys[0]);
+    const rowValue = row.value ?? 0;
+    return {
+      id: key,
+      key,
+      label: labelOf(key),
+      value: rowValue,
+      fraction: fractionOf(rowValue, total),
+      ...(metric.stackBy !== undefined && { segments: segmentsByGroup.get(key) ?? [] }),
+    };
+  });
+}
+
+function buildSeries(
+  rows: readonly MetricRow[],
+  seriesRows: readonly AggregateRow[],
+  fillBuckets: (byBucketMs: ReadonlyMap<number, number | null>) => readonly MetricPoint[],
+): readonly MetricSeries[] {
+  const bucketsByGroup = new Map<string, Map<number, number | null>>();
+  for (const row of seriesRows) {
+    const groupKey = keyText(row.keys[0]);
+    const buckets = bucketsByGroup.get(groupKey) ?? new Map<number, number | null>();
+    buckets.set(Number(row.keys[1]), row.value);
+    bucketsByGroup.set(groupKey, buckets);
+  }
+  return rows.map((row) => ({
+    key: row.key,
+    label: row.label,
+    points: fillBuckets(bucketsByGroup.get(row.key) ?? new Map()),
+  }));
+}
+
 export async function runMetric(
   db: TenantDb,
   metric: MetricDefinition,
@@ -59,52 +183,16 @@ export async function runMetric(
   const { timeField } = metric;
   const window =
     timeField === undefined ? undefined : computeWindow(range, bucket, params.timeZone, params.now);
-
-  const baseWhere: WhereObject = { ...metric.where, ...params.scopeWhere };
-  const currentWhere: WhereObject =
-    timeField === undefined || window === undefined
-      ? baseWhere
-      : { ...baseWhere, [timeField]: { gte: window.start, lte: window.end } };
-  const previousWhere: WhereObject | undefined =
-    timeField === undefined || window === undefined || metric.comparePrevious === false
-      ? undefined
-      : { ...baseWhere, [timeField]: { gte: window.previousStart, lt: window.start } };
-
-  const aggregate = (
-    groupBy: readonly AggregateDimension[],
-    where: WhereObject,
-    extra: { readonly orderByValue?: "desc"; readonly limit?: number } = {},
-  ): Promise<readonly AggregateRow[]> =>
-    db.aggregate(metric.source, { measure: metric.measure, groupBy, ...extra }, where);
-
   const bucketDimension: AggregateDimension | undefined =
     timeField !== undefined && bucket !== undefined
       ? { field: timeField, bucket, timeZone: params.timeZone }
       : undefined;
-  const { groupBy, stackBy } = metric;
 
-  const [totalRows, previousRows, pointRows, groupRows, stackRows, seriesRows] = await Promise.all([
-    aggregate([], currentWhere),
-    previousWhere === undefined ? Promise.resolve(undefined) : aggregate([], previousWhere),
-    bucketDimension !== undefined && groupBy === undefined
-      ? aggregate([bucketDimension], currentWhere)
-      : Promise.resolve([]),
-    groupBy === undefined
-      ? Promise.resolve([])
-      : aggregate([{ field: groupBy }], currentWhere, {
-          orderByValue: "desc",
-          limit: MAX_GROUP_ROWS,
-        }),
-    groupBy !== undefined && stackBy !== undefined
-      ? aggregate([{ field: groupBy }, { field: stackBy }], currentWhere)
-      : Promise.resolve([]),
-    bucketDimension !== undefined && groupBy !== undefined
-      ? aggregate([{ field: groupBy }, bucketDimension], currentWhere)
-      : Promise.resolve([]),
-  ]);
+  const wheres = buildWheres(metric, window, params.scopeWhere);
+  const aggregates = await fetchAggregates(db, metric, wheres, bucketDimension);
 
-  const value = totalRows[0]?.value ?? null;
-  const previousValue = previousRows?.[0]?.value ?? null;
+  const value = aggregates.total[0]?.value ?? null;
+  const previousValue = aggregates.previous?.[0]?.value ?? null;
   const labelOf = (key: string): string => metric.groupLabels?.[key] ?? key;
   const gapValue = metric.measure.fn === "avg" ? null : 0;
 
@@ -116,44 +204,11 @@ export async function runMetric(
     bucketStarts.map((atMs) => ({ atMs, value: byBucketMs.get(atMs) ?? gapValue }));
 
   const points = fillBuckets(
-    new Map(pointRows.map((row): [number, number | null] => [Number(row.keys[0]), row.value])),
+    new Map(
+      aggregates.points.map((row): [number, number | null] => [Number(row.keys[0]), row.value]),
+    ),
   );
-
-  const segmentsByGroup = new Map<string, MetricSegment[]>();
-  for (const row of stackRows) {
-    const groupKey = keyText(row.keys[0]);
-    const stackKey = keyText(row.keys[1]);
-    const segments = segmentsByGroup.get(groupKey) ?? [];
-    segments.push({ key: stackKey, label: labelOf(stackKey), value: row.value ?? 0 });
-    segmentsByGroup.set(groupKey, segments);
-  }
-
-  const rows: readonly MetricRow[] = groupRows.map((row) => {
-    const key = keyText(row.keys[0]);
-    const rowValue = row.value ?? 0;
-    const segments = segmentsByGroup.get(key);
-    return {
-      id: key,
-      key,
-      label: labelOf(key),
-      value: rowValue,
-      fraction: fractionOf(rowValue, value),
-      ...(stackBy !== undefined && { segments: segments ?? [] }),
-    };
-  });
-
-  const bucketsByGroup = new Map<string, Map<number, number | null>>();
-  for (const row of seriesRows) {
-    const groupKey = keyText(row.keys[0]);
-    const buckets = bucketsByGroup.get(groupKey) ?? new Map<number, number | null>();
-    buckets.set(Number(row.keys[1]), row.value);
-    bucketsByGroup.set(groupKey, buckets);
-  }
-  const series: readonly MetricSeries[] = rows.map((row) => ({
-    key: row.key,
-    label: row.label,
-    points: fillBuckets(bucketsByGroup.get(row.key) ?? new Map()),
-  }));
+  const rows = buildRows(metric, aggregates, value, labelOf);
 
   return {
     value,
@@ -162,7 +217,7 @@ export async function runMetric(
     windowStartMs: window?.start.epochMilliseconds ?? null,
     windowEndMs: window?.end.epochMilliseconds ?? null,
     points,
-    series,
+    series: buildSeries(rows, aggregates.series, fillBuckets),
     rows,
     nextCursor: null,
   };
