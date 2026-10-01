@@ -128,6 +128,10 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       totalCount: z.boolean().optional(),
     }),
     access: { roles: ["SystemAdmin"] },
+    escapeHatch: {
+      reason:
+        "cap-overview:tenant-caps:list — grants app-owned CapSpec.usage()/usageBatch() providers raw SQL for aggregates TenantDb has no typed helper for (e.g. a SUM)",
+    },
     handler: async (query, ctx) => {
       if (!ctx.systemDb) {
         throw new InternalError({

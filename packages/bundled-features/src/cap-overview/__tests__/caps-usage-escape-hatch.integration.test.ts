@@ -31,7 +31,7 @@ import {
   tierAssignmentEntity,
   tierEngineFeature,
 } from "../../tier-engine/index.js";
-import { CapOverviewQueries } from "../constants.js";
+import { CapOverviewQueries, capFieldName } from "../constants.js";
 import { createCapOverviewFeature } from "../feature.js";
 import type { CapSpec } from "../types.js";
 
@@ -55,6 +55,22 @@ const rawSqlSumCap: CapSpec = {
   },
 };
 
+// #2974: tenant-caps:list calls usage()/usageBatch() with the platform-wide systemDb
+const rawSqlSumBatchCap: CapSpec = {
+  id: "raw-sql-sum-batch",
+  label: "test.cap.rawSqlSumBatch",
+  limit: () => 1000,
+  usage: async () => 0,
+  usageBatch: async (db, tenantIds) => {
+    const raw = asRawClient(db.unsafeRaw(RAW_USAGE_REASON) as DbConnection);
+    const rows = await raw.unsafe<{ tenant_id: string; total: number }>(
+      "SELECT tenant_id, COALESCE(SUM(amount), 0)::int AS total FROM cap_overview_raw_usage_probe WHERE tenant_id = ANY($1) GROUP BY tenant_id",
+      [tenantIds],
+    );
+    return new Map(rows.map((r) => [r.tenant_id, r.total]));
+  },
+};
+
 let stack: TestStack;
 let db: DbConnection;
 
@@ -67,7 +83,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       billingFoundationFeature,
       tierEngineFeature,
-      createCapOverviewFeature({ caps: [rawSqlSumCap] }),
+      createCapOverviewFeature({ caps: [rawSqlSumCap, rawSqlSumBatchCap] }),
     ],
   });
   db = stack.db;
@@ -109,5 +125,25 @@ describe("caps:usage's own escapeHatch grants a cap provider raw SQL", () => {
     }>(CapOverviewQueries.capsUsage, {}, memberA);
     const row = result.rows.find((r) => r.id === rawSqlSumCap.id);
     expect(row?.used).toBe(42);
+  });
+});
+
+describe("tenant-caps:list's own escapeHatch grants cap providers raw SQL (#2974)", () => {
+  test("usage() and usageBatch() raw SQL SUM aggregates run through tenant-caps:list", async () => {
+    const admin = createTestUser({
+      id: 91013,
+      tenantId: TENANT_A,
+      roles: ["TenantAdmin", "SystemAdmin"],
+    });
+    const result = await stack.http.queryOk<{ rows: readonly Record<string, unknown>[] }>(
+      CapOverviewQueries.tenantCapsList,
+      {},
+      admin,
+    );
+    const row = result.rows.find((r) => r["tenantId"] === TENANT_A);
+    const usedOf = (capId: string) =>
+      (row?.[capFieldName(capId)] as { used: number } | undefined)?.used;
+    expect(usedOf(rawSqlSumCap.id)).toBe(42);
+    expect(usedOf(rawSqlSumBatchCap.id)).toBe(42);
   });
 });
