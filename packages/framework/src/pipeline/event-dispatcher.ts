@@ -592,6 +592,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
                 deadLettered: false,
                 processed: 0,
                 failed: 0,
+                failedEventId: acquired.state.lastFailedEventId,
                 resolvedPendingIds: [],
               };
         processed = outcome.processed;

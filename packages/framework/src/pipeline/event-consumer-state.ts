@@ -99,6 +99,10 @@ export const eventConsumerStateTable = pgTable(
     // skipPoisonEvent() — an operator vouching the consumer is healthy.
     rearmCount: integer("rearm_count").notNull().default(0),
     pendingGaps: jsonb("pending_gaps").$type<PendingGapEntry[]>().default([]).notNull(),
+    // Id of the event whose handler failed last (halt-on-poison). skipPoisonEvent
+    // skips exactly this id; guessing the smallest visible id would drop a healthy
+    // writer that committed late into a pending gap. Null once a delivery succeeds.
+    lastFailedEventId: bigint("last_failed_event_id", { mode: "bigint" }),
     lastError: text("last_error"),
     updatedAt: instant("updated_at", { precision: 3 }).notNull().default(sql`now()`),
   },
@@ -166,6 +170,15 @@ export async function createEventConsumerStateTable(db: DbConnection): Promise<v
       "jsonb",
       " DEFAULT '[]'::jsonb",
       " NOT NULL",
+      /* ifNotExists */ true,
+    );
+    await alterTableAddColumn(
+      db,
+      "kumiko_event_consumers",
+      "last_failed_event_id",
+      "bigint",
+      "",
+      "",
       /* ifNotExists */ true,
     );
     // Runs on every boot, including mid-rolling-deploy: a new pod can delete

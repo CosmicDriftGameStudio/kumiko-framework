@@ -51,6 +51,7 @@ function stubState(overrides: Partial<ConsumerStateRow> = {}): ConsumerStateRow 
     attempts: 0,
     rearmCount: 0,
     pendingGaps: [],
+    lastFailedEventId: null,
     lastError: null,
     updatedAt: Temporal.Now.instant(),
     ...overrides,
