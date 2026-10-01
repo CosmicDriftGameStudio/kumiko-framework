@@ -327,7 +327,8 @@ describe("guard.run() :: empty esTables canary", () => {
   test("BLOCK: table writes present but no ES tables resolvable — misconfiguration canary fires", () => {
     const project = makeProject({
       "/repo/foo.ts": `
-        declare const someTable: unknown;
+        declare function pgTable(name: string, cols: unknown): unknown;
+        const someTable = pgTable("some", {});
         declare const db: { insert: (t: unknown) => { values: (v: unknown) => Promise<void> } };
         export async function write() {
           await db.insert(someTable).values({ name: "x" });
@@ -338,6 +339,21 @@ describe("guard.run() :: empty esTables canary", () => {
     expect(
       outcome.violations.some((v) => v.message.includes("BLOCKED: guard found table writes")),
     ).toBe(true);
+  });
+
+  test("ALLOW: map.delete(key) / set.delete(id) are not table writes — no canary in a no-ES repo", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `
+        const cache = new Map<string, number>();
+        const seen = new Set<string>();
+        export function evict(key: string, id: string) {
+          cache.delete(key);
+          seen.delete(id);
+        }
+      `,
+    });
+    const outcome = guard.run(project.getSourceFiles());
+    expect(outcome.violations).toHaveLength(0);
   });
 
   test("ALLOW: no ES tables and no table writes at all — repo has no event store (kumiko-platform case)", () => {
