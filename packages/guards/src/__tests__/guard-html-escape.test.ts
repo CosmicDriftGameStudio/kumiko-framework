@@ -53,6 +53,88 @@ describe("flags unescaped data in HTML templates", () => {
   });
 });
 
+describe("intermediate templates and local calls are not trusted blindly", () => {
+  test("tag-less intermediate template with unescaped data", () => {
+    expect(
+      violations(
+        `function row(u: { name: string; email: string }) {
+						const label = \`\${u.name} — \${u.email}\`;
+						return \`<td>\${label}</td>\`;
+					}`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("tag-less intermediate template with escaped data is safe", () => {
+    expect(
+      violations(
+        `declare function escapeHtml(s: string): string;
+					function row(u: { name: string }) {
+						const label = \`\${escapeHtml(u.name)} (user)\`;
+						return \`<td>\${label}</td>\`;
+					}`,
+      ),
+    ).toHaveLength(0);
+  });
+
+  test("unknown tagged template is not safe", () => {
+    expect(
+      violations(
+        `declare function sql(s: TemplateStringsArray, ...v: unknown[]): string;
+					function row(x: string) { const q = sql\`\${x}\`; return \`<td>\${q}</td>\`; }`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("method call on a locally declared object root", () => {
+    expect(
+      violations(
+        `const Templates = { render: (s: string) => s };
+					function page(userInput: string) { return \`<div>\${Templates.render(userInput)}</div>\`; }`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("local function that returns its input raw", () => {
+    expect(
+      violations(
+        `function passthrough(s: string) { return s; }
+					function page(userInput: string) { return \`<div>\${passthrough(userInput)}</div>\`; }`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("string concatenation of safe operands returned by a local helper is safe, with unsafe operand is not", () => {
+    expect(
+      violations(
+        `declare function escapeHtml(s: string): string;
+					function attrs(id: string | undefined) {
+						const cls = ' class="x"';
+						const idAttr = id !== undefined ? \` id="\${escapeHtml(id)}"\` : "";
+						return cls + idAttr;
+					}
+					function page(id?: string) { return \`<div\${attrs(id)}>x</div>\`; }`,
+      ),
+    ).toHaveLength(0);
+    expect(
+      violations(
+        `function attrs(id: string) { return ' class="x"' + id; }
+					function page(id: string) { return \`<div\${attrs(id)}>x</div>\`; }`,
+      ),
+    ).toHaveLength(1);
+  });
+
+  test("local arrow helper returning escaped markup is safe", () => {
+    expect(
+      violations(
+        `declare function escapeHtml(s: string): string;
+					const cell = (s: string) => \`<td>\${escapeHtml(s)}</td>\`;
+					function page(v: string) { return \`<tr>\${cell(v)}</tr>\`; }`,
+      ),
+    ).toHaveLength(0);
+  });
+});
+
 describe("accepts the escaping conventions", () => {
   test("escapeHtml / escapeHtmlAttr / escapeXml calls", () => {
     expect(

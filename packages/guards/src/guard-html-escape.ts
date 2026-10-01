@@ -32,6 +32,9 @@
 
 import * as path from "node:path";
 import {
+  type ArrowFunction,
+  type FunctionDeclaration,
+  type FunctionExpression,
   type Identifier,
   Node,
   type SourceFile,
@@ -155,12 +158,60 @@ function isSafeLocalIdentifier(ident: Identifier, sf: SourceFile, depth: number)
   });
 }
 
-function calleeRootIdentifier(expr: Node): Identifier | undefined {
-  let cur = expr;
-  while (cur.isKind(SyntaxKind.PropertyAccessExpression)) {
-    cur = cur.getExpression();
+function isSafeTemplateTag(tag: Node): boolean {
+  const name = tag.isKind(SyntaxKind.PropertyAccessExpression)
+    ? tag.getNameNode().getText()
+    : tag.getText();
+  return SAFE_TEMPLATE_TAGS.has(name);
+}
+
+type LocalFunction = FunctionDeclaration | ArrowFunction | FunctionExpression;
+
+function localFunctionsOf(callee: Node, sf: SourceFile): LocalFunction[] | undefined {
+  if (!callee.isKind(SyntaxKind.Identifier)) return undefined;
+  const decls = localDeclarations(callee as Identifier, sf);
+  if (decls.length === 0) return undefined;
+  const fns: LocalFunction[] = [];
+  for (const d of decls) {
+    if (d.isKind(SyntaxKind.FunctionDeclaration)) {
+      fns.push(d);
+      continue;
+    }
+    const init = d.isKind(SyntaxKind.VariableDeclaration) ? d.getInitializer() : undefined;
+    if (init?.isKind(SyntaxKind.ArrowFunction) || init?.isKind(SyntaxKind.FunctionExpression)) {
+      fns.push(init);
+      continue;
+    }
+    return undefined;
   }
-  return cur.isKind(SyntaxKind.Identifier) ? (cur as Identifier) : undefined;
+  return fns;
+}
+
+function returnExpressionsOf(fn: LocalFunction): Node[] | undefined {
+  const body = fn.getBody();
+  if (!body) return undefined;
+  if (!Node.isBlock(body)) return [body];
+  const out: Node[] = [];
+  for (const ret of body.getDescendantsOfKind(SyntaxKind.ReturnStatement)) {
+    // Returns of nested functions belong to those, not to `fn`.
+    if (ret.getFirstAncestor((a) => Node.isFunctionLikeDeclaration(a)) !== fn) continue;
+    const expr = ret.getExpression();
+    if (expr) out.push(expr);
+  }
+  return out;
+}
+
+// A call to a directly named local function is trusted only when everything
+// it returns is itself safe — `function render(x) { return x; }` is not.
+// Methods on classes/objects/namespaces (`Templates.render(...)`) are never
+// trusted by their root alone.
+function isSafeLocalCall(callee: Node, sf: SourceFile, depth: number): boolean {
+  const fns = localFunctionsOf(callee, sf);
+  if (!fns) return false;
+  return fns.every((fn) => {
+    const returns = returnExpressionsOf(fn);
+    return returns?.every((r) => isSafeExpression(r, sf, depth + 1)) === true;
+  });
 }
 
 function isSafeExpression(expr: Node, sf: SourceFile, depth: number): boolean {
@@ -176,14 +227,17 @@ function isSafeExpression(expr: Node, sf: SourceFile, depth: number): boolean {
   ) {
     return true;
   }
-  // Nested template literals are scanned as their own candidates.
-  if (
-    expr.isKind(SyntaxKind.TemplateExpression) ||
-    expr.isKind(SyntaxKind.NoSubstitutionTemplateLiteral) ||
-    expr.isKind(SyntaxKind.TaggedTemplateExpression)
-  ) {
-    return true;
+  if (expr.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)) return true;
+  // A template with an HTML tag is scanned as its own candidate (incl. its
+  // html-ok comments). One without is never scanned, so its interpolations
+  // must be safe here.
+  if (expr.isKind(SyntaxKind.TemplateExpression)) {
+    if (HTML_TAG.test(templateStaticText(expr))) return true;
+    return expr
+      .getTemplateSpans()
+      .every((span) => isSafeExpression(span.getExpression(), sf, depth + 1));
   }
+  if (expr.isKind(SyntaxKind.TaggedTemplateExpression)) return isSafeTemplateTag(expr.getTag());
   if (expr.isKind(SyntaxKind.ConditionalExpression)) {
     return (
       isSafeExpression(expr.getWhenTrue(), sf, depth + 1) &&
@@ -201,6 +255,14 @@ function isSafeExpression(expr: Node, sf: SourceFile, depth: number): boolean {
         isSafeExpression(expr.getLeft(), sf, depth + 1) &&
         isSafeExpression(expr.getRight(), sf, depth + 1)
       );
+    }
+    // String concatenation is safe when both operands are.
+    if (
+      op === SyntaxKind.PlusToken &&
+      isSafeExpression(expr.getLeft(), sf, depth + 1) &&
+      isSafeExpression(expr.getRight(), sf, depth + 1)
+    ) {
+      return true;
     }
     // Arithmetic (`${width / 2}`) is safe as long as the result type is number.
     return isCompileTimeKnownType(expr.getType());
@@ -244,8 +306,7 @@ function isSafeExpression(expr: Node, sf: SourceFile, depth: number): boolean {
       }
     }
     if (endsWithHtmlConvention(callee)) return true;
-    const root = calleeRootIdentifier(callee);
-    if (root && isSafeLocalIdentifier(root, sf, depth)) return true;
+    if (isSafeLocalCall(callee, sf, depth)) return true;
     return isCompileTimeKnownType(expr.getType());
   }
   if (expr.isKind(SyntaxKind.Identifier)) {
@@ -280,11 +341,7 @@ function isInsideErrorConstruction(tpl: Node): boolean {
 function isInsideSafeTag(tpl: Node): boolean {
   const parent = tpl.getParent();
   if (!parent?.isKind(SyntaxKind.TaggedTemplateExpression)) return false;
-  const tag = parent.getTag();
-  const name = tag.isKind(SyntaxKind.PropertyAccessExpression)
-    ? tag.getNameNode().getText()
-    : tag.getText();
-  return SAFE_TEMPLATE_TAGS.has(name);
+  return isSafeTemplateTag(parent.getTag());
 }
 
 function hasHtmlOkComment(lines: readonly string[], line: number): boolean {
