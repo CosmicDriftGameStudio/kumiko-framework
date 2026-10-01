@@ -116,7 +116,7 @@ function resolveStandaloneFrameworkPackage(repoRoot: string, featureName: string
   return { packageName, changelogPath };
 }
 
-function resolveFeatureTarget(repoRoot: string, featureName: string): PackageTarget | null {
+export function resolveFeatureTarget(repoRoot: string, featureName: string): PackageTarget | null {
   if (featureName === "framework" || featureName === "framework-core" || featureName === "core") {
     const changelogPath =
       findFrameworkCoreChangelogFile(repoRoot) ?? join(repoRoot, "packages/framework/src/changes.json");
@@ -237,6 +237,16 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   const title = getStringFlag(args, "title")?.trim();
   if (!title) return ctx.out.err("  --title is required."), 1;
   const migration = getStringFlag(args, "migration")?.trim();
+  const detail = getStringFlag(args, "detail")?.trim();
+  const explicitFeature = getStringFlag(args, "feature");
+  for (const [flag, value] of [["title", title], ["feature", explicitFeature]] as const) {
+    if (value && /[\r\n]/.test(value)) return ctx.out.err(`  --${flag} must be a single line.`), 1;
+  }
+  for (const [flag, value] of [["title", title], ["detail", detail], ["migration", migration]] as const) {
+    if (value?.split(/\r?\n/).some((line) => line.trim().startsWith("-->"))) {
+      return ctx.out.err(`  --${flag} must not contain a line starting with "-->" (it would close the metadata block).`), 1;
+    }
+  }
   if (type === "breaking" && !migration) return ctx.out.err("  --breaking requires --migration."), 1;
   const codemod = getStringFlag(args, "codemod");
   const repoRoot = findRepoRoot(ctx.cwd);
@@ -244,11 +254,10 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
     ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/framework/src/scripts/codemod/.`);
     return 1;
   }
-  const feature = getStringFlag(args, "feature") ?? deriveFeatureFromCwd(repoRoot, ctx.cwd);
+  const feature = explicitFeature ?? deriveFeatureFromCwd(repoRoot, ctx.cwd);
   if (!feature) return ctx.out.err(`  Pass --feature explicitly. Available: ${listAvailableFeatures(repoRoot).join(", ")}`), 1;
   const target = resolveFeatureTarget(repoRoot, feature);
   if (!target) return ctx.out.err(`  Unknown feature "${feature}". Available: ${listAvailableFeatures(repoRoot).join(", ")}`), 1;
-  const detail = getStringFlag(args, "detail")?.trim();
   const change: PendingChange = {
     feature: feature === "framework-core" || feature === "core" ? "framework" : feature,
     type,
@@ -281,7 +290,9 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
   }
   const repoRoot = findRepoRoot(ctx.cwd);
   const dryRun = getFlag(args, "dry-run");
-  const files = readdirSync(join(repoRoot, ".changeset"))
+  const changesetDir = join(repoRoot, ".changeset");
+  if (!existsSync(changesetDir)) return ctx.out.log("  no changesets to fold"), 0;
+  const files = readdirSync(changesetDir)
     .filter((name) => name.endsWith(".md") && name !== "README.md")
     .sort();
   const pending = new Map<string, ChangelogEntry[]>();

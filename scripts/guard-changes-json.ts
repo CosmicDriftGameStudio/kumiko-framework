@@ -14,12 +14,13 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
-import { gitEnv } from "../packages/guards/src/_lib/git-env";
+import { gitEnv } from "@cosmicdrift/kumiko-guards";
 import {
   compareVersions,
   parseFeatureChangelog,
   validateChangelog,
 } from "../packages/framework/src/engine/feature-changelog";
+import { resolveFeatureTarget } from "../bin/commands/changes";
 import { parseChangesetChanges } from "../packages/framework/src/engine/changeset-changes";
 
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
@@ -84,6 +85,11 @@ export function isReleaseBranch(env: Readonly<Record<string, string | undefined>
   );
 }
 
+function frontmatterNamesPackage(frontmatter: string, packageName: string): boolean {
+  const escaped = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^\\s*["']?${escaped}["']?\\s*:`, "m").test(frontmatter);
+}
+
 export function findChangesetViolations(
   repoRoot: string,
   changed?: readonly string[],
@@ -111,6 +117,18 @@ export function findChangesetViolations(
         const parsed = parseChangesetChanges(raw, file);
         if (parsed.length === 0) {
           violations.push({ file, detail: "missing kumiko-changes metadata block" });
+        }
+        const frontmatter = /^\s*---\n([\s\S]*?)\n---/.exec(raw)?.[1] ?? "";
+        for (const change of parsed) {
+          const target = resolveFeatureTarget(repoRoot, change.feature);
+          if (!target) {
+            violations.push({ file, detail: `unknown feature "${change.feature}"` });
+          } else if (!frontmatterNamesPackage(frontmatter, target.packageName)) {
+            violations.push({
+              file,
+              detail: `feature "${change.feature}" resolves to ${target.packageName}, which is missing from the changeset frontmatter`,
+            });
+          }
         }
       } catch (error) {
         violations.push({ file, detail: error instanceof Error ? error.message : String(error) });

@@ -61,4 +61,13 @@ describe("parseChangesetChanges", () => {
       ),
     ).toThrow("type must be breaking, improvement, or fix");
   });
+
+  test("fails clearly when a field value closes the block early with a --> line", () => {
+    expect(() =>
+      parseChangesetChanges(
+        `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  Step one.\n  --> new\n-->`,
+        ".changeset/early-close.md",
+      ),
+    ).toThrow("closed early");
+  });
 });

@@ -80,6 +80,14 @@ export function parseChangesetChanges(markdown: string, source: string): readonl
   let match = BLOCK_RE.exec(markdown);
   while (match !== null) {
     const block = match[1];
+    // BLOCK_RE closes at the first line starting with "-->"; text after it on
+    // that line means a field value contained one and the block ended early.
+    const restOfLine = markdown.slice(match.index + match[0].length).split("\n", 1)[0] ?? "";
+    if (restOfLine.trim() !== "") {
+      throw new Error(
+        `${source}: kumiko-changes block closed early by a line starting with "-->"; field values must not contain such a line`,
+      );
+    }
     if (!block) throw new Error(`${source}: empty kumiko-changes block`);
     const fields = parseBlock(block, source);
     const feature = requiredField(fields, "feature", source);
