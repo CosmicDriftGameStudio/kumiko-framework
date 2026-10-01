@@ -186,9 +186,13 @@ agent.tool_not_allowed:
     Switch the assistant to a mode that covers this action, or do it yourself
     in the app.
   developer: |
-    `AccessDeniedError` from the agent's tool dispatch: the model asked for a
-    tool name outside the catalog built for this run — a hallucinated name, or
-    a handler the current agent mode doesn't expose.
+    Not an `AccessDeniedError`. Three triggers:
+    - Agent loop: the model asked for a tool name outside the catalog built for
+      this run (a hallucinated name, or a handler the run doesn't expose); the
+      loop records an error turn.
+    - Rule validation: an `UnprocessableError` when the handler of a new
+      permission rule is missing from the caller's role-filtered manifest.
+    - An `UnprocessableError` when `ai-agent-edit` is not mounted.
 
     The catalog is derived from the mounted registry (`buildToolCatalog`), so a
     handler without a `description` never becomes a tool at all. Describe the
@@ -199,13 +203,13 @@ agent.iteration_limit:
     The assistant reached the maximum number of steps without a clear answer.
     Please rephrase the request or split it into smaller steps.
   developer: |
-    `UnprocessableError` from the agent loop: the run hit its maximum round
-    count before the model produced a final answer — usually a tool that keeps
-    returning the same error, or a task that needs more steps than the limit
-    allows.
+    Not an error. The run ends with a `clarify` turn (`payload.reason`) once
+    `MAX_AGENT_ROUNDS` is reached without a final answer — usually a tool that
+    keeps returning the same error, or a task that needs more steps than the
+    limit allows.
 
-    Raise the round limit for the run, or narrow the task. The conversation's
-    turn history shows which tool call kept repeating.
+    Narrow the task, or fix the tool call that keeps repeating. The
+    conversation's turn history shows which one it was.
 
 agent.permission_denied:
   endUser: |
@@ -225,10 +229,10 @@ agent.high_risk_no_always:
     High-risk actions can't be set to "always allow".
     Every run of this action needs your explicit confirmation.
   developer: |
-    `AccessDeniedError` from the agent's risk gate: a handler declared
-    `agent: { risk: "high" }` was invoked without the explicit per-call
-    confirmation such handlers require, or an "always allow" rule was requested
-    for one.
+    `UnprocessableError` when creating a permission rule: `always` was
+    requested for a handler declared `agent: { risk: "high" }`. High-risk
+    handlers only allow per-call approvals; `details.handlerQn` names the
+    handler.
 
-    Lower the declared risk if the action really is routine; otherwise the
-    confirmation prompt is the intended behaviour.
+    Lower the declared risk if the action really is routine; otherwise
+    per-call approval is the intended behaviour.

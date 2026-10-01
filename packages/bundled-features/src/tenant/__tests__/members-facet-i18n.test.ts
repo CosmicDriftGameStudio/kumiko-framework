@@ -49,6 +49,11 @@ function membersNavLabelKeys(): readonly string[] {
 const facetKeys = membersFacetLabelKeys();
 const membersScreenI18nKeys = [...facetKeys, ...membersColumnLabelKeys(), ...membersNavLabelKeys()];
 
+// A helper that silently returns [] would turn every loop below into a no-op.
+test("the members screen definition yields facet keys to check", () => {
+  expect(facetKeys.length).toBeGreaterThan(0);
+});
+
 const localePacks: ReadonlyArray<readonly [string, Readonly<Record<string, string>>]> = [
   ["es", localeEsBundle],
   ["de", localeDeBundle],
@@ -83,8 +88,8 @@ describe("members status filter labels are localized in every shipped locale (fw
   });
 
   for (const [locale, bundle] of localePacks) {
-    test(`every facet label resolves to a localized string in ${locale}`, () => {
-      for (const key of facetKeys) {
+    test(`every facet/column/nav-label key resolves to a localized string in ${locale}`, () => {
+      for (const key of membersScreenI18nKeys) {
         const label = bundle[key];
         expect(label).toBeString();
         expect(label).not.toBe(key);
