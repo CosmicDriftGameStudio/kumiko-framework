@@ -291,6 +291,13 @@ describe("findChangesetViolations", () => {
       git(["commit", "-q", "-m", message]);
     }
 
+    function commitPlainChangeset(repo: string, git: (args: string[]) => string): void {
+      mkdirSync(join(repo, ".changeset"), { recursive: true });
+      writeFileSync(join(repo, ".changeset", "plain.md"), '---\n"pkg": patch\n---\n\nPlain note.\n');
+      git(["add", ".changeset/plain.md"]);
+      git(["commit", "-q", "-m", "changeset"]);
+    }
+
     it("ignores files changed on main after the branch point (merge-base diff)", () => {
       const { root, repo, git } = makeRepo();
       try {
@@ -335,14 +342,59 @@ describe("findChangesetViolations", () => {
       const { root, repo, git } = makeRepo();
       try {
         const before = git(["rev-parse", "HEAD"]);
-        commitChangesJson(repo, git, "direct edit on main");
+        commitPlainChangeset(repo, git);
         git(["push", "-q", "origin", "main"]);
 
         const violations = findChangesetViolations(repo, undefined, {
           GITHUB_EVENT_NAME: "push",
           GITHUB_EVENT_BEFORE: before,
         });
-        expect(violations.map((v) => v.file)).toEqual(["packages/x/changes.json"]);
+        expect(violations.map((v) => v.file)).toEqual([".changeset/plain.md"]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("does not flag changes.json written by a release merge in a push range", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        const before = git(["rev-parse", "HEAD"]);
+        commitChangesJson(repo, git, "release commit");
+        git(["push", "-q", "origin", "main"]);
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_EVENT_NAME: "push",
+          GITHUB_EVENT_BEFORE: before,
+        });
+        expect(violations).toEqual([]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("does not pass a non-SHA GITHUB_BASE_SHA to git", () => {
+      const { root, repo } = makeRepo();
+      try {
+        const violations = findChangesetViolations(repo, undefined, { GITHUB_BASE_SHA: "--output=x" });
+        expect(violations).toEqual([{ file: "git", detail: "GITHUB_BASE_SHA is not a valid commit SHA" }]);
+        expect(existsSync(join(repo, "x"))).toBe(false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("ignores a non-SHA GITHUB_EVENT_BEFORE and falls back like the all-zero SHA", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        git(["switch", "-q", "-c", "feature"]);
+        commitPlainChangeset(repo, git);
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_EVENT_NAME: "push",
+          GITHUB_EVENT_BEFORE: "--output=x",
+        });
+        expect(violations.map((v) => v.file)).toEqual([".changeset/plain.md"]);
+        expect(existsSync(join(repo, "x"))).toBe(false);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
@@ -352,13 +404,13 @@ describe("findChangesetViolations", () => {
       const { root, repo, git } = makeRepo();
       try {
         git(["switch", "-q", "-c", "feature"]);
-        commitChangesJson(repo, git, "direct edit");
+        commitPlainChangeset(repo, git);
 
         const violations = findChangesetViolations(repo, undefined, {
           GITHUB_EVENT_NAME: "push",
           GITHUB_EVENT_BEFORE: "0".repeat(40),
         });
-        expect(violations.map((v) => v.file)).toEqual(["packages/x/changes.json"]);
+        expect(violations.map((v) => v.file)).toEqual([".changeset/plain.md"]);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
