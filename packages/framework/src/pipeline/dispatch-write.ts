@@ -2,6 +2,7 @@ import type { DbRow, DbRunner, DbTx } from "../db/connection.js";
 import { selectRowForUpdateById } from "../db/queries/entity-read.js";
 import { asEntityTableMeta, selectMany } from "../db/query.js";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder.js";
+import { createTenantDb } from "../db/tenant-db.js";
 import { tenantDbRunner } from "../db/tenant-db-runner.js";
 import { hasAccess } from "../engine/access.js";
 import { ConfigScopes } from "../engine/constants.js";
@@ -212,6 +213,23 @@ function isForeignTenantParentRow(
   return typeof rowTenantId === "string" && rowTenantId !== user.tenantId;
 }
 
+// A custom create handler may return a row without a string tenantId; the row's
+// tenant is then unknown from the payload, so re-read it through the caller's tenant filter.
+async function isParentRowHiddenFromCaller(
+  ctx: DispatchContext,
+  parentEntityName: string,
+  parentId: string,
+  user: SessionUser,
+  tx: DbTx | undefined,
+): Promise<boolean> {
+  const table = getTable(ctx, parentEntityName);
+  const source = resolveDbSource(ctx, tx);
+  if (!table || !source) return false;
+  const callerDb = createTenantDb(source, user.tenantId, "tenant");
+  const visibleRow = await callerDb.fetchOne(table, { id: parentId });
+  return visibleRow === undefined;
+}
+
 // Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
 //
 // When a parent `:create` handler's payload carries values under keys
@@ -305,7 +323,15 @@ export async function executeNestedWrite(
   }
 
   // A custom create handler may return an existing foreign row; verify it before attaching children.
-  if (!registry.isHandlerSystemScoped(type) && isForeignTenantParentRow(parentRow, user)) {
+  const parentEntityName = registry.getHandlerEntity(type);
+  const isCallerScoped = !registry.isHandlerSystemScoped(type);
+  const isParentForeign =
+    isCallerScoped &&
+    (typeof parentRow["tenantId"] === "string"
+      ? isForeignTenantParentRow(parentRow, user)
+      : parentEntityName !== undefined &&
+        (await isParentRowHiddenFromCaller(ctx, parentEntityName, parentId, user, tx)));
+  if (isParentForeign) {
     return writeFailure(
       new AccessDeniedError({
         message: `nested-write: parent row belongs to another tenant — refusing to attach children to "${type}"`,
@@ -313,7 +339,6 @@ export async function executeNestedWrite(
       }),
     );
   }
-  const parentEntityName = registry.getHandlerEntity(type);
   if (parentEntityName) {
     const parentEntity = registry.getEntity(parentEntityName);
     if (parentEntity) {
