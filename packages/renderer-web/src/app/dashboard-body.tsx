@@ -1,42 +1,42 @@
-// Web-Implementierung des dashboard-Screen-Typs: rendert die deklarierten
-// Panels über das Widget-Kit (StatCard, Charts, FeedList, ProgressList,
-// DashboardListTable) in einem responsiven Grid. Registriert via
-// DashboardBodyProvider in createKumikoApp — der KumikoScreen-Switch bleibt
-// plattform-agnostisch.
+// Web implementation of the dashboard screen type: renders the declared
+// panels via the widget kit (StatCard, charts, FeedList, ProgressList,
+// DashboardListTable) in a responsive grid. Registered via
+// DashboardBodyProvider in createKumikoApp so the KumikoScreen switch stays
+// platform-agnostic.
 //
-// Panel-Daten-Contracts (siehe DashboardPanelDefinition in kumiko-framework):
-//   stat          → flaches Record, valueField/subField/toneField zeigen auf
-//                   Werte (Strings anzeigefertig, Zahlen formatiert der Renderer
-//                   mit der User-Locale). sparklineField → { atMs, value }[].
-//                   deltaField/deltaDirectionField(+deltaToneField) sind
-//                   optional — nur wenn BEIDE Felder gesetzt sind UND geliefert
-//                   werden, zeigt die Kachel einen Delta-Chip ("↓23 %").
-//                   icon/accentColor sind statisch am Panel (keine Query-
-//                   Felder) — icon über extensionSectionComponents wie bei
-//                   custom-Panels, accentColor ein roher CSS-Farbwert.
-//   stat-group    → mehrere stat-Panels, jedes Kind bleibt eine eigenständige
-//                   Query; mit label unter einem Sektions-Titel, ohne als
-//                   flacher KPI-Streifen.
-//   chart         → je nach `chart`: timeseries { points, windowStartMs,
+// Panel data contracts (see DashboardPanelDefinition in kumiko-framework):
+//   stat          → flat record; valueField/subField/toneField point at
+//                   values (strings are display-ready, the renderer formats
+//                   numbers with the user locale). sparklineField → { atMs, value }[].
+//                   deltaField/deltaDirectionField(+deltaToneField) are
+//                   optional: the tile shows a delta chip ("↓23 %") only when
+//                   BOTH fields are configured AND returned.
+//                   icon/accentColor are static on the panel (not query
+//                   fields): icon goes through extensionSectionComponents like
+//                   custom panels, accentColor is a raw CSS color value.
+//   stat-group    → several stat panels, each child stays an independent
+//                   query; with a label it sits under a section title,
+//                   without one it renders as a flat KPI strip.
+//   chart         → depends on `chart`: timeseries { points, windowStartMs,
 //                   windowEndMs, markers? }, stacked-bars / stacked-area
 //                   { series, windowStartMs, windowEndMs, todayMs?, markers? },
 //                   segment-bars { rows: { key, label, value, segments }[] }
-//   list          → paged envelope { rows, nextCursor, total? } wie
+//   list          → paged envelope { rows, nextCursor, total? } like
 //                   projectionList.
 //   feed          → { rows: { id, primary, trailing? }[] }
 //   progress-list → { rows: { id, label, value, fraction }[] }
-//   custom        → keine Query — eine über extensionSectionComponents
-//                   registrierte App-Komponente holt sich ihre Daten selbst.
+//   custom        → no query; an app component registered via
+//                   extensionSectionComponents fetches its own data.
 //   screen        → no own query; embeds another declarative screen via
 //                   KumikoScreen. visibleWhen reads a flat record (live); the
 //                   tile is dropped when the user can't access the target.
 //
-// Screen-Filter (DashboardFilterDefinition) und Zeitraum (timeRange): die
-// gewählten Werte werden unter `filter.id` / `timeRange.id` in die Panel-
-// Queries gemerged (Panel-`params` gewinnen, `ignoreScreenFilter` lässt nur
-// den Filter weg). useQuery refetcht automatisch über seinen bestehenden
-// payloadKey-Mechanismus — kein Sonderfall nötig. Jedes Query-Panel lädt und
-// scheitert für sich (Skeleton / Empty / Fehler mit Retry).
+// Screen filter (DashboardFilterDefinition) and time range (timeRange): the
+// selected values are merged into the panel queries under `filter.id` /
+// `timeRange.id` (panel `params` win, `ignoreScreenFilter` drops only the
+// filter). useQuery refetches automatically through its existing payloadKey
+// mechanism, so no special case is needed. Each query panel loads and fails
+// on its own (skeleton / empty / error with retry).
 
 import type {
   DashboardChartPanel,
@@ -476,7 +476,7 @@ type ChartEnvelope = {
   readonly markers?: readonly ChartMarker[];
 };
 
-// A plain bar chart ("Änderungen pro Tag") ships `points` without `series`.
+// A plain bar chart ("changes per day") ships `points` without `series`.
 const SINGLE_SERIES_KEY = "value";
 
 function chartSeries(

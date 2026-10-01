@@ -74,8 +74,8 @@ function Cell({
   return I18N_KEY_SHAPE.test(text) ? translate(text) : text;
 }
 
-/** Kompakte 40px-Zeilen-Tabelle für Dashboard-Listen mit optionalen
- *  Balken-/Badge-Spalten. */
+/** Compact 40px-row table for dashboard lists with optional bar/badge
+ *  columns. */
 export function DashboardListTable({
   columns,
   rows,
