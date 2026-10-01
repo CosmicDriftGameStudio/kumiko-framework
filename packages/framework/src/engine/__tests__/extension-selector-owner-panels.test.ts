@@ -49,6 +49,7 @@ function mailFoundation(panels: readonly ExtensionSelectorPanel[], withStatusQue
     r.screen({
       id: "queue",
       type: "projectionList",
+      dormant: true,
       query: "mail-foundation:query:queue:list",
       columns: ["name"],
     });
@@ -165,6 +166,11 @@ describe("extensionSelector owner panels — boot validation", () => {
     expect(() => validateBootWithHub(mailFoundation([QUEUE_PANEL], false))).toThrow(
       /panel "queue" visibleWhen query "mail-foundation:query:queue:status"/,
     );
+  });
+
+  test("a screen panel with a label throws at declaration", () => {
+    const labeled = { ...QUEUE_PANEL, label: "mail:queue" };
+    expect(() => mailFoundation([labeled])).toThrow(/must not set a label/);
   });
 
   test("the reserved selection id, duplicate ids and empty ids throw at declaration", () => {

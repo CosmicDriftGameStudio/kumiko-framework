@@ -69,6 +69,12 @@ function qualifySelectorPanel(
 ): ExtensionSelectorPanel {
   if (panel.kind === "custom") return panel;
   if (panel.kind === "screen") {
+    if ("label" in panel) {
+      throw new Error(
+        `[Feature ${featureName}] extensionSelector screen panel "${panel.id}" must not set a label — ` +
+          `the settings dashboard has no i18n namespace for it; the embedded screen carries its own title.`,
+      );
+    }
     if (panel.screen === "" || isValidQn(panel.screen)) return panel;
     return { ...panel, screen: qualifyEntityName(featureName, "screen", panel.screen) };
   }
