@@ -108,7 +108,7 @@ describe("RenderList", () => {
     expect(screen.getByTestId("cell-r1-priority").textContent).toBe("P3"); // custom renderer
 
     // Row 2
-    expect(screen.getByTestId("cell-r2-isUrgent").textContent).toBe(""); // false → empty
+    expect(screen.getByTestId("cell-r2-isUrgent").textContent).toBe("–"); // false → empty-cell placeholder
     expect(screen.getByTestId("cell-r2-priority").textContent).toBe("P1");
   });
 

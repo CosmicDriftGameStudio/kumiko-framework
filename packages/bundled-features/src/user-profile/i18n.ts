@@ -11,6 +11,8 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 export const defaultTranslations: TranslationsByLocale = {
   en: {
     "screen:profile.title": "Profile",
+    "profile.screen.profile.subtitle":
+      "Change your password or email, or request account deletion.",
 
     "profile.email.title": "Email address",
     "profile.email.current": "Current email",

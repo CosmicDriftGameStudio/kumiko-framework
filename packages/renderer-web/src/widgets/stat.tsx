@@ -110,7 +110,7 @@ export function StatCard({
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
     <Card options={{ padded: false }} className="p-4" testId={testId}>
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
           {icon !== undefined && (
             <span
               className={cn(
@@ -129,12 +129,12 @@ export function StatCard({
               {icon}
             </span>
           )}
-          <span className="text-xs font-medium">{label}</span>
+          <span className="min-w-0 truncate text-xs font-medium">{label}</span>
         </div>
         {delta !== undefined && (
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
+              "inline-flex shrink-0 items-center gap-0.5 whitespace-nowrap rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums",
               TONE_CHIP[delta.tone ?? tone],
             )}
           >

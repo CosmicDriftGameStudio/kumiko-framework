@@ -190,7 +190,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
       layout: { sections: [{ fields: ["jobName", "payload"] }] },
       submitLabel: i18nKey("jobs.trigger.submit"),
       access: systemAdminAccess,
-      description: "Manually trigger a job by name with an optional JSON object payload.",
+      description: "jobs.screen.job-trigger.subtitle",
     });
     r.screen({
       id: JOB_RUN_DETAIL_SCREEN_ID,
@@ -239,8 +239,7 @@ export function createJobsFeature(options: JobsFeatureOptions = {}): FeatureDefi
           style: "primary",
         },
       ],
-      description:
-        "Detail view of one job run with status, timings, error and log lines, and a retry action for failed runs; reached from a row of the job-runs list.",
+      description: "jobs.screen.job-run-detail.subtitle",
       listScreenId: JOB_RUNS_SCREEN_ID,
       access: systemAdminAccess,
     });

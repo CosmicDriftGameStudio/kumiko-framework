@@ -640,6 +640,24 @@ describe("buildAppSchema", () => {
     expect(JSON.parse(JSON.stringify(projected))).toEqual(projected);
   });
 
+  test("number grouping survives the projection (false only if declared)", () => {
+    const entity = {
+      fields: {
+        year: { type: "number", grouping: false },
+        plain: { type: "number" },
+      },
+    } as unknown as EntityDefinition;
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const projected = app.features[0]!.entities["thing"] as unknown as {
+      fields: Record<string, Record<string, unknown>>;
+    };
+    expect(projected.fields["year"]?.["grouping"]).toBe(false);
+    expect(projected.fields["plain"]?.["grouping"]).toBeUndefined();
+  });
+
   test("entity without defaultCurrency omits the key", () => {
     const f = defineFeature("ent", (r) => {
       r.entity("thing", { fields: { label: { type: "text" } } } as unknown as EntityDefinition);

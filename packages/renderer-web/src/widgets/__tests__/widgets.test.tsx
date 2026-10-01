@@ -261,6 +261,20 @@ describe("ModeSwitch", () => {
     expect(onChange).toHaveBeenCalledWith("b");
   });
 
+  test("grows with wrapped labels instead of clipping at a fixed height", () => {
+    render(
+      <ModeSwitch
+        value="a"
+        testId="switch"
+        options={[{ value: "a", label: "A very long label that wraps" }]}
+        onChange={() => {}}
+      />,
+    );
+    const className = screen.getByTestId("switch").className;
+    expect(className).toContain("min-h-8");
+    expect(className).not.toContain(" h-8");
+  });
+
   test("#902: Buttons sind als zusammengehörige Gruppe gekennzeichnet", () => {
     render(
       <ModeSwitch
@@ -329,6 +343,18 @@ describe("StatCard", () => {
     expect(screen.getByText("123.456 €")).toBeTruthy();
     expect(screen.getByText(/2,1 %/)).toBeTruthy();
     expect(screen.getByText("nach 10 Jahren")).toBeTruthy();
+  });
+
+  test("long labels truncate and the delta badge keeps its size", () => {
+    render(
+      <StatCard
+        label="A very long metric label"
+        value="1"
+        delta={{ value: "2,1 %", direction: "up" }}
+      />,
+    );
+    expect(screen.getByText("A very long metric label").className).toContain("truncate");
+    expect(screen.getByText(/2,1 %/).closest("span")?.className).toContain("shrink-0");
   });
 
   test("accentColor färbt den Icon-Chip inline", () => {

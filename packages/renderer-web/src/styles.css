@@ -377,9 +377,9 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     /* Über den Token, nicht hardcodiert: so greifen App-Overrides und
-       createThemePlugin. tabular-nums, damit Zahlenspalten bündig laufen. */
+       createThemePlugin. Kein body-weites tabular-nums: es macht den Bindestrich
+       ziffernbreit; Zahlenspalten setzen die Utility selbst. */
     font-family: var(--font-sans);
-    font-variant-numeric: tabular-nums;
     font-size: 14px;
     line-height: 1.4;
     margin: 0;

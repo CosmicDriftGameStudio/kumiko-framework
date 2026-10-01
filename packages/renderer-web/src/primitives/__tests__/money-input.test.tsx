@@ -139,7 +139,7 @@ describe("MoneyInput — Render (Tier 2)", () => {
     expect(onChange).toHaveBeenCalledWith(2550);
   });
 
-  test("an invalid locale renders without crashing, with and without a value", () => {
+  test("an invalid locale falls back to en-US formatting, with and without a value", () => {
     const { rerender } = render(
       <MoneyInput
         id="amt"
@@ -151,7 +151,7 @@ describe("MoneyInput — Render (Tier 2)", () => {
       />,
     );
     expect(inputEl().value).toBe("");
-    expect(screen.queryByTestId("amt-currency")).toBeNull();
+    expect(screen.getByTestId("amt-currency").textContent).toBe("€");
     rerender(
       <MoneyInput
         id="amt"
@@ -163,7 +163,7 @@ describe("MoneyInput — Render (Tier 2)", () => {
       />,
     );
     expect(inputEl().value).toBe("12.34");
-    expect(screen.queryByTestId("amt-currency")).toBeNull();
+    expect(screen.getByTestId("amt-currency").textContent).toBe("€");
   });
 
   test("a multi-character symbol takes its own space next to the input instead of overlapping it", () => {

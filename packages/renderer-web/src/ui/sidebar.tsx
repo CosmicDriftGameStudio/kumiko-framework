@@ -202,7 +202,7 @@ function Sidebar({
             <SheetTitle>Sidebar</SheetTitle>
             <SheetDescription>Displays the mobile sidebar.</SheetDescription>
           </SheetHeader>
-          <div className="flex h-full w-full flex-col">{children}</div>
+          <div className="flex h-full w-full flex-col px-2 py-3">{children}</div>
         </SheetContent>
       </Sheet>
     )
@@ -378,7 +378,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-3 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+        "flex min-h-0 flex-1 flex-col gap-3 overflow-auto pb-4 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.5rem),transparent)] group-data-[collapsible=icon]:overflow-hidden",
         className
       )}
       {...props}

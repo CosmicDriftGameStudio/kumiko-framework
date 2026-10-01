@@ -26,12 +26,15 @@ import {
   usePrimitives,
 } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
+import { ShellHeader } from "../layout/shell-header.js";
 import { BareFormProvider } from "../primitives/index.js";
 import {
   act,
   createMockDispatcher,
   fireEvent,
   render,
+  renderWithSidebar,
   screen,
   waitFor,
   within,
@@ -679,7 +682,7 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     expect(within(screen.getByTestId("section-extension-Notes")).queryByText("Notes")).toBeNull();
   });
 
-  test("layout.mode: 'tabs' — the active extension tab renders inside its own card, not flat", async () => {
+  test("layout.mode: 'tabs' — the active extension tab renders unframed like relatedList tabs", async () => {
     const tabsExtensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -730,18 +733,10 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
       </NavProvider>,
     );
     await waitFor(() => screen.getByTestId("session-notes"));
-    // The section is flattened inside RenderEdit's own Form (no own card) —
-    // tabs mode frames it via an outer Card instead, so exactly one card
-    // renders for the active extension tab.
-    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
-    // The tab strip already labels the panel — the framing Card must not
-    // repeat that label as its own title (only one "Notes" on screen).
+    // No card chrome around the extension tab (relatedList tabs are unframed too).
+    expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(0);
+    // The tab strip already labels the panel (only one "Notes" on screen).
     expect(screen.getAllByText("Notes")).toHaveLength(1);
-    // Padding parity (fw#3234 review 2): a nested <section> would carry its
-    // own px-6 py-4 (DefaultSection, insideForm) on top of the Card's own
-    // padding, indenting the extension tab further than the fields tab
-    // (Grid sits directly in the Card there, no <section> in between).
-    expect(container.querySelector('[data-slot="card"] section')).toBeNull();
   });
 
   test("layout.mode: 'tabs' with a header — the head card plus one card for the active tab's fields", async () => {
@@ -1463,6 +1458,73 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     const slotCard = slot.closest('[data-slot="card"]');
     expect(slotCard).not.toBeNull();
     expect(actionButton.closest('[data-slot="card"]')).toBe(slotCard);
+  });
+
+  describe("slots.header inside the shell page-header slot", () => {
+    const HubHeader = (): ReactNode => <div data-testid="hub-header">hub</div>;
+    const screenWithSlot: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      header: { title: "userId" },
+      layout: { mode: "tabs", sections: detailScreen.layout.sections },
+      slots: { header: { react: { __component: "HubHeader" } } },
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+      ],
+    };
+    const slotSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [screenWithSlot],
+    };
+
+    test("title and actions go to the shell header and the slot content renders unframed", async () => {
+      renderWithSidebar(
+        <NavProvider
+          value={{
+            route: { screenId: "session-detail", entityId: "sess-1" },
+            navigate: () => {},
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <DispatcherProvider dispatcher={dispatcher}>
+            <ExtensionSectionsProvider value={{ HubHeader }}>
+              <PageHeaderSlotProvider>
+                <ShellHeader schema={{ features: [slotSchema] }} />
+                <KumikoScreen
+                  schema={slotSchema}
+                  qn="sessions:screen:session-detail"
+                  entityId="sess-1"
+                />
+              </PageHeaderSlotProvider>
+            </ExtensionSectionsProvider>
+          </DispatcherProvider>
+        </NavProvider>,
+      );
+
+      const slot = await waitFor(() => screen.getByTestId("hub-header"));
+      const headerActions = document.querySelector("[data-kumiko-layout='page-header-actions']");
+      expect(headerActions?.contains(screen.getByTestId("render-edit-action-open-user"))).toBe(
+        true,
+      );
+      expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("user-42");
+      expect(slot.closest('[data-slot="card"]')).toBeNull();
+      // The metric band owns the horizontal inset; the slot must sit inside it.
+      expect(
+        slot.closest('[data-testid="kumiko-screen-projection-detail-metrics"]'),
+      ).not.toBeNull();
+      // Own unstyled row, not inside the muted subtitle line.
+      const lead = slot.closest("[data-kumiko-layout='metric-band-lead']");
+      expect(lead).not.toBeNull();
+      expect(lead?.className ?? "").toBe("");
+    });
   });
 
   test("with actions declared: the action button renders in the head region, before the tab content, not in the form footer", async () => {

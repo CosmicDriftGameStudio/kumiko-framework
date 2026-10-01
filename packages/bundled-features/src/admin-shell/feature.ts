@@ -90,8 +90,7 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       id: TENANT_OVERVIEW_SCREEN_ID,
       type: "dashboard",
       access: { roles: access.admin },
-      description:
-        "Landing page of the tenant-admin workspace: activity, failed jobs and deliveries, quotas and open admin tasks for the caller's own tenant, over a selectable time range.",
+      description: "admin-shell.screen.tenant-overview.subtitle",
       timeRange: OVERVIEW_TIME_RANGE,
       panels: [...tenantOverviewPanels(metrics, { includeCapOverview })],
     });
@@ -107,8 +106,7 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       id: PLATFORM_OVERVIEW_SCREEN_ID,
       type: "dashboard",
       access: { roles: access.systemAdmin },
-      description:
-        "Landing page of the platform-admin workspace: tenant, user, job and delivery health across all tenants for a system admin, over a selectable time range.",
+      description: "admin-shell.screen.platform-overview.subtitle",
       scope: PLATFORM_SCOPE,
       timeRange: OVERVIEW_TIME_RANGE,
       // The picker needs a SystemAdmin {rows:{value,label}} tenant query; only cap-overview ships one.

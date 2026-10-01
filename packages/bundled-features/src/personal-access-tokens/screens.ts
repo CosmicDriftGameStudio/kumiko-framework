@@ -6,6 +6,8 @@ import {
 import { PAT_MINT_SCREEN_ID, PAT_SCREEN_ID, PatHandlers, PatQueries } from "./constants.js";
 import type { PatScopeConfig } from "./scopes.js";
 
+const PAT_STATUS_OPTION_KEY_PREFIX = "pat.list.status.";
+
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
@@ -15,7 +17,11 @@ export const patListScreen: ProjectionListScreenDefinition = {
     { field: "name", label: i18nKey("pat.list.col.name") },
     { field: "prefix", label: i18nKey("pat.list.col.prefix") },
     { field: "scopes", label: i18nKey("pat.list.col.scopes") },
-    { field: "status", label: i18nKey("pat.list.col.status") },
+    {
+      field: "status",
+      label: i18nKey("pat.list.col.status"),
+      renderer: { format: "enumOption", keyPrefix: PAT_STATUS_OPTION_KEY_PREFIX },
+    },
     {
       field: "createdAt",
       label: i18nKey("pat.list.col.created"),

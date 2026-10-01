@@ -762,7 +762,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const allFieldsRequired = useMemo(() => {
     const fillable = filteredSections.flatMap((section) =>
       section.kind === "fields"
-        ? section.fields.filter((field) => field.visible && !field.readOnly)
+        ? section.fields.filter(
+            (field) => field.visible && !field.readOnly && field.type !== "boolean",
+          )
         : [],
     );
     return fillable.length > 0 && fillable.every((field) => field.required);
@@ -1357,6 +1359,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return id == null || id === "";
   })();
   const formMode = isCreate ? "create" : "edit";
+  const recordTitleValue =
+    !isCreate && screen.recordTitleField !== undefined
+      ? initial[screen.recordTitleField]
+      : undefined;
+  const recordTitle =
+    typeof recordTitleValue === "string" && recordTitleValue.trim() !== ""
+      ? recordTitleValue
+      : undefined;
   const resolveScreenText = (suffix: string): string | undefined => {
     for (const key of [
       `screen:${screen.id}.${formMode}.${suffix}`,
@@ -1421,6 +1431,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       {titleInShell && (
         <PageHeader
           title={formTitle}
+          {...(recordTitle !== undefined && { recordTitle })}
           {...(headerMenuItems.length > 0 &&
             ActionOverflowMenu !== undefined && {
               actions: (
@@ -1634,26 +1645,20 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     sectionActionsEl !== undefined && { actions: sectionActionsEl })}
                 />
               );
-              // Section always flattens to a borderless divider inside this
-              // component's own <Form>, so tabs mode frames it with Card
-              // instead — same reason the fields-section tabs branch below
-              // stays on Card. No title here: the tab strip already labels the
-              // panel (matches the non-tabs Section branch above via hideTitle).
-              // testId stays only on the inner Section — this outer Card is
+              // Tabs mode: unframed like relatedList tabs; the Card chrome is
+              // only kept when section actions need a header to live in.
+              // testId stays only on the inner Section — the outer wrapper is
               // purely chrome, giving it the same testId would register two
               // elements under one id.
               const wrapped =
-                hideSectionTitles === true ? (
-                  <Card
-                    key={section.title}
-                    {...(sectionActionsEl !== undefined && {
-                      slots: { headerActions: sectionActionsEl },
-                    })}
-                  >
+                hideSectionTitles !== true ? (
+                  mount
+                ) : sectionActionsEl !== undefined ? (
+                  <Card key={section.title} slots={{ headerActions: sectionActionsEl }}>
                     {mount}
                   </Card>
                 ) : (
-                  mount
+                  <div key={section.title}>{mount}</div>
                 );
               return wrapWizardStep(section.title, wrapped);
             }

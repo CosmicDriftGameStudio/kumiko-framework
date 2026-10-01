@@ -137,6 +137,7 @@ import { LocatedTimestampInput } from "./located-timestamp-input.js";
 import { DefaultMetric, DefaultMetricBand } from "./metric.js";
 import { DefaultModal } from "./modal.js";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.js";
+import { NumberInput } from "./number-input.js";
 import { DefaultPageHeader } from "./page-header.js";
 import { PromoPanel } from "./promo-panel.js";
 import { CopyButton, ShareButton } from "./share-actions.js";
@@ -347,14 +348,16 @@ function DefaultField({
       id={fieldLabelId(id)}
       htmlFor={id}
       className={cn(
-        "text-[13px]",
+        "min-w-0 gap-0 text-[13px]",
         hasError ? "text-destructive" : "text-foreground",
         hideLabel === true && "sr-only",
       )}
     >
-      {label}
+      <span className="truncate" title={typeof label === "string" ? label : undefined}>
+        {label}
+      </span>
       {required === true && (
-        <span data-required className="ml-0.5 text-destructive">
+        <span data-required className="ml-0.5 shrink-0 text-destructive">
           *
         </span>
       )}
@@ -401,7 +404,7 @@ function DefaultField({
     <div data-testid={testId} className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         {changedMarker !== null ? (
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             {labelEl}
             {changedMarker}
           </div>
@@ -768,19 +771,20 @@ function DefaultInput(props: InputProps): ReactNode {
         props.unit,
         withFieldIcon(
           props.icon,
-          <UiInput
-            type="number"
-            {...common}
-            data-testid={props.testId}
+          <NumberInput
+            id={props.id}
+            name={props.name}
             value={props.value}
-            step={props.step}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => {
-              const v = e.target.value;
-              props.onChange(v === "" ? undefined : Number(v));
-            }}
+            onChange={props.onChange}
+            disabled={props.disabled}
+            required={props.required}
+            hasError={props.hasError}
+            testId={props.testId}
+            {...(props.locale !== undefined && { locale: props.locale })}
+            {...(props.grouping !== undefined && { grouping: props.grouping })}
+            {...(props.integer !== undefined && { integer: props.integer })}
             {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
             className={cn(
-              "text-left tabular-nums",
               fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
               props.unit !== undefined ? "pr-8" : undefined,
             )}
@@ -873,7 +877,10 @@ function DefaultInput(props: InputProps): ReactNode {
       // segment, so it counts and renders on the real options only — the
       // dropdown below keeps comboOptions (placeholder included) since it
       // has a genuine "nothing selected" row.
-      const radioGroupOptions = withoutSegmentedSelectPlaceholder(comboOptions);
+      // An author who asks for `display: "radio"` explicitly declared the ""
+      // option as a real choice (e.g. "Any"), so it stays a segment.
+      const radioGroupOptions =
+        props.display === "radio" ? comboOptions : withoutSegmentedSelectPlaceholder(comboOptions);
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
       // one even when the options outnumber the heuristic's threshold (#2711).
@@ -1344,7 +1351,8 @@ function DefaultDataTable({
                     className={cn(
                       "max-w-xs truncate",
                       colIndex === 0 ? "font-medium text-foreground" : "text-foreground-secondary",
-                      NUMERIC_COLUMN_TYPES.has(col.type) && "text-right tabular-nums",
+                      NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
+                      TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
                       col.highlighted === true && "bg-accent/40",
                     )}
                     title={cellTitle(row.values[col.field])}
@@ -1458,10 +1466,15 @@ function DefaultDataTable({
 
   function renderCard(row: ListRowViewModel): ReactNode {
     const metaColumns = cardMetaColumns
-      .filter((col) => !isEmptyCellValue(row.values[col.field]))
+      .filter(
+        (col) =>
+          !isEmptyCellValue(row.values[col.field]) &&
+          !isUnlabeledFalse(col.type, row.values[col.field], col.renderer),
+      )
       .slice(0, CARD_META_MAX);
     const showStatus =
       cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
+    const hasMenu = menuActions !== undefined && menuActions.length > 0;
     const body = (
       <>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -1496,7 +1509,7 @@ function DefaultDataTable({
                   {index > 0 && <span aria-hidden="true">·</span>}
                   <span
                     data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                    className="truncate"
+                    className={isBadgeColumn(col) ? "shrink-0" : "truncate"}
                   >
                     {cardCell(row, col)}
                   </span>
@@ -1514,7 +1527,10 @@ function DefaultDataTable({
       <li
         key={row.id}
         data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
-        className="flex min-h-[72px] items-center gap-2 border-b border-border-row py-3 pl-4 pr-2"
+        className={cn(
+          "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3 pl-4",
+          hasMenu ? "pr-2" : "pr-4",
+        )}
         {...(rowIsLink && { onClick: () => onRowClick(row) })}
       >
         {rowIsLink ? (
@@ -1533,7 +1549,7 @@ function DefaultDataTable({
         ) : (
           body
         )}
-        {menuActions !== undefined && menuActions.length > 0 && (
+        {hasMenu && (
           // biome-ignore lint/a11y/noStaticElementInteractions: stopPropagation only — not a control
           <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
             <RowActionsCell
@@ -1870,6 +1886,23 @@ function RowActionsCell({
 
 function isEmptyCellValue(value: unknown): boolean {
   return value === null || value === undefined || value === "";
+}
+
+// A boolean false renders as an empty string unless the column's format spec names a falseLabel.
+function isUnlabeledFalse(type: string, value: unknown, renderer: unknown): boolean {
+  if (type !== "boolean" || value !== false) return false;
+  if (renderer === undefined) return true;
+  return (
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "format" in renderer &&
+    !("falseLabel" in renderer)
+  );
+}
+
+// Badges (select pills, component renderers) must never be clipped by the card's meta truncation.
+function isBadgeColumn(col: { readonly type: string; readonly renderer?: unknown }): boolean {
+  return col.type === "select" || isComponentRendererRef(col.renderer) !== undefined;
 }
 
 // The first cell is the keyboard-reachable entry point of a clickable row; the
@@ -2614,6 +2647,13 @@ type DataTableCellProps = {
 const EMPTY_CELL_PLACEHOLDER = "–";
 
 const NUMERIC_COLUMN_TYPES: ReadonlySet<string> = new Set(["number", "decimal", "bigInt", "money"]);
+// Digits stand in columns here, so they need equal-width figures; the body no longer sets tabular-nums.
+const TABULAR_COLUMN_TYPES: ReadonlySet<string> = new Set([
+  ...NUMERIC_COLUMN_TYPES,
+  "date",
+  "timestamp",
+  "locatedTimestamp",
+]);
 
 // Cell-Renderer als Component (statt reiner Funktion) damit der
 // useColumnRenderer-Hook aus dem Provider lesen kann. Die vier Pfade:
@@ -2640,6 +2680,13 @@ function DataTableCell({
   const componentRef = isComponentRendererRef(renderer);
   const ResolvedComponent = useColumnRenderer(componentRef?.name);
   if (isEmptyCellValue(value) && typeof renderer !== "function" && componentRef === undefined) {
+    return (
+      <span data-empty-cell="true" className="text-muted-foreground">
+        {EMPTY_CELL_PLACEHOLDER}
+      </span>
+    );
+  }
+  if (isUnlabeledFalse(type, value, renderer)) {
     return (
       <span data-empty-cell="true" className="text-muted-foreground">
         {EMPTY_CELL_PLACEHOLDER}
@@ -2849,8 +2896,9 @@ function FormSections({
         // ihnen — sie padden sich selbst. Flache Felder (Custom-Screens)
         // kriegen Padding + Rhythmus, keine Linie zwischen jedem Feld.
         "[&>section:not(:first-child)]:border-t",
-        !chromeless && "[&>:not(section)]:px-6 [&>:not(section)]:py-3",
-        !chromeless && "[&>:not(section):first-child]:pt-6 [&>:not(section):last-child]:pb-6",
+        // Margins, not padding: padding would land inside a child that has its own border/height.
+        !chromeless && "[&>:not(section)]:mx-6 [&>:not(section)]:my-3",
+        !chromeless && "[&>:not(section):first-child]:mt-6 [&>:not(section):last-child]:mb-6",
         // ponytail: fixed footer now pins only the primary action (single
         // button row + its own p-4, fw#2606) instead of the whole footer —
         // shrunk from pb-32 accordingly. Widen again if a wizard's primary
@@ -3540,7 +3588,7 @@ function DefaultSection({
           // gap only needs to read as roughly double the gap-4 field row
           // spacing, not triple it.
           insideScreenForm
-            ? "flex scroll-mt-4 flex-col gap-4 [&:not(:first-child)]:border-t [&:not(:first-child)]:border-border [&:not(:first-child)]:pt-7"
+            ? "flex scroll-mt-4 flex-col gap-4 [&:not(:first-of-type)]:border-t [&:not(:first-of-type)]:border-border [&:not(:first-of-type)]:pt-7"
             : "flex flex-col gap-4 px-6 py-4",
           variant === "destructive" && "border-l-2 border-destructive/40",
         )}
@@ -3594,9 +3642,10 @@ const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
 
 const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   text: "w-full sm:w-60",
-  number: "w-fit min-w-24 shrink-0 [&_label]:whitespace-nowrap [&_input]:w-24",
+  number: "w-fit min-w-24 shrink-0 [&_label]:whitespace-nowrap [&_input]:w-32",
   money: "w-40 shrink-0 [&_label]:whitespace-nowrap",
   date: "w-full sm:w-[200px]",
+  timestamp: "w-full sm:w-[328px]",
   select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",
   full: "w-full",
   auto: "w-auto",

@@ -12,6 +12,9 @@ export const PAT_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = {
   "pat.list.col.status": { en: "Status" },
   "pat.list.col.created": { en: "Created" },
   "pat.list.col.expires": { en: "Expires" },
+  "pat.list.status.active": { en: "Active" },
+  "pat.list.status.revoked": { en: "Revoked" },
+  "pat.list.status.expired": { en: "Expired" },
   "pat.list.revoke": { en: "Revoke" },
   "pat.list.revoke.confirm": { en: "Revoke this token? Anything using it will stop working." },
 

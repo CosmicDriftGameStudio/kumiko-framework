@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormScreenDefinition,
+  DashboardScreenDefinition,
   EntityEditScreenDefinition,
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
@@ -244,6 +245,64 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
       label: "rental.action.editLease",
       screen: "lease-edit",
       entityId: "id",
+    },
+  ],
+  access: OPEN_ACCESS,
+};
+
+// Same record as lease-detail, but with a client component in the header slot
+// and an extension tab, so the shell-header placement and the unframed
+// extension tab are visible. Dormant: opened by URL (/lease-hub/<id>).
+export const leaseHubScreen: ProjectionDetailScreenDefinition = {
+  ...leaseDetailScreen,
+  id: "lease-hub",
+  slots: { header: { react: { __component: "LeaseHubHeader" } } },
+  actions: [
+    {
+      kind: "navigate",
+      id: "edit-lease",
+      label: "rental.action.editLease",
+      screen: "lease-edit",
+      entityId: "id",
+    },
+  ],
+  layout: {
+    mode: "tabs",
+    sections: [
+      ...leaseDetailScreen.layout.sections.slice(0, 4),
+      {
+        id: "history",
+        kind: "extension",
+        title: "rental.tab.history",
+        component: { react: { __component: "LeaseHubHistory" } },
+        entityName: "lease",
+      },
+      ...leaseDetailScreen.layout.sections.slice(4),
+    ],
+  },
+};
+
+export const rentalDashboardScreen: DashboardScreenDefinition = {
+  id: "rental-dashboard",
+  type: "dashboard",
+  panels: [
+    {
+      kind: "stat",
+      id: "debt",
+      label: "rental.dashboard.debt",
+      query: RENTAL_QUERIES.kennzahlen,
+      valueField: "debt",
+      subField: "debtSub",
+      deltaField: "debtDelta",
+      deltaDirectionField: "debtDeltaDirection",
+    },
+    {
+      kind: "stat",
+      id: "rent",
+      label: "rental.dashboard.rent",
+      query: RENTAL_QUERIES.kennzahlen,
+      valueField: "rent",
+      subField: "rentSub",
     },
   ],
   access: OPEN_ACCESS,

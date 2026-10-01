@@ -281,6 +281,12 @@ export type InputProps =
       /** `<input step>`. "any" disables the native stepMismatch constraint
        *  (needed for decimal fields — integer fields leave this unset). */
       readonly step?: number | "any";
+      /** BCP-47 tag for the grouped display and the decimal separator when typing. */
+      readonly locale?: string;
+      /** `false` shows the value without a thousands separator (e.g. a year). */
+      readonly grouping?: boolean;
+      /** Integer-only entry (bigInt): fractional input is rejected on blur. */
+      readonly integer?: boolean;
       /** Resolved display suffix (static or from a sibling field) — never
        *  part of the numeric value. */
       readonly unit?: string;
@@ -997,7 +1003,15 @@ export type GridProps = {
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
-export type FieldCellWidth = "text" | "number" | "money" | "date" | "select" | "full" | "auto";
+export type FieldCellWidth =
+  | "text"
+  | "number"
+  | "money"
+  | "date"
+  | "timestamp"
+  | "select"
+  | "full"
+  | "auto";
 
 /** Span-Wrapper für ein Kind innerhalb eines Grid. Web: `style={{gridColumn: span N}}`,
  *  Native: eigenes Width-Rechnen. */
@@ -1334,6 +1348,8 @@ export type JsonViewProps = {
 /** Band above the tabs of a record detail: optional subtitle line plus the
  *  metrics as a definition list. `children` are `Metric` tiles. */
 export type MetricBandProps = {
+  /** Free-form block rendered unstyled as the first full-width row of the band. */
+  readonly lead?: ReactNode;
   readonly subtitle?: ReactNode;
   readonly children: ReactNode;
   readonly testId?: string;
@@ -1345,6 +1361,8 @@ export type MetricBandProps = {
  *  (see `usePageHeaderSlotAvailable`) callers keep their previous placement. */
 export type PageHeaderProps = {
   readonly title?: string;
+  /** Name of the loaded record; shown as an extra breadcrumb before the last one. */
+  readonly recordTitle?: string;
   readonly status?: ReactNode;
   readonly actions?: ReactNode;
 };

@@ -7,6 +7,12 @@ type LocalizedString = { readonly en: string };
 export const ADMIN_SHELL_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:tenant-overview.title": { en: "Overview" },
   "screen:platform-overview.title": { en: "Overview" },
+  "admin-shell.screen.tenant-overview.subtitle": {
+    en: "Activity, failed jobs and deliveries, quotas and open admin tasks of this tenant.",
+  },
+  "admin-shell.screen.platform-overview.subtitle": {
+    en: "Tenant, user, job and delivery health across the whole installation.",
+  },
   "admin-shell:workspace.tenant": { en: "Administration" },
   "admin-shell:workspace.platform": { en: "Platform" },
   "admin-shell:nav.tenantOverview": { en: "Overview" },

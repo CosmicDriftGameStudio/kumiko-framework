@@ -24,7 +24,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
         <input id="f1" />
       </Field>,
     );
-    expect(view.getByText("Maps to").className).toContain("sr-only");
+    expect(view.getByText("Maps to").closest("label")?.className).toContain("sr-only");
   });
 
   test("Label bleibt per htmlFor mit dem Control verknüpft, auch versteckt", () => {
@@ -42,7 +42,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
         <input id="f1" />
       </Field>,
     );
-    expect(view.getByText("Maps to").className).not.toContain("sr-only");
+    expect(view.getByText("Maps to").closest("label")?.className).not.toContain("sr-only");
   });
 
   test("hideLabel wirkt auch bei layout=inline (BooleanField-Pfad)", () => {
@@ -51,7 +51,7 @@ describe("DefaultField hideLabel (fw#1870)", () => {
         <input id="f1" type="checkbox" />
       </Field>,
     );
-    expect(view.getByText("Maps to").className).toContain("sr-only");
+    expect(view.getByText("Maps to").closest("label")?.className).toContain("sr-only");
     expect(view.getByLabelText("Maps to")).toBeTruthy();
   });
 });
@@ -177,7 +177,7 @@ describe("form-fields.tsx hideLabel pass-through (fw#1870/#1871)", () => {
     "%s collapses its label to sr-only and keeps it htmlFor-linked",
     (_name, element) => {
       const view = render(element);
-      expect(view.getByText(LABEL).className).toContain("sr-only");
+      expect(view.getByText(LABEL).closest("label")?.className).toContain("sr-only");
       expect(view.getByLabelText(LABEL)).toBeTruthy();
     },
   );
@@ -203,7 +203,7 @@ describe("AiTextField hideLabel pass-through (fw#1871#1)", () => {
         />
       </DispatcherProvider>,
     );
-    expect(view.getByText(LABEL).className).toContain("sr-only");
+    expect(view.getByText(LABEL).closest("label")?.className).toContain("sr-only");
     expect(view.getByLabelText(LABEL)).toBeTruthy();
   });
 });

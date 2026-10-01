@@ -33,6 +33,8 @@ const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
   bigInt: "number",
   money: "money",
   date: "date",
+  timestamp: "timestamp",
+  locatedTimestamp: "timestamp",
   select: "select",
   multiSelect: "select",
   boolean: "auto",
@@ -45,8 +47,13 @@ const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
   images: "full",
 };
 
-function fieldCellWidth(field: EditFieldViewModel): FieldCellWidth {
+const READONLY_FULL_WIDTH_TYPES: ReadonlySet<string> = new Set(["text", "uuid"]);
+
+// Exported for unit tests.
+export function fieldCellWidth(field: EditFieldViewModel): FieldCellWidth {
   if (field.span !== undefined || (field.type === "text" && field.multiline)) return "full";
+  // A readonly value (UUID, long code) is plain text that must not be cut at the input width.
+  if (field.readOnly && READONLY_FULL_WIDTH_TYPES.has(field.type)) return "full";
   return FIELD_CELL_WIDTH_BY_TYPE[field.type] ?? "text";
 }
 

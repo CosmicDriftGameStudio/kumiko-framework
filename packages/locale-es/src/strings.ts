@@ -1041,4 +1041,25 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Limitar el tratamiento (art. 18)",
   "userDataRights.privacyCenter.subtitle":
     "Página de autoservicio del RGPD para usuarios con sesión iniciada: solicitar y descargar una exportación de datos (art. 20), restringir el tratamiento de su cuenta (art. 18) y solicitar su eliminación (art. 17).",
+  "admin-shell.screen.platform-overview.subtitle":
+    "Estado de organizaciones, usuarios, trabajos y entregas de toda la instalación.",
+  "admin-shell.screen.tenant-overview.subtitle":
+    "Actividad, trabajos y entregas fallidos, cuotas y tareas de administración pendientes de esta organización.",
+  "auth-mfa.screen.auth-mfa-disable.subtitle":
+    "Desactiva la verificación en dos pasos. Se cierran las demás sesiones y los tokens de acceso.",
+  "auth-mfa.screen.auth-mfa-enable.subtitle":
+    "Protege tu cuenta con un código de una aplicación de autenticación.",
+  "auth-mfa.screen.auth-mfa-regenerate-recovery.subtitle":
+    "Sustituye todos los códigos de recuperación. Los códigos nuevos se muestran una sola vez.",
+  "jobs.screen.job-run-detail.subtitle":
+    "Estado, tiempos, error y líneas de registro de una ejecución de trabajo.",
+  "jobs.screen.job-trigger.subtitle":
+    "Inicia un trabajo manualmente por nombre, con un payload JSON opcional.",
+  "pat.list.status.active": "Activo",
+  "pat.list.status.expired": "Caducado",
+  "pat.list.status.revoked": "Revocado",
+  "profile.screen.profile.subtitle":
+    "Cambia tu contraseña o correo electrónico, o solicita la eliminación de la cuenta.",
+  "tier-admin.screen.subtitle":
+    "Asigna un tier a una organización como concesión manual, sin compra.",
 };

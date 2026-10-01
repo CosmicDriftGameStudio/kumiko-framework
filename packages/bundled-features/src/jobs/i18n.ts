@@ -7,6 +7,12 @@ export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:job-runs.title": { en: "Job runs" },
   "screen:job-run-detail.title": { en: "Job run" },
   "screen:job-trigger.title": { en: "Trigger job" },
+  "jobs.screen.job-trigger.subtitle": {
+    en: "Start a job manually by name, with an optional JSON payload.",
+  },
+  "jobs.screen.job-run-detail.subtitle": {
+    en: "Status, timings, error and log lines of one job run.",
+  },
   "jobs:entity:__action-form__:field:jobName": { en: "Job name" },
   "jobs:entity:__action-form__:field:payload": { en: "JSON payload" },
   "jobs:nav.jobRuns": { en: "Jobs" },

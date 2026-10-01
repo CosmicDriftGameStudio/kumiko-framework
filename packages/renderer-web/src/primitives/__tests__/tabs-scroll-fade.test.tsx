@@ -145,3 +145,15 @@ describe("DefaultTabs underline", () => {
     }
   });
 });
+
+describe("DefaultTabs class contract", () => {
+  test("strip scrolls horizontally without a scrollbar and tabs never wrap or shrink", () => {
+    render(<Tabs items={ITEMS} activeId="items" onSelect={() => {}} testId="tabs" />);
+    const el = scroller();
+    expect(el.className).toContain("overflow-x-auto");
+    expect(el.className).toContain("[scrollbar-width:none]");
+    const tab = screen.getByTestId("tabs-items");
+    expect(tab.className).toContain("shrink-0");
+    expect(tab.className).toContain("whitespace-nowrap");
+  });
+});

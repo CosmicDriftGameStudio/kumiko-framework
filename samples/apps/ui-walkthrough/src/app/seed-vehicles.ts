@@ -4,7 +4,7 @@ import { countRowsForTenant } from "../db/queries/row-counts";
 
 const OCTAVIA_DESCRIPTION = [
   "One owner from new. Full Škoda main dealer service history.",
-  "2.0 TDI, 110 kW, automatic, diesel. 28,000 miles.",
+  "2.0 TDI, 110 kW, automatic, diesel. 28,500 km.",
   "No accidents. Small stone chip on the front bumper, see photos.",
   "Two keys. 12 months warranty.",
 ].join("\n");
@@ -15,8 +15,8 @@ const OCTAVIA = {
   modell: "Octavia",
   baujahr: 2021,
   preis: { amount: 18450, currency: "EUR" },
-  kilometerstand: 28000,
-  kilometerEinheit: "mi",
+  kilometerstand: 28500,
+  kilometerEinheit: "km",
   kraftstoffart: "diesel",
   getriebe: "automatic",
   leistungKw: 110,
@@ -25,9 +25,28 @@ const OCTAVIA = {
   zustand: "used",
   vorbesitzer: 1,
   garantieMonate: 12,
+  garantieJahre: "3",
+  inspektion: "12",
   scheckheft: "complete",
+  scheckheftGepflegt: true,
   beschreibung: OCTAVIA_DESCRIPTION,
   ausstattung: "Klimaautomatik, Navigation, Sitzheizung, Anhängerkupplung",
+} as const;
+
+const GOLF = {
+  fin: "WVWZZZ1KZAW123456",
+  marke: "VW",
+  modell: "Golf",
+  baujahr: 2019,
+  preis: { amount: 14900, currency: "EUR" },
+  kilometerstand: 64200,
+  kilometerEinheit: "km",
+  kraftstoffart: "petrol",
+  getriebe: "manual",
+  zustand: "used",
+  garantieJahre: "1",
+  inspektion: "",
+  scheckheftGepflegt: false,
 } as const;
 
 const CAMPAIGNS = [
@@ -55,12 +74,19 @@ const CAMPAIGNS = [
     meta: "Noch nicht gestartet",
     gestartetAm: "2026-08-01",
   },
+  {
+    name: "Herbst - Gebrauchtwagen",
+    status: "entwurf",
+    meta: "Geplant für Oktober",
+    gestartetAm: "2026-07-15",
+  },
 ] as const;
 
 export const seedVehicles: SeedFn = async (stack) => {
   const { tenantId } = TestUsers.admin;
   if ((await countRowsForTenant(stack.db, "read_ui_walkthrough_vehicles", tenantId)) > 0) return;
   await stack.http.writeOk("vehicles:write:vehicle:create", OCTAVIA, TestUsers.admin);
+  await stack.http.writeOk("vehicles:write:vehicle:create", GOLF, TestUsers.admin);
   for (const campaign of CAMPAIGNS) {
     await stack.http.writeOk("vehicles:write:campaign:create", campaign, TestUsers.admin);
   }

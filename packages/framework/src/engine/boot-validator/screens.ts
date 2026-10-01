@@ -1898,6 +1898,16 @@ export function validateScreens(
           );
         }
       }
+      if (
+        screen.createScreen !== undefined &&
+        !Object.hasOwn(feature.screens, screen.createScreen)
+      ) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityList) createScreen ` +
+            `"${screen.createScreen}" does not resolve to a registered screen in this feature. ` +
+            `Known screens in this feature: ${Object.keys(feature.screens).sort().join(", ") || "(none)"}.`,
+        );
+      }
       // Screen-Filter (Tier 2.7c) — drei Layer Author-Code-Check:
       //   1) Field existiert auf der Entity (Tippfehler = leere Liste
       //      statt Crash; Boot-Fail ist deutlich besser).
@@ -2220,6 +2230,13 @@ export function validateScreens(
             }
           }
         }
+      }
+      if (screen.recordTitleField !== undefined && !fieldNames.has(screen.recordTitleField)) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (entityEdit) recordTitleField ` +
+            `"${screen.recordTitleField}" is not a field of entity "${screen.entity}" ` +
+            `(known: ${[...fieldNames].sort().join(", ")}).`,
+        );
       }
       if (screen.redirect !== undefined) {
         validateRedirectTarget(feature, screenId, "entityEdit", screen.redirect, allScreenQns);

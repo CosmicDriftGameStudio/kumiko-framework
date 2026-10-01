@@ -61,6 +61,30 @@ describe("RenderEdit board fidelity", () => {
     expect(screen.getByTestId("field-price").textContent).toContain("*");
   });
 
+  test("a required boolean shows no required mark and does not block the all-required hint", () => {
+    const entity = {
+      fields: {
+        accepted: { type: "boolean", required: true },
+        price: { type: "number", required: true },
+      },
+    } as unknown as EntityDefinition;
+    renderEdit(entity, ["accepted", "price"]);
+    expect(screen.getByTestId("render-edit-all-required-hint")).toBeTruthy();
+    expect(screen.getByTestId("field-accepted").querySelector("[data-required]")).toBeNull();
+  });
+
+  test("a required boolean next to optional fields still shows no required mark", () => {
+    const entity = {
+      fields: {
+        accepted: { type: "boolean", required: true },
+        reason: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+    renderEdit(entity, ["accepted", "reason"]);
+    expect(screen.queryByTestId("render-edit-all-required-hint")).toBeNull();
+    expect(screen.getByTestId("field-accepted").querySelector("[data-required]")).toBeNull();
+  });
+
   test("flow grid cells take their width from the field type", () => {
     const { Grid, GridCell } = defaultPrimitives;
     render(

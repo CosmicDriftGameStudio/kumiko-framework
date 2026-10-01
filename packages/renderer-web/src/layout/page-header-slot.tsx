@@ -1,4 +1,4 @@
-// Two portal targets (status, actions) plus a title override inside the
+// Two portal targets (status, actions) plus a title override and a record title inside the
 // ShellHeader, filled by the PageHeader primitive of whatever screen renders
 // below it.
 //
@@ -17,6 +17,8 @@ export type PageHeaderSlot = {
   readonly setActionsElement: (node: SlotElement) => void;
   readonly title: string | undefined;
   readonly setTitle: (title: string | undefined) => void;
+  readonly recordTitle: string | undefined;
+  readonly setRecordTitle: (recordTitle: string | undefined) => void;
 };
 
 const PageHeaderSlotContext = createContext<PageHeaderSlot | null>(null);
@@ -30,9 +32,19 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
   const [statusElement, setStatusElement] = useState<SlotElement>(null);
   const [actionsElement, setActionsElement] = useState<SlotElement>(null);
   const [title, setTitle] = useState<string | undefined>(undefined);
+  const [recordTitle, setRecordTitle] = useState<string | undefined>(undefined);
   const value = useMemo(
-    () => ({ statusElement, actionsElement, setStatusElement, setActionsElement, title, setTitle }),
-    [statusElement, actionsElement, title],
+    () => ({
+      statusElement,
+      actionsElement,
+      setStatusElement,
+      setActionsElement,
+      title,
+      setTitle,
+      recordTitle,
+      setRecordTitle,
+    }),
+    [statusElement, actionsElement, title, recordTitle],
   );
   return (
     <PageHeaderSlotContext.Provider value={value}>

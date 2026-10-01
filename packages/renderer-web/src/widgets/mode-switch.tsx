@@ -27,7 +27,7 @@ export function ModeSwitch<T extends string>({
       data-testid={testId}
       role="group"
       aria-label={ariaLabel}
-      className="flex h-8 overflow-hidden rounded-md border border-input bg-background"
+      className="flex min-h-8 overflow-hidden rounded-md border border-input bg-background"
     >
       {options.map((o) => {
         const active = o.value === value;
