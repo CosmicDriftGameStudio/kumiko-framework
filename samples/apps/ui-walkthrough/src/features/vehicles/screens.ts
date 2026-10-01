@@ -123,7 +123,15 @@ export const campaignListScreen: EntityListScreenDefinition = {
   id: "campaign-list",
   type: "entityList",
   entity: "campaign",
-  columns: ["name", "status", "meta", "gepostet", { field: "gestartetAm", hideOnNarrow: true }],
+  columns: [
+    "name",
+    "status",
+    "aktionStartet",
+    "aktionEndet",
+    "meta",
+    "gepostet",
+    { field: "gestartetAm", hideOnNarrow: true },
+  ],
   searchPlaceholder: "vehicles.search.placeholder",
   defaultSort: { field: "gestartetAm", dir: "desc" },
   rowActions: [

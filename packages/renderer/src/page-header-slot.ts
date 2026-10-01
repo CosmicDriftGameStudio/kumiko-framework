@@ -10,3 +10,13 @@ export const PageHeaderSlotAvailableProvider = PageHeaderSlotAvailableContext.Pr
 export function usePageHeaderSlotAvailable(): boolean {
   return useContext(PageHeaderSlotAvailableContext);
 }
+
+// True while a shell with page-header slots renders at phone width: screens
+// then move secondary header actions into the shell's overflow menu.
+const PageHeaderCompactContext = createContext(false);
+
+export const PageHeaderCompactProvider = PageHeaderCompactContext.Provider;
+
+export function usePageHeaderCompact(): boolean {
+  return useContext(PageHeaderCompactContext);
+}

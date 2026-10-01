@@ -256,7 +256,7 @@ function DefaultButton({
       size={BUTTON_SIZE[size]}
       aria-label={ariaLabel}
       aria-pressed={pressed}
-      title={title}
+      title={title ?? (size === "icon" ? ariaLabel : undefined)}
       className={resolvedClassName}
     >
       {leading}
@@ -1629,15 +1629,22 @@ function DefaultDataTable({
             )}
           </div>
           {metaColumns.length > 0 && (
-            <div className="flex min-w-0 items-center gap-1 truncate text-[13px] tabular-nums text-foreground-secondary">
+            <div className="min-w-0 line-clamp-2 break-words text-[13px] tabular-nums text-foreground-secondary">
               {metaColumns.map((col, index) => (
                 <Fragment key={col.field}>
-                  {index > 0 && <span aria-hidden="true">·</span>}
-                  <span
-                    data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                    className={isBadgeColumn(col) ? "shrink-0" : "truncate"}
-                  >
-                    {cardCell(row, col)}
+                  {index > 0 && " "}
+                  <span className={cn(isAtomicCardValue(col) && "whitespace-nowrap")}>
+                    {index > 0 && (
+                      <span aria-hidden="true" className="mr-1">
+                        ·
+                      </span>
+                    )}
+                    <span
+                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                      className={cn(isBadgeColumn(col) && "inline-flex align-middle")}
+                    >
+                      {cardCell(row, col)}
+                    </span>
                   </span>
                 </Fragment>
               ))}
@@ -2055,6 +2062,18 @@ function showsBareCheckMark(type: string, value: unknown, renderer: unknown): bo
 // Badges (select pills, component renderers) must never be clipped by the card's meta truncation.
 function isBadgeColumn(col: { readonly type: string; readonly renderer?: unknown }): boolean {
   return col.type === "select" || isComponentRendererRef(col.renderer) !== undefined;
+}
+
+const ATOMIC_CARD_VALUE_TYPES: ReadonlySet<string> = new Set([
+  "date",
+  "timestamp",
+  "number",
+  "money",
+]);
+
+// Values that read wrong when split across lines; free text wraps normally.
+function isAtomicCardValue(col: { readonly type: string; readonly renderer?: unknown }): boolean {
+  return ATOMIC_CARD_VALUE_TYPES.has(col.type) || isBadgeColumn(col);
 }
 
 // The first cell is the keyboard-reachable entry point of a clickable row; the

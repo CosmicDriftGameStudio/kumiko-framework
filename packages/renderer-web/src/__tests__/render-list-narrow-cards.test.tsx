@@ -108,6 +108,25 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
+  test("the meta line wraps between values (two lines at most) instead of truncating each value", () => {
+    withViewportWidth(500, () => {
+      const columns = [
+        { field: "name", label: "Name", type: "string", sortable: false },
+        { field: "from", label: "From", type: "string", sortable: false },
+        { field: "to", label: "To", type: "string", sortable: false },
+      ] as const;
+      const rows = [{ id: "u1", values: { name: "Anna", from: "4. Okt. 2026", to: "5. Okt." } }];
+      render(<DataTable columns={columns} rows={rows} testId="t" />);
+      const to = screen.getByTestId("cell-u1-to");
+      const metaLine = to.parentElement?.parentElement;
+      expect(metaLine?.className).toContain("line-clamp-2");
+      expect(metaLine?.className).not.toContain("truncate");
+      // The separator travels with the value it precedes, so it can't dangle at a line end.
+      expect(to.parentElement?.textContent).toBe("·5. Okt.");
+      expect(to.parentElement?.className).not.toContain("whitespace-nowrap");
+    });
+  });
+
   test("a true boolean meta column shows its label, false and blank values show nothing", () => {
     withViewportWidth(500, () => {
       render(

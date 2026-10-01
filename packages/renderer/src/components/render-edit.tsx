@@ -42,7 +42,7 @@ import { formatWhen } from "../format-when.js";
 import { useForm } from "../hooks/use-form.js";
 import { useTranslation } from "../i18n.js";
 import { useInsideDrawer } from "../inside-drawer.js";
-import { usePageHeaderSlotAvailable } from "../page-header-slot.js";
+import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.js";
 import {
   type ActionMenuItemSpec,
   type FormSectionNavItem,
@@ -426,6 +426,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     ActionOverflowMenu,
   } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  const pageHeaderCompact = usePageHeaderCompact();
   const insideDrawer = useInsideDrawer();
 
   // Both stepped layouts show one section at a time and keep the rest mounted
@@ -1434,6 +1435,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           title={formTitle}
           {...(recordTitle !== undefined && { recordTitle })}
           {...(headerMenuItems.length > 0 &&
+            pageHeaderCompact && { overflowItems: headerMenuItems })}
+          {...(headerMenuItems.length > 0 &&
+            !pageHeaderCompact &&
             ActionOverflowMenu !== undefined && {
               actions: (
                 <ActionOverflowMenu

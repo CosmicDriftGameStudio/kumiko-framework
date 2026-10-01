@@ -6,6 +6,7 @@ import {
   createNumberField,
   createSelectField,
   createTextField,
+  createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
 
 const DEMO_DATA = { personal: false, reason: "is_business_data" } as const;
@@ -65,6 +66,8 @@ export const campaignEntity = createEntity({
     }),
     meta: createTextField({ ...DEMO_DATA, sortable: true }),
     gestartetAm: createDateField({ sortable: true }),
+    aktionStartet: createTimestampField({ sortable: true }),
+    aktionEndet: createTimestampField({ sortable: true }),
     gepostet: createNumberField({ integer: true, default: 0 }),
   },
 });

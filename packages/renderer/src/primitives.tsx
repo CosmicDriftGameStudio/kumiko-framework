@@ -1379,6 +1379,8 @@ export type PageHeaderProps = {
   readonly recordTitle?: string;
   readonly status?: ReactNode;
   readonly actions?: ReactNode;
+  /** Land in the shell header's overflow menu at phone width. */
+  readonly overflowItems?: readonly ActionMenuItemSpec[];
 };
 
 /** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the

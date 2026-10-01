@@ -17,7 +17,7 @@ import { extensionSectionName, useExtensionSectionComponent } from "../app/exten
 import type { ListSort } from "../hooks/use-list-url-state.js";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.js";
 import { useTranslation } from "../i18n.js";
-import { usePageHeaderSlotAvailable } from "../page-header-slot.js";
+import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.js";
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
@@ -209,6 +209,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   const translate: Translate = translateProp ?? t;
   const { DataTable, Button, Dialog, Input, Text, Banner, PageHeader } = usePrimitives();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  const pageHeaderCompact = usePageHeaderCompact();
   const createInPageHeader =
     onCreate !== undefined && PageHeader !== undefined && pageHeaderSlotAvailable;
 
@@ -353,7 +354,17 @@ export function RenderList(props: RenderListProps): ReactNode {
   const hasHeaderSlot = screen.slots?.header !== undefined;
   const toolbarIconOnly = hasToolbarActions && shouldRenderActionsIconOnly(toolbarActions);
   const createButton =
-    onCreate !== undefined ? (
+    onCreate !== undefined && createInPageHeader && pageHeaderCompact ? (
+      <Button
+        variant="primary"
+        icon="plus"
+        size="icon"
+        ariaLabel={effectiveCreateLabel}
+        title={effectiveCreateLabel}
+        onClick={onCreate}
+        testId="render-list-create"
+      />
+    ) : onCreate !== undefined ? (
       <Button
         variant="primary"
         icon="plus"

@@ -10,8 +10,16 @@
 import type { NavNode } from "@cosmicdrift/kumiko-headless";
 import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { Fragment, type ReactNode, useMemo } from "react";
+import {
+  type ActionMenuItemSpec,
+  toAppSchema,
+  useNav,
+  usePageHeaderCompact,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
+import { MoreHorizontal } from "lucide-react";
+import { Fragment, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Icon, NAV_ICONS } from "../icons.js";
 import { cn } from "../lib/cn.js";
 import {
   Breadcrumb,
@@ -72,6 +80,9 @@ export function ShellHeader({
   const setActionsElement = slot?.setActionsElement;
   const titleOverride = slot?.title;
   const recordTitle = slot?.recordTitle;
+  const compact = usePageHeaderCompact();
+  const overflowItems = slot?.overflowItems ?? [];
+  const hasOverflow = compact && (overflowItems.length > 0 || headerActions !== undefined);
   const shownCrumbs =
     crumbs !== undefined && recordTitle !== undefined && crumbs.length > 0
       ? [...crumbs.slice(0, -1), { label: recordTitle }, ...crumbs.slice(-1)]
@@ -80,9 +91,12 @@ export function ShellHeader({
   return (
     <header
       data-kumiko-layout="shell-header"
-      className="flex h-14 shrink-0 items-center gap-3 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6"
+      className={cn(
+        "flex h-14 shrink-0 items-center gap-3 border-b border-border pl-1.5 pr-3 md:pl-4 md:pr-6",
+        compact && "relative",
+      )}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className={cn("flex min-w-0 items-center gap-3", compact && "flex-1")}>
         <SidebarTrigger />
         {shownCrumbs !== undefined && shownCrumbs.length > 0 && (
           <Breadcrumb className="min-w-0">
@@ -129,22 +143,139 @@ export function ShellHeader({
         <div
           ref={setStatusElement}
           data-kumiko-layout="page-header-status"
-          className="flex shrink-0 items-center gap-2 empty:hidden"
+          className={cn(
+            "flex items-center gap-2 empty:hidden",
+            compact ? "min-w-0 overflow-hidden" : "shrink-0",
+          )}
         />
       </div>
-      <div className="ml-auto flex min-w-0 max-w-[50%] shrink-0 items-center gap-2 sm:max-w-none">
+      <div
+        className={cn(
+          "ml-auto flex items-center gap-2",
+          compact ? "shrink-0" : "min-w-0 max-w-[50%] shrink-0 sm:max-w-none",
+        )}
+      >
         <div
           ref={setActionsElement}
           data-kumiko-layout="page-header-actions"
-          className="flex min-w-0 items-center gap-2 empty:hidden [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap"
+          className={cn(
+            "flex items-center gap-2 empty:hidden",
+            !compact &&
+              "min-w-0 [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap",
+          )}
         />
-        {headerActions !== undefined && (
+        {!compact && headerActions !== undefined && (
           <div data-kumiko-layout="header-actions" className="flex items-center gap-2">
             {headerActions}
           </div>
         )}
+        {hasOverflow && <HeaderOverflow items={overflowItems} headerActions={headerActions} />}
       </div>
     </header>
+  );
+}
+
+// A disclosure instead of a Radix menu: app headerActions are opaque nodes.
+// The panel stays mounted while closed so their effects (shortcut listeners)
+// keep running.
+function HeaderOverflow({
+  items,
+  headerActions,
+}: {
+  readonly items: readonly ActionMenuItemSpec[];
+  readonly headerActions: ReactNode;
+}): ReactNode {
+  const t = useTranslation();
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    const onPointerDown = (event: PointerEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={t("kumiko.list.row-actions.more")}
+        aria-expanded={open}
+        aria-controls={panelId}
+        data-testid="shell-header-overflow-trigger"
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-input bg-background text-foreground shadow-xs hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      >
+        <MoreHorizontal className="size-4" aria-hidden="true" />
+      </button>
+      <div
+        ref={panelRef}
+        id={panelId}
+        hidden={!open}
+        data-testid="shell-header-overflow"
+        className="absolute inset-x-2 top-full z-30 mt-1 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md sm:left-auto sm:w-72"
+      >
+        {items.length > 0 && (
+          <div className="flex flex-col">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled={item.disabled === true}
+                data-testid={`shell-header-overflow-item-${item.id}`}
+                onClick={() => {
+                  setOpen(false);
+                  item.onSelect();
+                }}
+                className={cn(
+                  "flex min-h-10 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-accent disabled:pointer-events-none disabled:opacity-50",
+                  item.variant === "danger" && "text-destructive",
+                )}
+              >
+                {item.icon !== undefined && Object.hasOwn(NAV_ICONS, item.icon) && (
+                  <Icon name={item.icon} className="size-4 shrink-0" />
+                )}
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {items.length > 0 && headerActions !== undefined && (
+          <hr className="-mx-2 my-2 border-t border-border" />
+        )}
+        {headerActions !== undefined && (
+          // Clicks bubble up from the app's own buttons (keyboard activation fires click
+          // too); closing here keeps the panel from staying open behind a dialog it opened.
+          // biome-ignore lint/a11y/useKeyWithClickEvents: bubbled click from child buttons only
+          // biome-ignore lint/a11y/noStaticElementInteractions: same, not an interactive target itself
+          <div
+            data-kumiko-layout="header-actions"
+            className="flex flex-wrap items-center gap-2"
+            onClick={() => setOpen(false)}
+          >
+            {headerActions}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

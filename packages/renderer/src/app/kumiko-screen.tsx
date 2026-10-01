@@ -61,9 +61,11 @@ import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n.js";
 import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.js";
 import {
   PageHeaderSlotAvailableProvider,
+  usePageHeaderCompact,
   usePageHeaderSlotAvailable,
 } from "../page-header-slot.js";
 import {
+  type ActionMenuItemSpec,
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableRowAction,
@@ -2827,9 +2829,14 @@ function HeaderActionsBar({
   ActionOverflowMenu,
   onError,
   collapseAfterPrimary = false,
+  compact = false,
+  PageHeader,
 }: {
   /** Header slot layout: only the primary action stays a button, the rest goes into the menu. */
   readonly collapseAfterPrimary?: boolean;
+  /** Phone-width shell header: an icon-only primary button, the rest in the shell's overflow menu. */
+  readonly compact?: boolean;
+  readonly PageHeader?: ReturnType<typeof usePrimitives>["PageHeader"];
   readonly actions: readonly RenderEditAction[];
   readonly Button: ReturnType<typeof usePrimitives>["Button"];
   readonly Dialog: ReturnType<typeof usePrimitives>["Dialog"];
@@ -2846,6 +2853,62 @@ function HeaderActionsBar({
       onError(e instanceof Error ? e.message : String(e));
     }
   };
+  const toMenuItem = (action: RenderEditAction): ActionMenuItemSpec => ({
+    id: action.id,
+    label: action.label,
+    ...(action.icon !== undefined && { icon: action.icon }),
+    variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
+    onSelect: () => {
+      if (needsActionConfirm(action)) {
+        setPendingAction(action);
+      } else {
+        void trigger(action);
+      }
+    },
+  });
+  const pendingActionDialog = pendingAction !== null && (
+    <RenderEditActionConfirmDialog
+      action={pendingAction}
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) setPendingAction(null);
+      }}
+      onConfirm={async () => {
+        const action = pendingAction;
+        setPendingAction(null);
+        await trigger(action);
+      }}
+      Dialog={Dialog}
+    />
+  );
+  if (compact && PageHeader !== undefined) {
+    const primary = primaryHeaderAction(actions);
+    // A bare icon for a destructive or confirm-gated action (e.g. "x" for terminate)
+    // reads as "close"; such actions go to the labelled menu instead.
+    const iconPrimary =
+      primary?.icon !== undefined && primary.style !== "danger" && !needsActionConfirm(primary)
+        ? primary
+        : undefined;
+    const overflowActions = actions.filter((a) => a !== iconPrimary);
+    return (
+      <>
+        {iconPrimary !== undefined && (
+          <RenderEditActionButton
+            key={iconPrimary.id}
+            action={iconPrimary}
+            Button={Button}
+            Dialog={Dialog}
+            iconOnly
+            onError={onError}
+          />
+        )}
+        {overflowActions.length > 0 && (
+          <PageHeader overflowItems={overflowActions.map(toMenuItem)} />
+        )}
+        {pendingActionDialog}
+      </>
+    );
+  }
   const maxPlainButtons = collapseAfterPrimary ? 1 : 2;
   if (actions.length <= maxPlainButtons || ActionOverflowMenu === undefined) {
     return (
@@ -2880,35 +2943,9 @@ function HeaderActionsBar({
       <ActionOverflowMenu
         label={t("kumiko.list.row-actions.more")}
         testId="kumiko-screen-projection-detail-actions-overflow"
-        items={rest.map((action) => ({
-          id: action.id,
-          label: action.label,
-          ...(action.icon !== undefined && { icon: action.icon }),
-          variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
-          onSelect: () => {
-            if (needsActionConfirm(action)) {
-              setPendingAction(action);
-            } else {
-              void trigger(action);
-            }
-          },
-        }))}
+        items={rest.map(toMenuItem)}
       />
-      {pendingAction !== null && (
-        <RenderEditActionConfirmDialog
-          action={pendingAction}
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) setPendingAction(null);
-          }}
-          onConfirm={async () => {
-            const action = pendingAction;
-            setPendingAction(null);
-            await trigger(action);
-          }}
-          Dialog={Dialog}
-        />
-      )}
+      {pendingActionDialog}
     </>
   );
 }
@@ -2945,6 +2982,7 @@ function ProjectionDetailBody({
   } = usePrimitives();
   const t = useTranslation();
   const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
+  const pageHeaderCompactContext = usePageHeaderCompact();
   const effectiveTranslate = translate ?? t;
   const nav = useNav();
   const idParam = screen.idParam ?? "id";
@@ -3268,6 +3306,7 @@ function ProjectionDetailBody({
       </Grid>
     );
   const usesPageHeaderSlot = pageHeaderSlotAvailable && PageHeader !== undefined;
+  const pageHeaderCompact = pageHeaderCompactContext && usesPageHeaderSlot;
   const actionErrorBanner = actionError !== null && (
     <Banner variant="error" testId="render-edit-action-error">
       {actionError}
@@ -3300,6 +3339,8 @@ function ProjectionDetailBody({
                     ActionOverflowMenu={ActionOverflowMenu}
                     onError={setActionError}
                     collapseAfterPrimary
+                    compact={pageHeaderCompact}
+                    PageHeader={PageHeader}
                   />
                 </Grid>
               ),

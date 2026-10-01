@@ -71,6 +71,17 @@ test("liste-light", async ({ page }) => {
   await shot(page, "liste-light");
 });
 
+async function openCampaignListWithTwoDates(page: Page): Promise<void> {
+  await login(page);
+  await page.goto("/campaign-list");
+  await page.getByText("Škoda Octavia (2021)").waitFor();
+}
+
+test("liste-zwei-daten-light", async ({ page }) => {
+  await openCampaignListWithTwoDates(page);
+  await shot(page, "liste-zwei-daten-light");
+});
+
 const LEASE_DETAIL_URL = "/lease-detail/00000000-0000-4000-8000-000000003103";
 
 async function openMaxNachmieterParties(page: Page): Promise<void> {
@@ -323,9 +334,34 @@ test.describe("mobile", () => {
     await shot(page, "detail-tab-toolbar-mobile");
   });
 
+  test("mobile-header-menu-offen", async ({ page }) => {
+    await openMaxNachmieterParties(page);
+    await page.getByTestId("shell-header-overflow-trigger").click();
+    await expect(page.getByTestId("shell-header-overflow")).toBeVisible();
+    await shot(page, "mobile-header-menu-offen");
+  });
+
   test("formular-inline-tabelle-mobile", async ({ page }) => {
     await openRecordPositionsWithRow(page);
     await shot(page, "formular-inline-tabelle-mobile");
+  });
+
+  test("mobile-header-liste", async ({ page }) => {
+    await login(page);
+    await page.goto("/lease-list");
+    await page.getByText("Max Nachmieter").first().waitFor();
+    await shot(page, "mobile-header-liste");
+  });
+
+  test("mobile-karte-zwei-daten", async ({ page }) => {
+    await openCampaignListWithTwoDates(page);
+    await shot(page, "mobile-karte-zwei-daten");
+  });
+
+  test("formular-inline-tabelle-mobile-ende", async ({ page }) => {
+    await openRecordPositionsWithRow(page);
+    await page.getByRole("button", { name: "Zeile hinzufügen" }).scrollIntoViewIfNeeded();
+    await shot(page, "formular-inline-tabelle-mobile-ende");
   });
 
   test("dashboard-mobile", async ({ page }) => {
@@ -340,6 +376,18 @@ test.describe("mobile", () => {
       .locator("div.p-4", { hasText: "Restschuld heute" })
       .evaluate((card) => card.style.setProperty("width", "165px"));
     await shot(page, "dashboard-statcard-narrow-mobile");
+  });
+});
+
+test.describe("schmal", () => {
+  test.use({ viewport: { width: 820, height: 1000 } });
+
+  test("formular-inline-tabelle-schmal", async ({ page }) => {
+    await openRecordPositionsWithRow(page);
+    await page
+      .locator('[data-testid$="-desktop-scroll"]')
+      .evaluate((container) => container.scrollTo({ left: container.scrollWidth }));
+    await shot(page, "formular-inline-tabelle-schmal");
   });
 });
 

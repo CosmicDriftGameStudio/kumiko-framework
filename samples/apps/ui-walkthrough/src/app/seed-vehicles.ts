@@ -62,6 +62,8 @@ type SeedCampaign = {
   readonly status: "aktiv" | "abgeschlossen" | "entwurf";
   readonly meta: string;
   readonly gestartetAm: string;
+  readonly aktionStartet: string;
+  readonly aktionEndet: string;
   readonly posts: readonly SeedPost[];
 };
 
@@ -71,6 +73,8 @@ const CAMPAIGNS: readonly SeedCampaign[] = [
     status: "aktiv",
     meta: "Tag 1 von 30 · 4 Besuche · 1 Interessent",
     gestartetAm: "2026-09-29",
+    aktionStartet: "2026-10-04T18:00:00Z",
+    aktionEndet: "2026-10-04T20:00:00Z",
     posts: [
       { datum: "2026-09-29", kanal: "mobile.de", text: "Inserat online", status: "gepostet" },
       {
@@ -88,6 +92,8 @@ const CAMPAIGNS: readonly SeedCampaign[] = [
     status: "aktiv",
     meta: "Tag 12 von 30 · 86 Besuche · 5 Interessenten",
     gestartetAm: "2026-09-18",
+    aktionStartet: "2026-10-11T07:30:00Z",
+    aktionEndet: "2026-10-12T15:45:00Z",
     posts: [
       { datum: "2026-09-18", kanal: "mobile.de", text: "Inserat online", status: "gepostet" },
       { datum: "2026-09-21", kanal: "Instagram", text: "Fotostrecke", status: "gepostet" },
@@ -102,6 +108,8 @@ const CAMPAIGNS: readonly SeedCampaign[] = [
     status: "abgeschlossen",
     meta: "30 Tage · 212 Besuche · 9 Interessenten",
     gestartetAm: "2026-08-30",
+    aktionStartet: "2026-09-19T08:00:00Z",
+    aktionEndet: "2026-09-19T14:00:00Z",
     posts: [
       { datum: "2026-08-30", kanal: "mobile.de", text: "Inserat online", status: "gepostet" },
       { datum: "2026-09-05", kanal: "Instagram", text: "Fotostrecke", status: "gepostet" },
@@ -113,6 +121,8 @@ const CAMPAIGNS: readonly SeedCampaign[] = [
     status: "entwurf",
     meta: "Noch nicht gestartet",
     gestartetAm: "2026-08-01",
+    aktionStartet: "2026-10-25T09:00:00Z",
+    aktionEndet: "2026-10-25T16:00:00Z",
     posts: [
       { datum: "2026-10-20", kanal: "mobile.de", text: "Inserat online", status: "geplant" },
       { datum: "2026-10-22", kanal: "Instagram", text: "Fotostrecke", status: "geplant" },
@@ -124,6 +134,8 @@ const CAMPAIGNS: readonly SeedCampaign[] = [
     status: "entwurf",
     meta: "Geplant für Oktober",
     gestartetAm: "2026-07-15",
+    aktionStartet: "2026-10-31T17:00:00Z",
+    aktionEndet: "2026-11-01T11:00:00Z",
     posts: [
       {
         datum: "2026-10-05",
