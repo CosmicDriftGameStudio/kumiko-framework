@@ -457,6 +457,88 @@ describe("KumikoScreen", () => {
     });
   });
 
+  async function deleteRejectedWith(
+    details: Record<string, unknown> | undefined,
+    translate?: (key: string, params?: Record<string, unknown>) => string,
+  ): Promise<{ readonly onNavigate: ReturnType<typeof mock> }> {
+    const user = userEvent.setup();
+    const onNavigate = mock();
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "task-1", version: 7, title: "loaded", count: 3, done: false },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({
+        isSuccess: false,
+        error: {
+          code: "validation_error",
+          httpStatus: 400,
+          i18nKey: "errors.validation.failed",
+          i18nParams: { limit: 3 },
+          message: "Validation failed",
+          ...(details !== undefined && { details }),
+        },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "task-edit" },
+      navigate: onNavigate,
+      replace: onNavigate,
+      hrefFor: () => "",
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={schema}
+            qn="tasks:screen:task-edit"
+            entityId="task-1"
+            {...(translate !== undefined && { translate })}
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    await user.click(screen.getByTestId("render-edit-delete"));
+    await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
+    return { onNavigate };
+  }
+
+  test("entityEdit update-mode: abgelehntes Delete zeigt den Feldfehler im Banner, Dialog zu, keine Navigation", async () => {
+    const { onNavigate } = await deleteRejectedWith({
+      fields: [{ path: "id", code: "custom", i18nKey: "tasks.errors.delete-blocked" }],
+    });
+
+    const banner = await screen.findByTestId("render-edit-form-error-key");
+    expect(banner.textContent).toContain("tasks.errors.delete-blocked");
+    await waitFor(() => expect(screen.queryByTestId("render-edit-delete-dialog")).toBeNull());
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("render-edit-delete")).not.toBeNull();
+  });
+
+  test("entityEdit update-mode: abgelehntes Delete ohne Feldfehler zeigt den Top-Level-Key", async () => {
+    await deleteRejectedWith(undefined);
+
+    const banner = await screen.findByTestId("render-edit-form-error-key");
+    expect(banner.textContent).toContain("Validation failed");
+  });
+
+  test("entityEdit update-mode: i18nParams des abgelehnten Deletes werden im Banner interpoliert", async () => {
+    await deleteRejectedWith(
+      {
+        fields: [
+          { path: "id", code: "custom", i18nKey: "tasks.errors.too-many", params: { max: 5 } },
+        ],
+      },
+      (key, params) => `${key}|${JSON.stringify(params ?? {})}`,
+    );
+
+    const banner = await screen.findByTestId("render-edit-form-error-key");
+    expect(banner.textContent).toContain('tasks.errors.too-many|{"max":5}');
+  });
+
   test("entityEdit create-mode: kein Delete-Button (keine entity-id → nichts zu löschen)", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>

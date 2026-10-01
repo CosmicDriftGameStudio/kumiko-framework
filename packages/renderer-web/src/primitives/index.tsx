@@ -1241,7 +1241,21 @@ function DefaultDataTable({
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
   // Sticky würde mit der Topbar konkurrieren.
-  const hasTableActions = rowActions !== undefined && rowActions.length > 0;
+  // The row click already runs rowClick actions, so with a clickable row they
+  // must not reappear in the kebab (a list whose only action is the rowClick
+  // one gets no actions column at all).
+  const rowIsLink = onRowClick !== undefined;
+  const menuActions =
+    rowActions !== undefined && rowIsLink
+      ? rowActions.filter((action) => action.rowClick !== true)
+      : rowActions;
+  // The table keeps every action in "inline" mode, and with editable cells the
+  // first cell is not a keyboard link (FirstCellLink is off), so the kebab is
+  // then the only keyboard route to the rowClick action.
+  const tableActions =
+    rowActionMode === "inline" || onCellChange !== undefined ? rowActions : menuActions;
+  const rowClickLabel = rowActions?.find((action) => action.rowClick === true)?.label;
+  const hasTableActions = tableActions !== undefined && tableActions.length > 0;
   const isEmpty = rows.length === 0;
   const fillsHeight = scrollBody === true;
   const TableRoot = fillsHeight ? FlushTable : Table;
@@ -1341,6 +1355,7 @@ function DefaultDataTable({
                       }
                       onOpen={() => onRowClick?.(row)}
                       empty={isEmptyCellValue(row.values[col.field])}
+                      emptyLabel={rowClickLabel}
                     >
                       <DataTableCell
                         value={row.values[col.field]}
@@ -1382,9 +1397,9 @@ function DefaultDataTable({
                   >
                     <RowActionsCell
                       row={row}
-                      actions={rowActions}
+                      actions={tableActions}
                       mode={rowActionMode}
-                      rowIsLink={onRowClick !== undefined}
+                      rowIsLink={rowIsLink}
                     />
                   </TableCell>
                 )}
@@ -1447,11 +1462,6 @@ function DefaultDataTable({
       .slice(0, CARD_META_MAX);
     const showStatus =
       cardStatusColumn !== undefined && !isEmptyCellValue(row.values[cardStatusColumn.field]);
-    const rowIsLink = onRowClick !== undefined;
-    const menuActions =
-      rowActions !== undefined && rowIsLink
-        ? rowActions.filter((action) => action.rowClick !== true)
-        : rowActions;
     const body = (
       <>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -1868,15 +1878,19 @@ function isEmptyCellValue(value: unknown): boolean {
 function FirstCellLink({
   enabled,
   empty,
+  emptyLabel,
   onOpen,
   children,
 }: {
   readonly enabled: boolean;
   readonly empty: boolean;
+  // Names the link when the cell has no text, so a row whose rowClick action
+  // is no longer in the kebab stays keyboard-reachable.
+  readonly emptyLabel?: string | undefined;
   readonly onOpen: () => void;
   readonly children: ReactNode;
 }): ReactNode {
-  if (!enabled || empty) return children;
+  if (!enabled || (empty && emptyLabel === undefined)) return children;
   return (
     <button
       type="button"
@@ -1892,7 +1906,7 @@ function FirstCellLink({
         onOpen();
       }}
     >
-      {children}
+      {empty ? <span className="sr-only">{emptyLabel}</span> : children}
     </button>
   );
 }

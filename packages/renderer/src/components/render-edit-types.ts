@@ -6,6 +6,7 @@ import type {
   RowActionDrawer,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
+  DispatcherError,
   FormSnapshot,
   FormValues,
   SubmitResult,
@@ -50,7 +51,10 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  onto form fields — see SubmitConfig.serverFieldPathPrefix. Only needed
    *  when buildPayload nests the form values under a key. */
   readonly serverFieldPathPrefix?: string;
-  readonly onDelete?: () => Promise<void> | void;
+  /** Returning the rejected write's error shows it in the form-error banner;
+   *  returning nothing means the delete went through. */
+  // biome-ignore lint/suspicious/noConfusingVoidType: existing `() => void` callbacks must stay assignable
+  readonly onDelete?: () => Promise<DispatcherError | void> | DispatcherError | void;
   readonly onCancel?: () => void;
   readonly onReload?: () => void;
   /** Fires when the form gains or loses unsaved input (field changes or a
