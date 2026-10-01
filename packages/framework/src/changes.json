@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.330.2",
+    "type": "fix",
+    "title": "createScreen role projection without a type assertion (no behaviour change)",
+    "detail": "Internal cleanup of the createScreen role projection added in the previous release; behaviour is unchanged."
+  },
+  {
     "version": "0.330.0",
     "type": "improvement",
     "title": "TenantDb.aggregate and aggregateWhere: grouped count, countDistinct, sum and avg with time buckets (fw#3396)",

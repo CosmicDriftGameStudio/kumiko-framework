@@ -1,5 +1,22 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.330.2
+
+### Patch Changes
+
+- 32a6102: Role projection drops an unreachable entityList createScreen without a type assertion
+
+  Internal cleanup of the createScreen role projection added in the previous release; behaviour is unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: createScreen role projection without a type assertion (no behaviour change)
+  -->
+
+  - @cosmicdrift/kumiko-http@0.330.2
+  - @cosmicdrift/kumiko-types@0.330.2
+
 ## 0.330.1
 
 ### Patch Changes
