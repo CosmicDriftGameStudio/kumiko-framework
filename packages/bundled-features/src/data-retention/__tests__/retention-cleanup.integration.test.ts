@@ -108,6 +108,16 @@ const bareEntity = createEntity({
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
 
+// blockDelete without anonymize fields is a pure legal hold: nothing falls due
+// after expiry, so no skipped entry (it would add log noise every cron run).
+const bareHoldEntity = createEntity({
+  table: "read_c7_barehold",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+  },
+  retention: { keepFor: "30d", strategy: "blockDelete" },
+});
+
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-widget", widgetEntity);
   r.entity("c7-gadget", gadgetEntity);
@@ -116,6 +126,7 @@ const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-retained", retainedEntity);
   r.entity("c7-anon", anonEntity);
   r.entity("c7-bare", bareEntity);
+  r.entity("c7-barehold", bareHoldEntity);
 });
 
 const noopLogger: JobContext["log"] = {
@@ -191,6 +202,7 @@ beforeEach(async () => {
     "read_c7_retained",
     "read_c7_anon",
     "read_c7_bare",
+    "read_c7_barehold",
   ]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
@@ -423,5 +435,20 @@ describe("runRetentionCleanup :: real postgres", () => {
       entityName: "c7-bare",
       reason: "missing_anonymize_fields",
     });
+  });
+
+  test("blockDelete without anonymize fields → no skipped entry, rows untouched", async () => {
+    await seed("read_c7_barehold", T1, "survives", pastIso);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+    });
+
+    expect(await labels("read_c7_barehold", T1)).toEqual(["survives"]);
+    expect(result.skipped.map((s) => s.entityName)).not.toContain("c7-barehold");
   });
 });

@@ -724,7 +724,12 @@ export async function runRetentionCleanup(
       case "blockDelete": {
         const targets = await resolveAnonymizeTargets(entity.fields);
         if (!targets) {
-          skipped.push({ entityName, reason: "missing_anonymize_fields" });
+          // blockDelete without anonymize fields is a pure hold: a subjectRef-only
+          // person link outlives the hold and is cut only by the user-data
+          // forget hook, so expiry has nothing to do here and is not reported.
+          if (policy.strategy === "anonymize") {
+            skipped.push({ entityName, reason: "missing_anonymize_fields" });
+          }
           break;
         }
         const executor = createEventStoreExecutor(proj.table, entity, { entityName });

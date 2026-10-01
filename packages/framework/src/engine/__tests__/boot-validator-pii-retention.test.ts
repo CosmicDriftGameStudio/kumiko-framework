@@ -758,7 +758,7 @@ describe("validateBoot — retention", () => {
     expect(matchingWarn).toBeUndefined();
   });
 
-  test("blockDelete with only a subjectRef-only field warns about EXT_USER_DATA delete hook (#2338)", () => {
+  test("blockDelete with only a subjectRef-only field does not warn about EXT_USER_DATA delete hook (#2338)", () => {
     const feature = defineFeature("test", (r) => {
       r.entity(
         "lease",
@@ -778,9 +778,9 @@ describe("validateBoot — retention", () => {
     );
     expect(anonymizeWarn).toBeUndefined();
     const extWarn = warnSpy.mock.calls.find((args: unknown[]) =>
-      String(args[0]).includes("EXT_USER_DATA delete hook for Art.17"),
+      String(args[0]).includes("EXT_USER_DATA delete hook"),
     );
-    expect(extWarn).toBeDefined();
+    expect(extWarn).toBeUndefined();
   });
 
   test.each([
