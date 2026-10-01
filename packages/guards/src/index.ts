@@ -1,3 +1,4 @@
+export { gitEnv } from "./_lib/git-env";
 export {
   type AstGuard,
   buildGuardKitInventory,

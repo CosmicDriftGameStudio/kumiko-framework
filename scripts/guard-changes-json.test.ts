@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gitEnv } from "../packages/guards/src/_lib/git-env";
+import { gitEnv } from "@cosmicdrift/kumiko-guards";
 import { findChangelogViolations, findChangesetViolations, isReleaseBranch } from "./guard-changes-json";
 
 // Fixture git spawns get gitEnv() (never inherited GIT_DIR/GIT_WORK_TREE) plus
@@ -165,6 +165,41 @@ describe("findChangesetViolations", () => {
     expect(violations).toEqual([
       { file: ".changeset/missing.md", detail: "missing kumiko-changes metadata block" },
     ]);
+  });
+
+  it("flags a feature that does not resolve and one missing from the frontmatter", () => {
+    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    mkdirSync(join(root, ".changeset"), { recursive: true });
+    mkdirSync(join(root, "packages", "framework"), { recursive: true });
+    writeFileSync(
+      join(root, "packages", "framework", "package.json"),
+      JSON.stringify({ name: "@cosmicdrift/kumiko-framework" }),
+    );
+    const block = (feature: string): string =>
+      `<!-- kumiko-changes\nfeature: ${feature}\ntype: fix\ntitle: Fix it\n-->\n`;
+    writeFileSync(
+      join(root, ".changeset", "typo.md"),
+      `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nFix it\n\n${block("framwork")}`,
+    );
+    writeFileSync(
+      join(root, ".changeset", "other-package.md"),
+      `---\n"@cosmicdrift/kumiko-guards": patch\n---\n\nFix it\n\n${block("framework")}`,
+    );
+    writeFileSync(
+      join(root, ".changeset", "ok.md"),
+      `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nFix it\n\n${block("framework")}`,
+    );
+
+    const violations = findChangesetViolations(
+      root,
+      [".changeset/typo.md", ".changeset/other-package.md", ".changeset/ok.md"],
+      {},
+    );
+
+    expect(violations).toHaveLength(2);
+    expect(violations[0]).toEqual({ file: ".changeset/typo.md", detail: 'unknown feature "framwork"' });
+    expect(violations[1]?.file).toBe(".changeset/other-package.md");
+    expect(violations[1]?.detail).toContain("missing from the changeset frontmatter");
   });
 
   it("rejects direct changes.json edits outside the release branch", () => {

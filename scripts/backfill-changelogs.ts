@@ -16,7 +16,7 @@
 import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { gitEnv } from "../packages/guards/src/_lib/git-env";
+import { gitEnv } from "@cosmicdrift/kumiko-guards";
 
 type ChangelogType = "breaking" | "improvement" | "fix";
 
