@@ -126,13 +126,16 @@ describe("DataTable — cards below 768px", () => {
       expect(metaRow.className).toContain("-ml-3");
       expect(clipBox?.className).toContain("overflow-hidden");
       expect(clipBox?.className).toContain("max-h-10");
-      expect(to.parentElement).toBe(metaRow);
-      expect(to.className).toContain("before:w-3");
-      expect(to.className).toContain("before:content-['·'_/_'']");
+      const wrapper = to.parentElement;
+      expect(wrapper?.parentElement).toBe(metaRow);
       expect(to.className).toContain("truncate");
-      // The separator is generated content, not a text node in the value.
       expect(to.textContent).toBe("5. Okt.");
-      expect(metaRow.textContent).toBe("4. Okt. 20265. Okt.");
+      for (const value of ["cell-u1-from", "cell-u1-to"]) {
+        const separator = screen.getByTestId(value).previousElementSibling;
+        expect(separator?.getAttribute("aria-hidden")).toBe("true");
+        expect(separator?.textContent).toBe("·");
+      }
+      expect(metaRow.className).not.toContain("before:");
     });
   });
 

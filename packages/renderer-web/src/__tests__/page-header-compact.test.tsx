@@ -105,6 +105,7 @@ describe("compact shell header with a list", () => {
     expect(screen.queryByRole("button", { name: "Assistent" })).toBeNull();
 
     const trigger = screen.getByTestId("shell-header-overflow-trigger");
+    expect(trigger.getAttribute("aria-label")).toBe("Page actions");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
