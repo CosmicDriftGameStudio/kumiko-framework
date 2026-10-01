@@ -406,6 +406,7 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
       startDate?: string;
       subjectType?: string;
       subjectId?: string;
+      sourceRef?: string;
     } = {},
   ): Promise<string> {
     const s = await stack.http.writeOk<{ id: string }>(
@@ -419,6 +420,7 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
         creditAccountId,
         ...(over.subjectType !== undefined && { subjectType: over.subjectType }),
         ...(over.subjectId !== undefined && { subjectId: over.subjectId }),
+        ...(over.sourceRef !== undefined && { sourceRef: over.sourceRef }),
       },
       admin,
     );
@@ -436,6 +438,52 @@ describe("ledger integration — confirm-schedule-period (recurring)", () => {
       admin,
     );
   }
+
+  test("sourceRef round-trips, filters the list and survives an unrelated update", async () => {
+    const bank = await createAccount("Bank SrcRef", "asset");
+    const rent = await createAccount("SrcRef Income", "income");
+    const withRef = await createSchedule(bank, rent, { sourceRef: "position-1" });
+    const withoutRef = await createSchedule(bank, rent, { description: "Miete WE2" });
+
+    const listByRef = async (value: string) =>
+      (
+        await stack.http.queryOk<{ rows: Array<Record<string, unknown>> }>(
+          LedgerQueries.scheduleList,
+          { filter: { field: "sourceRef", op: "eq", value } },
+          admin,
+        )
+      ).rows;
+
+    const found = await listByRef("position-1");
+    expect(found.map((r) => r["id"])).toEqual([withRef]);
+    expect(found[0]?.["sourceRef"]).toBe("position-1");
+    expect(await listByRef("position-2")).toHaveLength(0);
+
+    const before = await stack.http.queryOk<{ version: number }>(
+      LedgerQueries.scheduleDetail,
+      { id: withRef },
+      admin,
+    );
+    await stack.http.writeOk(
+      LedgerHandlers.updateSchedule,
+      { id: withRef, version: before.version, changes: { description: "Miete WE1 neu" } },
+      admin,
+    );
+    const after = await stack.http.queryOk<Record<string, unknown>>(
+      LedgerQueries.scheduleDetail,
+      { id: withRef },
+      admin,
+    );
+    expect(after["description"]).toBe("Miete WE1 neu");
+    expect(after["sourceRef"]).toBe("position-1");
+
+    const other = await stack.http.queryOk<Record<string, unknown>>(
+      LedgerQueries.scheduleDetail,
+      { id: withoutRef },
+      admin,
+    );
+    expect(other["sourceRef"] ?? null).toBeNull();
+  });
 
   test("confirm books a balanced entry tagged with the schedule reference", async () => {
     const bank = await createAccount("Bank", "asset");
