@@ -108,8 +108,8 @@ const bareEntity = createEntity({
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
 
-// blockDelete OHNE anonymize-Felder = reiner Legal-Hold: nach Ablauf ist nichts
-// faellig, also kein skipped-Eintrag (sonst Log-Rauschen pro Cron-Lauf).
+// blockDelete without anonymize fields is a pure legal hold: nothing falls due
+// after expiry, so no skipped entry (it would add log noise every cron run).
 const bareHoldEntity = createEntity({
   table: "read_c7_barehold",
   fields: {
