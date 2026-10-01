@@ -1,4 +1,9 @@
-import { BareFormProvider, ResultTable, usePrimitives } from "@cosmicdrift/kumiko-renderer-web";
+import {
+  BareFormProvider,
+  PageSection,
+  ResultTable,
+  usePrimitives,
+} from "@cosmicdrift/kumiko-renderer-web";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -174,7 +179,7 @@ export function Gallery(): ReactNode {
   const noop = (): void => {};
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <PageSection maxWidth="4xl">
       <Block id="colors" title="Colors">
         <div className="flex flex-wrap gap-4">
           {SWATCHES.map(([name, cls]) => (
@@ -822,6 +827,6 @@ export function Gallery(): ReactNode {
           ))}
         </div>
       </Block>
-    </div>
+    </PageSection>
   );
 }
