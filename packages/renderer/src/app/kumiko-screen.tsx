@@ -1336,12 +1336,12 @@ function EntityEditUpdateForm({
   );
   const handleDelete = useCallback(async () => {
     const res = await dispatcher.write(deleteCommand, { id: entityId });
-    if (res.isSuccess) {
-      // Never return onto the just-deleted record.
-      const target = returnTarget?.entityId !== entityId ? returnTarget : undefined;
-      navigateToReturnOr(nav, target, navigateToList);
-      onDeleted?.();
-    }
+    if (!res.isSuccess) return res.error;
+    // Never return onto the just-deleted record.
+    const target = returnTarget?.entityId !== entityId ? returnTarget : undefined;
+    navigateToReturnOr(nav, target, navigateToList);
+    onDeleted?.();
+    return undefined;
   }, [dispatcher, deleteCommand, entityId, navigateToList, onDeleted, returnTarget, nav]);
 
   // Never seed a tenant-declared money field with entityDefaultCurrency while

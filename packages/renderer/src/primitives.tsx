@@ -573,8 +573,9 @@ export type DataTableRowAction = {
   readonly onTrigger: (row: ListRowViewModel) => Promise<void> | void;
   /** Conditional Visibility pro Row (z.B. "Start" nur wenn status==="scheduled"). */
   readonly isVisible?: (row: ListRowViewModel) => boolean;
-  /** This action is what a click on the row does. The card layout drops it
-   *  from the row menu, since the whole card is already the tap target. */
+  /** This action is what a click on the row does. With `onRowClick` the table
+   *  (except `"inline"` mode or editable cells) and the card layout drop it
+   *  from the row menu, since the row itself is already the click target. */
   readonly rowClick?: boolean;
   /** Resolved icon (author `RowAction.icon` or the id-derived default) —
    *  drives both the icon-left-of-text render and the icon-only collapse
@@ -637,7 +638,8 @@ export type DataTableProps = {
    *  sich nur um Render + Confirm-Dialog. */
   readonly rowActions?: readonly DataTableRowAction[];
   /** How the row-action column renders:
-   *  - `"adaptive"` (default): with `onRowClick` all actions go in the kebab;
+   *  - `"adaptive"` (default): with `onRowClick` all actions except the
+   *    `rowClick` one go in the kebab (no kebab or column if none remain);
    *    without it the primary action is a link button and the rest go in the
    *    kebab (a single action gets no kebab).
    *  - `"inline"`: ALWAYS inline buttons, left-aligned, even with >2 (no

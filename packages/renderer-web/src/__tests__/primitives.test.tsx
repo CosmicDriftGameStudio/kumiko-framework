@@ -1046,6 +1046,106 @@ describe("DataTable", () => {
       expect(onTrigger).toHaveBeenCalledTimes(1);
     });
 
+    test("nur rowClick-Aktion + onRowClick: weder Kebab noch Actions-Spalte, Zeilenklick feuert", async () => {
+      const user = userEvent.setup();
+      const onRowClick = mock();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={onRowClick}
+          rowActions={[{ id: "open", label: "Open", rowClick: true, onTrigger: mock() }]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-actions-menu")).toBeNull();
+      expect(screen.queryByTestId("column-actions")).toBeNull();
+      expect(screen.queryByTestId("cell-r1-actions")).toBeNull();
+      await user.click(screen.getByTestId("row-r1"));
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+    });
+
+    test("rowClick-Aktion + weitere Aktion + onRowClick: Kebab enthält nur die weitere", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={mock()}
+          rowActions={[
+            { id: "open", label: "Open", rowClick: true, onTrigger: mock() },
+            { id: "archive", label: "Archive", onTrigger: mock() },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      expect(await screen.findByTestId("row-r1-action-archive")).not.toBeNull();
+      expect(screen.queryByTestId("row-r1-action-open")).toBeNull();
+    });
+
+    test("rowActionMode inline + onRowClick: rowClick-Aktion bleibt als Button", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={mock()}
+          rowActionMode="inline"
+          rowActions={[{ id: "open", label: "Open", rowClick: true, onTrigger: mock() }]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-action-open")).not.toBeNull();
+    });
+
+    test("rowClick-Aktion ohne onRowClick: bleibt sichtbar (Link-Button)", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[{ id: "open", label: "Open", rowClick: true, onTrigger: mock() }]}
+        />,
+      );
+      expect(screen.queryByTestId("row-r1-action-open")).not.toBeNull();
+    });
+
+    test("rowClick-Aktion + onRowClick + onCellChange: Aktion bleibt im Kebab (kein Tastatur-Link in der Zelle)", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          onRowClick={mock()}
+          onCellChange={mock()}
+          rowActions={[
+            { id: "open", label: "Open", rowClick: true, onTrigger: mock() },
+            { id: "archive", label: "Archive", onTrigger: mock() },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      expect(await screen.findByTestId("row-r1-action-open")).not.toBeNull();
+    });
+
+    test("rowClick-Aktion + onRowClick, leere erste Zelle: sr-only-Link mit Aktions-Label öffnet die Zeile", async () => {
+      const user = userEvent.setup();
+      const onRowClick = mock();
+      render(
+        <DataTable
+          columns={cols}
+          rows={[{ id: "r1", values: { id: "r1", name: "" } }]}
+          testId="dt"
+          onRowClick={onRowClick}
+          rowActions={[{ id: "open", label: "Open", rowClick: true, onTrigger: mock() }]}
+        />,
+      );
+      const link = within(screen.getByTestId("cell-r1-name")).getByRole("button", { name: "Open" });
+      await user.click(link);
+      expect(onRowClick).toHaveBeenCalledTimes(1);
+    });
+
     test(">2 Actions: primäre Aktion inline + Rest im Kebab-Dropdown", () => {
       render(
         <DataTable

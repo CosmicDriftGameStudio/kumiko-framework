@@ -1841,7 +1841,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 ) : undefined
               }
             >
-              <Text testId="render-edit-form-error-key">{translate(formError.i18nKey)}</Text>
+              <Text testId="render-edit-form-error-key">
+                {translate(formError.i18nKey, formError.i18nParams)}
+              </Text>
             </Banner>
           )}
           {extensionErrorKey !== null && (
@@ -1862,7 +1864,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               confirmLabel={translate("kumiko.actions.delete")}
               variant="danger"
               onConfirm={async () => {
-                await onDelete();
+                const rejection = await onDelete();
+                // A rejected delete (e.g. a preDelete hook) carries its reason in
+                // the field issues; the top-level key is only "validation failed".
+                if (rejection !== undefined) {
+                  const issue = rejection.details?.fields?.[0];
+                  setFormError(
+                    issue === undefined
+                      ? rejection
+                      : { ...rejection, i18nKey: issue.i18nKey, i18nParams: issue.params },
+                  );
+                }
               }}
               testId="render-edit-delete-dialog"
             />
