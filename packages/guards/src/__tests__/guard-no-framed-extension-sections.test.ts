@@ -143,9 +143,31 @@ const screen = { type: "dashboard", panels: [{ kind: "custom", id: "cap-cards", 
 export function demoClient() {
   return { extensionSectionComponents: { [TAGS_FILTER_EXTENSION_NAME]: TagsFilter } };
 }
-const screen = { slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } } };`,
+const screen = { type: "entityEdit", slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } } };`,
     );
     expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("a component under slots.header of a projectionDetail screen is still flagged", () => {
+    const sf = parse(
+      `function TagsFilter() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [TAGS_FILTER_EXTENSION_NAME]: TagsFilter } };
+}
+const screen = { type: "projectionDetail", slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
+  });
+
+  test("a component under slots.header of a entityList screen is still flagged", () => {
+    const sf = parse(
+      `function TagsFilter() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [TAGS_FILTER_EXTENSION_NAME]: TagsFilter } };
+}
+const screen = { type: "entityList", slots: { header: { react: { __component: TAGS_FILTER_EXTENSION_NAME } } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
   });
 
   test("a string-literal registry key and a string-literal __component usage still correlate", () => {

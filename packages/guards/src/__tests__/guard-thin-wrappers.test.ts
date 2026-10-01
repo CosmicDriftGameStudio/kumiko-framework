@@ -69,6 +69,12 @@ describe("collectFindings — excluded patterns (the detection bug fixes)", () =
     expect(findingFor(code, "isTsFile")).toBeUndefined();
   });
 
+  test("RegExp .test() on a named regex constant is not a wrapper", () => {
+    const code =
+      "const IS_TS = /\\.tsx?$/; export function isTsFile(n: string) { return IS_TS.test(n); }";
+    expect(findingFor(code, "isTsFile")).toBeUndefined();
+  });
+
   test("control case: a plain function call is still a wrapper", () => {
     const f = findingFor("function isThing(name: string) { return someHelper(name); }", "isThing");
     expect(f?.callee).toBe("someHelper");

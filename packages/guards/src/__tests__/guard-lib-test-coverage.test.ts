@@ -52,6 +52,41 @@ addFees(100);`,
     ).toHaveLength(0);
   });
 
+  test("Fixture unter __tests__ ohne .test-Suffix ersetzt keinen Test → Verstoß bleibt", () => {
+    expect(
+      run({
+        "/src/lib/calc.ts": `export function addFees(base: number): number { return base; }`,
+        "/src/lib/__tests__/fixtures.ts": `import { addFees } from "../calc";
+export const sample = addFees(1);`,
+      }),
+    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+  });
+
+  test("Fixture unter __tests__ selbst ist keine lib-Quelle", () => {
+    expect(
+      run({
+        "/src/lib/__tests__/fixtures.ts": `export function makeSample(): number { return 1; }`,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("tsx-lib mit exportierter Funktion ohne Test → Verstoß", () => {
+    expect(
+      run({
+        "/src/lib/foo.tsx": `export function renderFoo(): number { return 1; }`,
+      }),
+    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+  });
+
+  test("Scan-Scope erfasst .tsx und verschachtelte lib-Ebenen", () => {
+    const within = guard.scan.scope === "source" ? (guard.scan.within ?? []) : [];
+    const matches = (p: string) => within.some((g) => new Bun.Glob(g).match(p));
+    expect(matches("lib/foo.tsx")).toBe(true);
+    expect(matches("features/a/lib/deep/foo.ts")).toBe(true);
+    expect(matches("app/screens/lib/foo.tsx")).toBe(true);
+    expect(matches("features/a/views/foo.ts")).toBe(false);
+  });
+
   test("Test importiert ein anderes Modul → gilt nicht als verknüpft", () => {
     expect(
       run({

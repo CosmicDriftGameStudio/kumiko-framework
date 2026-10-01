@@ -21,6 +21,7 @@
 
 import { relative as pathRelative } from "node:path";
 import { type CallExpression, type Node, type SourceFile, SyntaxKind } from "ts-morph";
+import { literalReasonText } from "./_lib/generic-reason";
 import {
   type AstGuard,
   findRepoRootFor,
@@ -79,13 +80,9 @@ function isSameOriginLiteralArg(expr: CallExpression): boolean {
     return head.startsWith("/") && !head.startsWith("//") && head.length >= 2;
   }
 
-  if (
-    arg.getKind() !== SyntaxKind.StringLiteral &&
-    arg.getKind() !== SyntaxKind.NoSubstitutionTemplateLiteral
-  ) {
-    return false;
-  }
-  const path = arg.getText().slice(1, -1);
+  // Runtime value, not source text: "/\/attacker.example" is "//attacker.example".
+  const path = literalReasonText(arg);
+  if (path === undefined) return false;
   // Reject protocol-relative URLs ("//evil.example") — not same-origin.
   return path.startsWith("/") && !path.startsWith("//");
 }

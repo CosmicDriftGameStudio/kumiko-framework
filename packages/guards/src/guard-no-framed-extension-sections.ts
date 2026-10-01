@@ -236,7 +236,11 @@ function isDirectlyUnderSlotsHeader(obj: ObjectLiteralExpression): boolean {
   const slotsObject = headerAssignment.getFirstAncestorByKind(SyntaxKind.ObjectLiteralExpression);
   if (slotsObject === undefined) return false;
   const slotsAssignment = slotsObject.getParentIfKind(SyntaxKind.PropertyAssignment);
-  return slotsAssignment !== undefined && slotsAssignment.getName() === "slots";
+  if (slotsAssignment === undefined || slotsAssignment.getName() !== "slots") return false;
+  // Only entityEdit screens render `slots.header` as a bare header slot; other
+  // screen types (projectionDetail, entityList) use `slots` differently.
+  const screenObject = slotsAssignment.getParentIfKind(SyntaxKind.ObjectLiteralExpression);
+  return screenObject !== undefined && stringPropertyValue(screenObject, "type") === "entityEdit";
 }
 
 function mountKindFor(componentPropertyAssignment: Node): MountKind {

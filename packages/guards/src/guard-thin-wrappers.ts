@@ -67,6 +67,8 @@ function isKnownReason(r: string): r is WrapperReason {
 // ── Built-in filter ─────────────────────────────────────────────────────
 
 const BUILTIN_NAMES = new Set([
+  "test",
+  "exec",
   "push",
   "pop",
   "shift",
@@ -300,9 +302,6 @@ function extractCalleeName(callNode: ReturnType<FnNode["getBody"]> | undefined):
   if (!expr) return null;
   if (expr.isKind(SyntaxKind.Identifier)) return expr.getText();
   if (expr.isKind(SyntaxKind.PropertyAccessExpression)) {
-    // `/re/.test(x)` is a RegExp method call, not a call to a function named
-    // "test" — a regex-literal receiver is never a wrapper callee.
-    if (expr.getExpression().isKind(SyntaxKind.RegularExpressionLiteral)) return null;
     return expr.getName();
   }
   return null;

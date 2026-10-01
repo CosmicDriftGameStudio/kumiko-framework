@@ -175,14 +175,11 @@ function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding
     const line = call.getStartLineNumber();
     const file = relFile(sf, roots);
     findings.push({ file, line, fieldName, hint });
-    console.warn(
-      `  [pii-annotations WARN] ${file}:${line}  field "${fieldName}" looks like PII — mark ${hint}`,
-    );
   }
   return findings;
 }
 
-function scan(
+export function scan(
   files: readonly SourceFile[],
   roots: readonly RepoRoot[] = resolveRepoRoots(),
 ): {
@@ -243,6 +240,10 @@ function analyse(
 ): GuardOutcome {
   const { findings } = scan(files, roots);
   if (!compareBaseline) {
+    for (const f of findings)
+      console.warn(
+        `  [pii-annotations WARN] ${f.file}:${f.line}  field "${f.fieldName}" looks like PII — mark ${f.hint}`,
+      );
     console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }
