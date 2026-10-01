@@ -5,7 +5,7 @@
 tenant-caps:list declares the `unsafeRaw` escapeHatch.
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: cap-overview
 type: fix
 title: tenant-caps:list declares its unsafeRaw escapeHatch
 -->
