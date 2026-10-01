@@ -17,25 +17,24 @@
 //      Pre-Save-Wrapper mit asymmetrischen Soft/Hard-Toleranzen pro
 //      Cap-Profile.
 //
-// **Calendar vs. Rolling — wann welches:**
-//   - **Calendar-Period** (bookCapUsage + enforceCap): Cap resettet
-//     sich am Period-Start (1. des Monats etc.). Counter ist 1 Row in
-//     der projection. Schneller Read.
-//   - **Rolling-Window** (CapCounterHandlers.incrementRolling + enforceRollingCap):
-//     Cap rollt kontinuierlich (z.B. "letzten 7 Tage"). Werte
-//     verfallen Event-für-Event ohne Reset. Kein projection — Read
-//     summiert über die letzten N Tage Events.
+// **Calendar vs. Rolling — when to use which:**
+//   - **Calendar period** (bookCapUsage + enforceCap): the cap resets at
+//     period start (1st of the month etc.). The counter is one row in the
+//     projection. Fast read.
+//   - **Rolling window** (CapCounterHandlers.incrementRolling + enforceRollingCap):
+//     the cap rolls continuously (e.g. "last 7 days"). Values expire
+//     event by event without a reset. No projection; the read sums the
+//     events of the last N days.
 //
-// **Was diese Feature NICHT macht:**
-//   - **Kein Foundation-Wiring.** mail-foundation / file-foundation /
-//     ai-foundation sind heute BYOK-default und haben keinen Plattform-
-//     Pool zum Zählen. Cap-Counter ist generic — wenn ein App-Owner
-//     den Counter nutzen will, ruft er `bookCapUsage(...)` /
-//     `ctx.write(CapCounterHandlers.incrementRolling, ...)` aus seinem eigenen Handler auf.
-//   - **Kein Reset-Cron für Calendar-Period.** Funktioniert ohne —
-//     der periodStartIso-Bestandteil der aggregate-id rollt am
-//     Period-Tick natürlich auf einen frischen Counter. Alte Rows
-//     bleiben für Audit liegen.
+// **What this feature does NOT do:**
+//   - **No foundation wiring.** mail-foundation / file-foundation /
+//     ai-foundation are BYOK by default today and have no platform pool
+//     to count. cap-counter is generic: an app owner who wants to use the
+//     counter calls `bookCapUsage(...)` /
+//     `ctx.write(CapCounterHandlers.incrementRolling, ...)` from their own handler.
+//   - **No reset cron for the calendar period.** Works without one: the
+//     periodStartIso part of the aggregate id rolls over to a fresh
+//     counter at the period tick. Old rows stay for audit.
 //   - **Kein Notification-Pfad als Hard-Wiring.** Cap-counter
 //     entkoppelt — `enforceCapAndMaybeNotify` (siehe enforce-cap.ts)
 //     ist ein Convenience-Helper, der einen Caller-supplied

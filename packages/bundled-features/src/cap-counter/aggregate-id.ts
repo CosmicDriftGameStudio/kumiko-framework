@@ -29,20 +29,19 @@ export function capCounterAggregateId(
 }
 
 /**
- * Deterministic aggregate-id für ein Rolling-Window-Counter-Aggregate
- * aus dem Paar (tenantId, capName). Pro Tenant + Cap existiert genau
- * EIN Rolling-Aggregate-Stream — die Window-Semantik kommt rein aus
- * dem Read-Pfad (Filter via event-store-Timestamp).
+ * Deterministic aggregate id for a rolling-window counter, derived from
+ * (tenantId, capName). Exactly ONE rolling aggregate stream exists per
+ * tenant + cap; window semantics come purely from the read path
+ * (filtering on the event-store timestamp), so no period is part of the id.
  *
- * **Eigener Namespace:** kollidiert NICHT mit
- * `capCounterAggregateId(tenantId, capName, "1970-01-01...")` — selbe
- * inputs, andere uuidv5-namespace, anderer Output-UUID. Damit ist auch
- * verhindert dass ein versehentlicher Calendar-Increment auf den
- * Rolling-Stream trifft.
+ * **Separate namespace:** does NOT collide with
+ * `capCounterAggregateId(tenantId, capName, "1970-01-01...")`. Same inputs,
+ * different uuidv5 namespace, different output UUID. This also prevents an
+ * accidental calendar increment from landing on the rolling stream.
  *
- * **Aufruf-Pattern:** Caller (CapCounterHandlers.incrementRolling via ctx.write) ruft mit
- * tenantId + capName auf, erzeugt Increment-Events am stream. Race-
- * frei: der event-store hängt mit auto-incrementing version an.
+ * **Caller:** `CapCounterHandlers.incrementRolling` (via `ctx.write`) calls
+ * this with tenantId + capName and appends increment events to the stream.
+ * Race-free because the event store appends with an auto-incrementing version.
  */
 // @wrapper-known uuid-domain
 export function rollingCapAggregateId(tenantId: string, capName: string): string {
