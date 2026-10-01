@@ -105,12 +105,25 @@ function pushRowActionKeys(out: Set<string>, action: RowAction): void {
 function pushDashboardScreenKeys(out: Set<string>, dashboard: DashboardScreenDefinition): void {
   for (const panel of dashboard.panels) pushDashboardPanelKeys(out, panel);
   if (dashboard.filter !== undefined) pushDashboardFilterKeys(out, dashboard.filter);
+  for (const option of dashboard.timeRange?.options ?? []) pushKey(out, option.label);
+  pushKey(out, dashboard.scope?.badge);
+  pushKey(out, dashboard.scope?.notice);
 }
 
 function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinition): void {
   // skip: custom-Panel übersetzt sich selbst, kein Key hier
   if (panel.kind === "custom") return;
   pushKey(out, panel.label);
+  if (panel.kind === "chart") pushKey(out, panel.subtitle);
+  if (
+    panel.kind === "chart" ||
+    panel.kind === "list" ||
+    panel.kind === "feed" ||
+    panel.kind === "progress-list"
+  ) {
+    pushKey(out, panel.emptyLabel);
+    pushKey(out, panel.emptyHint);
+  }
   if (panel.kind === "stat-group") {
     for (const stat of panel.stats) pushKey(out, stat.label);
   }
@@ -120,7 +133,6 @@ function pushDashboardPanelKeys(out: Set<string>, panel: DashboardPanelDefinitio
       if (normalized.label !== undefined) pushKey(out, normalized.label);
     }
   }
-  if (panel.kind === "feed" && panel.emptyLabel !== undefined) pushKey(out, panel.emptyLabel);
 }
 
 function pushDashboardFilterKeys(out: Set<string>, filter: DashboardFilterDefinition): void {

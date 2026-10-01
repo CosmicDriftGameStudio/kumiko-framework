@@ -32,6 +32,7 @@ import type {
   DashboardScreenDefinition,
   DashboardScreenPanel,
   DashboardStatGroupPanel,
+  DashboardTimeRangeDefinition,
   EditFieldSpec,
   EditLayout,
   FieldCondition,
@@ -2268,6 +2269,42 @@ function validateDashboardScreen(
   if (screen.filter !== undefined) {
     validateDashboardFilterDefinition(featureName, screenId, screen.filter);
   }
+  if (screen.timeRange !== undefined) {
+    validateDashboardTimeRange(featureName, screenId, screen.timeRange, screen.filter?.id);
+  }
+}
+
+function validateDashboardTimeRange(
+  featureName: string,
+  screenId: string,
+  timeRange: DashboardTimeRangeDefinition,
+  filterId: string | undefined,
+): void {
+  const prefix = `[Feature ${featureName}] Screen "${screenId}" (dashboard) timeRange`;
+  if (timeRange.id.length === 0) throw new Error(`${prefix} has an empty id.`);
+  if (timeRange.id === filterId) {
+    throw new Error(
+      `${prefix} id "${timeRange.id}" collides with the filter id — both live in the URL search params.`,
+    );
+  }
+  if (timeRange.options.length === 0) {
+    throw new Error(`${prefix}.options is empty — declare at least one option.`);
+  }
+  const values = new Set<string>();
+  for (const option of timeRange.options) {
+    if (option.value.length === 0 || option.label.length === 0) {
+      throw new Error(`${prefix} option needs a non-empty value and label.`);
+    }
+    if (values.has(option.value)) {
+      throw new Error(`${prefix}.options has duplicate value "${option.value}".`);
+    }
+    values.add(option.value);
+  }
+  if (!values.has(timeRange.default)) {
+    throw new Error(
+      `${prefix}.default "${timeRange.default}" is not among the options (${[...values].join(", ")}).`,
+    );
+  }
 }
 
 const EMBEDDABLE_SCREEN_TYPES: ReadonlySet<ScreenDefinition["type"]> = new Set([
@@ -2356,6 +2393,16 @@ function validateDashboardQueryPanel(
   if (!panel.query || typeof panel.query !== "string") {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has empty or non-string query.`,
+    );
+  }
+  if (
+    "span" in panel &&
+    panel.span !== undefined &&
+    panel.span !== "half" &&
+    panel.span !== "full"
+  ) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panel.id}" has span "${String(panel.span)}" — expected "half" or "full".`,
     );
   }
   if (panel.kind === "stat" && panel.valueField.length === 0) {

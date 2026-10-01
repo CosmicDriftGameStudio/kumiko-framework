@@ -16,6 +16,7 @@ const STAT_PANEL = {
 function dashboardFeature(
   panels: DashboardScreenDefinition["panels"],
   filter?: DashboardScreenDefinition["filter"],
+  extra: Partial<Pick<DashboardScreenDefinition, "timeRange" | "scope">> = {},
 ) {
   return defineFeature("demo", (r) => {
     r.queryHandler("incident:open-count", z.object({}), async () => ({ count: 3 }), {
@@ -29,6 +30,7 @@ function dashboardFeature(
       type: "dashboard",
       panels,
       ...(filter !== undefined && { filter }),
+      ...extra,
     });
     r.translations({
       keys: {
@@ -38,6 +40,13 @@ function dashboardFeature(
         "demo:dashboard:col:name": { de: "Name", en: "Name" },
         "demo:dashboard:group:net-worth": { de: "Net Worth", en: "Net Worth" },
         "demo:dashboard:filter:region": { de: "Region", en: "Region" },
+        "demo:dashboard:range:7d": { de: "7 Tage", en: "7 days" },
+        "demo:dashboard:range:30d": { de: "30 Tage", en: "30 days" },
+        "demo:dashboard:scope:badge": { de: "Alle Tenants", en: "All tenants" },
+        "demo:dashboard:scope:notice": { de: "Hinweis", en: "Notice" },
+        "demo:dashboard:chart:subtitle": { de: "7 Tage", en: "7 days" },
+        "demo:dashboard:chart:empty": { de: "Leer", en: "Empty" },
+        "demo:dashboard:chart:empty-hint": { de: "Später", en: "Later" },
       },
     });
   });
@@ -66,6 +75,23 @@ describe("validateBoot — dashboard screens", () => {
   test("rejects duplicate panel ids", () => {
     const feature = dashboardFeature([STAT_PANEL, STAT_PANEL]);
     expect(() => validateBoot([feature])).toThrow(/duplicate panel id/);
+  });
+
+  test("accepts span half/full and rejects anything else", () => {
+    const list = (span: string) =>
+      dashboardFeature([
+        {
+          kind: "list",
+          id: "latest",
+          label: "demo:dashboard:panel:latest",
+          query: "demo:query:incident:latest",
+          columns: ["name"],
+          span: span as "half",
+        },
+      ]);
+    expect(() => validateBoot([list("half")])).not.toThrow();
+    expect(() => validateBoot([list("full")])).not.toThrow();
+    expect(() => validateBoot([list("third")])).toThrow(/expected "half" or "full"/);
   });
 
   test("rejects a stat panel with empty valueField", () => {
@@ -377,5 +403,129 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
       ],
     };
     expect(requiredKeysFromScreen("demo", screen)).toContain("demo:dashboard:panel:latest");
+  });
+});
+
+describe("validateBoot — dashboard timeRange, scope and new panel fields", () => {
+  const TIME_RANGE = {
+    id: "range",
+    options: [
+      { value: "7d", label: "demo:dashboard:range:7d" },
+      { value: "30d", label: "demo:dashboard:range:30d" },
+    ],
+    default: "7d",
+  } as const;
+
+  test("accepts a valid timeRange and scope", () => {
+    const feature = dashboardFeature([STAT_PANEL], undefined, {
+      timeRange: TIME_RANGE,
+      scope: { badge: "demo:dashboard:scope:badge", notice: "demo:dashboard:scope:notice" },
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("rejects a timeRange without options", () => {
+    const feature = dashboardFeature([STAT_PANEL], undefined, {
+      timeRange: { ...TIME_RANGE, options: [] },
+    });
+    expect(() => validateBoot([feature])).toThrow(/timeRange\.options is empty/);
+  });
+
+  test("rejects a timeRange default that is not among the options", () => {
+    const feature = dashboardFeature([STAT_PANEL], undefined, {
+      timeRange: { ...TIME_RANGE, default: "90d" },
+    });
+    expect(() => validateBoot([feature])).toThrow(/default "90d" is not among the options/);
+  });
+
+  test("rejects duplicate timeRange option values", () => {
+    const feature = dashboardFeature([STAT_PANEL], undefined, {
+      timeRange: {
+        ...TIME_RANGE,
+        options: [
+          { value: "7d", label: "demo:dashboard:range:7d" },
+          { value: "7d", label: "demo:dashboard:range:30d" },
+        ],
+      },
+    });
+    expect(() => validateBoot([feature])).toThrow(/duplicate value "7d"/);
+  });
+
+  test("rejects a timeRange id that collides with the filter id", () => {
+    const feature = dashboardFeature(
+      [STAT_PANEL],
+      {
+        id: "range",
+        label: "demo:dashboard:filter:region",
+        kind: "select",
+        options: [{ value: "eu", label: "demo:dashboard:filter:region" }],
+      },
+      { timeRange: TIME_RANGE },
+    );
+    expect(() => validateBoot([feature])).toThrow(/collides with the filter id/);
+  });
+
+  test("accepts a label-less stat-group and every chart kind with their query refs", () => {
+    const feature = dashboardFeature([
+      {
+        kind: "stat-group",
+        id: "kpis",
+        stats: [{ ...STAT_PANEL, id: "a", sparklineField: "points", ignoreScreenFilter: true }],
+      },
+      ...(["timeseries", "stacked-bars", "segment-bars", "stacked-area"] as const).map((chart) => ({
+        kind: "chart" as const,
+        id: `chart-${chart}`,
+        label: "demo:dashboard:panel:latest",
+        chart,
+        query: "demo:query:incident:latest",
+      })),
+    ]);
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test("a chart panel with an unregistered query is still rejected", () => {
+    const feature = dashboardFeature([
+      {
+        kind: "chart",
+        id: "ghost",
+        label: "demo:dashboard:panel:latest",
+        chart: "stacked-bars",
+        query: "demo:query:incident:ghost",
+      },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(/ghost/);
+  });
+
+  test("requiredKeysFromScreen collects the new i18n keys", () => {
+    const screen: DashboardScreenDefinition = {
+      id: "overview",
+      type: "dashboard",
+      timeRange: TIME_RANGE,
+      scope: { badge: "demo:dashboard:scope:badge", notice: "demo:dashboard:scope:notice" },
+      panels: [
+        {
+          kind: "chart",
+          id: "c",
+          label: "demo:dashboard:panel:latest",
+          chart: "stacked-bars",
+          query: "demo:query:incident:latest",
+          subtitle: "demo:dashboard:chart:subtitle",
+          emptyLabel: "demo:dashboard:chart:empty",
+          emptyHint: "demo:dashboard:chart:empty-hint",
+        },
+      ],
+    };
+    const keys = requiredKeysFromScreen("demo", screen);
+    for (const key of [
+      "demo:dashboard:range:7d",
+      "demo:dashboard:range:30d",
+      "demo:dashboard:scope:badge",
+      "demo:dashboard:scope:notice",
+      "demo:dashboard:chart:subtitle",
+      "demo:dashboard:chart:empty",
+      "demo:dashboard:chart:empty-hint",
+    ]) {
+      expect(keys).toContain(key);
+    }
   });
 });

@@ -96,7 +96,7 @@ describe("KumikoScreen dashboard", () => {
 // screen.ts:713) but WebDashboardBody never read it — the panels grid
 // rendered with no room for it at all.
 describe("KumikoScreen dashboard — screen.description", () => {
-  test("a plain-text description renders above the panels", async () => {
+  test("a plain-text description is agent-facing and does not render", async () => {
     const screenWithDescription: DashboardScreenDefinition = {
       ...dashboardScreen,
       description: "Live health signals across every monitored service.",
@@ -114,9 +114,9 @@ describe("KumikoScreen dashboard — screen.description", () => {
       </DispatcherProvider>,
     );
 
-    expect(screen.getByTestId("dashboard-overview-description").textContent).toBe(
-      "Live health signals across every monitored service.",
-    );
+    await waitFor(() => expect(screen.getByTestId("dashboard-overview")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-overview-description")).toBeNull();
+    expect(screen.queryByText("Live health signals across every monitored service.")).toBeNull();
   });
 
   test("a description that is a known i18n key renders translated, not as the raw key", async () => {

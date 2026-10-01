@@ -46,18 +46,20 @@ import {
   isOverviewQueryAllowed,
   TENANT_OVERVIEW_FORBIDDEN_QUERIES,
 } from "../overview-allowlist.js";
+import { ADMIN_SHELL_METRICS_FEATURES, ADMIN_SHELL_TEST_METRICS } from "./metrics-fixture.js";
 
 let stack: TestStack;
 let TENANT_ID: TenantId;
 let tenantAdminId: string;
 
-const adminShell = createAdminShellFeature();
+const adminShell = createAdminShellFeature({ metrics: ADMIN_SHELL_TEST_METRICS });
 const features = [
   createConfigFeature(),
   createUserFeature(),
   createTenantFeature(),
   createAuditFeature(),
   createJobsFeature(),
+  ...ADMIN_SHELL_METRICS_FEATURES,
   createFeatureTogglesFeature(),
   tierEngineFeature,
   adminShell,
@@ -181,15 +183,17 @@ describe("tenant overview query allowlist", () => {
   // this checks the actual screen definition against the allowlist instead
   // of the allowlist against itself.
   test("tenant-overview screen panels stay inside the allowlist and off the forbidden list", () => {
-    const screen = createAdminShellFeature().screens[TENANT_OVERVIEW_SCREEN_ID];
+    const screen = adminShell.screens[TENANT_OVERVIEW_SCREEN_ID];
     if (screen?.type !== "dashboard")
       throw new Error("expected tenant-overview to be a dashboard screen");
-    for (const panel of screen.panels) {
-      if (panel.kind !== "stat") throw new Error(`expected stat panel, got ${panel.kind}`);
-      expect(isOverviewQueryAllowed("tenant", panel.query)).toBe(true);
-      expect((TENANT_OVERVIEW_FORBIDDEN_QUERIES as readonly string[]).includes(panel.query)).toBe(
-        false,
-      );
+    const queries = screen.panels.flatMap((panel) => {
+      if (panel.kind === "stat-group") return panel.stats.map((stat) => stat.query);
+      return "query" in panel ? [panel.query] : [];
+    });
+    expect(queries.length).toBeGreaterThan(0);
+    for (const query of queries) {
+      expect(isOverviewQueryAllowed("tenant", query)).toBe(true);
+      expect((TENANT_OVERVIEW_FORBIDDEN_QUERIES as readonly string[]).includes(query)).toBe(false);
     }
   });
 

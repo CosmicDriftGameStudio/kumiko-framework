@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { CapOverviewQueries } from "../../cap-overview/constants.js";
 import { JobQueries } from "../../jobs/constants.js";
+import { DEFAULT_METRICS, metricQueryName } from "../../metrics/index.js";
 import { TenantQueries } from "../../tenant/constants.js";
 import { UserQueries } from "../../user/constants.js";
 import { PLATFORM_OVERVIEW_SCREEN_ID, TENANT_OVERVIEW_SCREEN_ID } from "../constants.js";
@@ -15,12 +17,15 @@ import {
 // definitions (no client-side allowlist gate anymore, fw#2312) — the
 // allowlist's regression value now lives in this static cross-check instead
 // of a runtime guard.
-function statPanelQueries(screenId: string): readonly string[] {
-  const screen = createAdminShellFeature().screens[screenId];
+function panelQueries(screenId: string): readonly string[] {
+  const screen = createAdminShellFeature({
+    metrics: DEFAULT_METRICS,
+    includeCapOverview: true,
+  }).screens[screenId];
   if (screen?.type !== "dashboard") throw new Error(`expected dashboard screen: ${screenId}`);
-  return screen.panels.map((panel) => {
-    if (panel.kind !== "stat") throw new Error(`expected stat panel on ${screenId}: ${panel.kind}`);
-    return panel.query;
+  return screen.panels.flatMap((panel) => {
+    if (panel.kind === "stat-group") return panel.stats.map((stat) => stat.query);
+    return "query" in panel ? [panel.query] : [];
   });
 }
 
@@ -38,16 +43,22 @@ describe("overview query allowlist", () => {
     expect(TENANT_OVERVIEW_ALLOWED_QUERIES).toContain("config:query:readiness");
   });
 
-  test("platform allowlist is tenant:list + jobs:list + user:list", () => {
+  test("platform allowlist is jobs:list + the tenant-options picker query", () => {
     expect(PLATFORM_OVERVIEW_ALLOWED_QUERIES).toEqual([
-      TenantQueries.list,
       JobQueries.list,
-      UserQueries.list,
+      CapOverviewQueries.tenantOptions,
     ]);
   });
 
-  test("platform overview allows the user-count query (fw#891 regression)", () => {
-    expect(isOverviewQueryAllowed("platform", UserQueries.list)).toBe(true);
+  test("metrics queries are allowed only for their own scope", () => {
+    expect(isOverviewQueryAllowed("tenant", metricQueryName("tenant", "audit-writes"))).toBe(true);
+    expect(isOverviewQueryAllowed("tenant", metricQueryName("system", "audit-writes"))).toBe(false);
+    expect(isOverviewQueryAllowed("platform", metricQueryName("system", "audit-writes"))).toBe(
+      true,
+    );
+    expect(isOverviewQueryAllowed("platform", metricQueryName("tenant", "audit-writes"))).toBe(
+      false,
+    );
   });
 
   test("platform queries are not tenant-allowlisted", () => {
@@ -59,14 +70,14 @@ describe("overview query allowlist", () => {
 
 describe("overview screen panels vs allowlist (fw#2312 regression)", () => {
   test("tenant-overview panels use only allowlisted, never forbidden, queries", () => {
-    for (const query of statPanelQueries(TENANT_OVERVIEW_SCREEN_ID)) {
+    for (const query of panelQueries(TENANT_OVERVIEW_SCREEN_ID)) {
       expect(isOverviewQueryAllowed("tenant", query)).toBe(true);
       expect((TENANT_OVERVIEW_FORBIDDEN_QUERIES as readonly string[]).includes(query)).toBe(false);
     }
   });
 
   test("platform-overview panels use only allowlisted queries", () => {
-    for (const query of statPanelQueries(PLATFORM_OVERVIEW_SCREEN_ID)) {
+    for (const query of panelQueries(PLATFORM_OVERVIEW_SCREEN_ID)) {
       expect(isOverviewQueryAllowed("platform", query)).toBe(true);
     }
   });

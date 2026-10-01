@@ -9,6 +9,9 @@ export const METRICS_I18N: Readonly<Record<string, LocalizedString>> = {
   "metrics:deliveryStatus.sent": { en: "Sent" },
   "metrics:deliveryStatus.failed": { en: "Failed" },
   "metrics:deliveryStatus.skipped": { en: "Skipped" },
+  "metrics:deliveryChannel.inApp": { en: "In-app" },
+  "metrics:deliveryChannel.email": { en: "Email" },
+  "metrics:deliveryChannel.push": { en: "Push" },
   "metrics.errors.tenantFilterUnsupported": {
     en: "This metric's source has no tenant column, so it cannot be narrowed to one tenant.",
   },

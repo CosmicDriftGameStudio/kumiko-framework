@@ -44,7 +44,7 @@ function contrastRatio(a: string, b: string): number {
 }
 
 const MIN_CONTRAST = 4.5;
-const STATUS_TONES = ["ok", "warn", "bad", "critical", "neutral"] as const;
+const STATUS_TONES = ["ok", "warn", "bad", "critical", "neutral", "active"] as const;
 
 const themes = {
   dark: parseHexTokens(blockBody("@theme {")),

@@ -10,6 +10,13 @@ export {
   type AiTextFieldProps,
 } from "./ai-text-field.js";
 export {
+  type ChartMarker,
+  type ChartSeries,
+  type ChartTone,
+  SegmentBarChart,
+  type SegmentBarRow,
+  StackedAreaChart,
+  StackedBarChart,
   StatusBarChart,
   type StatusBarEntry,
   smoothPath,
@@ -17,6 +24,7 @@ export {
   type TimeseriesPoint,
 } from "./charts.js";
 export { CollapsibleSection } from "./collapsible-section.js";
+export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.js";
 export { DetailList } from "./detail-list.js";
 export { Drawer, type DrawerProps } from "./drawer.js";
 export { FeedList, type FeedRow } from "./feed-list.js";
@@ -78,7 +86,14 @@ export {
   type SideBySideTableColumn,
   type SideBySideTableRow,
 } from "./side-by-side-table.js";
-export { MiniStat, Sparkline, StatCard, type StatDelta, type StatTone } from "./stat.js";
+export {
+  MiniStat,
+  Sparkline,
+  StatCard,
+  type StatDelta,
+  StatStripCell,
+  type StatTone,
+} from "./stat.js";
 export { EmptyState, ErrorState, LoadingState } from "./states.js";
 export {
   STATUS_TONE_TEXT,

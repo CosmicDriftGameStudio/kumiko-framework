@@ -7,10 +7,7 @@ import {
   defineFeature,
   type FeatureDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { ConfigQueries } from "../config/index.js";
-import { JobQueries } from "../jobs/index.js";
-import { TenantQueries } from "../tenant/index.js";
-import { UserQueries } from "../user/index.js";
+import { DEFAULT_METRICS, type MetricDefinition } from "../metrics/index.js";
 import {
   ADMIN_SHELL_FEATURE,
   DEFAULT_PLATFORM_WORKSPACE_ID,
@@ -19,6 +16,13 @@ import {
   TENANT_OVERVIEW_SCREEN_ID,
 } from "./constants.js";
 import { ADMIN_SHELL_I18N } from "./i18n.js";
+import {
+  OVERVIEW_TIME_RANGE,
+  PLATFORM_SCOPE,
+  PLATFORM_TENANT_FILTER,
+  platformOverviewPanels,
+  tenantOverviewPanels,
+} from "./overview-panels.js";
 
 export type CreateAdminShellOptions = {
   /** Short workspace id for tenant operators (URL segment). Default `tenant-admin`. */
@@ -34,6 +38,10 @@ export type CreateAdminShellOptions = {
   readonly includeCapOverview?: boolean;
   /** When false, only overview screens + nav are registered — app owns r.workspace(). Default true. */
   readonly registerWorkspaces?: boolean;
+  /** Metric list the overview panels are built from — pass the SAME list to
+   *  createMetricsFeature / createSystemMetricsFeature. Panels exist only for
+   *  ids in this list. Default DEFAULT_METRICS. */
+  readonly metrics?: readonly MetricDefinition[];
 };
 
 export function createAdminShellFeature(options: CreateAdminShellOptions = {}): FeatureDefinition {
@@ -42,10 +50,11 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
   const includeTierAdmin = options.includeTierAdmin ?? true;
   const includeCapOverview = options.includeCapOverview ?? false;
   const registerWorkspaces = options.registerWorkspaces ?? true;
+  const metrics = options.metrics ?? DEFAULT_METRICS;
 
   return defineFeature(ADMIN_SHELL_FEATURE, (r) => {
     r.describe(
-      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`). Mount after user, tenant, audit, and jobs; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
+      "Registers tenant-admin and platform-admin workspaces with provider nav into owner-feature screens (`tenant:screen:members`, `audit:screen:audit-log`, `tenant:screen:tenant-list`, `jobs:screen:job-runs`, optional `tier-engine:screen:tier-admin`, optional `cap-overview:screen:my-caps`/`cap-overview:screen:tenant-cap-list`) and the two overview dashboards, built from the metrics list (`metrics` option, default DEFAULT_METRICS). Mount after user, tenant, audit, jobs, metrics and metrics-system; pass `workspaceIds` to match app URL conventions (e.g. Studio `d`/`s`, PublicStatus `admin`/`sysadmin`). Client: `adminShellClient()`, `tenantClient()`, `auditClient()`, `jobsClient()`, optional `tierEngineClient()`.",
     );
     r.uiHints({
       displayLabel: "Admin Shell",
@@ -56,6 +65,8 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
     r.requires("tenant");
     r.requires("audit");
     r.requires("jobs");
+    r.requires("metrics");
+    r.requires("metrics-system");
     if (includeTierAdmin) r.requires("tier-engine");
     if (includeCapOverview) r.requires("cap-overview");
 
@@ -80,35 +91,9 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       type: "dashboard",
       access: { roles: access.admin },
       description:
-        "Landing page of the tenant-admin workspace, showing pending invitation, member and missing-config counts for the caller's own tenant so an operator sees what needs attention there.",
-      panels: [
-        {
-          kind: "stat",
-          id: "pending-invitations",
-          label: "admin-shell:overview.pendingInvitations",
-          query: TenantQueries.invitations,
-          // tenant:query:invitations returns a bare array, not a paged
-          // envelope — "length" reads record["length"], i.e. the array's
-          // own .length. Not a typo.
-          valueField: "length",
-        },
-        {
-          kind: "stat",
-          id: "members",
-          label: "admin-shell:overview.members",
-          query: TenantQueries.members,
-          // Same array-shaped response as invitations above.
-          valueField: "length",
-        },
-        {
-          kind: "stat",
-          id: "missing-config",
-          label: "admin-shell:overview.missingConfig",
-          query: ConfigQueries.readiness,
-          valueField: "missingCount",
-          toneField: "missingTone",
-        },
-      ],
+        "Landing page of the tenant-admin workspace: activity, failed jobs and deliveries, quotas and open admin tasks for the caller's own tenant, over a selectable time range.",
+      timeRange: OVERVIEW_TIME_RANGE,
+      panels: [...tenantOverviewPanels(metrics, { includeCapOverview })],
     });
     r.nav({
       id: "tenant-overview",
@@ -123,33 +108,12 @@ export function createAdminShellFeature(options: CreateAdminShellOptions = {}): 
       type: "dashboard",
       access: { roles: access.systemAdmin },
       description:
-        "Landing page of the platform-admin workspace, showing installation-wide tenant, user and failed-job counts so a system admin sees the health of the whole deployment at a glance.",
-      panels: [
-        {
-          kind: "stat",
-          id: "tenants",
-          label: "admin-shell:overview.tenants",
-          query: TenantQueries.list,
-          params: { totalCount: true },
-          valueField: "total",
-        },
-        {
-          kind: "stat",
-          id: "users",
-          label: "admin-shell:overview.users",
-          query: UserQueries.list,
-          params: { totalCount: true },
-          valueField: "total",
-        },
-        {
-          kind: "stat",
-          id: "failed-jobs",
-          label: "admin-shell:overview.failedJobs",
-          query: JobQueries.list,
-          params: { status: "failed", totalCount: true },
-          valueField: "total",
-        },
-      ],
+        "Landing page of the platform-admin workspace: tenant, user, job and delivery health across all tenants for a system admin, over a selectable time range.",
+      scope: PLATFORM_SCOPE,
+      timeRange: OVERVIEW_TIME_RANGE,
+      // The picker needs a SystemAdmin {rows:{value,label}} tenant query; only cap-overview ships one.
+      ...(includeCapOverview && { filter: PLATFORM_TENANT_FILTER }),
+      panels: [...platformOverviewPanels(metrics)],
     });
     r.nav({
       id: "platform-overview",

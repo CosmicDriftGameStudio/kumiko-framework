@@ -18,6 +18,9 @@ function labelKeys(prefix: string, keys: readonly string[]): Readonly<Record<str
 
 const JOB_STATUS_LABELS = labelKeys("metrics:jobStatus", JOB_STATUSES);
 const DELIVERY_STATUS_LABELS = labelKeys("metrics:deliveryStatus", Object.values(DeliveryStatus));
+// Channel ids are open (extension point), so only the bundled ones are mapped;
+// unknown channels fall back to their raw id. Shared map: labelOf serves groupBy and stackBy.
+const DELIVERY_CHANNEL_LABELS = labelKeys("metrics:deliveryChannel", ["inApp", "email", "push"]);
 
 export const jobRunsByStatusMetric = defineMetric({
   id: "job-runs-by-status",
@@ -67,7 +70,7 @@ export const deliveriesByChannelMetric = defineMetric({
   timeField: "createdAt",
   groupBy: "channel",
   stackBy: "status",
-  groupLabels: DELIVERY_STATUS_LABELS,
+  groupLabels: { ...DELIVERY_CHANNEL_LABELS, ...DELIVERY_STATUS_LABELS },
   scopes: ["tenant", "system"],
 });
 
