@@ -12,9 +12,11 @@ import {
   LanguageMenuItems,
   SidebarBrand,
   ThemeMenuItem,
+  ThemeToggle,
 } from "@cosmicdrift/kumiko-renderer-web";
 import { MoonStar, Sun } from "lucide-react";
 import type { ReactNode } from "react";
+import { AssistantAction } from "./assistant-action";
 import { BETA_TENANT_ID, DEV_TENANT_ID } from "./auth-constants";
 
 const APP_NAME = "Kumiko Walkthrough";
@@ -42,6 +44,12 @@ export function AppShell({
     <DefaultAppShell
       brand={<SidebarBrand name={APP_NAME} plan={APP_TAGLINE} />}
       schema={schema}
+      headerActions={
+        <>
+          <AssistantAction />
+          <ThemeToggle />
+        </>
+      }
       sidebarFooter={
         <UserMenu variant="sidebar">
           <TenantMenuItems tenantName={tenantName} />

@@ -5,8 +5,13 @@
 // Why a slot: the header sits above the content and is owned by the shell; a
 // screen can only reach it through a portal. Same inversion as SidebarPanel.
 
-import { PageHeaderSlotAvailableProvider } from "@cosmicdrift/kumiko-renderer";
+import {
+  type ActionMenuItemSpec,
+  PageHeaderCompactProvider,
+  PageHeaderSlotAvailableProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import { createContext, type ReactNode, useContext, useMemo, useState } from "react";
+import { useIsNarrowViewport } from "../primitives/use-narrow-viewport.js";
 
 type SlotElement = HTMLElement | null;
 
@@ -19,6 +24,8 @@ export type PageHeaderSlot = {
   readonly setTitle: (title: string | undefined) => void;
   readonly recordTitle: string | undefined;
   readonly setRecordTitle: (recordTitle: string | undefined) => void;
+  readonly overflowItems: readonly ActionMenuItemSpec[] | undefined;
+  readonly setOverflowItems: (items: readonly ActionMenuItemSpec[] | undefined) => void;
 };
 
 const PageHeaderSlotContext = createContext<PageHeaderSlot | null>(null);
@@ -33,6 +40,10 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
   const [actionsElement, setActionsElement] = useState<SlotElement>(null);
   const [title, setTitle] = useState<string | undefined>(undefined);
   const [recordTitle, setRecordTitle] = useState<string | undefined>(undefined);
+  const [overflowItems, setOverflowItems] = useState<readonly ActionMenuItemSpec[] | undefined>(
+    undefined,
+  );
+  const compact = useIsNarrowViewport();
   const value = useMemo(
     () => ({
       statusElement,
@@ -43,12 +54,16 @@ export function PageHeaderSlotProvider({ children }: { readonly children: ReactN
       setTitle,
       recordTitle,
       setRecordTitle,
+      overflowItems,
+      setOverflowItems,
     }),
-    [statusElement, actionsElement, title, recordTitle],
+    [statusElement, actionsElement, title, recordTitle, overflowItems],
   );
   return (
     <PageHeaderSlotContext.Provider value={value}>
-      <PageHeaderSlotAvailableProvider value={true}>{children}</PageHeaderSlotAvailableProvider>
+      <PageHeaderSlotAvailableProvider value={true}>
+        <PageHeaderCompactProvider value={compact}>{children}</PageHeaderCompactProvider>
+      </PageHeaderSlotAvailableProvider>
     </PageHeaderSlotContext.Provider>
   );
 }

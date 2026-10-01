@@ -869,6 +869,17 @@ describe("EmbeddedListInput — horizontal scroll (fw#2159)", () => {
     expect(nestedTableContainers.length).toBe(1);
   });
 
+  test("the add-row button sits outside the scroll container so it stays visible while the columns scroll", () => {
+    const onAddRow = mock(() => {});
+    const rows = [{ description: "A", quantity: 1, amount: 100 }];
+    renderWithLocale(<EmbeddedListInput {...baseProps({ rows, onAddRow })} />);
+    const add = screen.getByTestId("lines-add");
+    expect(screen.getByTestId("lines-desktop-scroll").contains(add)).toBe(false);
+    expect(screen.getByTestId("lines-desktop").contains(add)).toBe(true);
+    fireEvent.click(add);
+    expect(onAddRow).toHaveBeenCalledTimes(1);
+  });
+
   test("a fresh desktop table always mounts scrolled fully left", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
     renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);

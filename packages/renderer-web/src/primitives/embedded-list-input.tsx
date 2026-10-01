@@ -344,6 +344,7 @@ type RowActionsProps = {
   readonly moveDownLabel: string;
   readonly removeLabel: string;
   readonly testIdPrefix: string | undefined;
+  readonly buttonSizeClass?: string;
 };
 
 function RowActions({
@@ -359,6 +360,7 @@ function RowActions({
   moveDownLabel,
   removeLabel,
   testIdPrefix,
+  buttonSizeClass = "size-7",
 }: RowActionsProps): ReactNode {
   const duplicateDisabled = maxItems !== undefined && rowsLength >= maxItems;
   const removeDisabled = rowsLength <= (minItems ?? 0);
@@ -368,7 +370,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-7"
+        className={buttonSizeClass}
         aria-label={duplicateLabel}
         disabled={duplicateDisabled}
         onClick={() => onDuplicateRow(rowIndex)}
@@ -380,7 +382,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-7"
+        className={buttonSizeClass}
         aria-label={moveUpLabel}
         disabled={rowIndex === 0}
         onClick={() => onMoveRow(rowIndex, rowIndex - 1)}
@@ -392,7 +394,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-7"
+        className={buttonSizeClass}
         aria-label={moveDownLabel}
         disabled={rowIndex === rowsLength - 1}
         onClick={() => onMoveRow(rowIndex, rowIndex + 1)}
@@ -404,7 +406,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
-        className="size-7"
+        className={buttonSizeClass}
         aria-label={removeLabel}
         disabled={removeDisabled}
         onClick={() => onRemoveRow(rowIndex)}
@@ -721,23 +723,6 @@ export function EmbeddedListInput({
                         </Fragment>
                       );
                     })}
-                    {showControls && (
-                      <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={columns.length + 1} className="p-2">
-                          <UiButton
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={onAddRow}
-                            disabled={addDisabled}
-                            data-testid={testIdFor("add")}
-                          >
-                            <Plus className="size-4" aria-hidden="true" />
-                            {addLabel}
-                          </UiButton>
-                        </TableCell>
-                      </TableRow>
-                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -754,6 +739,21 @@ export function EmbeddedListInput({
                 />
               )}
             </div>
+            {showControls && (
+              <div className="border-t p-2">
+                <UiButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onAddRow}
+                  disabled={addDisabled}
+                  data-testid={testIdFor("add")}
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  {addLabel}
+                </UiButton>
+              </div>
+            )}
             {hasTotals && (
               <div
                 data-testid={testIdFor("totals")}
@@ -839,6 +839,7 @@ export function EmbeddedListInput({
                       moveDownLabel={moveDownLabel}
                       removeLabel={removeLabel}
                       testIdPrefix={testIdFor(`row-${rowIndex}`)}
+                      buttonSizeClass="size-10"
                     />
                   </div>
                 )}

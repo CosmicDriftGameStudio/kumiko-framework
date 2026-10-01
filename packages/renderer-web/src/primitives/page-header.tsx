@@ -8,8 +8,10 @@ export function DefaultPageHeader({
   recordTitle,
   status,
   actions,
+  overflowItems,
 }: PageHeaderProps): ReactNode {
   const slot = usePageHeaderSlot();
+  const setOverflowItems = slot?.setOverflowItems;
   const setTitle = slot?.setTitle;
   const setRecordTitle = slot?.setRecordTitle;
 
@@ -24,6 +26,14 @@ export function DefaultPageHeader({
     setTitle(title);
     return () => setTitle(undefined);
   }, [setTitle, title]);
+
+  // Without a slot no caller passes overflowItems: screens only render a
+  // PageHeader below a shell that offers one.
+  useEffect(() => {
+    if (setOverflowItems === undefined || overflowItems === undefined) return;
+    setOverflowItems(overflowItems);
+    return () => setOverflowItems(undefined);
+  }, [setOverflowItems, overflowItems]);
 
   if (slot === null) {
     return (

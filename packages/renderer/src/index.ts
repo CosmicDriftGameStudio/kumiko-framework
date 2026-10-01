@@ -192,7 +192,12 @@ export {
 } from "./i18n.js";
 export { kumikoDefaultTranslations } from "./i18n-defaults.js";
 export { InsideDrawerProvider, useInsideDrawer } from "./inside-drawer.js";
-export { PageHeaderSlotAvailableProvider, usePageHeaderSlotAvailable } from "./page-header-slot.js";
+export {
+  PageHeaderCompactProvider,
+  PageHeaderSlotAvailableProvider,
+  usePageHeaderCompact,
+  usePageHeaderSlotAvailable,
+} from "./page-header-slot.js";
 export type {
   ActionMenuItemSpec,
   ActionOverflowMenuProps,
