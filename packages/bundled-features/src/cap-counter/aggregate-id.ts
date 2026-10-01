@@ -40,7 +40,7 @@ export function capCounterAggregateId(
  * verhindert dass ein versehentlicher Calendar-Increment auf den
  * Rolling-Stream trifft.
  *
- * **Aufruf-Pattern:** Caller (incrementRollingCap-Helper) ruft mit
+ * **Aufruf-Pattern:** Caller (CapCounterHandlers.incrementRolling via ctx.write) ruft mit
  * tenantId + capName auf, erzeugt Increment-Events am stream. Race-
  * frei: der event-store hängt mit auto-incrementing version an.
  */
