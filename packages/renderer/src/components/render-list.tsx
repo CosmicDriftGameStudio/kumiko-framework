@@ -164,6 +164,14 @@ export type ToolbarActionButton = {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+// Fire-and-forget actions (schema navigate/drawer) can leave the toolbar for the
+// page header without losing the confirm dialog or busy/error surfacing.
+function isHeaderPromotableToolbarAction(action: ToolbarActionButton): boolean {
+  return (
+    action.style === "primary" && action.confirm === undefined && action.confirmRequired === false
+  );
+}
+
 export function RenderList(props: RenderListProps): ReactNode {
   const {
     screen,
@@ -375,12 +383,38 @@ export function RenderList(props: RenderListProps): ReactNode {
         {effectiveCreateLabel}
       </Button>
     ) : undefined;
+  // Without onCreate (e.g. a navigate action as the list's only CTA) the primary
+  // toolbar action takes the header slot on phones, so it is not a text button
+  // squeezed next to the search field. Desktop keeps it in the toolbar.
+  const promotedToolbarAction =
+    onCreate === undefined &&
+    PageHeader !== undefined &&
+    pageHeaderSlotAvailable &&
+    pageHeaderCompact
+      ? toolbarActions?.find(isHeaderPromotableToolbarAction)
+      : undefined;
+  const promotedActionButton =
+    promotedToolbarAction !== undefined ? (
+      <Button
+        variant="primary"
+        icon={promotedToolbarAction.icon ?? "plus"}
+        size="icon"
+        ariaLabel={promotedToolbarAction.label}
+        title={promotedToolbarAction.label}
+        onClick={() => void promotedToolbarAction.onTrigger()}
+        testId={`render-list-toolbar-action-${promotedToolbarAction.id}`}
+      />
+    ) : undefined;
+  const toolbarActionsInToolbar = toolbarActions?.filter((a) => a !== promotedToolbarAction) ?? [];
+  const hasToolbarActionsInToolbar = toolbarActionsInToolbar.length > 0;
   const toolbarEnd =
-    hasHeaderSlot || hasToolbarActions || (onCreate !== undefined && !createInPageHeader) ? (
+    hasHeaderSlot ||
+    hasToolbarActionsInToolbar ||
+    (onCreate !== undefined && !createInPageHeader) ? (
       <>
         {hasHeaderSlot && <ListHeaderSlotMount screen={screen} />}
-        {hasToolbarActions &&
-          toolbarActions.map((a) => (
+        {hasToolbarActionsInToolbar &&
+          toolbarActionsInToolbar.map((a) => (
             <ToolbarActionView
               key={a.id}
               action={a}
@@ -422,6 +456,9 @@ export function RenderList(props: RenderListProps): ReactNode {
   return (
     <>
       {createInPageHeader && PageHeader !== undefined && <PageHeader actions={createButton} />}
+      {promotedActionButton !== undefined && PageHeader !== undefined && (
+        <PageHeader actions={promotedActionButton} />
+      )}
       {referenceColumns.map(
         (rc: { field: string; refEntity: string; refFeature: string; labelField: string }) => (
           <ReferenceLookupBridge

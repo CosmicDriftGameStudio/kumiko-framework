@@ -28,13 +28,13 @@ describe("ThemeMenuItem", () => {
     const toggleMode = mock();
     renderInOpenMenu("light", toggleMode);
     await userEvent.setup().click(screen.getByText("open"));
-    await userEvent.setup().click(screen.getByText("Dunkler Modus"));
+    await userEvent.setup().click(screen.getByText("Dark theme"));
     expect(toggleMode).toHaveBeenCalledTimes(1);
   });
 
   test("in dark mode it offers the light mode", async () => {
     renderInOpenMenu("dark", mock());
     await userEvent.setup().click(screen.getByText("open"));
-    expect(screen.getByText("Heller Modus")).toBeTruthy();
+    expect(screen.getByText("Light theme")).toBeTruthy();
   });
 });

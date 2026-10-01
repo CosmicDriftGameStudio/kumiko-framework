@@ -114,6 +114,17 @@ async function fillFirstPositionRow(page: Page): Promise<void> {
   await inputs.nth(3).fill("01.09.2026");
   await inputs.nth(4).fill("31.12.2026");
   await inputs.nth(4).blur();
+  // Filling the last date input scrolls it into view; reset so the shot starts at the first column.
+  await scrollInlineTable(page, "start");
+}
+
+async function scrollInlineTable(page: Page, edge: "start" | "end"): Promise<void> {
+  await page
+    .locator('[data-testid$="-desktop-scroll"]')
+    .evaluate(
+      (container, toEnd) => container.scrollTo({ left: toEnd ? container.scrollWidth : 0 }),
+      edge === "end",
+    );
 }
 
 test("formular-inline-tabelle-light", async ({ page }) => {
@@ -389,6 +400,27 @@ test.describe("schmal", () => {
       .evaluate((container) => container.scrollTo({ left: container.scrollWidth }));
     await shot(page, "formular-inline-tabelle-schmal");
   });
+});
+
+// A drawer form is ~560px wide inside a desktop viewport: the container is narrow,
+// the viewport is not, so the table keeps its desktop layout and must scroll
+// instead of squeezing reference/select/number columns.
+test("formular-inline-tabelle-drawer-breit", async ({ page }) => {
+  await openRecordPositionsWithRow(page);
+  await fillFirstPositionRow(page);
+  // The widest realistic quantity must stay fully readable (solon showed "245,!").
+  await page
+    .locator("tbody tr")
+    .first()
+    .locator("input:not([type=hidden])")
+    .first()
+    .fill("12345.5");
+  await page
+    .locator('[data-testid$="-desktop"]')
+    .evaluate((desktop) => desktop.parentElement?.style.setProperty("width", "560px"));
+  await shot(page, "formular-inline-tabelle-drawer-breit");
+  await scrollInlineTable(page, "end");
+  await shot(page, "formular-inline-tabelle-drawer-ende");
 });
 
 test("liste-dark", async ({ page }) => {

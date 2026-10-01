@@ -111,6 +111,6 @@ describe("UserMenu", () => {
     await user.click(screen.getByRole("button", { name: /Test User/ }));
     await user.click(screen.getByText("Beta"));
     expect(switchTenant).toHaveBeenCalledWith("tenant-2");
-    expect(screen.getByText(/Modus/)).toBeTruthy();
+    expect(screen.getByText(/theme/)).toBeTruthy();
   });
 });
