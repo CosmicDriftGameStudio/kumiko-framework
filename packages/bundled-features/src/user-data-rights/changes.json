@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.330.0",
+    "type": "fix",
+    "title": "The privacy-center restriction and deletion dialog titles are registered in English by the feature",
+    "detail": "The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses \"Ereignisprotokoll\" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature."
+  },
+  {
     "version": "0.320.0",
     "type": "fix",
     "title": "Audit IP comes from the framework's trustedProxyHops-aware resolver, not a self-parsed X-Forwarded-For",

@@ -1,5 +1,105 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.330.0
+
+### Minor Changes
+
+- dc5981b: Dashboard screens get new chart kinds, panel states and a time range; admin-shell overviews are built from metrics
+
+  Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Dashboard screens get stacked-bars, segment-bars and stacked-area charts, panel states, time range, scope badge and bar/badge list columns
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: breaking
+  title: Dashboard screens show screen.description only when it is an i18n key; plain-text descriptions stay agent-facing and are no longer rendered
+  migration: |
+    To keep a visible subtitle under a dashboard title, set screen.description to an i18n key (for example "my-feature:screen.overview.description") and register its translations.
+  -->
+
+  <!-- kumiko-changes
+  feature: metrics
+  type: fix
+  title: deliveries-by-channel shows readable channel labels instead of raw channel ids
+  -->
+
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: breaking
+  title: admin-shell requires the metrics and metrics-system features and builds its overview dashboards from a metrics list
+  migration: |
+    Mount createMetricsFeature({ metrics: DEFAULT_METRICS }) and createSystemMetricsFeature({ metrics: DEFAULT_METRICS }) from the metrics bundled feature before admin-shell. DEFAULT_METRICS also requires the delivery, sessions, jobs and tenant features.
+
+    If you do not mount all of them, pass the same reduced list to all three: createMetricsFeature({ metrics }), createSystemMetricsFeature({ metrics }) and createAdminShellFeature({ metrics }). Overview panels exist only for metric ids in that list.
+  -->
+
+- 7a886f1: German and Spanish cover every registered key, enforced by a parity test
+
+  The new i18n-parity test in `use-all-bundled` harvests the English copy from the real registrations (feature translations, client plugins, renderer defaults, mail templates) and fails with `key -> locale` when `locale-de` or `locale-es` lacks a key or an en-catalog drifts. This added the missing German and Spanish copy for billing plans, the privacy-center status field and many more keys, and removed 110 translation keys no feature registers any more. German uses "Ereignisprotokoll" for the audit log everywhere. `userDataRights.privacyCenter.restriction.dialogTitle` and `.deletion.dialogTitle` are registered in English by the feature.
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings cover every registered key and call the audit log "Ereignisprotokoll" everywhere
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish strings cover every registered key
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: The privacy-center restriction and deletion dialog titles are registered in English by the feature
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: breaking
+  title: locale-de and locale-es drop 110 keys that no framework feature registers any more (old custom-screen keys such as audit.log.*, jobs.runs.*, userDataRights.privacyCenter.title)
+  migration: |
+    The framework no longer renders these keys, so framework screens are unaffected. If app code or an app test calls t() with one of them, register that key in the app's own translations or switch to the key the framework screen uses now (for example the screen title key screen:<screen-id>.title, as in screen:audit-log.title).
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: breaking
+  title: locale-es drops the same keys that no framework feature registers any more
+  migration: |
+    Same as locale-de: register any removed key your app still calls in the app's own translations, or switch to the key the framework screen uses now.
+  -->
+
+### Patch Changes
+
+- 1e18129: Bundled screens use translated subtitles; PAT status and MFA strings are translated in de and es
+
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: improvement
+  title: Bundled screen subtitles (admin-shell, jobs, auth-mfa, tier-engine, user-profile) are i18n keys with de and es translations
+  migration: |
+    Additive. Apps that override these screen descriptions keep working; apps that asserted the old English description text in tests now see the translated subtitle.
+  -->
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: fix
+  title: The token list status column shows translated labels instead of raw status values
+  -->
+
+- Updated dependencies [dc5981b]
+- Updated dependencies [7a886f1]
+- Updated dependencies [89e32ce]
+- Updated dependencies [f19fb5c]
+- Updated dependencies [1e18129]
+  - @cosmicdrift/kumiko-framework@0.330.0
+
 ## 0.329.0
 
 ### Patch Changes

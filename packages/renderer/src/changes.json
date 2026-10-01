@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.330.0",
+    "type": "fix",
+    "title": "entityEdit screens show the server's reason when a delete is rejected",
+    "detail": "The reason (for example from a preDelete hook) now appears in the form-error banner instead of the confirm dialog closing silently. `RenderEdit`'s `onDelete` may return the rejected write's `DispatcherError` for this."
+  },
+  {
+    "version": "0.330.0",
+    "type": "improvement",
+    "title": "Screen schema gains createScreen, recordTitleField and configEdit fillHeight; extension tabs render unframed",
+    "detail": "`createScreen` on an entityList names the screen opened by the create button. `recordTitleField` on an entityEdit shows a field value as the record title in the header breadcrumb (list > record > screen title). `fillHeight` on a configEdit (default true) switches it to the screen-form layout with a pinned footer; `false` restores the card layout. All three are optional and validated at boot. Extension tabs on a projectionDetail no longer wrap their content in a Card, like relatedList tabs. A `headerSlot` now renders inside the page-header slot instead of replacing the header.",
+    "migration": "Additive. Set `createScreen: \"<screen-id>\"` on an entityList and `recordTitleField: \"<field>\"` on an entityEdit to use them. configEdit screens now fill the shell height; set `fillHeight: false` to keep the card layout. Apps with screenshot tests of extension tabs lose the surrounding card frame."
+  },
+  {
     "version": "0.328.0",
     "type": "breaking",
     "title": "Screens fill the shell height by default",

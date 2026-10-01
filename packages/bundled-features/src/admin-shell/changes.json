@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.330.0",
+    "type": "breaking",
+    "title": "admin-shell requires the metrics and metrics-system features and builds its overview dashboards from a metrics list",
+    "detail": "Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.",
+    "migration": "Mount createMetricsFeature({ metrics: DEFAULT_METRICS }) and createSystemMetricsFeature({ metrics: DEFAULT_METRICS }) from the metrics bundled feature before admin-shell. DEFAULT_METRICS also requires the delivery, sessions, jobs and tenant features.\n\nIf you do not mount all of them, pass the same reduced list to all three: createMetricsFeature({ metrics }), createSystemMetricsFeature({ metrics }) and createAdminShellFeature({ metrics }). Overview panels exist only for metric ids in that list."
+  },
+  {
+    "version": "0.330.0",
+    "type": "improvement",
+    "title": "Bundled screen subtitles (admin-shell, jobs, auth-mfa, tier-engine, user-profile) are i18n keys with de and es translations",
+    "migration": "Additive. Apps that override these screen descriptions keep working; apps that asserted the old English description text in tests now see the translated subtitle."
+  },
+  {
     "version": "0.241.0",
     "type": "fix",
     "title": "tenant-overview/platform-overview dashboards no longer show \"undefined\" tiles; both converted to declarative dashboard screens (fw#2312).",

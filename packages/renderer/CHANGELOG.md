@@ -1,5 +1,98 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.330.0
+
+### Minor Changes
+
+- dc5981b: Dashboard screens get new chart kinds, panel states and a time range; admin-shell overviews are built from metrics
+
+  Dashboard panels gain the chart kinds `stacked-bars`, `segment-bars` and `stacked-area`, a subtitle, per-series tones, static query `params`, `ignoreScreenFilter`, an empty label and hint, a `span` (half/full width), a stat `sparklineField` and static `tone`, a `negative` tone, an unlabelled `stat-group` KPI strip and bar/badge list columns. Every panel shows skeleton, empty and error states with retry. A screen can declare a `timeRange` control and a `scope` badge and notice. The admin-shell overview screens use all of this and show the metrics of the new `metrics` and `metrics-system` features. `deliveries-by-channel` now labels the email, in-app and push channels.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Dashboard screens get stacked-bars, segment-bars and stacked-area charts, panel states, time range, scope badge and bar/badge list columns
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: breaking
+  title: Dashboard screens show screen.description only when it is an i18n key; plain-text descriptions stay agent-facing and are no longer rendered
+  migration: |
+    To keep a visible subtitle under a dashboard title, set screen.description to an i18n key (for example "my-feature:screen.overview.description") and register its translations.
+  -->
+
+  <!-- kumiko-changes
+  feature: metrics
+  type: fix
+  title: deliveries-by-channel shows readable channel labels instead of raw channel ids
+  -->
+
+  <!-- kumiko-changes
+  feature: admin-shell
+  type: breaking
+  title: admin-shell requires the metrics and metrics-system features and builds its overview dashboards from a metrics list
+  migration: |
+    Mount createMetricsFeature({ metrics: DEFAULT_METRICS }) and createSystemMetricsFeature({ metrics: DEFAULT_METRICS }) from the metrics bundled feature before admin-shell. DEFAULT_METRICS also requires the delivery, sessions, jobs and tenant features.
+
+    If you do not mount all of them, pass the same reduced list to all three: createMetricsFeature({ metrics }), createSystemMetricsFeature({ metrics }) and createAdminShellFeature({ metrics }). Overview panels exist only for metric ids in that list.
+  -->
+
+### Patch Changes
+
+- 7a886f1: Published `.d.ts` resolve without extra setup; READMEs ship; renderer-web is a declared dependency
+
+  The emitted declarations that mention `Temporal` or `Bun` now carry a preserved `/// <reference types>` for `temporal-polyfill/global` and `bun-types`, so a consumer without `bun-types` in its tsconfig no longer gets unresolved `Temporal`/`Bun` errors from our declarations. `kumiko-server-runtime` and `kumiko-dev-server` declare `@cosmicdrift/kumiko-renderer-web` as a dependency (they resolve its `styles.css`; it was already installed through bundled-features) and `bun-types` as a dependency. `bundled-features`, `server-runtime`, `dev-server`, `dispatcher-live`, `headless`, `renderer`, `renderer-web` and `cli` ship the README.md their `files` list already named. `bun run check:dist` now typechecks the packed install, checks README shipping, runtime-resolved package declarations and the `styles.css` resolve.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: server-runtime and dev-server declare their renderer-web dependency and their .d.ts resolve Bun and Temporal types without consumer setup
+  -->
+
+- f0dabdf: entityEdit screens show the server's reason when a delete is rejected
+
+  The reason (for example from a preDelete hook) now appears in the form-error banner instead of the confirm dialog closing silently. `RenderEdit`'s `onDelete` may return the rejected write's `DispatcherError` for this.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: entityEdit screens show the server's reason when a delete is rejected
+  -->
+
+- 1e18129: Number fields use a locale-aware text input (role textbox, not spinbutton)
+
+  Number, bigInt and decimal fields render a text input (role `textbox`) with a decimal or numeric keypad instead of `<input type="number">`. The blurred value is formatted with the app locale and the field `grouping` option (false hides the thousands separator); while focused the raw value is edited. Invalid locale tags fall back to en-US instead of throwing. Numeric and date table cells use tabular figures; the global body default is removed.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Number fields use a locale-aware text input (role textbox, not spinbutton)
+  migration: |
+    Number inputs are now text inputs. Tests that query a number field by the `spinbutton` role must use `textbox`; code that read `input.valueAsNumber` must parse `input.value`.
+  -->
+
+- 1e18129: Screen schema gains createScreen on entityList, recordTitleField on entityEdit and fillHeight on configEdit; extension tabs render unframed
+
+  `createScreen` on an entityList names the screen opened by the create button. `recordTitleField` on an entityEdit shows a field value as the record title in the header breadcrumb (list > record > screen title). `fillHeight` on a configEdit (default true) switches it to the screen-form layout with a pinned footer; `false` restores the card layout. All three are optional and validated at boot. Extension tabs on a projectionDetail no longer wrap their content in a Card, like relatedList tabs. A `headerSlot` now renders inside the page-header slot instead of replacing the header.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Screen schema gains createScreen, recordTitleField and configEdit fillHeight; extension tabs render unframed
+  migration: |
+    Additive. Set `createScreen: "<screen-id>"` on an entityList and `recordTitleField: "<field>"` on an entityEdit to use them. configEdit screens now fill the shell height; set `fillHeight: false` to keep the card layout. Apps with screenshot tests of extension tabs lose the surrounding card frame.
+  -->
+
+- Updated dependencies [dc5981b]
+- Updated dependencies [7a886f1]
+- Updated dependencies [89e32ce]
+- Updated dependencies [f19fb5c]
+- Updated dependencies [1e18129]
+  - @cosmicdrift/kumiko-framework@0.330.0
+  - @cosmicdrift/kumiko-types@0.330.0
+  - @cosmicdrift/kumiko-headless@0.330.0
+
 ## 0.329.0
 
 ### Minor Changes
