@@ -3,6 +3,7 @@ import {
   buildBaseColumns,
   defineUnmanagedTable,
   type EntityTableMeta,
+  index,
   instant,
   table as pgTable,
   sql,
@@ -28,21 +29,27 @@ import {
 // PK = event aggregate-id (uuid). Keeps the projection row linked back to
 // its event stream 1:1 — same convention as jobRunsTable + tenantSecretsTable.
 // Event replays stay idempotent (primary-key conflict instead of duplicate rows).
-export const deliveryAttemptsTable = pgTable("store_delivery_attempts", {
-  id: uuid("id").primaryKey(),
-  tenantId: uuid("tenant_id").notNull(),
-  notificationType: text("notification_type").notNull(),
-  channel: text("channel").notNull(),
-  // User-IDs as UUID-strings post-ES migration.
-  recipientId: text("recipient_id"),
-  recipientAddress: text("recipient_address"),
-  status: text("status").notNull().$type<"queued" | "sent" | "failed" | "skipped">(),
-  error: text("error"),
-  // Default covers rows that predate the column; new rows always carry the
-  // notify() priority from the event payload.
-  priority: text("priority").notNull().default("normal").$type<"critical" | "normal" | "low">(),
-  createdAt: instant("created_at").default(sql`now()`).notNull(),
-});
+const DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX = "store_delivery_attempts_tenant_id_created_at_idx";
+
+export const deliveryAttemptsTable = pgTable(
+  "store_delivery_attempts",
+  {
+    id: uuid("id").primaryKey(),
+    tenantId: uuid("tenant_id").notNull(),
+    notificationType: text("notification_type").notNull(),
+    channel: text("channel").notNull(),
+    // User-IDs as UUID-strings post-ES migration.
+    recipientId: text("recipient_id"),
+    recipientAddress: text("recipient_address"),
+    status: text("status").notNull().$type<"queued" | "sent" | "failed" | "skipped">(),
+    error: text("error"),
+    // Default covers rows that predate the column; new rows always carry the
+    // notify() priority from the event payload.
+    priority: text("priority").notNull().default("normal").$type<"critical" | "normal" | "low">(),
+    createdAt: instant("created_at").default(sql`now()`).notNull(),
+  },
+  (t) => [index(DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX).on(t.tenantId, t.createdAt)],
+);
 
 // **Unmanaged table** — bewusst KEIN createEntity. Begründung:
 //   - id kommt aus dem Aggregate-Stream (kein gen_random_uuid()-DEFAULT)
@@ -54,6 +61,7 @@ export const deliveryAttemptsTable = pgTable("store_delivery_attempts", {
 // aus dieser Meta ab.
 export const deliveryAttemptsTableMeta: EntityTableMeta = defineUnmanagedTable({
   tableName: "store_delivery_attempts",
+  indexes: [{ name: DELIVERY_ATTEMPTS_TENANT_CREATED_INDEX, columns: ["tenant_id", "created_at"] }],
   columns: [
     { name: "id", pgType: "uuid", notNull: true, primaryKey: true },
     { name: "tenant_id", pgType: "uuid", notNull: true },

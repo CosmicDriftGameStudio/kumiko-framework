@@ -57,6 +57,7 @@ export const jobRunEntity = createEntity({
     duration: createNumberField({ integer: true }),
     triggeredById: createTextField({ personal: false, reason: "pseudonymous_fk" }),
   },
+  indexes: [{ columns: ["startedAt"] }],
 });
 
 // Plain EntityTableMeta, NOT a branded EntityTable (buildEntityTable would

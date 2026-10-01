@@ -211,6 +211,20 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "../src/app/cap-overview-labels-feature",
     exportName: "capOverviewLabelsFeature",
   },
+  // metrics / metrics-system: no entities, so they never render into
+  // schema.generated.ts; the empty metric list is a build stub only.
+  metrics: {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/metrics",
+    factory: "createMetricsFeature",
+    defaultArgs: "{ metrics: [] }",
+  },
+  "metrics-system": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/metrics",
+    factory: "createSystemMetricsFeature",
+    defaultArgs: "{ metrics: [] }",
+  },
   "cap-counter": {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/cap-counter",

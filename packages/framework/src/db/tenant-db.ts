@@ -1,3 +1,4 @@
+import type { AggregateRow, AggregateSpec } from "@cosmicdrift/kumiko-types/aggregate-types";
 import type { EntityTableMeta } from "@cosmicdrift/kumiko-types/entity-table-meta-types";
 import type {
   EscapeHatchDeclaration,
@@ -15,6 +16,7 @@ import {
 import {
   asEntityTableMeta,
   asRawClient,
+  aggregateWhere as bunAggregateWhere,
   countWhere as bunCountWhere,
   deleteMany as bunDeleteMany,
   fetchOne as bunFetchOne,
@@ -650,6 +652,15 @@ export function createTenantDb(
     count(table: Table | EntityTableMeta, where?: WhereObject): Promise<number> {
       const filter = readWhere(table, where);
       return withDbSpan("select", table, async () => bunCountWhere(db, table, filter));
+    },
+
+    aggregate(
+      table: Table | EntityTableMeta,
+      spec: AggregateSpec,
+      where?: WhereObject,
+    ): Promise<readonly AggregateRow[]> {
+      const filter = readWhere(table, where);
+      return withDbSpan("select", table, async () => bunAggregateWhere(db, table, spec, filter));
     },
 
     insertOne<T = Record<string, unknown>>(

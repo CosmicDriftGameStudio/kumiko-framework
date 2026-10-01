@@ -49,6 +49,7 @@ const EXPECTED_REGISTRY_ONLY = new Set([
   "auth-self-registration", // from ./auth-email-password, auto-mounted with signup (#1521)
   "collection-labels", // app-local (src/app/), nav labels for this app's content collections
   "cap-overview-labels", // app-local (src/app/), labels for this app's example cap-overview caps
+  "metrics-system", // from ./metrics, companion of createMetricsFeature (platform-wide scope)
   "locale-de", // @cosmicdrift/kumiko-locale-de, not a bundled-features export
 ]);
 

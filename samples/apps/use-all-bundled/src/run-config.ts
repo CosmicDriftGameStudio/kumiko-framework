@@ -61,6 +61,11 @@ import { mailFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/mail
 import { mailTransportInMemoryFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-inmemory";
 import { mailTransportSmtpFeature } from "@cosmicdrift/kumiko-bundled-features/mail-transport-smtp";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
+import {
+  createMetricsFeature,
+  createSystemMetricsFeature,
+  DEFAULT_METRICS,
+} from "@cosmicdrift/kumiko-bundled-features/metrics";
 import { createNotesHistoryFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history";
 import { notesHistoryUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/notes-history-user-data";
 import { createPersonalAccessTokensFeature } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
@@ -234,6 +239,11 @@ export const APP_FEATURES = [
     listCaps: ["notes", "tags", "seats"],
   }),
   capOverviewLabelsFeature,
+
+  // metrics: dashboard queries for the default metrics; tenant scope reads
+  // the caller's tenant, metrics-system aggregates platform-wide.
+  createMetricsFeature({ metrics: DEFAULT_METRICS }),
+  createSystemMetricsFeature({ metrics: DEFAULT_METRICS }),
 
   // feature-toggles (smoke-only runtime stub)
   // No `getRuntime`: smoke-app never dispatches set; production wires the

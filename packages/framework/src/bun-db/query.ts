@@ -19,6 +19,12 @@
 //     drizzle's getTableName + getTableColumns (drizzle kept only as a type
 //     reference, never as a runtime API call)
 
+import type {
+  AggregateKey,
+  AggregateRow,
+  AggregateSpec,
+  AggregateTimeBucket,
+} from "@cosmicdrift/kumiko-types/aggregate-types";
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type {
   SelectOptions,
@@ -202,6 +208,11 @@ type TenantDbDelegate = {
     where: WhereObject,
   ): Promise<readonly TRow[]>;
   deleteMany(table: TableLike, where: WhereObject): Promise<void>;
+  aggregate(
+    table: TableLike,
+    spec: AggregateSpec,
+    where?: WhereObject,
+  ): Promise<readonly AggregateRow[]>;
 };
 
 // Duck-types TenantDb: five scoped methods + tenantId, no `.unsafe` of its own.
@@ -1195,6 +1206,114 @@ export async function countWhere(
   }
   const rows = (await unsafeReadRetrying(db, sqlText, values)) as readonly { count: number }[];
   return rows[0]?.count ?? 0;
+}
+
+const AGGREGATE_BUCKET_UNITS: readonly AggregateTimeBucket[] = ["hour", "day"];
+const AGGREGATE_ORDER_DIRECTIONS = ["asc", "desc"] as const;
+
+function requireAggregateColumn(info: TableInfo, field: string, role: string): string {
+  if (!info.hasColumn(field)) {
+    throw new Error(`aggregateWhere: ${role} "${field}" is not a column of ${info.name}`);
+  }
+  return quoteIdent(info.columnOf(field));
+}
+
+export function isTimestamptzType(pgType: string | undefined): boolean {
+  return pgType === "timestamptz" || pgType === "timestamptz(3)";
+}
+
+function aggregateKeyOf(raw: unknown): AggregateKey {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === "string" || typeof raw === "number" || typeof raw === "boolean") return raw;
+  if (typeof raw === "bigint") return Number(raw);
+  if (raw instanceof Date) return raw.toISOString();
+  return String(raw);
+}
+
+export async function aggregateWhere(
+  db: AnyDb,
+  table: TableLike,
+  spec: AggregateSpec,
+  where: WhereObject = {},
+): Promise<readonly AggregateRow[]> {
+  const scoped = tenantDbDelegate(db);
+  if (scoped) {
+    return scoped.aggregate(table, spec, where);
+  }
+  const info = extractTableInfo(table);
+  const params: unknown[] = [];
+
+  const { measure } = spec;
+  let measureSql: string;
+  switch (measure.fn) {
+    case "count":
+      measureSql = "COUNT(*)";
+      break;
+    case "countDistinct":
+      measureSql = `COUNT(DISTINCT ${requireAggregateColumn(info, measure.field, "measure field")})`;
+      break;
+    case "sum":
+      measureSql = `COALESCE(SUM(${requireAggregateColumn(info, measure.field, "measure field")}), 0)`;
+      break;
+    case "avg":
+      measureSql = `AVG(${requireAggregateColumn(info, measure.field, "measure field")})`;
+      break;
+    default:
+      throw new Error(
+        `aggregateWhere: unknown measure fn "${String((measure as { fn: unknown }).fn)}"`,
+      );
+  }
+
+  const dimensions = spec.groupBy ?? [];
+  const dimensionSql = dimensions.map((dimension, index) => {
+    const column = requireAggregateColumn(info, dimension.field, "groupBy field");
+    if (!("bucket" in dimension)) return `${column} AS k${index}`;
+    if (!AGGREGATE_BUCKET_UNITS.includes(dimension.bucket)) {
+      throw new Error(`aggregateWhere: unknown bucket "${String(dimension.bucket)}"`);
+    }
+    if (!isTimestamptzType(info.pgTypeOf(info.columnOf(dimension.field)))) {
+      throw new Error(
+        `aggregateWhere: bucket on "${dimension.field}" requires a timestamptz column`,
+      );
+    }
+    params.push(dimension.timeZone);
+    return `(EXTRACT(EPOCH FROM date_trunc('${dimension.bucket}', ${column}, $${params.length}::text)) * 1000)::float8 AS k${index}`;
+  });
+
+  if (spec.limit !== undefined && (!Number.isInteger(spec.limit) || spec.limit < 0)) {
+    throw new Error(`aggregateWhere: limit must be a non-negative integer, got ${spec.limit}`);
+  }
+  if (spec.orderByValue !== undefined && !AGGREGATE_ORDER_DIRECTIONS.includes(spec.orderByValue)) {
+    throw new Error(`aggregateWhere: unknown orderByValue "${String(spec.orderByValue)}"`);
+  }
+
+  const valuePosition = dimensions.length + 1;
+  const selectList = [...dimensionSql, `(${measureSql})::float8 AS value`].join(", ");
+  let sqlText = `SELECT ${selectList} FROM ${quoteIdent(info.name)}`;
+  if (Object.keys(where).length > 0) {
+    const w = buildWhereClause(info, where, params.length + 1);
+    sqlText += ` WHERE ${w.sqlText}`;
+    params.push(...w.values);
+  }
+  if (dimensions.length > 0) {
+    const positions = dimensions.map((_, index) => String(index + 1));
+    sqlText += ` GROUP BY ${positions.join(", ")}`;
+    const orderParts =
+      spec.orderByValue === undefined
+        ? positions
+        : [`${valuePosition} ${spec.orderByValue === "desc" ? "DESC" : "ASC"}`, ...positions];
+    sqlText += ` ORDER BY ${orderParts.join(", ")}`;
+  }
+  if (spec.limit !== undefined) sqlText += ` LIMIT ${spec.limit}`;
+
+  const raw = (await unsafeReadRetrying(db, sqlText, params)) as readonly Record<string, unknown>[];
+  return raw.map((row) => {
+    const value = row["value"];
+    return {
+      keys: dimensions.map((_, index) => aggregateKeyOf(row[`k${index}`])),
+      value: value === null || value === undefined ? null : Number(value),
+    };
+  });
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: see selectMany default

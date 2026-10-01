@@ -138,6 +138,10 @@
       "types": "./src/where-clause-types.ts",
       "default": "./src/where-clause-types.ts"
     },
+    "./aggregate-types": {
+      "types": "./src/aggregate-types.ts",
+      "default": "./src/aggregate-types.ts"
+    },
     "./tenant-db-types": {
       "types": "./src/tenant-db-types.ts",
       "default": "./src/tenant-db-types.ts"
@@ -392,6 +396,10 @@
       "./where-clause-types": {
         "types": "./dist/where-clause-types.d.ts",
         "default": "./dist/where-clause-types.js"
+      },
+      "./aggregate-types": {
+        "types": "./dist/aggregate-types.d.ts",
+        "default": "./dist/aggregate-types.js"
       },
       "./tenant-db-types": {
         "types": "./dist/tenant-db-types.d.ts",

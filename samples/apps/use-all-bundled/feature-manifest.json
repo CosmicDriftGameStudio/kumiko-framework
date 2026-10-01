@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 74,
+  "featureCount": 76,
   "features": [
     {
       "name": "admin-shell",
@@ -1716,6 +1716,53 @@
       "uiHints": {
         "displayLabel": "Managed Pages · Public CMS",
         "category": "content",
+        "recommended": false
+      }
+    },
+    {
+      "name": "metrics",
+      "description": "Declarative tenant-scoped metrics: each metric declaration becomes an admin-only query that aggregates a read-model table for the caller's own tenant and returns the shape dashboard panels consume (stat value with period delta, time series, ranked rows).",
+      "toggleableDefault": null,
+      "requires": [
+        "jobs",
+        "delivery",
+        "sessions"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Metrics · Tenant Dashboard Data",
+        "category": "operations",
+        "recommended": false
+      }
+    },
+    {
+      "name": "metrics-system",
+      "description": "Declarative platform-wide metrics for SystemAdmin: each metric declaration becomes a query that aggregates a read-model table across all tenants (optionally narrowed to one tenant) and returns the shape dashboard panels consume.",
+      "toggleableDefault": null,
+      "requires": [
+        "jobs",
+        "delivery",
+        "sessions",
+        "tenant"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Metrics · Platform Dashboard Data",
+        "category": "operations",
         "recommended": false
       }
     },
