@@ -1,12 +1,5 @@
 [
   {
-    "version": "0.330.0",
-    "type": "improvement",
-    "title": "store_job_runs gets an index on started_at (fw#3396)",
-    "detail": "Windowed dashboard aggregates over job runs (metrics feature) filter on started_at; the index keeps them off a sequential scan.",
-    "migration": "Run `kumiko migrate generate` and apply the migration: it adds `store_job_runs_started_at_idx`."
-  },
-  {
     "version": "0.291.0",
     "type": "improvement",
     "title": "Tenant-visible job failures: `r.job({ tenantVisibleFailure })` plus `jobs:query:failures` (fw#3079)",

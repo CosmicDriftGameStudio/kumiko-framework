@@ -20,6 +20,7 @@
 //     reference, never as a runtime API call)
 
 import type {
+  AggregateDimension,
   AggregateKey,
   AggregateRow,
   AggregateSpec,
@@ -1230,6 +1231,65 @@ function aggregateKeyOf(raw: unknown): AggregateKey {
   return String(raw);
 }
 
+function aggregateMeasureSql(info: TableInfo, measure: AggregateSpec["measure"]): string {
+  switch (measure.fn) {
+    case "count":
+      return "COUNT(*)";
+    case "countDistinct":
+      return `COUNT(DISTINCT ${requireAggregateColumn(info, measure.field, "measure field")})`;
+    case "sum":
+      return `COALESCE(SUM(${requireAggregateColumn(info, measure.field, "measure field")}), 0)`;
+    case "avg":
+      return `AVG(${requireAggregateColumn(info, measure.field, "measure field")})`;
+    default:
+      throw new Error(
+        `aggregateWhere: unknown measure fn "${String((measure as { fn: unknown }).fn)}"`,
+      );
+  }
+}
+
+function aggregateDimensionSql(
+  info: TableInfo,
+  dimension: AggregateDimension,
+  index: number,
+  params: unknown[],
+): string {
+  const column = requireAggregateColumn(info, dimension.field, "groupBy field");
+  if (!("bucket" in dimension)) return `${column} AS k${index}`;
+  if (!AGGREGATE_BUCKET_UNITS.includes(dimension.bucket)) {
+    throw new Error(`aggregateWhere: unknown bucket "${String(dimension.bucket)}"`);
+  }
+  if (!isTimestamptzType(info.pgTypeOf(info.columnOf(dimension.field)))) {
+    throw new Error(`aggregateWhere: bucket on "${dimension.field}" requires a timestamptz column`);
+  }
+  params.push(dimension.timeZone);
+  return `(EXTRACT(EPOCH FROM date_trunc('${dimension.bucket}', ${column}, $${params.length}::text)) * 1000)::float8 AS k${index}`;
+}
+
+function assertValidAggregateLimits(spec: AggregateSpec): void {
+  if (spec.limit !== undefined && (!Number.isInteger(spec.limit) || spec.limit < 0)) {
+    throw new Error(`aggregateWhere: limit must be a non-negative integer, got ${spec.limit}`);
+  }
+  if (spec.orderByValue !== undefined && !AGGREGATE_ORDER_DIRECTIONS.includes(spec.orderByValue)) {
+    throw new Error(`aggregateWhere: unknown orderByValue "${String(spec.orderByValue)}"`);
+  }
+}
+
+function aggregateGroupOrderLimitSql(spec: AggregateSpec, dimensionCount: number): string {
+  let sqlText = "";
+  if (dimensionCount > 0) {
+    const positions = Array.from({ length: dimensionCount }, (_, index) => String(index + 1));
+    sqlText += ` GROUP BY ${positions.join(", ")}`;
+    const orderParts =
+      spec.orderByValue === undefined
+        ? positions
+        : [`${dimensionCount + 1} ${spec.orderByValue === "desc" ? "DESC" : "ASC"}`, ...positions];
+    sqlText += ` ORDER BY ${orderParts.join(", ")}`;
+  }
+  if (spec.limit !== undefined) sqlText += ` LIMIT ${spec.limit}`;
+  return sqlText;
+}
+
 export async function aggregateWhere(
   db: AnyDb,
   table: TableLike,
@@ -1242,52 +1302,13 @@ export async function aggregateWhere(
   }
   const info = extractTableInfo(table);
   const params: unknown[] = [];
-
-  const { measure } = spec;
-  let measureSql: string;
-  switch (measure.fn) {
-    case "count":
-      measureSql = "COUNT(*)";
-      break;
-    case "countDistinct":
-      measureSql = `COUNT(DISTINCT ${requireAggregateColumn(info, measure.field, "measure field")})`;
-      break;
-    case "sum":
-      measureSql = `COALESCE(SUM(${requireAggregateColumn(info, measure.field, "measure field")}), 0)`;
-      break;
-    case "avg":
-      measureSql = `AVG(${requireAggregateColumn(info, measure.field, "measure field")})`;
-      break;
-    default:
-      throw new Error(
-        `aggregateWhere: unknown measure fn "${String((measure as { fn: unknown }).fn)}"`,
-      );
-  }
-
+  const measureSql = aggregateMeasureSql(info, spec.measure);
   const dimensions = spec.groupBy ?? [];
-  const dimensionSql = dimensions.map((dimension, index) => {
-    const column = requireAggregateColumn(info, dimension.field, "groupBy field");
-    if (!("bucket" in dimension)) return `${column} AS k${index}`;
-    if (!AGGREGATE_BUCKET_UNITS.includes(dimension.bucket)) {
-      throw new Error(`aggregateWhere: unknown bucket "${String(dimension.bucket)}"`);
-    }
-    if (!isTimestamptzType(info.pgTypeOf(info.columnOf(dimension.field)))) {
-      throw new Error(
-        `aggregateWhere: bucket on "${dimension.field}" requires a timestamptz column`,
-      );
-    }
-    params.push(dimension.timeZone);
-    return `(EXTRACT(EPOCH FROM date_trunc('${dimension.bucket}', ${column}, $${params.length}::text)) * 1000)::float8 AS k${index}`;
-  });
+  const dimensionSql = dimensions.map((dimension, index) =>
+    aggregateDimensionSql(info, dimension, index, params),
+  );
+  assertValidAggregateLimits(spec);
 
-  if (spec.limit !== undefined && (!Number.isInteger(spec.limit) || spec.limit < 0)) {
-    throw new Error(`aggregateWhere: limit must be a non-negative integer, got ${spec.limit}`);
-  }
-  if (spec.orderByValue !== undefined && !AGGREGATE_ORDER_DIRECTIONS.includes(spec.orderByValue)) {
-    throw new Error(`aggregateWhere: unknown orderByValue "${String(spec.orderByValue)}"`);
-  }
-
-  const valuePosition = dimensions.length + 1;
   const selectList = [...dimensionSql, `(${measureSql})::float8 AS value`].join(", ");
   let sqlText = `SELECT ${selectList} FROM ${quoteIdent(info.name)}`;
   if (Object.keys(where).length > 0) {
@@ -1295,16 +1316,7 @@ export async function aggregateWhere(
     sqlText += ` WHERE ${w.sqlText}`;
     params.push(...w.values);
   }
-  if (dimensions.length > 0) {
-    const positions = dimensions.map((_, index) => String(index + 1));
-    sqlText += ` GROUP BY ${positions.join(", ")}`;
-    const orderParts =
-      spec.orderByValue === undefined
-        ? positions
-        : [`${valuePosition} ${spec.orderByValue === "desc" ? "DESC" : "ASC"}`, ...positions];
-    sqlText += ` ORDER BY ${orderParts.join(", ")}`;
-  }
-  if (spec.limit !== undefined) sqlText += ` LIMIT ${spec.limit}`;
+  sqlText += aggregateGroupOrderLimitSql(spec, dimensions.length);
 
   const raw = (await unsafeReadRetrying(db, sqlText, params)) as readonly Record<string, unknown>[];
   return raw.map((row) => {

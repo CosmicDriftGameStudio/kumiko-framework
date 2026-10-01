@@ -1,12 +1,5 @@
 [
   {
-    "version": "0.330.0",
-    "type": "improvement",
-    "title": "store_delivery_attempts gets an index on (tenant_id, created_at) (fw#3396)",
-    "detail": "Windowed per-tenant dashboard aggregates over delivery attempts (metrics feature) filter on tenant_id and created_at.",
-    "migration": "Run `kumiko migrate generate` and apply the migration: it adds `store_delivery_attempts_tenant_id_created_at_idx`."
-  },
-  {
     "version": "0.323.0",
     "type": "improvement",
     "title": "New POST /api/delivery/resubscribe route undoes an unsubscribe/opt-out",
