@@ -1209,3 +1209,21 @@ describe("buildUpdateSchema", () => {
     }
   });
 });
+
+describe("buildInsertSchema caller id (#2922)", () => {
+  const entity = createEntity({
+    table: "Test",
+    fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+  });
+  const id = "5f0c7a4e-8a1b-4c55-9d3e-1a2b3c4d5e6f";
+
+  test("strips an unknown id by default", () => {
+    expect(buildInsertSchema(entity).parse({ name: "x", id })).toEqual({ name: "x" });
+  });
+
+  test("keeps id only with allowCallerId", () => {
+    expect(buildInsertSchema(entity, undefined, [], { allowCallerId: true }).parse({ id })).toEqual(
+      { id },
+    );
+  });
+});

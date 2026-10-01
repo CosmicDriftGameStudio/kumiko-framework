@@ -378,6 +378,7 @@ export function buildInsertSchema(
   entity: EntityDefinition,
   currencies: readonly string[] = [...DEFAULT_CURRENCIES],
   excludedFields: readonly string[] = [],
+  options: { readonly allowCallerId?: boolean } = {},
 ): z.ZodObject<Record<string, z.ZodTypeAny>> {
   const shape: Record<string, z.ZodTypeAny> = {};
 
@@ -392,11 +393,9 @@ export function buildInsertSchema(
     shape[name] = isRequired || hasDefault ? zodField : zodField.optional();
   }
 
-  // Caller-chosen aggregate id for idempotent creates (deterministic-id
-  // patterns). Accepting it here only lets it survive parsing — the create
-  // handler still honors it only for a system-identity caller (jobs/hooks
-  // via createSystemUser), never for an ordinary HTTP-authenticated user.
-  shape["id"] = z.uuid().optional();
+  // Opt-in only for the generic create verb, which honors the id for system identities;
+  // other schema consumers must keep stripping an unknown `id`.
+  if (options.allowCallerId) shape["id"] = z.uuid().optional();
 
   return applyTotalsMatchRefinements(entity, z.object(shape));
 }
