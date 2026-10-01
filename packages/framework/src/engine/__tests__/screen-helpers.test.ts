@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { evalFieldCondition } from "../screen-helpers.js";
-import type { FieldCondition } from "../types/screen.js";
+import { evalFieldCondition, resolveNavParentScreen } from "../screen-helpers.js";
+import type { FieldCondition, ScreenDefinition } from "../types/screen.js";
 
 describe("evalFieldCondition()", () => {
   test("boolean forms pass through unchanged", () => {
@@ -48,5 +48,29 @@ describe("evalFieldCondition()", () => {
     const values: Record<string, unknown> = {};
     expect(evalFieldCondition({ field: "status", in: ["active"] }, values)).toBe(false);
     expect(evalFieldCondition({ field: "status", notIn: ["active"] }, values)).toBe(true);
+  });
+});
+
+describe("resolveNavParentScreen()", () => {
+  const list: ScreenDefinition = {
+    id: "widget-list",
+    type: "entityList",
+    entity: "widget",
+    columns: ["name"],
+    createScreen: "widget-wizard",
+  };
+  const wizard: ScreenDefinition = {
+    id: "widget-wizard",
+    type: "custom",
+    renderer: { react: "W" },
+  };
+  const other: ScreenDefinition = { id: "other", type: "custom", renderer: { react: "O" } };
+
+  test("an entityList is the parent of its createScreen target", () => {
+    expect(resolveNavParentScreen([list, wizard], wizard, (s) => s.id)).toBe(list);
+  });
+
+  test("a screen the list does not name has no parent", () => {
+    expect(resolveNavParentScreen([list, other], other, (s) => s.id)).toBeUndefined();
   });
 });

@@ -1011,7 +1011,7 @@ export type FieldCellWidth =
   | "timestamp"
   | "select"
   | "full"
-  | "auto";
+  | "toggle";
 
 /** Span-Wrapper für ein Kind innerhalb eines Grid. Web: `style={{gridColumn: span N}}`,
  *  Native: eigenes Width-Rechnen. */
@@ -1175,6 +1175,9 @@ export type CardOptions = {
    *  relatedList table sizing to the panel instead of the page) instead of
    *  normal document-flow height. Default false. */
   readonly fillHeight?: boolean;
+  /** false drops border, background, shadow and radius but keeps padding and
+   *  header slots — a panel inside a host surface such as a tab panel. Default true. */
+  readonly framed?: boolean;
 };
 
 /** Generische Card-Chrome (border/bg/radius/shadow + Header/Body/Footer) als

@@ -43,6 +43,7 @@ export const vehicleEntity = createEntity({
     inspektion: createSelectField({ options: INSPECTION_INTERVALS, default: "", display: "radio" }),
     scheckheft: createSelectField({ options: SERVICE_BOOKS }),
     scheckheftGepflegt: createBooleanField(),
+    nichtraucher: createBooleanField(),
     beschreibung: createTextField({ ...DEMO_DATA, multiline: { rows: 6 }, maxLength: 2000 }),
     ausstattung: createTextField(DEMO_DATA),
     inserat: createSelectField({ options: LISTING_STATES, default: "draft" }),

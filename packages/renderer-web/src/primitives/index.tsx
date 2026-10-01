@@ -1445,6 +1445,8 @@ function DefaultDataTable({
   );
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
+    // A bare check mark in the subtitle line says nothing without its column.
+    if (showsBareCheckMark(col.type, row.values[col.field], col.renderer)) return col.label;
     return (
       <DataTableCell
         value={row.values[col.field]}
@@ -1885,7 +1887,9 @@ function RowActionsCell({
 }
 
 function isEmptyCellValue(value: unknown): boolean {
-  return value === null || value === undefined || value === "";
+  return (
+    value === null || value === undefined || (typeof value === "string" && value.trim() === "")
+  );
 }
 
 // A boolean false renders as an empty string unless the column's format spec names a falseLabel.
@@ -1897,6 +1901,19 @@ function isUnlabeledFalse(type: string, value: unknown, renderer: unknown): bool
     renderer !== null &&
     "format" in renderer &&
     !("falseLabel" in renderer)
+  );
+}
+
+// True when the cell would render the default "✓": no renderer, or a boolean
+// format spec that names no trueLabel of its own.
+function showsBareCheckMark(type: string, value: unknown, renderer: unknown): boolean {
+  if (type !== "boolean" || value !== true) return false;
+  if (renderer === undefined) return true;
+  return (
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "format" in renderer &&
+    !("trueLabel" in renderer)
   );
 }
 
@@ -3648,7 +3665,9 @@ const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   timestamp: "w-full sm:w-[328px]",
   select: "w-full sm:w-auto sm:min-w-[200px] sm:has-[[data-radio-list]]:w-full",
   full: "w-full",
-  auto: "w-auto",
+  // self-start: the label shares the top line with neighbouring labels. The
+  // switch (1.15rem) gets (h-9 input − switch) / 2 margin to sit on the input line.
+  toggle: "w-auto min-w-40 shrink-0 self-start [&_[data-slot=switch]]:my-[0.55rem]",
 };
 
 function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): ReactNode {
@@ -3887,6 +3906,7 @@ export function DefaultCard({
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
   const fillHeight = options?.fillHeight ?? false;
+  const framed = options?.framed ?? true;
   const s = slots ?? {};
   const defaultHeader =
     s.title !== undefined ||
@@ -3925,7 +3945,7 @@ export function DefaultCard({
       {...dataAttributes}
       data-testid={testId}
       className={cn(
-        cardSurface({ radius }),
+        framed ? cardSurface({ radius }) : "flex flex-col",
         "overflow-hidden",
         // Same "no flex-1" reasoning as DefaultForm's own fillHeight card
         // (fw#2722/#2778): sizes to content and only shrinks (min-h-0) once

@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-30
+verified: 2026-10-01
 evidence: "kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
 ---
 
@@ -42,12 +42,18 @@ The shell header hosts the breadcrumb (the last crumb is the `h1`) and two slots
 | `createLabel` | entityList, projectionList | i18n key for the create button (default `kumiko.actions.create`) |
 | `searchPlaceholder` | entityList, projectionList | i18n key for the search placeholder |
 | `optionTones` | select field | `{ [value]: "ok" \| "warn" \| "bad" \| "neutral" }`, shown as toned badge |
+| `recordTitleField` | entityEdit | field of the loaded record shown as record crumb: "list > record > screen title" (edit mode only) |
+| `recordTitleField` | projectionDetail | query output field that titles the page header (breadcrumb "list > record"); rejected together with `header` |
 | `statusTones` | projectionDetail | same for the `status` field of the header badge |
 | `valueType` | relatedList column | `number`, `decimal`, `bigInt` or `money`: right-aligned tabular column and header |
 | `hideOnNarrow` | list column | leaves the column out of the card layout below `md` |
 | `description` | relatedList section | i18n key for the hint in the tab toolbar |
 | `itemNoun` | relatedList section | i18n key with plural forms for the footer count |
 | `summary` | actionForm | `{ title, subtitle? }` context box; `{name}` placeholders come from the drawer prefill |
+
+## Tab panels
+
+On a projectionDetail with `layout.mode: "tabs"`, every tab except a `relatedList` renders its content in an unframed panel with the page's content padding (`--card-padding`) and a gap below the tab strip, so it lines up with the tab labels. Extension tabs must not add padding of their own. A `relatedList` tab stays flush: the table runs from edge to edge under the tab strip.
 
 ## Drawer row actions
 

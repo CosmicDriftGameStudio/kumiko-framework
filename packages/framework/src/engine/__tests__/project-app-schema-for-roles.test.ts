@@ -101,6 +101,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
       type: "entityList",
       entity: "hostRecord",
       columns: ["label"],
+      createScreen: "host-secret-form",
       rowActions: [
         { kind: "navigate", id: "open-secret", label: "Open", screen: SECRET_SCREEN_ID },
         { kind: "navigate", id: "open-secret-by-entity", label: "Open2", entity: "record" },
@@ -220,6 +221,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     if (list?.type !== "entityList") throw new Error("unreachable");
     expect(list.rowActions).toHaveLength(3);
     expect(list.toolbarActions).toHaveLength(2);
+    expect(list.createScreen).toBe("host-secret-form");
 
     const edit = host.screens.find((s) => s.id === "edit");
     expect(edit?.type).toBe("entityEdit");
@@ -294,6 +296,7 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     // the comment on hostFeature above).
     expect(list.rowActions).toBeUndefined();
     expect(list.toolbarActions).toBeUndefined();
+    expect(list.createScreen).toBeUndefined();
 
     const edit = host.screens.find((s) => s.id === "edit");
     expect(edit?.type).toBe("entityEdit");

@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MoneyInput } from "../money-input.js";
 import { NumberInput } from "../number-input.js";
 
@@ -29,6 +30,32 @@ describe("NumberInput", () => {
     expect(input.value).toBe("28000");
     fireEvent.blur(input);
     expect(input.value).toBe("28.000");
+  });
+
+  test("focus selects the whole raw value so typing replaces a prefilled number", () => {
+    const input = renderNumber({ value: 10000 });
+    fireEvent.focus(input);
+    expect(input.value).toBe("10000");
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(input.value.length);
+  });
+
+  test("tabbing into a prefilled field and typing replaces the value", async () => {
+    const onChange = mock((_v: number | undefined) => undefined);
+    renderNumber({ value: 10000, onChange });
+    const user = userEvent.setup();
+    await user.tab();
+    await user.keyboard("100");
+    expect(onChange).toHaveBeenLastCalledWith(100);
+  });
+
+  test("clicking into a prefilled field and select-all typing replaces the value", async () => {
+    const onChange = mock((_v: number | undefined) => undefined);
+    const input = renderNumber({ value: 10000, onChange });
+    const user = userEvent.setup();
+    await user.click(input);
+    await user.keyboard("{Control>}a{/Control}100");
+    expect(onChange).toHaveBeenLastCalledWith(100);
   });
 
   test("grouping=false keeps a year without a thousands separator", () => {

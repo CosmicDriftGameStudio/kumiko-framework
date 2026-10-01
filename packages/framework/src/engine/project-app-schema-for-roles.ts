@@ -54,6 +54,7 @@
 //     buildAppSchema
 //   - WorkspaceSchema.definition.nav — the raw explicit nav-QN list,
 //     verbatim in JSON, distinct from the computed/filtered navMembers
+//   - entityList.createScreen (same-feature target, dropped when not kept)
 //   - listScreenId (projectionDetail/entityEdit/actionForm/secretMint/custom —
 //     the breadcrumb "back to list" target). It's serialized, so a visible
 //     screen would otherwise disclose a denied screen's short id. Resolved
@@ -622,12 +623,22 @@ function projectCancelTarget(
   return isScreenTargetKept(featureName, cancelTarget, keptScreenQns) ? cancelTarget : undefined;
 }
 
+function dropUnreachableCreateScreen<
+  T extends EntityListScreenDefinition | ProjectionListScreenDefinition,
+>(screen: T, feature: FeatureSchema, keptScreenQns: ReadonlySet<string>): T {
+  if (screen.type !== "entityList" || screen.createScreen === undefined) return screen;
+  if (isScreenTargetKept(feature.featureName, screen.createScreen, keptScreenQns)) return screen;
+  const { createScreen: _unreachable, ...rest } = screen;
+  return rest as T;
+}
+
 function projectListScreen(
-  screen: EntityListScreenDefinition | ProjectionListScreenDefinition,
+  original: EntityListScreenDefinition | ProjectionListScreenDefinition,
   feature: FeatureSchema,
   indices: IndexedSchema,
   keptScreenQns: ReadonlySet<string>,
 ): ScreenDefinition {
+  const screen = dropUnreachableCreateScreen(original, feature, keptScreenQns);
   const { rowActions, toolbarActions, ...rest } = screen;
   const nextRowActions = projectRowActionArray(rowActions, feature, indices, keptScreenQns);
   const nextToolbarActions = projectToolbarActionArray(

@@ -109,6 +109,22 @@ describe("GridCell width", () => {
   });
 });
 
+describe("GridCell toggle width", () => {
+  test("toggle cells align to the top line and centre the switch on the input line", () => {
+    render(
+      <Grid columns={2} flow>
+        <GridCell width="toggle">
+          <span data-testid="tg" />
+        </GridCell>
+      </Grid>,
+    );
+    const className = screen.getByTestId("tg").parentElement?.className ?? "";
+    expect(className).toContain("self-start");
+    expect(className).toContain("min-w-40");
+    expect(className).toContain("[&_[data-slot=switch]]:my-[0.55rem]");
+  });
+});
+
 describe("SidebarContent", () => {
   test("keeps bottom padding and fades the scrolled content out", () => {
     render(<SidebarContent data-testid="nav">x</SidebarContent>);

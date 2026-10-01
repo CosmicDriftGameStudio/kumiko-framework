@@ -30,7 +30,7 @@ export type {
   RenderEditProps,
 } from "./render-edit-types.js";
 
-import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ExtensionFormRegistryProvider,
   useExtensionFormHost,
@@ -292,6 +292,11 @@ function EditSlotMount({
 
 function formSectionDomId(sectionIndex: number): string {
   return `form-section-${sectionIndex}`;
+}
+
+/** A record title is a non-blank string; anything else leaves the screen title alone. */
+export function resolveRecordTitle(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
@@ -1359,13 +1364,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     return id == null || id === "";
   })();
   const formMode = isCreate ? "create" : "edit";
-  const recordTitleValue =
-    !isCreate && screen.recordTitleField !== undefined
-      ? initial[screen.recordTitleField]
-      : undefined;
   const recordTitle =
-    typeof recordTitleValue === "string" && recordTitleValue.trim() !== ""
-      ? recordTitleValue
+    !isCreate && screen.recordTitleField !== undefined
+      ? resolveRecordTitle(initial[screen.recordTitleField])
       : undefined;
   const resolveScreenText = (suffix: string): string | undefined => {
     for (const key of [
@@ -1645,20 +1646,24 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     sectionActionsEl !== undefined && { actions: sectionActionsEl })}
                 />
               );
-              // Tabs mode: unframed like relatedList tabs; the Card chrome is
-              // only kept when section actions need a header to live in.
-              // testId stays only on the inner Section — the outer wrapper is
-              // purely chrome, giving it the same testId would register two
+              // Tabs mode: an unframed padded panel (the tab panel is the
+              // surface), so extension content neither sits flush at the shell
+              // edge nor touches the tab strip. testId stays only on the inner
+              // Section — giving the wrapper the same one would register two
               // elements under one id.
               const wrapped =
                 hideSectionTitles !== true ? (
                   mount
-                ) : sectionActionsEl !== undefined ? (
-                  <Card key={section.title} slots={{ headerActions: sectionActionsEl }}>
+                ) : (
+                  <Card
+                    key={section.title}
+                    options={{ framed: false }}
+                    {...(sectionActionsEl !== undefined && {
+                      slots: { headerActions: sectionActionsEl },
+                    })}
+                  >
                     {mount}
                   </Card>
-                ) : (
-                  <Fragment key={section.title}>{mount}</Fragment>
                 );
               return wrapWizardStep(section.title, wrapped);
             }
@@ -1753,8 +1758,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 ))}
               </Grid>
             );
-            // Tabs mode renders one or more titled cards, so this card's actual
-            // heading doesn't visually duplicate the short Tab strip label.
+            // Tabs mode: the tab panel is the surface, so field sections render
+            // as unframed padded panels; group cards inside stay framed.
             // Stays `Card`, not `Section` — Section always flattens to a
             // borderless divider when rendered inside this component's own
             // `<Form>` (InsideFormContext), even with `chromeless` set, so it
@@ -1783,7 +1788,12 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 // group cards (Card-in-Card) — the boot-validator rejects that
                 // combination in tabs mode, so `sectionActionsEl` is always
                 // undefined here at runtime.
-                return wrapWizardStep(sectionKey, groupsGrid);
+                return wrapWizardStep(
+                  sectionKey,
+                  <Card key={sectionKey} options={{ framed: false }}>
+                    {groupsGrid}
+                  </Card>,
+                );
               }
               // No section title here (fw#3218) — the Tab strip right above
               // already names this panel, so a repeated Card title would just
@@ -1792,6 +1802,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               const cardEl = (
                 <Card
                   key={sectionKey}
+                  options={{ framed: false }}
                   {...(sectionActionsEl !== undefined && {
                     slots: { headerActions: sectionActionsEl },
                   })}

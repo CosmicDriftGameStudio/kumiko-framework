@@ -11,6 +11,8 @@ export interface NumberFieldProps {
   readonly disabled?: boolean;
   readonly hideLabel?: boolean;
   readonly testId?: string;
+  /** `false` renders without thousands separators (e.g. a year). Default `true`. */
+  readonly grouping?: boolean;
 }
 
 /** Zahlenfeld = Field + Input(kind:"number") in einem — nimmt der Screen die
@@ -27,6 +29,7 @@ export function NumberField({
   disabled,
   hideLabel,
   testId,
+  grouping,
 }: NumberFieldProps): ReactNode {
   const { Field, Input } = usePrimitives();
   return (
@@ -39,6 +42,7 @@ export function NumberField({
         onChange={onChange}
         required={required}
         disabled={disabled}
+        {...(grouping !== undefined && { grouping })}
       />
     </Field>
   );

@@ -18,7 +18,7 @@ const HISTORY_ENTRIES = [
 
 export function LeaseHubHistory({ entityId }: ExtensionSectionProps): ReactNode {
   return (
-    <ul data-testid="lease-hub-history" data-entity-id={entityId ?? ""} className="space-y-2 p-4">
+    <ul data-testid="lease-hub-history" data-entity-id={entityId ?? ""} className="space-y-2">
       {HISTORY_ENTRIES.map((entry) => (
         <li key={entry} className="text-sm">
           {entry}

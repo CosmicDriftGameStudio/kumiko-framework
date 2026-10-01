@@ -1221,6 +1221,12 @@ export function validateScreens(
             `singleton screen never has. Remove detailFor, or declare an explicit "edit" action instead.`,
         );
       }
+      if (screen.recordTitleField !== undefined && screen.header !== undefined) {
+        throw new Error(
+          `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) sets both header and ` +
+            `recordTitleField — header.title already names the record, so drop recordTitleField.`,
+        );
+      }
       if (screen.layout.sections.length === 0) {
         throw new Error(
           `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) has an empty sections list — ` +

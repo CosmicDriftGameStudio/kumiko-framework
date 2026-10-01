@@ -37,7 +37,7 @@ const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
   locatedTimestamp: "timestamp",
   select: "select",
   multiSelect: "select",
-  boolean: "auto",
+  boolean: "toggle",
   longText: "full",
   embedded: "full",
   jsonb: "full",

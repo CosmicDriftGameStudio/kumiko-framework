@@ -164,12 +164,12 @@ export function WriteFormSection({
     );
 
   // Section always flattens to a borderless divider when rendered inside
-  // RenderEdit's own <Form> in tabs mode (hideTitle) — Card frames it there
-  // instead, same reason render-edit.tsx's tabs-mode fields/extension
-  // branches stay on Card.
+  // RenderEdit's own <Form> in tabs mode (hideTitle) — an unframed Card panel
+  // stands in, like render-edit.tsx's tabs-mode fields/extension branches.
   if (hideTitle) {
     return (
       <Card
+        options={{ framed: false }}
         slots={{
           ...(section.description !== undefined && { subtitle: section.description }),
           headerActions: titleRowActions,
