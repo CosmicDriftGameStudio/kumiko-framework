@@ -36,14 +36,20 @@ const SCAN: ScanSpec = {
   scope: "source",
   extensions: ["ts", "tsx"],
   kinds: ["library", "app"],
-  within: ["lib/**/*.ts", "features/*/lib/**/*.ts", "**/*.test.ts", "**/*.test.tsx"],
+  within: ["lib/**/*.{ts,tsx}", "**/lib/**/*.{ts,tsx}", "**/*.test.ts", "**/*.test.tsx"],
 };
 const IGNORE_TAG = "kumiko-lint-ignore lib-test-coverage";
 
 type Export = { readonly name: string; readonly node: Node };
 
 function isTestFile(path: string): boolean {
-  return /\.test\.tsx?$/.test(path) || /\/__tests__\//.test(path);
+  return /\.test\.tsx?$/.test(path);
+}
+
+// Fixtures/helpers under __tests__/ without a .test. suffix are neither tests
+// (they must not satisfy the coverage link) nor lib sources (no test duty).
+function isTestSupportFile(path: string): boolean {
+  return /\/__tests__\//.test(path);
 }
 
 // Exportierte Callables: `export function f` und `export const f = () => …` /
@@ -126,7 +132,8 @@ export const guard: AstGuard = {
     const libFiles: SourceFile[] = [];
     for (const sf of files) {
       if (isTestFile(sf.getFilePath())) testFiles.push(sf);
-      else if (!sf.getFilePath().endsWith(".d.ts")) libFiles.push(sf);
+      else if (!sf.getFilePath().endsWith(".d.ts") && !isTestSupportFile(sf.getFilePath()))
+        libFiles.push(sf);
     }
     for (const sf of libFiles) {
       const relevant = exportedCallables(sf).filter((e) => !hasIgnoreTag(e.node, IGNORE_TAG));

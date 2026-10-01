@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { Project, type SourceFile } from "ts-morph";
 import { scan } from "../guard-text-field-stance";
 
@@ -51,5 +51,16 @@ describe("Text-Field Personal-Stance Guard", () => {
 			`,
     });
     expect(scan(sfs, []).findings).toHaveLength(0);
+  });
+
+  test("scan returns findings without logging", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const sfs = files({ "packages/bundled-features/src/rogue/entity.ts": NO_STANCE_CALL });
+      expect(scan(sfs, []).findings).toHaveLength(1);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

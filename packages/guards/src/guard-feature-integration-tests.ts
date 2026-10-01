@@ -6,15 +6,16 @@
  * from CLAUDE.md.
  *
  * Coverage rule: a feature counts as covered when an integration test
- * imports anything — relative or via the `@cosmicdrift/kumiko-bundled-features`
- * package — that resolves into its `packages/bundled-features/src/<name>/`
- * directory. That's deliberately broader than "imports feature.ts itself":
- * a test that imports a sibling module of the feature (e.g. its resolver,
- * its defaults helper) still proves the directory ran, and a barrel import
- * of the whole package still proves the feature was composed. Since the
- * `<name>-feature.ts` -> `feature.ts` rename (df3f6b5b) the file basename is
- * identical for all 56 features — the directory name is the only usable
- * identifier.
+ * imports anything that resolves into its
+ * `packages/bundled-features/src/<name>/` directory — either relatively, or
+ * via the subpath `@cosmicdrift/kumiko-bundled-features/<feature>`. That's
+ * deliberately broader than "imports feature.ts itself": a test that imports
+ * a sibling module of the feature (e.g. its resolver, its defaults helper)
+ * still proves the directory ran. Only subpath imports count: a barrel
+ * import without subpath (`@cosmicdrift/kumiko-bundled-features`) covers no
+ * feature. Since the `<name>-feature.ts` -> `feature.ts` rename (df3f6b5b)
+ * the file basename is identical for all 56 features — the directory name
+ * is the only usable identifier.
  *
  * Usage:
  *   bun guards/guard-feature-integration-tests.ts

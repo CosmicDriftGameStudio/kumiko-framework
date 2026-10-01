@@ -59,6 +59,27 @@ const dispatcher = createDispatcher({});`,
     expect(scanFile(sf)).toBeNull();
   });
 
+  test("recognises an aliased setupTestStack import as server entrypoint", () => {
+    const sf = parseSource(
+      "/repo/packages/framework/src/feature.integration.test.ts",
+      `import { setupTestStack as stack } from "@cosmicdrift/kumiko-framework/testing";
+import { createDispatcher } from "@cosmicdrift/kumiko-framework";
+
+const s = stack();
+const dispatcher = createDispatcher({});`,
+    );
+    expect(scanFile(sf)).toBeNull();
+  });
+
+  test("flags an aliased forbidden factory under its imported name", () => {
+    const sf = parseSource(
+      "/repo/packages/framework/src/feature.integration.test.ts",
+      `import { createDispatcher as cd } from "@cosmicdrift/kumiko-framework";
+const dispatcher = cd({});`,
+    );
+    expect(scanFile(sf)?.forbiddenCalls.map((c) => c.name)).toEqual(["createDispatcher"]);
+  });
+
   test("permits an integration test that goes through buildServer", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/feature.integration.test.ts",

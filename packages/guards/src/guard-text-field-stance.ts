@@ -144,9 +144,6 @@ function scanFieldFactories(sf: SourceFile, roots: readonly RepoRoot[]): Finding
     const place = enclosingFieldName(call) ?? `${callee}(...)`;
     const line = call.getStartLineNumber();
     findings.push({ file, line, place, callee });
-    console.warn(
-      `  [text-field-stance WARN] ${file}:${line}  ${callee}(...) at "${place}" has no personal stance — mark ${VALID_PERSONAL_HINT}`,
-    );
   }
   return findings;
 }
@@ -212,6 +209,10 @@ function analyse(
 ): GuardOutcome {
   const { findings } = scan(files, roots);
   if (!compareBaseline) {
+    for (const f of findings)
+      console.warn(
+        `  [text-field-stance WARN] ${f.file}:${f.line}  ${f.callee}(...) at "${f.place}" has no personal stance — mark ${VALID_PERSONAL_HINT}`,
+      );
     console.log("  Baseline comparison skipped (--no-baseline).");
     return { violations: [] };
   }

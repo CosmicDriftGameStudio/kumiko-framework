@@ -67,6 +67,17 @@ describe("Direct-Fetch Guard", () => {
     expect(guard.run(sfs).violations).toHaveLength(0);
   });
 
+  test("an escaped protocol-relative literal is not waved through as same-origin", () => {
+    const sfs = files({
+      "packages/bundled-features/src/rogue/feature.ts": `
+				export async function callOut() {
+					return fetch("/\\/attacker.example/x");
+				}
+			`,
+    });
+    expect(guard.run(sfs).violations).toHaveLength(1);
+  });
+
   test("same-origin template literal fetch is allowed", () => {
     const sfs = files({
       "packages/bundled-features/src/rogue/feature.ts": `

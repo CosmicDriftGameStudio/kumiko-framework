@@ -17,7 +17,7 @@
  */
 
 import * as path from "node:path";
-import { Project, type SourceFile, SyntaxKind } from "ts-morph";
+import { type Identifier, Node, Project, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   type GuardViolation,
   type RepoCheck,
@@ -70,10 +70,23 @@ export interface Violation {
   forbiddenCalls: Array<{ name: string; line: number }>;
 }
 
+// `import { setupTestStack as stack }` + `stack()` must resolve to the imported
+// name, otherwise an alias hides both entrypoints and forbidden factories.
+function importedNameOf(identifier: Identifier): string {
+  const localName = identifier.getText();
+  for (const imp of identifier.getSourceFile().getImportDeclarations()) {
+    for (const spec of imp.getNamedImports()) {
+      if ((spec.getAliasNode()?.getText() ?? spec.getName()) === localName) return spec.getName();
+    }
+  }
+  return localName;
+}
+
 function collectCallNames(sf: SourceFile): Map<string, number[]> {
   const calls = new Map<string, number[]>();
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-    const name = call.getExpression().getText();
+    const callee = call.getExpression();
+    const name = Node.isIdentifier(callee) ? importedNameOf(callee) : callee.getText();
     const arr = calls.get(name) ?? [];
     arr.push(call.getStartLineNumber());
     calls.set(name, arr);

@@ -29,6 +29,15 @@ describe("extractFeatureId", () => {
     ).toBe("auth-foundation");
   });
 
+  test("a barrel import without subpath covers no feature", () => {
+    expect(
+      extractFeatureId(
+        "@cosmicdrift/kumiko-bundled-features",
+        "/repo/packages/dev-server/src/__tests__/walkthrough.integration.test.ts",
+      ),
+    ).toBeNull();
+  });
+
   test("resolves a sibling module import inside the feature directory (not just feature.ts)", () => {
     expect(
       extractFeatureId(
