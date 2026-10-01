@@ -24,7 +24,9 @@ export type ScanSpec =
       /** Globs relative to the matched source root dir; narrows only. */
       readonly within?: readonly string[];
     })
-  | (ScanSpecBase & { readonly scope: "tests" });
+  | (ScanSpecBase & { readonly scope: "tests" })
+  // Union of the source and test surface — for guards that correlate source declarations with test coverage.
+  | (ScanSpecBase & { readonly scope: "source+tests" });
 
 export type RootScan = {
   readonly root: RepoRoot;
@@ -141,13 +143,21 @@ function keepForSpec(hit: Hit, root: RepoRoot, spec: ScanSpec): boolean {
 
 function scanRoot(spec: ScanSpec, root: RepoRoot): RootScan {
   const sourceSurfaceHits = afterExcludes(sourceHits(root), root.manifest.excludes);
+  const testSurfaceHits = () => afterExcludes(testHits(root), root.manifest.excludes);
   const scopeHits =
     spec.scope === "source"
       ? sourceSurfaceHits
-      : afterExcludes(testHits(root), root.manifest.excludes);
-  const seen = new Set(scopeHits.map((hit) => hit.repoRel));
+      : spec.scope === "tests"
+        ? testSurfaceHits()
+        : [...sourceSurfaceHits, ...testSurfaceHits()];
+  const seen = new Set<string>();
+  const uniqueScopeHits = scopeHits.filter((hit) => {
+    if (seen.has(hit.repoRel)) return false;
+    seen.add(hit.repoRel);
+    return true;
+  });
   const additionalHits = afterExcludes(extraHits(root, spec.extraGlobs), root.manifest.excludes);
-  const files = [...scopeHits, ...additionalHits.filter((hit) => !seen.has(hit.repoRel))]
+  const files = [...uniqueScopeHits, ...additionalHits.filter((hit) => !seen.has(hit.repoRel))]
     .filter((hit) => keepForSpec(hit, root, spec))
     .map((hit) => join(root.absPath, hit.repoRel))
     .sort();

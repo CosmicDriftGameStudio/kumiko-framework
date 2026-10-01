@@ -1,30 +1,26 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { Project } from "ts-morph";
-import { baselineCounts, type Finding, guard } from "../guard-raw-interactive-elements";
+import { baselineCounts, createGuard, type Finding } from "../guard-raw-interactive-elements";
 
-const BASELINE_PATH = path.join(process.cwd(), ".kumiko-raw-interactive-elements-baseline.json");
+const BASELINE_FILE = ".kumiko-raw-interactive-elements-baseline.json";
 
-// The guard reads its baseline relative to process.cwd() with no injectable
-// override — tests write/remove it explicitly and restore whatever a real
-// checkout had.
-let preExistingBaseline: string | null = null;
+// Each test gets an empty tmp baseline root; the repo's own baseline is never touched.
+let baselineRoot: string;
+let guard: ReturnType<typeof createGuard>;
 beforeEach(() => {
-  preExistingBaseline = existsSync(BASELINE_PATH) ? readFileSync(BASELINE_PATH, "utf-8") : null;
-  if (existsSync(BASELINE_PATH)) rmSync(BASELINE_PATH);
+  baselineRoot = mkdtempSync(path.join(tmpdir(), "raw-interactive-baseline-"));
+  guard = createGuard({ baselineRoot });
 });
 afterEach(() => {
-  if (preExistingBaseline === null) {
-    if (existsSync(BASELINE_PATH)) rmSync(BASELINE_PATH);
-  } else {
-    writeFileSync(BASELINE_PATH, preExistingBaseline);
-  }
+  rmSync(baselineRoot, { recursive: true, force: true });
 });
 
 function writeBaseline(perFile: Record<string, number>): void {
   writeFileSync(
-    BASELINE_PATH,
+    path.join(baselineRoot, BASELINE_FILE),
     JSON.stringify({ format: 1, generated: "2026-01-01", total: 0, perFile }),
   );
 }

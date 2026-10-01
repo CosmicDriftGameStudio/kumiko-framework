@@ -61,4 +61,26 @@ export function runImport() {
     expect(outcome.violations).toHaveLength(1);
     expect(outcome.violations[0]?.message).toContain("appendRaw");
   });
+
+  test("allowlist matches repo-root-relative paths even when the root is not cwd", () => {
+    const ws = workspace();
+    const repoDir = join(ws, "repo");
+    const roots = [
+      fixtureRoot("repo", repoDir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src", "samples"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      }),
+    ];
+    const project = new Project({ useInMemoryFileSystem: true });
+    const call = "export function run() { appendRaw({}); }\n";
+    const allowed = project.createSourceFile(
+      join(repoDir, "samples/demo/src/migration/import.ts"),
+      call,
+    );
+    const denied = project.createSourceFile(join(repoDir, "samples/demo/src/other.ts"), call);
+
+    expect(guard.run([allowed], roots).violations).toHaveLength(0);
+    expect(guard.run([denied], roots).violations).toHaveLength(1);
+  });
 });

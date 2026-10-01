@@ -101,17 +101,22 @@ export function baselineCounts(findings: readonly Finding[]): Record<string, num
 }
 
 const BASELINE_FILE = ".kumiko-raw-interactive-elements-baseline.json";
-const rawInteractiveElementsBaseline = baselineRatchet({
-  file: path.join(ROOT, BASELINE_FILE),
-  formatVersion: 1,
-  unit: "raw interactive HTML finding(s)",
-});
+const createBaseline = (baselineRoot: string) =>
+  baselineRatchet({
+    file: path.join(baselineRoot, BASELINE_FILE),
+    formatVersion: 1,
+    unit: "raw interactive HTML finding(s)",
+  });
 
 const REMEDIATION =
   "Framework replacement: <a> → usePrimitives().Link, <details>/<summary> → CollapsibleSection " +
   `(@cosmicdrift/kumiko-renderer-web). Genuine exception: // ${IGNORE_TAG} <reason>`;
 
-function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
+function analyse(
+  files: readonly SourceFile[],
+  compareBaseline: boolean,
+  baselineRoot: string,
+): GuardOutcome {
   const findings = scan(files);
   if (!compareBaseline) {
     console.log("  Baseline comparison skipped (--no-baseline).");
@@ -119,7 +124,7 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
   }
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
   return {
-    violations: rawInteractiveElementsBaseline.check(baselineCounts(findings), REMEDIATION, {
+    violations: createBaseline(baselineRoot).check(baselineCounts(findings), REMEDIATION, {
       formatDriftRemediation:
         "Run `bun guards/guard-raw-interactive-elements.ts --write-baseline` once.",
       resolveLine,
@@ -127,12 +132,17 @@ function analyse(files: readonly SourceFile[], compareBaseline: boolean): GuardO
   };
 }
 
-export const guard: AstGuard = {
-  name: "Raw-Interactive-Elements Guard (App-Repos)",
-  scan: SCAN,
-  hint: REMEDIATION,
-  run: (files: readonly SourceFile[]) => analyse(files, true),
-};
+export function createGuard(options: { readonly baselineRoot?: string } = {}): AstGuard {
+  const baselineRoot = options.baselineRoot ?? ROOT;
+  return {
+    name: "Raw-Interactive-Elements Guard (App-Repos)",
+    scan: SCAN,
+    hint: REMEDIATION,
+    run: (files: readonly SourceFile[]) => analyse(files, true, baselineRoot),
+  };
+}
+
+export const guard: AstGuard = createGuard();
 
 // Flags are read ONLY here, not in run() — the shared runner
 // (run-ui-guards.ts) runs every guard with the same argv, a
@@ -142,12 +152,12 @@ if (import.meta.main) {
   if (args.includes("--write-baseline")) {
     const project = buildSharedProject([guard]);
     const findings = scan(filesForGuard(project, guard));
-    rawInteractiveElementsBaseline.write(baselineCounts(findings));
+    createBaseline(ROOT).write(baselineCounts(findings));
     process.exit(0);
   }
   if (args.includes("--no-baseline")) {
     const project = buildSharedProject([guard]);
-    analyse(filesForGuard(project, guard), false);
+    analyse(filesForGuard(project, guard), false, ROOT);
     process.exit(0);
   }
   runStandalone(guard);

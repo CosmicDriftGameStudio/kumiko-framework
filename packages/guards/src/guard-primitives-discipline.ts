@@ -92,6 +92,8 @@ export type ScopeKind = "bundled-features" | "samples" | "app";
 type ScanScope = {
   readonly kind: ScopeKind;
   readonly root: string;
+  /** Repo root the reported file labels are relative to. */
+  readonly repoRoot: string;
 };
 
 // Framework checkout enforces bundled-features + samples. App-repo checkout
@@ -103,29 +105,29 @@ type ScanScope = {
 function resolveScopes(roots: readonly RepoRoot[]): ScanScope[] {
   const frameworkRoot = roots.find((r) => r.kind === "framework");
   if (frameworkRoot) {
+    const repoRoot = frameworkRoot.absPath;
     return [
       {
         kind: "bundled-features",
-        root: path.join(frameworkRoot.absPath, "packages/bundled-features/src"),
+        root: path.join(repoRoot, "packages/bundled-features/src"),
+        repoRoot,
       },
-      { kind: "samples", root: path.join(frameworkRoot.absPath, "samples") },
+      { kind: "samples", root: path.join(repoRoot, "samples"), repoRoot },
     ];
   }
-  const appRoot = roots.find((r) => r.kind === "app" && isFlatSrcLayout(r));
-  if (appRoot) {
-    return [{ kind: "app", root: path.join(appRoot.absPath, "src") }];
+  const appRoots = roots.filter((r) => r.kind === "app" && isFlatSrcLayout(r));
+  if (appRoots.length > 0) {
+    return appRoots.map((r) => ({
+      kind: "app" as const,
+      root: path.join(r.absPath, "src"),
+      repoRoot: r.absPath,
+    }));
   }
-  const otherRoots = roots.filter((r) => r.kind !== "framework" && !isFlatSrcLayout(r));
-  return otherRoots.flatMap(sourceRootDirs).map((root) => ({ kind: "app" as const, root }));
-}
-
-function resolveRoot(roots: readonly RepoRoot[]): string {
-  const frameworkRoot = roots.find((r) => r.kind === "framework");
-  if (frameworkRoot) return frameworkRoot.absPath;
-  const appRoot = roots.find((r) => r.kind === "app" && isFlatSrcLayout(r));
-  if (appRoot) return appRoot.absPath;
-  const otherRoots = roots.filter((r) => r.kind !== "framework" && !isFlatSrcLayout(r));
-  return otherRoots[0]?.absPath ?? process.cwd();
+  return roots
+    .filter((r) => r.kind !== "framework" && !isFlatSrcLayout(r))
+    .flatMap((r) =>
+      sourceRootDirs(r).map((root) => ({ kind: "app" as const, root, repoRoot: r.absPath })),
+    );
 }
 
 type Violation = {
@@ -306,7 +308,6 @@ export const check: RepoCheck = {
       // Repo-Root aufgelöst") — the vacuity floor below reproduces that.
       return { violations: [], matchedFiles: 0, notApplicable: false };
     }
-    const root = resolveRoot(roots);
     // Pre-filter count (every file walk() found, before the web/-segment
     // filter): an app repo whose screens are schema-driven with zero
     // web/*.tsx (phronexsis before its first screen) must not be flagged as
@@ -322,7 +323,7 @@ export const check: RepoCheck = {
       const webFiles = files.filter((f) => isWebFile(f, scope.root));
       for (const file of webFiles) {
         const target = scope.kind === "samples" ? warnings : violations;
-        for (const v of checkFile(file, scope.kind, root)) {
+        for (const v of checkFile(file, scope.kind, scope.repoRoot)) {
           target.push({ file: v.file, line: v.line, message: violationMessage(v) });
         }
       }

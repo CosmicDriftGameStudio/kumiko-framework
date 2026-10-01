@@ -47,16 +47,15 @@ import * as path from "node:path";
 import { type Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { literalStringOf, mentionsAsWord, nameForms } from "./_lib/handler-name-forms";
+import { TEST_FILE_RE } from "./_lib/test-file";
 
 const ROOT = process.cwd();
 
 const SCAN: ScanSpec = {
-  scope: "source",
+  scope: "source+tests",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],
 };
-
-const TEST_FILE = /\.test\.ts$/;
 
 // Quoted forms — a test "rejects this role" assertion carries the literal.
 const RESERVED_ROLE_LITERALS = ['"SystemAdmin"', '"system"', '"all"', '"anonymous"'];
@@ -81,7 +80,7 @@ function resolvedSchemaText(schemaProp: Node): string {
 export function findRoleInputHandlers(files: readonly SourceFile[]): RoleHandler[] {
   const out: RoleHandler[] = [];
   for (const sf of files) {
-    if (TEST_FILE.test(sf.getFilePath())) continue;
+    if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       if (call.getExpression().getText() !== "defineWriteHandler") continue;
       const arg = call.getArguments()[0];
@@ -105,7 +104,7 @@ export function findRoleInputHandlers(files: readonly SourceFile[]): RoleHandler
 function reservedRoleTestTexts(files: readonly SourceFile[]): string[] {
   const out: string[] = [];
   for (const sf of files) {
-    if (!TEST_FILE.test(sf.getFilePath())) continue;
+    if (!TEST_FILE_RE.test(sf.getFilePath())) continue;
     const text = sf.getFullText();
     if (RESERVED_ROLE_LITERALS.some((r) => text.includes(r))) out.push(text);
   }
@@ -133,7 +132,7 @@ type OverrideHandler = { file: string; line: number };
 export function findOverrideHandlersMissingHelper(files: readonly SourceFile[]): OverrideHandler[] {
   const out: OverrideHandler[] = [];
   for (const sf of files) {
-    if (TEST_FILE.test(sf.getFilePath())) continue;
+    if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const pa of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
       if (pa.getName() !== "tenantIdOverride") continue;
       if (pa.getInitializer()?.getText().startsWith("z.") !== true) continue;
@@ -181,7 +180,7 @@ function lineOfMatch(text: string, re: RegExp): number {
 export function findMembershipMintsMissingStrip(files: readonly SourceFile[]): MintSite[] {
   const out: MintSite[] = [];
   for (const sf of files) {
-    if (TEST_FILE.test(sf.getFilePath())) continue;
+    if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     const text = sf.getFullText();
     if (!SESSION_MINT.test(text)) continue;
     if (!MEMBERSHIP_SOURCE.test(text)) continue;
@@ -223,7 +222,7 @@ export function findGlobalUserWritesMissingMembershipCheck(
 ): GlobalUserWrite[] {
   const out: GlobalUserWrite[] = [];
   for (const sf of files) {
-    if (TEST_FILE.test(sf.getFilePath())) continue;
+    if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       if (call.getExpression().getText() !== "defineWriteHandler") continue;
       const arg = call.getArguments()[0];
