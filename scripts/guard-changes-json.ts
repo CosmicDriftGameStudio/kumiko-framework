@@ -26,24 +26,39 @@ const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
 
+const ZERO_SHA_RE = /^0+$/;
+
 function changedFiles(
   repoRoot: string,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
   let base = env["GITHUB_BASE_SHA"] ?? "origin/main";
-  const baseRef = env["GITHUB_BASE_REF"]?.trim() || (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
-  if (!env["GITHUB_BASE_SHA"] && baseRef) {
-    const fetched = Bun.spawnSync(["git", "fetch", "--no-tags", "--depth=1", "origin", baseRef], {
-      cwd: repoRoot,
-      env: gitEnv(process.env, { transport: true }),
-    });
-    if (fetched.exitCode !== 0) {
-      const detail = new TextDecoder().decode(fetched.stderr).trim();
-      throw new Error(`could not fetch diff base ${baseRef}${detail ? `: ${detail}` : ""}`);
+  const pushBefore = env["GITHUB_EVENT_NAME"] === "push" ? env["GITHUB_EVENT_BEFORE"]?.trim() : undefined;
+  if (!env["GITHUB_BASE_SHA"] && pushBefore && !ZERO_SHA_RE.test(pushBefore)) {
+    // A push to main has FETCH_HEAD === HEAD (empty diff); the pre-push tip is the real range start.
+    base = pushBefore;
+  } else if (!env["GITHUB_BASE_SHA"]) {
+    const baseRef = env["GITHUB_BASE_REF"]?.trim() || (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
+    if (baseRef) {
+      // The three-dot diff below needs the merge-base, so history must not be truncated.
+      const shallow = Bun.spawnSync(["git", "rev-parse", "--is-shallow-repository"], {
+        cwd: repoRoot,
+        env: gitEnv(),
+      });
+      const isShallow = new TextDecoder().decode(shallow.stdout).trim() === "true";
+      const fetchArgs = ["fetch", "--no-tags", ...(isShallow ? ["--unshallow"] : []), "origin", baseRef];
+      const fetched = Bun.spawnSync(["git", ...fetchArgs], {
+        cwd: repoRoot,
+        env: gitEnv(process.env, { transport: true }),
+      });
+      if (fetched.exitCode !== 0) {
+        const detail = new TextDecoder().decode(fetched.stderr).trim();
+        throw new Error(`could not fetch diff base ${baseRef}${detail ? `: ${detail}` : ""}`);
+      }
+      base = "FETCH_HEAD";
     }
-    base = "FETCH_HEAD";
   }
-  const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", base, "HEAD"], {
+  const result = Bun.spawnSync(["git", "diff", "--name-only", "--diff-filter=ACMRTUXB", `${base}...HEAD`], {
     cwd: repoRoot,
     env: gitEnv(),
   });

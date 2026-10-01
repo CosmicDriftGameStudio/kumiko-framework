@@ -255,6 +255,116 @@ describe("findChangesetViolations", () => {
     }
   });
 
+  describe("diff base", () => {
+    function makeRepo(): { root: string; repo: string; git: (args: string[], cwd?: string) => string } {
+      const root = mkdtempSync(join(tmpdir(), "changeset-guard-base-"));
+      const remote = join(root, "remote.git");
+      const repo = join(root, "repo");
+      const git = (args: string[], cwd: string = repo): string => {
+        const result = Bun.spawnSync(["git", ...args], {
+          cwd,
+          env: fixtureGitEnv(root),
+          stdout: "pipe",
+          stderr: "pipe",
+        });
+        if (result.exitCode !== 0) throw new Error(`${args.join(" ")}: ${result.stderr.toString()}`);
+        return result.stdout.toString().trim();
+      };
+      mkdirSync(repo, { recursive: true });
+      git(["init", "--bare", remote], root);
+      git(["init", "-q", repo], root);
+      git(["config", "user.email", "test@example.com"]);
+      git(["config", "user.name", "test"]);
+      writeFileSync(join(repo, "README.md"), "base\n");
+      git(["add", "README.md"]);
+      git(["commit", "-q", "-m", "base"]);
+      git(["branch", "-M", "main"]);
+      git(["remote", "add", "origin", remote]);
+      git(["push", "-q", "-u", "origin", "main"]);
+      return { root, repo, git };
+    }
+
+    function commitChangesJson(repo: string, git: (args: string[]) => string, message: string): void {
+      mkdirSync(join(repo, "packages", "x"), { recursive: true });
+      writeFileSync(join(repo, "packages", "x", "changes.json"), `${JSON.stringify(message)}\n`);
+      git(["add", "packages/x/changes.json"]);
+      git(["commit", "-q", "-m", message]);
+    }
+
+    it("ignores files changed on main after the branch point (merge-base diff)", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        commitChangesJson(repo, git, "initial");
+        git(["push", "-q", "origin", "main"]);
+        git(["switch", "-q", "-c", "feature"]);
+        writeFileSync(join(repo, "feature.txt"), "f\n");
+        git(["add", "feature.txt"]);
+        git(["commit", "-q", "-m", "feature"]);
+        git(["switch", "-q", "main"]);
+        commitChangesJson(repo, git, "release commit on main");
+        git(["push", "-q", "origin", "main"]);
+        git(["switch", "-q", "feature"]);
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_BASE_REF: "main",
+          GITHUB_EVENT_NAME: "pull_request",
+        });
+        expect(violations).toEqual([]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("still flags a changes.json edit made on the branch", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        git(["switch", "-q", "-c", "feature"]);
+        commitChangesJson(repo, git, "direct edit");
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_BASE_REF: "main",
+          GITHUB_EVENT_NAME: "pull_request",
+        });
+        expect(violations.map((v) => v.file)).toEqual(["packages/x/changes.json"]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("diffs a push to main against the before SHA instead of an empty FETCH_HEAD", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        const before = git(["rev-parse", "HEAD"]);
+        commitChangesJson(repo, git, "direct edit on main");
+        git(["push", "-q", "origin", "main"]);
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_EVENT_NAME: "push",
+          GITHUB_EVENT_BEFORE: before,
+        });
+        expect(violations.map((v) => v.file)).toEqual(["packages/x/changes.json"]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it("falls back to main for the all-zero before SHA of a new branch", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        git(["switch", "-q", "-c", "feature"]);
+        commitChangesJson(repo, git, "direct edit");
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_EVENT_NAME: "push",
+          GITHUB_EVENT_BEFORE: "0".repeat(40),
+        });
+        expect(violations.map((v) => v.file)).toEqual(["packages/x/changes.json"]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
   it("does not leak GIT_DIR/GIT_WORK_TREE into a parent repo (regression #2951)", () => {
     // In-process `process.env.GIT_DIR = …` mutation does NOT reach
     // Bun.spawnSync's default (omitted-env) inheritance — verified: Bun

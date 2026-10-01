@@ -106,6 +106,8 @@ jobs:
         run: bash scripts/changeset-required-check.sh
 
       - name: Run tests
+        env:
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
         run: |
           # watch-tests öffnen viele inotify-FDs; ohne Job-Container das
           # nofile-Limit selbst heben (kam vorher aus container.options).
