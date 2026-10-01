@@ -140,6 +140,9 @@ export type LinkProps = {
    *  `rel` is set explicitly. */
   readonly target?: "_blank" | "_self" | "_parent" | "_top";
   readonly rel?: string;
+  /** Plain left-click handler (SPA navigation); `href` stays set for
+   *  modifier/middle clicks, which the browser handles itself. */
+  readonly onPress?: () => void;
   /** Layout-Zusätze (self-center, text-xs) — Web merged via cn(),
    *  Native-Impls ignorieren es (Präzedenz: CardProps.className). */
   readonly className?: string;
@@ -1040,6 +1043,8 @@ export type GridCellProps = {
  *  foreground). Custom-Impls mappen auf ihren TypeScale. */
 export type TextProps = {
   readonly variant?: "body" | "small" | "code" | "required-mark" | "muted";
+  /** Pure ornament (e.g. a separator glyph): hidden from assistive tech. */
+  readonly decorative?: boolean;
   readonly children: ReactNode;
   readonly testId?: string;
 };

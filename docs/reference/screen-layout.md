@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-10-01
+verified: 2026-10-02
 evidence: "kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
 ---
 
@@ -63,11 +63,31 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `recordTitleField` | entityEdit | field of the loaded record shown as record crumb: "list > record > screen title" (edit mode only) |
 | `recordTitleField` | projectionDetail | query output field that titles the page header (breadcrumb "list > record"); rejected together with `header` |
 | `statusTones` | projectionDetail | same for the `status` field of the header badge |
+| `subtitle` | projectionDetail | `header.subtitle`: a query output field, or a list of parts (field name or `{ field, navigate? }`) shown as one line under the title |
 | `valueType` | relatedList column | `number`, `decimal`, `bigInt` or `money`: right-aligned tabular column and header |
 | `hideOnNarrow` | list column | leaves the column out of the card layout below `md` |
 | `description` | relatedList section | i18n key for the hint in the tab toolbar |
 | `itemNoun` | relatedList section | i18n key with plural forms for the footer count |
 | `summary` | actionForm | `{ title, subtitle? }` context box; `{name}` placeholders come from the drawer prefill |
+
+## Header subtitle with several parts
+
+`header.subtitle` takes a list when the line under the title names more than one thing. A part that sets `navigate` links to the referenced record.
+
+```ts illustration
+header: {
+  title: "mieter",
+  subtitle: [
+    { field: "einheit", navigate: { entity: "unit", entityId: "unitId" } },
+    { field: "liegenschaft", navigate: { entity: "property", entityId: "propertyId" } },
+  ],
+},
+```
+
+- A part with an empty value is left out together with its separator.
+- A part becomes a link only when its target resolves and the user may open it, and, for `entity`/`entityId`, the `entityId` field is not empty. Otherwise it stays plain text. A part with `navigate` that has neither `screen` nor `entity` fails at boot.
+- The separator "·" is its own element, hidden from assistive tech. The parts wrap onto a new line on narrow screens.
+- `subtitleHref` (external URL for the whole subtitle) only works with the string form of `subtitle`; combining it with a list fails at boot.
 
 ## Tab panels
 

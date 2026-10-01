@@ -156,7 +156,10 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
   query: RENTAL_QUERIES.leaseAkte,
   header: {
     title: "mieter",
-    subtitle: "standort",
+    subtitle: [
+      { field: "einheit", navigate: { screen: "lease-hub", entityId: "id" } },
+      { field: "liegenschaft", navigate: { screen: "lease-list" } },
+    ],
     status: "statusLabel",
     statusTones: { Aktiv: "ok", Gekündigt: "bad" },
   },

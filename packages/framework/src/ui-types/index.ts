@@ -116,6 +116,7 @@ export type {
   PlatformComponent,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
+  RecordHeaderSubtitlePart,
   RelatedListToolbarAction,
   RowAction,
   RowActionDrawer,

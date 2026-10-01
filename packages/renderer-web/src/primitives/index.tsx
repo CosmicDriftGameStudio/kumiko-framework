@@ -3903,7 +3903,7 @@ function DefaultGridCell({ span, width, children }: GridCellProps): ReactNode {
   return <div style={{ gridColumn: `span ${s}` }}>{children}</div>;
 }
 
-function DefaultText({ variant = "body", children, testId }: TextProps): ReactNode {
+function DefaultText({ variant = "body", decorative, children, testId }: TextProps): ReactNode {
   switch (variant) {
     case "code":
       return (
@@ -3928,7 +3928,11 @@ function DefaultText({ variant = "body", children, testId }: TextProps): ReactNo
       );
     case "muted":
       return (
-        <span data-testid={testId} className="text-sm text-muted-foreground">
+        <span
+          data-testid={testId}
+          {...(decorative === true && { "aria-hidden": true })}
+          className="text-sm text-muted-foreground"
+        >
           {children}
         </span>
       );
@@ -3952,6 +3956,7 @@ function DefaultLink({
   variant = "default",
   target,
   rel,
+  onPress,
   className,
   children,
   testId,
@@ -3971,6 +3976,23 @@ function DefaultLink({
       {...dataAttributes}
       data-testid={testId}
       className={cn(variantClass, className)}
+      onClick={
+        onPress === undefined
+          ? undefined
+          : (event) => {
+              if (
+                event.button !== 0 ||
+                event.metaKey ||
+                event.ctrlKey ||
+                event.shiftKey ||
+                event.altKey
+              ) {
+                return;
+              }
+              event.preventDefault();
+              onPress();
+            }
+      }
     >
       {children}
     </a>

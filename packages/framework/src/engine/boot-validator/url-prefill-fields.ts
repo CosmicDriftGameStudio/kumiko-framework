@@ -2,6 +2,7 @@ import { qualifyEntityName } from "../qualified-name.js";
 import type { FeatureDefinition } from "../types/index.js";
 import type {
   EditRelatedListSection,
+  MetricNavigate,
   ProjectionDetailScreenDefinition,
   RowFieldExtractor,
   ScreenDefinition,
@@ -51,6 +52,13 @@ function scopeActions(
 function relatedListParentParamField(section: EditRelatedListSection): string {
   return section.parentFilter?.field ?? section.parentParam ?? "id";
 }
+function subtitlePartNavigates(screen: ProjectionDetailScreenDefinition): MetricNavigate[] {
+  const subtitle = screen.header?.subtitle;
+  if (typeof subtitle === "string" || subtitle === undefined) return [];
+  return subtitle.flatMap((part) =>
+    typeof part === "string" || part.navigate === undefined ? [] : [part.navigate],
+  );
+}
 function projectionDetailNavigateActions(
   screen: ProjectionDetailScreenDefinition,
 ): ScopedNavigateAction[] {
@@ -71,6 +79,7 @@ function projectionDetailNavigateActions(
         ? []
         : scopeActions([metric.navigate], undefined),
     ),
+    ...subtitlePartNavigates(screen).flatMap((navigate) => scopeActions([navigate], undefined)),
   ];
 }
 function navigateActionsOf(screen: ScreenDefinition): ScopedNavigateAction[] {

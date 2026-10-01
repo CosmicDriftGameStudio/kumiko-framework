@@ -635,13 +635,20 @@ export type ProjectionListScreenDefinition = {
 // rejects them. `relatedList` sections ARE supported — they run their own
 // query against the displayed record's id, independent of the entity gap
 // above (fw#2166).
+export type RecordHeaderSubtitlePart =
+  | string
+  | { readonly field: string; readonly navigate?: MetricNavigate };
+
 export type RecordHeaderSpec = {
   readonly title: string;
-  readonly subtitle?: string;
+  /** Field name, or several parts (field name or `{ field, navigate }`)
+   *  joined by a separator; parts with an empty value are dropped. */
+  readonly subtitle?: string | readonly RecordHeaderSubtitlePart[];
   readonly status?: string;
   /** Record field holding an absolute http(s) URL. When present and the
    *  field's value is such a URL, the subtitle renders as an external link
-   *  (`target="_blank"`) instead of plain text. */
+   *  (`target="_blank"`) instead of plain text. Only valid with the string
+   *  form of `subtitle`. */
   readonly subtitleHref?: string;
   /** Badge tone per `status` field value; unlisted values fall back to the value heuristic. */
   readonly statusTones?: { readonly [statusValue: string]: SelectOptionTone };

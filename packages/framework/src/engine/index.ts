@@ -512,6 +512,7 @@ export type {
   QueryHandlerDef,
   QueryHandlerFn,
   RecordHeaderSpec,
+  RecordHeaderSubtitlePart,
   ReferenceDataDef,
   Registry,
   RelationDefinition,
