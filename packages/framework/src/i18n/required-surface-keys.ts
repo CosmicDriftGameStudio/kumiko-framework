@@ -13,6 +13,7 @@ import type {
   DashboardPanelDefinition,
   DashboardScreenDefinition,
   EntityEditScreenDefinition,
+  EntityListExpandableRow,
   EntityListScreenDefinition,
   FeatureDefinition,
   NavDefinition,
@@ -153,6 +154,28 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
   // already pushed above.
 }
 
+function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpandableRow): void {
+  pushKey(out, section.title);
+  pushKey(out, section.description);
+  pushKey(out, section.itemNoun);
+  for (const col of section.columns) {
+    const normalized = normalizeListColumn(col);
+    if (normalized.label !== undefined) pushKey(out, normalized.label);
+  }
+  for (const action of section.rowActions ?? []) pushRowActionKeys(out, action);
+}
+
+function pushExpandableRowKeys(out: Set<string>, section: EntityListExpandableRow): void {
+  pushRelatedListSectionKeys(out, section);
+  for (const action of section.actions ?? []) pushRowActionKeys(out, action);
+  for (const action of section.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+  pushKey(out, section.emptyState?.title);
+  pushKey(out, section.emptyState?.description);
+  if (section.emptyState?.action !== undefined) {
+    pushRowActionKeys(out, section.emptyState.action);
+  }
+}
+
 export type RequiredKeysOptions = {
   /** Bypass `isI18nKey`'s colon-only check for generated dot-form labels (fw#2260). */
   readonly treatDotFormAsKey?: boolean;
@@ -182,6 +205,7 @@ export function requiredKeysFromScreen(
       pushKey(out, list.searchPlaceholder);
       for (const action of list.rowActions ?? []) pushRowActionKeys(out, action);
       for (const action of list.toolbarActions ?? []) pushToolbarActionKeys(out, action);
+      if (list.expandableRow !== undefined) pushExpandableRowKeys(out, list.expandableRow);
       break;
     }
     case "projectionList": {
@@ -335,14 +359,7 @@ export function requiredKeysFromScreen(
           continue;
         }
         if (section.kind === "relatedList") {
-          pushKey(out, section.title);
-          pushKey(out, section.description);
-          pushKey(out, section.itemNoun);
-          for (const col of section.columns) {
-            const normalized = normalizeListColumn(col);
-            if (normalized.label !== undefined) pushKey(out, normalized.label);
-          }
-          for (const action of section.rowActions ?? []) pushRowActionKeys(out, action);
+          pushRelatedListSectionKeys(out, section);
           continue;
         }
         if (isWriteFormEditSection(section)) {

@@ -76,7 +76,17 @@ function projectionDetailNavigateActions(
 function navigateActionsOf(screen: ScreenDefinition): ScopedNavigateAction[] {
   switch (screen.type) {
     case "entityList":
-      return scopeActions(screen.rowActions, screen.entity);
+      return [
+        ...scopeActions(screen.rowActions, screen.entity),
+        ...(screen.expandableRow === undefined
+          ? []
+          : [
+              ...scopeActions(screen.expandableRow.rowActions, undefined),
+              ...scopeActions(screen.expandableRow.toolbarActions, undefined, {
+                pick: [relatedListParentParamField(screen.expandableRow)],
+              }),
+            ]),
+      ];
     case "projectionList":
       return scopeActions(screen.rowActions, undefined);
     case "entityEdit":

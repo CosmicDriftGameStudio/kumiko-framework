@@ -91,6 +91,8 @@ export function RelatedListSection({
   grow,
   onOpenDrawer,
   actions,
+  embedded,
+  onAfterWrite,
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
@@ -115,8 +117,16 @@ export function RelatedListSection({
    *  (non-`hideTitle`) branch below — `hideTitle` uses `FillContainer`, which
    *  has no title row to render actions into (see the comment on that branch). */
   readonly actions?: ReactNode;
+  /** Mounted inside a host row (entityList `expandableRow`): unframed, in
+   *  document flow (no Section card, no scrollBody), with its own title row
+   *  carrying `actions`. */
+  readonly embedded?: boolean;
+  /** Runs after this section's own refetch once a write action (row action,
+   *  toolbar action, emptyState action) succeeded — lets a host reload data
+   *  the write also changed. */
+  readonly onAfterWrite?: () => void | Promise<void>;
 }): ReactNode {
-  const { Banner, Section, FillContainer, Text, Button, Dialog } = usePrimitives();
+  const { Banner, Section, Card, FillContainer, Text, Button, Dialog } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -217,6 +227,11 @@ export function RelatedListSection({
   );
 
   const rowsQuery = useQuery<PagedRows>(section.query, payload);
+  const ownRefetch = rowsQuery.refetch;
+  const refetchSelfAndHost = useCallback(async (): Promise<void> => {
+    await ownRefetch();
+    await onAfterWrite?.();
+  }, [ownRefetch, onAfterWrite]);
 
   const onFilterChange = useCallback(
     (field: string, values: readonly string[]) =>
@@ -276,7 +291,7 @@ export function RelatedListSection({
         translate: effectiveTranslate,
         dispatcher,
         nav,
-        refetch: rowsQuery.refetch,
+        refetch: refetchSelfAndHost,
         openDrawer: onOpenDrawer,
         defaultEditRowAction,
         host,
@@ -286,7 +301,7 @@ export function RelatedListSection({
       effectiveTranslate,
       dispatcher,
       nav,
-      rowsQuery.refetch,
+      refetchSelfAndHost,
       onOpenDrawer,
       defaultEditRowAction,
       host,
@@ -302,7 +317,7 @@ export function RelatedListSection({
         translate: effectiveTranslate,
         dispatcher,
         nav,
-        refetch: rowsQuery.refetch,
+        refetch: refetchSelfAndHost,
         navigatePrefill:
           section.parentFilter !== undefined
             ? { [section.parentFilter.field]: parentId }
@@ -323,7 +338,7 @@ export function RelatedListSection({
       dispatcher,
       nav,
       host,
-      rowsQuery.refetch,
+      refetchSelfAndHost,
       onOpenDrawer,
     ],
   );
@@ -350,7 +365,7 @@ export function RelatedListSection({
       host,
       dispatcher,
       openDrawer: onOpenDrawer ?? (() => {}),
-      onWriteSuccess: rowsQuery.refetch,
+      onWriteSuccess: refetchSelfAndHost,
     })?.[0];
   }, [
     section.emptyState,
@@ -360,7 +375,7 @@ export function RelatedListSection({
     host,
     dispatcher,
     onOpenDrawer,
-    rowsQuery.refetch,
+    refetchSelfAndHost,
   ]);
   const emptyStateContent =
     section.emptyState !== undefined ? (
@@ -447,6 +462,7 @@ export function RelatedListSection({
               screenPadding: false,
               chromeless: true,
             })}
+            {...(embedded === true && { screenPadding: false, chromeless: true })}
           />
         </PageHeaderSlotAvailableProvider>
       </>
@@ -462,6 +478,27 @@ export function RelatedListSection({
   // Section card and document-flow height since they render a visible title
   // and aren't confined to a tab panel.
   const bridges = <ReferenceFacetBridges specs={facetSpecs} onOptions={handleFacetOptions} />;
+
+  if (embedded === true) {
+    const countSuffix = rowsQuery.data !== null ? ` · ${sortedRows.length}` : "";
+    return (
+      <>
+        {bridges}
+        <Card
+          options={{ framed: false, padded: false }}
+          // Trim the default header inset: the host row already pads the area.
+          className="[&>div:first-child]:px-0 [&>div:first-child]:pt-1 [&>div:first-child]:pb-2"
+          slots={{
+            title: `${section.title}${countSuffix}`,
+            ...(actions !== undefined && { headerActions: actions }),
+          }}
+          testId={`related-list-${section.title}-${parentId}`}
+        >
+          {content}
+        </Card>
+      </>
+    );
+  }
 
   if (hideTitle) {
     return (

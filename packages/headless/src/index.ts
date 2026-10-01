@@ -107,6 +107,7 @@ export {
   computeDerivedCellValue,
   computeEditViewModel,
   computeListViewModel,
+  computeRelatedListSectionViewModel,
   embeddedCellLabelKey,
   embeddedCellOptionLabelKey,
   fieldLabelKey,

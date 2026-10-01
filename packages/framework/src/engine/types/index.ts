@@ -321,6 +321,7 @@ export type {
   EditSectionSpec,
   EditWriteFormSection,
   EntityEditScreenDefinition,
+  EntityListExpandableRow,
   EntityListScreenDefinition,
   FieldCondition,
   FieldFormatRegistry,

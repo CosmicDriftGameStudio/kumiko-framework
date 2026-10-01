@@ -1,6 +1,14 @@
 import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
+import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
-import { campaignEntity, vehicleEntity } from "./entities";
+import {
+  campaignCounterRowSchema,
+  campaignExecutor,
+  campaignPostExecutor,
+  campaignPostRowSchema,
+  markPostedPayloadSchema,
+} from "./campaign-support";
+import { campaignEntity, campaignPostEntity, vehicleEntity } from "./entities";
 import { vehiclesTranslations } from "./i18n";
 import {
   campaignEditScreen,
@@ -10,7 +18,7 @@ import {
   vehicleWizardScreen,
 } from "./screens";
 
-export { campaignEntity, vehicleEntity };
+export { campaignEntity, campaignPostEntity, vehicleEntity };
 
 const open = openToAllSignedIn(
   "demo app: any signed-in user manages every vehicle; there is no per-user ownership in this sample",
@@ -21,6 +29,40 @@ export const vehiclesFeature = defineFeature("vehicles", (r) => {
 
   r.crud("vehicle", vehicleEntity, { write: open, read: open });
   r.crud("campaign", campaignEntity, { write: open, read: open });
+  r.crud("campaignPost", campaignPostEntity, { write: open, read: open });
+
+  r.writeHandler(
+    "campaign-post:mark-posted",
+    markPostedPayloadSchema,
+    async (event, ctx) => {
+      const current = await campaignPostExecutor.detail(
+        { id: event.payload.id },
+        event.user,
+        ctx.db,
+      );
+      if (!current) return failNotFound("campaignPost", event.payload.id);
+      const post = campaignPostRowSchema.parse(current);
+
+      const marked = await campaignPostExecutor.update(
+        { id: post.id, changes: { status: "gepostet" } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true },
+      );
+      if (!marked.isSuccess || post.status === "gepostet") return marked;
+
+      const campaign = await campaignExecutor.detail({ id: post.campaign }, event.user, ctx.db);
+      if (!campaign) return failNotFound("campaign", post.campaign);
+      const { gepostet } = campaignCounterRowSchema.parse(campaign);
+      return campaignExecutor.update(
+        { id: post.campaign, changes: { gepostet: (gepostet ?? 0) + 1 } },
+        event.user,
+        ctx.db,
+        { skipOptimisticLock: true },
+      );
+    },
+    open,
+  );
 
   r.screen(vehicleListScreen);
   r.screen(vehicleEditScreen);

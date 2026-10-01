@@ -623,6 +623,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.list.related-list-truncated":
     "Mostrando las primeras {count} entradas. Hay más disponibles pero no se cargaron — esta lista no pagina.",
   "kumiko.list.row-actions.more": "Más acciones",
+  "kumiko.list.row.collapse": "Contraer {title}",
+  "kumiko.list.row.expand": "Expandir {title}",
   "kumiko.list.search-placeholder": "Buscar…",
   "kumiko.list.sort.by": "Ordenado por {column}",
   "kumiko.list.sort.label": "Ordenar",

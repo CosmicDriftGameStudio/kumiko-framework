@@ -35,6 +35,7 @@ import type {
   DashboardTimeRangeDefinition,
   EditFieldSpec,
   EditLayout,
+  EditRelatedListSection,
   FieldCondition,
   ListColumnSpec,
   ListFacetSpec,
@@ -126,6 +127,13 @@ export function readsNavigateParamsAsFormPrefill(
   return sourceScreenEntity === undefined || target.entity !== sourceScreenEntity;
 }
 
+type NavigateSourceScreenType =
+  | "entityList"
+  | "projectionList"
+  | "projectionDetail"
+  | "entityEdit"
+  | "entityList expandableRow";
+
 // Tier 2.7e navigate rowAction → target-screen params validity. Shared by
 // entityList and projectionList (framework#1708) — projectionList has no
 // `screen.entity`, so there's no same-entity row["id"] auto-fill case: any
@@ -141,7 +149,7 @@ export function readsNavigateParamsAsFormPrefill(
 function validateRowActionNavigateParams(
   featureName: string,
   screenId: string,
-  screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
+  screenType: NavigateSourceScreenType,
   screenEntity: string | undefined,
   action: RowAction,
   target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
@@ -548,7 +556,7 @@ type RowActionNavigateRuntime = RowActionNavigateBase & {
 function validateRowActionNavigateTab(
   featureName: string,
   screenId: string,
-  screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
+  screenType: NavigateSourceScreenType,
   actionLabel: string,
   action: RowActionNavigateRuntime,
   target: { readonly featureName: string; readonly screen: ScreenDefinition } | undefined,
@@ -583,7 +591,7 @@ function validateRowActionNavigateTab(
 function resolveRowActionNavigateTarget(
   featureName: string,
   screenId: string,
-  screenType: "entityList" | "projectionList" | "projectionDetail" | "entityEdit",
+  screenType: NavigateSourceScreenType,
   actionLabel: string,
   action: RowActionNavigateRuntime,
   allScreenQns: ReadonlySet<string>,
@@ -1038,6 +1046,179 @@ function validateScreenHasNavArea(
   );
 }
 
+type RelatedListSectionValidation = {
+  readonly featureName: string;
+  readonly featureMap: ReadonlyMap<string, FeatureDefinition>;
+  readonly screenId: string;
+  readonly screenType: NavigateSourceScreenType;
+  readonly where: string;
+  readonly section: EditRelatedListSection;
+  readonly screens: FeatureDefinition["screens"];
+  readonly allWriteHandlerQns: ReadonlySet<string>;
+  readonly allScreenQns: ReadonlySet<string>;
+  readonly navTargetShortIds: ReadonlySet<string>;
+  readonly screensByShortId: ReadonlyMap<
+    string,
+    ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >;
+  readonly detailForScreens: ReadonlyMap<
+    string,
+    { readonly featureName: string; readonly screen: ScreenDefinition }
+  >;
+};
+
+// Shared by projectionDetail relatedList sections and entityList.expandableRow:
+// both render a relatedList whose rows come from an arbitrary query.
+function validateRelatedListSection(args: RelatedListSectionValidation): void {
+  const {
+    featureName,
+    featureMap,
+    screenId,
+    screenType,
+    where,
+    section,
+    screens,
+    allWriteHandlerQns,
+    allScreenQns,
+    navTargetShortIds,
+    screensByShortId,
+    detailForScreens,
+  } = args;
+  if (!section.query || typeof section.query !== "string") {
+    throw new Error(`[Feature ${featureName}] ${where} has empty or non-string query.`);
+  }
+  for (const col of section.columns) {
+    const normalizedCol = normalizeListColumn(col);
+    if (normalizedCol.refEntity !== undefined) {
+      assertRefTargetRegistered(
+        `[Feature ${featureName}] ${where}`,
+        `column "${normalizedCol.field}" (refEntity)`,
+        normalizedCol.refEntity,
+        featureName,
+        featureMap,
+      );
+    }
+  }
+  if (section.rowClick !== undefined) {
+    const targetEntity = section.rowClick.entity;
+    const hasDetailScreen = [...featureMap.values()].some((f) =>
+      Object.values(f.screens).some((s) => s.detailFor === targetEntity),
+    );
+    if (!hasDetailScreen) {
+      throw new Error(
+        `[Feature ${featureName}] ${where} ` +
+          `rowClick targets entity "${targetEntity}", but no screen declares ` +
+          `detailFor: "${targetEntity}". Add detailFor: "${targetEntity}" to the screen that shows it.`,
+      );
+    }
+  }
+  if (section.rowActions !== undefined) {
+    for (const action of section.rowActions) {
+      if (action.kind === "navigate") {
+        const target = resolveRowActionNavigateTarget(
+          featureName,
+          screenId,
+          screenType,
+          "rowAction",
+          action,
+          allScreenQns,
+          navTargetShortIds,
+          screensByShortId,
+          detailForScreens,
+        );
+        validateRowActionNavigateParams(
+          featureName,
+          screenId,
+          screenType,
+          undefined,
+          action,
+          target,
+        );
+      } else if (action.kind === "drawer") {
+        validateDrawerTargetAction(featureName, screenId, screenType, "rowAction", action, screens);
+      } else if (!allWriteHandlerQns.has(action.handler)) {
+        throw new Error(
+          `[Feature ${featureName}] ${where} ` +
+            `rowAction "${action.id}" handler "${action.handler}" ` +
+            `is not a registered write-handler. Check the QN spelling (expected ` +
+            `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+        );
+      }
+    }
+    // section.rowClick (legacy, navigate-only) and a rowActions entry
+    // marked rowClick:true both claim the row-body click — same
+    // at-most-one constraint as entityList/projectionList's
+    // validateAtMostOneRowClick, just spanning two fields instead of one.
+    const rowClickActionCount = section.rowActions.filter(
+      (a) => a.kind === "navigate" && a.rowClick === true,
+    ).length;
+    const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
+    if (rowClickActionCount + legacyRowClickCount > 1) {
+      throw new Error(
+        `[Feature ${featureName}] ${where} ` +
+          `has both a rowClick and ${rowClickActionCount} rowActions marked ` +
+          `rowClick:true — at most one may fire on a row-body click.`,
+      );
+    }
+  }
+  if (section.defaultSort !== undefined) {
+    const sortField = section.defaultSort.field;
+    const col = section.columns.find((c) => normalizeListColumn(c).field === sortField);
+    if (col === undefined) {
+      throw new Error(
+        `[Feature ${featureName}] ${where} ` +
+          `defaultSort.field "${sortField}" is not a listed column.`,
+      );
+    }
+    if (normalizeListColumn(col).sortable !== true) {
+      throw new Error(
+        `[Feature ${featureName}] ${where} ` +
+          `defaultSort.field "${sortField}" is not sortable. Set sortable: true on ` +
+          `the column or pick another field.`,
+      );
+    }
+  }
+  if (section.facets !== undefined) {
+    validateListFacets(
+      `[Feature ${featureName}] ${where}`,
+      section.facets,
+      section.columns,
+      featureName,
+      featureMap,
+    );
+  }
+  // Only drawer-kind and navigate actions that set tab are validated
+  // here — plain navigate (no tab) and writeHandler toolbarActions
+  // have no boot check yet, same gap as above.
+  if (section.toolbarActions !== undefined) {
+    for (const action of section.toolbarActions) {
+      if (action.kind === "drawer") {
+        validateDrawerTargetAction(
+          featureName,
+          screenId,
+          screenType,
+          "toolbarAction",
+          action,
+          screens,
+        );
+      }
+      if (action.kind === "navigate" && action.tab !== undefined) {
+        resolveRowActionNavigateTarget(
+          featureName,
+          screenId,
+          screenType,
+          "toolbarAction",
+          action,
+          allScreenQns,
+          navTargetShortIds,
+          screensByShortId,
+          detailForScreens,
+        );
+      }
+    }
+  }
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -1376,24 +1557,6 @@ export function validateScreens(
           continue;
         }
         if (section.kind === "relatedList") {
-          if (!section.query || typeof section.query !== "string") {
-            throw new Error(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
-                `(relatedList) has empty or non-string query.`,
-            );
-          }
-          for (const col of section.columns) {
-            const normalizedCol = normalizeListColumn(col);
-            if (normalizedCol.refEntity !== undefined) {
-              assertRefTargetRegistered(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" (relatedList)`,
-                `column "${normalizedCol.field}" (refEntity)`,
-                normalizedCol.refEntity,
-                feature.name,
-                featureMap,
-              );
-            }
-          }
           if (screen.layout.mode === "wizard") {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
@@ -1401,131 +1564,20 @@ export function validateScreens(
                 `stepped form. Remove mode: "wizard" or drop the relatedList section.`,
             );
           }
-          if (section.rowClick !== undefined) {
-            const targetEntity = section.rowClick.entity;
-            const hasDetailScreen = [...featureMap.values()].some((f) =>
-              Object.values(f.screens).some((s) => s.detailFor === targetEntity),
-            );
-            if (!hasDetailScreen) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
-                  `(relatedList) rowClick targets entity "${targetEntity}", but no screen declares ` +
-                  `detailFor: "${targetEntity}". Add detailFor: "${targetEntity}" to the screen that shows it.`,
-              );
-            }
-          }
-          if (section.rowActions !== undefined) {
-            for (const action of section.rowActions) {
-              if (action.kind === "navigate") {
-                const target = resolveRowActionNavigateTarget(
-                  feature.name,
-                  screenId,
-                  "projectionDetail",
-                  "rowAction",
-                  action,
-                  allScreenQns,
-                  navTargetShortIds,
-                  screensByShortId,
-                  detailForScreens,
-                );
-                validateRowActionNavigateParams(
-                  feature.name,
-                  screenId,
-                  "projectionDetail",
-                  undefined,
-                  action,
-                  target,
-                );
-              } else if (action.kind === "drawer") {
-                validateDrawerTargetAction(
-                  feature.name,
-                  screenId,
-                  "projectionDetail",
-                  "rowAction",
-                  action,
-                  feature.screens,
-                );
-              } else if (!allWriteHandlerQns.has(action.handler)) {
-                throw new Error(
-                  `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section ` +
-                    `"${section.title}" (relatedList) rowAction "${action.id}" handler "${action.handler}" ` +
-                    `is not a registered write-handler. Check the QN spelling (expected ` +
-                    `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-                );
-              }
-            }
-            // section.rowClick (legacy, navigate-only) and a rowActions entry
-            // marked rowClick:true both claim the row-body click — same
-            // at-most-one constraint as entityList/projectionList's
-            // validateAtMostOneRowClick, just spanning two fields instead of one.
-            const rowClickActionCount = section.rowActions.filter(
-              (a) => a.kind === "navigate" && a.rowClick === true,
-            ).length;
-            const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
-            if (rowClickActionCount + legacyRowClickCount > 1) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
-                  `(relatedList) has both a rowClick and ${rowClickActionCount} rowActions marked ` +
-                  `rowClick:true — at most one may fire on a row-body click.`,
-              );
-            }
-          }
-          if (section.defaultSort !== undefined) {
-            const sortField = section.defaultSort.field;
-            const col = section.columns.find((c) => normalizeListColumn(c).field === sortField);
-            if (col === undefined) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
-                  `(relatedList) defaultSort.field "${sortField}" is not a listed column.`,
-              );
-            }
-            if (normalizeListColumn(col).sortable !== true) {
-              throw new Error(
-                `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) section "${section.title}" ` +
-                  `(relatedList) defaultSort.field "${sortField}" is not sortable. Set sortable: true on ` +
-                  `the column or pick another field.`,
-              );
-            }
-          }
-          if (section.facets !== undefined) {
-            validateListFacets(
-              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) relatedList section "${section.title}"`,
-              section.facets,
-              section.columns,
-              feature.name,
-              featureMap,
-            );
-          }
-          // Only drawer-kind and navigate actions that set tab are validated
-          // here — plain navigate (no tab) and writeHandler toolbarActions
-          // have no boot check yet, same gap as above.
-          if (section.toolbarActions !== undefined) {
-            for (const action of section.toolbarActions) {
-              if (action.kind === "drawer") {
-                validateDrawerTargetAction(
-                  feature.name,
-                  screenId,
-                  "projectionDetail",
-                  "toolbarAction",
-                  action,
-                  feature.screens,
-                );
-              }
-              if (action.kind === "navigate" && action.tab !== undefined) {
-                resolveRowActionNavigateTarget(
-                  feature.name,
-                  screenId,
-                  "projectionDetail",
-                  "toolbarAction",
-                  action,
-                  allScreenQns,
-                  navTargetShortIds,
-                  screensByShortId,
-                  detailForScreens,
-                );
-              }
-            }
-          }
+          validateRelatedListSection({
+            featureName: feature.name,
+            featureMap,
+            screenId,
+            screenType: "projectionDetail",
+            where: `Screen "${screenId}" (projectionDetail) section "${section.title}" (relatedList)`,
+            section,
+            screens: feature.screens,
+            allWriteHandlerQns,
+            allScreenQns,
+            navTargetShortIds,
+            screensByShortId,
+            detailForScreens,
+          });
           continue;
         }
         if (isWriteFormEditSection(section)) {
@@ -2094,6 +2146,35 @@ export function validateScreens(
               );
             }
           }
+          validateActionFieldRefs(
+            feature.name,
+            screenId,
+            "toolbarAction",
+            action.id,
+            action,
+            fieldNames,
+            rowMeta,
+          );
+        }
+      }
+      if (screen.expandableRow !== undefined) {
+        const expandableRow = screen.expandableRow;
+        validateRelatedListSection({
+          featureName: feature.name,
+          featureMap,
+          screenId,
+          screenType: "entityList expandableRow",
+          where: `Screen "${screenId}" (entityList) expandableRow "${expandableRow.title}"`,
+          section: expandableRow,
+          screens: feature.screens,
+          allWriteHandlerQns,
+          allScreenQns,
+          navTargetShortIds,
+          screensByShortId,
+          detailForScreens,
+        });
+        // Toolbar actions of the expansion evaluate against the host row.
+        for (const action of expandableRow.toolbarActions ?? []) {
           validateActionFieldRefs(
             feature.name,
             screenId,

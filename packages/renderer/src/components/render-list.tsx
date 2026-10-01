@@ -135,6 +135,11 @@ export type RenderListProps = {
    *  fw#3234). Omitted: legacy `p-6` fallback for a standalone table with no
    *  padded host. */
   readonly screenPadding?: boolean;
+  /** Forwarded to `DataTableProps.expandedRowIds` / `onToggleRowExpanded` /
+   *  `renderExpandedRow` (entityList `expandableRow`). */
+  readonly expandedRowIds?: ReadonlySet<string>;
+  readonly onToggleRowExpanded?: (rowId: string) => void;
+  readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
 };
 
 // Resolved-Form einer Toolbar-Action: KumikoScreen baut das aus dem
@@ -194,6 +199,9 @@ export function RenderList(props: RenderListProps): ReactNode {
     chromeless,
     scrollBody,
     screenPadding,
+    expandedRowIds,
+    onToggleRowExpanded,
+    renderExpandedRow,
   } = props;
   // Wie RenderEdit: Translate-Fallback aus dem i18next-Context, sonst
   // wären Column-Header raw i18n-Keys.
@@ -442,6 +450,9 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(chromeless !== undefined && { chromeless })}
         {...(scrollBody !== undefined && { scrollBody })}
         {...(screenPadding !== undefined && { screenPadding })}
+        {...(expandedRowIds !== undefined && { expandedRowIds })}
+        {...(onToggleRowExpanded !== undefined && { onToggleRowExpanded })}
+        {...(renderExpandedRow !== undefined && { renderExpandedRow })}
         testId="render-list-table"
       />
     </>

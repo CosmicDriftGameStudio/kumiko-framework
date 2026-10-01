@@ -3,6 +3,8 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
+import { VEHICLES_QUERIES, VEHICLES_WRITES } from "./qualified-names";
+
 const OPEN_ACCESS = {
   openToAll: {
     reason: "demo app: any signed-in user manages every vehicle; there is no per-user ownership",
@@ -121,7 +123,7 @@ export const campaignListScreen: EntityListScreenDefinition = {
   id: "campaign-list",
   type: "entityList",
   entity: "campaign",
-  columns: ["name", "status", "meta", { field: "gestartetAm", hideOnNarrow: true }],
+  columns: ["name", "status", "meta", "gepostet", { field: "gestartetAm", hideOnNarrow: true }],
   searchPlaceholder: "vehicles.search.placeholder",
   defaultSort: { field: "gestartetAm", dir: "desc" },
   rowActions: [
@@ -141,6 +143,30 @@ export const campaignListScreen: EntityListScreenDefinition = {
       entityId: "id",
     },
   ],
+  expandableRow: {
+    kind: "relatedList",
+    title: "vehicles.posts.title",
+    query: VEHICLES_QUERIES.campaignPostList,
+    parentFilter: { field: "campaign" },
+    columns: [
+      { field: "datum", label: "vehicles:entity:campaignPost:field:datum", sortable: true },
+      { field: "kanal", label: "vehicles:entity:campaignPost:field:kanal" },
+      { field: "status", label: "vehicles:entity:campaignPost:field:status" },
+      { field: "text", label: "vehicles:entity:campaignPost:field:text" },
+    ],
+    defaultSort: { field: "datum", dir: "asc" },
+    rowActions: [
+      {
+        kind: "writeHandler",
+        id: "mark-posted",
+        icon: "check",
+        label: "vehicles.action.markPosted",
+        handler: VEHICLES_WRITES.markPosted,
+        payload: { pick: ["id"] },
+        visible: { field: "status", eq: "geplant" },
+      },
+    ],
+  },
   access: OPEN_ACCESS,
 };
 

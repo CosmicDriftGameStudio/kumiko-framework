@@ -433,6 +433,12 @@ export type RelatedListToolbarAction =
       readonly visible?: FieldCondition;
     });
 
+/** Expandable area of an `entityList` row: a relatedList of the row's record.
+ *  `id` (tab id) and `countField` (tab badge) have no meaning outside a tabs
+ *  layout and are therefore omitted. `kind` stays the discriminator so further
+ *  expansion kinds can be added without a breaking change. */
+export type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField">;
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -464,6 +470,11 @@ export type EntityListScreenDefinition = {
    *  etc. — neben "+ Neu" wenn vorhanden. Reihenfolge im Array = UI-
    *  Reihenfolge, primary-style links. */
   readonly toolbarActions?: readonly ToolbarAction[];
+  /** Expandable area under each row: a relatedList of the row's record
+   *  (parentId = the row's `id`). Rows get a toggle button; several rows can
+   *  be open at once. Its own row actions run against the sub-list rows, and
+   *  a successful write also reloads this list. */
+  readonly expandableRow?: EntityListExpandableRow;
   /** Server-side Filter, fest am Screen — drei Buckets derselben
    *  Entity ohne Custom-Pages (z.B. "Upcoming" / "Active" / "Past"
    *  Maintenance). User-side q-Search läuft AUF dem gefilterten Set

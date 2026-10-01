@@ -509,7 +509,7 @@ describe("r.screen() — registration", () => {
         }),
       ];
       expect(() => validateBoot(features)).toThrow(
-        /relatedList section "s".*facet references field "status" which is not a declared column/,
+        /section "s" \(relatedList\) facet references field "status" which is not a declared column/,
       );
     });
 

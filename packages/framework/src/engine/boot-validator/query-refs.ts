@@ -106,6 +106,15 @@ function checkScreenQueryRefs(
       screen.query,
       () => `[Feature ${featureName}] Screen "${screenId}" (projectionList)`,
     );
+  } else if (screen.type === "entityList") {
+    if (screen.expandableRow !== undefined) {
+      checkQueryRef(
+        queryHandlers,
+        screen.expandableRow.query,
+        () =>
+          `[Feature ${featureName}] Screen "${screenId}" (entityList) expandableRow "${screen.expandableRow?.title}"`,
+      );
+    }
   } else if (screen.type === "projectionDetail") {
     checkQueryRef(
       queryHandlers,

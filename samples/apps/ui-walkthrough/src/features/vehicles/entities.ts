@@ -20,6 +20,8 @@ export const WARRANTY_YEARS = ["1", "3", "5"] as const;
 export const INSPECTION_INTERVALS = ["", "12", "24"] as const;
 export const LISTING_STATES = ["draft", "published"] as const;
 export const CAMPAIGN_STATUSES = ["aktiv", "abgeschlossen", "entwurf"] as const;
+export const POST_CHANNELS = ["Instagram", "Facebook", "mobile.de"] as const;
+export const POST_STATUSES = ["geplant", "gepostet"] as const;
 
 export const vehicleEntity = createEntity({
   table: "read_ui_walkthrough_vehicles",
@@ -63,5 +65,22 @@ export const campaignEntity = createEntity({
     }),
     meta: createTextField({ ...DEMO_DATA, sortable: true }),
     gestartetAm: createDateField({ sortable: true }),
+    gepostet: createNumberField({ integer: true, default: 0 }),
+  },
+});
+
+export const campaignPostEntity = createEntity({
+  table: "read_ui_walkthrough_campaign_posts",
+  fields: {
+    campaign: { type: "reference", entity: "campaign", required: true, filterable: true },
+    datum: createDateField({ required: true, sortable: true }),
+    kanal: createSelectField({ options: POST_CHANNELS, required: true }),
+    text: createTextField(DEMO_DATA),
+    status: createSelectField({
+      options: POST_STATUSES,
+      optionTones: { geplant: "neutral", gepostet: "ok" },
+      default: "geplant",
+      required: true,
+    }),
   },
 });

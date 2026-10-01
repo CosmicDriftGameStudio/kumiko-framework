@@ -276,17 +276,28 @@ function validateRelatedListParentFilter(
 export function validateRelatedListSectionQueries(features: readonly FeatureDefinition[]): void {
   const queryHandlers = buildQueryHandlerMap(features);
   const featureMap = new Map(features.map((f) => [f.name, f] as const));
+  const validateSectionQuery = (prefix: string, section: EditRelatedListSection): void => {
+    const handler = queryHandlers.get(section.query);
+    const schema = handler?.schema;
+    validateRelatedListSearchable(prefix, section, schema);
+    validateRelatedListFacets(prefix, section, schema);
+    validateRelatedListParentFilter(prefix, section, schema, handler, featureMap);
+  };
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {
+      if (screen.type === "entityList" && screen.expandableRow !== undefined) {
+        validateSectionQuery(
+          `[Feature ${feature.name}] Screen "${screen.id}" (entityList) expandableRow "${screen.expandableRow.title}"`,
+          screen.expandableRow,
+        );
+      }
       if (!isEditLayoutScreen(screen)) continue;
       for (const section of screen.layout.sections) {
         if (section.kind !== "relatedList") continue;
-        const prefix = `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`;
-        const handler = queryHandlers.get(section.query);
-        const schema = handler?.schema;
-        validateRelatedListSearchable(prefix, section, schema);
-        validateRelatedListFacets(prefix, section, schema);
-        validateRelatedListParentFilter(prefix, section, schema, handler, featureMap);
+        validateSectionQuery(
+          `[Feature ${feature.name}] Screen "${screen.id}" (${screen.type}) relatedList section "${section.title}"`,
+          section,
+        );
       }
     }
   }

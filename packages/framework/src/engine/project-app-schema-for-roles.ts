@@ -55,6 +55,7 @@
 //   - WorkspaceSchema.definition.nav — the raw explicit nav-QN list,
 //     verbatim in JSON, distinct from the computed/filtered navMembers
 //   - entityList.createScreen (same-feature target, dropped when not kept)
+//   - entityList.expandableRow (a relatedList: same projection as a relatedList section)
 //   - listScreenId (projectionDetail/entityEdit/actionForm/secretMint/custom —
 //     the breadcrumb "back to list" target). It's serialized, so a visible
 //     screen would otherwise disclose a denied screen's short id. Resolved
@@ -649,11 +650,23 @@ function projectListScreen(
     indices,
     keptScreenQns,
   );
-  if (nextRowActions === rowActions && nextToolbarActions === toolbarActions) return screen;
+  const expandableRow = screen.type === "entityList" ? screen.expandableRow : undefined;
+  const nextExpandableRow =
+    expandableRow === undefined
+      ? undefined
+      : projectRelatedListSection(expandableRow, feature, indices, keptScreenQns);
+  if (
+    nextRowActions === rowActions &&
+    nextToolbarActions === toolbarActions &&
+    nextExpandableRow === expandableRow
+  ) {
+    return screen;
+  }
   return {
     ...rest,
     ...(nextRowActions !== undefined && { rowActions: nextRowActions }),
     ...(nextToolbarActions !== undefined && { toolbarActions: nextToolbarActions }),
+    ...(nextExpandableRow !== undefined && { expandableRow: nextExpandableRow }),
   };
 }
 
