@@ -29,10 +29,9 @@
 // payload nur die subscription-id (Stripe-Webhooks expanden subscription
 // nicht automatisch). Plugin macht einen lazy-fetch via
 // `stripe.subscriptions.retrieve(subId)` um an das full subscription-
-// Object für status/tier/period-end-mapping zu kommen. Bei Stripe-API-
-// failure (= subscription gelöscht zwischen webhook + retrieve)
-// returnt der Plugin defensiv null — der nächste subscription-event
-// wird den state korrekt handhaben.
+// Object für status/tier/period-end-mapping zu kommen. Bei resource_missing
+// (= subscription gelöscht zwischen webhook + retrieve) returnt der
+// Plugin null; jeder andere Stripe-Fehler wird zu 503, damit Stripe retried.
 
 import type {
   PaymentEvent,
@@ -45,11 +44,28 @@ import {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
-import type Stripe from "stripe";
+import Stripe from "stripe";
 import { Temporal } from "temporal-polyfill";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants.js";
 import type { StripeWebhookRuntime } from "./runtime.js";
+
+export function isResourceMissingStripeError(error: unknown): boolean {
+  return (
+    error instanceof Stripe.errors.StripeInvalidRequestError && error.code === "resource_missing"
+  );
+}
+
+// Anything but resource_missing (network, 5xx, rate limit) is transient: a 503 makes Stripe retry,
+// whereas a silent null would be acknowledged as 200 and the event lost for good.
+function transientProviderRejection(error: unknown): ExtraRouteRejection {
+  return new ExtraRouteRejection(
+    503,
+    { error: { code: "subscription_provider_transient" } },
+    `stripe retrieve failed: ${error instanceof Error ? error.message : String(error)}`,
+  );
+}
 
 // =============================================================================
 // Sig-verify + parse
@@ -300,12 +316,11 @@ async function extractSubscriptionFromEvent(
       const subId = typeof subRef === "string" ? subRef : subRef.id;
       try {
         return await stripe.subscriptions.retrieve(subId);
-      } catch {
-        // Stripe-API-failure beim retrieve (z.B. subscription gelöscht
-        // zwischen webhook + retrieve). Defensive: null returnen, damit
-        // foundation 200 ignored returnt — der nächste subscription-
-        // event wird's korrekt handhaben.
-        return null;
+      } catch (error) {
+        // Subscription gelöscht zwischen webhook + retrieve: null → foundation
+        // 200 ignored, der nächste subscription-event handhabt den State.
+        if (isResourceMissingStripeError(error)) return null;
+        throw transientProviderRejection(error);
       }
     }
     default:
@@ -341,15 +356,16 @@ async function parsePaymentEvent(
   // Lazy-fetch with expand: the raw webhook payload carries neither
   // line_items (needed for priceId) nor an expanded payment_intent (needed
   // for tenantId — see below). Same lazy-fetch pattern as
-  // extractSubscriptionFromEvent's invoice-branch above, same defensive
-  // null on API failure (session gone/expired between webhook + retrieve).
+  // extractSubscriptionFromEvent's invoice-branch above, null only for resource_missing
+  // (session gone between webhook + retrieve), other failures reject with 503.
   let expanded: Stripe.Checkout.Session;
   try {
     expanded = await stripe.checkout.sessions.retrieve(session.id, {
       expand: ["line_items", "payment_intent"],
     });
-  } catch {
-    return null;
+  } catch (error) {
+    if (isResourceMissingStripeError(error)) return null;
+    throw transientProviderRejection(error);
   }
 
   // Tenant-resolution: mode:"payment" checkout sessions carry tenantId on

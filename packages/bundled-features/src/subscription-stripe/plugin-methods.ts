@@ -26,7 +26,7 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { ConflictError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import Stripe from "stripe";
 import type { StripeCtxRuntime } from "./runtime.js";
-import { mapStripeSubscriptionState } from "./verify-webhook.js";
+import { isResourceMissingStripeError, mapStripeSubscriptionState } from "./verify-webhook.js";
 
 // =============================================================================
 // createCheckoutSession
@@ -141,12 +141,6 @@ export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
 export type StripeRetrieveSubscriptionOptions = {
   readonly priceToTier: Readonly<Record<string, string>>;
 };
-
-function isResourceMissingStripeError(error: unknown): boolean {
-  return (
-    error instanceof Stripe.errors.StripeInvalidRequestError && error.code === "resource_missing"
-  );
-}
 
 export function createStripeRetrieveSubscription(
   runtime: StripeCtxRuntime,
