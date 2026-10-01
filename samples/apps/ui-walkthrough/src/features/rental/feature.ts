@@ -39,11 +39,17 @@ const open = openToAllSignedIn(
   "demo app: any signed-in user manages every lease; there is no per-user ownership in this sample",
 );
 
-function positionFromItem(lease: string, item: RecordedPositionItem) {
+// measure and vatRate only exist to give the walkthrough form realistic column
+// types; leasePosition has no fields for them.
+function positionFromItem(
+  lease: string,
+  unitLabel: string | null | undefined,
+  item: RecordedPositionItem,
+) {
   return {
     lease,
     art: item.kind,
-    einheit: item.measure,
+    ...(unitLabel && { einheit: unitLabel }),
     betrag: {
       amount: item.unitPrice.amount * item.quantity,
       currency: item.unitPrice.currency,
@@ -158,21 +164,18 @@ export const rentalFeature = defineFeature("rental", (r) => {
     "lease:record-positions",
     recordPositionsPayloadSchema,
     async (event, ctx) => {
-      for (const item of event.payload.items.slice(0, -1)) {
-        const created = await positionExecutor.create(
-          positionFromItem(event.payload.lease, item),
+      let created: Awaited<ReturnType<typeof positionExecutor.create>> | undefined;
+      for (const item of event.payload.items) {
+        const unitRow = await leaseExecutor.detail({ id: item.unit }, event.user, ctx.db);
+        if (!unitRow) return failNotFound("lease", item.unit);
+        created = await positionExecutor.create(
+          positionFromItem(event.payload.lease, parseLeaseRow(unitRow).einheit, item),
           event.user,
           ctx.db,
         );
         if (!created.isSuccess) return created;
       }
-      const lastItem = event.payload.items[event.payload.items.length - 1];
-      if (!lastItem) return failNotFound("leasePosition", event.payload.lease);
-      return positionExecutor.create(
-        positionFromItem(event.payload.lease, lastItem),
-        event.user,
-        ctx.db,
-      );
+      return created ?? failNotFound("leasePosition", event.payload.lease);
     },
     open,
   );
