@@ -3,6 +3,7 @@ import type { DbConnection, DbTx } from "../db/connection.js";
 import {
   advanceConsumerPastEventReturning,
   removePendingGapReturning,
+  selectSnapshotXmax,
   updateConsumerStatusReturning,
 } from "../db/queries/event-consumer.js";
 import {
@@ -11,7 +12,11 @@ import {
 } from "../db/queries/event-store.js";
 import { coerceRow, extractTableInfo, selectMany } from "../db/query.js";
 import { getEventsHighWaterMark } from "../event-store/index.js";
-import { eventConsumerStateTable, SHARED_INSTANCE_SENTINEL } from "./event-consumer-state.js";
+import {
+  eventConsumerStateTable,
+  type PendingGapEntry,
+  SHARED_INSTANCE_SENTINEL,
+} from "./event-consumer-state.js";
 import type { ConsumerStateRow, ConsumerStateRowShape } from "./event-dispatcher-delivery.js";
 import { rangeContainsId, splitRangeExcludingIds, toIdRanges } from "./pending-gap-ranges.js";
 
@@ -190,7 +195,19 @@ export async function skipPoisonEvent(
         throw new Error(`Consumer "${name}" (instance_id="${instanceId}") vanished — retry.`);
       return { ...normalizeConsumerState(unchanged), skippedEventId: null };
     }
-    const raw = await advanceConsumerPastEventReturning(tx, name, instanceId, poisonId);
+    // Delivery stops at the poison event, so ids between the cursor and it were
+    // invisible during that pass (in-flight commits). Jumping the cursor over them
+    // would lose them; keep them as a pending gap like the dispatcher's own gaps.
+    const skippedWindowStart = before.lastProcessedEventId + 1n;
+    const gapToAdd: PendingGapEntry | null =
+      poisonId > skippedWindowStart
+        ? {
+            from: skippedWindowStart.toString(),
+            to: (poisonId - 1n).toString(),
+            xmax: await selectSnapshotXmax(tx),
+          }
+        : null;
+    const raw = await advanceConsumerPastEventReturning(tx, name, instanceId, poisonId, gapToAdd);
     const updated =
       raw && (coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow);
     if (!updated)

@@ -16,6 +16,7 @@
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
 import {
@@ -186,6 +187,27 @@ describe("E.9 — skipPoisonEvent", () => {
     // Now the dispatcher should pick up event 3 ("after-poison").
     await stack.eventDispatcher?.runOnce();
     expect(observed.map((o) => o.name)).toEqual(["before-poison", "after-poison"]);
+  });
+
+  test("keeps ids between the cursor and the failed id as a pending gap instead of jumping over them", async () => {
+    await appendWidget("one");
+    await appendWidget("two");
+    await appendWidget("three");
+    await stack.eventDispatcher?.runOnce();
+    observed = [];
+    // Simulate a halt at event 3 whose predecessor 2 was not visible during that pass.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "kumiko_event_consumers" SET "last_processed_event_id" = 1, "status" = 'dead',
+         "last_failed_event_id" = 3, "pending_gaps" = '[]'::jsonb WHERE "name" = $1`,
+      [qn],
+    );
+
+    const skipResult = await skipPoisonEvent(stack.db, qn);
+    expect(skipResult.skippedEventId).toBe(3n);
+    expect(skipResult.lastProcessedEventId).toBe(3n);
+
+    await stack.eventDispatcher?.runOnce();
+    expect(observed.map((o) => o.name)).toEqual(["two"]);
   });
 
   test("no-op when cursor is already at events head", async () => {
