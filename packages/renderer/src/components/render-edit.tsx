@@ -30,7 +30,7 @@ export type {
   RenderEditProps,
 } from "./render-edit-types.js";
 
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ExtensionFormRegistryProvider,
   useExtensionFormHost,
@@ -1658,7 +1658,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     {mount}
                   </Card>
                 ) : (
-                  <div key={section.title}>{mount}</div>
+                  <Fragment key={section.title}>{mount}</Fragment>
                 );
               return wrapWizardStep(section.title, wrapped);
             }
