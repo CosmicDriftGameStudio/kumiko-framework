@@ -449,6 +449,8 @@ export type EntityListScreenDefinition = {
    *  app); exempts it from the nav-area boot check. */
   readonly dormant?: boolean;
   readonly entity: string;
+  /** Short screen id (same feature) the create button opens instead of the entity's default edit screen. */
+  readonly createScreen?: string;
   readonly columns: readonly ListColumnSpec[];
   // Row renderer (Desktop) — when omitted, renderer draws the default table
   // from `columns`. cardRenderer fills the same role on compact layouts.
@@ -1257,6 +1259,8 @@ export type EntityEditScreenDefinition = {
    *  value is overwritten. */
   readonly urlPrefillFields?: readonly string[];
   readonly entity: string;
+  /** Entity field whose value names the loaded record in the header breadcrumb (edit mode only). */
+  readonly recordTitleField?: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
    *  `kumiko.actions.save`. Lässt den Auto-Edit-Screen domain-spezifische
@@ -1594,6 +1598,9 @@ export type CustomScreenDefinition = {
 export type ConfigEditScreenDefinition = {
   readonly id: string;
   readonly type: "configEdit";
+  /** Default true: the form fills the shell content height with a pinned
+   *  footer. `false` restores the card layout with the footer in the flow. */
+  readonly fillHeight?: boolean;
   readonly nav?: ScreenNavSugar;
   readonly detailFor?: string;
   readonly description?: string;

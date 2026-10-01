@@ -51,6 +51,9 @@ export function createUserProfileFeature(): FeatureDefinition {
     r.translations({
       keys: {
         "screen:profile.title": { en: "Profile" },
+        "profile.screen.profile.subtitle": {
+          en: "Change your password or email, or request account deletion.",
+        },
         "profile.email.title": { en: "Email address" },
         "profile.password.title": { en: "Password" },
         "profile.danger.title": { en: "Delete account" },
@@ -88,10 +91,7 @@ export function createUserProfileFeature(): FeatureDefinition {
       // Self-service settings-area screen, placed by the consuming app's own
       // r.nav() (see samples/apps/use-all-bundled's screens-feature.ts).
       dormant: true,
-      description:
-        "Self-service account page: change password, change email (with re-auth and " +
-        "a verification-mail follow-up), and request or cancel account deletion " +
-        "(user-data-rights grace period).",
+      description: "profile.screen.profile.subtitle",
       fieldLabels: {
         gracePeriodEnd: i18nKey("profile.danger.gracePeriodEnd"),
       },

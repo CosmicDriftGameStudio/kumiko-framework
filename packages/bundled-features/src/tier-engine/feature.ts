@@ -287,8 +287,7 @@ export function createTierEngineFeature<
       },
       submitLabel: "tier-admin.submit",
       cancelTarget: false,
-      description:
-        "Operator form that assigns a tier to any tenant as a manual grant without a billing purchase.",
+      description: "tier-admin.screen.subtitle",
       access: { roles: ["SystemAdmin"] },
       // Apps place it via r.nav() (see above) — no nav area to resolve in
       // isolation.

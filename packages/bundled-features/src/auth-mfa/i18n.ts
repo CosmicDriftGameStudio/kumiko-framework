@@ -9,6 +9,16 @@ export const AUTH_MFA_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = 
     en: "Two-factor authentication",
   },
 
+  "auth-mfa.screen.auth-mfa-enable.subtitle": {
+    en: "Protect your account with a code from an authenticator app.",
+  },
+  "auth-mfa.screen.auth-mfa-disable.subtitle": {
+    en: "Turn off two-factor authentication. Other sessions and access tokens are signed out.",
+  },
+  "auth-mfa.screen.auth-mfa-regenerate-recovery.subtitle": {
+    en: "Replace all recovery codes. The new codes are shown only once.",
+  },
+
   "mfa.enable.start": { en: "Start setup" },
 
   "mfa.enable.reveal.title": { en: "Set up your authenticator app" },

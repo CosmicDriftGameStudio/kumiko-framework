@@ -30,8 +30,7 @@ export const mfaEnableScreen: SecretMintScreenDefinition = {
   // Reached only via a direct link from account settings, never from a
   // list — no nav area to resolve in isolation.
   dormant: true,
-  description:
-    "Self-service screen where a signed-in user enrolls in TOTP two-factor authentication: it shows the QR code and manual secret, reveals the recovery codes once, and confirms enrollment with a code from their authenticator app.",
+  description: "auth-mfa.screen.auth-mfa-enable.subtitle",
   reveal: {
     title: i18nKey("mfa.enable.reveal.title"),
     warning: i18nKey("mfa.enable.reveal.warning"),
@@ -89,8 +88,7 @@ export const mfaDisableScreen: ActionFormScreenDefinition = {
   // Reached only via a direct link from account settings, never from a
   // list — no nav area to resolve in isolation.
   dormant: true,
-  description:
-    "Self-service screen where a signed-in user turns two-factor authentication off by entering a code from their authenticator app or a recovery code; their other sessions and access tokens are signed out.",
+  description: "auth-mfa.screen.auth-mfa-disable.subtitle",
 };
 
 export const mfaRegenerateRecoveryScreen: SecretMintScreenDefinition = {
@@ -110,8 +108,7 @@ export const mfaRegenerateRecoveryScreen: SecretMintScreenDefinition = {
   // Reached only via a direct link from account settings, never from a
   // list — no nav area to resolve in isolation.
   dormant: true,
-  description:
-    "Self-service screen where a signed-in user with two-factor authentication replaces all recovery codes after confirming with a current code; the new codes are shown once.",
+  description: "auth-mfa.screen.auth-mfa-regenerate-recovery.subtitle",
   reveal: {
     title: i18nKey("mfa.regenerate.reveal.title"),
     warning: i18nKey("mfa.regenerate.reveal.warning"),

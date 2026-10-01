@@ -13,6 +13,9 @@ type LocalizedString = { readonly en: string };
 
 export const TIER_ENGINE_I18N: Readonly<Record<string, LocalizedString>> = {
   "screen:tier-admin.title": { en: "Assign tier manually" },
+  "tier-admin.screen.subtitle": {
+    en: "Assign a tier to a tenant as a manual grant, without a purchase.",
+  },
   "tier-admin.explainer": {
     en: "Grant a tenant a tier without a purchase. The grant is marked as “manual” and a later billing sync won't overwrite it.",
   },

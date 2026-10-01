@@ -1,4 +1,5 @@
 import {
+  createBooleanField,
   createDateField,
   createEntity,
   createMoneyField,
@@ -15,6 +16,8 @@ export const TRANSMISSIONS = ["manual", "automatic"] as const;
 export const BODY_STYLES = ["estate", "sedan", "hatchback", "suv"] as const;
 export const CONDITIONS = ["new", "used", "accident"] as const;
 export const SERVICE_BOOKS = ["complete", "partial", "none"] as const;
+export const WARRANTY_YEARS = ["1", "3", "5"] as const;
+export const INSPECTION_INTERVALS = ["", "12", "24"] as const;
 export const LISTING_STATES = ["draft", "published"] as const;
 export const CAMPAIGN_STATUSES = ["aktiv", "abgeschlossen", "entwurf"] as const;
 
@@ -26,7 +29,7 @@ export const vehicleEntity = createEntity({
     modell: createTextField({ ...DEMO_DATA, searchable: true, sortable: true }),
     baujahr: createNumberField({ integer: true, sortable: true, grouping: false }),
     preis: createMoneyField({ sortable: true }),
-    kilometerstand: createNumberField({ integer: true }),
+    kilometerstand: createNumberField({ integer: true, unit: { field: "kilometerEinheit" } }),
     kilometerEinheit: createSelectField({ options: MILEAGE_UNITS, default: "km" }),
     kraftstoffart: createSelectField({ options: FUEL_TYPES }),
     getriebe: createSelectField({ options: TRANSMISSIONS }),
@@ -36,7 +39,10 @@ export const vehicleEntity = createEntity({
     zustand: createSelectField({ options: CONDITIONS, filterable: true }),
     vorbesitzer: createNumberField({ integer: true }),
     garantieMonate: createNumberField({ integer: true }),
+    garantieJahre: createSelectField({ options: WARRANTY_YEARS }),
+    inspektion: createSelectField({ options: INSPECTION_INTERVALS, default: "", display: "radio" }),
     scheckheft: createSelectField({ options: SERVICE_BOOKS }),
+    scheckheftGepflegt: createBooleanField(),
     beschreibung: createTextField({ ...DEMO_DATA, multiline: { rows: 6 }, maxLength: 2000 }),
     ausstattung: createTextField(DEMO_DATA),
     inserat: createSelectField({ options: LISTING_STATES, default: "draft" }),

@@ -239,3 +239,37 @@ describe("DefaultInput select → segmented control borders survive wrapping", (
     }
   });
 });
+
+describe("explicit display=radio keeps the empty option as a segment", () => {
+  function renderRadio(display: "radio" | undefined, value: string) {
+    render(
+      <Field id="kind" label="Kind" testId="field-kind">
+        <Input
+          kind="select"
+          id="kind"
+          name="kind"
+          value={value}
+          onChange={() => {}}
+          options={[
+            { value: "", label: "Any" },
+            { value: "a", label: "Alpha" },
+            { value: "b", label: "Beta" },
+          ]}
+          {...(display !== undefined && { display })}
+        />
+      </Field>,
+    );
+  }
+
+  test("display=radio renders the empty option and marks it checked for an empty value", () => {
+    renderRadio("radio", "");
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getByRole("radio", { name: "Any" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  test("the heuristic path still drops the empty option", () => {
+    renderRadio(undefined, "a");
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.queryByRole("radio", { name: "Any" })).toBeNull();
+  });
+});

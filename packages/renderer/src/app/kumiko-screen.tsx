@@ -405,10 +405,12 @@ function pageSizeOptionsFor(currentLimit: number): readonly number[] {
 function useNavigateToCreateFor(
   schema: FeatureSchema,
   entityName: string,
+  createScreen?: string,
 ): (() => void) | undefined {
   const nav = useNav();
   const host = useReturnHost();
   const editScreenId = useMemo(() => {
+    if (createScreen !== undefined) return createScreen;
     // allowCreate:false = update-only Edit-Screen (Create läuft über einen
     // Lifecycle-Write) — der zählt nicht als „+ Neu"-Ziel. singleton:true
     // öffnet ohne entityId den vorhandenen Record (EntityEditSingletonBody)
@@ -421,7 +423,7 @@ function useNavigateToCreateFor(
         s.singleton !== true,
     );
     return edit !== undefined ? lastSegment(edit.id) : undefined;
-  }, [schema.screens, entityName]);
+  }, [schema.screens, entityName, createScreen]);
   const navigate = useCallback(() => {
     if (editScreenId !== undefined) navigateWithReturnTo(nav, { screenId: editScreenId }, host);
   }, [nav, editScreenId, host]);
@@ -1835,7 +1837,7 @@ function EntityListBody({
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
   const featureName = schema.featureName;
-  const onCreate = useNavigateToCreateFor(schema, screen.entity);
+  const onCreate = useNavigateToCreateFor(schema, screen.entity, screen.createScreen);
   const { Banner } = usePrimitives();
   const queryType = entityQueryCommand(featureName, screen.entity, "list");
   const nav = useNav();
@@ -3186,9 +3188,13 @@ function ProjectionDetailBody({
     );
   });
   // Metrics are a dl band when the primitive exists; the old Grid stays as the fallback.
-  const metricsBlock = (subtitle?: ReactNode): ReactNode =>
+  const metricsBlock = (subtitle?: ReactNode, lead?: ReactNode): ReactNode =>
     MetricBand !== undefined ? (
-      <MetricBand testId="kumiko-screen-projection-detail-metrics" subtitle={subtitle}>
+      <MetricBand
+        testId="kumiko-screen-projection-detail-metrics"
+        subtitle={subtitle}
+        {...(lead !== undefined && { lead })}
+      >
         {metricItems}
       </MetricBand>
     ) : (
@@ -3204,7 +3210,7 @@ function ProjectionDetailBody({
   );
   const renderHeaderContent = (headerSlot: ReactNode | undefined): ReactNode => (
     <>
-      {usesPageHeaderSlot && headerSlot === undefined ? (
+      {usesPageHeaderSlot ? (
         <>
           <PageHeader
             {...(header !== undefined && { title: String(record[header.title] ?? "") })}
@@ -3233,9 +3239,12 @@ function ProjectionDetailBody({
               ),
             })}
           />
-          {(hasMetrics || headerSubtitleSlot !== undefined) &&
+          {/* The band owns the horizontal inset; the slot is its unstyled lead
+              row so it lines up with the metrics below. */}
+          {MetricBand === undefined && headerSlot}
+          {(hasMetrics || headerSubtitleSlot !== undefined || headerSlot !== undefined) &&
             (MetricBand !== undefined || hasMetrics) &&
-            metricsBlock(headerSubtitleSlot)}
+            metricsBlock(headerSubtitleSlot, MetricBand !== undefined ? headerSlot : undefined)}
           {actionErrorBanner}
         </>
       ) : (
@@ -3761,6 +3770,7 @@ function ConfigEditBody({
       featureName={schema.featureName}
       initial={initial}
       customSubmit={customSubmit}
+      {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
       labelAppendix={(fieldName: string) => {

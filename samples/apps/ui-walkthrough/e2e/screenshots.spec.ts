@@ -4,6 +4,7 @@
 // (defineAppE2eConfig ignores this file otherwise).
 
 import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
+import { resolve } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
@@ -82,6 +83,71 @@ test("wizard-light", async ({ page }) => {
   await shot(page, "wizard-light");
 });
 
+const LEASE_HUB_URL = "/lease-hub/00000000-0000-4000-8000-000000003103";
+const INTER_FONT = resolve(import.meta.dirname, "../../styleguide/public/fonts/inter-var.woff2");
+
+async function openVehicleForm(page: Page): Promise<void> {
+  await loginAsAdmin(page);
+  await page.goto("/vehicle-list");
+  await page.locator(LIST_TABLE).waitFor();
+  await page.getByText("Octavia").first().click();
+  await page.locator(EDIT_FORM).waitFor();
+}
+
+async function openLeaseHub(page: Page): Promise<void> {
+  await loginAsAdmin(page);
+  await page.goto(LEASE_HUB_URL);
+  await expect(page.getByTestId("lease-hub-header")).toBeVisible();
+}
+
+async function openDashboard(page: Page): Promise<void> {
+  await loginAsAdmin(page);
+  await page.goto("/rental-dashboard");
+  await expect(page.getByText("Restschuld heute")).toBeVisible();
+}
+
+test("formular-zahlen-light", async ({ page }) => {
+  await openVehicleForm(page);
+  await expect(page.getByLabel("Kilometerstand")).toHaveValue(/28\.500/);
+  await shot(page, "formular-zahlen-light");
+});
+
+test("liste-boolean-light", async ({ page }) => {
+  await loginAsAdmin(page);
+  await page.goto("/vehicle-list");
+  await page.locator(LIST_TABLE).waitFor();
+  await shot(page, "liste-boolean-light");
+});
+
+test("detail-slot-light", async ({ page }) => {
+  await openLeaseHub(page);
+  await shot(page, "detail-slot-light");
+});
+
+test("dashboard-light", async ({ page }) => {
+  await openDashboard(page);
+  await shot(page, "dashboard-light");
+});
+
+test("sidebar-overflow-light", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 520 });
+  await openLeaseList(page);
+  await shot(page, "sidebar-overflow-light");
+});
+
+test("inter-hyphen-light", async ({ page }) => {
+  await page.route("**/__inter.woff2", (route) => route.fulfill({ path: INTER_FONT }));
+  await loginAsAdmin(page);
+  await page.goto("/campaign-list");
+  await page.getByText("Herbst - Gebrauchtwagen").waitFor();
+  await page.addStyleTag({
+    content:
+      "@font-face{font-family:'Inter';src:url('/__inter.woff2') format('woff2');font-weight:100 900}" +
+      ":root{--font-sans:'Inter',sans-serif}body{font-family:var(--font-sans)}",
+  });
+  await shot(page, "inter-hyphen-light");
+});
+
 test.describe("mobile", () => {
   test.use({ viewport: MOBILE });
 
@@ -90,6 +156,28 @@ test.describe("mobile", () => {
     await page.goto("/campaign-list");
     await page.getByText("Škoda Octavia (2021)").waitFor();
     await shot(page, "mobile-light");
+  });
+
+  test("mobile-nav-light", async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto("/campaign-list");
+    await page.getByText("Škoda Octavia (2021)").waitFor();
+    await page
+      .getByRole("button", { name: /toggle sidebar|menü|navigation/i })
+      .first()
+      .click();
+    await expect(page.locator("[data-mobile='true']")).toBeVisible();
+    await shot(page, "mobile-nav-light");
+  });
+
+  test("detail-slot-mobile", async ({ page }) => {
+    await openLeaseHub(page);
+    await shot(page, "detail-slot-mobile");
+  });
+
+  test("dashboard-mobile", async ({ page }) => {
+    await openDashboard(page);
+    await shot(page, "dashboard-mobile");
   });
 });
 

@@ -172,7 +172,7 @@ describe("Input kind mapping", () => {
   test('kind="number": "" → undefined, numeric → number', () => {
     const onChange = mock();
     render(<Input id="i" name="i" kind="number" value={0} onChange={onChange} />);
-    const input = screen.getByRole("spinbutton");
+    const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "42" } });
     expect(onChange).toHaveBeenLastCalledWith(42);
     fireEvent.change(input, { target: { value: "" } });
@@ -248,7 +248,7 @@ describe("Input kind mapping", () => {
 
   test('kind="number" icon="hash": renders prefix icon and keeps the value left-aligned', () => {
     render(<Input id="i" name="i" kind="number" value={0} icon="hash" onChange={() => {}} />);
-    const input = screen.getByRole("spinbutton");
+    const input = screen.getByRole("textbox");
     expect(input.className).toContain("pl-8");
     expect(input.className).toContain("text-left");
     expect(input.className).toContain("tabular-nums");
@@ -258,7 +258,7 @@ describe("Input kind mapping", () => {
 
   test('kind="number" unit="km": renders a muted, aria-hidden suffix inside the field and pads the input', () => {
     render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={() => {}} />);
-    const input = screen.getByRole("spinbutton");
+    const input = screen.getByRole("textbox");
     expect(input.className).toContain("pr-8");
     const suffix = screen.getByText("km");
     expect(suffix.getAttribute("aria-hidden")).toBe("true");
@@ -268,13 +268,13 @@ describe("Input kind mapping", () => {
   test('kind="number" without unit: no suffix rendered, no right padding', () => {
     render(<Input id="i" name="i" kind="number" value={58} onChange={() => {}} />);
     expect(screen.queryByText("km")).toBeNull();
-    expect(screen.getByRole("spinbutton").className).not.toContain("pr-8");
+    expect(screen.getByRole("textbox").className).not.toContain("pr-8");
   });
 
   test('kind="number" unit="km": typing only changes the numeric value, the unit never enters it', () => {
     const onChange = mock();
     render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={onChange} />);
-    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "120" } });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "120" } });
     expect(onChange).toHaveBeenCalledWith(120);
   });
 
@@ -282,7 +282,7 @@ describe("Input kind mapping", () => {
     render(
       <Input id="i" name="i" kind="number" value={58} icon="hash" unit="km" onChange={() => {}} />,
     );
-    const input = screen.getByRole("spinbutton");
+    const input = screen.getByRole("textbox");
     expect(input.className).toContain("pl-8");
     expect(input.className).toContain("pr-8");
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();

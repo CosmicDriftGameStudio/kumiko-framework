@@ -53,14 +53,14 @@ describe("NumberField", () => {
     const onChange = mock();
     render(<NumberField label="Summe" id="sum" name="sum" value={300} onChange={onChange} />);
     expect(screen.getByText("Summe")).toBeTruthy();
-    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "42" } });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "42" } });
     expect(onChange).toHaveBeenCalledWith(42);
   });
 
   test("leeres Feld meldet undefined", () => {
     const onChange = mock();
     render(<NumberField label="X" id="x" name="x" value={5} onChange={onChange} />);
-    fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "" } });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "" } });
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
@@ -70,7 +70,7 @@ describe("NumberField", () => {
       <MoneyField label="Betrag (€)" id="b" name="b" value={1} onChange={noop} />,
     );
     expect(screen.getByText("Betrag (€)")).toBeTruthy();
-    expect(screen.getByRole("spinbutton")).toBeTruthy();
+    expect(screen.getByRole("textbox")).toBeTruthy();
     expect(screen.queryByText("€")).toBeNull(); // Einheit lebt im Label, kein separates Badge
     rerender(<PercentField label="Zins (%)" id="z" name="z" value={1} onChange={noop} />);
     expect(screen.queryByText("%")).toBeNull();

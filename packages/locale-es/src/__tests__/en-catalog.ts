@@ -1026,4 +1026,22 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Restrict processing (Art. 18)",
   "userDataRights.privacyCenter.subtitle":
     "Logged-in GDPR self-service page where a user requests and downloads a data export (Art. 20), restricts processing of their account (Art. 18) and requests its deletion (Art. 17).",
+  "admin-shell.screen.platform-overview.subtitle":
+    "Tenant, user, job and delivery health across the whole installation.",
+  "admin-shell.screen.tenant-overview.subtitle":
+    "Activity, failed jobs and deliveries, quotas and open admin tasks of this tenant.",
+  "auth-mfa.screen.auth-mfa-disable.subtitle":
+    "Turn off two-factor authentication. Other sessions and access tokens are signed out.",
+  "auth-mfa.screen.auth-mfa-enable.subtitle":
+    "Protect your account with a code from an authenticator app.",
+  "auth-mfa.screen.auth-mfa-regenerate-recovery.subtitle":
+    "Replace all recovery codes. The new codes are shown only once.",
+  "jobs.screen.job-run-detail.subtitle": "Status, timings, error and log lines of one job run.",
+  "jobs.screen.job-trigger.subtitle":
+    "Start a job manually by name, with an optional JSON payload.",
+  "pat.list.status.active": "Active",
+  "pat.list.status.expired": "Expired",
+  "pat.list.status.revoked": "Revoked",
+  "profile.screen.profile.subtitle": "Change your password or email, or request account deletion.",
+  "tier-admin.screen.subtitle": "Assign a tier to a tenant as a manual grant, without a purchase.",
 };

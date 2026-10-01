@@ -3,9 +3,21 @@ import { type ReactNode, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { usePageHeaderSlot } from "../layout/page-header-slot.js";
 
-export function DefaultPageHeader({ title, status, actions }: PageHeaderProps): ReactNode {
+export function DefaultPageHeader({
+  title,
+  recordTitle,
+  status,
+  actions,
+}: PageHeaderProps): ReactNode {
   const slot = usePageHeaderSlot();
   const setTitle = slot?.setTitle;
+  const setRecordTitle = slot?.setRecordTitle;
+
+  useEffect(() => {
+    if (setRecordTitle === undefined || recordTitle === undefined) return;
+    setRecordTitle(recordTitle);
+    return () => setRecordTitle(undefined);
+  }, [setRecordTitle, recordTitle]);
 
   useEffect(() => {
     if (setTitle === undefined || title === undefined) return;

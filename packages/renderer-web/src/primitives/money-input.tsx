@@ -13,10 +13,11 @@
 import { currencyDecimals } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
+import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.js";
 
 // Re-exported for backward compat — callers used to import this from here
 // before it moved to headless (shared with RenderField, kumiko-framework#1923).
-export { currencyDecimals };
+export { currencyDecimals, parseLocaleNumber };
 
 export type MoneyInputProps = {
   readonly id: string;
@@ -57,7 +58,7 @@ export function MoneyInput({
 }: MoneyInputProps): ReactNode {
   const decimals = currencyDecimals(currency);
   const factor = 10 ** decimals;
-  const resolvedLocale = locale ?? guessLocale();
+  const resolvedLocale = resolveSafeLocale(locale);
   const [focused, setFocused] = useState(false);
   // Raw-Edit-Buffer während Focus. Sonst würde jeder Tipp-Step durch
   // Math.round → format-Roundtrip jagen und der Cursor würde springen.
@@ -158,11 +159,6 @@ export function MoneyInput({
   );
 }
 
-function guessLocale(): string {
-  if (typeof navigator !== "undefined" && navigator.language) return navigator.language;
-  return "en-US";
-}
-
 // Shared with defaultCellRender (index.tsx) so both formatting paths stay
 // identical instead of drifting. currency is validated against the
 // 3-letter-alpha shape Intl.NumberFormat requires — a non-conforming
@@ -173,7 +169,7 @@ function guessLocale(): string {
 export function formatMoney(amountMinor: number, currency: string, locale?: string): string {
   if (!/^[A-Za-z]{3}$/.test(currency)) return String(amountMinor);
   const decimals = currencyDecimals(currency);
-  const resolvedLocale = locale ?? guessLocale();
+  const resolvedLocale = resolveSafeLocale(locale);
   return new Intl.NumberFormat(resolvedLocale, {
     style: "currency",
     currency,
@@ -222,25 +218,4 @@ function moneyFormatParts(
     // ErrorBoundary that would take down the page over a display adornment.
     return { symbol: "", symbolPosition: "suffix", formatNumber: String };
   }
-}
-
-// Locale-Decimal-Parse: erkennt automatisch ob Komma oder Punkt der
-// Decimal-Separator ist. Intl.NumberFormat liefert die Trenner für
-// das Locale, daraus bauen wir den Reverse-Parser. Strict beim
-// Vorzeichen: ein `-` darf NUR ganz vorne stehen — `1-23` ist invalid,
-// nicht `-123` (sonst würden vertippte Inputs zu falschen Beträgen).
-export function parseLocaleNumber(raw: string, locale: string): number {
-  const parts = new Intl.NumberFormat(locale).formatToParts(1234.5);
-  const groupSep = parts.find((p) => p.type === "group")?.value ?? ",";
-  const decimalSep = parts.find((p) => p.type === "decimal")?.value ?? ".";
-  const trimmed = raw.trim();
-  const negative = trimmed.startsWith("-");
-  const body = negative ? trimmed.slice(1) : trimmed;
-  // Body darf nur noch Ziffern, Group- und Decimal-Separator enthalten.
-  // Alles andere (zweites Minus, Buchstaben, etc.) → NaN, damit Caller
-  // (handleBlur) den Wert verwirft statt eine korrupte Zahl zu setzen.
-  const cleaned = body.split(groupSep).join("").split(decimalSep).join(".");
-  if (!/^[0-9]*\.?[0-9]*$/.test(cleaned) || cleaned === "" || cleaned === ".") return Number.NaN;
-  const n = Number(cleaned);
-  return negative ? -n : n;
 }

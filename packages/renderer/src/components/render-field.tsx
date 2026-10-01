@@ -165,7 +165,7 @@ export function RenderField({
     <Field
       id={id}
       label={field.label}
-      required={field.required && !allFieldsRequired}
+      required={field.required && field.type !== "boolean" && !allFieldsRequired}
       {...(issues !== undefined && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
@@ -583,15 +583,15 @@ function renderInput({
           {...common}
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
+          locale={appLocale}
+          {...(field.grouping !== undefined && { grouping: field.grouping })}
+          {...(field.type === "bigInt" && { integer: true })}
           {...(icon !== undefined && { icon })}
           {...(unit !== undefined && { unit })}
         />
       );
     }
     case "decimal": {
-      // step="any" disables the native stepMismatch constraint — without it
-      // <input type="number"> defaults to step=1 and blocks form submit on
-      // any fractional value via silent browser-native validation.
       const icon = resolveFieldIcon(field);
       return (
         <Input
@@ -599,7 +599,8 @@ function renderInput({
           {...common}
           value={numberValue(field.value)}
           onChange={(v) => onChange(v)}
-          step="any"
+          locale={appLocale}
+          {...(field.grouping !== undefined && { grouping: field.grouping })}
           {...(icon !== undefined && { icon })}
         />
       );

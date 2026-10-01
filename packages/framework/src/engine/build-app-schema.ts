@@ -484,6 +484,8 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   const unit = def["unit"];
   if (typeof unit === "string" || (isPlainObject(unit) && typeof unit["field"] === "string"))
     out["unit"] = unit;
+  // number/decimal/bigInt: `false` drops thousands separators (e.g. a year).
+  if (typeof def["grouping"] === "boolean") out["grouping"] = def["grouping"];
   // text: "password" masks the input and blocks URL prefill in the renderer.
   if (typeof def["format"] === "string") out["format"] = def["format"];
   // Write-response redaction stays server-side; the renderer needs the flag to

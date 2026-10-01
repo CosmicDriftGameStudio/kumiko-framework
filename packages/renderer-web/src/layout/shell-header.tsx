@@ -12,6 +12,7 @@ import { resolveNavigation } from "@cosmicdrift/kumiko-headless";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { toAppSchema, useNav, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { Fragment, type ReactNode, useMemo } from "react";
+import { cn } from "../lib/cn.js";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -70,6 +71,11 @@ export function ShellHeader({
   const setStatusElement = slot?.setStatusElement;
   const setActionsElement = slot?.setActionsElement;
   const titleOverride = slot?.title;
+  const recordTitle = slot?.recordTitle;
+  const shownCrumbs =
+    crumbs !== undefined && recordTitle !== undefined && crumbs.length > 0
+      ? [...crumbs.slice(0, -1), { label: recordTitle }, ...crumbs.slice(-1)]
+      : crumbs;
 
   return (
     <header
@@ -78,22 +84,22 @@ export function ShellHeader({
     >
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger />
-        {crumbs !== undefined && crumbs.length > 0 && (
+        {shownCrumbs !== undefined && shownCrumbs.length > 0 && (
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap gap-1.5 sm:gap-1.5">
-              {crumbs.map((crumb, index) => {
+              {shownCrumbs.map((crumb, index) => {
                 const screenId = crumb.screenId;
-                const isLast = index === crumbs.length - 1;
+                const isLast = index === shownCrumbs.length - 1;
                 return (
                   <Fragment key={screenId ?? crumb.label}>
                     {index > 0 && (
-                      <BreadcrumbSeparator className="text-muted-foreground [&>svg]:size-3.5" />
+                      <BreadcrumbSeparator className="hidden text-muted-foreground sm:inline-flex [&>svg]:size-3.5" />
                     )}
-                    <BreadcrumbItem className="min-w-0">
+                    <BreadcrumbItem className={cn("min-w-0", !isLast && "hidden sm:inline-flex")}>
                       {screenId !== undefined && !isLast ? (
                         <BreadcrumbLink
                           href="#"
-                          className="text-foreground-secondary"
+                          className="whitespace-nowrap text-foreground-secondary"
                           onClick={(e) => {
                             e.preventDefault();
                             nav.navigate({ screenId });
@@ -109,7 +115,7 @@ export function ShellHeader({
                           {titleOverride ?? crumb.label}
                         </h1>
                       ) : (
-                        <BreadcrumbPage className="text-foreground-secondary">
+                        <BreadcrumbPage className="whitespace-nowrap text-foreground-secondary">
                           {crumb.label}
                         </BreadcrumbPage>
                       )}
@@ -126,11 +132,11 @@ export function ShellHeader({
           className="flex shrink-0 items-center gap-2 empty:hidden"
         />
       </div>
-      <div className="ml-auto flex shrink-0 items-center gap-2">
+      <div className="ml-auto flex min-w-0 max-w-[50%] shrink-0 items-center gap-2 sm:max-w-none">
         <div
           ref={setActionsElement}
           data-kumiko-layout="page-header-actions"
-          className="flex items-center gap-2 empty:hidden"
+          className="flex min-w-0 items-center gap-2 empty:hidden [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap"
         />
         {headerActions !== undefined && (
           <div data-kumiko-layout="header-actions" className="flex items-center gap-2">

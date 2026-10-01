@@ -2,6 +2,7 @@ export const RENTAL_QUERIES = {
   leaseAkte: "rental:query:lease:akte",
   partyList: "rental:query:lease-party:list",
   positionList: "rental:query:lease:positions",
+  kennzahlen: "rental:query:lease:kennzahlen",
 } as const;
 
 export const RENTAL_WRITES = {

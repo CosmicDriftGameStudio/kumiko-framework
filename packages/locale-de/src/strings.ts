@@ -1054,4 +1054,23 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.restriction.title": "Verarbeitung einschränken · Art. 18",
   "userDataRights.privacyCenter.subtitle":
     "DSGVO-Self-Service für angemeldete Nutzer: Anfordern und Herunterladen eines Datenexports (Art. 20), Einschränken der Verarbeitung des eigenen Kontos (Art. 18) und Beantragen der Löschung (Art. 17).",
+  "admin-shell.screen.platform-overview.subtitle":
+    "Zustand von Mandanten, Benutzern, Jobs und Zustellungen der gesamten Installation.",
+  "admin-shell.screen.tenant-overview.subtitle":
+    "Aktivität, fehlgeschlagene Jobs und Zustellungen, Kontingente und offene Admin-Aufgaben dieses Mandanten.",
+  "auth-mfa.screen.auth-mfa-disable.subtitle":
+    "Zwei-Faktor-Authentifizierung ausschalten. Andere Sitzungen und Zugriffstoken werden abgemeldet.",
+  "auth-mfa.screen.auth-mfa-enable.subtitle":
+    "Das Konto mit einem Code aus einer Authenticator-App schützen.",
+  "auth-mfa.screen.auth-mfa-regenerate-recovery.subtitle":
+    "Alle Recovery-Codes ersetzen. Die neuen Codes werden nur einmal angezeigt.",
+  "jobs.screen.job-run-detail.subtitle": "Status, Zeiten, Fehler und Logzeilen eines Job-Laufs.",
+  "jobs.screen.job-trigger.subtitle":
+    "Einen Job per Name manuell starten, optional mit JSON-Payload.",
+  "pat.list.status.active": "Aktiv",
+  "pat.list.status.expired": "Abgelaufen",
+  "pat.list.status.revoked": "Widerrufen",
+  "profile.screen.profile.subtitle":
+    "Passwort oder E-Mail-Adresse ändern oder die Löschung des Kontos beantragen.",
+  "tier-admin.screen.subtitle": "Einem Mandanten manuell ein Tier zuweisen, ohne Kauf.",
 };

@@ -18,6 +18,8 @@ const DETAIL_FIELDS = [
   "zustand",
   "vorbesitzer",
   "garantieMonate",
+  "garantieJahre",
+  "inspektion",
   "scheckheft",
   "beschreibung",
 ] as const;
@@ -26,7 +28,7 @@ export const vehicleListScreen: EntityListScreenDefinition = {
   id: "vehicle-list",
   type: "entityList",
   entity: "vehicle",
-  columns: ["marke", "modell", "baujahr", "preis", "zustand"],
+  columns: ["marke", "modell", "baujahr", "preis", "zustand", "scheckheftGepflegt"],
   searchPlaceholder: "vehicles.search.placeholder",
   defaultSort: { field: "marke", dir: "asc" },
   rowActions: [
@@ -55,6 +57,7 @@ export const vehicleEditScreen: EntityEditScreenDefinition = {
   type: "entityEdit",
   entity: "vehicle",
   listScreenId: "vehicle-list",
+  recordTitleField: "modell",
   submitLabel: "vehicles.action.saveChanges",
   layout: {
     sections: [
@@ -128,6 +131,13 @@ export const campaignListScreen: EntityListScreenDefinition = {
       screen: "campaign-edit",
       entityId: "id",
       rowClick: true,
+    },
+    {
+      kind: "navigate",
+      id: "details",
+      label: "vehicles.action.details",
+      screen: "campaign-edit",
+      entityId: "id",
     },
   ],
   access: OPEN_ACCESS,

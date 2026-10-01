@@ -1,5 +1,6 @@
 import { defineFeature, i18nKey } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
+import { z } from "zod";
 import { openToAllSignedIn, toKeyFirst } from "../translations";
 import { leaseEntity, leasePartyEntity, leasePositionEntity } from "./entities";
 import { rentalTranslations } from "./i18n";
@@ -20,10 +21,12 @@ import {
 import {
   adjustRentScreen,
   leaseDetailScreen,
+  leaseHubScreen,
   leaseEditScreen,
   leaseListScreen,
   leaseListShortScreen,
   positionEditScreen,
+  rentalDashboardScreen,
 } from "./screens";
 
 export { leaseEntity, leasePartyEntity, leasePositionEntity };
@@ -103,6 +106,20 @@ export const rentalFeature = defineFeature("rental", (r) => {
     open,
   );
 
+  r.queryHandler(
+    "lease:kennzahlen",
+    z.object({}),
+    async () => ({
+      debt: "123.456 €",
+      debtSub: "nach 10 Jahren",
+      debtDelta: "15 %",
+      debtDeltaDirection: "down",
+      rent: "48.200 €",
+      rentSub: "319 Verträge",
+    }),
+    open,
+  );
+
   r.writeHandler(
     "lease:terminate",
     idPayloadSchema,
@@ -164,6 +181,8 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(leaseEditScreen);
   r.screen(positionEditScreen);
   r.screen(leaseDetailScreen);
+  r.screen(leaseHubScreen);
+  r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
 
   r.nav({
@@ -177,5 +196,12 @@ export const rentalFeature = defineFeature("rental", (r) => {
     parent: "rental:nav:contracts",
     screen: "rental:screen:lease-list",
     order: 10,
+  });
+  r.nav({
+    id: "rental-dashboard",
+    label: i18nKey("rental.nav.dashboard"),
+    parent: "rental:nav:contracts",
+    screen: "rental:screen:rental-dashboard",
+    order: 20,
   });
 });

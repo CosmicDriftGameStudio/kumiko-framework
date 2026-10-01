@@ -88,6 +88,52 @@ describe("ShellHeader", () => {
     });
   });
 
+  test("recordTitle from the PageHeader becomes the middle crumb between list and h1", () => {
+    const editSchema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "item-list", type: "entityList", entity: "item", columns: [] },
+        { id: "item-edit", type: "entityEdit", entity: "item", listScreenId: "item-list" },
+      ],
+      navs: [{ id: "item-list", label: "Items", screen: "item-list", order: 10 }],
+    } as unknown as FeatureSchema;
+    renderWithSidebar(
+      <NavProvider value={{ ...routedNav, route: { screenId: "item-edit", entityId: "item-1" } }}>
+        <PageHeaderSlotProvider>
+          <ShellHeader schema={editSchema} />
+          <DefaultPageHeader title="Edit vehicle" recordTitle="VW Golf" />
+        </PageHeaderSlotProvider>
+      </NavProvider>,
+    );
+    const items = Array.from(document.querySelectorAll("[data-slot='breadcrumb-item']"));
+    expect(items).toHaveLength(3);
+    expect(items[1]?.textContent).toBe("VW Golf");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Edit vehicle");
+    expect(items[2]?.contains(screen.getByRole("heading", { level: 1 }))).toBe(true);
+    for (const parent of items.slice(0, 2)) {
+      expect(parent.className).toContain("hidden");
+      expect(parent.className).toContain("sm:inline-flex");
+    }
+    expect(items[2]?.className).not.toContain("hidden");
+  });
+
+  test("below sm the actions container is capped at half the header so the h1 keeps its width", () => {
+    renderWithSidebar(
+      <NavProvider value={routedNav}>
+        <PageHeaderSlotProvider>
+          <ShellHeader schema={routedSchema} />
+        </PageHeaderSlotProvider>
+      </NavProvider>,
+    );
+    const actions = document.querySelector("[data-kumiko-layout='page-header-actions']");
+    const container = actions?.parentElement;
+    expect(container?.className).toContain("max-w-[50%]");
+    expect(container?.className).toContain("sm:max-w-none");
+    expect(container?.className).toContain("min-w-0");
+    expect(actions?.className).toContain("min-w-0");
+  });
+
   test("PageHeader portals status and actions into the header slots", () => {
     renderWithSidebar(
       <NavProvider value={routedNav}>
