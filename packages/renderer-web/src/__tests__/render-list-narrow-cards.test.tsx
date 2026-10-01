@@ -135,6 +135,28 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
+  test("a boolean column with its own trueLabel keeps it in the card subtitle", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            { field: "name", label: "Name", type: "string", sortable: false },
+            {
+              field: "baseline",
+              label: "Baseline",
+              type: "boolean",
+              sortable: false,
+              renderer: { format: "boolean", trueLabel: "Active", falseLabel: "Off" },
+            },
+          ]}
+          rows={[{ id: "a", values: { name: "A", baseline: true } }]}
+          testId="t"
+        />,
+      );
+      expect(screen.getByTestId("cell-a-baseline").textContent).toBe("Active");
+    });
+  });
+
   test("with onRowClick the whole row opens the record, also via Enter", async () => {
     const originalWidth = window.innerWidth;
     setViewportWidth(500);

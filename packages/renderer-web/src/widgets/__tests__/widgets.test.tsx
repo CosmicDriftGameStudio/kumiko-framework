@@ -345,7 +345,7 @@ describe("StatCard", () => {
     expect(screen.getByText("nach 10 Jahren")).toBeTruthy();
   });
 
-  test("long labels truncate and the delta badge keeps its size", () => {
+  test("long labels wrap to two lines and the delta badge keeps its size", () => {
     render(
       <StatCard
         label="A very long metric label"
@@ -353,7 +353,10 @@ describe("StatCard", () => {
         delta={{ value: "2,1 %", direction: "up" }}
       />,
     );
-    expect(screen.getByText("A very long metric label").className).toContain("truncate");
+    const label = screen.getByText("A very long metric label");
+    expect(label.className).toContain("line-clamp-2");
+    expect(label.className).not.toContain("truncate");
+    expect(label.getAttribute("title")).toBe("A very long metric label");
     expect(screen.getByText(/2,1 %/).closest("span")?.className).toContain("shrink-0");
   });
 

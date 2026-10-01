@@ -798,6 +798,8 @@ describe("WorkspaceShell — AppSchema (multi-feature)", () => {
     const footers = screen.getAllByTestId("sidebar-footer");
     expect(footers.length).toBeGreaterThan(0);
     expect(footers[0]?.textContent).toBe("v1.2.3");
+    const footerContainer = footers[0]?.closest("[data-kumiko-layout='sidebar-footer']");
+    expect(footerContainer?.className).toContain("border-t");
   });
 
   test("ohne sidebarFooter-Prop rendert die Sidebar ohne Footer-Slot (default)", () => {

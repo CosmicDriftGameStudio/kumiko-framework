@@ -1446,9 +1446,7 @@ function DefaultDataTable({
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
     // A bare check mark in the subtitle line says nothing without its column.
-    if (col.type === "boolean" && col.renderer === undefined && row.values[col.field] === true) {
-      return col.label;
-    }
+    if (showsBareCheckMark(col.type, row.values[col.field], col.renderer)) return col.label;
     return (
       <DataTableCell
         value={row.values[col.field]}
@@ -1903,6 +1901,19 @@ function isUnlabeledFalse(type: string, value: unknown, renderer: unknown): bool
     renderer !== null &&
     "format" in renderer &&
     !("falseLabel" in renderer)
+  );
+}
+
+// True when the cell would render the default "✓": no renderer, or a boolean
+// format spec that names no trueLabel of its own.
+function showsBareCheckMark(type: string, value: unknown, renderer: unknown): boolean {
+  if (type !== "boolean" || value !== true) return false;
+  if (renderer === undefined) return true;
+  return (
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "format" in renderer &&
+    !("trueLabel" in renderer)
   );
 }
 

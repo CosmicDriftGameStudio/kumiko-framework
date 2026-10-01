@@ -114,7 +114,12 @@ export function DefaultAppShell({
             />
           </SidebarContent>
           {sidebarFooter !== undefined && (
-            <SidebarFooter data-kumiko-layout="sidebar-footer">{sidebarFooter}</SidebarFooter>
+            <SidebarFooter
+              data-kumiko-layout="sidebar-footer"
+              className="border-t border-sidebar-border"
+            >
+              {sidebarFooter}
+            </SidebarFooter>
           )}
           <SidebarRail />
         </Sidebar>
