@@ -11,7 +11,7 @@ projectionDetail header subtitle with several parts and links
 
 <!-- kumiko-changes
 feature: renderer
-type: feature
+type: improvement
 title: projectionDetail header subtitle can show several parts, each optionally linking to the referenced record
 migration: No code change needed.
 -->
