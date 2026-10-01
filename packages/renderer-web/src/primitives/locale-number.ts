@@ -31,8 +31,24 @@ export function parseLocaleNumber(raw: string, locale: string): number {
   // Body darf nur noch Ziffern, Group- und Decimal-Separator enthalten.
   // Alles andere (zweites Minus, Buchstaben, etc.) → NaN, damit Caller
   // (handleBlur) den Wert verwirft statt eine korrupte Zahl zu setzen.
-  const cleaned = body.split(groupSep).join("").split(decimalSep).join(".");
-  if (!/^[0-9]*\.?[0-9]*$/.test(cleaned) || cleaned === "" || cleaned === ".") return Number.NaN;
-  const n = Number(cleaned);
+  const [integerPart = "", fractionPart, ...extra] = body.split(decimalSep);
+  if (extra.length > 0) return Number.NaN;
+  // Group separators only count in valid positions: "1.5" in de is not 1500
+  // silently, it is rejected so the draft stays visible.
+  const groupClass = /\s/.test(groupSep) ? "[\\s\\u00a0\\u202f]" : escapeRegExp(groupSep);
+  const validInteger = new RegExp(`^(?:\\d+|\\d{1,3}(?:${groupClass}\\d{3})+)$`);
+  if (!validInteger.test(integerPart)) {
+    // ".5" / ",5" style (empty integer part) stays valid.
+    if (!(integerPart === "" && fractionPart !== undefined && fractionPart !== "")) {
+      return Number.NaN;
+    }
+  }
+  if (fractionPart !== undefined && !/^\d*$/.test(fractionPart)) return Number.NaN;
+  const digits = integerPart.replace(/\D/g, "");
+  const n = Number(`${digits === "" ? "0" : digits}${fractionPart ? `.${fractionPart}` : ""}`);
   return negative ? -n : n;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
