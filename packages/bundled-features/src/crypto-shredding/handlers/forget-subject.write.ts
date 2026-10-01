@@ -176,7 +176,8 @@ async function resolveTenantScopeDenial(
 async function resolveRetentionDenial(
   ctx: HandlerContext,
   raw: SubjectIdInput,
-  runner: DbRunner,
+  // Lazy: unsafeRaw writes an audit entry per call, so only request it once a read is needed.
+  getRunner: () => DbRunner,
 ): Promise<WriteFailure | undefined> {
   if (raw.kind !== "record") return undefined;
   const features = ctx.registry.features;
@@ -189,6 +190,7 @@ async function resolveRetentionDenial(
   if (!features.has("data-retention")) return undefined;
 
   // The row's own tenant, not the actor's: a SystemAdmin acts across tenants.
+  const runner = getRunner();
   const owningTenantId = await recordRowOwningTenantId(runner, features, raw.entity, raw.id);
   if (owningTenantId === undefined) return undefined;
   const effective = await resolveRetentionPolicyForTenant({
@@ -339,9 +341,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Runs AFTER the tenant gate (VORHER only means "before the shred"): a
     // retention check ahead of the tenant gate would leak a foreign
     // entity's retention posture to a cross-tenant prober.
-    const retentionDenial = await resolveRetentionDenial(
-      ctx,
-      raw,
+    const retentionDenial = await resolveRetentionDenial(ctx, raw, () =>
       ctx.db.unsafeRaw("retention check reads the record row's owning tenant, not the caller's"),
     );
     if (retentionDenial) {
