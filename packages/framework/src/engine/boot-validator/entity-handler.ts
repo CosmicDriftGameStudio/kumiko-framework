@@ -815,16 +815,17 @@ function assertNoSelectOptionsQuery(
   path: string,
   featureName: string,
 ): void {
-  if (field.type !== "select") return;
   // @cast-boundary schema-walk — embedded sub-field types don't declare optionsQuery, an untyped author may still set it
   const { optionsQuery, optionsQueryPayload } = field as {
     optionsQuery?: unknown;
     optionsQueryPayload?: unknown;
   };
-  if (optionsQuery === undefined && optionsQueryPayload === undefined) return;
-  throw new Error(
-    `[Feature ${featureName}] Entity select field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
-  );
+  const declaresOptionsQuery = optionsQuery !== undefined || optionsQueryPayload !== undefined;
+  if (field.type === "select" && declaresOptionsQuery) {
+    throw new Error(
+      `[Feature ${featureName}] Entity select field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
+    );
+  }
 }
 
 export function validateMultiSelectFields(feature: FeatureDefinition): void {

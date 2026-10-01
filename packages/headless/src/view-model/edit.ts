@@ -175,6 +175,19 @@ type SelectFieldHints = Pick<
   "options" | "optionLabels" | "display" | "columns" | "maxRows" | "selectOptionsQuery"
 >;
 
+function deriveSelectOptionsQuery(
+  fieldDef: EntityFieldDef,
+): Pick<EditFieldViewModel, "selectOptionsQuery"> {
+  return fieldDef.type === "select" && fieldDef.optionsQuery !== undefined
+    ? {
+        selectOptionsQuery: {
+          query: fieldDef.optionsQuery,
+          payload: fieldDef.optionsQueryPayload ?? {},
+        },
+      }
+    : {};
+}
+
 function deriveSelectFieldHints(
   fieldDef: EntityFieldDef,
   translate: Translate,
@@ -198,12 +211,8 @@ function deriveSelectFieldHints(
     fieldDef.type === "multiSelect" || fieldDef.type === "select" ? fieldDef.display : undefined;
   const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
   const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
-  const selectOptionsQuery =
-    fieldDef.type === "select" && fieldDef.optionsQuery !== undefined
-      ? { query: fieldDef.optionsQuery, payload: fieldDef.optionsQueryPayload ?? {} }
-      : undefined;
   return {
-    ...(selectOptionsQuery !== undefined && { selectOptionsQuery }),
+    ...deriveSelectOptionsQuery(fieldDef),
     ...(options !== undefined && { options }),
     ...(optionLabels !== undefined && { optionLabels }),
     ...(display !== undefined && { display }),

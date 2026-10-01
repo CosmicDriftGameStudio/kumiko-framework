@@ -113,6 +113,17 @@ const SCOPE_DEFAULTS: Record<ConfigScope, { write: readonly string[]; read: read
 
 // --- Factory ---
 
+function optionsQueryProps(
+  opts: Pick<ConfigKeyOptions<"select">, "optionsQuery" | "optionsQueryPayload">,
+): Pick<ConfigKeyDefinition, "optionsQuery" | "optionsQueryPayload"> {
+  return {
+    ...(opts.optionsQuery !== undefined && { optionsQuery: opts.optionsQuery }),
+    ...(opts.optionsQueryPayload !== undefined && {
+      optionsQueryPayload: opts.optionsQueryPayload,
+    }),
+  };
+}
+
 function createConfigKey<T extends ConfigKeyType>(
   scope: ConfigScope,
   type: T,
@@ -130,10 +141,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.piiEncrypted ? { piiEncrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
-    ...(opts.optionsQuery !== undefined ? { optionsQuery: opts.optionsQuery } : {}),
-    ...(opts.optionsQueryPayload !== undefined
-      ? { optionsQueryPayload: opts.optionsQueryPayload }
-      : {}),
+    ...optionsQueryProps(opts),
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,
