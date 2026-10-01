@@ -143,3 +143,23 @@ export async function recordRowExistsInTenant(
   );
   return rows.length > 0;
 }
+
+// Owning tenant of a record subject's row, for callers that must evaluate
+// tenant-scoped policy for the row's real owner (not the acting user's tenant).
+export async function recordRowOwningTenantId(
+  db: DbRunner,
+  features: ReadonlyMap<string, FeatureDefinition>,
+  entityName: string,
+  recordId: string,
+): Promise<string | undefined> {
+  const entity = findEntityByExactName(features, entityName);
+  if (!entity) return undefined;
+  const tableName = resolveTableName(entityName, entity, undefined);
+  if (!(await tableExists(db, tableName))) return undefined;
+  const rows = await executeRawQueryRead<{ tenant_id: string }>(
+    db,
+    `SELECT tenant_id FROM ${quoteIdent(tableName)} WHERE id = $1 LIMIT 1`,
+    [recordId],
+  );
+  return rows[0]?.tenant_id;
+}

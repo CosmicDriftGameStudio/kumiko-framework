@@ -39,6 +39,11 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import { createConfigFeature } from "../../config/index.js";
+import {
+  createDataRetentionFeature,
+  tenantRetentionOverrideEntity,
+  tenantRetentionOverrideTable,
+} from "../../data-retention/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import {
@@ -424,5 +429,121 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate, #2
       reason: REASON,
       forgottenBy: dpoRetentionUser.id,
     });
+  });
+});
+
+// #2805: the entity declares no retention, but the owning tenant's effective
+// data-retention policy (override here) is blockDelete.
+const OVERRIDE_PROBE_ENTITY_NAME = "overrideProbe";
+const overrideProbeEntity = createEntity({
+  table: "read_forget_subject_override_probe",
+  fields: {
+    body: createTextField({
+      required: true,
+      maxLength: 200,
+      personal: { of: "id" },
+      find: "none",
+    }),
+  },
+});
+const overrideProbeTable = buildEntityTable("forgetSubjectOverrideProbe", overrideProbeEntity);
+const overrideProbeFeature = defineFeature("forget-subject-override-probe", (r) => {
+  r.entity(OVERRIDE_PROBE_ENTITY_NAME, overrideProbeEntity);
+});
+
+describe("crypto-shredding :: forget-subject (record subject) tenant retention policy, #2805", () => {
+  let policyStack: TestStack;
+  const POLICY_TENANT: TenantId = testTenantId(25);
+  const dpoPolicyUser = {
+    id: "cccccccc-cccc-4ccc-8ccc-000000000005",
+    tenantId: POLICY_TENANT,
+    roles: ["DataProtectionOfficer"],
+  };
+
+  beforeAll(async () => {
+    policyStack = await setupTestStack({
+      features: [
+        createCryptoShreddingFeature(),
+        createDataRetentionFeature(),
+        overrideProbeFeature,
+      ],
+    });
+    await unsafeCreateEntityTable(policyStack.db, overrideProbeEntity, OVERRIDE_PROBE_ENTITY_NAME);
+    await unsafeCreateEntityTable(policyStack.db, tenantRetentionOverrideEntity);
+  });
+
+  afterAll(async () => {
+    await policyStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await resetTestTables(policyStack.db, [
+      overrideProbeTable,
+      tenantRetentionOverrideTable,
+      eventsTable,
+    ]);
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  async function seedProbeRow(): Promise<string> {
+    const tenantDb = createTenantDb(policyStack.db, POLICY_TENANT, "system");
+    const created = await createEventStoreExecutor(overrideProbeTable, overrideProbeEntity, {
+      entityName: OVERRIDE_PROBE_ENTITY_NAME,
+    }).create({ body: "invoice text" }, dpoPolicyUser, tenantDb);
+    if (!created.isSuccess) throw new Error("create failed");
+    return String(created.data.id);
+  }
+
+  test("tenant override blockDelete refuses the shred and is audited", async () => {
+    const rowId = await seedProbeRow();
+    const overrideCreated = await createEventStoreExecutor(
+      tenantRetentionOverrideTable,
+      tenantRetentionOverrideEntity,
+      { entityName: "tenant-retention-override" },
+    ).create(
+      {
+        entityName: OVERRIDE_PROBE_ENTITY_NAME,
+        config: JSON.stringify({ keepFor: "10y", strategy: "blockDelete" }),
+        reason: "legal hold",
+        tenantId: POLICY_TENANT,
+      },
+      { ...dpoPolicyUser, roles: ["SystemAdmin"] },
+      createTenantDb(policyStack.db, POLICY_TENANT, "system"),
+    );
+    if (!overrideCreated.isSuccess) throw new Error("override create failed");
+
+    const err = await policyStack.http.writeErr(
+      FORGET,
+      {
+        subject: { kind: "record", entity: OVERRIDE_PROBE_ENTITY_NAME, id: rowId },
+        reason: REASON,
+      },
+      dpoPolicyUser,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
+      TARGET_RECORD_RETENTION_BLOCK_DELETE,
+    );
+    const deniedEvents = await selectMany(policyStack.db, eventsTable, {
+      type: SUBJECT_FORGET_DENIED_EVENT_NAME,
+    });
+    expect(deniedEvents).toHaveLength(1);
+  });
+
+  test("without any blockDelete policy the shred still proceeds", async () => {
+    const rowId = await seedProbeRow();
+    const res = await policyStack.http.write(
+      FORGET,
+      {
+        subject: { kind: "record", entity: OVERRIDE_PROBE_ENTITY_NAME, id: rowId },
+        reason: REASON,
+      },
+      dpoPolicyUser,
+    );
+    expect(res.status).toBe(200);
   });
 });
