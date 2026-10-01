@@ -623,13 +623,15 @@ function projectCancelTarget(
   return isScreenTargetKept(featureName, cancelTarget, keptScreenQns) ? cancelTarget : undefined;
 }
 
-function dropUnreachableCreateScreen<
-  T extends EntityListScreenDefinition | ProjectionListScreenDefinition,
->(screen: T, feature: FeatureSchema, keptScreenQns: ReadonlySet<string>): T {
+function dropUnreachableCreateScreen(
+  screen: EntityListScreenDefinition | ProjectionListScreenDefinition,
+  feature: FeatureSchema,
+  keptScreenQns: ReadonlySet<string>,
+): EntityListScreenDefinition | ProjectionListScreenDefinition {
   if (screen.type !== "entityList" || screen.createScreen === undefined) return screen;
   if (isScreenTargetKept(feature.featureName, screen.createScreen, keptScreenQns)) return screen;
   const { createScreen: _unreachable, ...rest } = screen;
-  return rest as T;
+  return rest;
 }
 
 function projectListScreen(
