@@ -108,7 +108,7 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
-  test("the meta line wraps between values (two lines at most) instead of truncating each value", () => {
+  test("the meta line wraps between values (two lines at most) and clips the separator at a line start", () => {
     withViewportWidth(500, () => {
       const columns = [
         { field: "name", label: "Name", type: "string", sortable: false },
@@ -118,12 +118,21 @@ describe("DataTable — cards below 768px", () => {
       const rows = [{ id: "u1", values: { name: "Anna", from: "4. Okt. 2026", to: "5. Okt." } }];
       render(<DataTable columns={columns} rows={rows} testId="t" />);
       const to = screen.getByTestId("cell-u1-to");
-      const metaLine = to.parentElement?.parentElement;
-      expect(metaLine?.className).toContain("line-clamp-2");
-      expect(metaLine?.className).not.toContain("truncate");
-      // The separator travels with the value it precedes, so it can't dangle at a line end.
-      expect(to.parentElement?.textContent).toBe("·5. Okt.");
-      expect(to.parentElement?.className).not.toContain("whitespace-nowrap");
+      const metaRow = screen.getByTestId("card-meta-u1");
+      const clipBox = metaRow.parentElement;
+      // happy-dom has no layout; the clipping contract is the class set: the row is
+      // shifted left by exactly the separator width inside an overflow-hidden box.
+      expect(metaRow.className).toContain("flex-wrap");
+      expect(metaRow.className).toContain("-ml-3");
+      expect(clipBox?.className).toContain("overflow-hidden");
+      expect(clipBox?.className).toContain("max-h-10");
+      expect(to.parentElement).toBe(metaRow);
+      expect(to.className).toContain("before:w-3");
+      expect(to.className).toContain("before:content-['·'_/_'']");
+      expect(to.className).toContain("truncate");
+      // The separator is generated content, not a text node in the value.
+      expect(to.textContent).toBe("5. Okt.");
+      expect(metaRow.textContent).toBe("4. Okt. 20265. Okt.");
     });
   });
 
@@ -147,10 +156,10 @@ describe("DataTable — cards below 768px", () => {
       const rowA = screen.getByTestId("row-a");
       expect(within(rowA).getByTestId("cell-a-baseline").textContent).toBe("Baseline");
       expect(within(rowA).queryByTestId("cell-a-note")).toBeNull();
-      expect(rowA.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
+      expect(screen.getByTestId("card-meta-a").children).toHaveLength(2);
       const rowB = screen.getByTestId("row-b");
       expect(within(rowB).queryByTestId("cell-b-baseline")).toBeNull();
-      expect(rowB.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
+      expect(screen.getByTestId("card-meta-b").children).toHaveLength(1);
     });
   });
 
