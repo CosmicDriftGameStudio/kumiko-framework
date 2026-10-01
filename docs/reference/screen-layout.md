@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-01
-evidence: "kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
+evidence: "kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -34,6 +34,24 @@ Row actions in tables are the exception to the 44px rule (28px kebab on desktop)
 ## PageHeader slot
 
 The shell header hosts the breadcrumb (the last crumb is the `h1`) and two slots: status after the title and actions on the right. The optional `PageHeader` primitive (`{ status?, actions? }`) portals into them. Lists put the create button there, details put the status badge and the header actions there (first action a button, the rest in a kebab). Without a shell slot, callers keep their previous placement (create button in the toolbar, header card on details).
+
+`PageHeaderProps` also carries `title` (overrides the last crumb), `recordTitle` (extra crumb before the last one) and `overflowItems` (`ActionMenuItemSpec[]`).
+
+### Phone width
+
+At phone width the shell header gives the title priority: the declarative screens keep their primary action as an icon button and move the rest into the shell's "…" menu (`data-testid="shell-header-overflow-trigger"`). E2E tests on mobile open that menu before they click a secondary header action.
+
+A custom screen that renders its own `PageHeader` decides the split itself. `usePageHeaderCompact()` from `@cosmicdrift/kumiko-renderer` is `true` while a shell with page header slots renders at phone width. The shell shows `overflowItems` only in that state and ignores them on desktop, so the screen branches:
+
+```tsx illustration
+const compact = usePageHeaderCompact();
+<PageHeader
+  actions={compact ? primaryIconButton : allButtons}
+  {...(compact && { overflowItems: secondaryMenuItems })}
+/>
+```
+
+The slot holds one `overflowItems` list per page; the last `PageHeader` that sets it wins. On a projectionDetail the framework header actions already own that list, so a `slots.header` component puts its own controls in the header content instead of `overflowItems`.
 
 ## Declarative props
 
