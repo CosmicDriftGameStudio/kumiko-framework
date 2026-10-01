@@ -1191,6 +1191,42 @@ export async function loadUser(passedCtx: typeof ctx) {
     expect(r2?.message).not.toMatch(/A declareEscapeHatch\(\{ reason \}\) call was found here/);
   });
 
+  test("the R5 unsafeAllTenants message names declareEscapeHatch and explains an unresolvable reason (AC3/AC4)", () => {
+    const plain = files({
+      "/r/packages/bundled-features/src/foo/handlers/x.query.ts": `
+declare const ctx: { queryProjection: (name: string, opts: unknown) => unknown };
+export const run = async () => ctx.queryProjection("proj", { unsafeAllTenants: true });
+`,
+    });
+    const plainFinding = findEscapeHatchFindings(plain, "/r").find(
+      (f) => f.rule === "unsafe-all-tenants-outside-declared-scope",
+    );
+    expect(plainFinding?.message).toMatch(
+      /declareEscapeHatch\(\{ reason: "\.\.\." \}\) as a direct body statement of a named hook/,
+    );
+    expect(plainFinding?.message).not.toMatch(
+      /A declareEscapeHatch\(\{ reason \}\) call was found here/,
+    );
+
+    const unresolvable = files({
+      "/r/packages/bundled-features/src/foo/handlers/y.query.ts": `
+declare function declareEscapeHatch(d: unknown): void;
+declare function buildReason(): string;
+declare const ctx: { queryProjection: (name: string, opts: unknown) => unknown };
+export async function run() {
+	declareEscapeHatch({ reason: buildReason() });
+	return ctx.queryProjection("proj", { unsafeAllTenants: true });
+}
+`,
+    });
+    const hinted = findEscapeHatchFindings(unresolvable, "/r").find(
+      (f) => f.rule === "unsafe-all-tenants-outside-declared-scope",
+    );
+    expect(hinted?.message).toMatch(
+      /reason is an import, a function call, or a template with substitutions/,
+    );
+  });
+
   test("resolves a shared const reason across arrow-const-assigned named hooks (AC5, publicstatus shape)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-hooks.ts": `

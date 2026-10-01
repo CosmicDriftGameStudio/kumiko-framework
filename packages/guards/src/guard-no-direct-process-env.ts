@@ -44,7 +44,8 @@ export type ProcessEnvFinding = {
 
 /** Returns true when the line contains a live process.env reference. */
 export function processEnvOnLine(line: string): boolean {
-  const code = line.replace(/\/\/.*$/, "");
+  // `(?<!:)` keeps `https://…` inside string literals from being cut as a comment.
+  const code = line.replace(/(?<!:)\/\/.*$/, "");
   return PROCESS_ENV_REF.test(code);
 }
 

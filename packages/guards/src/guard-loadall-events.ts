@@ -20,7 +20,13 @@
 
 import * as path from "node:path";
 import { type CallExpression, type Identifier, type SourceFile, SyntaxKind } from "ts-morph";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  type AstGuard,
+  type GuardViolation,
+  isLocalFinding,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 
 const ROOT = process.cwd();
 
@@ -118,7 +124,7 @@ export const guard: AstGuard = {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
       if (EXCLUDE.test(sf.getFilePath())) continue;
-      for (const v of collectViolations(sf)) {
+      for (const v of collectViolations(sf).filter(isLocalFinding)) {
         violations.push({
           file: v.file,
           line: v.line,

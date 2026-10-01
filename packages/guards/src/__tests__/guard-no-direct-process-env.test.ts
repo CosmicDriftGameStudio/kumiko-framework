@@ -23,6 +23,11 @@ describe("processEnvOnLine", () => {
     expect(processEnvOnLine(`// process.env.JWT_SECRET = "x";`)).toBe(false);
     expect(processEnvOnLine(`const env = { JWT_SECRET: "x" };`)).toBe(false);
   });
+
+  it("does not treat the // of a URL literal as a comment start", () => {
+    expect(processEnvOnLine(`const url = "https://" + process.env.API_KEY;`)).toBe(true);
+    expect(processEnvOnLine(`const x = 1; // process.env.API_KEY`)).toBe(false);
+  });
 });
 
 describe("isScannableBinFile", () => {

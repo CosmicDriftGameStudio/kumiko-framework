@@ -531,6 +531,7 @@ export function printGuardKitBanner(
   if (error !== undefined) {
     console.error(error);
     process.exit(1);
+    return;
   }
   console.log(`kumiko-guards ${guardKitVersion()} - ${guardCount} guards registered`);
   console.log(`Roots: ${roots.map((r) => r.root.name).join(", ")} (${roots.length})`);

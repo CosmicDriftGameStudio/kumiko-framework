@@ -86,10 +86,14 @@ export function parseSecurityBaseline(raw: unknown): SecurityBaseline | undefine
 }
 
 export function loadSecurityBaseline(repo: string, repoDir: string): SecurityBaselineLoad {
-  if (!REPO_NAME_RE.test(repo)) {
-    throw new Error(`loadSecurityBaseline: invalid repo name "${repo}"`);
-  }
   const file = securityBaselinePath(repoDir);
+  if (!REPO_NAME_RE.test(repo)) {
+    return {
+      kind: "invalid",
+      file,
+      reason: `repo name "${repo}" from package.json is not a valid lowercase package name`,
+    };
+  }
   if (!existsSync(file)) return { kind: "ok", findings: {}, hardFail: [] };
   let raw: unknown;
   try {
