@@ -3,8 +3,8 @@
 // 390x844, dark only as a control pair. Runs only with SCREENSHOT_DIR set
 // (defineAppE2eConfig ignores this file otherwise).
 
-import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
 import { resolve } from "node:path";
+import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
 import { expect, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 

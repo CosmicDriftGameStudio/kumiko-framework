@@ -21,8 +21,8 @@ import {
 import {
   adjustRentScreen,
   leaseDetailScreen,
-  leaseHubScreen,
   leaseEditScreen,
+  leaseHubScreen,
   leaseListScreen,
   leaseListShortScreen,
   positionEditScreen,
