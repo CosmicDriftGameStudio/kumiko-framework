@@ -1540,6 +1540,10 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
         </NavProvider>,
       );
       await waitFor(() => screen.getByTestId("hub-header"));
+      return readBreadcrumbTitles();
+    }
+
+    function readBreadcrumbTitles(): string[] {
       return [
         ...document.querySelectorAll(
           "[data-kumiko-layout='shell-header'] [data-slot='breadcrumb-item']",
@@ -1548,9 +1552,9 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     }
 
     test("the record's field value is the last breadcrumb, right after the list crumb", async () => {
-      const crumbs = await breadcrumbTitles("userId");
-      expect(crumbs).toHaveLength(2);
-      expect(crumbs[1]).toBe("user-42");
+      await breadcrumbTitles("userId");
+      // The record title arrives with the query result, after the static hub header is up.
+      await waitFor(() => expect(readBreadcrumbTitles()).toEqual([expect.any(String), "user-42"]));
     });
 
     test("without recordTitleField the screen title is the last breadcrumb", async () => {
