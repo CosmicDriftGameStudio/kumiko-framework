@@ -31,7 +31,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "admin-shell:overview.list.quotas": "Cuotas",
   "admin-shell:overview.list.quotasEmpty": "Sin cuotas configuradas",
   "admin-shell:overview.list.recentFailures": "Últimos fallos",
-  "admin-shell:overview.list.recentFailuresEmpty": "Sin fallos en el período elegido",
+  "admin-shell:overview.list.recentFailuresEmpty": "No hay trabajos fallidos",
   "admin-shell:overview.range.24h": "24 horas",
   "admin-shell:overview.range.30d": "30 días",
   "admin-shell:overview.range.7d": "7 días",
