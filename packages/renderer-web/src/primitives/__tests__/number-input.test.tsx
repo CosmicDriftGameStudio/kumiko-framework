@@ -44,6 +44,40 @@ describe("NumberInput", () => {
     expect(onChange).toHaveBeenLastCalledWith(1234.5);
   });
 
+  test.each([
+    ["de-DE", "1.5", undefined],
+    ["de-DE", "12.34", undefined],
+    ["de-DE", "1.234", 1234],
+    ["de-DE", "1.234,5", 1234.5],
+    ["de-DE", "1,5", 1.5],
+    ["en-US", "1,234.5", 1234.5],
+    ["en-US", "1,5", undefined],
+  ] as const)(
+    "%s: typing %s emits %p (misplaced group separators are rejected)",
+    (locale, typed, expected) => {
+      const onChange = mock((_v: number | undefined) => undefined);
+      const input = renderNumber({ value: "", onChange, locale });
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: typed } });
+      if (expected === undefined) {
+        expect(onChange).not.toHaveBeenCalled();
+        expect(input.value).toBe(typed);
+      } else {
+        expect(onChange).toHaveBeenLastCalledWith(expected);
+      }
+    },
+  );
+
+  test("focus then blur without editing leaves a fractional value unchanged", () => {
+    const onChange = mock((_v: number | undefined) => undefined);
+    const input = renderNumber({ value: 1234.5, onChange });
+    expect(input.value).toBe("1.234,5");
+    fireEvent.focus(input);
+    fireEvent.blur(input);
+    expect(input.value).toBe("1.234,5");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   test("raw digits parse (fill('28500') compatibility)", () => {
     const onChange = mock((_v: number | undefined) => undefined);
     const input = renderNumber({ value: "", onChange });
