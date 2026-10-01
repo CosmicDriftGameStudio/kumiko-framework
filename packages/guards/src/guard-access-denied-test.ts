@@ -27,14 +27,14 @@ import {
   nameForms,
 } from "./_lib/handler-name-forms";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
+import { TEST_FILE_RE } from "./_lib/test-file";
 
 const ROOT = process.cwd();
 const SCAN: ScanSpec = {
-  scope: "source",
+  scope: "source+tests",
   extensions: ["ts"],
   frameworkWithin: ["packages/*/src/**", "samples/**"],
 };
-const TEST_FILE = /\.test\.ts$/;
 
 // Any role that lets an unauthenticated/unrestricted caller through means
 // nobody is actually excluded by this handler's roles.
@@ -47,7 +47,7 @@ export function findRoleRestrictedWriteHandlers(
 ): RoleRestrictedHandler[] {
   const out: RoleRestrictedHandler[] = [];
   for (const sf of files) {
-    if (TEST_FILE.test(sf.getFilePath())) continue;
+    if (TEST_FILE_RE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
       const callee = call.getExpression().getText();
       if (callee !== "defineWriteHandler" && !/\.writeHandler$/.test(callee)) continue;
@@ -99,7 +99,7 @@ export function findHandlersWithoutAccessDeniedTest(
   const repoKeyOf = (filePath: string): string => findRepoRootFor(filePath, roots)?.absPath ?? "";
   const testTextsByRepo = new Map<string, string[]>();
   for (const sf of files) {
-    if (!TEST_FILE.test(sf.getFilePath())) continue;
+    if (!TEST_FILE_RE.test(sf.getFilePath())) continue;
     const text = sf.getFullText();
     if (!ACCESS_DENIED_ASSERTION.test(text)) continue;
     const repoKey = repoKeyOf(sf.getFilePath());

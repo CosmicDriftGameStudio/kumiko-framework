@@ -21,7 +21,9 @@
 
 import * as path from "node:path";
 import { type CallExpression, type Identifier, type SourceFile, SyntaxKind } from "ts-morph";
+import { findRepoRootFor } from "./_lib/baseline-compare";
 import { type AstGuard, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
 const ROOT = process.cwd();
 
@@ -49,10 +51,14 @@ export interface Violation {
   enclosingFunction: string;
 }
 
-function collectViolations(sourceFile: SourceFile): Violation[] {
+function collectViolations(sourceFile: SourceFile, roots: readonly RepoRoot[]): Violation[] {
   const violations: Violation[] = [];
-  const relativePath = path.relative(ROOT, sourceFile.getFilePath());
-  if (isAllowed(relativePath)) return violations;
+  const filePath = sourceFile.getFilePath();
+  // Allowlist is repo-root-relative; the reported path stays cwd-relative for the security baseline.
+  const repoRoot = findRepoRootFor(filePath, roots);
+  const allowlistPath = path.relative(repoRoot?.absPath ?? ROOT, filePath);
+  const relativePath = path.relative(ROOT, filePath);
+  if (isAllowed(allowlistPath)) return violations;
 
   const calls = sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression);
   for (const call of calls) {
@@ -112,13 +118,13 @@ export const guard: AstGuard = {
   // App repos are not exempt — appendRaw/appendRawBatch bypasses the pipeline there too (infra#502).
   security: true,
   hint: "Admin API (appendRaw/appendRawBatch) bypasses the pipeline — only allowed in samples/*/migration/ or scripts/migrations/. For domain events: ctx.appendEvent / write handler.",
-  run(files) {
+  run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];
 
     for (const sf of files) {
       const file = sf.getFilePath();
       if (EXCLUDE.test(file)) continue;
-      for (const v of collectViolations(sf)) {
+      for (const v of collectViolations(sf, roots)) {
         violations.push({
           file: v.file,
           line: v.line,

@@ -68,10 +68,15 @@ function scanCiWorkflows(root: RepoRoot, findings: TextLineFinding[]): number {
 // package.json scripts: a real-provider signal in any script OTHER than the
 // two designated ones is a leak (e.g. a "test" or "ci" script that pulls in
 // the real env or filters for a .real. spec by hand).
+const REAL_SCRIPT_CALL = /\b(?:test|e2e):real\b/;
+
 function scriptLeaksRealProvider(name: string, command: string): string | undefined {
   if (REAL_SCRIPT_NAMES.has(name)) return undefined;
   if (command.includes(REAL_PROVIDERS_ENV)) {
     return `script "${name}" sets ${REAL_PROVIDERS_ENV} outside test:real/e2e:real: ${command}`;
+  }
+  if (REAL_SCRIPT_CALL.test(command)) {
+    return `script "${name}" invokes test:real/e2e:real, which would run real-provider specs from a default script: ${command}`;
   }
   if (/\.real\.(test|spec)\.ts/.test(command)) {
     return `script "${name}" references a *.real. spec/test outside test:real/e2e:real: ${command}`;
@@ -79,21 +84,50 @@ function scriptLeaksRealProvider(name: string, command: string): string | undefi
   return undefined;
 }
 
-function scanPackageJsonScripts(root: RepoRoot, findings: TextLineFinding[]): number {
-  const path = join(root.absPath, "package.json");
-  let parsed: { scripts?: Record<string, string> };
+type WorkspaceManifest = {
+  scripts?: Record<string, string>;
+  workspaces?: string[] | { packages?: string[] };
+};
+
+function readManifest(abs: string): WorkspaceManifest | undefined {
   try {
-    parsed = JSON.parse(readFileSync(path, "utf8")) as { scripts?: Record<string, string> };
+    return JSON.parse(readFileSync(abs, "utf8")) as WorkspaceManifest;
   } catch {
-    return 0;
+    return undefined;
   }
-  const scripts = parsed.scripts ?? {};
+}
+
+function workspacePatterns(manifest: WorkspaceManifest): string[] {
+  const declared = Array.isArray(manifest.workspaces)
+    ? manifest.workspaces
+    : (manifest.workspaces?.packages ?? []);
+  return declared.filter((pattern) => !pattern.startsWith("!"));
+}
+
+// Root package.json plus every workspace package.json the root's `workspaces` globs resolve to.
+function packageJsonRels(root: RepoRoot, rootManifest: WorkspaceManifest): string[] {
+  const rels = new Set<string>(["package.json"]);
+  for (const pattern of workspacePatterns(rootManifest)) {
+    const glob = new Glob(`${pattern.replace(/\/$/, "")}/package.json`);
+    for (const rel of glob.scanSync({ cwd: root.absPath })) {
+      if (rel.split("/").includes("node_modules")) continue;
+      rels.add(rel);
+    }
+  }
+  return [...rels].sort();
+}
+
+function scanPackageJsonScripts(root: RepoRoot, findings: TextLineFinding[]): number {
+  const rootManifest = readManifest(join(root.absPath, "package.json"));
+  if (rootManifest === undefined) return 0;
   let scanned = 0;
-  for (const [name, command] of Object.entries(scripts)) {
-    scanned++;
-    const message = scriptLeaksRealProvider(name, command);
-    if (message !== undefined) {
-      findings.push({ file: "package.json", line: 1, text: message });
+  for (const rel of packageJsonRels(root, rootManifest)) {
+    const manifest = rel === "package.json" ? rootManifest : readManifest(join(root.absPath, rel));
+    if (manifest === undefined) continue;
+    for (const [name, command] of Object.entries(manifest.scripts ?? {})) {
+      scanned++;
+      const message = scriptLeaksRealProvider(name, command);
+      if (message !== undefined) findings.push({ file: rel, line: 1, text: message });
     }
   }
   return scanned;

@@ -12,10 +12,16 @@
 // violation. They're named here explicitly instead of showing up as
 // unexplained failures.
 import { describe, expect, test } from "bun:test";
-import { Project } from "ts-morph";
-import type { AstGuard } from "../_lib/guard-kit";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Project, type SourceFile } from "ts-morph";
+import type { AstGuard, GuardOutcome } from "../_lib/guard-kit";
+import { createGuard as createRawInteractiveGuard } from "../guard-raw-interactive-elements";
+import { createGuard as createTailwindScanSurfaceGuard } from "../guard-tailwind-scan-surface";
 import { GUARDS } from "../run-guards";
 import { UI_GUARDS } from "../run-ui-guards";
+import { fixtureRoot } from "./parent-workspace-fixture";
 
 const ALL: readonly AstGuard[] = [...GUARDS, ...UI_GUARDS];
 
@@ -34,7 +40,48 @@ type Violating = {
    * a real sibling checkout.
    */
   readonly extraFiles?: Record<string, string>;
+  /**
+   * Replaces `guard.run([sf])` for guards that read a baseline file or need
+   * explicit roots. Fixtures get an empty tmp baseline root so a committed
+   * repo baseline can't flip the verdict.
+   */
+  readonly execute?: (sf: SourceFile) => GuardOutcome;
 };
+
+function withTmpDir<T>(prefix: string, body: (dir: string) => T): T {
+  const dir = mkdtempSync(join(tmpdir(), prefix));
+  try {
+    return body(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// The unconditional publishedScanSurface rule: an app whose styles.css points
+// @source at `src/` of a package that only publishes `dist`.
+function runTailwindPublishedSurfaceFixture(sf: SourceFile): GuardOutcome {
+  return withTmpDir("fires-tailwind-app-", (appDir) =>
+    withTmpDir("fires-tailwind-baseline-", (baselineRoot) => {
+      mkdirSync(join(appDir, "src"), { recursive: true });
+      writeFileSync(
+        join(appDir, "src/styles.css"),
+        '@source "../node_modules/@cosmicdriftgamestudio/kumiko-designer/src/**/*.{ts,tsx}";\n',
+      );
+      const pkgDir = join(appDir, "node_modules/@cosmicdriftgamestudio/kumiko-designer");
+      mkdirSync(pkgDir, { recursive: true });
+      writeFileSync(
+        join(pkgDir, "package.json"),
+        JSON.stringify({ name: "@cosmicdriftgamestudio/kumiko-designer", files: ["dist"] }),
+      );
+      const root = fixtureRoot("app-fixture", appDir, {
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      return createTailwindScanSurfaceGuard({ baselineRoot }).run([sf], [root]);
+    }),
+  );
+}
 
 // Paths need the "packages/"/"samples/" marker: relFromRepoRoot() classifies
 // in-memory paths above it because they don't sit under any real repo root.
@@ -230,6 +277,12 @@ const ENFORCING: Record<string, Violating> = {
     code: 'export const sql = "UPDATE kumiko_events SET tenant_id = $1 WHERE aggregate_id = $2";',
     expectedMessage: /UPDATE kumiko_events/,
   },
+  "Tailwind-Scan-Surface Guard": {
+    path: `${PKG}/features/x/noop.ts`,
+    code: "export const noop = 1;",
+    expectedMessage: /only publishes \[dist\]/,
+    execute: runTailwindPublishedSurfaceFixture,
+  },
   "test-timeouts": {
     path: `${PKG}/features/x/__tests__/x.test.ts`,
     code: "declare function sleep(ms: number): Promise<void>;\ndeclare function ready(): boolean;\nexport async function poll() { while (!ready()) { await sleep(10); } }",
@@ -246,16 +299,14 @@ const ENFORCING: Record<string, Violating> = {
 // their findings via console and always return `violations: []`. The entry
 // here is bookkeeping about what does NOT block, not a free pass.
 const WARNING_ONLY: Record<string, string> = {
-  "Tailwind-Scan-Surface Guard":
-    "baseline-ratchet pattern (infra#654) — only fails against a committed baseline file; stays warning-only until a repo bootstraps it with --write-baseline",
   "Raw-Interactive-Elements Guard (App-Repos)":
-    "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed baseline file; stays warning-only until an app repo bootstraps it with --write-baseline",
+    "baseline-ratchet pattern (infra#654) — findings become violations as soon as a baseline file exists; without one (a repo that has not bootstrapped it with --write-baseline) it stays warning-only",
   "PII-Annotations Guard":
-    "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
+    "same baseline-ratchet pattern as Raw-Interactive-Elements Guard (infra#412) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Text-Field Personal-Stance Guard":
     "same baseline-ratchet pattern as PII-Annotations Guard (kumiko-framework#2810) — only fails against a committed baseline file; stays warning-only until a consumer repo bootstraps it with --write-baseline",
   "Complexity Check":
-    "same baseline-ratchet pattern as Tailwind-Scan-Surface Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
+    "same baseline-ratchet pattern as Raw-Interactive-Elements Guard — only fails against a committed `.kumiko-complexity-baseline.json`; stays warning-only until a repo bootstraps it with --write-baseline",
   "Predicate Extraction Check":
     "coding-standards.md 'Predicate Extraction' — Automatischer Check ist explizit 'Warnung, kein Fail'; reports Fat-Predicate/Duplicate candidates via console, always returns violations: []",
   "As-Casts Audit":
@@ -290,7 +341,7 @@ describe("every registered guard catches its own violation", () => {
         project.getFileSystem().writeFileSync(path, content);
       }
       const sf = project.createSourceFile(violating.path, violating.code);
-      const outcome = guard.run([sf]);
+      const outcome = violating.execute ? violating.execute(sf) : guard.run([sf]);
       expect(outcome.violations.some((v) => violating.expectedMessage.test(v.message))).toBe(true);
     });
   }
@@ -304,6 +355,10 @@ describe("every registered guard catches its own violation", () => {
       path: `${APP}/features/x/web/link.tsx`,
       code: 'import { StatusBadge } from "@cosmicdrift/kumiko-renderer-web";\nexport const X = () => <a href="/x">go</a>;',
       expectedMessage: /.*/,
+      execute: (sf) =>
+        withTmpDir("fires-raw-interactive-baseline-", (baselineRoot) =>
+          createRawInteractiveGuard({ baselineRoot }).run([sf]),
+        ),
     },
     "As-Casts Audit": {
       path: `${PKG}/features/x/cast.ts`,
@@ -325,7 +380,7 @@ describe("every registered guard catches its own violation", () => {
     test(`${guard.name} (warning-only: never blocks even on a real finding)`, () => {
       const project = new Project({ useInMemoryFileSystem: true });
       const sf = project.createSourceFile(fixture.path, fixture.code);
-      const outcome = guard.run([sf]);
+      const outcome = fixture.execute ? fixture.execute(sf) : guard.run([sf]);
       expect(outcome.violations).toEqual([]);
     });
   }

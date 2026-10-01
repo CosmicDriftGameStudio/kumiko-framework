@@ -272,3 +272,26 @@ describe("D4 floor — a root with declared sourceRoots but no .ts/.tsx (h)", ()
     expect(checkRootFloor(guard, scans).violatingRoots).toEqual([]);
   });
 });
+
+describe('scope "source+tests"', () => {
+  test("delivers source files and test files outside sourceRoots, deduplicated", () => {
+    const dir = tmpDir("scan-scope-source-tests-");
+    writeManifest(dir, {
+      kind: "app",
+      sourceRoots: ["src"],
+      testGlobs: ["tests/**/*.test.ts", "src/**/*.test.ts"],
+    });
+    writeFile(join(dir, "src/a.ts"));
+    writeFile(join(dir, "src/a.test.ts"));
+    writeFile(join(dir, "tests/b.test.ts"));
+    const root = rootAt("app", dir);
+
+    const spec: ScanSpec = { scope: "source+tests", extensions: ["ts"] };
+    expect(scanFiles(spec, [root])).toEqual(
+      [join(dir, "src/a.test.ts"), join(dir, "src/a.ts"), join(dir, "tests/b.test.ts")].sort(),
+    );
+    expect(scanFiles({ scope: "source", extensions: ["ts"] }, [root])).not.toContain(
+      join(dir, "tests/b.test.ts"),
+    );
+  });
+});

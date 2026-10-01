@@ -271,12 +271,12 @@ export type RunResult = {
   readonly warnings?: readonly GuardViolation[];
 };
 
-// Per-root floor: a root whose declared sourceRoots hold zero .ts/.tsx files is a violation; only applies to scope "source".
+// Per-root floor: a root whose declared sourceRoots hold zero .ts/.tsx files is a violation; applies to every scope that includes source ("source", "source+tests").
 export function checkRootFloor(
   guard: Pick<AstGuard, "scan">,
   scans: readonly RootScan[],
 ): { readonly violatingRoots: readonly string[] } {
-  if (guard.scan.scope !== "source") return { violatingRoots: [] };
+  if (guard.scan.scope === "tests") return { violatingRoots: [] };
   return {
     violatingRoots: scans.filter((scan) => scan.sourceSurface === 0).map((scan) => scan.root.name),
   };

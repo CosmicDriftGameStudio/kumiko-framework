@@ -93,6 +93,51 @@ describe("Real-Provider-Isolation Guard (check.run)", () => {
     }
   });
 
+  test("flags a default script that chains into test:real", async () => {
+    const root = makeRepo({
+      "package.json": JSON.stringify({
+        name: "fixture-app",
+        scripts: { test: "bun test && bun run test:real", "test:real": "bun test real.test.ts" },
+      }),
+    });
+    try {
+      const repoRoot = fixtureRoot("fixture-app", root, {
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      const outcome = await check.run([repoRoot]);
+      expect(outcome.violations).toHaveLength(1);
+      expect(outcome.violations[0]?.message).toContain('script "test"');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("scans workspace package.json files, reports their relative path, skips node_modules", async () => {
+    const root = makeRepo({
+      "package.json": JSON.stringify({ name: "fixture-app", workspaces: ["packages/*"] }),
+      "packages/api/package.json": JSON.stringify({
+        name: "api",
+        scripts: { ci: "KUMIKO_REAL_PROVIDERS=1 bun test" },
+      }),
+      "packages/api/node_modules/dep/package.json": JSON.stringify({
+        scripts: { ci: "KUMIKO_REAL_PROVIDERS=1 bun test" },
+      }),
+    });
+    try {
+      const repoRoot = fixtureRoot("fixture-app", root, {
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      const outcome = await check.run([repoRoot]);
+      expect(outcome.violations.map((v) => v.file)).toEqual(["packages/api/package.json"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("flags an app bunfig.toml missing the *.real.test.ts exclusion", async () => {
     const root = makeRepo({
       "bunfig.toml": '[test]\npathIgnorePatterns = ["**/*.integration.test.ts"]\n',

@@ -133,6 +133,17 @@ describe("testMentionsHandler", () => {
 });
 
 describe("findHandlersWithoutAccessDeniedTest", () => {
+  test("an access-denied assertion in *.integration.ts counts as coverage", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/x/handlers/approve.write.ts":
+        writeHandler("approve-invoice"),
+      "/r/packages/bundled-features/src/x/approve.integration.ts": `
+expect(res.status).toBe(403); // calls "x:write:approve-invoice"
+`,
+    });
+    expect(findHandlersWithoutAccessDeniedTest(sfs)).toHaveLength(0);
+  });
+
   const HANDLER_FILE = "/r/packages/bundled-features/src/x/handlers/approve.write.ts";
 
   test("a handler with a test referencing it and asserting AccessDeniedError has no finding", () => {
@@ -269,7 +280,7 @@ describe("guard", () => {
     expect(outcome.violations[0]?.message).toMatch(/has no access-denied test/);
     expect(guard.security).toBe(true);
     expect(guard.scan).toEqual({
-      scope: "source",
+      scope: "source+tests",
       extensions: ["ts"],
       frameworkWithin: ["packages/*/src/**", "samples/**"],
     });

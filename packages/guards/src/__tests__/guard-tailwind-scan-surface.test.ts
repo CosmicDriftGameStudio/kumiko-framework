@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { Project } from "ts-morph";
-import { findLocalRepo, type RepoRoot } from "../_lib/roots";
+import type { RepoRoot } from "../_lib/roots";
 import {
   analyse,
   baselineCounts,
+  createGuard,
   type Finding,
-  guard,
   type PublishedScanSurfaceFinding,
   type SourceCoverageFinding,
   scanPublishedScanSurface,
@@ -17,28 +17,20 @@ import {
 } from "../guard-tailwind-scan-surface";
 import { fixtureRoot } from "./parent-workspace-fixture";
 
-// The guard resolves its baseline against the local repo root
-// (findLocalRepo()?.absPath), not cwd — mirror that here so the test reads
-// and writes the same file the guard does, regardless of where `bun test`
-// was invoked from.
-const BASELINE_ROOT = findLocalRepo()?.absPath ?? process.cwd();
-const BASELINE_PATH = path.join(BASELINE_ROOT, ".kumiko-tailwind-scan-surface-baseline.json");
-
-let preExistingBaseline: string | null = null;
+// Each test gets an empty tmp baseline root; the repo's own baselines are never touched.
+let baselineRoot: string;
+let guard: ReturnType<typeof createGuard>;
 beforeEach(() => {
-  preExistingBaseline = existsSync(BASELINE_PATH) ? readFileSync(BASELINE_PATH, "utf-8") : null;
+  baselineRoot = mkdtempSync(path.join(tmpdir(), "tailwind-scan-surface-baseline-"));
+  guard = createGuard({ baselineRoot });
 });
 afterEach(() => {
-  if (preExistingBaseline === null) {
-    if (existsSync(BASELINE_PATH)) rmSync(BASELINE_PATH);
-  } else {
-    writeFileSync(BASELINE_PATH, preExistingBaseline);
-  }
+  rmSync(baselineRoot, { recursive: true, force: true });
 });
 
 function writeBaseline(perFile: Record<string, number>): void {
   writeFileSync(
-    BASELINE_PATH,
+    path.join(baselineRoot, ".kumiko-tailwind-scan-surface-baseline.json"),
     JSON.stringify({ format: 1, generated: "2026-01-01", total: 0, perFile }),
   );
 }
@@ -196,7 +188,6 @@ export function X() { return <div className={cn("rogue-token")} />; }`,
   });
 
   test("without a baseline file, a flagged token stays warning-only", () => {
-    if (existsSync(BASELINE_PATH)) rmSync(BASELINE_PATH);
     const { warnings, violations } = runFor(
       'export function X() { return <div className="rogue-token" />; }',
       'export const x = "";',

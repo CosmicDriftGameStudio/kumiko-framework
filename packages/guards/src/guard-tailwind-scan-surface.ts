@@ -163,11 +163,12 @@ function countByFile(findings: readonly Finding[]): Record<string, number> {
 }
 
 const BASELINE_FILE = ".kumiko-tailwind-scan-surface-baseline.json";
-const tailwindScanSurfaceBaseline = baselineRatchet({
-  file: path.join(BASELINE_ROOT, BASELINE_FILE),
-  formatVersion: 1,
-  unit: "class token(s)",
-});
+const tailwindScanSurfaceBaseline = (baselineRoot: string) =>
+  baselineRatchet({
+    file: path.join(baselineRoot, BASELINE_FILE),
+    formatVersion: 1,
+    unit: "class token(s)",
+  });
 
 // Second, independent rule: a consuming app repo (studio,
 // publicstatus, …) imports Framework AND Enterprise packages by npm name
@@ -489,11 +490,12 @@ function reportPublishedScanSurfaceFindings(
 }
 
 const SOURCE_COVERAGE_BASELINE_FILE = ".kumiko-tailwind-source-coverage-baseline.json";
-const sourceCoverageBaseline = baselineRatchet({
-  file: path.join(BASELINE_ROOT, SOURCE_COVERAGE_BASELINE_FILE),
-  formatVersion: 1,
-  unit: "missing @source entry/entries",
-});
+const sourceCoverageBaseline = (baselineRoot: string) =>
+  baselineRatchet({
+    file: path.join(baselineRoot, SOURCE_COVERAGE_BASELINE_FILE),
+    formatVersion: 1,
+    unit: "missing @source entry/entries",
+  });
 
 export function sourceCoverageBaselineCounts(
   findings: readonly SourceCoverageFinding[],
@@ -503,9 +505,12 @@ export function sourceCoverageBaselineCounts(
   return counts;
 }
 
-function checkSourceCoverageBaseline(findings: readonly SourceCoverageFinding[]): GuardViolation[] {
+function checkSourceCoverageBaseline(
+  findings: readonly SourceCoverageFinding[],
+  baselineRoot: string,
+): GuardViolation[] {
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
-  return sourceCoverageBaseline.check(
+  return sourceCoverageBaseline(baselineRoot).check(
     sourceCoverageBaselineCounts(findings),
     "Package delivers Tailwind classes without @source coverage in this app — add an @source entry for both install layouts (pattern: existing bundled-features entries).",
     {
@@ -522,9 +527,9 @@ export function baselineCounts(findings: readonly Finding[]): Record<string, num
   return countByFile(findings);
 }
 
-function checkBaseline(findings: readonly Finding[]): GuardViolation[] {
+function checkBaseline(findings: readonly Finding[], baselineRoot: string): GuardViolation[] {
   const resolveLine = (file: string): number => findings.find((f) => f.file === file)?.line ?? 1;
-  return tailwindScanSurfaceBaseline.check(
+  return tailwindScanSurfaceBaseline(baselineRoot).check(
     baselineCounts(findings),
     "Class outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) — reuse a class already emitted there, or move the styling into renderer-web.",
     {
@@ -539,6 +544,7 @@ export function analyse(
   files: readonly SourceFile[],
   compareBaseline: boolean,
   roots: readonly RepoRoot[] = resolveRepoRoots(),
+  baselineRoot: string = BASELINE_ROOT,
 ): GuardOutcome {
   const { findings } = scan(files, roots);
   const coverageFindings = scanSourceCoverage(roots);
@@ -550,23 +556,28 @@ export function analyse(
   }
   return {
     violations: [
-      ...checkBaseline(findings),
-      ...checkSourceCoverageBaseline(coverageFindings),
+      ...checkBaseline(findings, baselineRoot),
+      ...checkSourceCoverageBaseline(coverageFindings, baselineRoot),
       ...publishedScanSurfaceViolations(publishedSurfaceFindings),
     ],
   };
 }
 
-export const guard: AstGuard = {
-  name: "Tailwind-Scan-Surface Guard",
-  scan: SCAN,
-  hint:
-    "Tailwind class in bundled-features outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) " +
-    `— reuse a class already emitted there, or move the styling into renderer-web. Justified exception: // ${IGNORE_TAG} <reason>. ` +
-    "Package without @source coverage in an app: add an @source entry for both install layouts. " +
-    "@source with a node_modules/<pkg>/<segment> path: check whether <pkg> even publishes that segment (package.json files).",
-  run: (files, roots = resolveRepoRoots()) => analyse(files, true, roots),
-};
+export function createGuard(options: { readonly baselineRoot?: string } = {}): AstGuard {
+  const baselineRoot = options.baselineRoot ?? BASELINE_ROOT;
+  return {
+    name: "Tailwind-Scan-Surface Guard",
+    scan: SCAN,
+    hint:
+      "Tailwind class in bundled-features outside the @source scan surface (renderer-web/src, renderer/src, samples/**/src) " +
+      `— reuse a class already emitted there, or move the styling into renderer-web. Justified exception: // ${IGNORE_TAG} <reason>. ` +
+      "Package without @source coverage in an app: add an @source entry for both install layouts. " +
+      "@source with a node_modules/<pkg>/<segment> path: check whether <pkg> even publishes that segment (package.json files).",
+    run: (files, roots = resolveRepoRoots()) => analyse(files, true, roots, baselineRoot),
+  };
+}
+
+export const guard: AstGuard = createGuard();
 
 // Flags are read ONLY here, not in run() — the shared runner
 // (run-ui-guards.ts) runs every guard with the same argv, a
@@ -576,8 +587,8 @@ if (import.meta.main) {
   if (args.includes("--write-baseline")) {
     const project = buildSharedProject([guard]);
     const { findings } = scan(filesForGuard(project, guard), resolveRepoRoots());
-    tailwindScanSurfaceBaseline.write(baselineCounts(findings));
-    sourceCoverageBaseline.write(
+    tailwindScanSurfaceBaseline(BASELINE_ROOT).write(baselineCounts(findings));
+    sourceCoverageBaseline(BASELINE_ROOT).write(
       sourceCoverageBaselineCounts(scanSourceCoverage(resolveRepoRoots())),
     );
     process.exit(0);

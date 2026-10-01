@@ -323,4 +323,34 @@ describe("check.run — RepoCheck seam", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("two flat app roots: both are scanned, labels are relative to their own root", async () => {
+    const dirs = [
+      mkdtempSync(join(tmpdir(), "prim-guard-app-a-")),
+      mkdtempSync(join(tmpdir(), "prim-guard-app-b-")),
+    ];
+    try {
+      const roots = dirs.map((dir, index) => {
+        const web = join(dir, "src/features/billing/web");
+        mkdirSync(web, { recursive: true });
+        writeFileSync(
+          join(web, "Screen.tsx"),
+          "export const S = () => <button onClick={x}>Go</button>;\n",
+        );
+        return fixtureRoot(`app-${index}`, dir, {
+          kind: "app",
+          sourceRoots: ["src"],
+          testGlobs: ["src/**/*.test.ts"],
+        });
+      });
+      const outcome = await check.run(roots);
+      expect(outcome.violations).toHaveLength(2);
+      for (const violation of outcome.violations) {
+        expect(violation.file).toBe("src/features/billing/web/Screen.tsx");
+        expect(violation.file).not.toContain("../");
+      }
+    } finally {
+      for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
