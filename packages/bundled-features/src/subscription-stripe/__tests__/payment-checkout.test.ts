@@ -5,6 +5,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { BillingEventKinds } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
 import Stripe from "stripe";
 import type { StripeWebhookRuntime } from "../runtime.js";
 import { verifyAndParseStripeWebhook } from "../verify-webhook.js";
@@ -163,5 +164,50 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
 
     const event = await verify(payload, { "stripe-signature": sig });
     expect(event).toBeNull();
+  });
+
+  test("retrieve fails with a network error → 503 rejection so Stripe retries (#2793)", async () => {
+    const verify = verifyAndParseStripeWebhook(
+      webhookRuntimeWithRetrieve(async () => {
+        throw new Stripe.errors.StripeConnectionError({ message: "socket hang up" });
+      }),
+      { priceToTier: {} },
+    );
+    const payload = JSON.stringify(
+      buildCheckoutSessionEvent({
+        eventType: "checkout.session.completed",
+        eventId: "evt_checkout_transient",
+        mode: "payment",
+        paymentStatus: "paid",
+      }),
+    );
+    const sig = await signEvent(payload);
+
+    const rejection = await verify(payload, { "stripe-signature": sig }).catch((e: unknown) => e);
+    expect(rejection).toBeInstanceOf(ExtraRouteRejection);
+    expect((rejection as ExtraRouteRejection).status).toBe(503);
+  });
+
+  test("retrieve fails with resource_missing → null (ignored)", async () => {
+    const verify = verifyAndParseStripeWebhook(
+      webhookRuntimeWithRetrieve(async () => {
+        throw new Stripe.errors.StripeInvalidRequestError({
+          message: "No such checkout.session",
+          code: "resource_missing",
+        });
+      }),
+      { priceToTier: {} },
+    );
+    const payload = JSON.stringify(
+      buildCheckoutSessionEvent({
+        eventType: "checkout.session.completed",
+        eventId: "evt_checkout_gone",
+        mode: "payment",
+        paymentStatus: "paid",
+      }),
+    );
+    const sig = await signEvent(payload);
+
+    expect(await verify(payload, { "stripe-signature": sig })).toBeNull();
   });
 });
