@@ -290,6 +290,8 @@ export async function advanceConsumerPastEventReturning(
   name: string,
   instanceId: string,
   eventId: bigint,
+  // Ids skipped over between the old cursor and eventId that were not visible yet.
+  gapToAdd: PendingGapEntry | null = null,
 ): Promise<Record<string, unknown> | undefined> {
   const rows = (await asRawClient(db).unsafe(
     `UPDATE "kumiko_event_consumers" SET
@@ -299,10 +301,12 @@ export async function advanceConsumerPastEventReturning(
        "last_error" = NULL,
        "rearm_count" = 0,
        "last_failed_event_id" = NULL,
+       -- text param + cast: a JS string bound straight to ::jsonb double-encodes under Bun.SQL
+       "pending_gaps" = CASE WHEN $4::text IS NULL THEN "pending_gaps" ELSE "pending_gaps" || $4::text::jsonb END,
        "updated_at" = now()
      WHERE "name" = $2 AND "instance_id" = $3
      RETURNING *`,
-    [eventId, name, instanceId],
+    [eventId, name, instanceId, gapToAdd === null ? null : JSON.stringify([gapToAdd])],
   )) as ReadonlyArray<Record<string, unknown>>;
   return rows[0];
 }
