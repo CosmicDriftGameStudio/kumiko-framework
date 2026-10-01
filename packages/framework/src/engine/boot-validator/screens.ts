@@ -2474,7 +2474,7 @@ const EMBEDDABLE_SCREEN_TYPES: ReadonlySet<ScreenDefinition["type"]> = new Set([
   "secretsEdit",
 ]);
 
-function validateDashboardScreenPanel(
+export function validateDashboardScreenPanel(
   featureName: string,
   screenId: string,
   panel: DashboardScreenPanel,
@@ -2528,7 +2528,7 @@ function validateDashboardStatGroupPanel(
   }
 }
 
-function validateDashboardCustomPanel(
+export function validateDashboardCustomPanel(
   featureName: string,
   screenId: string,
   panel: DashboardCustomPanel,

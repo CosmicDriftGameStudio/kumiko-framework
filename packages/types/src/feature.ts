@@ -6,6 +6,7 @@ import type {
   ConfigKeyType,
   ConfigSeedDef,
   ExtensionSelectorDef,
+  ExtensionSelectorPanel,
   JobDefinition,
   JobHandlerFn,
   NotificationDataFn,
@@ -678,9 +679,15 @@ export type FeatureRegistrar<TFeature extends string = string> = {
    * Settings-Hub render one tenant dashboard for the owner: the selector as a
    * select of the mounted plugin ids, the selected plugin's config and secrets
    * as panels, and plugin features lose their own tenant nav. `config:write:set`
-   * rejects unknown plugin ids (`""` clears).
+   * rejects unknown plugin ids (`""` clears). `options.panels` adds the owner's own
+   * `custom`/`screen` panels to that dashboard, after the selection and before the
+   * plugin panels (a short `screen` id means a screen of the declaring feature).
    */
-  extensionSelector(extensionName: string, key: { readonly name: string } | string): void;
+  extensionSelector(
+    extensionName: string,
+    key: { readonly name: string } | string,
+    options?: { readonly panels?: readonly ExtensionSelectorPanel[] },
+  ): void;
 
   /**
    * Marker-Deklaration: dieses Feature stellt eine Cross-Feature-API
@@ -1052,6 +1059,8 @@ export type Registry = {
   getExtensionUsages(extensionName: string): readonly RegistrarExtensionRegistration[];
   // Extension point → selector config key, from r.extensionSelector calls.
   getAllExtensionSelectors(): ReadonlyMap<string, string>;
+  // Owner panels declared via r.extensionSelector(..., { panels }); [] when none.
+  getExtensionSelectorPanels(extensionName: string): readonly ExtensionSelectorPanel[];
   getAllNotifications(): ReadonlyMap<string, NotificationDefinition>;
   getAllReferenceData(): readonly ReferenceDataDef[];
   // Look up projections by source-entity name. Empty list when no projection

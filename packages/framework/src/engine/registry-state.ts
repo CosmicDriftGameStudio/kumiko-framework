@@ -12,6 +12,7 @@ import type {
   EntityProjectionExtension,
   EventDef,
   EventUpcastFn,
+  ExtensionSelectorPanel,
   FeatureDefinition,
   FeatureMetricDef,
   HookPhase,
@@ -211,6 +212,7 @@ export type RegistryState = {
   extensionMap: Map<string, RegistrarExtensionDef>;
   extensionUsages: RegistrarExtensionRegistration[];
   extensionSelectorMap: Map<string, string>;
+  extensionSelectorPanelsMap: Map<string, readonly ExtensionSelectorPanel[]>;
   allReferenceData: ReferenceDataDef[];
   allConfigSeeds: ConfigSeedDef[];
   mergedTranslations: Record<string, Record<string, TranslationValue>>;
@@ -278,6 +280,7 @@ export function createInitialState(): RegistryState {
     extensionMap: new Map(),
     extensionUsages: [],
     extensionSelectorMap: new Map(),
+    extensionSelectorPanelsMap: new Map(),
     allReferenceData: [],
     allConfigSeeds: [],
     mergedTranslations: {},

@@ -222,6 +222,8 @@ export function populateExtensionsAndSeeds(state: RegistryState, feature: Featur
       );
     }
     state.extensionSelectorMap.set(sel.extensionName, sel.qualifiedKey);
+    if (sel.panels !== undefined)
+      state.extensionSelectorPanelsMap.set(sel.extensionName, sel.panels);
   }
   state.allReferenceData.push(...(feature.referenceData ?? []));
   state.allConfigSeeds.push(...(feature.configSeeds ?? []));

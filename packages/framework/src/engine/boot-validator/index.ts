@@ -69,6 +69,7 @@ import {
   validateScreens,
 } from "./screens.js";
 import { warnOnMissingSecurityBaseline } from "./security-baseline.js";
+import { validateExtensionSelectorPanels } from "./selector-owner-panels.js";
 import { validateTransferGraph } from "./transfer-graph.js";
 import {
   collectWorkspaceQns,
@@ -272,6 +273,7 @@ export function validateBoot(
   // misleading "no search parameter in its Zod schema" error instead of
   // the clear typo message below.
   validateQueryRefs(features);
+  validateExtensionSelectorPanels(features);
   // Must also run after validateQueryRefs — column/field checks below
   // assume every `query` string already resolves to a registered handler.
   validateQueryOutputColumns(features);
