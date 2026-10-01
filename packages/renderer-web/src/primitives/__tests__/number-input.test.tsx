@@ -31,6 +31,14 @@ describe("NumberInput", () => {
     expect(input.value).toBe("28.000");
   });
 
+  test("focus selects the whole raw value so typing replaces a prefilled number", () => {
+    const input = renderNumber({ value: 10000 });
+    fireEvent.focus(input);
+    expect(input.value).toBe("10000");
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(input.value.length);
+  });
+
   test("grouping=false keeps a year without a thousands separator", () => {
     const input = renderNumber({ value: 2021, grouping: false });
     expect(input.value).toBe("2021");

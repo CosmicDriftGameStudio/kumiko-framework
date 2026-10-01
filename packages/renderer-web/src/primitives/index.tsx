@@ -1445,6 +1445,10 @@ function DefaultDataTable({
   );
 
   function cardCell(row: ListRowViewModel, col: (typeof columns)[number]): ReactNode {
+    // A bare check mark in the subtitle line says nothing without its column.
+    if (col.type === "boolean" && col.renderer === undefined && row.values[col.field] === true) {
+      return col.label;
+    }
     return (
       <DataTableCell
         value={row.values[col.field]}
@@ -1885,7 +1889,9 @@ function RowActionsCell({
 }
 
 function isEmptyCellValue(value: unknown): boolean {
-  return value === null || value === undefined || value === "";
+  return (
+    value === null || value === undefined || (typeof value === "string" && value.trim() === "")
+  );
 }
 
 // A boolean false renders as an empty string unless the column's format spec names a falseLabel.

@@ -108,6 +108,33 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
+  test("a true boolean meta column shows its label, false and blank values show nothing", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            { field: "name", label: "Name", type: "string", sortable: false },
+            { field: "plan", label: "Plan", type: "string", sortable: false },
+            { field: "baseline", label: "Baseline", type: "boolean", sortable: false },
+            { field: "note", label: "Note", type: "string", sortable: false },
+          ]}
+          rows={[
+            { id: "a", values: { name: "A", plan: "FY26", baseline: true, note: "  " } },
+            { id: "b", values: { name: "B", plan: "FY26", baseline: false, note: "" } },
+          ]}
+          testId="t"
+        />,
+      );
+      const rowA = screen.getByTestId("row-a");
+      expect(within(rowA).getByTestId("cell-a-baseline").textContent).toBe("Baseline");
+      expect(within(rowA).queryByTestId("cell-a-note")).toBeNull();
+      expect(rowA.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
+      const rowB = screen.getByTestId("row-b");
+      expect(within(rowB).queryByTestId("cell-b-baseline")).toBeNull();
+      expect(rowB.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
+    });
+  });
+
   test("with onRowClick the whole row opens the record, also via Enter", async () => {
     const originalWidth = window.innerWidth;
     setViewportWidth(500);

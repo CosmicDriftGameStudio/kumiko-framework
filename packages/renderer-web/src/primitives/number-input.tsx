@@ -5,7 +5,7 @@
 // typing (every parseable draft), so submit shortcuts that skip blur still
 // see the typed value; blur only normalizes the display.
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 import { Input as UiInput } from "../ui/input.js";
 import { parseLocaleNumber, resolveSafeLocale } from "./locale-number.js";
@@ -47,6 +47,15 @@ export function NumberInput({
   const resolvedLocale = resolveSafeLocale(locale);
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus swaps the displayed value ("10.000" → "10000") and the browser then
+  // collapses the cursor to the end, so typing or Playwright's fill() would
+  // append instead of replace. Select-all-on-focus matches MoneyInput; a click
+  // therefore does not place the caret.
+  useLayoutEffect(() => {
+    if (focused) inputRef.current?.select();
+  }, [focused]);
 
   const format = (useGrouping: boolean): string =>
     value === ""
@@ -69,6 +78,7 @@ export function NumberInput({
 
   return (
     <UiInput
+      ref={inputRef}
       type="text"
       inputMode={integer ? "numeric" : "decimal"}
       autoComplete="off"

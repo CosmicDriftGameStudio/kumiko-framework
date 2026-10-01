@@ -54,7 +54,10 @@ export function resolveNavParentScreen(
     (actions ?? []).some(
       (a) => (a.kind === "navigate" || a.kind === "drawer") && a.screen === detailScreenId,
     );
+  // The create button of an entityList navigates to its createScreen, so the
+  // list is that screen's parent just like for a rowAction target.
   const listFromRowAction = screens.find((s) => {
+    if (s.type === "entityList" && s.createScreen === detailScreenId) return true;
     if (s.type !== "entityList" && s.type !== "projectionList") return false;
     return navigatesToDetail(s.rowActions) || navigatesToDetail(s.toolbarActions);
   });

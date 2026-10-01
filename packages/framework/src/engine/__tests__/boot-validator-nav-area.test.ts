@@ -94,6 +94,27 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("resolved via an entityList's createScreen → no throw", () => {
+    const feature = defineFeature("app", (r) => {
+      r.entity(
+        "widget",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.nav({ id: "home", label: "app.nav.home", screen: "app:screen:widget-list" });
+      r.screen({
+        id: "widget-list",
+        type: "entityList",
+        entity: "widget",
+        columns: ["name"],
+        createScreen: "widget-wizard",
+      });
+      r.screen({ id: "widget-wizard", type: "custom", renderer: { react: "Wizard" } });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("dormant: true → no throw even without any other resolution", () => {
     const feature = defineFeature("app", (r) => {
       r.nav({ id: "home", label: "app.nav.home" });
