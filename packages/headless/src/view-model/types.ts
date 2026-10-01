@@ -333,6 +333,7 @@ export type EditRelatedListSectionViewModel = {
   readonly parentParam?: string;
   readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
+  readonly entity?: string;
   readonly description?: string;
   /** Untranslated plural-forms key, resolved with the row count by the list footer. */
   readonly itemNoun?: string;

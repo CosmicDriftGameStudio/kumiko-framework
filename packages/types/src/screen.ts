@@ -1123,6 +1123,13 @@ export type EditRelatedListSection = {
    *  `filter` (same requirement `filter`/`facets` already have). */
   readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
+  /** Entity the query's rows belong to: an entity name (same feature) or
+   *  `feature:entity`. Columns that name one of its fields render like an
+   *  entityList column of that field (select as a status badge with the
+   *  translated option label, dates locale-formatted, default header from the
+   *  field's label key). The column's own `sortable` still decides the
+   *  header sort. Without it every column renders as plain text. */
+  readonly entity?: string;
   /** i18n key for the one-line hint at the left of the tab toolbar. */
   readonly description?: string;
   /** i18n key holding plural forms for the footer count ("1 Position",

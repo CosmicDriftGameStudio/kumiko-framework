@@ -151,4 +151,16 @@ describe("validateBoot — entityList.expandableRow", () => {
       ]),
     ).toThrow(/toolbarAction "mark-posted".*"ghost"/);
   });
+
+  test("an entity that resolves to a registered entity boots", () => {
+    expect(() =>
+      validateBoot([campaignFeature({ ...validRow, entity: "campaign" })]),
+    ).not.toThrow();
+  });
+
+  test("an entity that is not registered throws", () => {
+    expect(() => validateBoot([campaignFeature({ ...validRow, entity: "ghost" })])).toThrow(
+      /expandableRow "Posts" entity targets entity "ghost"/,
+    );
+  });
 });

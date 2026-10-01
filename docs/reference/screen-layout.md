@@ -86,7 +86,8 @@ expandableRow: {
   title: "campaigns.posts.title",
   query: "campaigns:query:campaign-post:list",
   parentFilter: { field: "campaign" },
-  columns: ["datum", "kanal", "status"],
+  entity: "campaignPost",
+  columns: [{ field: "datum", sortable: true }, "kanal", "status"],
   rowActions: [
     {
       kind: "writeHandler",
@@ -102,6 +103,7 @@ expandableRow: {
 - An arrow button in a narrow first column opens and closes the area. It is a real button with `aria-expanded`, so Tab, Enter and Space work, and it never triggers the row click. Several rows can be open at once, and they stay open across reloads, sorting and paging.
 - The area sits on the muted surface directly under the row: title and `actions` on top, then the list without its own card frame. The pager and the fixed screen height stay as they are; the area scrolls with the rows.
 - A successful write from the area (row action, toolbar action, emptyState action, drawer submit) reloads the related list and the parent list, so a counter on the parent row updates.
+- `entity` (also available on projectionDetail relatedList sections) names the entity behind the query rows, as an entity name or `feature:entity`. Columns that name one of its fields render like entityList columns: a select as a status badge with the translated option label, dates locale-formatted, and the header from the field's label key. The column's own `sortable` still decides the header sort. Without `entity`, every column is plain text.
 - The boot validator checks the area like a relatedList section (query, columns against the output schema, handlers, rowClick target, defaultSort, search and facets).
 - Custom DataTable primitives (for example a native renderer) implement `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` from `DataTableProps`. A primitive that ignores them renders the list without the arrow column.
 

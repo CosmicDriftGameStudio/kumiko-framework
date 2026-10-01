@@ -130,6 +130,7 @@ export function computeRelatedListSectionViewModel(
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
     ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     columns: sectionSpec.columns,
+    ...(sectionSpec.entity !== undefined && { entity: sectionSpec.entity }),
     ...(sectionSpec.description !== undefined && {
       description: translate(sectionSpec.description),
     }),

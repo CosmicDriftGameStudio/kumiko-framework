@@ -1074,6 +1074,15 @@ function validateRelatedListSection(args: RelatedListSectionValidation): void {
   if (!section.query || typeof section.query !== "string") {
     throw new Error(`[Feature ${featureName}] ${where} has empty or non-string query.`);
   }
+  if (section.entity !== undefined) {
+    assertRefTargetRegistered(
+      `[Feature ${featureName}] ${where}`,
+      "entity",
+      section.entity,
+      featureName,
+      featureMap,
+    );
+  }
   for (const col of section.columns) {
     const normalizedCol = normalizeListColumn(col);
     if (normalizedCol.refEntity !== undefined) {

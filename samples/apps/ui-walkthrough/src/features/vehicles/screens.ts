@@ -148,12 +148,8 @@ export const campaignListScreen: EntityListScreenDefinition = {
     title: "vehicles.posts.title",
     query: VEHICLES_QUERIES.campaignPostList,
     parentFilter: { field: "campaign" },
-    columns: [
-      { field: "datum", label: "vehicles:entity:campaignPost:field:datum", sortable: true },
-      { field: "kanal", label: "vehicles:entity:campaignPost:field:kanal" },
-      { field: "status", label: "vehicles:entity:campaignPost:field:status" },
-      { field: "text", label: "vehicles:entity:campaignPost:field:text" },
-    ],
+    entity: "campaignPost",
+    columns: [{ field: "datum", sortable: true }, "kanal", "status", "text"],
     defaultSort: { field: "datum", dir: "asc" },
     rowActions: [
       {

@@ -4,7 +4,7 @@ import type {
   RowActionDrawer,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
+import { normalizeListColumn, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   EditRelatedListSectionViewModel,
   ListRowViewModel,
@@ -55,19 +55,25 @@ type PagedRows = {
 // Minimal EntityDefinition from the section's own columns — same shape as
 // projection-list-shim's synthesizeProjectionEntity, but sortable is read
 // per-column (ListColumnSpec.sortable) instead of screen-wide, since a
-// relatedList section has no single Zod schema to derive it from.
+// relatedList section has no single Zod schema to derive it from. With a
+// declared `entity`, a column naming one of its fields takes that field's
+// definition, so RenderList formats it exactly like an entityList column;
+// only `sortable` stays per-column because the sort runs locally.
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
+  sourceEntity: EntityDefinition | undefined,
 ): EntityDefinition {
-  const fields: Record<string, { type: string; sortable: boolean }> = {};
+  const fields: Record<string, unknown> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    fields[normalized.field] = {
-      type: normalized.valueType ?? "text",
-      sortable: normalized.sortable === true,
-    };
+    const sortable = normalized.sortable === true;
+    const sourceField = sourceEntity?.fields[normalized.field];
+    fields[normalized.field] =
+      sourceField !== undefined
+        ? { ...sourceField, sortable }
+        : { type: normalized.valueType ?? "text", sortable };
   }
-  return { fields } as unknown as EntityDefinition;
+  return { ...sourceEntity, fields } as unknown as EntityDefinition;
 }
 
 // Mirrors row-actions.ts's own warnDrawerActionDropped (module-private
@@ -145,7 +151,24 @@ export function RelatedListSection({
     [defaultEditScreen, section.rowClick],
   );
 
-  const entity = useMemo(() => synthesizeRelatedListEntity(section.columns), [section.columns]);
+  // RenderList derives header and option-label keys from (featureName,
+  // screen.entity), so a declared entity also supplies both.
+  const sourceTarget = useMemo(
+    () => (section.entity !== undefined ? parseRefTarget(section.entity, featureName) : undefined),
+    [section.entity, featureName],
+  );
+  const sourceEntity =
+    sourceTarget !== undefined
+      ? appFeatures.find((f) => f.featureName === sourceTarget.featureName)?.entities[
+          sourceTarget.entityName
+        ]
+      : undefined;
+  const listFeatureName = sourceEntity !== undefined ? sourceTarget?.featureName : undefined;
+  const listEntityName = sourceEntity !== undefined ? sourceTarget?.entityName : undefined;
+  const entity = useMemo(
+    () => synthesizeRelatedListEntity(section.columns, sourceEntity),
+    [section.columns, sourceEntity],
+  );
   const listScreen = useMemo(
     (): EntityListScreenDefinition => ({
       // Empty id → RenderList's own toolbarTitle resolves to "" (its
@@ -154,10 +177,10 @@ export function RelatedListSection({
       // so RenderList's toolbar carries none.
       id: "",
       type: "entityList",
-      entity: RELATED_LIST_PSEUDO_ENTITY,
+      entity: listEntityName ?? RELATED_LIST_PSEUDO_ENTITY,
       columns: section.columns,
     }),
-    [section.columns],
+    [section.columns, listEntityName],
   );
 
   // Local state, not URL state: a section `id` is optional, so there is no
@@ -436,7 +459,7 @@ export function RelatedListSection({
             screen={listScreen}
             entity={entity}
             rows={sortedRows}
-            featureName={featureName}
+            featureName={listFeatureName ?? featureName}
             translate={effectiveTranslate}
             {...(section.description !== undefined && { description: section.description })}
             {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
