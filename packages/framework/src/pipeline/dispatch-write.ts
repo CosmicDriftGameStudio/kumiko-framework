@@ -2,7 +2,7 @@ import type { DbRow, DbRunner, DbTx } from "../db/connection.js";
 import { selectRowForUpdateById } from "../db/queries/entity-read.js";
 import { asEntityTableMeta, selectMany } from "../db/query.js";
 import { buildEntityTable, toSnakeCase } from "../db/table-builder.js";
-import { createTenantDb } from "../db/tenant-db.js";
+import { createTenantDb, hasTenantColumn } from "../db/tenant-db.js";
 import { tenantDbRunner } from "../db/tenant-db-runner.js";
 import { hasAccess } from "../engine/access.js";
 import { ConfigScopes } from "../engine/constants.js";
@@ -214,20 +214,25 @@ function isForeignTenantParentRow(
 }
 
 // A custom create handler may return a row without a string tenantId; the row's
-// tenant is then unknown from the payload, so re-read it through the caller's tenant filter.
+// tenant is then unknown from the payload, so re-read it through the caller's tenant
+// filter. Fail-closed: anything that cannot be verified counts as not visible.
+// Tenant reads also return SYSTEM reference rows, so the row's own tenantId must match
+// (same rule as the string path) unless the entity has no tenant column.
 async function isParentRowHiddenFromCaller(
   ctx: DispatchContext,
-  parentEntityName: string,
+  parentEntityName: string | undefined,
   parentId: string,
   user: SessionUser,
   tx: DbTx | undefined,
 ): Promise<boolean> {
+  if (parentEntityName === undefined) return true;
   const table = getTable(ctx, parentEntityName);
   const source = resolveDbSource(ctx, tx);
-  if (!table || !source) return false;
+  if (!table || !source) return true;
   const callerDb = createTenantDb(source, user.tenantId, "tenant");
   const visibleRow = await callerDb.fetchOne(table, { id: parentId });
-  return visibleRow === undefined;
+  if (visibleRow === undefined) return true;
+  return hasTenantColumn(table) && visibleRow["tenantId"] !== user.tenantId;
 }
 
 // Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
@@ -329,8 +334,7 @@ export async function executeNestedWrite(
     isCallerScoped &&
     (typeof parentRow["tenantId"] === "string"
       ? isForeignTenantParentRow(parentRow, user)
-      : parentEntityName !== undefined &&
-        (await isParentRowHiddenFromCaller(ctx, parentEntityName, parentId, user, tx)));
+      : await isParentRowHiddenFromCaller(ctx, parentEntityName, parentId, user, tx));
   if (isParentForeign) {
     return writeFailure(
       new AccessDeniedError({

@@ -13,7 +13,13 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { executeRawQuery } from "../../db/queries/raw-sql.js";
 import { asRawClient, selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
-import { createEntity, createTextField, defineFeature, from } from "../../engine/index.js";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  from,
+  SYSTEM_TENANT_ID,
+} from "../../engine/index.js";
 import {
   createTestUser,
   setupTestStack,
@@ -234,6 +240,27 @@ describe("nested-write parent-row ownership check (fw#2861)", () => {
     const res = await stack.http.write(
       "nested-own:write:project3:create",
       { name: "cross-tenant-bare", omitTenantId: true, tasks: [{ title: "t1" }] },
+      tenantAOtherUser,
+    );
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe("access_denied");
+    expect(await selectMany(stack.db, task3Table)).toHaveLength(0);
+  });
+
+  test("(a3) SYSTEM-tenant parent row returned WITHOUT tenantId key -> access_denied, zero task rows", async () => {
+    const systemUser = createTestUser({ id: 9115, tenantId: SYSTEM_TENANT_ID, roles: ["User"] });
+    const seedRes = await stack.http.write(
+      "nested-own:write:project3:create",
+      { name: "system-bare" },
+      systemUser,
+    );
+    expect(seedRes.status).toBe(200);
+
+    const res = await stack.http.write(
+      "nested-own:write:project3:create",
+      { name: "system-bare", omitTenantId: true, tasks: [{ title: "t1" }] },
       tenantAOtherUser,
     );
 
