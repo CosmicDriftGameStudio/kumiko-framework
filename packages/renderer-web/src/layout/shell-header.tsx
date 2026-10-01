@@ -18,7 +18,16 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { MoreHorizontal } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Icon, NAV_ICONS } from "../icons.js";
 import { cn } from "../lib/cn.js";
 import {
@@ -30,6 +39,7 @@ import {
   BreadcrumbSeparator,
 } from "../ui/breadcrumb.js";
 import { SidebarTrigger } from "../ui/sidebar.js";
+import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.js";
 import { buildNavRegistrySliceForApp, lastSegment } from "./nav-tree.js";
 import { usePageHeaderSlot } from "./page-header-slot.js";
 import { type BreadcrumbCrumb, resolveDetailBreadcrumb } from "./shell-breadcrumb.js";
@@ -175,9 +185,10 @@ export function ShellHeader({
   );
 }
 
-// A disclosure instead of a Radix menu: app headerActions are opaque nodes.
-// The panel stays mounted while closed so their effects (shortcut listeners)
-// keep running.
+// A hand-rolled menu instead of Radix DropdownMenu: app headerActions are opaque
+// nodes with their own popovers, and the panel stays mounted while closed so their
+// effects (shortcut listeners) keep running.
+const MENU_ITEM_SELECTOR = '[role="menuitem"]:not(:disabled)';
 function HeaderOverflow({
   items,
   headerActions,
@@ -193,6 +204,7 @@ function HeaderOverflow({
 
   useEffect(() => {
     if (!open) return;
+    panelRef.current?.querySelector<HTMLElement>(MENU_ITEM_SELECTOR)?.focus();
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== "Escape") return;
       setOpen(false);
@@ -212,12 +224,41 @@ function HeaderOverflow({
     };
   }, [open]);
 
+  const onPanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "Tab") {
+      setOpen(false);
+      return;
+    }
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const menuItems = Array.from(
+      panelRef.current?.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR) ?? [],
+    );
+    if (menuItems.length === 0) return;
+    const current = menuItems.findIndex((item) => item === document.activeElement);
+    const last = menuItems.length - 1;
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? last
+          : event.key === "ArrowDown"
+            ? current >= last
+              ? 0
+              : current + 1
+            : current <= 0
+              ? last
+              : current - 1;
+    event.preventDefault();
+    menuItems[next]?.focus();
+  };
+
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
         aria-label={t("kumiko.page-header.actions")}
+        aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={panelId}
         data-testid="shell-header-overflow-trigger"
@@ -229,9 +270,12 @@ function HeaderOverflow({
       <div
         ref={panelRef}
         id={panelId}
+        role="menu"
+        aria-label={t("kumiko.page-header.actions")}
         hidden={!open}
+        onKeyDown={onPanelKeyDown}
         data-testid="shell-header-overflow"
-        className="absolute inset-x-2 top-full z-30 mt-1 rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md sm:left-auto sm:w-72"
+        className="absolute right-2 top-full z-30 mt-1 w-max min-w-[8rem] max-w-[calc(100vw-1rem)] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
       >
         {items.length > 0 && (
           <div className="flex flex-col">
@@ -239,6 +283,7 @@ function HeaderOverflow({
               <button
                 key={item.id}
                 type="button"
+                role="menuitem"
                 disabled={item.disabled === true}
                 data-testid={`shell-header-overflow-item-${item.id}`}
                 onClick={() => {
@@ -246,7 +291,7 @@ function HeaderOverflow({
                   item.onSelect();
                 }}
                 className={cn(
-                  "flex min-h-10 w-full items-center gap-2 rounded-sm px-2 text-left text-sm hover:bg-accent disabled:pointer-events-none disabled:opacity-50",
+                  headerOverflowMenuItemClass,
                   item.variant === "danger" && "text-destructive",
                 )}
               >
@@ -259,7 +304,7 @@ function HeaderOverflow({
           </div>
         )}
         {items.length > 0 && headerActions !== undefined && (
-          <hr className="-mx-2 my-2 border-t border-border" />
+          <hr className="-mx-1 my-1 border-t border-border" />
         )}
         {headerActions !== undefined && (
           // Clicks bubble up from the app's own buttons (keyboard activation fires click
@@ -268,10 +313,14 @@ function HeaderOverflow({
           // biome-ignore lint/a11y/noStaticElementInteractions: same, not an interactive target itself
           <div
             data-kumiko-layout="header-actions"
-            className="flex flex-wrap items-center gap-2"
+            // Apps wrap their nodes in a horizontal flex row; stacking it (and its direct
+            // wrapper) lets menu rows like ThemeToggle take the full panel width.
+            className="flex flex-col items-stretch gap-1 [&>div]:flex-col [&>div]:items-stretch"
             onClick={() => setOpen(false)}
           >
-            {headerActions}
+            <HeaderOverflowMenuContext.Provider value={true}>
+              {headerActions}
+            </HeaderOverflowMenuContext.Provider>
           </div>
         )}
       </div>

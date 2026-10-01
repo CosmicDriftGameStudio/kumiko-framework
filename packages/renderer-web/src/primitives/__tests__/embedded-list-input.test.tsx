@@ -765,25 +765,39 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
     expect(table.className).toContain("w-full");
     expect(table.className).toContain("table-fixed");
     expect(table.className).not.toContain("min-w-max");
-    // text 6.5 + number 5.5 + money 8.5 + date 9.25 + select 9 + actions 7.5
-    expect(table.style.minWidth).toBe("46.25rem");
+    // text 12 + number 7.5 + money 10 + date 10 + select 12 + actions 8.5
+    expect(table.style.minWidth).toBe("60rem");
   });
 
   test("the minimum width omits the actions column when the list is disabled", () => {
     renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}], disabled: true })} />);
     const table = screen.getByTestId("lines-desktop").querySelector("table");
-    expect(table?.style.minWidth).toBe("38.75rem");
+    expect(table?.style.minWidth).toBe("51.5rem");
   });
 
-  test("short-value columns get a fixed width, text columns none", () => {
+  test("short-value columns get a fixed <col> width, text columns none, scroll container scrolls", () => {
     renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
-    const headers = screen.getByTestId("lines-desktop").querySelectorAll("th");
-    expect(headers[0]?.style.width).toBe("");
-    expect(headers[1]?.style.width).toBe("5.5rem");
-    expect(headers[2]?.style.width).toBe("8.5rem");
-    expect(headers[3]?.style.width).toBe("9.25rem");
-    expect(headers[4]?.style.width).toBe("9rem");
-    expect(headers[columns.length]?.style.width).toBe("7.5rem");
+    const desktop = screen.getByTestId("lines-desktop");
+    const cols = desktop.querySelectorAll("col");
+    expect(cols).toHaveLength(columns.length + 1);
+    expect(cols[0]?.style.width).toBe("");
+    expect(cols[1]?.style.width).toBe("7.5rem");
+    expect(cols[2]?.style.width).toBe("10rem");
+    expect(cols[3]?.style.width).toBe("10rem");
+    expect(cols[4]?.style.width).toBe("12rem");
+    expect(cols[columns.length]?.style.width).toBe("8.5rem");
+    for (const header of desktop.querySelectorAll("th")) expect(header.style.width).toBe("");
+    expect(screen.getByTestId("lines-desktop-scroll").className).toContain("overflow-x-auto");
+  });
+
+  test("the table minimum width is the sum of every column floor, so narrow containers scroll", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const table = screen.getByTestId("lines-desktop").querySelector("table");
+    const colWidths = Array.from(screen.getByTestId("lines-desktop").querySelectorAll("col")).map(
+      (col) => Number.parseFloat(col.style.width || "12"),
+    );
+    const floor = colWidths.reduce((sum, rem) => sum + rem, 0);
+    expect(Number.parseFloat(table?.style.minWidth ?? "0")).toBeGreaterThanOrEqual(floor);
   });
 
   test("the actions column sticks to the right edge in header and body", () => {

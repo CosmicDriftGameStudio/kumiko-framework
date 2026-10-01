@@ -55,25 +55,26 @@ const FOCUSABLE_SELECTOR = "input:not([type=hidden]), button, [tabindex]";
 
 // Widths in rem include the cell's padding. Short-value columns are fixed so
 // the table's free width goes to the text/reference columns, which only
-// declare a floor.
-const FLEXIBLE_COLUMN_MIN_REM = 6.5;
-const ACTIONS_COLUMN_REM = 7.5;
+// declare a floor (about 16 characters plus padding or a chevron).
+const FLEXIBLE_COLUMN_MIN_REM = 12;
+// Four size-7 icon buttons (duplicate, up, down, remove) plus the cell's px-1 and border.
+const ACTIONS_COLUMN_REM = 8.5;
 
 function fixedColumnRem(type: EmbeddedListCellType): number | undefined {
   switch (type) {
     case "number":
     case "decimal":
-      return 5.5;
+      return 7.5;
     case "money":
-      return 8.5;
+      return 10;
     case "date":
-      return 9.25;
+      return 10;
     case "timestamp":
-      return 15;
+      return 16;
     case "boolean":
       return 4;
     case "select":
-      return 9;
+      return 12;
     case "text":
     case "reference":
       return undefined;
@@ -84,6 +85,8 @@ function fixedColumnRem(type: EmbeddedListCellType): number | undefined {
   }
 }
 
+// Widths sit on <col>: in a table-fixed table they are the column widths, and the
+// columns without one (text/reference) are the ones that absorb the free width.
 function columnWidthStyle(type: EmbeddedListCellType): CSSProperties | undefined {
   const rem = fixedColumnRem(type);
   return rem === undefined ? undefined : { width: `${rem}rem` };
@@ -520,6 +523,9 @@ export function EmbeddedListInput({
   const lastEditableIndex = columns.findLastIndex((column) => !column.derived);
 
   const showControls = disabled !== true;
+  // The pinned actions column marks its edge with an inset shadow: in a
+  // border-collapse table a border-l is painted at the cell's unscrolled
+  // position and vanishes while content scrolls underneath.
   const isHorizontallyScrollable =
     scrollAffordance.canScrollLeft || scrollAffordance.canScrollRight;
   const addDisabled = maxItems !== undefined && rows.length >= maxItems;
@@ -622,24 +628,26 @@ export function EmbeddedListInput({
                   className="w-full table-fixed"
                   style={{ minWidth: `${tableMinWidthRem(columns, showControls)}rem` }}
                 >
+                  <colgroup>
+                    {columns.map((column) => (
+                      <col key={column.field} style={columnWidthStyle(column.type)} />
+                    ))}
+                    {showControls && <col style={{ width: `${ACTIONS_COLUMN_REM}rem` }} />}
+                  </colgroup>
                   <TableHeader className="bg-muted">
                     <TableRow className="hover:bg-transparent">
                       {columns.map((column) => (
-                        <TableHead
-                          key={column.field}
-                          style={columnWidthStyle(column.type)}
-                          className={columnAlignClass(column.type)}
-                        >
+                        <TableHead key={column.field} className={columnAlignClass(column.type)}>
                           {column.label}
                         </TableHead>
                       ))}
                       {showControls && (
                         <TableHead
                           className={cn(
-                            "sticky right-0 z-10 bg-muted px-1 text-right",
-                            isHorizontallyScrollable && "border-l",
+                            "sticky right-0 z-10 whitespace-nowrap bg-muted px-1 text-right",
+                            isHorizontallyScrollable &&
+                              "shadow-[inset_1px_0_0_var(--color-border)]",
                           )}
-                          style={{ width: `${ACTIONS_COLUMN_REM}rem` }}
                           aria-label="Actions"
                         />
                       )}
@@ -689,8 +697,9 @@ export function EmbeddedListInput({
                             {showControls && (
                               <TableCell
                                 className={cn(
-                                  "sticky right-0 z-10 bg-card px-1 text-right group-hover:bg-muted",
-                                  isHorizontallyScrollable && "border-l",
+                                  "sticky right-0 z-10 whitespace-nowrap bg-card px-1 text-right group-hover:bg-muted",
+                                  isHorizontallyScrollable &&
+                                    "shadow-[inset_1px_0_0_var(--color-border)]",
                                 )}
                               >
                                 <RowActions
