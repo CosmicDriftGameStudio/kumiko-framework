@@ -1,5 +1,88 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.331.0
+
+### Minor Changes
+
+- 16797a4: entityList rows can expand into a related list
+
+  `expandableRow` on an entityList declares a related list under each row, with the same fields as a projectionDetail `relatedList` section (query, `parentFilter` or `parentParam`, columns, row and toolbar actions, emptyState). The parent id is the row's `id`. An arrow button at the start of the row opens and closes the area, carries `aria-expanded`, and works by keyboard. Several rows can be open at once. A successful write from the area reloads both the related list and the parent list, so counters on the parent row update. The boot validator and the role projection check the area like a relatedList section. `DataTableProps` gains `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` for custom DataTable primitives.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList rows can expand into a related list with its own row actions (expandableRow)
+  -->
+
+- 50ddb3c: Phone-width shell header keeps the title readable and moves actions into one menu
+
+  Below 768px the shell header no longer squeezes or clips the title next to header actions. The title stays on one line with an ellipsis and takes the free space. The primary action renders as an icon-only button with `aria-label` and tooltip; a primary that is `style: "danger"`, needs a confirm, or has no icon goes into the menu instead. All other screen actions and the app's `headerActions` move into a single "…" menu in the shell header. This applies to entityList, edit and projectionDetail screens without any app opt-in. Desktop layout is unchanged.
+
+  `PageHeaderProps` gains `overflowItems` (screen actions for that menu), and `usePageHeaderCompact()` tells a screen whether the compact header is active. App header actions stay mounted while the menu is closed, so global listeners such as a ⌘K shortcut keep working. Icon-only buttons now get `title` from `ariaLabel` when no title is set.
+
+  Also on phones: card subtitles with several meta values wrap to two lines instead of truncating each value; dates, numbers, money and badges never break inside. In the inline form table, "add row" sits below the horizontal scroll area so it stays reachable, and row action buttons in the card layout are 40px.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Phone-width header keeps the title and collects actions in one menu; card meta wraps; inline table add-row stays reachable
+  migration: |
+    No code change is required. Below 768px, app `headerActions` and secondary screen actions now live in the shell's "…" menu (`shell-header-overflow-trigger`, panel `shell-header-overflow`, items `shell-header-overflow-item-<actionId>`). Mobile e2e tests that clicked these buttons inline must open the menu first. The list "create" button keeps its test id but has no visible text on phones; select it by its aria-label. App header actions stay mounted while the menu is closed, so keyboard shortcuts registered in effects keep working. Apps that replace the `PageHeader` primitive lose the secondary actions on phones, because only the default primitive forwards `overflowItems` to the shell menu.
+  -->
+
+### Patch Changes
+
+- c398ed1: Card subtitles never show a "·" separator at the start of a line
+
+  On phones the card meta values wrap as whole items onto at most two lines. The separator in front of a value that starts a line is clipped, and a single value too long for a line is truncated with an ellipsis.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Card subtitle separators no longer appear at the start of a wrapped line
+  -->
+
+- d22049b: Inline tables size columns by type, the actions column stays visible, and long select labels truncate
+
+  The embedded-list table now fills the form field width instead of sizing to its content: number, money, date and select columns get a fixed width, text and reference columns take the free space. Wide tables scroll horizontally with the actions column pinned to the right edge. Combobox and select triggers keep a long selected label on one line, truncated with the full text as tooltip, instead of wrapping and centering it.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Inline tables size columns by type with a pinned actions column, long select labels truncate
+  -->
+
+- 0dc0b1f: Dotted select values keep their stored spelling in lists
+
+  An untranslated select value in a list cell fell back to a humanized slug, so "mobile.de" showed as "Mobile.de". Dotted values such as domains now stay as stored. Registered option translations are unaffected, and they work with dotted values.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Untranslated select values like "mobile.de" are no longer capitalized in list cells
+  -->
+
+- d22049b: StatCard no longer cuts a label mid-word next to a delta badge
+
+  The StatCard header row now wraps: when the label has no room for its longest word beside the delta chip (narrow cards on phones), the chip moves to its own line below icon and label. Wide cards keep the chip on the right in the same row.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: StatCard header wraps so a delta badge no longer clips the label mid-word
+  -->
+
+- Updated dependencies [16797a4]
+- Updated dependencies [6b95958]
+- Updated dependencies [50ddb3c]
+- Updated dependencies [3ea4ffc]
+- Updated dependencies [e4ea9f0]
+  - @cosmicdrift/kumiko-types@0.331.0
+  - @cosmicdrift/kumiko-framework@0.331.0
+  - @cosmicdrift/kumiko-headless@0.331.0
+  - @cosmicdrift/kumiko-renderer@0.331.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.331.0
+
 ## 0.330.2
 
 ### Patch Changes

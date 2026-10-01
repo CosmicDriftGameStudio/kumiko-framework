@@ -1,5 +1,25 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.331.0
+
+### Patch Changes
+
+- Updated dependencies [c398ed1]
+- Updated dependencies [d22049b]
+- Updated dependencies [16797a4]
+- Updated dependencies [6b95958]
+- Updated dependencies [e6b971c]
+- Updated dependencies [50ddb3c]
+- Updated dependencies [3ea4ffc]
+- Updated dependencies [0dc0b1f]
+- Updated dependencies [e4ea9f0]
+- Updated dependencies [d22049b]
+  - @cosmicdrift/kumiko-renderer-web@0.331.0
+  - @cosmicdrift/kumiko-framework@0.331.0
+  - @cosmicdrift/kumiko-headless@0.331.0
+  - @cosmicdrift/kumiko-bundled-features@0.331.0
+  - @cosmicdrift/kumiko-server-runtime@0.331.0
+
 ## 0.330.2
 
 ### Patch Changes

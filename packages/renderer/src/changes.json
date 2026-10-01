@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.331.0",
+    "type": "improvement",
+    "title": "entityList rows can expand into a related list with its own row actions (expandableRow)",
+    "detail": "`expandableRow` on an entityList declares a related list under each row, with the same fields as a projectionDetail `relatedList` section (query, `parentFilter` or `parentParam`, columns, row and toolbar actions, emptyState). The parent id is the row's `id`. An arrow button at the start of the row opens and closes the area, carries `aria-expanded`, and works by keyboard. Several rows can be open at once. A successful write from the area reloads both the related list and the parent list, so counters on the parent row update. The boot validator and the role projection check the area like a relatedList section. `DataTableProps` gains `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` for custom DataTable primitives."
+  },
+  {
+    "version": "0.331.0",
+    "type": "improvement",
+    "title": "relatedList columns format select, date and other field types like entityList columns (entity)",
+    "detail": "A relatedList section (projectionDetail tab or entityList `expandableRow`) takes an optional `entity`: an entity name or `feature:entity`. Columns that name a field of that entity render through the same cell formatter as an entityList column. A select shows as a status badge with its translated option label, dates are locale-formatted, and the header defaults to the field's label key. A column's own `sortable` still controls the header sort. The boot validator rejects an `entity` that does not resolve. Without `entity`, columns render as before."
+  },
+  {
     "version": "0.330.1",
     "type": "breaking",
     "title": "Boolean fields in flow forms use FieldCellWidth \"toggle\" instead of \"auto\"",

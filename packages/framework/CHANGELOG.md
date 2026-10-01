@@ -1,5 +1,59 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.331.0
+
+### Minor Changes
+
+- 16797a4: entityList rows can expand into a related list
+
+  `expandableRow` on an entityList declares a related list under each row, with the same fields as a projectionDetail `relatedList` section (query, `parentFilter` or `parentParam`, columns, row and toolbar actions, emptyState). The parent id is the row's `id`. An arrow button at the start of the row opens and closes the area, carries `aria-expanded`, and works by keyboard. Several rows can be open at once. A successful write from the area reloads both the related list and the parent list, so counters on the parent row update. The boot validator and the role projection check the area like a relatedList section. `DataTableProps` gains `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` for custom DataTable primitives.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList rows can expand into a related list with its own row actions (expandableRow)
+  -->
+
+- 3ea4ffc: relatedList columns can be formatted like entityList columns
+
+  A relatedList section (projectionDetail tab or entityList `expandableRow`) takes an optional `entity`: an entity name or `feature:entity`. Columns that name a field of that entity render through the same cell formatter as an entityList column. A select shows as a status badge with its translated option label, dates are locale-formatted, and the header defaults to the field's label key. A column's own `sortable` still controls the header sort. The boot validator rejects an `entity` that does not resolve. Without `entity`, columns render as before.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relatedList columns format select, date and other field types like entityList columns (entity)
+  -->
+
+- e4ea9f0: Select fields can load their options from a query
+
+  A `select` config key and a `select` field on configEdit and actionForm screens accept `optionsQuery` (a query QN returning `{ rows: { value, label }[] }`) plus an optional static `optionsQueryPayload`. The Settings-Hub derives the field from the config key, the renderer mounts the query and shows the returned labels as they are. The boot validator rejects dead QNs, static `options` together with `optionsQuery`, `allowPerRequest` keys, and `optionsQuery` on entity fields. The write side does not check the value against the query result.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Select fields in configEdit and actionForm screens and select config keys can load their options from a query (optionsQuery)
+  migration: No code change needed. Existing select fields and config keys keep their static options.
+  -->
+
+### Patch Changes
+
+- 6b95958: Forward a reference field's optionsQuery to the client schema
+
+  `ReferenceFieldDef.optionsQuery` was dropped by the client-schema projection, so the picker ignored the declared handler and fell back to the entity's list handler. The projection now keeps it.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: A reference field's optionsQuery now reaches the client schema, so the picker uses the declared handler
+  migration: No code change needed.
+  -->
+
+- Updated dependencies [16797a4]
+- Updated dependencies [3ea4ffc]
+- Updated dependencies [e4ea9f0]
+  - @cosmicdrift/kumiko-types@0.331.0
+  - @cosmicdrift/kumiko-http@0.331.0
+
 ## 0.330.2
 
 ### Patch Changes

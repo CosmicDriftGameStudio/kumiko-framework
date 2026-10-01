@@ -1,5 +1,36 @@
 [
   {
+    "version": "0.331.0",
+    "type": "fix",
+    "title": "Card subtitle separators no longer appear at the start of a wrapped line",
+    "detail": "On phones the card meta values wrap as whole items onto at most two lines. The separator in front of a value that starts a line is clipped, and a single value too long for a line is truncated with an ellipsis."
+  },
+  {
+    "version": "0.331.0",
+    "type": "fix",
+    "title": "Inline tables size columns by type with a pinned actions column, long select labels truncate",
+    "detail": "The embedded-list table now fills the form field width instead of sizing to its content: number, money, date and select columns get a fixed width, text and reference columns take the free space. Wide tables scroll horizontally with the actions column pinned to the right edge. Combobox and select triggers keep a long selected label on one line, truncated with the full text as tooltip, instead of wrapping and centering it."
+  },
+  {
+    "version": "0.331.0",
+    "type": "improvement",
+    "title": "Phone-width header keeps the title and collects actions in one menu; card meta wraps; inline table add-row stays reachable",
+    "detail": "Below 768px the shell header no longer squeezes or clips the title next to header actions. The title stays on one line with an ellipsis and takes the free space. The primary action renders as an icon-only button with `aria-label` and tooltip; a primary that is `style: \"danger\"`, needs a confirm, or has no icon goes into the menu instead. All other screen actions and the app's `headerActions` move into a single \"…\" menu in the shell header. This applies to entityList, edit and projectionDetail screens without any app opt-in. Desktop layout is unchanged.\n`PageHeaderProps` gains `overflowItems` (screen actions for that menu), and `usePageHeaderCompact()` tells a screen whether the compact header is active. App header actions stay mounted while the menu is closed, so global listeners such as a ⌘K shortcut keep working. Icon-only buttons now get `title` from `ariaLabel` when no title is set.\nAlso on phones: card subtitles with several meta values wrap to two lines instead of truncating each value; dates, numbers, money and badges never break inside. In the inline form table, \"add row\" sits below the horizontal scroll area so it stays reachable, and row action buttons in the card layout are 40px.",
+    "migration": "No code change is required. Below 768px, app `headerActions` and secondary screen actions now live in the shell's \"…\" menu (`shell-header-overflow-trigger`, panel `shell-header-overflow`, items `shell-header-overflow-item-<actionId>`). Mobile e2e tests that clicked these buttons inline must open the menu first. The list \"create\" button keeps its test id but has no visible text on phones; select it by its aria-label. App header actions stay mounted while the menu is closed, so keyboard shortcuts registered in effects keep working. Apps that replace the `PageHeader` primitive lose the secondary actions on phones, because only the default primitive forwards `overflowItems` to the shell menu."
+  },
+  {
+    "version": "0.331.0",
+    "type": "fix",
+    "title": "Untranslated select values like \"mobile.de\" are no longer capitalized in list cells",
+    "detail": "An untranslated select value in a list cell fell back to a humanized slug, so \"mobile.de\" showed as \"Mobile.de\". Dotted values such as domains now stay as stored. Registered option translations are unaffected, and they work with dotted values."
+  },
+  {
+    "version": "0.331.0",
+    "type": "fix",
+    "title": "StatCard header wraps so a delta badge no longer clips the label mid-word",
+    "detail": "The StatCard header row now wraps: when the label has no room for its longest word beside the delta chip (narrow cards on phones), the chip moves to its own line below icon and label. Wide cards keep the chip on the right in the same row."
+  },
+  {
     "version": "0.330.1",
     "type": "fix",
     "title": "FloatingPanel header menus react to mouse clicks again; portalled children no longer start a header drag"

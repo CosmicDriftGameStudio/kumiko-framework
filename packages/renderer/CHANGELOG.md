@@ -1,5 +1,66 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.331.0
+
+### Minor Changes
+
+- 16797a4: entityList rows can expand into a related list
+
+  `expandableRow` on an entityList declares a related list under each row, with the same fields as a projectionDetail `relatedList` section (query, `parentFilter` or `parentParam`, columns, row and toolbar actions, emptyState). The parent id is the row's `id`. An arrow button at the start of the row opens and closes the area, carries `aria-expanded`, and works by keyboard. Several rows can be open at once. A successful write from the area reloads both the related list and the parent list, so counters on the parent row update. The boot validator and the role projection check the area like a relatedList section. `DataTableProps` gains `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` for custom DataTable primitives.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: entityList rows can expand into a related list with its own row actions (expandableRow)
+  -->
+
+- 50ddb3c: Phone-width shell header keeps the title readable and moves actions into one menu
+
+  Below 768px the shell header no longer squeezes or clips the title next to header actions. The title stays on one line with an ellipsis and takes the free space. The primary action renders as an icon-only button with `aria-label` and tooltip; a primary that is `style: "danger"`, needs a confirm, or has no icon goes into the menu instead. All other screen actions and the app's `headerActions` move into a single "…" menu in the shell header. This applies to entityList, edit and projectionDetail screens without any app opt-in. Desktop layout is unchanged.
+
+  `PageHeaderProps` gains `overflowItems` (screen actions for that menu), and `usePageHeaderCompact()` tells a screen whether the compact header is active. App header actions stay mounted while the menu is closed, so global listeners such as a ⌘K shortcut keep working. Icon-only buttons now get `title` from `ariaLabel` when no title is set.
+
+  Also on phones: card subtitles with several meta values wrap to two lines instead of truncating each value; dates, numbers, money and badges never break inside. In the inline form table, "add row" sits below the horizontal scroll area so it stays reachable, and row action buttons in the card layout are 40px.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Phone-width header keeps the title and collects actions in one menu; card meta wraps; inline table add-row stays reachable
+  migration: |
+    No code change is required. Below 768px, app `headerActions` and secondary screen actions now live in the shell's "…" menu (`shell-header-overflow-trigger`, panel `shell-header-overflow`, items `shell-header-overflow-item-<actionId>`). Mobile e2e tests that clicked these buttons inline must open the menu first. The list "create" button keeps its test id but has no visible text on phones; select it by its aria-label. App header actions stay mounted while the menu is closed, so keyboard shortcuts registered in effects keep working. Apps that replace the `PageHeader` primitive lose the secondary actions on phones, because only the default primitive forwards `overflowItems` to the shell menu.
+  -->
+
+- 3ea4ffc: relatedList columns can be formatted like entityList columns
+
+  A relatedList section (projectionDetail tab or entityList `expandableRow`) takes an optional `entity`: an entity name or `feature:entity`. Columns that name a field of that entity render through the same cell formatter as an entityList column. A select shows as a status badge with its translated option label, dates are locale-formatted, and the header defaults to the field's label key. A column's own `sortable` still controls the header sort. The boot validator rejects an `entity` that does not resolve. Without `entity`, columns render as before.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: relatedList columns format select, date and other field types like entityList columns (entity)
+  -->
+
+- e4ea9f0: Select fields can load their options from a query
+
+  A `select` config key and a `select` field on configEdit and actionForm screens accept `optionsQuery` (a query QN returning `{ rows: { value, label }[] }`) plus an optional static `optionsQueryPayload`. The Settings-Hub derives the field from the config key, the renderer mounts the query and shows the returned labels as they are. The boot validator rejects dead QNs, static `options` together with `optionsQuery`, `allowPerRequest` keys, and `optionsQuery` on entity fields. The write side does not check the value against the query result.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Select fields in configEdit and actionForm screens and select config keys can load their options from a query (optionsQuery)
+  migration: No code change needed. Existing select fields and config keys keep their static options.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [16797a4]
+- Updated dependencies [6b95958]
+- Updated dependencies [3ea4ffc]
+- Updated dependencies [e4ea9f0]
+  - @cosmicdrift/kumiko-types@0.331.0
+  - @cosmicdrift/kumiko-framework@0.331.0
+  - @cosmicdrift/kumiko-headless@0.331.0
+
 ## 0.330.2
 
 ### Patch Changes
