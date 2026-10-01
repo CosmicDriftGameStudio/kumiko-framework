@@ -1533,10 +1533,18 @@ export function validateScreens(
               `together with a multi-part header.subtitle — subtitleHref only works with the string form.`,
           );
         }
+        const seenPartFields = new Set<string>();
         for (const part of screen.header.subtitle) {
+          const partField = typeof part === "string" ? part : part.field;
+          if (seenPartFields.has(partField)) {
+            throw new Error(
+              `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) header.subtitle ` +
+                `lists field "${partField}" twice.`,
+            );
+          }
+          seenPartFields.add(partField);
           const navigate = typeof part === "string" ? undefined : part.navigate;
           if (navigate === undefined) continue;
-          const partField = typeof part === "string" ? part : part.field;
           if (navigate.screen === undefined && navigate.entity === undefined) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) header.subtitle part ` +

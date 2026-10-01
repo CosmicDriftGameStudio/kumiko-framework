@@ -422,6 +422,17 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
       expect(() => validateBoot([feature])).toThrow(/subtitleHref only works with the string form/);
     });
 
+    test("the same field listed twice throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: [
+          "unitName",
+          { field: "unitName", navigate: { entity: "unit", entityId: "unitId" } },
+        ],
+      });
+      expect(() => validateBoot([feature])).toThrow(/lists field "unitName" twice/);
+    });
+
     test("a tab-only navigate on a part throws", () => {
       const feature = subtitleFeature({
         title: "name",
