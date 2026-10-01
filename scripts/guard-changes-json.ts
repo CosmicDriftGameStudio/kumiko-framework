@@ -27,17 +27,24 @@ const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 export type ChangelogViolation = { readonly file: string; readonly detail: string };
 
 const ZERO_SHA_RE = /^0+$/;
+// Revisions from the CI context must never start with "-" (git would parse them as an option).
+const SHA_RE = /^[0-9a-f]{7,40}$/i;
 
 function changedFiles(
   repoRoot: string,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
-  let base = env["GITHUB_BASE_SHA"] ?? "origin/main";
-  const pushBefore = env["GITHUB_EVENT_NAME"] === "push" ? env["GITHUB_EVENT_BEFORE"]?.trim() : undefined;
-  if (!env["GITHUB_BASE_SHA"] && pushBefore && !ZERO_SHA_RE.test(pushBefore)) {
+  const baseSha = env["GITHUB_BASE_SHA"];
+  if (baseSha && !SHA_RE.test(baseSha)) {
+    throw new Error("GITHUB_BASE_SHA is not a valid commit SHA");
+  }
+  let base = baseSha ?? "origin/main";
+  const rawPushBefore = env["GITHUB_EVENT_NAME"] === "push" ? env["GITHUB_EVENT_BEFORE"]?.trim() : undefined;
+  const pushBefore = rawPushBefore && SHA_RE.test(rawPushBefore) ? rawPushBefore : undefined;
+  if (!baseSha && pushBefore && !ZERO_SHA_RE.test(pushBefore)) {
     // A push to main has FETCH_HEAD === HEAD (empty diff); the pre-push tip is the real range start.
     base = pushBefore;
-  } else if (!env["GITHUB_BASE_SHA"]) {
+  } else if (!baseSha) {
     const baseRef = env["GITHUB_BASE_REF"]?.trim() || (env["GITHUB_EVENT_NAME"] === "push" ? "main" : undefined);
     if (baseRef) {
       // The three-dot diff below needs the merge-base, so history must not be truncated.
@@ -111,7 +118,8 @@ export function findChangesetViolations(
     }
   }
 
-  if (!isReleaseBranch(env)) {
+  // A push run follows the PR run that already enforced this; the post-merge release commit legitimately rewrites changes.json.
+  if (!isReleaseBranch(env) && env["GITHUB_EVENT_NAME"] !== "push") {
     for (const file of changedFilesToCheck.filter((path) => /^packages\/.*\/changes\.json$/.test(path))) {
       violations.push({ file, detail: "direct changes.json edits are forbidden; add structured metadata to a Changeset instead" });
     }
