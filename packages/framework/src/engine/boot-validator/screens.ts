@@ -1070,20 +1070,7 @@ type RelatedListSectionValidation = {
 // Shared by projectionDetail relatedList sections and entityList.expandableRow:
 // both render a relatedList whose rows come from an arbitrary query.
 function validateRelatedListSection(args: RelatedListSectionValidation): void {
-  const {
-    featureName,
-    featureMap,
-    screenId,
-    screenType,
-    where,
-    section,
-    screens,
-    allWriteHandlerQns,
-    allScreenQns,
-    navTargetShortIds,
-    screensByShortId,
-    detailForScreens,
-  } = args;
+  const { featureName, featureMap, where, section } = args;
   if (!section.query || typeof section.query !== "string") {
     throw new Error(`[Feature ${featureName}] ${where} has empty or non-string query.`);
   }
@@ -1112,72 +1099,8 @@ function validateRelatedListSection(args: RelatedListSectionValidation): void {
       );
     }
   }
-  if (section.rowActions !== undefined) {
-    for (const action of section.rowActions) {
-      if (action.kind === "navigate") {
-        const target = resolveRowActionNavigateTarget(
-          featureName,
-          screenId,
-          screenType,
-          "rowAction",
-          action,
-          allScreenQns,
-          navTargetShortIds,
-          screensByShortId,
-          detailForScreens,
-        );
-        validateRowActionNavigateParams(
-          featureName,
-          screenId,
-          screenType,
-          undefined,
-          action,
-          target,
-        );
-      } else if (action.kind === "drawer") {
-        validateDrawerTargetAction(featureName, screenId, screenType, "rowAction", action, screens);
-      } else if (!allWriteHandlerQns.has(action.handler)) {
-        throw new Error(
-          `[Feature ${featureName}] ${where} ` +
-            `rowAction "${action.id}" handler "${action.handler}" ` +
-            `is not a registered write-handler. Check the QN spelling (expected ` +
-            `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
-        );
-      }
-    }
-    // section.rowClick (legacy, navigate-only) and a rowActions entry
-    // marked rowClick:true both claim the row-body click — same
-    // at-most-one constraint as entityList/projectionList's
-    // validateAtMostOneRowClick, just spanning two fields instead of one.
-    const rowClickActionCount = section.rowActions.filter(
-      (a) => a.kind === "navigate" && a.rowClick === true,
-    ).length;
-    const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
-    if (rowClickActionCount + legacyRowClickCount > 1) {
-      throw new Error(
-        `[Feature ${featureName}] ${where} ` +
-          `has both a rowClick and ${rowClickActionCount} rowActions marked ` +
-          `rowClick:true — at most one may fire on a row-body click.`,
-      );
-    }
-  }
-  if (section.defaultSort !== undefined) {
-    const sortField = section.defaultSort.field;
-    const col = section.columns.find((c) => normalizeListColumn(c).field === sortField);
-    if (col === undefined) {
-      throw new Error(
-        `[Feature ${featureName}] ${where} ` +
-          `defaultSort.field "${sortField}" is not a listed column.`,
-      );
-    }
-    if (normalizeListColumn(col).sortable !== true) {
-      throw new Error(
-        `[Feature ${featureName}] ${where} ` +
-          `defaultSort.field "${sortField}" is not sortable. Set sortable: true on ` +
-          `the column or pick another field.`,
-      );
-    }
-  }
+  if (section.rowActions !== undefined) validateRelatedListRowActions(args, section.rowActions);
+  if (section.defaultSort !== undefined) validateRelatedListDefaultSort(args, section.defaultSort);
   if (section.facets !== undefined) {
     validateListFacets(
       `[Feature ${featureName}] ${where}`,
@@ -1187,34 +1110,131 @@ function validateRelatedListSection(args: RelatedListSectionValidation): void {
       featureMap,
     );
   }
-  // Only drawer-kind and navigate actions that set tab are validated
-  // here — plain navigate (no tab) and writeHandler toolbarActions
-  // have no boot check yet, same gap as above.
   if (section.toolbarActions !== undefined) {
-    for (const action of section.toolbarActions) {
-      if (action.kind === "drawer") {
-        validateDrawerTargetAction(
-          featureName,
-          screenId,
-          screenType,
-          "toolbarAction",
-          action,
-          screens,
-        );
-      }
-      if (action.kind === "navigate" && action.tab !== undefined) {
-        resolveRowActionNavigateTarget(
-          featureName,
-          screenId,
-          screenType,
-          "toolbarAction",
-          action,
-          allScreenQns,
-          navTargetShortIds,
-          screensByShortId,
-          detailForScreens,
-        );
-      }
+    validateRelatedListToolbarActions(args, section.toolbarActions);
+  }
+}
+
+function validateRelatedListRowActions(
+  args: RelatedListSectionValidation,
+  rowActions: NonNullable<EditRelatedListSection["rowActions"]>,
+): void {
+  const {
+    featureName,
+    screenId,
+    screenType,
+    where,
+    section,
+    screens,
+    allWriteHandlerQns,
+    allScreenQns,
+    navTargetShortIds,
+    screensByShortId,
+    detailForScreens,
+  } = args;
+  for (const action of rowActions) {
+    if (action.kind === "navigate") {
+      const target = resolveRowActionNavigateTarget(
+        featureName,
+        screenId,
+        screenType,
+        "rowAction",
+        action,
+        allScreenQns,
+        navTargetShortIds,
+        screensByShortId,
+        detailForScreens,
+      );
+      validateRowActionNavigateParams(featureName, screenId, screenType, undefined, action, target);
+    } else if (action.kind === "drawer") {
+      validateDrawerTargetAction(featureName, screenId, screenType, "rowAction", action, screens);
+    } else if (!allWriteHandlerQns.has(action.handler)) {
+      throw new Error(
+        `[Feature ${featureName}] ${where} ` +
+          `rowAction "${action.id}" handler "${action.handler}" ` +
+          `is not a registered write-handler. Check the QN spelling (expected ` +
+          `"<feature>:write:<short>") and that the handler is declared via r.writeHandler(...).`,
+      );
+    }
+  }
+  // section.rowClick (legacy, navigate-only) and a rowActions entry
+  // marked rowClick:true both claim the row-body click — same
+  // at-most-one constraint as entityList/projectionList's
+  // validateAtMostOneRowClick, just spanning two fields instead of one.
+  const rowClickActionCount = rowActions.filter(
+    (a) => a.kind === "navigate" && a.rowClick === true,
+  ).length;
+  const legacyRowClickCount = section.rowClick !== undefined ? 1 : 0;
+  if (rowClickActionCount + legacyRowClickCount > 1) {
+    throw new Error(
+      `[Feature ${featureName}] ${where} ` +
+        `has both a rowClick and ${rowClickActionCount} rowActions marked ` +
+        `rowClick:true — at most one may fire on a row-body click.`,
+    );
+  }
+}
+
+function validateRelatedListDefaultSort(
+  args: RelatedListSectionValidation,
+  defaultSort: NonNullable<EditRelatedListSection["defaultSort"]>,
+): void {
+  const { featureName, where, section } = args;
+  const sortField = defaultSort.field;
+  const col = section.columns.find((c) => normalizeListColumn(c).field === sortField);
+  if (col === undefined) {
+    throw new Error(
+      `[Feature ${featureName}] ${where} ` +
+        `defaultSort.field "${sortField}" is not a listed column.`,
+    );
+  }
+  if (normalizeListColumn(col).sortable !== true) {
+    throw new Error(
+      `[Feature ${featureName}] ${where} ` +
+        `defaultSort.field "${sortField}" is not sortable. Set sortable: true on ` +
+        `the column or pick another field.`,
+    );
+  }
+}
+
+// Only drawer-kind and navigate actions that set tab are validated here;
+// plain navigate (no tab) and writeHandler toolbarActions have no boot check yet.
+function validateRelatedListToolbarActions(
+  args: RelatedListSectionValidation,
+  toolbarActions: NonNullable<EditRelatedListSection["toolbarActions"]>,
+): void {
+  const {
+    featureName,
+    screenId,
+    screenType,
+    screens,
+    allScreenQns,
+    navTargetShortIds,
+    screensByShortId,
+    detailForScreens,
+  } = args;
+  for (const action of toolbarActions) {
+    if (action.kind === "drawer") {
+      validateDrawerTargetAction(
+        featureName,
+        screenId,
+        screenType,
+        "toolbarAction",
+        action,
+        screens,
+      );
+    }
+    if (action.kind === "navigate" && action.tab !== undefined) {
+      resolveRowActionNavigateTarget(
+        featureName,
+        screenId,
+        screenType,
+        "toolbarAction",
+        action,
+        allScreenQns,
+        navTargetShortIds,
+        screensByShortId,
+        detailForScreens,
+      );
     }
   }
 }
