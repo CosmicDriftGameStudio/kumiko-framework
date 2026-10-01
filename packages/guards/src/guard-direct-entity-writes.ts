@@ -287,11 +287,47 @@ function resolveWrite(
   return undefined;
 }
 
+// Callee names whose result is a table definition: `const xTable = <builder>(...)`.
+const TABLE_BUILDER_NAMES: ReadonlySet<string> = new Set([
+  "pgTable",
+  "table",
+  "buildEntityTable",
+  "defineUnmanagedTable",
+  "deriveEntityTableMeta",
+]);
+
+function isTableDeclaration(identifier: Identifier): boolean {
+  const symbol = identifier.getSymbol();
+  const resolved = symbol?.getAliasedSymbol() ?? symbol;
+  return (resolved?.getDeclarations() ?? []).some((decl) => {
+    if (decl.getKind() !== SyntaxKind.VariableDeclaration) return false;
+    const init = decl.asKindOrThrow(SyntaxKind.VariableDeclaration).getInitializer();
+    if (init?.getKind() !== SyntaxKind.CallExpression) return false;
+    const callee = init.asKindOrThrow(SyntaxKind.CallExpression).getExpression();
+    const calleeName =
+      callee.getKind() === SyntaxKind.PropertyAccessExpression
+        ? callee.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName()
+        : callee.getText();
+    return TABLE_BUILDER_NAMES.has(calleeName);
+  });
+}
+
+// A write whose table argument resolves to a real table declaration — keeps
+// `map.delete(key)` / `set.delete(id)` from counting as table writes.
+function isTableWriteCall(call: CallExpression): boolean {
+  const write = resolveWrite(call);
+  return (
+    write !== undefined &&
+    declIdOf(write.tableArg) !== undefined &&
+    isTableDeclaration(write.tableArg)
+  );
+}
+
 function hasAnyTableWrite(files: readonly SourceFile[]): boolean {
   for (const sf of files) {
     if (EXCLUDE.test(sf.getFilePath())) continue;
     for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
-      if (resolveWrite(call)) return true;
+      if (isTableWriteCall(call)) return true;
     }
   }
   return false;
