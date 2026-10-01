@@ -5,7 +5,7 @@
 forget-subject respects tenant retention `blockDelete`.
 
 <!-- kumiko-changes
-feature: bundled-features
+feature: crypto-shredding
 type: fix
 title: forget-subject respects tenant retention blockDelete
 -->
