@@ -89,6 +89,30 @@ describe("scanLinesForSecretLiterals", () => {
     expect(flaggedNames(['const msg = t("auth.err") ?? "password required here";'])).toEqual([]);
   });
 
+  test("a template continuation line with packages/*/src does not open a block comment", () => {
+    expect(
+      flaggedNames([
+        "const glob = `",
+        "  packages/*/src",
+        "`;",
+        'const s = env.JWT_SECRET ?? "hardcoded-prod-secret";',
+      ]),
+    ).toEqual(["JWT_SECRET"]);
+  });
+
+  test("a regex literal containing /* does not open a block comment", () => {
+    expect(
+      flaggedNames([
+        "const re = /^https?:\\/*/;",
+        'const s = env.JWT_SECRET ?? "hardcoded-prod-secret";',
+      ]),
+    ).toEqual(["JWT_SECRET"]);
+  });
+
+  test("flags a literal that itself names key material, with the assignee as name", () => {
+    expect(flaggedNames(['const k = env.K ?? "prod-hmac-signing-secret";'])).toEqual(["k"]);
+  });
+
   test("kumiko-lint-ignore secret-literal on the line or the line above opts out", () => {
     expect(
       flaggedNames([

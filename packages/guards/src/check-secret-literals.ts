@@ -25,6 +25,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Glob } from "bun";
+import { ts } from "ts-morph";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
 
@@ -60,46 +61,34 @@ export type SecretLiteralFinding = {
   readonly literalLength: number;
 };
 
-type CommentStripResult = { readonly code: string; readonly inBlockComment: boolean };
+const isJsDocKind = (kind: ts.SyntaxKind): boolean =>
+  kind >= ts.SyntaxKind.FirstJSDocNode && kind <= ts.SyntaxKind.LastJSDocNode;
 
-// Drops line comments and block comments (state carries across lines via
-// `startsInBlockComment`). Quote tracking keeps `//` and `/*` inside string
-// literals (postgres://…, "src/*") from being read as comment starts, which
-// would cut connection-string fallbacks off before their closing quote.
-function stripComments(line: string, startsInBlockComment: boolean): CommentStripResult {
-  let code = "";
-  let inBlock = startsInBlockComment;
-  let quote: string | null = null;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i] as string;
-    const next = line[i + 1];
-    if (inBlock) {
-      if (ch === "*" && next === "/") {
-        inBlock = false;
-        i++;
-      }
-      continue;
+// Blanks every comment with spaces (newlines kept, so line numbers survive).
+// The real TypeScript parser decides what is a comment: a hand-rolled
+// per-line tokenizer misreads regex literals (`/^https?:\/*/`) and template
+// continuation lines as comment starts and then skips code, which would make
+// this security guard fail open. Trivia between two tokens contains only
+// whitespace and comments, so it is masked directly from the token gaps.
+function maskComments(source: string): string {
+  const sourceFile = ts.createSourceFile("scan.ts", source, ts.ScriptTarget.Latest, false);
+  const chars = [...source];
+  const blank = (from: number, to: number): void => {
+    for (let i = from; i < to; i++) if (chars[i] !== "\n") chars[i] = " ";
+  };
+  const visit = (node: ts.Node): void => {
+    const children = node.getChildren(sourceFile).filter((child) => !isJsDocKind(child.kind));
+    if (children.length > 0) {
+      for (const child of children) visit(child);
+      return;
     }
-    if (quote !== null) {
-      code += ch;
-      if (ch === "\\" && next !== undefined) {
-        code += next;
-        i++;
-      } else if (ch === quote) {
-        quote = null;
-      }
-      continue;
+    const trivia = source.slice(node.pos, node.getStart(sourceFile));
+    for (const m of trivia.matchAll(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g)) {
+      blank(node.pos + m.index, node.pos + m.index + m[0].length);
     }
-    if (ch === "/" && next === "/") break;
-    if (ch === "/" && next === "*") {
-      inBlock = true;
-      i++;
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === "`") quote = ch;
-    code += ch;
-  }
-  return { code, inBlockComment: inBlock };
+  };
+  visit(sourceFile);
+  return chars.join("");
 }
 
 export type SecretLiteralHit = {
@@ -108,24 +97,35 @@ export type SecretLiteralHit = {
   readonly literalLength: number;
 };
 
+// Literal content alone is enough when it names key material; bare
+// secret/password stays name-only so "Secret Santa" labels are not flagged.
+const SECRET_LITERAL_TOKEN = /hmac|private[_-]?key|signing[_-]?key/i;
+// Assignee / property name directly left of the fallback (`k = …`, `key: …`).
+const LHS_NAME = /([\w$]+)\s*[:=][^:=]*$/;
+const UNNAMED_PLACEHOLDER = "<unnamed>";
+
 /**
- * Sequential per-file scan: block-comment state carries across lines, so only
- * text inside an open block comment is skipped (a wrapped code line that
- * starts with `*` is still checked). Opt-out: `// kumiko-lint-ignore
- * secret-literal <reason>` on the line itself or the line above.
+ * Per-file scan on comment-masked source (see maskComments), so only comment
+ * text is skipped and a wrapped code line that starts with `*` is still
+ * checked. Opt-out: `// kumiko-lint-ignore secret-literal <reason>` on the
+ * line itself or the line above (checked on the raw lines).
  */
 export function scanLinesForSecretLiterals(lines: readonly string[]): SecretLiteralHit[] {
   const hits: SecretLiteralHit[] = [];
-  let inBlockComment = false;
+  const maskedLines = maskComments(lines.join("\n")).split("\n");
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
-    const scanned = stripComments(raw, inBlockComment);
-    inBlockComment = scanned.inBlockComment;
-    const match = STRING_FALLBACK.exec(scanned.code);
+    const code = maskedLines[i] ?? "";
+    const match = STRING_FALLBACK.exec(code);
     if (!match) continue;
     const literal = match[2];
     if (!literal || literal.length < MIN_SECRET_LENGTH || TRIVIAL_LITERAL.test(literal)) continue;
-    const name = SECRET_NAME.exec(scanned.code.slice(0, match.index))?.[0];
+    const left = code.slice(0, match.index);
+    const name =
+      SECRET_NAME.exec(left)?.[0] ??
+      (SECRET_LITERAL_TOKEN.test(literal)
+        ? (LHS_NAME.exec(left)?.[1] ?? UNNAMED_PLACEHOLDER)
+        : undefined);
     if (name === undefined) continue;
     if (raw.includes(IGNORE_TAG) || (lines[i - 1] ?? "").includes(IGNORE_TAG)) continue;
     hits.push({ lineNumber: i + 1, name, literalLength: literal.length });
