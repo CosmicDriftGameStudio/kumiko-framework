@@ -83,6 +83,10 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   encrypted?: boolean;
   piiEncrypted?: T extends "text" ? boolean : never;
   options?: readonly string[]; // for select type
+  optionsQuery?: T extends "select" ? string : never;
+  optionsQueryPayload?: T extends "select"
+    ? Readonly<Record<string, string | number | boolean>>
+    : never;
   bounds?: T extends "number" ? ConfigBounds : never;
   // Regex enforced at write (set.write) — only meaningful for text keys
   // (never for the other type-tags). Use anchored + length-bounded patterns:
@@ -109,6 +113,17 @@ const SCOPE_DEFAULTS: Record<ConfigScope, { write: readonly string[]; read: read
 
 // --- Factory ---
 
+function optionsQueryProps(
+  opts: Pick<ConfigKeyOptions<"select">, "optionsQuery" | "optionsQueryPayload">,
+): Pick<ConfigKeyDefinition, "optionsQuery" | "optionsQueryPayload"> {
+  return {
+    ...(opts.optionsQuery !== undefined && { optionsQuery: opts.optionsQuery }),
+    ...(opts.optionsQueryPayload !== undefined && {
+      optionsQueryPayload: opts.optionsQueryPayload,
+    }),
+  };
+}
+
 function createConfigKey<T extends ConfigKeyType>(
   scope: ConfigScope,
   type: T,
@@ -126,6 +141,7 @@ function createConfigKey<T extends ConfigKeyType>(
     ...(opts.encrypted ? { encrypted: true } : {}),
     ...(opts.piiEncrypted ? { piiEncrypted: true } : {}),
     ...(opts.options ? { options: opts.options } : {}),
+    ...optionsQueryProps(opts),
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,

@@ -2,6 +2,7 @@ import type {
   DashboardScreenDefinition,
   EditLayout,
   FeatureDefinition,
+  FieldDefinition,
   QueryHandlerDef,
   ScreenDefinition,
 } from "../types/index.js";
@@ -94,6 +95,24 @@ function checkDashboardQueryRefs(
   }
 }
 
+function checkFormFieldQueryRefs(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  screenType: string,
+  fields: Readonly<Record<string, FieldDefinition>>,
+): void {
+  for (const [fieldName, field] of Object.entries(fields)) {
+    if (field.type !== "select" || field.optionsQuery === undefined) continue;
+    checkQueryRef(
+      queryHandlers,
+      field.optionsQuery,
+      () =>
+        `[Feature ${featureName}] Screen "${screenId}" (${screenType}) select field "${fieldName}" optionsQuery`,
+    );
+  }
+}
+
 function checkScreenQueryRefs(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -135,6 +154,18 @@ function checkScreenQueryRefs(
     screen.type === "secretMint"
   ) {
     checkEditLayoutQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.layout);
+    if (screen.type !== "entityEdit") {
+      checkFormFieldQueryRefs(queryHandlers, featureName, screenId, screen.type, screen.fields);
+    }
+    if (screen.type === "secretMint" && screen.confirm !== undefined) {
+      checkFormFieldQueryRefs(
+        queryHandlers,
+        featureName,
+        screenId,
+        "secretMint confirm",
+        screen.confirm.fields,
+      );
+    }
   } else if (screen.type === "dashboard") {
     checkDashboardQueryRefs(queryHandlers, featureName, screenId, screen);
   }
@@ -143,6 +174,14 @@ function checkScreenQueryRefs(
 export function validateQueryRefs(features: readonly FeatureDefinition[]): void {
   const queryHandlers = buildQueryHandlerMap(features);
   for (const feature of features) {
+    for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+      if (keyDef.optionsQuery === undefined) continue;
+      checkQueryRef(
+        queryHandlers,
+        keyDef.optionsQuery,
+        () => `[Feature ${feature.name}] Config key "${keyName}" optionsQuery`,
+      );
+    }
     for (const [screenId, screen] of Object.entries(feature.screens)) {
       checkScreenQueryRefs(queryHandlers, feature.name, screenId, screen);
     }

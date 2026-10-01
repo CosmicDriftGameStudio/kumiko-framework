@@ -99,6 +99,13 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
    *  `encrypted` (kumiko-platform#231/#459). */
   readonly piiEncrypted?: boolean;
   readonly options?: readonly string[];
+  /** Only on `type: "select"`: loads the options from this query (QN), contract
+   *  `{ rows: { value, label }[] }`, labels shown verbatim. Mutually exclusive with
+   *  `options` and `allowPerRequest`. The write side does not check the value against
+   *  the query result; the consuming feature validates it where it uses it. */
+  readonly optionsQuery?: string;
+  /** Static payload sent with every `optionsQuery` call. Requires `optionsQuery`. */
+  readonly optionsQueryPayload?: Readonly<Record<string, string | number | boolean>>;
   readonly bounds?: ConfigBounds;
   // Per-key string-pattern validation for type="text". The value must match
   // the regex at write time — set.write hard-rejects a mismatch with

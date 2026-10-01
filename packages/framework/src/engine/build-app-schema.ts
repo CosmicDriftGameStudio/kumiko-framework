@@ -458,6 +458,8 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   // Dropdown leer aus (QN wird `<feature>:query::list` → 404).
   if (typeof def["entity"] === "string") out["entity"] = def["entity"];
   if (typeof def["labelField"] === "string") out["labelField"] = def["labelField"];
+  // fw#2780: author-supplied picker source — without it the client falls back to the list handler.
+  if (typeof def["optionsQuery"] === "string") out["optionsQuery"] = def["optionsQuery"];
   if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer

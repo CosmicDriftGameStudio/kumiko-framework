@@ -717,8 +717,33 @@ function validateFormFieldsMap(
     if (ftype === "money") {
       validateFormMoneyCurrency(featureName, screenId, context, fname, fdef);
     }
+    validateFormSelectOptions(featureName, screenId, context, fname, fdef);
   }
   return fieldNames;
+}
+
+// Static options XOR optionsQuery on inline-form select fields. The QN
+// existence check lives in query-refs.ts with the other query refs.
+function validateFormSelectOptions(
+  featureName: string,
+  screenId: string,
+  context: string,
+  fieldName: string,
+  fdef: FieldDefinition,
+): void {
+  if (fdef.type === "select") {
+    const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) select field "${fieldName}"`;
+    if (fdef.optionsQuery !== undefined) {
+      if (fdef.optionsQuery.length === 0) {
+        throw new Error(`${where} has an empty optionsQuery`);
+      }
+      if (fdef.options.length > 0) {
+        throw new Error(`${where} declares both options and optionsQuery — pick one`);
+      }
+    } else if (fdef.optionsQueryPayload !== undefined) {
+      throw new Error(`${where} has optionsQueryPayload without optionsQuery`);
+    }
+  }
 }
 
 // Fail-closed currency-source gate (fw#2839), the runtime half of the
@@ -1749,6 +1774,7 @@ export function validateScreens(
               `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
           );
         }
+        validateFormSelectOptions(feature.name, screenId, "configEdit", fname, fdef);
       }
       if (screen.layout.sections.length === 0) {
         throw new Error(
