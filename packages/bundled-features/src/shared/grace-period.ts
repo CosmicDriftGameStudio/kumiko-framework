@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 /** Shared grace-period check for user-data-rights + tenant-lifecycle cancel flows. */
 
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";

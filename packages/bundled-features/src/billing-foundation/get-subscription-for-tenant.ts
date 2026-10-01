@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Resolver-helper: liest die current subscription-row für einen Tenant
 // aus der read_subscriptions-projection.
 

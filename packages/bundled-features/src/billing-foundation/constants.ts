@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // @runtime client
 // temporal-polyfill is a plain npm dependency (not a framework runtime
 // module), so importing it here doesn't break browser bundles. Aliased —

@@ -57,7 +57,7 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
     en: "This tenant has no active subscription to switch.",
   },
   "billing-foundation.errors.cancellationScheduled": {
-    en: "This subscription is scheduled to cancel. Reactivate it before switching plans.",
+    en: "This subscription is scheduled to end. Reactivate it before switching plans.",
   },
   "billing-foundation.errors.alreadyOnPlan": { en: "This tenant is already on that plan." },
   "billing-foundation.errors.planSwitchNotSupported": {

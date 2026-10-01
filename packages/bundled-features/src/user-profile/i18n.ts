@@ -39,6 +39,6 @@ export const defaultTranslations: TranslationsByLocale = {
     "profile.errors.generic": "Something went wrong.",
     "profile.errors.emailUnchanged": "That is already your email address.",
     "user.errors.emailAlreadyExists": "This email address is already in use.",
-    "auth.errors.invalidCredentials": "Email or password incorrect.",
+    "auth.errors.invalidCredentials": "Invalid email or password.",
   },
 };

@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { DbConnection } from "../db/connection.js";
 import { lockEventConsumersShareMode } from "../db/queries/event-consumer.js";
 import { deleteMany, selectMany, transaction } from "../db/query.js";

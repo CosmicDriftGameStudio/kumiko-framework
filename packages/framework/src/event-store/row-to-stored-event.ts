@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { TenantId } from "../engine/types/index.js";
 import type { EventMetadata, StoredEvent } from "./event-store.js";
 

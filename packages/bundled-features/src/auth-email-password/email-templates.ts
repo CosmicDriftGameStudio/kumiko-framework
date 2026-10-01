@@ -13,7 +13,7 @@ import { Temporal } from "temporal-polyfill";
 
 export type AuthMailLocale = string;
 
-const AUTH_MAIL_EN: Readonly<Record<string, string>> = {
+export const AUTH_MAIL_EN: Readonly<Record<string, string>> = {
   "auth.mail.appNameDefault": "Account",
   "auth.mail.reset.subject": "{app} — Reset your password",
   "auth.mail.reset.greeting": "Hi,",

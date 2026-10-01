@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { type JobsOptions, Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";

@@ -46,8 +46,6 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "bitte bestätigen Sie Ihre E-Mail-Adresse für {app}, um Ihr Konto zu aktivieren:",
   "auth.mfa.disable.description":
     "Bestätigen Sie mit einem Code aus Ihrer Authenticator-App oder einem Recovery-Code. Ihr Konto ist danach nur noch durch Ihr Passwort geschützt.",
-  "auth.mfa.enable.intro":
-    "Schützen Sie Ihr Konto zusätzlich mit einer Authenticator-App wie Google Authenticator oder 1Password.",
   "auth.mfa.enable.recoveryHint":
     "Speichern Sie diese Codes an einem sicheren Ort. Sie werden nur dieses eine Mal angezeigt und erlauben Ihnen den Zugriff, falls Sie Ihr Gerät verlieren.",
   "auth.mfa.regenerate.description":
@@ -116,17 +114,11 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "kumiko.form.draft.resume-single":
     "Ein offener Entwurf für dieses Formular gefunden. Möchten Sie ihn fortsetzen?",
   "notesHistory.section.createMode": "Speichern Sie zuerst den Eintrag, um Notizen anzulegen.",
-  "pat.create.needPassword": "Bitte Ihr Passwort zur Bestätigung eingeben.",
-  "pat.create.subtitle":
-    "Wählen Sie Berechtigungen und eine Gültigkeit. Der Token wird nur einmal angezeigt.",
-  "pat.list.title": "Ihre Tokens",
   "screen:my-sessions.title": "Ihre Sitzungen",
-  "profile.danger.cancelSuccess": "Löschung abgebrochen. Ihr Konto bleibt bestehen.",
   "profile.danger.dialogDescription":
     "Nach Ablauf der Frist werden Ihre Daten endgültig gelöscht. Bis dahin können Sie die Löschung abbrechen.",
   "profile.danger.explainer":
     "Ihr Konto wird nach einer Frist endgültig gelöscht. Bis dahin können Sie die Löschung jederzeit abbrechen.",
-  "profile.danger.requested": "Löschung beantragt. Ihr Konto wird am {date} endgültig gelöscht.",
   "profile.email.success": "E-Mail geändert. Bitte bestätigen Sie Ihre neue Adresse.",
   "profile.errors.emailUnchanged": "Das ist bereits Ihre E-Mail-Adresse.",
   "tags.section.createMode": "Speichern Sie zuerst den Eintrag, um Tags zu setzen.",
@@ -152,7 +144,6 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Mit dem Bestätigen startet die Lösch-Frist. Sie können die Löschung bis zu ihrem Ablauf wieder abbrechen.",
   "userDataRights.privacyCenter.deletion.explainer":
     "Beantragen Sie die Löschung Ihres Kontos. Bis zum Ablauf der Frist können Sie die Löschung wieder abbrechen.",
-  "userDataRights.privacyCenter.deletion.requested": "Ihr Konto wird am {date} gelöscht.",
   "userDataRights.privacyCenter.export.failed":
     "Die letzte Export-Erstellung ist fehlgeschlagen. Sie können es erneut versuchen.",
   "userDataRights.privacyCenter.export.intro":
@@ -160,15 +151,10 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "userDataRights.privacyCenter.export.pending":
     "Ihr Export wird erstellt. Bitte später erneut schauen.",
   "userDataRights.privacyCenter.export.ready": "Ihr Export ist fertig.",
-  "userDataRights.privacyCenter.intro":
-    "Verwalten Sie Ihre Rechte nach DSGVO: Datenauskunft, Export, Einschränkung und Löschung Ihres Kontos.",
-  "userDataRights.privacyCenter.loadError": "Ihre Daten konnten nicht geladen werden.",
   "userDataRights.privacyCenter.restriction.dialogDescription":
     "Sie werden sofort abgemeldet und können sich nicht mehr anmelden, bis der Support die Einschränkung aufhebt.",
   "userDataRights.privacyCenter.restriction.explainer":
     "Die Verarbeitung Ihrer Daten wird pausiert, und Sie werden sofort abgemeldet. Nur der Support kann die Einschränkung danach wieder aufheben.",
-  "userDataRights.privacyCenter.restriction.restricted":
-    "Ihr Konto ist eingeschränkt. Wenden Sie sich an den Support, um die Einschränkung aufzuheben.",
   "pat.created.hint":
     "Kopieren Sie diesen Token jetzt. Aus Sicherheitsgründen wird er nur dieses eine Mal angezeigt.",
   "kumiko.list.empty.hint": "Legen Sie den ersten an, um loszulegen.",

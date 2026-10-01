@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage.js";

@@ -1,3 +1,4 @@
+/// <reference types="bun-types" preserve="true" />
 import {
   createKumikoWebSocketHandler,
   DEFAULT_MAX_REQUEST_BYTES,
