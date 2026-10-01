@@ -8,6 +8,7 @@ import {
   createConfigFeature,
   createConfigResolver,
 } from "@cosmicdrift/kumiko-bundled-features/config";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
   createMoneyField,
@@ -97,5 +98,54 @@ describe("without tenant-settings mount", () => {
       admin,
     );
     expect(err.httpStatus).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("caller-supplied id (#2922)", () => {
+  const noteEntity = createEntity({
+    table: "read_tenant_default_notes",
+    fields: {
+      title: createTextField({ required: true, personal: false, reason: "is_business_data" }),
+    },
+  });
+  const noteFeature = defineFeature("note", (r) => {
+    r.entity("note", noteEntity);
+    r.writeHandler(defineCreateWithTenantDefaults("note", noteEntity, { access: ACCESS }));
+  });
+
+  const admin: SessionUser = { id: "admin-2", tenantId: testTenantId(2), roles: ["Admin"] };
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    const resolver = createConfigResolver();
+    stack = await setupTestStack({
+      features: [createConfigFeature(), noteFeature],
+      extraContext: ({ registry }) => ({
+        configResolver: resolver,
+        _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
+      }),
+    });
+    await unsafePushTables(stack.db, { configValuesTable });
+    await unsafeCreateEntityTable(stack.db, noteEntity);
+    await pushEntityProjectionTables(stack, stack.registry);
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  test("an ordinary user's id is ignored, the row gets a generated id", async () => {
+    const chosenId = "5f0c7a4e-8a1b-4c55-9d3e-1a2b3c4d5e6f";
+    const res = await stack.http.write(
+      "note:write:note:create",
+      { id: chosenId, title: "hello" },
+      admin,
+    );
+    expect(res.status).toBe(200);
+    const rows = await asRawClient(stack.db).unsafe<{ id: string }>(
+      'SELECT id FROM "read_tenant_default_notes"',
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.id).not.toBe(chosenId);
   });
 });

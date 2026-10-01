@@ -357,7 +357,7 @@ export function defineEntityWriteHandler(
 
   switch (verb) {
     case "create":
-      schema = buildInsertSchema(entity, undefined, excludedFields);
+      schema = buildInsertSchema(entity, undefined, excludedFields, { allowCallerId: true });
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
         // A caller-chosen id (deterministic-id idempotent creates) is only
