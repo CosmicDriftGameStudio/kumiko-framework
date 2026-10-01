@@ -798,6 +798,35 @@ function validateCheckboxDisplayOptions(
   }
 }
 
+export function validateEntitySelectOptionsQuery(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      assertNoSelectOptionsQuery(field, `${entityName}.${fieldName}`, feature.name);
+      if (field.type !== "embedded") continue;
+      for (const [subName, subField] of Object.entries(field.schema ?? {})) {
+        assertNoSelectOptionsQuery(subField, `${entityName}.${fieldName}.${subName}`, feature.name);
+      }
+    }
+  }
+}
+
+function assertNoSelectOptionsQuery(
+  field: { readonly type: string },
+  path: string,
+  featureName: string,
+): void {
+  if (field.type !== "select") return;
+  // @cast-boundary schema-walk — embedded sub-field types don't declare optionsQuery, an untyped author may still set it
+  const { optionsQuery, optionsQueryPayload } = field as {
+    optionsQuery?: unknown;
+    optionsQueryPayload?: unknown;
+  };
+  if (optionsQuery === undefined && optionsQueryPayload === undefined) return;
+  throw new Error(
+    `[Feature ${featureName}] Entity select field "${path}" declares optionsQuery — not supported on entity fields because the stored value would not be validated against the query result. Use static options, or a reference field.`,
+  );
+}
+
 export function validateMultiSelectFields(feature: FeatureDefinition): void {
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {

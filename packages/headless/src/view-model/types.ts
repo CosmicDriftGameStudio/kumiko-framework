@@ -156,6 +156,14 @@ export type EditFieldViewModel = {
    *  raw value. Convention key:
    *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
+  /** Set for `type: "select"` when SelectFieldDef.optionsQuery is set: the
+   *  renderer loads the options from this query (`{ rows: { value, label }[] }`,
+   *  labels verbatim) instead of `options`. `payload` is the static
+   *  optionsQueryPayload, `{}` when absent. */
+  readonly selectOptionsQuery?: {
+    readonly query: string;
+    readonly payload: Readonly<Record<string, string | number | boolean>>;
+  };
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.display is
    *  "checkboxes" — the renderer shows a checkbox grid with a select-all
    *  toggle instead of the default combobox dropdown. Set for

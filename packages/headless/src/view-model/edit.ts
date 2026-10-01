@@ -172,7 +172,7 @@ type NormalizedEditField = ReturnType<typeof normalizeEditField>;
 
 type SelectFieldHints = Pick<
   EditFieldViewModel,
-  "options" | "optionLabels" | "display" | "columns" | "maxRows"
+  "options" | "optionLabels" | "display" | "columns" | "maxRows" | "selectOptionsQuery"
 >;
 
 function deriveSelectFieldHints(
@@ -198,7 +198,12 @@ function deriveSelectFieldHints(
     fieldDef.type === "multiSelect" || fieldDef.type === "select" ? fieldDef.display : undefined;
   const columns = fieldDef.type === "multiSelect" ? fieldDef.columns : undefined;
   const maxRows = fieldDef.type === "multiSelect" ? fieldDef.maxRows : undefined;
+  const selectOptionsQuery =
+    fieldDef.type === "select" && fieldDef.optionsQuery !== undefined
+      ? { query: fieldDef.optionsQuery, payload: fieldDef.optionsQueryPayload ?? {} }
+      : undefined;
   return {
+    ...(selectOptionsQuery !== undefined && { selectOptionsQuery }),
     ...(options !== undefined && { options }),
     ...(optionLabels !== undefined && { optionLabels }),
     ...(display !== undefined && { display }),

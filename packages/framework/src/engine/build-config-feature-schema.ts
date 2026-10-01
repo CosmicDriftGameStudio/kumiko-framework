@@ -729,6 +729,15 @@ function deriveField(
     case "boolean":
       return createBooleanField();
     case "select":
+      if (def.optionsQuery !== undefined) {
+        return createSelectField({
+          options: [],
+          optionsQuery: def.optionsQuery,
+          ...(def.optionsQueryPayload !== undefined && {
+            optionsQueryPayload: def.optionsQueryPayload,
+          }),
+        });
+      }
       return def.options !== undefined && def.options.length > 0
         ? createSelectField({ options: def.options })
         : createTextField({ personal: false, reason: "system_metadata" });

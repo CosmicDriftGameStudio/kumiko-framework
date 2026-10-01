@@ -25,6 +25,7 @@ import { useLocale, useTranslation } from "../i18n.js";
 import { usePrimitives } from "../primitives.js";
 import { EmbeddedListField } from "./embedded-list-field.js";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
+import { QueryOptionsSelect } from "./query-options-select.js";
 import { ReferenceCreateDialog } from "./reference-create-dialog.js";
 
 // RenderField übersetzt ein EditFieldViewModel → Primitives-Baum.
@@ -143,6 +144,15 @@ export function RenderField({
           featureName={featureName ?? ""}
         />
       )
+    ) : field.type === "select" && field.selectOptionsQuery !== undefined && !readOnlyText ? (
+      <QueryOptionsSelect
+        field={field}
+        query={field.selectOptionsQuery.query}
+        payload={field.selectOptionsQuery.payload}
+        id={id}
+        hasError={hasError}
+        onChange={onChange}
+      />
     ) : readOnlyText && !isComplexFieldType(field.type) ? (
       <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale)}</Text>
     ) : (

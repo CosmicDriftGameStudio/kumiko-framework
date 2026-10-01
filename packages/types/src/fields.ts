@@ -348,6 +348,13 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  detail bands. Options without an entry keep the renderer's own
    *  value-based heuristic. */
   readonly optionTones?: { readonly [K in TOptions[number]]?: SelectOptionTone };
+  /** Loads the options from this query (QN). Contract: `{ rows: { value, label }[] }`,
+   *  labels are shown verbatim (not translated). `options` must be empty when set.
+   *  Only valid on configEdit/actionForm screen fields and config keys, not on entity
+   *  fields: the stored value would not be checked against the query result. */
+  readonly optionsQuery?: string;
+  /** Static payload sent with every `optionsQuery` call. */
+  readonly optionsQueryPayload?: Readonly<Record<string, string | number | boolean>>;
 } & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als

@@ -137,6 +137,36 @@ export function validateConfigKeyAllowPerRequest(feature: FeatureDefinition): vo
   }
 }
 
+// --- Config key optionsQuery compatibility ---
+
+export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void {
+  for (const [keyName, keyDef] of Object.entries(feature.configKeys)) {
+    const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
+    if (keyDef.optionsQuery === undefined) {
+      if (keyDef.optionsQueryPayload !== undefined) {
+        throw new Error(`${prefix} has optionsQueryPayload without optionsQuery`);
+      }
+      continue;
+    }
+    if (keyDef.optionsQuery.length === 0) {
+      throw new Error(`${prefix} has an empty optionsQuery`);
+    }
+    if (keyDef.type !== "select") {
+      throw new Error(
+        `${prefix} has optionsQuery but type="${keyDef.type}" — optionsQuery is only valid on select keys`,
+      );
+    }
+    if (keyDef.options !== undefined && keyDef.options.length > 0) {
+      throw new Error(`${prefix} declares both options and optionsQuery — pick one`);
+    }
+    if (keyDef.allowPerRequest) {
+      throw new Error(
+        `${prefix} has optionsQuery AND allowPerRequest=true — a per-request value would bypass the option set unchecked`,
+      );
+    }
+  }
+}
+
 // --- Config key storage backing × scope matrix ---
 
 export function validateConfigKeyBacking(feature: FeatureDefinition): void {

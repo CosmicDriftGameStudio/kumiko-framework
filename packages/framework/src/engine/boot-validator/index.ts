@@ -14,6 +14,7 @@ import {
   validateConfigKeyBacking,
   validateConfigKeyBounds,
   validateConfigKeyComputed,
+  validateConfigKeyOptionsQuery,
   validateConfigKeyPiiEncrypted,
   validateConfigKeyRequired,
   validateConfigReads,
@@ -25,6 +26,7 @@ import {
   validateEmbeddedFields,
   validateEncryptedFields,
   validateEntityIndexes,
+  validateEntitySelectOptionsQuery,
   validateExtendSchemaCollisions,
   validateExtensionPreSaveWiring,
   validateFileFields,
@@ -209,6 +211,7 @@ export function validateBoot(
     validatePiiAndRetention(feature);
     validateRecordOwnedSubjects(feature);
     validateApiExposureMatching(feature, allExposedApis, featureMap);
+    validateEntitySelectOptionsQuery(feature);
     validateEmbeddedFields(feature, featureMap, queryHandlerQns);
     validateMultiSelectFields(feature);
     validateImageVariants(feature);
@@ -226,6 +229,7 @@ export function validateBoot(
     validateConfigKeyComputed(feature);
     validateConfigKeyAllowPerRequest(feature);
     validateConfigKeyBacking(feature);
+    validateConfigKeyOptionsQuery(feature);
     validateConfigKeyPiiEncrypted(feature);
     validateOwnershipRules(feature, allClaimKeys, knownRoles);
     validateParentRefs(feature, featureMap);
