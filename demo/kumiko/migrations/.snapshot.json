@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-25T14:53:03.838Z",
+  "generatedAt": "2026-10-01T07:17:06.583Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -1473,7 +1473,15 @@
           "defaultSql": "now()"
         }
       ],
-      "indexes": [],
+      "indexes": [
+        {
+          "name": "store_delivery_attempts_tenant_id_created_at_idx",
+          "columns": [
+            "tenant_id",
+            "created_at"
+          ]
+        }
+      ],
       "source": "unmanaged"
     },
     {
@@ -1559,6 +1567,13 @@
           "name": "store_user_sessions_tenant_id_idx",
           "columns": [
             "tenant_id"
+          ]
+        },
+        {
+          "name": "store_user_sessions_tenant_id_last_seen_at_idx",
+          "columns": [
+            "tenant_id",
+            "last_seen_at"
           ]
         }
       ],
