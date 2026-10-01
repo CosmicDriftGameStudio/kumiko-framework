@@ -360,6 +360,15 @@ describe("StatCard", () => {
     expect(screen.getByText(/2,1 %/).closest("span")?.className).toContain("shrink-0");
   });
 
+  test("header row wraps so the delta badge drops below a label that has no room", () => {
+    render(
+      <StatCard label="Restschuld heute" value="1" delta={{ value: "15 %", direction: "down" }} />,
+    );
+    const labelBox = screen.getByText("Restschuld heute").parentElement;
+    expect(labelBox?.parentElement?.className).toContain("flex-wrap");
+    expect(labelBox?.className).toContain("basis-[7rem]");
+  });
+
   test("accentColor färbt den Icon-Chip inline", () => {
     const { container } = render(
       <StatCard

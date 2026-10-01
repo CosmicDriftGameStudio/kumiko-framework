@@ -51,7 +51,7 @@ export const leasePartyEntity = createEntity({
   table: "read_ui_walkthrough_lease_parties",
   fields: {
     lease: { type: "reference", entity: "lease", required: true, filterable: true },
-    name: createTextField({ ...DEMO_DATA, required: true }),
-    rolle: createTextField(DEMO_DATA),
+    name: createTextField({ ...DEMO_DATA, required: true, searchable: true }),
+    rolle: createTextField({ ...DEMO_DATA, filterable: true }),
   },
 });

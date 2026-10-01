@@ -16,6 +16,8 @@ import {
   positionExecutor,
   positionListRowSchema,
   positionRowSchema,
+  type RecordedPositionItem,
+  recordPositionsPayloadSchema,
   rentAdjustPayloadSchema,
 } from "./lease-support";
 import {
@@ -25,7 +27,9 @@ import {
   leaseHubScreen,
   leaseListScreen,
   leaseListShortScreen,
+  partyEditScreen,
   positionEditScreen,
+  recordPositionsScreen,
   rentalDashboardScreen,
 } from "./screens";
 
@@ -34,6 +38,26 @@ export { leaseEntity, leasePartyEntity, leasePositionEntity };
 const open = openToAllSignedIn(
   "demo app: any signed-in user manages every lease; there is no per-user ownership in this sample",
 );
+
+// measure and vatRate only exist to give the walkthrough form realistic column
+// types; leasePosition has no fields for them.
+function positionFromItem(
+  lease: string,
+  unitLabel: string | null | undefined,
+  item: RecordedPositionItem,
+) {
+  return {
+    lease,
+    art: item.kind,
+    ...(unitLabel && { einheit: unitLabel }),
+    betrag: {
+      amount: item.unitPrice.amount * item.quantity,
+      currency: item.unitPrice.currency,
+    },
+    gueltigVon: item.validFrom,
+    ...(item.validTo && { gueltigBis: item.validTo }),
+  };
+}
 
 export const rentalFeature = defineFeature("rental", (r) => {
   r.translations({ keys: toKeyFirst(rentalTranslations) });
@@ -137,6 +161,26 @@ export const rentalFeature = defineFeature("rental", (r) => {
   );
 
   r.writeHandler(
+    "lease:record-positions",
+    recordPositionsPayloadSchema,
+    async (event, ctx) => {
+      let created: Awaited<ReturnType<typeof positionExecutor.create>> | undefined;
+      for (const item of event.payload.items) {
+        const unitRow = await leaseExecutor.detail({ id: item.unit }, event.user, ctx.db);
+        if (!unitRow) return failNotFound("lease", item.unit);
+        created = await positionExecutor.create(
+          positionFromItem(event.payload.lease, parseLeaseRow(unitRow).einheit, item),
+          event.user,
+          ctx.db,
+        );
+        if (!created.isSuccess) return created;
+      }
+      return created ?? failNotFound("leasePosition", event.payload.lease);
+    },
+    open,
+  );
+
+  r.writeHandler(
     "rent:adjust",
     rentAdjustPayloadSchema,
     async (event, ctx) => {
@@ -180,10 +224,12 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(leaseListShortScreen);
   r.screen(leaseEditScreen);
   r.screen(positionEditScreen);
+  r.screen(partyEditScreen);
   r.screen(leaseDetailScreen);
   r.screen(leaseHubScreen);
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
+  r.screen(recordPositionsScreen);
 
   r.nav({
     id: "contracts",

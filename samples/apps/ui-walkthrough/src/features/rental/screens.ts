@@ -1,5 +1,6 @@
 import {
   createDateField,
+  createEmbeddedListField,
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -10,6 +11,7 @@ import type {
   EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { PAYMENT_METHODS, POSITION_KINDS, POSITION_MEASURES } from "./lease-support";
 import { RENTAL_QUERIES, RENTAL_WRITES } from "./qualified-names";
 
 const OPEN_ACCESS = {
@@ -116,6 +118,24 @@ export const positionEditScreen: EntityEditScreenDefinition = {
   access: OPEN_ACCESS,
 };
 
+export const partyEditScreen: EntityEditScreenDefinition = {
+  id: "party-edit",
+  type: "entityEdit",
+  entity: "leaseParty",
+  dormant: true,
+  listScreenId: "lease-list",
+  redirect: { screen: "lease-detail", idFrom: "lease" },
+  layout: {
+    sections: [
+      {
+        columns: 2,
+        fields: [{ field: "lease", visible: false }, "name", "rolle"],
+      },
+    ],
+  },
+  access: OPEN_ACCESS,
+};
+
 const POSITION_COLUMNS = [
   { field: "art", label: "rental:entity:leasePosition:field:art" },
   { field: "einheit", label: "rental:entity:leasePosition:field:einheit" },
@@ -163,9 +183,30 @@ export const leaseDetailScreen: ProjectionDetailScreenDefinition = {
         query: RENTAL_QUERIES.partyList,
         parentFilter: { field: "lease" },
         countField: "partyCount",
+        searchable: true,
+        facets: [
+          {
+            field: "rolle",
+            type: "select",
+            label: "rental:entity:leaseParty:field:rolle",
+            options: [
+              { value: "Hauptmieter", label: "rental.party.role.main" },
+              { value: "Mitmieterin", label: "rental.party.role.co" },
+            ],
+          },
+        ],
         columns: [
           { field: "name", label: "rental:entity:leaseParty:field:name" },
           { field: "rolle", label: "rental:entity:leaseParty:field:rolle" },
+        ],
+        toolbarActions: [
+          {
+            kind: "navigate",
+            id: "add-party",
+            label: "rental.action.addParty",
+            screen: "party-edit",
+            params: { map: { lease: "id" } },
+          },
         ],
       },
       {
@@ -362,5 +403,45 @@ export const adjustRentScreen: ActionFormScreenDefinition = {
     title: "rental.adjustRent.summary.title",
     subtitle: "rental.adjustRent.summary.subtitle",
   },
+  access: OPEN_ACCESS,
+};
+
+export const recordPositionsScreen: ActionFormScreenDefinition = {
+  id: "record-positions",
+  type: "actionForm",
+  dormant: true,
+  listScreenId: "lease-list",
+  handler: RENTAL_WRITES.positionsRecord,
+  fields: {
+    lease: { type: "reference", entity: "lease", required: true, labelField: "einheit" },
+    items: createEmbeddedListField(
+      {
+        unit: { type: "reference", entity: "lease", required: true, labelField: "einheit" },
+        kind: { type: "select", options: POSITION_KINDS, required: true },
+        quantity: { type: "decimal", scale: 2, required: true },
+        measure: { type: "select", options: POSITION_MEASURES, required: true },
+        unitPrice: { type: "money", required: true },
+        vatRate: { type: "decimal", scale: 2 },
+        validFrom: { type: "date", required: true },
+        validTo: { type: "date" },
+      },
+      { required: true },
+    ),
+    zahlungsweise: createSelectField({ options: PAYMENT_METHODS, display: "dropdown" }),
+  },
+  fieldLabels: {
+    lease: "rental:entity:__action-form__:field:lease",
+    items: "rental:entity:__action-form__:field:items",
+    zahlungsweise: "rental:entity:__action-form__:field:zahlungsweise",
+  },
+  layout: {
+    width: "full",
+    sections: [
+      { fields: ["lease"] },
+      { title: "rental.section.items", columns: 1, fields: ["items"] },
+      { fields: ["zahlungsweise"] },
+    ],
+  },
+  submitLabel: "rental.action.recordPositions",
   access: OPEN_ACCESS,
 };

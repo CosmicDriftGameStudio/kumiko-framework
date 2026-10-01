@@ -109,8 +109,8 @@ export function StatCard({
   return (
     // kumiko-lint-ignore no-framed-extension-sections see the widget-scope reasoning above
     <Card options={{ padded: false }} className="p-4" testId={testId}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
+      <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+        <div className="flex min-w-0 flex-1 basis-[7rem] items-center gap-2 text-muted-foreground">
           {icon !== undefined && (
             <span
               className={cn(

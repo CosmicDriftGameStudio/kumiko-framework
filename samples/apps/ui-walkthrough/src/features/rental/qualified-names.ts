@@ -8,4 +8,5 @@ export const RENTAL_QUERIES = {
 export const RENTAL_WRITES = {
   leaseTerminate: "rental:write:lease:terminate",
   rentAdjust: "rental:write:rent:adjust",
+  positionsRecord: "rental:write:lease:record-positions",
 } as const;

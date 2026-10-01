@@ -22,6 +22,34 @@ export const rentAdjustPayloadSchema = z.object({
 
 const moneySchema = z.object({ amount: z.number(), currency: z.string() });
 
+export const POSITION_KINDS = ["grundmiete", "nebenkosten", "heizkosten", "stellplatz"] as const;
+export const POSITION_MEASURES = ["monat", "quadratmeter", "stueck"] as const;
+export const PAYMENT_METHODS = ["ueberweisung", "lastschrift", "dauerauftrag"] as const;
+
+export const recordPositionsPayloadSchema = z.object({
+  lease: z.uuid(),
+  zahlungsweise: z.enum(PAYMENT_METHODS).optional(),
+  items: z
+    .array(
+      z.object({
+        unit: z.uuid(),
+        kind: z.enum(POSITION_KINDS),
+        quantity: z.number(),
+        measure: z.enum(POSITION_MEASURES),
+        unitPrice: moneySchema,
+        vatRate: z.number().optional(),
+        validFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        validTo: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .optional(),
+      }),
+    )
+    .min(1),
+});
+
+export type RecordedPositionItem = z.output<typeof recordPositionsPayloadSchema>["items"][number];
+
 const readDateSchema = z
   .custom<{ toString(): string }>((value) => value !== null && value !== undefined)
   .transform(String);

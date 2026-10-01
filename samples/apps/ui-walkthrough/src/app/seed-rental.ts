@@ -152,6 +152,13 @@ const BOARD_LEASES: readonly BoardLease[] = [
     beginn: "2026-01-01",
     miete: 635,
   },
+  {
+    mieter: "Lena Langlabel",
+    einheit: "Haus Kautionsweg — WE-41 · 01.09.2026",
+    liegenschaft: "Haus Kautionsweg",
+    beginn: "2024-01-01",
+    miete: 610,
+  },
 ];
 
 const MAX_NACHMIETER_INDEX = 2;
