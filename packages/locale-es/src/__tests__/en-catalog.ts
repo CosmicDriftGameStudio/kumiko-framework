@@ -611,6 +611,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.list.related-list-truncated":
     "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
   "kumiko.list.row-actions.more": "More actions",
+  "kumiko.page-header.actions": "Page actions",
   "kumiko.list.row.collapse": "Collapse {title}",
   "kumiko.list.row.expand": "Expand {title}",
   "kumiko.list.search-placeholder": "Search…",

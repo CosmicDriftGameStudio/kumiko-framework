@@ -217,7 +217,7 @@ function HeaderOverflow({
       <button
         ref={triggerRef}
         type="button"
-        aria-label={t("kumiko.list.row-actions.more")}
+        aria-label={t("kumiko.page-header.actions")}
         aria-expanded={open}
         aria-controls={panelId}
         data-testid="shell-header-overflow-trigger"

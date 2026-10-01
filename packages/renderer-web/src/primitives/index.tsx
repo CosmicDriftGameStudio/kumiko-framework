@@ -1629,25 +1629,30 @@ function DefaultDataTable({
             )}
           </div>
           {metaColumns.length > 0 && (
-            // Every item carries its "·" as a 12px ::before; the row is shifted 12px left
-            // inside an overflow-hidden box, so the separator of whichever item starts a
-            // line (first item or a wrapped one) is clipped and never shows at a line start.
+            // The "·" is a real element, not ::before content: consumers Tailwind-scan the published
+            // dist, where the arbitrary content class is never generated. The row is shifted 12px
+            // left inside an overflow-hidden box, so the separator of whichever item starts a line
+            // (first item or a wrapped one) is clipped.
             <div className="min-w-0 max-h-10 overflow-hidden text-[13px] leading-5 tabular-nums text-foreground-secondary">
               <div
                 data-testid={`card-meta-${row.id}`}
                 className="-ml-3 flex flex-wrap items-center"
               >
                 {metaColumns.map((col) => (
-                  <span
-                    key={col.field}
-                    data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                    className="max-w-full truncate before:inline-block before:w-3 before:text-center before:content-['·'_/_'']"
-                  >
-                    {isBadgeColumn(col) ? (
-                      <span className="inline-flex align-middle">{cardCell(row, col)}</span>
-                    ) : (
-                      cardCell(row, col)
-                    )}
+                  <span key={col.field} className="flex min-w-0 max-w-full items-center">
+                    <span aria-hidden="true" className="w-3 shrink-0 text-center">
+                      ·
+                    </span>
+                    <span
+                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                      className="min-w-0 truncate"
+                    >
+                      {isBadgeColumn(col) ? (
+                        <span className="inline-flex align-middle">{cardCell(row, col)}</span>
+                      ) : (
+                        cardCell(row, col)
+                      )}
+                    </span>
                   </span>
                 ))}
               </div>
