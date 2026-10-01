@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Plugin-Contract + Domain-Types der subscription-foundation. Provider-
 // Plugins (subscription-stripe, subscription-mollie, ...) implementieren
 // `SubscriptionProviderPlugin` und registrieren via

@@ -63,6 +63,7 @@ const apexTranslations: TranslationsByLocale = {
     "userDataRights.privacyCenter.restriction.explainer":
       "Freeze your account: processing of your data is paused and you are signed out. Lifting the restriction afterwards is only possible via support.",
     "userDataRights.privacyCenter.restriction.restrict": "Restrict account",
+    "userDataRights.privacyCenter.restriction.dialogTitle": "Restrict your account?",
     "userDataRights.privacyCenter.restriction.dialogDescription":
       "You will be signed out immediately and cannot sign in again until support lifts the restriction.",
 
@@ -71,6 +72,7 @@ const apexTranslations: TranslationsByLocale = {
       "Request deletion of your account. Until the grace period ends you can cancel the deletion.",
     "userDataRights.privacyCenter.deletion.delete": "Delete account",
     "userDataRights.privacyCenter.deletion.cancel": "Cancel deletion",
+    "userDataRights.privacyCenter.deletion.dialogTitle": "Delete your account?",
     "userDataRights.privacyCenter.deletion.dialogDescription":
       "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
 

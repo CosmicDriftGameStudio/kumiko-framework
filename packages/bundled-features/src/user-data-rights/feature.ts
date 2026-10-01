@@ -321,12 +321,14 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         "userDataRights.privacyCenter.export.title": { en: "Export your data (Art. 20)" },
         "userDataRights.privacyCenter.restriction.title": { en: "Restrict processing (Art. 18)" },
         "userDataRights.privacyCenter.restriction.restrict": { en: "Restrict account" },
+        "userDataRights.privacyCenter.restriction.dialogTitle": { en: "Restrict your account?" },
         "userDataRights.privacyCenter.restriction.dialogDescription": {
           en: "You will be signed out immediately and cannot sign in again until support lifts the restriction.",
         },
         "userDataRights.privacyCenter.deletion.title": { en: "Delete account (Art. 17)" },
         "userDataRights.privacyCenter.deletion.delete": { en: "Delete account" },
         "userDataRights.privacyCenter.deletion.cancel": { en: "Cancel deletion" },
+        "userDataRights.privacyCenter.deletion.dialogTitle": { en: "Delete your account?" },
         "userDataRights.privacyCenter.deletion.dialogDescription": {
           en: "Confirming starts the deletion grace period. You can cancel the deletion until it ends.",
         },

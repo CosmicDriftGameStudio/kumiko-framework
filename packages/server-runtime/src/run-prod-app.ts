@@ -1,3 +1,4 @@
+/// <reference types="bun-types" preserve="true" />
 // runProdApp — production-grade Bootstrap-Wrapper für Kumiko-Apps.
 //
 // Symmetrisch zu runDevApp, aber:

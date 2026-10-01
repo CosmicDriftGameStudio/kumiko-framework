@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 import {
   type EventMetadata,
   isPersonalDataGated,

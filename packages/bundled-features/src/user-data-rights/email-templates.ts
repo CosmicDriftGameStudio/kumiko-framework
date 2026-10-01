@@ -17,7 +17,7 @@ export function normalizeGdprMailLocale(
   return root && root.length > 0 ? root : undefined;
 }
 
-const GDPR_MAIL_EN: Readonly<Record<string, string>> = {
+export const GDPR_MAIL_EN: Readonly<Record<string, string>> = {
   "gdpr.mail.appNameDefault": "Account",
   "gdpr.mail.greeting": "Hi,",
   "gdpr.mail.exportReady.subject": "{app} — Your data export is ready",

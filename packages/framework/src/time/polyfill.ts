@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Temporal polyfill bootstrap.
 //
 // Temporal is native in Chromium 144+ / Firefox 139+, but missing in Safari,

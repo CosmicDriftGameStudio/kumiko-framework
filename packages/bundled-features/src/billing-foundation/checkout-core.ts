@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Shared checkout plumbing for create-checkout-session, start-plan-checkout
 // and switch-plan — provider/catalog resolution, redirect-origin hardening,
 // and the price/subscription-state gate that turns a bare priceId-driven

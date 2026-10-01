@@ -1,3 +1,4 @@
+/// <reference types="bun-types" preserve="true" />
 // Bun.SQL-basierter Connection-Layer (KEIN drizzle). Production-Pfad
 // nach drizzle-removal. Erstellt parallel zum legacy `db/connection.ts`
 // — apps migrieren schritt-für-schritt, alte Datei weg sobald 0 Konsumenten.

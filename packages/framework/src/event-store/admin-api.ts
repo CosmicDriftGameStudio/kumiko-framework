@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Event-Store Admin-API — Marten-Bypass für Legacy-Daten-Importe.
 // Spec + Verhalten: docs/plans/features/event-store-admin-api.md
 //

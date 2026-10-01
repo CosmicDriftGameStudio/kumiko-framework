@@ -1,3 +1,4 @@
+/// <reference types="temporal-polyfill/global" preserve="true" />
 // Value-only import, aliased to avoid shadowing the ambient global
 // `Temporal` TYPE that ConsumerStateRow.updatedAt/StoredEventRow.createdAt
 // resolve against (same #1438 dual-package-hazard pattern as event-store.ts).

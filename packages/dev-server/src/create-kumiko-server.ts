@@ -1,3 +1,4 @@
+/// <reference types="bun-types" preserve="true" />
 // Dev server bootstrap. Wires the real Kumiko stack behind a Bun.serve
 // shell that also bundles the client, serves it at /client.js, mints
 // a JWT for a dev-admin on GET /, and broadcasts SSE reloads when
