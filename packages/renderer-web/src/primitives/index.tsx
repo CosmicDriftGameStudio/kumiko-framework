@@ -101,6 +101,7 @@ import {
   type TableHTMLAttributes,
   useContext,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -1164,11 +1165,59 @@ function FlushTable({ className, ...props }: TableHTMLAttributes<HTMLTableElemen
 // shadow because a border on a sticky cell scrolls away under border-collapse.
 // Column weight (medium vs. semibold for the sorted one) lives on the th itself
 // in SortableHeader: a `[&_th]:font-*` rule here would outrank it.
+// Child selectors only: an expanded row nests a whole table inside a cell, and
+// descendant selectors would make its header sticky and re-pad its cells.
 const FILL_TABLE_CLASS = cn(
-  "[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:h-9 [&_th]:bg-muted [&_th]:px-2 [&_th]:text-[13px]",
-  "[&_th]:shadow-[inset_0_-1px_0_var(--color-border)] [&_th_button]:text-[13px] [&_td]:px-2 [&_td]:py-0",
-  "[&_tr>:first-child]:pl-6 [&_tr>:last-child]:pr-6",
+  "[&>thead>tr>th]:sticky [&>thead>tr>th]:top-0 [&>thead>tr>th]:z-10 [&>thead>tr>th]:h-9 [&>thead>tr>th]:bg-muted [&>thead>tr>th]:px-2 [&>thead>tr>th]:text-[13px]",
+  "[&>thead>tr>th]:shadow-[inset_0_-1px_0_var(--color-border)] [&>thead>tr>th_button]:text-[13px] [&>tbody>tr>td]:px-2 [&>tbody>tr>td]:py-0",
+  "[&>*>tr>:first-child]:pl-6 [&>*>tr>:last-child]:pr-6",
 );
+
+// `!`: beats the first/last-child padding of FILL_TABLE_CLASS, which would
+// otherwise widen the narrow toggle column / pad the full-width expansion cell.
+// The nested table's sticky actions cell (last td) gets the muted surface
+// instead of its own md:bg-background, so it blends into the area.
+const EXPAND_TOGGLE_CELL_CLASS = "w-10 px-1! py-0!";
+const EXPANSION_CELL_CLASS =
+  "whitespace-normal bg-muted p-0! align-top md:[&_td:last-child]:bg-muted";
+const EXPANSION_CONTENT_CLASS = "pt-1 pr-4 pb-3.5 pl-[52px]";
+
+function RowExpandToggle({
+  expanded,
+  controlsId,
+  label,
+  onToggle,
+  testId,
+}: {
+  readonly expanded: boolean;
+  readonly controlsId: string;
+  readonly label: string;
+  readonly onToggle: () => void;
+  readonly testId: string;
+}): ReactNode {
+  return (
+    <UiButton
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="size-8 shrink-0"
+      aria-expanded={expanded}
+      {...(expanded && { "aria-controls": controlsId })}
+      aria-label={label}
+      data-testid={testId}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      <ChevronRight
+        className={cn("size-4 transition-transform", expanded && "rotate-90")}
+        aria-hidden="true"
+      />
+    </UiButton>
+  );
+}
 
 const TABLE_FOOTER_BAR_CLASS = cn(
   "flex h-15 shrink-0 items-center gap-4 border-t border-border bg-card pl-4 pr-2",
@@ -1233,6 +1282,9 @@ function DefaultDataTable({
   chromeless,
   scrollBody,
   screenPadding,
+  expandedRowIds,
+  onToggleRowExpanded,
+  renderExpandedRow,
 }: DataTableProps): ReactNode {
   // One locale/translate subscription per table — not per cell (fw#2345).
   // Optional hooks: a bare DataTable outside LocaleProvider must not crash.
@@ -1264,6 +1316,57 @@ function DefaultDataTable({
   const rowClickLabel = rowActions?.find((action) => action.rowClick === true)?.label;
   const hasTableActions = tableActions !== undefined && tableActions.length > 0;
   const isEmpty = rows.length === 0;
+  const expansionIdPrefix = useId();
+  const isRowExpandable = renderExpandedRow !== undefined && onToggleRowExpanded !== undefined;
+  const rowTestId = (row: ListRowViewModel): string => getRowTestId?.(row) ?? `row-${row.id}`;
+  const expansionDomId = (row: ListRowViewModel): string => `${expansionIdPrefix}-${row.id}`;
+  // The expand toggle of a row, shared by table and card layout. Named after
+  // the first data column, the one a user recognizes the row by.
+  function renderExpandToggle(row: ListRowViewModel): ReactNode {
+    if (!isRowExpandable) return null;
+    const expanded = expandedRowIds?.has(row.id) === true;
+    const firstColumn = columns[0];
+    const title =
+      (firstColumn !== undefined ? cellTitle(row.values[firstColumn.field]) : undefined) ?? "";
+    const labelKey = expanded ? "kumiko.list.row.collapse" : "kumiko.list.row.expand";
+    return (
+      <RowExpandToggle
+        expanded={expanded}
+        controlsId={expansionDomId(row)}
+        label={
+          tableTranslate?.(labelKey, { title }) ?? `${expanded ? "Collapse" : "Expand"} ${title}`
+        }
+        onToggle={() => onToggleRowExpanded(row.id)}
+        testId={`${rowTestId(row)}-toggle`}
+      />
+    );
+  }
+  function renderExpansion(row: ListRowViewModel, as: "row" | "item", colSpan: number): ReactNode {
+    if (!isRowExpandable || expandedRowIds?.has(row.id) !== true) return null;
+    const content = renderExpandedRow(row);
+    if (as === "item") {
+      return (
+        <li
+          id={expansionDomId(row)}
+          data-testid={`${rowTestId(row)}-expansion`}
+          className="border-b border-border-row bg-muted px-4 pt-1 pb-3.5"
+        >
+          {content}
+        </li>
+      );
+    }
+    return (
+      <TableRow
+        id={expansionDomId(row)}
+        data-testid={`${rowTestId(row)}-expansion`}
+        className="hover:bg-transparent"
+      >
+        <TableCell colSpan={colSpan} className={EXPANSION_CELL_CLASS}>
+          <div className={EXPANSION_CONTENT_CLASS}>{content}</div>
+        </TableCell>
+      </TableRow>
+    );
+  }
   const fillsHeight = scrollBody === true;
   const TableRoot = fillsHeight ? FlushTable : Table;
   const emptyBlock: ReactNode = (
@@ -1299,6 +1402,9 @@ function DefaultDataTable({
         <TableRoot data-testid={testId} className={fillsHeight ? FILL_TABLE_CLASS : undefined}>
           <TableHeader className="bg-muted">
             <TableRow className="hover:bg-transparent">
+              {isRowExpandable && (
+                <TableHead data-testid="column-expand" className={EXPAND_TOGGLE_CELL_CLASS} />
+              )}
               {columns.map((col) => (
                 <SortableHeader
                   key={col.field}
@@ -1329,89 +1435,107 @@ function DefaultDataTable({
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow
-                key={row.id}
-                data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
-                onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-                className={cn(
-                  onRowClick !== undefined && "cursor-pointer",
-                  fillsHeight && "h-10 border-border-row hover:bg-muted",
-                )}
-              >
-                {columns.map((col, colIndex) => (
-                  <TableCell
-                    key={col.field}
-                    data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                    data-highlighted={col.highlighted === true ? "true" : undefined}
-                    // Cells truncate long values with ellipsis instead of
-                    // wrapping — lists stay single-line + scannable (Linear
-                    // pattern). max-w-xs gives a sensible default upper
-                    // bound; the table container scrolls horizontally
-                    // if the sum of the columns gets too wide.
-                    className={cn(
-                      "max-w-xs truncate",
-                      colIndex === 0 ? "font-medium text-foreground" : "text-foreground-secondary",
-                      NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
-                      TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
-                      col.highlighted === true && "bg-accent/40",
-                    )}
-                    title={cellTitle(row.values[col.field])}
-                  >
-                    <FirstCellLink
-                      enabled={
-                        colIndex === 0 && onRowClick !== undefined && onCellChange === undefined
-                      }
-                      onOpen={() => onRowClick?.(row)}
-                      empty={isEmptyCellValue(row.values[col.field])}
-                      emptyLabel={rowClickLabel}
+              <Fragment key={row.id}>
+                <TableRow
+                  data-testid={rowTestId(row)}
+                  onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
+                  className={cn(
+                    onRowClick !== undefined && "cursor-pointer",
+                    fillsHeight && "h-10 border-border-row hover:bg-muted",
+                  )}
+                >
+                  {isRowExpandable && (
+                    <TableCell
+                      data-testid={getCellTestId?.(row, "expand") ?? `cell-${row.id}-expand`}
+                      className={EXPAND_TOGGLE_CELL_CLASS}
                     >
-                      <DataTableCell
-                        value={row.values[col.field]}
-                        row={row.values}
-                        field={col.field}
-                        type={col.type}
-                        renderer={col.renderer}
-                        translate={tableTranslate}
-                        locale={tableLocale}
-                        {...(col.optionLabels !== undefined && { optionLabels: col.optionLabels })}
-                        {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
-                        {...(col.grouping !== undefined && { grouping: col.grouping })}
-                        {...(onCellChange !== undefined && {
-                          onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-                        })}
+                      {renderExpandToggle(row)}
+                    </TableCell>
+                  )}
+                  {columns.map((col, colIndex) => (
+                    <TableCell
+                      key={col.field}
+                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
+                      data-highlighted={col.highlighted === true ? "true" : undefined}
+                      // Cells truncate long values with ellipsis instead of
+                      // wrapping — lists stay single-line + scannable (Linear
+                      // pattern). max-w-xs gives a sensible default upper
+                      // bound; the table container scrolls horizontally
+                      // if the sum of the columns gets too wide.
+                      className={cn(
+                        "max-w-xs truncate",
+                        colIndex === 0
+                          ? "font-medium text-foreground"
+                          : "text-foreground-secondary",
+                        NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
+                        TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
+                        col.highlighted === true && "bg-accent/40",
+                      )}
+                      title={cellTitle(row.values[col.field])}
+                    >
+                      <FirstCellLink
+                        enabled={
+                          colIndex === 0 && onRowClick !== undefined && onCellChange === undefined
+                        }
+                        onOpen={() => onRowClick?.(row)}
+                        empty={isEmptyCellValue(row.values[col.field])}
+                        emptyLabel={rowClickLabel}
+                      >
+                        <DataTableCell
+                          value={row.values[col.field]}
+                          row={row.values}
+                          field={col.field}
+                          type={col.type}
+                          renderer={col.renderer}
+                          translate={tableTranslate}
+                          locale={tableLocale}
+                          {...(col.optionLabels !== undefined && {
+                            optionLabels: col.optionLabels,
+                          })}
+                          {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
+                          {...(col.grouping !== undefined && { grouping: col.grouping })}
+                          {...(onCellChange !== undefined && {
+                            onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+                          })}
+                        />
+                      </FirstCellLink>
+                    </TableCell>
+                  ))}
+                  {hasTableActions && (
+                    <TableCell
+                      data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
+                      // From md: sticky-right so the actions stay visible on the
+                      // right edge during horizontal scroll. Below md, actions
+                      // scroll with the row like any other cell — sticky there
+                      // would hide the neighboring data column on narrow
+                      // viewports. bg-background sets the column apart during
+                      // scroll — no border-l (divider too heavy).
+                      className={cn(
+                        "text-right md:sticky md:right-0 md:z-10 md:bg-background",
+                        fillsHeight && "md:bg-card",
+                      )}
+                      // Action-cell events must not trigger the row click/activation
+                      // (typically "Open Detail" — the user wanted the action,
+                      // not navigation). We stopPropagation for mouse and
+                      // keyboard so a11y stays consistent.
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <RowActionsCell
+                        row={row}
+                        actions={tableActions}
+                        mode={rowActionMode}
+                        rowIsLink={rowIsLink}
                       />
-                    </FirstCellLink>
-                  </TableCell>
-                ))}
-                {hasTableActions && (
-                  <TableCell
-                    data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
-                    // From md: sticky-right so the actions stay visible on the
-                    // right edge during horizontal scroll. Below md, actions
-                    // scroll with the row like any other cell — sticky there
-                    // would hide the neighboring data column on narrow
-                    // viewports. bg-background sets the column apart during
-                    // scroll — no border-l (divider too heavy).
-                    className={cn(
-                      "text-right md:sticky md:right-0 md:z-10 md:bg-background",
-                      fillsHeight && "md:bg-card",
-                    )}
-                    // Action-cell events must not trigger the row click/activation
-                    // (typically "Open Detail" — the user wanted the action,
-                    // not navigation). We stopPropagation for mouse and
-                    // keyboard so a11y stays consistent.
-                    onClick={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  >
-                    <RowActionsCell
-                      row={row}
-                      actions={tableActions}
-                      mode={rowActionMode}
-                      rowIsLink={rowIsLink}
-                    />
-                  </TableCell>
+                    </TableCell>
+                  )}
+                </TableRow>
+                {renderExpansion(
+                  row,
+                  "row",
+                  columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0),
                 )}
-              </TableRow>
+              </Fragment>
             ))}
           </TableBody>
         </TableRoot>
@@ -1525,16 +1649,18 @@ function DefaultDataTable({
         )}
       </>
     );
-    return (
+    const rowItem = (
       <li
         key={row.id}
-        data-testid={getRowTestId?.(row) ?? `row-${row.id}`}
+        data-testid={rowTestId(row)}
         className={cn(
-          "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3 pl-4",
+          "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3",
+          isRowExpandable ? "pl-2" : "pl-4",
           hasMenu ? "pr-2" : "pr-4",
         )}
         {...(rowIsLink && { onClick: () => onRowClick(row) })}
       >
+        {renderExpandToggle(row)}
         {rowIsLink ? (
           <button
             type="button"
@@ -1563,6 +1689,15 @@ function DefaultDataTable({
           </div>
         )}
       </li>
+    );
+    if (!isRowExpandable) return rowItem;
+    // The expansion is a sibling <li>, outside the row's click target, so
+    // clicks in the sub-area never navigate the parent row.
+    return (
+      <Fragment key={row.id}>
+        {rowItem}
+        {renderExpansion(row, "item", 0)}
+      </Fragment>
     );
   }
 
@@ -2631,8 +2766,9 @@ export function defaultCellRender(
 }
 
 function humanizeSlug(slug: string): string {
-  // "degraded-performance" → "Degraded performance"
-  if (slug.length === 0) return slug;
+  // "degraded-performance" → "Degraded performance". A dotted value such as
+  // "mobile.de" is a domain, not a slug, and must stay as stored.
+  if (slug.includes(".")) return slug;
   const spaced = slug.replace(/[-_]/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

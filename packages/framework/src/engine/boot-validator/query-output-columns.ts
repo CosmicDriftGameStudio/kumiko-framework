@@ -250,6 +250,18 @@ function checkScreenOutputColumns(
 ): void {
   if (screen.type === "projectionList") {
     checkProjectionListOutputColumns(queryHandlers, featureName, screenId, screen);
+  } else if (screen.type === "entityList") {
+    if (screen.expandableRow !== undefined) {
+      const rowShape = getZodRowShape(queryHandlers.get(screen.expandableRow.query)?.outputSchema);
+      for (const column of screen.expandableRow.columns) {
+        checkColumnField(
+          rowShape,
+          column,
+          (field) =>
+            `[Feature ${featureName}] Screen "${screenId}" (entityList) expandableRow "${screen.expandableRow?.title}" column "${field}" is not present in query "${screen.expandableRow?.query}"'s outputSchema — check for a typo, or add a "label" to mark it a virtual/computed column.`,
+        );
+      }
+    }
   } else if (screen.type === "projectionDetail") {
     checkProjectionDetailOutputFields(queryHandlers, featureName, screenId, screen);
     checkEditLayoutOutputColumns(

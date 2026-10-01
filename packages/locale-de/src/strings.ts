@@ -632,6 +632,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.list.related-list-truncated":
     "Zeigt die ersten {count} Einträge. Es gibt weitere, die hier nicht angezeigt werden.",
   "kumiko.list.row-actions.more": "Weitere Aktionen",
+  "kumiko.list.row.collapse": "{title} zuklappen",
+  "kumiko.list.row.expand": "{title} aufklappen",
   "kumiko.list.search-placeholder": "Suchen…",
   "kumiko.list.sort.by": "Sortiert nach {column}",
   "kumiko.list.sort.label": "Sortieren",

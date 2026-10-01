@@ -116,6 +116,22 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
           screen: "host-secret-form",
         },
       ],
+      expandableRow: {
+        kind: "relatedList",
+        title: "Expanded",
+        query: "host:query:record:related",
+        columns: ["label"],
+        rowClick: { entity: "record" },
+        actions: [{ kind: "navigate", id: "ex-actions", label: "Ex", screen: SECRET_SCREEN_ID }],
+        rowActions: [{ kind: "navigate", id: "ex-row", label: "ExRow", screen: SECRET_SCREEN_ID }],
+        toolbarActions: [
+          { kind: "navigate", id: "ex-tb", label: "ExTb", screen: SECRET_SCREEN_ID },
+        ],
+        emptyState: {
+          title: "none",
+          action: { kind: "navigate", id: "ex-empty", label: "Empty", screen: SECRET_SCREEN_ID },
+        },
+      },
     });
     r.screen({
       id: "edit",
@@ -222,6 +238,11 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(list.rowActions).toHaveLength(3);
     expect(list.toolbarActions).toHaveLength(2);
     expect(list.createScreen).toBe("host-secret-form");
+    expect(list.expandableRow?.actions).toHaveLength(1);
+    expect(list.expandableRow?.rowActions).toHaveLength(1);
+    expect(list.expandableRow?.toolbarActions).toHaveLength(1);
+    expect(list.expandableRow?.rowClick).toEqual({ entity: "record" });
+    expect(list.expandableRow?.emptyState?.action).toBeDefined();
 
     const edit = host.screens.find((s) => s.id === "edit");
     expect(edit?.type).toBe("entityEdit");
@@ -297,6 +318,14 @@ describe("projectAppSchemaForRoles — leak invariant", () => {
     expect(list.rowActions).toBeUndefined();
     expect(list.toolbarActions).toBeUndefined();
     expect(list.createScreen).toBeUndefined();
+    // The sub-list itself stays (its query is not a screen target); only the
+    // navigate sites into the denied screen are stripped.
+    expect(list.expandableRow?.title).toBe("Expanded");
+    expect(list.expandableRow?.actions).toBeUndefined();
+    expect(list.expandableRow?.rowActions).toBeUndefined();
+    expect(list.expandableRow?.toolbarActions).toBeUndefined();
+    expect(list.expandableRow?.rowClick).toBeUndefined();
+    expect(list.expandableRow?.emptyState?.action).toBeUndefined();
 
     const edit = host.screens.find((s) => s.id === "edit");
     expect(edit?.type).toBe("entityEdit");

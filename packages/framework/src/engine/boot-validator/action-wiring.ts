@@ -65,6 +65,14 @@ export function validateActionWiring(feature: FeatureDefinition): void {
     for (const action of screen.toolbarActions ?? []) {
       validateActionNoFunctions(feature.name, screen.id, "toolbarAction", action);
     }
+    if (screen.type === "entityList" && screen.expandableRow !== undefined) {
+      validateColumnsNoFunctions(
+        feature.name,
+        screen.id,
+        "entityList",
+        screen.expandableRow.columns,
+      );
+    }
   }
 }
 

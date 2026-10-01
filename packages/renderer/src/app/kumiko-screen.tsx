@@ -31,7 +31,12 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { fieldLabelKey, fieldOptionLabelKey, isSafeHref } from "@cosmicdrift/kumiko-headless";
+import {
+  computeRelatedListSectionViewModel,
+  fieldLabelKey,
+  fieldOptionLabelKey,
+  isSafeHref,
+} from "@cosmicdrift/kumiko-headless";
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -73,6 +78,7 @@ import { useAppFeatures } from "./app-features-context.js";
 import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim.js";
 import { useCustomScreenComponent } from "./custom-screens.js";
 import { useDashboardBody } from "./dashboard-body.js";
+import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
 import type { FeatureSchema } from "./feature-schema.js";
 import { buildFormSchema } from "./form-schema.js";
 import { layoutFieldNames } from "./layout-fields.js";
@@ -2207,6 +2213,54 @@ function EntityListBody({
     ],
   );
 
+  // Expandable rows: open state is keyed by row id, so it survives refetch,
+  // sort and page changes. Several rows can be open at once.
+  const expandableRow = screen.expandableRow;
+  const expandableSection = useMemo(
+    () =>
+      expandableRow !== undefined
+        ? computeRelatedListSectionViewModel(expandableRow, effectiveTranslate)
+        : undefined,
+    [expandableRow, effectiveTranslate],
+  );
+  const [expandedRowIds, setExpandedRowIds] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleRowExpanded = useCallback((rowId: string) => {
+    setExpandedRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  }, []);
+  // Bumped after a write that ran outside the sub-list (drawer submit,
+  // title-row action) so open sub-lists remount and reload.
+  const [expansionNonce, setExpansionNonce] = useState(0);
+  const invalidateExpansions = useCallback(() => setExpansionNonce((n) => n + 1), []);
+  const renderExpandedRow = useCallback(
+    (row: ListRowViewModel): ReactNode =>
+      expandableSection === undefined ? null : (
+        <EntityListExpandedRow
+          section={expandableSection}
+          row={row}
+          featureName={featureName}
+          {...(translate !== undefined && { translate })}
+          expansionNonce={expansionNonce}
+          openDrawer={openDrawer}
+          onAfterWrite={refreshRowsAfterWrite}
+          onSubListInvalidated={invalidateExpansions}
+        />
+      ),
+    [
+      expandableSection,
+      featureName,
+      translate,
+      expansionNonce,
+      openDrawer,
+      refreshRowsAfterWrite,
+      invalidateExpansions,
+    ],
+  );
+
   if (rowsQuery.loading && rowsQuery.data === null) {
     return (
       <Banner padded variant="loading" testId="kumiko-screen-loading">
@@ -2302,6 +2356,11 @@ function EntityListBody({
           onFilterChange: urlState.setFilter,
           onFilterReset: urlState.clearFilters,
         })}
+        {...(expandableSection !== undefined && {
+          expandedRowIds,
+          onToggleRowExpanded: toggleRowExpanded,
+          renderExpandedRow,
+        })}
       />
       <DrawerHost
         schema={schema}
@@ -2313,6 +2372,7 @@ function EntityListBody({
         onClose={closeDrawer}
         onSuccess={() => {
           closeDrawer();
+          invalidateExpansions();
           void rowsQuery.refetch();
         }}
       />

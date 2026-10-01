@@ -81,6 +81,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.list.count.one": "1 entry",
     "kumiko.list.count.other": "{count} entries",
     "kumiko.list.row-actions.more": "More actions",
+    "kumiko.list.row.collapse": "Collapse {title}",
+    "kumiko.list.row.expand": "Expand {title}",
     "kumiko.list.sort.by": "Sorted by {column}",
     "kumiko.form.changed": "changed",
     "kumiko.form.on-this-page": "On this page",

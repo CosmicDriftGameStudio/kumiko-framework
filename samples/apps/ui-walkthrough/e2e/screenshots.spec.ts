@@ -259,6 +259,25 @@ test("inter-hyphen-light", async ({ page }) => {
   await shot(page, "inter-hyphen-light");
 });
 
+async function openCampaignList(page: Page): Promise<void> {
+  await login(page);
+  await page.goto("/campaign-list");
+  await page.locator(LIST_TABLE).waitFor();
+  await page.getByText("Herbst - Gebrauchtwagen").waitFor();
+}
+
+test("campaign-list-collapsed", async ({ page }) => {
+  await openCampaignList(page);
+  await shot(page, "campaign-list-collapsed");
+});
+
+test("campaign-list-expanded", async ({ page }) => {
+  await openCampaignList(page);
+  await page.locator('[data-testid$="-toggle"]').first().click();
+  await expect(page.getByText("Fotostrecke Außenansicht")).toBeVisible();
+  await shot(page, "campaign-list-expanded");
+});
+
 test.describe("mobile", () => {
   test.use({ viewport: MOBILE });
 

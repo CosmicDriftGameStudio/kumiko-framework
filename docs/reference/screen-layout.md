@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-01
-evidence: "kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
+evidence: "kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -75,5 +75,36 @@ rowActions: [
 - The drawer body scrolls, header and footer stay fixed. Long forms stay pages: use a `navigate` row action and an `entityEdit` screen.
 - `kind: "drawer"` is also available on related list row actions and on toolbar actions. Without `kind: "drawer"`, actions behave as before.
 - Each field of the form is prefilled from the row through `params` (`pick`, `map`) when the field names match.
+
+## Expandable rows
+
+`expandableRow` on an entityList puts a related list under each row. It takes the same fields as a projectionDetail `relatedList` section, without `id` and `countField`. The row's `id` is the parent id, passed through `parentFilter` or `parentParam` as in a tab.
+
+```ts illustration
+expandableRow: {
+  kind: "relatedList",
+  title: "campaigns.posts.title",
+  query: "campaigns:query:campaign-post:list",
+  parentFilter: { field: "campaign" },
+  entity: "campaignPost",
+  columns: [{ field: "datum", sortable: true }, "kanal", "status"],
+  rowActions: [
+    {
+      kind: "writeHandler",
+      id: "mark-posted",
+      label: "campaigns.action.mark-posted",
+      handler: "campaigns:write:campaign-post:mark-posted",
+      payload: { pick: ["id"] },
+    },
+  ],
+},
+```
+
+- An arrow button in a narrow first column opens and closes the area. It is a real button with `aria-expanded`, so Tab, Enter and Space work, and it never triggers the row click. Several rows can be open at once, and they stay open across reloads, sorting and paging.
+- The area sits on the muted surface directly under the row: title and `actions` on top, then the list without its own card frame. The pager and the fixed screen height stay as they are; the area scrolls with the rows.
+- A successful write from the area (row action, toolbar action, emptyState action, drawer submit) reloads the related list and the parent list, so a counter on the parent row updates.
+- `entity` (also available on projectionDetail relatedList sections) names the entity behind the query rows, as an entity name or `feature:entity`. Columns that name one of its fields render like entityList columns: a select as a status badge with the translated option label, dates locale-formatted, and the header from the field's label key. The column's own `sortable` still decides the header sort. Without `entity`, every column is plain text.
+- The boot validator checks the area like a relatedList section (query, columns against the output schema, handlers, rowClick target, defaultSort, search and facets).
+- Custom DataTable primitives (for example a native renderer) implement `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` from `DataTableProps`. A primitive that ignores them renders the list without the arrow column.
 
 Related: `docs/reference/theming.md` for tokens and fonts, `docs/reference/select-field.md` for the select presentation.

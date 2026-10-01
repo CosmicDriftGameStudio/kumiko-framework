@@ -433,6 +433,12 @@ export type RelatedListToolbarAction =
       readonly visible?: FieldCondition;
     });
 
+/** Expandable area of an `entityList` row: a relatedList of the row's record.
+ *  `id` (tab id) and `countField` (tab badge) have no meaning outside a tabs
+ *  layout and are therefore omitted. `kind` stays the discriminator so further
+ *  expansion kinds can be added without a breaking change. */
+export type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField">;
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -464,6 +470,11 @@ export type EntityListScreenDefinition = {
    *  etc. — neben "+ Neu" wenn vorhanden. Reihenfolge im Array = UI-
    *  Reihenfolge, primary-style links. */
   readonly toolbarActions?: readonly ToolbarAction[];
+  /** Expandable area under each row: a relatedList of the row's record
+   *  (parentId = the row's `id`). Rows get a toggle button; several rows can
+   *  be open at once. Its own row actions run against the sub-list rows, and
+   *  a successful write also reloads this list. */
+  readonly expandableRow?: EntityListExpandableRow;
   /** Server-side Filter, fest am Screen — drei Buckets derselben
    *  Entity ohne Custom-Pages (z.B. "Upcoming" / "Active" / "Past"
    *  Maintenance). User-side q-Search läuft AUF dem gefilterten Set
@@ -1112,6 +1123,13 @@ export type EditRelatedListSection = {
    *  `filter` (same requirement `filter`/`facets` already have). */
   readonly parentFilter?: { readonly field: string };
   readonly columns: readonly ListColumnSpec[];
+  /** Entity the query's rows belong to: an entity name (same feature) or
+   *  `feature:entity`. Columns that name one of its fields render like an
+   *  entityList column of that field (select as a status badge with the
+   *  translated option label, dates locale-formatted, default header from the
+   *  field's label key). The column's own `sortable` still decides the
+   *  header sort. Without it every column renders as plain text. */
+  readonly entity?: string;
   /** i18n key for the one-line hint at the left of the tab toolbar. */
   readonly description?: string;
   /** i18n key holding plural forms for the footer count ("1 Position",

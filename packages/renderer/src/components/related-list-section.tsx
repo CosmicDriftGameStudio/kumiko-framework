@@ -4,7 +4,7 @@ import type {
   RowActionDrawer,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeListColumn } from "@cosmicdrift/kumiko-framework/ui-types";
+import { normalizeListColumn, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   EditRelatedListSectionViewModel,
   ListRowViewModel,
@@ -55,19 +55,25 @@ type PagedRows = {
 // Minimal EntityDefinition from the section's own columns — same shape as
 // projection-list-shim's synthesizeProjectionEntity, but sortable is read
 // per-column (ListColumnSpec.sortable) instead of screen-wide, since a
-// relatedList section has no single Zod schema to derive it from.
+// relatedList section has no single Zod schema to derive it from. With a
+// declared `entity`, a column naming one of its fields takes that field's
+// definition, so RenderList formats it exactly like an entityList column;
+// only `sortable` stays per-column because the sort runs locally.
 function synthesizeRelatedListEntity(
   columns: EditRelatedListSectionViewModel["columns"],
+  sourceEntity: EntityDefinition | undefined,
 ): EntityDefinition {
-  const fields: Record<string, { type: string; sortable: boolean }> = {};
+  const fields: Record<string, unknown> = {};
   for (const col of columns) {
     const normalized = normalizeListColumn(col);
-    fields[normalized.field] = {
-      type: normalized.valueType ?? "text",
-      sortable: normalized.sortable === true,
-    };
+    const sortable = normalized.sortable === true;
+    const sourceField = sourceEntity?.fields[normalized.field];
+    fields[normalized.field] =
+      sourceField !== undefined
+        ? { ...sourceField, sortable }
+        : { type: normalized.valueType ?? "text", sortable };
   }
-  return { fields } as unknown as EntityDefinition;
+  return { ...sourceEntity, fields } as unknown as EntityDefinition;
 }
 
 // Mirrors row-actions.ts's own warnDrawerActionDropped (module-private
@@ -91,6 +97,8 @@ export function RelatedListSection({
   grow,
   onOpenDrawer,
   actions,
+  embedded,
+  onAfterWrite,
 }: {
   readonly section: EditRelatedListSectionViewModel;
   readonly parentId: string;
@@ -115,8 +123,16 @@ export function RelatedListSection({
    *  (non-`hideTitle`) branch below — `hideTitle` uses `FillContainer`, which
    *  has no title row to render actions into (see the comment on that branch). */
   readonly actions?: ReactNode;
+  /** Mounted inside a host row (entityList `expandableRow`): unframed, in
+   *  document flow (no Section card, no scrollBody), with its own title row
+   *  carrying `actions`. */
+  readonly embedded?: boolean;
+  /** Runs after this section's own refetch once a write action (row action,
+   *  toolbar action, emptyState action) succeeded — lets a host reload data
+   *  the write also changed. */
+  readonly onAfterWrite?: () => void | Promise<void>;
 }): ReactNode {
-  const { Banner, Section, FillContainer, Text, Button, Dialog } = usePrimitives();
+  const { Banner, Section, Card, FillContainer, Text, Button, Dialog } = usePrimitives();
   const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
@@ -135,7 +151,24 @@ export function RelatedListSection({
     [defaultEditScreen, section.rowClick],
   );
 
-  const entity = useMemo(() => synthesizeRelatedListEntity(section.columns), [section.columns]);
+  // RenderList derives header and option-label keys from (featureName,
+  // screen.entity), so a declared entity also supplies both.
+  const sourceTarget = useMemo(
+    () => (section.entity !== undefined ? parseRefTarget(section.entity, featureName) : undefined),
+    [section.entity, featureName],
+  );
+  const sourceEntity =
+    sourceTarget !== undefined
+      ? appFeatures.find((f) => f.featureName === sourceTarget.featureName)?.entities[
+          sourceTarget.entityName
+        ]
+      : undefined;
+  const listFeatureName = sourceEntity !== undefined ? sourceTarget?.featureName : undefined;
+  const listEntityName = sourceEntity !== undefined ? sourceTarget?.entityName : undefined;
+  const entity = useMemo(
+    () => synthesizeRelatedListEntity(section.columns, sourceEntity),
+    [section.columns, sourceEntity],
+  );
   const listScreen = useMemo(
     (): EntityListScreenDefinition => ({
       // Empty id → RenderList's own toolbarTitle resolves to "" (its
@@ -144,10 +177,10 @@ export function RelatedListSection({
       // so RenderList's toolbar carries none.
       id: "",
       type: "entityList",
-      entity: RELATED_LIST_PSEUDO_ENTITY,
+      entity: listEntityName ?? RELATED_LIST_PSEUDO_ENTITY,
       columns: section.columns,
     }),
-    [section.columns],
+    [section.columns, listEntityName],
   );
 
   // Local state, not URL state: a section `id` is optional, so there is no
@@ -217,6 +250,11 @@ export function RelatedListSection({
   );
 
   const rowsQuery = useQuery<PagedRows>(section.query, payload);
+  const ownRefetch = rowsQuery.refetch;
+  const refetchSelfAndHost = useCallback(async (): Promise<void> => {
+    await ownRefetch();
+    await onAfterWrite?.();
+  }, [ownRefetch, onAfterWrite]);
 
   const onFilterChange = useCallback(
     (field: string, values: readonly string[]) =>
@@ -276,7 +314,7 @@ export function RelatedListSection({
         translate: effectiveTranslate,
         dispatcher,
         nav,
-        refetch: rowsQuery.refetch,
+        refetch: refetchSelfAndHost,
         openDrawer: onOpenDrawer,
         defaultEditRowAction,
         host,
@@ -286,7 +324,7 @@ export function RelatedListSection({
       effectiveTranslate,
       dispatcher,
       nav,
-      rowsQuery.refetch,
+      refetchSelfAndHost,
       onOpenDrawer,
       defaultEditRowAction,
       host,
@@ -302,7 +340,7 @@ export function RelatedListSection({
         translate: effectiveTranslate,
         dispatcher,
         nav,
-        refetch: rowsQuery.refetch,
+        refetch: refetchSelfAndHost,
         navigatePrefill:
           section.parentFilter !== undefined
             ? { [section.parentFilter.field]: parentId }
@@ -323,7 +361,7 @@ export function RelatedListSection({
       dispatcher,
       nav,
       host,
-      rowsQuery.refetch,
+      refetchSelfAndHost,
       onOpenDrawer,
     ],
   );
@@ -350,7 +388,7 @@ export function RelatedListSection({
       host,
       dispatcher,
       openDrawer: onOpenDrawer ?? (() => {}),
-      onWriteSuccess: rowsQuery.refetch,
+      onWriteSuccess: refetchSelfAndHost,
     })?.[0];
   }, [
     section.emptyState,
@@ -360,7 +398,7 @@ export function RelatedListSection({
     host,
     dispatcher,
     onOpenDrawer,
-    rowsQuery.refetch,
+    refetchSelfAndHost,
   ]);
   const emptyStateContent =
     section.emptyState !== undefined ? (
@@ -421,7 +459,7 @@ export function RelatedListSection({
             screen={listScreen}
             entity={entity}
             rows={sortedRows}
-            featureName={featureName}
+            featureName={listFeatureName ?? featureName}
             translate={effectiveTranslate}
             {...(section.description !== undefined && { description: section.description })}
             {...(section.itemNoun !== undefined && { itemNounKey: section.itemNoun })}
@@ -447,6 +485,7 @@ export function RelatedListSection({
               screenPadding: false,
               chromeless: true,
             })}
+            {...(embedded === true && { screenPadding: false, chromeless: true })}
           />
         </PageHeaderSlotAvailableProvider>
       </>
@@ -462,6 +501,27 @@ export function RelatedListSection({
   // Section card and document-flow height since they render a visible title
   // and aren't confined to a tab panel.
   const bridges = <ReferenceFacetBridges specs={facetSpecs} onOptions={handleFacetOptions} />;
+
+  if (embedded === true) {
+    const countSuffix = rowsQuery.data !== null ? ` · ${sortedRows.length}` : "";
+    return (
+      <>
+        {bridges}
+        <Card
+          options={{ framed: false, padded: false }}
+          // Trim the default header inset: the host row already pads the area.
+          className="[&>div:first-child]:px-0 [&>div:first-child]:pt-1 [&>div:first-child]:pb-2"
+          slots={{
+            title: `${section.title}${countSuffix}`,
+            ...(actions !== undefined && { headerActions: actions }),
+          }}
+          testId={`related-list-${section.title}-${parentId}`}
+        >
+          {content}
+        </Card>
+      </>
+    );
+  }
 
   if (hideTitle) {
     return (

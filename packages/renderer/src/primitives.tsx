@@ -749,6 +749,17 @@ export type DataTableProps = {
    *  `scrollBody`'s flex-fill height budget.
    *  Default false: unchanged symmetric inset for an embedded table. */
   readonly screenPadding?: boolean;
+  /** Ids of the rows whose expansion area is currently open (controlled by
+   *  the host; several rows can be open at once). Only meaningful together
+   *  with `renderExpandedRow` + `onToggleRowExpanded`. */
+  readonly expandedRowIds?: ReadonlySet<string>;
+  /** User toggled a row's expand control. With `renderExpandedRow` this makes
+   *  every row expandable: the renderer adds a toggle (button with
+   *  `aria-expanded`) that does not trigger `onRowClick`. */
+  readonly onToggleRowExpanded?: (rowId: string) => void;
+  /** Content of the area under an expanded row. Native renderers implement
+   *  the same three props. */
+  readonly renderExpandedRow?: (row: ListRowViewModel) => ReactNode;
 };
 
 // ---- EmbeddedListInput (createEmbeddedListField widget) ----

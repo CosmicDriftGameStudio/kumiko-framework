@@ -119,7 +119,7 @@ function computeWriteFormSectionViewModel<TValues extends Readonly<Record<string
 
 // relatedList runs its own query — nothing here to resolve against
 // entity/values, the spec passes through verbatim (fw#2166).
-function computeRelatedListSectionViewModel(
+export function computeRelatedListSectionViewModel(
   sectionSpec: EditRelatedListSection,
   translate: Translate,
 ): EditRelatedListSectionViewModel {
@@ -130,6 +130,7 @@ function computeRelatedListSectionViewModel(
     ...(sectionSpec.parentParam !== undefined && { parentParam: sectionSpec.parentParam }),
     ...(sectionSpec.parentFilter !== undefined && { parentFilter: sectionSpec.parentFilter }),
     columns: sectionSpec.columns,
+    ...(sectionSpec.entity !== undefined && { entity: sectionSpec.entity }),
     ...(sectionSpec.description !== undefined && {
       description: translate(sectionSpec.description),
     }),

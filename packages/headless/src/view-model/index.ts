@@ -1,5 +1,5 @@
 export type { ComputeEditViewModelInput } from "./edit.js";
-export { computeEditViewModel } from "./edit.js";
+export { computeEditViewModel, computeRelatedListSectionViewModel } from "./edit.js";
 export type {
   DerivedCellRoundingTarget,
   EmbeddedDerivedOp,

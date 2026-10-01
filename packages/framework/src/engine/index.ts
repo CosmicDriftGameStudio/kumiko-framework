@@ -415,6 +415,7 @@ export type {
   EntityDefinition,
   EntityEditScreenDefinition,
   EntityId,
+  EntityListExpandableRow,
   EntityListScreenDefinition,
   EntityRef,
   EntityRelations,
