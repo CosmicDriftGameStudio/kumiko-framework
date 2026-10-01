@@ -30,6 +30,7 @@ import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from "lucide-react";
 import {
   type ClipboardEvent,
+  type CSSProperties,
   Fragment,
   type KeyboardEvent,
   type ReactNode,
@@ -52,37 +53,50 @@ import { useIsNarrowViewport } from "./use-narrow-viewport.js";
 // name-carrier before its focusable trigger button.
 const FOCUSABLE_SELECTOR = "input:not([type=hidden]), button, [tabindex]";
 
-function columnWidthClass(type: EmbeddedListCellType): string {
+// Widths in rem include the cell's padding. Short-value columns are fixed so
+// the table's free width goes to the text/reference columns, which only
+// declare a floor.
+const FLEXIBLE_COLUMN_MIN_REM = 6.5;
+const ACTIONS_COLUMN_REM = 7.5;
+
+function fixedColumnRem(type: EmbeddedListCellType): number | undefined {
   switch (type) {
-    // A fixed `w-*` caps the cell at exactly that width — the calendar
-    // button and money's stepper padding then eat into the space a
-    // locale value needs, clipping a digit or the currency sign. `min-w`
-    // sets a floor sized for each control's chrome instead, and still
-    // lets the column grow past it like text/select/reference below.
     case "number":
     case "decimal":
-      return "min-w-[9rem]";
-    // A locale-formatted date + calendar-trigger button + gap.
-    case "date":
-      return "min-w-[11rem]";
-    // Currency text (thousands separator, decimals, symbol) + the
-    // pr-20 MoneyInput reserves for its +/- stepper buttons.
+      return 5.5;
     case "money":
-      return "min-w-[13rem]";
-    // DateField (see "date" above) plus a separate fixed-width time input.
+      return 8.5;
+    case "date":
+      return 9.25;
     case "timestamp":
-      return "min-w-[19rem]";
+      return 15;
     case "boolean":
-      return "w-16";
-    case "text":
+      return 4;
     case "select":
+      return 9;
+    case "text":
     case "reference":
-      return "min-w-[10rem]";
+      return undefined;
     default: {
       const exhaustiveCheck: never = type;
       return exhaustiveCheck;
     }
   }
+}
+
+function columnWidthStyle(type: EmbeddedListCellType): CSSProperties | undefined {
+  const rem = fixedColumnRem(type);
+  return rem === undefined ? undefined : { width: `${rem}rem` };
+}
+
+// A table-fixed table distributes only the width beyond this sum; below it the
+// scroll container scrolls instead of squeezing columns.
+function tableMinWidthRem(columns: readonly EmbeddedListColumn[], hasActions: boolean): number {
+  const columnsRem = columns.reduce(
+    (sum, column) => sum + (fixedColumnRem(column.type) ?? FLEXIBLE_COLUMN_MIN_REM),
+    0,
+  );
+  return columnsRem + (hasActions ? ACTIONS_COLUMN_REM : 0);
 }
 
 function columnAlignClass(type: EmbeddedListCellType): string {
@@ -157,9 +171,9 @@ function IssueMessages({
 }: {
   readonly issues: readonly FieldIssue[] | undefined;
   readonly testId?: string;
-  // Table cells sit inside a `min-w-max` table (see EmbeddedListInput below):
-  // a long, unbounded message there widens the whole table instead of
-  // wrapping, forcing horizontal scroll. Only the desktop table-cell path
+  // Table cells sit inside a table that scrolls horizontally (see
+  // EmbeddedListInput below): a long, unbounded message there widens the
+  // column instead of wrapping, forcing horizontal scroll. Only the desktop table-cell path
   // needs this — mobile cards and full-width row/list issues wrap naturally.
   readonly constrainWidth?: boolean;
 }): ReactNode {
@@ -204,6 +218,7 @@ function renderCellControl({
         <UiInput
           data-cell-id={cellId}
           type="text"
+          className="min-w-0"
           disabled={isDisabled}
           value={typeof value === "string" ? value : ""}
           onChange={(e) => onChange(e.target.value)}
@@ -216,7 +231,7 @@ function renderCellControl({
           data-cell-id={cellId}
           type="number"
           disabled={isDisabled}
-          className="text-right tabular-nums"
+          className="min-w-0 text-right tabular-nums"
           value={typeof value === "number" ? value : ""}
           onChange={(e) => {
             const raw = e.target.value;
@@ -240,7 +255,7 @@ function renderCellControl({
         // ponytail: DateInput has no passthrough props for data-cell-id;
         // wrap it instead — the pendingFocusCellId effect walks into the
         // wrapper for its focusable descendant, so auto-focus still works.
-        <div data-cell-id={cellId}>
+        <div data-cell-id={cellId} className="w-full min-w-0">
           <DateInput
             id={cellId}
             name={cellId}
@@ -254,7 +269,7 @@ function renderCellControl({
       return (
         // ponytail: same wrapper pattern as "date" — TimestampInput has no
         // data-cell-id passthrough either.
-        <div data-cell-id={cellId}>
+        <div data-cell-id={cellId} className="w-full min-w-0">
           <TimestampInput
             id={cellId}
             name={cellId}
@@ -266,7 +281,7 @@ function renderCellControl({
       );
     case "money":
       return (
-        <div data-cell-id={cellId}>
+        <div data-cell-id={cellId} className="w-full min-w-0">
           <MoneyInput
             id={cellId}
             name={cellId}
@@ -283,7 +298,7 @@ function renderCellControl({
         label: column.optionLabels?.[opt] ?? opt,
       }));
       return (
-        <div data-cell-id={cellId}>
+        <div data-cell-id={cellId} className="w-full min-w-0">
           <ComboboxInput
             id={cellId}
             name={cellId}
@@ -297,7 +312,7 @@ function renderCellControl({
     }
     case "reference":
       return (
-        <div data-cell-id={cellId}>
+        <div data-cell-id={cellId} className="w-full min-w-0">
           <ComboboxInput
             id={cellId}
             name={cellId}
@@ -348,11 +363,12 @@ function RowActions({
   const duplicateDisabled = maxItems !== undefined && rowsLength >= maxItems;
   const removeDisabled = rowsLength <= (minItems ?? 0);
   return (
-    <div className="inline-flex items-center gap-1">
+    <div className="inline-flex items-center">
       <UiButton
         type="button"
         variant="ghost"
         size="icon"
+        className="size-7"
         aria-label={duplicateLabel}
         disabled={duplicateDisabled}
         onClick={() => onDuplicateRow(rowIndex)}
@@ -364,6 +380,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
+        className="size-7"
         aria-label={moveUpLabel}
         disabled={rowIndex === 0}
         onClick={() => onMoveRow(rowIndex, rowIndex - 1)}
@@ -375,6 +392,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
+        className="size-7"
         aria-label={moveDownLabel}
         disabled={rowIndex === rowsLength - 1}
         onClick={() => onMoveRow(rowIndex, rowIndex + 1)}
@@ -386,6 +404,7 @@ function RowActions({
         type="button"
         variant="ghost"
         size="icon"
+        className="size-7"
         aria-label={removeLabel}
         disabled={removeDisabled}
         onClick={() => onRemoveRow(rowIndex)}
@@ -499,6 +518,8 @@ export function EmbeddedListInput({
   const lastEditableIndex = columns.findLastIndex((column) => !column.derived);
 
   const showControls = disabled !== true;
+  const isHorizontallyScrollable =
+    scrollAffordance.canScrollLeft || scrollAffordance.canScrollRight;
   const addDisabled = maxItems !== undefined && rows.length >= maxItems;
 
   const handlePaste = (rowIndex: number, columnIndex: number) => {
@@ -595,22 +616,30 @@ export function EmbeddedListInput({
                 data-testid={testIdFor("desktop-scroll")}
                 className="overflow-x-auto [&_[data-slot=table-container]]:overflow-x-visible"
               >
-                <Table className="min-w-max">
+                <Table
+                  className="w-full table-fixed"
+                  style={{ minWidth: `${tableMinWidthRem(columns, showControls)}rem` }}
+                >
                   <TableHeader className="bg-muted">
                     <TableRow className="hover:bg-transparent">
                       {columns.map((column) => (
                         <TableHead
                           key={column.field}
-                          className={cn(
-                            columnWidthClass(column.type),
-                            columnAlignClass(column.type),
-                          )}
+                          style={columnWidthStyle(column.type)}
+                          className={columnAlignClass(column.type)}
                         >
                           {column.label}
                         </TableHead>
                       ))}
                       {showControls && (
-                        <TableHead className="w-px text-right" aria-label="Actions" />
+                        <TableHead
+                          className={cn(
+                            "sticky right-0 z-10 bg-muted px-1 text-right",
+                            isHorizontallyScrollable && "border-l",
+                          )}
+                          style={{ width: `${ACTIONS_COLUMN_REM}rem` }}
+                          aria-label="Actions"
+                        />
                       )}
                     </TableRow>
                   </TableHeader>
@@ -623,7 +652,7 @@ export function EmbeddedListInput({
                           // biome-ignore lint/suspicious/noArrayIndexKey: rows have no caller-guaranteed stable id; every cell is fully controlled (value+onChange), so reordering doesn't rely on DOM node identity surviving between renders.
                           key={rowIndex}
                         >
-                          <TableRow data-testid={testIdFor(`row-${rowIndex}`)}>
+                          <TableRow className="group" data-testid={testIdFor(`row-${rowIndex}`)}>
                             {columns.map((column, columnIndex) => {
                               const isLastCell = isLastRow && columnIndex === lastEditableIndex;
                               const issues = cellIssues?.[`${rowIndex}.${column.field}`];
@@ -631,7 +660,6 @@ export function EmbeddedListInput({
                                 <TableCell
                                   key={column.field}
                                   data-testid={testIdFor(`cell-${rowIndex}-${column.field}`)}
-                                  className={columnWidthClass(column.type)}
                                   onPaste={
                                     onPasteCells !== undefined
                                       ? handlePaste(rowIndex, columnIndex)
@@ -657,7 +685,12 @@ export function EmbeddedListInput({
                               );
                             })}
                             {showControls && (
-                              <TableCell className="text-right">
+                              <TableCell
+                                className={cn(
+                                  "sticky right-0 z-10 bg-card px-1 text-right group-hover:bg-muted",
+                                  isHorizontallyScrollable && "border-l",
+                                )}
+                              >
                                 <RowActions
                                   rowIndex={rowIndex}
                                   rowsLength={rows.length}
@@ -714,7 +747,7 @@ export function EmbeddedListInput({
                   className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-card to-transparent"
                 />
               )}
-              {scrollAffordance.canScrollRight && (
+              {scrollAffordance.canScrollRight && !showControls && (
                 <div
                   aria-hidden="true"
                   className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card to-transparent"

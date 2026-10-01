@@ -75,7 +75,8 @@ export type ComboboxInputProps = ComboboxBaseProps &
   );
 
 const triggerClass =
-  "flex h-9 w-full items-center justify-between rounded-md border border-input max-md:min-h-11 " +
+  "flex h-9 w-full min-w-0 items-center justify-between gap-2 " +
+  "rounded-md border border-input text-left max-md:min-h-11 " +
   "bg-transparent px-3 py-1 text-sm shadow-sm transition-colors " +
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 " +
   "focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50";
@@ -177,6 +178,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
         aria-invalid={hasError === true ? true : undefined}
         aria-haspopup="listbox"
         aria-expanded={open}
+        title={!multiple && singleLabel !== "" ? singleLabel : undefined}
         className={cn(
           triggerClass,
           hasError === true && "border-destructive focus-visible:ring-destructive",
@@ -202,9 +204,16 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
             )}
           </span>
         ) : (
-          <span className={singleLabel === "" ? "text-muted-foreground" : ""}>{triggerLabel}</span>
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-left",
+              singleLabel === "" && "text-muted-foreground",
+            )}
+          >
+            {triggerLabel}
+          </span>
         )}
-        <ChevronDown className="h-4 w-4 opacity-50" />
+        <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
       </PopoverPrimitive.Trigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content className={popoverContentClass} align="start" sideOffset={4}>

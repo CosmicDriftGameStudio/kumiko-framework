@@ -282,7 +282,7 @@ describe("EmbeddedListInput — issue rendering", () => {
   });
 
   // #1876: a long validation message in a narrow cell must wrap instead of
-  // widening the whole `min-w-max` desktop table into horizontal scroll.
+  // widening the column into horizontal scroll.
   test("cellIssues in the desktop table are width-constrained and wrap", () => {
     const rows = [{ description: "A", quantity: 1, amount: 100 }];
     renderWithLocale(
@@ -750,31 +750,58 @@ describe("EmbeddedListInput — totals follow the app locale, not the browser lo
 });
 
 describe("EmbeddedListInput — desktop table width (solon#107)", () => {
-  test("the table keeps min-w-max so columns don't shrink below their width classes", () => {
-    const rows = [{ description: "A", quantity: 1, amount: 100 }];
-    renderWithLocale(<EmbeddedListInput {...baseProps({ rows })} />);
-    const desktop = screen.getByTestId("lines-desktop");
-    const table = desktop.querySelector("table");
-    if (table === null) throw new Error("expected a <table> in the desktop layout");
-    expect(table.className).toContain("min-w-max");
+  const columns: readonly EmbeddedListColumn[] = [
+    { field: "description", label: "Description", type: "text", required: true, derived: false },
+    { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
+    { field: "amount", label: "Amount", type: "money", required: false, derived: false },
+    { field: "from", label: "From", type: "date", required: false, derived: false },
+    { field: "kind", label: "Kind", type: "select", required: false, derived: false },
+  ];
 
-    const headers = desktop.querySelectorAll("th");
-    expect(headers[0]?.className).toContain("min-w-[10rem]");
-    expect(headers[1]?.className).toContain("min-w-[9rem]");
-    expect(headers[2]?.className).toContain("min-w-[13rem]");
+  test("the table is fixed-layout, fills its container and never shrinks below the column sum", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const table = screen.getByTestId("lines-desktop").querySelector("table");
+    if (table === null) throw new Error("expected a <table> in the desktop layout");
+    expect(table.className).toContain("w-full");
+    expect(table.className).toContain("table-fixed");
+    expect(table.className).not.toContain("min-w-max");
+    // text 6.5 + number 5.5 + money 8.5 + date 9.25 + select 9 + actions 7.5
+    expect(table.style.minWidth).toBe("46.25rem");
   });
 
-  test("a money column is wider than a decimal/number column (framework#1880)", () => {
-    const columns: readonly EmbeddedListColumn[] = [
-      { field: "quantity", label: "Qty", type: "number", required: true, derived: false },
-      { field: "amount", label: "Amount", type: "money", required: false, derived: true },
-    ];
-    const rows = [{ quantity: 1, amount: 100 }];
-    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows })} />);
+  test("the minimum width omits the actions column when the list is disabled", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}], disabled: true })} />);
+    const table = screen.getByTestId("lines-desktop").querySelector("table");
+    expect(table?.style.minWidth).toBe("38.75rem");
+  });
+
+  test("short-value columns get a fixed width, text columns none", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const headers = screen.getByTestId("lines-desktop").querySelectorAll("th");
+    expect(headers[0]?.style.width).toBe("");
+    expect(headers[1]?.style.width).toBe("5.5rem");
+    expect(headers[2]?.style.width).toBe("8.5rem");
+    expect(headers[3]?.style.width).toBe("9.25rem");
+    expect(headers[4]?.style.width).toBe("9rem");
+    expect(headers[columns.length]?.style.width).toBe("7.5rem");
+  });
+
+  test("the actions column sticks to the right edge in header and body", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
     const desktop = screen.getByTestId("lines-desktop");
     const headers = desktop.querySelectorAll("th");
-    expect(headers[0]?.className).toContain("min-w-[9rem]");
-    expect(headers[1]?.className).toContain("min-w-[13rem]");
+    expect(headers[columns.length]?.className).toContain("sticky");
+    expect(headers[columns.length]?.className).toContain("right-0");
+    const actionsCell = screen.getByTestId("lines-row-0-remove").closest("td");
+    expect(actionsCell?.className).toContain("sticky");
+    expect(actionsCell?.className).toContain("right-0");
+    expect(actionsCell?.className).toContain("bg-card");
+  });
+
+  test("cell controls may shrink below their intrinsic width", () => {
+    renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}] })} />);
+    const cell = screen.getByTestId("lines-cell-0-kind");
+    expect(cell.querySelector("[data-cell-id]")?.className).toContain("min-w-0");
   });
 });
 

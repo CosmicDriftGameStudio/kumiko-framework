@@ -16,6 +16,8 @@ import {
   positionExecutor,
   positionListRowSchema,
   positionRowSchema,
+  type RecordedPositionItem,
+  recordPositionsPayloadSchema,
   rentAdjustPayloadSchema,
 } from "./lease-support";
 import {
@@ -25,7 +27,9 @@ import {
   leaseHubScreen,
   leaseListScreen,
   leaseListShortScreen,
+  partyEditScreen,
   positionEditScreen,
+  recordPositionsScreen,
   rentalDashboardScreen,
 } from "./screens";
 
@@ -34,6 +38,20 @@ export { leaseEntity, leasePartyEntity, leasePositionEntity };
 const open = openToAllSignedIn(
   "demo app: any signed-in user manages every lease; there is no per-user ownership in this sample",
 );
+
+function positionFromItem(lease: string, item: RecordedPositionItem) {
+  return {
+    lease,
+    art: item.kind,
+    einheit: item.measure,
+    betrag: {
+      amount: item.unitPrice.amount * item.quantity,
+      currency: item.unitPrice.currency,
+    },
+    gueltigVon: item.validFrom,
+    ...(item.validTo && { gueltigBis: item.validTo }),
+  };
+}
 
 export const rentalFeature = defineFeature("rental", (r) => {
   r.translations({ keys: toKeyFirst(rentalTranslations) });
@@ -137,6 +155,29 @@ export const rentalFeature = defineFeature("rental", (r) => {
   );
 
   r.writeHandler(
+    "lease:record-positions",
+    recordPositionsPayloadSchema,
+    async (event, ctx) => {
+      for (const item of event.payload.items.slice(0, -1)) {
+        const created = await positionExecutor.create(
+          positionFromItem(event.payload.lease, item),
+          event.user,
+          ctx.db,
+        );
+        if (!created.isSuccess) return created;
+      }
+      const lastItem = event.payload.items[event.payload.items.length - 1];
+      if (!lastItem) return failNotFound("leasePosition", event.payload.lease);
+      return positionExecutor.create(
+        positionFromItem(event.payload.lease, lastItem),
+        event.user,
+        ctx.db,
+      );
+    },
+    open,
+  );
+
+  r.writeHandler(
     "rent:adjust",
     rentAdjustPayloadSchema,
     async (event, ctx) => {
@@ -180,10 +221,12 @@ export const rentalFeature = defineFeature("rental", (r) => {
   r.screen(leaseListShortScreen);
   r.screen(leaseEditScreen);
   r.screen(positionEditScreen);
+  r.screen(partyEditScreen);
   r.screen(leaseDetailScreen);
   r.screen(leaseHubScreen);
   r.screen(rentalDashboardScreen);
   r.screen(adjustRentScreen);
+  r.screen(recordPositionsScreen);
 
   r.nav({
     id: "contracts",

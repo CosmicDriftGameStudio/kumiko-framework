@@ -5,7 +5,7 @@
 
 import { resolve } from "node:path";
 import { applyDefaultTheme, captureScreenshot } from "@cosmicdrift/kumiko-testing/e2e";
-import { type BrowserContext, expect, type Page, test } from "@playwright/test";
+import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { loginAsAdmin } from "./_helpers/login";
 
 const DESKTOP = { width: 1440, height: 900 } as const;
@@ -49,9 +49,88 @@ async function openMaxNachmieterPositions(page: Page): Promise<void> {
   await expect(page.getByText("Grundmiete").first()).toBeVisible();
 }
 
+const RECORD_POSITIONS_URL = "/record-positions";
+const LONG_LEASE_LABEL = "Haus Kautionsweg — WE-41 · 01.09.2026";
+
+async function openRecordPositions(page: Page): Promise<void> {
+  await login(page);
+  await page.goto(RECORD_POSITIONS_URL);
+  await expect(page.getByText("Zahlungsweise").first()).toBeVisible();
+}
+
+const LISTBOX_TRIGGER = '[aria-haspopup="listbox"]';
+
+async function openRecordPositionsWithRow(page: Page): Promise<void> {
+  await openRecordPositions(page);
+  await page.getByRole("button", { name: "Erste Zeile hinzufügen" }).click();
+  await expect(page.locator(LISTBOX_TRIGGER)).toHaveCount(5);
+}
+
 test("liste-light", async ({ page }) => {
   await openLeaseList(page);
   await shot(page, "liste-light");
+});
+
+const LEASE_DETAIL_URL = "/lease-detail/00000000-0000-4000-8000-000000003103";
+
+async function openMaxNachmieterParties(page: Page): Promise<void> {
+  await login(page);
+  await page.goto(LEASE_DETAIL_URL);
+  await page.getByRole("tab", { name: /Vertragsparteien/ }).click();
+  await expect(page.getByText("Marie Nachmieter").first()).toBeVisible();
+}
+
+test("detail-tab-toolbar-light", async ({ page }) => {
+  await openMaxNachmieterParties(page);
+  await shot(page, "detail-tab-toolbar-light");
+});
+
+async function pickOption(page: Page, trigger: Locator, name: RegExp): Promise<void> {
+  await trigger.click();
+  await page.getByRole("option", { name }).first().click();
+}
+
+async function fillFirstPositionRow(page: Page): Promise<void> {
+  const row = page.locator("tbody tr").first();
+  const triggers = row.locator(LISTBOX_TRIGGER);
+  await pickOption(page, triggers.nth(0), /./);
+  await pickOption(page, triggers.nth(1), /Grundmiete/);
+  await pickOption(page, triggers.nth(2), /pro Monat/);
+  const inputs = row.locator("input:not([type=hidden])");
+  await inputs.nth(0).fill("1");
+  await inputs.nth(1).fill("1234,56");
+  await inputs.nth(2).fill("19");
+  await inputs.nth(3).fill("01.09.2026");
+  await inputs.nth(4).fill("31.12.2026");
+  await inputs.nth(4).blur();
+}
+
+test("formular-inline-tabelle-light", async ({ page }) => {
+  await openRecordPositionsWithRow(page);
+  await fillFirstPositionRow(page);
+  await shot(page, "formular-inline-tabelle-light");
+});
+
+test("formular-dropdown-tabelle-offen-light", async ({ page }) => {
+  await openRecordPositionsWithRow(page);
+  await page.locator(LISTBOX_TRIGGER).nth(2).click();
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await shot(page, "formular-dropdown-tabelle-offen-light");
+});
+
+test("formular-referenz-lang-light", async ({ page }) => {
+  await openRecordPositions(page);
+  await page.locator(LISTBOX_TRIGGER).first().click();
+  await page.getByPlaceholder("Suchen…", { exact: true }).fill("Kautionsweg");
+  await page.getByRole("option", { name: LONG_LEASE_LABEL }).click();
+  await shot(page, "formular-referenz-lang-light");
+});
+
+test("formular-select-ende-offen-light", async ({ page }) => {
+  await openRecordPositionsWithRow(page);
+  await page.locator(LISTBOX_TRIGGER).last().click();
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await shot(page, "formular-select-ende-offen-light");
 });
 
 test("detail-light", async ({ page }) => {
@@ -218,6 +297,16 @@ test.describe("mobile", () => {
     await openLeaseHub(page);
     await page.getByRole("tab", { name: /Verlauf/ }).click();
     await shot(page, "detail-tab-extension-mobile");
+  });
+
+  test("detail-tab-toolbar-mobile", async ({ page }) => {
+    await openMaxNachmieterParties(page);
+    await shot(page, "detail-tab-toolbar-mobile");
+  });
+
+  test("formular-inline-tabelle-mobile", async ({ page }) => {
+    await openRecordPositionsWithRow(page);
+    await shot(page, "formular-inline-tabelle-mobile");
   });
 
   test("dashboard-mobile", async ({ page }) => {

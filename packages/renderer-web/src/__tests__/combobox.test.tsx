@@ -45,6 +45,37 @@ describe("ComboboxInput (Tier 2.1c)", () => {
     expect(screen.getByText("Beta")).toBeTruthy();
   });
 
+  test("single-mode: a long label stays on one line, truncated, with the full text as title", () => {
+    const longLabel = "Haus Kautionsweg — WE-41 · 01.09.2026";
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value="a"
+        onChange={() => {}}
+        options={[{ value: "a", label: longLabel }]}
+      />,
+    );
+    const trigger = screen.getByTestId("combobox-combo");
+    expect(trigger.getAttribute("title")).toBe(longLabel);
+    const label = screen.getByText(longLabel);
+    expect(label.className).toContain("truncate");
+    expect(label.className).toContain("min-w-0");
+  });
+
+  test("single-mode: an empty value sets no title", () => {
+    render(
+      <ComboboxInput
+        id="combo"
+        name="combo"
+        value=""
+        onChange={() => {}}
+        options={[{ value: "a", label: "Alpha" }]}
+      />,
+    );
+    expect(screen.getByTestId("combobox-combo").hasAttribute("title")).toBe(false);
+  });
+
   test("single-mode: Click auf Item → onChange mit value, Popover schließt", async () => {
     const user = userEvent.setup();
     const changes: string[] = [];
