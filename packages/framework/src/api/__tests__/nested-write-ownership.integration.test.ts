@@ -124,7 +124,7 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
   // instead of inserting a fresh, tenant-scoped row.
   r.writeHandler(
     "project3:create",
-    z.object({ name: z.string().min(1) }),
+    z.object({ name: z.string().min(1), omitTenantId: z.boolean().optional() }),
     async (event, ctx) => {
       const runner = ctx.db.unsafeRaw(
         "fw#2861 test fixture — simulate cross-tenant find-or-create bug",
@@ -142,7 +142,10 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
       if (existing) {
         return {
           isSuccess: true as const,
-          data: { id: existing.id, name: existing.name, tenantId: existing.tenant_id },
+          // #2912: a row without a tenantId key cannot be checked from the payload alone.
+          data: event.payload.omitTenantId
+            ? { id: existing.id, name: existing.name }
+            : { id: existing.id, name: existing.name, tenantId: existing.tenant_id },
         };
       }
       const crud = createEventStoreExecutor(project3Table, project3Entity, {
@@ -218,6 +221,26 @@ describe("nested-write parent-row ownership check (fw#2861)", () => {
 
     const dbTasks = await selectMany(stack.db, task3Table);
     expect(dbTasks).toHaveLength(0);
+  });
+
+  test("(a2) cross-tenant parent row returned WITHOUT tenantId key -> access_denied, zero task rows (#2912)", async () => {
+    const seedRes = await stack.http.write(
+      "nested-own:write:project3:create",
+      { name: "cross-tenant-bare" },
+      tenantBUser,
+    );
+    expect(seedRes.status).toBe(200);
+
+    const res = await stack.http.write(
+      "nested-own:write:project3:create",
+      { name: "cross-tenant-bare", omitTenantId: true, tasks: [{ title: "t1" }] },
+      tenantAOtherUser,
+    );
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error.code).toBe("access_denied");
+    expect(await selectMany(stack.db, task3Table)).toHaveLength(0);
   });
 
   test("(b) same tenant, ownership-bound field, row owned by a different user -> access_denied, zero task rows", async () => {
