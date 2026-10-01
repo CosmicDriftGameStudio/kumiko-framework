@@ -207,8 +207,9 @@ describe("parsePatternChanges — structural validation", () => {
     ]);
     expect(extraKey.ok).toBe(false);
     if (!extraKey.ok) {
-      expect(extraKey.issues).toContainEqual(
-        expect.objectContaining({ path: "changes[0].pattern.access" }),
+      // zod 4.4 reports the failed union at `access`, zod >=4.6 the stray key below it.
+      expect(extraKey.issues.some((i) => i.path.startsWith("changes[0].pattern.access"))).toBe(
+        true,
       );
     }
   });
