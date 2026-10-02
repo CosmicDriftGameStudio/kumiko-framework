@@ -1231,7 +1231,8 @@ export function relatedListGroupHeaderLabel(
   groupBy: RelatedListGroupBy,
   groupKey: string,
 ): string | undefined {
-  return groupBy.labels?.[groupKey] ?? groupBy.label;
+  const labels = groupBy.labels;
+  return labels !== undefined && Object.hasOwn(labels, groupKey) ? labels[groupKey] : groupBy.label;
 }
 
 /** Row tint rule: rows where the `FieldCondition` (`{ field, eq }`, `{ field,

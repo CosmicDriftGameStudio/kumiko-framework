@@ -5,7 +5,7 @@
 "@cosmicdrift/kumiko-types": minor
 ---
 
-A number field's unit now always sits inside the field. Before, a label wider than the input (for example once the "changed" marker appeared) widened the form cell, and the unit moved to the right edge of the cell, next to the field. relatedList `groupBy.label` is optional: a group with neither `label` nor a `labels` entry shows its rows without a header and stays open, so a list can show only a "done" header above its open rows. Boot rejects a `collapsedWhen` group that has no header. `DataTableRowGrouping.headerLabel` may return `undefined` for such a group. The required i18n keys now include the `groupBy` header keys of an entityList `expandableRow`, not only those of projectionDetail sections.
+A number field's unit now always sits inside the field. Before, a label wider than the input (for example once the "changed" marker appeared) widened the form cell, and the unit moved to the right edge of the cell, next to the field. relatedList `groupBy.label` is optional: a group with neither `label` nor a `labels` entry shows its rows without a header and stays open, so a list can keep a header for one group only, such as the done posts. Boot rejects a `collapsedWhen` group that has no header. `DataTableRowGrouping.headerLabel` may return `undefined` for such a group. The required i18n keys now include the `groupBy` header keys of an entityList `expandableRow`, not only those of projectionDetail sections.
 
 <!-- kumiko-changes
 feature: renderer-web
