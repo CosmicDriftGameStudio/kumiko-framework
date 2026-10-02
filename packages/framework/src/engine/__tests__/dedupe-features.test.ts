@@ -62,6 +62,16 @@ describe("dedupeFeatures", () => {
     expect(result).toEqual([a]);
   });
 
+  test("matching dedupeOptions are the only equivalence signal: differing registrar bodies still collapse, first kept", () => {
+    const a = defineFeature("x", (r) => r.nav({ id: "a", label: "A" }), { dedupeOptions: {} });
+    const b = defineFeature("x", (r) => r.nav({ id: "b", label: "B" }), { dedupeOptions: {} });
+
+    const result = dedupeFeatures([a, b]);
+
+    expect(result).toEqual([a]);
+    expect(result[0]).toBe(a);
+  });
+
   test("two distinct instances with no dedupeOptions throw with a 'distinct instances' message", () => {
     const a = defineFeature("x", () => {});
     const b = defineFeature("x", () => {});

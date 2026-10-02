@@ -75,7 +75,25 @@ describe("buildAppSchema", () => {
       });
     });
 
-    const app = buildAppSchema(createRegistry([topLevelFeature, nestedFeature]));
+    const iconFeature = defineFeature("receipts", (r) => {
+      r.screen({
+        id: "receipt-list",
+        type: "custom",
+        renderer: { react: { __component: "ReceiptListScreen" } },
+        nav: { label: "Receipts", icon: "receipt", order: 10 },
+      });
+    });
+    const explicitUndefinedNavFeature = defineFeature("undef-nav", (r) => {
+      r.nav({ id: "x", label: "X", icon: undefined });
+    });
+
+    const app = buildAppSchema(
+      createRegistry([topLevelFeature, nestedFeature, iconFeature, explicitUndefinedNavFeature]),
+    );
+
+    const iconNav = app.features.find((f) => f.featureName === "receipts")?.navs?.[0];
+    expect(iconNav?.icon).toBe("receipt");
+    expect(iconNav?.order).toBe(10);
 
     const privacyFeature = app.features.find((f) => f.featureName === "privacy");
     const topLevelNav = privacyFeature?.navs?.[0];
@@ -1002,7 +1020,16 @@ describe("buildAppSchema", () => {
     // Echter Smoke-Test des Vertrags — wenn jemand in den project-
     // Helper eine Function reinschmuggelt, würde das hier brennen.
     const entity = {
-      fields: { id: { type: "text", default: () => "x" } },
+      fields: {
+        id: { type: "text", default: () => "x" },
+        tags: {
+          type: "multiSelect",
+          options: ["a", "b"],
+          display: "checkboxes",
+          columns: 3,
+          maxRows: 5,
+        },
+      },
     } as unknown as EntityDefinition;
     const f = defineFeature("ent", (r) => {
       r.entity("thing", entity);
@@ -1018,6 +1045,10 @@ describe("buildAppSchema", () => {
     const parsed = JSON.parse(json);
     // Feature-namen identisch nach Roundtrip
     expect(parsed.features[0].featureName).toBe("ent");
+    const tagsField = parsed.features[0].entities.thing.fields.tags;
+    expect(tagsField.display).toBe("checkboxes");
+    expect(tagsField.columns).toBe(3);
+    expect(tagsField.maxRows).toBe(5);
   });
 
   test("FormatSpec-Renderer + FieldCondition-RowActions überleben JSON-Roundtrip unverändert", () => {
