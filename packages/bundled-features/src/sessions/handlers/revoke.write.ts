@@ -4,7 +4,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { SessionErrors } from "../constants.js";
+import { SessionErrors, USER_SESSION_ENTITY_NAME } from "../constants.js";
 import { userSessionTable } from "../schema/user-session.js";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,
@@ -84,7 +84,7 @@ export const revokeWrite = defineWriteHandler({
         i18nKey: "errors.ownershipDenied",
         details: {
           scope: "entity",
-          entityName: "user-session",
+          entityName: USER_SESSION_ENTITY_NAME,
           action: "revoke",
           userId: event.user.id,
         },

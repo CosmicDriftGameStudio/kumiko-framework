@@ -19,7 +19,11 @@ import { Temporal } from "temporal-polyfill";
 import { encryptForDirectWrite } from "../shared/index.js";
 import { tenantMembershipsTable } from "../tenant/index.js";
 import { isPrincipalBlocked, type UserStatus, userTable } from "../user/index.js";
-import { DEFAULT_SESSION_EXPIRY_MS, LAST_SEEN_REFRESH_MS } from "./constants.js";
+import {
+  DEFAULT_SESSION_EXPIRY_MS,
+  LAST_SEEN_REFRESH_MS,
+  USER_SESSION_ENTITY_NAME,
+} from "./constants.js";
 import { userSessionEntity, userSessionTable } from "./schema/user-session.js";
 import {
   SESSION_REVOKED_AGGREGATE_TYPE,
@@ -74,7 +78,7 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
         userSessionTable,
         await encryptForDirectWrite(
           userSessionEntity,
-          "user-session",
+          USER_SESSION_ENTITY_NAME,
           {
             id: sid,
             tenantId: user.tenantId,

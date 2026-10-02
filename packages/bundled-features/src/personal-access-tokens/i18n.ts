@@ -1,4 +1,12 @@
+import { ACTION_FORM_ENTITY } from "@cosmicdrift/kumiko-framework/ui-types";
+import { fieldLabelKey, fieldOptionLabelKey } from "@cosmicdrift/kumiko-headless";
+import { PAT_FEATURE } from "./constants.js";
 import type { PatScopeConfig } from "./scopes.js";
+
+const mintFieldKey = (field: string): string =>
+  fieldLabelKey(PAT_FEATURE, ACTION_FORM_ENTITY, field);
+const scopeOptionKey = (grant: string): string =>
+  fieldOptionLabelKey(PAT_FEATURE, ACTION_FORM_ENTITY, "scopes", grant);
 
 type LocalizedString = { readonly en: string };
 
@@ -31,13 +39,11 @@ export const PAT_FEATURE_I18N: Readonly<Record<string, LocalizedString>> = {
   // (`__action-form__`, see action-form-shim.ts) — required by the i18n
   // boot-validator (requiredKeysFromScreen); the declarative renderer
   // resolves these through the schema payload, not a client component's t().
-  "personal-access-tokens:entity:__action-form__:field:name": { en: "Name" },
-  "personal-access-tokens:entity:__action-form__:field:scopes": { en: "Per-API access" },
-  "personal-access-tokens:entity:__action-form__:field:expiresInDays": { en: "Expires in (days)" },
-  "personal-access-tokens:entity:__action-form__:field:currentPassword": {
-    en: "Password (to confirm)",
-  },
-  "personal-access-tokens:entity:__action-form__:field:mfaCode": { en: "2FA code (if enabled)" },
+  [mintFieldKey("name")]: { en: "Name" },
+  [mintFieldKey("scopes")]: { en: "Per-API access" },
+  [mintFieldKey("expiresInDays")]: { en: "Expires in (days)" },
+  [mintFieldKey("currentPassword")]: { en: "Password (to confirm)" },
+  [mintFieldKey("mfaCode")]: { en: "2FA code (if enabled)" },
 };
 
 // Per-grant-option labels for the mint form's `scopes` multiSelect —
@@ -49,13 +55,9 @@ export function patScopeOptionTranslations(
 ): Readonly<Record<string, LocalizedString>> {
   const out: Record<string, LocalizedString> = {};
   for (const [domain, def] of Object.entries(scopes)) {
-    out[`personal-access-tokens:entity:__action-form__:field:scopes:option:${domain}:read`] = {
-      en: `${def.label} (read)`,
-    };
+    out[scopeOptionKey(`${domain}:read`)] = { en: `${def.label} (read)` };
     if (def.write && def.write.length > 0) {
-      out[`personal-access-tokens:entity:__action-form__:field:scopes:option:${domain}:write`] = {
-        en: `${def.label} (read & write)`,
-      };
+      out[scopeOptionKey(`${domain}:write`)] = { en: `${def.label} (read & write)` };
     }
   }
   return out;

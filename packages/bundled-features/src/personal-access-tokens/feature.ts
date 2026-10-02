@@ -5,7 +5,12 @@ import {
 import { PAT_TOKEN_PREFIX } from "@cosmicdrift/kumiko-framework/api";
 import { deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { PAT_DEFAULT_RATE_LIMIT, PAT_FEATURE, type PatRateLimit } from "./constants.js";
+import {
+  API_TOKEN_ENTITY_NAME,
+  PAT_DEFAULT_RATE_LIMIT,
+  PAT_FEATURE,
+  type PatRateLimit,
+} from "./constants.js";
 import { buildAvailableScopesQuery } from "./handlers/available-scopes.query.js";
 import { type CreatePatOptions, createPatCreateHandler } from "./handlers/create.write.js";
 import { listPatQuery } from "./handlers/list.query.js";
@@ -109,11 +114,14 @@ export function createPersonalAccessTokensFeature(
     // Direct-write store like store_user_sessions: create/revoke write it, the
     // resolver point-reads it. r.entity would make it a rebuildable projection
     // whose replay (no token events) would wipe every live token (#498/#494).
-    r.storeTable(deriveEntityTableMeta("api-token", apiTokenEntity, { source: "unmanaged" }), {
-      reason: "read_side.api_tokens_direct_write",
-      // create.write encrypts `name` via encryptForDirectWrite (#820).
-      piiEncryptedOnWrite: true,
-    });
+    r.storeTable(
+      deriveEntityTableMeta(API_TOKEN_ENTITY_NAME, apiTokenEntity, { source: "unmanaged" }),
+      {
+        reason: "read_side.api_tokens_direct_write",
+        // create.write encrypts `name` via encryptForDirectWrite (#820).
+        piiEncryptedOnWrite: true,
+      },
+    );
 
     // Custom domain-event for cross-instance access-invalidation,
     // mirroring sessions' SESSION_REVOKED_EVENT_SHORT. r.defineEvent

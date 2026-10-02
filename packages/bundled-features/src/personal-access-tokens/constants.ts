@@ -2,6 +2,7 @@
 // Pure constants — client-marked so the web screen (web/) may import screen-id
 // and QN names without pulling the feature's server runtime barrel.
 export const PAT_FEATURE = "personal-access-tokens";
+export const API_TOKEN_ENTITY_NAME = "api-token" as const;
 
 // Snake_case reason strings (Error-Reasons guard: no colons/dashes).
 export const PatErrors = {

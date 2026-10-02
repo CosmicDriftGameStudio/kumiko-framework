@@ -11,7 +11,7 @@ import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { encryptForDirectWrite, verifyPassword } from "../../shared/index.js";
 import { UserQueries } from "../../user/index.js";
-import { PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../constants.js";
+import { API_TOKEN_ENTITY_NAME, PAT_DEFAULT_EXPIRES_IN_DAYS, PatErrors } from "../constants.js";
 import { mintPatToken } from "../hash.js";
 import { apiTokenEntity, apiTokenTable } from "../schema/api-token.js";
 
@@ -100,7 +100,7 @@ export function createPatCreateHandler(opts: CreatePatOptions = {}) {
       const id = generateId();
       const row = await encryptForDirectWrite(
         apiTokenEntity,
-        "api-token",
+        API_TOKEN_ENTITY_NAME,
         {
           id,
           userId: event.user.id,
