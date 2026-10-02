@@ -425,6 +425,45 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     expect(await provider.exists(key)).toBe(false);
   });
 
+  test("rows stuck on storage failure do not starve rows behind them (batchLimit=2)", async () => {
+    const stuckKeys = new Set<string>();
+    for (const n of ["a", "b"]) {
+      const rowId = await seedDoc("read_c8_doc", T1, `stuck-${n}`, pastIso);
+      const key = `t1/stuck-${n}/cover/orig.jpg`;
+      stuckKeys.add(key);
+      const fileRefId = await seedFileRef({
+        tenantId: T1,
+        entityName: "c8-doc",
+        entityId: rowId,
+        fieldName: "cover",
+        key,
+      });
+      await setCover("read_c8_doc", rowId, fileRefId);
+    }
+    await seedDoc("read_c8_doc", T1, "no-files", pastIso);
+
+    const failingProvider: FileStorageProvider = {
+      ...provider,
+      delete: async (k: string) => {
+        if (stuckKeys.has(k)) throw new Error("boom");
+        return provider.delete(k);
+      },
+    };
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+      files: filesCtx(failingProvider),
+      batchLimit: 2,
+    });
+
+    expect(result.hardDeleted).toBe(1);
+    expect(await labels("read_c8_doc", T1)).toEqual(["stuck-a", "stuck-b"]);
+  });
+
   test("no file storage wired → row stays, skipped missing_file_storage", async () => {
     const rowId = await seedDoc("read_c8_doc", T1, "expired-no-storage", pastIso);
     const key = "t1/no-storage/cover/orig.jpg";

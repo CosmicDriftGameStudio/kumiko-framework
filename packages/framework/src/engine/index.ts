@@ -15,6 +15,7 @@ export {
   PII_USER_OWNED_NAME_HINTS,
   PII_USER_REFERENCE_NAME_HINTS,
 } from "./boot-validator/entity-handler.js";
+export { entityHasAnonymizableSubjectField } from "./boot-validator/pii-retention.js";
 export {
   collectWriteHandlerQns,
   MAX_TRANSFER_DEPTH,

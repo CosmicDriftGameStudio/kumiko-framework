@@ -107,6 +107,9 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
         gadgetPredicateFeature,
       ],
       files: { storageProvider: createInMemoryFileProvider() },
+      // Anonymous callers resolve to tenant A, so tenant B's files below are
+      // genuinely cross-tenant for the /api/query tests.
+      anonymousAccess: { defaultTenantId: TENANT_A },
     });
     await stack.http.writeOk(
       TenantHandlers.create,
@@ -182,6 +185,51 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
 
   test("PUBLIC_VARIANT_BY_FILE_REF_QN is registered on the stack in 'fileRef' mode", () => {
     expect(stack.registry.getQueryHandler(PUBLIC_VARIANT_BY_FILE_REF_QN)).toBeDefined();
+  });
+
+  // The handler is also reachable anonymously through the generic /api/query
+  // dispatch, with no host involved — the isPublic gate of the FileRef's own
+  // tenant is the only thing standing between a caller and the variant.
+  describe("anonymous /api/query dispatch (no host)", () => {
+    async function queryAnonymously(fileRefId: string): Promise<{
+      readonly status: number;
+      readonly data: unknown;
+    }> {
+      const res = await stack.app.request("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: PUBLIC_VARIANT_BY_FILE_REF_QN,
+          payload: { fileRefId, variant: "thumb" },
+        }),
+      });
+      const body = (await res.json()) as { data?: unknown };
+      return { status: res.status, data: body.data ?? null };
+    }
+
+    test("a non-public tenant B file yields no data, same as an unknown fileRefId", async () => {
+      const privateFileId = await uploadImage(stack, userB, "private-1");
+
+      const priv = await queryAnonymously(privateFileId);
+      const unknown = await queryAnonymously("00000000-0000-4000-8000-000000000000");
+
+      expect(priv.status).toBe(200);
+      expect(priv.data).toBeNull();
+      expect(unknown).toEqual(priv);
+    });
+
+    test("a public tenant B file yields the variant, isPublic runs against tenant B", async () => {
+      const publicFileId = await uploadImage(stack, userB, "public-1");
+
+      const res = await queryAnonymously(publicFileId);
+
+      expect(res.status).toBe(200);
+      expect(res.data).toMatchObject({
+        dataBase64: Buffer.from(VARIANT_BYTES).toString("base64"),
+      });
+      expect(receivedArgs).toHaveLength(1);
+      expect(receivedArgs[0]?.tenantId).toBe(TENANT_B);
+    });
   });
 
   // Runs last and deliberately leaves tenant B disabled — mirrors the

@@ -61,6 +61,7 @@ import {
   createSystemUser,
   type EntityDefinition,
   type EntityId,
+  entityHasAnonymizableSubjectField,
   type Registry,
   type SessionUser,
   type TenantId,
@@ -526,9 +527,6 @@ async function purgeHardDeleteRowsWithFiles(args: {
   readonly registry: Registry;
   readonly skipped: RetentionCleanupSkip[];
 }): Promise<number> {
-  const rows = await selectMany<Record<string, unknown>>(args.db, args.table, args.where, {
-    limit: args.batchLimit,
-  });
   const reasonsSeen = new Set<RetentionCleanupSkip["reason"]>();
   const onSkip = (reason: "missing_file_storage" | "file_delete_failed") => {
     // skip: reason already reported for this entity in this run
@@ -537,27 +535,42 @@ async function purgeHardDeleteRowsWithFiles(args: {
     args.skipped.push({ entityName: args.entityName, reason });
   };
 
+  // id-cursor paging: rows skipped (missing storage, failed delete) stay in the
+  // table, so an unordered limit-page would re-fetch the same stuck rows every
+  // run and starve every row behind them. batchLimit bounds the DELETES.
   let count = 0;
-  for (const row of rows) {
-    const ok = await purgeHardDeleteRowWithFiles({
-      db: args.db,
-      table: args.table,
-      fileHolders: args.fileHolders,
-      tenantId: args.tenantId,
-      entityName: args.entityName,
-      entity: args.entity,
-      row,
-      plan: args.plan,
-      files: args.files,
-      entityExecutor: args.entityExecutor,
-      fileRefExecutor: args.fileRefExecutor,
-      systemUser: args.systemUser,
-      tdb: args.tdb,
-      kms: args.kms,
-      registry: args.registry,
-      onSkip,
+  let cursor: EntityId | null = null;
+  while (count < args.batchLimit) {
+    const pageWhere: WhereObject =
+      cursor === null ? args.where : { ...args.where, id: { gt: cursor } };
+    const rows = await selectMany<Record<string, unknown>>(args.db, args.table, pageWhere, {
+      limit: args.batchLimit,
+      orderBy: { col: "id" },
     });
-    if (ok) count++;
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      cursor = row["id"] as EntityId; // @cast-boundary db-row
+      const ok = await purgeHardDeleteRowWithFiles({
+        db: args.db,
+        table: args.table,
+        fileHolders: args.fileHolders,
+        tenantId: args.tenantId,
+        entityName: args.entityName,
+        entity: args.entity,
+        row,
+        plan: args.plan,
+        files: args.files,
+        entityExecutor: args.entityExecutor,
+        fileRefExecutor: args.fileRefExecutor,
+        systemUser: args.systemUser,
+        tdb: args.tdb,
+        kms: args.kms,
+        registry: args.registry,
+        onSkip,
+      });
+      if (ok) count++;
+      if (count >= args.batchLimit) break;
+    }
   }
   return count;
 }
@@ -761,10 +774,12 @@ export async function runRetentionCleanup(
       case "blockDelete": {
         const targets = await resolveAnonymizeTargets(entity.fields);
         if (!targets) {
-          // blockDelete without anonymize fields is a pure hold: a subjectRef-only
-          // person link outlives the hold and is cut only by the user-data
-          // forget hook, so expiry has nothing to do here and is not reported.
-          if (policy.strategy === "anonymize") {
+          // blockDelete without anonymize fields is a pure hold only while the
+          // entity has no field that CAN carry anonymize: a subjectRef-only
+          // person link outlives the hold and is cut by the user-data forget
+          // hook. A personal field lacking its anonymize function would stay
+          // stored past the hold, so that case is still reported.
+          if (policy.strategy === "anonymize" || entityHasAnonymizableSubjectField(entity.fields)) {
             skipped.push({ entityName, reason: "missing_anonymize_fields" });
           }
           break;

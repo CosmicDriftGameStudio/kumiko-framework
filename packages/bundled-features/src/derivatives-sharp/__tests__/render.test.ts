@@ -515,6 +515,56 @@ describe("renderImage — overlays", () => {
     );
   });
 
+  test("a qr overlay on a flat output is checked against the output height, not just the width", async () => {
+    const input = await pngFixture(1600, 120);
+    const layer: ResolvedOverlayLayer = {
+      kind: "qr",
+      data: "https://example.com/v/abc123",
+      widthPct: 0.5,
+      gravity: "center",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/png")).rejects.toThrow(
+      /below the 160px minimum/,
+    );
+  });
+
+  test("an overlay does not add a lossy generation outside the overlay area", async () => {
+    // Deterministic pseudo-noise: a flat image would hide recompression loss.
+    const raw = Buffer.alloc(400 * 400 * 3);
+    let seed = 12345;
+    for (let i = 0; i < raw.length; i++) {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      raw[i] = (seed >> 16) & 0xff;
+    }
+    const noisy = await sharp(raw, { raw: { width: 400, height: 400, channels: 3 } })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64: await tinyImageOverlayBase64(40, 40, { r: 0, g: 0, b: 0 }),
+      widthPct: 0.1,
+      gravity: "south-east",
+    };
+
+    const plain = await renderImage(noisy, { quality: 100 }, "image/jpeg");
+    const overlaid = await renderImage(
+      noisy,
+      { quality: 100, resolvedOverlays: [layer] },
+      "image/jpeg",
+    );
+
+    // Top-left region is far from the south-east overlay: one lossy generation
+    // (spec quality) must give the same pixels as with an overlay present.
+    const crop = (buf: Uint8Array) =>
+      sharp(buf).extract({ left: 0, top: 0, width: 200, height: 200 }).raw().toBuffer();
+    const [a, b] = [await crop(plain), await crop(overlaid)];
+    let maxDiff = 0;
+    for (let i = 0; i < a.length; i++)
+      maxDiff = Math.max(maxDiff, Math.abs((a[i] ?? 0) - (b[i] ?? 0)));
+    expect(maxDiff).toBeLessThanOrEqual(2);
+  });
+
   test("a qr overlay that would render below MIN_QR_PIXEL_WIDTH throws instead of caching an unscannable image", async () => {
     const input = await jpegFixture(200, 200);
     const layer: ResolvedOverlayLayer = {

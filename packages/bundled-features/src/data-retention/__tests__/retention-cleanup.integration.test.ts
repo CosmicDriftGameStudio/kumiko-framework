@@ -118,6 +118,16 @@ const bareHoldEntity = createEntity({
   retention: { keepFor: "30d", strategy: "blockDelete" },
 });
 
+// blockDelete on an entity with a personal field but NO anonymize function:
+// the person data would outlive the hold, so the cron must keep reporting it.
+const personalHoldEntity = createEntity({
+  table: "read_c7_personalhold",
+  fields: {
+    label: createTextField({ personal: "self", find: "none", default: "" }),
+  },
+  retention: { keepFor: "30d", strategy: "blockDelete" },
+});
+
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-widget", widgetEntity);
   r.entity("c7-gadget", gadgetEntity);
@@ -127,6 +137,7 @@ const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-anon", anonEntity);
   r.entity("c7-bare", bareEntity);
   r.entity("c7-barehold", bareHoldEntity);
+  r.entity("c7-personalhold", personalHoldEntity);
 });
 
 const noopLogger: JobContext["log"] = {
@@ -450,5 +461,23 @@ describe("runRetentionCleanup :: real postgres", () => {
 
     expect(await labels("read_c7_barehold", T1)).toEqual(["survives"]);
     expect(result.skipped.map((s) => s.entityName)).not.toContain("c7-barehold");
+  });
+
+  test("blockDelete with a personal field but no anonymize function → still skipped missing_anonymize_fields", async () => {
+    await seed("read_c7_personalhold", T1, "survives", pastIso);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+    });
+
+    expect(await labels("read_c7_personalhold", T1)).toEqual(["survives"]);
+    expect(result.skipped).toContainEqual({
+      entityName: "c7-personalhold",
+      reason: "missing_anonymize_fields",
+    });
   });
 });
