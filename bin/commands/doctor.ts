@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { DOCKER_PROBE_TIMEOUT_MS, run } from "./_spawn";
+import { DOCKER_PROBE_TIMEOUT_MS, isProbeTimeout, run } from "./_spawn";
 import { defineCommand } from "./registry";
 
 const REQUIRED_ENVS = [
@@ -58,11 +58,17 @@ export const doctorCommand = defineCommand({
       cwd: ctx.cwd,
       timeoutMs: DOCKER_PROBE_TIMEOUT_MS,
     });
-    if (dockerPs.status === -1) {
+    if (isProbeTimeout(dockerPs)) {
       checks.push({
         name: "docker services",
         ok: false,
         hint: "docker desktop starten / daemon hängt",
+      });
+    } else if (dockerPs.status === -1) {
+      checks.push({
+        name: "docker services",
+        ok: false,
+        hint: "docker binary not found — install Docker",
       });
     } else {
       const dockerOk = dockerPs.status === 0 && dockerPs.stdout.trim().length > 0;

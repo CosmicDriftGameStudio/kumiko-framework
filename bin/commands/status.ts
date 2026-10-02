@@ -1,4 +1,4 @@
-import { DOCKER_PROBE_TIMEOUT_MS, run } from "./_spawn";
+import { DOCKER_PROBE_TIMEOUT_MS, isProbeTimeout, run } from "./_spawn";
 import { defineCommand } from "./registry";
 
 export const statusCommand = defineCommand({
@@ -23,8 +23,10 @@ export const statusCommand = defineCommand({
           // skip malformed
         }
       }
-    } else if (docker.status === -1) {
+    } else if (isProbeTimeout(docker)) {
       ctx.out.log("  Docker probe timed out (daemon slow or hung)");
+    } else if (docker.status === -1) {
+      ctx.out.log("  docker binary not found");
     } else {
       ctx.out.log("  Docker services not running");
     }

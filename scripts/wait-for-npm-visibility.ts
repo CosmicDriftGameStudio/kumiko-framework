@@ -16,6 +16,7 @@ import { Glob } from "bun";
 const PACKAGES_DIR = "packages";
 const DEFAULT_POLL_INTERVAL_MS = 15_000;
 const DEFAULT_TIMEOUT_MS = 900_000;
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 export interface PublishablePackage {
   name: string;
@@ -46,10 +47,17 @@ export function isLatestOnRegistry(packument: unknown, version: string): boolean
   return (distTags as Record<string, unknown>).latest === version;
 }
 
-async function fetchPackument(name: string, fetchImpl: FetchLike): Promise<unknown> {
+// A hung TCP connection would otherwise block past `timeoutMs`, which is only
+// checked between polls; an abort lands in the catch below like any failed poll.
+async function fetchPackument(
+  name: string,
+  fetchImpl: FetchLike,
+  requestTimeoutMs: number,
+): Promise<unknown> {
   try {
     const response = await fetchImpl(`https://registry.npmjs.org/${encodeURIComponent(name)}`, {
       headers: { "Cache-Control": "no-cache" },
+      signal: AbortSignal.timeout(requestTimeoutMs),
     });
     if (!response.ok) return null;
     return await response.json();
@@ -65,6 +73,7 @@ function sleep(ms: number): Promise<void> {
 export interface WaitForNpmVisibilityOptions {
   timeoutMs?: number;
   pollIntervalMs?: number;
+  requestTimeoutMs?: number;
   fetchImpl?: FetchLike;
 }
 
@@ -80,6 +89,7 @@ export async function waitForNpmVisibility(
   const {
     timeoutMs = DEFAULT_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
+    requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
     fetchImpl = fetch,
   } = options;
 
@@ -89,7 +99,7 @@ export async function waitForNpmVisibility(
 
   for (;;) {
     for (const pkg of [...pending.values()]) {
-      const packument = await fetchPackument(pkg.name, fetchImpl);
+      const packument = await fetchPackument(pkg.name, fetchImpl, requestTimeoutMs);
       if (isLatestOnRegistry(packument, pkg.version)) {
         pending.delete(pkg.name);
         console.log(`[wait-for-npm-visibility] latest tag caught up: ${pkg.name}@${pkg.version}`);

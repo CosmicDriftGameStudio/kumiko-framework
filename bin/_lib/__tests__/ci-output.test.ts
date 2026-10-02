@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  collectInterleavedOutput,
   findOutputDiagnostics,
   formatBunTestSummary,
   formatCompactFailure,
@@ -309,5 +310,16 @@ describe("CI output formatting", () => {
     expect(errorIndex).toBeGreaterThan(stopIndex);
     expect(maskIndex).toBeLessThan(resumeIndex);
     expect(errorIndex).toBeLessThan(resumeIndex);
+  });
+});
+
+describe("collectInterleavedOutput", () => {
+  test("keeps stdout and stderr lines in the order the child wrote them", async () => {
+    const proc = Bun.spawn(
+      ["sh", "-c", "echo out1; sleep 0.1; echo err1 >&2; sleep 0.1; echo out2; sleep 0.1; echo err2 >&2"],
+      { stdout: "pipe", stderr: "pipe" },
+    );
+    const output = await collectInterleavedOutput(proc.stdout, proc.stderr);
+    expect(output.trim().split("\n")).toEqual(["out1", "err1", "out2", "err2"]);
   });
 });

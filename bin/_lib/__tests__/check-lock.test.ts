@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { acquireCheckLock, checkLockPaths, followCheck } from "../check-lock";
+import { acquireCheckLock, checkLockPaths, followCheck, parseCliScope } from "../check-lock";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -42,6 +42,21 @@ describe("checkLockPaths", () => {
   test("rejects a scope that path-traverses out of baseDir", () => {
     const base = tempDir();
     expect(() => checkLockPaths("../evil", base)).toThrow();
+  });
+
+  test("list scopes (comma, whitespace, any order) share one lock", () => {
+    const base = tempDir();
+    const comma = checkLockPaths("kumiko-framework,solon", base);
+    const reversed = checkLockPaths("solon kumiko-framework", base);
+    const duplicated = checkLockPaths("solon, kumiko-framework,solon", base);
+    expect(comma.lockDir).toBe(join(base, ".kumiko-check.lock.kumiko-framework__solon"));
+    expect(reversed.lockDir).toBe(comma.lockDir);
+    expect(duplicated.lockDir).toBe(comma.lockDir);
+  });
+
+  test("rejects a list scope containing an unsafe entry", () => {
+    expect(() => checkLockPaths("solon,../evil")).toThrow();
+    expect(() => checkLockPaths("solon,..")).toThrow();
   });
 
   test("rejects a scope that is exactly '..'", () => {
@@ -92,5 +107,16 @@ describe("acquireCheckLock / followCheck: scope isolation (infra#722)", () => {
     writeFileSync(a.resultPath, "0");
     rmSync(a.lockDir, { recursive: true, force: true });
     expect(await followCheck(a.lockDir, a.logPath, a.resultPath)).toBe(0);
+  });
+});
+
+describe("parseCliScope", () => {
+  test("empty or undefined yields no repos", () => {
+    expect(parseCliScope(undefined)).toEqual([]);
+    expect(parseCliScope(" , ")).toEqual([]);
+  });
+
+  test("splits, sorts and deduplicates", () => {
+    expect(parseCliScope("solon,kumiko-framework solon")).toEqual(["kumiko-framework", "solon"]);
   });
 });
