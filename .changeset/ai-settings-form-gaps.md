@@ -15,4 +15,9 @@ Form gaps for settings screens:
 - `optionsQueryPayload` values may be `{ field: "<sibling>" }`. The select reloads when that field changes and clears a value the new rows no longer contain. A cleared config select resets the key, so the inherited value applies again. On config keys, `field` names another key of the same feature on the same settings mask. The boot validator checks the names, and `writeForm` fieldDefs now go through the select checks too.
 - The source badge on `configEdit` fields shows the option label instead of the raw value or id.
 - New `writeOnly: true` on entity text fields with `find: "secret"`. Reads return `true` (set) or `null` and never the value. On write, `""` keeps the stored value and `null` clears it. The edit form shows a masked input with a "set" placeholder and a remove action. `maskWriteOnlyFields(entity, row)` is exported from `@cosmicdrift/kumiko-framework/engine` for custom query handlers that return executor rows.
-- Registering two write or query handlers with the same name in one feature now fails at definition time, including a custom handler named like an `r.crud` handler (for example `connection:detail`). Before, the later one replaced the earlier one silently.
+
+<!-- kumiko-changes
+feature: framework
+type: improvement
+title: Settings form gaps: writeForm footer submit, option description/group, dependent optionsQueryPayload, config badge label, writeOnly secret fields
+-->

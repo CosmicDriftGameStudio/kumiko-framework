@@ -62,9 +62,11 @@ function validateWriteOnlyField(
         );
       }
     }
+    // skip: embedded fields carry no writeOnly of their own; sub-fields are checked above
     return;
   }
   const flags = field as { readonly writeOnly?: boolean } & Record<string, unknown>; // @cast-boundary schema-walk
+  // skip: only writeOnly fields have constraints to validate
   if (flags.writeOnly !== true) return;
   if (field.type !== "text") {
     throw new Error(

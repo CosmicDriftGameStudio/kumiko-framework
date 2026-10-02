@@ -43,6 +43,7 @@ function assertHandlerNameFree(
   handlerName: string,
 ): void {
   const registered = kind === "write" ? state.writeHandlers : state.queryHandlers;
+  // skip: a free name is the normal case
   if (!Object.hasOwn(registered, handlerName)) return;
   const [entityName, verb] = handlerName.split(":");
   const crudShaped =
