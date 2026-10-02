@@ -137,10 +137,10 @@ function formatUnitCell(
 }
 
 /** Exported for UnitKey parity tests against @cosmicdrift/kumiko-types/screen. */
-export const UNIT_FORMAT_KEYS = [
+export const UNIT_FORMAT_KEYS: readonly string[] = [
   ...Object.keys(UNIT_INTL_IDS),
   ...Object.keys(UNIT_SUFFIXES),
-] as const;
+];
 
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.js";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.js";

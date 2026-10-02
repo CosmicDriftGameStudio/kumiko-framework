@@ -50,6 +50,12 @@ describe("reportStanceForSource", () => {
     );
     expect(site?.stance).toBe("near-miss");
     expect(site?.hint).toBe("displayname");
+    expect(site?.nearMissOf).toBe("direct");
+  });
+
+  it("does not set nearMissOf on exact matches", () => {
+    const [site] = reportStanceForSource(wrapField("email: createTextField({}),"), "t.ts");
+    expect(site?.nearMissOf).toBeUndefined();
   });
 
   // "content" and "text" are whole segments here, so they stay valid
@@ -84,6 +90,7 @@ describe("reportStanceForSource", () => {
     const [site] = reportStanceForSource(wrapField(`${field}: createTextField({}),`), "t.ts");
     expect(site?.stance).toBe("near-miss");
     expect(site?.hint).toBe(expectedHint);
+    expect(site?.nearMissOf).toBe("user-reference");
   });
 
   it.each([

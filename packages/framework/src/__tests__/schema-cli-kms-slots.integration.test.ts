@@ -8,6 +8,8 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  computeBlindIndex,
+  configureBlindIndexKey,
   configuredBlindIndexKey,
   decodeBlindIndexKey,
   resetBlindIndexKeyForTests,
@@ -16,12 +18,34 @@ import {
   configuredPiiSubjectKms,
   resetPiiSubjectKmsForTests,
 } from "../crypto/pii-field-encryption.js";
-import { defineFeature } from "../engine/index.js";
+import { createEventStoreExecutor } from "../db/event-store-executor.js";
+import { writeRebuildMarker } from "../db/index.js";
+import { asRawClient } from "../db/query.js";
+import { buildEntityTable } from "../db/table-builder.js";
+import { createTenantDb } from "../db/tenant-db.js";
+import { createEntity, createTextField, defineFeature } from "../engine/index.js";
+import { createProjectionStateTable } from "../pipeline/index.js";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
-import { createTestDb, type TestDb } from "../stack/index.js";
+import { createTestDb, type TestDb, TestUsers, unsafeCreateEntityTable } from "../stack/index.js";
 import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 const feature = defineFeature("kmsslotstest", () => {});
+
+const BIDX_TABLE = "read_kms_slots_persons";
+const personEntity = createEntity({
+  table: BIDX_TABLE,
+  fields: {
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
+  },
+});
+const personFeature = defineFeature("kmsslotsbidx", (r) => {
+  r.entity("person", personEntity);
+});
+const personExecutor = createEventStoreExecutor(
+  buildEntityTable("person", personEntity),
+  personEntity,
+  { entityName: "person" },
+);
 
 const PLATFORM_KEK_PLAINTEXT = Buffer.alloc(32, 1).toString("base64");
 const BLIND_INDEX_PLAINTEXT = Buffer.alloc(32, 2).toString("base64");
@@ -89,6 +113,8 @@ beforeAll(async () => {
     process.env["DATABASE_URL"] ??
     "postgresql://kumiko:kumiko@localhost:15432/kumiko_test";
   testDbUrl = baseUrl.replace(/\/[^/]+$/, `/${testDb.dbName}`);
+  await unsafeCreateEntityTable(testDb.db, personEntity, "person");
+  await createProjectionStateTable(testDb.db);
 });
 
 afterAll(async () => {
@@ -199,5 +225,48 @@ describe("runSchemaCli apply — kmsSlots", () => {
 
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("PLATFORM_KEK source=key-manager");
+  });
+});
+
+describe("runSchemaCli apply — rebuild uses the wired blind-index key", () => {
+  test("a queued rebuild recomputes email_bidx with the env-provided key and exits 0", async () => {
+    const admin = TestUsers.admin;
+    const raw = asRawClient(testDb.db);
+    await raw.unsafe(
+      `TRUNCATE kumiko_events, ${BIDX_TABLE}, kumiko_projections RESTART IDENTITY CASCADE`,
+    );
+
+    configureBlindIndexKey(BLIND_INDEX_PLAINTEXT);
+    const created = await personExecutor.create(
+      { email: "marc@example.com" },
+      admin,
+      createTenantDb(testDb.db, admin.tenantId),
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    resetBlindIndexKeyForTests();
+    const expectedBidx = computeBlindIndex(
+      decodeBlindIndexKey(BLIND_INDEX_PLAINTEXT),
+      "marc@example.com",
+    );
+
+    process.env["SUBJECT_KEYS_DATABASE_URL"] = testDbUrl;
+    process.env["PLATFORM_KEK"] = PLATFORM_KEK_PLAINTEXT;
+    process.env["KUMIKO_BLIND_INDEX_KEY"] = BLIND_INDEX_PLAINTEXT;
+
+    const appCwd = writeAppWithTrivialMigration("0001_bidx");
+    writeRebuildMarker(join(appCwd, "kumiko/migrations"), "0001_bidx.sql", [BIDX_TABLE]);
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [personFeature],
+      kmsSlots: ["PLATFORM_KEK", "KUMIKO_BLIND_INDEX_KEY"],
+    });
+
+    expect(cap.err).toEqual([]);
+    expect(code).toBe(0);
+    const rows = await raw.unsafe<{ email_bidx: string | null }>(
+      `SELECT email_bidx FROM ${BIDX_TABLE} WHERE id = $1`,
+      [String(created.data.id)],
+    );
+    expect(rows[0]?.email_bidx).toBe(expectedBidx);
   });
 });

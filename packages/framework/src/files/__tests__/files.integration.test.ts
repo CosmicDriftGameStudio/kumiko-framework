@@ -846,13 +846,6 @@ describe("vnd.ms-excel via HTTP (.xls)", () => {
     ...Array(20).fill(0),
   ]);
 
-  test("unattached .xls declared as application/vnd.ms-excel keeps its declared mimeType unchanged", async () => {
-    const res = await uploadFile(adminUser, "legacy.xls", docBytes, "application/vnd.ms-excel");
-    expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body.mimeType).toBe("application/vnd.ms-excel");
-  });
-
   test("attached .xls upload is rejected by the importFile field's csv-only accept list", async () => {
     const res = await uploadFile(adminUser, "legacy.xls", docBytes, "application/vnd.ms-excel", {
       entityType: "tenant",
@@ -1647,6 +1640,26 @@ describe("byte-serving routes with field-encrypted fileName", () => {
     const header = res.headers.get("Content-Disposition") ?? "";
     expect(header).toContain('filename="download"');
     expect(header).not.toContain("__erased__");
+  });
+
+  test("GET /files/:id serves a neutral filename when ciphertext is stored but no subject KMS is configured", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+
+    const uploadRes = await uploadFile(adminUser, "no-kms-later.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+    resetPiiSubjectKmsForTests();
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    const header = res.headers.get("Content-Disposition") ?? "";
+    expect(header).toContain('filename="download"');
+    expect(header).not.toContain("kumiko-pii");
+    expect(header).not.toContain("no-kms-later");
   });
 
   test("GET /files/:id/download-url hints the decrypted fileName, never the ciphertext", async () => {

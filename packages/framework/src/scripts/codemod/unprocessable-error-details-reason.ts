@@ -138,12 +138,11 @@ type RemovalResult =
 /** Removes the `reason` property from a `details` object literal, in place. */
 function removeReasonProperty(detailsLiteral: ObjectLiteralExpression): RemovalResult {
   const properties = detailsLiteral.getProperties();
-  if (properties.some((p) => Node.isSpreadAssignment(p))) {
-    return {
-      kind: "skip",
-      note: "details object literal contains a spread — not statically decidable",
-    };
-  }
+  const hasSpread = properties.some((p) => Node.isSpreadAssignment(p));
+  const spreadSkip: RemovalResult = {
+    kind: "skip",
+    note: "details object literal has a spread next to an explicit reason — not statically decidable",
+  };
 
   for (const prop of properties) {
     if (Node.isPropertyAssignment(prop)) {
@@ -161,12 +160,14 @@ function removeReasonProperty(detailsLiteral: ObjectLiteralExpression): RemovalR
           ? nameNode.getLiteralText()
           : undefined;
       if (propName === "reason") {
+        if (hasSpread) return spreadSkip;
         prop.remove();
         return { kind: "removed" };
       }
       continue;
     }
     if (Node.isShorthandPropertyAssignment(prop) && prop.getName() === "reason") {
+      if (hasSpread) return spreadSkip;
       if (wouldLeaveUnusedVariable(prop.getNameNode())) {
         return {
           kind: "skip",
@@ -182,13 +183,20 @@ function removeReasonProperty(detailsLiteral: ObjectLiteralExpression): RemovalR
 
 type CallOutcome = "changed" | "skipped" | "not-a-match";
 
-function processNewExpression(args: readonly Node[], report: (note: string) => void): CallOutcome {
+// "manual": a concrete `reason` the codemod found but cannot remove safely.
+// "unverified": opts/details not statically analyzable — may well be fine, so
+// it is listed apart to keep the actionable list short.
+type SkipKind = "manual" | "unverified";
+type ReportSkip = (note: string, kind: SkipKind) => void;
+
+function processNewExpression(args: readonly Node[], report: ReportSkip): CallOutcome {
   const optsArg = args[1];
   if (!optsArg) return "not-a-match";
 
   if (!Node.isObjectLiteralExpression(optsArg)) {
     report(
       "second argument (opts) is not a statically-analyzable object literal — cannot verify details.reason",
+      "unverified",
     );
     return "skipped";
   }
@@ -196,14 +204,14 @@ function processNewExpression(args: readonly Node[], report: (note: string) => v
   const detailsRes = resolveDetailsProperty(optsArg);
   if (detailsRes.kind === "absent") return "not-a-match";
   if (detailsRes.kind === "unresolvable") {
-    report(detailsRes.note);
+    report(detailsRes.note, "unverified");
     return "skipped";
   }
 
   const removal = removeReasonProperty(detailsRes.literal);
   if (removal.kind === "absent") return "not-a-match";
   if (removal.kind === "skip") {
-    report(removal.note);
+    report(removal.note, "manual");
     return "skipped";
   }
   return "changed";
@@ -211,16 +219,14 @@ function processNewExpression(args: readonly Node[], report: (note: string) => v
 
 // `failUnprocessable(reason, details)` takes the details literal directly as
 // its second argument (no `{ details }` wrapper like the ctor's opts).
-function processFailUnprocessableCall(
-  args: readonly Node[],
-  report: (note: string) => void,
-): CallOutcome {
+function processFailUnprocessableCall(args: readonly Node[], report: ReportSkip): CallOutcome {
   const detailsArg = args[1];
   if (!detailsArg) return "not-a-match";
 
   if (!Node.isObjectLiteralExpression(detailsArg)) {
     report(
       "second argument (details) is not a statically-analyzable object literal — cannot verify details.reason",
+      "unverified",
     );
     return "skipped";
   }
@@ -228,18 +234,23 @@ function processFailUnprocessableCall(
   const removal = removeReasonProperty(detailsArg);
   if (removal.kind === "absent") return "not-a-match";
   if (removal.kind === "skip") {
-    report(removal.note);
+    report(removal.note, "manual");
     return "skipped";
   }
   return "changed";
 }
 
-type SkipEntry = { readonly file: string; readonly line: number; readonly note: string };
+type SkipEntry = {
+  readonly file: string;
+  readonly line: number;
+  readonly note: string;
+  readonly kind: SkipKind;
+};
 
 type MigratableCall = {
   readonly exportName: "UnprocessableError" | "failUnprocessable";
   readonly localKind: "class" | "function";
-  readonly process: (args: readonly Node[], report: (note: string) => void) => CallOutcome;
+  readonly process: (args: readonly Node[], report: ReportSkip) => CallOutcome;
 };
 
 const UNPROCESSABLE_ERROR_CTOR: MigratableCall = {
@@ -272,7 +283,7 @@ function migrateCallSite(
     const note = binding
       ? `${target.exportName} is imported from "${binding.moduleSpecifier}", not a @cosmicdrift/kumiko-* package`
       : `${target.exportName} has no @cosmicdrift/kumiko-* import in this file (likely a locally defined ${target.localKind})`;
-    skips.push({ file, line, note });
+    skips.push({ file, line, note, kind: "manual" });
     return false;
   }
   if (!KUMIKO_MODULE_RE.test(binding.moduleSpecifier)) {
@@ -280,11 +291,14 @@ function migrateCallSite(
       file,
       line,
       note: `${target.exportName} is imported from "${binding.moduleSpecifier}", not a @cosmicdrift/kumiko-* package`,
+      kind: "manual",
     });
     return false;
   }
 
-  const outcome = target.process(site.getArguments(), (note) => skips.push({ file, line, note }));
+  const outcome = target.process(site.getArguments(), (note, kind) =>
+    skips.push({ file, line, note, kind }),
+  );
   return outcome === "changed";
 }
 
@@ -336,9 +350,16 @@ async function main(): Promise<void> {
   console.log(
     `Touched ${touchedFiles} files, removed ${removedTotal} redundant "reason" propert(y/ies).`,
   );
-  console.log(`Skipped ${skips.length} site(s):`);
-  for (const s of skips) {
-    console.log(`  ${relative(rootDir, s.file)}:${s.line} — ${s.note}`);
+  for (const kind of ["manual", "unverified"] as const) {
+    const ofKind = skips.filter((s) => s.kind === kind);
+    console.log(
+      kind === "manual"
+        ? `Skipped ${ofKind.length} site(s) needing manual work:`
+        : `Unverified ${ofKind.length} site(s) (opts/details not statically analyzable, may be fine):`,
+    );
+    for (const s of ofKind) {
+      console.log(`  ${relative(rootDir, s.file)}:${s.line} — ${s.note}`);
+    }
   }
   console.log();
 }

@@ -15,6 +15,9 @@ const DRAIN_IDLE_POLL_MS = 25;
 // enqueue that lands just after the first idle read still gets picked up
 // by the second pass instead of racing straight past it.
 const REQUIRED_IDLE_PASSES = 2;
+// Below the 15s per-test budget so a stuck drain reports what is open rather
+// than surfacing as a bare test timeout.
+const DEFAULT_DRAIN_TIMEOUT_MS = 10_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -69,6 +72,39 @@ export type DrainJobsStack = {
   readonly jobRunner?: JobRunner;
 };
 
+// Diagnostic only: lets the deadline error name what was still open.
+async function describeLaggingConsumers(
+  db: DbConnection,
+  consumerNames: readonly string[],
+): Promise<readonly string[]> {
+  // skip: no shared consumers wired — nothing to catch up on.
+  if (consumerNames.length === 0) return [];
+  const target = await getEventsHighWaterMark(db);
+  const lagging: string[] = [];
+  for (const name of consumerNames) {
+    const state = await getConsumerState(db, name);
+    if (state && state.lastProcessedEventId < target) {
+      lagging.push(
+        `${name} (status=${state.status}, lastProcessedEventId=${state.lastProcessedEventId}, target=${target})`,
+      );
+    }
+  }
+  return lagging;
+}
+
+async function drainTimeoutError(
+  db: DbConnection,
+  consumerNames: readonly string[],
+  timeoutMs: number,
+  pending: number,
+): Promise<Error> {
+  const lagging = await describeLaggingConsumers(db, consumerNames);
+  return new Error(
+    `drainJobs: not drained after ${timeoutMs}ms — pending jobs: ${pending}, ` +
+      `consumers behind: ${lagging.length === 0 ? "none" : lagging.join("; ")}`,
+  );
+}
+
 async function sharedConsumersCaughtUp(
   db: DbConnection,
   consumerNames: readonly string[],
@@ -92,8 +128,16 @@ async function sharedConsumersCaughtUp(
   return allCaughtUp;
 }
 
-export async function drainJobs(stack: DrainJobsStack, tracker: JobFailureTracker): Promise<void> {
+// Fails a stuck drain with a diagnosis instead of a generic test-runner timeout.
+// It only bounds the loop; it never replaces waiting for real work.
+export async function drainJobs(
+  stack: DrainJobsStack,
+  tracker: JobFailureTracker,
+  options?: { readonly timeoutMs?: number },
+): Promise<void> {
   const { db, eventDispatcher, jobRunner } = stack;
+  const timeoutMs = options?.timeoutMs ?? DEFAULT_DRAIN_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
   if (!jobRunner) {
     throw new Error(
       "drainJobs: stack.jobRunner is undefined — pass `jobs: {...}` to setupTestStack and " +
@@ -114,6 +158,9 @@ export async function drainJobs(stack: DrainJobsStack, tracker: JobFailureTracke
         const caughtUp = await sharedConsumersCaughtUp(db, sharedConsumerNames);
         consecutiveIdlePasses = pending === 0 && caughtUp ? consecutiveIdlePasses + 1 : 0;
         if (consecutiveIdlePasses < REQUIRED_IDLE_PASSES) {
+          if (Date.now() > deadline) {
+            throw await drainTimeoutError(db, sharedConsumerNames, timeoutMs, pending);
+          }
           await Promise.race([tracker.waitForActivity(), sleep(DRAIN_IDLE_POLL_MS)]);
         }
       }

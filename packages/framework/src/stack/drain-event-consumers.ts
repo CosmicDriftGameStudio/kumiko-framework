@@ -27,6 +27,9 @@ export async function drainEventConsumers(
     );
   }
   const maxPasses = options?.maxPasses ?? DEFAULT_MAX_PASSES;
+  if (!Number.isInteger(maxPasses) || maxPasses < 1) {
+    throw new Error("drainEventConsumers: maxPasses must be a positive integer");
+  }
   const target = await getEventsHighWaterMark(db);
 
   for (let pass = 0; pass < maxPasses; pass++) {
