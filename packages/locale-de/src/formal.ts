@@ -24,6 +24,7 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Sie sind als {email} angemeldet. Klicken Sie auf „Annehmen“, um Mitglied zu werden.",
   "auth.login.resendRateLimited": "Bitte warten Sie kurz und versuchen Sie es erneut.",
   "auth.login.resendSuccess": "Wir haben Ihnen eine neue Bestätigungs-Mail geschickt.",
+  "auth.login.sessionEnded": "Ihre Sitzung wurde beendet. Bitte melden Sie sich erneut an.",
   "auth.mail.activation.ignore":
     "Falls Sie sich nicht registriert haben, können Sie diese E-Mail ignorieren. Es wird kein Account erstellt, solange Sie den Link nicht öffnen.",
   "auth.mail.activation.intro":

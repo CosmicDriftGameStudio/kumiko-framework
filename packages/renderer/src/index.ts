@@ -272,6 +272,18 @@ export {
   statusToneForValue,
   usePrimitives,
 } from "./primitives.js";
+export type {
+  SessionEndedSignal,
+  SessionEndedSignalProviderProps,
+} from "./session/session-ended.js";
+export {
+  createSessionEndedSignal,
+  isSessionEndedError,
+  SESSION_ENDED_ERROR_CODES,
+  SessionEndedSignalProvider,
+  useSessionEndedSignal,
+  withSessionEndedDetection,
+} from "./session/session-ended.js";
 export { buildWhatsAppShareUrl } from "./share-links.js";
 export { sortByAccessor } from "./sort-by-accessor.js";
 export type { LiveEvent, LiveEventSubscriber, LiveEventsProviderProps } from "./sse/live-events.js";

@@ -42,6 +42,7 @@ export function makeSessionApi(overrides: MakeSessionApiOptions = {}): SessionAp
     tenants: [{ tenantId: "tenant-1", roles: ["Admin"] }],
     roles: ["Admin"],
     bootstrapFailure: null,
+    signedOutReason: null,
     ...stateOverrides,
   };
   return {

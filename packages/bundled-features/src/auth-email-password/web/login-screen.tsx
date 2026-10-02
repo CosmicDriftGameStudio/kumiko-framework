@@ -221,6 +221,9 @@ export function LoginScreen({
               autoComplete="current-password"
             />
           </Field>
+          {session.signedOutReason === "session-ended" && (
+            <Banner variant="info">{t("auth.login.sessionEnded")}</Banner>
+          )}
           {resendStatus.kind === "success" ? (
             <Banner variant="info">{t("auth.login.resendSuccess")}</Banner>
           ) : error !== null ? (

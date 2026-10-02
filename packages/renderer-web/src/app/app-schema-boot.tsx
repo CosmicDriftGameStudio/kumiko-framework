@@ -1,5 +1,10 @@
 import type { AppSchema } from "@cosmicdrift/kumiko-renderer";
-import { toAppSchema, usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
+import {
+  toAppSchema,
+  usePrimitives,
+  useSessionEndedSignal,
+  useTranslation,
+} from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 // Mirrors framework's api-constants Routes.schema, same pattern as
@@ -21,6 +26,7 @@ export function isAppSchemaPayload(value: unknown): value is AppSchema {
 
 export type AppSchemaFetchResult =
   | { readonly kind: "loaded"; readonly app: AppSchema }
+  | { readonly kind: "session-ended" }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "failed" };
 
@@ -44,7 +50,8 @@ export async function fetchAppSchema(signal: AbortSignal): Promise<AppSchemaFetc
     if (isAbortError(err)) throw err;
     return { kind: "failed" };
   }
-  if (res.status === 401 || res.status === 403) return { kind: "unauthorized" };
+  if (res.status === 401) return { kind: "session-ended" };
+  if (res.status === 403) return { kind: "unauthorized" };
   if (!res.ok) return { kind: "failed" };
   let payload: unknown;
   try {
@@ -67,7 +74,10 @@ export function AppSchemaFetchBoot({
 }): ReactNode {
   const t = useTranslation();
   const { Banner, Button } = usePrimitives();
-  const [status, setStatus] = useState<"loading" | "unauthorized" | "failed">("loading");
+  const [status, setStatus] = useState<"loading" | "session-ended" | "unauthorized" | "failed">(
+    "loading",
+  );
+  const sessionEndedSignal = useSessionEndedSignal();
   const [attempt, setAttempt] = useState(0);
   // Ref instead of an effect dependency: onLoaded is a fresh closure on
   // every KumikoAppRoot render (it captures setApp) — depending on it
@@ -94,6 +104,10 @@ export function AppSchemaFetchBoot({
     return () => controller.abort();
   }, [attempt]);
 
+  useEffect(() => {
+    if (status === "session-ended") sessionEndedSignal?.notify();
+  }, [status, sessionEndedSignal]);
+
   if (status === "loading") {
     return (
       <div role="status" aria-busy="true">
@@ -102,10 +116,12 @@ export function AppSchemaFetchBoot({
     );
   }
 
-  if (status === "unauthorized") {
+  if (status === "unauthorized" || status === "session-ended") {
     // No auto-retry/reload here on purpose — a signed-out user retrying
     // the same request just gets the same 401 again; the login gate that
-    // wraps this component is the actual way out.
+    // wraps this component is the actual way out. For session-ended the
+    // notify above normally swaps this banner for the login screen; the
+    // banner stays as fallback when no session provider is mounted.
     return (
       <Banner variant="error" padded>
         {t("kumiko.app-boot.unauthorized")}
