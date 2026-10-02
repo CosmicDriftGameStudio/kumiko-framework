@@ -56,7 +56,7 @@ const { executor: tierAssignmentExecutor } = createEntityExecutor(
 // seedAdmin() before options.seeds run) so seeded writes carry a created_by
 // the audit-log actor lookup can resolve — TestUsers.systemAdmin has no user
 // row / tenant-membership and renders as a blank actor column.
-async function resolveAdminUserId(db: DbConnection, _tenantId: TenantId): Promise<string> {
+async function resolveAdminUserId(db: DbConnection): Promise<string> {
   const admin = await fetchOne<{ id: string }>(db, userTable, { email: ADMIN_EMAIL });
   if (!admin) {
     throw new Error(
@@ -321,7 +321,7 @@ export const seedScreenshotData: SeedFn = async (stack) => {
   // Real dev-admin identity (not TestUsers.systemAdmin — see resolveAdminUserId)
   // so the audit-log actor column resolves for these seeded writes. One lookup
   // for the whole tenant, not per record.
-  const devAdminId = await resolveAdminUserId(stack.db, devTenant);
+  const devAdminId = await resolveAdminUserId(stack.db);
 
   // tags + notes + assignments in the dev tenant for the tags screenshots.
   await seedTagsAndNotes(stack.db, devTenant, devAdminId);

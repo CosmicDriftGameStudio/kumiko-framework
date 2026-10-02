@@ -198,7 +198,7 @@ export function WriteFormSection({
           ...(section.description !== undefined && { subtitle: section.description }),
           headerActions: titleRowActions,
         }}
-        testId={`write-form-${section.title ?? "section"}`}
+        testId={`write-form-${section.title ?? section.handler}`}
       >
         {content}
       </Card>
@@ -214,7 +214,7 @@ export function WriteFormSection({
       {...(section.description !== undefined && { subtitle: section.description })}
       {...(section.icon !== undefined && { icon: section.icon })}
       actions={titleRowActions}
-      testId={`write-form-${section.title ?? "section"}`}
+      testId={`write-form-${section.title ?? section.handler}`}
     >
       {content}
     </Section>

@@ -195,6 +195,16 @@ describe("WriteFormSection", () => {
     expect(button.dataset["icon"]).toBeUndefined();
   });
 
+  test("untitled sections get distinct testIds keyed by their write handler", () => {
+    const { dispatcher } = stubDispatcher();
+    const { title: _title, ...untitled } = noteSection;
+    renderWriteForm({ ...untitled, handler: "orders:write:first" }, dispatcher, noop);
+    renderWriteForm({ ...untitled, handler: "orders:write:second" }, dispatcher, noop);
+
+    expect(rtlScreen.getByTestId("write-form-orders:write:first")).toBeTruthy();
+    expect(rtlScreen.getByTestId("write-form-orders:write:second")).toBeTruthy();
+  });
+
   test("submit dispatches through the section's configured write handler with the entered values", async () => {
     const { dispatcher, writes } = stubDispatcher();
     let submittedCount = 0;

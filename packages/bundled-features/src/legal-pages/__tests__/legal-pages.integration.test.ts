@@ -628,29 +628,6 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     }
   });
 
-  test("DE-Blocks fehlen, custom requiredBlocks (es) konfiguriert + geseedet → kein Fail", async () => {
-    // Proves the boot check only looks at the configured requiredBlocks,
-    // not hardcoded LEGAL_REQUIRED_BLOCKS (DE) — required for apps with a
-    // default language other than DE.
-    const { api } = fakeTemplateResolver([
-      { slug: "imprint", lang: "es", title: "I", content: "x" },
-      { slug: "privacy", lang: "es", title: "P", content: "x" },
-    ]);
-    const originalEnv = process.env["NODE_ENV"];
-    process.env["NODE_ENV"] = "production";
-    try {
-      await expect(
-        runLegalPagesBootCheck({ templateResolver: api }, [
-          { slug: "imprint", lang: "es" },
-          { slug: "privacy", lang: "es" },
-        ]),
-      ).resolves.toBeUndefined();
-    } finally {
-      if (originalEnv === undefined) delete process.env["NODE_ENV"];
-      else process.env["NODE_ENV"] = originalEnv;
-    }
-  });
-
   test("createLegalPagesFeature threads requiredBlocks into the boot-check job, not the DACH default", async () => {
     // Goes through the actual job registered by createLegalPagesFeature
     // (not a direct runLegalPagesBootCheck call, unlike the tests above) —
