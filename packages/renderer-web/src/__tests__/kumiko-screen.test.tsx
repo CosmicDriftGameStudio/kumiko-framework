@@ -75,7 +75,10 @@ async function clickSubmitOnceEnabled(
   scope: () => Pick<typeof screen, "getByTestId"> = () => screen,
 ): Promise<void> {
   await waitFor(() => {
-    const button = scope().getByTestId("render-edit-submit") as HTMLButtonElement;
+    const button = scope().getByTestId("render-edit-submit");
+    if (!(button instanceof HTMLButtonElement)) {
+      throw new Error("render-edit-submit is not a <button>");
+    }
     expect(button.disabled).toBe(false);
   });
   await act(async () => {

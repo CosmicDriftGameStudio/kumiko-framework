@@ -187,7 +187,11 @@ async function resolveOverlaySpec(
   registry: Registry,
   tenantId: TenantId,
 ): Promise<VariantSpec> {
-  if (!spec.overlays || spec.overlays.length === 0) return spec;
+  // `resolvedOverlays` is framework-internal; a caller-supplied value must
+  // never reach the renderer past the token resolution below.
+  if (!spec.overlays || spec.overlays.length === 0) {
+    return spec.resolvedOverlays === undefined ? spec : { ...spec, resolvedOverlays: undefined };
+  }
 
   const qrContext = spec.overlays.some((layer) => layer.kind === "qr")
     ? resolveQrOverlayContext(row, registry)

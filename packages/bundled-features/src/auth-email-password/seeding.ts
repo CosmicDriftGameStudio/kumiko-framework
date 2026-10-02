@@ -268,6 +268,12 @@ type ActiveUserRow = {
 };
 
 function compareInsertedAt(a: ActiveUserRow["insertedAt"], b: ActiveUserRow["insertedAt"]): number {
+  // selectMany<ActiveUserRow> is an unchecked row-shape claim. A codec that
+  // yields another type would make both comparisons false and silently fall
+  // back to id order, which can crown the younger duplicate as survivor.
+  if (typeof a.epochNanoseconds !== "bigint" || typeof b.epochNanoseconds !== "bigint") {
+    throw new Error("compareInsertedAt: user.insertedAt is not a Temporal.Instant");
+  }
   if (a.epochNanoseconds < b.epochNanoseconds) return -1;
   if (a.epochNanoseconds > b.epochNanoseconds) return 1;
   return 0;

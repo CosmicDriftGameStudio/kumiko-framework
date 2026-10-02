@@ -65,7 +65,7 @@ function makeSchema(): FeatureSchema {
         order: 20,
       },
     ],
-  } as FeatureSchema;
+  } satisfies FeatureSchema;
 }
 
 function makeRoleGatedSchema(): FeatureSchema {
@@ -97,7 +97,7 @@ function makeRoleGatedSchema(): FeatureSchema {
         access: { roles: ["SystemAdmin"] },
       },
     ],
-  } as FeatureSchema;
+  } satisfies FeatureSchema;
 }
 
 describe("NavTree role-gating", () => {
@@ -229,7 +229,7 @@ describe("NavTree", () => {
       "Deeply nested child screen with a very long label",
       "Nested grouping entry without a screen but long label",
       "Grandchild below the nested grouping entry label",
-    ];
+    ] as const;
     const schema = {
       featureName: "showcase",
       entities: {},
@@ -245,7 +245,7 @@ describe("NavTree", () => {
         { id: "group", label: labels[3], parent: "top", order: 20 },
         { id: "grandchild", label: labels[4], parent: "group", screen: "grandchild", order: 10 },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     render(<NavTree schema={schema} testId="tree" />);
 
     // labels[0] is a static section heading (SidebarGroupLabel), not a nav entry span.
@@ -292,7 +292,7 @@ describe("NavTree", () => {
         { id: "dash", label: "Dash", screen: "dash", order: 10, icon: "dashboard" },
         { id: "plain", label: "Plain", screen: "plain", order: 20 },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     // Flat nav without sections means no chevrons; exactly one nav svg (the
     // dashboard icon) because the icon-less item renders no leading element.
@@ -312,7 +312,7 @@ describe("NavTree", () => {
         { id: "groups", label: "Gruppen", screen: "groups", order: 10, icon: "layers" },
         { id: "tenants", label: "Mandanten", screen: "tenants", order: 20, icon: "building" },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expectNavIcons(container, ["layers", "building"]);
   });
@@ -329,7 +329,7 @@ describe("NavTree", () => {
         { id: "fields", label: "Felder", screen: "fields", order: 10, icon: "tag" },
         { id: "tokens", label: "Tokens", screen: "tokens", order: 20, icon: "key" },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expectNavIcons(container, ["tag", "key"]);
   });
@@ -357,7 +357,7 @@ describe("NavTree", () => {
         { id: "d", label: "Import", screen: "d", order: 40, icon: "upload" },
         { id: "e", label: "Billing", screen: "e", order: 50, icon: "rocket" },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expectNavIcons(container, ["server", "mail", "download", "upload", "rocket"]);
   });
@@ -376,7 +376,7 @@ describe("NavTree", () => {
         { id: "links", label: "Links", screen: "links", order: 20, icon: "link" },
         { id: "defaults", label: "Defaults", screen: "defaults", order: 30, icon: "share" },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expectNavIcons(container, ["palette", "link", "share"]);
   });
@@ -401,7 +401,7 @@ describe("NavTree", () => {
         },
         { id: "cap-list", label: "Caps", screen: "cap-list", order: 60, icon: "gauge" },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expectNavIcons(container, ["send", "shield-check", "gauge"]);
     expect(warnSpy).not.toHaveBeenCalled();
@@ -423,7 +423,7 @@ describe("NavTree", () => {
           icon: "does-not-exist" as NavIconKey,
         },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const { container } = render(<NavTree schema={schema} />);
     expect(navIconSvgs(container)).toHaveLength(0);
     expect(warnSpy).toHaveBeenCalledWith(
@@ -437,7 +437,7 @@ describe("NavTree", () => {
       entities: {},
       screens: [{ id: "dash", type: "entityList", entity: "x", columns: [] }],
       navs: [{ id: "dash", label: "Dash", screen: "dash", order: 10, icon: "dashboard" }],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     render(<NavTree schema={schema} />);
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -448,7 +448,7 @@ describe("NavTree", () => {
       entities: {},
       screens: [{ id: "plain", type: "entityList", entity: "x", columns: [] }],
       navs: [{ id: "plain", label: "Plain", screen: "plain", order: 10 }],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     render(<NavTree schema={schema} />);
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -470,7 +470,7 @@ describe("NavTree navBadges (Runtime-Badge-Slot)", () => {
         { id: "tarif", label: "Tarif & Limits", screen: "tarif", order: 10 },
         { id: "plain", label: "Plain", screen: "plain", order: 20 },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
   }
 
   test("Badge gekeyt auf bare nav-id sitzt im passenden Item, nicht in anderen", () => {
@@ -534,7 +534,7 @@ describe("NavTree active-marker parent fallback", () => {
         },
       ],
       navs: [{ id: "user-list", label: "Users", screen: "user-list", order: 10 }],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
 
     render(
       <NavProvider value={navWithRoute("user-edit")}>
@@ -564,7 +564,7 @@ describe("NavTree active-marker parent fallback", () => {
         { id: "user-list", label: "Users", screen: "user-list", order: 10 },
         { id: "user-edit", label: "Edit User", screen: "user-edit", order: 20 },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
 
     render(
       <NavProvider value={navWithRoute("user-edit")}>
@@ -600,7 +600,7 @@ describe("NavTree active-marker parent fallback", () => {
         { id: "user-list", label: "Users", screen: "user-list", order: 10 },
         { id: "user-edit", label: "Add User", screen: "user-edit", order: 20 },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
 
     render(
       <NavProvider
@@ -648,7 +648,7 @@ describe("NavTree active-marker parent fallback", () => {
         { id: "invoice-list", label: "Invoices", screen: "invoice-list", order: 10 },
         { id: "invoice-archive", label: "Archive", screen: "invoice-archive", order: 20 },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
 
     render(
       <NavProvider value={navWithRoute("invoice-approve")}>
@@ -719,7 +719,7 @@ function dynamicSchema(): FeatureSchema {
         },
       },
     ],
-  } as FeatureSchema;
+  } satisfies FeatureSchema;
 }
 
 function renderDynamic(args: {
@@ -807,7 +807,7 @@ describe("NavTree dynamic provider nodes", () => {
           createAction: { icon: "plus", label: "New page", screen: "cms:screen:new-page" },
         },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     const provider: TreeChildrenSubscribe = () => (emit) => {
       emit([pageLeaf("apex")]);
       return () => {};
@@ -839,7 +839,7 @@ describe("NavTree dynamic provider nodes", () => {
           actions: [{ icon: "edit", label: "Edit hero", screen: "cms:screen:hero" }],
         },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     await act(async () => {
       renderDynamic({ schema, providers: new Map() });
     });
@@ -869,7 +869,7 @@ describe("NavTree dynamic provider nodes", () => {
             actions: [{ icon: "edit", label: "Broken action" }],
           },
         ],
-      } as FeatureSchema;
+      } satisfies FeatureSchema;
       await act(async () => {
         renderDynamic({ schema, providers: new Map() });
       });
@@ -905,7 +905,7 @@ describe("NavTree dynamic provider nodes", () => {
             ],
           },
         ],
-      } as FeatureSchema;
+      } satisfies FeatureSchema;
       await act(async () => {
         renderDynamic({ schema, providers: new Map() });
       });
@@ -936,7 +936,7 @@ describe("NavTree dynamic provider nodes", () => {
           target: { featureId: "cms", action: "edit", args: { slug: "hero" } },
         },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     await act(async () => {
       renderDynamic({ schema, providers: new Map() });
     });
@@ -1059,7 +1059,7 @@ describe("NavTree Actions-Positionierung", () => {
           },
         },
       ],
-    } as FeatureSchema;
+    } satisfies FeatureSchema;
     await act(async () => {
       renderDynamic({ schema, providers: new Map() });
     });

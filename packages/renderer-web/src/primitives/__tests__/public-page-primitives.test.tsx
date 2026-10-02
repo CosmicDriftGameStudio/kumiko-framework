@@ -49,6 +49,8 @@ describe("CopyButton", () => {
   afterEach(() => {
     if (originalClipboard !== undefined) {
       Object.defineProperty(navigator, "clipboard", originalClipboard);
+    } else {
+      Reflect.deleteProperty(navigator, "clipboard");
     }
   });
 
@@ -83,6 +85,11 @@ describe("CopyButton", () => {
 
     expect(screen.queryByRole("button", { name: "Kopiert" })).toBeNull();
     expect(screen.getByRole("button", { name: "Text kopieren" })).toBeTruthy();
+  });
+
+  // Runs after the stubbing tests above; proves afterEach restored the pre-suite descriptor.
+  test("the clipboard stub does not leak into later tests", () => {
+    expect(Object.getOwnPropertyDescriptor(navigator, "clipboard")).toEqual(originalClipboard);
   });
 });
 
