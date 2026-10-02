@@ -424,6 +424,47 @@ describe("tenant:query:team:list — combined members + pending invitations (§2
     expect(invitee?.roles).toEqual(["Editor"]);
   });
 
+  test("createdAt is the stored insertion time of the membership and invitation, not the query time", async () => {
+    const { id: memberUserId } = await seedUser(stack.db, {
+      email: "member-ts@example.com",
+      displayName: "Member TS",
+      passwordHash: await hashPassword("pw-ts-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: memberUserId,
+      tenantId: TENANT_A_ID,
+      roles: ["User"],
+    });
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "invitee-ts@example.com", role: "User" },
+      tenantAdminA(),
+    );
+    const memberAt = "2021-03-04T05:06:07Z";
+    const inviteAt = "2022-04-05T06:07:08Z";
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${tenantMembershipsTable.tableName}" SET inserted_at = $1 WHERE user_id = $2`,
+      [memberAt, memberUserId],
+    );
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "${tenantInvitationsTable.tableName}" SET inserted_at = $1`,
+      [inviteAt],
+    );
+
+    const rows = await stack.http.queryOk<{
+      rows: readonly { email: string | null; createdAt: string }[];
+    }>(TenantQueries.teamList, {}, tenantAdminA());
+    const instantOf = (email: string): string | undefined =>
+      rows.rows.find((r) => r.email === email)?.createdAt;
+    expect(Temporal.Instant.from(instantOf("member-ts@example.com") ?? "").toString()).toBe(
+      Temporal.Instant.from(memberAt).toString(),
+    );
+    expect(Temporal.Instant.from(instantOf("invitee-ts@example.com") ?? "").toString()).toBe(
+      Temporal.Instant.from(inviteAt).toString(),
+    );
+  });
+
   test("status facet genuinely narrows to matching rows, not just the count", async () => {
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "member-y@example.com",
