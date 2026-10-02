@@ -51,6 +51,16 @@ describe("guard-app-feature-structure", () => {
     expect(outcome.violations[0]?.message).toContain("custom");
   });
 
+  test("flaggt kein verschachteltes type custom innerhalb eines deklarativen r.screen", () => {
+    const sf = parse(
+      `export const f = (r: { screen: (d: unknown) => void }) => {
+  r.screen({ id: "x", type: "entityList", widgets: [{ type: "custom" }] });
+};`,
+      "src/features/demo/feature.ts",
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
   test("erlaubt custom-Screen mit Allowlist-Tag und andere type-Props", () => {
     const sf = parse(
       `export const f = (r: { screen: (d: unknown) => void }) => {

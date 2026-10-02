@@ -156,6 +156,42 @@ describe("Real-Provider-Isolation Guard (check.run)", () => {
     }
   });
 
+  test("flags a bunfig.toml whose *.real.test.ts entry sits in a comment or under coveragePathIgnorePatterns", async () => {
+    const root = makeRepo({
+      "bunfig.toml":
+        '[test]\n# pathIgnorePatterns = ["**/*.real.test.ts"]\ncoveragePathIgnorePatterns = ["**/*.real.test.ts"]\npathIgnorePatterns = ["**/*.integration.test.ts"]\n',
+    });
+    try {
+      const repoRoot = fixtureRoot("fixture-app", root, {
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      const outcome = await check.run([repoRoot]);
+      expect(outcome.violations.map((v) => v.file)).toEqual(["bunfig.toml"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("accepts the multi-line pathIgnorePatterns array the bunfig template generates", async () => {
+    const root = makeRepo({
+      "bunfig.toml":
+        '[test]\npathIgnorePatterns = [\n  "**/*.integration.test.ts",\n  "**/*.real.test.ts",\n]\n',
+    });
+    try {
+      const repoRoot = fixtureRoot("fixture-app", root, {
+        kind: "app",
+        sourceRoots: ["src"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      const outcome = await check.run([repoRoot]);
+      expect(outcome.violations).toEqual([]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("does not flag bunfig.real.toml itself for lacking the exclusion (it targets .real. files)", async () => {
     const root = makeRepo({
       "bunfig.real.toml": '[test]\npathIgnorePatterns = ["**/*.integration.test.ts"]\n',

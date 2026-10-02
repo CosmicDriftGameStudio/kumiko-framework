@@ -499,12 +499,7 @@ export function guardKitPreflightError(guardCount: number, rootCount: number): s
   return undefined;
 }
 
-/**
- * Validates CLI args for one subcommand against the flags it actually
- * understands — every arg must match `known` exactly (not just a `--`-prefix
- * check, which let a single-dash typo or a stray positional through
- * unnoticed). An unknown arg must fail loud, never pass through silently.
- */
+// Exact match, not a `--` prefix check: single-dash typos and positionals must not slip through.
 export function cliFlagsError(
   subcommand: string,
   argv: readonly string[],

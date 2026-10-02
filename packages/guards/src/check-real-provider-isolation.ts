@@ -133,6 +133,14 @@ function scanPackageJsonScripts(root: RepoRoot, findings: TextLineFinding[]): nu
   return scanned;
 }
 
+// A bare substring match would accept the entry inside a TOML comment or under
+// another key such as coveragePathIgnorePatterns, which leaves `bun test` unguarded.
+function ignoresRealTests(bunfigToml: string): boolean {
+  const withoutComments = bunfigToml.replace(/^\s*#.*$/gm, "");
+  const match = /^\s*pathIgnorePatterns\s*=\s*\[([^\]]*)\]/m.exec(withoutComments);
+  return match?.[1]?.includes(`"${REAL_TEST_IGNORE_ENTRY}"`) ?? false;
+}
+
 // The generated bunfig template (packages/testing/src/bunfig.ts) is what app
 // and library repos consume via `kumiko-testing bunfig` — the framework repo
 // hand-maintains its own root bunfig*.toml files and doesn't run this
@@ -150,7 +158,7 @@ function bunfigMissingRealExclusion(root: RepoRoot, findings: TextLineFinding[])
       continue;
     }
     scanned++;
-    if (!content.includes(REAL_TEST_IGNORE_ENTRY)) {
+    if (!ignoresRealTests(content)) {
       findings.push({
         file: rel,
         line: 1,

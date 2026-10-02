@@ -57,6 +57,14 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(stderr).toContain("checks");
   });
 
+  test("<subcommand> --help prints the help and exits 0 instead of failing as an unknown flag", async () => {
+    const { exitCode, stdout, stderr } = await runCli(["guards", "--help"]);
+
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("Usage: kumiko-guards");
+    expect(stderr).toBe("");
+  });
+
   test("list prints the registration inventory as JSON, without running any suite", async () => {
     const { exitCode, stdout, stderr } = await runCli(["list"]);
 

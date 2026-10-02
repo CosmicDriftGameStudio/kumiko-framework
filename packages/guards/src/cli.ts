@@ -45,6 +45,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   const flags = process.argv.slice(3);
+  if (subcommand !== undefined && (flags.includes("--help") || flags.includes("-h"))) {
+    printHelp();
+    process.exit(0);
+  }
 
   if (subcommand === "list") {
     const flagsError = cliFlagsError("list", flags, SUBCOMMAND_FLAGS.list);

@@ -34,12 +34,11 @@ const SCAN: ScanSpec = { scope: "source", extensions: ["ts"] };
 const EXCLUDE = /(__tests__|\.test\.ts$|\.integration\.ts$|\.d\.ts$)/;
 
 // Allowed callers: migration runners (sample-local, src/ and bin/) +
-// admin scripts + the definition itself + this guard script.
+// admin scripts + the definition itself.
 const ALLOWLIST: readonly RegExp[] = [
   /^samples\/[^/]+\/src\/migration\//,
   /^scripts\/migrations\//,
   /^packages\/framework\/src\/event-store\/admin-api\.ts$/,
-  /^scripts\/guard-admin-api\.ts$/,
 ];
 
 const GUARDED_CALLS = new Set(["appendRaw", "appendRawBatch"]);

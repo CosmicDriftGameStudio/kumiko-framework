@@ -1016,6 +1016,23 @@ export async function outer(passedCtx: typeof ctx) {
     ]);
   });
 
+  test("does not clear when declareEscapeHatch comes after the escalation, not as the first statement", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function loadSomething(passedCtx: typeof ctx) {
+	const rows = await passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+	declareEscapeHatch({ reason: "reads something on behalf of the caller" });
+	return rows;
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
   test("clears unsafeRaw in a standalone function with a valid declareEscapeHatch", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
