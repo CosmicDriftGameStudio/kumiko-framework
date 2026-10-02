@@ -48,6 +48,7 @@ function createSessionCallbacks(
     meta: { ip: string; userAgent: string },
   ) => Promise<string>;
   sessionRevoker: (sid: string) => Promise<void>;
+  sessionChecker: (sid: string) => Promise<"live" | "revoked">;
 } {
   return {
     async sessionCreator(user, meta) {
@@ -67,6 +68,11 @@ function createSessionCallbacks(
     async sessionRevoker(sid) {
       store.live.delete(sid);
       store.revoked.push(sid);
+    },
+    // Keyed on revoked rather than live: the warm-up clears `live` but the
+    // seed actor's cached sid must keep authenticating.
+    async sessionChecker(sid) {
+      return store.revoked.includes(sid) ? "revoked" : "live";
     },
   };
 }
@@ -114,6 +120,7 @@ beforeAll(async () => {
       },
       sessionCreator: callbacks.sessionCreator,
       sessionRevoker: callbacks.sessionRevoker,
+      sessionChecker: callbacks.sessionChecker,
     },
     // "login wires into sessionCreator" below asserts the literal ip stored
     // by sessionCreator, so the resolver needs a trusted hop to read
@@ -261,6 +268,13 @@ describe("logout routes through sessionRevoker", () => {
     // Revoker was called with exactly the sid from the caller's JWT
     expect(store.revoked).toEqual([sidBefore!]);
     expect(store.live.has(sidBefore ?? "")).toBe(false);
+
+    const replayRes = await stack.http.raw("POST", "/api/auth/logout", undefined, {
+      Authorization: `Bearer ${loginRes.token}`,
+    });
+    expect(replayRes.status).toBe(401);
+    const replayBody = (await replayRes.json()) as { error: { code: string } };
+    expect(replayBody.error.code).toBe("session_invalid");
   });
 
   test("logout without a bearer token → 401 (middleware blocks it)", async () => {
