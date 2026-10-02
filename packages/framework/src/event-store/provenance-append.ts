@@ -1,6 +1,7 @@
 import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.js";
 import { runInSavepointIfSupported } from "../db/query.js";
 import { type TenantDb, unsafeRawForDeclaredStep, withUnsafeRawGrant } from "../db/tenant-db.js";
+import { qnScope } from "../engine/qualified-name.js";
 import type { TenantId } from "../engine/types/index.js";
 import { AccessDeniedError, InternalError } from "../errors/index.js";
 import { append, type EventMetadata, getStreamVersion } from "./event-store.js";
@@ -31,7 +32,9 @@ export async function appendProvenanceEvent(
       message: `appendProvenanceEvent("${event.type}") — the "${SYSTEM_EVENT_PREFIX}" namespace is framework-internal and is not reachable through this entry point.`,
     });
   }
-  if (!event.type.includes(":")) {
+  // qnScope is the same owner definition appendDomainEventCore uses: a leading
+  // ":" (empty owner) counts as unowned there, so it must here too.
+  if (!qnScope(event.type) || event.type.endsWith(":")) {
     throw new InternalError({
       message: `appendProvenanceEvent("${event.type}") — event types must be owner-qualified ("<feature>:<name>"). Unowned types are not allowed here.`,
     });

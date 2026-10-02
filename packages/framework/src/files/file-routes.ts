@@ -9,6 +9,7 @@ import {
   decryptPiiFieldValues,
   isPiiCiphertext,
   type KmsContext,
+  PII_ERASED_SENTINEL,
 } from "../crypto/index.js";
 import type { DbConnection } from "../db/connection.js";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
@@ -206,13 +207,26 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     if (!kms) {
       return "download";
     }
-    const decrypted = await decryptPiiFieldValues(
-      { fileName: fileRef.fileName },
-      piiSubjectFields,
-      kms,
-      kmsContextFor(),
-    );
-    return typeof decrypted["fileName"] === "string" ? decrypted["fileName"] : "download";
+    try {
+      const decrypted = await decryptPiiFieldValues(
+        { fileName: fileRef.fileName },
+        piiSubjectFields,
+        kms,
+        kmsContextFor(),
+      );
+      const name = decrypted["fileName"];
+      // decryptPiiFieldValues returns the row untouched when fileName isn't
+      // annotated as PII (annotation drift), so ciphertext/erased sentinel
+      // can still be here and must never reach a header.
+      if (typeof name !== "string" || isPiiCiphertext(name) || name === PII_ERASED_SENTINEL) {
+        return "download";
+      }
+      return name;
+    } catch {
+      // skip: broken crypto metadata (malformed ciphertext, auth failure, missing key)
+      // must not make intact bytes unreachable; the route layer has no logger.
+      return "download";
+    }
   }
 
   // Runs before parseBody buffers the request below: checks Content-Length

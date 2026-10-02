@@ -439,7 +439,7 @@ jobs:
           docker rm -f kumiko-ci-pg kumiko-ci-redis kumiko-ci-meili kumiko-ci-minio || true
           docker network rm kumiko-ci || true
 
-  # Event-store latency gate (#1940), isolated in its own job (removes bulk-suite contention) and gated on p95 not p99 — cold-Postgres warm-up alone spikes p99 to 47-73ms even fully isolated.
+  # Event-store latency gate (#1940), isolated in its own job (removes bulk-suite contention) and gated on p95 for typical latency; p99 only has a loose 250ms tail budget because cold-Postgres warm-up alone spikes it to 47-73ms even fully isolated.
   # The job name is a required branch-protection check: rename only together with it.
   event-store-perf:
     runs-on: ubuntu-latest
