@@ -21,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
+import { extractIdField } from "../../../renderer/src/components/reference-create-dialog.js";
 import {
   act,
   fireEvent,
@@ -2574,6 +2575,76 @@ describe("KumikoScreen", () => {
     await clickSubmitOnceEnabled();
     await waitFor(() => expect(navigateCalls.length).toBe(1));
     expect(navigateCalls[0]).toEqual({ screenId: "task-edit", entityId: "parent" });
+  });
+
+  test("actionForm mit redirect-Objekt + idFrom, das im Payload fehlt: navigiert ohne entityId, nicht mit data.id", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "child" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "quick-add" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const editScreen: EntityEditScreenDefinition = {
+      id: "task-edit",
+      type: "entityEdit",
+      entity: "task",
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+    };
+    const actionScreen: ActionFormScreenDefinition = {
+      id: "quick-add",
+      type: "actionForm",
+      handler: "tasks:write:task:quick-add",
+      fields: { title: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+      redirect: { screen: "task-edit", idFrom: "leaseId" },
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen
+            schema={{ ...schema, screens: [actionScreen, editScreen, listScreen] }}
+            qn="tasks:screen:quick-add"
+          />
+        </DispatcherProvider>
+      </NavProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "go" } });
+    await clickSubmitOnceEnabled();
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "task-edit" });
+  });
+
+  describe("extractIdField", () => {
+    test("liefert den String-Wert eigener Felder", () => {
+      expect(extractIdField({ leaseId: "x" }, "leaseId")).toBe("x");
+    });
+
+    test("fehlendes Feld, Nicht-String und Nicht-Objekt → undefined", () => {
+      expect(extractIdField({}, "leaseId")).toBeUndefined();
+      expect(extractIdField({ leaseId: 5 }, "leaseId")).toBeUndefined();
+      expect(extractIdField(null, "leaseId")).toBeUndefined();
+      expect(extractIdField("leaseId", "leaseId")).toBeUndefined();
+    });
+
+    test("Prototyp-Schlüssel lösen nicht auf (own-property-Guard)", () => {
+      expect(extractIdField({}, "constructor")).toBeUndefined();
+      expect(extractIdField(Object.create({ leaseId: "x" }), "leaseId")).toBeUndefined();
+    });
   });
 
   test("actionForm mit blankem String-redirect: navigiert weiter mit data.id, nicht mit einem anderen Payload-Feld (#2670)", async () => {

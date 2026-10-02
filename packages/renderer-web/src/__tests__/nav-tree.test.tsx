@@ -222,6 +222,39 @@ describe("NavTree", () => {
     expect(screen.getByText("Active")).toBeTruthy();
   });
 
+  test("jedes Nav-Label-Span trägt title === Label, damit abgeschnittene Einträge per Hover lesbar sind", () => {
+    const labels = [
+      "Quarterly consolidated financial reporting overview",
+      "Extraordinarily long linked parent entry label",
+      "Deeply nested child screen with a very long label",
+      "Nested grouping entry without a screen but long label",
+      "Grandchild below the nested grouping entry label",
+    ];
+    const schema = {
+      featureName: "showcase",
+      entities: {},
+      screens: [
+        { id: "top", type: "entityList", entity: "x", columns: [] },
+        { id: "child", type: "entityList", entity: "x", columns: [] },
+        { id: "grandchild", type: "entityList", entity: "x", columns: [] },
+      ],
+      navs: [
+        { id: "section", label: labels[0], order: 10 },
+        { id: "top", label: labels[1], parent: "section", screen: "top", order: 10 },
+        { id: "child", label: labels[2], parent: "top", screen: "child", order: 10 },
+        { id: "group", label: labels[3], parent: "top", order: 20 },
+        { id: "grandchild", label: labels[4], parent: "group", screen: "grandchild", order: 10 },
+      ],
+    } as FeatureSchema;
+    render(<NavTree schema={schema} testId="tree" />);
+
+    // labels[0] is a static section heading (SidebarGroupLabel), not a nav entry span.
+    for (const label of labels.slice(1)) {
+      const span = screen.getByText(label);
+      expect(span.getAttribute("title")).toBe(label);
+    }
+  });
+
   test("Parent mit Screen + children — Chevron-Click toggled, ohne Navigation", () => {
     render(<NavTree schema={makeSchema()} testId="tree" />);
 

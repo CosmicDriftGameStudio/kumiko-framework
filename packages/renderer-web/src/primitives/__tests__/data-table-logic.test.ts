@@ -164,6 +164,41 @@ describe("defaultCellRender", () => {
     expect(defaultCellRender("hallo", "text")).toBe("hallo");
   });
 
+  test("date/timestamp → locale wird durchgereicht (de-DE vs en-US liefern verschiedene Strings)", () => {
+    for (const [type, value] of [
+      ["date", "2026-07-18"],
+      ["timestamp", "2026-07-18T12:30:00.000Z"],
+    ] as const) {
+      const german = defaultCellRender(value, type, undefined, "de-DE");
+      const american = defaultCellRender(value, type, undefined, "en-US");
+      expect(german).not.toBe("");
+      expect(american).not.toBe("");
+      expect(german).not.toBe(american);
+    }
+  });
+
+  test("ISO-Zeitstempel-Warnung feuert in production nicht, in development für dieselbe Spalte schon", () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const iso = "2026-09-04T12:30:00.000Z";
+      process.env.NODE_ENV = "production";
+      expect(defaultCellRender(iso, "text", undefined, undefined, "prodKillSwitchProbe")).toBe(iso);
+      expect(warn).not.toHaveBeenCalled();
+      // Production must not consume the per-column dedupe slot either.
+      process.env.NODE_ENV = "development";
+      defaultCellRender(iso, "text", undefined, undefined, "prodKillSwitchProbe");
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+      if (prevNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = prevNodeEnv;
+      }
+    }
+  });
+
   test("text-Spalte mit vollem ISO-8601-Zeitstempel warnt einmal pro Spalte, Wert bleibt unverändert (fw#2569)", () => {
     const prevNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "development";

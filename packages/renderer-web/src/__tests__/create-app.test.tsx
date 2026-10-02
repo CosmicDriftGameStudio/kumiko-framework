@@ -125,6 +125,33 @@ describe("createKumikoApp", () => {
     expect(screen.getByTestId("field-title")).toBeTruthy();
   });
 
+  test("screenWidth option reaches the form shell; without it the shell keeps max-w-4xl", async () => {
+    // fillHeight:false keeps the card layout, whose shell is FormScreenShell
+    // (the default screen-form layout has its own fixed column).
+    const cardSchema: FeatureSchema = {
+      ...baseSchema,
+      screens: [{ ...editScreen, fillHeight: false }, listScreen],
+    };
+    const shellOf = () => screen.getByTestId("render-edit-form").firstElementChild as HTMLElement;
+
+    mountRoot();
+    await mountApp({ schema: cardSchema, dispatcher: makeDispatcher(), screenWidth: "full" });
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    expect(shellOf().className).toContain("max-w-full");
+    expect(shellOf().className).not.toContain("max-w-4xl");
+
+    act(() => {
+      appRoot?.unmount();
+    });
+    appRoot = undefined;
+    document.body.replaceChildren();
+
+    mountRoot();
+    await mountApp({ schema: cardSchema, dispatcher: makeDispatcher() });
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    expect(shellOf().className).toContain("max-w-4xl");
+  });
+
   test("screenQn override: mounts the named screen instead of the first", async () => {
     mountRoot();
     await mountApp({
