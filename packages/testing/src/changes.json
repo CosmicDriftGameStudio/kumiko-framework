@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.336.1",
+    "type": "fix",
+    "title": "DOM preload bounds the printed output of SVG elements as well",
+    "detail": "The DOM preload's bounded print of nodes now covers SVG elements too. Before, printing an `<svg>` in a failed assertion dumped the whole happy-dom object graph (about 10 MB)."
+  },
+  {
+    "version": "0.336.1",
+    "type": "fix",
+    "title": "Scaffolded test:real only matches *.real.test.ts files",
+    "detail": "The scaffolded `test:real` script now filters on `.real.test.ts` instead of `real.test.ts`, so files such as `unreal.test.ts` no longer run under the real-provider environment."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Screenshot runner skips empty desktop passes, keeps regional locale tags and restores presented identities",

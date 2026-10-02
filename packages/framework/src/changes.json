@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.336.1",
+    "type": "fix",
+    "title": "Cross-tenant deprecation warning names a runnable codemod path",
+    "detail": "The `deprecation:entity-handler-cross-tenant` boot warning now names the codemod path that runs from a consumer repo. The `reason` strings on the `passwordHash`, PAT `tokenHash` and PAT `prefix` fields no longer carry an issue-number suffix. The `pii-personal-migration` codemod now skips `.d.ts` files in `--report-stance` mode as well."
+  },
+  {
     "version": "0.336.0",
     "type": "fix",
     "title": "Boot gates with an explicit timeout reject start() naming the gate; gates without one warn after 60s",

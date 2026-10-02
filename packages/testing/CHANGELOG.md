@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.336.1
+
+### Patch Changes
+
+- c4a1155: The DOM preload's bounded print of nodes now covers SVG elements too. Before, printing an `<svg>` in a failed assertion dumped the whole happy-dom object graph (about 10 MB).
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: DOM preload bounds the printed output of SVG elements as well
+  -->
+
+- c4a1155: The scaffolded `test:real` script now filters on `.real.test.ts` instead of `real.test.ts`, so files such as `unreal.test.ts` no longer run under the real-provider environment.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Scaffolded test:real only matches *.real.test.ts files
+  -->
+
+- Updated dependencies [ad3999e]
+- Updated dependencies [0dd3b1e]
+- Updated dependencies [4554270]
+  - @cosmicdrift/kumiko-framework@0.336.1
+  - @cosmicdrift/kumiko-bundled-features@0.336.1
+  - @cosmicdrift/kumiko-dev-server@0.336.1
+
 ## 0.336.0
 
 ### Patch Changes

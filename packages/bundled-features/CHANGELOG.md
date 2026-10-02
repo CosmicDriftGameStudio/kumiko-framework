@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.336.1
+
+### Patch Changes
+
+- ad3999e: The `deprecation:entity-handler-cross-tenant` boot warning now names the codemod path that runs from a consumer repo. The `reason` strings on the `passwordHash`, PAT `tokenHash` and PAT `prefix` fields no longer carry an issue-number suffix. The `pii-personal-migration` codemod now skips `.d.ts` files in `--report-stance` mode as well.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Cross-tenant deprecation warning names a runnable codemod path
+  -->
+
+- 0dd3b1e: Stripe checkout now retries once without the customer when the stored customer id is unknown to Stripe (for example after switching from a test to a live account), instead of failing with "No such customer".
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: Checkout retries without a customer id Stripe no longer knows
+  -->
+
+- 4554270: `tenant:query:member-directory` and `tenant:query:tenant-directory` now sort their rows (tenants by name then id, members by id), so a `limit` always keeps the same rows instead of whichever the database returned first.
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: Member and tenant directory lookups return a stable order under a limit
+  -->
+
+- Updated dependencies [ad3999e]
+  - @cosmicdrift/kumiko-framework@0.336.1
+  - @cosmicdrift/kumiko-headless@0.336.1
+  - @cosmicdrift/kumiko-renderer@0.336.1
+  - @cosmicdrift/kumiko-renderer-web@0.336.1
+  - @cosmicdrift/kumiko-dispatcher-live@0.336.1
+  - @cosmicdrift/kumiko-types@0.336.1
+
 ## 0.336.0
 
 ### Patch Changes

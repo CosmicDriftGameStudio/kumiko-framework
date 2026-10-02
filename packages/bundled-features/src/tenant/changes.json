@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.336.1",
+    "type": "fix",
+    "title": "Member and tenant directory lookups return a stable order under a limit",
+    "detail": "`tenant:query:member-directory` and `tenant:query:tenant-directory` now sort their rows (tenants by name then id, members by id), so a `limit` always keeps the same rows instead of whichever the database returned first."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "remove-member no longer fails with an internal error when removing a TenantAdmin",

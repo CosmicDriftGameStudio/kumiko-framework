@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.336.1",
+    "type": "fix",
+    "title": "Checkout retries without a customer id Stripe no longer knows",
+    "detail": "Stripe checkout now retries once without the customer when the stored customer id is unknown to Stripe (for example after switching from a test to a live account), instead of failing with \"No such customer\"."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "One-off payment checkouts create a customer when none is passed"
