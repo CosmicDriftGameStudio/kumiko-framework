@@ -346,6 +346,12 @@ const FAULT_LOG_SILENCED_LEVELS = new Set(["error", "fatal", "silent"]);
 // reaches the log — an unbounded field would let a caller flood the sink.
 const MAX_LOGGED_TYPE_LENGTH = 120;
 
+// The body's `type` is only typed as string — a client can send an object, and
+// a throw from inside the fault logger would turn a clean 4xx into a 500.
+function loggableType(type: unknown): string | undefined {
+  return typeof type === "string" ? type.slice(0, MAX_LOGGED_TYPE_LENGTH) : undefined;
+}
+
 function clientFaultLoggingEnabled(): boolean {
   return !FAULT_LOG_SILENCED_LEVELS.has(process.env["LOG_LEVEL"] ?? "");
 }
@@ -353,7 +359,7 @@ function clientFaultLoggingEnabled(): boolean {
 // A failing request must leave a trace even when it ends in 4xx — a paid
 // external call that 422s was invisible before (offlot#117). Status, error
 // code and duration only: message/details/stack can carry submitted values.
-function logClientFault(err: KumikoError, requestId: string | undefined, type?: string): void {
+function logClientFault(err: KumikoError, requestId: string | undefined, type?: unknown): void {
   if (!clientFaultLoggingEnabled()) {
     // skip: LOG_LEVEL silences the 4xx tier — the deployment opted out of client-fault volume
     return;
@@ -361,7 +367,7 @@ function logClientFault(err: KumikoError, requestId: string | undefined, type?: 
   const startedAt = requestContext.get()?.startedAt;
   createFallbackLogger("api").warn("handler rejected", {
     requestId,
-    type: type?.slice(0, MAX_LOGGED_TYPE_LENGTH),
+    type: loggableType(type),
     status: err.httpStatus,
     code: err.code,
     ...(startedAt === undefined ? {} : { durationMs: Math.round(performance.now() - startedAt) }),
@@ -381,7 +387,7 @@ function isClientAbort(err: KumikoError): boolean {
 // log lines, leaving ops nothing to debug (the bug this guards). 4xx take the
 // redacted `warn` line above instead. `type` is the only handler
 // discriminator — every request hits the same /api/{query,command} path.
-function logServerFault(err: KumikoError, requestId: string | undefined, type?: string): void {
+function logServerFault(err: KumikoError, requestId: string | undefined, type?: unknown): void {
   if (err.httpStatus < 500) {
     logClientFault(err, requestId, type);
     // skip: 4xx already logged on warn by logClientFault — the error level stays 5xx-only
@@ -390,7 +396,7 @@ function logServerFault(err: KumikoError, requestId: string | undefined, type?: 
   const cause = err.cause;
   createFallbackLogger("api").error("handler failed", {
     requestId,
-    type,
+    type: loggableType(type),
     code: err.code,
     message: err.message,
     cause: cause instanceof Error ? cause.message : cause,
@@ -401,7 +407,7 @@ function logServerFault(err: KumikoError, requestId: string | undefined, type?: 
 // For /write + /batch: keep the isSuccess flag so clients can flip on a single
 // boolean (mirrors the success shape). The actual error body is the
 // error-contract payload nested under .error.
-function writeErrorResponse(c: Context, err: KumikoError, type?: string) {
+function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   logServerFault(err, requestId, type);
   const { error } = serializeError(err, requestId);
@@ -410,14 +416,14 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: string) {
 
 // For /query + /command: no isSuccess on success (just { data } / {ok}), so we
 // keep the same lean shape on failure — only the `error` key.
-function queryErrorResponse(c: Context, err: KumikoError, type?: string) {
+function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   if (isClientAbort(err)) {
     if (clientFaultLoggingEnabled()) {
       const startedAt = requestContext.get()?.startedAt;
       createFallbackLogger("api").warn("request aborted by client", {
         requestId,
-        type: type?.slice(0, MAX_LOGGED_TYPE_LENGTH),
+        type: loggableType(type),
         status: CLIENT_CLOSED_REQUEST_STATUS,
         ...(startedAt === undefined
           ? {}

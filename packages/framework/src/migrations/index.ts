@@ -20,6 +20,7 @@ export {
   queueRebuildsFromMarkers,
   type RunPendingRebuildsOptions,
   rebuildProjectionOrMultiStream,
+  reportPendingRebuildRun,
   runPendingRebuilds,
 } from "./pending-rebuilds.js";
 // Boot-time backfill: re-encrypts plaintext events after a PII annotation was added.

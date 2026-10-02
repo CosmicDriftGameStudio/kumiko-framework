@@ -612,6 +612,9 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     // rather than filtered out entirely by a too-high baseline.
     expect(updatedMarker.version).toBe("0.188.0");
     expect(updatedMarker.version).not.toBe("0.195.0");
+    expect(updatedMarker.pendingManual).toEqual([
+      { version: "0.185.0", title: "manual breaking change" },
+    ]);
     expect(spy.logs.join("\n")).toContain(
       "Marker moved past the manual change(s) above to 0.188.0",
     );

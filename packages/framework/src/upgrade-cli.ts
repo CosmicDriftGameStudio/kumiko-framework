@@ -426,10 +426,12 @@ async function applyCodemods(
     );
     if (!dryRun) {
       const markerVer = markerVersionForPending(pending, manualEntries, markerVersion);
+      const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
       writeUpgradeMarker(targetDir, {
         version: markerVer,
         appliedAt: Temporal.Now.instant().toString(),
         codemods: [],
+        ...(pendingManual.length > 0 && { pendingManual }),
       });
       out.log(`  ✓ Applied 0 codemod(s). Wrote ${join(targetDir, ".kumiko/upgrade-state.json")}`);
       logManualMarkerOutcome(out, manualEntries, markerVer);

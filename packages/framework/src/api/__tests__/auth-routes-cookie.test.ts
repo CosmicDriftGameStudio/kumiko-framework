@@ -185,6 +185,19 @@ describe("auth-routes cookie behaviour on /auth/logout", () => {
 });
 
 describe("auth-routes cookie behaviour on /auth/switch-tenant", () => {
+  test("a non-string or missing tenantId is a 400 invalid_tenant, not a membership lookup", async () => {
+    const { app, validToken } = await buildApp({}, createStubDispatcher({}));
+    for (const body of [{}, { tenantId: null }, { tenantId: { x: 1 } }, { tenantId: "" }]) {
+      const res = await app.request("/api/auth/switch-tenant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${validToken}` },
+        body: JSON.stringify(body),
+      });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "invalid_tenant" });
+    }
+  });
+
   test("switch-tenant rotates both cookies", async () => {
     const otherTenant = TestUsers.otherTenant;
     const dispatcher = createStubDispatcher({

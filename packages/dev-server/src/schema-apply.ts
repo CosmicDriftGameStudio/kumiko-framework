@@ -13,6 +13,7 @@ import { createRegistry, type FeatureDefinition } from "@cosmicdrift/kumiko-fram
 import { createEventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   queueRebuildsFromMarkers,
+  reportPendingRebuildRun,
   runPendingRebuilds,
 } from "@cosmicdrift/kumiko-framework/migrations";
 import {
@@ -82,22 +83,7 @@ export async function runSchemaApply(opts: SchemaApplyOptions): Promise<number> 
     });
     const registry = createRegistry(composeFeatures([...opts.features], opts));
     const rebuildRun = await runPendingRebuilds(db, registry, { thisRunTables });
-    if (rebuildRun.rebuilt.length > 0) {
-      console.log(`  Rebuild ${rebuildRun.rebuilt.length} Projection(s)…`);
-      for (const r of rebuildRun.rebuilt) {
-        console.log(`    ↻ ${r.projection} (${r.eventsProcessed} events)`);
-      }
-      console.log("");
-    }
-    if (rebuildRun.failed.length > 0) {
-      throw new Error(
-        `Projection rebuild failed for: ${rebuildRun.failed
-          .map((f) => `${f.projection} (${f.error})`)
-          .join(
-            "; ",
-          )}. Table(s) stay queued in kumiko_pending_rebuilds — retried on the next apply.`,
-      );
-    }
+    reportPendingRebuildRun(rebuildRun, console.log);
 
     return 0;
   } catch (e) {

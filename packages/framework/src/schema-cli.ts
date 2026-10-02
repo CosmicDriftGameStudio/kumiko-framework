@@ -37,7 +37,11 @@ import { validateBoot } from "./engine/boot-validator.js";
 import { createRegistry } from "./engine/registry.js";
 import type { FeatureDefinition } from "./engine/types/feature.js";
 import { createEventsTable } from "./event-store/index.js";
-import { queueRebuildsFromMarkers, runPendingRebuilds } from "./migrations/index.js";
+import {
+  queueRebuildsFromMarkers,
+  reportPendingRebuildRun,
+  runPendingRebuilds,
+} from "./migrations/index.js";
 import { createEventConsumerStateTable, createProjectionStateTable } from "./pipeline/index.js";
 import { ensureTemporalPolyfill } from "./time/index.js";
 
@@ -391,22 +395,7 @@ export async function runSchemaCli(
           });
           const registry = createRegistry(options.features);
           const rebuildRun = await runPendingRebuilds(db, registry, { thisRunTables });
-          if (rebuildRun.rebuilt.length > 0) {
-            out.log(`  Rebuild ${rebuildRun.rebuilt.length} Projection(s)…`);
-            for (const r of rebuildRun.rebuilt) {
-              out.log(`    ↻ ${r.projection} (${r.eventsProcessed} events)`);
-            }
-            out.log("");
-          }
-          if (rebuildRun.failed.length > 0) {
-            throw new Error(
-              `Projection rebuild failed for: ${rebuildRun.failed
-                .map((f) => `${f.projection} (${f.error})`)
-                .join(
-                  "; ",
-                )}. Table(s) stay queued in kumiko_pending_rebuilds — retried on the next apply.`,
-            );
-          }
+          reportPendingRebuildRun(rebuildRun, out.log);
         }
         return 0;
       } catch (e) {

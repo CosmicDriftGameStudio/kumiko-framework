@@ -145,6 +145,26 @@ export async function rebuildProjectionOrMultiStream(
   });
 }
 
+/** Logs a finished queue drain and throws when any projection failed; the
+ *  failed tables stay queued. Shared by every `schema apply` entry point so the
+ *  report and the error text cannot drift apart. */
+export function reportPendingRebuildRun(run: PendingRebuildRun, log: (line: string) => void): void {
+  if (run.rebuilt.length > 0) {
+    log(`  Rebuild ${run.rebuilt.length} Projection(s)…`);
+    for (const r of run.rebuilt) {
+      log(`    ↻ ${r.projection} (${r.eventsProcessed} events)`);
+    }
+    log("");
+  }
+  if (run.failed.length > 0) {
+    throw new Error(
+      `Projection rebuild failed for: ${run.failed
+        .map((f) => `${f.projection} (${f.error})`)
+        .join("; ")}. Table(s) stay queued in kumiko_pending_rebuilds — retried on the next apply.`,
+    );
+  }
+}
+
 /** Arbeitet die persistierte Queue ab: mappt Tabellen auf Projektionen,
  *  rebuildet jede betroffene Projektion und räumt ihre Tabellen erst nach
  *  ERFOLG aus der Queue. Fehlgeschlagene bleiben pending — der nächste
