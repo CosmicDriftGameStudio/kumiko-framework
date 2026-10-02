@@ -12,6 +12,13 @@ import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
 import { defineFeature } from "../../engine/index.js";
+import type { StoredEvent } from "../../event-store/index.js";
+import type { Logger } from "../../logging/types.js";
+import {
+  type MetricEvent,
+  RecordingMeter,
+  registerStandardMetrics,
+} from "../../observability/index.js";
 import {
   resetEventStore,
   setupTestStack,
@@ -21,6 +28,7 @@ import {
 } from "../../stack/index.js";
 import { sharedWidgetEntity, sharedWidgetTable } from "../../testing/index.js";
 import { SHARED_INSTANCE_SENTINEL } from "../event-consumer-state.js";
+import { createEventDispatcher, type EventConsumer } from "../event-dispatcher.js";
 
 const executor = createEventStoreExecutor(sharedWidgetTable, sharedWidgetEntity, {
   entityName: "widget",
@@ -90,5 +98,106 @@ describe("idle event-dispatcher passes take no row lock", () => {
     const result = await stack.eventDispatcher?.runOnce();
     expect(result?.processed).toBeGreaterThan(0);
     expect(observed).toEqual([{ name: "drain-me" }, { name: "wake-me" }]);
+  });
+});
+
+describe("idle-gated turns stay observable", () => {
+  test("an idle pass counts a skipped turn per consumer instead of opening a span", async () => {
+    const metricEvents: MetricEvent[] = [];
+    const meter = new RecordingMeter((e) => metricEvents.push(e));
+    registerStandardMetrics(meter);
+    const dispatcher = createEventDispatcher({
+      db: stack.db,
+      consumers: [{ name: "idletest:skip-counter", handler: async () => {} }],
+      context: { db: stack.db },
+      meter,
+    });
+    await dispatcher.ensureRegistered();
+    const skipped = (): MetricEvent[] =>
+      metricEvents.filter(
+        (e) => e.type === "counter.inc" && e.name === "kumiko_event_consumer_pass_skipped_total",
+      );
+
+    await dispatcher.runOnce();
+    expect(skipped()).toHaveLength(1);
+    expect(skipped()[0]?.labels).toMatchObject({
+      consumer: "idletest:skip-counter",
+      reason: "idle",
+    });
+
+    await appendWidget("wake");
+    await dispatcher.runOnce();
+    expect(skipped()).toHaveLength(1);
+  });
+});
+
+function recordingLogger(): Logger & { readonly errors: string[] } {
+  const errors: string[] = [];
+  const logger: Logger & { errors: string[] } = {
+    errors,
+    info: () => {},
+    warn: () => {},
+    error: (msg) => errors.push(msg),
+    debug: () => {},
+    child: () => logger,
+  };
+  return logger;
+}
+
+// Fails only the idle pre-check query (the one zipping name/instance arrays via unnest);
+// every other statement reaches the real database.
+function dbWithFailingIdlePreCheck(
+  db: TestStack["db"],
+  shouldFail: () => boolean,
+): TestStack["db"] {
+  return new Proxy(db, {
+    get(target, prop) {
+      const value = Reflect.get(target, prop, target);
+      if (typeof value !== "function") return value;
+      if (prop !== "unsafe") return value.bind(target);
+      return (sql: string, params?: readonly unknown[]) => {
+        if (shouldFail() && sql.includes("unnest")) {
+          return Promise.reject(new Error("simulated idle pre-check blip"));
+        }
+        return value.call(target, sql, params);
+      };
+    },
+  });
+}
+
+describe("idle pre-check failure falls back to per-consumer locking", () => {
+  test("still delivers, logs once per outage, and logs again after a recovery", async () => {
+    let preCheckFails = true;
+    const delivered: string[] = [];
+    const consumer: EventConsumer = {
+      name: "idletest:precheck-fallback",
+      handler: async (event: StoredEvent) => {
+        delivered.push(String(event.payload["name"]));
+      },
+    };
+    const logger = recordingLogger();
+    const dispatcher = createEventDispatcher({
+      db: dbWithFailingIdlePreCheck(stack.db, () => preCheckFails),
+      consumers: [consumer],
+      context: { db: stack.db, log: logger },
+    });
+    await dispatcher.ensureRegistered();
+    const preCheckErrors = (): number =>
+      logger.errors.filter((line) => line.includes("idle pre-check failed")).length;
+
+    await appendWidget("during-blip");
+    await dispatcher.runOnce();
+    expect(delivered).toEqual(["during-blip"]);
+    expect(preCheckErrors()).toBe(1);
+
+    await dispatcher.runOnce();
+    await dispatcher.runOnce();
+    expect(preCheckErrors()).toBe(1);
+
+    preCheckFails = false;
+    await dispatcher.runOnce();
+    preCheckFails = true;
+    await dispatcher.runOnce();
+    expect(preCheckErrors()).toBe(2);
   });
 });

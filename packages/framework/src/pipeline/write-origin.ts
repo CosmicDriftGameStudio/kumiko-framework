@@ -60,8 +60,14 @@ export function rootWriteOrigin(registry: Registry, type: string, user: SessionU
 // user id, so from("user:id", ...) vouches for nobody.
 const personalDataTableMaps = new WeakMap<Registry, ReadonlyMap<string, ReadonlySet<string>>>();
 
+const personalColumnsByEntity = new WeakMap<EntityDefinition, ReadonlySet<string>>();
+
 function personalColumnNames(entity: EntityDefinition): ReadonlySet<string> {
-  return new Set([...personalFieldNames(entity, false)].map(toSnakeCase));
+  const cached = personalColumnsByEntity.get(entity);
+  if (cached) return cached;
+  const columns = new Set([...personalFieldNames(entity, false)].map(toSnakeCase));
+  personalColumnsByEntity.set(entity, columns);
+  return columns;
 }
 
 function buildPersonalDataTableMap(registry: Registry): ReadonlyMap<string, ReadonlySet<string>> {
@@ -85,7 +91,9 @@ function personalDataTableMap(registry: Registry): ReadonlyMap<string, ReadonlyS
   return built;
 }
 
-// Names fields only, never values: the error reaches the anonymous HTTP caller.
+// The error reaches the anonymous HTTP caller, so table and column names stay out of
+// message/details (they would map the DB schema); they travel in `cause`, which the
+// serializer never sends to clients but the error log keeps.
 export function publicIntakeRequiredError(
   origin: WriteOrigin,
   target: string,
@@ -93,18 +101,18 @@ export function publicIntakeRequiredError(
 ): AccessDeniedError {
   return new AccessDeniedError({
     message:
-      `Anonymous root handler "${origin.rootHandler}" wrote personal-data field(s) ` +
-      `${fields.map((f) => `"${f}"`).join(", ")} on "${target}"` +
+      `Anonymous root handler "${origin.rootHandler}" wrote personal data` +
       (origin.viaJob ? ` via job "${origin.viaJob}"` : "") +
       '. Declare access: { roles: [..., "anonymous"], personalData: "public-intake" } on ' +
       `"${origin.rootHandler}" to allow anonymous callers to write personal data.`,
     details: {
       reason: FrameworkReasons.publicIntakeRequired,
       rootHandler: origin.rootHandler,
-      target,
-      fields,
       ...(origin.viaJob !== undefined && { job: origin.viaJob }),
     },
+    cause: new Error(
+      `personal-data field(s) ${fields.map((f) => `"${f}"`).join(", ")} written on "${target}"`,
+    ),
   });
 }
 

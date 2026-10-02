@@ -5,6 +5,7 @@ import type { AppContext } from "../engine/types/index.js";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.js";
 import {
   emitEventConsumerPassOutcome,
+  emitEventConsumerPassSkipped,
   emitEventConsumerRearmExhausted,
   emitEventDispatcherListenConnected,
   getFallbackMeter,
@@ -357,8 +358,15 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     // backoff-gate above already confirmed retryAtMs has elapsed, and
     // "provably nothing to deliver" is itself proof the consumer isn't
     // presently failing.
+    // No events.consumer.pass span is opened here (so no consumer.skip_reason either),
+    // which is why the skip is counted instead.
     if (idleKeys.has(key)) {
       consumerBackoff.delete(key);
+      emitEventConsumerPassSkipped(
+        meter,
+        { consumer: consumer.name, instanceId: consumerInstanceId(consumer, options.instanceId) },
+        "idle",
+      );
       return { processed: 0, failed: 0 };
     }
 

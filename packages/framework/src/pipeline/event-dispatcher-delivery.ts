@@ -204,6 +204,11 @@ export async function selectConsumerCursorForUpdate(
 // pre-check reads pending_gaps live on every pass, so it observes that gap
 // too. In short: this can under-report idleness for one tick, never
 // over-report it.
+//
+// Observability: an idle turn opens no events.consumer.pass span (so no
+// consumer.skip_reason either, including for a disabled consumer with nothing
+// pending); the dispatcher counts it in
+// kumiko_event_consumer_pass_skipped_total{reason="idle"} instead.
 export async function selectIdleConsumerKeys(
   db: DbConnection,
   pairs: ReadonlyArray<{ readonly name: string; readonly instanceId: string }>,

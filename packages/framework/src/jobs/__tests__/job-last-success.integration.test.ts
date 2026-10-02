@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { buildServer } from "../../api/server.js";
 import { createRegistry, defineFeature } from "../../engine/index.js";
+import type { TenantId } from "../../engine/types/identifiers.js";
 import type { AppContext, Registry } from "../../engine/types/index.js";
 import {
   createNoopProvider,
@@ -9,11 +10,14 @@ import {
 } from "../../observability/index.js";
 import { createTestRedis, type TestRedis } from "../../stack/index.js";
 import { waitFor } from "../../testing/index.js";
-import { createJobRunner } from "../job-runner.js";
+import { createJobRunner, type JobRunnerOptions } from "../job-runner.js";
 
 const JWT = "job-last-success-test-secret-minimum-32-chars!!";
 const SUCCEEDS = "liveness:job:succeeds";
 const FAILS = "liveness:job:fails-always";
+const FANS_OUT = "liveness:job:fans-out";
+const COMPLETE_HOOK_THROWS = "liveness:job:complete-hook-throws";
+const TENANTS = ["ls-tenant-a", "ls-tenant-b"] as TenantId[]; // @cast-boundary test fixture — TenantId is a branded string
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -23,6 +27,8 @@ const livenessFeature = defineFeature("liveness", (r) => {
   r.job("failsAlways", { trigger: { manual: true } }, async () => {
     throw new Error("intentional failure");
   });
+  r.job("fansOut", { trigger: { manual: true }, perTenant: true }, async () => {});
+  r.job("completeHookThrows", { trigger: { manual: true } }, async () => {});
 });
 
 beforeAll(async () => {
@@ -34,16 +40,22 @@ afterAll(async () => {
   await testRedis.cleanup();
 });
 
-function slotFor(meter: ReturnType<typeof createPrometheusMeter>, job: string) {
-  return meter
-    .snapshot()
-    .get("kumiko_job_last_success_timestamp_seconds")
-    ?.slots.find((s) => s.labels?.["job"] === job);
+function stampSlots(meter: ReturnType<typeof createPrometheusMeter>) {
+  return meter.snapshot().get("kumiko_job_last_success_timestamp_seconds")?.slots ?? [];
+}
+
+function stampFor(
+  meter: ReturnType<typeof createPrometheusMeter>,
+  job: string,
+): number | undefined {
+  const slot = stampSlots(meter).find((s) => s.labels?.["job"] === job);
+  return slot !== undefined && "value" in slot ? slot.value : undefined;
 }
 
 async function withRunner(
   meter: ReturnType<typeof createPrometheusMeter>,
   fn: (runner: ReturnType<typeof createJobRunner>, failures: string[]) => Promise<void>,
+  runnerOptions: Pick<JobRunnerOptions, "onJobComplete" | "getActiveTenantIds"> = {},
 ): Promise<void> {
   const registry: Registry = createRegistry([livenessFeature]);
   const context: AppContext = { meter };
@@ -58,6 +70,7 @@ async function withRunner(
     onJobFailed: (jobName) => {
       failures.push(jobName);
     },
+    ...runnerOptions,
   });
   await runner.start();
   try {
@@ -77,17 +90,17 @@ describe("job-runner — kumiko_job_last_success_timestamp_seconds", () => {
     await withRunner(meter, async (runner, failures) => {
       const before = Date.now() / 1000;
       await runner.dispatch(SUCCEEDS, {});
-      await waitFor(() => slotFor(meter, SUCCEEDS) !== undefined);
+      await waitFor(() => stampFor(meter, SUCCEEDS) !== undefined);
 
-      const stamped = slotFor(meter, SUCCEEDS) as { value: number };
-      expect(stamped.value).toBeGreaterThanOrEqual(before);
-      expect(stamped.value).toBeLessThanOrEqual(Date.now() / 1000 + 1);
+      const stamped = stampFor(meter, SUCCEEDS);
+      expect(stamped).toBeGreaterThanOrEqual(before);
+      expect(stamped).toBeLessThanOrEqual(Date.now() / 1000 + 1);
 
       // Separate job name, so the "failure must not stamp" assertion cannot
       // pass just because a prior success left a value inside the same second.
       await runner.dispatch(FAILS, {});
       await waitFor(() => failures.includes(FAILS));
-      expect(slotFor(meter, FAILS)).toBeUndefined();
+      expect(stampFor(meter, FAILS)).toBeUndefined();
     });
   });
 
@@ -97,15 +110,56 @@ describe("job-runner — kumiko_job_last_success_timestamp_seconds", () => {
 
     await withRunner(meter, async (runner) => {
       await runner.dispatch(SUCCEEDS, {});
-      await waitFor(() => slotFor(meter, SUCCEEDS) !== undefined);
-      const first = (slotFor(meter, SUCCEEDS) as { value: number }).value;
+      await waitFor(() => stampFor(meter, SUCCEEDS) !== undefined);
+      const first = stampFor(meter, SUCCEEDS) ?? 0;
 
       await runner.dispatch(SUCCEEDS, {});
-      await waitFor(() => (slotFor(meter, SUCCEEDS) as { value: number }).value > first, {
+      await waitFor(() => (stampFor(meter, SUCCEEDS) ?? 0) > first, {
         delays: [250, 1000, 3000],
       });
-      expect((slotFor(meter, SUCCEEDS) as { value: number }).value).toBeGreaterThan(first);
+      expect(stampFor(meter, SUCCEEDS)).toBeGreaterThan(first);
     });
+  });
+
+  test("a throwing onJobComplete leaves the stamp of the run that succeeded", async () => {
+    const meter = createPrometheusMeter();
+    registerStandardMetrics(meter);
+
+    await withRunner(
+      meter,
+      async (runner, failures) => {
+        await runner.dispatch(COMPLETE_HOOK_THROWS, {});
+        await waitFor(() => failures.includes(COMPLETE_HOOK_THROWS));
+        expect(stampFor(meter, COMPLETE_HOOK_THROWS)).toBeGreaterThan(0);
+      },
+      {
+        onJobComplete: () => {
+          throw new Error("observer hook failure");
+        },
+      },
+    );
+  });
+
+  test("a perTenant job stamps under its own name through the children, never under the wrapper", async () => {
+    const meter = createPrometheusMeter();
+    registerStandardMetrics(meter);
+    let completedChildren = 0;
+
+    await withRunner(
+      meter,
+      async (runner) => {
+        await runner.dispatch(FANS_OUT, {});
+        await waitFor(() => completedChildren === TENANTS.length);
+
+        expect(stampSlots(meter).map((s) => s.labels?.["job"])).toEqual([FANS_OUT]);
+      },
+      {
+        getActiveTenantIds: async () => TENANTS,
+        onJobComplete: () => {
+          completedChildren += 1;
+        },
+      },
+    );
   });
 
   test("the stamp reaches the real /metrics scrape output", async () => {
@@ -114,7 +168,7 @@ describe("job-runner — kumiko_job_last_success_timestamp_seconds", () => {
 
     await withRunner(meter, async (runner) => {
       await runner.dispatch(SUCCEEDS, {});
-      await waitFor(() => slotFor(meter, SUCCEEDS) !== undefined);
+      await waitFor(() => stampFor(meter, SUCCEEDS) !== undefined);
 
       // Same meter instance the runner wrote into — that sharing is what
       // buildServer + job-runner do in a real process (fw#1046).
