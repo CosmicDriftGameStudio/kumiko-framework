@@ -207,11 +207,7 @@ export function applyChanges(sourceFile: SourceFile, changes: readonly PatternCh
  * biome-stable formatting that matches the renderFeatureFile output.
  */
 export function addPattern(sourceFile: SourceFile, pattern: FeaturePattern): void {
-  if (
-    pattern.kind === "ai.generate" ||
-    pattern.kind === "ai.extract" ||
-    pattern.kind === "ai.classify"
-  ) {
+  if (isAiStepId(pattern)) {
     throw new Error(
       `addPattern: ${pattern.kind} steps must be inserted into a defineWorkflow steps array, not the setup body`,
     );
@@ -621,10 +617,16 @@ function applyEditsDescending(sourceFile: SourceFile, edits: readonly TextEdit[]
 // Lookup
 // =============================================================================
 
-function isAiStepId(
-  id: PatternId,
-): id is Extract<PatternId, { kind: "ai.generate" | "ai.extract" | "ai.classify" }> {
-  return id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify";
+type AiStepKind = "ai.generate" | "ai.extract" | "ai.classify";
+
+function isAiStepId<T extends PatternId | FeaturePattern>(
+  idOrPattern: T,
+): idOrPattern is Extract<T, { kind: AiStepKind }> {
+  return (
+    idOrPattern.kind === "ai.generate" ||
+    idOrPattern.kind === "ai.extract" ||
+    idOrPattern.kind === "ai.classify"
+  );
 }
 
 function aiStepPatchSpan(
@@ -695,7 +697,7 @@ export const SINGLETON_KINDS: ReadonlySet<PatternId["kind"]> = new Set([
  * feature can fix it explicitly.
  */
 function findCallForId(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
-  if (id.kind === "ai.generate" || id.kind === "ai.extract" || id.kind === "ai.classify") {
+  if (isAiStepId(id)) {
     return findAiStepCall(sourceFile, id);
   }
   const setup = findSetupCallback(sourceFile);
@@ -749,9 +751,7 @@ function readAiStepKey(call: CallExpression): string | undefined {
 }
 
 function findAiStepCall(sourceFile: SourceFile, id: PatternId): CallExpression | undefined {
-  if (id.kind !== "ai.generate" && id.kind !== "ai.extract" && id.kind !== "ai.classify") {
-    return undefined;
-  }
+  if (!isAiStepId(id)) return undefined;
   const factory = AI_STEP_FACTORY[id.kind];
   const matches: CallExpression[] = [];
   for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {

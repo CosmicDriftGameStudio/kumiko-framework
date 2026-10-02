@@ -211,6 +211,161 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(message).not.toMatch(/redirect/);
   });
 
+  describe("record action redirect wiring across all four call sites", () => {
+    type Redirect = string | { screen: string; idFrom: string };
+    type Site =
+      | "projectionDetail header"
+      | "projectionDetail section"
+      | "entityEdit header"
+      | "entityEdit section";
+    const sites: readonly Site[] = [
+      "projectionDetail header",
+      "projectionDetail section",
+      "entityEdit header",
+      "entityEdit section",
+    ];
+
+    function featureWithRedirect(site: Site, redirect: Redirect) {
+      const action = {
+        kind: "writeHandler" as const,
+        id: "archive",
+        label: "actions.archive",
+        handler: "shop:write:archive",
+        redirect,
+      };
+      return defineFeature("shop", (r) => {
+        r.entity(
+          "product",
+          createEntity({
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.screen({ id: "overview", type: "custom", renderer: { react: "stub" } });
+        if (site.startsWith("projectionDetail")) {
+          r.screen({
+            id: "order-detail",
+            type: "projectionDetail",
+            query: "shop:query:order:detail",
+            layout: {
+              sections: [
+                {
+                  title: "s",
+                  fields: ["total"],
+                  ...(site.endsWith("section") ? { actions: [action] } : {}),
+                },
+              ],
+            },
+            ...(site.endsWith("header") ? { actions: [action] } : {}),
+          });
+        } else {
+          r.screen({
+            id: "product-edit",
+            type: "entityEdit",
+            entity: "product",
+            layout: {
+              sections: [
+                {
+                  columns: 1,
+                  fields: ["name"],
+                  ...(site.endsWith("section") ? { actions: [action] } : {}),
+                },
+              ],
+            },
+            ...(site.endsWith("header") ? { actions: [action] } : {}),
+          });
+        }
+      });
+    }
+
+    for (const site of sites) {
+      test(`${site}: string redirect to an unknown screen → Throw`, () => {
+        expect(() => validateBoot([featureWithRedirect(site, "ghost-screen")])).toThrow(
+          /redirect "ghost-screen" does not resolve to a registered screen/,
+        );
+      });
+
+      test(`${site}: object-form redirect to an unknown screen → Throw`, () => {
+        expect(() =>
+          validateBoot([featureWithRedirect(site, { screen: "ghost-screen", idFrom: "id" })]),
+        ).toThrow(/redirect "ghost-screen" does not resolve to a registered screen/);
+      });
+
+      test(`${site}: object-form redirect with empty idFrom → Throw`, () => {
+        expect(() =>
+          validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: " " })]),
+        ).toThrow(/redirect\.idFrom is empty or not a string/);
+      });
+
+      test(`${site}: object-form redirect to a registered screen does not trip the redirect check`, () => {
+        let message = "";
+        try {
+          validateBoot([featureWithRedirect(site, { screen: "overview", idFrom: "id" })]);
+        } catch (e) {
+          message = e instanceof Error ? e.message : String(e);
+        }
+        expect(message).not.toMatch(/redirect/);
+      });
+    }
+  });
+
+  test("entityList rowAction writeHandler with redirect → Throw (ignored on list rows)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.entity(
+        "product",
+        createEntity({
+          fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.screen({ id: "overview", type: "custom", renderer: { react: "stub" } });
+      r.screen({
+        id: "product-list",
+        type: "entityList",
+        entity: "product",
+        columns: ["name"],
+        rowActions: [
+          {
+            kind: "writeHandler",
+            id: "archive",
+            label: "actions.archive",
+            handler: "shop:write:archive",
+            redirect: "overview",
+          },
+        ],
+      });
+      r.writeHandler(
+        "archive",
+        z.object({}),
+        async () => ({ isSuccess: true as const, data: null }),
+        {
+          access: { roles: ["Admin"] },
+        },
+      );
+    });
+    expect(() => validateBoot([feature])).toThrow(/rowAction "archive" sets redirect/);
+  });
+
+  test("projectionList rowAction writeHandler with redirect → Throw (ignored on list rows)", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.screen({ id: "overview", type: "custom", renderer: { react: "stub" } });
+      r.screen({
+        id: "order-list",
+        type: "projectionList",
+        query: "shop:query:order:list",
+        columns: ["total"],
+        rowActions: [
+          {
+            kind: "writeHandler",
+            id: "archive",
+            label: "actions.archive",
+            handler: "shop:write:archive",
+            redirect: "overview",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(/rowAction "archive" sets redirect/);
+  });
+
   test("entityList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity(

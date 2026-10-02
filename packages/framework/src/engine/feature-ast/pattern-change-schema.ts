@@ -884,7 +884,7 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   unknown: unknownPatternSchema,
 } satisfies Record<FeaturePatternKind, z.ZodTypeAny>;
 
-const patternSchema = z.discriminatedUnion("kind", [
+export const patternSchema = z.discriminatedUnion("kind", [
   entitySchema,
   relationSchema,
   navSchema,
@@ -1050,7 +1050,7 @@ export const PATTERN_ID_SCHEMAS_BY_KIND = {
   treeActions: patternIdTreeActionsSchema,
 } satisfies Record<PatternId["kind"], z.ZodTypeAny>;
 
-const patternIdSchema = z.discriminatedUnion("kind", [
+export const patternIdSchema = z.discriminatedUnion("kind", [
   patternIdEntitySchema,
   patternIdRelationSchema,
   patternIdNavSchema,

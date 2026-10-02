@@ -220,8 +220,7 @@ function resolveIdentifierToStringLiteral(identifier: Node): string | undefined 
   const scoped = findScopedVariableDeclaration(id, name);
   if (scoped) {
     const init = scoped.getInitializer();
-    const value = init ? unwrapLiteralInitializer(init) : undefined;
-    if (value !== undefined) return value;
+    return init ? unwrapLiteralInitializer(init) : undefined;
   }
 
   const binding = findImportBindingForLocalName(id.getSourceFile(), name);

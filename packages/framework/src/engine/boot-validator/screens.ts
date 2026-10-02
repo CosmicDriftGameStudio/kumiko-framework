@@ -958,6 +958,23 @@ function validateRedirectTarget(
   );
 }
 
+// redirect is only honored on record actions; on list/related-list row
+// actions it would be silently dropped, so the author would believe it works.
+function rejectRedirectOnListRowAction(
+  featureName: string,
+  screenId: string,
+  screenKind: string,
+  action: RowAction,
+): void {
+  if (action.kind !== "navigate" && action.kind !== "drawer" && action.redirect !== undefined) {
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${screenKind}) rowAction "${action.id}" sets redirect — ` +
+        `redirect is only honored on record actions (projectionDetail/entityEdit header and section ` +
+        `actions) and is ignored on list row actions. Remove it.`,
+    );
+  }
+}
+
 // A writeHandler record action's redirect (projectionDetail/entityEdit
 // header and section actions) follows the entityEdit.redirect rule.
 function validateRecordActionRedirect(
@@ -1254,6 +1271,7 @@ function validateRelatedListRowActions(
     detailForScreens,
   } = args;
   for (const action of rowActions) {
+    rejectRedirectOnListRowAction(featureName, screenId, screenType, action);
     if (action.kind === "navigate") {
       const target = resolveRowActionNavigateTarget(
         featureName,
@@ -1493,6 +1511,7 @@ export function validateScreens(
       }
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
+          rejectRedirectOnListRowAction(feature.name, screenId, "projectionList", action);
           if (action.kind === "navigate") {
             const target = resolveRowActionNavigateTarget(
               feature.name,
@@ -2286,6 +2305,7 @@ export function validateScreens(
       // erst beim ersten Klick als "Screen not found" / 404 auf.
       if (screen.rowActions !== undefined) {
         for (const action of screen.rowActions) {
+          rejectRedirectOnListRowAction(feature.name, screenId, "entityList", action);
           if (action.kind === "navigate") {
             const target = resolveRowActionNavigateTarget(
               feature.name,

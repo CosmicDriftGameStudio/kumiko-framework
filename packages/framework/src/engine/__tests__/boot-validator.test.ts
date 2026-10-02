@@ -2195,7 +2195,9 @@ describe("boot-validator", () => {
     const softDeleteOnlyColumns = [...rowMetaFieldNames(true)].filter(
       (name) => LIST_ROW_META_COLUMNS[name] === undefined,
     );
-    expect(softDeleteOnlyColumns.sort()).toEqual(["deletedAt", "deletedById", "isDeleted"]);
+    test("softDelete-only row-meta set is exactly isDeleted/deletedAt/deletedById", () => {
+      expect([...softDeleteOnlyColumns].sort()).toEqual(["deletedAt", "deletedById", "isDeleted"]);
+    });
 
     for (const columnName of softDeleteOnlyColumns) {
       test(`"${columnName}" (softDelete-only, not renderable) → Throw on both validators`, () => {

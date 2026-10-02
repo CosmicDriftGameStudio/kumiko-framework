@@ -10,9 +10,11 @@ import type * as z from "zod";
 import { parseFeatureFile, parseSourceFile } from "../parse.js";
 import { applyChanges, type PatternId } from "../patch.js";
 import {
-  type PATTERN_ID_SCHEMAS_BY_KIND,
-  type PATTERN_SCHEMAS_BY_KIND,
+  PATTERN_ID_SCHEMAS_BY_KIND,
+  PATTERN_SCHEMAS_BY_KIND,
   parsePatternChanges,
+  patternIdSchema,
+  patternSchema,
 } from "../pattern-change-schema.js";
 import type { FeaturePattern, FeaturePatternKind } from "../patterns.js";
 
@@ -816,5 +818,21 @@ defineFeature("f", (r) => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.changes).toEqual([{ op: "add", pattern }]);
+  });
+});
+
+describe("discriminatedUnion members mirror the per-kind schema records", () => {
+  function unionKinds(union: { options: readonly z.ZodObject<z.ZodRawShape>[] }): string[] {
+    return union.options.map((option) => String((option.shape["kind"] as z.ZodLiteral).value));
+  }
+
+  test("patternSchema carries a member for every PATTERN_SCHEMAS_BY_KIND key and nothing else", () => {
+    expect(unionKinds(patternSchema).sort()).toEqual(Object.keys(PATTERN_SCHEMAS_BY_KIND).sort());
+  });
+
+  test("patternIdSchema carries a member for every PATTERN_ID_SCHEMAS_BY_KIND key and nothing else", () => {
+    expect(unionKinds(patternIdSchema).sort()).toEqual(
+      Object.keys(PATTERN_ID_SCHEMAS_BY_KIND).sort(),
+    );
   });
 });
