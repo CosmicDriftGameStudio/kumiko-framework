@@ -3,7 +3,12 @@ import { randomBytes } from "node:crypto";
 import { authFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import type { SessionCreator } from "@cosmicdrift/kumiko-framework/api";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_ASSIGNABLE_ROLE,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -21,7 +26,7 @@ import { createAuthEmailPasswordFeature } from "../../auth-email-password/featur
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
-import { TenantHandlers } from "../../tenant/constants.js";
+import { TenantHandlers, TenantQueries } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -39,6 +44,12 @@ import { makeSessionHelpers } from "./test-helpers.js";
 // remove-member) reach into the sessions feature's cross-tenant / tenant-
 // scoped revoke, cutting an already-issued JWT instead of leaving it live
 // until the 30-day TTL. See remove-member.write.ts / update-member-roles.write.ts.
+
+const SELF_EDIT_ROLE = "PropertyManager";
+const appFeature = defineFeature("membership-revoke-app", (r) => {
+  r.requires("tenant");
+  r.useExtension(EXT_ASSIGNABLE_ROLE, SELF_EDIT_ROLE);
+});
 
 let stack: TestStack;
 let h: ReturnType<typeof makeSessionHelpers>;
@@ -75,6 +86,7 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
       authFoundationFeature,
       createSessionsFeature(),
+      appFeature,
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
     authConfig: {
@@ -125,6 +137,88 @@ describe("updateMemberRoles revokes every live session", () => {
     expect(
       (await h.authedPost("/api/query", token, { type: "user:query:user:me", payload: {} })).status,
     ).toBe(401);
+  });
+});
+
+describe("updateMemberRoles on your own membership keeps your current session", () => {
+  const ADMIN_PASSWORD = "first-password";
+
+  async function seedTenantAdmins() {
+    const self = await h.seedUser("self-admin@example.com", ADMIN_PASSWORD, {
+      roles: ["TenantAdmin"],
+    });
+    // A second TenantAdmin keeps the last-admin guard out of the way.
+    await h.seedUser("other-admin@example.com", ADMIN_PASSWORD, { roles: ["TenantAdmin"] });
+    return self.userId;
+  }
+
+  function updateRoles(token: string, userId: string, roles: string[]): Promise<Response> {
+    return h.authedPost("/api/write", token, {
+      type: TenantHandlers.updateMemberRoles,
+      payload: { userId, roles },
+    });
+  }
+
+  function listTeam(token: string): Promise<Response> {
+    return h.authedPost("/api/query", token, { type: TenantQueries.teamList, payload: {} });
+  }
+
+  test("granting yourself an app role saves and the same token keeps working with the new roles", async () => {
+    const userId = await seedTenantAdmins();
+    const { token } = await h.login("self-admin@example.com", ADMIN_PASSWORD);
+
+    const save = await updateRoles(token, userId, ["TenantAdmin", SELF_EDIT_ROLE]);
+    expect(save.status).toBe(200);
+
+    const list = await listTeam(token);
+    expect(list.status).toBe(200);
+    const body = (await list.json()) as {
+      data: { rows: readonly { userId: string | null; roles: readonly string[] }[] };
+    };
+    const own = body.data.rows.find((row) => row.userId === userId);
+    expect([...(own?.roles ?? [])].sort()).toEqual([SELF_EDIT_ROLE, "TenantAdmin"]);
+  });
+
+  test("another session of the same user is revoked by the self-edit", async () => {
+    const userId = await seedTenantAdmins();
+    const editing = await h.login("self-admin@example.com", ADMIN_PASSWORD);
+    const other = await h.login("self-admin@example.com", ADMIN_PASSWORD);
+    expect((await listTeam(other.token)).status).toBe(200);
+
+    expect((await updateRoles(editing.token, userId, ["TenantAdmin", SELF_EDIT_ROLE])).status).toBe(
+      200,
+    );
+
+    expect((await listTeam(editing.token)).status).toBe(200);
+    expect((await listTeam(other.token)).status).toBe(401);
+  });
+
+  test("demoting yourself keeps the session but drops admin access immediately", async () => {
+    const userId = await seedTenantAdmins();
+    const { token } = await h.login("self-admin@example.com", ADMIN_PASSWORD);
+    expect((await listTeam(token)).status).toBe(200);
+
+    expect((await updateRoles(token, userId, [SELF_EDIT_ROLE])).status).toBe(200);
+
+    expect((await listTeam(token)).status).toBe(403);
+    expect(
+      (await h.authedPost("/api/query", token, { type: "user:query:user:me", payload: {} })).status,
+    ).toBe(200);
+  });
+
+  test("editing a different member still revokes all of that member's sessions", async () => {
+    await seedTenantAdmins();
+    const { userId: memberId } = await h.seedUser("member@example.com", ADMIN_PASSWORD);
+    const member = await h.login("member@example.com", ADMIN_PASSWORD);
+    const admin = await h.login("self-admin@example.com", ADMIN_PASSWORD);
+
+    expect((await updateRoles(admin.token, memberId, [SELF_EDIT_ROLE])).status).toBe(200);
+
+    expect(
+      (await h.authedPost("/api/query", member.token, { type: "user:query:user:me", payload: {} }))
+        .status,
+    ).toBe(401);
+    expect((await listTeam(admin.token)).status).toBe(200);
   });
 });
 
