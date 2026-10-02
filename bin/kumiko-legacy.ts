@@ -10,7 +10,7 @@ import {
 } from "./_lib/check-work-context";
 import {
   acquireCheckLock,
-  checkLockPathsForContext,
+  checkLockPaths,
   followCheck,
   parseCliScope,
   registerLockCleanup,
@@ -674,7 +674,7 @@ const commands = {
       // collide on the same lock — the loser would then adopt the other
       // repo's scope and exit code (infra#722).
       const workCtx = resolveCheckWorkContext(process.cwd(), REPO_ROOT);
-      const { lockDir, logPath, resultPath } = checkLockPathsForContext(workCtx);
+      const { lockDir, logPath, resultPath } = checkLockPaths(workCtx.cliScope);
 
       if (!acquireCheckLock(lockDir, logPath, resultPath)) {
         const code = await followCheck(lockDir, logPath, resultPath);

@@ -3,7 +3,7 @@
 "@cosmicdrift/kumiko-bundled-features": patch
 ---
 
-The `deprecation:entity-handler-cross-tenant` boot warning now names the codemod path that runs from a consumer repo. The `reason` strings on the `passwordHash`, PAT `tokenHash` and PAT `prefix` fields no longer carry an issue-number suffix.
+The `deprecation:entity-handler-cross-tenant` boot warning now names the codemod path that runs from a consumer repo. The `reason` strings on the `passwordHash`, PAT `tokenHash` and PAT `prefix` fields no longer carry an issue-number suffix. The `pii-personal-migration` codemod now skips `.d.ts` files in `--report-stance` mode as well.
 
 <!-- kumiko-changes
 feature: framework

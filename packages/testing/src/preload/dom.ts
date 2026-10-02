@@ -71,7 +71,7 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 // ownerDocument plus every React fiber property, which is 15 MB of string
 // for a two-element tree and 0.5-1.7 s per call. A failed assertion inside
 // waitFor pays that on every poll and blocks the loop long enough to starve
-// React's commit and waitFor's own timeout (#3082). On Element, not
+// React's commit and waitFor's own timeout. On Element, not
 // HTMLElement: SVGElement does not inherit from HTMLElement.
 if (typeof globalThis.Element !== "undefined") {
   const elementProto = globalThis.Element.prototype as unknown as Record<string | symbol, unknown>;
