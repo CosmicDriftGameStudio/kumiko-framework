@@ -88,18 +88,7 @@ export const discardDraftWrite = defineWriteHandler({
       const keys = ownedRefs.map((ref) => ref.storageKey);
       const log = ctx.log;
       const schedule = ctx.scheduleAfterCommit;
-      if (schedule) {
-        schedule(async () => {
-          await releaseDraftFileRefs(
-            keys,
-            async (key) => {
-              await files.ref(key).delete();
-            },
-            log,
-          );
-        });
-      } else {
-        // Unit/harness paths without a commit sink — best-effort inline.
+      const release = async (): Promise<void> => {
         await releaseDraftFileRefs(
           keys,
           async (key) => {
@@ -107,6 +96,12 @@ export const discardDraftWrite = defineWriteHandler({
           },
           log,
         );
+      };
+      if (schedule) {
+        schedule(release);
+      } else {
+        // Unit/harness paths without a commit sink — best-effort inline.
+        await release();
       }
     }
     return { isSuccess: true as const, data: { discarded: true } };

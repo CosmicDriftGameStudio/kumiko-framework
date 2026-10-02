@@ -396,58 +396,69 @@ export function createInboundMailSupervisor(
   // lifecycle — it keeps renewing across reconnect backoff, not just while
   // `plugin.watch()` is actually connected, so a flaky IMAP link doesn't
   // make this worker lose the account to a peer mid-backoff.
-  // kumiko-lint-ignore complexity-budget watch lease renew backoff/re-acquire loop
   function scheduleRenew(
     account: MailAccountRecord,
     state: WatcherState,
     generation: number,
   ): void {
     state.renewTimer = setTimeout(() => {
-      // kumiko-lint-ignore complexity-budget renew timer callback (renew/backoff/re-acquire)
-      void (async () => {
-        state.renewTimer = null;
-        // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.
-        if (!running || state.generation !== generation || !state.lockToken || !deps.lock) return;
-        let renewed: boolean;
-        try {
-          renewed = await deps.lock.renew(account.id, state.lockToken, leaseTtlSeconds);
-        } catch (err) {
-          log(
-            `inbound-mail: watch lease renew for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
-          );
-          state.renewFailures += 1;
-          // After failures spanning a full lease TTL, tear down — otherwise a
-          // peer can acquire the expired key while we still hold an IDLE conn.
-          if (state.renewFailures * renewIntervalMs >= leaseTtlSeconds * 1000) {
-            log(
-              `inbound-mail: watch lease renew for account ${account.id} failed across TTL — tearing down local watcher`,
-            );
-            state.lockToken = null;
-            await stopWatcher(account.id);
-            // skip: local watcher torn down after renew failures spanning a full lease TTL.
-            return;
-          }
-          if (running && state.generation === generation && state.lockToken) {
-            scheduleRenew(account, state, generation);
-          }
-          // skip: renew already rescheduled above (or conditions no longer hold) — nothing left to do this tick.
-          return;
-        }
-        state.renewFailures = 0;
-        if (!renewed) {
-          log(
-            `inbound-mail: watch lease for account ${account.id} lost — tearing down local watcher`,
-          );
-          state.lockToken = null;
-          await stopWatcher(account.id);
-          // skip: watcher already torn down by stopWatcher() above — nothing left to do.
-          return;
-        }
-        if (running && state.generation === generation && state.lockToken) {
-          scheduleRenew(account, state, generation);
-        }
-      })();
+      void renewLeaseOnce(account, state, generation);
     }, renewIntervalMs);
+  }
+
+  async function tearDownAfterRenewFailures(
+    account: MailAccountRecord,
+    state: WatcherState,
+    reason: string,
+  ): Promise<void> {
+    log(
+      `inbound-mail: watch lease ${reason} for account ${account.id} — tearing down local watcher`,
+    );
+    state.lockToken = null;
+    await stopWatcher(account.id);
+  }
+
+  async function renewLeaseOnce(
+    account: MailAccountRecord,
+    state: WatcherState,
+    generation: number,
+  ): Promise<void> {
+    state.renewTimer = null;
+    // skip: supervisor stopped, generation superseded, or lease already lost — stale timer fire, nothing to renew.
+    if (!running || state.generation !== generation || !state.lockToken || !deps.lock) return;
+    let renewed: boolean;
+    try {
+      renewed = await deps.lock.renew(account.id, state.lockToken, leaseTtlSeconds);
+    } catch (err) {
+      log(
+        `inbound-mail: watch lease renew for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      state.renewFailures += 1;
+      // After failures spanning a full lease TTL, tear down — otherwise a
+      // peer can acquire the expired key while we still hold an IDLE conn.
+      if (state.renewFailures * renewIntervalMs >= leaseTtlSeconds * 1000) {
+        await tearDownAfterRenewFailures(account, state, "renew failed across TTL");
+        return;
+      }
+      rescheduleIfStillHeld(account, state, generation);
+      return;
+    }
+    state.renewFailures = 0;
+    if (!renewed) {
+      await tearDownAfterRenewFailures(account, state, "lost");
+      return;
+    }
+    rescheduleIfStillHeld(account, state, generation);
+  }
+
+  function rescheduleIfStillHeld(
+    account: MailAccountRecord,
+    state: WatcherState,
+    generation: number,
+  ): void {
+    if (running && state.generation === generation && state.lockToken) {
+      scheduleRenew(account, state, generation);
+    }
   }
 
   // kumiko-lint-ignore complexity-budget yield-point stale-map check after acquire is intentional (#2460)

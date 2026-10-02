@@ -242,11 +242,7 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
 
     await dispatchCleanup();
 
-    // Draft deletion and FileRef release are two separate awaited phases in
-    // cleanup.job.ts — the whole batch is deleted first, then released row
-    // by row. Waiting on draftExists only proves the delete phase finished,
-    // not the (real DB + provider) release; wait on the actual release
-    // effect instead, or this assertion races the still-in-flight release.
+    // Release runs after the whole delete phase — wait on the release effect, not on draftExists.
     await waitFor(() => {
       expect(providerA.keys()).not.toContain(key);
     });
@@ -270,9 +266,7 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
 
     await dispatchCleanup();
 
-    // Same two-phase timing as the single-tenant release test above: wait on
-    // each provider's actual release, not on draft deletion (which finishes
-    // for the whole batch before either row's release even starts).
+    // Same two-phase timing as above: wait on each provider's release.
     await waitFor(() => {
       expect(providerA.keys()).not.toContain(keyA);
     });
@@ -295,13 +289,9 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     await saveDraft("wizard:stale-forged", { photo: fileRefPointer(forgedKey) });
     await backdate("wizard:stale-forged", 40);
 
-    // Release sentinel: a real, legitimately-owned FileRef backdated less
-    // than the forged row, so selectStaleDraftsBatch's oldest-first order
-    // processes the forged row first. Releases are awaited sequentially in
-    // order within one job run, so observing the sentinel's release proves
-    // the forged row's (earlier) release turn already ran and correctly did
-    // nothing — a plain draftExists wait can't prove that, only that the
-    // delete phase (which precedes all releases) has finished.
+    // Release sentinel: backdated less than the forged row, so it is released
+    // after it (oldest-first, sequential) — its release proves the forged
+    // row's release turn already ran and did nothing.
     const sentinelKey = "tenant-a/vehicle/forged-sentinel.jpg";
     await providerA.write(sentinelKey, new Uint8Array([7]), "image/jpeg");
     await seedFileRef(sentinelKey);
@@ -330,9 +320,7 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     await saveDraft("wizard:stale-with-prefilled-photo", { photo: fileRefPointer(key) });
     await backdate("wizard:stale-with-prefilled-photo", 40);
 
-    // Release sentinel — see the forged-draft-value test above for why a
-    // plain draftExists wait can't prove this row's release was actually
-    // (correctly) skipped, only that it hasn't been attempted yet.
+    // Release sentinel — see the forged-draft-value test above.
     const sentinelKey = "tenant-a/vehicle/prefilled-sentinel.jpg";
     await providerA.write(sentinelKey, new Uint8Array([7]), "image/jpeg");
     await seedFileRef(sentinelKey);
