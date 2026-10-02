@@ -683,7 +683,9 @@ function buildWhereClause(
         if (opKey === "ne" && pgType === "jsonb" && isJsonbScalar(opVal)) {
           const p = prepareJsonbValue([opVal]);
           if (p && p.kind === "param") {
-            conditions.push(`NOT (${quoteIdent(col)} @> $${idx++}${p.sql})`);
+            conditions.push(
+              `(${quoteIdent(col)} IS NULL OR NOT (${quoteIdent(col)} @> $${idx++}${p.sql}))`,
+            );
             values.push(p.bound);
             continue;
           }

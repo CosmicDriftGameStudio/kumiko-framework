@@ -28,7 +28,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
-import { nullBlindIndexesForSubject } from "../blind-index-cleanup.js";
+import { nullBlindIndexesForSubject, subjectRowExistsInTenant } from "../blind-index-cleanup.js";
 import { createEventStoreExecutor } from "../event-store-executor.js";
 import { asRawClient, fetchOne } from "../query.js";
 import { buildEntityTable } from "../table-builder.js";
@@ -61,6 +61,32 @@ const ghostFeature = defineFeature("bidxghost", (r) => {
   r.entity("ghost", ghostEntity);
 });
 
+// Migrated table that predates the `phone` lookupable field: `phone` and
+// `phone_bidx` are physically missing (feature version without migration).
+const driftEntity = createEntity({
+  table: "read_bidx_drift",
+  fields: {
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
+    phone: createTextField({ personal: "self", find: "exact" }),
+  },
+});
+const driftFeature = defineFeature("bidxdrift", (r) => {
+  r.entity("drift", driftEntity);
+});
+
+// Self-PII entity with a serial id: a uuid subject id can never match it, and
+// probing it would throw "invalid input syntax for type integer".
+const serialEntity = createEntity({
+  table: "read_bidx_serial",
+  idType: "serial",
+  fields: {
+    email: createTextField({ required: true, personal: "self", find: "exact" }),
+  },
+});
+const serialFeature = defineFeature("bidxserial", (r) => {
+  r.entity("serialrow", serialEntity);
+});
+
 let testDb: TestDb;
 let tdb: TenantDb;
 let kms: InMemoryKmsAdapter;
@@ -70,6 +96,10 @@ beforeAll(async () => {
   testDb = await createTestDb();
   await unsafeCreateEntityTable(testDb.db, personEntity, "person");
   await createProjectionStateTable(testDb.db);
+  await unsafeCreateEntityTable(testDb.db, serialEntity, "serialrow");
+  await asRawClient(testDb.db).unsafe(
+    `CREATE TABLE IF NOT EXISTS read_bidx_drift (id uuid PRIMARY KEY, tenant_id uuid NOT NULL, email text, email_bidx text)`,
+  );
   tdb = createTenantDb(testDb.db, adminUser.tenantId);
 });
 
@@ -281,5 +311,42 @@ describe("blind-index rebuild + forget", () => {
     ).resolves.toBeUndefined();
 
     expect((await rawRow(String(created.data.id)))["email_bidx"]).toBeNull();
+  });
+
+  test("nullBlindIndexesForSubject skips lookupable fields whose columns are missing", async () => {
+    const created = await crud.create({ email: "marc@example.com" }, adminUser, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const subjectId = String(created.data.id);
+    await asRawClient(testDb.db).unsafe(
+      `INSERT INTO read_bidx_drift (id, tenant_id, email, email_bidx) VALUES ($1, $2, $3, 'h')`,
+      [subjectId, adminUser.tenantId, `kumiko-pii:v1:user:${subjectId}:x`],
+    );
+    await kms.eraseKey({ kind: "user", userId: subjectId });
+
+    const registry = createRegistry([personFeature, driftFeature]);
+    await nullBlindIndexesForSubject(
+      testDb.db,
+      registry.features,
+      subjectIdToKey({ kind: "user", userId: subjectId }),
+    );
+
+    const driftRows = await asRawClient(testDb.db).unsafe<Record<string, unknown>>(
+      `SELECT email_bidx FROM read_bidx_drift WHERE id = $1`,
+      [subjectId],
+    );
+    expect(driftRows[0]?.["email_bidx"]).toBeNull();
+    expect((await rawRow(subjectId))["email_bidx"]).toBeNull();
+  });
+
+  test("subjectRowExistsInTenant ignores serial-id self-PII entities instead of throwing", async () => {
+    const registry = createRegistry([serialFeature]);
+    await expect(
+      subjectRowExistsInTenant(
+        testDb.db,
+        registry.features,
+        "11111111-1111-4111-8111-111111111111",
+        adminUser.tenantId,
+      ),
+    ).resolves.toBe(false);
   });
 });

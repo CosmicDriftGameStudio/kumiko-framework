@@ -20,7 +20,7 @@ import { toSnakeCase } from "../utils/case.js";
 import type { DbRunner } from "./connection.js";
 import { resolveTableName } from "./entity-table-meta.js";
 import { executeRawQuery, executeRawQueryRead } from "./queries/raw-sql.js";
-import { tableExists } from "./schema-inspection.js";
+import { columnNamesOf, tableExists } from "./schema-inspection.js";
 
 export async function nullBlindIndexesForSubject(
   db: DbRunner,
@@ -41,8 +41,13 @@ export async function nullBlindIndexesForSubject(
       // in forget-subject and would leave deterministic bidx columns still
       // linkable (fw#2550).
       if (!(await tableExists(db, tableName))) continue;
+      // Same hazard for a migrated table that predates a later-added
+      // lookupable field: skip fields whose columns are missing instead of
+      // aborting the sweep for the remaining ones.
+      const columns = await columnNamesOf(db, tableName);
       for (const fieldName of lookupable) {
         const snake = toSnakeCase(fieldName);
+        if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
         await executeRawQuery(
           db,
           `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
@@ -83,6 +88,9 @@ export async function subjectRowExistsInTenant(
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const hasSelfPiiField = Object.values(entity.fields).some(isSelfPiiField);
       if (!hasSelfPiiField) continue;
+      // Subject ids are uuids; comparing one to a serial id column makes
+      // postgres throw (invalid input syntax for integer) mid forget-TX.
+      if (entity.idType === "serial") continue;
       candidateTables.push(resolveTableName(entityName, entity, undefined));
     }
   }

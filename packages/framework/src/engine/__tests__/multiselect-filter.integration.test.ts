@@ -93,6 +93,46 @@ describe("multiSelect filterable — jsonb containment, not scalar equality (fw#
     expect(result.rows.map((r) => r.name).sort()).toEqual(["Ladder", "Saw"]);
   });
 
+  test("op:eq with an empty array matches nothing instead of every row", async () => {
+    await seed();
+    const result = await stack.http.queryOk<{ readonly rows: readonly unknown[] }>(
+      LIST_QN,
+      { limit: 50, filter: { field: "tags", op: "eq", value: [] } },
+      TestUsers.admin,
+    );
+    expect(result.rows).toHaveLength(0);
+  });
+
+  test("non-string client values (boolean, number) filter without a 500", async () => {
+    await seed();
+    for (const value of [true, 1, [1], [true]]) {
+      const result = await stack.http.queryOk<{ readonly rows: readonly unknown[] }>(
+        LIST_QN,
+        { limit: 50, filter: { field: "tags", op: "eq", value } },
+        TestUsers.admin,
+      );
+      expect(result.rows).toHaveLength(0);
+    }
+    const inResult = await stack.http.queryOk<{ readonly rows: readonly unknown[] }>(
+      LIST_QN,
+      { limit: 50, filters: [{ field: "tags", op: "in", value: [true, 2] }] },
+      TestUsers.admin,
+    );
+    expect(inResult.rows).toHaveLength(0);
+  });
+
+  test("op:ne keeps rows whose multiSelect column is NULL", async () => {
+    await seed();
+    // Legacy/hand-migrated tables can hold NULL even though the generated DDL is NOT NULL.
+    await asRawClient(stack.db).unsafe(
+      `ALTER TABLE "ms_filter_equipment" ALTER COLUMN "tags" DROP NOT NULL; UPDATE "ms_filter_equipment" SET "tags" = NULL WHERE "name" = 'Saw'`,
+    );
+    const result = await stack.http.queryOk<{
+      readonly rows: readonly { readonly name: string }[];
+    }>(LIST_QN, { limit: 50, filter: { field: "tags", op: "ne", value: "vip" } }, TestUsers.admin);
+    expect(result.rows.map((r) => r.name).sort()).toEqual(["Ladder", "Saw"]);
+  });
+
   test("op:in on a multiSelect field returns rows whose array contains any listed value", async () => {
     await seed();
     const result = await stack.http.queryOk<{
@@ -131,6 +171,15 @@ describe("multiSelect filterable — jsonb containment, not scalar equality (fw#
 
     test("`ne` returns rows whose array does not contain the value", async () => {
       await seed();
+      const rows = await selectMany<{ name: string }>(stack.db, meta, { tags: { ne: "vip" } });
+      expect(rows.map((r) => r.name).sort()).toEqual(["Ladder", "Saw"]);
+    });
+
+    test("`ne` keeps rows whose column is NULL", async () => {
+      await seed();
+      await asRawClient(stack.db).unsafe(
+        `ALTER TABLE "ms_filter_equipment" ALTER COLUMN "tags" DROP NOT NULL; UPDATE "ms_filter_equipment" SET "tags" = NULL WHERE "name" = 'Saw'`,
+      );
       const rows = await selectMany<{ name: string }>(stack.db, meta, { tags: { ne: "vip" } });
       expect(rows.map((r) => r.name).sort()).toEqual(["Ladder", "Saw"]);
     });
