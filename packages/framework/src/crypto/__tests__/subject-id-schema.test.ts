@@ -1,10 +1,18 @@
 // subjectIdSchema is `satisfies z.ZodType<SubjectId>` at the definition site
-// (kms-adapter.ts) — a future 4th SubjectId variant or a renamed field fails
-// to compile there. This file pins the runtime side of that binding: exactly
-// the three SubjectId shapes parse, everything else is refused.
+// (kms-adapter.ts) — a renamed field fails to compile there; a 4th SubjectId
+// variant the schema lacks fails to compile in the check below. The tests pin
+// the runtime side: exactly the three SubjectId shapes parse, everything else
+// is refused.
 
 import { describe, expect, test } from "bun:test";
-import { subjectIdSchema } from "../kms-adapter.js";
+import type * as z from "zod";
+import { type SubjectId, subjectIdSchema } from "../kms-adapter.js";
+
+// `satisfies` at the definition only proves schema output ⊆ SubjectId; this
+// proves the reverse, so a SubjectId variant the schema lacks fails to compile.
+const _schemaCoversEverySubjectId: [SubjectId] extends [z.output<typeof subjectIdSchema>]
+  ? true
+  : never = true;
 
 const UUID_A = "6b2f4a0e-1c9d-4f3a-9d2e-00000000000a";
 

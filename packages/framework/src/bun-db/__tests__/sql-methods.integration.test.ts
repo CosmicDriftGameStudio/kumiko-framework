@@ -162,6 +162,15 @@ describe("updateMany", () => {
     });
   });
 
+  test("unbekannter Key im set-Objekt wirft statt still verworfen zu werden", async () => {
+    await withTable(textCols, async ({ db, meta }) => {
+      const ins = await insertOne<{ id: string }>(db, meta, { val: "before" });
+      await expect(
+        updateMany(db, meta, { val: "after", stauts: "x" }, { id: ins!.id }),
+      ).rejects.toThrow(/stauts/);
+    });
+  });
+
   test("multi-row update ändert alle matches", async () => {
     await withTable(textCols, async ({ db, meta }) => {
       await insertMany(db, meta, [{ val: "old" }, { val: "old" }, { val: "keep" }]);
