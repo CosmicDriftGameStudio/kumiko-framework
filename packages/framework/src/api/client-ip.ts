@@ -69,7 +69,8 @@ export function parseTrustedProxyHopsEnv(
   raw: string | undefined,
   context: string,
 ): number | undefined {
-  if (raw === undefined) return undefined;
+  // Empty string = unset, matching readEnv's normalization (e.g. a blank .env template line).
+  if (raw === undefined || raw === "") return undefined;
   if (!/^\d+$/.test(raw)) {
     throw new Error(
       `${context}: ${TRUSTED_PROXY_HOPS_ENV} must be a non-negative integer, got "${raw}".`,

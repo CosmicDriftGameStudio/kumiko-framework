@@ -289,6 +289,11 @@ function resolveDeployConfig(
   // over-long appName fails loud here instead of producing a DB user
   // Postgres itself would reject at migrate-time.
   if (!DB_USER_RE.test(dbUser)) {
+    if (config.dbUser === undefined) {
+      throw new Error(
+        `scaffoldDeploy: appName "${appName}" cannot serve as the default DB user (must match ${DB_USER_RE}); set package.json#kumiko.deploy.dbUser`,
+      );
+    }
     throw new Error(
       `scaffoldDeploy: invalid package.json#kumiko.deploy.dbUser — effective value "${dbUser}" (defaulted from appName) does not match ${DB_USER_RE}`,
     );

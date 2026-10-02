@@ -1,8 +1,5 @@
-// fw#(stream escapeHatch) — mirrors system-identity-switch.integration.test.ts's
-// coverage of ctx.queryAs(SYSTEM, ...) gating, but for stream handlers: a
-// StreamHandlerDef can now declare `escapeHatch: { reason }` to switch
-// identity to SYSTEM. Real HTTP calls (SSE POST /api/stream via Hono's
-// in-memory app.request) + setupTestStack — never createTestDispatcher.
+// Stream handlers gate ctx.queryAs(SYSTEM, ...) on their own escapeHatch,
+// same contract as write/query handlers.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";

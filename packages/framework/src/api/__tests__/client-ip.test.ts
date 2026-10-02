@@ -164,6 +164,10 @@ describe("parseTrustedProxyHopsEnv", () => {
     expect(parseTrustedProxyHopsEnv(undefined, "test")).toBeUndefined();
   });
 
+  test("empty string -> undefined (same as unset)", () => {
+    expect(parseTrustedProxyHopsEnv("", "test")).toBeUndefined();
+  });
+
   test("valid digits-only string -> parsed integer", () => {
     expect(parseTrustedProxyHopsEnv("1", "test")).toBe(1);
     expect(parseTrustedProxyHopsEnv("0", "test")).toBe(0);

@@ -894,6 +894,10 @@ describe("createKumikoServer — public/ static files", () => {
       const encoded = await handle.fetch(new Request("http://localhost/%2e%2e%2fsecret.txt"));
       expect(encoded.status).not.toBe(200);
 
+      // A decoded NUL byte must be a router miss, not a readFile throw -> 500.
+      const nul = await handle.fetch(new Request("http://localhost/foo%00.png"));
+      expect(nul.status).toBe(404);
+
       // Neither attempt leaked the secret's content through any other path
       // (e.g. as an error body).
       expect(await literal.clone().text()).not.toContain("TOP-SECRET");

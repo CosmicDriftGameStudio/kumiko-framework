@@ -441,6 +441,9 @@ function resolvePublicFilePath(pathname: string, publicDir: string): string | un
   } catch {
     return undefined;
   }
+  // A NUL byte makes readFile throw ERR_INVALID_ARG_VALUE (not ENOENT), which
+  // would surface as a 500 instead of a router miss.
+  if (decoded.includes("\0")) return undefined;
   const resolved = resolve(publicDir, `.${decoded}`);
   return resolved === publicDir || resolved.startsWith(publicDir + sep) ? resolved : undefined;
 }
@@ -492,7 +495,9 @@ async function servePublicFile(
     return { bytes, mime: publicFileMimeType(filePath) };
   } catch (err) {
     const code = (err as { code?: string }).code;
-    if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR") return undefined;
+    if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR" || code === "ENAMETOOLONG") {
+      return undefined;
+    }
     throw err;
   }
 }

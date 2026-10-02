@@ -260,7 +260,7 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
     expect(anonymousWriteStore.get(TENANT_ID)?.length ?? 0).toBe(before);
   });
 
-  test("deps.write parity: a Bearer token whose role clears the gate succeeds — same as calling /api/write directly (see the no-token case above, which 403s)", async () => {
+  test("deps.write parity: a Bearer token whose role clears the gate succeeds — same as calling /api/write directly (see the no-token case above, which is denied with access_denied)", async () => {
     const token = await stack.jwt.sign(TestUsers.admin);
     const res = await stack.app.request("/api/anon-gated-write-probe", {
       method: "POST",
