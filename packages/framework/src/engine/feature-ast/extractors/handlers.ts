@@ -97,6 +97,7 @@ const QUERY_HANDLER_KEY_KINDS: Record<keyof QueryHandlerDef, KeyClassification> 
   agent: "modeled",
   rateLimit: "modeled",
   outputSchema: "opaque",
+  liveEntities: "opaque",
   escapeHatch: "modeled",
 };
 

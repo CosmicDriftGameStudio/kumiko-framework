@@ -334,7 +334,7 @@ describe("InfinityList", () => {
           id: "m3",
           aggregateType: "message",
           version: 1,
-          payload: {},
+          eventType: "updated",
           createdAt: "",
         });
       });
@@ -387,7 +387,7 @@ describe("InfinityList", () => {
           id: "m1",
           aggregateType: "message",
           version: 1,
-          payload: {},
+          eventType: "updated",
           createdAt: "",
         });
       });
@@ -452,7 +452,7 @@ describe("InfinityList", () => {
           id: "m3",
           aggregateType: "message",
           version: 1,
-          payload: {},
+          eventType: "updated",
           createdAt: "",
         });
       });
@@ -465,7 +465,7 @@ describe("InfinityList", () => {
     function messageEvent(
       id: string,
     ): Parameters<ReturnType<typeof makeFakeLiveEvents>["inject"]>[1] {
-      return { id, aggregateType: "message", version: 1, payload: {}, createdAt: "" };
+      return { id, aggregateType: "message", version: 1, eventType: "updated", createdAt: "" };
     }
 
     test("ein Burst schneller SSE-Events löst genau eine Refresh-Query aus", async () => {
@@ -557,7 +557,7 @@ describe("InfinityList", () => {
         id: "m2",
         aggregateType: "message",
         version: 1,
-        payload: {},
+        eventType: "updated",
         createdAt: "",
       });
 
@@ -598,7 +598,7 @@ describe("InfinityList", () => {
         id: "n1",
         aggregateType: "note",
         version: 1,
-        payload: {},
+        eventType: "updated",
         createdAt: "",
       });
 
@@ -628,7 +628,7 @@ describe("InfinityList", () => {
           id: "m2",
           aggregateType: "message",
           version: 1,
-          payload: {},
+          eventType: "updated",
           createdAt: "",
         });
       });

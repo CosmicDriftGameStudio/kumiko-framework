@@ -29,6 +29,10 @@ export function createSystemUser(
 export const ANONYMOUS_USER_ID = "anonymous";
 export const ANONYMOUS_ROLE = "anonymous" as const;
 
+export function isAnonymousSessionUser(user: Pick<SessionUser, "roles">): boolean {
+  return user.roles.includes(ANONYMOUS_ROLE);
+}
+
 export function createAnonymousUser(tenantId: TenantId): SessionUser {
   return {
     id: ANONYMOUS_USER_ID,

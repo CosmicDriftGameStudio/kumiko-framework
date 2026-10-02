@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { tenantChannel } from "../engine/constants.js";
+import { isAnonymousSessionUser } from "../engine/system-user.js";
+import type { SessionUser } from "../engine/types/index.js";
 import { Routes } from "./api-constants.js";
 import { getUser } from "./auth-middleware.js";
 import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.js";
@@ -36,14 +38,68 @@ function isEntityEventData(data: Record<string, unknown>): data is { aggregateTy
   return typeof data["aggregateType"] === "string";
 }
 
-// The tenant channel fans out to every member; user-addressed frames
-// (e.g. channel-in-app:event:delivered) would otherwise reach the whole tenant.
-function isAddressedToOtherUser(event: SseEvent, userId: string): boolean {
-  const addressee = event.data["userId"];
-  return typeof addressee === "string" && addressee !== userId;
+export type SseRouteOptions = {
+  readonly anonymousLiveEntities: ReadonlySet<string>;
+};
+
+type EntitySignalWire = {
+  readonly id: unknown;
+  readonly aggregateType: string;
+  readonly eventType: string;
+  readonly version: unknown;
+  readonly createdAt: unknown;
+};
+
+// Whitelist, never a spread: the wire frame is a signal without field
+// values even if a broker or pusher put a payload into event.data.
+function toEntitySignalWire(
+  event: SseEvent,
+  data: { aggregateType: string } & Record<string, unknown>,
+): EntitySignalWire {
+  return {
+    id: data["id"],
+    aggregateType: data.aggregateType,
+    eventType: event.type,
+    version: data["version"],
+    createdAt: data["createdAt"],
+  };
 }
 
-export function createSseRoute(broker: SseBroker) {
+// The tenant channel fans out to every member, so a frame without an entity
+// (e.g. channel-in-app:event:delivered) reaches only its addressee; a frame
+// lacking userId is dropped (fail-closed).
+function isAddressedTo(event: SseEvent, userId: string): boolean {
+  const addressee = event.data["userId"];
+  return typeof addressee === "string" && addressee === userId;
+}
+
+function mayReceiveEntitySignal(
+  user: SessionUser,
+  aggregateType: string,
+  options: SseRouteOptions,
+): boolean {
+  return !isAnonymousSessionUser(user) || options.anonymousLiveEntities.has(aggregateType);
+}
+
+type SseWireFrame = { readonly name: string; readonly data: unknown };
+
+function decideWireFrame(
+  event: SseEvent,
+  user: SessionUser,
+  options: SseRouteOptions,
+): SseWireFrame | undefined {
+  const data = event.data;
+  if (isEntityEventData(data)) {
+    // skip: anonymous connections only get signals for entities an anonymous query declares
+    if (!mayReceiveEntitySignal(user, data.aggregateType, options)) return undefined;
+    return { name: data.aggregateType, data: toEntitySignalWire(event, data) };
+  }
+  // skip: frames without an entity belong to their addressee only
+  if (!isAddressedTo(event, user.id)) return undefined;
+  return { name: event.type, data };
+}
+
+export function createSseRoute(broker: SseBroker, options: SseRouteOptions) {
   const route = new Hono();
 
   route.get(Routes.sse, async (c) => {
@@ -65,12 +121,10 @@ export function createSseRoute(broker: SseBroker) {
       const clientId = broker.addClient(
         channel,
         (event) => {
-          // skip: user-addressed frames on the shared tenant channel belong to their recipient only
-          if (isAddressedToOtherUser(event, user.id)) return;
-          const wireEventName = isEntityEventData(event.data)
-            ? event.data.aggregateType
-            : event.type;
-          stream.writeSSE({ event: wireEventName, data: JSON.stringify(event.data) });
+          const frame = decideWireFrame(event, user, options);
+          // skip: decideWireFrame withholds frames this user must not see
+          if (!frame) return;
+          stream.writeSSE({ event: frame.name, data: JSON.stringify(frame.data) });
         },
         closeStream,
       );

@@ -4,7 +4,9 @@ import { TestUsers } from "../../stack/index.js";
 import { authMiddleware } from "../auth-middleware.js";
 import { createJwtHelper } from "../jwt.js";
 import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.js";
-import { createSseRoute } from "../sse-route.js";
+import { createSseRoute, type SseRouteOptions } from "../sse-route.js";
+
+const NO_ANONYMOUS_ENTITIES: SseRouteOptions = { anonymousLiveEntities: new Set() };
 
 const JWT_SECRET = "sse-route-unit-test-secret-at-least-32-characters";
 
@@ -42,7 +44,7 @@ async function buildSseApp(broker: SseBroker): Promise<{ app: Hono; token: strin
 
   const app = new Hono();
   app.use("/api/*", authMiddleware(jwt));
-  app.route("/api", createSseRoute(broker));
+  app.route("/api", createSseRoute(broker, NO_ANONYMOUS_ENTITIES));
   return { app, token };
 }
 
@@ -198,7 +200,6 @@ describe("sse-route frame naming", () => {
         id: "u1",
         aggregateType: "user",
         version: 1,
-        payload: {},
         createdAt: "2026-01-01T00:00:00.000Z",
       },
     });
@@ -210,10 +211,45 @@ describe("sse-route frame naming", () => {
     expect(JSON.parse(frame.data)).toEqual({
       id: "u1",
       aggregateType: "user",
+      eventType: "user.created",
       version: 1,
-      payload: {},
       createdAt: "2026-01-01T00:00:00.000Z",
     });
+  });
+
+  test("a payload smuggled into entity frame data never reaches the wire", async () => {
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker);
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    sendEvent({
+      type: "user.updated",
+      data: {
+        id: "u1",
+        aggregateType: "user",
+        version: 2,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        payload: { changes: { email: "leak@example.test" } },
+        email: "leak@example.test",
+      },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(frame.data).not.toContain("leak@example.test");
+    expect(JSON.parse(frame.data)).not.toHaveProperty("payload");
   });
 
   test("non-entity events (no aggregateType) keep event.type as the frame name", async () => {
@@ -243,7 +279,7 @@ describe("sse-route frame naming", () => {
     expect(frame.event).toBe("channel-in-app:event:delivered");
   });
 
-  test("frames addressed to another user are dropped, own and unaddressed frames pass", async () => {
+  test("frames addressed to another user or to nobody are dropped, only own frames pass", async () => {
     const { broker, send } = createSendCapturingBroker();
     const { app, token } = await buildSseApp(broker);
 
@@ -262,6 +298,10 @@ describe("sse-route frame naming", () => {
     sendEvent({
       type: "channel-in-app:event:delivered",
       data: { id: "other", userId: TestUsers.admin.id, title: "not for you" },
+    });
+    sendEvent({
+      type: "channel-in-app:event:delivered",
+      data: { id: "nobody", title: "no addressee" },
     });
     sendEvent({
       type: "channel-in-app:event:delivered",
@@ -319,7 +359,7 @@ describe("sse-route access invalidation", () => {
     const token = await jwt.sign({ ...TestUsers.user, sid });
     const app = new Hono();
     app.use("/api/*", authMiddleware(jwt));
-    app.route("/api", createSseRoute(recording.broker));
+    app.route("/api", createSseRoute(recording.broker, NO_ANONYMOUS_ENTITIES));
     const response = await app.request("/api/sse", {
       headers: { Authorization: `Bearer ${token}` },
     });

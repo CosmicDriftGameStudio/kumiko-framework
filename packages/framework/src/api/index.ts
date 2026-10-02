@@ -1,5 +1,6 @@
 export type { SetTenantCookieOptions } from "./anonymous-cookie.js";
 export { deleteTenantCookie, setTenantCookie } from "./anonymous-cookie.js";
+export { collectAnonymousLiveEntities } from "./anonymous-live-entities.js";
 export { LOCALE_HEADER_NAME, NO_ROUTE_MATCH_HEADER_NAME } from "./api-constants.js";
 export type {
   AnonymousAccessConfig,
@@ -100,7 +101,7 @@ export type { KumikoServer, ServerOptions } from "./server.js";
 export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server.js";
 export type { SseBroker, SseClient, SseEvent } from "./sse-broker.js";
 export { createSseBroker } from "./sse-broker.js";
-export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS } from "./sse-route.js";
+export { createSseRoute, SSE_HEARTBEAT_INTERVAL_MS, type SseRouteOptions } from "./sse-route.js";
 export { generateToken } from "./tokens.js";
 export type {
   KumikoServeEnv,

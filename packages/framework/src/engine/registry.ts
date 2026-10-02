@@ -37,6 +37,7 @@ import {
   validateJobBackoff,
   validateJobTriggers,
   validateLifecycleHookTargets,
+  validateLiveEntities,
   validateProjectionApplyKeys,
   validateRelationTargetsExist,
   validateRequiredFeatures,
@@ -84,6 +85,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   validateEntityHookTargets(state, features);
   validateJobTriggers(state);
   validateBootGates(state);
+  validateLiveEntities(state);
   validateJobBackoff(state);
   validateExtensionUsageTargets(state);
   computeHasRateLimitedHandler(state);

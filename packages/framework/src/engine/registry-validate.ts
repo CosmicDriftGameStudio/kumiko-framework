@@ -704,6 +704,17 @@ export function validateJobTriggers(state: RegistryState): void {
   }
 }
 
+export function validateLiveEntities(state: RegistryState): void {
+  for (const [handlerQn, handler] of state.queryHandlerMap) {
+    for (const entityName of handler.liveEntities ?? []) {
+      if (state.entityMap.has(entityName)) continue;
+      throw new Error(
+        `Query handler "${handlerQn}" declares liveEntities "${entityName}" but no entity with that name is registered`,
+      );
+    }
+  }
+}
+
 export function validateBootGates(state: RegistryState): void {
   // Boot gates run inline in JobRunner.start(), which has neither the
   // per-tenant fan-out (that re-enqueues) nor the sequential lock's

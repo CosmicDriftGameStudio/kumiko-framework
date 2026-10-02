@@ -1227,6 +1227,10 @@ export type QueryHandlerDef = {
    *  `header`/`metrics`, dashboard `valueField`/`subField`/etc.) rather
    *  than requiring it retroactively. See fw#2493. */
   readonly outputSchema?: ZodType;
+  /** Entities whose changes this query reflects. Anonymous callers with
+   *  access to this query receive /api/sse change signals (no field values)
+   *  for these entities. Every name must be a registered entity. */
+  readonly liveEntities?: readonly string[];
   // Query handlers can't reach db.global() (that gate is write-only), but
   // they can still switch identity to SYSTEM via ctx.queryAs — this opts
   // in, same contract as WriteHandlerDef.escapeHatch.

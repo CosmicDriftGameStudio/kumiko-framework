@@ -110,6 +110,10 @@ export type QueryHandlerDefinition<
    *  that want boot-time column checks declare `outputSchema` explicitly,
    *  same as `schema` for the input side. */
   readonly outputSchema?: ZodType;
+  /** Entities whose changes this query reflects. Anonymous callers with
+   *  access to this query receive /api/sse change signals (no field values)
+   *  for these entities. Every name must be a registered entity. */
+  readonly liveEntities?: readonly string[];
 };
 
 // --- Stream Handler Definition ---
