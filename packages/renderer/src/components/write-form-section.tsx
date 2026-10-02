@@ -4,13 +4,13 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import * as z from "zod";
 import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.js";
 import { dispatcherErrorText } from "../app/write-failed-error.js";
 import { useForm } from "../hooks/use-form.js";
 import { useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
+import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.js";
 import { GridCellForField } from "./grid-cell-for-field.js";
 
 // Same "has a value" rule as buildFormSchema's isPresent (app/form-schema.ts)
@@ -56,6 +56,10 @@ export type WriteFormSectionProps = {
    *  rendered alongside (before) the section's own submit button in the
    *  title-row actions slot. */
   readonly actions?: ReactNode;
+  /** Set when this section is a whole tab: the submit button is handed to
+   *  the host form's footer (pinned like every other screen's save) instead
+   *  of the section's title row. Called with undefined on unmount. */
+  readonly onFooterAction?: (action: ReactNode | undefined) => void;
 };
 
 // A self-persisting form section for projectionDetail (see
@@ -70,6 +74,7 @@ export function WriteFormSection({
   hideTitle,
   onSubmitted,
   actions,
+  onFooterAction,
 }: WriteFormSectionProps): ReactNode {
   const { Section, Card, Grid, GridCell, Button, Banner } = usePrimitives();
   const t = useTranslation();
@@ -140,21 +145,36 @@ export function WriteFormSection({
   // type="button" (not "submit") is load-bearing: this section is deliberately
   // NOT a nested <form> (see the component doc above), so a "submit" type
   // would instead trigger the host RenderEdit's own form submit.
+  // The footer copy of the button outlives this render, so it calls the
+  // latest handleSubmit through a ref instead of capturing a stale closure.
+  const handleSubmitRef = useRef(handleSubmit);
+  handleSubmitRef.current = handleSubmit;
+  const submitLabel = section.submitLabel ?? effectiveTranslate("kumiko.actions.save");
   const submitButton = (
     <Button
       type="button"
       variant="primary"
       disabled={isSubmitting}
       loading={isSubmitting}
-      onClick={() => void handleSubmit()}
+      onClick={() => void handleSubmitRef.current()}
       testId="write-form-section-submit"
+      {...{ [STICKY_PRIMARY_ACTION_PROP]: true }}
     >
-      {section.submitLabel ?? effectiveTranslate("kumiko.actions.save")}
+      {submitLabel}
     </Button>
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: submitButton is rebuilt every render; isSubmitting and submitLabel are everything it shows.
+  useEffect(() => {
+    if (onFooterAction === undefined) return;
+    onFooterAction(submitButton);
+    return () => onFooterAction(undefined);
+  }, [onFooterAction, isSubmitting, submitLabel]);
+
   const titleRowActions =
-    actions !== undefined ? (
+    onFooterAction !== undefined ? (
+      actions
+    ) : actions !== undefined ? (
       <>
         {actions}
         {submitButton}

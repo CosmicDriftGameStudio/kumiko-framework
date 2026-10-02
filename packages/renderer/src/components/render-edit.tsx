@@ -833,6 +833,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     fillScreenHeight === true ||
     (hideSectionTitles === true && filteredSections[0]?.kind === "relatedList");
 
+  // A lone writeForm tab is the whole page, so its submit joins this form's
+  // footer (pinned to the window edge like every other screen's save)
+  // instead of sitting in the section's title row.
+  const isLoneWriteFormTab =
+    hideSectionTitles === true && filteredSections[0]?.kind === "writeForm";
+  const [writeFormFooterAction, setWriteFormFooterAction] = useState<ReactNode>(undefined);
+
   // Persistiert alle composed Extension-Sections mit der aufgelösten entityId.
   // false = eine Section schlug fehl (ihr i18n-Key landet im Banner). Ohne
   // Entity-Kontext (create-mode ohne route-id) gibt es nichts zu schreiben.
@@ -1313,7 +1320,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     (isWizard && currentStep > 0) ||
     (isWizard && !isLastWizardStep) ||
     (showsSubmit && (!isWizard || isLastWizardStep)) ||
-    footerSlot !== undefined;
+    footerSlot !== undefined ||
+    writeFormFooterAction !== undefined;
   const nextStepTitle = isWizard ? filteredSections[currentStep + 1]?.title : undefined;
   const formActions = (
     <>
@@ -1398,6 +1406,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
         </Button>
       )}
+      {writeFormFooterAction}
     </>
   );
 
@@ -1793,6 +1802,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   translate={translate}
                   hideTitle={hideSectionTitles}
                   onSubmitted={() => onReload?.()}
+                  {...(isLoneWriteFormTab && { onFooterAction: setWriteFormFooterAction })}
                   {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
                 />
               );
