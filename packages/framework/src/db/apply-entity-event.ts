@@ -137,8 +137,10 @@ export async function applyEntityEvent(
         const field = entity.fields[key];
         // Historical events can carry fields since removed from the entity; the
         // tolerance lives here (not in updateMany) so a live typo still throws.
-        if (field === undefined) continue;
-        if (field.type === "files" || field.type === "images") continue;
+        // Base/soft-delete columns (insertedById, deletedAt, ...) are table
+        // columns without an entity field and must still be applied.
+        if (field === undefined && !(key in table)) continue;
+        if (field?.type === "files" || field?.type === "images") continue;
         changes[key] = value;
       }
       const rows = await updateMany<DbRow>(
