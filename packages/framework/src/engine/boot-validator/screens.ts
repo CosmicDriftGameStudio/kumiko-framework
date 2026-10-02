@@ -957,9 +957,9 @@ function validateRecordActionRedirect(
   action: RowAction,
   allScreenQns: ReadonlySet<string>,
 ): void {
-  if (action.kind === "navigate" || action.kind === "drawer") return;
-  if (action.redirect === undefined) return;
-  validateRedirectTarget(feature, screenId, screenKind, action.redirect, allScreenQns);
+  if (action.kind !== "navigate" && action.kind !== "drawer" && action.redirect !== undefined) {
+    validateRedirectTarget(feature, screenId, screenKind, action.redirect, allScreenQns);
+  }
 }
 
 function validateInlineFormNavTargets(

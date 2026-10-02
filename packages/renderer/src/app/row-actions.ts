@@ -610,9 +610,9 @@ function buildWriteHandlerRecordAction(
       const deletedShownRecord = deletesShownRecord(action, payload, shownRecordId);
       if (onRecordLeft !== undefined && (action.redirect !== undefined || deletedShownRecord)) {
         onRecordLeft(action, result.data, deletedShownRecord);
-        return;
+      } else {
+        await onWriteSuccess();
       }
-      await onWriteSuccess();
     },
   };
 }
