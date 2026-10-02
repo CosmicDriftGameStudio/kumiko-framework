@@ -815,6 +815,22 @@ describe("projectionDetail writeHandler actions that leave the shown record", ()
     await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-overview" }]));
   });
 
+  test("a delete never returns onto the deleted record, also when it carries a redirect", async () => {
+    const editScreen = {
+      id: "rent-edit",
+      type: "entityEdit",
+      entity: "rent",
+      layout: { sections: [{ fields: ["description"] }] },
+    } as unknown as FeatureSchema["screens"][number];
+    const base = schemaWith([{ ...deleteAction, redirect: "rent-list" }]);
+    const schema: FeatureSchema = { ...base, screens: [...base.screens, editScreen] };
+    const { navigated } = await runAction(schema, "delete", {
+      searchParams: { returnTo: "rent-edit/rent-1" },
+    });
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-list" }]));
+  });
+
   test("an explicit redirect on a non-delete writeHandler navigates there", async () => {
     const schema = schemaWith([
       {

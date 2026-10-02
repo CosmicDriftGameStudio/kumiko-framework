@@ -1333,21 +1333,22 @@ function EntityEditUpdateForm({
   // stands in for the "row"), minus the cross-feature defaultEditAction
   // lookup that doesn't apply here (this screen already IS the edit form).
   const handleRecordLeft = useCallback(
-    (action: RowActionWriteHandler, resultData: unknown) => {
+    (action: RowActionWriteHandler, resultData: unknown, deletedShownRecord: boolean) => {
+      // Never return onto the just-deleted record.
+      const target =
+        deletedShownRecord && returnTarget?.entityId === entityId ? undefined : returnTarget;
       if (action.redirect !== undefined) {
         navigateAfterRedirect({
           nav,
           schema,
           appFeatures,
-          returnTarget,
+          returnTarget: target,
           redirect: action.redirect,
           resultData,
           record,
         });
         return;
       }
-      // Never return onto the just-deleted record.
-      const target = returnTarget?.entityId !== entityId ? returnTarget : undefined;
       navigateToReturnOr(nav, target, navigateToList);
       onDeleted?.();
     },
@@ -3229,22 +3230,25 @@ function ProjectionDetailBody({
   const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
     useDrawerAction(schema);
   const handleRecordLeft = useCallback(
-    (action: RowActionWriteHandler, resultData: unknown) => {
+    (action: RowActionWriteHandler, resultData: unknown, deletedShownRecord: boolean) => {
       const record = detailQuery.data ?? {};
+      // Never return onto the just-deleted record.
+      const target =
+        deletedShownRecord && returnTarget?.entityId === effectiveEntityId
+          ? undefined
+          : returnTarget;
       if (action.redirect !== undefined) {
         navigateAfterRedirect({
           nav,
           schema,
           appFeatures,
-          returnTarget,
+          returnTarget: target,
           redirect: action.redirect,
           resultData,
           record,
         });
         return;
       }
-      // Never return onto the just-deleted record.
-      const target = returnTarget?.entityId !== effectiveEntityId ? returnTarget : undefined;
       navigateToReturnOr(nav, target, () => {
         const listScreen =
           screen.listScreenId ??
