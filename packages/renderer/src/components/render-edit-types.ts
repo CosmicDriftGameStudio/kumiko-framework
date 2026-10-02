@@ -195,6 +195,10 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  screens with `fillHeight !== false`; dialogs and other embedded hosts
    *  omit it and keep document-flow height. */
   readonly fillScreenHeight?: boolean;
+  /** Rendered first inside the form, above the sections, in the same column and
+   *  rhythm — for content that belongs to the form but is no field (e.g. the
+   *  secret a confirm step refers to). */
+  readonly leadContent?: ReactNode;
   /** Show the unsaved-changes footer (count, Discard, "Save changes") even
    *  without an entity id or a screen-height form — for hosts that edit an
    *  existing server-side record through `customSubmit` (configEdit, also when

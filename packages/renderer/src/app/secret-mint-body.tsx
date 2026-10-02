@@ -63,7 +63,8 @@ function isBlank(value: unknown): boolean {
 export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProps): ReactNode {
   const nav = useNav();
   const returnTarget = useReturnTarget(screen.id);
-  const { Card, Heading, Banner, Button, Text, Grid, GridCell, SecretReveal } = usePrimitives();
+  const { Card, Heading, Banner, Button, Text, Grid, GridCell, Section, SecretReveal } =
+    usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const synthEntity = useMemo(() => synthesizeActionFormEntity(screen.fields), [screen.fields]);
@@ -143,8 +144,12 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   const handleCancel = useMemo<(() => void) | undefined>(() => {
     const target = screen.cancelTarget ?? screen.redirect;
     if (target === undefined || target === false) return undefined;
-    return () =>
+    return () => {
+      // A native stack keeps this screen mounted after navigate; drop the secret first.
+      setRevealed(null);
+      carriedRef.current = {};
       navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
+    };
   }, [nav, screen.redirect, screen.cancelTarget, returnTarget]);
 
   // The confirm step must always offer a way out: a failed confirm (e.g. an
@@ -219,8 +224,8 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         },
       ];
     });
-    return (
-      <Card options={{ screenBody: true }} testId="kumiko-screen-secret-mint-card">
+    const revealContent = (
+      <>
         <Heading variant="page">
           {effectiveTranslate(screen.reveal.title ?? "kumiko.secretMint.title")}
         </Heading>
@@ -244,37 +249,51 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
             ))}
           </Grid>
         )}
-        {confirm !== undefined && confirmEntity !== undefined && confirmScreen !== undefined ? (
-          <RenderEdit
-            screen={confirmScreen}
-            i18nScreenId={screen.id}
-            entity={confirmEntity}
-            featureName={schema.featureName}
-            initial={confirmInitial ?? ({} as FormValues)}
-            writeCommand={confirm.handler}
-            payloadMode="values"
-            buildPayload={(snapshot) => ({ ...snapshot.values, ...carriedRef.current })}
-            onSubmit={handleConfirmSubmitted}
-            onCancel={handleCancel ?? restartMint}
-            {...(translate !== undefined && { translate })}
-            {...(confirm.submitLabel !== undefined && { submitLabel: confirm.submitLabel })}
-          />
-        ) : (
-          <Button
-            type="button"
-            variant="primary"
-            onClick={finishMint}
-            testId="kumiko-screen-secret-mint-confirm"
-          >
-            {effectiveTranslate(screen.reveal.confirmLabel ?? "kumiko.secretMint.confirm")}
-          </Button>
-        )}
+      </>
+    );
+    // One screen form like the mint phase: the reveal leads the form column
+    // instead of the confirm form nesting a second card inside a card. The
+    // keys stop the mint and confirm forms sharing one instance (and its
+    // submit state) across phases.
+    if (confirm !== undefined && confirmEntity !== undefined && confirmScreen !== undefined) {
+      return (
+        <RenderEdit
+          key="confirm"
+          screen={confirmScreen}
+          i18nScreenId={screen.id}
+          entity={confirmEntity}
+          featureName={schema.featureName}
+          initial={confirmInitial ?? ({} as FormValues)}
+          writeCommand={confirm.handler}
+          payloadMode="values"
+          buildPayload={(snapshot) => ({ ...snapshot.values, ...carriedRef.current })}
+          onSubmit={handleConfirmSubmitted}
+          onCancel={handleCancel ?? restartMint}
+          fillScreenHeight
+          leadContent={<Section testId="kumiko-screen-secret-mint-card">{revealContent}</Section>}
+          {...(translate !== undefined && { translate })}
+          {...(confirm.submitLabel !== undefined && { submitLabel: confirm.submitLabel })}
+        />
+      );
+    }
+    return (
+      <Card options={{ screenBody: true }} testId="kumiko-screen-secret-mint-card">
+        {revealContent}
+        <Button
+          type="button"
+          variant="primary"
+          onClick={finishMint}
+          testId="kumiko-screen-secret-mint-confirm"
+        >
+          {effectiveTranslate(screen.reveal.confirmLabel ?? "kumiko.secretMint.confirm")}
+        </Button>
       </Card>
     );
   }
 
   return (
     <RenderEdit
+      key="mint"
       screen={synthScreen}
       entity={synthEntity}
       featureName={schema.featureName}

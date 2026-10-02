@@ -466,6 +466,35 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     });
   });
 
+  test("the reveal phase is one screen form: reveal content leads the code field, with no nested card", async () => {
+    cardOptionsSeen.length = 0;
+    const { dispatcher } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", setupToken: "stok_123" },
+    });
+    renderMintScreen(dispatcher, mintScreenWithConfirm);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    expect(document.querySelectorAll("form").length).toBe(1);
+    const lead = rtlScreen.getByTestId("kumiko-screen-secret-mint-card");
+    const codeField = rtlScreen.getByLabelText(/code/i);
+    // happy-dom wraps <form> in a proxy, so compare by lookup, not identity or contains().
+    const form = codeField.closest("form");
+    expect(form).not.toBeNull();
+    expect(form?.querySelector("[data-testid=kumiko-screen-secret-mint-card]")).not.toBeNull();
+    for (const id of ["kumiko-screen-secret-mint-warning", "kumiko-screen-secret-mint-reveal"]) {
+      const part = rtlScreen.getByTestId(id);
+      expect(lead.contains(part)).toBe(true);
+      expect(part.compareDocumentPosition(codeField) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(
+        0,
+      );
+    }
+    expect(lead.contains(codeField)).toBe(false);
+    expect(cardOptionsSeen.length).toBe(0);
+  });
+
   test("a carried field that is not in reveal.fields never appears in the DOM", async () => {
     const { dispatcher } = stubMultiWriteDispatcher({
       "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
@@ -513,5 +542,26 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).toBeNull());
     expect(rtlScreen.queryByLabelText(/label/i)).not.toBeNull();
     expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).toBeNull();
+  });
+
+  test("with a cancelTarget, cancelling navigates away and drops the secret from a screen that stays mounted", async () => {
+    const { dispatcher } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
+    });
+    const navigateCalls: NavTarget[] = [];
+    renderMintScreen(
+      dispatcher,
+      { ...mintScreenWithConfirm, cancelTarget: "token-list" },
+      (target) => navigateCalls.push(target),
+    );
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-cancel"));
+
+    expect(navigateCalls).toEqual([{ screenId: "token-list" }]);
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).toBeNull());
   });
 });

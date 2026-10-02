@@ -376,6 +376,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     validateOnChange,
     headerRegion,
     buildSectionActions,
+    leadContent,
   } = props;
   const i18nScreenId = props.i18nScreenId ?? screen.id;
   const { customSubmit } = props;
@@ -1654,6 +1655,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         {...(summary !== undefined && { summary })}
       >
         <AllFieldsRequiredProvider value={showsAllRequiredHint}>
+          {leadContent}
           {showsAllRequiredHint && !insideDrawer && allRequiredHint}
           {draftCandidates !== null && (
             <Banner
