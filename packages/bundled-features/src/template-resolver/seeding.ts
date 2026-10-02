@@ -112,6 +112,18 @@ export async function seedSystemTemplate(
     status: "active" as const,
   };
 
+  const applyUpdate = async (row: { id: string; version: number }): Promise<{ id: string }> => {
+    const result = await executor.update(
+      { id: row.id, version: row.version, changes: rowFields },
+      by,
+      tdb,
+    );
+    if (!result.isSuccess) {
+      throw new Error(`seedSystemTemplate update failed: ${JSON.stringify(result)}`);
+    }
+    return { id: String(row.id) };
+  };
+
   return runEventStoreSeed({
     existing,
     ifExists: opts.ifExists,
@@ -136,15 +148,13 @@ export async function seedSystemTemplate(
           if (resolved == null) {
             throw new Error(`seedSystemTemplate create unique_violation but row missing`);
           }
-          const upd = await executor.update(
-            { id: resolved.id, version: resolved.version, changes: rowFields },
-            by,
-            tdb,
-          );
-          if (!upd.isSuccess) {
-            throw new Error(`seedSystemTemplate race-update failed: ${JSON.stringify(upd)}`);
-          }
-          return { id: resolved.id };
+          // Race loser goes through the same skip/update contract as a normal re-seed.
+          return runEventStoreSeed({
+            existing: resolved,
+            ifExists: opts.ifExists,
+            create: () => Promise.reject(new Error("seedSystemTemplate: unreachable create")),
+            update: applyUpdate,
+          });
         }
         throw new Error(`seedSystemTemplate create failed: ${JSON.stringify(result)}`);
       }
@@ -154,17 +164,7 @@ export async function seedSystemTemplate(
       }
       return { id: String(data.id) };
     },
-    update: async (row) => {
-      const result = await executor.update(
-        { id: row.id, version: row.version, changes: rowFields },
-        by,
-        tdb,
-      );
-      if (!result.isSuccess) {
-        throw new Error(`seedSystemTemplate update failed: ${JSON.stringify(result)}`);
-      }
-      return { id: String(row.id) };
-    },
+    update: applyUpdate,
   });
 }
 
@@ -220,6 +220,34 @@ export async function seedTextBlock(
     status: "active" as const,
   };
 
+  const applyUpdate = async (
+    row: { id: string; version: number },
+    current: TemplateResourceRow | null | undefined,
+  ): Promise<{ id: string }> => {
+    // Skip no-op updates so a legal re-seed on every pod boot does not bump
+    // version/modifiedAt (ETag, "last changed", event-store growth).
+    if (
+      current?.title === fields.title &&
+      current?.content === fields.content &&
+      current?.folder === fields.folder
+    ) {
+      return { id: String(row.id) };
+    }
+    const result = await executor.update(
+      {
+        id: row.id,
+        version: row.version,
+        changes: { title: fields.title, content: fields.content, folder: fields.folder },
+      },
+      by,
+      tdb,
+    );
+    if (!result.isSuccess) {
+      throw new Error(`seedTextBlock update failed: ${JSON.stringify(result)}`);
+    }
+    return { id: String(row.id) };
+  };
+
   return runEventStoreSeed({
     existing,
     ifExists: opts.ifExists,
@@ -242,19 +270,13 @@ export async function seedTextBlock(
           if (resolved == null) {
             throw new Error("seedTextBlock create unique_violation but row missing");
           }
-          const upd = await executor.update(
-            {
-              id: resolved.id,
-              version: resolved.version,
-              changes: { title: fields.title, content: fields.content, folder: fields.folder },
-            },
-            by,
-            tdb,
-          );
-          if (!upd.isSuccess) {
-            throw new Error(`seedTextBlock race-update failed: ${JSON.stringify(upd)}`);
-          }
-          return { id: resolved.id };
+          // Race loser goes through the same skip/no-op/update contract as a normal re-seed.
+          return runEventStoreSeed({
+            existing: resolved,
+            ifExists: opts.ifExists,
+            create: () => Promise.reject(new Error("seedTextBlock: unreachable create")),
+            update: (row) => applyUpdate(row, again),
+          });
         }
         throw new Error(`seedTextBlock create failed: ${JSON.stringify(result)}`);
       }
@@ -266,30 +288,7 @@ export async function seedTextBlock(
       }
       return { id: String(data.id) };
     },
-    update: async (row) => {
-      // Skip no-op updates so a legal re-seed on every pod boot does not bump
-      // version/modifiedAt (ETag, "last changed", event-store growth).
-      if (
-        existingRow?.title === fields.title &&
-        existingRow?.content === fields.content &&
-        existingRow?.folder === fields.folder
-      ) {
-        return { id: String(row.id) };
-      }
-      const result = await executor.update(
-        {
-          id: row.id,
-          version: row.version,
-          changes: { title: fields.title, content: fields.content, folder: fields.folder },
-        },
-        by,
-        tdb,
-      );
-      if (!result.isSuccess) {
-        throw new Error(`seedTextBlock update failed: ${JSON.stringify(result)}`);
-      }
-      return { id: String(row.id) };
-    },
+    update: (row) => applyUpdate(row, existingRow),
   });
 }
 

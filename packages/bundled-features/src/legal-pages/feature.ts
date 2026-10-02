@@ -111,6 +111,16 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
   const routes = opts.routes ?? LEGAL_ROUTES;
   const requiredBlocks = opts.requiredBlocks ?? LEGAL_REQUIRED_BLOCKS;
   validateRoutes(routes);
+  if (opts.routes !== undefined && opts.routes.length > 0 && opts.requiredBlocks === undefined) {
+    const coversDefaultBlock = LEGAL_REQUIRED_BLOCKS.some((block) =>
+      opts.routes?.some((route) => route.slug === block.slug && route.lang === block.lang),
+    );
+    if (!coversDefaultBlock) {
+      throw new Error(
+        "legal-pages: custom `routes` without `requiredBlocks` — pass `requiredBlocks` explicitly (or `[]`)",
+      );
+    }
+  }
   return defineFeature("legal-pages", (r) => {
     r.describe(
       "Opt-in wrapper around `template-resolver` text-blocks that registers public HTML routes (default: `/legal/impressum`, `/legal/datenschutz`, `/legal/imprint`, `/legal/privacy`) with Markdown-to-HTML rendering and a boot-time job that hard-fails in production when the required blocks (default: `imprint/de`, `privacy/de`) are not seeded in `SYSTEM_TENANT`. Both are configurable via `routes`/`requiredBlocks` for apps with a different default language or additional pages. Requires `anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID }` and `extraContext.templateResolver` to be wired at app bootstrap; for per-tenant imprints or a custom layout call `template-resolver:query:by-slug` directly.",
