@@ -45,6 +45,19 @@ function resolveTargetTenantId(
   return isSystem ? (payloadTenantId ?? sessionTenantId) : sessionTenantId;
 }
 
+// Editing your OWN roles keeps the current session: roles are re-derived per
+// request, so the new roles apply at once without a re-login. Other sessions
+// of that user and any foreign edit still revoke all.
+function revokeSessionsPayload(
+  targetUserId: string,
+  targetTenantId: string,
+  actor: { readonly id: string; readonly sid?: string | undefined },
+): { userId: string; tenantId: string; exceptSessionId?: string } {
+  const payload = { userId: targetUserId, tenantId: targetTenantId };
+  if (targetUserId !== actor.id || actor.sid === undefined) return payload;
+  return { ...payload, exceptSessionId: actor.sid };
+}
+
 export const updateMemberRolesWrite = defineWriteHandler({
   name: "updateMemberRoles",
   schema: z.object({
@@ -162,17 +175,13 @@ export const updateMemberRolesWrite = defineWriteHandler({
     // session until the revoke write lands. Best-effort cross-feature call:
     // sessions may not be mounted (registry lookup instead of a hard
     // requires, see above).
-    // Editing your OWN roles keeps the current session: roles are re-derived
-    // per request, so the new roles apply at once without a re-login.
-    // Other sessions of that user and any foreign edit still revoke all.
-    const spareSessionId = event.payload.userId === event.user.id ? event.user.sid : undefined;
     const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
     if (revoker) {
-      await ctx.writeAs(createSystemUser(targetTenantId), REVOKE_ALL_SESSIONS_QN, {
-        userId: event.payload.userId,
-        tenantId: targetTenantId,
-        ...(spareSessionId !== undefined && { exceptSessionId: spareSessionId }),
-      });
+      await ctx.writeAs(
+        createSystemUser(targetTenantId),
+        REVOKE_ALL_SESSIONS_QN,
+        revokeSessionsPayload(event.payload.userId, targetTenantId, event.user),
+      );
     }
 
     // Stream tenant follows the actor via streamTenantFor — use the
