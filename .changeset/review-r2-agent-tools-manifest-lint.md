@@ -6,6 +6,8 @@ Agent tools: `buildAgentManifest` now throws when `denyQns` names a handler that
 
 <!-- kumiko-changes
 feature: agent-tools
-type: fix
+type: breaking
 title: Manifest rejects unknown denyQns, drops navs under hidden parents; doc lint flags blank and exposed-undescribed handlers
+migration: |
+  `buildAgentManifest` now throws when `denyQns` names a handler that is not registered; remove stale or misspelled entries from your `denyQns` lists.
 -->

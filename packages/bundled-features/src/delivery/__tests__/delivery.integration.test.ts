@@ -929,6 +929,44 @@ describe("flow 7: unsubscribe endpoint", () => {
     expect(rows[0]?.["enabled"]).toBe(false);
   });
 
+  test("POST with a JSON body disables the preference", async () => {
+    const token = await signUnsubscribeToken(
+      {
+        userId: user2.id,
+        tenantId: user2.tenantId,
+        notificationType: "app:notify:json-body",
+        channel: "inApp",
+      },
+      UNSUBSCRIBE_SECRET,
+    );
+
+    const res = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await selectMany(db, notificationPreferencesTable, {
+      userId: user2.id,
+      notificationType: "app:notify:json-body",
+      channel: "inApp",
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.["enabled"]).toBe(false);
+  });
+
+  test("POST with a JSON body and an invalid token returns 400", async () => {
+    const res = await stack.app.request(DELIVERY_UNSUBSCRIBE_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ token: "invalid-jwt-token" }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(body.error?.code).toBe("unsubscribe_token_invalid");
+  });
+
   test("invalid token returns 400 for both GET and POST", async () => {
     const getRes = await stack.app.request(`${DELIVERY_UNSUBSCRIBE_PATH}?token=invalid-jwt-token`);
     expect(getRes.status).toBe(400);

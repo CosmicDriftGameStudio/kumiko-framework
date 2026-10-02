@@ -6,8 +6,10 @@ Stricter input guards. A delivery channel plugin must declare `mode` as `inline`
 
 <!-- kumiko-changes
 feature: delivery
-type: fix
+type: breaking
 title: Channel plugin guard validates mode and render
+migration: |
+  A delivery channel plugin must now declare `mode` as `"inline"` or `"queued"` and a function `render`; boot fails otherwise instead of dispatching inline.
 -->
 
 <!-- kumiko-changes
@@ -18,6 +20,8 @@ title: Overlay marginPct must be finite
 
 <!-- kumiko-changes
 feature: document-ingest-foundation
-type: fix
+type: breaking
 title: Provider name "unknown" is reserved for upcast legacy events
+migration: |
+  Registering a document-ingest provider under the name `unknown` now throws; rename any provider that uses it.
 -->

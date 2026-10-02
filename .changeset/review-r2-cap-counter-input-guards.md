@@ -6,6 +6,8 @@
 
 <!-- kumiko-changes
 feature: cap-counter
-type: fix
+type: breaking
 title: Cap helpers validate periodStartIso and amount, surface failed soft-warn writes; German column labels
+migration: |
+  `bookCapUsage` and `markCapSoftWarned` now reject a `periodStartIso` that is not a full ISO instant, including date-only strings like `2026-10-01`; pass e.g. `2026-10-01T00:00:00.000Z`.
 -->

@@ -6,6 +6,8 @@ Tenant-mode `updateMany`/`deleteMany` on a `tenancy: "global"` table now reject 
 
 <!-- kumiko-changes
 feature: framework
-type: fix
+type: breaking
 title: Global-table tenant writes reject loudly, restore maps unique violations, managed unique-index changes recreate
+migration: |
+  Tenant-mode `updateMany`/`deleteMany` on a `tenancy: "global"` table now throws instead of matching zero rows; switch those calls to `db.global(table)`.
 -->

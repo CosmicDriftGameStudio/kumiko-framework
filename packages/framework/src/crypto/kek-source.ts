@@ -108,7 +108,6 @@ async function decryptCiphertext(
 
 type ResolvedSlot = {
   readonly value: string | undefined;
-  readonly consumedCiphertext: boolean;
   // Never carries a key value, only its origin.
   readonly sourceLine: string | undefined;
 };
@@ -127,13 +126,12 @@ async function resolveSlot(
   if (plaintext) {
     return {
       value: plaintext,
-      consumedCiphertext: false,
       sourceLine: ciphertext
         ? `${name} source=plaintext-env (ciphertext present and ignored)`
         : `${name} source=plaintext-env`,
     };
   }
-  if (!ciphertext) return { value: undefined, consumedCiphertext: false, sourceLine: undefined };
+  if (!ciphertext) return { value: undefined, sourceLine: undefined };
 
   const keyId = env.PLATFORM_KEK_KMS_KEY_ID;
   const token = env.PLATFORM_KEK_KMS_TOKEN;
@@ -154,7 +152,6 @@ async function resolveSlot(
   );
   return {
     value,
-    consumedCiphertext: true,
     sourceLine: `${name} source=key-manager keyId=${keyId} region=${region}`,
   };
 }
@@ -164,8 +161,6 @@ async function resolveSlot(
 // another slot's fallback path — the trio check downstream still applies.
 // Slots resolve in parallel: sequentially, a slow Key Manager would cost up to
 // ~16 s per slot (3 x 5 s timeout + backoff) and could trip startup probes.
-// Consumed `*_CIPHERTEXT` keys are blanked in the returned env so a second pass
-// over it does not report the used ciphertext as "present and ignored".
 export async function resolvePlatformKeks(
   env: KekSourceEnv,
   options: KekSourceOptions = {},
@@ -196,7 +191,6 @@ export async function resolvePlatformKeks(
     const result = results[index];
     if (!result) return;
     resolved[name] = result.value;
-    if (result.consumedCiphertext) resolved[`${name}_CIPHERTEXT`] = undefined;
     if (result.sourceLine) log(`${prefix}${result.sourceLine}`);
   });
 

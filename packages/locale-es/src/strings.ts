@@ -833,6 +833,10 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "profile.password.submit": "Cambiar contraseña",
   "profile.password.success": "Contraseña cambiada.",
   "profile.password.title": "Contraseña",
+  "rateLimiting.errors.bucketOutsideTenant":
+    "Solo puedes consultar los buckets de límite de tasa de tu propia organización o usuario.",
+  "rateLimiting.errors.resolverUnavailable":
+    "La limitación de tasa no está disponible en este servidor.",
   "screen:api-token-create.title": "Crear un token nuevo",
   "screen:api-tokens.title": "Tokens de acceso personal",
   "screen:audit-log-detail.title": "Evento",
