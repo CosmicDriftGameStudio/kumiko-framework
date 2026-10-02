@@ -567,6 +567,9 @@ describe("validateBoot — projectionList screens", () => {
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
         );
+        r.queryHandler("tenant:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
         r.queryHandler(
           "schedule:list",
           z.object({ filters: z.unknown().optional() }),
@@ -590,6 +593,40 @@ describe("validateBoot — projectionList screens", () => {
       expect(() => validateBoot([feature])).not.toThrow();
     });
 
+    test("a reference facet whose target entity has no list query handler throws", () => {
+      const feature = defineFeature("ledger", (r) => {
+        r.entity(
+          "tenant",
+          createEntity({
+            table: "Tenants",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler(
+          "schedule:list",
+          z.object({ filters: z.unknown().optional() }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: ["tenant"],
+          facets: [{ field: "tenant", type: "reference", label: "Tenant", entity: "tenant" }],
+        });
+        r.translations({
+          keys: {
+            "screen:schedule-list.title": { de: "Liste", en: "List" },
+            "ledger:entity:tenant:field:name": { de: "Name", en: "Name" },
+          },
+        });
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /loads its options from query "ledger:query:tenant:list", which is not a registered query handler/,
+      );
+    });
+
     test("a reference facet filtering by an id field with no same-named column boots (displays a different label column)", () => {
       const feature = defineFeature("ledger", (r) => {
         r.entity(
@@ -598,6 +635,14 @@ describe("validateBoot — projectionList screens", () => {
             table: "Properties",
             fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
           }),
+        );
+        r.queryHandler(
+          "property:list",
+          z.object({}),
+          async () => ({ rows: [], nextCursor: null }),
+          {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          },
         );
         r.queryHandler(
           "schedule:list",

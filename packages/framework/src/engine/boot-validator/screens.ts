@@ -10,7 +10,7 @@ import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumik
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
-import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
+import { LIST_ROW_META_COLUMNS, REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.js";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
@@ -1536,15 +1536,21 @@ export function validateScreens(
             );
           }
           const navigate = typeof metric === "string" ? undefined : metric.navigate;
-          if (navigate?.tab !== undefined) {
+          if (navigate !== undefined) {
             if (navigate.screen === undefined && navigate.entity === undefined) {
-              if (!screen.layout.sections.some((section) => section.id === navigate.tab)) {
+              if (
+                navigate.tab !== undefined &&
+                !screen.layout.sections.some((section) => section.id === navigate.tab)
+              ) {
                 throw new Error(
                   `[Feature ${feature.name}] Screen "${screenId}" (projectionDetail) metric "${field}" ` +
                     `navigates to tab "${navigate.tab}", which is not a section id on this screen.`,
                 );
               }
             } else {
+              // Also runs without `tab`: a typo'd screen/entity or an entity
+              // target without entityId would otherwise render a clickable
+              // metric that silently does nothing.
               resolveRowActionNavigateTarget(
                 feature.name,
                 screenId,
@@ -1557,7 +1563,7 @@ export function validateScreens(
                   ...(navigate.screen !== undefined ? { screen: navigate.screen } : {}),
                   ...(navigate.entity !== undefined ? { entity: navigate.entity } : {}),
                   ...(navigate.entityId !== undefined ? { entityId: navigate.entityId } : {}),
-                  tab: navigate.tab,
+                  ...(navigate.tab !== undefined ? { tab: navigate.tab } : {}),
                 },
                 allScreenQns,
                 navTargetShortIds,
@@ -2085,6 +2091,15 @@ export function validateScreens(
           );
         }
         validateColumnRendererForm(feature.name, screenId, normalized);
+        if (normalized.refEntity !== undefined) {
+          assertRefTargetRegistered(
+            `[Feature ${feature.name}] Screen "${screenId}" (entityList)`,
+            `column "${normalized.field}" (refEntity)`,
+            normalized.refEntity,
+            feature.name,
+            featureMap,
+          );
+        }
       }
       // Pagination/Sort/Search-Validierung: Author-Fehler beim Boot
       // fangen, damit kein "warum kommt die Liste leer / falsch
@@ -2532,7 +2547,7 @@ function validateDashboardScreen(
     } else if (panel.kind === "screen") {
       validateDashboardScreenPanel(featureName, screenId, panel, featureMap);
     } else {
-      validateDashboardQueryPanel(featureName, screenId, panel);
+      validateDashboardQueryPanel(featureName, screenId, panel, featureMap);
     }
   }
 
@@ -2607,6 +2622,19 @@ export function validateDashboardScreenPanel(
         `${[...EMBEDDABLE_SCREEN_TYPES].join(", ")}. Use a custom panel for app components.`,
     );
   }
+  // ActionFormBody/SecretMintBody navigate via nav.navigate after submit or
+  // cancel even when embedded, which would pull the user off the dashboard.
+  if (
+    (target.type === "actionForm" || target.type === "secretMint") &&
+    (target.redirect !== undefined ||
+      (target.cancelTarget !== undefined && target.cancelTarget !== false))
+  ) {
+    throw new Error(
+      `${context} embeds "${targetQn}", which sets redirect/cancelTarget — an embedded form would ` +
+        `navigate away from the dashboard on submit or cancel. Embed a screen without redirect and ` +
+        `with cancelTarget: false (or omitted).`,
+    );
+  }
   const visibleWhen = panel.visibleWhen;
   if (visibleWhen !== undefined && (visibleWhen.query === "" || visibleWhen.field === "")) {
     throw new Error(`${context} visibleWhen needs a non-empty query and field.`);
@@ -2659,6 +2687,7 @@ function validateDashboardQueryPanel(
     DashboardPanelDefinition,
     DashboardStatGroupPanel | DashboardCustomPanel | DashboardScreenPanel
   >,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
   if (!panel.query || typeof panel.query !== "string") {
     throw new Error(
@@ -2687,7 +2716,17 @@ function validateDashboardQueryPanel(
       );
     }
     for (const col of panel.columns) {
-      validateColumnRendererForm(featureName, screenId, normalizeListColumn(col));
+      const normalized = normalizeListColumn(col);
+      validateColumnRendererForm(featureName, screenId, normalized);
+      if (normalized.refEntity !== undefined) {
+        assertRefTargetRegistered(
+          `[Feature ${featureName}] Screen "${screenId}" (dashboard) list-panel "${panel.id}"`,
+          `column "${normalized.field}" (refEntity)`,
+          normalized.refEntity,
+          featureName,
+          featureMap,
+        );
+      }
     }
   }
 }
@@ -2845,8 +2884,42 @@ function validateListFacets(
         currentFeatureName,
         featureMap,
       );
+      assertReferenceListHandlerRegistered(
+        prefix,
+        `facet "${facet.field}" (type "reference")`,
+        facet.entity,
+        currentFeatureName,
+        featureMap,
+      );
     }
   }
+}
+
+// The facet's options are loaded at render time by dispatching the target's
+// list query (renderer useReferenceLookup, incl. its REFERENCE_LOOKUP_SOURCES
+// override); a missing or unregistered handler is swallowed there and leaves
+// a permanently empty dropdown, so it has to fail at boot instead.
+function assertReferenceListHandlerRegistered(
+  prefix: string,
+  subject: string,
+  refTarget: string,
+  currentFeatureName: string,
+  featureMap: ReadonlyMap<string, FeatureDefinition>,
+): void {
+  const target = parseRefTarget(refTarget, currentFeatureName);
+  const override = REFERENCE_LOOKUP_SOURCES[`${target.featureName}:${target.entityName}`];
+  const expectedQn =
+    override?.queryQn ??
+    qualifyEntityName(target.featureName, "query", `${target.entityName}:list`);
+  for (const feature of featureMap.values()) {
+    for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
+      if (qualifyEntityName(feature.name, "query", handlerName) === expectedQn) return;
+    }
+  }
+  throw new Error(
+    `${prefix} ${subject} loads its options from query "${expectedQn}", which is not a registered ` +
+      `query handler — register the entity's list handler (defineEntityListHandler) or the facet renders an empty dropdown.`,
+  );
 }
 
 export function findEntityFeature(

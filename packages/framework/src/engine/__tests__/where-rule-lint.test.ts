@@ -13,6 +13,14 @@ describe("assertQualifiedWhereFragment — passes (not a tautology)", () => {
       "EXISTS (SELECT 1 FROM teams t WHERE t.entity_id = read_notes.entity_id AND t.team_id = $1)",
     ],
     [
+      "unqualified outer column next to a correctly qualified subquery",
+      "owner_id = $1 OR EXISTS (SELECT 1 FROM shares s WHERE s.entity_id = read_x.entity_id)",
+    ],
+    [
+      "unqualified outer column before a subquery, both sides of the paren block",
+      "entity_id = $1 AND (EXISTS (SELECT 1 FROM shares s WHERE s.user_id = $2) OR team_id = $3)",
+    ],
+    [
       "column name only inside a string literal",
       "EXISTS (SELECT 1 FROM teams t WHERE t.label = 'entity_id')",
     ],
@@ -44,6 +52,16 @@ describe("assertQualifiedWhereFragment — throws (fail-closed)", () => {
         "scope",
       ),
     ).toThrow(/unqualified/i);
+  });
+
+  test("unqualified column inside the subquery still throws when an outer one is also bare", () => {
+    expect(() =>
+      assertQualifiedWhereFragment(
+        "owner_id = $1 OR EXISTS (SELECT 1 FROM t WHERE t.x = owner_id)",
+        COLUMNS,
+        "scope",
+      ),
+    ).toThrow(/column "owner_id" unqualified/);
   });
 
   test("bare self-comparison", () => {

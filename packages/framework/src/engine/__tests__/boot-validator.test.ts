@@ -1518,6 +1518,29 @@ describe("boot-validator", () => {
       expect(() => validateBoot(features)).not.toThrow();
     });
 
+    test.each([0, 5])("rejects display: checkboxes with columns %p outside 1-4", (columns) => {
+      const features = [
+        defineFeature("driver", (r) => {
+          r.entity(
+            "profile",
+            createEntity({
+              fields: {
+                tags: createMultiSelectField({
+                  options: ["a", "b"] as const,
+                  display: "checkboxes",
+                  // @cast-boundary test — simulates JS/JSON input outside the 1|2|3|4 union
+                  columns: columns as never,
+                }),
+              },
+            }),
+          );
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(
+        new RegExp(`invalid columns "${columns}" — must be 1, 2, 3, 4`),
+      );
+    });
+
     test("rejects columns without display: checkboxes", () => {
       const features = [
         defineFeature("driver", (r) => {

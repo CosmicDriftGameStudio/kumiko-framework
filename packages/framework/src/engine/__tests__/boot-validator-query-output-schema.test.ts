@@ -721,4 +721,60 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
   });
+
+  test("plain (non-paged) query handler declaring the row shape instead of the envelope throws at the projectionList usage", () => {
+    const feature = defineFeature("catalog", (r) => {
+      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: rowSchema,
+      });
+      r.screen({
+        id: "items",
+        type: "projectionList",
+        query: "catalog:query:items:list",
+        columns: ["ghost-field"],
+      });
+      r.translations({ keys: { "screen:items.title": { de: "Artikel", en: "Items" } } });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /Screen "items" \(projectionList\) uses query "catalog:query:items:list" as a list source.*no "rows" field/,
+    );
+  });
+
+  test("plain query handler with a row-shape outputSchema is fine when no list surface uses it", () => {
+    const feature = defineFeature("catalog", (r) => {
+      r.queryHandler("items:get", z.object({}), async () => ({ id: "1", name: "x" }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: rowSchema,
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  describe("projectionDetail layout section fields", () => {
+    function featureWithSectionFields(fields: readonly string[]) {
+      return defineFeature("app", (r) => {
+        r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", name: "x" }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          outputSchema: z.object({ id: z.string(), name: z.string() }),
+        });
+        r.screen({
+          id: "tenant-detail",
+          type: "projectionDetail",
+          query: "app:query:tenant:detail",
+          layout: { sections: [{ title: "Main", fields }] },
+        });
+      });
+    }
+
+    test("a section field missing from the outputSchema throws", () => {
+      expect(() => validateBoot([featureWithSectionFields(["id", "ghost-field"])])).toThrow(
+        /section "Main" references field "ghost-field" which is not present in query "app:query:tenant:detail"'s outputSchema/,
+      );
+    });
+
+    test("section fields present in the outputSchema pass", () => {
+      expect(() => validateBoot([featureWithSectionFields(["id", "name"])])).not.toThrow();
+    });
+  });
 });

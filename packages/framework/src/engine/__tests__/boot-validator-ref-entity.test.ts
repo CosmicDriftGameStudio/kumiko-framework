@@ -193,4 +193,69 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
     });
     expect(() => validateBoot([feature, owners])).not.toThrow();
   });
+
+  test("entityList column with a typo'd refEntity throws", () => {
+    const feature = defineFeature("ledger", (r) => {
+      r.entity(
+        "tenant",
+        createEntity({
+          table: "Tenants",
+          fields: {
+            ownerId: createTextField({ personal: false, reason: "test_fixture" }),
+          },
+        }),
+      );
+      r.screen({
+        id: "tenant-list",
+        type: "entityList",
+        entity: "tenant",
+        columns: [{ field: "ownerId", refEntity: "owners:ownr" }],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /Screen "tenant-list" \(entityList\) column "ownerId" \(refEntity\) targets entity "owners:ownr"/,
+    );
+  });
+
+  test("dashboard list-panel column with a typo'd refEntity throws, a valid one boots", () => {
+    const build = (refEntity: string) =>
+      defineFeature("ledger", (r) => {
+        r.entity(
+          "tenant",
+          createEntity({
+            table: "Tenants",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler(
+          "schedule:list",
+          z.object({}),
+          async () => ({ rows: [], nextCursor: null }),
+          openToAllAccess,
+        );
+        r.screen({
+          id: "overview",
+          type: "dashboard",
+          panels: [
+            {
+              kind: "list",
+              id: "schedule",
+              label: "ledger:dashboard:panel:schedule",
+              query: "ledger:query:schedule:list",
+              columns: [{ field: "tenantId", refEntity }],
+            },
+          ],
+        });
+        r.translations({
+          keys: {
+            "screen:overview.title": { de: "Übersicht", en: "Overview" },
+            "ledger:dashboard:panel:schedule": { de: "Plan", en: "Schedule" },
+          },
+        });
+      });
+    expect(() => validateBoot([build("tenat")])).toThrow(
+      /list-panel "schedule" column "tenantId" \(refEntity\) targets entity "tenat"/,
+    );
+    expect(() => validateBoot([build("tenant")])).not.toThrow();
+  });
 });

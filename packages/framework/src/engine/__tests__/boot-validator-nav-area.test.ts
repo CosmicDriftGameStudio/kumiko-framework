@@ -56,6 +56,25 @@ describe("validateBoot — every screen must resolve its own nav area", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("a listScreenId written as a fully-qualified screen QN → no throw", () => {
+    const feature = defineFeature("app", (r) => {
+      r.nav({ id: "home", label: "app.nav.home" });
+      r.screen({
+        id: "orphan-list",
+        type: "custom",
+        renderer: { react: "List" },
+        dormant: true,
+      });
+      r.screen({
+        id: "orphan",
+        type: "custom",
+        renderer: { react: "Orphan" },
+        listScreenId: "app:screen:orphan-list",
+      });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("resolved via a list screen's toolbarAction navigate target → no throw", () => {
     const feature = defineFeature("app", (r) => {
       r.queryHandler("orphan:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {

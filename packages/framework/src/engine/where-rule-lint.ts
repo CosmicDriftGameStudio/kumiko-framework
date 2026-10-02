@@ -143,19 +143,35 @@ function findSelfComparison(cleaned: string): string | null {
 // column on the OUTER table is the fail-open shape — Postgres resolves it
 // against the innermost table first. A qualifier (`t.x`) or a table/alias
 // name immediately followed by `.` is not a column reference and is
-// ignored.
+// ignored. Bare identifiers on the outer level bind to the outer table and
+// are fine, so only tokens inside a `( SELECT ...` parenthesis block count.
+const SUBQUERY_OPEN_RE = /^\s*SELECT\b/i;
+
 function findUnqualifiedColumnReference(
   cleaned: string,
   columnSqlNames: ReadonlySet<string>,
 ): string | null {
+  const parenIsSubquery: boolean[] = [];
+  let subqueryDepth = 0;
+  let scanned = 0;
   TOKEN_RE.lastIndex = 0;
   let match: RegExpExecArray | null = TOKEN_RE.exec(cleaned);
   while (match !== null) {
     const start = match.index;
     const end = start + match[0].length;
+    for (; scanned < start; scanned++) {
+      const ch = cleaned[scanned];
+      if (ch === "(") {
+        const opensSubquery = SUBQUERY_OPEN_RE.test(cleaned.slice(scanned + 1));
+        parenIsSubquery.push(opensSubquery);
+        if (opensSubquery) subqueryDepth++;
+      } else if (ch === ")" && parenIsSubquery.pop() === true) {
+        subqueryDepth--;
+      }
+    }
     const precededByDot = start > 0 && cleaned[start - 1] === ".";
     const followedByDot = cleaned[end] === ".";
-    if (!precededByDot && !followedByDot) {
+    if (subqueryDepth > 0 && !precededByDot && !followedByDot) {
       const normalized = normalizeIdent(match[0]);
       if (columnSqlNames.has(normalized)) return normalized;
     }
