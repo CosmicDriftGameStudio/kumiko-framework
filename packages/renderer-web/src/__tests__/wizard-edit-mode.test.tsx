@@ -198,4 +198,21 @@ describe("entityEdit wizard on an existing record: jumping", () => {
 
     expect(currentChipIndex()).toBe(0);
   });
+
+  test("the compact picker jumps to another step, and a forward jump from an invalid step stays put", async () => {
+    await renderEditWizard();
+    const toggle = screen.getByTestId("render-edit-wizard-step-label");
+
+    await userEvent.click(toggle);
+    await userEvent.click(screen.getByTestId("render-edit-wizard-step-label-step-3"));
+    expect(currentChipIndex()).toBe(3);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    await userEvent.click(chip(0));
+    await userEvent.clear(document.querySelector("#kumiko-edit-fullName") as Element);
+    await userEvent.click(toggle);
+    await userEvent.click(screen.getByTestId("render-edit-wizard-step-label-step-2"));
+    expect(currentChipIndex()).toBe(0);
+    expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
+  });
 });

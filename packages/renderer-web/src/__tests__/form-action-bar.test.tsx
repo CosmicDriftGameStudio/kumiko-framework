@@ -406,6 +406,29 @@ describe("DefaultForm pinned footer (fillHeight + stickyActions, fw#3381)", () =
     expect(footer.querySelector('[aria-hidden="true"].h-20')).toBeNull();
   });
 
+  test("below sm the footer wraps and its button groups dissolve so long labels wrap inside the buttons", () => {
+    render(
+      <Form
+        onSubmit={() => {}}
+        fillHeight
+        stickyActions
+        secondaryActions={<Button>Back</Button>}
+        actions={<Button>Weiter: A very long next step title</Button>}
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+    const actions = screen.getByTestId("f-actions");
+    const footer = actions.parentElement as HTMLElement;
+    expect(footer.className.split(" ")).toContain("max-sm:flex-wrap");
+    for (const group of [actions, screen.getByTestId("f-actions-secondary")]) {
+      expect(group.className.split(" ")).toContain("max-sm:contents");
+    }
+    expect(actions.className.split(" ")).toContain("max-sm:[&>button]:whitespace-normal");
+    expect(actions.className.split(" ")).toContain("max-sm:[&>button]:h-auto");
+  });
+
   test("stickyActions without fillHeight keeps the fixed mobile bar", () => {
     render(
       <Form onSubmit={() => {}} stickyActions actions={<Button>Save</Button>} testId="f">
