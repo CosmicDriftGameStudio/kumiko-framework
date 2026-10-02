@@ -17,10 +17,12 @@ import { createContext, type ReactNode, useContext } from "react";
 export type LiveEvent = {
   readonly type: string;
   readonly data: {
-    readonly id: string;
+    /** Absent on anonymous connections: the signal would reveal hidden rows. */
+    readonly id?: string;
     readonly aggregateType: string;
     readonly eventType: string;
-    readonly version: number;
+    /** Absent on anonymous connections, like `id`. */
+    readonly version?: number;
     readonly createdAt: string;
   };
 };

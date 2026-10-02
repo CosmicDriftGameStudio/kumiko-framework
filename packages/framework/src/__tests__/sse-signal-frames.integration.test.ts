@@ -171,7 +171,7 @@ describe("GET /api/sse signal-only frames", () => {
     expect(JSON.parse(sentinel.data).aggregateType).toBe("banner");
   });
 
-  test("an anonymous connection gets no frame for the private entity and only a bare signal for the declared one", async () => {
+  test("an anonymous connection gets no frame for the private entity and only a bare signal without id or version for the declared one", async () => {
     const connection = await openSse({});
     const pii = `pii-${randomUUID()}@example.test`;
 
@@ -190,12 +190,6 @@ describe("GET /api/sse signal-only frames", () => {
 
     const signal = JSON.parse(sentinel.data);
     expect(signal.aggregateType).toBe("banner");
-    expect(Object.keys(signal).sort()).toEqual([
-      "aggregateType",
-      "createdAt",
-      "eventType",
-      "id",
-      "version",
-    ]);
+    expect(Object.keys(signal).sort()).toEqual(["aggregateType", "createdAt", "eventType"]);
   });
 });
