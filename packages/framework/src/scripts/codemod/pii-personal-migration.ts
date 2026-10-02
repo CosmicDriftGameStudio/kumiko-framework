@@ -589,10 +589,25 @@ function classifyFieldStance(field: string): { stance: StanceClass; hint: string
   return { stance: "unclassified", hint: undefined };
 }
 
-export function reportStanceForSource(source: string, filePath: string): StanceSite[] {
-  const project = new Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true });
-  const sourceFile = project.createSourceFile(filePath, source);
+function createReportStanceProject(): Project {
+  return new Project({ useInMemoryFileSystem: true, skipFileDependencyResolution: true });
+}
 
+export function reportStanceForSource(
+  source: string,
+  filePath: string,
+  project: Project = createReportStanceProject(),
+): StanceSite[] {
+  const sourceFile = project.createSourceFile(filePath, source, { overwrite: true });
+  try {
+    return collectStanceSites(sourceFile);
+  } finally {
+    // A shared project would otherwise keep every scanned file's AST alive.
+    project.removeSourceFile(sourceFile);
+  }
+}
+
+function collectStanceSites(sourceFile: SourceFile): StanceSite[] {
   const sites: StanceSite[] = [];
   for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const exprNode = call.getExpression();
@@ -655,8 +670,9 @@ function reportStance(rootDir: string): void {
   };
   let total = 0;
 
+  const project = createReportStanceProject();
   for (const file of findReportStanceFiles(rootDir)) {
-    const sites = reportStanceForSource(readFileSync(file, "utf8"), file);
+    const sites = reportStanceForSource(readFileSync(file, "utf8"), file, project);
     if (sites.length === 0) continue;
 
     console.log(`\n${relative(rootDir, file)}`);

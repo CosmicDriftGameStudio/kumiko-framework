@@ -645,6 +645,24 @@ describe("upgrade command — filter baseline is the marker, not the installed v
     expect(updatedMarker.version).toBe("0.167.0");
   });
 
+  test("bare --apply with a corrupt marker exits 1 and leaves the marker untouched", async () => {
+    const corrupt = "<<<<<<< HEAD\n{}\n";
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      ".kumiko/upgrade-state.json": corrupt,
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--apply"], cwd, spy.out, { repoRoot: REAL_REPO_ROOT });
+
+    expect(exit).toBe(1);
+    expect(spy.errs.join("\n")).toContain("invalid .kumiko/upgrade-state.json");
+    expect(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8")).toBe(corrupt);
+    expect(readFileSync(join(cwd, "legacy-test-helper.ts"), "utf-8")).toBe(LEGACY_IMPORT_FIXTURE);
+  });
+
   test("bare --apply with a manual breaking change: marker is not stamped to installed, pendingManual records it", async () => {
     const manualEntry = { version: "0.185.0", type: "breaking", title: "manual breaking change" };
     const fixEntry = { version: "0.188.0", type: "fix", title: "later fix" };

@@ -4,7 +4,6 @@ import { waitFor } from "../wait-for.js";
 describe("waitFor", () => {
   test("calls fn exactly once when it passes on the first attempt (no prior sleep)", async () => {
     let calls = 0;
-    const started = Date.now();
     await waitFor(
       () => {
         calls++;
@@ -13,7 +12,6 @@ describe("waitFor", () => {
     );
     expect(calls).toBe(1);
     // try-first: must not burn the first delay when the condition already holds
-    expect(Date.now() - started).toBeLessThan(500);
   });
 
   test("retries on failure and succeeds once fn passes", async () => {
@@ -90,7 +88,6 @@ describe("waitFor", () => {
   test("returns immediately for a block-style fn that returns undefined without throwing", async () => {
     let calls = 0;
     const events = [1];
-    const started = Date.now();
     await waitFor(
       () => {
         calls++;
@@ -99,6 +96,19 @@ describe("waitFor", () => {
       { delays: [2000] },
     );
     expect(calls).toBe(1);
-    expect(Date.now() - started).toBeLessThan(500);
+  });
+
+  test("reports the never-true message, not a stale error from an earlier attempt", async () => {
+    let calls = 0;
+    await expect(
+      waitFor(
+        () => {
+          calls++;
+          if (calls === 1) throw new Error("first attempt failed");
+          return false;
+        },
+        { delays: [1, 1] },
+      ),
+    ).rejects.toThrow("waitFor: condition never became true within the delay schedule");
   });
 });

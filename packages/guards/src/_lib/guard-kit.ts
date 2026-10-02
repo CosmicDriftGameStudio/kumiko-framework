@@ -474,8 +474,13 @@ export function explainGuards(
 
 function guardKitVersion(): string {
   const pkgPath = resolve(import.meta.dir, "../../package.json");
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { readonly version?: string };
-  return pkg.version ?? "0.0.0";
+  // The version only decorates the banner; it must never abort a guard run.
+  try {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8")) as { readonly version?: string };
+    return pkg.version ?? "unknown";
+  } catch {
+    return "unknown";
+  }
 }
 
 /**

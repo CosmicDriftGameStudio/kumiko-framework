@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
 import { SYSTEM_ROLE } from "../../engine/system-user.js";
+import { createJobFailureTracker, drainJobs } from "../drain-jobs.js";
 import { setupTestStack, type TestStack } from "../test-stack.js";
 import { TestUsers } from "../test-users.js";
 
@@ -140,6 +141,27 @@ describe("stack.drainJobs() surfaces final job failures", () => {
     // The tracker is cleared after a rejection — a later drainJobs() call
     // (e.g. the next test's setup) must not still see this failure.
     await expect(stack.drainJobs()).resolves.toBeUndefined();
+  });
+
+  test("a drain-side error keeps the collected job failures in the message", async () => {
+    stack = await setupTestStack({
+      features: [failureFeature],
+      jobs: { consumerLane: "worker" },
+    });
+    const { jobRunner } = stack;
+    if (!jobRunner) throw new Error("expected a job runner");
+    const tracker = createJobFailureTracker();
+    tracker.onJobFailed("draintestfailure:job:always-fails", "job-1", "job-c always fails");
+    const brokenRunner = Object.assign(Object.create(jobRunner), {
+      countPendingJobs: async () => {
+        throw new Error("consumer dead");
+      },
+    });
+
+    await expect(drainJobs({ db: stack.db, jobRunner: brokenRunner }, tracker)).rejects.toThrow(
+      /consumer dead.*draintestfailure:job:always-fails: job-c always fails/s,
+    );
+    expect(tracker.failures.size).toBe(0);
   });
 
   test("a perTenant fan-out that cannot resolve tenants rejects drainJobs() instead of passing green", async () => {
