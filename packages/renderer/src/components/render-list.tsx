@@ -170,9 +170,9 @@ export type ToolbarActionButton = {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Only actions with a resolved icon can collapse to an icon-only header button.
+// Icon-less actions are promoted too (with a "plus" fallback at the call site).
 function isHeaderPromotableToolbarAction(action: ToolbarActionButton): boolean {
-  return action.style === "primary" && !needsActionConfirm(action) && action.icon !== undefined;
+  return action.style === "primary" && !needsActionConfirm(action);
 }
 
 export function RenderList(props: RenderListProps): ReactNode {
@@ -401,7 +401,7 @@ export function RenderList(props: RenderListProps): ReactNode {
   const promotedActionButton =
     promotedToolbarAction !== undefined ? (
       <ToolbarActionView
-        action={promotedToolbarAction}
+        action={{ ...promotedToolbarAction, icon: promotedToolbarAction.icon ?? "plus" }}
         iconOnly
         Button={Button}
         Dialog={Dialog}

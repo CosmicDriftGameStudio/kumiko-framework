@@ -203,7 +203,6 @@ describe("primary toolbar action in the header", () => {
       id: "new",
       label: "New credit",
       style: "primary",
-      icon: "plus",
       confirmRequired: false,
       onTrigger: () => {},
       ...overrides,
@@ -282,11 +281,10 @@ describe("primary toolbar action in the header", () => {
     expect(await screen.findByText("boom")).toBeTruthy();
   });
 
-  test("an action without a resolved icon stays in the toolbar", () => {
+  test("an action without an icon is still promoted, with the plus icon", () => {
     setViewportWidth(PHONE);
-    const { icon: _icon, ...withoutIcon } = action();
-    renderList({ toolbarActions: [withoutIcon] });
-    expect(inHeader()).toBeNull();
+    renderList({ toolbarActions: [action()] });
+    expect(inHeader()).not.toBeNull();
   });
 
   test("actions needing a confirm dialog stay in the toolbar", () => {
