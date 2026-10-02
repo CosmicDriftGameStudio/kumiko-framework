@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.333.0",
+    "type": "fix",
+    "title": "Overflow menu trigger matches neighbouring icon buttons"
+  },
+  {
     "version": "0.332.0",
     "type": "fix",
     "title": "Card subtitle separators render in apps again, header overflow trigger has its own label"

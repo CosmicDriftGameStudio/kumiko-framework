@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.333.0
+
+### Minor Changes
+
+- 2d7f76f: Apps declare assignable membership roles via `r.useExtension(EXT_ASSIGNABLE_ROLE, "<Role>", { assignableFrom? })` (the feature must `r.requires("tenant")`). `assignableFrom` defaults to "Admin"; set it higher to raise the bar. The role-elevation guard and the members/invite screens pick the declarations up; undeclared roles stay rejected. "Member" is now ranked with "User" and labelled.
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Apps declare assignable membership roles via EXT_ASSIGNABLE_ROLE
+  -->
+
+### Patch Changes
+
+- Updated dependencies [2d7f76f]
+- Updated dependencies [90420cb]
+- Updated dependencies [75bd427]
+  - @cosmicdrift/kumiko-framework@0.333.0
+  - @cosmicdrift/kumiko-bundled-features@0.333.0
+  - @cosmicdrift/kumiko-headless@0.333.0
+  - @cosmicdrift/kumiko-renderer-web@0.333.0
+
 ## 0.332.0
 
 ### Patch Changes
