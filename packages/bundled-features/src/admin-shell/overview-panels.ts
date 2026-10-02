@@ -161,7 +161,7 @@ export function platformOverviewPanels(
       { status: "failed", sort: "startedAt", sortDirection: "desc", limit: 5 },
       [
         { field: "jobName", label: `${I}.col.job` },
-        { field: "startedAt", label: `${I}.col.startedAt` },
+        { field: "startedAt", label: `${I}.col.startedAt`, display: "datetime" as const },
       ],
       "full",
     ),
@@ -217,7 +217,7 @@ export function tenantOverviewPanels(
       [
         { field: "jobName", label: `${I}.col.job` },
         { field: "messageKey", label: `${I}.col.reason` },
-        { field: "failedAt", label: `${I}.col.failedAt` },
+        { field: "failedAt", label: `${I}.col.failedAt`, display: "datetime" as const },
       ],
       "half",
     ),

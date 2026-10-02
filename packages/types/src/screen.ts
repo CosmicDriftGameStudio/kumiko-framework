@@ -152,13 +152,15 @@ export type ListColumnSpec =
       readonly hideOnNarrow?: boolean;
       /** Dashboard list panels only. "bar": field holds a 0..1 fraction, drawn
        *  as bar + percent. "badge": field holds a label, drawn as a pill whose
-       *  tone comes from `badgeToneField`. Other list renderers ignore it. */
+       *  tone comes from `badgeToneField`. "datetime": field holds an ISO string or
+       *  epoch ms, shown in the user's locale and time zone. Other list renderers
+       *  ignore it. */
       readonly display?: ListColumnDisplay;
       /** Row field naming the badge tone; only with `display: "badge"`. */
       readonly badgeToneField?: string;
     };
 
-export type ListColumnDisplay = "bar" | "badge";
+export type ListColumnDisplay = "bar" | "badge" | "datetime";
 export type ListBadgeTone = "positive" | "warn" | "negative" | "neutral";
 
 // Pagination-Modi für entityList:

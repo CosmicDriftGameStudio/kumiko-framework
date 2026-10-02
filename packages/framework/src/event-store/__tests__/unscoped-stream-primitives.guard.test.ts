@@ -5,13 +5,17 @@ import { Glob } from "bun";
 // it to probe whether a foreign tenant's aggregate exists (see event-store.ts
 // SECURITY doc). Restricted to known seed/system-internal callers; extend
 // only for genuine new ones.
-const RESTRICTED_SYMBOLS = ["getUnscopedAggregateStreamMaxVersion"];
+const RESTRICTED_SYMBOLS = [
+  "getUnscopedAggregateStreamMaxVersion",
+  "getUnscopedStreamMaxVersionForSeed",
+];
 
 const ALLOWED_FILES = new Set([
   "packages/framework/src/event-store/event-store.ts",
   "packages/framework/src/event-store/index.ts",
   "packages/bundled-features/src/tenant/seeding.ts",
   "packages/bundled-features/src/tier-engine/feature.ts",
+  "packages/bundled-features/src/template-resolver/seeding.ts",
   "packages/framework/src/event-store/__tests__/unscoped-stream-primitives.guard.test.ts",
   // Fixtures of the AST guard that enforces this same restriction.
   "packages/guards/src/__tests__/guard-fires.test.ts",

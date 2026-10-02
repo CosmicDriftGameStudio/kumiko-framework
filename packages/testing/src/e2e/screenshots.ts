@@ -291,8 +291,8 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
       test(
         s.description ? `${s.name} — ${s.description}` : s.name,
         async ({ page, seedTenant }) => {
-          // reducedMotion isn't a PlaywrightTestOptions fixture (test.use can't
-          // set it), so it's applied per-page like the rest of emulateMedia.
+          // reducedMotion isn't a PlaywrightTestOptions fixture (only reachable via test.use({ contextOptions }),
+          // which this runner cannot set per scenario), so it's applied per-page like the rest of emulateMedia.
           await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
           if (opts.pinLocale) await pinEnglishLocale(page);
           const inFlightDataRequests = countInFlightDataRequests(page);
@@ -530,8 +530,8 @@ export function runMatrix<T extends string>(
       for (const s of scenarios) {
         if (only !== undefined && only !== s.name) continue;
         test(s.name, async ({ page, seedTenant }) => {
-          // reducedMotion isn't a PlaywrightTestOptions fixture (test.use can't set
-          // it), so it's applied per-page like the rest of emulateMedia.
+          // reducedMotion isn't a PlaywrightTestOptions fixture (only reachable via test.use({ contextOptions }),
+          // which this runner cannot set per scenario), so it's applied per-page like the rest of emulateMedia.
           await page.emulateMedia({ reducedMotion: opts.reducedMotion ?? DEFAULT_REDUCED_MOTION });
           const info = test.info();
           const plan = resolveMatrixViewports(
