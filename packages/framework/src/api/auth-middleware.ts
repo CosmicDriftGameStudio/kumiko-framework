@@ -475,9 +475,9 @@ async function handleAnonymous(
   resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
   staleCredential?: { readonly rejectionIfTenantUnresolved: RejectArgs },
 ): Promise<Response | undefined> {
-  // A downgraded stale credential whose anonymous tenant can't be resolved
-  // answers with the credential's own 401: a tenant error would hide the
-  // session end from the client.
+  // A downgraded stale credential whose anonymous tenant can't be resolved or
+  // is torn down answers with the credential's own 401: a tenant error would
+  // hide the session end from the client.
   const rejectTenant = (tenantError: RejectArgs): Response =>
     middlewareReject(c, staleCredential?.rejectionIfTenantUnresolved ?? tenantError);
 
@@ -522,7 +522,11 @@ async function handleAnonymous(
     resolved.tenantId,
     resolveTenantLifecycleStatus,
   );
-  if (lifecycleReject) return lifecycleReject;
+  if (lifecycleReject) {
+    return staleCredential
+      ? middlewareReject(c, staleCredential.rejectionIfTenantUnresolved)
+      : lifecycleReject;
+  }
   c.set(USER_KEY, createAnonymousUser(resolved.tenantId));
   await next();
   // skip: anonymous path completed — Hono middleware contract returns void

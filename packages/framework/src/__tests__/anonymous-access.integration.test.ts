@@ -443,6 +443,45 @@ describe("anonymous access — revoked session cookie", () => {
   });
 });
 
+describe("anonymous access — stale cookie on a torn-down tenant", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+      authConfig: {
+        membershipQuery: "anonshop:query:memberships",
+        resolveTenantLifecycleStatus: async () => ({ status: "destroying" }),
+      },
+    });
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("answers the credential's 401 so the client ends the session", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
+  });
+
+  test("a caller without a cookie still gets 410 tenant_unavailable", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "anonshop:query:product:list",
+      payload: {},
+    });
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_unavailable");
+  });
+});
+
 describe("anonymous access — resolverTrust: authoritative", () => {
   let stack: TestStack;
 

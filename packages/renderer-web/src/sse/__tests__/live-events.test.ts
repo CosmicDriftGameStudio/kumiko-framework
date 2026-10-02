@@ -145,6 +145,13 @@ describe("createEventSourceLiveEvents — session end", () => {
     expect(probedUrls).toEqual(["/api/sse"]);
     expect(sessionEndedCount).toBe(1);
     expect(FakeEventSource.instances).toHaveLength(1);
+
+    liveEvents("order", () => {});
+    await nextTick();
+
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(probedUrls).toEqual(["/api/sse"]);
+    expect(sessionEndedCount).toBe(1);
   });
 
   test("a refused handshake that is not a session 401 leaves the session alone", async () => {
