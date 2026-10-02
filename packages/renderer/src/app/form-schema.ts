@@ -46,9 +46,15 @@ export const REQUIRED_FIELD_I18N_KEY = "kumiko.validation.required";
 // checked here: `visible`. `runValidate` already filters issues on hidden
 // fields via `computeFieldStates(options.fields, …)` (form-controller.ts:163,181),
 // fed by `deriveFormFields(screen)` in render-edit.tsx.
+//
+// `unchangedFrom` is for payloadMode "changes" (update): a field still equal to
+// its loaded value never reaches the payload, so the server never presence-
+// checks it — a legacy row with a now-required empty field must stay saveable
+// when the user edits something else.
 export function buildFormSchema(
   entity: EntityDefinition,
   screen: EntityEditScreenDefinition,
+  unchangedFrom?: Readonly<Record<string, unknown>>,
 ): z.ZodType {
   const fields = layoutEditFields(screen);
   return z
@@ -79,6 +85,12 @@ export function buildFormSchema(
         // (validateNoWidgetRequiredField in boot-validator/screens.ts).
         if (NO_WIDGET_FIELD_TYPES.includes(field.type) && !isEmbeddedListField(field)) continue;
         if (isPresent(record[spec.field])) continue;
+        if (
+          unchangedFrom !== undefined &&
+          JSON.stringify(record[spec.field]) === JSON.stringify(unchangedFrom[spec.field])
+        ) {
+          continue;
+        }
         ctx.addIssue({
           code: "custom",
           path: [spec.field],

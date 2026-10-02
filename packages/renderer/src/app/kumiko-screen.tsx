@@ -1279,7 +1279,10 @@ function EntityEditUpdateForm({
     return out as FormValues;
   }, [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides, record]);
 
-  const formSchema = useMemo(() => buildFormSchema(entity, screen), [entity, screen]);
+  const formSchema = useMemo(
+    () => buildFormSchema(entity, screen, initial),
+    [entity, screen, initial],
+  );
 
   // Extension-Werte (z.B. customFields-jsonb) an extension-sections geben,
   // damit sie beim Edit den Bestand zeigen statt write-only zu sein.
@@ -3629,8 +3632,11 @@ function redirectScreenTarget(
   return typeof redirect === "string" ? redirect : redirect.screen;
 }
 
-// Checks this schema first, then every mounted feature — the target may live
-// in another (cross-feature) feature than the redirect's own screen.
+// A qualified redirect names its feature, so the search space is THAT feature
+// only — the current schema's own screens must not shadow it with a same
+// short-id screen of another type. An unqualified redirect searches this
+// schema first (own screen wins), then every mounted feature. A named feature
+// that isn't mounted (no provider / isolated test) falls back to this schema.
 function findRedirectTargetScreen(
   redirect: string | ActionFormRedirect,
   schema: FeatureSchema,
@@ -3639,14 +3645,17 @@ function findRedirectTargetScreen(
   const redirectScreen = redirectScreenTarget(redirect);
   const targetId = lastSegment(redirectScreen);
   const targetFeatureName = featureNameFromQualifiedScreenId(redirectScreen);
-  return (
-    schema.screens.find((s) => lastSegment(s.id) === targetId) ??
-    (targetFeatureName !== undefined
-      ? appFeatures
-          .find((f) => f.featureName === targetFeatureName)
-          ?.screens.find((s) => lastSegment(s.id) === targetId)
-      : appFeatures.flatMap((f) => f.screens).find((s) => lastSegment(s.id) === targetId))
-  );
+  const targetFeature =
+    targetFeatureName !== undefined
+      ? appFeatures.find((f) => f.featureName === targetFeatureName)
+      : undefined;
+  const searchSpace =
+    targetFeature !== undefined
+      ? targetFeature.screens
+      : targetFeatureName === undefined
+        ? [...schema.screens, ...appFeatures.flatMap((f) => f.screens)]
+        : schema.screens;
+  return searchSpace.find((s) => lastSegment(s.id) === targetId);
 }
 
 // A redirect to a record screen ("show the result") is a deliberate forward

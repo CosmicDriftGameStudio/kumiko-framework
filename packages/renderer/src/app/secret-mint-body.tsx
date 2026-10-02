@@ -134,6 +134,14 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
       navigateToReturnOr(nav, returnTarget, () => nav.navigate({ screenId: lastSegment(target) }));
   }, [nav, screen.redirect, screen.cancelTarget, returnTarget]);
 
+  // The confirm step must always offer a way out: a failed confirm (e.g. an
+  // expired setup token) otherwise leaves a form that can only keep failing.
+  // Restarting re-mints, which issues a fresh secret and invalidates this one.
+  const restartMint = useCallback(() => {
+    setRevealed(null);
+    carriedRef.current = {};
+  }, []);
+
   // Ends the reveal phase for both paths (the bare acknowledge button, and a
   // successful confirm submit): clears the secret and the carried values, then
   // either navigates (screen.redirect) or shows a done-state — never falls
@@ -223,7 +231,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
             payloadMode="values"
             buildPayload={(snapshot) => ({ ...snapshot.values, ...carriedRef.current })}
             onSubmit={handleConfirmSubmitted}
-            {...(handleCancel !== undefined && { onCancel: handleCancel })}
+            onCancel={handleCancel ?? restartMint}
             {...(translate !== undefined && { translate })}
             {...(confirm.submitLabel !== undefined && { submitLabel: confirm.submitLabel })}
           />

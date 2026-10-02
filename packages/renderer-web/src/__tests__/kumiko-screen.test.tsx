@@ -2405,6 +2405,74 @@ describe("KumikoScreen", () => {
     expect(navigateCalls[0]).toEqual({ screenId: "wizard", entityId: "x" });
   });
 
+  test("actionForm mit Cross-Feature-QN: ein eigener Screen mit gleicher Short-Id schattet das im QN benannte Ziel nicht ab (#2486)", async () => {
+    const navigateCalls: NavTarget[] = [];
+    const dispatcher = makeDispatcher({
+      write: (async () => ({
+        isSuccess: true,
+        data: { id: "x" },
+      })) as unknown as Dispatcher["write"],
+    });
+    const memoryNav = {
+      route: { screenId: "vehicle-start" },
+      navigate: (target: NavTarget) => {
+        if ("screenId" in target) navigateCalls.push(target);
+      },
+      replace: () => undefined,
+      hrefFor: (t: NavTarget) => ("screenId" in t ? `/${t.screenId}` : ""),
+      searchParams: {},
+      setSearchParams: () => undefined,
+    };
+    const decodeScreen: ActionFormScreenDefinition = {
+      id: "vehicle-start",
+      type: "actionForm",
+      handler: "vehicle-vin-decode:write:vehicle:decode",
+      fields: { vin: { type: "text", required: true } },
+      layout: { sections: [{ title: "x", fields: ["vin"] }] },
+      redirect: "vehicles:screen:wizard",
+    };
+    // The redirecting feature's OWN screen shares the short id of the target.
+    const ownWizardScreen: EntityListScreenDefinition = {
+      id: "wizard",
+      type: "entityList",
+      entity: "task",
+      columns: ["title"],
+    };
+    const decodeSchema: FeatureSchema = {
+      featureName: "vehicle-vin-decode",
+      entities: { task: taskEntity },
+      screens: [decodeScreen, ownWizardScreen],
+    };
+    const wizardScreen: EntityEditScreenDefinition = {
+      id: "wizard",
+      type: "entityEdit",
+      entity: "vehicle",
+      layout: { sections: [{ title: "x", fields: ["title"] }] },
+    };
+    const vehiclesSchema: FeatureSchema = {
+      featureName: "vehicles",
+      entities: { vehicle: taskEntity },
+      screens: [wizardScreen],
+    };
+
+    const { NavProvider } = await import("@cosmicdrift/kumiko-renderer");
+    render(
+      <NavProvider value={memoryNav}>
+        <AppFeaturesProvider features={[decodeSchema, vehiclesSchema]}>
+          <DispatcherProvider dispatcher={dispatcher}>
+            <KumikoScreen schema={decodeSchema} qn="vehicle-vin-decode:screen:vehicle-start" />
+          </DispatcherProvider>
+        </AppFeaturesProvider>
+      </NavProvider>,
+    );
+
+    const vinInput = screen.getByTestId("field-vin").querySelector("input") as HTMLInputElement;
+    fireEvent.change(vinInput, { target: { value: "1HGCM82633A004352" } });
+    await clickSubmitOnceEnabled();
+    await waitFor(() => expect(navigateCalls.length).toBe(1));
+    expect(navigateCalls[0]).toEqual({ screenId: "wizard", entityId: "x" });
+  });
+
   test("actionForm mit redirect auf entityEdit: hängt entityId an (#2419)", async () => {
     const navigateCalls: NavTarget[] = [];
     const dispatcher = makeDispatcher({
