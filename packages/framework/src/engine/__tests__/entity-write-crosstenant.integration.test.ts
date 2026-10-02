@@ -30,11 +30,14 @@ import {
   createEntity,
   createTextField,
   defineEntityCreateHandler,
+  defineEntityDeleteHandler,
   defineEntityListHandler,
+  defineEntityRestoreHandler,
   defineEntityUpdateHandler,
   defineFeature,
   from,
 } from "../index.js";
+import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
 
 // "Admin" passes unconditionally (any tenant may create its own rows).
 // "SystemAdmin" is tenant-scoped — this is the entity-level rule the
@@ -46,9 +49,22 @@ const thingEntity = createEntity({
   fields: {
     label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
+  softDelete: true,
   access: { write: { Admin: "all", SystemAdmin: from("user:tenantId", "tenantId") } },
 });
 const thingTable = buildEntityTable("thing", thingEntity);
+
+// systemStream entity: its stream lives on SYSTEM_TENANT_ID, so the acting
+// tenant must NOT be rewritten to a row tenant.
+const globalThingEntity = createEntity({
+  table: "ctwrite_global_things",
+  tenancy: "global",
+  systemStream: true,
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+  },
+  access: { write: { Admin: "all", SystemAdmin: "all" } },
+});
 
 const ESCAPE_HATCH_REASON = "fw#2915 integration test — operator cross-tenant scan";
 
@@ -71,10 +87,35 @@ function buildFeature(mode: CrossTenantMode) {
     r.writeHandler(
       defineEntityCreateHandler("thing", thingEntity, {
         access: { roles: ["Admin", "SystemAdmin"] },
+        ...crossTenantOptionsFor(mode),
       }),
     );
     r.writeHandler(
       defineEntityUpdateHandler("thing", thingEntity, {
+        access: { roles: ["SystemAdmin"] },
+        ...crossTenantOptionsFor(mode),
+      }),
+    );
+    r.writeHandler(
+      defineEntityDeleteHandler("thing", thingEntity, {
+        access: { roles: ["SystemAdmin"] },
+        ...crossTenantOptionsFor(mode),
+      }),
+    );
+    r.writeHandler(
+      defineEntityRestoreHandler("thing", thingEntity, {
+        access: { roles: ["SystemAdmin"] },
+        ...crossTenantOptionsFor(mode),
+      }),
+    );
+    r.entity("globalthing", globalThingEntity);
+    r.writeHandler(
+      defineEntityCreateHandler("globalthing", globalThingEntity, {
+        access: { roles: ["Admin", "SystemAdmin"] },
+      }),
+    );
+    r.writeHandler(
+      defineEntityUpdateHandler("globalthing", globalThingEntity, {
         access: { roles: ["SystemAdmin"] },
         ...crossTenantOptionsFor(mode),
       }),
@@ -122,6 +163,7 @@ const escapeHatchAuditEvents: EscapeHatchUseEvent[] = [];
 beforeAll(async () => {
   noneStack = await setupTestStack({ features: [buildFeature("none")], dbName });
   await unsafeCreateEntityTable(noneStack.db, thingEntity, "thing");
+  await unsafeCreateEntityTable(noneStack.db, globalThingEntity, "globalthing");
   // Second and third connections to the SAME database — persistentDb:true
   // means their cleanup() only closes the pool; noneStack (created without
   // that flag) owns the actual DROP DATABASE and must clean up last.
@@ -148,13 +190,14 @@ afterAll(async () => {
   await noneStack.cleanup();
 });
 
-async function updatedEventTenantId(aggregateId: string): Promise<string | undefined> {
+async function eventTenantId(aggregateId: string, verb: string): Promise<string | undefined> {
   const rows = await selectMany<{ type: string; tenantId: string }>(noneStack.db, eventsTable, {
     aggregateId,
   });
-  const updatedRow = rows.find((r) => r.type.includes("updated"));
-  return updatedRow?.tenantId;
+  return rows.find((r) => r.type.includes(verb))?.tenantId;
 }
+
+const updatedEventTenantId = (aggregateId: string) => eventTenantId(aggregateId, "updated");
 
 describe("entity write/list handlers: crossTenant vs. escapeHatch (fw#2650/fw#2915)", () => {
   test("legacy crossTenant handler: SystemAdmin updates a row owned by another tenant", async () => {
@@ -212,6 +255,58 @@ describe("entity write/list handlers: crossTenant vs. escapeHatch (fw#2650/fw#29
         actor: TestUsers.systemAdmin.id,
       },
     ]);
+  });
+
+  test.each([
+    ["legacy", () => legacyStack],
+    ["escapeHatch", () => escapeHatchStack],
+  ])(
+    "%s: SystemAdmin soft-deletes and restores a foreign row, both events land on the row's tenant stream",
+    async (_mode, stackOf) => {
+      const created = await noneStack.http.writeOk<{ id: string }>(
+        "ctwrite:write:thing:create",
+        { label: "foreign-delete-restore" },
+        TestUsers.otherTenant,
+      );
+
+      await stackOf().http.writeOk(
+        "ctwrite:write:thing:delete",
+        { id: created.id },
+        TestUsers.systemAdmin,
+      );
+      expect(await eventTenantId(created.id, "deleted")).toBe(testTenantId(2));
+
+      await stackOf().http.writeOk(
+        "ctwrite:write:thing:restore",
+        { id: created.id },
+        TestUsers.systemAdmin,
+      );
+      expect(await eventTenantId(created.id, "restored")).toBe(testTenantId(2));
+    },
+  );
+
+  test("escapeHatch create: the row lands in the acting user's tenant", async () => {
+    const created = await escapeHatchStack.http.writeOk<{ id: string }>(
+      "ctwrite:write:thing:create",
+      { label: "created-through-escape-hatch" },
+      TestUsers.admin,
+    );
+    const rows = await selectMany(noneStack.db, thingTable, { id: created.id });
+    expect(rows[0]?.["tenantId"]).toBe(TestUsers.admin.tenantId);
+  });
+
+  test("systemStream entity: the stream stays on the system tenant, the acting tenant is not rewritten", async () => {
+    const created = await noneStack.http.writeOk<{ id: string }>(
+      "ctwrite:write:globalthing:create",
+      { label: "global" },
+      TestUsers.admin,
+    );
+    await escapeHatchStack.http.writeOk(
+      "ctwrite:write:globalthing:update",
+      { id: created.id, version: 1, changes: { label: "global touched" } },
+      TestUsers.systemAdmin,
+    );
+    expect(await eventTenantId(created.id, "updated")).toBe(SYSTEM_TENANT_ID);
   });
 
   test("escapeHatch list: SystemAdmin sees rows from every tenant, reported as acknowledge-cross-tenant", async () => {
@@ -307,7 +402,14 @@ describe("entity write/list handlers: crossTenant vs. escapeHatch (fw#2650/fw#29
   test("legacy stack warns once per deprecated crossTenant handler at boot; the escapeHatch stack does not", () => {
     const legacyMatches = legacyWarnCalls.filter((c) => c.msg === DEPRECATED_CROSS_TENANT_SIGNAL);
     const legacyHandlers = legacyMatches.map((c) => c.data?.["handler"]).sort();
-    expect(legacyHandlers).toEqual(["ctwrite:query:thing:list", "ctwrite:write:thing:update"]);
+    expect(legacyHandlers).toEqual([
+      "ctwrite:query:thing:list",
+      "ctwrite:write:globalthing:update",
+      "ctwrite:write:thing:create",
+      "ctwrite:write:thing:delete",
+      "ctwrite:write:thing:restore",
+      "ctwrite:write:thing:update",
+    ]);
 
     const escapeHatchMatches = escapeHatchWarnCalls.filter(
       (c) => c.msg === DEPRECATED_CROSS_TENANT_SIGNAL,

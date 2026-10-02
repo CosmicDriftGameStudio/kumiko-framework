@@ -756,9 +756,13 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
           : referenceSortExpr !== undefined
             ? referenceSortExpr(params)
             : colSql(sortField);
+      // The projected label alias is ordered by directly, so Postgres evaluates
+      // the correlated subquery once per row instead of once for ORDER BY and
+      // once for the SELECT list.
+      const orderBySortSql = referenceSortExpr !== undefined ? `"${SORT_LABEL_ALIAS}"` : sortSql;
       const orderByClause =
-        sortSql !== undefined
-          ? ` ORDER BY ${sortSql} ${sortDescending ? "DESC" : "ASC"}, ${colSql("id")} ASC`
+        orderBySortSql !== undefined
+          ? ` ORDER BY ${orderBySortSql} ${sortDescending ? "DESC" : "ASC"}, ${colSql("id")} ASC`
           : ` ORDER BY ${colSql("id")} ASC`;
       const useOffset = !payload.cursor && offset > 0;
       const offsetClause = useOffset ? ` OFFSET ${offset}` : "";
