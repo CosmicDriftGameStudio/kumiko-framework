@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "EventSource live events parse the signal-only frame",
+    "detail": "`createEventSourceLiveEvents` forwards the new frame shape without payload and with `eventType`.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "Update-mode wizards get a step picker on narrow viewports; the pinned footer is a single fixed row on phones",
+    "detail": "`StepBar` with `onStepSelect` and `selectableSteps=\"all\"` renders the compact label as a dropdown listing every step. Below `sm` the pinned footer is one row: Back as icon, other actions in a \"…\" popover that only shows while one of them is enabled, primary action filling the rest. New renderer markers `FOOTER_ACTION_ROLE_PROP` and `NARROW_LABEL_PROP` classify custom footer buttons.",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.335.0",
     "type": "improvement",
     "title": "Combobox options carry a value-based data-testid"

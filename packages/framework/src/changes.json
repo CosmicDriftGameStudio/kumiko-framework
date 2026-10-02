@@ -1,5 +1,63 @@
 [
   {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "Boot gates with an explicit timeout reject start() naming the gate; gates without one warn after 60s",
+    "detail": "A `bootGate` job with an explicit `timeout` now rejects `start()` with a message naming the gate once that timeout elapses. Without `timeout` the gate keeps waiting and logs a warning naming it after 60s instead of blocking boot silently."
+  },
+  {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "Boot rejects unknown visibleWhen fields, bootGate with runOnBoot, and unknown money currency kinds",
+    "detail": "Boot now rejects three misconfigurations that previously failed silently: a dashboard screen-panel `visibleWhen.field` that is missing from the query's declared `outputSchema`, a job that combines `bootGate` with `runOnBoot` (it ran twice under one job id), and a money field whose `currency` source has an unknown `kind`. `auth-mfa:query:user-mfa:status` now declares its `outputSchema`."
+  },
+  {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "Dry-run env output keeps multi-line field descriptions inside the comment",
+    "detail": "`KUMIKO_DRY_RUN_ENV` pulumi and k8s output now folds a multi-line `.describe()` text onto one comment line, so the continuation can no longer escape the `#` and run as a shell command or break the YAML stub. The `unprocessable-error-details-reason` codemod now skips a shorthand `reason` whose variable is only used in `details`."
+  },
+  {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "waitForEvent ne-match ignores payloads without the referenced path",
+    "detail": "`waitForEvent` match atoms no longer match events that lack the referenced payload path, so `ne` no longer wakes a workflow on an unrelated event shape. Explicit `undefined` optionals on `r.nav()` entries are dropped from the client schema."
+  },
+  {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "r.nav() explicit undefined optionals no longer reach the client schema"
+  },
+  {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "public_intake_required 403 no longer discloses table and column names to anonymous callers",
+    "detail": "The `public_intake_required` 403 no longer puts the physical table name and personal-data column names into `message` or `details` (it keeps `reason`, `rootHandler` and `job`); they travel in the error `cause` for the server log. The event dispatcher counts idle-gated consumer turns in the new `kumiko_event_consumer_pass_skipped_total{reason=\"idle\"}` counter, since those turns open no `events.consumer.pass` span. Personal-data column sets for the anonymous write gate are cached per entity."
+  },
+  {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "Idle-gated event consumer turns are counted in kumiko_event_consumer_pass_skipped_total"
+  },
+  {
+    "version": "0.336.0",
+    "type": "breaking",
+    "title": "/api/sse sends change signals without field values; anonymous connections only for declared entities",
+    "detail": "The SSE broadcast consumer no longer puts the event payload (changes, previous) on the tenant channel, because that channel fans out to every tenant member and to anonymous connections. Entity frames carry `{ id, aggregateType, eventType, version, createdAt }`. Anonymous connections get entity signals only for entities named by an anonymously callable query via the new `liveEntities` option; the query name alone grants nothing, because a signal carries the id of every row, including rows the query filters out. Frames without an entity are delivered only when `data.userId` matches the connected user. Boot fails when `liveEntities` names an unregistered entity.",
+    "migration": "Code that reads `data.payload` from SSE frames must load the data with a query after the signal instead. Public pages that update anonymously add `liveEntities: [\"<entity>\"]` to the anonymous query they refetch (for example a `page:current` query), otherwise the live update stays off for anonymous visitors. `createSseRoute(broker)` now needs a second argument, `{ anonymousLiveEntities: collectAnonymousLiveEntities(registry) }`."
+  },
+  {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "drainEventConsumers rejects an invalid maxPasses and drainJobs fails a stuck drain with a diagnosis",
+    "detail": "`drainEventConsumers` rejects a non-positive or non-integer `maxPasses` instead of returning without draining, and `drainJobs` accepts `timeoutMs` (default 10s) and fails a stuck drain with the pending job count and the consumers still behind. The stance report names which hint category (direct, user-owned, user-reference) a near-miss field resembles, and the `UnprocessableError` reason codemod no longer reports spread literals without a `reason` key and lists non-analyzable `details` arguments as unverified."
+  },
+  {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "Codemod reports name the near-miss hint category and separate unverified sites from manual skips"
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Agent tool manifests no longer offer the caller-chosen id on create tools",

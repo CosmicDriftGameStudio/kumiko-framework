@@ -1,5 +1,88 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.336.0
+
+### Minor Changes
+
+- b83c348: Live updates over `/api/sse` no longer carry field values. A frame now holds only the entity, the event type, id, version and createdAt, and clients load the data with a query, which runs its own access check. Anonymous connections receive signals only for entities that an anonymously callable query declares through the new `liveEntities` option on a query handler. Frames without an entity, such as in-app notifications, now go only to the addressed user. `createSseRoute` takes a second argument with the entities that anonymous connections may follow, and `collectAnonymousLiveEntities(registry)` computes it. Boot fails when `liveEntities` names an unknown entity.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: /api/sse sends change signals without field values; anonymous connections only for declared entities
+  detail: |
+    The SSE broadcast consumer no longer puts the event payload (changes, previous) on the tenant channel, because that channel fans out to every tenant member and to anonymous connections. Entity frames carry `{ id, aggregateType, eventType, version, createdAt }`. Anonymous connections get entity signals only for entities named by an anonymously callable query via the new `liveEntities` option; the query name alone grants nothing, because a signal carries the id of every row, including rows the query filters out. Frames without an entity are delivered only when `data.userId` matches the connected user. Boot fails when `liveEntities` names an unregistered entity.
+  migration: |
+    Code that reads `data.payload` from SSE frames must load the data with a query after the signal instead. Public pages that update anonymously add `liveEntities: ["<entity>"]` to the anonymous query they refetch (for example a `page:current` query), otherwise the live update stays off for anonymous visitors. `createSseRoute(broker)` now needs a second argument, `{ anonymousLiveEntities: collectAnonymousLiveEntities(registry) }`.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: LiveEvent data has no payload, it carries eventType
+  detail: |
+    `LiveEvent.data` is now `{ id, aggregateType, eventType, version, createdAt }`. The server sends signals only, so consumers refetch through a query.
+  migration: |
+    Replace reads of `event.data.payload` with a query refetch. `useQuery({ live: true })` already does this and needs no change.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: EventSource live events parse the signal-only frame
+  detail: |
+    `createEventSourceLiveEvents` forwards the new frame shape without payload and with `eventType`.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Query handlers can declare liveEntities
+  detail: |
+    `QueryHandlerDefinition` and the inline `queryHandler` options accept `liveEntities`, the entities whose changes the query reflects. Anonymous callers with access to the query receive /api/sse change signals for them.
+  migration: |
+    No code change needed.
+  -->
+
+- 7d5428e: New framework hook `useReportStepComplete(reportStepComplete, complete)` in `@cosmicdrift/kumiko-renderer`. Extension wizard steps report whether they hold their data without a raw `useEffect`, which the no-raw-hooks guard rejects in app screens. With `complete === null` (data still loading) it reports nothing; otherwise it reports on every change. The no-raw-hooks guard hint names the hook.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useReportStepComplete reports an extension wizard step's completeness without a raw useEffect
+  detail: |
+    `useReportStepComplete(props.reportStepComplete, complete)` with `complete: boolean | null`. `null` reports nothing (data loading), a boolean is reported whenever it changes. Outside update-mode wizards `reportStepComplete` is undefined and the hook does nothing.
+  migration: |
+    Extension steps that call `reportStepComplete` from a `useEffect` should switch to `useReportStepComplete(reportStepComplete, complete)`; app repos need this to pass the no-raw-hooks guard.
+  -->
+
+### Patch Changes
+
+- 47e769d: On narrow viewports, a wizard that edits an existing record shows the step label as an expandable step list (same done and jump rules as the rail), so phones can jump between steps. Below `sm` the pinned form footer is always one fixed-height row: Back as an icon button, every other action in a "…" popover (shown only while one of them is enabled, with a dot when there are unsaved changes), and the primary action filling the rest with a one-line label. `@cosmicdrift/kumiko-renderer` exports `FOOTER_ACTION_ROLE_PROP` and `NARROW_LABEL_PROP` so custom footer buttons can mark themselves as Back or primary and give a short phone label.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Update-mode wizards get a step picker on narrow viewports; the pinned footer is a single fixed row on phones
+  detail: |
+    `StepBar` with `onStepSelect` and `selectableSteps="all"` renders the compact label as a dropdown listing every step. Below `sm` the pinned footer is one row: Back as icon, other actions in a "…" popover that only shows while one of them is enabled, primary action filling the rest. New renderer markers `FOOTER_ACTION_ROLE_PROP` and `NARROW_LABEL_PROP` classify custom footer buttons.
+  migration: |
+    No code change needed.
+  -->
+
+- Updated dependencies [e91de78]
+- Updated dependencies [e19453a]
+- Updated dependencies [83378b1]
+- Updated dependencies [c95f017]
+- Updated dependencies [58154f0]
+- Updated dependencies [b83c348]
+- Updated dependencies [4618e1d]
+  - @cosmicdrift/kumiko-framework@0.336.0
+  - @cosmicdrift/kumiko-types@0.336.0
+  - @cosmicdrift/kumiko-headless@0.336.0
+
 ## 0.335.0
 
 ### Minor Changes

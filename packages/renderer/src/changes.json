@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.336.0",
+    "type": "breaking",
+    "title": "LiveEvent data has no payload, it carries eventType",
+    "detail": "`LiveEvent.data` is now `{ id, aggregateType, eventType, version, createdAt }`. The server sends signals only, so consumers refetch through a query.",
+    "migration": "Replace reads of `event.data.payload` with a query refetch. `useQuery({ live: true })` already does this and needs no change."
+  },
+  {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "useReportStepComplete reports an extension wizard step's completeness without a raw useEffect",
+    "detail": "`useReportStepComplete(props.reportStepComplete, complete)` with `complete: boolean | null`. `null` reports nothing (data loading), a boolean is reported whenever it changes. Outside update-mode wizards `reportStepComplete` is undefined and the hook does nothing.",
+    "migration": "Extension steps that call `reportStepComplete` from a `useEffect` should switch to `useReportStepComplete(reportStepComplete, complete)`; app repos need this to pass the no-raw-hooks guard."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "secretMint reveal and confirm render as one screen form with the translated screen title; new RenderEdit props leadContent and i18nScreenId"

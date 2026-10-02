@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "PAT revoke and its revoked-event commit atomically when called on a pool"
+  },
+  {
     "version": "0.330.0",
     "type": "fix",
     "title": "The token list status column shows translated labels instead of raw status values"

@@ -1,5 +1,123 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.336.0
+
+### Minor Changes
+
+- b83c348: Live updates over `/api/sse` no longer carry field values. A frame now holds only the entity, the event type, id, version and createdAt, and clients load the data with a query, which runs its own access check. Anonymous connections receive signals only for entities that an anonymously callable query declares through the new `liveEntities` option on a query handler. Frames without an entity, such as in-app notifications, now go only to the addressed user. `createSseRoute` takes a second argument with the entities that anonymous connections may follow, and `collectAnonymousLiveEntities(registry)` computes it. Boot fails when `liveEntities` names an unknown entity.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: /api/sse sends change signals without field values; anonymous connections only for declared entities
+  detail: |
+    The SSE broadcast consumer no longer puts the event payload (changes, previous) on the tenant channel, because that channel fans out to every tenant member and to anonymous connections. Entity frames carry `{ id, aggregateType, eventType, version, createdAt }`. Anonymous connections get entity signals only for entities named by an anonymously callable query via the new `liveEntities` option; the query name alone grants nothing, because a signal carries the id of every row, including rows the query filters out. Frames without an entity are delivered only when `data.userId` matches the connected user. Boot fails when `liveEntities` names an unregistered entity.
+  migration: |
+    Code that reads `data.payload` from SSE frames must load the data with a query after the signal instead. Public pages that update anonymously add `liveEntities: ["<entity>"]` to the anonymous query they refetch (for example a `page:current` query), otherwise the live update stays off for anonymous visitors. `createSseRoute(broker)` now needs a second argument, `{ anonymousLiveEntities: collectAnonymousLiveEntities(registry) }`.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: LiveEvent data has no payload, it carries eventType
+  detail: |
+    `LiveEvent.data` is now `{ id, aggregateType, eventType, version, createdAt }`. The server sends signals only, so consumers refetch through a query.
+  migration: |
+    Replace reads of `event.data.payload` with a query refetch. `useQuery({ live: true })` already does this and needs no change.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: EventSource live events parse the signal-only frame
+  detail: |
+    `createEventSourceLiveEvents` forwards the new frame shape without payload and with `eventType`.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: Query handlers can declare liveEntities
+  detail: |
+    `QueryHandlerDefinition` and the inline `queryHandler` options accept `liveEntities`, the entities whose changes the query reflects. Anonymous callers with access to the query receive /api/sse change signals for them.
+  migration: |
+    No code change needed.
+  -->
+
+### Patch Changes
+
+- e91de78: A `bootGate` job with an explicit `timeout` now rejects `start()` with a message naming the gate once that timeout elapses. Without `timeout` the gate keeps waiting and logs a warning naming it after 60s instead of blocking boot silently.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot gates with an explicit timeout reject start() naming the gate; gates without one warn after 60s
+  -->
+
+- e19453a: Boot now rejects three misconfigurations that previously failed silently: a dashboard screen-panel `visibleWhen.field` that is missing from the query's declared `outputSchema`, a job that combines `bootGate` with `runOnBoot` (it ran twice under one job id), and a money field whose `currency` source has an unknown `kind`. `auth-mfa:query:user-mfa:status` now declares its `outputSchema`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot rejects unknown visibleWhen fields, bootGate with runOnBoot, and unknown money currency kinds
+  -->
+
+- 83378b1: `KUMIKO_DRY_RUN_ENV` pulumi and k8s output now folds a multi-line `.describe()` text onto one comment line, so the continuation can no longer escape the `#` and run as a shell command or break the YAML stub. The `unprocessable-error-details-reason` codemod now skips a shorthand `reason` whose variable is only used in `details`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Dry-run env output keeps multi-line field descriptions inside the comment
+  -->
+
+- c95f017: `waitForEvent` match atoms no longer match events that lack the referenced payload path, so `ne` no longer wakes a workflow on an unrelated event shape. Explicit `undefined` optionals on `r.nav()` entries are dropped from the client schema.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: waitForEvent ne-match ignores payloads without the referenced path
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: r.nav() explicit undefined optionals no longer reach the client schema
+  -->
+
+- 58154f0: The `public_intake_required` 403 no longer puts the physical table name and personal-data column names into `message` or `details` (it keeps `reason`, `rootHandler` and `job`); they travel in the error `cause` for the server log. The event dispatcher counts idle-gated consumer turns in the new `kumiko_event_consumer_pass_skipped_total{reason="idle"}` counter, since those turns open no `events.consumer.pass` span. Personal-data column sets for the anonymous write gate are cached per entity.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: public_intake_required 403 no longer discloses table and column names to anonymous callers
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Idle-gated event consumer turns are counted in kumiko_event_consumer_pass_skipped_total
+  -->
+
+- 4618e1d: `drainEventConsumers` rejects a non-positive or non-integer `maxPasses` instead of returning without draining, and `drainJobs` accepts `timeoutMs` (default 10s) and fails a stuck drain with the pending job count and the consumers still behind. The stance report names which hint category (direct, user-owned, user-reference) a near-miss field resembles, and the `UnprocessableError` reason codemod no longer reports spread literals without a `reason` key and lists non-analyzable `details` arguments as unverified.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: drainEventConsumers rejects an invalid maxPasses and drainJobs fails a stuck drain with a diagnosis
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Codemod reports name the near-miss hint category and separate unverified sites from manual skips
+  -->
+
+- Updated dependencies [b83c348]
+  - @cosmicdrift/kumiko-types@0.336.0
+  - @cosmicdrift/kumiko-http@0.336.0
+
 ## 0.335.0
 
 ### Minor Changes
