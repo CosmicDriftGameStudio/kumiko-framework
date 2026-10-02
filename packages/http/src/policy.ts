@@ -262,6 +262,11 @@ export async function resolvePublicHost(
 // time. Runs the same resolution as `egress()` without connecting anywhere,
 // and never throws — bad input (unparsable URL, non-http(s) scheme, embedded
 // credentials, DNS failure, blocked range) all just resolve to `false`.
+//
+// A `true` only holds at the moment of the check: DNS can change afterwards,
+// so this is a UX pre-check, not a substitute for the fetch-time check.
+// Outbound requests to tenant-supplied URLs MUST still go through
+// `egress({ kind: "tenant-supplied" })`, never a plain `fetch()`.
 export async function isPublicHost(
   raw: string,
   lookupFn: typeof lookup = lookup,

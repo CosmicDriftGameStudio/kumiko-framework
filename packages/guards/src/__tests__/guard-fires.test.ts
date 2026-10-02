@@ -164,7 +164,7 @@ const ENFORCING: Record<string, Violating> = {
   "i18n-Locale-Terminology Guard": {
     path: `${CWD}/packages/locale-de/src/strings.ts`,
     code: 'export const localeDeBundle = { "x.y": "Bitte Tenant wählen" };',
-    expectedMessage: /verbotener Begriff "Tenant"/,
+    expectedMessage: /forbidden term "Tenant"/,
   },
   "i18n-Locale-Mount Guard": {
     path: `${APP}/web/mount.tsx`,
@@ -220,12 +220,12 @@ const ENFORCING: Record<string, Violating> = {
   "App-Feature-Structure Guard (App-Repos)": {
     path: `${FEAT}/x/web.tsx`,
     code: "export const screens = {};",
-    expectedMessage: /web-Monolith am Feature-Root/,
+    expectedMessage: /web monolith at feature root/,
   },
   "Lib-Test-Coverage Guard (App-Repos)": {
     path: `${APP}/features/x/lib/calc.ts`,
     code: "export function addFees(base: number): number { return base * 1.02; }",
-    expectedMessage: /Kein Test importiert dieses lib-Modul/,
+    expectedMessage: /No test imports this lib module/,
   },
   "Raw-ClassName Guard (App-Repos)": {
     path: `${APP}/features/x/web/card.tsx`,

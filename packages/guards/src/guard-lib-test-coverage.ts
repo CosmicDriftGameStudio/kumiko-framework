@@ -128,9 +128,9 @@ export const guard: AstGuard = {
   name: "Lib-Test-Coverage Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Jede lib-Datei mit exportierter Funktion braucht einen Test, der aus dem " +
-    "Modul importiert und jede Funktion namentlich referenziert. IO-Loader, die " +
-    `ein Integrationstest deckt: // ${IGNORE_TAG} <Grund, z.B. integration-covered via …>`,
+    "Every lib file with an exported function needs a test that imports from the " +
+    "module and references each function by name. IO loaders that an " +
+    `integration test covers: // ${IGNORE_TAG} <reason, e.g. integration-covered via …>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     const testFiles: SourceFile[] = [];
@@ -150,7 +150,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: 1,
-          message: `Kein Test importiert dieses lib-Modul (${relevant.length} exportierte Funktion(en) ungetestet)`,
+          message: `No test imports this lib module (${relevant.length} exported function(s) untested)`,
         });
         continue;
       }
@@ -160,7 +160,7 @@ export const guard: AstGuard = {
         violations.push({
           file: sf.getFilePath(),
           line: e.node.getStartLineNumber(),
-          message: `Exportierte Funktion "${e.name}" wird in keinem verknüpften Test namentlich referenziert`,
+          message: `Exported function "${e.name}" is not referenced by name in any linked test`,
         });
       }
     }
