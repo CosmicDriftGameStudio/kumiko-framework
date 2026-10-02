@@ -20,8 +20,8 @@ import {
 import {
   createTestUser,
   setupTestStack,
-  testTenantId,
   type TestStack,
+  testTenantId,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { NotesHistoryHandlers } from "../constants.js";

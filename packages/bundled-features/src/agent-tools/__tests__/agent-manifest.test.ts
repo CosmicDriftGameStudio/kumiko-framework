@@ -245,7 +245,10 @@ describe("buildAgentManifest", () => {
     const asAdmin = buildAgentManifest(registry, { locale: "en", roles: ["admin"] });
     const asViewer = buildAgentManifest(registry, { locale: "en", roles: ["viewer"] });
 
-    expect(asAdmin.navs.map((n) => n.id)).toEqual(["nav-parent:nav:admin-root", "nav-parent:nav:child"]);
+    expect(asAdmin.navs.map((n) => n.id)).toEqual([
+      "nav-parent:nav:admin-root",
+      "nav-parent:nav:child",
+    ]);
     expect(asViewer.navs).toEqual([]);
     expect(asViewer.screens.map((s) => s.id)).toEqual([]);
   });

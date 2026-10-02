@@ -22,6 +22,8 @@ import {
 } from "./session-callbacks.js";
 import { SESSION_REVOKED_EVENT_SHORT, sessionRevokedSchema } from "./session-revoked-event.js";
 
+const CLEANUP_ESCAPE_HATCH_REASON = "deletes expired session rows of every tenant";
+
 export type SessionsFeatureOptions = {
   // A successful update on the `user` entity that changes `passwordHash`
   // triggers a mass-revoke of every live session for that user.
@@ -169,12 +171,12 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       r.job({
         name: "cleanup",
         trigger: { manual: true },
-        escapeHatch: { reason: "deletes expired session rows of every tenant" },
+        escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
         handler: (payload, ctx) =>
           cleanupJob(
             payload,
             ctx,
-            ctx.db.unsafeRaw("deletes expired session rows of every tenant") as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+            ctx.db.unsafeRaw(CLEANUP_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
           ),
       });
 

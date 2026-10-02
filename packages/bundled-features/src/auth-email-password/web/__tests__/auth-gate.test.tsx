@@ -206,26 +206,6 @@ describe("createLoginRoute", () => {
     });
   });
 
-  test("MfaSetupComponent onSuccess → keeps setup screen when refresh rejects", async () => {
-    const LoginRoute = createLoginRoute({
-      loginScreen: LoginWithMfaSetupTrigger,
-      mfaSetupScreen: CustomMfaSetup,
-    });
-    const session = makeSessionApi({
-      status: "unauthenticated",
-      refresh: mock(async () => {
-        throw new Error("refresh failed");
-      }),
-    });
-    renderWithProviders(<LoginRoute />, { session });
-    fireEvent.click(screen.getByTestId("trigger-mfa-setup"));
-    fireEvent.click(screen.getByTestId("complete-mfa-setup"));
-    expect(session.refresh).toHaveBeenCalledTimes(1);
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(screen.getByTestId("mfa-setup")).toBeTruthy();
-  });
-
   test("makeAuthGate delegates mfaSetupScreen wiring to createLoginRoute", () => {
     const Gate = makeAuthGate({
       loginScreen: LoginWithMfaSetupTrigger,

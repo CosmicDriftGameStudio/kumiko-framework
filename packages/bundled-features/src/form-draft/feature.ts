@@ -15,6 +15,8 @@ import { getDraftQuery } from "./handlers/get.query.js";
 import { listDraftsQuery } from "./handlers/list.query.js";
 import { saveDraftWrite } from "./handlers/save.write.js";
 
+const CLEANUP_ESCAPE_HATCH_REASON = "purges stale drafts of every tenant";
+
 function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>): void {
   r.describe(
     "Per-user, per-tenant working copy of an in-progress form, saved BEFORE the real domain entity exists. Owns one event-sourced entity, `form-draft` (`read_form_drafts`), keyed by a caller-assigned draftKey (typically screenId + optional hostEntityId), unique per (tenant, owner, draftKey). `save` upserts the draft blob ({ values, stepIndex, savedAt } — savedAt stamped server-side), `discard` deletes it (called once the real submit succeeds), `get` resumes it, `list` finds a user's open drafts for a given screenId (draftKey prefix match) — the fallback when a client-generated draftId is lost. Ownership is enforced by a per-row owner filter in every handler, not by roles — a foreign user's save/discard/get/list for someone else's draftKey never sees or touches that row. Never holds anything that already lives in a domain stream; the consuming app is responsible for discarding once the domain write succeeds. A daily cron job hard-deletes drafts past a configurable retention window (`form-draft:config:retention-days`, SystemAdmin-writable, default 30 days).",
@@ -44,12 +46,12 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
     name: "cleanup",
     trigger: { cron: "0 3 * * *" },
     concurrency: "skip",
-    escapeHatch: { reason: "purges stale drafts of every tenant" },
+    escapeHatch: { reason: CLEANUP_ESCAPE_HATCH_REASON },
     handler: (payload, ctx) =>
       cleanupDraftsJob(
         payload,
         ctx,
-        ctx.db.unsafeRaw("purges stale drafts of every tenant") as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+        ctx.db.unsafeRaw(CLEANUP_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
       ),
   });
 }
