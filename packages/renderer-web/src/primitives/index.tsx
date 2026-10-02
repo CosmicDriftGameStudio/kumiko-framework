@@ -91,7 +91,9 @@ import {
   User,
   X,
 } from "lucide-react";
-import QRCode from "qrcode";
+// The main entry pulls Node-only deps (yargs/pngjs) under bundlers that ignore
+// package.json#browser (Metro), hence the explicit browser subpath.
+import QRCode from "qrcode/lib/browser.js";
 import {
   type ChangeEvent,
   Children,
@@ -1897,12 +1899,12 @@ function DefaultDataTable({
           {metaColumns.length > 0 && (
             // The "·" is a real element, not ::before content: consumers Tailwind-scan the published
             // dist, where the arbitrary content class is never generated. The row is shifted 12px
-            // left inside an overflow-hidden box, so the separator of whichever item starts a line
+            // left (inline-start) inside an overflow-hidden box, so the separator of whichever item starts a line
             // (first item or a wrapped one) is clipped.
             <div className="min-w-0 max-h-10 overflow-hidden text-[13px] leading-5 tabular-nums text-foreground-secondary">
               <div
                 data-testid={`card-meta-${row.id}`}
-                className="-ml-3 flex flex-wrap items-center"
+                className="-ms-3 flex flex-wrap items-center"
               >
                 {metaColumns.map((col) => (
                   <span key={col.field} className="flex min-w-0 max-w-full items-center">
@@ -3345,6 +3347,13 @@ export function ScreenWidthProvider({
 // into the URL (fw#2312, fw#2705). Degrading to a <div> when already inside
 // a form avoids the nesting; the captured click still routes to THIS form's
 // onSubmit instead of activating the real ancestor <form>.
+const SUBMIT_CONTROL_SELECTOR = [
+  "button[type=submit]:not(:disabled)",
+  "button:not([type]):not(:disabled)",
+  "input[type=submit]:not(:disabled)",
+  "input[type=image]:not(:disabled)",
+].join(", ");
+
 function FormRoot({
   onSubmit,
   testId,
@@ -3375,9 +3384,7 @@ function FormRoot({
         onClickCapture={(e) => {
           // @cast-boundary dom-event-target: closest() needs an Element, and
           // click targets are always one in the browser/happy-dom.
-          const submitButton = (e.target as HTMLElement).closest(
-            "button[type=submit], button:not([type])",
-          );
+          const submitButton = (e.target as HTMLElement).closest(SUBMIT_CONTROL_SELECTOR);
           if (submitButton === null) return;
           // React events bubble through portals and nested degraded roots; a
           // real <form> only reacts to buttons in its own DOM subtree.
@@ -4333,7 +4340,7 @@ function DefaultGrid({
   // CSS-Variable; Tailwind-Klasse liest die Variable mit
   // `grid-template-columns: var(--grid-cols)`. Saubere Lösung weil
   // Tailwind JIT keinen dynamischen `grid-cols-${N}` auflösen kann.
-  const rowCount = Math.ceil(Children.count(children) / columns);
+  const rowCount = Math.ceil(Children.toArray(children).length / columns);
   const clipped = maxRows !== undefined && rowCount > maxRows;
   // gridAutoRows is a minmax MIN, not a fixed height, so wrapped labels grow
   // their row instead of being clipped mid-row. maxHeight is therefore only
@@ -4349,7 +4356,7 @@ function DefaultGrid({
     "--grid-cols": `repeat(${columns}, minmax(0, 1fr))`,
     ...(clipped && {
       gridAutoRows: "minmax(var(--kumiko-grid-row-h, 2.5rem), auto)",
-      maxHeight: `calc(${maxRows} * var(--kumiko-grid-row-h, 2.5rem) + ${maxRows - 1} * 1rem)`,
+      maxHeight: `calc(${maxRows} * var(--kumiko-grid-row-h, 2.5rem) + ${maxRows - 1} * var(--kumiko-grid-gap, 1rem))`,
       overflowY: "auto",
     }),
     // workaround: duplicate @types/react instances break direct CSSProperties cast
@@ -4358,7 +4365,7 @@ function DefaultGrid({
     <div
       {...groupProps}
       data-testid={testId}
-      className="grid gap-4 grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
+      className="grid gap-[var(--kumiko-grid-gap,1rem)] grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
       style={style}
     >
       {children}
@@ -4708,10 +4715,17 @@ function DefaultSecretReveal({
   testId,
 }: SecretRevealProps): ReactNode {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  // Labels are not unique per reveal; suffix repeats so React keys stay distinct.
+  const seenLabels = new Map<string, number>();
+  const rowKeys = values.map((v) => {
+    const occurrence = seenLabels.get(v.label) ?? 0;
+    seenLabels.set(v.label, occurrence + 1);
+    return `${v.label}#${occurrence}`;
+  });
   return (
     <div data-testid={testId} className="flex flex-col gap-3">
       {values.map((v, i) => (
-        <div key={v.label} className="flex flex-col gap-1.5">
+        <div key={rowKeys[i]} className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-muted-foreground">{v.label}</span>
           <div className="flex items-start gap-2">
             {v.qr === true ? (

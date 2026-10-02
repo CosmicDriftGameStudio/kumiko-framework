@@ -47,6 +47,38 @@ describe("DefaultGrid — maxRows", () => {
     expect(gridAutoRows).toContain("auto");
   });
 
+  test("conditionally omitted children do not count as rows", () => {
+    const hidden = false as boolean;
+    render(
+      <Grid columns={2} maxRows={2} testId="grid">
+        <div>a</div>
+        {hidden && <div>b</div>}
+        {null}
+        <div>c</div>
+        {hidden && <div>d</div>}
+        <div>e</div>
+      </Grid>,
+    );
+    const el = screen.getByTestId("grid");
+    expect(el.style.overflowY).toBe("");
+    expect(el.style.maxHeight).toBe("");
+  });
+
+  test("maxHeight gap shares the --kumiko-grid-gap var with the grid gap class", () => {
+    render(
+      <Grid columns={2} maxRows={2} testId="grid">
+        <div>a</div>
+        <div>b</div>
+        <div>c</div>
+        <div>d</div>
+        <div>e</div>
+      </Grid>,
+    );
+    const el = screen.getByTestId("grid");
+    expect(el.style.maxHeight).toContain("var(--kumiko-grid-gap");
+    expect(el.className).toContain("var(--kumiko-grid-gap");
+  });
+
   test("no maxRows at all → never a scroll container regardless of option count", () => {
     render(
       <Grid columns={2} testId="grid">
