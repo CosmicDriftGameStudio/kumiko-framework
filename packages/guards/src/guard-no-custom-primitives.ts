@@ -28,6 +28,7 @@ import {
   compareToBaseline,
   filesForGuard,
   type GuardViolation,
+  relativeToCwd,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
@@ -66,7 +67,7 @@ function collectRawFormHtml(sf: SourceFile): RawFormFinding[] {
     if (!RAW_FORM_TAGS.has(tag)) continue;
     if (hasIgnoreTag(el, IGNORE_TAG)) continue;
     findings.push({
-      file: path.relative(ROOT, sf.getFilePath()),
+      file: relativeToCwd(sf.getFilePath()),
       line: el.getStartLineNumber(),
       tag,
     });
@@ -146,7 +147,7 @@ function analyse(
       if (!PRIMITIVE_NAME.test(c.name)) continue;
       if (hasIgnoreTag(c.node, IGNORE_TAG)) continue;
       violations.push({
-        file: sf.getFilePath(),
+        file: relativeToCwd(sf.getFilePath()),
         line: c.line,
         message: `App-local UI primitive "${c.name}" — use a framework widget/primitive`,
       });

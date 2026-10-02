@@ -9,7 +9,13 @@
 // respective migration PR (ui-guards input in _app-test.yml).
 
 import { type JsxAttribute, type SourceFile, SyntaxKind } from "ts-morph";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  type AstGuard,
+  type GuardViolation,
+  relativeToCwd,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
 const SCAN: ScanSpec = {
@@ -97,7 +103,7 @@ export const guard: AstGuard = {
           const bad = offendingTokens(part.text);
           if (bad.length === 0) continue;
           violations.push({
-            file: sf.getFilePath(),
+            file: relativeToCwd(sf.getFilePath()),
             line: part.line,
             message: `design-bearing Tailwind classes in app code: ${bad.join(", ")}`,
           });

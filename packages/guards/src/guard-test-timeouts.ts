@@ -2,7 +2,8 @@
 /**
  * Guard: tests wait for a condition, not for time. Flags, in test files and
  * Playwright specs/helpers:
- *   (a) `test.setTimeout(...)`, `test.slow(...)` — raising a timeout hides the
+ *   (a) `test.setTimeout(...)`, `test.slow(...)`, `setDefaultTimeout(...)`,
+ *       `*.describe.configure({ timeout })` — raising a timeout hides the
  *       cause of a slow or flaky test
  *   (b) `<page>.waitForTimeout(...)` — a fixed sleep instead of a condition
  *   (c) sleep loops — a `while`/`do`/`for`/`for…of`/`for…in` whose body calls
@@ -67,6 +68,8 @@ const LOOP_LABELS: ReadonlyMap<SyntaxKind, string> = new Map([
 const SLEEP_CALLEES: ReadonlySet<string> = new Set(["sleep", "Bun.sleep"]);
 const TIMEOUT_RAISING_CALLEES: ReadonlySet<string> = new Set(["test.setTimeout", "test.slow"]);
 const SET_TIMEOUT_CALLEE = /(^|\.)setTimeout$/;
+const SET_DEFAULT_TIMEOUT_CALLEE = /(^|\.)setDefaultTimeout$/;
+const DESCRIBE_CONFIGURE_CALLEE = /(^|\.)describe\.configure$/;
 
 export interface Finding {
   file: string;
@@ -127,10 +130,26 @@ function exceptionNote(node: Node): "allowed" | "incomplete" | "none" {
   return nearby.some((text) => text.includes(EXCEPTION_TAG)) ? "incomplete" : "none";
 }
 
+function hasTimeoutProperty(node: Node | undefined): boolean {
+  return (
+    node !== undefined &&
+    Node.isObjectLiteralExpression(node) &&
+    node.getProperties().some((prop) => {
+      if (Node.isShorthandPropertyAssignment(prop) || Node.isPropertyAssignment(prop)) {
+        return prop.getName() === "timeout";
+      }
+      return false;
+    })
+  );
+}
+
 function raisedTimeoutReason(call: CallExpression): string | undefined {
   const callee = call.getExpression();
   const calleeText = callee.getText();
-  if (TIMEOUT_RAISING_CALLEES.has(calleeText)) {
+  if (TIMEOUT_RAISING_CALLEES.has(calleeText) || SET_DEFAULT_TIMEOUT_CALLEE.test(calleeText)) {
+    return `${calleeText}(…) raises the timeout instead of fixing the cause`;
+  }
+  if (DESCRIBE_CONFIGURE_CALLEE.test(calleeText) && call.getArguments().some(hasTimeoutProperty)) {
     return `${calleeText}(…) raises the timeout instead of fixing the cause`;
   }
   if (Node.isPropertyAccessExpression(callee) && callee.getName() === "waitForTimeout") {

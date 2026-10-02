@@ -65,6 +65,15 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(stderr).toBe("");
   });
 
+  test("list rejects unknown flags instead of silently ignoring them", async () => {
+    const { exitCode, stdout, stderr } = await runCli(["list", "--nope"]);
+
+    expect(exitCode).toBe(1);
+    expect(stdout).toBe("");
+    expect(stderr).toContain("Unknown argument");
+    expect(stderr).toContain("(none)");
+  });
+
   test("list prints the registration inventory as JSON, without running any suite", async () => {
     const { exitCode, stdout, stderr } = await runCli(["list"]);
 

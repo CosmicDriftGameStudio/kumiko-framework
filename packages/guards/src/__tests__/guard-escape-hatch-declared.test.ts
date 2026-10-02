@@ -1115,6 +1115,8 @@ export async function loadSomething(passedCtx: typeof ctx) {
       "unsafe-raw-outside-system-scope",
     ]);
     expect(findGenericReasonCalls(sfs, "/r")).toHaveLength(0);
+    const hinted = findEscapeHatchFindings(sfs, "/r")[0];
+    expect(hinted?.message).toMatch(/`let`\/non-`const` binding/);
   });
 
   test("rejects a reason imported from another module, and the message says why (AC3)", () => {

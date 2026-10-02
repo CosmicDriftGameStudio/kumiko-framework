@@ -86,6 +86,46 @@ describe("guard-fake-tests — same-file helper resolution", () => {
     expect(violations).toHaveLength(1);
   });
 
+  test("a helper first seen at the depth limit is re-explored when called directly later", () => {
+    const violations = run(`
+      function inner() {
+        expect(2 + 2).toBe(4);
+      }
+      function helper() {
+        inner();
+      }
+      function c2() {
+        helper();
+      }
+      function c1() {
+        c2();
+      }
+      test("reaches helper deep first, then directly", () => {
+        c1();
+        helper();
+      });
+    `);
+    expect(violations).toHaveLength(0);
+  });
+
+  test("a same-named helper nested in another scope does not clear the call to the file-level one", () => {
+    const violations = run(`
+      function other() {
+        function check() {
+          expect(2 + 2).toBe(4);
+        }
+        check();
+      }
+      function check() {
+        doSomething();
+      }
+      test("calls the silent file-level check", () => {
+        check();
+      });
+    `);
+    expect(violations).toHaveLength(1);
+  });
+
   test("a recursive helper without an assertion is a violation, not an infinite loop", () => {
     const violations = run(`
       function loop() {

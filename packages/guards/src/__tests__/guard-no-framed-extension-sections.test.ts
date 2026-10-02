@@ -193,6 +193,52 @@ const screen = { kind: "custom", id: "filter-echo", component: { react: { __comp
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
 
+  test("two features with a same-named local const do not share the custom-panel exemption", () => {
+    const featureA = parse(
+      `const PANEL_COMPONENT = "a-panel";
+function CapCards() { return <Card>x</Card>; }
+export function aClient() {
+  return { extensionSectionComponents: { [PANEL_COMPONENT]: CapCards } };
+}
+const screen = { kind: "custom", component: { react: { __component: PANEL_COMPONENT } } };`,
+      "src/features/a/web/client-plugin.tsx",
+    );
+    const featureB = parse(
+      `const PANEL_COMPONENT = "b-panel";
+function OtherCards() { return <Card>x</Card>; }
+export function bClient() {
+  return { extensionSectionComponents: { [PANEL_COMPONENT]: OtherCards } };
+}`,
+      "src/features/b/web/client-plugin.tsx",
+    );
+    const violations = guard.run([featureA, featureB]).violations;
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("OtherCards");
+  });
+
+  test("a resolved const key correlates with the equal string-literal usage", () => {
+    const sf = parse(
+      `const PANEL_COMPONENT = "cap-cards-panel";
+function CapCards() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [PANEL_COMPONENT]: CapCards } };
+}
+const screen = { kind: "custom", component: { react: { __component: "cap-cards-panel" } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+
+  test("a string-literal usage does not match an unresolvable computed key of the same text", () => {
+    const sf = parse(
+      `function CapCards() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [FOO]: CapCards } };
+}
+const screen = { kind: "custom", component: { react: { __component: "FOO" } } };`,
+    );
+    expect(guard.run([sf]).violations).toHaveLength(1);
+  });
+
   test("a component used as a section is still flagged even when it is also used as a custom panel elsewhere", () => {
     const sf = parse(
       `function NotesSection() { return <Card>x</Card>; }

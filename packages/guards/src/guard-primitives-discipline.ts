@@ -167,10 +167,11 @@ function walk(dir: string, out: string[]): void {
 }
 
 function buildTagPattern(tag: string): RegExp {
-  // Match `<tag` at the JSX opening: after whitespace, a paren, or >.
+  // Match `<tag` at the JSX opening: at line start or after a char that can't
+  // end an identifier/member access (`cond?<input/>:<div/>` hits, `Array<input` doesn't).
   // Negative lookahead `[a-zA-Z0-9-]` so `<input` doesn't match `<inputfoo`.
   // Doesn't match the closing tag (`</tag>`) — that would be redundant.
-  return new RegExp(`(^|[\\s(>{,;])<${tag}(?![a-zA-Z0-9-])`, "u");
+  return new RegExp(`(^|[^\\w$.])<${tag}(?![a-zA-Z0-9-])`, "u");
 }
 
 const TAG_PATTERNS = FORBIDDEN_TAGS.map((t) => ({ ...t, pattern: buildTagPattern(t.tag) }));

@@ -11,7 +11,13 @@
 // Part of App-Mounting 2.0 (infra#208).
 
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  type AstGuard,
+  type GuardViolation,
+  relativeToCwd,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
 // Match property/identifier names instead of call text — otherwise
@@ -53,7 +59,7 @@ export const guard: AstGuard = {
         if (BANNED_HOOKS.has(name)) {
           if (hasIgnoreTag(call, IGNORE_TAG)) continue;
           violations.push({
-            file: sf.getFilePath(),
+            file: relativeToCwd(sf.getFilePath()),
             line: call.getStartLineNumber(),
             message: `${name} in App-Screen — use framework hooks (useQuery/useMutation/useDisclosure)`,
           });
@@ -62,7 +68,7 @@ export const guard: AstGuard = {
         if (name === "fetch") {
           if (hasIgnoreTag(call, IGNORE_TAG)) continue;
           violations.push({
-            file: sf.getFilePath(),
+            file: relativeToCwd(sf.getFilePath()),
             line: call.getStartLineNumber(),
             message: "fetch() in App-Screen — use useQuery/useMutation or an API client (*.ts)",
           });

@@ -5,7 +5,13 @@
 // Part of App-Mounting 2.0 (infra#208).
 
 import { type SourceFile, SyntaxKind } from "ts-morph";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  type AstGuard,
+  type GuardViolation,
+  relativeToCwd,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
 const SCAN: ScanSpec = {
@@ -30,7 +36,7 @@ export const guard: AstGuard = {
         if (attr.getNameNode().getText() !== "style") continue;
         if (hasIgnoreTag(attr, IGNORE_TAG)) continue;
         violations.push({
-          file: sf.getFilePath(),
+          file: relativeToCwd(sf.getFilePath()),
           line: attr.getStartLineNumber(),
           message: "style= prop in app code (use theme tokens/widgets)",
         });
@@ -45,7 +51,7 @@ export const guard: AstGuard = {
         if (name !== "CSSProperties" && name !== "React.CSSProperties") continue;
         if (hasIgnoreTag(ref, IGNORE_TAG)) continue;
         violations.push({
-          file: sf.getFilePath(),
+          file: relativeToCwd(sf.getFilePath()),
           line: ref.getStartLineNumber(),
           message: "CSSProperties style object in app code (use theme tokens/widgets)",
         });

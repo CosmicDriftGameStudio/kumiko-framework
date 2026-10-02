@@ -36,6 +36,17 @@ describe("test-timeouts guard — violations", () => {
     ]);
   });
 
+  test("flags setDefaultTimeout", () => {
+    expect(messages("setDefaultTimeout(30_000);")).toEqual([
+      expect.stringContaining("setDefaultTimeout(…) raises the timeout"),
+    ]);
+  });
+
+  test("flags describe.configure with a timeout, not without", () => {
+    expect(messages("test.describe.configure({ timeout: 90_000 });")).toHaveLength(1);
+    expect(messages('test.describe.configure({ mode: "serial" });')).toEqual([]);
+  });
+
   test("flags test.slow", () => {
     expect(messages("test.slow();")).toEqual([expect.stringContaining("test.slow(…)")]);
   });

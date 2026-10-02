@@ -44,7 +44,7 @@ const RULES: Record<"de" | "es", LocaleRule> = {
     // Tenants? covers plural; Organisation(en|s)? without trailing \b so
     // compounds like Organisations-ID / Organisationsstruktur still match
     // (infra#603). TenantAdmin stays safe: \b after Tenant fails on 'A'.
-    forbidden: [/\bTenants?\b/i, /\bOrganisation(en|s)?/],
+    forbidden: [/\bTenants?\b/i, /\bOrganisation(en|s)?/i],
   },
   es: {
     preferred: "Organización",

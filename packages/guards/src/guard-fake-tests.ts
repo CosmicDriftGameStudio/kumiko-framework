@@ -77,40 +77,47 @@ function isDirectAssertionCall(call: CallExpression): boolean {
   return ASSERTION_API_METHODS.has(name);
 }
 
-// A bare identifier `foo(...)` counts as an assertion when `foo` is declared
-// in the SAME file (function declaration, or a variable initialized with an
-// arrow/function expression, at any nesting level) and its own body asserts —
+// A bare identifier `foo(...)` counts as an assertion when `foo` resolves
+// (by symbol, so a same-named helper in another scope is not confused with it)
+// to a declaration in the SAME file (function declaration, or a variable
+// initialized with an arrow/function expression) whose own body asserts —
 // recursively, so a chain of thin wrappers around expect() still counts.
-function resolveSameFileHelper(sf: SourceFile, name: string): Node | undefined {
-  const fn = sf
-    .getDescendantsOfKind(SyntaxKind.FunctionDeclaration)
-    .find((f) => f.getName() === name);
-  if (fn) return fn;
-  const varDecl = sf
-    .getDescendantsOfKind(SyntaxKind.VariableDeclaration)
-    .find((v) => v.getName() === name);
-  const init = varDecl?.getInitializer();
-  if (
-    init &&
-    (init.isKind(SyntaxKind.ArrowFunction) || init.isKind(SyntaxKind.FunctionExpression))
-  ) {
-    return init;
+function resolveSameFileHelper(sf: SourceFile, identifier: Node): Node | undefined {
+  for (const decl of identifier.getSymbol()?.getDeclarations() ?? []) {
+    if (decl.getSourceFile() !== sf) continue;
+    if (decl.isKind(SyntaxKind.FunctionDeclaration)) return decl;
+    if (!decl.isKind(SyntaxKind.VariableDeclaration)) continue;
+    const init = decl.getInitializer();
+    if (
+      init &&
+      (init.isKind(SyntaxKind.ArrowFunction) || init.isKind(SyntaxKind.FunctionExpression))
+    ) {
+      return init;
+    }
   }
   return undefined;
 }
 
-// depth limit + visited set: a helper chain deeper than the limit is treated
-// as unproven (violation), and a recursive helper never infinite-loops.
-function bodyHasAssertion(node: Node, sf: SourceFile, depth: number, visited: Set<Node>): boolean {
-  if (visited.has(node)) return false;
-  visited.add(node);
+// depth limit + shallowest-visit memo: a helper chain deeper than the limit is
+// treated as unproven (violation), a recursive helper never infinite-loops, and
+// a helper first reached at the depth limit is still explored when reached
+// again via a shorter path.
+function bodyHasAssertion(
+  node: Node,
+  sf: SourceFile,
+  depth: number,
+  shallowestVisit: Map<Node, number>,
+): boolean {
+  const seenAt = shallowestVisit.get(node);
+  if (seenAt !== undefined && seenAt <= depth) return false;
+  shallowestVisit.set(node, depth);
   for (const call of node.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     if (isDirectAssertionCall(call)) return true;
     if (depth >= MAX_HELPER_DEPTH) continue;
     const expr = call.getExpression();
     if (!expr.isKind(SyntaxKind.Identifier)) continue;
-    const helper = resolveSameFileHelper(sf, expr.getText());
-    if (helper && bodyHasAssertion(helper, sf, depth + 1, visited)) return true;
+    const helper = resolveSameFileHelper(sf, expr);
+    if (helper && bodyHasAssertion(helper, sf, depth + 1, shallowestVisit)) return true;
   }
   return false;
 }
@@ -141,7 +148,7 @@ function scanFile(sf: SourceFile): Violation[] {
     const isArrowOrFn =
       body.isKind(SyntaxKind.ArrowFunction) || body.isKind(SyntaxKind.FunctionExpression);
     if (!isArrowOrFn) continue;
-    const hasAssertion = bodyHasAssertion(body, sf, 0, new Set());
+    const hasAssertion = bodyHasAssertion(body, sf, 0, new Map());
     if (!hasAssertion) {
       const nameArg = args[0]?.getText().slice(0, 50) ?? "<anonymous>";
       violations.push({
