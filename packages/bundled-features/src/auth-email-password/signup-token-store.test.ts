@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { normalizeEmail, storeSignupToken } from "./signup-token-store.js";
 
-// Only integration tests (signup-flow.integration.test.ts) exercised this
-// module before — none assert on the raw Redis key, so a case-sensitivity
-// regression in the by-email key wouldn't be caught: two signups from
+// Asserts on the raw Redis key: a case-sensitivity
+// regression in the by-email key wouldn't be caught otherwise: two signups from
 // "User@Example.com" and "user@example.com" would silently get separate
 // live-token entries instead of the second invalidating the first.
 function fakeRedis() {

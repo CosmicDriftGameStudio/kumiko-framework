@@ -189,12 +189,14 @@ function isKnownRecurringInterval(interval: string | undefined): interval is Rec
 
 function mapStripePrice(price: Stripe.Price): ProviderPrice {
   const interval = price.recurring?.interval;
+  const knownInterval = isKnownRecurringInterval(interval) ? interval : null;
   return {
     priceId: price.id,
     unitAmount: price.unit_amount,
     currency: price.currency,
-    interval: isKnownRecurringInterval(interval) ? interval : null,
-    intervalCount: price.recurring?.interval_count ?? null,
+    interval: knownInterval,
+    // Kept consistent with `interval`: a count without an interval would read as a half-recurring price.
+    intervalCount: knownInterval ? (price.recurring?.interval_count ?? null) : null,
     active: price.active,
     metadata: price.metadata ?? {},
   };
@@ -263,6 +265,7 @@ async function resolvePricesViaCache(
 }
 
 export function createStripeRetrievePrices(runtime: StripeCtxRuntime, cache: StripePriceCache) {
+  const warnedUnknownIntervalPriceIds = new Set<string>();
   return async (
     ctx: HandlerContext,
     priceIds: readonly string[],
@@ -270,7 +273,17 @@ export function createStripeRetrievePrices(runtime: StripeCtxRuntime, cache: Str
     await resolvePricesViaCache(runtime, cache, ctx, priceIds);
     return priceIds.flatMap((priceId) => {
       const price = cache.get(priceId);
-      return price ? [mapStripePrice(price)] : [];
+      if (!price) return [];
+      const mapped = mapStripePrice(price);
+      const rawInterval = price.recurring?.interval;
+      if (rawInterval && mapped.interval === null && !warnedUnknownIntervalPriceIds.has(priceId)) {
+        warnedUnknownIntervalPriceIds.add(priceId);
+        ctx.log?.warn("subscription-stripe: price has an unknown recurring interval", {
+          priceId,
+          interval: rawInterval,
+        });
+      }
+      return [mapped];
     });
   };
 }
@@ -311,7 +324,7 @@ function resolveProductId(product: string | Stripe.Product | Stripe.DeletedProdu
 }
 
 /** Both our own pre-Stripe-call product+interval collision check and a live
- *  `StripeInvalidRequestError` from `configurations.create()`/`sessions.create()`
+ *  `StripeInvalidRequestError` from `configurations.create()`
  *  surface the same underlying misconfiguration (two plan tiers sharing one
  *  Stripe product) — mapped to the same `UnprocessableError` so the panel
  *  only needs one i18nKey to translate. */
@@ -515,7 +528,9 @@ export function createStripePlanSwitchSession(
       // out-of-band) must not poison every subsequent switch for the same
       // price-set — evict it so the next call re-searches/re-creates.
       portalConfigCache.delete(hash);
-      if (isPlanTiersShareProductStripeError(error)) throw planTiersShareProductError(error);
+      // Not mapped to plan_tiers_share_product: a sessions.create error under
+      // flow_data.subscription_update_confirm.* is a different problem (inactive
+      // target price, wrong item) and mapping it would hide the real cause.
       throw error;
     }
   };

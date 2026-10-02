@@ -19,7 +19,11 @@ export { isIdentityV3Hash, verifyIdentityV3Hash } from "./identity-v3-hash.js";
 export { isTenantDb } from "./is-tenant-db.js";
 export { createLockoutCounter, type LockoutCounterState } from "./lockout-counter.js";
 export { mapWithConcurrency } from "./map-with-concurrency.js";
-export { joinRowParentIsVisible, parentRowIsVisible } from "./parent-visibility.js";
+export {
+  denyUnlessJoinRowParentVisible,
+  joinRowParentIsVisible,
+  parentRowIsVisible,
+} from "./parent-visibility.js";
 export { hashPassword, verifyDummyPassword, verifyPassword } from "./password-hashing.js";
 export {
   type RowBoundGrantResult,

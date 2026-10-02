@@ -18,20 +18,14 @@
 import type { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { resolvePublicHostname } from "@cosmicdrift/kumiko-framework/http";
+import { isHostAllowlisted, readHostAllowlistFromEnv } from "./host-allowlist.js";
 
 export const MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR = "KUMIKO_MAIL_ALLOWED_PRIVATE_HOSTS";
 
-/** Parses the comma-separated operator allowlist env var. Never throws —
- *  an unset or empty value just means no bypass. */
 export function readAllowedPrivateMailHostsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
-  const raw = env[MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((host) => host.trim())
-    .filter((host) => host.length > 0);
+  return readHostAllowlistFromEnv(MAIL_ALLOWED_PRIVATE_HOSTS_ENV_VAR, env);
 }
 
 export type MailHostGuardOptions = {
@@ -44,15 +38,11 @@ export type MailConnectTarget = {
   readonly servername?: string;
 };
 
-function isAllowedPrivateMailHost(host: string, allowed: readonly string[]): boolean {
-  return allowed.some((candidate) => candidate.toLowerCase() === host.toLowerCase());
-}
-
 export async function resolveMailConnectTarget(
   host: string,
   options: MailHostGuardOptions = {},
 ): Promise<MailConnectTarget> {
-  if (isAllowedPrivateMailHost(host, options.allowedPrivateMailHosts ?? [])) {
+  if (isHostAllowlisted(host, options.allowedPrivateMailHosts ?? [])) {
     return { host };
   }
   const resolved = await resolvePublicHostname(host, options.lookupFn);

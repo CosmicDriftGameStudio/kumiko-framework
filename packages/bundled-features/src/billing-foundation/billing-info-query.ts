@@ -1,6 +1,6 @@
 // Generic billing-info query-handler-config factory. Extracted from the
 // near-identical billing-info.query.ts app copies in show-pony and
-// publicstatus (infra#446) — the only per-app variables were the
+// publicstatus — the only per-app variables were the
 // TTier union/resolver, the allowed roles, and how Stripe prices are read
 // off the app's extraContext.
 //

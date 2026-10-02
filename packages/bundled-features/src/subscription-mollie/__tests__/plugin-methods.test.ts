@@ -83,4 +83,56 @@ describe("createMollieCheckoutSession", () => {
     expect(result).toEqual({ url: "https://www.mollie.com/checkout/topup" });
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ sequenceType: "oneoff" }));
   });
+
+  const TOPUP_CONFIG: Readonly<Record<string, MolliePriceConfig>> = {
+    topup_10: { amountValue: "10.00", amountCurrency: "EUR", description: "Top-up" },
+  };
+  const topupOptions = {
+    priceId: "topup_10",
+    tenantId: "tenant-003",
+    successUrl: "https://example.com/success",
+    cancelUrl: "https://example.com/cancel",
+    providerCustomerId: "cus_existing",
+  };
+
+  test("price without interval booked as subscription → throws before any payment is created", async () => {
+    const client = buildClient();
+    const createMock = spyOn(client.payments, "create");
+    const checkout = createMollieCheckoutSession(
+      client as unknown as MollieClient,
+      TOPUP_CONFIG,
+      WEBHOOK_URL,
+    );
+
+    await expect(checkout(stubCtx, topupOptions)).rejects.toThrow(/no interval/);
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  test("price without interval with mode='payment' → one-off checkout works", async () => {
+    const client = buildClient();
+    const checkout = createMollieCheckoutSession(
+      client as unknown as MollieClient,
+      TOPUP_CONFIG,
+      WEBHOOK_URL,
+    );
+
+    const result = await checkout(stubCtx, { ...topupOptions, mode: "payment" });
+    expect(result).toEqual({ url: "https://www.mollie.com/checkout/mock" });
+  });
+
+  test("null checkout url: mandate hint only for first payments", async () => {
+    const client = buildClient();
+    spyOn(client.payments, "create").mockResolvedValue({ getCheckoutUrl: () => null } as never);
+    const checkout = createMollieCheckoutSession(
+      client as unknown as MollieClient,
+      PRICE_CONFIG,
+      WEBHOOK_URL,
+    );
+    const base = { ...topupOptions, priceId: "plan_pro" };
+
+    await expect(checkout(stubCtx, base)).rejects.toThrow(/sequenceType=first.*mandates/);
+    const oneoff = checkout(stubCtx, { ...base, mode: "payment" });
+    await expect(oneoff).rejects.toThrow(/sequenceType=oneoff/);
+    await expect(oneoff).rejects.not.toThrow(/mandates/);
+  });
 });

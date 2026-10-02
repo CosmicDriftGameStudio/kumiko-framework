@@ -3,7 +3,7 @@
 // als minimal-mock-shape (`MollieClientShape`) injiziert; Plugin-
 // Verhalten ist vom konkreten Mollie-SDK entkoppelt.
 
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import {
   SubscriptionEventTypes,
   SubscriptionStatuses,
@@ -306,6 +306,31 @@ describe("verifyAndParseMollieWebhook — error + ignore paths", () => {
       }),
     });
     expect(await verify(client)("id=tr_unknown_price", {})).toBeNull();
+  });
+
+  test("first-payment-paid für Preis ohne interval → null, keine Mollie-Subscription", async () => {
+    const client = buildClient({
+      paymentResolve: buildMockPayment({
+        subscriptionId: null,
+        sequenceType: "first",
+        status: "paid",
+        metadata: { tenantId: "tenant-test", priceId: "topup_10" },
+      }),
+    });
+    const verifyNoInterval = verifyAndParseMollieWebhook(client, {
+      priceToTier: { topup_10: "pro" },
+      priceToConfig: {
+        topup_10: { amountValue: "10.00", amountCurrency: "EUR", description: "Top-up" },
+      },
+    });
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(await verifyNoInterval("id=tr_topup", {})).toBeNull();
+      expect(client.customerSubscriptions.create).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("subscription ohne metadata.tenantId → null", async () => {
