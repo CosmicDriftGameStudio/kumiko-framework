@@ -54,6 +54,7 @@ export type {
 } from "./form/index.js";
 export {
   createFormController,
+  groupIssuesByPath,
   I18N_KEY_PARAM,
   relevantFieldIssues,
   zodErrorToFieldIssues,
