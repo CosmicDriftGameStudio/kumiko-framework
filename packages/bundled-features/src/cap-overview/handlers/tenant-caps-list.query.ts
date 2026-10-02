@@ -60,13 +60,14 @@ async function resolveLimitsByCapAndTier(
   tiers: ReadonlySet<string>,
   context: CapLimitContext,
 ): Promise<ReadonlyMap<string, number | null>> {
-  const limitByCapAndTier = new Map<string, number | null>();
-  for (const cap of caps) {
-    for (const tier of tiers) {
-      limitByCapAndTier.set(capTierKey(cap.id, tier), await cap.limit(tier, context));
-    }
-  }
-  return limitByCapAndTier;
+  const entries = await Promise.all(
+    caps.flatMap((cap) =>
+      [...tiers].map(
+        async (tier) => [capTierKey(cap.id, tier), await cap.limit(tier, context)] as const,
+      ),
+    ),
+  );
+  return new Map(entries);
 }
 
 function isSortableField(field: string): field is SortableField {

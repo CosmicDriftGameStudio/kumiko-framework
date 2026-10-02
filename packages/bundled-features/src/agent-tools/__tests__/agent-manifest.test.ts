@@ -314,4 +314,53 @@ describe("buildAgentManifest", () => {
     expect(withKey?.description).toBe("Prose the agent should see.");
     expect(withLiteral?.description).toBe("Literal, never registered as a key.");
   });
+  test("a detail screen reports its configured idParam, defaulting to id", () => {
+    const feature = defineFeature("detail-param-test", (r) => {
+      r.screen({
+        id: "by-slug",
+        type: "projectionDetail",
+        query: "detail-param-test:query:thing:details",
+        idParam: "slug",
+        detailFor: "thing",
+        layout: { sections: [{ fields: ["name"] }] },
+      });
+      r.screen({
+        id: "by-default",
+        type: "projectionDetail",
+        query: "detail-param-test:query:other:details",
+        detailFor: "other",
+        layout: { sections: [{ fields: ["name"] }] },
+      });
+    });
+
+    const manifest = buildAgentManifest(createRegistry([feature]), {
+      locale: "en",
+      roles: ["admin"],
+    });
+
+    expect(manifest.screens.find((s) => s.id.endsWith("by-slug"))?.params).toEqual(["slug"]);
+    expect(manifest.screens.find((s) => s.id.endsWith("by-default"))?.params).toEqual(["id"]);
+  });
+
+  test("entity and field labels resolve via suffix match, first registered key wins", () => {
+    const feature = defineFeature("label-suffix-test", (r) => {
+      r.entity("widget", gatedEntity);
+      r.translations({
+        keys: {
+          "label-suffix-test:entity:widget": { en: "Widget" },
+          "label-suffix-test:entity:widget:field:title": { en: "Title" },
+        },
+      });
+    });
+
+    const manifest = buildAgentManifest(createRegistry([feature]), {
+      locale: "en",
+      roles: ["admin"],
+    });
+
+    const widget = manifest.entities.find((e) => e.name === "widget");
+    expect(widget?.labels["en"]).toBe("Widget");
+    expect(widget?.fields.find((f) => f.name === "title")?.labels["en"]).toBe("Title");
+    expect(widget?.fields.find((f) => f.name === "status")?.labels).toEqual({});
+  });
 });

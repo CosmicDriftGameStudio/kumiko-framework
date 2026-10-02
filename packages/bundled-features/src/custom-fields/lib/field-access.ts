@@ -3,6 +3,7 @@
 // value-validation off one DB read (no double fetch).
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { selectSerializedFieldDefinition } from "../db/queries/field-access.js";
 import { parseSerializedField, type SerializedFieldShape } from "./parse-serialized-field.js";
 
@@ -21,9 +22,10 @@ export type LoadedFieldDefinition =
   // definition must not silently drop a per-field write restriction.
   | { found: true; field: SerializedFieldShape | null };
 
+// `runner` is deliberately unscoped: tenant isolation rests solely on `tenantId`.
 export async function loadFieldDefinition(
   runner: DbRunner,
-  tenantId: string,
+  tenantId: TenantId,
   entityName: string,
   fieldKey: string,
 ): Promise<LoadedFieldDefinition> {
@@ -58,7 +60,7 @@ export function fieldWriteAccessDeniedRoles(
 // needed there) — does the load + access-check in one call.
 export async function checkFieldAccessForWrite(
   runner: DbRunner,
-  tenantId: string,
+  tenantId: TenantId,
   entityName: string,
   fieldKey: string,
   userRoles: ReadonlyArray<string>,

@@ -15,6 +15,18 @@ export type EnableStartOptions = {
   readonly issuer: string;
 };
 
+const FALLBACK_ACCOUNT_LABEL = "account";
+
+// The authenticator app shows this label, so an internal user id must never leak into it.
+function readableAccountLabel(me: unknown): string {
+  if (typeof me !== "object" || me === null) return FALLBACK_ACCOUNT_LABEL;
+  for (const field of ["email", "displayName"]) {
+    const value: unknown = Reflect.get(me, field);
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return FALLBACK_ACCOUNT_LABEL;
+}
+
 // Stateless setup: no `userMfa` row is created here. The generated secret +
 // recovery-code hashes are signed into a short-lived `setupToken` (see
 // mfa-setup-token.ts) that `enable-confirm` verifies. An abandoned setup
@@ -49,10 +61,7 @@ export function createEnableStartHandler(opts: EnableStartOptions) {
       if (!accountLabel) {
         // The declarative secretMint screen has no client component left to
         // read the session email off — derive the otpauth label server-side.
-        const me = (await ctx.queryAs(event.user, UserQueries.me, {})) as {
-          email?: string;
-        } | null; // @cast-boundary engine-payload
-        accountLabel = me?.email ?? event.user.id;
+        accountLabel = readableAccountLabel(await ctx.queryAs(event.user, UserQueries.me, {}));
       }
 
       const secret = generateTotpSecret();
