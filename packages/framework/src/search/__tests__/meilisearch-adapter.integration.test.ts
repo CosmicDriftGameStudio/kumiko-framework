@@ -391,6 +391,27 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — dropAllIndexes", () => {
     expect(await indexUids(foreignPrefix)).toHaveLength(1);
   });
 
+  test("keeps indexes of a longer sibling prefix and non-tenant indexes", async () => {
+    const base = `test_nest_${uuid()}_`;
+    createdPrefixes.push(base, `${base}x_`);
+    const make = (indexPrefix: string): SearchAdapter => {
+      const created = createMeilisearchAdapter({ url: MEILI_URL, apiKey: MEILI_KEY, indexPrefix });
+      created.setDefaultConfig?.({ searchableFields: ["firstName"] });
+      return created;
+    };
+    const shortAdapter = make(base);
+    await shortAdapter.index(uuid(), doc);
+    await make(`${base}x_`).index(uuid(), doc);
+    await dropClient.createIndex(`${base}notes`).waitTask();
+
+    expect(await shortAdapter.dropAllIndexes?.()).toBe(1);
+
+    const remaining = await indexUids(base);
+    expect(remaining).toHaveLength(2);
+    expect(remaining.some((uid) => uid.startsWith(`${base}x_t`))).toBe(true);
+    expect(remaining).toContain(`${base}notes`);
+  });
+
   test("index and filtered search work again after a drop (configured state is reset)", async () => {
     const { adapter: dropAdapter } = adapterWithFreshPrefix();
     const tenant = uuid();

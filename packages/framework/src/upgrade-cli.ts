@@ -125,7 +125,10 @@ export function findPackageChangelogFiles(cwd: string): string[] {
     const scopeDir = join(dir, "node_modules/@cosmicdrift");
     if (existsSync(scopeDir)) {
       const pkgNames = readdirSync(scopeDir, { withFileTypes: true })
-        .filter((d) => d.isDirectory() && d.name !== "kumiko-bundled-features")
+        // Dirent has lstat semantics: workspace-linked packages are symlinks.
+        .filter(
+          (d) => (d.isDirectory() || d.isSymbolicLink()) && d.name !== "kumiko-bundled-features",
+        )
         .map((d) => d.name);
       for (const name of pkgNames) {
         if (seenNames.has(name)) continue;
@@ -576,11 +579,24 @@ export async function runUpgradeCli(
   if (getFlag(args, "apply")) {
     // Marker must reflect what is actually installed under the target (or
     // cwd), not the filter baseline above — otherwise CI stays green forever.
-    const markerVersion =
-      (dirFlag ? readCurrentVersion(targetDir) : null) ?? installedVersion ?? currentVersion;
+    const markerVersion = dirFlag ? readCurrentVersion(targetDir) : installedVersion;
     const dryRun = getFlag(args, "dry-run");
+    if (markerVersion === null && !dryRun) {
+      out.err("");
+      out.err(`  Could not detect the installed Kumiko version under ${targetDir}.`);
+      out.err("  Refusing to write an upgrade marker without it (--from is only a filter).");
+      out.err("");
+      return 1;
+    }
     out.log("");
-    const code = await applyCodemods(out, pending, repoRoot, targetDir, dryRun, markerVersion);
+    const code = await applyCodemods(
+      out,
+      pending,
+      repoRoot,
+      targetDir,
+      dryRun,
+      markerVersion ?? currentVersion,
+    );
     out.log("");
     return code;
   }

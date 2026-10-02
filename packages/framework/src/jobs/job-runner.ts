@@ -687,6 +687,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     readonly attemptsMade: number;
   };
 
+  async function reportPreRunFailure(
+    jobName: string,
+    bullJob: JobInvocation,
+    err: unknown,
+  ): Promise<void> {
+    const message = err instanceof Error ? err.message : String(err);
+    await options.onJobFailed?.(jobName, bullJob.id ?? "unknown", message, [
+      { level: "error", message, timestamp: Temporal.Now.instant() },
+    ]);
+  }
+
   async function handleJob(bullJob: JobInvocation): Promise<void> {
     const rawName = bullJob.name;
 
@@ -696,40 +707,52 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // (it's picked up by this runner's own worker).
     if (rawName.startsWith("_perTenant:")) {
       const actualName = rawName.slice("_perTenant:".length);
-      if (!getActiveTenantIds) {
-        throw new Error(
-          `perTenant job "${actualName}" requires either options.getActiveTenantIds or the ` +
-            `tenant feature mounted (it registers "${ACTIVE_TENANT_IDS_QUERY_NAME}", which the ` +
-            "framework uses to resolve active tenants on its own)",
-        );
-      }
-      const actualDef = allJobs.get(actualName);
-      if (!actualDef) {
-        throw new Error(`Unknown job: ${actualName}`);
-      }
-      const tenantIds = await getActiveTenantIds();
-      const targetQueue = queues[laneForJob(actualDef)];
-      // wrapperJobId is only absent for a Job BullMQ somehow never assigned
-      // an id to (not observed in practice) — falling back to a constant
-      // there would collide every such run's children onto the same ids
-      // and silently swallow later runs as "duplicates", which is worse
-      // than the duplicate this is meant to prevent. Skip id-based dedup
-      // for that edge case instead: enqueue plainly, same as before.
-      const wrapperJobId = bullJob.id;
-      for (const tenantId of tenantIds) {
-        await targetQueue.add(
-          actualName,
-          { ...bullJob.data, _tenantId: tenantId },
-          {
-            ...buildRetryBullOpts(actualDef),
-            // Dedup over wrapper retries only holds as long as the children
-            // stay in Redis for the wrapper's whole retry window — see the
-            // COMPLETED_JOB_RETENTION_AGE_SEC invariant check above.
-            ...(wrapperJobId !== undefined
-              ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
-              : {}),
-          },
-        );
+      // These throws happen before runInSpan, so its onJobFailed never sees them
+      // and a drained test stack would stay green over a fan-out that never ran.
+      try {
+        if (!getActiveTenantIds) {
+          throw new Error(
+            `perTenant job "${actualName}" requires either options.getActiveTenantIds or the ` +
+              `tenant feature mounted (it registers "${ACTIVE_TENANT_IDS_QUERY_NAME}", which the ` +
+              "framework uses to resolve active tenants on its own)",
+          );
+        }
+        const actualDef = allJobs.get(actualName);
+        if (!actualDef) {
+          throw new Error(`Unknown job: ${actualName}`);
+        }
+        const tenantIds = await getActiveTenantIds();
+        const targetQueue = queues[laneForJob(actualDef)];
+        // wrapperJobId is only absent for a Job BullMQ somehow never assigned
+        // an id to (not observed in practice) — falling back to a constant
+        // there would collide every such run's children onto the same ids
+        // and silently swallow later runs as "duplicates", which is worse
+        // than the duplicate this is meant to prevent. Skip id-based dedup
+        // for that edge case instead: enqueue plainly, same as before.
+        const wrapperJobId = bullJob.id;
+        for (const tenantId of tenantIds) {
+          await targetQueue.add(
+            actualName,
+            { ...bullJob.data, _tenantId: tenantId },
+            {
+              ...buildRetryBullOpts(actualDef),
+              // Dedup over wrapper retries only holds as long as the children
+              // stay in Redis for the wrapper's whole retry window — see the
+              // COMPLETED_JOB_RETENTION_AGE_SEC invariant check above.
+              ...(wrapperJobId !== undefined
+                ? { jobId: perTenantChildJobId(wrapperJobId, tenantId) }
+                : {}),
+            },
+          );
+        }
+      } catch (err) {
+        // A retry may still succeed, and a succeeding wrapper reports no completion
+        // that could clear an earlier failure, so only the final attempt is reported.
+        const retries = allJobs.get(actualName)?.retries ?? 0;
+        if (bullJob.attemptsMade + 1 >= retries + 1) {
+          await reportPreRunFailure(rawName, bullJob, err);
+        }
+        throw err;
       }
       // skip: fan-out dispatcher job, per-tenant children enqueued
       return;
@@ -738,7 +761,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const jobName = rawName;
     const jobDef = allJobs.get(jobName);
     if (!jobDef) {
-      throw new Error(`Unknown job: ${jobName}`);
+      const err = new Error(`Unknown job: ${jobName}`);
+      await reportPreRunFailure(jobName, bullJob, err);
+      throw err;
     }
 
     // Sequential gate: try to claim the per-name lock. If another worker

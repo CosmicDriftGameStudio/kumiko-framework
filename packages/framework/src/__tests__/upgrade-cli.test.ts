@@ -337,6 +337,20 @@ describe("resolveCodemodScript", () => {
     expect(resolveCodemodScript(REAL_REPO_ROOT, undefined)).toBeNull();
   });
 
+  test("findPackageChangelogFiles follows workspace-symlinked @cosmicdrift packages", () => {
+    const cwd = tmp({
+      "linked/framework/src/changes.json": "[]",
+      "apps/web/package.json": "{}",
+    });
+    const scopeDir = join(cwd, "node_modules/@cosmicdrift");
+    mkdirSync(scopeDir, { recursive: true });
+    symlinkSync(join(cwd, "linked/framework"), join(scopeDir, "kumiko-framework"), "dir");
+
+    expect(findPackageChangelogFiles(join(cwd, "apps/web"))).toEqual([
+      join(scopeDir, "kumiko-framework/src/changes.json"),
+    ]);
+  });
+
   test("findCodemodScriptsRoot resolves through a hoisted node_modules symlink", () => {
     const cwd = tmp({ "apps/web/package.json": "{}" });
     const nmPkgDir = join(cwd, "node_modules/@cosmicdrift/kumiko-framework");
@@ -354,6 +368,7 @@ describe("resolveCodemodScript", () => {
 describe("upgrade command — --apply", () => {
   test("runs the real codemod against a fixture file and writes the marker", async () => {
     const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
       "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
     });
@@ -398,6 +413,7 @@ describe("upgrade command — --apply", () => {
 
   test("rejects a path-traversal codemod field and writes no marker", async () => {
     const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod("../../../etc/passwd.ts"),
     });
     const spy = makeSpyOutput();
@@ -413,6 +429,7 @@ describe("upgrade command — --apply", () => {
 
   test("fails when the codemod script doesn't exist, writes no marker", async () => {
     const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(
         "scripts/codemod/does-not-exist.ts",
       ),
@@ -430,6 +447,7 @@ describe("upgrade command — --apply", () => {
 
   test("stops and writes no marker when the codemod script exits non-zero", async () => {
     const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(
         "scripts/codemod/always-fail.ts",
       ),
@@ -450,6 +468,7 @@ describe("upgrade command — --apply", () => {
 
   test("breaking changes without a codemod field are reported as manual; marker still written", async () => {
     const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(undefined),
     });
     const spy = makeSpyOutput();
@@ -468,6 +487,7 @@ describe("upgrade command — --apply", () => {
 
   test("nothing pending: reports up to date, still bootstraps the marker", async () => {
     const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
     });
     const spy = makeSpyOutput();
@@ -482,7 +502,7 @@ describe("upgrade command — --apply", () => {
     const markerPath = join(cwd, ".kumiko/upgrade-state.json");
     expect(existsSync(markerPath)).toBe(true);
     const marker = JSON.parse(readFileSync(markerPath, "utf-8"));
-    expect(marker.version).toBe("0.170.0");
+    expect(marker.version).toBe("0.190.0");
     expect(marker.codemods).toEqual([]);
     expect(typeof marker.appliedAt).toBe("string");
   });
@@ -501,6 +521,39 @@ describe("upgrade command — --apply", () => {
     expect(exit).toBe(0);
     const marker = JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"));
     expect(marker.version).toBe("0.190.0");
+  });
+
+  test("--from without any installed version exits 1 without writing a marker", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(["--from", "0.999.0", "--apply"], cwd, spy.out, {
+      repoRoot: REAL_REPO_ROOT,
+    });
+
+    expect(exit).toBe(1);
+    expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
+  test("--dir without a readable version exits 1 even when cwd has one", async () => {
+    const cwd = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      "other/placeholder.txt": "x",
+    });
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--from", "0.165.0", "--apply", "--dir", join(cwd, "other")],
+      cwd,
+      spy.out,
+      { repoRoot: REAL_REPO_ROOT },
+    );
+
+    expect(exit).toBe(1);
+    expect(existsSync(join(cwd, "other/.kumiko/upgrade-state.json"))).toBe(false);
   });
 
   test("--dir that is not a directory exits 1 without writing a marker", async () => {
@@ -541,7 +594,10 @@ describe("upgrade command — --apply", () => {
     const cwd = tmp({
       "packages/framework/src/changes.json": breakingEntryWithCodemod(REAL_CODEMOD),
     });
-    const target = tmp({ "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE });
+    const target = tmp({
+      "legacy-test-helper.ts": LEGACY_IMPORT_FIXTURE,
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+    });
     const spy = makeSpyOutput();
 
     const exit = await runUpgradeCli(

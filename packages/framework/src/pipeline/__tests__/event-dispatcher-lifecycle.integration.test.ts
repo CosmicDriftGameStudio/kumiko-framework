@@ -158,6 +158,40 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
   });
 });
 
+describe("withBackgroundPassesPaused", () => {
+  test("timer and NOTIFY start no pass while paused, delivery resumes afterwards", async () => {
+    await stack.eventDispatcher?.start();
+    try {
+      await stack.eventDispatcher?.withBackgroundPassesPaused(async () => {
+        await appendWidget("while-paused");
+        // pollIntervalMs is 50ms: several ticks plus the NOTIFY pass by.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(observations).toHaveLength(0);
+      });
+
+      await waitFor(() => observations.length >= 1, { delays: Array(40).fill(50) });
+      expect(observations[0]?.event.payload["name"]).toBe("while-paused");
+    } finally {
+      await stack.eventDispatcher?.stop();
+    }
+  });
+
+  test("resetEventStore on a running dispatcher leaves consumers registered and no foreign rows", async () => {
+    await stack.eventDispatcher?.start();
+    try {
+      for (let i = 0; i < 5; i++) {
+        await appendWidget(`cycle-${i}`);
+        await resetEventStore(stack, ["read_widgets"]);
+      }
+      await appendWidget("after-cycles");
+      await stack.eventDispatcher?.runOnce();
+      expect(observations.at(-1)?.event.payload["name"]).toBe("after-cycles");
+    } finally {
+      await stack.eventDispatcher?.stop();
+    }
+  });
+});
+
 describe("E.1 — consumer-lag metric", () => {
   test("kumiko_event_consumer_lag_events is emitted per pass", async () => {
     // Build a dedicated stack with a RecordingMeter so we can read back
