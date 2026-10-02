@@ -11,7 +11,7 @@ import { createLockoutCounter } from "./lockout-counter.js";
 // countKey/untilKey are not exported by the factory (only the bound
 // operations are) — verify the key shape indirectly through a fake Redis
 // client that records the keys it's called with.
-function fakeRedis() {
+function fakeRedis(incrResult = 1) {
   const calls: { method: string; args: unknown[] }[] = [];
   const redis = {
     mget: async (...args: unknown[]) => {
@@ -20,7 +20,7 @@ function fakeRedis() {
     },
     incr: async (...args: unknown[]) => {
       calls.push({ method: "incr", args });
-      return 1;
+      return incrResult;
     },
     expire: async (...args: unknown[]) => {
       calls.push({ method: "expire", args });
@@ -61,6 +61,39 @@ describe("account-lockout Redis key strings", () => {
     expect(calls[0]).toEqual({
       method: "del",
       args: ["kumiko:auth:lockout:count:u1", "kumiko:auth:lockout:until:u1"],
+    });
+  });
+
+  test("first failure below threshold: INCR then 24h EXPIRE on the count key, no lock", async () => {
+    const { redis, calls } = fakeRedis(1);
+    const state = await counter.recordFailedAttempt(redis, "u1", 5, 15);
+    expect(calls).toEqual([
+      { method: "incr", args: ["kumiko:auth:lockout:count:u1"] },
+      { method: "expire", args: ["kumiko:auth:lockout:count:u1", 24 * 3600] },
+    ]);
+    expect(state).toEqual({ failureCount: 1, lockedUntil: null });
+  });
+
+  test("crossing the threshold arms the until key with PX <duration> NX", async () => {
+    const { redis, calls } = fakeRedis(5);
+    const before = Date.now();
+    const state = await counter.recordFailedAttempt(redis, "u1", 5, 15);
+    const lockMs = 15 * 60 * 1000;
+    expect(calls.map((c) => c.method)).toEqual(["incr", "set"]);
+    const setArgs = calls[1]?.args ?? [];
+    expect(setArgs[0]).toBe("kumiko:auth:lockout:until:u1");
+    expect(setArgs.slice(2)).toEqual(["PX", lockMs, "NX"]);
+    expect(Number(setArgs[1])).toBeGreaterThanOrEqual(before + lockMs);
+    expect(state.failureCount).toBe(5);
+    expect(state.lockedUntil).toBe(Number(setArgs[1]));
+  });
+
+  test("a lock duration above 24h stretches the count key TTL to the lock duration", async () => {
+    const { redis, calls } = fakeRedis(1);
+    await counter.recordFailedAttempt(redis, "u1", 5, 48 * 60);
+    expect(calls[1]).toEqual({
+      method: "expire",
+      args: ["kumiko:auth:lockout:count:u1", 48 * 3600],
     });
   });
 });

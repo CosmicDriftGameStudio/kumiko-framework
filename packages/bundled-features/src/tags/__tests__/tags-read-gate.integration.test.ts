@@ -366,3 +366,31 @@ describe("tags read-gate — ownership narrows further, it does not replace the 
     expect(page.rows).toHaveLength(0);
   });
 });
+
+describe("tags read-gate — delete-tag cascade", () => {
+  test("deleting a tag also detaches assignments on hosts the deleting caller cannot read", async () => {
+    const doomed = await stack.http.writeOk<{ id: string }>(
+      TagsHandlers.createTag,
+      { name: "Doomed" },
+      userA,
+    );
+    await stack.http.writeOk(
+      TagsHandlers.assignTag,
+      { tagId: doomed.id, entityType: "project", entityId: TEAM_A_PROJECTS[0] },
+      userA,
+    );
+    await stack.http.writeOk(
+      TagsHandlers.assignTag,
+      { tagId: doomed.id, entityType: "project", entityId: TEAM_B_PROJECTS[0] },
+      userB,
+    );
+
+    await stack.http.writeOk(TagsHandlers.deleteTag, { id: doomed.id }, userA);
+
+    const remaining = await asRawClient(stack.db).unsafe<{ n: number }>(
+      "SELECT count(*)::int AS n FROM read_tag_assignments WHERE tag_id = $1 AND is_deleted = FALSE",
+      [doomed.id],
+    );
+    expect(remaining[0]?.n).toBe(0);
+  });
+});

@@ -704,3 +704,63 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
     expect(runtime.readOverride("widget")).toBe(flipTo);
   });
 });
+
+// Production path end to end: HTTP set -> toggle-set event -> shared
+// toggle-cache-sync MSP -> runtime.broadcastToggle -> Redis -> a second
+// process's runtime. Nothing here calls broadcastToggle by hand.
+describe("multi-instance cache-sync driven by the HTTP set handler", () => {
+  let testRedis: TestRedis;
+  let wiredStack: TestStack;
+  let signalA: RedisToggleSyncSignal;
+  let signalB: RedisToggleSyncSignal;
+  let runtimeB: GlobalFeatureToggleRuntime;
+
+  beforeAll(async () => {
+    testRedis = await createTestRedis();
+    signalA = createRedisToggleSyncSignal(testRedis.redisUrl);
+    signalB = createRedisToggleSyncSignal(testRedis.redisUrl);
+
+    let effective: () => ReadonlySet<string> = () => new Set();
+    const runtimeHolder = createLateBoundHolder<GlobalFeatureToggleRuntime>("runtimeA");
+    wiredStack = await setupTestStack({
+      features: [
+        widgetFeature(),
+        createFeatureTogglesFeature({ getRuntime: () => runtimeHolder.get() }),
+      ],
+      effectiveFeatures: () => effective(),
+      systemHooks: [],
+    });
+    const runtimeA = new GlobalFeatureToggleRuntime(wiredStack.db, wiredStack.registry, signalA);
+    await runtimeA.initialize();
+    effective = runtimeA.effectiveFeatures;
+    runtimeHolder.set(runtimeA);
+
+    runtimeB = new GlobalFeatureToggleRuntime(wiredStack.db, wiredStack.registry, signalB);
+    await runtimeB.initialize();
+  });
+
+  afterAll(async () => {
+    await Promise.all([signalA?.close(), signalB?.close()]);
+    await wiredStack?.cleanup();
+    await testRedis?.cleanup();
+  });
+
+  test("a set over HTTP reaches the second runtime through the dispatcher tick and Redis", async () => {
+    expect(runtimeB.effectiveFeatures().has("widget")).toBe(true);
+
+    const res = await wiredStack.http.write(
+      "feature-toggles:write:set",
+      { featureName: "widget", enabled: false },
+      admin,
+    );
+    expect(res.status).toBe(200);
+
+    // The dispatcher publishes once per tick, and the psubscribe ack may not
+    // have landed yet — so keep ticking until the signal arrives.
+    await waitFor(async () => {
+      await wiredStack.eventDispatcher?.runOnce();
+      return !runtimeB.effectiveFeatures().has("widget");
+    });
+    expect(runtimeB.effectiveFeatures().has("widget")).toBe(false);
+  });
+});
