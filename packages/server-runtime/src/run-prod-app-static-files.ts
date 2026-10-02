@@ -124,6 +124,11 @@ type QueryDispatcher = {
   readonly query: (type: string, payload: unknown, user: SessionUser) => Promise<unknown>;
 };
 
+// `mtimeMs` is absent once page head was injected: the bytes then depend on
+// DB-resolved metadata, so a shell-file mtime must not drive If-Modified-Since
+// 304s (crawlers sending only that header would keep stale link previews).
+type HtmlPayload = { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs?: number };
+
 export type PageHeadOptions = {
   readonly resolvePageHead: PageHeadResolver;
   readonly dispatcher: QueryDispatcher;
@@ -152,9 +157,7 @@ export function buildStaticFallback(
   // Reads an HTML file from disk. No schema injection — createKumikoApp
   // fetches it itself from the authenticated GET /api/schema, so the HTML
   // is identical for every host.
-  async function readHtmlFile(
-    path: string,
-  ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number } | null> {
+  async function readHtmlFile(path: string): Promise<HtmlPayload | null> {
     const file = await readStaticFile(path);
     if (!file) return null;
     return {
@@ -171,7 +174,7 @@ export function buildStaticFallback(
   function serveHtmlFile(
     req: Request,
     pathname: string,
-    html: { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number },
+    html: HtmlPayload,
     extraHeaders?: Record<string, string>,
   ): Response {
     return cachedResponse(req, {
@@ -179,7 +182,7 @@ export function buildStaticFallback(
       etag: html.etag,
       cache: staticCachePolicy(pathname),
       headers: { "content-type": html.mime, ...extraHeaders },
-      lastModified: new Date(html.mtimeMs),
+      lastModified: html.mtimeMs === undefined ? undefined : new Date(html.mtimeMs),
     });
   }
 
@@ -197,9 +200,9 @@ export function buildStaticFallback(
   // below (Request-bound, prod-specific) and the etag recompute are local.
   async function applyPageHead(
     req: Request,
-    html: { bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number },
+    html: HtmlPayload,
     socketAddress?: string,
-  ): Promise<{ bytes: ArrayBuffer; mime: string; etag: string; mtimeMs: number }> {
+  ): Promise<HtmlPayload> {
     if (!pageHead) return html;
     const url = new URL(req.url);
     const host = req.headers.get("host") ?? url.host;
@@ -221,7 +224,6 @@ export function buildStaticFallback(
       bytes: encoded.buffer as ArrayBuffer,
       mime: html.mime,
       etag: computeStrongEtag(encoded),
-      mtimeMs: html.mtimeMs,
     };
   }
 

@@ -285,6 +285,25 @@ describe("buildStaticFallback resolvePageHead", () => {
     expect(resA.headers.get("etag")).not.toBe(resB.headers.get("etag"));
   });
 
+  test("injected head → If-Modified-Since in the future still gets 200, not a stale 304", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      () => ({ kind: "html", file: "tenant.html" }),
+      {
+        resolvePageHead: async () => ({ title: "Vehicle X" }),
+        dispatcher: stubDispatcher(),
+      },
+    );
+    const future = new Date(Date.now() + 86_400_000).toUTCString();
+    const res = await handler(
+      new Request("http://t/", { headers: { "if-modified-since": future } }),
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("last-modified")).toBeNull();
+    expect(await res.text()).toContain("<title>Vehicle X</title>");
+  });
+
   test("no resolvePageHead configured → response is byte-identical to the no-resolver call", async () => {
     const withoutPageHead = buildStaticFallback(
       () => noRouteMatchedResponse(),

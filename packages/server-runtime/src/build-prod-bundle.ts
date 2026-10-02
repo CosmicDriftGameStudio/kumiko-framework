@@ -713,6 +713,15 @@ export async function runTailwindOnce(entry: string, cwd: string): Promise<strin
   return css;
 }
 
+// Exact `<base>-<hash>.js` match: a plain prefix check would let
+// `client-admin-legacy-<hash>.js` satisfy the `client-admin` entry. The hash is
+// alphanumeric, so any further `-` in the remainder means another entry's base.
+export function isEntryOutputFor(outName: string, baseName: string): boolean {
+  const prefix = `${baseName}-`;
+  if (!outName.startsWith(prefix) || !outName.endsWith(".js")) return false;
+  return /^[A-Za-z0-9]+$/.test(outName.slice(prefix.length, -".js".length));
+}
+
 /** Multi-entry-build: ein Bun.build-Call mit allen entrypoints — shared
  *  chunks werden dedupliziert, hashes deterministisch. Returns map
  *  manifestKey → hashed-filename (basename, ohne /assets/-Prefix). */
@@ -762,10 +771,9 @@ async function buildClientBundles(
       SOURCE_EXTENSION_PATTERN,
       "",
     );
-    const match = entryOutputs.find((o) => {
-      const outName = o.path.split("/").pop() ?? "";
-      return outName.startsWith(`${baseName}-`);
-    });
+    const match = entryOutputs.find((o) =>
+      isEntryOutputFor(o.path.split("/").pop() ?? "", baseName),
+    );
     if (!match) {
       throw new Error(
         `[kumiko build] no entry-point output for "${entry.sourceFile}" (looked for "${baseName}-*.js")`,

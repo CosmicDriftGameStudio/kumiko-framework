@@ -226,6 +226,52 @@ describe("WriteFormSection", () => {
     expect(submittedCount).toBe(0);
   });
 
+  test("a server issue on a rendered field shows inline only, no banner", async () => {
+    const { dispatcher, writes } = stubDispatcher(async () => ({
+      isSuccess: false,
+      error: {
+        code: "validation_failed",
+        httpStatus: 400,
+        i18nKey: "errors.validation",
+        message: "invalid",
+        details: {
+          fields: [
+            { path: "note", code: "too_long", i18nKey: "errors.too_long", message: "too long" },
+          ],
+        },
+      },
+    }));
+    renderWriteForm(noteSection, dispatcher, noop);
+
+    fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
+    fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
+
+    await waitFor(() => expect(writes.length).toBe(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rtlScreen.queryByTestId("write-form-section-error")).toBeNull();
+  });
+
+  test("a server issue no rendered field can show (version) keeps the error banner", async () => {
+    const { dispatcher } = stubDispatcher(async () => ({
+      isSuccess: false,
+      error: {
+        code: "validation_failed",
+        httpStatus: 400,
+        i18nKey: "errors.validation",
+        message: "invalid",
+        details: {
+          fields: [{ path: "version", code: "stale", i18nKey: "errors.stale", message: "stale" }],
+        },
+      },
+    }));
+    renderWriteForm(noteSection, dispatcher, noop);
+
+    fireEvent.change(rtlScreen.getByLabelText("note"), { target: { value: "x" } });
+    fireEvent.click(rtlScreen.getByTestId("write-form-section-submit"));
+
+    await waitFor(() => expect(rtlScreen.getByTestId("write-form-section-error")).toBeTruthy());
+  });
+
   test("submit is blocked by schema validation when a required field is left empty", async () => {
     const { dispatcher, writes } = stubDispatcher();
     renderWriteForm(noteSection, dispatcher, () => {

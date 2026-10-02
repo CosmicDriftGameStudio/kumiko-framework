@@ -1,4 +1,8 @@
-import type { EditSectionViewModel, SubmitResult } from "@cosmicdrift/kumiko-headless";
+import type {
+  EditFieldViewModel,
+  EditSectionViewModel,
+  SubmitResult,
+} from "@cosmicdrift/kumiko-headless";
 
 // Hides the Save button when no field is editable and no extension section
 // contributes to the composed form submit. Extensions that persist via their
@@ -47,14 +51,19 @@ export function hasIssueWithoutRenderedField(
   issuePaths: readonly string[],
   sections: readonly EditSectionViewModel[],
 ): boolean {
+  const renderedFields = sections
+    .filter((s) => s.kind === "fields" && (s.visible || s.fields.length === 0))
+    .flatMap((s) => (s.kind === "fields" ? s.fields : []));
+  return hasIssueWithoutVisibleField(issuePaths, renderedFields);
+}
+
+export function hasIssueWithoutVisibleField(
+  issuePaths: readonly string[],
+  fields: readonly EditFieldViewModel[],
+): boolean {
   if (issuePaths.length === 0) return true;
-  const renderedFields = new Set(
-    sections
-      .filter((s) => s.kind === "fields" && (s.visible || s.fields.length === 0))
-      .flatMap((s) => (s.kind === "fields" ? s.fields.filter((f) => f.visible) : []))
-      .map((f) => f.field),
-  );
-  return issuePaths.some((path) => !renderedFields.has(path.split(".")[0] ?? path));
+  const visibleFields = new Set(fields.filter((f) => f.visible).map((f) => f.field));
+  return issuePaths.some((path) => !visibleFields.has(path.split(".")[0] ?? path));
 }
 
 // Extension, relatedList and writeForm sections skip the `fields` filter

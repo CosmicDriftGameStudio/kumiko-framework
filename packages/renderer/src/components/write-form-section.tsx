@@ -12,6 +12,7 @@ import { useForm } from "../hooks/use-form.js";
 import { useTranslation } from "../i18n.js";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.js";
 import { GridCellForField } from "./grid-cell-for-field.js";
+import { hasIssueWithoutVisibleField } from "./render-edit-logic.js";
 
 // Same "has a value" rule as buildFormSchema's isPresent (app/form-schema.ts)
 // — duplicated because that helper walks raw EditFieldSpec + EntityDefinition,
@@ -104,12 +105,15 @@ export function WriteFormSection({
         return;
       }
       if (result.validationBlocked) return;
-      // Field-level issues already surface inline via snapshot.errors (same
-      // GridCellForField/RenderField path RenderEdit uses) — the banner is
-      // only for form-level errors nothing else would show (fw#1901 pattern).
-      const fieldIssues = result.error.details?.fields ?? [];
+      // Field-level issues surface inline via snapshot.errors (same
+      // GridCellForField/RenderField path RenderEdit uses) — the banner stays
+      // for anything no rendered field can show (`version`, `id`, a root
+      // refine, a hidden field).
+      const issuePaths = (result.error.details?.fields ?? []).map((i) => i.path);
       setError(
-        fieldIssues.length === 0 ? dispatcherErrorText(result.error, effectiveTranslate) : null,
+        hasIssueWithoutVisibleField(issuePaths, section.fields)
+          ? dispatcherErrorText(result.error, effectiveTranslate)
+          : null,
       );
     } finally {
       setIsSubmitting(false);
