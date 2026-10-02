@@ -250,6 +250,7 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                   return (
                     <Command.Item
                       key={opt.value}
+                      data-testid={`combobox-${id}-option-${opt.value}`}
                       value={opt.label}
                       keywords={opt.description !== undefined ? [opt.description] : undefined}
                       onSelect={() => {

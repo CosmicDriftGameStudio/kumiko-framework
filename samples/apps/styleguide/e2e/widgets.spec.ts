@@ -123,7 +123,7 @@ test("widget catalog renders and ModeSwitch toggles", async ({ page }) => {
   // top must sit at the ShellHeader's bottom edge and its bottom edge must
   // stay within the viewport, so the footer button is visible — not the
   // pre-fix `h-full` layout, which pushed the bottom edge past the viewport.
-  await page.getByRole("button", { name: "Open below header" }).click();
+  await page.getByTestId("drawer-below-header-open").click();
   const belowHeaderDrawer = page.getByTestId("drawer-below-header-demo");
   await expect(belowHeaderDrawer).toBeVisible();
   const header = page.locator('[data-kumiko-layout="shell-header"]');

@@ -39,13 +39,7 @@ test.describe("Audit log toolbar layout", () => {
     await expect(fromInput).toHaveValue("2026-01-01");
   });
 
-  test("wide viewport: search and date range facet stay on one line", async ({
-    page,
-  }, testInfo) => {
-    test.skip(
-      testInfo.project.name === "webkit-iphone13",
-      "iPhone 13 emulation has no viewport wide enough for a single-line toolbar",
-    );
+  test("wide viewport: search and date range facet stay on one line", async ({ page }) => {
     await loginAsTenantAdmin(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/tenant-admin/audit-log");

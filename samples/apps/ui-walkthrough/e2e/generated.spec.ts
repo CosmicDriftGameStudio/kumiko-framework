@@ -218,14 +218,16 @@ async function applyEditFill(page: Page, op: EditFillOp): Promise<void> {
       // SegmentedSelect (role="radiogroup") for a small set of short options
       // and the portalled cmdk combobox otherwise. Probe the DOM for which one
       // is mounted instead of mirroring that heuristic here.
+      // Options are located by value (testid suffix), not accessible name:
+      // labels are translated and would break the spec once a bundle localizes them.
       const radioGroup = wrapper.getByRole("radiogroup");
       if ((await radioGroup.count()) > 0) {
-        await radioGroup.getByRole("radio", { name: op.value, exact: true }).click();
+        await radioGroup.locator(`[role="radio"][data-testid$="-${op.value}"]`).click();
         return;
       }
       await wrapper.locator('[data-testid^="combobox-"]').click();
       // The combobox popover renders in a portal, outside the field wrapper.
-      await page.getByRole("option", { name: op.value, exact: true }).click();
+      await page.locator(`[data-testid$="-option-${op.value}"]`).click();
       return;
     }
   }

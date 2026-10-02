@@ -45,5 +45,9 @@ await runProdApp({
     },
     // Coverage for auth-self-registration toggle (#1521 Option A).
     signup: AUTH_COMPOSE_OPTIONS.signup,
+    invite: AUTH_COMPOSE_OPTIONS.invite,
+    passwordReset: AUTH_COMPOSE_OPTIONS.passwordReset,
+    emailVerification: AUTH_COMPOSE_OPTIONS.emailVerification,
+    accountUnlock: AUTH_COMPOSE_OPTIONS.accountUnlock,
   },
 });

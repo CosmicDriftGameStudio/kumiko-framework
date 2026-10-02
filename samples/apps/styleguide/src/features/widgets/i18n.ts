@@ -89,6 +89,15 @@ export const WIDGETS_I18N = {
   "widgets:catalog:save": { de: "Speichern", en: "Save" },
   "widgets:catalog:open-status": { de: "offen", en: "open" },
   "widgets:catalog:closed-status": { de: "geschlossen", en: "closed" },
+  "widgets:catalog:drawer-below-header": {
+    de: "Drawer (unter dem Header)",
+    en: "Drawer (below header)",
+  },
+  "widgets:catalog:open-below-header": { de: "Unter dem Header öffnen", en: "Open below header" },
+  "widgets:catalog:drawer-below-header-title": {
+    de: "Unter dem Header angedockt",
+    en: "Docked below the header",
+  },
   "widgets:catalog:drawer-message-title": { de: "Nachricht", en: "Message" },
   "widgets:catalog:floating-panel": { de: "Floating Panel", en: "Floating panel" },
   "widgets:catalog:floating-panel-open": { de: "Panel öffnen", en: "Open panel" },
