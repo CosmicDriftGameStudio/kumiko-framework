@@ -366,6 +366,43 @@ describe("mergeBunfig", () => {
     ]);
   });
 
+  test("keeps the superseded dom preload path in a variant that doesn't generate the dom preload", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace(
+      `"@cosmicdrift/kumiko-testing/preload/schema-env-defaults",`,
+      `"@cosmicdrift/kumiko-testing/preload/schema-env-defaults",\n  "./test-setup/dom.preload.ts",`,
+    );
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    const parsed = Bun.TOML.parse(result.content) as { test: { preload: string[] } };
+    expect(parsed.test.preload).toContain("./test-setup/dom.preload.ts");
+  });
+
+  test("a dotted key in [test] is named, not silently dropped", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace("[test]\n", "[test]\ncoverageThreshold.lines = 0.9\n");
+    const result = mergeBunfig(generated, existing);
+    expect(result.ok || result.unknownKeys).toEqual([
+      { section: "test", key: "coverageThreshold" },
+    ]);
+  });
+
+  test("a quoted key in [test] is named, not silently dropped", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace("[test]\n", '[test]\n"foo" = 1\n');
+    const result = mergeBunfig(generated, existing);
+    expect(result.ok || result.unknownKeys).toEqual([{ section: "test", key: "foo" }]);
+  });
+
+  test("an [[array-of-tables]] after [test] is kept as its own block, not merged into [test]", () => {
+    const generated = renderBunfig("unit");
+    const existing = `${generated}\n[[custom]]\nname = "a"\n\n[[custom]]\nname = "b"\n`;
+    const result = mergeBunfig(generated, existing);
+    if (!result.ok) throw new Error("expected merge to succeed");
+    const parsed = Bun.TOML.parse(result.content) as { custom: { name: string }[] };
+    expect(parsed.custom).toEqual([{ name: "a" }, { name: "b" }]);
+  });
+
   test("keeps a package preload from another variant an app added to this one on purpose", () => {
     const generated = renderBunfig("unit");
     const existing = generated.replace(

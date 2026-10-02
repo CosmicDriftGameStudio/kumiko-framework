@@ -1,6 +1,7 @@
 export { PROVIDER_ENV_KEYS } from "./provider-env-keys";
 export {
   type BoundApi,
+  type InProcessSeededTenant,
   type PersistedTenant,
   persistTenantRows,
   type SavedRow,

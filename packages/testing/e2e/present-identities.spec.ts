@@ -14,6 +14,10 @@ import { DESKTOP_VIEWPORT } from "../src/e2e/constants";
 const screenshotDir = mkdtempSync(join(tmpdir(), "kumiko-testing-identities-"));
 process.env[SCREENSHOT_DIR_ENV] = screenshotDir;
 
+// The last test reads the PNGs the runMatrix test writes, so a failed or skipped
+// matrix must skip it instead of failing it with ENOENT.
+test.describe.configure({ mode: "serial" });
+
 // captureScreenshot reads SCREENSHOT_DIR per call; another spec file loaded
 // into the same worker may have pointed it elsewhere.
 test.beforeEach(() => {

@@ -102,7 +102,9 @@ function splitBunfigBlocks(content: string): readonly BunfigBlock[] {
   const blocks: { header: string; lines: string[] }[] = [];
   let current: { header: string; lines: string[] } = { header: "", lines: [] };
   for (const line of content.split("\n")) {
-    const match = /^\[([^\]]+)\]\s*$/.exec(line);
+    // An array-of-tables header keeps its inner brackets in `header`, so it
+    // never equals a generated header and is carried over as a foreign block.
+    const match = /^\[(\[[^\]]+\]|[^[\]]+)\]\s*$/.exec(line);
     if (match?.[1] !== undefined) {
       blocks.push(current);
       current = { header: match[1], lines: [] };
@@ -114,11 +116,19 @@ function splitBunfigBlocks(content: string): readonly BunfigBlock[] {
   return blocks;
 }
 
+const TOML_KEY_SEGMENT = String.raw`"[^"]+"|[A-Za-z_][\w-]*`;
+const TOML_KEY_LINE = new RegExp(
+  String.raw`^(?:"([^"]+)"|([A-Za-z_][\w-]*))(?:\s*\.\s*(?:${TOML_KEY_SEGMENT}))*\s*=`,
+);
+
+// Dotted and quoted keys resolve to their first segment, which is the key
+// the template either owns or doesn't.
 function keysIn(lines: readonly string[]): readonly string[] {
   const keys: string[] = [];
   for (const line of lines) {
-    const match = /^([A-Za-z_][\w-]*)\s*=/.exec(line.trim());
-    if (match?.[1] !== undefined) keys.push(match[1]);
+    const match = TOML_KEY_LINE.exec(line.trim());
+    const key = match?.[1] ?? match?.[2];
+    if (key !== undefined) keys.push(key);
   }
   return keys;
 }
@@ -137,9 +147,12 @@ type MergedArrayKey = (typeof MERGED_ARRAY_KEYS)[number];
 
 const CURRENT_PACKAGE_PRELOADS = new Set<string>([...Object.values(PRELOADS).flat(), DOM_PRELOAD]);
 
-// Old app-local path of DOM_PRELOAD; excluded so an app that hasn't
-// regenerated doesn't run DOM setup twice.
-const SUPERSEDED_PRELOADS = new Set<string>(["./test-setup/dom.preload.ts"]);
+// Old app-local path -> its replacement; dropped only when the replacement is
+// generated for this variant, so an app that hasn't regenerated doesn't run
+// DOM setup twice but a variant without it keeps its own setup.
+const SUPERSEDED_PRELOADS: ReadonlyMap<string, string> = new Map([
+  ["./test-setup/dom.preload.ts", DOM_PRELOAD],
+]);
 
 // Ignore patterns the generator owns across all variants. One it omits for
 // this variant (`**/*.test.tsx` with --dom, `**/*.integration.test.ts` in the
@@ -153,9 +166,14 @@ const TEMPLATE_OWNED_IGNORE_PATTERNS = new Set<string>([
   ]),
 ]);
 
-function isKeepableExtra(key: MergedArrayKey, entry: string): boolean {
+function isKeepableExtra(
+  key: MergedArrayKey,
+  entry: string,
+  generatedValues: readonly string[],
+): boolean {
   if (key !== "preload") return !TEMPLATE_OWNED_IGNORE_PATTERNS.has(entry);
-  if (SUPERSEDED_PRELOADS.has(entry)) return false;
+  const replacement = SUPERSEDED_PRELOADS.get(entry);
+  if (replacement !== undefined) return !generatedValues.includes(replacement);
   if (entry.startsWith(PRELOAD_PREFIX)) return CURRENT_PACKAGE_PRELOADS.has(entry);
   return true;
 }
@@ -232,7 +250,7 @@ export function mergeBunfig(generated: string, existingContent: string): BunfigM
     const generatedValues = arrayField(generatedTest, key);
     const existingValues = arrayField(existingTest, key);
     const extras = existingValues.filter(
-      (item) => !generatedValues.includes(item) && isKeepableExtra(key, item),
+      (item) => !generatedValues.includes(item) && isKeepableExtra(key, item, generatedValues),
     );
     content = appendArrayExtras(content, key, extras);
   }

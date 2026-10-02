@@ -247,6 +247,10 @@ function collectPresentIdentities(): {
   };
 }
 
+export function scenarioWaitForTimeout(realProviderRun: boolean): number {
+  return realProviderRun ? E2E_TIMEOUT_MS.realWait : E2E_TIMEOUT_MS.navigation;
+}
+
 async function openScenario(
   page: Page,
   s: Scenario,
@@ -259,8 +263,9 @@ async function openScenario(
 
   if (s.waitFor) {
     // Real-provider scenarios wait on LLM/OCR latency before the page is ready.
-    const timeout = isRealProviderRun() ? E2E_TIMEOUT_MS.real : E2E_TIMEOUT_MS.navigation;
-    await expect(page.locator(s.waitFor).first()).toBeVisible({ timeout });
+    await expect(page.locator(s.waitFor).first()).toBeVisible({
+      timeout: scenarioWaitForTimeout(isRealProviderRun()),
+    });
   }
   await waitForSettledPage(page, inFlightDataRequests);
 }

@@ -34,7 +34,7 @@ export function selectIntegrationFiles(paths: readonly string[]): string[] {
 
 function listDirectoryFiles(path: string): string[] | undefined {
   if (statSync(path, { throwIfNoEntry: false })?.isDirectory() !== true) return undefined;
-  return readdirSync(path, { recursive: true, encoding: "utf8" });
+  return listIntegrationTestFiles(path);
 }
 
 /** Resolves `kumiko-testing integration`'s positional file args against `cwd`
