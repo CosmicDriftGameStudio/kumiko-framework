@@ -12,12 +12,14 @@ import {
   DispatcherProvider,
   KumikoScreen,
   NavProvider,
+  PrimitivesProvider,
   UserRolesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
 import { ShellHeader } from "../layout/shell-header.js";
+import { defaultPrimitives } from "../primitives/index.js";
 import {
   createMockDispatcher,
   render,
@@ -1262,5 +1264,38 @@ describe("KumikoScreen / projectionDetail — switching records remounts the bod
     // value to confirm the remount actually completed.
     await waitFor(() => screen.getByText("Warehouse 9"));
     expect(screen.queryByText("Loft 4B")).toBeNull();
+  });
+});
+
+describe("KumikoScreen / projectionDetail — PageHeader without MetricBand", () => {
+  test.each([
+    ["without metrics", undefined],
+    ["with metrics", ["balance"]],
+  ])("the header subtitle stays visible %s", async (_label, metrics) => {
+    const screenDef: ProjectionDetailScreenDefinition = {
+      ...baseScreen,
+      header: { title: "tenantName", subtitle: "address" },
+      ...(metrics !== undefined && { metrics }),
+    };
+
+    renderWithSidebar(
+      <PrimitivesProvider value={{ ...defaultPrimitives, MetricBand: undefined }}>
+        <DispatcherProvider dispatcher={dispatcherReturning(rowData)}>
+          <PageHeaderSlotProvider>
+            <ShellHeader schema={{ features: [schemaFor(screenDef)] }} />
+            <KumikoScreen
+              schema={schemaFor(screenDef)}
+              qn="rentals:screen:rent-detail"
+              entityId="rent-1"
+            />
+          </PageHeaderSlotProvider>
+        </DispatcherProvider>
+      </PrimitivesProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.getByTestId("kumiko-screen-projection-detail-subtitle").textContent).toBe(
+      "12 Canal St",
+    );
   });
 });

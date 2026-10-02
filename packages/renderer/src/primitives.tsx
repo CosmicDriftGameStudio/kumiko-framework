@@ -326,13 +326,14 @@ export type InputProps =
       /** Closed FieldIconKey vocabulary (FIELD_ICONS registry, renderer-web). */
       readonly icon?: FieldIconKey;
       /** `<input step>`. "any" disables the native stepMismatch constraint
-       *  (needed for decimal fields — integer fields leave this unset). */
+       *  (needed for decimal fields — integer fields leave this unset).
+       *  Ignored by the web renderer, whose number input is a text field. */
       readonly step?: number | "any";
       /** BCP-47 tag for the grouped display and the decimal separator when typing. */
       readonly locale?: string;
       /** `false` shows the value without a thousands separator (e.g. a year). */
       readonly grouping?: boolean;
-      /** Integer-only entry (bigInt): fractional input is rejected on blur. */
+      /** Integer-only entry (bigInt): fractional drafts are not emitted via `onChange`. */
       readonly integer?: boolean;
       /** Resolved display suffix (static or from a sibling field) — never
        *  part of the numeric value. */
@@ -830,8 +831,8 @@ export type DataTableProps = {
   /** Uses the shared screen padding (wider bottom inset) instead of the
    *  table's symmetric embedded inset — for a table that IS the screen body
    *  (entityList/projectionList), so a list screen ends at the same footer
-   *  distance as a form or custom screen (fw#2640). Hosts set this or
-   *  `scrollBody`, not both: the wider bottom inset competes with
+   *  distance as a form or custom screen (fw#2640). Ignored when
+   *  `scrollBody` is true: the wider bottom inset would compete with
    *  `scrollBody`'s flex-fill height budget.
    *  Default false: unchanged symmetric inset for an embedded table. */
   readonly screenPadding?: boolean;

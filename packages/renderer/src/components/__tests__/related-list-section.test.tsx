@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen as rtlScreen, waitFor } from "@testing-l
 import type { ComponentType, ReactNode } from "react";
 import { AppFeaturesProvider } from "../../app/app-features-context.js";
 import type { FeatureSchema } from "../../app/feature-schema.js";
-import { type NavApi, NavProvider } from "../../app/nav.js";
+import { type NavApi, NavProvider, type NavTarget } from "../../app/nav.js";
 import { resetDrawerActionWarningsForTests } from "../../app/row-actions.js";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
 import { UserRolesProvider } from "../../context/user-roles-context.js";
@@ -136,23 +136,23 @@ function stubDispatcher(
 
 function stubNav(): {
   nav: NavApi;
-  navigations: unknown[];
+  navigations: NavTarget[];
   searchParams: Array<Record<string, string | null>>;
 } {
-  const navigations: unknown[] = [];
+  const navigations: NavTarget[] = [];
   const searchParams: Array<Record<string, string | null>> = [];
   const nav: NavApi = {
     route: undefined,
-    navigate: (target: unknown) => {
+    navigate: (target) => {
       navigations.push(target);
     },
     replace: noop,
     hrefFor: () => "#",
     searchParams: {},
-    setSearchParams: (params: Record<string, string | null>) => {
+    setSearchParams: (params) => {
       searchParams.push(params);
     },
-  } as unknown as NavApi;
+  };
   return { nav, navigations, searchParams };
 }
 

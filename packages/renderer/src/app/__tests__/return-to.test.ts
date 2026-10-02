@@ -4,6 +4,7 @@ import type { FeatureSchema } from "../feature-schema.js";
 import type { NavApi, NavTarget } from "../nav.js";
 import {
   formatReturnTo,
+  navigateToReturn,
   navigateWithReturnTo,
   resolveReturnTarget,
   returnToParams,
@@ -392,5 +393,24 @@ describe("navigateWithReturnTo — ObjectTarget", () => {
     navigateWithReturnTo(nav, { entity: "vehicle", id: "abc" }, undefined, { name: "Vehicle A" });
 
     expect(setSearchParamsCalls).toEqual([{ name: "Vehicle A" }]);
+  });
+});
+
+describe("navigateToReturn", () => {
+  const raw = formatReturnTo({ screenId: "token-list" }, { tab: "keys", returnTo: "settings" });
+
+  test("restores the host state, including its own returnTo, on the named target", () => {
+    const { nav, navigateCalls, setSearchParamsCalls } = fakeNav({ returnTo: raw });
+    navigateToReturn(nav, { screenId: "token-list" });
+
+    expect(navigateCalls).toEqual([{ screenId: "token-list" }]);
+    expect(setSearchParamsCalls).toEqual([{ tab: "keys", returnTo: "settings" }]);
+  });
+
+  test("a target the returnTo value does not name gets no foreign state", () => {
+    const { nav, setSearchParamsCalls } = fakeNav({ returnTo: raw });
+    navigateToReturn(nav, { screenId: "other-screen" });
+
+    expect(setSearchParamsCalls).toEqual([{ returnTo: null }]);
   });
 });

@@ -61,7 +61,7 @@ function buildEntity(display: "radio" | "dropdown" | undefined): EntityDefinitio
         display: "checkboxes",
       },
     },
-  } as EntityDefinition;
+  };
 }
 
 const editScreen: EntityEditScreenDefinition = {
@@ -69,7 +69,7 @@ const editScreen: EntityEditScreenDefinition = {
   type: "entityEdit",
   entity: "ticket",
   layout: { sections: [{ columns: 1, fields: ["area", "tags"] }] },
-} as EntityEditScreenDefinition;
+};
 
 function viewModelField(entity: EntityDefinition, fieldName: string): EditFieldViewModel {
   const vm = computeEditViewModel({
