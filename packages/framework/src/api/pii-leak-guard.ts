@@ -4,8 +4,11 @@ import { PII_CIPHERTEXT_PREFIX } from "../crypto/index.js";
 const isProductionEnv = () => process.env["NODE_ENV"] === "production";
 // Version-agnostic: catches both the current PII_CIPHERTEXT_PREFIX and any
 // older/decrypt-only format version still present in unmigrated rows.
-const CIPHERTEXT_MARKER = "kumiko-pii:v";
-const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^"\s<>\\]*/g;
+// Bound to the full ciphertext shape (prefix, "<kind>:<id>" subject key, base64
+// blob of at least IV + GCM tag = 28 bytes) so a user-typed "kumiko-pii:v" in a
+// note or name field cannot turn every read of that record into a 500.
+const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^:"\s<>\\]+:[^:"\s<>\\]+:[A-Za-z0-9+/=]{40,}/;
+const CIPHERTEXT_REDACT_RE = new RegExp(CIPHERTEXT_RE.source, "g");
 
 // A PII subject ciphertext never belongs in an API response — its presence
 // means a raw DB read (fetchOne/selectMany) leaked to the surface. Dev/test
@@ -21,7 +24,7 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
     if (!contentType.includes("application/json")) return;
     const text = await c.res.clone().text();
     // skip: clean response — the common case
-    if (!text.includes(CIPHERTEXT_MARKER)) return;
+    if (!CIPHERTEXT_RE.test(text)) return;
 
     const detail =
       `[api] JSON response for ${c.req.method} ${c.req.path} contains a PII ciphertext ` +
@@ -38,7 +41,7 @@ export function piiCiphertextResponseGuard(): MiddlewareHandler {
     console.error(detail);
     const headers = new Headers(c.res.headers);
     headers.delete("content-length");
-    c.res = new Response(text.replace(CIPHERTEXT_RE, "[pii-redacted]"), {
+    c.res = new Response(text.replace(CIPHERTEXT_REDACT_RE, "[pii-redacted]"), {
       status: c.res.status,
       headers,
     });

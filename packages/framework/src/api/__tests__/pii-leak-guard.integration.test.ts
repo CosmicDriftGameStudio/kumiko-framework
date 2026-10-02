@@ -3,15 +3,20 @@
 // prod → redact + error log. The scan runs regardless of whether a subject
 // KMS is configured — a leaked ciphertext can outlive the KMS config (#2467).
 
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.js";
+import {
+  configuredPiiSubjectKms,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+} from "../../crypto/index.js";
 import { defineFeature } from "../../engine/define-feature.js";
 import { defineQueryHandler } from "../../engine/define-handler.js";
 import { setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
-const CIPHERTEXT = "kumiko-pii:v1:user:6b2f4a0e-1c9d-4f3a-9d2e-00000000000a:8e2Rkjj+ww==";
+const CIPHERTEXT =
+  "kumiko-pii:v2:user:6b2f4a0e-1c9d-4f3a-9d2e-00000000000a:8e2Rkjj+wwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==";
 
 const leakyFeature = defineFeature("leaky", (r) => {
   r.queryHandler(
@@ -30,6 +35,14 @@ const leakyFeature = defineFeature("leaky", (r) => {
       handler: async () => ({ email: "marc@example.com" }),
     }),
   );
+  r.queryHandler(
+    defineQueryHandler({
+      name: "typed",
+      schema: z.object({}),
+      access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      handler: async () => ({ note: "I wrote kumiko-pii:v1: in my note" }),
+    }),
+  );
 });
 
 let stack: TestStack;
@@ -41,6 +54,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await stack.cleanup();
+});
+
+beforeEach(() => {
+  resetPiiSubjectKmsForTests();
 });
 
 afterEach(() => {
@@ -61,6 +78,7 @@ async function callLeakyQuery(): Promise<Response> {
 
 describe("piiCiphertextResponseGuard", () => {
   test("no KMS configured, dev: leaking response is still caught as a loud 500", async () => {
+    expect(configuredPiiSubjectKms()).toBeUndefined();
     const res = await callLeakyQuery();
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error?: { code?: string; message?: string } };
@@ -68,6 +86,7 @@ describe("piiCiphertextResponseGuard", () => {
   });
 
   test("no KMS configured, production: leak is still redacted, request succeeds", async () => {
+    expect(configuredPiiSubjectKms()).toBeUndefined();
     process.env["NODE_ENV"] = "production";
     const res = await callLeakyQuery();
     expect(res.status).toBe(200);
@@ -75,6 +94,18 @@ describe("piiCiphertextResponseGuard", () => {
     expect(text).not.toContain("kumiko-pii:");
     expect(text).toContain("[pii-redacted]");
     expect(text).toContain("plain");
+  });
+
+  test("user text containing the bare marker is not treated as a leak", async () => {
+    const token = await stack.jwt.sign(TestUsers.admin);
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "leaky:query:typed", payload: {} },
+      { Authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("kumiko-pii:v1: in my note");
   });
 
   test("KMS active, dev: leaking response becomes a loud 500", async () => {

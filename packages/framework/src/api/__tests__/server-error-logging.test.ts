@@ -302,6 +302,26 @@ describe("HTTP layer logs 4xx client faults on warn (#3077)", () => {
     expect(String(loggedType).length).toBeLessThanOrEqual(120);
   });
 
+  test("a non-string type still yields a clean 404 and no error-level log", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    const errors: unknown[][] = [];
+    const errorSpy = spyOn(console, "error").mockImplementation((...args) => {
+      errors.push(args);
+    });
+    try {
+      const res = await app.request("/api/query", {
+        method: "POST",
+        headers: await auth(),
+        body: JSON.stringify({ type: { name: "ghost:query:x" }, payload: {} }),
+      });
+      expect(res.status).toBe(404);
+      expect(apiFaultLog(errors)).toBeUndefined();
+    } finally {
+      warnSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   test("the 4xx line carries no submitted values, no message, no details, no stack", async () => {
     const { warnings } = await queryWithCapturedWarnings("boom:query:login", {
       email: "victim-at-example.com",
