@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createTestUser,
   setupTestStack,
@@ -54,6 +54,17 @@ const unmeasuredCap: CapSpec = {
   usage: async () => null,
 };
 
+// usageBatch that explicitly reports "not measured" for one tenant, to
+// cover the batch branch of the list handler.
+const batchCap: CapSpec = {
+  id: "batched",
+  label: "test.cap.batched",
+  limit: () => 10,
+  usage: async () => null,
+  usageBatch: async (_db, tenantIds) =>
+    new Map(tenantIds.map((id) => [id, id === TENANT_B ? null : (USAGE_BY_TENANT[id] ?? 0)])),
+};
+
 let stack: TestStack;
 let db: DbConnection;
 
@@ -66,7 +77,7 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       billingFoundationFeature,
       tierEngineFeature,
-      createCapOverviewFeature({ caps: [testCap, unmeasuredCap] }),
+      createCapOverviewFeature({ caps: [testCap, unmeasuredCap, batchCap] }),
     ],
   });
   db = stack.db;
@@ -125,7 +136,7 @@ describe("cap-overview tenant isolation", () => {
     const result = await stack.http.queryOk<{
       rows: readonly { id: string; used: number | null; percent: number | null }[];
     }>(CapOverviewQueries.capsUsage, {}, tenantAdminA);
-    expect(result.rows).toHaveLength(2);
+    expect(result.rows).toHaveLength(3);
     const widgetsRow = result.rows.find((row) => row.id === testCap.id);
     expect(widgetsRow?.used).toBe(USAGE_BY_TENANT[TENANT_A]);
 
@@ -157,6 +168,44 @@ describe("cap-overview tenant isolation", () => {
     expect((byTenant.get(TENANT_B)?.[capField] as { used: number } | undefined)?.used).toBe(
       USAGE_BY_TENANT[TENANT_B],
     );
+    const unmeasuredField = `cap_${unmeasuredCap.id}`;
+    expect(byTenant.get(TENANT_A)?.[unmeasuredField]).toMatchObject({ used: null, fraction: 0 });
+    const batchField = `cap_${batchCap.id}`;
+    expect(byTenant.get(TENANT_A)?.[batchField]).toMatchObject({ used: USAGE_BY_TENANT[TENANT_A] });
+    expect(byTenant.get(TENANT_B)?.[batchField]).toMatchObject({ used: null, fraction: 0 });
+  });
+
+  test("tenant-caps:list rejects a malformed cursor instead of returning a wrong page", async () => {
+    const sysAdmin = createTestUser({ id: 90017, tenantId: TENANT_A, roles: ["SystemAdmin"] });
+    for (const raw of ["-1", "abc", "1.5"]) {
+      const res = await stack.http.query(
+        CapOverviewQueries.tenantCapsList,
+        { cursor: encodeCursor(raw) },
+        sysAdmin,
+      );
+      expect(res.status).toBe(400);
+    }
+  });
+
+  test("tenant-caps:list rejects unsupported and repeated filters instead of ignoring them", async () => {
+    const sysAdmin = createTestUser({ id: 90018, tenantId: TENANT_A, roles: ["SystemAdmin"] });
+    const unknownField = await stack.http.query(
+      CapOverviewQueries.tenantCapsList,
+      { filters: [{ field: "billing", op: "eq", value: "manual" }] },
+      sysAdmin,
+    );
+    expect(unknownField.status).toBe(400);
+    const twoTierFilters = await stack.http.query(
+      CapOverviewQueries.tenantCapsList,
+      {
+        filters: [
+          { field: "tier", op: "eq", value: "a" },
+          { field: "tier", op: "eq", value: "b" },
+        ],
+      },
+      sysAdmin,
+    );
+    expect(twoTierFilters.status).toBe(400);
   });
 });
 

@@ -18,6 +18,8 @@ describe("cap-counter list screen + handler access alignment", () => {
   test("cap-list screen is entityList, SystemAdmin-gated", () => {
     const screen = capCounterFeature.screens[CAP_COUNTER_LIST_SCREEN_ID];
     expect(screen?.type).toBe("entityList");
+    // Search resolves in the caller's own tenant stream, useless on a cross-tenant list.
+    expect(screen && "searchable" in screen ? screen.searchable : undefined).toBe(false);
     if (screen && "access" in screen && screen.access && "roles" in screen.access) {
       expect(screen.access.roles).toEqual(["SystemAdmin"]);
     }

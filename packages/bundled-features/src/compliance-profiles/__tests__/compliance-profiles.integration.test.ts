@@ -1,4 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import {
+  getActiveSubProcessors,
+  getPlannedSubProcessors,
+} from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { access } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -260,8 +264,10 @@ describe("compliance-profiles :: sub-processors (S1.4)", () => {
     const cloudflare = result.active.find((s) => s.name.includes("Cloudflare"));
     expect(cloudflare?.sccRequired).toBe(true);
 
-    expect(Array.isArray(result.planned)).toBe(true);
-    expect(result.planned.every((p) => p.status === "planned")).toBe(true);
+    expect(result.planned.map((p) => p.name)).toEqual(
+      getPlannedSubProcessors().map((sp) => sp.name),
+    );
+    expect(result.active.map((a) => a.name)).toEqual(getActiveSubProcessors().map((sp) => sp.name));
 
     expect(result.total).toBe(result.active.length + result.planned.length);
     expect(result.generatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
