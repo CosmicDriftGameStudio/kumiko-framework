@@ -1,5 +1,185 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.337.0
+
+### Minor Changes
+
+- 3ad5398: Anonymous callers on protected handlers get 401 unauthenticated, and a stale auth cookie no longer blocks public handlers
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Anonymous callers on protected handlers get 401 unauthenticated, and a stale auth cookie no longer blocks public handlers
+  migration: |
+    Tests or clients that expect 403 / access_denied for an anonymous caller (no session, the anonymousAccess user, or a JWT carrying only the anonymous role) on a role-gated or openToAll handler now get 401 / unauthenticated; update those assertions. Signed-in callers without the role still get 403 access_denied. With anonymousAccess wired, a request whose auth cookie fails verification or whose session is no longer live continues as anonymous outside /api/auth/* (public handlers answer 200, protected ones 401 unauthenticated) instead of failing with 401 invalid_token / session_invalid; bearer tokens and /api/auth/* keep the explicit 401.
+  -->
+
+- 3ad5398: buildServer refuses partially wired session callbacks
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: buildServer refuses partially wired session callbacks
+  migration: |
+    If you call buildServer with auth.sessionCreator or auth.sessionRevoker, also wire the other two of sessionCreator, sessionRevoker and sessionChecker (the sessions feature's sessionStore provides all three; runProdApp and runDevApp already do this). Without a sessionChecker a logout never invalidated the JWT. A sessionChecker alone stays allowed.
+  -->
+
+- a7fcca9: A number field's unit now always sits inside the field. Before, a label wider than the input (for example once the "changed" marker appeared) widened the form cell, and the unit moved to the right edge of the cell, next to the field. relatedList `groupBy.label` is optional: a group with neither `label` nor a `labels` entry shows its rows without a header and stays open, so a list can keep a header for one group only, such as the done posts. Boot rejects a `collapsedWhen` group that has no header. `DataTableRowGrouping.headerLabel` may return `undefined` for such a group. The required i18n keys now include the `groupBy` header keys of an entityList `expandableRow`, not only those of projectionDetail sections.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: A number field's unit stays inside the field when the label is wider than the input
+  detail: |
+    Icon, input and unit of a `kind: "number"` input share one box (`data-slot="number-field"`), and the form grid's number cell sizes that box to 8rem instead of the bare input. Before, a label wider than the input (a long label, or the "changed" marker appearing while editing) widened the cell, and the unit was anchored to the cell's right edge, next to the field.
+  migration: |
+    No code change needed. Custom CSS that sized number inputs through `[&_input]` inside the number cell targets `[data-slot=number-field]` now.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: relatedList groupBy.label is optional; groups without a header show their rows directly
+  detail: |
+    `RelatedListGroupBy.label` is optional. The header key of a group is `labels[value] ?? label`; a group without one renders its rows without a header row and never collapses. `relatedListGroupKey` and `relatedListGroupHeaderLabel` resolve the group key and its header key; `collapsedWhen: null` now matches rows whose field is empty.
+  migration: |
+    No code change needed. To hide a header, drop `label` and name only the groups that keep one in `labels`, for example `{ field: "status", collapsedWhen: "done", labels: { done: "<key>" } }`.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot rejects a collapsed relatedList group without a header; expandableRow groupBy keys are required i18n keys
+  detail: |
+    Boot fails when `groupBy.collapsedWhen` names a group that has neither `label` nor a `labels` entry, because its rows could never be opened. The required surface keys now include `groupBy.label` and `groupBy.labels` of an entityList `expandableRow`, as they already did for projectionDetail relatedList sections.
+  migration: |
+    Add translations for expandableRow `groupBy` header keys if the i18n check reports them missing.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: DataTableRowGrouping.headerLabel may return undefined
+  detail: |
+    `DataTableRowGrouping.headerLabel` returns `string | undefined`. `undefined` means the group has no header: the default web DataTable renders its rows without a header row and never collapses them.
+  migration: |
+    Custom DataTable primitives that render `rowGrouping` handle `undefined` from `headerLabel` by rendering the group's rows without a header.
+  -->
+
+- e889f3f: `secrets:write:set` and `secrets:write:delete` now accept only keys declared via `r.secret`, and `r.secret` takes an optional `writeRoles` list. Before, any tenant admin could store a secret under an arbitrary key name.
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: breaking
+  title: secrets:set and secrets:delete accept only keys declared via r.secret; r.secret takes writeRoles
+  detail: |
+    Both handlers reject a key that no feature declared with `r.secret` (404, i18n key `secrets.errors.unknownKey`). `r.secret` takes `writeRoles`: when set, only users holding one of those roles may set or delete that key (403, i18n key `secrets.errors.writeDenied`). The roles narrow the handler access, so both checks must pass. An empty `writeRoles` array throws at declaration.
+  migration: |
+    Declare every key you set through `secrets:write:set` via `r.secret`. Rows stored under undeclared keys stay in the table but can no longer be set or deleted through the API. A key that only SystemAdmin may write declares `writeRoles: ["SystemAdmin"]`, and the secrets feature must then grant SystemAdmin handler access via `createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] })`. Tests that set a key no feature declares need the same fix: the kumiko-studio test `bundled-stack.integration.test.ts` sets `ai-foundation:secret:anthropic-api-key`, which no feature declares; kumiko-ai-foundation 0.39.1 and 0.40.1 declare the Anthropic key as `ai-provider-anthropic:secret:anthropic-api-key`.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.secretNamespace declares a family of runtime-named secret keys
+  detail: |
+    `r.secretNamespace(name, { label, scope: "tenant", writeRoles?, nameSchema? })` declares the prefix `<feature>:<name>.` (kebab-cased) and returns `{ prefix, keyFor(name) }`. `secrets:write:set` and `secrets:write:delete` accept a key under that prefix when the suffix is non-empty and passes `nameSchema`; `writeRoles` applies to every key in the namespace. Namespaces are kept out of `getAllSecretKeys` and the generated secrets screen. `Registry.findSecretNamespace(key)` resolves the namespace of a key. step-dispatcher declares `webhook-auth`, so webhook auth secrets (`step-dispatcher:webhook-auth.<name>`) stay settable through the API.
+  migration: |
+    No code change needed. A feature that stores secrets under a runtime-chosen suffix declares a namespace instead of one `r.secret` per key.
+  -->
+
+### Patch Changes
+
+- c68ebb6: `derivatives.variant()` now discards a caller-supplied `resolvedOverlays`, so a literal overlay payload can no longer bypass the overlay resolver. The guarded admin seed throws instead of silently picking by id when a user row's `insertedAt` is not an instant.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: variant() ignores caller-supplied resolvedOverlays
+  -->
+
+- 3ad5398: Anonymous SSE signals no longer carry row id or version
+
+  An anonymous /api/sse connection gets every row signal of a declared liveEntities entity, including rows the anonymous query hides. The frame now carries only aggregateType, eventType and createdAt, so a public viewer can no longer see which hidden rows exist or change; signed-in connections keep id and version. LiveEvent.data.id and version are optional in kumiko-renderer accordingly.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Anonymous SSE signals no longer carry row id or version
+  -->
+
+- 3ad5398: Job triggers accept short handler and event names
+
+  r.job trigger.on now qualifies a short name against the job's own feature (write handler, then query handler, then defineEvent), like notification triggers, and the boot error lists every name it tried.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Job triggers accept short handler and event names
+  -->
+
+- 469df86: The `json` format no longer throws on BigInt or circular values and falls back to text. `resolvePublicHost` prefers an IPv4 address on dual-stack hosts. Identity-switch claim comparison no longer treats structurally equal object claims in a different key order as a different identity.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: json format falls back to text, IPv4-first egress pin, structural claim comparison for identity switch
+  -->
+
+- 8b6daed: List search and sort by a reference field now ignore soft-deleted target rows: a deleted customer's name no longer matches a reference search and no longer decides the position in a label sort. The blind-index sweep checks table existence in the `public` schema instead of relying on the session `search_path`. The Scaleway key-manager retry cancels the response body of a retried 5xx instead of leaving it open.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: reference search and sort skip soft-deleted targets, blind-index sweep resolves tables in public, key-manager retry releases 5xx bodies
+  -->
+
+- c2da99c: The boot validator now rejects a `redirect` on `entityList`, `projectionList` and `relatedList` row actions, where it was silently ignored. The feature-ast parser reports an `httpRoute` whose `anonymous` is a non-literal expression as a parse error instead of rewriting it to `false` on round-trip, and a local non-literal `const` no longer resolves to a same-named import. `r.nav()` strips explicitly-`undefined` properties for every registration path.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: boot validator rejects redirect on list row actions, httpRoute with non-literal anonymous is a parse error, local const shadows same-named import in feature-ast, r.nav strips undefined properties
+  -->
+
+- 7949847: `isRedisSseBroker` now narrows on a `kind: "redis"` discriminant that `createRedisSseBroker` sets, so an app-owned broker that happens to expose `close()` is no longer mistaken for the Redis one. The tenant-lifecycle gate cache is capped at 5000 entries, so anonymous requests with random `X-Tenant` ids can no longer grow it without bound.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: isRedisSseBroker narrows on a kind discriminant, tenant-lifecycle gate cache is bounded
+  -->
+
+- a5023de: The search consumer no longer hands `sensitive` columns of the projection row to `searchPayloadExtension` contributors when a named domain event triggers the re-index. A `skipApplyErrors` rebuild option passed for a multi-stream projection is now logged as ignored instead of dropped silently. The irreversible-operation gate error for stream entry handlers says that streams cannot declare an agent risk (streams always resolve `mid`, so a hard delete or `forget` inside a stream is denied; dispatch a risk `high` write handler directly). The `migrate-open-to-all` codemod skips symlinks and `dist`/`build`/`.next`/`.git`, and the `unprocessable-error-details-reason` codemod follows namespace imports and reports member-access callees it cannot resolve.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: search extensions never see sensitive row fields on named events, streams cannot hard-delete (gate message now says so), codemod walkers and namespace imports hardened
+  -->
+
+- edc2b80: Meilisearch `remove` and `removeBatch` no longer configure (and thereby implicitly create) the tenant index before deleting. `kumiko-upgrade --apply` writes a partial upgrade marker when a later codemod fails, so a re-run resumes at the failed codemod instead of replaying the ones that already wrote files. The changelog lookup claims a package name in the nearest `node_modules` even when it has no `changes.json`, instead of listing a farther version's changelog. The test stack syncs missing indexes (including unique) on a persistent dev DB and removes the BullMQ keys of its derived per-stack queues on cleanup. `bridgeStub` defaults to the real anonymous identity. The `migrate-cross-tenant` and `migrate-db-raw` codemods share one walker with `migrate-open-to-all` that skips symlinks and `dist`/`build`/`.next`/`.git`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: search remove no longer creates indexes, upgrade --apply keeps a partial marker on codemod failure, test stack syncs indexes and cleans queue keys, codemod walkers skip symlinks
+  -->
+
+- acde687: The httpRoute guard chain no longer includes the PAT rate-limit guard. PATs are rejected on httpRoutes before it could count, so behavior is unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Removed unreachable PAT rate-limit guard from the httpRoute chain
+  -->
+
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-types@0.337.0
+  - @cosmicdrift/kumiko-http@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

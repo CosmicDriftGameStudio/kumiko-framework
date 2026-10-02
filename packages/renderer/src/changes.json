@@ -1,5 +1,37 @@
 [
   {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "configEdit shows server validation errors at the affected field",
+    "detail": "`config:write:set` reports its issues at path `value`. The configEdit submit maps the issues of the failed batch command (`failedIndex`) to that command's field, and RenderEdit puts server field issues from a `customSubmit` into the form controller, the same way `controller.submit()` does. The banner stays for issues no rendered field can show and for network failures.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.337.0",
+    "type": "breaking",
+    "title": "DataTableRowGrouping.headerLabel may return undefined",
+    "detail": "`DataTableRowGrouping.headerLabel` returns `string | undefined`. `undefined` means the group has no header: the default web DataTable renders its rows without a header row and never collapses them.",
+    "migration": "Custom DataTable primitives that render `rowGrouping` handle `undefined` from `headerLabel` by rendering the group's rows without a header."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "Tabs fallback, error-tab jump, list search echo and money currency no longer misbehave",
+    "detail": "A tabs layout on a host with `Tabs` but no `WizardStepGroup` now falls back to a stacked form instead of throwing. After a server validation error the form jumps to the first tab that actually shows the errored field, skipping tabs where it is hidden. A delete handler that returns a non-error value no longer shows an empty error banner. The list search box keeps keystrokes typed while the parent echoes the previous search value late. A money value whose stored currency is not a three-letter code falls back to the field currency instead of crashing the screen. Embedded-list reference columns remount instead of breaking hook order when the column set changes. The wizard step check parses the form once per change instead of once per step."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "Header subtitle without MetricBand and navigateToReturn state no longer misbehave",
+    "detail": "A projectionDetail header subtitle stays visible on a host with `PageHeader` but no `MetricBand`. `navigateToReturn` applies the restored host state only when the return target is the host the `returnTo` value names, so a caller-supplied target no longer inherits a foreign host's tab, filters and nested `returnTo`. The `screenPadding` and `scrollBody` docs now state that `scrollBody` wins, and the number input docs match the web behavior."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "Screen actions and URL prefill no longer leave stale, doubled or invalid state",
+    "detail": "An entityEdit delete action with a `redirect` now still reports the deletion to its host, and a delete with no entity list screen reloads the record instead of leaving the form on the deleted record. Overflow-menu actions are disabled while one is running, so a second click can no longer fire the write twice. URL prefill ignores an empty money param, non-finite number params, embedded-list cells with too many decimals or invalid dates, and a dateRange filter with `from` after `to` is put in order before it reaches the handler."
+  },
+  {
     "version": "0.336.0",
     "type": "breaking",
     "title": "LiveEvent data has no payload, it carries eventType",

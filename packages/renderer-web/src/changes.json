@@ -1,5 +1,42 @@
 [
   {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "A number field's unit stays inside the field when the label is wider than the input",
+    "detail": "Icon, input and unit of a `kind: \"number\"` input share one box (`data-slot=\"number-field\"`), and the form grid's number cell sizes that box to 8rem instead of the bare input. Before, a label wider than the input (a long label, or the \"changed\" marker appearing while editing) widened the cell, and the unit was anchored to the cell's right edge, next to the field.",
+    "migration": "No code change needed. Custom CSS that sized number inputs through `[&_input]` inside the number cell targets `[data-slot=number-field]` now."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "A rejected SSE connection ends the web session",
+    "detail": "When the server refuses the live-events EventSource with a session 401, createKumikoApp now raises the same session-ended signal as a 401 from the dispatcher, so the user sees the session-end notice instead of silently losing live updates."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "Kebab confirmLabel, cell locale fallback, card-list sort select and bare-form headerRegion",
+    "detail": "The row-actions kebab confirm dialog uses `confirmLabel` like the inline path. A list cell with `renderer.locale` explicitly set to `undefined` falls back to the app locale. The narrow-viewport card list keeps the bare `testId` on a wrapper, and its sort select shows a sort that targets a non-sortable column instead of \"Unsorted\". A bare form renders its `headerRegion`. The dashboard time range no longer needs a type assertion."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "FloatingPanel grip pointer drag, Drawer style undefined, resize bitmap release, nav action screen+target warning",
+    "detail": "The FloatingPanel grip button drags the panel with the pointer again. Drawer passes `style` as `undefined` when no width or offset applies. Image resize releases the decoded bitmap when no 2d context is available. Nav tree actions that set both `screen` and `target` warn once that `target` is ignored."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "Secret reveal keys, nested-form input submit routing, Grid maxRows/gap, RTL card meta, browser QR import",
+    "detail": "Secret reveal rows with equal labels get distinct React keys. A nested form's submit routing also covers `input[type=submit]` and `input[type=image]`. `Grid` ignores null and boolean children when computing `maxRows`, and its gap is the themeable `--kumiko-grid-gap` variable shared with the clip height. Card meta rows clip at the inline start so RTL layouts hide the leading separator too. The QR secret value imports `qrcode/lib/browser.js` so Metro does not pull Node-only dependencies."
+  },
+  {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "screenWidth setting now widens the default entityEdit form too",
+    "detail": "`createKumikoApp({ screenWidth })` now also applies to the default entityEdit form, which previously stayed at a fixed 640px column. Without the setting the column keeps its 640px width."
+  },
+  {
     "version": "0.336.0",
     "type": "improvement",
     "title": "EventSource live events parse the signal-only frame",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "workflow resume batches due runs, tenant handover merges discovered rows per type",
+    "detail": "The workflow resume job now picks up at most 100 due runs per tick, oldest first, so a backlog drains over several ticks. Tenant handover merges rows discovered per entity type so each outgoing edge runs once per round."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "resume-run no longer appends run-failed to an already settled run",

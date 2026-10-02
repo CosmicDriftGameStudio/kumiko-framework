@@ -1,5 +1,119 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.337.0
+
+### Minor Changes
+
+- a7fcca9: A number field's unit now always sits inside the field. Before, a label wider than the input (for example once the "changed" marker appeared) widened the form cell, and the unit moved to the right edge of the cell, next to the field. relatedList `groupBy.label` is optional: a group with neither `label` nor a `labels` entry shows its rows without a header and stays open, so a list can keep a header for one group only, such as the done posts. Boot rejects a `collapsedWhen` group that has no header. `DataTableRowGrouping.headerLabel` may return `undefined` for such a group. The required i18n keys now include the `groupBy` header keys of an entityList `expandableRow`, not only those of projectionDetail sections.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: A number field's unit stays inside the field when the label is wider than the input
+  detail: |
+    Icon, input and unit of a `kind: "number"` input share one box (`data-slot="number-field"`), and the form grid's number cell sizes that box to 8rem instead of the bare input. Before, a label wider than the input (a long label, or the "changed" marker appearing while editing) widened the cell, and the unit was anchored to the cell's right edge, next to the field.
+  migration: |
+    No code change needed. Custom CSS that sized number inputs through `[&_input]` inside the number cell targets `[data-slot=number-field]` now.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: relatedList groupBy.label is optional; groups without a header show their rows directly
+  detail: |
+    `RelatedListGroupBy.label` is optional. The header key of a group is `labels[value] ?? label`; a group without one renders its rows without a header row and never collapses. `relatedListGroupKey` and `relatedListGroupHeaderLabel` resolve the group key and its header key; `collapsedWhen: null` now matches rows whose field is empty.
+  migration: |
+    No code change needed. To hide a header, drop `label` and name only the groups that keep one in `labels`, for example `{ field: "status", collapsedWhen: "done", labels: { done: "<key>" } }`.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot rejects a collapsed relatedList group without a header; expandableRow groupBy keys are required i18n keys
+  detail: |
+    Boot fails when `groupBy.collapsedWhen` names a group that has neither `label` nor a `labels` entry, because its rows could never be opened. The required surface keys now include `groupBy.label` and `groupBy.labels` of an entityList `expandableRow`, as they already did for projectionDetail relatedList sections.
+  migration: |
+    Add translations for expandableRow `groupBy` header keys if the i18n check reports them missing.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: DataTableRowGrouping.headerLabel may return undefined
+  detail: |
+    `DataTableRowGrouping.headerLabel` returns `string | undefined`. `undefined` means the group has no header: the default web DataTable renders its rows without a header row and never collapses them.
+  migration: |
+    Custom DataTable primitives that render `rowGrouping` handle `undefined` from `headerLabel` by rendering the group's rows without a header.
+  -->
+
+### Patch Changes
+
+- 3ad5398: A rejected SSE connection ends the web session
+
+  When the server refuses the live-events EventSource with a session 401, createKumikoApp now raises the same session-ended signal as a 401 from the dispatcher, so the user sees the session-end notice instead of silently losing live updates.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: A rejected SSE connection ends the web session
+  -->
+
+- 4224359: The row-actions kebab confirm dialog uses `confirmLabel` like the inline path. A list cell with `renderer.locale` explicitly set to `undefined` falls back to the app locale. The narrow-viewport card list keeps the bare `testId` on a wrapper, and its sort select shows a sort that targets a non-sortable column instead of "Unsorted". A bare form renders its `headerRegion`. The dashboard time range no longer needs a type assertion.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Kebab confirmLabel, cell locale fallback, card-list sort select and bare-form headerRegion
+  -->
+
+- c55370a: The FloatingPanel grip button drags the panel with the pointer again. Drawer passes `style` as `undefined` when no width or offset applies. Image resize releases the decoded bitmap when no 2d context is available. Nav tree actions that set both `screen` and `target` warn once that `target` is ignored.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: FloatingPanel grip pointer drag, Drawer style undefined, resize bitmap release, nav action screen+target warning
+  -->
+
+- 2bd9f3d: Secret reveal rows with equal labels get distinct React keys. A nested form's submit routing also covers `input[type=submit]` and `input[type=image]`. `Grid` ignores null and boolean children when computing `maxRows`, and its gap is the themeable `--kumiko-grid-gap` variable shared with the clip height. Card meta rows clip at the inline start so RTL layouts hide the leading separator too. The QR secret value imports `qrcode/lib/browser.js` so Metro does not pull Node-only dependencies.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Secret reveal keys, nested-form input submit routing, Grid maxRows/gap, RTL card meta, browser QR import
+  -->
+
+- dbf6a5f: `createKumikoApp({ screenWidth })` now also applies to the default entityEdit form, which previously stayed at a fixed 640px column. Without the setting the column keeps its 640px width.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: screenWidth setting now widens the default entityEdit form too
+  -->
+
+- Updated dependencies [9237bbc]
+- Updated dependencies [c68ebb6]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [8b6daed]
+- Updated dependencies [c2da99c]
+- Updated dependencies [7949847]
+- Updated dependencies [a5023de]
+- Updated dependencies [edc2b80]
+- Updated dependencies [acde687]
+- Updated dependencies [f813603]
+- Updated dependencies [b79a8a3]
+- Updated dependencies [7d00ea9]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-headless@0.337.0
+  - @cosmicdrift/kumiko-renderer@0.337.0
+  - @cosmicdrift/kumiko-framework@0.337.0
+  - @cosmicdrift/kumiko-types@0.337.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

@@ -1,5 +1,45 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.337.0
+
+### Patch Changes
+
+- 9237bbc: A configEdit screen shows a server validation error at the field whose value was rejected, for example the pattern message of a Stripe webhook secret. Before, it showed only the generic "Invalid input." banner. `groupIssuesByPath` is exported from `@cosmicdrift/kumiko-headless`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: configEdit shows server validation errors at the affected field
+  detail: |
+    `config:write:set` reports its issues at path `value`. The configEdit submit maps the issues of the failed batch command (`failedIndex`) to that command's field, and RenderEdit puts server field issues from a `customSubmit` into the form controller, the same way `controller.submit()` does. The banner stays for issues no rendered field can show and for network failures.
+  migration: |
+    No code change needed.
+  -->
+
+- 469df86: The `json` format no longer throws on BigInt or circular values and falls back to text. `resolvePublicHost` prefers an IPv4 address on dual-stack hosts. Identity-switch claim comparison no longer treats structurally equal object claims in a different key order as a different identity.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: json format falls back to text, IPv4-first egress pin, structural claim comparison for identity switch
+  -->
+
+- Updated dependencies [c68ebb6]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [8b6daed]
+- Updated dependencies [c2da99c]
+- Updated dependencies [7949847]
+- Updated dependencies [a5023de]
+- Updated dependencies [edc2b80]
+- Updated dependencies [acde687]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-framework@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.337.0
+
+### Patch Changes
+
+- 7bd2624: `kumiko-testing bunfig` now reports dotted and quoted keys as unknown and keeps `[[array-of-tables]]` blocks instead of folding them into `[test]`, and drops the superseded `./test-setup/dom.preload.ts` only when the DOM preload is generated. The schema-env-defaults preload treats empty values like unset ones for every key. `kumiko-testing integration <dir>` skips `node_modules`, `dist` and `e2e` while expanding a directory. `seedTenant` returns `unsubscribeSse` to detach the tenant's SSE client from `events.sse`. A real-provider scenario `waitFor` now times out after `E2E_TIMEOUT_MS.realWait` (180 s), before the 240 s test timeout.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: bunfig merge reports dotted/quoted keys and keeps array tables, empty schema env defaults are replaced, integration dir expansion prunes node_modules, seedTenant gains unsubscribeSse
+  -->
+
+- Updated dependencies [c68ebb6]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [8b6daed]
+- Updated dependencies [c2da99c]
+- Updated dependencies [7949847]
+- Updated dependencies [a5023de]
+- Updated dependencies [edc2b80]
+- Updated dependencies [b402850]
+- Updated dependencies [7735806]
+- Updated dependencies [615109d]
+- Updated dependencies [8a4feff]
+- Updated dependencies [d25d363]
+- Updated dependencies [acde687]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-framework@0.337.0
+  - @cosmicdrift/kumiko-bundled-features@0.337.0
+  - @cosmicdrift/kumiko-dev-server@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

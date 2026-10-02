@@ -1,5 +1,33 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.337.0
+
+### Patch Changes
+
+- 00313ba: Adds the German copy for `jobs.errors.invalidPayload`, shown when a manual job trigger gets a broken or non-object JSON payload.
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: fix
+  title: German copy for the jobs invalid-payload error
+  -->
+
+- Updated dependencies [c68ebb6]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [8b6daed]
+- Updated dependencies [c2da99c]
+- Updated dependencies [7949847]
+- Updated dependencies [a5023de]
+- Updated dependencies [edc2b80]
+- Updated dependencies [acde687]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-framework@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes
