@@ -480,6 +480,36 @@ describe("rebuildMultiStreamProjection — guard rails", () => {
     expect(state?.lastError).toMatch(/appendEvent/);
   });
 
+  test("an aborted signal rolls the replay back — live table and cursor stay untouched", async () => {
+    const fay = "00000000-0000-4000-8000-000000000f06";
+    await updateMany(
+      stack.db,
+      eventConsumerStateTable,
+      { status: "disabled", updatedAt: sql`now()` },
+      { name: SAGA_MSP },
+    );
+    await stack.http.writeOk("mspreb:write:invoice:bill", { customer: fay, cents: 9_00 }, admin);
+    await runFullDispatcher();
+    const cursorBefore = (await getConsumerState(stack.db, BALANCE_MSP))?.lastProcessedEventId;
+
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      rebuildMultiStreamProjection(BALANCE_MSP, {
+        db: stack.db,
+        registry: stack.registry,
+        markDeadOnFailure: false,
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow();
+
+    const [row] = await selectMany(stack.db, balanceTable, { customer: fay });
+    expect(row).toMatchObject({ invoicesCents: 9_00 });
+    const state = await getConsumerState(stack.db, BALANCE_MSP);
+    expect(state?.status).toBe("idle");
+    expect(state?.lastProcessedEventId).toBe(cursorBefore ?? 0n);
+  });
+
   test("aborts when the live table has RLS enabled — data survives (fw#2907)", async () => {
     const erin = "00000000-0000-4000-8000-000000000e05";
     await updateMany(

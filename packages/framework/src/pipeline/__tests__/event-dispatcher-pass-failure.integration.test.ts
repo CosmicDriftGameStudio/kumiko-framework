@@ -14,7 +14,7 @@
 // metric emission rolls back an otherwise-successful pass. No production
 // code is touched to make this reproducible.
 
-import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeAll, describe, expect, setSystemTime, test } from "bun:test";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { asRawClient } from "../../db/query.js";
 import { createTenantDb, type TenantDb } from "../../db/tenant-db.js";
@@ -184,9 +184,16 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
     // (no delivery attempt, so no change to attempts) while the healthy one
     // keeps advancing.
     await appendWidget("second-for-healthy");
+    // Clearing last_error makes a skipped tick observable: a re-run of the
+    // flaky consumer would fail again and write the error back.
+    await asRawClient(stack.db).unsafe(
+      `UPDATE "kumiko_event_consumers" SET "last_error" = NULL WHERE "name" = $1`,
+      [flaky],
+    );
     const second = await dispatcher.runOnce();
     const afterSecond = await getConsumerState(stack.db, flaky);
     expect(afterSecond?.attempts).toBe(0);
+    expect(afterSecond?.lastError).toBeNull();
     expect(healthySeen).toEqual(["first", "second-for-healthy"]);
     expect(second.byConsumer[healthy]?.processed).toBeGreaterThan(0);
   });
@@ -212,10 +219,14 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
     expect(afterFailure?.attempts).toBe(0);
     expect(afterFailure?.lastProcessedEventId).toBe(0n);
 
-    // Wait out the (short, base-case) backoff window rather than reaching
-    // into dispatcher internals.
-    await new Promise((r) => setTimeout(r, 1100));
-    await dispatcher.runOnce();
+    // Jump the system clock past the (short, base-case) backoff window
+    // instead of sleeping in real time.
+    setSystemTime(new Date(Date.now() + 1100));
+    try {
+      await dispatcher.runOnce();
+    } finally {
+      setSystemTime();
+    }
 
     const afterSuccess = await getConsumerState(stack.db, name);
     expect(afterSuccess?.status).toBe("idle");
@@ -231,6 +242,10 @@ describe("event-dispatcher — pass-level throw survives the rolled-back tx (#26
     await dispatcher.runOnce();
     const afterSecondFailure = await getConsumerState(stack.db, name);
     expect(afterSecondFailure?.attempts).toBe(0);
+    // The successful pass reset last_error to NULL, so a fresh message proves
+    // the pass ran (was not skipped) and rolled back again.
+    expect(afterSecondFailure?.lastError).toMatch(/injected-lag-failure/);
+    expect(afterSecondFailure?.lastProcessedEventId).toBe(1n);
   });
 
   test("repeated infra-level pass failures never spend deliverEvents' dead-letter budget", async () => {

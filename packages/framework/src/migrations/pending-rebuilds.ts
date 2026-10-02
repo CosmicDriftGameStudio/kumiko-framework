@@ -135,7 +135,12 @@ export async function rebuildProjectionOrMultiStream(
 ): Promise<RebuildResult> {
   const { db, registry, signal, errorPolicy } = deps;
   if (registry.getAllMultiStreamProjections().has(name)) {
-    return rebuildMultiStreamProjection(name, { db, registry, markDeadOnFailure: false });
+    return rebuildMultiStreamProjection(name, {
+      db,
+      registry,
+      markDeadOnFailure: false,
+      ...(signal && { signal }),
+    });
   }
   return rebuildProjection(name, {
     db,
