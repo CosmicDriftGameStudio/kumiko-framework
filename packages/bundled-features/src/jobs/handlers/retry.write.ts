@@ -1,5 +1,5 @@
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
+import { isPiiCiphertext, PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import {
   InternalError,
@@ -71,7 +71,8 @@ export const retryWrite = defineWriteHandler({
         "payload",
         `job run ${event.payload.runId} payload`,
       );
-      if (decryptedPayload === PII_ERASED_SENTINEL) {
+      // Still-ciphertext means no KMS could decrypt it (rollout mode); not JSON either.
+      if (decryptedPayload === PII_ERASED_SENTINEL || isPiiCiphertext(decryptedPayload)) {
         return writeFailure(
           new UnprocessableError(JobErrors.payloadErased, {
             i18nKey: "jobs.errors.payloadErased",

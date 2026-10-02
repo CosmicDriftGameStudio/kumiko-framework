@@ -9,6 +9,9 @@ mock.module("bullmq", () => {
     close() {
       return Promise.resolve();
     }
+    waitUntilReady() {
+      return new Promise(() => {});
+    }
     getJobCounts() {
       return Promise.resolve({});
     }
@@ -31,7 +34,8 @@ mock.module("bullmq", () => {
       return Promise.resolve();
     }
   }
-  return { Queue: FakeQueue, Worker: FakeWorker };
+  class UnrecoverableError extends Error {}
+  return { Queue: FakeQueue, Worker: FakeWorker, UnrecoverableError };
 });
 
 import { createRegistry } from "../../engine/index.js";
@@ -51,5 +55,18 @@ describe("createJobRunner start() boot timeout", () => {
     });
 
     await expect(runner.start()).rejects.toThrow(/Redis not reachable within 50ms \(lane=worker\)/);
+  });
+
+  test("stop() returns within the shutdown cap when queues never become ready, even with a long boot timeout", async () => {
+    const runner = createJobRunner({
+      registry: createRegistry([]),
+      context: {},
+      redisUrl: "redis://localhost:6379",
+      bootRedisTimeoutMs: 60_000,
+    });
+
+    const startedAt = Date.now();
+    await runner.stop();
+    expect(Date.now() - startedAt).toBeLessThan(3_000);
   });
 });

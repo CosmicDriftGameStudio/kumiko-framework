@@ -7,6 +7,8 @@ import { jobRunsTable } from "../job-run-table.js";
 
 const KMS_POOL_CONCURRENCY = 4;
 
+const jobRunStatusSchema = z.enum(["queued", "running", "completed", "failed"]);
+
 async function decryptRunRow<T extends Record<string, unknown>>(row: T): Promise<T> {
   let result = row;
   if (typeof result["payload"] === "string") {
@@ -27,9 +29,15 @@ export const listQuery = defineQueryHandler({
     "Lists job runs across all tenants newest-first, optionally filtered by job name and status; use it to check whether a job ran and whether it succeeded.",
   schema: z.object({
     jobName: z.string().optional(),
-    status: z.enum(["queued", "running", "completed", "failed"]).optional(),
+    status: jobRunStatusSchema.optional(),
     filters: z
-      .array(z.object({ field: z.string(), op: z.literal("in"), value: z.array(z.string()) }))
+      .array(
+        z.object({
+          field: z.literal("status"),
+          op: z.literal("in"),
+          value: z.array(jobRunStatusSchema),
+        }),
+      )
       .optional(),
     sort: z.enum(["jobName", "status", "startedAt", "duration"]).optional(),
     sortDirection: z.enum(["asc", "desc"]).optional(),
@@ -51,6 +59,7 @@ export const listQuery = defineQueryHandler({
     const statusFilter = query.payload.filters?.find((filter) => filter.field === "status");
     const statuses = statusFilter?.value ?? (query.payload.status ? [query.payload.status] : []);
     if (statuses.length === 1) where["status"] = statuses[0];
+    else if (statuses.length > 1) where["status"] = { in: statuses };
     const sortColumn = query.payload.sort ?? "startedAt";
     const rows = await selectMany(db, jobRunsTable, where, {
       orderBy: { col: sortColumn, direction: query.payload.sortDirection ?? "desc" },

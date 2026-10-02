@@ -20,6 +20,7 @@ import type {
   JobOutcomeMeta,
   JobRunnerOptions,
 } from "@cosmicdrift/kumiko-framework/jobs";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { mapWithConcurrency } from "../shared/index.js";
 import { runCompletedSchema, runFailedSchema, runStartedSchema } from "./events.js";
@@ -198,6 +199,26 @@ async function clearTenantJobFailure(
   await deleteMany(db, tenantJobFailuresTable, where);
 }
 
+const log = createFallbackLogger("job-run-logger");
+
+// The tenant failure record is an optional side write: a throw here must not
+// skip the run-row update or turn a completed run into a BullMQ retry.
+async function isolateTenantFailureWrite(
+  write: () => Promise<void>,
+  jobName: string,
+  bullJobId: string,
+): Promise<void> {
+  try {
+    await write();
+  } catch (e) {
+    log.error("tenant job failure record write failed", {
+      jobName,
+      bullJobId,
+      error: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallbacks {
   const { db } = opts;
 
@@ -310,7 +331,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
       // Before the run-row write and independent of it: a successful run
       // clears the tenant's failure record even when the run row itself is
       // unreachable (the state-loss return below).
-      await clearTenantJobFailure(db, jobName, outcome);
+      await isolateTenantFailureWrite(
+        () => clearTenantJobFailure(db, jobName, outcome),
+        jobName,
+        bullJobId,
+      );
       const resolved = await resolveRun(bullJobId);
       // skip: state loss between start + complete (worker restart, cache
       // evicted AND DB has no matching bull_job_id). Rare edge case; we
@@ -370,7 +395,11 @@ export function createJobRunLogger(opts: JobRunLoggerOptions): JobRunLoggerCallb
     ) => {
       // Mirror of onJobComplete: recorded independently of the run row, so a
       // tenant still learns their job failed if the row is unreachable.
-      await recordTenantJobFailure(db, jobName, outcome);
+      await isolateTenantFailureWrite(
+        () => recordTenantJobFailure(db, jobName, outcome),
+        jobName,
+        bullJobId,
+      );
       const resolved = await resolveRun(bullJobId);
       // skip: same rare state-loss case as in onJobComplete — drop the
       // failure write rather than forge a run row from scratch.
