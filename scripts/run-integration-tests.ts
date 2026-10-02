@@ -131,7 +131,9 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
     ...(collectCoverage
       ? ["--coverage", "--coverage-reporter=lcov", `--coverage-dir=${INTEGRATION_COVERAGE_OUT}`]
       : []),
-    ...discovery.includedFiles,
+    // bun treats only `./`- or `/`-prefixed positionals as files; bare paths
+    // become substring filters that also match unrelated test files.
+    ...discovery.includedFiles.map((file) => `./${file}`),
   ];
 
   const sectionLabel = mode === "perf" ? "Integration perf" : "Integration";

@@ -46,7 +46,10 @@ const failures = [];
 for (const file of emitted) {
 	// Template literals hold generated source, whole-line comments hold usage examples, and lines that start
 	// with a quote are string-array elements of generated source (a real import statement never starts with one).
+	// Block comments go first: a stray backtick in JSDoc would otherwise pair with the next real template literal
+	// and swallow the imports between them. Only comments that open a line are stripped, so a "/*" inside a string stays.
 	const code = readFileSync(file, "utf8")
+		.replace(/^\s*\/\*[\s\S]*?\*\//gm, "")
 		.replace(/^\s*\/\/.*$/gm, "")
 		.replace(/^\s*["'].*$/gm, "")
 		.replace(/`(?:\\.|[^`\\])*`/gs, "``");

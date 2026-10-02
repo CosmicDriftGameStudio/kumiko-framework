@@ -337,6 +337,7 @@ function findComponentNameUsages(sf: SourceFile): { name: string; kind: MountKin
 function buildUsageKindsByName(files: readonly SourceFile[]): Map<string, Set<MountKind>> {
   const byName = new Map<string, Set<MountKind>>();
   for (const sf of files) {
+    if (EXCLUDE.test(sf.getFilePath())) continue;
     for (const { name, kind } of findComponentNameUsages(sf)) {
       const kinds = byName.get(name) ?? new Set<MountKind>();
       kinds.add(kind);

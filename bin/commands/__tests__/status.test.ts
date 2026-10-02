@@ -28,16 +28,23 @@ describe("status command", () => {
 
   test("non-git cwd reports gracefully", async () => {
     const cwd = tmp();
+    const binDir = mkdtempSync(join(tmpdir(), "kumiko-fakebin-"));
+    writeFileSync(join(binDir, "docker"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    const originalPath = process.env["PATH"];
+    cleanups.push(() => {
+      if (originalPath === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = originalPath;
+      rmSync(binDir, { recursive: true, force: true });
+    });
+    process.env["PATH"] = originalPath === undefined ? binDir : `${binDir}:${originalPath}`;
+
     const spy = makeSpyOutput();
     const exit = await statusCommand.run(makeContext({ cwd, out: spy.out }));
     expect(exit).toBe(0);
     const joined = spy.logs.join("\n");
     expect(joined).toContain("Services");
-    // CI runners can have a slow docker daemon → timeout instead of "not running"
-    expect(
-      joined.includes("Docker services not running") ||
-        joined.includes("Docker probe timed out (daemon slow or hung)"),
-    ).toBe(true);
+    expect(joined).toContain("Docker services not running");
+    expect(joined).not.toContain("timed out");
     expect(joined).toContain("Not a git repository");
   });
 

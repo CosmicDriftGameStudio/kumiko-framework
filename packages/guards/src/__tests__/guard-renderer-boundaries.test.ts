@@ -60,4 +60,49 @@ describe("check.run — RepoCheck seam", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("flags a bare fetch call but not a qualified .fetch call", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const rendererSrc = join(dir, "packages/renderer/src");
+      mkdirSync(rendererSrc, { recursive: true });
+      writeFileSync(
+        join(rendererSrc, "load.ts"),
+        'export const a = () => fetch("/api/x");\nexport const b = (c: Client) => c.fetch("/ok");\n',
+      );
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations.map((v) => v.line)).toEqual([1]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("reports every JSX tag on a line, not only the first", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "renderer-boundaries-guard-"));
+    try {
+      const rendererSrc = join(dir, "packages/renderer/src");
+      mkdirSync(rendererSrc, { recursive: true });
+      writeFileSync(
+        join(rendererSrc, "view.tsx"),
+        "export const v = () => <div><span>x</span></div>;\n",
+      );
+      const root = fixtureRoot("kumiko-framework", dir, {
+        kind: "framework",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.violations.map((v) => v.message)).toEqual([
+        expect.stringContaining("<div>"),
+        expect.stringContaining("<span>"),
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

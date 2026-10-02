@@ -274,4 +274,20 @@ export function demoClient() {
     );
     expect(guard.run([sf]).violations).toHaveLength(0);
   });
+
+  test("a custom-panel usage inside a test file does not exempt a production component", () => {
+    const production = parse(
+      `function CapCards() { return <Card>x</Card>; }
+export function demoClient() {
+  return { extensionSectionComponents: { [CAP_CARDS_PANEL_COMPONENT]: CapCards } };
+}`,
+    );
+    const testUsage = parse(
+      `const screen = { type: "dashboard", panels: [{ kind: "custom", id: "cap-cards", component: { react: { __component: CAP_CARDS_PANEL_COMPONENT } } }] };`,
+      "src/features/demo/__tests__/screen.test.tsx",
+    );
+    const violations = guard.run([production, testUsage]).violations;
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.message).toContain("CapCards");
+  });
 });

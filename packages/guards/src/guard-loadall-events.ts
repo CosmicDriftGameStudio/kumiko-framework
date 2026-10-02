@@ -19,7 +19,7 @@
  */
 
 import * as path from "node:path";
-import { type CallExpression, type Identifier, type SourceFile, SyntaxKind } from "ts-morph";
+import { type CallExpression, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   type AstGuard,
   type GuardViolation,
@@ -88,7 +88,7 @@ export function collectViolations(sourceFile: SourceFile): Violation[] {
 function getCalleeName(call: CallExpression): string | null {
   const expr = call.getExpression();
   if (expr.getKind() === SyntaxKind.Identifier) {
-    return (expr as Identifier).getText();
+    return expr.getText();
   }
   if (expr.getKind() === SyntaxKind.PropertyAccessExpression) {
     return expr.asKindOrThrow(SyntaxKind.PropertyAccessExpression).getName();

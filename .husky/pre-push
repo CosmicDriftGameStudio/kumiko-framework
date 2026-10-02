@@ -20,8 +20,21 @@ if [ -x "$IN_REPO_HOOK" ]; then
   BIN="$IN_REPO_HOOK"
 fi
 
-# Otherwise walk up to / so a worktree without its own node_modules resolves
-# via the parent install; `[ -x ]` also skips a broken (uninstalled) symlink.
+# Otherwise walk up to the parent-workspace root so a worktree without its own
+# node_modules resolves via the parent install. Without such a root only the
+# repo's own node_modules is trusted: a bin planted in a shared ancestor
+# (/tmp, /Users/Shared) must never be exec'd; `[ -x ]` also skips a broken
+# (uninstalled) symlink.
+STOP_DIR="$REPO_ROOT"
+ANCESTOR="$REPO_ROOT"
+while [ "$ANCESTOR" != "/" ]; do
+  ANCESTOR="$(dirname "$ANCESTOR")"
+  if [ -f "$ANCESTOR/package.json" ] && grep -q '"name": "cosmicdriftgamestudio"' "$ANCESTOR/package.json"; then
+    STOP_DIR="$ANCESTOR"
+    break
+  fi
+done
+
 DIR="$REPO_ROOT"
 while [ -z "$BIN" ]; do
   CANDIDATE="$DIR/node_modules/.bin/kumiko-pre-push"
@@ -29,7 +42,7 @@ while [ -z "$BIN" ]; do
     BIN="$CANDIDATE"
     break
   fi
-  if [ "$DIR" = "/" ]; then
+  if [ "$DIR" = "$STOP_DIR" ] || [ "$DIR" = "/" ]; then
     break
   fi
   DIR="$(dirname "$DIR")"
