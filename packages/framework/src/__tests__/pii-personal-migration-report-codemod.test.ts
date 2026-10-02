@@ -153,6 +153,17 @@ const x = [createTextField({})];
     expect(sites[0]?.hint).toBeUndefined();
   });
 
+  it.each(['"email"', "'email'"])("classifies a quoted key %s like the bare key", (key) => {
+    const [site] = reportStanceForSource(wrapField(`${key}: createTextField({}),`), "t.ts");
+    expect(site?.stance).toBe("direct");
+    expect(site?.field).toBe("email");
+  });
+
+  it("leaves a computed key unclassified", () => {
+    const [site] = reportStanceForSource(wrapField("[dynamicKey]: createTextField({}),"), "t.ts");
+    expect(site?.stance).toBe("unclassified");
+  });
+
   it("resolves the entity from createEntity's table property", () => {
     const [site] = reportStanceForSource(wrapField("email: createTextField({}),"), "t.ts");
     expect(site?.entity).toBe("entity_table");

@@ -473,7 +473,14 @@ function reportStanceHasPersonalStance(obj: ObjectLiteralExpression): boolean {
 function reportStanceEnclosingFieldName(call: CallExpression): string | undefined {
   let node = call.getParent();
   while (node) {
-    if (Node.isPropertyAssignment(node)) return node.getName();
+    if (Node.isPropertyAssignment(node)) {
+      // getName() keeps the quotes of a string-literal key; computed keys have no static name.
+      const nameNode = node.getNameNode();
+      if (Node.isStringLiteral(nameNode) || Node.isNoSubstitutionTemplateLiteral(nameNode)) {
+        return nameNode.getLiteralText();
+      }
+      return Node.isIdentifier(nameNode) ? nameNode.getText() : undefined;
+    }
     node = node.getParent();
   }
   return undefined;

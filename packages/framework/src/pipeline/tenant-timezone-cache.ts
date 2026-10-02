@@ -49,7 +49,8 @@ export function createTenantTimezoneCache(
   opts: TenantTimezoneCacheOptions = {},
 ): TenantTimezoneCache {
   const ttlMs = opts.ttlMs ?? DEFAULT_TTL_MS;
-  const maxEntries = opts.maxEntries ?? DEFAULT_MAX_ENTRIES;
+  // 0 or negative would never evict (size < max is never true) and grow unbounded.
+  const maxEntries = Math.max(1, opts.maxEntries ?? DEFAULT_MAX_ENTRIES);
   const now = opts.now ?? (() => Date.now());
   // Map insertion order doubles as LRU order: touch = delete+re-insert.
   const entries = new Map<TenantId, { value: string | undefined; expiresAt: number }>();
@@ -59,7 +60,7 @@ export function createTenantTimezoneCache(
     // skip: cache has room, nothing to evict
     if (entries.size < maxEntries) return;
     const oldestKey = entries.keys().next().value;
-    // skip: defensive — only reachable if maxEntries is 0 (cache disabled) and entries is empty
+    // skip: defensive — maxEntries >= 1 guarantees a non-empty map here
     if (oldestKey === undefined) return;
     entries.delete(oldestKey);
   }

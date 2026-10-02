@@ -1,3 +1,4 @@
+import { type RedisClientOptions, redisClientOptionsFromEnv } from "../redis/client.js";
 import { createRedisPubSubSignal } from "../redis/pubsub-signal.js";
 import {
   type AccessInvalidationScope,
@@ -18,6 +19,7 @@ const PSUBSCRIBE_PATTERN = "kumiko:sse:*";
 
 export type RedisSseBrokerOptions = {
   readonly redisUrl: string;
+  readonly clientOptions?: RedisClientOptions;
 };
 
 export type RedisSseBroker = SseBroker & {
@@ -52,7 +54,9 @@ export function createDefaultSseBroker(env: Record<string, string | undefined> =
   readonly ownedRedisSseBroker: RedisSseBroker | undefined;
 } {
   const redisUrl = env["REDIS_URL"];
-  const ownedRedisSseBroker = redisUrl ? createRedisSseBroker({ redisUrl }) : undefined;
+  const ownedRedisSseBroker = redisUrl
+    ? createRedisSseBroker({ redisUrl, clientOptions: redisClientOptionsFromEnv(env) })
+    : undefined;
   return { sseBroker: ownedRedisSseBroker ?? createSseBroker(), ownedRedisSseBroker };
 }
 
@@ -124,6 +128,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
     redisUrl: opts.redisUrl,
     channelPattern: PSUBSCRIBE_PATTERN,
     label: "sse-broker",
+    ...(opts.clientOptions ? { clientOptions: opts.clientOptions } : {}),
   });
 
   signal.onMessage((channel, payload) => {

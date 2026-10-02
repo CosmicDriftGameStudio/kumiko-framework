@@ -102,6 +102,8 @@ export type RunSchemaCliOptions = {
   readonly kmsSlots?: readonly string[];
 };
 
+const SCHEMA_SUBCOMMANDS = ["generate", "validate", "apply", "baseline", "status"] as const;
+
 /**
  * Runs a schema-CLI subcommand. `appCwd` is the app workspace root (where
  * `kumiko/schema.ts` + `kumiko/migrations/` live). Returns a process exit code.
@@ -482,7 +484,7 @@ export async function runSchemaCli(
       // move on without ever running a migration.
       if (sub !== undefined) {
         out.err(`  Unbekanntes Subcommand: "${sub}"`);
-        out.err("  Erlaubt: generate | validate | apply | baseline | status");
+        out.err(`  Erlaubt: ${SCHEMA_SUBCOMMANDS.join(" | ")}`);
         return 1;
       }
       out.log("");

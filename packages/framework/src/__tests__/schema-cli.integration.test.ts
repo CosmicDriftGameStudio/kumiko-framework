@@ -70,7 +70,9 @@ describe("runSchemaCli — no-DB paths", () => {
     const code = await runSchemaCli(["cutover"], appCwd, cap.out);
     expect(code).toBe(1);
     expect(cap.err.join("\n")).toContain('Unbekanntes Subcommand: "cutover"');
-    expect(cap.err.join("\n")).toContain("generate | validate | apply | baseline | status");
+    expect(cap.err.join("\n")).toContain(
+      "Erlaubt: generate | validate | apply | baseline | status",
+    );
     expect(cap.log).toHaveLength(0);
   });
 

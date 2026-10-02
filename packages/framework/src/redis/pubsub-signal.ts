@@ -1,4 +1,4 @@
-import { createRedisClient } from "./client.js";
+import { createRedisClient, type RedisClientOptions } from "./client.js";
 
 // Generic Redis Pub/Sub transport for cross-replica fanout (fw#2625).
 // Shared by the SSE broker (api/redis-sse-broker.ts, several logical
@@ -24,6 +24,8 @@ export type PubSubSignalOptions = {
   // Included in every log line so two signals running in the same process
   // (sse-broker, feature-toggles cache-sync) can be told apart in output.
   readonly label: string;
+  // Connect/command timeouts and ioredis passthrough (TLS etc.) for both connections.
+  readonly clientOptions?: RedisClientOptions;
 };
 
 // Redis emits 'error' on connection blips (reconnects transparently); an
@@ -37,8 +39,8 @@ function logConnectionError(label: string, role: string): (err: Error) => void {
 }
 
 export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal {
-  const publisher = createRedisClient(opts.redisUrl);
-  const subscriber = createRedisClient(opts.redisUrl);
+  const publisher = createRedisClient(opts.redisUrl, opts.clientOptions);
+  const subscriber = createRedisClient(opts.redisUrl, opts.clientOptions);
   publisher.on("error", logConnectionError(opts.label, "publisher"));
   subscriber.on("error", logConnectionError(opts.label, "subscriber"));
 
