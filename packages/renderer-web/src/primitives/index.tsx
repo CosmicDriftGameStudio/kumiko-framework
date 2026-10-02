@@ -2452,10 +2452,10 @@ function RowActionsKebab({
   );
 }
 
-// Header/row-actions overflow menu (A7): the trigger is the outline icon
-// Button so it matches neighbouring icon buttons, including the 44 px touch
-// size on phones. Generic ActionMenuItemSpec items instead of the
-// DataTableRowAction schema (callers own confirm/danger handling per item).
+// Header/row-actions overflow menu (A7): the trigger carries the classes of a
+// secondary icon Button so it matches neighbouring icon buttons, including
+// the 44 px touch size on phones. Generic ActionMenuItemSpec items instead of
+// the DataTableRowAction schema (callers own confirm/danger handling per item).
 function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   return (
@@ -2465,6 +2465,7 @@ function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): 
           type="button"
           variant="outline"
           size="icon"
+          className="border-input hover:bg-muted"
           aria-label={label}
           data-testid={testId ?? "action-overflow-menu-trigger"}
         >
