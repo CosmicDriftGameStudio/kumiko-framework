@@ -1,5 +1,215 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.335.0
+
+### Minor Changes
+
+- 7cdc623: A wizard that edits an existing record now shows each step as done by what the record already holds, and every step is a jump target. A fields step counts as done when its fields validate and at least one visible, editable field that is not a select or boolean has a value, or when the user passed it with Next. Jumping forward still validates the step you leave. Extension steps report completeness through the new `reportStepComplete` prop of `ExtensionSectionProps`. `StepBar` gets `doneSteps` and `selectableSteps`. Create-mode wizards are unchanged. A `writeHandler` record action on a projectionDetail or entityEdit screen gets an optional `redirect` (same forms as entityEdit `redirect`, a valid `returnTo` wins), and a delete action that removes the shown record now leaves the screen (`returnTo`, else `listScreenId` or the entity's list screen) instead of showing "record not found". The boot validator checks `redirect` targets on these actions.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Wizard editing an existing record shows data-based done state and allows jumping to any step; delete record actions leave the screen
+  detail: |
+    Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.
+  migration: |
+    Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into "record not found"; set `redirect` to choose another target. List row actions are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: StepBar supports explicit done state and jumping to any non-current step
+  detail: |
+    The default `StepBar` forwards the new `doneSteps` and `selectableSteps` props: an upcoming chip can be a button that shows its number, and done state no longer has to follow position.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: RowActionWriteHandler gets an optional redirect for record actions
+  detail: |
+    `redirect` takes the same forms as entityEdit `redirect` and is honored on projectionDetail and entityEdit header and section actions, not on list row actions.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validator checks redirect targets of writeHandler record actions
+  detail: |
+    An unknown `redirect` screen on a projectionDetail or entityEdit action or section action fails boot, like entityEdit `redirect`.
+  migration: |
+    If a writeHandler record action already carries a `redirect` that does not resolve to a registered screen, fix or remove it.
+  -->
+
+### Patch Changes
+
+- a4fa088: A projectionDetail screen with a header card (headerRegion with metrics or header actions) on a full-height screen form without tabs now defaults to a `4xl` column instead of 640px, and the metric band lines up with the form column instead of carrying its own padding. An explicit `layout.width` still wins. Explicit screen form widths (`3xl`, `4xl`, `full`) now left-align with the form column instead of centering, which moves screens such as the showcase item edit. Typing into a password input that shows a clear or undo action no longer remounts the input and drops focus after the first character.
+
+  The secretMint reveal phase with a confirm step renders as one screen form. The reveal block (title, warning, secret) leads the confirm form through the new `RenderEdit` prop `leadContent`, and the confirm form no longer sits in a second card. The `kumiko-screen-secret-mint-card` test id now marks only that reveal block. The confirm step shows the parent screen's translated title (new `RenderEdit` prop `i18nScreenId`) instead of the raw key `<screen>:confirm`.
+
+  Text config keys stored encrypted at rest (`encrypted: true` or `backing: "secrets"`, such as the Stripe API key and webhook secret) are write-only on generated settings screens. The field shows whether this scope stores a value, keeps it unless a new one is typed, and resets it when cleared. Hand-written configEdit text fields over such keys become write-only as well, and form drafts never store write-only fields. `config:write:set` answers with the mask for these keys, and pattern, select option and extension validation errors no longer return the value. A hand-written configEdit screen may declare `writeOnly` only on a field whose key is encrypted at rest; other keys fail at boot.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Header-card detail screens default to a 4xl column; metric band aligns with the form column; explicit screen form widths left-align; password input keeps focus
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: secretMint reveal and confirm render as one screen form with the translated screen title; new RenderEdit props leadContent and i18nScreenId
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Encrypted-at-rest text config keys derive writeOnly settings fields; boot validator allows writeOnly on configEdit only for those keys
+  -->
+
+  <!-- kumiko-changes
+  feature: config
+  type: breaking
+  title: config:write:set masks the echoed value for encrypted-at-rest keys; validation errors no longer include the value
+  migration: |
+    A caller that reads `data.value` from a `config:write:set` result for a key with `encrypted: true` or `backing: "secrets"` now gets the mask. Use the value it sent instead. Tests that match the `value` param of a validation error on such a key need to drop that expectation.
+  -->
+
+- 70aa253: Review round 2 fixes across the feature AST, codemods, the template-resolver and the renderer router.
+
+  - feature-ast: handler lookup falls back to the header when the body carries no match, a `zod` namespace import (`import * as z`) is recognised, and patch edits no longer overlap.
+  - Codemods: the PII heuristic matches segment-aligned names, the open-to-all codemod sets its exit code, and `failUnprocessable` calls are migrated.
+  - template-resolver: the row types and the public output now use the real base columns. `by-slug`, `by-tenant`, `list`, `find-by-id` and the `TemplateResource` API return `modifiedAt` (null until the first edit) instead of `updatedAt`, which was always undefined at runtime. The user-content export reads `modifiedAt` too.
+  - renderer: `formatPath` and `parsePath` encode and decode every path segment, so an entity id like `foo/bar` or `ä b` survives a round trip. A malformed percent-escape in the URL resolves to no route.
+
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: TemplateResource and text-block/collection query outputs expose modifiedAt instead of updatedAt
+  migration: |
+    Rename reads of `updatedAt` to `modifiedAt` on TemplateResource, the by-slug, by-tenant, list, find-by-id and collection queries, and the template-resolver web BlockSummary. The old field was never populated at runtime; the new one is an ISO timestamp, or null for a row that was never edited.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Router paths encode and decode each segment, so entity ids with slashes or spaces round-trip
+  -->
+
+- 567a4bd: The app-schema JSON-safety check now rejects `NaN`/`Infinity` defaults and guards against self-referencing values. The agent doc lint reports exposed handlers whose input schema cannot be converted to JSON Schema (they were silently left out of the agent manifest). Icon-only list and edit action buttons now also set `title`, so sighted mouse users get the hover tooltip.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: App-schema JSON-safety rejects NaN/Infinity and cyclic defaults
+  -->
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: Agent doc lint reports exposed handlers with a non-convertible input schema
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Icon-only list and edit action buttons set a hover title
+  -->
+
+- d7d5bd7: Renderer review fixes. Deleting a secret on a secretsEdit screen now asks for confirmation first (new `config.secrets.deleteConfirm` key) and the delete button is disabled while a save or delete is running. The multiSelect checkbox group is exposed as a labelled group (`GridProps.ariaLabelledBy`). The inline reference-create dialog seeds `currency: { kind: "tenant" }` money fields from the tenant currency. Fields declared only inside a section `groups` entry now get their `visible`/`readOnly`/`required` conditions registered. `onChange`'s `valid` ignores issues on hidden fields and outside the `fields` scope, like submit does (shared `relevantFieldIssues` helper). Copy-link in the form footer keeps a 44px touch target on narrow viewports. A free-text sibling-field number unit longer than 8 characters is no longer rendered as a suffix.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Secret delete confirmation, grouped-field conditions, scoped valid flag, tenant currency in reference-create dialog
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Labelled multiSelect checkbox group, mobile touch target for secondary form actions, bounded number unit suffix
+  -->
+
+- e4171a0: Form and list fixes. A scoped `validate()` entry such as `address.city` no longer reports sibling issues like `address.zip`. Root-level `.refine()` issues now show as a banner in `RenderEdit` instead of blocking submit silently. In tabs mode the active tab follows its id when a field change hides an earlier tab, and an explicit subtitle override is kept. An entityEdit update redirect with `idFrom` reads the saved projection, so a changed parent FK redirects to the new parent. A row-extractor key missing from the row no longer wipes the target field's default. `relatedList` client-side sorting orders numeric strings by value, puts empty values last and compares text locale-aware. A reference list facet warns in dev when the lookup hits its row cap.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Scoped validation matches exact paths, root refine issues are visible, tabs keep the active tab by id, update redirects use the saved FK, related list sorting handles numeric strings, nulls and locales
+  -->
+
+- 1e25ae5: A writeForm section keeps its error banner when the server reports an issue no rendered field can show (`version`, `id`, a root-level refine, a hidden field), instead of failing the save without any visible message.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: writeForm section shows the error banner for issues no rendered field can display
+  -->
+
+- 8a49831: Ended session leads back to the login screen
+
+  When the server ends a session (revoked, expired), the app now shows the login screen with a short hint instead of a raw error banner. After signing in again the user lands on the same screen as before.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Ended session leads back to the login screen
+  -->
+
+- Updated dependencies [ff1dea2]
+- Updated dependencies [d973444]
+- Updated dependencies [a4fa088]
+- Updated dependencies [ed072dc]
+- Updated dependencies [44c5898]
+- Updated dependencies [c97a39a]
+- Updated dependencies [bf12ac5]
+- Updated dependencies [6d4068f]
+- Updated dependencies [1e9cc86]
+- Updated dependencies [1da9e2c]
+- Updated dependencies [a86aa83]
+- Updated dependencies [f86bcd2]
+- Updated dependencies [a8f5305]
+- Updated dependencies [0705037]
+- Updated dependencies [4805c38]
+- Updated dependencies [4f6e8d7]
+- Updated dependencies [099f406]
+- Updated dependencies [70aa253]
+- Updated dependencies [837245e]
+- Updated dependencies [5b6f9da]
+- Updated dependencies [4805c38]
+- Updated dependencies [4805c38]
+- Updated dependencies [c791abd]
+- Updated dependencies [782fdea]
+- Updated dependencies [0191e3e]
+- Updated dependencies [b18daf9]
+- Updated dependencies [ff29a06]
+- Updated dependencies [dae5a21]
+- Updated dependencies [67703a0]
+- Updated dependencies [567a4bd]
+- Updated dependencies [f5ff653]
+- Updated dependencies [5bca19c]
+- Updated dependencies [85dead2]
+- Updated dependencies [9acf185]
+- Updated dependencies [d7d5bd7]
+- Updated dependencies [e4171a0]
+- Updated dependencies [57f0e78]
+- Updated dependencies [5e9cc10]
+- Updated dependencies [a86aa83]
+- Updated dependencies [a39d8a6]
+- Updated dependencies [9061d9e]
+- Updated dependencies [e550021]
+- Updated dependencies [4e617da]
+- Updated dependencies [3d37d50]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-framework@0.335.0
+  - @cosmicdrift/kumiko-types@0.335.0
+  - @cosmicdrift/kumiko-headless@0.335.0
+
 ## 0.334.0
 
 ### Minor Changes

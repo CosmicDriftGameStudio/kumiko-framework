@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "forget-denied audit events record the specific tenant-gate denial reason",
+    "detail": "The `forget-denied` audit event now records the specific tenant-gate reason (for example `target_tenant_not_admin_tenant`) instead of the generic `access_denied`. The framework exports `requireEntityTableMeta` from `bun-db`."
+  },
+  {
     "version": "0.332.0",
     "type": "fix",
     "title": "forget-subject respects tenant retention blockDelete"

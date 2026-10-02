@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "TemplateResource and text-block/collection query outputs expose modifiedAt instead of updatedAt",
+    "detail": "Review round 2 fixes across the feature AST, codemods, the template-resolver and the renderer router.\n- feature-ast: handler lookup falls back to the header when the body carries no match, a `zod` namespace import (`import * as z`) is recognised, and patch edits no longer overlap.\n- Codemods: the PII heuristic matches segment-aligned names, the open-to-all codemod sets its exit code, and `failUnprocessable` calls are migrated.\n- template-resolver: the row types and the public output now use the real base columns. `by-slug`, `by-tenant`, `list`, `find-by-id` and the `TemplateResource` API return `modifiedAt` (null until the first edit) instead of `updatedAt`, which was always undefined at runtime. The user-content export reads `modifiedAt` too.\n- renderer: `formatPath` and `parsePath` encode and decode every path segment, so an entity id like `foo/bar` or `ä b` survives a round trip. A malformed percent-escape in the URL resolves to no route.",
+    "migration": "Rename reads of `updatedAt` to `modifiedAt` on TemplateResource, the by-slug, by-tenant, list, find-by-id and collection queries, and the template-resolver web BlockSummary. The old field was never populated at runtime; the new one is an ISO timestamp, or null for a row that was never edited."
+  },
+  {
     "version": "0.195.0",
     "type": "breaking",
     "title": "ContentEditorProps gains a required id (fw#2001).",

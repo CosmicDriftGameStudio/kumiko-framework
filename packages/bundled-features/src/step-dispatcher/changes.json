@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Webhook auth secret lookup failures become dispatch-failed events"
+  },
+  {
     "version": "0.327.0",
     "type": "breaking",
     "title": "step.dispatch-requested payloads are flat and crypto-shredded; kumiko:system:* events have a declared PII stance",

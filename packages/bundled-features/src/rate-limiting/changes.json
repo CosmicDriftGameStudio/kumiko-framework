@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Rate-limiting error keys have de/en translations"
+  },
+  {
     "version": "0.291.0",
     "type": "breaking",
     "title": "`rate-limiting:query:status` only peeks buckets of the calling tenant (fw#3076)",

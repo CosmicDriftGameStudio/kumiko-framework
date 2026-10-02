@@ -1,5 +1,83 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.335.0
+
+### Patch Changes
+
+- 67703a0: `createLegalPagesFeature` now throws when custom `routes` cover no default required block and `requiredBlocks` is omitted, instead of failing the production boot check later. The text-block and system-template seed race loser now honours `ifExists: "skip"` and the no-op comparison. `SegmentedSelect` keeps the first segment tabbable when the stored value matches no option. The `subscribePathname` option documents that the `popstate` default misses `pushState` navigation.
+
+  <!-- kumiko-changes
+  feature: legal-pages
+  type: fix
+  title: Legal pages fail fast on custom routes without required blocks; seed race honours skip
+  -->
+
+- d7d5bd7: Renderer review fixes. Deleting a secret on a secretsEdit screen now asks for confirmation first (new `config.secrets.deleteConfirm` key) and the delete button is disabled while a save or delete is running. The multiSelect checkbox group is exposed as a labelled group (`GridProps.ariaLabelledBy`). The inline reference-create dialog seeds `currency: { kind: "tenant" }` money fields from the tenant currency. Fields declared only inside a section `groups` entry now get their `visible`/`readOnly`/`required` conditions registered. `onChange`'s `valid` ignores issues on hidden fields and outside the `fields` scope, like submit does (shared `relevantFieldIssues` helper). Copy-link in the form footer keeps a 44px touch target on narrow viewports. A free-text sibling-field number unit longer than 8 characters is no longer rendered as a suffix.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Secret delete confirmation, grouped-field conditions, scoped valid flag, tenant currency in reference-create dialog
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Labelled multiSelect checkbox group, mobile touch target for secondary form actions, bounded number unit suffix
+  -->
+
+- e4171a0: Form and list fixes. A scoped `validate()` entry such as `address.city` no longer reports sibling issues like `address.zip`. Root-level `.refine()` issues now show as a banner in `RenderEdit` instead of blocking submit silently. In tabs mode the active tab follows its id when a field change hides an earlier tab, and an explicit subtitle override is kept. An entityEdit update redirect with `idFrom` reads the saved projection, so a changed parent FK redirects to the new parent. A row-extractor key missing from the row no longer wipes the target field's default. `relatedList` client-side sorting orders numeric strings by value, puts empty values last and compares text locale-aware. A reference list facet warns in dev when the lookup hits its row cap.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Scoped validation matches exact paths, root refine issues are visible, tabs keep the active tab by id, update redirects use the saved FK, related list sorting handles numeric strings, nulls and locales
+  -->
+
+- Updated dependencies [ff1dea2]
+- Updated dependencies [d973444]
+- Updated dependencies [a4fa088]
+- Updated dependencies [ed072dc]
+- Updated dependencies [44c5898]
+- Updated dependencies [c97a39a]
+- Updated dependencies [bf12ac5]
+- Updated dependencies [6d4068f]
+- Updated dependencies [1e9cc86]
+- Updated dependencies [a86aa83]
+- Updated dependencies [f86bcd2]
+- Updated dependencies [a8f5305]
+- Updated dependencies [0705037]
+- Updated dependencies [4805c38]
+- Updated dependencies [4f6e8d7]
+- Updated dependencies [099f406]
+- Updated dependencies [70aa253]
+- Updated dependencies [837245e]
+- Updated dependencies [5b6f9da]
+- Updated dependencies [4805c38]
+- Updated dependencies [4805c38]
+- Updated dependencies [c791abd]
+- Updated dependencies [782fdea]
+- Updated dependencies [0191e3e]
+- Updated dependencies [b18daf9]
+- Updated dependencies [ff29a06]
+- Updated dependencies [dae5a21]
+- Updated dependencies [567a4bd]
+- Updated dependencies [f5ff653]
+- Updated dependencies [5bca19c]
+- Updated dependencies [85dead2]
+- Updated dependencies [9acf185]
+- Updated dependencies [d7d5bd7]
+- Updated dependencies [57f0e78]
+- Updated dependencies [5e9cc10]
+- Updated dependencies [a86aa83]
+- Updated dependencies [a39d8a6]
+- Updated dependencies [9061d9e]
+- Updated dependencies [e550021]
+- Updated dependencies [4e617da]
+- Updated dependencies [3d37d50]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-framework@0.335.0
+
 ## 0.334.0
 
 ### Minor Changes

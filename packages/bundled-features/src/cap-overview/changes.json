@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "tenant-caps:list validates cursor and filters, parallel usage reads; cap-counter list not searchable",
+    "detail": "`tenant-caps:list` now rejects a malformed pagination cursor and unsupported or repeated filters with a validation error instead of returning a wrong page or silently ignoring the filter, and loads per-tenant usage in parallel. The `cap-counter` operator list is no longer searchable, because search resolved against the caller's own tenant instead of all tenants."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Unlimited caps show a labelled usage count",
+    "detail": "The cap usage bar labels an unlimited cap as \"<used> · unlimited\" through the new `cap-overview.unlimited` key instead of a bare number. The German and Spanish catalogs ship the translation."
+  },
+  {
     "version": "0.332.0",
     "type": "fix",
     "title": "tenant-caps:list declares its unsafeRaw escapeHatch"

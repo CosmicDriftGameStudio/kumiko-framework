@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Retention hardDelete keeps cross-entity shared files and isolates storage errors per row",
+    "detail": "Retention hardDelete no longer deletes a fileRef that a live row of another entity type still references in a file/image field (relevant for unbound uploads). A storage error while deleting a row's files (for example a missing list permission) now skips only that row with `file_delete_failed` instead of aborting the whole tenant's cleanup run."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Retention hardDelete pages past stuck file rows and blockDelete reports personal fields without anonymize",
+    "detail": "Retention hardDelete on entities with file fields now pages by id, so rows stuck on a storage failure or a missing file storage no longer starve the rows behind them. A `blockDelete` entity with a personal field but no `anonymize` function is reported as `missing_anonymize_fields` again after the hold expires; only entities without any anonymizable subject field stay silent. The framework exports `entityHasAnonymizableSubjectField` for this check."
+  },
+  {
     "version": "0.330.1",
     "type": "fix",
     "title": "blockDelete entities without anonymize fields no longer log skips or boot warnings"

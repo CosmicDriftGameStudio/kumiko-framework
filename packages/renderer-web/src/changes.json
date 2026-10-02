@@ -1,5 +1,70 @@
 [
   {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "Combobox options carry a value-based data-testid"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Header-card detail screens default to a 4xl column; metric band aligns with the form column; explicit screen form widths left-align; password input keeps focus",
+    "detail": "A projectionDetail screen with a header card (headerRegion with metrics or header actions) on a full-height screen form without tabs now defaults to a `4xl` column instead of 640px, and the metric band lines up with the form column instead of carrying its own padding. An explicit `layout.width` still wins. Explicit screen form widths (`3xl`, `4xl`, `full`) now left-align with the form column instead of centering, which moves screens such as the showcase item edit. Typing into a password input that shows a clear or undo action no longer remounts the input and drops focus after the first character.\nThe secretMint reveal phase with a confirm step renders as one screen form. The reveal block (title, warning, secret) leads the confirm form through the new `RenderEdit` prop `leadContent`, and the confirm form no longer sits in a second card. The `kumiko-screen-secret-mint-card` test id now marks only that reveal block. The confirm step shows the parent screen's translated title (new `RenderEdit` prop `i18nScreenId`) instead of the raw key `<screen>:confirm`.\nText config keys stored encrypted at rest (`encrypted: true` or `backing: \"secrets\"`, such as the Stripe API key and webhook secret) are write-only on generated settings screens. The field shows whether this scope stores a value, keeps it unless a new one is typed, and resets it when cleared. Hand-written configEdit text fields over such keys become write-only as well, and form drafts never store write-only fields. `config:write:set` answers with the mask for these keys, and pattern, select option and extension validation errors no longer return the value. A hand-written configEdit screen may declare `writeOnly` only on a field whose key is encrypted at rest; other keys fail at boot."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Page title stays visible on narrow screens",
+    "detail": "Wide header actions no longer push the page title out of the header on phones; the actions area shrinks instead."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Dashboard list columns support display \"datetime\"; overview lists no longer show raw ISO timestamps",
+    "detail": "Dashboard list columns accept `display: \"datetime\"`, which formats an ISO string or epoch-ms value in the user's locale and time zone. The admin-shell overview lists use it for `startedAt` and `failedAt` instead of showing raw ISO strings."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Dashboard time-range queries carry the user's time zone so day buckets match the axis labels",
+    "detail": "Dashboard time-range queries now send the user's time zone, so metric day buckets line up with the axis labels instead of being cut in UTC. `kumiko-bundled-features` declares `ioredis` and `hono`, which its emitted type declarations import."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Labelled multiSelect checkbox group, mobile touch target for secondary form actions, bounded number unit suffix"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Textarea respects preventDefault, Card data-slot is not overridable, degraded FormRoot scopes Enter and submit to its own inputs",
+    "detail": "A nested `Form` that degrades to a `<div>` now submits on Enter inside its own inputs and ignores submit buttons that belong to a portal or a deeper nested form. The textarea `onSubmitShortcut` no longer fires when the caller's `onKeyDown` called `preventDefault()`. `Card` no longer lets `dataAttributes` override `data-slot`."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "InfinityList live defaults to false",
+    "detail": "Review round 2 fixes for renderer-web.\n- `InfinityList` now defaults `live` to `false` (it was `true`). Lists that relied on the implicit realtime refresh no longer update on SSE events until they pass `live={true}`.\n- A number input with a `unit` exposes the unit to screen readers through `aria-describedby` instead of hiding it with `aria-hidden`.\n- `Drawer` with an explicit `width` is capped at `85vw`, the same limit as the default width.",
+    "migration": "Pass `live={true}` to every `<InfinityList>` that should refresh from SSE events. Without it the list only loads on mount and on pagination."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Number input unit is announced by screen readers and Drawer width is capped to the viewport"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Row-actions kebab keeps focus in the confirm dialog, embedded-list headers truncate in fixed columns",
+    "detail": "The row-actions kebab no longer returns focus to its trigger while a confirm dialog is open, so keyboard and screen-reader users reach the dialog buttons. Column headers of the embedded-list desktop table truncate (with a `title`) inside their fixed-width column instead of overlapping the neighbouring header."
+  },
+  {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "StepBar supports explicit done state and jumping to any non-current step",
+    "detail": "The default `StepBar` forwards the new `doneSteps` and `selectableSteps` props: an upcoming chip can be a button that shows its number, and done state no longer has to follow position.",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.334.0",
     "type": "improvement",
     "title": "Shared screen inset and aligned layouts for lists, forms, dialogs and secret mint",

@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Credential-carrying auth handlers are hidden from the agent catalog; additionalAssignableRoles rejects framework-ranked roles",
+    "detail": "The credential-carrying handlers `auth-email-password:login`, `change-password`, `user-profile:change-email`, `auth-mfa:verify` and `auth-mfa:enable-confirm-preauth` are now opted out of the agent tool catalog with `agent: { expose: false }`, so passwords, TOTP codes and setup tokens no longer reach an LLM transcript. `invite.additionalAssignableRoles` now throws at construction when it lists a framework-ranked role such as `TenantAdmin`, instead of silently disabling the elevation guard for it."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Invite accept handles MFA responses, bootstrap error screen offers Sign out",
+    "detail": "`InviteAcceptScreen` no longer redirects to a tenant URL when the accept route answers with an MFA challenge or setup requirement (no session cookie was minted); it sends the user to `loginHref` instead. `SessionBootstrapErrorScreen` accepts an optional `onSignOut` and the auth gate wires it, so a permanent bootstrap failure no longer traps the user behind \"Try again\" (new i18n key `auth.sessionBootstrap.signOut`). Cap bookings back off with a small random delay between version-conflict retries."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Ended session leads back to the login screen",
+    "detail": "When the server ends a session (revoked, expired), the app now shows the login screen with a short hint instead of a raw error banner. After signing in again the user lands on the same screen as before."
+  },
+  {
     "version": "0.328.1",
     "type": "fix",
     "title": "Accepting an invitation grants the invited role to existing members of the tenant",

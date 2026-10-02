@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "RowActionWriteHandler gets an optional redirect for record actions",
+    "detail": "`redirect` takes the same forms as entityEdit `redirect` and is honored on projectionDetail and entityEdit header and section actions, not on list row actions.",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.328.1",
     "type": "improvement",
     "title": "kumiko-types declares zod and ioredis as peer dependencies",

@@ -10,6 +10,150 @@ verified: 2026-10-02
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.335.0
+
+### agent-tools
+
+**Manifest rejects unknown denyQns, drops navs under hidden parents; doc lint flags blank and exposed-undescribed handlers**
+
+Agent tools: `buildAgentManifest` now throws when `denyQns` names a handler that is not registered, so a typo can no longer leave a handler exposed. Navs whose parent is hidden from the role are dropped from the manifest, and screens reachable only through them are no longer listed. The agent doc lint reports handlers that are exposed without a description and treats a blank description as a gap.
+
+**Migration:** `buildAgentManifest` now throws when `denyQns` names a handler that is not registered; remove stale or misspelled entries from your `denyQns` lists.
+
+### billing-foundation
+
+**Unregistered catalog.providerName fails unconfigured; switch-plan checks provider mismatch before lookup**
+
+`billing-plans` now fails with an `unconfigured` error when `catalog.providerName` names a provider that is not registered, instead of rendering billing as disabled. Billing renders as disabled only when no `providerName` is set and no provider is mounted. `switch-plan` answers a subscription on an unmounted provider with the `providerMismatch` conflict instead of a 500.
+
+**Migration:** If `catalog.providerName` names a provider that is not mounted, billing-plans now fails with `unconfigured` instead of rendering billing as disabled; mount the provider or remove `providerName`.
+
+### cap-counter
+
+**Cap helpers validate periodStartIso and amount, surface failed soft-warn writes; German column labels**
+
+`bookCapUsage` and `markCapSoftWarned` now reject a `periodStartIso` that is not an ISO instant with a validation error instead of silently forking a counter row or throwing a `RangeError`. `enforceCap` rejects a non-integer or non-positive `amount` instead of letting it bypass the cap. `enforceCapAndMaybeNotify` surfaces a failed soft-warn write instead of re-sending the notification on the next call. The cap-counter list now has German column labels.
+
+**Migration:** `bookCapUsage` and `markCapSoftWarned` now reject a `periodStartIso` that is not a full ISO instant, including date-only strings like `2026-10-01`; pass e.g. `2026-10-01T00:00:00.000Z`.
+
+### config
+
+**config:write:set masks the echoed value for encrypted-at-rest keys; validation errors no longer include the value**
+
+**Migration:** A caller that reads `data.value` from a `config:write:set` result for a key with `encrypted: true` or `backing: "secrets"` now gets the mask. Use the value it sent instead. Tests that match the `value` param of a validation error on such a key need to drop that expectation.
+
+### delivery
+
+**Channel plugin guard validates mode and render**
+
+Stricter input guards. A delivery channel plugin must declare `mode` as `inline` or `queued` and a function `render`, otherwise boot fails instead of silently dispatching inline. The derivatives-sharp overlay rejects a non-finite `marginPct` before it reaches sharp. A document-ingest provider can no longer register under the reserved name `unknown`, which marks upcast legacy ingest events. The unsubscribe POST route also accepts a JSON body.
+
+**Migration:** A delivery channel plugin must now declare `mode` as `"inline"` or `"queued"` and a function `render`; boot fails otherwise instead of dispatching inline.
+
+### document-ingest-foundation
+
+**Provider name "unknown" is reserved for upcast legacy events**
+
+**Migration:** Registering a document-ingest provider under the name `unknown` now throws; rename any provider that uses it.
+
+### enterprise:renderer
+
+**Wizard editing an existing record shows data-based done state and allows jumping to any step; delete record actions leave the screen**
+
+Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.
+
+**Migration:** Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into "record not found"; set `redirect` to choose another target. List row actions are unchanged.
+
+### enterprise:renderer-web
+
+**InfinityList live defaults to false**
+
+Review round 2 fixes for renderer-web.
+- `InfinityList` now defaults `live` to `false` (it was `true`). Lists that relied on the implicit realtime refresh no longer update on SSE events until they pass `live={true}`.
+- A number input with a `unit` exposes the unit to screen readers through `aria-describedby` instead of hiding it with `aria-hidden`.
+- `Drawer` with an explicit `width` is capped at `85vw`, the same limit as the default width.
+
+**Migration:** Pass `live={true}` to every `<InfinityList>` that should refresh from SSE events. Without it the list only loads on mount and on pagination.
+
+### framework-core
+
+**Boot rejects multiple principalStatus providers, updateMany rejects unknown columns again**
+
+Several fail-loud fixes. `buildServer` now also rejects more than one `principalStatus` provider when `auth.membershipQuery` is registered (previously every login 500ed at runtime). `updateMany` throws again on a key that is not a column, and the replay of historical update events skips fields removed from the entity instead. `lt`/`gt`/`lte`/`gte`/`like` on a jsonb column match nothing in the where builder, like the event-store read path.
+
+**Migration:** `updateMany` now throws when `set` or `where` contains a key that is not a column of the table; remove such keys from your calls. Replay of historical update events still skips removed fields.
+
+**AgentReasons.permissionDenied removed**
+
+**Migration:** Drop references to `AgentReasons.permissionDenied` / `"agent.permission_denied"`. The framework never emitted this reason.
+
+**FileRef type drops the unreachable isDeleted field**
+
+The exported `FileRef` type no longer carries `isDeleted`. Soft-deleted rows were already filtered out before the guard sees a file, so the field was never reachable. Custom file access guards that read `fileRef.isDeleted` must drop that check.
+
+**Migration:** Remove reads of `fileRef.isDeleted` in custom file access guards; soft-deleted rows never reach the guard.
+
+**File content check covers csv alias, local list scoped to prefix, provider contract checked, locale tags canonicalized**
+
+File storage and locale hardening. `validateFileContent` now rejects binary bytes for an extension with a declared-MIME alias (a real `.xls` renamed to `.csv`), so custom upload routes using `validateFile` + `validateFileContent` are covered. `tenantExportPrefix` and `tenantStoragePrefixes` throw for a tenant id equal to the reserved `exports` segment. The local provider's `list()` only walks the prefix directory instead of the whole storage root. A file-provider plugin whose built provider lacks a required method now fails loudly at resolve time. `canonicalizeLocaleTag` normalizes region and script subtags (`de-AT`, `zh-Hant-TW`), so `X-Locale: DE-at` finds a `de-AT` mail registration.
+
+**Migration:** A file-provider plugin whose built provider lacks a required method now throws at resolve time; make sure custom file providers implement the full provider interface.
+
+**Global-table tenant writes reject loudly, restore maps unique violations, managed unique-index changes recreate**
+
+Tenant-mode `updateMany`/`deleteMany` on a `tenancy: "global"` table now reject with an `AccessDeniedError` pointing at `db.global(table)` instead of silently matching zero rows. `restore` on a soft-deleted row whose unique value was re-used now returns a 409 `unique_violation` instead of a raw 500. The migration generator now recreates a managed projection when an existing index becomes unique, changes columns or widens its WHERE.
+
+**Migration:** Tenant-mode `updateMany`/`deleteMany` on a `tenancy: "global"` table now throws instead of matching zero rows; switch those calls to `db.global(table)`.
+
+**i18n key guard covers multiSelect option labels and writeForm section descriptions**
+
+The i18n key guard now requires translations for filterable `multiSelect` option labels and for the `description` of a `projectionDetail` writeForm section. Missing translations used to fall back silently; they now fail the guard.
+
+**Migration:** The i18n required-surface-keys check now requires translations for filterable `multiSelect` option labels and `projectionDetail` writeForm section descriptions; add the missing keys to your locale files.
+
+**totalsMatch rejects a payload that carries only one side of the pair**
+
+A `totalsMatch` pair is now validated as a unit. A payload that carries only the embedded list or only its sibling money field is rejected with a validation error, because update payloads only carry `changes` and the sum could otherwise drift away from the total.
+
+**Migration:** Send the embedded list and its sibling money field together in every create and update payload. A partial update that changes only `total` or only the list now fails validation.
+
+### jobs
+
+**Job runner keeps retry budget on sequential lock conflicts, names the error without a db, fails loudly on bad tenantVisibleFailure subjects, stamps the raw feature name; jobs list filters multi-status**
+
+Job runner hardening. A job run now stamps its event `metadata.feature` with the feature's raw name, the same value write-handlers stamp (previously the kebab-case form for camelCase features). On a runner built without a db, touching `ctx.db` in a job throws a named error instead of a `TypeError`. A non-primitive `tenantVisibleFailure.subjectFields` value now fails the run visibly (run row, `onJobFailed`) and is not retried. A failing last-success metric no longer fails a successful run, and the runner registers the standard metrics on its meter itself. A sequential job whose retry attempt hits a held lock keeps its remaining retry budget instead of getting a fresh one. `stop()` waits at most 1 second for queue readiness. A custom `tenant:query:active-tenant-ids` handler returning anything but `string[]` is rejected. `Registry` gains `getJobFeature`.
+In the jobs feature, a failing tenant-failure record write no longer blocks the run-row update or fails a completed run, `jobs:query:list` honours multi-value status filters and rejects filters on unknown fields, and `jobs:write:retry` answers 422 for a payload that is still ciphertext because no KMS is configured.
+
+**Migration:** Events written by a job of a camelCase feature now carry metadata.feature with the raw feature name (for example "pubSubOrders") instead of the kebab-case form; update any audit or metrics filter that matched the kebab-case value. Custom Registry implementations must add getJobFeature(qualifiedJobName). A jobs:query:list call with filters on a field other than status is now rejected.
+
+### secrets
+
+**createSecretsFeature rejects access and roles together**
+
+`createSecretsFeature` throws at mount when both `access` and `roles` are passed; `access` used to silently discard `roles`. The personal-access-token mint form builds its i18n keys from the shared key helpers, and `ACTION_FORM_ENTITY` is now exported from `@cosmicdrift/kumiko-framework/ui-types`. The rate-limiting feature registers de/en copy for its error keys.
+
+**Migration:** Remove `roles` from the `createSecretsFeature` options when `access` is set (or drop `access` and keep `roles`). Before, `roles` was silently ignored next to `access`.
+
+### subscription-mollie
+
+**Mollie one-off prices no longer need an interval; a subscription price without one is rejected**
+
+`MolliePriceConfig.interval` is now optional so one-off prices (credit top-ups, `mode: "payment"`) no longer need a dummy interval. A price without `interval` booked as a subscription now fails at checkout creation, and a paid first payment for such a price creates no Mollie subscription (a warning is logged). The "checkout url is null" error no longer blames first-payment mandates for one-off payments.
+
+**Migration:** Mollie checkout creation now throws for a subscription price without `interval`; set `interval` on every subscription price (one-off `mode: "payment"` prices need none).
+
+### template-resolver
+
+**TemplateResource and text-block/collection query outputs expose modifiedAt instead of updatedAt**
+
+Review round 2 fixes across the feature AST, codemods, the template-resolver and the renderer router.
+- feature-ast: handler lookup falls back to the header when the body carries no match, a `zod` namespace import (`import * as z`) is recognised, and patch edits no longer overlap.
+- Codemods: the PII heuristic matches segment-aligned names, the open-to-all codemod sets its exit code, and `failUnprocessable` calls are migrated.
+- template-resolver: the row types and the public output now use the real base columns. `by-slug`, `by-tenant`, `list`, `find-by-id` and the `TemplateResource` API return `modifiedAt` (null until the first edit) instead of `updatedAt`, which was always undefined at runtime. The user-content export reads `modifiedAt` too.
+- renderer: `formatPath` and `parsePath` encode and decode every path segment, so an entity id like `foo/bar` or `ä b` survives a round trip. A malformed percent-escape in the URL resolves to no route.
+
+**Migration:** Rename reads of `updatedAt` to `modifiedAt` on TemplateResource, the by-slug, by-tenant, list, find-by-id and collection queries, and the template-resolver web BlockSummary. The old field was never populated at runtime; the new one is an ISO timestamp, or null for a row that was never edited.
+
 ## 0.334.0
 
 ### framework-core

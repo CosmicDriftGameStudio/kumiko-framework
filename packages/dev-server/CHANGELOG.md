@@ -1,5 +1,131 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.335.0
+
+### Patch Changes
+
+- 44c5898: `POST /api/auth/switch-tenant` answers 400 `invalid_tenant` for a missing or non-string `tenantId` instead of feeding it into the membership lookup. A non-string `type` in a request body no longer turns a 4xx into a 500 inside the fault logger. The PII ciphertext response guard now matches the full ciphertext shape, so user text containing the bare `kumiko-pii:v` marker no longer 500s reads. `kumiko upgrade --apply` records `pendingManual` in the marker when no codemod runs.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: switch-tenant validates tenantId, fault logger tolerates non-string type, PII guard matches full ciphertext shape
+  -->
+
+- c97a39a: The `FILE_STORAGE_PROVIDER` boot gate now reads the `env` passed to `validateBoot` (falling back to `process.env`), so an `envSource` handed to `runProdApp` with an empty `process.env` no longer fails the gate. `runDevApp` stops mutating `process.env` for an explicitly wired file provider. The derivative-key recognizer used by forget and tenant-destroy now matches the hash segment case-sensitively.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: File-storage boot gate reads the injected env, derivative erasure matches lowercase hashes only
+  -->
+
+- 0ae79d4: `kumiko-build` codegen now validates `feature-manifest.json`. A valid manifest that lists no write handlers removes the generated `WriteHandlerQn` and typed-dispatcher block instead of keeping a stale one. A broken manifest keeps the block and warns with its own "feature-manifest.json invalid" message.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Codegen validates feature-manifest.json and only keeps the stale handler block when it is missing or invalid
+  -->
+
+- 6fee777: Generated `schemas.generated.ts` and `types.generated.d.ts` now import zod as a namespace (`import * as z from "zod"`), matching the framework's own convention. Regenerate with `kumiko build` to pick it up.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Codegen emits namespace zod imports
+  -->
+
+- 9061d9e: The dev-server public-file fallback answers a request path containing an encoded NUL byte (`%00`) or an over-long file name with the normal 404 instead of a 500. The scaffold deploy step now names `appName` as the cause when it is too long to serve as the default DB user.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Dev public-file fallback returns 404 for NUL or over-long paths, deploy scaffold blames appName for an invalid default DB user
+  -->
+
+- Updated dependencies [ff1dea2]
+- Updated dependencies [d973444]
+- Updated dependencies [a4fa088]
+- Updated dependencies [ed072dc]
+- Updated dependencies [827da80]
+- Updated dependencies [ddb0101]
+- Updated dependencies [eb04da6]
+- Updated dependencies [44c5898]
+- Updated dependencies [07ddc7e]
+- Updated dependencies [2477f3b]
+- Updated dependencies [c97a39a]
+- Updated dependencies [bf12ac5]
+- Updated dependencies [6d4068f]
+- Updated dependencies [736dade]
+- Updated dependencies [561cec5]
+- Updated dependencies [2477f3b]
+- Updated dependencies [1e9cc86]
+- Updated dependencies [099f406]
+- Updated dependencies [1da9e2c]
+- Updated dependencies [57f0e78]
+- Updated dependencies [f63b179]
+- Updated dependencies [57f0e78]
+- Updated dependencies [099f406]
+- Updated dependencies [a86aa83]
+- Updated dependencies [692718f]
+- Updated dependencies [f86bcd2]
+- Updated dependencies [a8f5305]
+- Updated dependencies [0705037]
+- Updated dependencies [4805c38]
+- Updated dependencies [4f6e8d7]
+- Updated dependencies [099f406]
+- Updated dependencies [70aa253]
+- Updated dependencies [837245e]
+- Updated dependencies [5b6f9da]
+- Updated dependencies [4805c38]
+- Updated dependencies [9222a01]
+- Updated dependencies [4805c38]
+- Updated dependencies [c791abd]
+- Updated dependencies [782fdea]
+- Updated dependencies [0191e3e]
+- Updated dependencies [b18daf9]
+- Updated dependencies [c791abd]
+- Updated dependencies [04d0ae3]
+- Updated dependencies [4b2c300]
+- Updated dependencies [ff29a06]
+- Updated dependencies [dae5a21]
+- Updated dependencies [67703a0]
+- Updated dependencies [e810c7d]
+- Updated dependencies [567a4bd]
+- Updated dependencies [e0e09b0]
+- Updated dependencies [f5ff653]
+- Updated dependencies [5bca19c]
+- Updated dependencies [85dead2]
+- Updated dependencies [1e25ae5]
+- Updated dependencies [9acf185]
+- Updated dependencies [d7d5bd7]
+- Updated dependencies [e4171a0]
+- Updated dependencies [ca8c8e0]
+- Updated dependencies [96443f1]
+- Updated dependencies [6990b9b]
+- Updated dependencies [57f0e78]
+- Updated dependencies [292b11e]
+- Updated dependencies [4b2c300]
+- Updated dependencies [5e9cc10]
+- Updated dependencies [4b2c300]
+- Updated dependencies [a86aa83]
+- Updated dependencies [a39d8a6]
+- Updated dependencies [9061d9e]
+- Updated dependencies [e550021]
+- Updated dependencies [6fee777]
+- Updated dependencies [a8c0abd]
+- Updated dependencies [8a49831]
+- Updated dependencies [4e617da]
+- Updated dependencies [3d37d50]
+- Updated dependencies [f65697d]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-framework@0.335.0
+  - @cosmicdrift/kumiko-bundled-features@0.335.0
+  - @cosmicdrift/kumiko-renderer-web@0.335.0
+  - @cosmicdrift/kumiko-headless@0.335.0
+  - @cosmicdrift/kumiko-server-runtime@0.335.0
+
 ## 0.334.0
 
 ### Patch Changes

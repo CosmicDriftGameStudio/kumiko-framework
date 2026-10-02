@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Row-bound grant redemption logs a failing anchor lookup instead of swallowing it silently",
+    "detail": "`redeemRowBoundGrant` now logs a warning (error name and code only, never the token or subject) when the anchor lookup throws, so a database outage no longer looks like an expired link. The result is still the same bare rejection."
+  },
+  {
     "version": "0.287.0",
     "type": "improvement",
     "title": "row-bound grants: one short-lived, single-use capability for anonymous writes on one row",

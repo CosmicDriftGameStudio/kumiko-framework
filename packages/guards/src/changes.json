@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "Stricter guard detection for raw-sql, test-template-drift, framed extension sections, runtime-isolation and test-stack-drift",
+    "detail": "Stricter guard detection; app repos that carried an undetected pattern can now turn red.\n- `guard-raw-sql`: only kumiko-platform is skipped. An app repo whose declared `sourceRoots` all do not exist now fails as vacuous (0 files scanned) instead of passing.\n- `test-template-drift`: `...defineAppE2eConfig(...)` spread next to `fullyParallel`, `retries`, `timeout`, `workers` or `expect`, and shorthand `{ viewport }` / `{ deviceScaleFactor }`, are flagged.\n- `no-framed-extension-sections`: an `extensionSectionComponents` registry held in a variable, shorthand or spread is resolved.\n- `runtime-isolation`: entries declared in package.json `kumiko.clientEntry` / `kumiko.clientEntries[].sourceFile` count as browser code.\n- `test-stack-drift`: `@no-server-stack:` only opts out when it sits in a comment, not in a string literal.\n- Direct `run-guards.ts` / `run-ui-guards.ts` / `run-repo-checks.ts` invocations exit with 1 instead of the failure count.",
+    "migration": "App repos that carried a previously undetected pattern can now fail their guards. Fix the reported sites; a vacuous raw-sql scan (all declared sourceRoots missing) must declare existing source roots."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Escape-hatch guards accept only real framework imports, a corrupt cast baseline is an error, hints name kumiko-guards guards",
+    "detail": "The escape-hatch guards now only accept `declareEscapeHatch` and `withUnsafeRawGrant` imported from the framework itself; a local function or an import from another module with the same name no longer satisfies them. A corrupt `.kumiko-cast-baseline.json` is now an error instead of being treated as an empty baseline. Guard hints point at `kumiko-guards guards`."
+  },
+  {
     "version": "0.332.0",
     "type": "fix",
     "title": "direct-entity-writes canary counts only real table writes"

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "MFA web client shares the login response mapper",
+    "detail": "The MFA web client reuses the shared `toLoginResponse` helper (now exported from the auth-email-password web barrel) for `landingPath` handling, so login, MFA verify and MFA setup confirm map the response identically."
+  },
+  {
     "version": "0.329.0",
     "type": "improvement",
     "title": "kumiko-bundled-features is published as compiled JavaScript plus .d.ts",

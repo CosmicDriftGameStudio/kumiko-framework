@@ -1,5 +1,45 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "secretMint reveal and confirm render as one screen form with the translated screen title; new RenderEdit props leadContent and i18nScreenId"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Router paths encode and decode each segment, so entity ids with slashes or spaces round-trip"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Icon-only list and edit action buttons set a hover title"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Secret delete confirmation, grouped-field conditions, scoped valid flag, tenant currency in reference-create dialog",
+    "detail": "Renderer review fixes. Deleting a secret on a secretsEdit screen now asks for confirmation first (new `config.secrets.deleteConfirm` key) and the delete button is disabled while a save or delete is running. The multiSelect checkbox group is exposed as a labelled group (`GridProps.ariaLabelledBy`). The inline reference-create dialog seeds `currency: { kind: \"tenant\" }` money fields from the tenant currency. Fields declared only inside a section `groups` entry now get their `visible`/`readOnly`/`required` conditions registered. `onChange`'s `valid` ignores issues on hidden fields and outside the `fields` scope, like submit does (shared `relevantFieldIssues` helper). Copy-link in the form footer keeps a 44px touch target on narrow viewports. A free-text sibling-field number unit longer than 8 characters is no longer rendered as a suffix."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Scoped validation matches exact paths, root refine issues are visible, tabs keep the active tab by id, update redirects use the saved FK, related list sorting handles numeric strings, nulls and locales",
+    "detail": "Form and list fixes. A scoped `validate()` entry such as `address.city` no longer reports sibling issues like `address.zip`. Root-level `.refine()` issues now show as a banner in `RenderEdit` instead of blocking submit silently. In tabs mode the active tab follows its id when a field change hides an earlier tab, and an explicit subtitle override is kept. An entityEdit update redirect with `idFrom` reads the saved projection, so a changed parent FK redirects to the new parent. A row-extractor key missing from the row no longer wipes the target field's default. `relatedList` client-side sorting orders numeric strings by value, puts empty values last and compares text locale-aware. A reference list facet warns in dev when the lookup hits its row cap."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "writeForm section shows the error banner for issues no rendered field can display",
+    "detail": "A writeForm section keeps its error banner when the server reports an issue no rendered field can show (`version`, `id`, a root-level refine, a hidden field), instead of failing the save without any visible message."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "Wizard editing an existing record shows data-based done state and allows jumping to any step; delete record actions leave the screen",
+    "detail": "Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.",
+    "migration": "Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into \"record not found\"; set `redirect` to choose another target. List row actions are unchanged."
+  },
+  {
     "version": "0.333.0",
     "type": "improvement",
     "title": "New optional screen options for facet chips, default filters, row action display, drawer titles, footer actions, grouped related lists and wizard side info",

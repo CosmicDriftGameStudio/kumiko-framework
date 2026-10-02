@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Anonymous queries rate-limit per IP and handler instead of sharing one bucket"
+  },
+  {
     "version": "0.147.3",
     "type": "fix",
     "title": "`managed-pages`' `GET {basePath}/:slug` render route and `seo`'s `sitemap.xml`/`llms.txt`…",

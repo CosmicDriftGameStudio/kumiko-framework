@@ -1,5 +1,23 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Codegen validates feature-manifest.json and only keeps the stale handler block when it is missing or invalid",
+    "detail": "`kumiko-build` codegen now validates `feature-manifest.json`. A valid manifest that lists no write handlers removes the generated `WriteHandlerQn` and typed-dispatcher block instead of keeping a stale one. A broken manifest keeps the block and warns with its own \"feature-manifest.json invalid\" message."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Codegen emits namespace zod imports",
+    "detail": "Generated `schemas.generated.ts` and `types.generated.d.ts` now import zod as a namespace (`import * as z from \"zod\"`), matching the framework's own convention. Regenerate with `kumiko build` to pick it up."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Dev public-file fallback returns 404 for NUL or over-long paths, deploy scaffold blames appName for an invalid default DB user",
+    "detail": "The dev-server public-file fallback answers a request path containing an encoded NUL byte (`%00`) or an over-long file name with the normal 404 instead of a 500. The scaffold deploy step now names `appName` as the cause when it is too long to serve as the default DB user."
+  },
+  {
     "version": "0.330.0",
     "type": "improvement",
     "title": "kumiko-server-runtime and kumiko-dev-server are published as compiled JavaScript plus .d.ts",

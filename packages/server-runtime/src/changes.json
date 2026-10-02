@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Client bundle mapping matches exact entry names; page-head HTML is validated by ETag only",
+    "detail": "Multi-entry client builds map each Bun output to its entry by exact `<base>-<hash>.js` name, so `client-admin` and `client-admin-legacy` can no longer receive each other's bundle. Static HTML with injected page head no longer sends `Last-Modified`, so a crawler sending only `If-Modified-Since` gets the fresh metadata instead of a stale 304."
+  },
+  {
     "version": "0.330.0",
     "type": "fix",
     "title": "server-runtime and dev-server declare their renderer-web dependency and their .d.ts resolve Bun and Temporal types without consumer setup",
