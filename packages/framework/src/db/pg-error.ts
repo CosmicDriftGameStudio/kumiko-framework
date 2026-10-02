@@ -5,6 +5,8 @@
 // aggregate-version index (optimistic-concurrency conflict) from the one on
 // the idempotency-key index (caller-side replay signal).
 
+const MAX_CAUSE_DEPTH = 8;
+
 export type PgErrorInfo = {
   readonly code: string | undefined;
   readonly constraint_name: string | undefined;
@@ -12,10 +14,14 @@ export type PgErrorInfo = {
 
 export function extractPgError(e: unknown): PgErrorInfo | null {
   if (typeof e !== "object" || e === null) return null;
-  const layers: unknown[] = [e];
-  // @cast-boundary error-details — DrizzleQueryError wraps PG-error in .cause
-  const cause = (e as { cause?: unknown }).cause;
-  if (typeof cause === "object" && cause !== null) layers.push(cause);
+  const layers: unknown[] = [];
+  let current: unknown = e;
+  // Depth cap doubles as cycle protection for self-referential causes.
+  while (typeof current === "object" && current !== null && layers.length < MAX_CAUSE_DEPTH) {
+    layers.push(current);
+    // @cast-boundary error-details — DrizzleQueryError wraps PG-error in .cause
+    current = (current as { cause?: unknown }).cause;
+  }
 
   for (const layer of layers) {
     // @cast-boundary error-details — postgres-js error shape (code, constraint_name)

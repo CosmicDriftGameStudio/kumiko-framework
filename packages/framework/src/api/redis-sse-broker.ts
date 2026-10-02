@@ -1,6 +1,11 @@
 import { createRedisPubSubSignal } from "../redis/pubsub-signal.js";
-import type { AccessInvalidationScope } from "./sse-broker.js";
-import { createSseBroker, type SseBroker, type SseEvent } from "./sse-broker.js";
+import {
+  type AccessInvalidationScope,
+  createSseBroker,
+  readNonEmptyStringArray,
+  type SseBroker,
+  type SseEvent,
+} from "./sse-broker.js";
 
 // Channel namespace for cross-replica fanout (fw#2625). Every pod publishes
 // here and every pod's psubscribe listens here, so a push on one instance
@@ -95,11 +100,6 @@ function parseInvalidationScope(payload: unknown): AccessInvalidationScope {
   }
 
   return { kind: "user" };
-}
-
-function readNonEmptyStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || value.length === 0) return undefined;
-  return value.every((v): v is string => typeof v === "string") ? value : undefined;
 }
 
 // Mirror of parseInvalidationScope's wire shapes. "sessions"/"pat-tokens"

@@ -1,4 +1,8 @@
-import type { AccessInvalidationScope, SseBroker } from "../api/sse-broker.js";
+import {
+  type AccessInvalidationScope,
+  readNonEmptyStringArray,
+  type SseBroker,
+} from "../api/sse-broker.js";
 import {
   collectSearchableSubjectFields,
   configuredPiiSubjectKms,
@@ -619,11 +623,6 @@ function readUserIdFromPreviousSnapshot(payload: Record<string, unknown>): strin
   if (typeof previous !== "object" || previous === null) return undefined;
   const userId = (previous as Record<string, unknown>)["userId"];
   return typeof userId === "string" && userId.length > 0 ? userId : undefined;
-}
-
-function readNonEmptyStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value) || value.length === 0) return undefined;
-  return value.every((v): v is string => typeof v === "string") ? value : undefined;
 }
 
 // session-revoked's scope resolution, in order:

@@ -10,17 +10,8 @@ import { type DispatchContext, resolveDbSource } from "./dispatch-shared.js";
 
 const PG_READ_ONLY_SQLSTATE = "25006";
 
-// Bun.SQL surfaces the PG SQLSTATE as `errno` (code stays "ERR_POSTGRES_SERVER_ERROR");
-// postgres.js surfaces it as `code`, possibly one `.cause` layer down (DrizzleQueryError-style wrapping).
 function isReadOnlyTransactionViolation(e: unknown): boolean {
-  if (extractPgError(e)?.code === PG_READ_ONLY_SQLSTATE) return true;
-  if (typeof e !== "object" || e === null) return false;
-  // @cast-boundary error-details — Bun.SQL error shape (errno)
-  if ((e as { errno?: unknown }).errno === PG_READ_ONLY_SQLSTATE) return true;
-  // @cast-boundary error-details — Bun.SQL error shape (errno) under .cause
-  const cause = (e as { cause?: unknown }).cause;
-  if (typeof cause !== "object" || cause === null) return false;
-  return (cause as { errno?: unknown }).errno === PG_READ_ONLY_SQLSTATE;
+  return extractPgError(e)?.code === PG_READ_ONLY_SQLSTATE;
 }
 
 async function runInDiscardedReadOnlySavepoint<T>(

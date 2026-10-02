@@ -173,21 +173,22 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
 
       const proxy2 = startDbProxy(dbUrl);
       await listenOn(proxy2.server, proxyPort);
+      let failedCount = -1;
+      let recoveredCount = -1;
       try {
         await waitFor(() => logger.lines.some((line) => line.includes("idle pre-check recovered")));
 
         await appendWidget("after-recovery");
         await waitFor(() => observed.includes("after-recovery"));
+        // Measured before proxy2.stop(): a poll tick during teardown would log a second "failed".
+        failedCount = logger.lines.filter((line) => line.includes("idle pre-check failed")).length;
+        recoveredCount = logger.lines.filter((line) =>
+          line.includes("idle pre-check recovered"),
+        ).length;
       } finally {
         await proxy2.stop();
       }
 
-      const failedCount = logger.lines.filter((line) =>
-        line.includes("idle pre-check failed"),
-      ).length;
-      const recoveredCount = logger.lines.filter((line) =>
-        line.includes("idle pre-check recovered"),
-      ).length;
       expect(failedCount).toBe(1);
       expect(recoveredCount).toBe(1);
       expect(observed).toEqual(["before-outage", "after-recovery"]);

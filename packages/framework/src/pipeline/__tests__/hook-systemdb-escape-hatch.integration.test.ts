@@ -1,9 +1,4 @@
-// fw#3198 — a postSave hook's OWN `escapeHatch` must gate ctx.systemDb.unsafeRaw
-// inside a r.systemScope() handler's write, not the handler's (absent) grant.
-// Real HTTP calls + setupTestStack — never createTestDispatcher. Modelled on
-// entity-write-crosstenant.integration.test.ts (tier-engine's
-// ctx.systemDb.unsafeRaw + createTenantDb(raw, otherTenantId, "system") pattern)
-// and escape-hatch-audit.integration.test.ts (recordingSink for EscapeHatchUseEvent).
+// A hook's own escapeHatch, not the enclosing systemScope() handler's, gates ctx.systemDb.unsafeRaw.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { defineUnmanagedTable } from "../../db/entity-table-meta.js";
@@ -26,8 +21,8 @@ import {
 } from "../../stack/index.js";
 
 const OTHER_TENANT_ID = testTenantId(2);
-const HOOK_ESCAPE_HATCH_REASON = "fw#3198 integration test — hook's own cross-tenant audit write";
-const NO_HOOK_ESCAPE_HATCH_REASON = "fw#3198 integration test — hook declared no escapeHatch";
+const HOOK_ESCAPE_HATCH_REASON = "integration test — hook's own cross-tenant audit write";
+const NO_HOOK_ESCAPE_HATCH_REASON = "integration test — hook declared no escapeHatch";
 
 const auditTable = defineUnmanagedTable({
   tableName: "store_fw3198_hook_systemdb_audit",
@@ -85,8 +80,7 @@ function labelOf(result: unknown): string {
 // shape as tier-engine's hook on the "tenant" feature's entity.
 const featureB = defineFeature("hooksys3198-b", (r) => {
   r.storeTable(auditTable, {
-    reason:
-      "fw#3198 integration test — cross-tenant audit row written from a hook's own escapeHatch",
+    reason: "integration test — cross-tenant audit row written from a hook's own escapeHatch",
   });
 
   r.hook(
@@ -165,7 +159,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-describe("a postSave hook's own escapeHatch gates ctx.systemDb.unsafeRaw (fw#3198)", () => {
+describe("a postSave hook's own escapeHatch gates ctx.systemDb.unsafeRaw", () => {
   test("afterCommit, WITH escapeHatch, ctx.systemDb.unsafeRaw: cross-tenant audit row lands, reported as unsafe-raw", async () => {
     escapeHatchAuditEvents.length = 0;
     const label = `label-${crypto.randomUUID()}`;
