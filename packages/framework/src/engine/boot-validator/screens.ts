@@ -938,6 +938,14 @@ function validateRedirectTarget(
         `redirect form to navigate with the handler's own "id".`,
     );
   }
+  // The renderer reads idFrom verbatim (Object.hasOwn), so stray whitespace
+  // never matches and the navigation silently lands without an entityId.
+  if (typeof redirect !== "string" && redirect.idFrom !== redirect.idFrom.trim()) {
+    throw new Error(
+      `[Feature ${feature.name}] Screen "${screenId}" (${screenKind}) redirect.idFrom "${redirect.idFrom}" ` +
+        `has leading/trailing whitespace — it would never match a payload field.`,
+    );
+  }
   validateScreenNavTarget(
     feature.name,
     screenId,
@@ -1315,6 +1323,44 @@ function validateRelatedListToolbarActions(
   }
 }
 
+type NavigateTargetLookups = {
+  readonly allScreenQns: ReadonlySet<string>;
+  readonly navTargetShortIds: ReadonlySet<string>;
+  readonly screensByShortId: ReadonlyMap<
+    string,
+    ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
+  >;
+  readonly detailForScreens: ReadonlyMap<
+    string,
+    { readonly featureName: string; readonly screen: ScreenDefinition }
+  >;
+};
+
+// Only a navigate action that sets `tab` needs the target resolved (to check
+// the tab id); plain navigates are validated elsewhere. One place for every
+// section-level action site so a new site can't forget the tab check.
+function validateNavigateActionTab(
+  featureName: string,
+  screenId: string,
+  screenType: NavigateSourceScreenType,
+  actionLabel: string,
+  action: RowAction,
+  lookups: NavigateTargetLookups,
+): void {
+  if (action.kind !== "navigate" || action.tab === undefined) return;
+  resolveRowActionNavigateTarget(
+    featureName,
+    screenId,
+    screenType,
+    actionLabel,
+    action,
+    lookups.allScreenQns,
+    lookups.navTargetShortIds,
+    lookups.screensByShortId,
+    lookups.detailForScreens,
+  );
+}
+
 export function validateScreens(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
@@ -1338,6 +1384,12 @@ export function validateScreens(
   // zusätzlich eine voll-qualifizierte Cross-Feature-QN (resolveScreenTargetQn,
   // #1946) — kurze IDs bleiben same-feature wie zuvor.
   const navTargetShortIds = screenShortIdsFrom(allScreenQns);
+  const navigateLookups: NavigateTargetLookups = {
+    allScreenQns,
+    navTargetShortIds,
+    screensByShortId,
+    detailForScreens,
+  };
   for (const [screenId, screen] of Object.entries(feature.screens)) {
     validateScreenHasNavArea(feature, screenId, screen, featureMap);
     if (screen.type === "custom") {
@@ -1631,19 +1683,14 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
-            if (action.kind === "navigate" && action.tab !== undefined) {
-              resolveRowActionNavigateTarget(
-                feature.name,
-                screenId,
-                "projectionDetail",
-                `section "${sectionLabel}" action`,
-                action,
-                allScreenQns,
-                navTargetShortIds,
-                screensByShortId,
-                detailForScreens,
-              );
-            }
+            validateNavigateActionTab(
+              feature.name,
+              screenId,
+              "projectionDetail",
+              `section "${sectionLabel}" action`,
+              action,
+              navigateLookups,
+            );
           }
         }
         if (section.kind === "relatedList" && section.emptyState?.action !== undefined) {
@@ -1654,22 +1701,14 @@ export function validateScreens(
             `section "${sectionLabel}" emptyState action`,
             section.emptyState.action,
           );
-          if (
-            section.emptyState.action.kind === "navigate" &&
-            section.emptyState.action.tab !== undefined
-          ) {
-            resolveRowActionNavigateTarget(
-              feature.name,
-              screenId,
-              "projectionDetail",
-              `section "${sectionLabel}" emptyState action`,
-              section.emptyState.action,
-              allScreenQns,
-              navTargetShortIds,
-              screensByShortId,
-              detailForScreens,
-            );
-          }
+          validateNavigateActionTab(
+            feature.name,
+            screenId,
+            "projectionDetail",
+            `section "${sectionLabel}" emptyState action`,
+            section.emptyState.action,
+            navigateLookups,
+          );
         }
         if (isExtensionEditSection(section)) {
           // projectionDetail is read-only (no composed form submit) — an
@@ -2388,19 +2427,14 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
-            if (action.kind === "navigate" && action.tab !== undefined) {
-              resolveRowActionNavigateTarget(
-                feature.name,
-                screenId,
-                "entityEdit",
-                `section "${sectionLabel}" action`,
-                action,
-                allScreenQns,
-                navTargetShortIds,
-                screensByShortId,
-                detailForScreens,
-              );
-            }
+            validateNavigateActionTab(
+              feature.name,
+              screenId,
+              "entityEdit",
+              `section "${sectionLabel}" action`,
+              action,
+              navigateLookups,
+            );
           }
         }
         if (isExtensionEditSection(section)) {
@@ -2819,12 +2853,18 @@ function assertRefTargetRegistered(
 ): void {
   const target = parseRefTarget(refTarget, currentFeatureName);
   const targetFeature = featureMap.get(target.featureName);
-  if (targetFeature?.entities?.[target.entityName] === undefined) {
+  if (targetFeature === undefined) {
+    throw new Error(
+      `${prefix} ${subject} targets entity "${refTarget}", but feature "${target.featureName}" is not ` +
+        `mounted — mount it and declare r.requires("${target.featureName}").`,
+    );
+  }
+  if (targetFeature.entities?.[target.entityName] === undefined) {
     throw new Error(
       `${prefix} ${subject} targets entity "${refTarget}", which does not resolve to a ` +
         `registered entity. Known entities in feature "${target.featureName}": ` +
         `${
-          Object.keys(targetFeature?.entities ?? {})
+          Object.keys(targetFeature.entities ?? {})
             .sort()
             .join(", ") || "(none)"
         }.`,

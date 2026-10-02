@@ -147,7 +147,10 @@ function checkProjectionDetailOutputFields(
   const recordShape = getZodObjectShape(queryHandlers.get(screen.query)?.outputSchema);
   const prefix = `[Feature ${featureName}] Screen "${screenId}" (projectionDetail)`;
   // @wrapper-known semantic-alias
-  const checkHeaderField = (part: "title" | "subtitle" | "status", field: string): void => {
+  const checkHeaderField = (
+    part: "title" | "subtitle" | "subtitleHref" | "status",
+    field: string,
+  ): void => {
     checkFieldExists(
       recordShape,
       field,
@@ -170,6 +173,9 @@ function checkProjectionDetailOutputFields(
           checkHeaderField("subtitle", part.navigate.entityId);
         }
       }
+    }
+    if (screen.header.subtitleHref !== undefined) {
+      checkHeaderField("subtitleHref", screen.header.subtitleHref);
     }
     if (screen.header.status !== undefined) checkHeaderField("status", screen.header.status);
   }
@@ -204,6 +210,15 @@ function checkDetailSectionFields(
   screen: ProjectionDetailScreenDefinition,
 ): void {
   for (const section of screen.layout.sections) {
+    const countField = "countField" in section ? section.countField : undefined;
+    if (countField !== undefined) {
+      checkFieldExists(
+        recordShape,
+        countField,
+        () =>
+          `${prefix} section "${section.title ?? "(untitled)"}" countField references field "${countField}" which is not present in query "${screen.query}"'s outputSchema.`,
+      );
+    }
     if (section.kind !== undefined && section.kind !== "fields") continue;
     const entries = [...section.fields, ...(section.groups ?? []).flatMap((g) => g.fields)];
     for (const entry of entries) {

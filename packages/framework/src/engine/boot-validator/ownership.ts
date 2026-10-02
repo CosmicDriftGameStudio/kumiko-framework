@@ -1,5 +1,11 @@
 import { buildEntityTable } from "../../db/table-builder.js";
-import type { OwnershipMap, OwnershipRule, SqlFragment, WhereRule } from "../ownership.js";
+import {
+  type OwnershipMap,
+  type OwnershipRule,
+  type SqlFragment,
+  tableNameOf,
+  type WhereRule,
+} from "../ownership.js";
 import { SYSTEM_USER_ID } from "../system-user.js";
 import { SYSTEM_TENANT_ID } from "../types/identifiers.js";
 import type { ClaimKeyDefinition, FeatureDefinition, SessionUser } from "../types/index.js";
@@ -91,7 +97,7 @@ export function validateOwnershipRules(
       const table = buildEntityTable(entityName, entity);
       const columns = tableColumnSqlNames(table);
       if (columns.size > 0) {
-        probe = { table, tableName: entity.table ?? entityName, columns };
+        probe = { table, tableName: tableNameOf(table), columns };
       }
     } catch {
       // skip: table cannot be built outside the real boot sequence here —

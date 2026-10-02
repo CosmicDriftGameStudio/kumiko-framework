@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { NavDefinition, WorkspaceDefinition } from "../../types/index.js";
-import { warnOnUnreachableNavScreens } from "../nav.js";
+import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "../nav.js";
 import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.js";
 
 function navMap(
@@ -137,6 +137,91 @@ describe("warnOnUnreachableNavScreens", () => {
     ]);
 
     warnOnUnreachableNavScreens(allNavQns, new Set());
+
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("warnOnUnreachableNavScreens remedy text", () => {
+  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  const unreachable = navMap([
+    [
+      "vehicles:nav:c",
+      { id: "c", label: "C", screen: "vehicles:screen:title", featureName: "vehicles" },
+    ],
+  ]);
+
+  test("workspace-derived allowlist points at workspace nav assignment", () => {
+    warnOnUnreachableNavScreens(unreachable, new Set(), new Set(), "workspaces");
+
+    const msg = warnSpy.mock.calls[0]![0] as string;
+    expect(msg).toContain("add it to a workspace's `nav` array");
+    expect(msg).not.toContain("add it to the allowlist");
+  });
+
+  test("explicit allowlist points at the allowlist", () => {
+    warnOnUnreachableNavScreens(unreachable, new Set());
+
+    const msg = warnSpy.mock.calls[0]![0] as string;
+    expect(msg).toContain("add it to the allowlist");
+  });
+});
+
+describe("warnOnNavAccessInversion", () => {
+  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  const parent: [string, NavDefinition & { readonly featureName: string }] = [
+    "f:nav:p",
+    { id: "p", label: "P", access: { roles: ["Admin"] }, featureName: "f" },
+  ];
+
+  test("warns for a leaf whose roles are disjoint from the parent's", () => {
+    warnOnNavAccessInversion(
+      navMap([
+        parent,
+        [
+          "f:nav:l",
+          { id: "l", label: "L", parent: "f:nav:p", access: { roles: ["User"] }, featureName: "f" },
+        ],
+      ]),
+    );
+
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  test("does not emit a misleading 'requires roles []' warning for an invalid openToAll leaf", () => {
+    warnOnNavAccessInversion(
+      navMap([
+        parent,
+        [
+          "f:nav:l",
+          {
+            id: "l",
+            label: "L",
+            parent: "f:nav:p",
+            access: { openToAll: { reason: "" } },
+            featureName: "f",
+          },
+        ],
+      ]),
+    );
 
     expect(warnSpy).not.toHaveBeenCalled();
   });

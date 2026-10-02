@@ -164,6 +164,7 @@ export function warnOnNavAccessInversion(
     const parentRoles = navViewerRoles(parentDef.access);
     const leafRoles = navViewerRoles(navDef.access);
     if (parentRoles === undefined || leafRoles === undefined) continue;
+    if (leafRoles.length === 0) continue; // leaf visible to nobody (empty roles or invalid openToAll) — not an inversion
     if (parentRoles.length === 0) continue; // parent already visible to nobody — a different problem
     if (leafRoles.some((role) => parentRoles.includes(role))) continue;
     // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
@@ -176,15 +177,6 @@ export function warnOnNavAccessInversion(
   }
 }
 
-// `NavDefinition.screen` is authored already-qualified ("<feature>:screen:
-// <id>", see packages/types/src/nav.ts) — this only guards a short id
-// slipping through, since a wrong qualification here would make every nav
-// look orphaned (28 false positives on the real offlot-app schema instead
-// of the intended 8, see fw#3019 measurement).
-function qualifyNavScreenQn(featureName: string, screen: string): string {
-  return screen.includes(":screen:") ? screen : `${featureName}:screen:${screen}`;
-}
-
 // fw#3019: warn (never throw — a screen deliberately left out of the app's
 // sidebar is legitimate) when a declared nav's screen isn't reachable from
 // any allowlisted nav entry. Checking "nav QN not in allowlist" directly
@@ -193,29 +185,38 @@ function qualifyNavScreenQn(featureName: string, screen: string): string {
 // allowlisted nav already reaches. Reachability warns only for a screen no
 // allowlisted nav points at, which is the actual "unreachable via sidebar"
 // bug (solon#113, offlot's VIN screen in pilot).
+// "workspaces": no explicit navAllowlist, the allowlist was derived from workspace assignments.
+export type NavAllowlistSource = "explicit" | "workspaces";
+
 export function warnOnUnreachableNavScreens(
   allNavQns: ReadonlyMap<string, NavDefinition & { readonly featureName: string }>,
   allowedNavQns: ReadonlySet<string>,
   navAllowlistExempt: ReadonlySet<string> = new Set(),
+  allowlistSource: NavAllowlistSource = "explicit",
 ): void {
   const reachableScreenQns = new Set<string>();
   for (const [qn, navDef] of allNavQns) {
     if (!allowedNavQns.has(qn) || navDef.screen === undefined) continue;
-    reachableScreenQns.add(qualifyNavScreenQn(navDef.featureName, navDef.screen));
+    reachableScreenQns.add(navDef.screen);
   }
 
   for (const [qn, navDef] of allNavQns) {
     if (allowedNavQns.has(qn) || navDef.screen === undefined || navAllowlistExempt.has(qn)) {
       continue;
     }
-    const screenQn = qualifyNavScreenQn(navDef.featureName, navDef.screen);
+    // validateNavs already guarantees a registered, qualified screen QN
+    const screenQn = navDef.screen;
     if (reachableScreenQns.has(screenQn)) continue;
+    const remedy =
+      allowlistSource === "workspaces"
+        ? "add it to a workspace's `nav` array or set `workspaces` on the nav"
+        : "add it to the allowlist";
     // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
     console.warn(
       `[kumiko:boot] Nav entry "${qn}" declared by feature "${navDef.featureName}" points at ` +
         `screen "${screenQn}", which no allowlisted nav entry reaches — it is unreachable via ` +
         `the sidebar. If this is intentional (e.g. reachable through a generated hub), add ` +
-        `"${qn}" to navAllowlistExempt; otherwise add it to the allowlist.`,
+        `"${qn}" to navAllowlistExempt; otherwise ${remedy}.`,
     );
   }
 }

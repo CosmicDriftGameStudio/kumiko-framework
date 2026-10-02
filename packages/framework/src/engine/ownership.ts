@@ -239,7 +239,7 @@ export function userCanCreateFieldRow(
 const PASS_CLAUSE: OwnershipClause = { kind: "pass" };
 const EMPTY_CLAUSE: OwnershipClause = { kind: "empty" };
 
-function tableNameOf(table: unknown): string {
+export function tableNameOf(table: unknown): string {
   if (table !== null && typeof table === "object") {
     const sym = (table as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL];
     if (typeof sym === "string") return sym;

@@ -45,7 +45,7 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
     );
   });
 
-  test("projectionList column refEntity targeting an unmounted feature throws with (none)", () => {
+  test("projectionList column refEntity targeting an unmounted feature names the missing feature", () => {
     const feature = defineFeature("ledger", (r) => {
       r.queryHandler(
         "schedule:list",
@@ -61,7 +61,7 @@ describe("validateBoot — refEntity targets (fw#3108)", () => {
       });
     });
     expect(() => validateBoot([feature])).toThrow(
-      /column "ownerId" \(refEntity\) targets entity "owners:owner".*Known entities in feature "owners": \(none\)\./,
+      /column "ownerId" \(refEntity\) targets entity "owners:owner", but feature "owners" is not mounted.*r\.requires\("owners"\)/,
     );
   });
 
