@@ -52,6 +52,13 @@ describe("mergeExtraContext", () => {
     expect(result["_configAccessorFactory"]).toBeDefined();
   });
 
+  test("config preset rejects a configResolver that is not a resolver instance", () => {
+    const merged = mergeExtraContext({ configResolver: () => ({}) }, ["config"]);
+    expect(() => (merged as (deps: typeof fakeDeps) => unknown)(fakeDeps)).toThrow(
+      /configResolver must be a ConfigResolver/,
+    );
+  });
+
   test("template-resolver preset merges templateResolver, built from deps.db", () => {
     const merged = mergeExtraContext(undefined, ["template-resolver"]);
     const result = (merged as (deps: typeof fakeDeps) => Record<string, unknown>)(fakeDeps);

@@ -857,6 +857,45 @@ const probeRobotsRouteFeature = defineFeature("dev-server-probe-robots-route", (
   });
 });
 
+const probeJobFeature = defineFeature("dev-server-probe-job", (r) => {
+  r.job("probe-job", { trigger: { manual: true }, runIn: "worker" }, async () => {});
+});
+
+async function listDevQueueKeys(): Promise<Set<string>> {
+  const { Redis } = await import("ioredis");
+  const redisUrl = process.env["REDIS_URL"];
+  if (redisUrl === undefined) throw new Error("REDIS_URL must be set for integration tests");
+  const raw = new Redis(redisUrl);
+  try {
+    const keys = new Set<string>();
+    for await (const batch of raw.scanStream({ match: "bull:kumiko-dev-*", count: 500 })) {
+      for (const key of batch) keys.add(key);
+    }
+    return keys;
+  } finally {
+    raw.disconnect();
+  }
+}
+
+describe("createKumikoServer — ephemeral job queues", () => {
+  test("stop() removes the per-boot BullMQ keys from the shared Redis", async () => {
+    const before = await listDevQueueKeys();
+    handle = await createKumikoServer({
+      features: [probeFeature, probeJobFeature],
+      port: 0,
+      installSignalHandlers: false,
+    });
+    const duringBoot = await listDevQueueKeys();
+    expect([...duringBoot].filter((key) => !before.has(key)).length).toBeGreaterThan(0);
+
+    await handle.stop();
+    handle = undefined;
+
+    const afterStop = await listDevQueueKeys();
+    expect([...afterStop].filter((key) => !before.has(key))).toEqual([]);
+  });
+});
+
 describe("createKumikoServer — public/ static files", () => {
   test("GET on an existing file under public/ → 200, correct content-type + content", async () => {
     const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-")));
@@ -944,6 +983,34 @@ describe("createKumikoServer — public/ static files", () => {
       const res = await handle.fetch(new Request("http://localhost/leak.txt"));
       expect(res.status).not.toBe(200);
       expect(await res.text()).not.toContain("TOP-SECRET");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("a public/ that is itself a symlink still serves its files", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-linkdir-")));
+    const sharedAssets = join(tmpDir, "shared-assets");
+    mkdirSync(sharedAssets, { recursive: true });
+    writeFileSync(join(sharedAssets, "logo.png"), "PNGDATA");
+    writeFileSync(join(tmpDir, "secret.txt"), "TOP-SECRET");
+    symlinkSync(sharedAssets, join(tmpDir, "public"));
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/logo.png"));
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("PNGDATA");
+      const encoded = await handle.fetch(new Request("http://localhost/%2e%2e%2fsecret.txt"));
+      expect(encoded.status).not.toBe(200);
+      const backslash = await handle.fetch(new Request("http://localhost/..%5Csecret.txt"));
+      expect(backslash.status).not.toBe(200);
     } finally {
       process.chdir(cwdBefore);
       rmSync(tmpDir, { recursive: true, force: true });

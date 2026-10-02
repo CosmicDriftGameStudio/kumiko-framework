@@ -9,6 +9,7 @@ import {
   readMarker,
   resolveInstalledVersion,
   resolveKumikoUpgradeBin,
+  runKumikoUpgrade,
 } from "../guard-upgrade-state";
 
 function withApp(files: Record<string, string> = {}): { dir: string; cleanup: () => void } {
@@ -174,6 +175,22 @@ describe("resolveKumikoUpgradeBin", () => {
     } finally {
       app.cleanup();
       decoy.cleanup();
+    }
+  });
+});
+
+describe("runKumikoUpgrade", () => {
+  test("a hanging binary is killed after the timeout and reported as a failure", async () => {
+    const app = withApp({ "node_modules/.bin/kumiko-upgrade": "#!/bin/sh\nexec sleep 30\n" });
+    chmodSync(join(app.dir, "node_modules/.bin/kumiko-upgrade"), 0o755);
+    try {
+      const startedAt = Date.now();
+      const result = await runKumikoUpgrade("0.1.0", app.dir, 300);
+      expect(result.ok).toBe(false);
+      expect("error" in result && result.error).toContain("timed out after 300 ms");
+      expect(Date.now() - startedAt).toBeLessThan(10_000);
+    } finally {
+      app.cleanup();
     }
   });
 });

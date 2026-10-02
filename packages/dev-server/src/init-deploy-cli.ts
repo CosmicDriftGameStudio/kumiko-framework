@@ -120,7 +120,8 @@ export async function runInitDeployCli({
     return 2;
   }
 
-  const appName = getStringFlag(args, "app") ?? defaultAppName(cwd);
+  const outDir = getStringFlag(args, "out") ?? cwd;
+  const appName = getStringFlag(args, "app") ?? defaultAppName(outDir);
   if (!appName) {
     out.err("");
     out.err('  --app <name> is required (no package.json "name" found to default from).');
@@ -133,7 +134,7 @@ export async function runInitDeployCli({
     appName,
     port: getNumberFlag(args, "port"),
     githubOrg: getStringFlag(args, "github-org"),
-    destination: getStringFlag(args, "out") ?? cwd,
+    destination: outDir,
   };
 
   try {

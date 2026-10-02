@@ -36,12 +36,12 @@ const {
   ...INHERITED_ENV
 } = process.env;
 
-function fixtureEnv(ceilingDir: string): Record<string, string> {
+function fixtureEnv(ceilingDir: string): Record<string, string | undefined> {
   return {
     ...INHERITED_ENV,
     GIT_CEILING_DIRECTORIES: ceilingDir,
     GIT_CONFIG_GLOBAL: "/dev/null",
-  } as Record<string, string>;
+  };
 }
 
 function runGit(args: string[], cwd: string, ceilingDir: string): void {
@@ -149,6 +149,16 @@ describe("hooks/pre-push shim", () => {
       `[pre-push] kumiko-pre-push not found in any node_modules/.bin above ${repoDir}.`,
       "Run `bun install`, or set PRE_PUSH_SKIP=1 to bypass this hook.",
     ]);
+  });
+
+  test("invoked outside a git repo fails closed with FATAL", () => {
+    const notARepo = join(tmp, "not-a-repo");
+    mkdirSync(notARepo, { recursive: true });
+
+    const { output, exitCode } = runHook(notARepo, tmp);
+
+    expect(exitCode).not.toBe(0);
+    expect(output).toContain("FATAL");
   });
 
   test("PRE_PUSH_SKIP=1 with no bin anywhere exits 0", () => {
