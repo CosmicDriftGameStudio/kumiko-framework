@@ -155,13 +155,45 @@ describe("header overflow menu", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  test("Tab closes the menu", () => {
+  test("Tab on a menu row closes the menu and returns focus to the trigger", () => {
     setViewportWidth(PHONE);
     renderHeader(() => {});
     const panel = screen.getByTestId("shell-header-overflow");
-    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    const trigger = screen.getByTestId("shell-header-overflow-trigger");
+    fireEvent.click(trigger);
     fireEvent.keyDown(within(panel).getAllByRole("menuitem")[0] as HTMLElement, { key: "Tab" });
     expect(panel.hidden).toBe(true);
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  test("keys on opaque header actions are not hijacked by the menu", () => {
+    setViewportWidth(PHONE);
+    renderWithSidebar(
+      <PageHeaderSlotProvider>
+        <ShellHeader
+          schema={emptySchema}
+          headerActions={
+            <div>
+              <button type="button" data-testid="plain-button">
+                Plain
+              </button>
+              <input data-testid="search-input" />
+            </div>
+          }
+        />
+      </PageHeaderSlotProvider>,
+    );
+    const panel = screen.getByTestId("shell-header-overflow");
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    const input = screen.getByTestId("search-input");
+    for (const key of ["ArrowDown", "ArrowUp", "Home", "End", "Tab"]) {
+      const notCancelled = fireEvent.keyDown(input, { key });
+      expect(notCancelled).toBe(true);
+    }
+    expect(panel.hidden).toBe(false);
+    const button = screen.getByTestId("plain-button");
+    expect(fireEvent.keyDown(button, { key: "Tab" })).toBe(true);
+    expect(panel.hidden).toBe(false);
   });
 });
 

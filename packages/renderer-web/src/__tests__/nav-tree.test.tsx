@@ -708,9 +708,6 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toEqual({ featureId: "cms", action: "create", args: { folder: "" } });
   });
 
-  // fw#2750: createAction/actions[] carry screen XOR target — same
-  // polymorphism as the node itself. A `screen` action renders a
-  // route-KumikoLink instead of a dispatch-button.
   test("createAction mit screen rendert einen Link auf die richtige Route statt zu dispatchen", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
@@ -744,8 +741,6 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toBeUndefined();
   });
 
-  // fw#2750: same screen/target polymorphism applies to actions[] entries
-  // (hover-actions), not just createAction.
   test("actions[]-Eintrag mit screen rendert einen Link auf die richtige Route statt zu dispatchen", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {
@@ -774,7 +769,7 @@ describe("NavTree dynamic provider nodes", () => {
     expect(dispatched).toBeUndefined();
   });
 
-  // fw#2751: boot validates screen XOR target for NavDefinition actions, but
+  // Boot validates screen XOR target for NavDefinition actions, but
   // a schema handed straight to NavTree (as here, and as a provider-emitted
   // TreeNode at runtime) bypasses that — neither must not render a dead
   // button, it must warn once and drop the action.
@@ -907,7 +902,7 @@ describe("NavTree dynamic provider nodes", () => {
   });
 });
 
-// fw#2750: the actions container clears the collapse chevron via `right-7`.
+// The actions container clears the collapse chevron via `right-7`.
 // A node without a chevron (not expandable) has no chevron — the narrower
 // `right-1` spacing must only apply there.
 describe("NavTree Actions-Positionierung", () => {

@@ -2182,7 +2182,7 @@ function DefaultDataTable({
               : "gap-3",
           )}
         >
-          {/* min-w-48: without a floor, flex shrinks the search instead of wrapping the facet cluster onto its own line (fw#3116). */}
+          {/* min-w-48: without a floor, flex shrinks the search instead of wrapping the facet cluster onto its own line. */}
           {toolbarStart !== undefined && (
             <div
               className={cn(
@@ -2328,6 +2328,7 @@ function isUnlabeledFalse(type: string, value: unknown, renderer: unknown): bool
     typeof renderer === "object" &&
     renderer !== null &&
     "format" in renderer &&
+    renderer.format === "boolean" &&
     !("falseLabel" in renderer)
   );
 }

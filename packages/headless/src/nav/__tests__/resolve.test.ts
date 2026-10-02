@@ -236,8 +236,6 @@ describe("resolveNavigation", () => {
     expect(hero?.actions).toHaveLength(1);
   });
 
-  // fw#2750: a TreeAction can also carry `screen` (route link) instead of
-  // `target` (dispatch) — same polymorphism as the node itself.
   test("action `screen` (route-link variant) passes through alongside target-based actions", () => {
     const editTarget = { featureId: "text-content", action: "edit", args: { slug: "hero" } };
     const source = buildSource([
