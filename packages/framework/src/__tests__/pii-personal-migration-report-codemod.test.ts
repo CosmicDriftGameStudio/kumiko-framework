@@ -1,5 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { reportStanceForSource } from "../scripts/codemod/pii-personal-migration.js";
+import {
+  reportStanceForSource,
+  type StanceClass,
+} from "../scripts/codemod/pii-personal-migration.js";
 
 function wrapField(fieldSrc: string): string {
   return `
@@ -31,6 +34,15 @@ describe("reportStanceForSource", () => {
     expect(site?.hint).toBe("authorid");
   });
 
+  it.each<[string, StanceClass, string]>([
+    ["first_name", "direct", "firstname"],
+    ["author_id", "user-reference", "authorid"],
+  ])("normalizes snake_case: %s is an exact %s match", (field, stance, hint) => {
+    const [site] = reportStanceForSource(wrapField(`${field}: createTextField({}),`), "t.ts");
+    expect(site?.stance).toBe(stance);
+    expect(site?.hint).toBe(hint);
+  });
+
   it("classifies a near-miss when a hint occurs at a segment boundary", () => {
     const [site] = reportStanceForSource(
       wrapField("advisorDisplayName: createTextField({}),"),
@@ -38,6 +50,17 @@ describe("reportStanceForSource", () => {
     );
     expect(site?.stance).toBe("near-miss");
     expect(site?.hint).toBe("displayname");
+  });
+
+  // "content" and "text" are whole segments here, so they stay valid
+  // containment hits; only mid-word substrings ("bic" in "bicycleId") are dropped.
+  it.each([
+    ["contentType", "content"],
+    ["textAlign", "text"],
+  ])("keeps %s as near-miss because the hint is a whole segment", (field, hint) => {
+    const [site] = reportStanceForSource(wrapField(`${field}: createTextField({}),`), "t.ts");
+    expect(site?.stance).toBe("near-miss");
+    expect(site?.hint).toBe(hint);
   });
 
   it("picks the longest hint on multiple boundary matches", () => {
@@ -72,6 +95,13 @@ describe("reportStanceForSource", () => {
     "toolCallId",
     "conversationId",
     "handlerQn",
+    "orderNumber",
+    "invoiceNumber",
+    "trackingNumber",
+    "projectOwner",
+    "zipperColor",
+    "bicycleId",
+    "cityscapeId",
   ])("classifies %s as unclassified — no hint containment or suffix match", (field) => {
     const [site] = reportStanceForSource(wrapField(`${field}: createTextField({}),`), "t.ts");
     expect(site?.stance).toBe("unclassified");

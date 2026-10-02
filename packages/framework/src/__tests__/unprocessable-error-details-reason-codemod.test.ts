@@ -183,6 +183,78 @@ export function guard(rest: Record<string, unknown>) {
     expect(output).toContain("spread");
   });
 
+  test("removes reason from the details literal of failUnprocessable(reason, details)", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard() {
+  return failUnprocessable("x", { reason: "y", other: 1 });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    await runCodemod(fixture.dir);
+
+    const out = read(fixture.dir, "guard.ts");
+    expect(out).toContain('failUnprocessable("x", { other: 1 })');
+    expect(out).not.toContain('reason: "y"');
+  });
+
+  test("skips a failUnprocessable details literal with a spread and reports it", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard(base: Record<string, unknown>) {
+  return failUnprocessable("x", { ...base, reason: "y" });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const before = read(fixture.dir, "guard.ts");
+    const output = await runCodemod(fixture.dir);
+
+    expect(read(fixture.dir, "guard.ts")).toBe(before);
+    expect(output).toContain("spread");
+  });
+
+  test("skips a non-literal failUnprocessable details argument and reports it", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard(details: Record<string, unknown>) {
+  return failUnprocessable("x", details);
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const before = read(fixture.dir, "guard.ts");
+    const output = await runCodemod(fixture.dir);
+
+    expect(read(fixture.dir, "guard.ts")).toBe(before);
+    expect(output).toContain("not a statically-analyzable object literal");
+  });
+
+  test("leaves a locally defined failUnprocessable alone but reports the skip", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `function failUnprocessable(reason: string, details?: object) {
+  return { reason, details };
+}
+
+export const result = failUnprocessable("x", { reason: "y" });
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const before = read(fixture.dir, "guard.ts");
+    const output = await runCodemod(fixture.dir);
+
+    expect(read(fixture.dir, "guard.ts")).toBe(before);
+    expect(output).toContain("locally defined function");
+  });
+
   test("--dry-run writes nothing", async () => {
     const fixture = makeFixtureDir({
       "guard.ts": `import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { migrateOpenToAllSource } from "../scripts/codemod/migrate-open-to-all.js";
+import {
+  exitCodeForManualSites,
+  migrateOpenToAllSource,
+} from "../scripts/codemod/migrate-open-to-all.js";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-open-to-all");
 const DEFAULT_REASON = "test handler callable by any signed-in test user";
@@ -80,5 +83,13 @@ describe("migrateOpenToAllSource", () => {
     const result = migrateOpenToAllSource(input, "handlers.ts", { testReason: DEFAULT_REASON });
 
     expect(result.output).toContain("access: { openToAll: true }");
+  });
+
+  it("exits non-zero exactly when manual sites remain after migrating", () => {
+    const { input } = readFixture("manual-only");
+    const result = migrateOpenToAllSource(input, "handlers.ts", { testReason: DEFAULT_REASON });
+
+    expect(exitCodeForManualSites(result.manual.length)).toBe(1);
+    expect(exitCodeForManualSites(0)).toBe(0);
   });
 });
