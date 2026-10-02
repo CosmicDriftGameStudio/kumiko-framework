@@ -643,6 +643,69 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
     expect(res.rows.map((r) => r["id"])).not.toContain((otherOrder as { id: string }).id);
   });
 
+  test("totalCount with a reference hit and a native hit counts exactly the rows the ownership filter lets through", async () => {
+    const [ownRow, otherRow] = await seedRows(testDb.db, piiCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: TestUsers.user.id,
+        name: "Shared Label",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: admin.id,
+        name: "Shared Label",
+      },
+    ]);
+    const [ownOrder, otherOrder, nativeOrder] = await seedRows(testDb.db, piiOrderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "n1",
+        customerId: (ownRow as { id: string }).id,
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "n2",
+        customerId: (otherRow as { id: string }).id,
+      },
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, note: "shared note", customerId: null },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note", "name"] });
+    for (const row of [ownRow, otherRow]) {
+      const r = row as { id: string; name: string };
+      await searchAdapter.index(admin.tenantId, {
+        entityType: "refSearchPiiCustomer",
+        entityId: r.id,
+        weight: 1,
+        fields: { name: r.name },
+      });
+    }
+    await searchAdapter.index(admin.tenantId, {
+      entityType: "refSearchPiiOrder",
+      entityId: (nativeOrder as { id: string }).id,
+      weight: 1,
+      fields: { note: "shared note" },
+    });
+
+    const res = await piiOrderExec.list(
+      { search: "shared", totalCount: true },
+      TestUsers.user,
+      tdbA,
+      { searchAdapter, referenceSearch: piiReferenceSearch },
+    );
+    const ids = res.rows.map((r) => r["id"]);
+    expect(ids.sort()).toEqual(
+      [(ownOrder as { id: string }).id, (nativeOrder as { id: string }).id].sort(),
+    );
+    expect(ids).not.toContain((otherOrder as { id: string }).id);
+    expect(res.total).toBe(res.rows.length);
+  });
+
   test("a role with no read grant on the target entity gets no reference-match hit at all", async () => {
     const [contact] = await seedRows(testDb.db, piiCustomerTable, [
       {

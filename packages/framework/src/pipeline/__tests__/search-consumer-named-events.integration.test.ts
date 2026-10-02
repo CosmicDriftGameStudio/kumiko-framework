@@ -60,12 +60,30 @@ const ghostEntity = createEntity({
   },
 });
 
+// No searchable stem field at all — only a searchPayloadExtension feeds the
+// index (the customFields-only case). The extension indexes the row's `marker`.
+const extOnlyEntity = createEntity({
+  table: "read_named_search_ext_only",
+  fields: {
+    marker: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 100,
+    }),
+  },
+});
+const extOnlyTable = buildEntityTable("ext-only", extOnlyEntity);
+const EXT_ROW_MARKER = "ext-row-projection-marker";
+
 const ROW_LABEL = "row-projection-value";
 
 const namedSearchFeature = defineFeature("named-search", (r) => {
   r.entity("note", noteEntity);
   r.entity("ghost", ghostEntity);
   r.entity("secret", secretEntity);
+  const extOnly = r.entity("ext-only", extOnlyEntity);
+  r.searchPayloadExtension(extOnly, ({ state }) => ({ extIndexed: state["marker"] }));
 
   const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }), {
     piiFields: "none",
@@ -89,6 +107,29 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       await asRawClient(ctx.db.unsafeRaw("test: raw row update bypassing the executor")).unsafe(
         `UPDATE read_named_search_notes SET label = $1 WHERE id = $2`,
         [ROW_LABEL, event.payload.id],
+      );
+      return { isSuccess: true as const, data: { id: event.payload.id } };
+    },
+    {
+      access: { roles: ["Admin"] },
+      escapeHatch: { reason: "test: raw row update bypassing the executor" },
+    },
+  );
+
+  r.writeHandler(
+    "ext-only:poke",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => {
+      await ctx.unsafeAppendEvent({
+        aggregateId: event.payload.id,
+        aggregateType: "ext-only",
+        type: poked.name,
+        payload: {},
+      });
+      // Raw update (not the executor) so only the named-event path can see this value.
+      await asRawClient(ctx.db.unsafeRaw("test: raw row update bypassing the executor")).unsafe(
+        `UPDATE read_named_search_ext_only SET marker = $1 WHERE id = $2`,
+        [EXT_ROW_MARKER, event.payload.id],
       );
       return { isSuccess: true as const, data: { id: event.payload.id } };
     },
@@ -144,9 +185,19 @@ function tenantDb() {
 }
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [namedSearchFeature] });
+  // The in-memory adapter only searches configured fields; the extension's
+  // `extIndexed` key is not a stem field, so it has to be listed explicitly.
+  stack = await setupTestStack({
+    features: [namedSearchFeature],
+    searchConfig: {
+      tenantId: admin.tenantId,
+      searchableFields: ["label", "extIndexed"],
+      rankingFields: ["label", "extIndexed"],
+    },
+  });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
   await unsafeCreateEntityTable(stack.db, secretEntity, "secret");
+  await unsafeCreateEntityTable(stack.db, extOnlyEntity, "ext-only");
 });
 
 beforeEach(() => {
@@ -159,7 +210,11 @@ afterAll(async () => {
 
 afterEach(async () => {
   resetPiiSubjectKmsForTests();
-  await resetEventStore(stack, ["read_named_search_notes", "read_named_search_secrets"]);
+  await resetEventStore(stack, [
+    "read_named_search_notes",
+    "read_named_search_secrets",
+    "read_named_search_ext_only",
+  ]);
 });
 
 describe("search consumer: named domain events (#2765)", () => {
@@ -222,6 +277,23 @@ describe("search consumer: named domain events (#2765)", () => {
     await stack.eventDispatcher?.runOnce();
 
     const hits = await stack.search.search(admin.tenantId, plain, { filterType: "secret" });
+    expect(hits.some((h) => String(h.entityId) === id)).toBe(true);
+  });
+
+  test("named event on an extension-only entity (no searchable stem fields) indexes the extension field from the row", async () => {
+    const created = await createEventStoreExecutor(extOnlyTable, extOnlyEntity, {
+      entityName: "ext-only",
+    }).create({ marker: "ext-created-marker" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+    await stack.eventDispatcher?.runOnce();
+
+    await stack.http.writeOk("named-search:write:ext-only:poke", { id }, admin);
+    await stack.eventDispatcher?.runOnce();
+
+    const hits = await stack.search.search(admin.tenantId, EXT_ROW_MARKER, {
+      filterType: "ext-only",
+    });
     expect(hits.some((h) => String(h.entityId) === id)).toBe(true);
   });
 

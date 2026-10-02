@@ -117,3 +117,49 @@ describe("r.httpRoute anonymous:true — stays public", () => {
     expect(body.ok).toBe(true);
   });
 });
+
+describe("r.httpRoute anonymous:false — origin allowlist", () => {
+  const ALLOWED_ORIGIN = "https://app.example.test";
+  let originStack: TestStack;
+
+  beforeAll(async () => {
+    originStack = await setupTestStack({
+      features: [entryFeature],
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+      authConfig: {
+        // Login/tenant-switch are never dispatched here; only allowedOrigins matters.
+        membershipQuery: "http-route-entry:query:nonexistent",
+        allowedOrigins: [ALLOWED_ORIGIN],
+      },
+    });
+  });
+
+  afterAll(async () => {
+    await originStack.cleanup();
+  });
+
+  async function postWithCookie(origin: string): Promise<Response> {
+    const token = await originStack.jwt.sign(TestUsers.user);
+    const csrf = "csrf-fixed-http-route-origin-token";
+    return originStack.app.request("/entry-private", {
+      method: "POST",
+      headers: {
+        Cookie: `${AUTH_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${csrf}`,
+        [CSRF_HEADER_NAME]: csrf,
+        Origin: origin,
+      },
+    });
+  }
+
+  test("cookie POST from a foreign Origin → 403 origin_not_allowed, even with a valid CSRF token", async () => {
+    const res = await postWithCookie("https://evil.example.test");
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("origin_not_allowed");
+  });
+
+  test("cookie POST from an allowed Origin → 200", async () => {
+    const res = await postWithCookie(ALLOWED_ORIGIN);
+    expect(res.status).toBe(200);
+  });
+});
