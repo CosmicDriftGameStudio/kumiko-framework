@@ -351,6 +351,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Aún no medido",
   "cap-overview.platform.filter.tenant": "Organización",
+  "cap-overview.unlimited": "{used} · ilimitado",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Perfil de cumplimiento",
   "compliance-profiles:entity:__action-form__:field:profileKey:option:de-hr-dsgvo-hgb":
     "Alemania RR. HH. — RGPD + HGB + expedientes de personal",

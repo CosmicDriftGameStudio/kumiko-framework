@@ -28,7 +28,7 @@ export function CapUsageBar({
     // A progress bar with no denominator says nothing — show the raw count instead.
     return showLabel ? (
       <Text variant="small" testId="cap-usage-unlimited">
-        {String(usage.used)}
+        {t("cap-overview.unlimited", { used: usage.used })}
       </Text>
     ) : null;
   }

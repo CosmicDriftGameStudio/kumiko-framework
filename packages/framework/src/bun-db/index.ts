@@ -26,6 +26,7 @@ export {
   insertMany,
   insertOne,
   isTimestamptzType,
+  requireEntityTableMeta,
   runInSavepoint,
   runInSavepointIfSupported,
   selectMany,

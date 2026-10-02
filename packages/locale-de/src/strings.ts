@@ -355,6 +355,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "cap-overview.list.filter.tier": "Tier",
   "cap-overview.notMeasured": "Noch nicht gemessen",
   "cap-overview.platform.filter.tenant": "Mandant",
+  "cap-overview.unlimited": "{used} · unbegrenzt",
   "compliance-profiles:entity:__action-form__:field:profileKey": "Compliance-Profil",
   "compliance-profiles:entity:__action-form__:field:profileKey:option:de-hr-dsgvo-hgb":
     "Deutschland HR — DSGVO + HGB + Personalakten",

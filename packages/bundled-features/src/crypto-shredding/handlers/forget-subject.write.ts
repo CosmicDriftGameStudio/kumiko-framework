@@ -202,6 +202,17 @@ async function resolveRetentionDenial(
   return effective.policy?.strategy === "blockDelete" ? deny() : undefined;
 }
 
+// AccessDeniedError.code is the generic "access_denied" for every branch;
+// the specific branch lives in details.reason.
+function denialReasonOf(failure: WriteFailure): string {
+  const details = failure.error.details;
+  if (typeof details === "object" && details !== null && "reason" in details) {
+    const { reason } = details;
+    if (typeof reason === "string") return reason;
+  }
+  return failure.error.code;
+}
+
 // Denied cross-tenant probes must still leave an audit trail (fw#2348).
 // Appended outside the handler tx (fw#2592): the caller's
 // `return tenantScopeDenial` rolls that tx back.
@@ -330,7 +341,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         event,
         subjectKey,
         raw.kind,
-        tenantScopeDenial.error.code,
+        denialReasonOf(tenantScopeDenial),
         ctx.dbOutsideTransaction?.unsafeRaw(
           "denial audit append: names the prober's own tenant stream on the outside-transaction db",
         ),
@@ -338,17 +349,13 @@ export const forgetSubjectWrite = defineWriteHandler({
       return auditFailure ?? tenantScopeDenial;
     }
 
-    // Runs AFTER the tenant gate (VORHER only means "before the shred"): a
-    // retention check ahead of the tenant gate would leak a foreign
-    // entity's retention posture to a cross-tenant prober.
+    // Runs after the tenant gate but before any key is touched: a retention
+    // check ahead of the tenant gate would leak a foreign entity's retention
+    // posture to a cross-tenant prober.
     const retentionDenial = await resolveRetentionDenial(ctx, raw, () =>
       ctx.db.unsafeRaw("retention check reads the record row's owning tenant, not the caller's"),
     );
     if (retentionDenial) {
-      // Own reason constant, not tenantScopeDenial's `.error.code` pattern:
-      // AccessDeniedError.code is the generic "access_denied" for every
-      // branch, so re-deriving it here would make a blockDelete refusal
-      // indistinguishable from a cross-tenant one in the audit trail.
       const auditFailure = await appendDenialAuditEvent(
         ctx,
         event,

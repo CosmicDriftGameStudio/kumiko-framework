@@ -89,6 +89,14 @@ export function asEntityTableMeta(table: unknown): EntityTableMeta | undefined {
   return isEntityTableMeta(table) ? table : undefined;
 }
 
+export function requireEntityTableMeta(table: unknown, tableName: string): EntityTableMeta {
+  const meta = asEntityTableMeta(table);
+  if (!meta) {
+    throw new Error(`${tableName}: table carries no EntityTableMeta — built via table()?`);
+  }
+  return meta;
+}
+
 // `db` input accepts three shapes:
 //   1. Bun.SQL connection (BunDbRunner) — new world, native .unsafe + .begin
 //   2. drizzle DbConnection (postgres-js wrapper) — legacy compat,

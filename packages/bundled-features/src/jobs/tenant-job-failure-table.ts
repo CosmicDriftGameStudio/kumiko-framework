@@ -1,4 +1,4 @@
-import { asEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
+import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   type EntityTableMeta,
   instant,
@@ -32,8 +32,7 @@ export const tenantJobFailuresTable = pgTable("store_tenant_job_failures", {
   failedAt: instant("failed_at").default(sql`now()`).notNull(),
 });
 
-const derivedTenantJobFailuresTableMeta = asEntityTableMeta(tenantJobFailuresTable);
-if (!derivedTenantJobFailuresTableMeta) {
-  throw new Error("tenantJobFailuresTable: table carries no EntityTableMeta — built via table()?");
-}
-export const tenantJobFailuresTableMeta: EntityTableMeta = derivedTenantJobFailuresTableMeta;
+export const tenantJobFailuresTableMeta: EntityTableMeta = requireEntityTableMeta(
+  tenantJobFailuresTable,
+  "tenantJobFailuresTable",
+);

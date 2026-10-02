@@ -26,6 +26,11 @@ function stringHeaders(raw: unknown): Readonly<Record<string, string>> | undefin
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+const UNSUBSCRIBE_HEADER_NAMES: ReadonlySet<string> = new Set([
+  "list-unsubscribe",
+  "list-unsubscribe-post",
+]);
+
 // Only the framework's own unsubscribe route can honor a one-click POST.
 function listUnsubscribeHeaders(
   data: Readonly<Record<string, unknown>> | undefined,
@@ -56,8 +61,16 @@ function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined):
   const replyTo = typeof data["replyTo"] === "string" ? data["replyTo"] : undefined;
   const autoHeaders = listUnsubscribeHeaders(data);
   const explicitHeaders = stringHeaders(data["headers"]);
+  // Header names are case-insensitive, and the auto pair only works together:
+  // an explicit override of either half must drop both, or a mail client would
+  // one-click POST to a URL that cannot handle it.
+  const overridesUnsubscribe =
+    explicitHeaders !== undefined &&
+    Object.keys(explicitHeaders).some((name) => UNSUBSCRIBE_HEADER_NAMES.has(name.toLowerCase()));
   const headers =
-    autoHeaders || explicitHeaders ? { ...autoHeaders, ...explicitHeaders } : undefined;
+    (!overridesUnsubscribe && autoHeaders) || explicitHeaders
+      ? { ...(overridesUnsubscribe ? undefined : autoHeaders), ...explicitHeaders }
+      : undefined;
   return { ...(from && { from }), ...(replyTo && { replyTo }), ...(headers && { headers }) };
 }
 

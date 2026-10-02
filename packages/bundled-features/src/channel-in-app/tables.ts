@@ -1,4 +1,4 @@
-import { asEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
+import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   boolean,
   type EntityTableMeta,
@@ -25,8 +25,7 @@ export const inAppMessagesTable = pgTable("in_app_messages", {
 
 // Derived from inAppMessagesTable (table() attaches the meta as a Symbol) so
 // the two can't drift, instead of hand-duplicating the column list.
-const derivedInAppMessagesTableMeta = asEntityTableMeta(inAppMessagesTable);
-if (!derivedInAppMessagesTableMeta) {
-  throw new Error("inAppMessagesTable: table carries no EntityTableMeta — built via table()?");
-}
-export const inAppMessagesTableMeta: EntityTableMeta = derivedInAppMessagesTableMeta;
+export const inAppMessagesTableMeta: EntityTableMeta = requireEntityTableMeta(
+  inAppMessagesTable,
+  "inAppMessagesTable",
+);

@@ -1,9 +1,4 @@
-// Regression test for #missing r.storeTable() registration: inAppMessagesTable
-// was declared as a plain pgTable but never registered via r.storeTable(), so
-// collectTableMetas() (the source migrations are generated from) never saw
-// "in_app_messages" — no migration was ever emitted and every app using
-// channel-in-app crashed at runtime with `relation "in_app_messages" does not
-// exist`. Mirrors framework/src/engine/__tests__/store-table.test.ts.
+// in_app_messages must be in collectTableMetas() or no migration is generated.
 
 import { describe, expect, test } from "bun:test";
 import { collectTableMetas } from "@cosmicdrift/kumiko-framework/db";
