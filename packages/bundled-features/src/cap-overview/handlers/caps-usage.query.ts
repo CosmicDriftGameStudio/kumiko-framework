@@ -73,31 +73,24 @@ export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefi
         caps.map(async (cap) => {
           const used = await cap.usage(db, targetTenantId);
           const limit = await cap.limit(tier, { config: ctx.config });
+          const base = {
+            id: cap.id,
+            label: cap.label,
+            limit,
+            ...(cap.icon !== undefined && { icon: cap.icon }),
+            ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
+          };
           if (used === null) {
-            return {
-              id: cap.id,
-              label: cap.label,
-              used: null,
-              limit,
-              fraction: 0,
-              tone: "default" as const,
-              percent: null,
-              ...(cap.icon !== undefined && { icon: cap.icon }),
-              ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
-            };
+            return { ...base, used: null, fraction: 0, tone: "default" as const, percent: null };
           }
           const fraction = computeFraction(used, limit);
           return {
-            id: cap.id,
-            label: cap.label,
+            ...base,
             used,
-            limit,
             fraction,
             tone: computeTone(fraction),
             percent:
               limit === null ? null : Math.round(computeUnclampedFraction(used, limit) * 100),
-            ...(cap.icon !== undefined && { icon: cap.icon }),
-            ...(cap.accentColor !== undefined && { accentColor: cap.accentColor }),
           };
         }),
       );

@@ -1,6 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import { createEntityExecutor, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { KumikoError } from "@cosmicdrift/kumiko-framework/errors";
+import { KumikoError, reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
 import { markCapSoftWarned, readRollingCapUsage } from "./book-cap-usage.js";
 import { capCounterEntity } from "./entity.js";
 
@@ -103,6 +103,13 @@ export async function enforceCap(
     throw new Error("cap-counter.enforceCap: ctx.db missing — run inside a handler context");
   }
 
+  const amount = options.amount ?? 1;
+  if (!Number.isInteger(amount) || amount < 1) {
+    throw new Error(
+      `cap-counter.enforceCap: amount must be a positive integer, got ${options.amount}`,
+    );
+  }
+
   const tolerance = CAP_TOLERANCES[options.profile];
   const softThreshold = options.limit * tolerance.soft;
   const hardThreshold = options.limit * tolerance.hard;
@@ -116,7 +123,7 @@ export async function enforceCap(
   const row = rows[0];
   const storedValue = row ? (row["value"] as number) : 0; // @cast-boundary db-row
   // The last of `amount` units sees this value before its own increment.
-  const value = storedValue + (options.amount ?? 1) - 1;
+  const value = storedValue + amount - 1;
 
   if (value >= hardThreshold) {
     throw new CapExceededError(options.capName, options.limit, value, tolerance);
@@ -315,10 +322,11 @@ export async function enforceCapAndMaybeNotify(
       tenantId: ctx.user.tenantId,
     });
     // Flip the soft-warned flag so the same period doesn't re-notify.
-    await markCapSoftWarned(ctx, {
+    const marked = await markCapSoftWarned(ctx, {
       capName: options.capName,
       periodStartIso: options.periodStartIso,
     });
+    if (!marked.isSuccess) throw reraiseAsKumikoError(marked.error);
   }
 
   return result;

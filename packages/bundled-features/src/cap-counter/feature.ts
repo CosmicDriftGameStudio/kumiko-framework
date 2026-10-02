@@ -130,7 +130,6 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     keys: {
       ...CAP_COUNTER_I18N,
       "cap-counter:nav.cap-list": { de: "Limits", en: "Caps" },
-      "cap-counter:entity:cap-counter:field:tenantId": { de: "Mandant", en: "Tenant" },
     },
   });
 });

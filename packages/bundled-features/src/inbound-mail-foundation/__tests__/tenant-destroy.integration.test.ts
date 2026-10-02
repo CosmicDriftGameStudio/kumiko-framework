@@ -23,6 +23,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
+  ComplianceProfileHandlers,
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
@@ -113,11 +114,7 @@ async function seedTenant(user: typeof tenantA): Promise<void> {
     { id: user.tenantId, key: `t-${user.tenantId}`, name: "Tenant" },
     TestUsers.systemAdmin,
   );
-  await stack.http.writeOk(
-    "compliance-profiles:write:set-profile",
-    { profileKey: "eu-dsgvo" },
-    user,
-  );
+  await stack.http.writeOk(ComplianceProfileHandlers.setProfile, { profileKey: "eu-dsgvo" }, user);
 }
 
 async function seedMailAccount(user: typeof tenantA, address: string): Promise<string> {

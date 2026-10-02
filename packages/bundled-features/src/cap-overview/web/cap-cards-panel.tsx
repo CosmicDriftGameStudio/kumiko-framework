@@ -82,6 +82,19 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
       )}
       {rows.map((cap) => {
         const Icon = cap.icon !== undefined ? CAP_ICONS[cap.icon] : undefined;
+        // An unlimited, measured cap has neither a badge nor a bar; StatCard still
+        // wraps any defined child in a spacing div, so pass undefined then.
+        const body =
+          !isMeasured(cap) || cap.limit !== null ? (
+            <div className="flex flex-col gap-2">
+              {cap.percent !== null && (
+                <div className="flex items-center justify-between gap-2">
+                  <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
+                </div>
+              )}
+              <CapUsageBar usage={cap} showLabel={false} />
+            </div>
+          ) : undefined;
         return (
           <StatCard
             key={cap.id}
@@ -97,14 +110,7 @@ export function CapCardsPanel({ filterParams }: ExtensionSectionProps): ReactNod
             {...(cap.accentColor !== undefined && { accentColor: cap.accentColor })}
             testId="cap-card"
           >
-            <div className="flex flex-col gap-2">
-              {cap.percent !== null && (
-                <div className="flex items-center justify-between gap-2">
-                  <StatusBadge tone={TONE_TO_STATUS[cap.tone]}>{`${cap.percent}%`}</StatusBadge>
-                </div>
-              )}
-              <CapUsageBar usage={cap} showLabel={false} />
-            </div>
+            {body}
           </StatCard>
         );
       })}

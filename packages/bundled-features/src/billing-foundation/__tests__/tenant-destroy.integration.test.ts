@@ -22,6 +22,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
+  ComplianceProfileHandlers,
   createComplianceProfilesFeature,
   tenantComplianceProfileEntity,
   tenantComplianceProfileTable,
@@ -41,8 +42,6 @@ import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js"
 import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
 import { billingFoundationFeature } from "../feature.js";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
-
-const SET_PROFILE = "compliance-profiles:write:set-profile";
 
 let stack: TestStack;
 let db: DbConnection;
@@ -94,7 +93,7 @@ async function seedTenant(user: typeof tenantA, profileKey = "eu-dsgvo"): Promis
     { id: user.tenantId, key: `t-${user.tenantId}`, name: "Tenant" },
     TestUsers.systemAdmin,
   );
-  await stack.http.writeOk(SET_PROFILE, { profileKey }, user);
+  await stack.http.writeOk(ComplianceProfileHandlers.setProfile, { profileKey }, user);
 }
 
 async function seedSubscription(user: typeof tenantA, eventIdSuffix: string): Promise<void> {

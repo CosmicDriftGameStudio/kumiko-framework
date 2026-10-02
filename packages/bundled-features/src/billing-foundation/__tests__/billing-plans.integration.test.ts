@@ -1017,6 +1017,8 @@ describe("create-portal-session — catalog.purchaseRoles", () => {
 
 describe("no subscription-provider mounted at all", () => {
   let noProviderStack: TestStack;
+  // Unnamed provider: nothing to resolve, so billing is simply not live yet.
+  const { providerName: _providerName, ...unnamedProviderCatalog } = catalog();
 
   beforeAll(async () => {
     noProviderStack = await setupTestStack({
@@ -1025,7 +1027,10 @@ describe("no subscription-provider mounted at all", () => {
         createTenantFeature(),
         createComplianceProfilesFeature(),
         createTenantLifecycleFeature(),
-        createBillingFoundationFeature({ baseUrl: "https://app.example.com", catalog: catalog() }),
+        createBillingFoundationFeature({
+          baseUrl: "https://app.example.com",
+          catalog: unnamedProviderCatalog,
+        }),
         // Deliberately no provider plugin mounted.
       ],
     });
@@ -1057,5 +1062,39 @@ describe("no subscription-provider mounted at all", () => {
     );
     expect(error.httpStatus).toBe(403);
     expect(error.i18nKey).toBe("errors.feature.disabled");
+  });
+});
+
+describe("catalog.providerName names a provider that is not registered", () => {
+  let typoStack: TestStack;
+
+  beforeAll(async () => {
+    typoStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        createBillingFoundationFeature({
+          baseUrl: "https://app.example.com",
+          catalog: catalog({ providerName: "typo-provider" }),
+        }),
+      ],
+    });
+    await unsafeCreateEntityTable(typoStack.db, tenantEntity);
+    await unsafeCreateEntityTable(typoStack.db, tenantComplianceProfileEntity);
+  });
+
+  afterAll(async () => {
+    await typoStack.cleanup();
+  });
+
+  test("billing-plans fails unconfigured instead of rendering disabled", async () => {
+    const error = await typoStack.http.queryErr(
+      "billing-foundation:query:billing-plans",
+      {},
+      adminFor(7034),
+    );
+    expect(error.i18nKey).toBe("errors.unconfigured");
   });
 });
