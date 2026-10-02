@@ -2,7 +2,7 @@
 // each `entry` tier gets the matching guard + deps from buildServer, driven
 // via real HTTP (setupTestStack + app.request), never createTestDispatcher.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
 import * as z from "zod";
 import { createRegistry, defineFeature, type TenantId } from "../../engine/index.js";
@@ -214,7 +214,6 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
   let stack: TestStack;
 
   beforeAll(async () => {
-    anonymousWriteStore.clear();
     stack = await setupTestStack({
       features: [anonymousWriteFeature],
       extraRoutes: [writeRoute, gatedWriteRoute, outsideApiWriteRoute],
@@ -224,6 +223,8 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
       },
     });
   });
+
+  beforeEach(() => anonymousWriteStore.clear());
 
   afterAll(() => stack.cleanup());
 
@@ -248,7 +249,6 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
   });
 
   test("deps.write is access-checked as the anonymous session — a role-gated handler is denied, nothing written", async () => {
-    const before = anonymousWriteStore.get(TENANT_ID)?.length ?? 0;
     const res = await stack.app.request("/api/anon-gated-write-probe", {
       method: "POST",
       headers: { "X-Tenant": TENANT_ID },
@@ -257,7 +257,7 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
     const body = (await res.json()) as { isSuccess: boolean; error?: { code: string } };
     expect(body.isSuccess).toBe(false);
     expect(body.error?.code).toBe("unauthenticated");
-    expect(anonymousWriteStore.get(TENANT_ID)?.length ?? 0).toBe(before);
+    expect(anonymousWriteStore.get(TENANT_ID)).toBeUndefined();
   });
 
   test("deps.write parity: a Bearer token whose role clears the gate succeeds — same as calling /api/write directly (see the no-token case above, which is denied with access_denied)", async () => {
@@ -272,8 +272,6 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
   });
 
   test("deps.write lands in the request-resolved tenant, not a different one", async () => {
-    // The store is module-level; earlier tests already wrote into TENANT_ID.
-    anonymousWriteStore.clear();
     const res = await stack.app.request("/api/anon-write-probe", {
       method: "POST",
       headers: { "X-Tenant": OTHER_TENANT_ID },
@@ -286,12 +284,11 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
   });
 
   test("outside /api/, deps.write throws with a message naming the /api/ + anonymousAccess requirement, nothing written", async () => {
-    const before = anonymousWriteStore.get(TENANT_ID)?.length ?? 0;
     const res = await stack.app.request("/public/anon-write-probe", { method: "POST" });
     expect(res.status).toBe(500);
     const body = (await res.json()) as { error: { message: string } };
     expect(body.error.message).toMatch(/mounted\s+under\s+"\/api\/"\s+with\s+anonymousAccess/);
-    expect(anonymousWriteStore.get(TENANT_ID)?.length ?? 0).toBe(before);
+    expect(anonymousWriteStore.get(TENANT_ID)).toBeUndefined();
   });
 });
 

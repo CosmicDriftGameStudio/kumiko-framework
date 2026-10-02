@@ -47,7 +47,11 @@ import {
   resolveTenantLifecycleGate,
   TenantLifecycleHandlers,
 } from "../index.js";
-import { resetTenantLifecycleGateCacheForTests } from "../lifecycle-gate.js";
+import {
+  GATE_CACHE_MAX_ENTRIES,
+  resetTenantLifecycleGateCacheForTests,
+  tenantLifecycleGateCacheSizeForTests,
+} from "../lifecycle-gate.js";
 import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy.js";
 
 const REQUEST = TenantLifecycleHandlers.requestDestruction;
@@ -182,6 +186,23 @@ function createPoisonTenantDataFeature() {
     });
   });
 }
+
+describe("tenant-lifecycle :: gate cache is bounded", () => {
+  test("many unknown tenant ids do not grow the cache past its cap", async () => {
+    await seedTenant();
+    const unknownIdCount = GATE_CACHE_MAX_ENTRIES + 300;
+    const batchSize = 100;
+    for (let start = 0; start < unknownIdCount; start += batchSize) {
+      const batch = Array.from({ length: batchSize }, () => crypto.randomUUID() as TenantId);
+      const gates = await Promise.all(batch.map((id) => resolveTenantLifecycleGate(db, id)));
+      expect(gates.every((gate) => gate === null)).toBe(true);
+    }
+    expect(tenantLifecycleGateCacheSizeForTests()).toBeLessThanOrEqual(GATE_CACHE_MAX_ENTRIES);
+
+    const gate = await resolveTenantLifecycleGate(db, tenantAdmin.tenantId);
+    expect(gate?.status).toBe("active");
+  });
+});
 
 describe("tenant-lifecycle :: pipeline abandon / destroyFailed", () => {
   let poisonStack: TestStack;

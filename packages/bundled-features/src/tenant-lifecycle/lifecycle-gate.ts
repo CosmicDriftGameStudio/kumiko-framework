@@ -19,9 +19,12 @@ export type TenantLifecycleGate = {
 // never arrives).
 // Split into its own module (not run-tenant-destroy.ts) so stages.ts can
 // invalidate too without a stages.ts <-> run-tenant-destroy.ts import cycle.
-// ponytail: unbounded Map — fine while tenant counts stay in the thousands (a
-// few bytes/entry); swap for a bounded LRU if that ever changes.
+// The anonymous path feeds client-supplied X-Tenant ids in here, so unknown ids
+// (cached as null) must not grow the Map without bound: past the cap, expired
+// entries are swept and, if still full, the oldest-inserted entries are evicted.
 const GATE_TTL_MS = 3000;
+/** @internal exported for the bounded-cache test */
+export const GATE_CACHE_MAX_ENTRIES = 5000;
 const gateCache = new Map<
   TenantId,
   { readonly value: TenantLifecycleGate | null; readonly expiresAt: number }
@@ -40,6 +43,25 @@ export function resetTenantLifecycleGateCacheForTests(): void {
   gateCache.clear();
 }
 
+/** @internal test-only */
+export function tenantLifecycleGateCacheSizeForTests(): number {
+  return gateCache.size;
+}
+
+function cacheGate(tenantId: TenantId, value: TenantLifecycleGate | null): void {
+  if (gateCache.size >= GATE_CACHE_MAX_ENTRIES && !gateCache.has(tenantId)) {
+    const now = Date.now();
+    for (const [id, entry] of gateCache) {
+      if (entry.expiresAt <= now) gateCache.delete(id);
+    }
+    for (const id of gateCache.keys()) {
+      if (gateCache.size < GATE_CACHE_MAX_ENTRIES) break;
+      gateCache.delete(id);
+    }
+  }
+  gateCache.set(tenantId, { value, expiresAt: Date.now() + GATE_TTL_MS });
+}
+
 export async function resolveTenantLifecycleGate(
   db: DbRunner,
   tenantId: TenantId,
@@ -53,13 +75,13 @@ export async function resolveTenantLifecycleGate(
   );
   const row = rows[0];
   if (!row) {
-    gateCache.set(tenantId, { value: null, expiresAt: Date.now() + GATE_TTL_MS });
+    cacheGate(tenantId, null);
     return null;
   }
   const gate: TenantLifecycleGate = {
     status: row.status,
     gracePeriodEnd: row.gracePeriodEnd?.toString() ?? null,
   };
-  gateCache.set(tenantId, { value: gate, expiresAt: Date.now() + GATE_TTL_MS });
+  cacheGate(tenantId, gate);
   return gate;
 }

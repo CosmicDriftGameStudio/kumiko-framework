@@ -37,6 +37,9 @@ import type { PostAuthLandingArgs, PostAuthLandingResolver } from "./post-auth-l
 import { resolvePostAuthLandingPath } from "./post-auth-landing.js";
 import { generateToken } from "./tokens.js";
 
+// 429 comes from the per-route rate limit; handler errors map to the rest.
+type PublicAuthErrorStatus = 400 | 401 | 403 | 422 | 429 | 500;
+
 // Resolves the Secure cookie flag. Locked off in dev/test so Playwright
 // against http://localhost:… can actually receive the cookie. Production
 // flips it on — browsers drop Secure cookies on http, so a misconfigured
@@ -782,7 +785,7 @@ export function createAuthRoutes(
         const reason =
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as 400 | 401 | 403 | 500;
+        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
@@ -886,13 +889,7 @@ export function createAuthRoutes(
         const reason =
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as
-          | 400
-          | 401
-          | 403
-          | 422
-          | 429
-          | 500;
+        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
@@ -973,13 +970,7 @@ export function createAuthRoutes(
         const reason =
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as
-          | 400
-          | 401
-          | 403
-          | 422
-          | 429
-          | 500;
+        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
@@ -1039,13 +1030,7 @@ export function createAuthRoutes(
         const reason =
           (result.error.details as { reason?: string } | undefined)?.reason ?? result.error.code;
         // @cast-boundary engine-payload — statusMap value union narrows to the http-status union
-        const status = (statusMap[reason] ?? result.error.httpStatus) as
-          | 400
-          | 401
-          | 403
-          | 422
-          | 429
-          | 500;
+        const status = (statusMap[reason] ?? result.error.httpStatus) as PublicAuthErrorStatus;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
@@ -1160,7 +1145,7 @@ export function createAuthRoutes(
       if (!result.isSuccess) {
         // 422 für invalid_signup_token (handler-level UnprocessableError).
         // @cast-boundary engine-payload — KumikoError.httpStatus narrows to the http-status union
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        const status = result.error.httpStatus as PublicAuthErrorStatus;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
 
@@ -1225,7 +1210,7 @@ export function createAuthRoutes(
       const result = await dispatcher.write(inv.acceptHandler, parsed.data, user);
       if (!result.isSuccess) {
         // @cast-boundary engine-payload — KumikoError.httpStatus
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500;
+        const status = result.error.httpStatus as PublicAuthErrorStatus;
         return c.json({ isSuccess: false, error: result.error }, status);
       }
       // @cast-boundary engine-payload — generic dispatcher.write result
@@ -1263,7 +1248,7 @@ export function createAuthRoutes(
         createAnonymousUser(SYSTEM_TENANT_ID),
       );
       if (!result.isSuccess) {
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
+        const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
       }
       // @cast-boundary engine-payload — same three-shape union as /auth/login
@@ -1321,7 +1306,7 @@ export function createAuthRoutes(
         createAnonymousUser(SYSTEM_TENANT_ID),
       );
       if (!result.isSuccess) {
-        const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
+        const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
         return c.json({ isSuccess: false, error: result.error }, status);
       }
       const data = result.data as {
@@ -1617,7 +1602,7 @@ function registerTokenConfirmRoute(opts: {
       createAnonymousUser(SYSTEM_TENANT_ID),
     );
     if (!result.isSuccess) {
-      const status = result.error.httpStatus as 400 | 401 | 403 | 422 | 500; // @cast-boundary engine-payload
+      const status = result.error.httpStatus as PublicAuthErrorStatus; // @cast-boundary engine-payload
       return c.json({ isSuccess: false, error: result.error }, status);
     }
     return c.json({ isSuccess: true });
