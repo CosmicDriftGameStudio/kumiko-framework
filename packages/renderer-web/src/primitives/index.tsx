@@ -136,10 +136,14 @@ import {
 import { EmbeddedListInput } from "./embedded-list-input.js";
 import { FileUploadInput } from "./file-upload.js";
 import { DefaultJsonView } from "./json-view.js";
-import { screenPaddingClassName, screenWidthClassName } from "./layout.js";
+import {
+  screenFormColumnWidthClassName,
+  screenPaddingClassName,
+  screenWidthClassName,
+} from "./layout.js";
 import { DefaultLightbox } from "./lightbox.js";
 import { LocatedTimestampInput } from "./located-timestamp-input.js";
-import { DefaultMetric, DefaultMetricBand } from "./metric.js";
+import { DefaultMetric, DefaultMetricBand, InsideScreenFormColumnContext } from "./metric.js";
 import { DefaultModal } from "./modal.js";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.js";
 import { NumberInput } from "./number-input.js";
@@ -3930,10 +3934,12 @@ function DefaultForm({
               <div
                 className={cn(
                   "flex w-full min-w-0 flex-col gap-9",
-                  width !== undefined ? screenWidthClassName[width] : "max-w-[640px]",
+                  width !== undefined ? screenFormColumnWidthClassName[width] : "max-w-[640px]",
                 )}
               >
-                {headerRegion}
+                <InsideScreenFormColumnContext.Provider value={true}>
+                  {headerRegion}
+                </InsideScreenFormColumnContext.Provider>
                 <FormTitleBlock
                   title={title}
                   subtitle={subtitle}
@@ -4603,7 +4609,11 @@ export function DefaultCard({
       )}
     </div>
   );
-  return screenBody ? <FormScreenShell>{card}</FormScreenShell> : card;
+  return (
+    <InsideScreenFormColumnContext.Provider value={false}>
+      {screenBody ? <FormScreenShell>{card}</FormScreenShell> : card}
+    </InsideScreenFormColumnContext.Provider>
+  );
 }
 
 // otpauth:// enrollment URI → scannable QR (errorCorrectionLevel "H", ~30%

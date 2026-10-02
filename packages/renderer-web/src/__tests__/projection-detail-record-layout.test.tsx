@@ -16,10 +16,13 @@ import {
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
+import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
+import { ShellHeader } from "../layout/shell-header.js";
 import {
   createMockDispatcher,
   render,
   renderWithPrimitivesOverride,
+  renderWithSidebar,
   screen,
   waitFor,
 } from "./test-utils.js";
@@ -638,6 +641,89 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     // The head card (headerRegion) stays; only the form-level card is gone.
     expect(form.closest("[data-slot=card]")).toBeNull();
     expect(screen.queryByText(/unsaved/i)).toBeNull();
+  });
+});
+
+describe("KumikoScreen / projectionDetail — screen-form column with a header card", () => {
+  const headerCardScreen: ProjectionDetailScreenDefinition = {
+    ...baseScreen,
+    header: { title: "tenantName" },
+    metrics: ["balance", "overdueDays"],
+  };
+  const columnWidthSelector = ".max-w-4xl, .max-w-3xl, .max-w-full, .max-w-\\[640px\\]";
+
+  async function renderDetailInShell(screenDef: ProjectionDetailScreenDefinition): Promise<void> {
+    renderWithSidebar(
+      <DispatcherProvider dispatcher={dispatcherReturning(rowData)}>
+        <PageHeaderSlotProvider>
+          <ShellHeader schema={{ features: [schemaFor(screenDef)] }} />
+          <KumikoScreen
+            schema={schemaFor(screenDef)}
+            qn="rentals:screen:rent-detail"
+            entityId="rent-1"
+          />
+        </PageHeaderSlotProvider>
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+  }
+
+  test("the metric band takes the column's inset instead of adding its own padding", async () => {
+    await renderDetailInShell(headerCardScreen);
+
+    const band = screen.getByTestId("kumiko-screen-projection-detail-metrics");
+    expect(band.className).not.toContain("px-6");
+    expect(band.className).not.toContain("pt-3.5");
+    expect(band.closest("[data-slot=card]")).toBeNull();
+  });
+
+  test("a band inside the head card keeps its own padding", async () => {
+    render(
+      <DispatcherProvider dispatcher={dispatcherReturning(rowData)}>
+        <KumikoScreen
+          schema={schemaFor(headerCardScreen)}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+
+    const band = screen.getByTestId("kumiko-screen-projection-detail-metrics");
+    expect(band.closest("[data-slot=card]")).not.toBeNull();
+    expect(band.className).toContain("px-6");
+  });
+
+  test("a header card widens the column to 4xl, left-aligned", async () => {
+    await renderDetailInShell(headerCardScreen);
+
+    const column = screen
+      .getByTestId("render-edit-form-scroll")
+      .querySelector<HTMLElement>(columnWidthSelector);
+    expect(column?.className).toContain("max-w-4xl");
+    expect(column?.className).not.toContain("mx-auto");
+  });
+
+  test("a record title without a header card keeps the 640px column", async () => {
+    await renderDetailInShell({ ...baseScreen, recordTitleField: "tenantName" });
+
+    const column = screen
+      .getByTestId("render-edit-form-scroll")
+      .querySelector<HTMLElement>(columnWidthSelector);
+    expect(column?.className).toContain("max-w-[640px]");
+  });
+
+  test("an explicit layout.width wins over the header-card default and stays left-aligned", async () => {
+    await renderDetailInShell({
+      ...headerCardScreen,
+      layout: { ...headerCardScreen.layout, width: "3xl" },
+    });
+
+    const column = screen
+      .getByTestId("render-edit-form-scroll")
+      .querySelector<HTMLElement>(columnWidthSelector);
+    expect(column?.className).toContain("max-w-3xl");
+    expect(column?.className).not.toContain("mx-auto");
   });
 });
 

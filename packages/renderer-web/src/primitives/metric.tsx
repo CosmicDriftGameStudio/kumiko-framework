@@ -4,6 +4,11 @@ import { cn } from "../lib/cn.js";
 
 const InsideMetricBandContext = createContext(false);
 
+// The screen-form column already insets and spaces its children; a band in its
+// header region must not add its own padding on top. DefaultCard resets this
+// to false because a card body is a different inset surface.
+export const InsideScreenFormColumnContext = createContext(false);
+
 // Column counts follow the board: 2 below md, 3 below lg, 5 from lg.
 export function DefaultMetricBand({
   lead,
@@ -11,8 +16,12 @@ export function DefaultMetricBand({
   children,
   testId,
 }: MetricBandProps): ReactNode {
+  const insideScreenFormColumn = useContext(InsideScreenFormColumnContext);
   return (
-    <div className="flex shrink-0 flex-col gap-3 px-6 pb-4 pt-3.5" data-testid={testId}>
+    <div
+      className={cn("flex shrink-0 flex-col gap-3", !insideScreenFormColumn && "px-6 pb-4 pt-3.5")}
+      data-testid={testId}
+    >
       {lead !== undefined && <div data-kumiko-layout="metric-band-lead">{lead}</div>}
       {subtitle !== undefined && (
         <div className="flex flex-wrap items-center gap-x-2 text-[13px] text-foreground-secondary [&_a]:text-primary">

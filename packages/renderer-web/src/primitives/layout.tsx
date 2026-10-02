@@ -17,6 +17,14 @@ export const screenWidthClassName: Record<ScreenWidth, string> = {
   full: "max-w-full",
 };
 
+// Screen-form column variant: left-aligned (no mx-auto) so the column lines up
+// with the screen's other left-aligned content, e.g. the header region.
+export const screenFormColumnWidthClassName: Record<ScreenWidth, string> = {
+  "3xl": "max-w-3xl",
+  "4xl": "max-w-4xl",
+  full: "max-w-full",
+};
+
 // Shared screen padding for every screen container (PageSection,
 // FormScreenShell, list screens and the pinned-footer screen form). The inset
 // is the one the settings screens use, so a list, a dashboard and a form start
