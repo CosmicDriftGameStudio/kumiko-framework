@@ -18,6 +18,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const customerEntity = createEntity({
   table: "read_ref_sort_customers",
+  softDelete: true,
   fields: { name: createTextField({ required: true, personal: false, reason: "test_fixture" }) },
 });
 const customerTable = buildEntityTable("refSortCustomer", customerEntity);
@@ -196,6 +197,24 @@ describe("event-store-executor.list — sortable reference fields (fw#2741)", ()
     const orderD = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
     await seedRows(testDb.db, orderTable, [
       { id: orderD, tenantId: admin.tenantId, note: "d", customerId: foreignCustomer },
+    ]);
+
+    const res = await orderExec.list({ sort: "customerId", sortDirection: "asc" }, admin, tdbA, {
+      referenceSort,
+    });
+
+    expect(idsOf(res.rows)).toEqual([ORDER_C, ORDER_B, ORDER_A, orderD]);
+  });
+
+  test("a soft-deleted target row contributes no label and sorts last", async () => {
+    await seedFixture();
+    const deletedCustomer = "55555555-5555-4555-8555-555555555555";
+    await seedRows(testDb.db, customerTable, [
+      { id: deletedCustomer, tenantId: admin.tenantId, name: "AAA Deleted", isDeleted: true },
+    ]);
+    const orderD = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await seedRows(testDb.db, orderTable, [
+      { id: orderD, tenantId: admin.tenantId, note: "d", customerId: deletedCustomer },
     ]);
 
     const res = await orderExec.list({ sort: "customerId", sortDirection: "asc" }, admin, tdbA, {

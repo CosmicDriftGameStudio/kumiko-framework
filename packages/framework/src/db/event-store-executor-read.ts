@@ -303,6 +303,12 @@ function collectReferenceSearchDescriptors(
   return descriptors;
 }
 
+// Matches the main list's own default: soft-deleted rows are invisible, so a
+// deleted target must neither match a search nor influence an ordering.
+function isSoftDeletedTargetHidden(targetEntity: EntityDefinition, targetTable: Table): boolean {
+  return targetEntity.softDelete === true && targetTable["isDeleted"] !== undefined;
+}
+
 // Tenant-scoped ILIKE lookup against one reference target — never raw/
 // unscoped SQL, a match in a foreign tenant must never surface a row here
 // (fw#2660's hard constraint). Mirrors the main table's own tenant filter
@@ -310,6 +316,7 @@ function collectReferenceSearchDescriptors(
 async function resolveReferenceMatchesViaIlike(
   descriptor: ReferenceSearchDescriptor,
   searchTerm: string,
+  targetEntity: EntityDefinition,
   targetTable: Table,
   targetTableName: string,
   db: TenantDb,
@@ -321,10 +328,13 @@ async function resolveReferenceMatchesViaIlike(
     subParams.push(db.tenantId, SYSTEM_TENANT_ID);
     tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($2, $3)`;
   }
+  const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
+    ? ` AND "${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
+    : "";
   // ::text cast covers a non-text labelField (e.g. a number/select column
   // used as label) — Postgres has no ILIKE for those types otherwise.
   const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause} ` +
+    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause}${deletedClause} ` +
     `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
   const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, subParams);
   if (rows.length === 0 || rows.length > MAX_REFERENCE_SEARCH_IDS) {
@@ -410,6 +420,7 @@ async function resolveReferenceMatches(
     return resolveReferenceMatchesViaIlike(
       descriptor,
       searchTerm,
+      targetEntity,
       targetTable,
       targetTableName,
       db,
@@ -487,6 +498,9 @@ function buildReferenceSortExpr(
   const tenantScoped = targetTable["tenantId"] !== undefined && db.mode === "tenant";
   const tenantCol = tenantScoped ? physicalColumnName(targetTable, "tenantId") : "";
   const tenantId = db.mode === "tenant" ? db.tenantId : undefined;
+  const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
+    ? ` AND t."${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
+    : "";
 
   // No ::text cast (unlike the ILIKE search path): a non-text label must keep
   // its native collation/numeric order, and the keyset param infers its type
@@ -499,7 +513,7 @@ function buildReferenceSortExpr(
     }
     return (
       `(SELECT t."${labelCol}" FROM "${targetTableName}" t ` +
-      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause})`
+      `WHERE t."id" = "${outerTableName}".${ownColumnSql}${tenantClause}${deletedClause})`
     );
   };
 }

@@ -73,7 +73,7 @@ async function existingTableNames(
   if (tableNames.length === 0) return new Set();
   const rows = await executeRawQueryRead<{ name: string }>(
     db,
-    `SELECT t.name FROM unnest($1::text[]) AS t(name) WHERE to_regclass(quote_ident(t.name)) IS NOT NULL`,
+    `SELECT t.name FROM unnest($1::text[]) AS t(name) WHERE to_regclass('public.' || quote_ident(t.name)) IS NOT NULL`,
     [tableNames],
   );
   return new Set(rows.map((r) => r.name));

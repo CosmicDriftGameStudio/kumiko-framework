@@ -899,10 +899,12 @@ async function unsafeLoggingClosedConnection(
   }
 }
 
+const DEFAULT_POOL_MAX = 10;
+
 function poolMaxOf(raw: unknown): number {
   // @cast-boundary driver pool options — both postgres-js and Bun.SQL expose options.max
   const max = (raw as { options?: { max?: unknown } }).options?.max;
-  return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : 10;
+  return typeof max === "number" && Number.isInteger(max) && max > 0 ? max : DEFAULT_POOL_MAX;
 }
 
 // Exported so raw-SQL query modules outside bun-db (e.g. bundled-features'
@@ -922,9 +924,10 @@ export async function unsafeReadRetrying<TRow>(
       logClosedConnection(raw, err, 1);
       throw err;
     }
-    const maxAttempts = poolMaxOf(raw) + 1;
+    // Enough retries to flush every dead pooled connection plus one fresh one; total calls = maxRetries + 1.
+    const maxRetries = poolMaxOf(raw) + 1;
     let lastErr: unknown = err;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         return (await raw.unsafe(sqlText, params)) as readonly TRow[];
       } catch (retryErr) {
@@ -935,7 +938,7 @@ export async function unsafeReadRetrying<TRow>(
         }
       }
     }
-    logClosedConnection(raw, lastErr, maxAttempts + 1);
+    logClosedConnection(raw, lastErr, maxRetries + 1);
     throw lastErr;
   }
 }

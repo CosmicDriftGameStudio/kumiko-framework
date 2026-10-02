@@ -82,6 +82,7 @@ async function decryptCiphertext(
 
     if (!response.ok) {
       if (isRetryableStatus(response.status) && attempt < maxAttempts) {
+        await response.body?.cancel();
         await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 0);
         continue;
       }

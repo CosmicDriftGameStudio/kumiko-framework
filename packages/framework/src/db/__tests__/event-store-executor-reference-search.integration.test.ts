@@ -21,6 +21,7 @@ import { createTenantDb, type TenantDb } from "../tenant-db.js";
 
 const customerEntity = createEntity({
   table: "read_ref_search_customers",
+  softDelete: true,
   fields: {
     name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
   },
@@ -248,6 +249,35 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
       [(textMatchOrder as { id: string }).id, (refMatchOrder as { id: string }).id].sort(),
     );
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  test("a label match on a soft-deleted target never surfaces a row", async () => {
+    const [deleted] = await seedRows(testDb.db, customerTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Deleted Co", isDeleted: true },
+    ]);
+    const [order] = await seedRows(testDb.db, orderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "unrelated",
+        customerId: (deleted as { id: string }).id,
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+    await searchAdapter.index(admin.tenantId, {
+      entityType: "refSearchOrder",
+      entityId: (order as { id: string }).id,
+      weight: 1,
+      fields: { note: "unrelated" },
+    });
+
+    const res = await orderExec.list({ search: "deleted co" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch,
+    });
+    expect(res.rows).toHaveLength(0);
   });
 
   test("a target label match in a foreign tenant never surfaces a row (mandatory)", async () => {
