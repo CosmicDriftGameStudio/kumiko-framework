@@ -18,6 +18,8 @@ import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
+import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
+import * as z from "zod";
 
 const CONFIG_EDIT_PSEUDO_ENTITY = "__config-edit__";
 
@@ -47,4 +49,40 @@ export function synthesizeConfigEditScreen(
     ...(screen.fieldLabels !== undefined && { fieldLabels: screen.fieldLabels }),
     ...(screen.access !== undefined && { access: screen.access }),
   };
+}
+
+/** Client-side range check for number keys with declared bounds, so an
+ *  out-of-range value surfaces on its field instead of as the server's
+ *  form-level "Validation failed." banner. Only bounds: required/format stay
+ *  server-authoritative like in buildFormSchema. `.passthrough()` keeps every
+ *  form key visible to the superRefine. */
+export function buildConfigEditSchema(fields: ConfigEditScreenDefinition["fields"]): z.ZodType {
+  return z
+    .object({})
+    .passthrough()
+    .superRefine((values, ctx) => {
+      // @cast-boundary form-values
+      const record = values as Record<string, unknown>;
+      for (const [name, field] of Object.entries(fields)) {
+        if (field.type !== "number") continue;
+        const value = record[name];
+        if (typeof value !== "number" || !Number.isFinite(value)) continue;
+        if (field.min !== undefined && value < field.min) {
+          ctx.addIssue({
+            code: "custom",
+            minimum: field.min,
+            params: { [I18N_KEY_PARAM]: "kumiko.validation.number.min" },
+            path: [name],
+          });
+        }
+        if (field.max !== undefined && value > field.max) {
+          ctx.addIssue({
+            code: "custom",
+            maximum: field.max,
+            params: { [I18N_KEY_PARAM]: "kumiko.validation.number.max" },
+            path: [name],
+          });
+        }
+      }
+    });
 }

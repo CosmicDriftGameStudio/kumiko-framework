@@ -97,14 +97,14 @@ function BrowserNav({ children }: { readonly children: ReactNode }): ReactNode {
   return <NavProvider value={nav}>{children}</NavProvider>;
 }
 
-function renderHub(dispatcher: Dispatcher): void {
+function renderHub(dispatcher: Dispatcher, schema: FeatureSchema = hubSchema): void {
   render(
     <DispatcherProvider dispatcher={dispatcher}>
-      <AppFeaturesProvider features={[hubSchema]}>
+      <AppFeaturesProvider features={[schema]}>
         <UserRolesProvider roles={["TenantAdmin"]}>
           <BrowserNav>
             <DashboardBodyProvider value={WebDashboardBody}>
-              <KumikoScreen schema={hubSchema} qn="config:screen:mail-foundation-tenant" />
+              <KumikoScreen schema={schema} qn="config:screen:mail-foundation-tenant" />
             </DashboardBodyProvider>
           </BrowserNav>
         </UserRolesProvider>
@@ -138,6 +138,37 @@ describe("generated extension-selector dashboard", () => {
     expect(screen.getByTestId("dashboard-panel-selection")).toBeTruthy();
     await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-secrets"));
     expect(screen.queryByTestId("dashboard-panel-mail-inmemory-config")).toBeNull();
+  });
+
+  test("generated panels render chromeless: no padded scroll surface or card around the embedded form", async () => {
+    renderHub(createMockDispatcher({ query: hubQuery({ mailTransport: "smtp" }) }));
+    await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-config"));
+    const panel = screen.getByTestId("dashboard-panel-selection");
+    await waitFor(() => panel.querySelector("form"));
+    expect(panel.querySelector("[data-slot=card]")).toBeNull();
+    expect(panel.querySelector("[data-testid=render-edit-form-scroll]")).toBeNull();
+  });
+
+  test("without the chromeless option the embedded form keeps its padded screen-form surface", async () => {
+    const framed: FeatureSchema = {
+      ...hubSchema,
+      screens: hubSchema.screens.map((screenDef) =>
+        screenDef.type === "dashboard"
+          ? {
+              ...screenDef,
+              panels: screenDef.panels.map((panel) =>
+                panel.kind === "screen" ? { ...panel, chromeless: false } : panel,
+              ),
+            }
+          : screenDef,
+      ),
+    };
+    renderHub(createMockDispatcher({ query: hubQuery({ mailTransport: "smtp" }) }), framed);
+    await waitFor(() => screen.getByTestId("dashboard-panel-mail-smtp-config"));
+    const panel = screen.getByTestId("dashboard-panel-selection");
+    await waitFor(() =>
+      expect(panel.querySelector("[data-testid=render-edit-form-scroll]")).not.toBeNull(),
+    );
   });
 
   test("another provider swaps the panels", async () => {

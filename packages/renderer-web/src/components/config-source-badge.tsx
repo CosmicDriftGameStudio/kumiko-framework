@@ -1,16 +1,30 @@
 import type { ConfigScope, ConfigValueSource } from "@cosmicdrift/kumiko-framework/engine";
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
+import { cn } from "../lib/cn.js";
 
-const SOURCE_CONFIG: Record<ConfigValueSource, { labelKey: string; bg: string; text: string }> = {
-  "user-row": { labelKey: "kumiko.config.source.user", bg: "#dbeafe", text: "#1e40af" },
-  "tenant-row": { labelKey: "kumiko.config.source.tenant", bg: "#dcfce7", text: "#166534" },
-  "system-row": { labelKey: "kumiko.config.source.system", bg: "#f3e8ff", text: "#6b21a8" },
-  "app-override": { labelKey: "kumiko.config.source.appOverride", bg: "#ffedd5", text: "#9a3412" },
-  computed: { labelKey: "kumiko.config.source.computed", bg: "#ccfbf1", text: "#115e59" },
-  default: { labelKey: "kumiko.config.source.default", bg: "#f3f4f6", text: "#4b5563" },
-  missing: { labelKey: "kumiko.config.source.missing", bg: "#fee2e2", text: "#991b1b" },
+const SOURCE_LABEL_KEY: Record<ConfigValueSource, string> = {
+  "user-row": "kumiko.config.source.user",
+  "tenant-row": "kumiko.config.source.tenant",
+  "system-row": "kumiko.config.source.system",
+  "app-override": "kumiko.config.source.appOverride",
+  computed: "kumiko.config.source.computed",
+  default: "kumiko.config.source.default",
+  missing: "kumiko.config.source.missing",
 };
+
+// Two states only: set on a scope row (accent) vs. inherited/default (neutral);
+// a missing value is the one status colour.
+const ROW_SOURCES: ReadonlySet<ConfigValueSource> = new Set([
+  "user-row",
+  "tenant-row",
+  "system-row",
+]);
+
+function badgeToneClass(source: ConfigValueSource): string {
+  if (source === "missing") return "bg-status-bad-surface text-status-bad";
+  return ROW_SOURCES.has(source) ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
+}
 
 const SOURCE_ORDER: readonly ConfigValueSource[] = [
   "user-row",
@@ -47,26 +61,16 @@ export function ConfigSourceBadge({
       effective = "default";
     }
   }
-  const cfg = SOURCE_CONFIG[effective];
 
   return (
     <span
       data-testid="config-source-badge"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        padding: "0 6px",
-        fontSize: "11px",
-        fontWeight: 500,
-        lineHeight: "18px",
-        borderRadius: "4px",
-        backgroundColor: cfg.bg,
-        color: cfg.text,
-        marginLeft: "6px",
-        whiteSpace: "nowrap",
-      }}
+      className={cn(
+        "ml-1.5 inline-flex items-center whitespace-nowrap rounded px-1.5 text-[11px] font-medium leading-[18px]",
+        badgeToneClass(effective),
+      )}
     >
-      {t(cfg.labelKey)}
+      {t(SOURCE_LABEL_KEY[effective])}
     </span>
   );
 }

@@ -57,6 +57,7 @@ import type { Translate } from "@cosmicdrift/kumiko-headless";
 import {
   type DashboardBodyProps,
   dispatcherErrorText,
+  EmbeddedScreenProvider,
   extensionSectionName,
   KumikoScreen,
   useEmbeddedScreen,
@@ -69,6 +70,7 @@ import {
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
+import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
 import { Skeleton } from "../ui/skeleton.js";
 import {
@@ -963,13 +965,26 @@ function ScreenPanelTile({
   if (visibleWhen !== undefined && visibility.data?.[visibleWhen.field] !== visibleWhen.eq) {
     return null;
   }
-  const embedded = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
+  const screenBody = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
+  const embedded =
+    panel.chromeless === true ? (
+      <EmbeddedFormProvider>
+        <EmbeddedScreenProvider>{screenBody}</EmbeddedScreenProvider>
+      </EmbeddedFormProvider>
+    ) : (
+      screenBody
+    );
   return (
     <div className={WIDE_PANEL} data-testid={`dashboard-panel-${panel.id}`}>
-      {panel.label !== undefined ? (
+      {panel.label !== undefined && panel.chromeless !== true ? (
         <SectionCard title={translate(panel.label)}>{embedded}</SectionCard>
       ) : (
-        embedded
+        <>
+          {panel.label !== undefined && (
+            <h3 className="mb-3 text-sm font-semibold text-foreground">{translate(panel.label)}</h3>
+          )}
+          {embedded}
+        </>
       )}
     </div>
   );
@@ -1021,12 +1036,14 @@ export function WebDashboardBody({
           {picker}
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <span
-            data-testid={`dashboard-${screen.id}-updated-at`}
-            className="text-xs tabular-nums text-muted-foreground"
-          >
-            {t("kumiko.dashboard.updated-at", { time: formatDateTime(loadedAtMs) })}
-          </span>
+          {screen.showUpdatedAt !== false && (
+            <span
+              data-testid={`dashboard-${screen.id}-updated-at`}
+              className="text-xs tabular-nums text-muted-foreground"
+            >
+              {t("kumiko.dashboard.updated-at", { time: formatDateTime(loadedAtMs) })}
+            </span>
+          )}
           {rangeControl}
         </div>
       </div>

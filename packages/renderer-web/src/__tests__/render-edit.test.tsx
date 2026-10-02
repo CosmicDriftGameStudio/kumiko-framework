@@ -4519,16 +4519,87 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
     );
   }
 
-  test("edit mode: changed marker and unsaved counter appear only after a change", () => {
+  test("edit mode: changed marker appears only after a change; footer flips from clean to counted", () => {
     renderScreenForm({ entityId: "order-1" });
     expect(document.querySelector("[data-testid$='-changed']")).toBeNull();
-    expect(document.querySelector("[data-testid$='-unsaved']")).toBeNull();
+    const status = () => document.querySelector("[data-testid$='-unsaved']")?.textContent ?? "";
+    expect(status()).toContain("No unsaved changes");
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByTestId("render-edit-discard")).toBeNull();
 
     const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "Changed" } });
 
     expect(document.querySelector("[data-testid$='-changed']")).not.toBeNull();
-    expect(document.querySelector("[data-testid$='-unsaved']")).not.toBeNull();
+    expect(status()).toContain("1 unsaved change");
+    expect(screen.getByTestId("render-edit-submit").textContent).toBe("Save changes");
+    expect((screen.getByTestId("render-edit-submit") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  test("edit mode: Discard restores the loaded values without a server call", () => {
+    renderScreenForm({ entityId: "order-1" });
+    const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Changed" } });
+    fireEvent.click(screen.getByTestId("render-edit-discard"));
+    expect(
+      (screen.getByTestId("field-title").querySelector("input") as HTMLInputElement).value,
+    ).toBe("Existing");
+    expect(screen.queryByTestId("render-edit-discard")).toBeNull();
+    expect(document.querySelector("[data-testid$='-unsaved']")?.textContent).toContain(
+      "No unsaved changes",
+    );
+  });
+
+  test("settings-list variant: section header column plus rows, accent line only on flagged fields", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={{
+            id: "orders:screen:order-edit",
+            type: "entityEdit",
+            entity: "order",
+            layout: {
+              variant: "settings-list",
+              sections: [
+                {
+                  title: "Basics",
+                  description: "Core order data",
+                  columns: 1,
+                  fields: [{ field: "title" }, { field: "count" }],
+                },
+              ],
+            },
+          }}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Existing", count: 0, isUrgent: false } as TestValues}
+          writeCommand="order:update"
+          entityId="order-1"
+          fillScreenHeight
+          fieldAccent={(name) => name === "title"}
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByText("Basics")).toBeTruthy();
+    expect(screen.getByText("Core order data")).toBeTruthy();
+    expect(screen.getByTestId("field-title-accent")).toBeTruthy();
+    expect(screen.queryByTestId("field-count-accent")).toBeNull();
+  });
+
+  test("settings-list variant without a shell header: form title moves into the section header column", () => {
+    const base = threeSectionScreen();
+    renderScreenForm({
+      entityId: "order-1",
+      screenDef: {
+        ...base,
+        layout: {
+          variant: "settings-list",
+          sections: [{ columns: 1, fields: [{ field: "title" }] }],
+        },
+      },
+    });
+    expect(document.querySelectorAll("h1, h2").length).toBe(1);
+    expect(document.querySelector("section h2")?.textContent).toBe("orders:screen:order-edit");
   });
 
   test("create mode: no changed marker and no unsaved counter", () => {
@@ -4537,6 +4608,7 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
     fireEvent.change(input, { target: { value: "Changed" } });
     expect(document.querySelector("[data-testid$='-changed']")).toBeNull();
     expect(document.querySelector("[data-testid$='-unsaved']")).toBeNull();
+    expect(screen.queryByTestId("render-edit-discard")).toBeNull();
   });
 
   test("section nav appears from three titled sections", () => {

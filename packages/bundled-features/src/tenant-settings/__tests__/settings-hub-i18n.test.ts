@@ -74,12 +74,17 @@ describe("tenant-settings — Settings-Hub nav/section labels", () => {
     expect(sectionTitle).toBeDefined();
     if (sectionTitle === undefined) throw new Error("unreachable");
     expect(translate(translations, sectionTitle)).not.toBe(sectionTitle);
+    // RenderEdit drops a section title equal to the page title, so they must differ.
+    expect(translate(translations, sectionTitle)).not.toBe(
+      translate(translations, "screen:tenant-settings-tenant.title"),
+    );
+    expect(translate(translations, "screen:tenant-settings-system.title")).toBe("Tenant defaults");
   });
 
   test("every Settings-Hub label resolves in en on the feature and in de/es locale packs", () => {
     const renderedKeys = settingsHubLabelKeys();
-    // nav + screen title + section + currency/locale field labels — six distinct keys.
-    expect(new Set(renderedKeys).size).toBe(6);
+    // nav + screen title + section + currency/locale field labels — seven distinct keys.
+    expect(new Set(renderedKeys).size).toBe(7);
 
     const translations = createTenantSettingsFeature().translations ?? {};
     for (const key of renderedKeys) {

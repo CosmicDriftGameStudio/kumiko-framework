@@ -16,6 +16,7 @@
 // ids/parent/screen-Refs (buildNavRegistrySliceForApp qualifiziert selbst).
 
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
+import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.js";
 import type { WorkspaceSchema } from "../ui-types/index.js";
 import type { ConfigScope } from "./constants.js";
 import {
@@ -78,6 +79,15 @@ const SCOPE_ICON: Record<ConfigScope, NavIconKey> = {
   user: "user",
 };
 const SCOPES_BROAD_TO_DEEP: readonly ConfigScope[] = ["system", "tenant", "user"];
+
+const audienceDescriptionKey = (scope: ConfigScope): string => `config.settings.audience.${scope}`;
+const PROVIDER_PANEL_TITLE_ENTRY: TranslationEntry = {
+  en: "Provider",
+  de: "Anbieter",
+  es: "Proveedor",
+};
+const PROVIDER_SECTION_TITLE_KEY = "config.settings.provider";
+const SAVE_PROVIDER_LABEL_KEY = "config.settings.saveProvider";
 
 const audienceNavShortId = (scope: ConfigScope): string => `audience-${scope}`;
 
@@ -376,7 +386,11 @@ function buildSelectorOwnerDashboard(
 } {
   const selectionScreenId = `${ownerGroup}-tenant-selection`;
   const selectionScreen: ConfigEditScreenDefinition = {
-    ...buildScreen(selectionScreenId, "tenant", ownerGroup, ownerKeys, ownerAccess, hub),
+    ...buildScreen(selectionScreenId, "tenant", ownerGroup, ownerKeys, ownerAccess, hub, {
+      description: EXTENSION_SELECTOR_HINT_KEY,
+      sectionTitle: PROVIDER_SECTION_TITLE_KEY,
+      submitLabel: SAVE_PROVIDER_LABEL_KEY,
+    }),
     dormant: true,
   };
   const screens: ScreenDefinition[] = [selectionScreen];
@@ -385,12 +399,8 @@ function buildSelectorOwnerDashboard(
   const accessRules: (AccessRule | undefined)[] = [ownerAccess];
   const translations: Record<string, TranslationEntry> = {};
 
-  const titleSource = [`${ownerGroup}.settings.tenant`, `${ownerGroup}.settings`].find((key) =>
-    hub.translationsByKey.has(key),
-  );
-  const titleValues =
-    titleSource === undefined ? undefined : hub.translationsByKey.get(titleSource);
-  if (titleValues !== undefined) translations[`screen:${selectionScreenId}.title`] = titleValues;
+  translations[`screen:${selectionScreenId}.title`] = PROVIDER_PANEL_TITLE_ENTRY;
+  Object.assign(translations, providerOptionTranslations(selectionScreen, plugins, hub));
 
   for (const plugin of plugins) {
     const visibleWhen = {
@@ -409,6 +419,7 @@ function buildSelectorOwnerDashboard(
           ordered,
           pluginAccess,
           hub,
+          { description: null },
         ),
         dormant: true,
       });
@@ -418,6 +429,7 @@ function buildSelectorOwnerDashboard(
         id: `${plugin.feature}-config`,
         screen: pluginTenantScreenId(plugin),
         visibleWhen,
+        chromeless: true,
       });
     }
     if (plugin.secrets.length > 0) {
@@ -436,6 +448,7 @@ function buildSelectorOwnerDashboard(
         id: `${plugin.feature}-secrets`,
         screen: secretsScreenId,
         visibleWhen,
+        chromeless: true,
       });
     }
   }
@@ -444,9 +457,9 @@ function buildSelectorOwnerDashboard(
   const dashboard: DashboardScreenDefinition = {
     id: `${ownerGroup}-tenant`,
     type: "dashboard",
-    description: EXTENSION_SELECTOR_HINT_KEY,
+    showUpdatedAt: false,
     panels: assertUniquePanelIds(ownerGroup, [
-      { kind: "screen", id: "selection", screen: selectionScreenId },
+      { kind: "screen", id: "selection", screen: selectionScreenId, chromeless: true },
       ...ownerPanels,
       ...configPanels,
       ...secretsPanels,
@@ -717,10 +730,13 @@ function buildScreen(
   keys: readonly MaskedKey[],
   access: AccessRule,
   hub: HubContext,
+  options: ScreenOptions = {},
 ): ConfigEditScreenDefinition {
   const configKeys: Record<string, string> = {};
   const fields: Record<string, FieldDefinition> = {};
   const fieldLabels: Record<string, string> = {};
+  const fieldDescriptions: Record<string, string> = {};
+  const requiredFields: string[] = [];
   // Field id collapses to the plain shortKey when the key stays in its own
   // feature's group (100% of today's apps — byte-identical output). Only a
   // cross-feature `group` (feature !== ownerFeature) needs the owner prefix,
@@ -741,14 +757,16 @@ function buildScreen(
     fields[id] = deriveField(k, hub.selectorOptions.get(k.qn), keys, fieldId);
     // mask is the visibility gate, so collectMaskedKeys guarantees it here.
     if (k.def.mask) fieldLabels[id] = k.def.mask.title;
+    if (k.def.mask?.description !== undefined) fieldDescriptions[id] = k.def.mask.description;
+    if (k.def.required === true) requiredFields.push(id);
   }
-  // translate() echoes an undeclared key, so an ungated description would render raw.
-  const descriptionKey = `${feature}.settings.description`;
-  const section: EditFieldsSection = {
-    title: `${feature}.settings`,
-    ...(hub.declaredTranslationKeys.has(descriptionKey) && { description: descriptionKey }),
-    fields: keys.map(fieldId),
-  };
+  const { section, screenDescription } = buildSettingsSection(
+    feature,
+    scope,
+    keys.map(fieldId),
+    hub,
+    options,
+  );
   return {
     id: shortId,
     type: "configEdit",
@@ -756,7 +774,11 @@ function buildScreen(
     configKeys,
     fields,
     fieldLabels,
-    layout: { sections: [section], width: "full" },
+    ...(Object.keys(fieldDescriptions).length > 0 && { fieldDescriptions }),
+    ...(requiredFields.length > 0 && { requiredFields }),
+    ...(screenDescription !== undefined && { description: screenDescription }),
+    ...(options.submitLabel !== undefined && { submitLabel: options.submitLabel }),
+    layout: { sections: [section], width: "full", variant: "settings-list" },
     access,
   };
 }
@@ -785,6 +807,67 @@ function rewriteOptionsQueryFieldRefs(
   );
 }
 
+function buildSettingsSection(
+  feature: string,
+  scope: ConfigScope,
+  fieldIds: readonly string[],
+  hub: HubContext,
+  options: ScreenOptions,
+): { readonly section: EditFieldsSection; readonly screenDescription: string | undefined } {
+  // translate() echoes an undeclared key, so an ungated description would render raw.
+  const descriptionKey = `${feature}.settings.description`;
+  const featureDescription = hub.declaredTranslationKeys.has(descriptionKey)
+    ? descriptionKey
+    : undefined;
+  const audienceDescription =
+    options.description === null
+      ? undefined
+      : (options.description ?? audienceDescriptionKey(scope));
+  // The section's header column holds one sentence: the feature's own, else the
+  // audience one. When both exist the audience sentence stays on the screen.
+  const sectionDescription = featureDescription ?? audienceDescription;
+  const screenDescription = featureDescription !== undefined ? audienceDescription : undefined;
+  // A feature whose page title equals its `<feature>.settings` label would have
+  // the section heading dropped as a duplicate; `.settings.section` lets it
+  // declare a distinct heading.
+  const sectionKey = `${feature}.settings.section`;
+  const section: EditFieldsSection = {
+    title:
+      options.sectionTitle ??
+      (hub.declaredTranslationKeys.has(sectionKey) ? sectionKey : `${feature}.settings`),
+    ...(sectionDescription !== undefined && { description: sectionDescription }),
+    fields: fieldIds,
+  };
+  return { section, screenDescription };
+}
+
+// description: undefined → the audience sentence, null → none (screen embedded in a dashboard panel).
+type ScreenOptions = {
+  readonly description?: string | null;
+  readonly sectionTitle?: string;
+  readonly submitLabel?: string;
+};
+
+// Option labels of the provider select: each plugin feature's `<feature>.settings`
+// copy, under the option-label key the configEdit renderer already derives.
+function providerOptionTranslations(
+  selectionScreen: ConfigEditScreenDefinition,
+  plugins: readonly GatedPlugin[],
+  hub: HubContext,
+): Record<string, TranslationEntry> {
+  const out: Record<string, TranslationEntry> = {};
+  for (const [fieldId, qn] of Object.entries(selectionScreen.configKeys)) {
+    if (!hub.selectorOptions.has(qn)) continue;
+    for (const plugin of plugins) {
+      const label = hub.translationsByKey.get(`${plugin.feature}.settings`);
+      if (label === undefined) continue;
+      const key = `${fieldLabelKey(SETTINGS_HUB_FEATURE, CONFIG_EDIT_ENTITY, fieldId)}:option:${plugin.pluginId}`;
+      out[key] = label;
+    }
+  }
+  return out;
+}
+
 function deriveField(
   key: MaskedKey,
   selectorPluginIds: readonly string[] | undefined,
@@ -795,7 +878,10 @@ function deriveField(
   if (selectorPluginIds !== undefined) return createSelectField({ options: selectorPluginIds });
   switch (def.type) {
     case "number":
-      return createNumberField();
+      return createNumberField({
+        ...(def.bounds?.min !== undefined && { min: def.bounds.min }),
+        ...(def.bounds?.max !== undefined && { max: def.bounds.max }),
+      });
     case "boolean":
       return createBooleanField();
     case "select":

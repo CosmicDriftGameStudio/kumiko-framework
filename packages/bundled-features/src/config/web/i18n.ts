@@ -11,11 +11,14 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 
 export const defaultTranslations: TranslationsByLocale = {
   en: {
-    "config.secrets.delete": "Delete",
+    "config.secrets.delete": "Remove",
     "config.secrets.notSet": "Not set",
     "config.secrets.placeholder": "Enter a value",
-    "config.secrets.replacePlaceholder": "Enter a new value to replace",
-    "config.secrets.required": "Required",
+    "config.secrets.replacePlaceholder": "Enter a new value to replace it",
+    "config.secrets.saved": "Saved",
+    "config.secrets.section": "Secrets",
+    "config.secrets.description": "Stored encrypted. Saved values are never shown again.",
+    "config.secrets.stored": "Stored: {preview}",
     "config.secrets.set": "Set",
     "config.secrets.title": "Secrets",
     "config.settings.title": "Settings",
@@ -27,7 +30,14 @@ export const defaultTranslations: TranslationsByLocale = {
     "config.errors.unknownKey": "Unknown configuration key.",
     "config.errors.unknownExtensionPlugin": "This provider is not available.",
     "config.settings.extensionSelectorHint":
-      "Save the provider selection to show its settings below.",
+      "Choose a provider and save. Its settings appear below.",
+    "config.settings.provider": "Provider",
+    "config.settings.saveProvider": "Save provider",
+    "config.settings.audience.system":
+      "Applies to every tenant unless a tenant sets its own value.",
+    "config.settings.audience.tenant":
+      "Applies to everyone in this tenant. Platform defaults are shown where nothing is set here.",
+    "config.settings.audience.user": "Only applies to you.",
     // Required by every generated screen (screenTitleKey, required-surface-keys.ts) —
     // the secrets screen has a fixed id ("secrets"), so the framework ships its
     // title translation directly instead of asking every app to declare it.

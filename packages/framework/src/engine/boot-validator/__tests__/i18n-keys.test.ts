@@ -22,6 +22,9 @@ const configHub = defineFeature("config", (r) => {
       "config.settings.system": { en: "Platform" },
       "config.settings.tenant": { en: "Tenant" },
       "config.settings.user": { en: "Personal" },
+      "config.settings.audience.system": { en: "Applies to every tenant." },
+      "config.settings.audience.tenant": { en: "Applies to this tenant." },
+      "config.settings.audience.user": { en: "Only applies to you." },
     },
   });
 });
@@ -181,7 +184,7 @@ describe("validateI18nSurfaceKeys — gated configEdit section description (PR #
     return section;
   }
 
-  test("declaring 'reporting.settings.description' adds it to the generated section; omitting it leaves the section without one", () => {
+  test("declaring 'reporting.settings.description' adds it to the generated section; omitting it falls back to the audience sentence", () => {
     const withDescription = reportingSection({
       "reporting.retention-days": { en: "Retention (days)" },
       "screen:reporting-tenant.title": { en: "Reporting Settings" },
@@ -195,7 +198,7 @@ describe("validateI18nSurfaceKeys — gated configEdit section description (PR #
       "screen:reporting-tenant.title": { en: "Reporting Settings" },
       "reporting.settings": { en: "Reporting" },
     });
-    expect(withoutDescription.description).toBeUndefined();
+    expect(withoutDescription.description).toBe("config.settings.audience.tenant");
   });
 });
 

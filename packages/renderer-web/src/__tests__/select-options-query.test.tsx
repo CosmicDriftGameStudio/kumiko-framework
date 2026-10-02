@@ -289,8 +289,8 @@ describe("select optionsQuery depending on a sibling field", () => {
   });
 });
 
-describe("config origin badge for a static-options select", () => {
-  test("shows the option label instead of the raw value", async () => {
+describe("config origin line for a static-options select", () => {
+  test("shows the default's option label instead of the raw value", async () => {
     const staticScreen: ConfigEditScreenDefinition = {
       id: "static-settings",
       type: "configEdit",
@@ -324,6 +324,13 @@ describe("config origin badge for a static-options select", () => {
                     isActive: true,
                     hasValue: true,
                   },
+                  {
+                    source: "default",
+                    label: "default",
+                    value: "slow-mode",
+                    isActive: false,
+                    hasValue: true,
+                  },
                 ],
               },
             },
@@ -336,7 +343,7 @@ describe("config origin badge for a static-options select", () => {
       }) as unknown as Dispatcher["query"],
     });
     const translate = (key: string) =>
-      key.endsWith(":field:mode:option:fast-mode") ? "Fast mode" : key;
+      key.endsWith(":field:mode:option:slow-mode") ? "Slow mode" : key;
     render(
       <DispatcherProvider dispatcher={dispatcher}>
         <KumikoScreen
@@ -349,19 +356,25 @@ describe("config origin badge for a static-options select", () => {
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
     const cascade = await waitFor(() => screen.getByTestId("config-cascade"));
-    await waitFor(() => expect(cascade.textContent).toContain("Fast mode"));
-    expect(cascade.textContent).not.toContain("fast-mode");
+    await waitFor(() => expect(cascade.textContent).toContain("Slow mode"));
+    expect(cascade.textContent).not.toContain("slow-mode");
   });
 });
 
-describe("config origin badge for an optionsQuery select", () => {
-  test("shows the option label instead of the stored id", async () => {
+describe("config origin line for an optionsQuery select", () => {
+  test("origin line and level rows show option labels instead of stored ids", async () => {
+    const user = userEvent.setup();
     const dispatcher: Dispatcher = createMockDispatcher({
       query: (async (qn: string) => {
         if (qn === OPTIONS_QUERY) {
           return {
             isSuccess: true,
-            data: { rows: [{ value: "0b1c-uuid", label: "Model A (fast)" }] },
+            data: {
+              rows: [
+                { value: "0b1c-uuid", label: "Model A (fast)" },
+                { value: "7e2d-uuid", label: "Model B (cheap)" },
+              ],
+            },
           };
         }
         if (qn === "config:query:cascade") {
@@ -377,6 +390,20 @@ describe("config origin badge for an optionsQuery select", () => {
                     label: "tenant-row",
                     value: "0b1c-uuid",
                     isActive: true,
+                    hasValue: true,
+                  },
+                  {
+                    source: "computed",
+                    label: "computed",
+                    value: undefined,
+                    isActive: false,
+                    hasValue: false,
+                  },
+                  {
+                    source: "default",
+                    label: "default",
+                    value: "7e2d-uuid",
+                    isActive: false,
                     hasValue: true,
                   },
                 ],
@@ -398,6 +425,10 @@ describe("config origin badge for an optionsQuery select", () => {
 
     await waitFor(() => screen.getByTestId("render-edit-form"));
     const cascade = await waitFor(() => screen.getByTestId("config-cascade"));
+    await waitFor(() => expect(cascade.textContent).toContain("Model B (cheap)"));
+    expect(cascade.textContent).not.toContain("7e2d-uuid");
+
+    await user.click(screen.getByRole("button", { name: "Show all levels" }));
     await waitFor(() => expect(cascade.textContent).toContain("Model A (fast)"));
     expect(cascade.textContent).not.toContain("0b1c-uuid");
   });

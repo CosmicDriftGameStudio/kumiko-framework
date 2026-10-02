@@ -170,6 +170,8 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
 // within its audience group.
 export type ConfigMask = {
   readonly title: string;
+  /** i18n key for help text shown under the field label. */
+  readonly description?: string;
   readonly icon?: NavIconKey;
   readonly order?: number;
 };

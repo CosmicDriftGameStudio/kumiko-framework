@@ -22,7 +22,7 @@ import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.js";
 import { useQuery } from "../hooks/use-query.js";
 import { referenceLookupSource } from "../hooks/use-reference-lookup.js";
 import { useLocale, useTranslation } from "../i18n.js";
-import { usePrimitives } from "../primitives.js";
+import { type FieldProps, usePrimitives } from "../primitives.js";
 import { EmbeddedListField } from "./embedded-list-field.js";
 import { MultiSelectCheckboxes } from "./multi-select-checkboxes.js";
 import { QueryOptionsSelect } from "./query-options-select.js";
@@ -55,6 +55,9 @@ export type RenderFieldProps = {
   /** Optionaler Zusatz-Inhalt der nach dem Input gerendert wird (z.B.
    *  ConfigCascade). */
   readonly fieldAppendix?: ReactNode;
+  readonly appendixPlacement?: FieldProps["appendixPlacement"];
+  readonly description?: ReactNode;
+  readonly status?: FieldProps["status"];
   /** Flat issues-by-path map (FormSnapshot.errors) — only relevant for
    *  type:"embedded" with embeddedListCells, to bucket row-/cell-issues
    *  (`${field}.${rowIndex}` / `${field}.${rowIndex}.${cellField}`).
@@ -74,6 +77,8 @@ export type RenderFieldProps = {
   readonly row?: Readonly<Record<string, unknown>>;
   /** Marks the field as modified against the loaded record (edit mode only). */
   readonly changed?: boolean;
+  readonly layout?: FieldProps["layout"];
+  readonly accent?: boolean;
 };
 
 const AllFieldsRequiredContext = createContext(false);
@@ -87,10 +92,15 @@ export function RenderField({
   featureName,
   labelAppendix,
   fieldAppendix,
+  appendixPlacement,
+  description,
+  status,
   allIssues,
   valueDisplay = "form",
   row,
   changed,
+  layout,
+  accent,
 }: RenderFieldProps): ReactNode {
   const { Field, Input, Banner, Text, JsonView } = usePrimitives();
   // App-Locale (i18n) für money/date-Inputs — sonst fielen sie auf
@@ -188,7 +198,12 @@ export function RenderField({
       {...(issues !== undefined && { issues })}
       {...(labelAppendix !== undefined && { labelAppendix })}
       {...(fieldAppendix !== undefined && { fieldAppendix })}
+      {...(appendixPlacement !== undefined && { appendixPlacement })}
+      {...(description !== undefined && { description })}
+      {...(status !== undefined && { status })}
       {...(changed === true && { changed })}
+      {...(layout !== undefined && { layout })}
+      {...(accent === true && { accent })}
       testId={`field-${field.field}`}
     >
       {control}

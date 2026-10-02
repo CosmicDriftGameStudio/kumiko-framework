@@ -105,11 +105,11 @@ textModel: createTenantConfig("select", {
 - Ist das Bezugsfeld leer, fehlt der Payload-Key ganz.
 - Ändert sich der Wert des Bezugsfeldes, lädt das Select neu. Steht der gewählte Wert nicht in den neuen Zeilen, wird er geleert (`""`). Beim ersten Laden bleibt ein fehlender gespeicherter Wert sichtbar.
 
-### Herkunfts-Badge im Settings-Hub
+### Herkunftszeile im Settings-Hub
 
-Das Badge neben dem Label einer `configEdit`-Maske zeigt bei Select-Feldern das
-Label der Option statt des Rohwerts, bei `optionsQuery` also den Namen statt
-einer ID.
+Die Herkunftszeile unter einem Feld einer `configEdit`-Maske („Standard ist …“)
+und die Zeilen unter „Alle Ebenen anzeigen“ zeigen bei Select-Feldern das Label
+der Option statt des Rohwerts, bei `optionsQuery` also den Namen statt einer ID.
 
 ## Imperative Nutzung
 

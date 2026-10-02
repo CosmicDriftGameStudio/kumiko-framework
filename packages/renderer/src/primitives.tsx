@@ -189,11 +189,28 @@ export type FieldProps = {
   readonly issues?: readonly FieldIssue[];
   readonly labelAppendix?: ReactNode;
   readonly fieldAppendix?: ReactNode;
+  /** Where `fieldAppendix` sits relative to the control. Default
+   *  `above-control` (a disclosure panel belongs under its label-row
+   *  trigger); `below-control` keeps sibling inputs on one line when the
+   *  appendix is a status line or an expanded detail. */
+  readonly appendixPlacement?: "above-control" | "below-control";
+  /** Help text directly under the label, above the control. */
+  readonly description?: ReactNode;
+  /** Status pill at the right end of the label row (e.g. "Saved", "Not set"). */
+  readonly status?: {
+    readonly tone: StatusTone;
+    readonly label: string;
+    readonly testId?: string;
+  };
   readonly children: ReactNode;
   /** Label-Layout. `stacked` (Default): Label über dem Control. `inline`:
    *  Control + Label nebeneinander (Box links, Label rechts) — für
    *  Checkbox/Switch-Felder (boolean), wie das shadcn-Muster. */
-  readonly layout?: "stacked" | "inline";
+  readonly layout?: "stacked" | "inline" | "row";
+  /** Marks a field whose value is set at this level (differs from the
+   *  inherited one). Only `layout="row"` draws it: a 2px primary line on the
+   *  row's left edge. Ignored by the other layouts. */
+  readonly accent?: boolean;
   /** Collapses the visible label to `sr-only` — stays associated via
    *  `htmlFor` (no separate `aria-label` needed). For tables/grids whose
    *  column header already carries the label for each row. */
@@ -981,8 +998,8 @@ export type FormProps = {
    *  detail screens (which also fill the height) do not set it. Native impls
    *  may ignore this prop. */
   readonly screenForm?: boolean;
-  /** Number of unsaved changes, shown in the pinned footer. Omitted in create
-   *  mode and when nothing changed — the footer then shows no status. */
+  /** Number of unsaved changes, shown in the pinned footer; 0 shows the quiet
+   *  "No unsaved changes" status. Omitted (create mode) — no status at all. */
   readonly unsavedCount?: number;
   /** Drawer-hosted forms: context box above the fields. */
   readonly summary?: { readonly title: string; readonly subtitle?: string };
@@ -1012,6 +1029,9 @@ export type SectionProps = {
    *  title-less/subtitle-less Section still draws the row when `actions`
    *  is set, so a hideTitle tabs-Section with actions isn't stranded. */
   readonly actions?: ReactNode;
+  /** "settings-list": title + subtitle form a left header column and the
+   *  children (field rows) the right one on `md:` and up. Default "stacked". */
+  readonly layout?: "stacked" | "settings-list";
   /** "destructive" marks the Section as a warning/danger area (e.g. account
    *  deletion, restrict processing) — border color only, no content change.
    *  Default "default" (normal card border). */
@@ -1064,6 +1084,9 @@ export type GridProps = {
   /** Fields flow left to right in wrapping rows sized by `GridCell.width`
    *  instead of equal-width tracks (screen forms and drawers). */
   readonly flow?: boolean;
+  /** One full-width row per child, separated by hairlines — the field rows of
+   *  a `settings-list` section. Wins over `columns`/`flow`. */
+  readonly list?: boolean;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */
@@ -1198,21 +1221,18 @@ export type ConfigSourceBadgeProps = {
   readonly screenScope?: ConfigScope;
 };
 
-/** Collapsible cascade-view for a config-edit field. Split into two slots
- *  (#429): "trigger" is the collapsed ▶ + source + value line for the label
- *  row; "panel" is the expanded cascade + reset shown below the input. In
- *  split mode the screen owns the `expanded` state (both slots share it);
- *  without `slot` the component renders both with its own state. */
+/** Cascade view for a config-edit field: one origin line ("Set for this
+ *  tenant", "Uses the default", …), a reset action for an own value, and a
+ *  disclosure listing every level. Owns its disclosure state. */
 export type ConfigCascadeViewProps = {
   readonly cascade: ConfigCascade;
   readonly screenScope: ConfigScope;
   readonly onReset?: (key: string, scope: ConfigScope) => void;
   readonly qualifiedKey?: string;
-  readonly slot?: "trigger" | "panel";
-  readonly expanded?: boolean;
-  readonly onToggle?: () => void;
+  /** The key declares `required: true` — a missing value reads "Not set. Required.". */
+  readonly required?: boolean;
   /** Display form of a level value (e.g. a select's label instead of its raw
-   *  value). Absent = the raw value; a missing value stays "—". */
+   *  value). Absent = the raw value; a missing value keeps the no-value text. */
   readonly renderValue?: (value: string | number | boolean) => ReactNode;
 };
 

@@ -106,6 +106,12 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "gdpr.mail.exportReady.intro":
     "Ihr angeforderter Datenexport fuer {app} ist fertig. Laden Sie ihn ueber den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Ihr Datenexport ist bereit",
+  "config.settings.audience.user": "Gilt nur für Sie.",
+  "config.settings.extensionSelectorHint":
+    "Wählen Sie einen Anbieter und speichern Sie. Seine Einstellungen erscheinen darunter.",
+  "kumiko.config.cascade.origin.user": "Von Ihnen gesetzt. Standard ist {value}.",
+  "kumiko.config.cascade.originNoDefault.user": "Von Ihnen gesetzt.",
+  "kumiko.config.source.user": "Ihr Wert",
   "kumiko.drawer.discard.body": "Ihre Eingaben in diesem Formular gehen verloren.",
   "kumiko.field.reference-created-no-id":
     "Der Eintrag wurde angelegt, aber nicht automatisch ausgewählt. Bitte wählen Sie ihn manuell aus.",
