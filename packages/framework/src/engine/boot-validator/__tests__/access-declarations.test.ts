@@ -367,6 +367,11 @@ describe("validateAccessDeclarations — personal-data fields beyond a top-level
       "record of objects",
       z.object({ byId: z.record(z.string(), z.object({ email: z.string() })) }),
     ],
+    ["map value", z.object({ byKey: z.map(z.string(), z.object({ email: z.string() })) })],
+    ["map key", z.object({ byKey: z.map(z.object({ email: z.string() }), z.string()) })],
+    ["set of objects", z.object({ items: z.set(z.object({ email: z.string() })) })],
+    ["promise", z.promise(z.object({ email: z.string() }))],
+    ["catchall", z.object({ id: z.string() }).catchall(z.object({ email: z.string() }))],
     [
       "lazy",
       z.object({ inner: z.lazy(() => z.object({ email: z.string().nullable().default(null) })) }),

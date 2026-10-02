@@ -389,6 +389,62 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
     );
   });
 
+  describe("embedded actionForm redirect/cancelTarget", () => {
+    function formFeature(extra: Record<string, unknown>) {
+      return defineFeature("forms", (r) => {
+        r.writeHandler({
+          name: "restock",
+          schema: { _type: "stub" } as never,
+          handler: async () => ({ isSuccess: true, data: {} }) as never,
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "restock",
+          type: "actionForm",
+          handler: "forms:write:restock",
+          fields: { note: { type: "text" } } as never,
+          layout: { sections: [{ fields: ["note"] }] },
+          ...extra,
+        } as never);
+        r.queryHandler("done", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "restock-done",
+          type: "projectionList",
+          query: "forms:query:done",
+          columns: ["name"],
+        });
+        r.translations({
+          keys: {
+            "screen:restock.title": { de: "Nachfüllen", en: "Restock" },
+            "screen:restock-done.title": { de: "Erledigt", en: "Done" },
+            "forms:entity:__action-form__:field:note": { de: "Notiz", en: "Note" },
+          },
+        });
+      });
+    }
+    const panel = { kind: "screen", id: "restock", screen: "forms:screen:restock" } as const;
+
+    test("a target with a redirect throws", () => {
+      expect(() =>
+        validateBoot([screenPanelFeature(panel), formFeature({ redirect: "restock-done" })]),
+      ).toThrow(/embeds "forms:screen:restock", which sets redirect\/cancelTarget/);
+    });
+
+    test("a target with a cancelTarget throws", () => {
+      expect(() =>
+        validateBoot([screenPanelFeature(panel), formFeature({ cancelTarget: "restock-done" })]),
+      ).toThrow(/which sets redirect\/cancelTarget/);
+    });
+
+    test("a target without redirect and with cancelTarget false boots", () => {
+      expect(() =>
+        validateBoot([screenPanelFeature(panel), formFeature({ cancelTarget: false })]),
+      ).not.toThrow();
+    });
+  });
+
   test("requiredKeysFromScreen sammelt ein gesetztes Screen-Panel-Label", () => {
     const screen: DashboardScreenDefinition = {
       id: "overview",

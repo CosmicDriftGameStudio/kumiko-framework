@@ -32,6 +32,12 @@ export function explicitListScreenId(screen: ScreenDefinition): string | undefin
   }
 }
 
+// Screen refs may be short ids or `<feature>:screen:<id>` QNs (boot-validator
+// accepts both for navigate targets and listScreenId); compare on the short id.
+function screenShortId(ref: string): string {
+  return ref.slice(ref.lastIndexOf(":") + 1);
+}
+
 // Shared by the renderer breadcrumb and the boot-validator so both resolve
 // parents the same way; `getId` lets each caller normalize `screen.id`.
 export function resolveNavParentScreen(
@@ -39,11 +45,13 @@ export function resolveNavParentScreen(
   detail: ScreenDefinition,
   getId: (screen: ScreenDefinition) => string,
 ): ScreenDefinition | undefined {
-  const detailScreenId = getId(detail);
+  const detailScreenId = screenShortId(getId(detail));
 
   const listFromExplicit = ((): ScreenDefinition | undefined => {
     const explicitId = explicitListScreenId(detail);
-    return explicitId !== undefined ? screens.find((s) => getId(s) === explicitId) : undefined;
+    return explicitId !== undefined
+      ? screens.find((s) => screenShortId(getId(s)) === screenShortId(explicitId))
+      : undefined;
   })();
 
   // rowActions, toolbarActions, and drawer-kind actions (which mount inline
@@ -52,12 +60,20 @@ export function resolveNavParentScreen(
     actions: readonly (RowAction | ToolbarAction)[] | undefined,
   ): boolean =>
     (actions ?? []).some(
-      (a) => (a.kind === "navigate" || a.kind === "drawer") && a.screen === detailScreenId,
+      (a) =>
+        (a.kind === "navigate" || a.kind === "drawer") &&
+        a.screen !== undefined &&
+        screenShortId(a.screen) === detailScreenId,
     );
   // The create button of an entityList navigates to its createScreen, so the
   // list is that screen's parent just like for a rowAction target.
   const listFromRowAction = screens.find((s) => {
-    if (s.type === "entityList" && s.createScreen === detailScreenId) return true;
+    if (
+      s.type === "entityList" &&
+      s.createScreen !== undefined &&
+      screenShortId(s.createScreen) === detailScreenId
+    )
+      return true;
     if (s.type !== "entityList" && s.type !== "projectionList") return false;
     return navigatesToDetail(s.rowActions) || navigatesToDetail(s.toolbarActions);
   });

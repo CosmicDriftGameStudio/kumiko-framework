@@ -4,14 +4,17 @@ import {
   ZodDefault,
   ZodIntersection,
   ZodLazy,
+  ZodMap,
   ZodNonOptional,
   ZodNullable,
   ZodObject,
   ZodOptional,
   ZodPipe,
   ZodPrefault,
+  ZodPromise,
   ZodReadonly,
   ZodRecord,
+  ZodSet,
   ZodTuple,
   type ZodType,
   ZodUnion,
@@ -103,9 +106,17 @@ function combinatorChildSchemas(schema: $ZodType): readonly $ZodType[] {
 }
 
 function childSchemas(schema: $ZodType): readonly $ZodType[] {
-  if (schema instanceof ZodObject) return Object.values(schema.shape);
+  if (schema instanceof ZodObject) {
+    // .catchall()/z.looseObject() values: keys are arbitrary, but a nested
+    // object inside the catchall schema can still carry personal-data fields.
+    const { catchall } = schema.def;
+    return catchall ? [...Object.values(schema.shape), catchall] : Object.values(schema.shape);
+  }
   if (schema instanceof ZodArray) return [schema.element];
   if (schema instanceof ZodRecord) return [schema.valueType];
+  if (schema instanceof ZodMap) return [schema.keyType, schema.valueType];
+  if (schema instanceof ZodSet) return [schema.def.valueType];
+  if (schema instanceof ZodPromise) return [schema.unwrap()];
   if (schema instanceof ZodTuple) {
     const { items, rest } = schema.def;
     return rest ? [...items, rest] : items;

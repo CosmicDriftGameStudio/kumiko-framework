@@ -772,12 +772,26 @@ function validateEmbeddedListMetadata(
 // default — wenn gesetzt — ist eine Teilmenge der options. Beides würde
 // auch im Zod-Schema bei runtime fehlschlagen, der Boot-Catch ist nur
 // die früheste Stelle für klare Fehlermeldungen.
+// Exhaustive over MultiSelectFieldDef["columns"] (the compiler flags a union
+// change); the TS union is gone at runtime for JS/JSON-sourced definitions.
+const CHECKBOX_COLUMN_COUNTS = {
+  1: true,
+  2: true,
+  3: true,
+  4: true,
+} satisfies Record<NonNullable<MultiSelectFieldDef["columns"]>, true>;
+
 function validateCheckboxDisplayOptions(
   field: MultiSelectFieldDef,
   fieldName: string,
   entityName: string,
 ): void {
   if (field.display === "checkboxes") {
+    if (field.columns !== undefined && !(field.columns in CHECKBOX_COLUMN_COUNTS)) {
+      throw new Error(
+        `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid columns "${field.columns}" — must be ${Object.keys(CHECKBOX_COLUMN_COUNTS).join(", ")}.`,
+      );
+    }
     if (field.maxRows !== undefined && (!Number.isInteger(field.maxRows) || field.maxRows < 1)) {
       throw new Error(
         `MultiSelect field "${fieldName}" on entity "${entityName}" has invalid maxRows "${field.maxRows}" — must be a positive integer.`,

@@ -164,4 +164,59 @@ describe("validateBoot — MetricNavigate.tab (cross-screen)", () => {
       /is not a projectionDetail with layout.mode "tabs"/,
     );
   });
+
+  describe("metric navigate without tab", () => {
+    function featureWithMetricNavigate(navigate: Record<string, string>) {
+      return defineFeature("app", (r) => {
+        r.entity(
+          "vehicle",
+          createEntity({
+            table: "Vehicles",
+            fields: { name: createTextField({ personal: false, reason: "test_fixture" }) },
+          }),
+        );
+        r.queryHandler("vehicle:detail", z.object({}), async () => ({ name: "x" }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "vehicle-detail",
+          type: "projectionDetail",
+          detailFor: "vehicle",
+          query: "app:query:vehicle:detail",
+          layout: { sections: [{ title: "Main", fields: ["name"] }] },
+        });
+        r.queryHandler("fleet:summary", z.object({}), async () => ({ name: "x", vehicleId: "1" }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        });
+        r.screen({
+          id: "fleet-summary",
+          type: "projectionDetail",
+          query: "app:query:fleet:summary",
+          layout: { sections: [{ title: "Summary", fields: ["name"] }] },
+          metrics: [{ field: "name", label: "app.metrics.name", navigate }],
+        });
+      });
+    }
+
+    test("an unknown navigate.screen throws", () => {
+      expect(() => validateBoot([featureWithMetricNavigate({ screen: "ghost" })])).toThrow(
+        /metric "name".*navigate-target "ghost" does not resolve/,
+      );
+    });
+
+    test("navigate.entity without entityId throws", () => {
+      expect(() => validateBoot([featureWithMetricNavigate({ entity: "vehicle" })])).toThrow(
+        /metric "name".*needs an explicit "entityId"/,
+      );
+    });
+
+    test("a known navigate.screen and an entity with entityId boot", () => {
+      expect(() =>
+        validateBoot([featureWithMetricNavigate({ screen: "vehicle-detail" })]),
+      ).not.toThrow();
+      expect(() =>
+        validateBoot([featureWithMetricNavigate({ entity: "vehicle", entityId: "vehicleId" })]),
+      ).not.toThrow();
+    });
+  });
 });

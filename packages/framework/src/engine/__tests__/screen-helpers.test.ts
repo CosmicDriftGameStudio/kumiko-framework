@@ -73,4 +73,32 @@ describe("resolveNavParentScreen()", () => {
   test("a screen the list does not name has no parent", () => {
     expect(resolveNavParentScreen([list, other], other, (s) => s.id)).toBeUndefined();
   });
+
+  test("a fully-qualified rowAction target resolves its list", () => {
+    const detail: ScreenDefinition = {
+      id: "item-detail",
+      type: "custom",
+      renderer: { react: "D" },
+    };
+    const qnList: ScreenDefinition = {
+      id: "item-list",
+      type: "projectionList",
+      query: "demo:query:item:list",
+      columns: ["name"],
+      rowActions: [
+        { kind: "navigate", id: "open", label: "Open", screen: "other:screen:item-detail" },
+      ],
+    };
+    expect(resolveNavParentScreen([qnList, detail], detail, (s) => s.id)).toBe(qnList);
+  });
+
+  test("a fully-qualified listScreenId resolves its list", () => {
+    const detail: ScreenDefinition = {
+      id: "item-detail",
+      type: "custom",
+      renderer: { react: "D" },
+      listScreenId: "other:screen:widget-list",
+    };
+    expect(resolveNavParentScreen([list, detail], detail, (s) => s.id)).toBe(list);
+  });
 });
