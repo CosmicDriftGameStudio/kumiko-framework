@@ -11,7 +11,7 @@
 // build`) or let the dev-server regenerate it — otherwise the z.infer
 // type drifts from the runtime schema.
 
-import { z } from "zod";
+import * as z from "zod";
 
 // pubsub-orders:event:order-placed — from src/feature.ts:71
 export const _kg_pubsubOrders__orderPlaced = z.object({ id: z.string(), customer: z.string(), product: z.string() });

@@ -11,9 +11,8 @@ import type { ContentFormat, TemplateKind } from "./constants.js";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 
-// Public TemplateResource — was Konsumenten sehen. Versteckt DB-interne
-// Spalten (insertedById, internal id-type), behält Felder die zum Rendern
-// gebraucht werden.
+// Public TemplateResource: what consumers see. Hides DB-internal columns
+// (insertedById, internal id-type) but keeps the fields needed for rendering.
 export type TemplateResource = {
   readonly id: string;
   readonly version: number;

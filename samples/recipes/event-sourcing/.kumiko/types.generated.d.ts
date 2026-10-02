@@ -4,7 +4,7 @@
 // file-watcher, which runs codegen on every r.defineEvent change.
 // =====================================================================
 
-import type { z } from "zod";
+import type * as z from "zod";
 import type { _kg_showcase__invoiceAcknowledged, _kg_showcase__invoiceApproved, _kg_showcase__invoicePaid } from "./schemas.generated";
 
 declare module "@cosmicdrift/kumiko-framework/engine" {

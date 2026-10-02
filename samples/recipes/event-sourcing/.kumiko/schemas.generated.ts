@@ -11,7 +11,7 @@
 // build`) or let the dev-server regenerate it — otherwise the z.infer
 // type drifts from the runtime schema.
 
-import { z } from "zod";
+import * as z from "zod";
 
 // showcase:event:invoice-acknowledged — from src/feature.ts:163
 export const _kg_showcase__invoiceAcknowledged = z.object({ approverId: z.string(), approverDisplayName: z.string() });
