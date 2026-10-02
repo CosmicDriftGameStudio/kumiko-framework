@@ -5,10 +5,24 @@ import type { ButtonProps, DialogProps } from "../../primitives.js";
 import { RenderEditActionButton } from "../render-edit-action-button.js";
 import type { RenderEditAction } from "../render-edit-types.js";
 
-const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, type, loading }) => (
+const TestButton: ComponentType<ButtonProps> = ({
+  children,
+  onClick,
+  testId,
+  type,
+  loading,
+  icon,
+  size,
+  ariaLabel,
+  title,
+}) => (
   <button
     type={type ?? "button"}
     data-testid={testId}
+    data-icon={icon}
+    data-size={size ?? "md"}
+    aria-label={ariaLabel}
+    title={title}
     data-loading={loading ? "1" : "0"}
     onClick={() => {
       void onClick?.();
@@ -52,10 +66,15 @@ const TestDialog: ComponentType<DialogProps> = ({
     </div>
   ) : null;
 
-function renderAction(action: RenderEditAction, onError: (text: string | null) => void = () => {}) {
+function renderAction(
+  action: RenderEditAction,
+  onError: (text: string | null) => void = () => {},
+  extra: { readonly iconOnly?: boolean; readonly hideIcon?: boolean } = {},
+) {
   return render(
     <RenderEditActionButton
       action={action}
+      {...extra}
       Button={TestButton}
       Dialog={TestDialog}
       onError={onError}
@@ -176,6 +195,57 @@ describe("RenderEditActionButton", () => {
     await waitFor(() => expect(errors).toContain("action exploded"));
     // Cleared at the start of trigger, then set on failure.
     expect(errors[0]).toBeNull();
+  });
+
+  describe("icon rendering", () => {
+    const iconAction: RenderEditAction = {
+      id: "archive",
+      label: "Archive",
+      icon: "archive",
+      onPress: async () => {},
+    };
+
+    test("iconOnly with a resolved icon renders an unlabelled icon button with aria-label", () => {
+      renderAction(iconAction, () => {}, { iconOnly: true });
+
+      const button = rtlScreen.getByTestId("render-edit-action-archive");
+      expect(button.getAttribute("data-size")).toBe("icon");
+      expect(button.getAttribute("data-icon")).toBe("archive");
+      expect(button.getAttribute("aria-label")).toBe("Archive");
+      expect(button.getAttribute("title")).toBe("Archive");
+      expect(button.textContent).toBe("");
+    });
+
+    test("iconOnly without an icon keeps the text label", () => {
+      const { icon: _icon, ...withoutIcon } = iconAction;
+      renderAction(withoutIcon, () => {}, { iconOnly: true });
+
+      const button = rtlScreen.getByTestId("render-edit-action-archive");
+      expect(button.getAttribute("data-size")).toBe("md");
+      expect(button.getAttribute("data-icon")).toBeNull();
+      expect(button.textContent).toBe("Archive");
+    });
+
+    test("without iconOnly the icon sits next to the label", () => {
+      renderAction(iconAction);
+
+      const button = rtlScreen.getByTestId("render-edit-action-archive");
+      expect(button.getAttribute("data-icon")).toBe("archive");
+      expect(button.textContent).toBe("Archive");
+    });
+
+    test("hideIcon drops the icon on text buttons but not when collapsed to icon-only", () => {
+      const { unmount } = renderAction(iconAction, () => {}, { hideIcon: true });
+      const textButton = rtlScreen.getByTestId("render-edit-action-archive");
+      expect(textButton.getAttribute("data-icon")).toBeNull();
+      expect(textButton.textContent).toBe("Archive");
+      unmount();
+
+      renderAction(iconAction, () => {}, { hideIcon: true, iconOnly: true });
+      const iconButton = rtlScreen.getByTestId("render-edit-action-archive");
+      expect(iconButton.getAttribute("data-icon")).toBe("archive");
+      expect(iconButton.textContent).toBe("");
+    });
   });
 
   test("sets loading while onPress is in flight", async () => {

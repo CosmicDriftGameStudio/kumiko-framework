@@ -14,6 +14,7 @@ import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type CorePrimitives,
   type DataTableProps,
+  type FillContainerProps,
   type InputProps,
   PrimitivesProvider,
   type SectionProps,
@@ -32,8 +33,9 @@ const testSection: ComponentType<SectionProps> = ({ testId, children }) => (
 // RelatedListSection wires rowActions through to a real dispatch, without
 // needing the production DataTable's sorting/paging/kebab-menu chrome.
 // The isVisible filter mirrors the production DataTable's own row-action
-// filter (renderer-web primitives/index.tsx) so per-row gating is exercised
-// here rather than assumed.
+// filter (renderer-web primitives/index.tsx); the production filter itself is
+// covered in renderer-web's primitives.test.tsx, and the isVisible contract
+// RelatedListSection hands to it is asserted directly below.
 const testDataTable: ComponentType<DataTableProps> = ({ rows, rowActions }) => (
   <table>
     <tbody>
@@ -306,6 +308,62 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBeUndefined();
     expect(capturedScreenPadding).toBe(false);
+  });
+});
+
+describe("RelatedListSection — hideTitle FillContainer", () => {
+  function renderHideTitle(primitives: CorePrimitives, grow?: boolean) {
+    const { dispatcher } = stubDispatcher();
+    return render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={primitives}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={historySection}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+                hideTitle
+                {...(grow === true && { grow: true })}
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+  }
+
+  const fillContainer: ComponentType<FillContainerProps> = ({ children, grow }) => (
+    <div data-testid="fill-container" data-grow={grow === true ? "1" : "0"}>
+      {children}
+    </div>
+  );
+
+  test("with a FillContainer primitive the list lands inside it", async () => {
+    renderHideTitle({ ...testPrimitives(), FillContainer: fillContainer });
+
+    const container = await rtlScreen.findByTestId("fill-container");
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(container.contains(rtlScreen.getByTestId("row-r1"))).toBe(true);
+    expect(container.getAttribute("data-grow")).toBe("0");
+  });
+
+  test("grow is forwarded to the FillContainer", async () => {
+    renderHideTitle({ ...testPrimitives(), FillContainer: fillContainer }, true);
+
+    const container = await rtlScreen.findByTestId("fill-container");
+    expect(container.getAttribute("data-grow")).toBe("1");
+  });
+
+  test("without a FillContainer primitive the list renders directly", async () => {
+    renderHideTitle(testPrimitives());
+
+    await waitFor(() => expect(rtlScreen.getByTestId("row-r1")).toBeTruthy());
+    expect(rtlScreen.queryByTestId("fill-container")).toBeNull();
   });
 });
 
@@ -775,6 +833,61 @@ describe("RelatedListSection — rowActions", () => {
     await waitFor(() => expect(rtlScreen.getByTestId("row-ended-1")).toBeTruthy());
     expect(rtlScreen.getByTestId("action-end-item-active-1")).toBeTruthy();
     expect(rtlScreen.queryByTestId("action-end-item-ended-1")).toBeNull();
+  });
+
+  test("the row action handed to the table carries an isVisible predicate derived from visible", async () => {
+    const { dispatcher } = stubDispatcher();
+    let capturedActions: DataTableProps["rowActions"];
+    const capturingDataTable: ComponentType<DataTableProps> = (props) => {
+      capturedActions = props.rowActions;
+      return testDataTable(props);
+    };
+    render(
+      <LocaleProvider
+        resolver={createStaticLocaleResolver({ locale: "en-US" })}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={dispatcher}>
+          <PrimitivesProvider value={{ ...testPrimitives(), DataTable: capturingDataTable }}>
+            <NavProvider value={stubNav().nav}>
+              <RelatedListSection
+                section={{
+                  kind: "relatedList",
+                  title: "Positions",
+                  query: "lease:query:items:list",
+                  columns: [{ field: "name" }],
+                  rowActions: [
+                    {
+                      id: "end-item",
+                      label: "actions.endItem",
+                      handler: "lease:write:end-item",
+                      payload: { pick: ["id"] },
+                      visible: { field: "status", eq: "active" },
+                    },
+                    {
+                      id: "always",
+                      label: "actions.always",
+                      handler: "lease:write:always",
+                      payload: { pick: ["id"] },
+                    },
+                  ],
+                }}
+                parentId="order-1"
+                record={{ id: "order-1" }}
+                featureName="orders"
+              />
+            </NavProvider>
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+
+    await waitFor(() => expect(capturedActions).toBeDefined());
+    const gated = capturedActions?.find((a) => a.id === "end-item");
+    const ungated = capturedActions?.find((a) => a.id === "always");
+    expect(gated?.isVisible?.({ id: "a", values: { status: "active" } })).toBe(true);
+    expect(gated?.isVisible?.({ id: "b", values: { status: "ended" } })).toBe(false);
+    expect(ungated?.isVisible).toBeUndefined();
   });
 });
 

@@ -339,9 +339,18 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
       };
       const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1e999" });
       expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
+      expect(warnSpy).not.toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  test("money-type field WITH a defaultCurrency: a non-finite bare number falls back to the field default, never { amount: Infinity, currency }", () => {
+    const fields: Record<string, FieldDef> = {
+      price: { type: "money", default: { amount: 0, currency: "EUR" } },
+    };
+    const result = mergeWithAllFieldsUrlPrefillable(fields, { price: "1e999" }, undefined, "EUR");
+    expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
   });
 
   describe("embeddedList prefill (fw#2764)", () => {
