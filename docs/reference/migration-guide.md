@@ -10,6 +10,14 @@ verified: 2026-10-02
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.334.0
+
+### framework-core
+
+**Duplicate write/query handler names in one feature fail at definition time**
+
+**Migration:** Rename a custom handler that shares its name with another handler of the same feature, including names r.crud registers (<entity>:list, <entity>:detail, <entity>:create, <entity>:update, <entity>:delete, <entity>:restore). Before, the later registration replaced the earlier one silently.
+
 ## 0.332.0
 
 ### framework-core

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.334.0",
+    "type": "improvement",
+    "title": "Settings form gaps: writeForm footer submit, option description/group, dependent optionsQueryPayload, config badge label, writeOnly secret fields",
+    "detail": "- A `writeForm` section that fills a whole tab puts its submit button into the pinned form footer.\n- `optionsQuery` rows may carry `description` (muted second line) and `group` (heading). The combobox and the radio list show both. Options with either one never render as segments.\n- `optionsQueryPayload` values may be `{ field: \"<sibling>\" }`. The select reloads when that field changes and clears a value the new rows no longer contain. A cleared config select resets the key, so the inherited value applies again. On config keys, `field` names another key of the same feature on the same settings mask. The boot validator checks the names, and `writeForm` fieldDefs now go through the select checks too.\n- The origin line and cascade level rows on `configEdit` fields show the option label instead of the raw value or id.\n- New `writeOnly: true` on entity text fields with `find: \"secret\"`. Reads return `true` (set) or `null` and never the value. On write, `\"\"` keeps the stored value and `null` clears it. The edit form shows a masked input with a \"set\" placeholder and a remove action. `maskWriteOnlyFields(entity, row)` is exported from `@cosmicdrift/kumiko-framework/engine` for custom query handlers that return executor rows."
+  },
+  {
+    "version": "0.334.0",
+    "type": "breaking",
+    "title": "Duplicate write/query handler names in one feature fail at definition time",
+    "migration": "Rename a custom handler that shares its name with another handler of the same feature, including names r.crud registers (<entity>:list, <entity>:detail, <entity>:create, <entity>:update, <entity>:delete, <entity>:restore). Before, the later registration replaced the earlier one silently."
+  },
+  {
     "version": "0.332.0",
     "type": "fix",
     "title": "agent reason developer texts match the actual error types"

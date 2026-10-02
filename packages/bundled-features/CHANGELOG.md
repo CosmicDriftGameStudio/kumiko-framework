@@ -1,5 +1,48 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.334.0
+
+### Minor Changes
+
+- 6633f59: Form gaps for settings screens:
+
+  - A `writeForm` section that fills a whole tab puts its submit button into the pinned form footer.
+  - `optionsQuery` rows may carry `description` (muted second line) and `group` (heading). The combobox and the radio list show both. Options with either one never render as segments.
+  - `optionsQueryPayload` values may be `{ field: "<sibling>" }`. The select reloads when that field changes and clears a value the new rows no longer contain. A cleared config select resets the key, so the inherited value applies again. On config keys, `field` names another key of the same feature on the same settings mask. The boot validator checks the names, and `writeForm` fieldDefs now go through the select checks too.
+  - The origin line and cascade level rows on `configEdit` fields show the option label instead of the raw value or id.
+  - New `writeOnly: true` on entity text fields with `find: "secret"`. Reads return `true` (set) or `null` and never the value. On write, `""` keeps the stored value and `null` clears it. The edit form shows a masked input with a "set" placeholder and a remove action. `maskWriteOnlyFields(entity, row)` is exported from `@cosmicdrift/kumiko-framework/engine` for custom query handlers that return executor rows.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Settings form gaps: writeForm footer submit, option description/group, dependent optionsQueryPayload, config badge label, writeOnly secret fields
+  -->
+
+### Patch Changes
+
+- bc0172a: Generated config screens (configEdit, secretsEdit, extension-selector dashboard) render as a settings list: section header on top, one row per key with label, description, origin and reset on the left and the control on the right, hairlines between rows and an accent line on values set at the current level. `EditLayout.variant: "settings-list"` enables the layout, `RenderEditProps.dirtyFooter` shows the unsaved count with Discard and Save changes, `validateOnChange` shows field errors while typing. Number bounds on config keys are validated on the client and read "Must be 1000 or less" / "Must be at least 1". Rows split into two columns by container width, so they stack next to a sidebar on tablets.
+
+  `DashboardScreenDefinition.showUpdatedAt` (default true) hides the "As of" timestamp; the selector dashboard sets it to false. `DashboardScreenPanel.chromeless` embeds a panel's screen without card frame and without its own screen padding, aligned to the page grid; the selector dashboard uses it. Features can name the config section via `<feature>.settings.section`; tenant-settings uses it and the platform screen is titled "Tenant defaults" to match the navigation.
+
+  Consumer tests on secretsEdit need updating: the `required-marker-<field>` test id is gone (a missing required secret now shows as the `secret-not-set-<field>` status), a stored secret gets `secret-saved-<field>`, and `secrets-edit-submit` stays disabled until at least one secret is entered.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Settings list layout for generated config and secrets screens
+  -->
+
+- Updated dependencies [6633f59]
+- Updated dependencies [6633f59]
+- Updated dependencies [b35fe6b]
+- Updated dependencies [bc0172a]
+  - @cosmicdrift/kumiko-types@0.334.0
+  - @cosmicdrift/kumiko-framework@0.334.0
+  - @cosmicdrift/kumiko-headless@0.334.0
+  - @cosmicdrift/kumiko-renderer@0.334.0
+  - @cosmicdrift/kumiko-renderer-web@0.334.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.334.0
+
 ## 0.333.0
 
 ### Minor Changes
