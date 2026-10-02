@@ -262,6 +262,28 @@ describe("buildAppSchema", () => {
     expect(idField?.["type"]).toBe("text"); // type kommt durch
   });
 
+  test("JSON-Safety: non-finite number defaults are dropped, shared sub-objects survive", () => {
+    const shared = { a: 1 };
+    const entity = {
+      fields: {
+        nan: { type: "number", default: Number.NaN },
+        inf: { type: "number", default: Number.POSITIVE_INFINITY },
+        ok: { type: "text", default: { x: shared, y: shared } },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]?.entities["thing"] as unknown as { fields: Record<string, Record<string, unknown>> }
+    ).fields;
+    expect(fields["nan"]?.["default"]).toBeUndefined();
+    expect(fields["inf"]?.["default"]).toBeUndefined();
+    expect(fields["ok"]?.["default"]).toEqual({ x: { a: 1 }, y: { a: 1 } });
+  });
+
   test("Reference-Field: entity + labelField + multiple überleben die Projection", () => {
     // Regression: ohne diese Properties im Client-Schema baut der ReferenceInput
     // die Options-Query als `<feature>:query::list` (leeres refEntity) → 404 →

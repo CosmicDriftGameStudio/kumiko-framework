@@ -6,7 +6,6 @@ import {
   type PendingChange,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  findCodemodScriptsRoot,
   findFeaturesDirs,
   resolveCodemodScript,
 } from "@cosmicdrift/kumiko-framework/upgrade-cli";
@@ -211,8 +210,8 @@ function readStatus(raw: string): ChangesetStatus {
   return { changesets, releases };
 }
 
-function entryKey(entry: { readonly version: string; readonly type: ChangeType; readonly title: string }): string {
-  return `${entry.version}\0${entry.type}\0${entry.title}`;
+function entryKey(entry: ChangelogEntry): string {
+  return [entry.version, entry.type, entry.title, entry.detail ?? "", entry.migration ?? "", entry.codemod ?? ""].join("\0");
 }
 
 function readEntries(path: string): ChangelogEntry[] {
@@ -250,7 +249,7 @@ function runAdd(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType<
   if (type === "breaking" && !migration) return ctx.out.err("  --breaking requires --migration."), 1;
   const codemod = getStringFlag(args, "codemod");
   const repoRoot = findRepoRoot(ctx.cwd);
-  if (codemod && (!findCodemodScriptsRoot(repoRoot) || !resolveCodemodScript(repoRoot, codemod))) {
+  if (codemod && !resolveCodemodScript(repoRoot, codemod)) {
     ctx.out.err(`  --codemod "${codemod}" must be an existing .ts file under packages/framework/src/scripts/codemod/.`);
     return 1;
   }
@@ -292,8 +291,9 @@ function runFold(ctx: Parameters<typeof changesCommand.run>[0], args: ReturnType
   const dryRun = getFlag(args, "dry-run");
   const changesetDir = join(repoRoot, ".changeset");
   if (!existsSync(changesetDir)) return ctx.out.log("  no changesets to fold"), 0;
+  const statusFiles = new Set(status.changesets.map((changeset) => `${changeset.id}.md`));
   const files = readdirSync(changesetDir)
-    .filter((name) => name.endsWith(".md") && name !== "README.md")
+    .filter((name) => statusFiles.has(name))
     .sort();
   const pending = new Map<string, ChangelogEntry[]>();
   try {

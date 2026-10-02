@@ -61,13 +61,21 @@ export function formatCompactSuccess(label: string, output: string): string {
     lines.push(
       `    diagnostics: ${diagnostics.total} unique warning/error line(s) emitted (non-gating)`,
     );
-    for (const line of diagnostics.lines) lines.push(`      ${line}`);
-    if (diagnostics.total > diagnostics.lines.length) {
-      lines.push(`      … ${diagnostics.total - diagnostics.lines.length} more`);
-    }
+    lines.push(...formatDiagnosticLines(diagnostics, "      "));
   }
 
   return `${lines.join("\n")}\n`;
+}
+
+export function formatDiagnosticLines(
+  diagnostics: { readonly lines: readonly string[]; readonly total: number },
+  indent: string,
+): string[] {
+  const lines = diagnostics.lines.map((line) => `${indent}${line}`);
+  if (diagnostics.total > diagnostics.lines.length) {
+    lines.push(`${indent}… ${diagnostics.total - diagnostics.lines.length} more`);
+  }
+  return lines;
 }
 
 const MAX_FAILURE_LINES = 200;

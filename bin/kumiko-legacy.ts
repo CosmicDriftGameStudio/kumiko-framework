@@ -32,6 +32,7 @@ import {
   findOutputDiagnostics,
   formatCompactFailure,
   formatCompactSuccess,
+  formatDiagnosticLines,
   isCI,
 } from "./_lib/ci-output";
 
@@ -1539,12 +1540,7 @@ async function runPoolBuffered(
       const diagnostics = findOutputDiagnostics(r.output);
       if (diagnostics.total > 0) {
         process.stdout.write(
-          `  ! ${r.name}: ${diagnostics.total} unique warning/error line(s) emitted\n` +
-            diagnostics.lines.map((line) => `    ${line}`).join("\n") +
-            (diagnostics.total > diagnostics.lines.length
-              ? `\n    … ${diagnostics.total - diagnostics.lines.length} more`
-              : "") +
-            "\n",
+          `  ! ${r.name}: ${diagnostics.total} unique warning/error line(s) emitted\n${formatDiagnosticLines(diagnostics, "    ").join("\n")}\n`,
         );
       }
     }
