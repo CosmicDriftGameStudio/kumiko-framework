@@ -357,11 +357,12 @@ describe("projectionList filter + facets (fw#2224)", () => {
     const props = getCapturedProps();
     if (props === undefined) throw new Error("DataTable was not rendered");
     const facet = props.filterFacets?.[0];
-    const de = kumikoDefaultTranslations["de"];
+    // The harness renders de-DE, but only the `en` default bundle ships in the
+    // framework (de lives in a locale package), so de-DE resolves through it.
     const en = kumikoDefaultTranslations["en"];
     if (en === undefined) throw new Error("missing en default translations");
-    const save = de?.["kumiko.actions.save"] ?? en["kumiko.actions.save"];
-    const cancel = de?.["kumiko.actions.cancel"] ?? en["kumiko.actions.cancel"];
+    const save = en["kumiko.actions.save"];
+    const cancel = en["kumiko.actions.cancel"];
     expect(facet?.label).toBe(save === undefined ? undefined : translationValueOtherText(save));
     expect(facet?.options?.[0]?.label).toBe(
       cancel === undefined ? undefined : translationValueOtherText(cancel),

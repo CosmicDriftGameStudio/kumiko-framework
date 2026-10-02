@@ -198,7 +198,7 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-step-0").tagName).toBe("SPAN");
   });
 
-  test("narrowLayout steps hält die Schrittzeile auch schmal sichtbar, Label nur für Screenreader", () => {
+  test("narrowLayout steps hält die Schrittzeile auch schmal sichtbar, Label ganz ausgeblendet (keine doppelte Ansage)", () => {
     render(
       <StepBar
         steps={["Auto", "Preis", "Fotos", "Kontakt"]}
@@ -212,7 +212,8 @@ describe("StepBar", () => {
     const row = screen.getByTestId("steps");
     expect(row.className.split(" ")).not.toContain("hidden");
     expect(row.className).toContain("flex");
-    expect(screen.getByTestId("steps-compact").className).toContain("sr-only");
+    expect(screen.getByTestId("steps-compact").className.split(" ")).toContain("hidden");
+    expect(screen.getByTestId("steps-compact").className).not.toContain("sr-only");
   });
 
   test("ohne narrowLayout bleibt die Schrittzeile unter sm ausgeblendet", () => {

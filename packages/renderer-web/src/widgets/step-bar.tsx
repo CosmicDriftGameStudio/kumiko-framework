@@ -209,7 +209,7 @@ export function StepBar({
         data-testid={compactTestId}
         className={cn(
           "text-sm text-muted-foreground",
-          narrowLayout === "steps" ? "sr-only" : "sm:hidden",
+          narrowLayout === "steps" ? "hidden" : "sm:hidden",
         )}
       >
         {compactLabel}

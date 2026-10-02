@@ -127,18 +127,7 @@ function sidePanelClass(
   if (narrow) return "inset-0 h-full w-full max-w-none rounded-none border-0 overflow-hidden";
   if (variant === "flush") {
     switch (side) {
-      // left/right keep the `inset-y-0` class here even when belowHeader is
-      // set — DrawerSheetContent's own base className already carries
-      // `inset-y-0` for these sides, and tailwind-merge (v3.6, checked
-      // directly) does NOT dedupe `top-*`/`bottom-*` against it (unlike
-      // same-group `top-0` vs `top-(--x)`, which it does). Overriding top
-      // via inline `style` instead (Drawer's `verticalOffsetStyle`) always
-      // wins over both, without depending on that gap.
-      // `h-full` fights that same style override on height: it pins the
-      // panel to 100% of the viewport regardless of `top`, pushing the
-      // bottom edge (and the footer slot) past the viewport when belowHeader
-      // also shifts `top` down. `h-auto` lets `inset-y-0`'s `bottom-0` (kept
-      // in sync by the inline `bottom: 0`) determine the height instead.
+      // h-full would pin height to 100vh despite the shifted top; h-auto lets inset-y-0 size it.
       case "left":
         return `inset-y-0 left-0 ${belowHeader ? "h-auto" : "h-full"} ${WIDTH_CLASS} border-r shadow-2xl overflow-hidden`;
       case "top":
@@ -209,12 +198,8 @@ export function Drawer({
 
   const effectiveWidthPx = maximized ? effectiveMaxWidthPx() : resizedWidthPx;
 
-  // Overrides the base className's `inset-y-0` (top:0) as inline style —
-  // tailwind-merge doesn't dedupe `top-*`/`bottom-*` against `inset-y-*`
-  // (verified directly against the pinned tailwind-merge), so a class-only
-  // override would leave both `inset-y-0` and the offset in the className,
-  // with the winner then depending on Tailwind's generated CSS order. style
-  // always wins over a class for the same property, no such dependency.
+  // Inline style because tailwind-merge doesn't dedupe `top-*`/`bottom-*` against the base `inset-y-0`;
+  // style wins over class regardless of generated CSS order.
   const verticalOffsetStyle: React.CSSProperties | undefined =
     belowHeader && variant === "flush" && !narrow && (side === "left" || side === "right")
       ? { top: "var(--shell-header-height)", bottom: 0 }
