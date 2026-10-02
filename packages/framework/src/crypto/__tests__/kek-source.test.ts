@@ -348,6 +348,46 @@ describe("resolvePlatformKeks", () => {
     expect(calls.length).toBe(1);
   });
 
+  test("a KUMIKO_BLIND_INDEX_KEY ciphertext without Key Manager credentials aborts boot, no fetch", async () => {
+    const { fetch, calls } = trackedFetch([]);
+    const env: KekSourceEnv = { KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A };
+
+    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
+      /KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT is set but/,
+    );
+    expect(calls.length).toBe(0);
+  });
+
+  test("logs the blind-index slot source once, without token or plaintext", async () => {
+    const lines: string[] = [];
+    const decrypted = trackedFetch([jsonResponse(200, { plaintext: PLAINTEXT_A })]);
+
+    await resolvePlatformKeks(
+      {
+        KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A,
+        PLATFORM_KEK_KMS_KEY_ID: "key-1",
+        PLATFORM_KEK_KMS_TOKEN: TOKEN,
+      },
+      { fetch: decrypted.fetch, log: (line) => lines.push(line) },
+    );
+
+    expect(lines).toEqual(["KUMIKO_BLIND_INDEX_KEY source=key-manager keyId=key-1 region=fr-par"]);
+    expect(lines.join("\n")).not.toContain(TOKEN);
+    expect(lines.join("\n")).not.toContain(PLAINTEXT_A);
+
+    const plaintextWins: string[] = [];
+    await resolvePlatformKeks(
+      {
+        KUMIKO_BLIND_INDEX_KEY: "blind-index-plaintext",
+        KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A,
+      },
+      { fetch: trackedFetch([]).fetch, log: (line) => plaintextWins.push(line) },
+    );
+    expect(plaintextWins).toEqual([
+      "KUMIKO_BLIND_INDEX_KEY source=plaintext-env (ciphertext present and ignored)",
+    ]);
+  });
+
   test("a plaintext KUMIKO_BLIND_INDEX_KEY wins over its ciphertext, no fetch", async () => {
     const { fetch, calls } = trackedFetch([]);
     const env: KekSourceEnv = {

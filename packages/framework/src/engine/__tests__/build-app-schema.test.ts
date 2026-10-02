@@ -398,6 +398,28 @@ describe("buildAppSchema", () => {
     expect(fields["name"]?.["searchable"]).toBeUndefined();
   });
 
+  test("Select: display survives the projection so radio reaches the client schema", () => {
+    const entity = {
+      fields: {
+        priority: { type: "select", options: ["low", "high"], display: "radio" },
+        state: { type: "select", options: ["open", "closed"] },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["priority"]?.["display"]).toBe("radio");
+    expect(fields["state"]?.["display"]).toBeUndefined();
+  });
+
   test("MultiSelect: display/columns/maxRows überleben die Projection (fw#2494)", () => {
     // Regression: without display in the client schema, render-field.tsx's
     // `field.display === "checkboxes"` check always falls through → the

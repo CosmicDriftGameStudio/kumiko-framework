@@ -12,6 +12,12 @@ function placeholders(s: string): string[] {
 // dein\w* also catches inflected forms (deiner, deinem, deines, ...).
 const duFormRegex = /\b(du|dich|dir|dein\w*|Du|Dich|Dir|Dein\w*)\b/;
 
+// Informal imperatives carry no pronoun, so duFormRegex misses them. Only
+// sentence-initial verbs are checked; formal forms ("Wählen Sie") don't match
+// because the regex requires the bare imperative followed by a non-letter.
+const informalImperativeRegex =
+  /(^|[.!?]\s+)(Gib|Wähle|Speichere|Klicke|Bestätige|Fordere|Scanne|Kopiere|Lege|Melde|Versuche|Prüfe|Öffne|Setze|Trage|Nutze|Verwende|Wende)(?![\p{L}])/u;
+
 describe("locale-de formal overrides", () => {
   test("every override key exists in localeDeBundle", () => {
     const orphaned = Object.keys(localeDeFormalOverrides).filter(
@@ -30,6 +36,14 @@ describe("locale-de formal overrides", () => {
     const formalBundle = germanBundleFor("formal");
     const offenders = Object.entries(formalBundle)
       .filter(([, value]) => duFormRegex.test(value))
+      .map(([key]) => key);
+    expect(offenders).toEqual([]);
+  });
+
+  test("formal bundle contains no pronoun-less informal imperatives", () => {
+    const formalBundle = germanBundleFor("formal");
+    const offenders = Object.entries(formalBundle)
+      .filter(([, value]) => informalImperativeRegex.test(value))
       .map(([key]) => key);
     expect(offenders).toEqual([]);
   });

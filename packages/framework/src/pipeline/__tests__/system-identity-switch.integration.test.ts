@@ -4,13 +4,16 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
+import { selectMany } from "../../db/index.js";
 import { buildEntityTable } from "../../db/table-builder.js";
 import {
   createEntity,
   createSystemUser,
   createTextField,
   defineFeature,
+  defineWriteHandler,
   HookPhases,
+  stepsPipeline,
 } from "../../engine/index.js";
 import type { HandlerContext, SessionUser } from "../../engine/types/index.js";
 import {
@@ -63,8 +66,72 @@ const hookNoEscapeHatchOutcomes: Array<{ readonly threw: boolean }> = [];
 const hookWithEscapeHatchOutcomes: Array<{ readonly ok: boolean }> = [];
 const hookForeignNoEscapeHatchOutcomes: Array<{ readonly threw: boolean }> = [];
 
+type AuthClaimsSwitchOutcome = {
+  readonly selfOk: boolean;
+  readonly foreignReason: string | undefined;
+};
+const authClaimsSwitchOutcomes: AuthClaimsSwitchOutcome[] = [];
+
 const probeFeature = defineFeature("idswitch-probe", (r) => {
   r.entity("hookThing", hookThingEntity);
+  r.requires.step("callFeature");
+
+  // --- r.authClaims hook: queryAs reaches only the claims user itself ---
+  r.authClaims(async (claimsUser, ctx) => {
+    const self = await ctx.queryAs(claimsUser, "idswitch-probe:query:whoami", {});
+    let foreignReason: string | undefined;
+    try {
+      await ctx.queryAs(
+        { ...claimsUser, tenantId: TestUsers.otherTenant.tenantId },
+        "idswitch-probe:query:whoami",
+        {},
+      );
+    } catch (err) {
+      foreignReason = errorReason((err as { details?: unknown }).details);
+    }
+    authClaimsSwitchOutcomes.push({ selfOk: self !== undefined, foreignReason });
+    return {};
+  });
+
+  // --- r.step.callFeature({ as }): gated like ctx.writeAs by the handler's escapeHatch ---
+  r.writeHandler(
+    defineWriteHandler({
+      name: "step-call-as-colleague-no-hatch",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      perform: stepsPipeline<Record<string, never>, { roles: readonly string[] }>(({ r: step }) => [
+        step.step.callFeature("inner", {
+          handler: "idswitch-probe:write:whoami-write",
+          payload: () => ({}),
+          as: otherUserNoRole,
+        }),
+        step.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: steps["inner"] as { roles: readonly string[] },
+        })),
+      ]),
+    }),
+  );
+
+  r.writeHandler(
+    defineWriteHandler({
+      name: "step-call-as-colleague-with-hatch",
+      schema: z.object({}),
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: step acts as a named colleague" },
+      perform: stepsPipeline<Record<string, never>, { roles: readonly string[] }>(({ r: step }) => [
+        step.step.callFeature("inner", {
+          handler: "idswitch-probe:write:whoami-write",
+          payload: () => ({}),
+          as: otherUserNoRole,
+        }),
+        step.step.return(({ steps }) => ({
+          isSuccess: true as const,
+          data: steps["inner"] as { roles: readonly string[] },
+        })),
+      ]),
+    }),
+  );
 
   // --- Targets ---
   r.queryHandler(
@@ -510,11 +577,15 @@ describe("ctx.queryAs/writeAs to a non-SYSTEM identity (fw#2876)", () => {
     hookForeignNoEscapeHatchOutcomes.length = 0;
     const err = await stack.http.writeErr(
       "idswitch-probe:write:hook-foreign-target-with-hatch",
-      { label: "should-roll-back" },
+      { label: "should-roll-back-foreign" },
       user,
     );
     expect(err.code).toBe("access_denied");
     expect(hookForeignNoEscapeHatchOutcomes).toEqual([{ threw: true }]);
+    // The hook ran inside the write's transaction: its denial must undo the write.
+    expect(
+      await selectMany(stack.db, hookThingTable, { label: "should-roll-back-foreign" }),
+    ).toEqual([]);
   });
 });
 
@@ -568,6 +639,7 @@ describe("hooks are gated independently of the handler they fire on", () => {
     );
     expect(err.code).toBe("access_denied");
     expect(hookNoEscapeHatchOutcomes).toEqual([{ threw: true }]);
+    expect(await selectMany(stack.db, hookThingTable, { label: "should-roll-back" })).toEqual([]);
   });
 
   test("hook WITH escapeHatch reaches SYSTEM even when the handler itself has none", async () => {
@@ -579,5 +651,38 @@ describe("hooks are gated independently of the handler they fire on", () => {
     );
     expect(result.id).toBeDefined();
     expect(hookWithEscapeHatchOutcomes).toEqual([{ ok: true }]);
+  });
+});
+
+describe("r.authClaims hook context — queryAs only reaches the claims user itself", () => {
+  test("queryAs(self) passes, queryAs(foreign tenant) is denied with identity_switch_denied", async () => {
+    authClaimsSwitchOutcomes.length = 0;
+
+    await stack.dispatcher.resolveAuthClaims(user);
+
+    expect(authClaimsSwitchOutcomes).toEqual([
+      { selfOk: true, foreignReason: "identity_switch_denied" },
+    ]);
+  });
+});
+
+describe("r.step.callFeature({ as }) — gated by the handler's escapeHatch", () => {
+  test("a colleague as WITHOUT escapeHatch is denied with identity_switch_denied", async () => {
+    const err = await stack.http.writeErr(
+      "idswitch-probe:write:step-call-as-colleague-no-hatch",
+      {},
+      user,
+    );
+    expect(err.code).toBe("access_denied");
+    expect(errorReason(err.details)).toBe("identity_switch_denied");
+  });
+
+  test("a colleague as WITH escapeHatch runs", async () => {
+    const result = await stack.http.writeOk<{ roles: readonly string[] }>(
+      "idswitch-probe:write:step-call-as-colleague-with-hatch",
+      {},
+      user,
+    );
+    expect(result.roles).toEqual(otherUserNoRole.roles);
   });
 });

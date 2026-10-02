@@ -137,6 +137,18 @@ const linkBEntity: EntityDefinition = createEntity({
   },
 });
 
+// Deliberately declares NO `transferable`, but hangs off the root through a
+// plain reference edge (not a parentRef) — proves the named-error rejection on
+// that edge kind.
+const memoEntity: EntityDefinition = createEntity({
+  table: "handover_memo",
+  idType: "uuid",
+  fields: {
+    runId: { type: "reference", entity: "run", required: true },
+    body: createTextField({ personal: false, reason: "technical_reference" }),
+  },
+});
+
 const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("run", runEntity);
   r.entity("photo", photoEntity);
@@ -146,6 +158,7 @@ const handoverFixturesFeature = defineFeature("handover-fixtures", (r) => {
   r.entity("channelText", channelTextEntity);
   r.entity("linkA", linkAEntity);
   r.entity("linkB", linkBEntity);
+  r.entity("memo", memoEntity);
 });
 
 // kumiko-framework#3088 fix: a `reference` field's `entity` may carry a
@@ -198,6 +211,7 @@ const campaignTable = buildEntityTable("campaign", campaignEntity);
 const channelTextTable = buildEntityTable("channelText", channelTextEntity);
 const linkATable = buildEntityTable("linkA", linkAEntity);
 const linkBTable = buildEntityTable("linkB", linkBEntity);
+const memoTable = buildEntityTable("memo", memoEntity);
 const prefixedChildTable = buildEntityTable("prefixedChild", prefixedChildEntity);
 const prefixedGrandchildTable = buildEntityTable("prefixedGrandchild", prefixedGrandchildEntity);
 
@@ -213,6 +227,7 @@ const channelTextCrud = createEventStoreExecutor(channelTextTable, channelTextEn
 });
 const linkACrud = createEventStoreExecutor(linkATable, linkAEntity, { entityName: "linkA" });
 const linkBCrud = createEventStoreExecutor(linkBTable, linkBEntity, { entityName: "linkB" });
+const memoCrud = createEventStoreExecutor(memoTable, memoEntity, { entityName: "memo" });
 const prefixedChildCrud = createEventStoreExecutor(prefixedChildTable, prefixedChildEntity, {
   entityName: "prefixedChild",
 });
@@ -255,6 +270,7 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, channelTextEntity, "channelText");
   await unsafeCreateEntityTable(stack.db, linkAEntity, "linkA");
   await unsafeCreateEntityTable(stack.db, linkBEntity, "linkB");
+  await unsafeCreateEntityTable(stack.db, memoEntity, "memo");
   await unsafeCreateEntityTable(stack.db, prefixedChildEntity, "prefixedChild");
   await unsafeCreateEntityTable(stack.db, prefixedGrandchildEntity, "prefixedGrandchild");
   await unsafeCreateEntityTable(stack.db, fileRefEntity);
@@ -267,7 +283,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await stack.db.unsafe?.(
-    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
+    `TRUNCATE kumiko_events, kumiko_snapshots, handover_run, handover_photo, handover_note, handover_bundle, handover_campaign, handover_channel_text, handover_link_a, handover_link_b, handover_memo, handover_prefixed_child, handover_prefixed_grandchild, file_refs RESTART IDENTITY CASCADE`,
   );
 });
 
@@ -300,6 +316,14 @@ async function seedBundle(tenantId: TenantId, runId: string, label: string): Pro
   const db = createTenantDb(stack.db, tenantId, "system");
   const result = await bundleCrud.create({ runId, label }, user, db);
   if (!result.isSuccess) throw new Error(`seedBundle failed: ${result.error.message}`);
+  return String(result.data.id);
+}
+
+async function seedMemo(tenantId: TenantId, runId: string, body: string): Promise<string> {
+  const user = createSystemUser(tenantId);
+  const db = createTenantDb(stack.db, tenantId, "system");
+  const result = await memoCrud.create({ runId, body }, user, db);
+  if (!result.isSuccess) throw new Error(`seedMemo failed: ${result.error.message}`);
   return String(result.data.id);
 }
 
@@ -774,6 +798,25 @@ describe("tenant-handover :: claim", () => {
       ),
     ).toBe(true);
     expect(await loadAggregate(stack.db, grandchildId, SOURCE_TENANT)).toHaveLength(0);
+  });
+
+  test("a reference-linked child that is not declared transferable blocks the whole claim, root and transferable siblings included", async () => {
+    const runId = await seedRun(SOURCE_TENANT, "my run");
+    const campaignId = await seedCampaign(SOURCE_TENANT, runId, "spring");
+    const memoId = await seedMemo(SOURCE_TENANT, runId, "undeclared child");
+    const dest = destinationUser(1);
+
+    const err = await stack.http.writeErr(
+      CLAIM,
+      { token: grantFor(runId), entityType: "run" },
+      dest,
+    );
+
+    expect(err.httpStatus).toBe(422);
+    expectErrorIncludes(err, "entity_not_transferable");
+    expect(await readTenantId("handover_run", runId)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_campaign", campaignId)).toBe(SOURCE_TENANT);
+    expect(await readTenantId("handover_memo", memoId)).toBe(SOURCE_TENANT);
   });
 
   test("a parentRef-linked child that is not declared transferable blocks the whole claim, root included", async () => {
