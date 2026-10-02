@@ -19,6 +19,7 @@ import {
   createEntity,
   createFileField,
   createImageField,
+  createTextField,
   defineFeature,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -57,7 +58,9 @@ let stack: TestStack;
 // #3005 fixture: a business entity with file fields covering the three
 // field-annotation shapes fileRefDeleteHook must branch on — explicitly
 // non-personal (dealer's own business data), personal (self), and no
-// annotation at all (the conservative "no annotation" case).
+// annotation at all (the conservative "no annotation" case) — plus the
+// remaining personal shapes: userOwned (`of: <owner field>`) and recordOwned
+// (`of: "id"`) hard-delete; tenantOwned and subjectRef only sever the link.
 const vehicleEntity = createEntity({
   table: "test_vehicles",
   fields: {
@@ -67,6 +70,11 @@ const vehicleEntity = createEntity({
     }),
     driverSelfie: createImageField({ personal: "self" }),
     unannotatedDoc: createFileField(),
+    ownerId: createTextField({ personal: false, reason: "owner_id_test_fixture" }),
+    ownerPhoto: createImageField({ personal: { of: "ownerId" } }),
+    recordPhoto: createImageField({ personal: { of: "id" } }),
+    tenantLogo: createImageField({ personal: "tenant" }),
+    subjectPhoto: createImageField({ personal: "ref" }),
   },
 });
 
@@ -603,6 +611,75 @@ describe("S2.H2 :: fileRefDeleteHook — per-row PII decision (issue #3005)", ()
     const row = anonymized.find((f: { id: string }) => f.id === uuid(605));
     expect(row).toBeDefined();
     expect(row.inserted_by_id).toBeNull();
+  });
+});
+
+describe("S2.H2 :: fileRefDeleteHook — remaining personal-annotation branches", () => {
+  async function forgetUser(userId: string): Promise<void> {
+    await fileRefDeleteHook(
+      {
+        db: createTenantDb(stack.db, TENANT_A, "tenant"),
+        registry: stack.registry,
+        tenantId: TENANT_A,
+        userId,
+      },
+      "delete",
+    );
+  }
+
+  async function expectHardDeleted(id: string): Promise<void> {
+    const remaining = await fetchFileRefs(TENANT_A);
+    expect(remaining.find((f: { id: string }) => f.id === id)).toBeUndefined();
+  }
+
+  async function expectSevered(id: string, userId: string): Promise<void> {
+    expect(await fetchFileRefs(TENANT_A, userId)).toHaveLength(0);
+    const survivors = await fetchFileRefs(TENANT_A, null);
+    const row = survivors.find((f: { id: string }) => f.id === id);
+    expect(row).toBeDefined();
+    expect(row.inserted_by_id).toBeNull();
+  }
+
+  test("userOwned field (personal: { of: <ownerField> }): hard-deleted", async () => {
+    const userId = "user-owned-photo";
+    await seedFileRefWithField(uuid(611), TENANT_A, userId, "vehicle", "ownerPhoto", "owner.jpg");
+    await forgetUser(userId);
+    await expectHardDeleted(uuid(611));
+  });
+
+  test('recordOwned field (personal: { of: "id" }): hard-deleted', async () => {
+    const userId = "user-record-owned-photo";
+    await seedFileRefWithField(uuid(612), TENANT_A, userId, "vehicle", "recordPhoto", "rec.jpg");
+    await forgetUser(userId);
+    await expectHardDeleted(uuid(612));
+  });
+
+  test('tenantOwned field (personal: "tenant"): row survives, only the uploader link is severed', async () => {
+    const userId = "user-tenant-logo";
+    await seedFileRefWithField(uuid(613), TENANT_A, userId, "vehicle", "tenantLogo", "logo.png");
+    await forgetUser(userId);
+    await expectSevered(uuid(613), userId);
+  });
+
+  test('subjectRef field (personal: "ref"): row survives, only the uploader link is severed', async () => {
+    const userId = "user-subject-ref-photo";
+    await seedFileRefWithField(uuid(614), TENANT_A, userId, "vehicle", "subjectPhoto", "ref.jpg");
+    await forgetUser(userId);
+    await expectSevered(uuid(614), userId);
+  });
+
+  test("legacy row with entityType set but fieldName null: anonymized, never hard-deleted", async () => {
+    const userId = "user-legacy-no-field";
+    await seedFileRefWithField(uuid(615), TENANT_A, userId, "vehicle", null, "legacy-a.pdf");
+    await forgetUser(userId);
+    await expectSevered(uuid(615), userId);
+  });
+
+  test("legacy row with fieldName set but entityType null: anonymized, never hard-deleted", async () => {
+    const userId = "user-legacy-no-entity";
+    await seedFileRefWithField(uuid(616), TENANT_A, userId, null, "dealerPhoto", "legacy-b.pdf");
+    await forgetUser(userId);
+    await expectSevered(uuid(616), userId);
   });
 });
 

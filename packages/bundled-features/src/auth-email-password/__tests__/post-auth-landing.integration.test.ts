@@ -235,6 +235,36 @@ describe("signup-confirm", () => {
 });
 
 describe("invite", () => {
+  test("invite-accept (Branch 1) → /a/invited/<tenantId> — resolver gets the invited role, not the session roles", async () => {
+    let receivedArgs: PostAuthLandingArgs | undefined;
+    currentResolver = (args) => {
+      if (args.flow === "invite") receivedArgs = args;
+      return defaultResolver(args);
+    };
+    const { session } = await aliceSession();
+    await seedTenantAdmin("landing-invite-carol@example.com", "landing-carol-pw-1234", ["User"]);
+    const token = await inviteEmail(session, "landing-invite-carol@example.com", "Editor");
+
+    const loginRes = await postLogin("landing-invite-carol@example.com", "landing-carol-pw-1234");
+    expect(loginRes.status).toBe(200);
+    const { token: carolJwt } = (await loginRes.json()) as { token: string };
+
+    const res = await stack.http.raw(
+      "POST",
+      "/api/auth/invite-accept",
+      { token },
+      {
+        authorization: `Bearer ${carolJwt}`,
+      },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { tenantId?: string; landingPath?: string };
+    expect(body.tenantId).toBe(session.tenantId);
+    expect(body.landingPath).toBe(`/a/invited/${session.tenantId}`);
+    expect(receivedArgs?.roles).toEqual(["Editor"]);
+    expect(receivedArgs?.tenantId).toBe(session.tenantId);
+  });
+
   test("invite-signup-complete (Branch 3) → /a/invited/<tenantId>", async () => {
     const { session } = await aliceSession();
     const token = await inviteEmail(session, "landing-invite-new@example.com", "Editor");

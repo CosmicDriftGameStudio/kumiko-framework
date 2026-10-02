@@ -47,6 +47,10 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature(),
     ],
     extraContext: { configResolver: resolver, configEncryption: encryption },
+    // Without a trusted hop the x-forwarded-for header is ignored and every
+    // request lands in the shared "unknown" bucket, which would make the
+    // per-IP assertions below meaningless.
+    trustedProxyHops: 1,
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
@@ -110,6 +114,21 @@ describe("POST /auth/login — anonymous identity handler rateLimit (ip+handler)
     const body = (await last.json()) as { error?: { code?: string } | string };
     const code = typeof body.error === "string" ? body.error : body.error?.code;
     expect(code).toBe("rate_limited");
+  });
+
+  test("the bucket is per IP: an exhausted IP does not rate-limit a different IP", async () => {
+    const exhaustedIp = "10.60.0.3";
+    const otherIp = "10.60.0.4";
+    for (let i = 0; i < 20; i++) {
+      const res = await postLogin(exhaustedIp, `nope-${i}@example.com`, "wrong-password");
+      expect(res.status).toBe(401);
+    }
+    expect((await postLogin(exhaustedIp, "nope-20@example.com", "wrong-password")).status).toBe(
+      429,
+    );
+
+    const fromOtherIp = await postLogin(otherIp, "nope-0@example.com", "wrong-password");
+    expect(fromOtherIp.status).toBe(401);
   });
 
   test("a legitimate login still succeeds (anonymous dispatch identity didn't break the happy path)", async () => {

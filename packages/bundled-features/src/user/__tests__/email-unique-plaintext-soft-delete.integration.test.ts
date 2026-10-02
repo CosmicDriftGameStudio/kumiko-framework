@@ -134,4 +134,65 @@ describe("fw#2593 — email unique constraint on the plaintext column (no blind 
     )) as ReadonlyArray<{ n: number }>;
     expect(rows[0]?.n).toBe(1);
   });
+
+  test("restoring a soft-deleted user whose email was re-taken fails with unique_violation and changes nothing", async () => {
+    const email = "plaintext-restore-conflict@example.com";
+    const tdb = createTenantDb(testDb.db, SYSTEM_TENANT_ID, "system");
+    const systemUser = createSystemUser(SYSTEM_TENANT_ID);
+
+    const original = await executor.create(
+      { email, displayName: "Original Plaintext User" },
+      systemUser,
+      tdb,
+    );
+    if (!original.isSuccess) throw new Error("expected create to succeed");
+    const deleted = await executor.delete({ id: original.data.id }, systemUser, tdb);
+    if (!deleted.isSuccess) throw new Error("expected soft-delete to succeed");
+    const successor = await executor.create(
+      { email, displayName: "Plaintext Successor" },
+      systemUser,
+      tdb,
+    );
+    if (!successor.isSuccess) throw new Error("expected re-create to succeed");
+
+    const restored = await executor.restore({ id: original.data.id }, systemUser, tdb);
+    if (restored.isSuccess) {
+      throw new Error("expected restore to fail while a live row holds the same email");
+    }
+    expect(restored.error.code).toBe("unique_violation");
+    expect(restored.error.httpStatus).toBe(409);
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT "id", "is_deleted" FROM "read_users" WHERE "email" = $1 ORDER BY "is_deleted"`,
+      [email],
+    )) as ReadonlyArray<{ id: string; is_deleted: boolean }>;
+    expect(rows).toEqual([
+      { id: String(successor.data.id), is_deleted: false },
+      { id: String(original.data.id), is_deleted: true },
+    ]);
+  });
+
+  test("restoring a soft-deleted user succeeds when its email was not re-taken", async () => {
+    const email = "plaintext-restore-free@example.com";
+    const tdb = createTenantDb(testDb.db, SYSTEM_TENANT_ID, "system");
+    const systemUser = createSystemUser(SYSTEM_TENANT_ID);
+
+    const created = await executor.create(
+      { email, displayName: "Restorable Plaintext User" },
+      systemUser,
+      tdb,
+    );
+    if (!created.isSuccess) throw new Error("expected create to succeed");
+    const deleted = await executor.delete({ id: created.data.id }, systemUser, tdb);
+    if (!deleted.isSuccess) throw new Error("expected soft-delete to succeed");
+
+    const restored = await executor.restore({ id: created.data.id }, systemUser, tdb);
+    if (!restored.isSuccess) throw new Error("expected restore to succeed");
+
+    const rows = (await asRawClient(testDb.db).unsafe(
+      `SELECT "is_deleted" FROM "read_users" WHERE "id" = $1::uuid`,
+      [created.data.id],
+    )) as ReadonlyArray<{ is_deleted: boolean }>;
+    expect(rows).toEqual([{ is_deleted: false }]);
+  });
 });

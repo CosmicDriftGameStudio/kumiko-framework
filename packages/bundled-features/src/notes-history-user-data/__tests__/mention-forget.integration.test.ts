@@ -34,7 +34,12 @@ import {
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
-import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
+import {
+  ComplianceProfileHandlers,
+  createComplianceProfilesFeature,
+  tenantComplianceProfileEntity,
+  tenantComplianceProfileTable,
+} from "../../compliance-profiles/index.js";
 import {
   createDataRetentionFeature,
   tenantRetentionOverrideEntity,
@@ -75,8 +80,27 @@ const contactFixtureFeature = defineFeature("notes-mention-forget-test-contact-f
   r.entity("contact", contactEntity);
 });
 
+// No own `retention` default: only a tenant compliance profile's preset
+// (RETENTION_PRESETS["dsgvo-hgb"].invoice = blockDelete) can protect it.
+const INVOICE_TABLE = "notes_mention_forget_test_invoices";
+const invoiceEntity = createEntity({
+  table: INVOICE_TABLE,
+  fields: {
+    amount: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 64,
+    }),
+  },
+});
+const invoiceFixtureFeature = defineFeature("notes-mention-forget-test-invoice-fixture", (r) => {
+  r.entity("invoice", invoiceEntity);
+});
+
 const author = createTestUser({ id: 1, roles: ["TenantMember"] });
 const CONTACT_1 = "40000000-0000-4000-8000-000000000001";
+const INVOICE_1 = "40000000-0000-4000-8000-000000000002";
 const SUBJECT_S = "40000000-0000-4000-8000-0000000000ff";
 
 let stack: TestStack;
@@ -96,6 +120,7 @@ beforeAll(async () => {
       createNotesHistoryFeature(),
       notesHistoryUserDataFeature,
       contactFixtureFeature,
+      invoiceFixtureFeature,
     ],
   });
 
@@ -105,6 +130,8 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(stack.db, noteEntryEntity, "note-entry");
   await unsafeCreateEntityTable(stack.db, noteMentionEntity, "note-mention");
   await unsafeCreateEntityTable(stack.db, contactEntity);
+  await unsafeCreateEntityTable(stack.db, invoiceEntity);
+  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
   await unsafePushTables(stack.db, { fileRefsTable });
   // tenant-membership table (from the tenant feature) manually created — same
   // minimal setup as run-forget-cleanup.integration.test.ts, no tenant feature
@@ -131,6 +158,11 @@ beforeAll(async () => {
      ON CONFLICT (id) DO NOTHING`,
     [CONTACT_1, author.tenantId, "Contact 1"],
   );
+  await asRawClient(stack.db).unsafe(
+    `INSERT INTO ${INVOICE_TABLE} (id, tenant_id, amount) VALUES ($1, $2, $3)
+     ON CONFLICT (id) DO NOTHING`,
+    [INVOICE_1, author.tenantId, "100.00"],
+  );
 
   overrideExecutor = createEventStoreExecutor(
     tenantRetentionOverrideTable,
@@ -148,6 +180,7 @@ beforeEach(async () => {
     userTable,
     "read_tenant_memberships",
     tenantRetentionOverrideTable,
+    tenantComplianceProfileTable,
   ]);
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
@@ -389,5 +422,62 @@ describe("notes-history mention-forget cascade", () => {
       await raw.unsafe("DROP TRIGGER notes_mention_forget_test_reject ON read_note_mentions");
       await raw.unsafe("DROP FUNCTION notes_mention_forget_test_reject()");
     }
+  });
+
+  test("host entity protected by the tenant's compliance-profile preset blocks the shred", async () => {
+    await seedForgottenSubject();
+    await stack.http.writeOk(
+      ComplianceProfileHandlers.setProfile,
+      { profileKey: "de-hr-dsgvo-hgb" },
+      createTestUser({ id: 2, tenantId: author.tenantId, roles: ["TenantAdmin"] }),
+    );
+    const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      {
+        entityType: "invoice",
+        entityId: INVOICE_1,
+        body: "kept under preset retention",
+        mentions: [SUBJECT_S],
+      },
+      author,
+    );
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal().Now.instant(),
+    });
+    expect(result.processedUserIds).toContain(SUBJECT_S);
+    expect(result.errors).toEqual([]);
+
+    const stillReadable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(stillReadable?.["body"]).toBe("kept under preset retention");
+  });
+
+  test("same invoice host without a compliance profile: the mentioned note is shredded", async () => {
+    await seedForgottenSubject();
+    const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      {
+        entityType: "invoice",
+        entityId: INVOICE_1,
+        body: "no preset, shredded",
+        mentions: [SUBJECT_S],
+      },
+      author,
+    );
+
+    await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal().Now.instant(),
+    });
+
+    const shredded = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
   });
 });
