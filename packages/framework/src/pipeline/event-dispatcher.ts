@@ -408,6 +408,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   let backgroundPassPauseDepth = 0;
 
   function runBackgroundPass(): void {
+    // skip: background passes are paused
     if (backgroundPassPauseDepth > 0) return;
     void runOnce().catch(() => {
       // skip: per-consumer errors already recorded in the state row

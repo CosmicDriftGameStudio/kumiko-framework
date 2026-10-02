@@ -31,10 +31,7 @@ import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
-import {
-  isHostAllowlisted,
-  readHostAllowlistFromEnv,
-} from "../foundation-shared/host-allowlist.js";
+import { isHostAllowlisted, readHostAllowlistFromEnv } from "../foundation-shared";
 
 const log = createFallbackLogger("step-dispatcher");
 

@@ -4,7 +4,11 @@ import {
   type EffectiveComplianceProfile,
 } from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  declareEscapeHatch,
+  type HandlerContext,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { decryptStoredPii } from "../../shared/index.js";
@@ -21,6 +25,10 @@ export async function resolveGracePeriod(
   ctx: HandlerContext,
   tenantId: string,
 ): Promise<DurationSpec> {
+  declareEscapeHatch({
+    reason:
+      "reads the tenant compliance profile via queryAs(SYSTEM, ...) to compute the grace period end; the calling user's own identity has no read access to that tenant-config projection",
+  });
   const profile = (await ctx.queryAs(
     createSystemUser(tenantId),
     "compliance-profiles:query:for-tenant",

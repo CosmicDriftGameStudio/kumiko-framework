@@ -76,6 +76,17 @@ function sameTitle(title: string, line: string | undefined): boolean {
   return line !== undefined && normalize(title) === normalize(line);
 }
 
+// BLOCK_RE closes at the first line starting with "-->"; text after it on
+// that line means a field value contained one and the block ended early.
+function assertBlockNotClosedEarly(markdown: string, match: RegExpExecArray, source: string): void {
+  const restOfLine = markdown.slice(match.index + match[0].length).split("\n", 1)[0] ?? "";
+  if (restOfLine.trim() !== "") {
+    throw new Error(
+      `${source}: kumiko-changes block closed early by a line starting with "-->"; field values must not contain such a line`,
+    );
+  }
+}
+
 /** Parse structured upgrade metadata embedded in a Changeset body. */
 export function parseChangesetChanges(markdown: string, source: string): readonly PendingChange[] {
   const changes: PendingChange[] = [];
@@ -88,14 +99,7 @@ export function parseChangesetChanges(markdown: string, source: string): readonl
     const block = match[1];
     const prose = proseWithoutMetadata(markdown.slice(segmentStart, match.index));
     segmentStart = match.index + match[0].length;
-    // BLOCK_RE closes at the first line starting with "-->"; text after it on
-    // that line means a field value contained one and the block ended early.
-    const restOfLine = markdown.slice(match.index + match[0].length).split("\n", 1)[0] ?? "";
-    if (restOfLine.trim() !== "") {
-      throw new Error(
-        `${source}: kumiko-changes block closed early by a line starting with "-->"; field values must not contain such a line`,
-      );
-    }
+    assertBlockNotClosedEarly(markdown, match, source);
     if (!block) throw new Error(`${source}: empty kumiko-changes block`);
     const fields = parseBlock(block, source);
     const feature = requiredField(fields, "feature", source);

@@ -1338,6 +1338,7 @@ function validateNavigateActionTab(
   action: RowAction,
   lookups: NavigateTargetLookups,
 ): void {
+  // skip: only navigate actions with an explicit tab need target validation
   if (action.kind !== "navigate" || action.tab === undefined) return;
   resolveRowActionNavigateTarget(
     featureName,
@@ -2944,6 +2945,7 @@ function assertReferenceListHandlerRegistered(
     qualifyEntityName(target.featureName, "query", `${target.entityName}:list`);
   for (const feature of featureMap.values()) {
     for (const handlerName of Object.keys(feature.queryHandlers ?? {})) {
+      // skip: expected list handler found
       if (qualifyEntityName(feature.name, "query", handlerName) === expectedQn) return;
     }
   }
