@@ -12,7 +12,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
-import { assertErased } from "../../shared/index.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.js";
 
 const ERROR_CONTEXT = "user-data-rights-defaults:fileRef";
 
@@ -270,9 +270,11 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   // auto-verb, the erasure replays on rebuild (created → forgotten → row gone).
   // The old hard deleteMany was resurrected on rebuild; this closes that Art.17
   // hole without a direct write.
+  const failures: string[] = [];
   for (const row of personalRows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    assertErased(await crud.forget({ id }, systemUser, ctx.db), "fileRef", id);
+    collectErasureFailure(await crud.forget({ id }, systemUser, ctx.db), "fileRef", id, failures);
   }
+  throwIfErasureFailed(failures);
 };

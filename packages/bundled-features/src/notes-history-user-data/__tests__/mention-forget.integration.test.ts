@@ -176,7 +176,9 @@ async function seedForgottenSubject(): Promise<void> {
   );
 }
 
-async function seedContactRetentionOverride(strategy: "anonymize" | "delete"): Promise<void> {
+async function seedContactRetentionOverride(
+  strategy: "anonymize" | "blockDelete" | "hardDelete",
+): Promise<void> {
   const by = { ...TestUsers.systemAdmin, tenantId: author.tenantId };
   const result = await overrideExecutor.create(
     {
@@ -248,5 +250,144 @@ describe("notes-history mention-forget cascade", () => {
 
     const stillReadable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
     expect(stillReadable?.["body"]).toBe("kept under retention");
+  });
+
+  test("host entity retention override (blockDelete) blocks the shred", async () => {
+    await seedForgottenSubject();
+    await seedContactRetentionOverride("blockDelete");
+    const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      {
+        entityType: "contact",
+        entityId: CONTACT_1,
+        body: "kept under legal hold",
+        mentions: [SUBJECT_S],
+      },
+      author,
+    );
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal().Now.instant(),
+    });
+    expect(result.processedUserIds).toContain(SUBJECT_S);
+
+    const stillReadable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(stillReadable?.["body"]).toBe("kept under legal hold");
+  });
+
+  test("host entity retention override (hardDelete) does not block the shred", async () => {
+    await seedForgottenSubject();
+    await seedContactRetentionOverride("hardDelete");
+    const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      { entityType: "contact", entityId: CONTACT_1, body: "to be shredded", mentions: [SUBJECT_S] },
+      author,
+    );
+
+    await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal().Now.instant(),
+    });
+
+    const shredded = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("duplicate ids in mentions produce exactly one mention row and the note is shredded once", async () => {
+    await seedForgottenSubject();
+    const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      {
+        entityType: "contact",
+        entityId: CONTACT_1,
+        body: "mentions S twice",
+        mentions: [SUBJECT_S, SUBJECT_S],
+      },
+      author,
+    );
+    const [mentionCount] = await asRawClient(stack.db).unsafe<{ count: number }>(
+      "SELECT count(*)::int AS count FROM read_note_mentions WHERE note_id = $1",
+      [mentioning.id],
+    );
+    expect(mentionCount?.count).toBe(1);
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal().Now.instant(),
+    });
+    expect(result.errors).toEqual([]);
+
+    const shredded = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
+  });
+
+  test("without a mounted KMS the forget run leaves the mentioned note readable", async () => {
+    resetPiiSubjectKmsForTests();
+    await seedForgottenSubject();
+    const tenantDb = createTenantDb(stack.db, author.tenantId, "system");
+
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      { entityType: "contact", entityId: CONTACT_1, body: "plaintext body", mentions: [SUBJECT_S] },
+      author,
+    );
+
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: getTemporal().Now.instant(),
+    });
+    expect(result.errors).toEqual([]);
+
+    const readable = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
+    expect(readable?.["body"]).toBe("plaintext body");
+  });
+
+  test("a failing mention create rolls the note back with it", async () => {
+    const raw = asRawClient(stack.db);
+    await raw.unsafe(`
+      CREATE OR REPLACE FUNCTION notes_mention_forget_test_reject() RETURNS trigger AS $$
+      BEGIN RAISE EXCEPTION 'mention insert rejected'; END $$ LANGUAGE plpgsql
+    `);
+    await raw.unsafe(`
+      CREATE TRIGGER notes_mention_forget_test_reject BEFORE INSERT ON read_note_mentions
+      FOR EACH ROW EXECUTE FUNCTION notes_mention_forget_test_reject()
+    `);
+    try {
+      const [before] = await raw.unsafe<{ count: number }>(
+        "SELECT count(*)::int AS count FROM read_note_entries WHERE body = $1",
+        ["rolled back"],
+      );
+      const res = await stack.http.write(
+        NotesHistoryHandlers.addNote,
+        {
+          entityType: "contact",
+          entityId: CONTACT_1,
+          body: "rolled back",
+          mentions: [SUBJECT_S],
+        },
+        author,
+      );
+      expect(res.status).toBeGreaterThanOrEqual(400);
+
+      const [after] = await raw.unsafe<{ count: number }>(
+        "SELECT count(*)::int AS count FROM read_note_entries WHERE body = $1",
+        ["rolled back"],
+      );
+      expect(after?.count).toBe(before?.count);
+    } finally {
+      await raw.unsafe("DROP TRIGGER notes_mention_forget_test_reject ON read_note_mentions");
+      await raw.unsafe("DROP FUNCTION notes_mention_forget_test_reject()");
+    }
   });
 });

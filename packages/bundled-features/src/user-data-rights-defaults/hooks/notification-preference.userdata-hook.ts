@@ -8,7 +8,7 @@ import {
   notificationPreferenceEntity,
   notificationPreferencesTable,
 } from "../../delivery/index.js";
-import { assertErased } from "../../shared/index.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.js";
 import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for delivery's notification-preference rows. Event-sourced
@@ -48,9 +48,16 @@ export const notificationPreferenceDeleteHook: UserDataDeleteHook = async (ctx) 
     tenantId: ctx.tenantId,
     userId: ctx.userId,
   });
+  const failures: string[] = [];
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    assertErased(await crud.forget({ id }, systemUser, ctx.db), "notification-preference", id);
+    collectErasureFailure(
+      await crud.forget({ id }, systemUser, ctx.db),
+      "notification-preference",
+      id,
+      failures,
+    );
   }
+  throwIfErasureFailed(failures);
 };

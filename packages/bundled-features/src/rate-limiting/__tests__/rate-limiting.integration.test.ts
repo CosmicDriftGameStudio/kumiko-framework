@@ -139,6 +139,7 @@ describe("rate-limiting feature — bucket tenant scope", () => {
   test("allows the caller's own tenant and handler-scoped buckets", async () => {
     for (const bucket of [
       `tenant:${admin.tenantId}`,
+      `user:${admin.id}`,
       `tenant+handler:${admin.tenantId}:rl-probe:query:ping`,
       `user+handler:${admin.id}:rl-probe:query:ping`,
     ]) {
@@ -149,6 +150,21 @@ describe("rate-limiting feature — bucket tenant scope", () => {
       );
       expect(status.bucket).toBe(bucket);
       expect(status.remaining).toBe(5);
+    }
+  });
+
+  test("denies own-subject buckets with the wrong handler arity", async () => {
+    for (const bucket of [
+      `tenant+handler:${admin.tenantId}`,
+      `tenant:${admin.tenantId}:x`,
+      "ip+handler:1.2.3.4:x",
+    ]) {
+      const err = await stack.http.queryErr(
+        "rate-limiting:query:status",
+        { bucket, limit: 5, windowSeconds: 60 },
+        admin,
+      );
+      expect(err.i18nKey).toBe(OUTSIDE_TENANT_KEY);
     }
   });
 

@@ -9,7 +9,7 @@ import type {
 
 export type { SessionMassRevoker } from "@cosmicdrift/kumiko-framework/api";
 
-import { fetchOne, insertOne, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, insertOne, transaction, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { buildSessionRoles, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
@@ -101,36 +101,41 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
       // original timestamp. Double-revoke races land here via logout +
       // switch-tenant on the same sid. (Password-change uses a different
       // callback — sessionMassRevoker — and isn't in scope for this guard.)
-      const result = await updateMany<{ userId: string }>(
-        db,
-        userSessionTable,
-        { revokedAt: Temporal.Now.instant() },
-        { id: sid, revokedAt: null },
-      );
+      // One transaction: if the append failed after the update committed, a
+      // retried logout would match no live row (revokedAt IS NULL) and never
+      // emit the event, leaving the SSE stream of this sid open until JWT expiry.
+      await transaction(db, async (tx) => {
+        const result = await updateMany<{ userId: string }>(
+          tx,
+          userSessionTable,
+          { revokedAt: Temporal.Now.instant() },
+          { id: sid, revokedAt: null },
+        );
 
-      // This is the ONLY caller of sessionRevoker — logout and tenant-switch
-      // — so it's also the only source of streamScope: "revoked-sessions".
-      // Without this append, a live SSE stream on this exact sid outlives its
-      // own logout because the access-invalidation consumer never hears
-      // about it — same gap sessionMassRevoker closed for
-      // password-change.
-      const revoked = result[0];
-      if (revoked) {
-        const payload = sessionRevokedSchema.parse({
-          userId: revoked.userId,
-          sessionIds: [sid],
-          streamScope: "revoked-sessions",
-        });
-        await append(db, {
-          aggregateId: generateId(),
-          aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-          tenantId: SYSTEM_TENANT_ID,
-          expectedVersion: 0,
-          type: SESSION_REVOKED_EVENT_QN,
-          payload,
-          metadata: { userId: revoked.userId },
-        });
-      }
+        // This is the ONLY caller of sessionRevoker — logout and tenant-switch
+        // — so it's also the only source of streamScope: "revoked-sessions".
+        // Without this append, a live SSE stream on this exact sid outlives its
+        // own logout because the access-invalidation consumer never hears
+        // about it — same gap sessionMassRevoker closed for
+        // password-change.
+        const revoked = result[0];
+        if (revoked) {
+          const payload = sessionRevokedSchema.parse({
+            userId: revoked.userId,
+            sessionIds: [sid],
+            streamScope: "revoked-sessions",
+          });
+          await append(tx, {
+            aggregateId: generateId(),
+            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
+            tenantId: SYSTEM_TENANT_ID,
+            expectedVersion: 0,
+            type: SESSION_REVOKED_EVENT_QN,
+            payload,
+            metadata: { userId: revoked.userId },
+          });
+        }
+      });
     },
 
     // kumiko-lint-ignore complexity-budget session check + lastSeen refresh on hot path

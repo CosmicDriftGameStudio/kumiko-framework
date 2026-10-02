@@ -70,20 +70,27 @@ export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
     registry: ctx.registry,
     tenantId: ctx.tenantId,
   });
-  for (const noteId of noteIds) {
-    const note = await ctx.db.fetchOne<{ entityType: string }>(noteEntryTable, { id: noteId });
-    // Defensive: append-only rows are never hard-deleted, so this shouldn't
-    // happen — but a missing host means no retention policy to consult.
-    if (!note) continue;
-
-    const hostPolicy = await resolveRetentionPolicyForTenant({
-      db: ctx.db,
-      registry: ctx.registry,
-      tenantId: ctx.tenantId,
-      entityName: note.entityType,
-      preloadedTenantPreset: tenantPreset,
-    });
-    if (policyToStrategy(hostPolicy.policy?.strategy ?? null) === "anonymize") continue;
+  // Append-only rows are never hard-deleted, so every mentioned note should
+  // resolve; a missing one has no host and thus no retention policy to consult.
+  const notes = await ctx.db.selectMany<{ id: string; entityType: string }>(noteEntryTable, {
+    id: { in: [...noteIds] },
+  });
+  const strategyByEntityType = new Map<string, ReturnType<typeof policyToStrategy>>();
+  for (const note of notes) {
+    let strategy = strategyByEntityType.get(note.entityType);
+    if (strategy === undefined) {
+      const hostPolicy = await resolveRetentionPolicyForTenant({
+        db: ctx.db,
+        registry: ctx.registry,
+        tenantId: ctx.tenantId,
+        entityName: note.entityType,
+        preloadedTenantPreset: tenantPreset,
+      });
+      strategy = policyToStrategy(hostPolicy.policy?.strategy ?? null);
+      strategyByEntityType.set(note.entityType, strategy);
+    }
+    if (strategy === "anonymize") continue;
+    const noteId = note.id;
 
     await kms.eraseKey(
       { kind: "record", entity: "note-entry", id: noteId },
