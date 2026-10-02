@@ -152,6 +152,53 @@ describe("money field currency: { kind: 'tenant' } (fw#2933)", () => {
     expect(payload.fee).toEqual({ amount: 0, currency: "EUR" });
   });
 
+  // Both degradation paths must release the form (not hang on the loading
+  // banner) and fall back to entity.defaultCurrency instead of a silent wrong code.
+  for (const [label, configResult] of [
+    [
+      "config query fails",
+      { isSuccess: false, error: { code: "internal", i18nKey: "errors.internal" } },
+    ],
+    ["config key absent (tenant-settings not installed)", { isSuccess: true, data: {} }],
+    [
+      "config key empty",
+      {
+        isSuccess: true,
+        data: { "tenant-settings:config:currency": { value: "", scope: "tenant", source: "x" } },
+      },
+    ],
+  ] as const) {
+    test(`create: ${label} → form renders and tenant-declared field falls back to EUR`, async () => {
+      const writeCalls: { type: string; payload: unknown }[] = [];
+      const dispatcher = makeDispatcher({
+        query: (async (type: string) => {
+          if (type === "config:query:values") return configResult;
+          return { isSuccess: true, data: { rows: [], nextCursor: null } };
+        }) as unknown as Dispatcher["query"],
+        write: (async (type: string, payload: unknown) => {
+          writeCalls.push({ type, payload });
+          return { isSuccess: true, data: { id: "inv-3" } };
+        }) as unknown as Dispatcher["write"],
+      });
+
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={schema} qn="billing:screen:invoice-edit" />
+        </DispatcherProvider>,
+      );
+
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull(), {
+        timeout: 3000,
+      });
+      await typeMoney("field-cost", "20.00");
+      await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
+
+      await waitFor(() => expect(writeCalls.length).toBe(1));
+      const payload = writeCalls[0]?.payload as { price?: unknown };
+      expect(payload.price).toEqual({ amount: 0, currency: "EUR" });
+    });
+  }
+
   test("entity without a tenant-declared money field never calls config:query:values", async () => {
     const plainEntity = {
       defaultCurrency: "EUR",

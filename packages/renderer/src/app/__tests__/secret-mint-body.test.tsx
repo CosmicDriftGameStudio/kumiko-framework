@@ -425,4 +425,21 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     );
     expect(rtlScreen.queryByText("kpat_secret")).toBeNull();
   });
+
+  test("without redirect or cancelTarget, cancelling the confirm step restarts at the mint form and drops the secret", async () => {
+    const { dispatcher } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
+    });
+    renderMintScreen(dispatcher, mintScreenWithConfirm);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    fireEvent.click(rtlScreen.getByTestId("render-edit-cancel"));
+
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).toBeNull());
+    expect(rtlScreen.queryByLabelText(/label/i)).not.toBeNull();
+    expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).toBeNull();
+  });
 });

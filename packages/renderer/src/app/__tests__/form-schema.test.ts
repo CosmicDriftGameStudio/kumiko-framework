@@ -244,4 +244,32 @@ describe("buildFormSchema", () => {
       expect(triggered.error.issues[0]?.path).toEqual(["x"]);
     });
   });
+
+  describe("unchangedFrom (update, payloadMode changes)", () => {
+    const entity = entityWith({
+      legacy: { type: "text", required: true },
+      other: { type: "text", required: false },
+    });
+    const screen = screenWith(["legacy", "other"]);
+    const loaded = { legacy: "", other: "a" };
+
+    test("legacy row: required field empty and untouched does not block saving another field", () => {
+      const result = buildFormSchema(entity, screen, loaded).safeParse({ legacy: "", other: "b" });
+      expect(result.success).toBe(true);
+    });
+
+    test("required field that held a value and was cleared is still flagged", () => {
+      const result = buildFormSchema(entity, screen, { legacy: "x", other: "a" }).safeParse({
+        legacy: "",
+        other: "a",
+      });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      expect(result.error.issues[0]?.path).toEqual(["legacy"]);
+    });
+
+    test("without unchangedFrom (create) the empty required field is flagged", () => {
+      expect(buildFormSchema(entity, screen).safeParse(loaded).success).toBe(false);
+    });
+  });
 });
