@@ -23,6 +23,7 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import {
   computeEditViewModel,
+  groupIssuesByPath,
   relevantFieldIssues,
   zodErrorToFieldIssues,
 } from "@cosmicdrift/kumiko-headless";
@@ -1289,6 +1290,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       } else {
         const fieldIssues = result.error.details?.fields ?? [];
         const issuePaths = fieldIssues.map((i) => i.path);
+        // controller.submit() writes server issues into the controller itself;
+        // customSubmit bypasses it, so push them here to reach the fields.
+        if (customSubmit !== undefined && fieldIssues.length > 0) {
+          controller.setErrors(groupIssuesByPath(fieldIssues));
+        }
         // A server field error on a step the form isn't currently showing is
         // otherwise invisible — jump to the first step that contains one of
         // the errored fields. For tabs this is what keeps the submit from

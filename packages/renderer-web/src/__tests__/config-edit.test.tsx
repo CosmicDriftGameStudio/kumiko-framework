@@ -14,7 +14,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import type { ConfigEditScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
-import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
+import type { BatchResult, Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
@@ -254,6 +254,100 @@ describe("KumikoScreen / configEdit", () => {
     expect(commands[0]).toEqual({
       type: "config:write:set",
       payload: { key: "demo:config:site-name", value: "Globex", scope: "tenant" },
+    });
+  });
+
+  describe("server validation errors from the batch", () => {
+    const twoTextScreen: ConfigEditScreenDefinition = {
+      id: "two-text",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: { firstName: "demo:config:first", secondName: "demo:config:second" },
+      fields: {
+        firstName: { type: "text" },
+        secondName: { type: "text" },
+        // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+      } as ConfigEditScreenDefinition["fields"],
+      layout: { sections: [{ title: "Basics", fields: ["firstName", "secondName"] }] },
+    };
+    const twoTextSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: {},
+      screens: [twoTextScreen],
+    };
+
+    async function submitBothChanged(batchResult: BatchResult) {
+      const dispatcher: Dispatcher = createMockDispatcher({
+        query: (async () => ({
+          isSuccess: true,
+          data: {
+            "demo:config:first": { value: "a", scope: "tenant" },
+            "demo:config:second": { value: "b", scope: "tenant" },
+          },
+        })) as unknown as Dispatcher["query"],
+        batch: (async () => batchResult) as unknown as Dispatcher["batch"],
+      });
+      const user = userEvent.setup();
+      render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={twoTextSchema} qn="demo:screen:two-text" />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => screen.getByTestId("render-edit-form"));
+      for (const fieldName of ["firstName", "secondName"]) {
+        const input = screen.getByTestId(`field-${fieldName}`).querySelector("input");
+        if (!input) throw new Error(`expected ${fieldName} input`);
+        await user.clear(input);
+        await user.type(input, "changed");
+      }
+      await user.click(screen.getByTestId("render-edit-submit"));
+    }
+
+    test("pattern error from the failed command shows at its field, not in the banner", async () => {
+      await submitBothChanged({
+        isSuccess: false,
+        failedIndex: 1,
+        results: [],
+        error: {
+          code: "validation_error",
+          httpStatus: 400,
+          i18nKey: "errors.validation.failed",
+          message: "Invalid input.",
+          details: {
+            fields: [
+              {
+                path: "value",
+                code: "invalid_format",
+                i18nKey: "errors.validation.invalid_format",
+                params: { pattern: "^[a-z]+$" },
+              },
+            ],
+          },
+        },
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId("field-secondName").textContent).toContain("Invalid format."),
+      );
+      expect(screen.getByTestId("field-firstName").textContent).not.toContain("Invalid format.");
+      expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+    });
+
+    test("network failure (failedIndex -1, no details) still shows the banner", async () => {
+      await submitBothChanged({
+        isSuccess: false,
+        failedIndex: -1,
+        results: [],
+        error: {
+          code: "network_error",
+          httpStatus: 0,
+          i18nKey: "errors.network",
+          message: "Failed to fetch",
+        },
+      });
+
+      await waitFor(() => expect(screen.getByTestId("render-edit-form-error")).toBeTruthy());
+      expect(screen.getByTestId("field-secondName").textContent).not.toContain("Invalid format.");
     });
   });
 

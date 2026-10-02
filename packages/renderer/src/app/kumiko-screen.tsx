@@ -31,6 +31,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
+  DispatcherError,
   FormSnapshot,
   FormValues,
   ListRowViewModel,
@@ -4052,6 +4053,36 @@ function hasStoredValue(stored: unknown): boolean {
   return stored !== undefined && stored !== null && stored !== "";
 }
 
+const CONFIG_WRITE_ISSUE_PATH = "value";
+
+// write-helpers report every issue at `value`; in a batch that path is
+// meaningless to the form, so point it at the field whose command failed.
+function mapFailedConfigCommandIssuesToField(
+  error: DispatcherError,
+  failedIndex: number,
+  commandFieldNames: readonly string[],
+): DispatcherError {
+  const fieldName = commandFieldNames[failedIndex];
+  const fields = error.details?.fields;
+  if (fieldName === undefined || fields === undefined) return error;
+  return {
+    ...error,
+    details: {
+      ...error.details,
+      fields: fields.map((issue) => {
+        if (issue.path === CONFIG_WRITE_ISSUE_PATH) return { ...issue, path: fieldName };
+        if (issue.path.startsWith(`${CONFIG_WRITE_ISSUE_PATH}.`)) {
+          return {
+            ...issue,
+            path: `${fieldName}${issue.path.slice(CONFIG_WRITE_ISSUE_PATH.length)}`,
+          };
+        }
+        return issue;
+      }),
+    },
+  };
+}
+
 function ConfigEditBody({
   schema,
   screen,
@@ -4151,6 +4182,7 @@ function ConfigEditBody({
   const customSubmit = useCallback(
     async (snapshot: FormSnapshot<FormValues>): Promise<SubmitResult<unknown>> => {
       const commands: Command[] = [];
+      const commandFieldNames: string[] = [];
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         const qualified = screen.configKeys[shortName];
         if (qualified === undefined) continue;
@@ -4161,11 +4193,13 @@ function ConfigEditBody({
         if (isWriteOnlyTextField(screen.fields[shortName])) {
           // true (untouched/undone) and "" mean keep the stored secret; null removes it.
           if (value === null) {
+            commandFieldNames.push(shortName);
             commands.push({
               type: "config:write:reset",
               payload: { key: qualified, scope: screen.scope },
             });
           } else if (typeof value === "string" && value !== "") {
+            commandFieldNames.push(shortName);
             commands.push({
               type: "config:write:set",
               payload: { key: qualified, value, scope: screen.scope },
@@ -4179,12 +4213,14 @@ function ConfigEditBody({
         // value. set can't do it: deleting the row is irreversible, reset is
         // the high-risk handler.
         if (ftype === "select" && fieldDef?.optionsQuery !== undefined && value === "") {
+          commandFieldNames.push(shortName);
           commands.push({
             type: "config:write:reset",
             payload: { key: qualified, scope: screen.scope },
           });
           continue;
         }
+        commandFieldNames.push(shortName);
         commands.push({
           type: "config:write:set",
           payload: {
@@ -4199,7 +4235,15 @@ function ConfigEditBody({
       }
       const result = await dispatcher.batch(commands);
       if (!result.isSuccess) {
-        return { validationBlocked: false, isSuccess: false, error: result.error };
+        return {
+          validationBlocked: false,
+          isSuccess: false,
+          error: mapFailedConfigCommandIssuesToField(
+            result.error,
+            result.failedIndex,
+            commandFieldNames,
+          ),
+        };
       }
       // Cascade-Disclosure + Maskenwerte nach dem Write nachziehen, sonst
       // bleibt die Anzeige stale bis Reload — gleiche refetch-Calls wie onReset.
