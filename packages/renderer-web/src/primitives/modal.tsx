@@ -7,6 +7,7 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";
+import { BareFormProvider } from "./index.js";
 import { ModalShell } from "./modal-shell.js";
 
 export function DefaultModal({
@@ -26,14 +27,20 @@ export function DefaultModal({
       noAriaDescription
       contentClassName={cn("grid w-full max-w-lg gap-4 border bg-card p-6 shadow-lg rounded-lg")}
     >
-      <DialogPrimitive.Title className="sr-only">{title}</DialogPrimitive.Title>
+      <DialogPrimitive.Title className="text-lg font-semibold leading-none tracking-tight">
+        {title}
+      </DialogPrimitive.Title>
       {/* React re-parents portal content into the enclosing React tree for
           event bubbling (it only escapes the DOM tree, not the fiber tree) —
           without stopping it here, submitting a form hosted in this modal
           would also bubble into an ancestor <form>'s onSubmit if the modal
           was opened from inside one (e.g. a reference field's create dialog
           nested in the host entity's own form, kumiko-framework#1681). */}
-      <div onSubmit={(e) => e.stopPropagation()}>{children}</div>
+      {/* The modal is the frame: a hosted form renders bare (no card, no
+          second padding) under the modal's own title. */}
+      <div onSubmit={(e) => e.stopPropagation()}>
+        <BareFormProvider>{children}</BareFormProvider>
+      </div>
     </ModalShell>
   );
 }
