@@ -35,11 +35,11 @@ function changedFiles(
   repoRoot: string,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
-  const baseSha = env["GITHUB_BASE_SHA"];
+  const baseSha = env["GITHUB_BASE_SHA"]?.trim();
   if (baseSha && !SHA_RE.test(baseSha)) {
     throw new Error("GITHUB_BASE_SHA is not a valid commit SHA");
   }
-  let base = baseSha ?? "origin/main";
+  let base = baseSha || "origin/main";
   const rawPushBefore = env["GITHUB_EVENT_NAME"] === "push" ? env["GITHUB_EVENT_BEFORE"]?.trim() : undefined;
   const pushBefore = rawPushBefore && SHA_RE.test(rawPushBefore) ? rawPushBefore : undefined;
   if (!baseSha && pushBefore && !ZERO_SHA_RE.test(pushBefore)) {

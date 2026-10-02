@@ -46,15 +46,21 @@ function referenceTargets(entity: EntityDefinition): readonly string[] {
 }
 
 // A `multiple` reference stores a jsonb array of ids, which the handover's
-// `= ANY($ids)` column match cannot address. Declaring one on a transferable
-// entity would mean its rows never move with their host.
-function validateNoMultipleReferenceEdge(entry: EntityEntry, featureName: string): void {
+// `= ANY($ids)` column match cannot address. Declaring one towards a transferable
+// entity would mean its rows never move with their host. A target outside the
+// graph (e.g. a plain lookup) is never a host, so it cannot strand anything.
+function validateNoMultipleReferenceEdge(
+  entry: EntityEntry,
+  featureName: string,
+  transferable: ReadonlySet<string>,
+): void {
   // skip: the entity never travels, so the shape that would strand its rows
   // during a handover cannot arise — rejecting it would break consumers that
   // legitimately declare a multiple reference on a non-transferable entity.
   if (entry.entity.transferable !== true) return;
   for (const [fieldName, field] of Object.entries(entry.entity.fields)) {
     if (field.type !== "reference" || field.multiple !== true) continue;
+    if (!transferable.has(parseRefTargetEntityName(field.entity))) continue;
     throw new Error(
       `[Kumiko TransferGraph] entity "${entry.name}" declares transferable: true and a ` +
         `multiple reference field "${fieldName}" -> "${field.entity}" (feature: "${featureName}"). ` +
@@ -97,15 +103,15 @@ export function validateTransferGraph(
   feature: FeatureDefinition,
   featureMap: ReadonlyMap<string, FeatureDefinition>,
 ): void {
-  for (const [name, entity] of Object.entries(feature.entities ?? {})) {
-    validateNoMultipleReferenceEdge({ name, entity }, feature.name);
-  }
-
   const transferable = new Set(
     allEntities(featureMap)
       .filter((e) => e.entity.transferable === true)
       .map((e) => e.name),
   );
+  for (const [name, entity] of Object.entries(feature.entities ?? {})) {
+    validateNoMultipleReferenceEdge({ name, entity }, feature.name, transferable);
+  }
+
   // Edges point child -> parent in the schema; the graph walks parent -> child,
   // so the lookup is inverted here.
   const childrenByParent = new Map<string, string[]>();

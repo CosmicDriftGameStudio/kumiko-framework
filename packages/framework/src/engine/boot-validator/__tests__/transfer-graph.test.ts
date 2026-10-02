@@ -71,6 +71,15 @@ describe("validateTransferGraph", () => {
     ).not.toThrow();
   });
 
+  test("leaves a multiple reference to a non-transferable lookup alone", () => {
+    expect(() =>
+      validate({
+        tag: entity({ transferable: false }),
+        campaign: entity({ references: { tagIds: { entity: "tag", multiple: true } } }),
+      }),
+    ).not.toThrow();
+  });
+
   // The boundary the mover actually draws: it runs MAX_TRANSFER_DEPTH rounds of
   // one hop each, so 5 edges (6 entities) still move as one graph and the
   // validator must not reject them. Off by one here and a supported schema
