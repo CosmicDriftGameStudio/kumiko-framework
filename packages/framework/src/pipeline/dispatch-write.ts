@@ -12,7 +12,12 @@ import {
   maskWriteOnlyFields,
 } from "../engine/field-access.js";
 import { defineTransitions, guardTransition } from "../engine/state-machine.js";
-import type { HandlerContext, SessionUser, WriteResult } from "../engine/types/index.js";
+import type {
+  EntityDefinition,
+  HandlerContext,
+  SessionUser,
+  WriteResult,
+} from "../engine/types/index.js";
 import { HookPhases } from "../engine/types/index.js";
 import { runValidation } from "../engine/validation.js";
 import {
@@ -164,7 +169,9 @@ async function runLifecycle(
         user,
         origin,
         undefined,
-        afterCommitHooks,
+        undefined,
+        undefined,
+        true,
       );
       await lifecycle.runPostSave(type, result, afterCommitContext, HookPhases.afterCommit);
     });
@@ -178,7 +185,9 @@ async function runLifecycle(
         user,
         origin,
         undefined,
-        afterCommitHooks,
+        undefined,
+        undefined,
+        true,
       );
       await lifecycle.runPostDelete(type, result, afterCommitContext, HookPhases.afterCommit);
     });
@@ -190,8 +199,7 @@ async function runLifecycle(
 //
 // Contract:
 //   - `tx` is the active Drizzle transaction handle, or undefined for "no
-//     surrounding transaction" — either no Postgres is configured, or the
-//     transaction already committed (afterCommit phase).
+//     surrounding transaction" — no Postgres is configured.
 //   - `afterCommitHooks` collects deferred side-effects that must only fire
 //     after the transaction commits. The caller flushes them on commit, drops
 //     them on rollback. executeWrite never fires them directly.
@@ -237,6 +245,30 @@ async function isParentRowHiddenFromCaller(
   const visibleRow = await callerDb.fetchOne(table, { id: parentId });
   if (visibleRow === undefined) return true;
   return hasTenantColumn(table) && visibleRow["tenantId"] !== user.tenantId;
+}
+
+// A custom create handler may return a partial row. The ownership check only
+// inspects the keys it is given, so a row missing the ownership-bound field
+// would be denied (rule evaluated against undefined) or skipped entirely.
+// Complete it from the stored row, read through the caller's tenant filter.
+async function completeParentRow(
+  ctx: DispatchContext,
+  parentEntityName: string,
+  parentEntity: EntityDefinition,
+  parentRow: Record<string, unknown>,
+  user: SessionUser,
+  tx: DbTx | undefined,
+): Promise<Record<string, unknown>> {
+  if (Object.keys(parentEntity.fields).every((fieldName) => fieldName in parentRow)) {
+    return parentRow;
+  }
+  const table = getTable(ctx, parentEntityName);
+  const source = resolveDbSource(ctx, tx);
+  if (!table || !source || typeof parentRow["id"] !== "string") return parentRow;
+  const stored = await createTenantDb(source, user.tenantId, "tenant").fetchOne(table, {
+    id: parentRow["id"],
+  });
+  return stored ? { ...stored, ...parentRow } : parentRow;
 }
 
 // Nested-write orchestration (v1: depth=1, create-only, hasMany-only).
@@ -350,7 +382,15 @@ export async function executeNestedWrite(
   if (parentEntityName) {
     const parentEntity = registry.getEntity(parentEntityName);
     if (parentEntity) {
-      const deniedField = checkWriteFieldOwnership(parentEntity, parentRow, user);
+      const ownershipRow = await completeParentRow(
+        ctx,
+        parentEntityName,
+        parentEntity,
+        parentRow,
+        user,
+        tx,
+      );
+      const deniedField = checkWriteFieldOwnership(parentEntity, ownershipRow, user);
       if (deniedField) {
         return writeFailure(
           new AccessDeniedError({

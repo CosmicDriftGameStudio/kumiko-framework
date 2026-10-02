@@ -21,6 +21,23 @@ describe("TenantTimezoneCache", () => {
     expect(cache.get(tenantB)).toEqual({ value: undefined });
   });
 
+  test("setIfFresh() drops a value read before a concurrent invalidate()/clear()", () => {
+    const cache = createTenantTimezoneCache();
+
+    const readBeforeInvalidate = cache.generation();
+    cache.invalidate(tenantA);
+    cache.setIfFresh(tenantA, "Pre/Write", readBeforeInvalidate);
+    expect(cache.get(tenantA)).toBeUndefined();
+
+    const readBeforeClear = cache.generation();
+    cache.clear();
+    cache.setIfFresh(tenantA, "Pre/Write", readBeforeClear);
+    expect(cache.get(tenantA)).toBeUndefined();
+
+    cache.setIfFresh(tenantA, "Asia/Tokyo", cache.generation());
+    expect(cache.get(tenantA)).toEqual({ value: "Asia/Tokyo" });
+  });
+
   test("invalidate() drops only the given tenant", () => {
     const cache = createTenantTimezoneCache();
     cache.set(tenantA, "Asia/Tokyo");

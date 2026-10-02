@@ -3,6 +3,7 @@ import type { DbConnection, DbTx } from "../db/connection.js";
 import {
   advanceConsumerPastEventReturning,
   removePendingGapReturning,
+  selectConsumerForUpdate,
   selectSnapshotXmax,
   updateConsumerStatusReturning,
 } from "../db/queries/event-consumer.js";
@@ -86,6 +87,21 @@ async function requireConsumerRow(
   return row;
 }
 
+async function requireConsumerRowForUpdate(
+  tx: DbTx,
+  name: string,
+  instanceId: string,
+): Promise<ConsumerStateRowShape> {
+  const raw = await selectConsumerForUpdate(tx, name, instanceId);
+  if (!raw) {
+    throw new Error(
+      `Consumer "${name}" (instance_id="${instanceId}") has no state row — it hasn't run yet, the name is misspelled, or the instance is misspelled. ` +
+        `For per-instance consumers pass the instance_id explicitly; shared consumers use the default.`,
+    );
+  }
+  return coerceRow(raw, extractTableInfo(eventConsumerStateTable)) as ConsumerStateRow;
+}
+
 async function applyConsumerStatusTransition(
   db: DbConnection,
   name: string,
@@ -152,8 +168,10 @@ export async function skipPoisonEvent(
   name: string,
   instanceId: string = SHARED_INSTANCE_SENTINEL,
 ): Promise<ConsumerRecoveryState & { readonly skippedEventId: bigint | null }> {
-  const before = await requireConsumerRow(db, name, instanceId);
   return db.begin(async (tx: DbTx) => {
+    // Locked read: a dispatcher turn committing new gaps between an unlocked
+    // read and the pending_gaps overwrite below would have them dropped.
+    const before = await requireConsumerRowForUpdate(tx, name, instanceId);
     const pendingGaps = before.pendingGaps;
     const failedEventId = before.lastFailedEventId;
     const failedIsPending =

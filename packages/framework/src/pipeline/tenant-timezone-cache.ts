@@ -31,6 +31,11 @@ export type TenantTimezoneCache = {
   // Returns undefined on a cache miss (never looked up, or expired).
   get(tenantId: TenantId): TenantTimezoneCacheEntry | undefined;
   set(tenantId: TenantId, value: string | undefined): void;
+  // Bumped by every invalidate()/clear(). A reader samples it before its
+  // (async) lookup and stores via setIfFresh, so a value read before a
+  // concurrent write's invalidation is not written back over it.
+  generation(): number;
+  setIfFresh(tenantId: TenantId, value: string | undefined, generationAtRead: number): void;
   invalidate(tenantId: TenantId): void;
   // Drops every tenant's entry — used when a system-scope write changes
   // the key, since the system row is the fallback default for every
@@ -48,6 +53,7 @@ export function createTenantTimezoneCache(
   const now = opts.now ?? (() => Date.now());
   // Map insertion order doubles as LRU order: touch = delete+re-insert.
   const entries = new Map<TenantId, { value: string | undefined; expiresAt: number }>();
+  let generation = 0;
 
   function evictOldestIfFull(): void {
     // skip: cache has room, nothing to evict
@@ -56,6 +62,12 @@ export function createTenantTimezoneCache(
     // skip: defensive — only reachable if maxEntries is 0 (cache disabled) and entries is empty
     if (oldestKey === undefined) return;
     entries.delete(oldestKey);
+  }
+
+  function set(tenantId: TenantId, value: string | undefined): void {
+    entries.delete(tenantId);
+    evictOldestIfFull();
+    entries.set(tenantId, { value, expiresAt: now() + ttlMs });
   }
 
   return {
@@ -71,17 +83,25 @@ export function createTenantTimezoneCache(
       return { value: hit.value };
     },
 
-    set(tenantId, value) {
-      entries.delete(tenantId);
-      evictOldestIfFull();
-      entries.set(tenantId, { value, expiresAt: now() + ttlMs });
+    set,
+
+    generation() {
+      return generation;
+    },
+
+    setIfFresh(tenantId, value, generationAtRead) {
+      // skip: an invalidation ran since the read started, the value may be pre-write
+      if (generationAtRead !== generation) return;
+      set(tenantId, value);
     },
 
     invalidate(tenantId) {
+      generation++;
       entries.delete(tenantId);
     },
 
     clear() {
+      generation++;
       entries.clear();
     },
 
