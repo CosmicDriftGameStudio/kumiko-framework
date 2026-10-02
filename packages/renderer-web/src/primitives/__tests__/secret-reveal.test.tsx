@@ -2,7 +2,7 @@
 // enrollment URI) instead of the default monospaced text display.
 import { describe, expect, spyOn, test } from "bun:test";
 import { render, screen, waitFor } from "@testing-library/react";
-import QRCode from "qrcode";
+import QRCode from "qrcode/lib/browser.js";
 import { defaultPrimitives } from "../index.js";
 
 const { SecretReveal } = defaultPrimitives;
@@ -71,6 +71,30 @@ describe("DefaultSecretReveal (fw#2548 / fw#2838)", () => {
       const reveal = screen.getByTestId("reveal");
       await waitFor(() => expect(reveal.textContent).toContain("plain-fallback"));
       expect(reveal.querySelector("svg")).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test("two values sharing a label render separately without a duplicate-key warning", () => {
+    const spy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(
+        <SecretReveal
+          values={[
+            { label: "Code", value: "first-value", copyable: false, multiline: false },
+            { label: "Code", value: "second-value", copyable: false, multiline: false },
+          ]}
+          copyLabel="Copy"
+          copiedLabel="Copied"
+          testId="reveal"
+        />,
+      );
+      const text = screen.getByTestId("reveal").textContent;
+      expect(text).toContain("first-value");
+      expect(text).toContain("second-value");
+      const keyWarnings = spy.mock.calls.filter((call) => String(call[0]).includes("same key"));
+      expect(keyWarnings).toHaveLength(0);
     } finally {
       spy.mockRestore();
     }

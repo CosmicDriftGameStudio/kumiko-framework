@@ -174,7 +174,7 @@ describe("DataTable — cards below 768px", () => {
       // happy-dom has no layout; the clipping contract is the class set: the row is
       // shifted left by exactly the separator width inside an overflow-hidden box.
       expect(metaRow.className).toContain("flex-wrap");
-      expect(metaRow.className).toContain("-ml-3");
+      expect(metaRow.className).toContain("-ms-3");
       expect(clipBox?.className).toContain("overflow-hidden");
       expect(clipBox?.className).toContain("max-h-10");
       const wrapper = to.parentElement;

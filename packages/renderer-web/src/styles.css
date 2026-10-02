@@ -278,6 +278,7 @@
 
 :root {
   --kumiko-grid-row-h: 2.5rem;
+  --kumiko-grid-gap: 1rem;
   /* 0 = no ShellHeader mounted (e.g. a Drawer used outside a shell) — a
      consumer offsetting by this variable then gets today's edge-to-edge
      behavior for free. */

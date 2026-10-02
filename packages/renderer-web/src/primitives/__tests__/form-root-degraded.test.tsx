@@ -77,4 +77,12 @@ describe("degraded nested Form submit routing", () => {
     fireEvent.click(screen.getByTestId("inner-submit"));
     expect(counts.inner).toBe(1);
   });
+
+  test("an <input type=submit> inside the nested form submits it, not the outer form", () => {
+    const counts = { outer: 0, inner: 0 };
+    renderNested(counts, <input type="submit" value="Go" data-testid="legacy-submit" />);
+    fireEvent.click(screen.getByTestId("legacy-submit"));
+    expect(counts.inner).toBe(1);
+    expect(counts.outer).toBe(0);
+  });
 });
