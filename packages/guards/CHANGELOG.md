@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.336.0
+
+### Patch Changes
+
+- f0b4aa1: Guards are stricter and more consistent: `guards --guard=<name>` without `--write-baseline` is rejected instead of silently running every guard, the raw-form-HTML check also catches tags after `=`, `[` or in spaceless ternaries, the German locale check flags lowercase "organisation", `test-timeouts` flags `setDefaultTimeout` and `describe.configure({ timeout })`, the no-framed-extension-sections guard correlates registry keys and usages by resolved value, and the fake-tests helper lookup is scope-aware. UI guards report repo-relative file paths. The pre-push worktree detection compares absolute git dirs.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Guards reject --guard without --write-baseline and catch more raw-form-HTML, locale and timeout cases
+  -->
+
+- f124575: `secret-literal` now inspects every `?? "literal"` fallback on a line instead of only the first, so a hardcoded secret behind a trivial first fallback is flagged. The `as-casts` audit prints its per-site listings only when run standalone; inside the shared runner it prints just the counts and the baseline verdict.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: secret-literal checks all fallbacks on a line; as-casts audit is quiet inside the shared runner
+  migration: |
+    A repo with a hardcoded secret fallback hidden behind an earlier trivial fallback on the same line can now fail the secret-literal guard. Replace the literal with a hard failure on a missing env value.
+  -->
+
+- 7d5428e: New framework hook `useReportStepComplete(reportStepComplete, complete)` in `@cosmicdrift/kumiko-renderer`. Extension wizard steps report whether they hold their data without a raw `useEffect`, which the no-raw-hooks guard rejects in app screens. With `complete === null` (data still loading) it reports nothing; otherwise it reports on every change. The no-raw-hooks guard hint names the hook.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: useReportStepComplete reports an extension wizard step's completeness without a raw useEffect
+  detail: |
+    `useReportStepComplete(props.reportStepComplete, complete)` with `complete: boolean | null`. `null` reports nothing (data loading), a boolean is reported whenever it changes. Outside update-mode wizards `reportStepComplete` is undefined and the hook does nothing.
+  migration: |
+    Extension steps that call `reportStepComplete` from a `useEffect` should switch to `useReportStepComplete(reportStepComplete, complete)`; app repos need this to pass the no-raw-hooks guard.
+  -->
+
+  - @cosmicdrift/kumiko-repo-manifest@0.336.0
+
 ## 0.335.0
 
 ### Patch Changes

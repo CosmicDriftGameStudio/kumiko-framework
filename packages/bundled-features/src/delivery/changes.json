@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "Delivery log paging no longer skips rows tied on the sort value",
+    "detail": "The delivery log query no longer skips rows at a page boundary when the sort column has duplicate values. A toggle flip received while the initial snapshot loads is no longer overwritten by the older DB read. The stale job-run sweep encrypts and updates once per triggering user instead of once per run."
+  },
+  {
     "version": "0.335.0",
     "type": "breaking",
     "title": "Channel plugin guard validates mode and render",

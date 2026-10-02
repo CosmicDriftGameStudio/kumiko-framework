@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "markCapSoftWarned skips the redundant write when the soft-warned flag is already set",
+    "detail": "`markCapSoftWarned` no longer appends a second update event when a parallel warner already set `lastSoftWarnedAt`; the version-conflict retry now returns success without writing."
+  },
+  {
     "version": "0.335.0",
     "type": "breaking",
     "title": "Cap helpers validate periodStartIso and amount, surface failed soft-warn writes; German column labels",

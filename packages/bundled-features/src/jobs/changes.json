@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "Stale job-run sweep batches its writes per triggering user"
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Tenant failure subject filter shares one serializer with the job runner",

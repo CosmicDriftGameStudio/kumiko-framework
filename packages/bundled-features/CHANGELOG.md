@@ -1,5 +1,81 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.336.0
+
+### Patch Changes
+
+- e19453a: Boot now rejects three misconfigurations that previously failed silently: a dashboard screen-panel `visibleWhen.field` that is missing from the query's declared `outputSchema`, a job that combines `bootGate` with `runOnBoot` (it ran twice under one job id), and a money field whose `currency` source has an unknown `kind`. `auth-mfa:query:user-mfa:status` now declares its `outputSchema`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot rejects unknown visibleWhen fields, bootGate with runOnBoot, and unknown money currency kinds
+  -->
+
+- d850929: The delivery log query no longer skips rows at a page boundary when the sort column has duplicate values. A toggle flip received while the initial snapshot loads is no longer overwritten by the older DB read. The stale job-run sweep encrypts and updates once per triggering user instead of once per run.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: fix
+  title: Delivery log paging no longer skips rows tied on the sort value
+  -->
+
+  <!-- kumiko-changes
+  feature: feature-toggles
+  type: fix
+  title: A toggle flip signalled during the initial load survives the snapshot read
+  -->
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: Stale job-run sweep batches its writes per triggering user
+  -->
+
+- c2e04a4: Session logout, password-change/MFA mass revoke, revoke-all-others and PAT revoke now commit the revoke and its revoked-event in one transaction, so a failed append no longer leaves a revoked token whose SSE streams stay open. GDPR delete hooks now try every row of the subject and report all failures at once instead of stopping at the first. The notes mention-forget hook loads the mentioned notes with one query and resolves each host entity's retention policy once.
+
+  <!-- kumiko-changes
+  feature: sessions
+  type: fix
+  title: Session revoke (single, mass, all-others) and its revoked-event commit atomically
+  -->
+
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: fix
+  title: PAT revoke and its revoked-event commit atomically when called on a pool
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights-defaults
+  type: fix
+  title: Delete hooks erase every row and report all failures together
+  -->
+
+- 63f7b52: `markCapSoftWarned` no longer appends a second update event when a parallel warner already set `lastSoftWarnedAt`; the version-conflict retry now returns success without writing.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: fix
+  title: markCapSoftWarned skips the redundant write when the soft-warned flag is already set
+  -->
+
+- Updated dependencies [e91de78]
+- Updated dependencies [e19453a]
+- Updated dependencies [83378b1]
+- Updated dependencies [c95f017]
+- Updated dependencies [58154f0]
+- Updated dependencies [b83c348]
+- Updated dependencies [4618e1d]
+- Updated dependencies [47e769d]
+- Updated dependencies [7d5428e]
+  - @cosmicdrift/kumiko-framework@0.336.0
+  - @cosmicdrift/kumiko-renderer@0.336.0
+  - @cosmicdrift/kumiko-renderer-web@0.336.0
+  - @cosmicdrift/kumiko-types@0.336.0
+  - @cosmicdrift/kumiko-headless@0.336.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.336.0
+
 ## 0.335.0
 
 ### Patch Changes

@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "Delete hooks erase every row and report all failures together"
+  },
+  {
     "version": "0.116.0",
     "type": "fix",
     "title": "user-data-rights-defaults now registers EXT_USER_DATA export/delete hooks for six more bu…",

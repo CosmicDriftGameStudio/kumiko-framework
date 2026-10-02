@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "Guards reject --guard without --write-baseline and catch more raw-form-HTML, locale and timeout cases",
+    "detail": "Guards are stricter and more consistent: `guards --guard=<name>` without `--write-baseline` is rejected instead of silently running every guard, the raw-form-HTML check also catches tags after `=`, `[` or in spaceless ternaries, the German locale check flags lowercase \"organisation\", `test-timeouts` flags `setDefaultTimeout` and `describe.configure({ timeout })`, the no-framed-extension-sections guard correlates registry keys and usages by resolved value, and the fake-tests helper lookup is scope-aware. UI guards report repo-relative file paths. The pre-push worktree detection compares absolute git dirs."
+  },
+  {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "secret-literal checks all fallbacks on a line; as-casts audit is quiet inside the shared runner",
+    "detail": "`secret-literal` now inspects every `?? \"literal\"` fallback on a line instead of only the first, so a hardcoded secret behind a trivial first fallback is flagged. The `as-casts` audit prints its per-site listings only when run standalone; inside the shared runner it prints just the counts and the baseline verdict.",
+    "migration": "A repo with a hardcoded secret fallback hidden behind an earlier trivial fallback on the same line can now fail the secret-literal guard. Replace the literal with a hard failure on a missing env value."
+  },
+  {
     "version": "0.335.0",
     "type": "improvement",
     "title": "Stricter guard detection for raw-sql, test-template-drift, framed extension sections, runtime-isolation and test-stack-drift",

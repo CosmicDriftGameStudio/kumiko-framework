@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.336.0",
+    "type": "improvement",
+    "title": "Query handlers can declare liveEntities",
+    "detail": "`QueryHandlerDefinition` and the inline `queryHandler` options accept `liveEntities`, the entities whose changes the query reflects. Anonymous callers with access to the query receive /api/sse change signals for them.",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.335.0",
     "type": "improvement",
     "title": "RowActionWriteHandler gets an optional redirect for record actions",

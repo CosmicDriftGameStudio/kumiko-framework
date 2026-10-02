@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.336.0",
+    "type": "fix",
+    "title": "A toggle flip signalled during the initial load survives the snapshot read"
+  },
+  {
     "version": "0.165.0",
     "type": "fix",
     "title": "compose-tier-resolver: fixed requires-cascade",

@@ -10,6 +10,24 @@ verified: 2026-10-02
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.336.0
+
+### enterprise:renderer
+
+**LiveEvent data has no payload, it carries eventType**
+
+`LiveEvent.data` is now `{ id, aggregateType, eventType, version, createdAt }`. The server sends signals only, so consumers refetch through a query.
+
+**Migration:** Replace reads of `event.data.payload` with a query refetch. `useQuery({ live: true })` already does this and needs no change.
+
+### framework-core
+
+**/api/sse sends change signals without field values; anonymous connections only for declared entities**
+
+The SSE broadcast consumer no longer puts the event payload (changes, previous) on the tenant channel, because that channel fans out to every tenant member and to anonymous connections. Entity frames carry `{ id, aggregateType, eventType, version, createdAt }`. Anonymous connections get entity signals only for entities named by an anonymously callable query via the new `liveEntities` option; the query name alone grants nothing, because a signal carries the id of every row, including rows the query filters out. Frames without an entity are delivered only when `data.userId` matches the connected user. Boot fails when `liveEntities` names an unregistered entity.
+
+**Migration:** Code that reads `data.payload` from SSE frames must load the data with a query after the signal instead. Public pages that update anonymously add `liveEntities: ["<entity>"]` to the anonymous query they refetch (for example a `page:current` query), otherwise the live update stays off for anonymous visitors. `createSseRoute(broker)` now needs a second argument, `{ anonymousLiveEntities: collectAnonymousLiveEntities(registry) }`.
+
 ## 0.335.0
 
 ### agent-tools
