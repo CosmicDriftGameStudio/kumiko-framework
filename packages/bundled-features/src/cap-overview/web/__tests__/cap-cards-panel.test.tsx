@@ -261,6 +261,7 @@ describe("CapCardsPanel", () => {
     expect(screen.queryByText("null%")).toBeNull();
     expect(screen.queryByText("0%")).toBeNull();
     expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
+    expect(screen.getByTestId("cap-card").querySelector(".mt-3")).toBeNull();
   });
 
   test("a limited card and an unlimited card in the same panel each render their own state", () => {

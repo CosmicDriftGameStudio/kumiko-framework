@@ -1,12 +1,13 @@
-type LocalizedString = { readonly en: string };
+type LocalizedString = { readonly de: string; readonly en: string };
 
 export const CAP_COUNTER_I18N: Readonly<Record<string, LocalizedString>> = {
-  "screen:cap-list.title": { en: "Usage caps" },
-  "cap-counter:entity:cap-counter:field:tenantId": { en: "Tenant" },
-  "cap-counter:entity:cap-counter:field:capName": { en: "Cap" },
-  "cap-counter:entity:cap-counter:field:value": { en: "Value" },
-  "cap-counter:entity:cap-counter:field:periodStart": { en: "Period start" },
+  "screen:cap-list.title": { de: "Nutzungslimits", en: "Usage caps" },
+  "cap-counter:entity:cap-counter:field:tenantId": { de: "Mandant", en: "Tenant" },
+  "cap-counter:entity:cap-counter:field:capName": { de: "Limit", en: "Cap" },
+  "cap-counter:entity:cap-counter:field:value": { de: "Wert", en: "Value" },
+  "cap-counter:entity:cap-counter:field:periodStart": { de: "Periodenbeginn", en: "Period start" },
   "cap-counter:entity:cap-counter:field:lastSoftWarnedAt": {
+    de: "Letzte Soft-Warnung",
     en: "Last soft warning",
   },
 };

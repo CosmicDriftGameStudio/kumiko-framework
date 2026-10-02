@@ -66,11 +66,11 @@ export function resolveProviderPlugin(ctx: HandlerContext, providerName: string)
 
 /** Picks the catalog's provider — an explicit `catalog.providerName`, or the
  *  single registered provider exposing `priceToTier` when there is exactly
- *  one. Returns null when no provider is available (unset `providerName` not
- *  registered, or no registered plugin exposes `priceToTier`) — a config
- *  state `billing-plans` renders as `enabled: false` instead of erroring.
- *  More than one candidate is a config bug, not a "no provider yet" state,
- *  and still throws `UnconfiguredError`. */
+ *  one. Returns null when `providerName` is unset and no registered plugin
+ *  exposes `priceToTier` — a state `billing-plans` renders as
+ *  `enabled: false` instead of erroring. An explicit `providerName` that is
+ *  not registered, or more than one candidate, is a config bug and throws
+ *  `UnconfiguredError`. */
 export function findCatalogProvider(
   ctx: HandlerContext,
   catalog: BillingPlanCatalog,
@@ -78,9 +78,11 @@ export function findCatalogProvider(
   if (catalog.providerName) {
     const found = findProviderPlugin(ctx, catalog.providerName);
     if (!found) {
-      ctx.log?.warn(
-        `billing-foundation: catalog.providerName "${catalog.providerName}" is not a registered subscriptionProvider — billing-plans renders as disabled`,
-      );
+      throw new UnconfiguredError({
+        feature: "billing-foundation",
+        key: "catalog.providerName",
+        hint: `provider "${catalog.providerName}" not registered`,
+      });
     }
     return found;
   }

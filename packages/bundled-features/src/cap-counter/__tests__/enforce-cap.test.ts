@@ -121,6 +121,11 @@ describe("enforceCap — burstable profile (mails / tokens)", () => {
     await expect(enforceCap(ctx, { ...opts, amount: 11 })).rejects.toThrow(CapExceededError);
   });
 
+  test.each([0, -1, 1.5])("amount %p is rejected instead of bypassing the cap", async (amount) => {
+    const ctx = stubCalendarCtx([{ value: 1200, lastSoftWarnedAt: null }]);
+    await expect(enforceCap(ctx, { ...opts, amount })).rejects.toThrow(/positive integer/);
+  });
+
   test("CapExceededError carries cap-name + limit + currentValue", async () => {
     const ctx = stubCalendarCtx([{ value: 1500, lastSoftWarnedAt: null }]);
     try {

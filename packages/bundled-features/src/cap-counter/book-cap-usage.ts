@@ -16,9 +16,14 @@ import { capCounterEntity } from "./entity.js";
 
 const { table, executor } = createEntityExecutor("cap-counter", capCounterEntity);
 
-const capBookingSchema = z.object({
+// periodStartIso feeds the aggregate id and Temporal.Instant.from(); a non-instant string would
+// silently fork a counter row on update and throw a RangeError (500) on create.
+const capPeriodSchema = z.object({
   capName: z.string().min(1).max(100),
-  periodStartIso: z.string().min(1),
+  periodStartIso: z.iso.datetime({ offset: true }),
+});
+
+const capBookingSchema = capPeriodSchema.extend({
   amount: z.number().int().positive().default(1),
 });
 
@@ -125,17 +130,18 @@ export async function markCapSoftWarned(
   ctx: HandlerContext,
   options: MarkCapSoftWarnedOptions,
 ): Promise<WriteResult> {
+  const parsed = capPeriodSchema.parse(options);
   const aggregateId = capCounterAggregateId(
     ctx.user.tenantId,
-    options.capName,
-    options.periodStartIso,
+    parsed.capName,
+    parsed.periodStartIso,
   );
 
   return retryCounterWriteOnVersionConflict(async () => {
     const existing = await ctx.db.selectMany(table, { id: aggregateId }, { limit: 1 });
     if (existing.length === 0) {
       throw new Error(
-        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${ctx.user.tenantId} cap=${options.capName} period=${options.periodStartIso}`,
+        `cap-counter: cannot mark-soft-warned, no counter found for tenant=${ctx.user.tenantId} cap=${parsed.capName} period=${parsed.periodStartIso}`,
       );
     }
     const row = existing[0];

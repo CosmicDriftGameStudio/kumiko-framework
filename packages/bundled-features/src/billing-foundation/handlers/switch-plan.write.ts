@@ -12,9 +12,8 @@ import {
   isNonEmptyStringArray,
   joinBaseUrl,
   resolveCatalogProvider,
-  resolveProviderPlugin,
 } from "../checkout-core.js";
-import { isSwitchableSubscriptionStatus, isTerminalSubscriptionStatus } from "../constants.js";
+import { isSwitchableSubscriptionStatus } from "../constants.js";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
 import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.js";
 import type { BillingFoundationOptions, BillingPlanCatalog } from "../types.js";
@@ -46,11 +45,7 @@ export function createSwitchPlanHandler(
       await assertBillingEnabled(ctx, plugin, "switch-plan");
 
       const sub = await getSubscriptionForTenant(ctx, event.user.tenantId);
-      if (
-        !sub ||
-        isTerminalSubscriptionStatus(sub.status) ||
-        !isSwitchableSubscriptionStatus(sub.status)
-      ) {
+      if (!sub || !isSwitchableSubscriptionStatus(sub.status)) {
         throw new ConflictError({
           i18nKey: "billing-foundation.errors.noActiveSubscription",
           message:
@@ -72,14 +67,13 @@ export function createSwitchPlanHandler(
       }
       // providerSubscriptionId only exists at the subscription's own provider; after a
       // provider migration the catalog provider can differ, which is not a plan switch.
-      const { plugin: switchPlugin } = resolveProviderPlugin(ctx, sub.providerName);
       if (sub.providerName !== catalogProviderName) {
         throw new ConflictError({
           i18nKey: "billing-foundation.errors.providerMismatch",
           message: `tenant's active subscription is on provider "${sub.providerName}", the catalog resolves provider "${catalogProviderName}" — switch-plan cannot switch across providers`,
         });
       }
-      if (!switchPlugin.createPlanSwitchSession) {
+      if (!plugin.createPlanSwitchSession) {
         throw new UnprocessableError("plan_switch_not_supported", {
           i18nKey: "billing-foundation.errors.planSwitchNotSupported",
           message: `subscription-foundation: provider "${sub.providerName}" has no createPlanSwitchSession-method`,
@@ -102,7 +96,7 @@ export function createSwitchPlanHandler(
       const returnUrl = joinBaseUrl(baseUrl, catalog.returnPath ?? catalog.successPath);
       assertRedirectOrigins([returnUrl], options.baseUrl);
 
-      const result = await switchPlugin.createPlanSwitchSession(ctx, {
+      const result = await plugin.createPlanSwitchSession(ctx, {
         providerSubscriptionId: sub.providerSubscriptionId,
         targetPriceId: target.priceId,
         allowedPriceIds,
