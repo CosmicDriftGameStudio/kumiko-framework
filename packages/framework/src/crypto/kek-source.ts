@@ -69,13 +69,14 @@ async function decryptCiphertext(
         body: JSON.stringify({ ciphertext }),
         signal: AbortSignal.timeout(DECRYPT_TIMEOUT_MS),
       });
-    } catch {
+    } catch (error) {
       if (attempt < maxAttempts) {
         await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 0);
         continue;
       }
       throw new Error(
         `${prefix}Key Manager decrypt failed for key ${keyId}: network error or timeout`,
+        { cause: error },
       );
     }
 
@@ -105,75 +106,101 @@ async function decryptCiphertext(
   throw new Error(`${prefix}Key Manager decrypt failed for key ${keyId}: retries exhausted`);
 }
 
+type ResolvedSlot = {
+  readonly value: string | undefined;
+  readonly consumedCiphertext: boolean;
+  // Never carries a key value, only its origin.
+  readonly sourceLine: string | undefined;
+};
+
+// A leftover plaintext beside a ciphertext boots green while nothing was
+// migrated, which is indistinguishable from a finished cutover unless the
+// boot says which source won. The line is built from the path actually taken.
 async function resolveSlot(
   name: string,
   env: KekSourceEnv,
   options: KekSourceOptions,
   fetchImpl: typeof globalThis.fetch,
-): Promise<string | undefined> {
+): Promise<ResolvedSlot> {
   const plaintext = env[name];
-  if (plaintext) return plaintext;
   const ciphertext = env[`${name}_CIPHERTEXT`];
-  if (!ciphertext) return undefined;
+  if (plaintext) {
+    return {
+      value: plaintext,
+      consumedCiphertext: false,
+      sourceLine: ciphertext
+        ? `${name} source=plaintext-env (ciphertext present and ignored)`
+        : `${name} source=plaintext-env`,
+    };
+  }
+  if (!ciphertext) return { value: undefined, consumedCiphertext: false, sourceLine: undefined };
 
   const keyId = env.PLATFORM_KEK_KMS_KEY_ID;
   const token = env.PLATFORM_KEK_KMS_TOKEN;
   if (!keyId || !token) {
     const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
     throw new Error(
-      `${prefix}PLATFORM_KEK_KMS_KEY_ID / PLATFORM_KEK_KMS_TOKEN are all-or-none with a KEK ciphertext (slot ${name}) — a partial set means the KMS wiring is broken.`,
+      `${prefix}${name}_CIPHERTEXT is set but PLATFORM_KEK_KMS_KEY_ID / PLATFORM_KEK_KMS_TOKEN are missing — a partial set means the KMS wiring is broken.`,
     );
   }
   const region = env.PLATFORM_KEK_KMS_REGION ?? DEFAULT_REGION;
-  return decryptCiphertext(ciphertext, keyId, token, region, fetchImpl, options.logPrefix);
-}
-
-// A leftover plaintext beside a ciphertext boots green while nothing was
-// migrated, which is indistinguishable from a finished cutover unless the
-// boot says which source won. Never carries a key value, only its origin.
-function describeKekSource(name: string, env: KekSourceEnv): string | undefined {
-  const plaintext = env[name];
-  const ciphertext = env[`${name}_CIPHERTEXT`];
-  if (plaintext) {
-    return ciphertext
-      ? `${name} source=plaintext-env (ciphertext present and ignored)`
-      : `${name} source=plaintext-env`;
-  }
-  if (!ciphertext) return undefined;
-  const region = env.PLATFORM_KEK_KMS_REGION ?? DEFAULT_REGION;
-  return `${name} source=key-manager keyId=${env.PLATFORM_KEK_KMS_KEY_ID} region=${region}`;
+  const value = await decryptCiphertext(
+    ciphertext,
+    keyId,
+    token,
+    region,
+    fetchImpl,
+    options.logPrefix,
+  );
+  return {
+    value,
+    consumedCiphertext: true,
+    sourceLine: `${name} source=key-manager keyId=${keyId} region=${region}`,
+  };
 }
 
 // Each slot resolves independently so a rollback that clears one slot's
 // plaintext (leaving its ciphertext/_VERSION behind or gone) never blocks
 // another slot's fallback path — the trio check downstream still applies.
+// Slots resolve in parallel: sequentially, a slow Key Manager would cost up to
+// ~16 s per slot (3 x 5 s timeout + backoff) and could trip startup probes.
+// Consumed `*_CIPHERTEXT` keys are blanked in the returned env so a second pass
+// over it does not report the used ciphertext as "present and ignored".
 export async function resolvePlatformKeks(
   env: KekSourceEnv,
   options: KekSourceOptions = {},
 ): Promise<KekSourceEnv> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
+  const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
 
   const slots = options.slots ?? LEGACY_SLOTS;
-  const resolved: Record<string, string | undefined> = {};
-  for (const name of slots) {
-    resolved[name] = await resolveSlot(name, env, options, fetchImpl);
-  }
-
-  const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
-  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-  const log = options.log ?? console.info;
-  for (const name of slots) {
-    const line = describeKekSource(name, env);
-    if (line) log(`${prefix}${line}`);
-  }
-
-  if (resolved["PLATFORM_KEK_PREVIOUS"] && !env.PLATFORM_KEK_PREVIOUS_VERSION) {
+  // Misconfiguration must not cost a Key Manager round trip.
+  if (
+    slots.includes("PLATFORM_KEK_PREVIOUS") &&
+    (env.PLATFORM_KEK_PREVIOUS || env.PLATFORM_KEK_PREVIOUS_CIPHERTEXT) &&
+    !env.PLATFORM_KEK_PREVIOUS_VERSION
+  ) {
     throw new Error(
       `${prefix}PLATFORM_KEK_PREVIOUS_VERSION must be set when PLATFORM_KEK_PREVIOUS is set.`,
     );
   }
 
-  const changed = slots.some((name) => resolved[name] !== env[name]);
+  const results = await Promise.all(
+    slots.map((name) => resolveSlot(name, env, options, fetchImpl)),
+  );
+
+  // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
+  const log = options.log ?? console.info;
+  const resolved: Record<string, string | undefined> = {};
+  slots.forEach((name, index) => {
+    const result = results[index];
+    if (!result) return;
+    resolved[name] = result.value;
+    if (result.consumedCiphertext) resolved[`${name}_CIPHERTEXT`] = undefined;
+    if (result.sourceLine) log(`${prefix}${result.sourceLine}`);
+  });
+
+  const changed = Object.keys(resolved).some((name) => resolved[name] !== env[name]);
   if (!changed) return env;
 
   return { ...env, ...resolved };
