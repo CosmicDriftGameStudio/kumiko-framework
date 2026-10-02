@@ -54,8 +54,8 @@ type Runner = {
   readonly after?: () => void;
   /** Wipe `out` before spawning — only safe for a runMatrix() sample-preview
    *  dir dedicated to this one runner. NOT set on use-all-bundled (`out` IS
-   *  the shared features tree that marketing-demo/config.png also live
-   *  under) or on apex-landing/marketing-demo (no runMatrix, no per-scenario
+   *  the shared features tree that also holds apps/, the manifest and
+   *  index.html) or on apex-landing/marketing-demo (no runMatrix, no per-scenario
    *  dirs to go stale). */
   readonly cleanOut?: boolean;
 };

@@ -120,9 +120,10 @@ export type RunPendingRebuildsOptions = {
 };
 
 // buildProjectionTableIndex maps both single-stream and multi-stream projection
-// tables to their name, so the rebuild has to pick the matching path. Queue
-// drains are automatic rebuilds: a failed MSP replay rolls back, stays queued
-// and must not park the still-intact live consumer as dead.
+// tables to their name, so the rebuild has to pick the matching path. Callers
+// (queue drains, inline enqueue, the manual rebuild job) all rethrow the error,
+// so it is recorded there; a failed MSP replay rolls back and must not park
+// the still-intact live consumer as dead.
 export async function rebuildProjectionOrMultiStream(
   name: string,
   deps: {

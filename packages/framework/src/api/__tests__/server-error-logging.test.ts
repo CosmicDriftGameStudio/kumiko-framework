@@ -333,7 +333,7 @@ describe("HTTP layer logs unexpected 5xx faults", () => {
   });
 });
 
-describe("HTTP layer logs 4xx client faults on warn (#3077)", () => {
+describe("HTTP layer logs 4xx client faults on warn", () => {
   let previousLogLevel: string | undefined;
 
   beforeEach(() => {

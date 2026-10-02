@@ -59,7 +59,7 @@ export type ResolveNavigationOptions = {
   readonly source: NavRegistrySlice;
   // Current session user. Access-rule enforcement compares
   // rule.roles against user.roles. When user is undefined, ONLY
-  // entries with access.openToAll === true (or no access declared)
+  // entries with `access: { openToAll: { reason } }` (or no access declared)
   // survive — matches the "anonymous visit" semantic.
   readonly user?: {
     readonly id: string;

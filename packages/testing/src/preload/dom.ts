@@ -84,15 +84,15 @@ if (typeof globalThis.HTMLElement !== "undefined") {
 // test files in one process, so without afterEach, React components from
 // file N stay mounted in file N+1's DOM.
 //
-// FIVE leak sources:
+// FIVE leak sources (b is NOT cleaned here):
 //
 //   a) testing-library/react container: cleanup() unmounts and removes
 //      every container node render() created.
 //
-//   b) body.replaceChildren(): clears containers not created via
-//      testing-library/react (e.g. #root via ReactDOM.createRoot +
-//      renderShell). Must run after cleanup(), since React needs its nodes
-//      to unmount.
+//   b) Containers not created via testing-library/react (e.g. #root via
+//      ReactDOM.createRoot + renderShell) are not cleaned here: the test
+//      file must unmount them itself, since body.replaceChildren() would
+//      trigger React effects outside act().
 //
 //   c) Radix DismissableLayer sets body.style.pointerEvents='none' when
 //      opening a Dialog/Popover/Dropdown.

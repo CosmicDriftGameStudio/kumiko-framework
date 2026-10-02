@@ -1266,7 +1266,8 @@ export type EditRelatedListSection = {
   readonly itemNoun?: string;
   readonly pageSize?: number;
   /** Initial sort on mount, applied client-side over the already-loaded rows
-   *  (this section has no pager, so there is no "loaded subset" to mislead).
+   *  (this section has no pager; if the fetch is truncated, `nextCursor !== null`,
+   *  the section shows a hint banner that the sort covers only the loaded rows).
    *  `field` must name a column with `sortable: true` — boot-validator pins
    *  that, same as `entityList.defaultSort`. */
   readonly defaultSort?: ListSortSpec;

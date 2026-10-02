@@ -94,7 +94,7 @@ describe("secrets — roles option (#2296)", () => {
   });
 });
 
-describe("secrets — access: { openToAll: true } (#2296)", () => {
+describe("secrets — access: { openToAll: { reason } }", () => {
   let stack: TestStack;
 
   beforeAll(async () => {

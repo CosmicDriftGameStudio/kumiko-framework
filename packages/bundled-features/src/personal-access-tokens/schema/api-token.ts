@@ -48,27 +48,27 @@ export const apiTokenEntity = createEntity({
     // store ciphertext while the resolver keeps querying for the plaintext
     // hash — every bearer-token request would 401 once a KMS is active.
     // Fixing that needs a blind-index-backed lookup (like email's
-    // find:"exact" companion column), a resolver.ts rewrite out of scope
-    // here — see PR body "Offene Fragen".
+    // find:"exact" companion column), a resolver.ts rewrite, so this stays
+    // unencrypted until a blind-index lookup exists.
     tokenHash: createTextField({
       required: true,
       maxLength: 64,
       access: { write: access.privileged },
       personal: false,
-      reason: "credential_hash_used_as_exact_lookup_key_2809",
+      reason: "credential_hash_used_as_exact_lookup_key",
     }),
     // Short displayable prefix ("your tokens" list) — not the secret itself,
     // but still identifies which of the user's tokens this row is. Kept
     // Klasse 1: list.query.ts returns `r.prefix` straight through with no
     // decrypt call (unlike `name`, which goes through decryptStoredPii) — a
     // subject annotation would leak ciphertext to the UI once a KMS is
-    // active. See PR body "Offene Fragen".
+    // active.
     prefix: createTextField({
       required: true,
       maxLength: 16,
       access: { write: access.privileged },
       personal: false,
-      reason: "credential_prefix_read_without_decrypt_2809",
+      reason: "credential_prefix_read_without_decrypt",
     }),
     // JSON-encoded string[] of granted scope names — mirrors the roles-column
     // convention (parseRoles-style text); the resolver JSON.parses it.

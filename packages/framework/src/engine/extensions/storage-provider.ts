@@ -3,8 +3,8 @@
 // shared hook-signature contract. Kept as aliases so the existing public
 // exports/imports stay valid; a hook that needs a plain cross-tenant read
 // (kumiko-framework#3035: does a foreign tenant's file_refs row still
-// reference a key under THIS tenant's storage prefix) uses `db` directly via
-// executeRawQueryRead — there is no `ctx.systemDb` here.
+// reference a key under THIS tenant's storage prefix) reads through the raw
+// `db` runner (e.g. `selectMany(db, …)`) — there is no `ctx.systemDb` here.
 import type {
   TenantResourceDestroyHook,
   TenantResourceExtensionHooks,
