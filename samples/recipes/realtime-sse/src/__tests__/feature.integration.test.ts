@@ -1,7 +1,8 @@
 // Realtime SSE Sample — Integration Test
 // Proves: SSE events fire on create, update, delete through the async
 // event-dispatcher (D.3). Shape mirrors the StoredEvent: `type` is the
-// event type ("message.created"), `data` carries id/version/payload.
+// event type ("message.created"), `data` carries id/version only: the
+// frame is a change signal, clients refetch the record through a query.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { SaveContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -61,7 +62,7 @@ describe("SSE broadcast on create", () => {
 });
 
 describe("SSE broadcast on update", () => {
-  test("emits message.updated event with changes", async () => {
+  test("emits a message.updated signal without field values", async () => {
     const created = await stack.http.writeOk<SaveContext>(
       "chat:write:message:create",
       {
@@ -88,8 +89,9 @@ describe("SSE broadcast on update", () => {
 
     const updateEvent = stack.events.sse.find((e) => e.type === "message.updated");
     expect(updateEvent).toBeDefined();
-    const payload = updateEvent?.data["payload"] as Record<string, unknown> | undefined;
-    expect(payload?.["changes"]).toEqual({ text: "Edited" });
+    expect(updateEvent?.data["id"]).toBe(created.id);
+    expect(updateEvent?.data["version"]).toBe(2);
+    expect(updateEvent?.data).not.toHaveProperty("payload");
   });
 });
 
