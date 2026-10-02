@@ -848,9 +848,7 @@ function useTimeRange(
   const timeRange = screen.timeRange;
   if (timeRange === undefined) return { params: {}, control: null };
   const fromUrl = nav.searchParams[timeRange.id];
-  const value = timeRange.options.some((o) => o.value === fromUrl)
-    ? (fromUrl as string)
-    : timeRange.default;
+  const value = timeRange.options.find((o) => o.value === fromUrl)?.value ?? timeRange.default;
   return {
     // Metric buckets are cut server-side; without the user's zone they default
     // to UTC while the axis labels are formatted in the user's zone.

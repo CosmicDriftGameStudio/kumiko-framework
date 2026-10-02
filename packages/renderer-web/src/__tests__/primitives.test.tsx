@@ -1503,6 +1503,35 @@ describe("DataTable", () => {
       expect(confirmBtn?.textContent).not.toContain("Mark Subscription");
     });
 
+    test("Kebab-Pfad: Dialog-Button zeigt confirmLabel statt label", async () => {
+      const user = userEvent.setup();
+      render(
+        <DataTable
+          columns={cols}
+          rows={rows}
+          testId="dt"
+          rowActions={[
+            { id: "a", label: "Archive", onTrigger: mock() },
+            { id: "b", label: "Duplicate", onTrigger: mock() },
+            {
+              id: "cancel-sub",
+              label: "Mark Subscription as Cancelled",
+              style: "danger",
+              confirmLabel: "Cancel Subscription",
+              confirm: "This is permanent.",
+              onTrigger: mock(),
+            },
+          ]}
+        />,
+      );
+      await user.click(screen.getByTestId("row-r1-actions-menu"));
+      await user.click(screen.getByTestId("row-r1-action-cancel-sub"));
+      const dialog = screen.getByTestId("row-r1-action-cancel-sub-dialog");
+      const confirmBtn = dialog.querySelector('[data-testid$="confirm"]');
+      expect(confirmBtn?.textContent).toContain("Cancel Subscription");
+      expect(confirmBtn?.textContent).not.toContain("Mark Subscription");
+    });
+
     test("Click auf Action ohne confirm: onTrigger wird mit Row gerufen", async () => {
       const user = userEvent.setup();
       const onTrigger = mock();
