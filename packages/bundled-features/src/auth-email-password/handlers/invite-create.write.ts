@@ -91,7 +91,20 @@ const executor = createEventStoreExecutor(tenantInvitationsTable, tenantInvitati
   entityName: "tenant-invitation",
 });
 
+// A framework-ranked role is one the highest actor ("system") may assign without the
+// unknown-role fail-closed rejection; allow-listing it would let a lower-ranked inviter
+// bypass the elevation guard for it.
+function findRankedRole(roles: readonly string[]): string | undefined {
+  return roles.find((role) => findForbiddenRoleAssignment(["system"], [role], []) === undefined);
+}
+
 export function createInviteCreateHandler(opts: InviteCreateOptions) {
+  const rankedRole = findRankedRole(opts.additionalAssignableRoles ?? []);
+  if (rankedRole !== undefined) {
+    throw new Error(
+      `[auth-email-password] invite.additionalAssignableRoles must list app-defined roles only; "${rankedRole}" is a framework-ranked role`,
+    );
+  }
   const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_INVITE_DEFAULT_TTL_MINUTES;
   const ttlSeconds = ttlMinutes * 60;
 

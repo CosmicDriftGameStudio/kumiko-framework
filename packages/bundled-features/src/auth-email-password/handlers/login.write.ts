@@ -284,6 +284,8 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
         "enrollment of the tenant named in the signed login/setup token, not the guest " +
         "dispatch tenant, via the mfaStatusChecker callback.",
     },
+    // Anonymous credential intake (password) — must never enter an LLM transcript.
+    agent: { expose: false },
     description:
       "Signs a user in with email and password, running the lockout, email-verification, account-status, tenant-membership and MFA gates, and answering with a session or with an MFA challenge or setup requirement.",
     handler: async (event, ctx): Promise<WriteResult<LoginResult>> => {

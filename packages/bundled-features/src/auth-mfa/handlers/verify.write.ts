@@ -54,6 +54,8 @@ export function createMfaVerifyHandler(opts: MfaVerifyOptions) {
         "Also reads the MFA enrollment of the tenant named in the signed login/setup token, not the " +
         "guest dispatch tenant.",
     },
+    // Payload carries the TOTP/recovery code and the challenge token.
+    agent: { expose: false },
     description:
       "Finishes a two-step sign-in by checking a TOTP or recovery code against the challenge token that login handed back, under a per-account attempt cap, and derives the resulting session.",
     handler: async (event, ctx) => {

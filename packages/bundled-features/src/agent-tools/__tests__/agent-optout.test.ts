@@ -6,8 +6,10 @@ import {
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineFeature,
+  resolveAgentExposure,
 } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { AuthHandlers, createAuthEmailPasswordFeature } from "../../auth-email-password/index.js";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
 import { AuthMfaHandlers, AuthMfaQueries, createAuthMfaFeature } from "../../auth-mfa/index.js";
 import { createConfigFeature } from "../../config/index.js";
@@ -19,6 +21,7 @@ import {
 import { createSecretsFeature } from "../../secrets/index.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { createUserFeature } from "../../user/feature.js";
+import { changeEmailWrite } from "../../user-profile/handlers/change-email.write.js";
 import { buildAgentManifest } from "../agent-manifest.js";
 import { buildToolCatalog, toolNameForQn } from "../tool-catalog.js";
 
@@ -86,6 +89,45 @@ describe("bundled secret-bearing handlers are not in the catalog", () => {
       expect(manifestQns).toContain(AuthMfaQueries.status);
     });
   }
+});
+
+// Handlers whose payload carries a password, TOTP/recovery code or setup token must stay
+// out of the agent surface regardless of the caller's roles, so assert on the handler
+// definitions instead of a role-filtered catalog (the anonymous ones never reach it).
+describe("credential-carrying bundled handlers opt out of agent exposure", () => {
+  const CREDENTIAL_QNS = [
+    AuthHandlers.login,
+    AuthHandlers.changePassword,
+    AuthMfaHandlers.verify,
+    AuthMfaHandlers.enableConfirmPreauth,
+  ] as const;
+
+  test("resolveAgentExposure reports expose:false", () => {
+    const registry = createRegistry([
+      createConfigFeature(),
+      createUserFeature(),
+      createTenantFeature(),
+      authFoundationFeature,
+      createAuthEmailPasswordFeature(),
+      createAuthMfaFeature({
+        setupTokenSecret: "test-mfa-setup-secret-at-least-32-bytes!!",
+        issuer: "Kumiko Test",
+        challengeTokenSecret: "test-mfa-challenge-secret-at-least-32-bytes!!",
+      }),
+    ]);
+    const writeHandlers = registry.getAllWriteHandlers();
+    for (const qn of CREDENTIAL_QNS) {
+      const def = writeHandlers.get(qn);
+      expect(def).toBeDefined();
+      if (def === undefined) continue;
+      expect(resolveAgentExposure(def, "write").expose).toBe(false);
+    }
+  });
+
+  // user-profile's feature graph (data-rights, files, ...) is too heavy to mount here.
+  test("user-profile change-email handler definition", () => {
+    expect(resolveAgentExposure(changeEmailWrite, "write").expose).toBe(false);
+  });
 });
 
 function buildDenyTestFeature() {
