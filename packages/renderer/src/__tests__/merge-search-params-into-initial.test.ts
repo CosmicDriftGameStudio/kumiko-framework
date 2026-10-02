@@ -115,6 +115,14 @@ describe("mergeSearchParamsIntoInitial — handoffValues", () => {
     });
     expect(result["iban"]).toBe("from-row");
   });
+
+  test("an undefined drawer override keeps the field default", () => {
+    const result = mergeSearchParamsIntoInitial(
+      { active: { type: "boolean", default: true } },
+      { searchParams: {}, urlPrefillFields: [], drawerOverrides: { active: undefined } },
+    );
+    expect(result["active"]).toBe(true);
+  });
 });
 
 describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable)", () => {

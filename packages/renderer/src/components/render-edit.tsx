@@ -401,6 +401,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // flex justify-end action bar).
   const [actionError, setActionError] = useState<string | null>(null);
   const [rawStep, setRawStep] = useState(0);
+  // Tabs have stable ids, so the active tab follows its id: a field change
+  // that hides an earlier tab must not shift the index onto another tab.
+  const [activeTabId, setActiveTabId] = useState<string | undefined>(undefined);
   // Create-mode draftId (issue #1913) — resumed from `sessionStorage` (web)
   // on mount so a same-tab reload finds the right one of several parallel
   // create-sessions on this screen; `null` until the first step change
@@ -865,12 +868,21 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Clamped on read, not on write: section visibility is value-dependent, so a
   // stored stepIndex can point past what is currently rendered — that lands on
   // the last step instead of an empty one.
-  const currentStep = Math.min(rawStep, lastStepIndex);
+  const activeTabIndex =
+    isTabs && activeTabId !== undefined
+      ? filteredSections.findIndex((s, i) => tabIdAt(s, i) === activeTabId)
+      : -1;
+  const currentStep = activeTabIndex !== -1 ? activeTabIndex : Math.min(rawStep, lastStepIndex);
   // Kept fresh for patchAndScheduleDraftSave's debounce timer above, which
   // is defined before `currentStep` exists (it depends on `filteredSections`,
   // computed further up from `vm`) and so cannot close over it directly.
   currentStepRef.current = currentStep;
   const isLastWizardStep = currentStep >= lastStepIndex;
+
+  function jumpToStep(index: number): void {
+    setRawStep(index);
+    if (isTabs) setActiveTabId(tabIdAt(filteredSections[index], index));
+  }
 
   // Step transitions only — never per keystroke. Deliberately not awaited: a
   // failed draft save must not block the step change.
@@ -1120,7 +1132,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // error below, sourced from the freshly-validated snapshot.
         if (isStepped) {
           const step = findFirstErroringStep(Object.keys(controller.getSnapshot().errors));
-          if (step !== undefined) setRawStep(step);
+          if (step !== undefined) jumpToStep(step);
         }
       } else {
         const fieldIssues = result.error.details?.fields ?? [];
@@ -1134,7 +1146,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         // hidden field) keeps the banner, jump or not.
         if (isStepped) {
           const step = findFirstErroringStep(issuePaths);
-          if (step !== undefined) setRawStep(step);
+          if (step !== undefined) jumpToStep(step);
         }
         setFormError(
           hasIssueWithoutRenderedField(issuePaths, filteredSections) ? result.error : null,
@@ -1481,13 +1493,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     translate,
     plainFormTitle,
   );
-  // screen.description is head-card copy, not tab content — in tabs mode
-  // (hideSectionTitles) the head card already carries title/subtitle/status.
+  // In tabs mode (hideSectionTitles) screen.description is dropped — the head
+  // card carries it — but an explicit subtitle i18n override has no other
+  // source there, so it stays unless it merely resolves to the description.
+  const explicitSubtitle = resolveScreenText("subtitle");
+  const descriptionSubtitle =
+    screen.description !== undefined ? translate(screen.description) : undefined;
   const formSubtitle =
     hideSectionTitles !== true
-      ? (resolveScreenText("subtitle") ??
-        (screen.description !== undefined ? translate(screen.description) : undefined))
-      : undefined;
+      ? (explicitSubtitle ?? descriptionSubtitle)
+      : explicitSubtitle !== descriptionSubtitle
+        ? explicitSubtitle
+        : undefined;
 
   // Embedded settings-list forms (dashboard panels) have no shell header: the
   // form title/subtitle move into the first section's header column instead of
@@ -1682,7 +1699,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     const index = filteredSections.findIndex((s, i) => tabIdAt(s, i) === id);
                     // skip: the strip reported an id no section owns.
                     if (index === -1) return;
-                    setRawStep(index);
+                    jumpToStep(index);
                   }}
                 />
               );
@@ -2004,6 +2021,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               </Text>
             </Banner>
           )}
+          {(snapshot.errors["(root)"] ?? []).map((issue) => (
+            <Banner variant="error" testId="render-edit-root-issue" key={issue.i18nKey}>
+              <Text>{translate(issue.i18nKey, issue.params)}</Text>
+            </Banner>
+          ))}
           {extensionErrorKey !== null && (
             <Banner variant="error" testId="render-edit-extension-error">
               <Text testId="render-edit-extension-error-key">{translate(extensionErrorKey)}</Text>

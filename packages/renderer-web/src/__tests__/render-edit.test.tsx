@@ -4345,6 +4345,74 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
     expect(screen.getByTestId("field-title").closest("[hidden]")).not.toBeNull();
   });
 
+  test("the active tab stays put when a field change hides an earlier tab", () => {
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-tabs",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "basics", title: "Basics", columns: 1, fields: [{ field: "title" }] },
+          {
+            id: "details",
+            title: "Details",
+            columns: 1,
+            fields: [{ field: "count", visible: { field: "isUrgent", eq: true } }],
+          },
+          { id: "extra", title: "Extra", columns: 1, fields: [{ field: "isUrgent" }] },
+          { id: "tail", title: "Tail", columns: 1, fields: [{ field: "notes" }] },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0, isUrgent: true }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    selectTab("extra");
+    expect(screen.getByTestId("field-isUrgent").closest("[hidden]")).toBeNull();
+
+    const urgentSwitch = screen.getByTestId("field-isUrgent").querySelector('[role="switch"]');
+    fireEvent.click(urgentSwitch as HTMLElement);
+
+    expect(screen.queryByTestId("render-edit-tabs-details")).toBeNull();
+    expect(screen.getByTestId("field-isUrgent").closest("[hidden]")).toBeNull();
+    expect(screen.getByTestId("field-notes").closest("[hidden]")).not.toBeNull();
+  });
+
+  test("a root-level refine issue blocks submit visibly in a scoped form", async () => {
+    const schema = z
+      .object({ title: z.string(), count: z.number().optional() })
+      .refine((v) => v.title !== "bad", { message: "title must not be bad" });
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "bad", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          schema={schema}
+        />
+      </DispatcherProvider>,
+    );
+
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getAllByTestId("render-edit-root-issue").length).toBeGreaterThan(0);
+  });
+
   test("one submit carries the values of every tab, including one never opened", async () => {
     const writes: { type: string; payload: unknown }[] = [];
     const dispatcher = makeDispatcher((async (type: string, payload: unknown) => {

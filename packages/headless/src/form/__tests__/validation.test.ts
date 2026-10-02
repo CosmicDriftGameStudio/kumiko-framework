@@ -199,6 +199,20 @@ describe("createFormController — validate(scope)", () => {
     expect(form.getSnapshot().errors["address.city"]).toBeDefined();
   });
 
+  test("nested scope entry does not pull in sibling issues under the same root", () => {
+    const schema = z.object({
+      address: z.object({ city: z.string().min(1), zip: z.string().min(1) }),
+    });
+    const form = createFormController({
+      initial: { address: { city: "", zip: "" } },
+      schema,
+    });
+    expect(form.validate(["address.city"])).toBe(false);
+    const errors = form.getSnapshot().errors;
+    expect(errors["address.city"]).toBeDefined();
+    expect(errors["address.zip"]).toBeUndefined();
+  });
+
   // Hard rule (kumiko-framework#1885): an object-level .refine() issue has
   // path "(root)", which never matches a field name — every scoped
   // validate() call must ignore it, and only the unscoped final-submit

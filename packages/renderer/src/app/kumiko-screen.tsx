@@ -883,7 +883,13 @@ export function mergeSearchParamsIntoInitial(
     // Neither gate is lifted by an allowlist entry or a handoff.
     if (shape.sensitive === true) continue;
     if (shape.format === "password") continue;
-    if (drawerOverrides !== undefined && name in drawerOverrides) {
+    // An `undefined` override (row-extractor key whose row lacks the field)
+    // must not wipe the field default.
+    if (
+      drawerOverrides !== undefined &&
+      Object.hasOwn(drawerOverrides, name) &&
+      drawerOverrides[name] !== undefined
+    ) {
       merged[name] = drawerOverrides[name];
       continue;
     }
@@ -1354,7 +1360,7 @@ function EntityEditUpdateForm({
             result.data,
             schema,
             appFeatures,
-            record,
+            overlayUpdatedProjection(record, result.data),
           );
           nav.navigate({
             screenId,
@@ -3695,6 +3701,18 @@ function resolveRedirectTarget(
     extractIdField(submittedData, idField) ??
     (fallbackRecord !== undefined ? extractIdField(fallbackRecord, idField) : undefined);
   return { screenId: targetId, entityId };
+}
+
+// The update payload nests the saved projection under `data`; a changed
+// parent FK lives there, not in the pre-edit `record`.
+function overlayUpdatedProjection(
+  record: Readonly<Record<string, unknown>>,
+  resultData: unknown,
+): Readonly<Record<string, unknown>> {
+  if (typeof resultData !== "object" || resultData === null) return record;
+  const projection = (resultData as { readonly data?: unknown }).data;
+  if (typeof projection !== "object" || projection === null) return record;
+  return { ...record, ...(projection as Record<string, unknown>) };
 }
 
 // Action-Form-Body — non-CRUD Write-Handler-driven Form. Re-uses

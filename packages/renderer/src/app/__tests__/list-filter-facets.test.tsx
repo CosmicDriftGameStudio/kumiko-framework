@@ -6,7 +6,7 @@
 // screen.filter and screen.facets reach payload.filter/payload.filters,
 // with boolean facets coerced from URL-state strings to real booleans.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import {
   type EntityDefinition,
   type EntityListScreenDefinition,
@@ -17,6 +17,7 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "../../hooks/reference-limits.js";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import { type CorePrimitives, type DataTableProps, PrimitivesProvider } from "../../primitives.js";
@@ -428,6 +429,53 @@ describe("projectionList filter + facets (fw#2224)", () => {
     expect(lastPayload).toMatchObject({
       filters: [{ field: "tenantId", op: "in", value: ["t1"] }],
     });
+  });
+
+  test("a reference facet warns when the lookup hits the row cap and options may be truncated", async () => {
+    queryCalls = [];
+    capturedProps = undefined;
+    const rows = Array.from({ length: REFERENCE_LIST_LOOKUP_LIMIT }, (_, i) => ({
+      id: `t${i}`,
+      name: `Tenant ${i}`,
+    }));
+    const dispatcher = stubDispatcherByType({
+      "ledger:query:member:list": { rows: [] },
+      "ledger:query:tenant:list": { rows },
+    });
+    const screen: ProjectionListScreenDefinition = {
+      id: "member-list",
+      type: "projectionList",
+      query: "ledger:query:member:list",
+      columns: ["tenantId"],
+      facets: [
+        {
+          field: "tenantId",
+          type: "reference",
+          label: "Tenant",
+          entity: "tenant",
+          labelField: "name",
+        },
+      ],
+    };
+    const schema: FeatureSchema = {
+      featureName: "ledger",
+      entities: {},
+      screens: [screen],
+    } as FeatureSchema;
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      renderScreen(schema, "ledger:screen:member-list", dispatcher);
+      await waitFor(() =>
+        expect(getCapturedProps()?.filterFacets?.[0]?.options).toHaveLength(
+          REFERENCE_LIST_LOOKUP_LIMIT,
+        ),
+      );
+      expect(
+        warn.mock.calls.some((call) => String(call[0]).includes('reference facet "tenantId"')),
+      ).toBe(true);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
