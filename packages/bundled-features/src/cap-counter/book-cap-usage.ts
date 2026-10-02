@@ -148,6 +148,11 @@ export async function markCapSoftWarned(
     if (!row) {
       throw new Error("cap-counter.markCapSoftWarned: row vanished between length-check and read");
     }
+    // A version-conflict retry lands here after a parallel warner already set the flag; a second
+    // write would only append a redundant event with a newer timestamp.
+    if (row["lastSoftWarnedAt"] !== null) {
+      return { isSuccess: true, data: row };
+    }
     const currentVersion = row["version"] as number; // @cast-boundary db-row
 
     return executor.update(

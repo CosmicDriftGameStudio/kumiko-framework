@@ -128,6 +128,16 @@ const personalHoldEntity = createEntity({
   retention: { keepFor: "30d", strategy: "blockDelete" },
 });
 
+// blockDelete on an entity whose only person link is a subjectRef: the field cannot carry
+// anonymize (the user-data forget hook cuts it), so it is a pure hold, not a skip.
+const subjectRefHoldEntity = createEntity({
+  table: "read_c7_holdsubjectref",
+  fields: {
+    label: createTextField({ personal: "ref" }),
+  },
+  retention: { keepFor: "30d", strategy: "blockDelete" },
+});
+
 const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-widget", widgetEntity);
   r.entity("c7-gadget", gadgetEntity);
@@ -138,6 +148,7 @@ const c7Feature = defineFeature("c7-retention-fixtures", (r) => {
   r.entity("c7-bare", bareEntity);
   r.entity("c7-barehold", bareHoldEntity);
   r.entity("c7-personalhold", personalHoldEntity);
+  r.entity("c7-holdsubjectref", subjectRefHoldEntity);
 });
 
 const noopLogger: JobContext["log"] = {
@@ -214,6 +225,8 @@ beforeEach(async () => {
     "read_c7_anon",
     "read_c7_bare",
     "read_c7_barehold",
+    "read_c7_personalhold",
+    "read_c7_holdsubjectref",
   ]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
@@ -461,6 +474,21 @@ describe("runRetentionCleanup :: real postgres", () => {
 
     expect(await labels("read_c7_barehold", T1)).toEqual(["survives"]);
     expect(result.skipped.map((s) => s.entityName)).not.toContain("c7-barehold");
+  });
+
+  test("blockDelete with only a subjectRef field → pure hold, no skipped entry, rows untouched", async () => {
+    await seed("read_c7_holdsubjectref", T1, "survives", pastIso);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+    });
+
+    expect(await labels("read_c7_holdsubjectref", T1)).toEqual(["survives"]);
+    expect(result.skipped.map((s) => s.entityName)).not.toContain("c7-holdsubjectref");
   });
 
   test("blockDelete with a personal field but no anonymize function → still skipped missing_anonymize_fields", async () => {
