@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { loadAppConfig } from "./load-app-config";
 import type { CliCommand } from "./types";
 
 const LINT_SUBCOMMAND = "lint";
@@ -29,9 +30,8 @@ export const agentCommand: CliCommand = {
       return 1;
     }
 
-    const config = (await import(configPath)).default as {
-      features: readonly import("@cosmicdrift/kumiko-framework/engine").FeatureDefinition[];
-    };
+    const config = await loadAppConfig(ctx, configPath);
+    if (config === null) return 1;
     const { findAgentDocGaps, formatAgentDocGap } = await import(
       "@cosmicdrift/kumiko-bundled-features/agent-tools"
     );

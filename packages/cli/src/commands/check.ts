@@ -144,14 +144,18 @@ export async function runCheck(
 
   if (ctx.argv.includes("--explain")) {
     // The guard suite is the only one with its own --explain; pass it through.
-    if (steps.some((step) => step.id === "guards")) guards.runGuardsCli(["--explain"]);
-    return 0;
+    return steps.some((step) => step.id === "guards") ? guards.runGuardsCli(["--explain"]) : 0;
   }
 
   let failed = 0;
   for (const step of steps) {
     ctx.out.log(`  ▸ ${step.label}`);
-    failed += await runStep(step.id, ctx, repo.absPath, guards, deps);
+    try {
+      failed += await runStep(step.id, ctx, repo.absPath, guards, deps);
+    } catch (e) {
+      ctx.out.err(`  ✗ ${step.label}: ${e instanceof Error ? e.message : String(e)}`);
+      failed += 1;
+    }
   }
   return failed > 0 ? 1 : 0;
 }

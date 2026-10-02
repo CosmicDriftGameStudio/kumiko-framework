@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { loadAppConfig } from "./load-app-config";
 import type { CliCommand, CliCommandContext } from "./types";
 
 export const consumerCommand: CliCommand = {
@@ -25,9 +26,8 @@ export const consumerCommand: CliCommand = {
       return 1;
     }
 
-    const config = (await import(configPath)).default as {
-      features: readonly import("@cosmicdrift/kumiko-framework/engine").FeatureDefinition[];
-    };
+    const config = await loadAppConfig(ctx, configPath);
+    if (config === null) return 1;
     const { createRegistry } = await import("@cosmicdrift/kumiko-framework/engine");
     const { createDbConnection } = await import("@cosmicdrift/kumiko-framework/db");
     const {

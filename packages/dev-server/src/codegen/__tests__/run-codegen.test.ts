@@ -129,7 +129,7 @@ export const myFeature = defineFeature("inlineFeat", (r) => {
     expect(result.didWriteSchemas).toBe(true);
 
     const schemas = readFileSync(join(appRoot, ".kumiko", "schemas.generated.ts"), "utf-8");
-    expect(schemas).toContain(`import { z } from "zod";`);
+    expect(schemas).toContain(`import * as z from "zod";`);
     // Generated const-name is stable + qualifiedName-derived; the exact
     // string is part of the contract because types.generated.d.ts
     // imports it under that name.

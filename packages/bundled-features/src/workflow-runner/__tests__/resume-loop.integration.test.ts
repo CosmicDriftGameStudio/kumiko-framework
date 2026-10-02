@@ -277,6 +277,28 @@ describe("workflow-runner resume loop", () => {
     expect(await pendingRowExists(runId, 0)).toBe(false);
   });
 
+  test("a racing tick on an already-completed run whose definition changed appends no second terminal event", async () => {
+    const runKey = crypto.randomUUID();
+    const runId = workflowRunAggregateId(waitWorkflow.name, runKey);
+    const pastIso = T.Now.instant().subtract({ hours: 1 }).toString();
+
+    await fireTrigger("rl-test.wait", { runKey, forIso: pastIso });
+    await runResumeDueRunsJob();
+    // Pending row is still there: pending-projection has not run yet (the race window).
+    expect(await pendingRowExists(runId, 0)).toBe(true);
+    await tamperFingerprint(runId, 0, "tampered-fingerprint-value");
+
+    await runResumeDueRunsJob();
+
+    const rows = await loadRunEvents(runId);
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_WAITING_TYPE,
+      WORKFLOW_RESUMED_TYPE,
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    ]);
+  });
+
   test("retry suspension: resumeFrom is the same stepIndex — the step repeats with retryAttempt threaded, then completes", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(retryWorkflow.name, runKey);

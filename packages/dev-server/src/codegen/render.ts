@@ -83,7 +83,7 @@ export function renderTypesAugmentation(
 
   const importLines: string[] = [];
   // `z` from zod is needed for `z.infer<typeof X>`; we import it once.
-  importLines.push(`import type { z } from "zod";`);
+  importLines.push(`import type * as z from "zod";`);
   // Stable order — sort module paths alphabetically; identifiers within
   // a module also alphabetically. Idempotent output.
   for (const [modPath, idents] of [...importsByPath.entries()].sort(([a], [b]) =>
@@ -146,7 +146,7 @@ export function renderInlineSchemasFile(
     "// build`) or let the dev-server regenerate it — otherwise the z.infer",
     "// type drifts from the runtime schema.",
     "",
-    `import { z } from "zod";`,
+    `import * as z from "zod";`,
     "",
   ];
   // Sort by const-name for stable output.
