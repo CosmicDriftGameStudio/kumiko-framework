@@ -378,6 +378,54 @@ describe("buildToolCatalog — client tools", () => {
     expect(catalog.tools.map((t) => t.name)).not.toContain("open_form");
   });
 
+  test("open_form drops the handler->screen mapping of an opted-out screen but keeps the handler tool", () => {
+    const optOutFeature = defineFeature("optout-form-test", (r) => {
+      r.entity("gadget", widgetEntity);
+      r.writeHandler(
+        "gadget:create",
+        z.object({ name: z.string() }),
+        async () => ({ isSuccess: true as const, data: { id: "g1", version: 1 } }),
+        { access: { roles: ["Admin"] }, description: "Create a gadget." },
+      );
+      r.writeHandler(
+        "gadget:rename",
+        z.object({ id: z.string(), name: z.string() }),
+        async () => ({ isSuccess: true as const, data: { id: "g1", version: 2 } }),
+        { access: { roles: ["Admin"] }, description: "Rename a gadget." },
+      );
+      r.screen({
+        id: "gadget-edit",
+        type: "entityEdit",
+        entity: "gadget",
+        agent: { expose: false },
+        layout: { sections: [{ title: "s", fields: ["name"] }] },
+      });
+      r.screen({
+        id: "gadget-rename-form",
+        type: "actionForm",
+        handler: "optout-form-test:write:gadget:rename",
+        agent: { expose: false },
+        fields: { name: createTextField({ personal: false, reason: "technical_reference" }) },
+        layout: { sections: [{ title: "s", fields: ["name"] }] },
+      });
+    });
+    const registry = createRegistry([buildCatalogTestFeature(), optOutFeature]);
+    const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });
+    const catalog = buildToolCatalog(registry, manifest, { mode: "edit" });
+
+    const descriptor = catalog.dispatchTable.get("open_form");
+    if (descriptor?.kind !== "client" || descriptor.op !== "open_form")
+      throw new Error("wrong kind");
+    expect(descriptor.formScreens.has("optout-form-test:write:gadget:create")).toBe(false);
+    expect(descriptor.formScreens.has("optout-form-test:write:gadget:rename")).toBe(false);
+    // Positive control: the visible feature's mapping survives, and the opted-out
+    // handlers stay callable as plain tools.
+    expect(descriptor.formScreens.has("catalog-test:write:widget:approve")).toBe(true);
+    const toolNames = catalog.tools.map((t) => t.name);
+    expect(toolNames).toContain(toolNameForQn("optout-form-test:write:gadget:create"));
+    expect(toolNames).toContain(toolNameForQn("optout-form-test:write:gadget:rename"));
+  });
+
   test("ask_user is always present with a fixed schema", () => {
     const catalog = buildCatalog(READER);
     const tool = catalog.tools.find((t) => t.name === "ask_user");

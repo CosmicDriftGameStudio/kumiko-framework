@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  createSystemUser,
   ANONYMOUS_USER_ID as FRAMEWORK_ANONYMOUS_USER_ID,
   SYSTEM_ROLE,
   SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { testTenantId } from "@cosmicdrift/kumiko-framework/stack";
 import { ANONYMOUS_USER_ID, SYSTEM_ACTOR_ID, SYSTEM_ACTOR_IDS } from "../constants.js";
 
 describe("audit constants", () => {
@@ -19,6 +21,6 @@ describe("audit constants", () => {
 
   test("SYSTEM_ACTOR_IDS includes createSystemUser nil UUID", () => {
     expect(SYSTEM_ACTOR_IDS.has(SYSTEM_ACTOR_ID)).toBe(true);
-    expect(SYSTEM_ACTOR_IDS.has("00000000-0000-0000-0000-000000000000")).toBe(true);
+    expect(SYSTEM_ACTOR_IDS.has(createSystemUser(testTenantId(1)).id)).toBe(true);
   });
 });
