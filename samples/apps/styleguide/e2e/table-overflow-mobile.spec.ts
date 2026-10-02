@@ -123,17 +123,20 @@ test.describe("desktop (>= md)", () => {
     await scrollContainer.evaluate((el) => {
       el.scrollLeft = 0;
     });
-    const xAtRest = (await actionsCell.boundingBox())?.x;
+    // Both boxes must exist: two `undefined` x values would make the final comparison pass vacuously.
+    const boxAtRest = await actionsCell.boundingBox();
+    expect(boxAtRest).not.toBeNull();
 
     await scrollContainer.evaluate((el) => {
       el.scrollLeft = el.scrollWidth;
     });
-    const xScrolledFull = (await actionsCell.boundingBox())?.x;
+    const boxScrolledFull = await actionsCell.boundingBox();
+    expect(boxScrolledFull).not.toBeNull();
 
     // A sticky column keeps the same viewport x regardless of scroll
     // position. Without md:sticky, scrolling the container drags the
     // actions cell along with the row content — x would shift left.
-    expect(xScrolledFull).toBe(xAtRest);
+    expect(boxScrolledFull?.x).toBeCloseTo(boxAtRest?.x ?? Number.NaN, 1);
   });
 
   // Root cause: the vendored SidebarInset (packages/renderer-web/src/ui/

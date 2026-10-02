@@ -66,6 +66,16 @@ describe("resolveMatrixViewports", () => {
     expect(plan).toEqual({ mode: "desktop", viewports: ["desktop", "mobile"] });
   });
 
+  test("the desktop pass is skipped when device projects cover every allowed viewport", () => {
+    const projects: MatrixProjectInfo[] = [
+      { name: "chromium", isMobile: false },
+      { name: "mobile", isMobile: true },
+    ];
+    const plan = resolveMatrixViewports("chromium", false, projects, ["mobile"]);
+    expect(plan.mode).toBe("skip");
+    expect(plan.mode === "skip" && plan.reason).toContain('"chromium"');
+  });
+
   test("a mobile project whose name isn't a ViewportId (e.g. offlot's \"phone\") writes under its own subtree, fixed to the mobile viewport", () => {
     const projects: MatrixProjectInfo[] = [
       { name: "chromium", isMobile: false },
@@ -94,6 +104,11 @@ describe("resolveLocaleTag", () => {
 
   test("a locale with no default and no override falls back to Intl.Locale derivation", () => {
     expect(resolveLocaleTag("es", undefined)).toBe("es-ES");
+  });
+
+  test("a locale that already carries a region is kept as is", () => {
+    expect(resolveLocaleTag("pt-BR", undefined)).toBe("pt-BR");
+    expect(resolveLocaleTag("en-GB", undefined)).toBe("en-GB");
   });
 
   test("throws when neither a default nor a derivable region exists", () => {

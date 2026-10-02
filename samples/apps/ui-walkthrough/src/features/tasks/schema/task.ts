@@ -8,9 +8,10 @@ import type {
   EntityListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 
-// `status` stays inside the segmented-radio heuristic (at most 4 options),
-// `area` deliberately falls out of it and renders as a combobox — the
-// generated e2e spec exercises both select render paths.
+// `status` is pinned to the radio group via `display: "radio"` so it no longer
+// depends on defaultSelectPresentation's thresholds; `area` has too many options
+// for the heuristic and renders as a combobox — the generated e2e spec exercises
+// both select render paths.
 const TASK_STATUSES = ["todo", "in progress", "done", "blocked"] as const;
 const TASK_AREAS = [
   "engineering",
@@ -29,7 +30,7 @@ export const taskEntity = {
 
   fields: {
     title: { type: "text", required: true, sortable: true },
-    status: { type: "select", options: TASK_STATUSES, sortable: true },
+    status: { type: "select", options: TASK_STATUSES, display: "radio", sortable: true },
     area: { type: "select", options: TASK_AREAS },
     priority: { type: "number" },
     isUrgent: { type: "boolean", default: false },
