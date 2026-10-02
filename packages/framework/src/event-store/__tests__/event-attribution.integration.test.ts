@@ -14,8 +14,10 @@
 //      and stay readable without the new fields.
 
 import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import { UNATTRIBUTED_ORIGIN, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import * as z from "zod";
+import { generateToken } from "../../api/tokens.js";
 import { createEventStoreExecutor } from "../../db/event-store-executor.js";
 import { selectMany } from "../../db/query.js";
 import { buildEntityTable } from "../../db/table-builder.js";
@@ -46,6 +48,8 @@ const PLACED = "attribution:event:placed";
 const CONFIRMED = "attribution:event:confirmed";
 const PROBED = "attribution:event:probed";
 const PLACE_HANDLER = "attribution:write:order:place";
+const STREAM_HANDLER = "attribution:stream:order:emit-after-yield";
+const STREAMED = "attribution:event:streamed";
 const PROBE_HANDLER = "attribution:write:order:probe";
 const CONFIRMER_MSP = "attribution:projection:confirmer";
 const TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
@@ -97,6 +101,29 @@ const attributionFeature = defineFeature("attribution", (r) => {
       return created;
     },
     { access: { roles: ["anonymous"] } },
+  );
+
+  const streamed = r.defineEvent("streamed", z.object({ orderId: z.uuid() }), {
+    piiFields: "none",
+  });
+
+  // The append happens after the first yield, i.e. in a later it.next() pull —
+  // the scope has to be re-entered per pull for the stamp to find it.
+  r.streamHandler(
+    "order:emit-after-yield",
+    z.object({}),
+    async function* (_query, ctx) {
+      yield "first";
+      const aggregateId = uuid();
+      await ctx.unsafeAppendEvent({
+        aggregateId,
+        aggregateType: "attr-order",
+        type: streamed.name,
+        payload: { orderId: aggregateId },
+      });
+      yield "second";
+    },
+    { access: { roles: ["Admin"] } },
   );
 
   r.multiStreamProjection({
@@ -232,5 +259,26 @@ describe("#3043 — event attribution from the execution scope", () => {
     const origin = await originOf(CONFIRMED);
     expect(origin.feature).toBeUndefined();
     expect(origin.handler).toBeUndefined();
+  });
+
+  test("stream handler: an event appended after the first yield is attributed to the stream", async () => {
+    const authJwt = await stack.jwt.sign(admin);
+    const csrfToken = generateToken();
+    const cookieHeader = `kumiko_auth=${authJwt}; kumiko_csrf=${csrfToken}`;
+    const fetchImpl = (async (url: unknown, init: RequestInit | undefined) =>
+      stack.app.request(String(url), {
+        ...(init ?? {}),
+        headers: { ...(init?.headers ?? {}), Cookie: cookieHeader },
+      })) as unknown as typeof fetch;
+    const dispatcher = createLiveDispatcher({ fetch: fetchImpl, readCsrf: () => csrfToken });
+
+    const chunks: unknown[] = [];
+    for await (const chunk of dispatcher.stream(STREAM_HANDLER, {})) chunks.push(chunk);
+    expect(chunks).toEqual(["first", "second"]);
+
+    expect(await originOf(STREAMED)).toMatchObject({
+      feature: "attribution",
+      handler: STREAM_HANDLER,
+    });
   });
 });

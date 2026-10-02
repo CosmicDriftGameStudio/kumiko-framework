@@ -256,6 +256,45 @@ const featureA = defineFeature("intakea", (r) => {
     },
   );
 
+  for (const declared of [false, true]) {
+    const suffix = declared ? "declare" : "no-declare";
+    const access = declared
+      ? ({ roles: ["anonymous"], personalData: "public-intake" } as const)
+      : ({ roles: ["anonymous"] } as const);
+
+    r.writeHandler(
+      `update-many-${suffix}`,
+      z.object({ id: z.uuid() }),
+      async (event, ctx) => {
+        // @cast-boundary test-fixture — see direct-insert-no-declare above.
+        await ctx.db.updateMany(
+          contactTable as unknown as SchemaTable,
+          { email: "overwritten@example.com" },
+          { id: event.payload.id },
+        );
+        return { isSuccess: true as const, data: { ok: true as const } };
+      },
+      { access, rateLimit: RATE_LIMIT },
+    );
+
+    r.writeHandler(
+      `executor-update-${suffix}`,
+      z.object({ id: z.uuid() }),
+      async (event, ctx) => {
+        const crud = createEventStoreExecutor(contactTable, contactEntity, {
+          entityName: "contact",
+        });
+        return crud.update(
+          { id: event.payload.id, changes: { email: "overwritten@example.com" } },
+          event.user,
+          ctx.db,
+          { skipOptimisticLock: true },
+        );
+      },
+      { access, rateLimit: RATE_LIMIT },
+    );
+  }
+
   r.writeHandler(
     "non-pii-insert",
     z.object({ note: z.string() }),
@@ -592,6 +631,51 @@ describe("public-intake runtime gate", () => {
       expect(body.error.details.reason).toBe("public_intake_required");
     }
     expect(await selectMany(stack.db, leadTable)).toHaveLength(0);
+  });
+
+  describe("update paths on a foreign PII table", () => {
+    const SEED_EMAIL = "seed@example.com";
+
+    async function seedContact(): Promise<string> {
+      const created = await createEventStoreExecutor(contactTable, contactEntity, {
+        entityName: "contact",
+      }).create(
+        { email: SEED_EMAIL, note: "seed" },
+        TestUsers.admin,
+        createTenantDb(stack.db, TENANT_ID, "system"),
+      );
+      if (!created.isSuccess) throw new Error("seed create failed");
+      return String(created.data.id);
+    }
+
+    async function storedEmail(id: string): Promise<unknown> {
+      const rows = await selectMany<Record<string, unknown>>(stack.db, contactTable, { id });
+      return rows[0]?.["email"];
+    }
+
+    for (const path of ["update-many", "executor-update"]) {
+      test(`${path} — blocked without declaration, row untouched`, async () => {
+        const id = await seedContact();
+        const res = await stack.http.raw("POST", "/api/write", {
+          type: `intakea:write:${path}-no-declare`,
+          payload: { id },
+        });
+        expect(res.status).toBe(403);
+        const body = (await res.json()) as { error: { details: { reason: string } } };
+        expect(body.error.details.reason).toBe("public_intake_required");
+        expect(await storedEmail(id)).toBe(SEED_EMAIL);
+      });
+
+      test(`${path} — allowed once declared`, async () => {
+        const id = await seedContact();
+        const res = await stack.http.raw("POST", "/api/write", {
+          type: `intakea:write:${path}-declare`,
+          payload: { id },
+        });
+        expect(res.status).toBe(200);
+        expect(await storedEmail(id)).toBe("overwritten@example.com");
+      });
+    }
   });
 
   test("(e) anonymous write of a non-PII field only — allowed without declaration", async () => {

@@ -105,4 +105,15 @@ describe("projection-rebuild — blind-index loss guard (fw#3091)", () => {
     const after = await rawRow(String(created.data.id));
     expect(after["email_bidx"]).toBe(computeBlindIndex(TEST_KEY, "marc@example.com"));
   });
+
+  test("plaintext install (bidx column all NULL, no key) → rebuild does not throw, bidx stays null", async () => {
+    resetBlindIndexKeyForTests();
+    const created = await crud.create({ email: "marc@example.com" }, admin, tdb);
+    if (!created.isSuccess) throw new Error("create failed");
+    expect((await rawRow(String(created.data.id)))["email_bidx"]).toBeNull();
+
+    await rebuildProjection(implicitName, { db: testDb.db, registry });
+
+    expect((await rawRow(String(created.data.id)))["email_bidx"]).toBeNull();
+  });
 });

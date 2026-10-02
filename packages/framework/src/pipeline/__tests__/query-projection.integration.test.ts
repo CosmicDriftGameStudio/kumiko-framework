@@ -322,6 +322,17 @@ describe("ctx.queryProjection", () => {
       admin,
     );
     expect(rows.map((r) => r.label).sort()).toEqual(["CC", "DD"]);
+
+    const matches = escapeHatchEvents.filter((e) => e.kind === "unsafe-all-tenants");
+    expect(matches).toEqual([
+      {
+        handler: "qp-system:query:widget:list-tenant-systemscope",
+        kind: "unsafe-all-tenants",
+        reason: 'r.systemScope() feature "qp-system"',
+        tenantId: admin.tenantId,
+        actor: admin.id,
+      },
+    ]);
   });
 
   test("a plain EntityTableMeta projection table is tenant-filtered without unsafeAllTenants", async () => {
