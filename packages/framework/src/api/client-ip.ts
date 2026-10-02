@@ -76,13 +76,7 @@ export function parseTrustedProxyHopsEnv(
       `${context}: ${TRUSTED_PROXY_HOPS_ENV} must be a non-negative integer, got "${raw}".`,
     );
   }
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isInteger(parsed) || parsed < 0) {
-    throw new Error(
-      `${context}: ${TRUSTED_PROXY_HOPS_ENV} must be a non-negative integer, got "${raw}".`,
-    );
-  }
-  return parsed;
+  return Number(raw);
 }
 
 // Instance-scoped, NOT a module singleton: the warn-once flag must reset

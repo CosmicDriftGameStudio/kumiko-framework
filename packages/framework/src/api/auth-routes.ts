@@ -1550,7 +1550,9 @@ function registerTokenRequestRoute(opts: {
       parsed.data,
       createAnonymousUser(SYSTEM_TENANT_ID),
     );
-    if (!result.isSuccess) {
+    // rate_limited is an expected, attacker-triggerable outcome; logging it
+    // would flood the sink and bury real misconfiguration errors.
+    if (!result.isSuccess && result.error.code !== "rate_limited") {
       console.error(
         `[kumiko] token request handler "${opts.requestHandler}" failed: ${result.error.code}`,
       );

@@ -359,19 +359,27 @@ function clientFaultLoggingEnabled(): boolean {
 // A failing request must leave a trace even when it ends in 4xx — a paid
 // external call that 422s was invisible before (offlot#117). Status, error
 // code and duration only: message/details/stack can carry submitted values.
-function logClientFault(err: KumikoError, requestId: string | undefined, type?: unknown): void {
+function logClientWarn(
+  message: string,
+  requestId: string | undefined,
+  type: unknown,
+  fields: { status: number; code?: string },
+): void {
   if (!clientFaultLoggingEnabled()) {
     // skip: LOG_LEVEL silences the 4xx tier — the deployment opted out of client-fault volume
     return;
   }
   const startedAt = requestContext.get()?.startedAt;
-  createFallbackLogger("api").warn("handler rejected", {
+  createFallbackLogger("api").warn(message, {
     requestId,
     type: loggableType(type),
-    status: err.httpStatus,
-    code: err.code,
+    ...fields,
     ...(startedAt === undefined ? {} : { durationMs: Math.round(performance.now() - startedAt) }),
   });
+}
+
+function logClientFault(err: KumikoError, requestId: string | undefined, type?: unknown): void {
+  logClientWarn("handler rejected", requestId, type, { status: err.httpStatus, code: err.code });
 }
 
 // Identity-checked against THIS request's signal — signal.aborted alone
@@ -419,17 +427,9 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
 function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
   if (isClientAbort(err)) {
-    if (clientFaultLoggingEnabled()) {
-      const startedAt = requestContext.get()?.startedAt;
-      createFallbackLogger("api").warn("request aborted by client", {
-        requestId,
-        type: loggableType(type),
-        status: CLIENT_CLOSED_REQUEST_STATUS,
-        ...(startedAt === undefined
-          ? {}
-          : { durationMs: Math.round(performance.now() - startedAt) }),
-      });
-    }
+    logClientWarn("request aborted by client", requestId, type, {
+      status: CLIENT_CLOSED_REQUEST_STATUS,
+    });
     return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
   }
   logServerFault(err, requestId, type);
