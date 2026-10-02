@@ -10,6 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { buildAppSchema, findNonJsonSafePath } from "../build-app-schema.js";
+import { access, createSystemConfig } from "../config-helpers.js";
 import { defineFeature } from "../define-feature.js";
 import { createRegistry } from "../registry.js";
 import type { EntityDefinition, MultiSelectFieldDef } from "../types/fields.js";
@@ -583,6 +584,51 @@ describe("buildAppSchema", () => {
 
     expect(fields["apiKey"]?.["writeOnly"]).toBe(true);
     expect(fields["plain"]?.["writeOnly"]).toBeUndefined();
+  });
+
+  test("a generated settings screen keeps writeOnly on a secret config key's field", () => {
+    const vault = defineFeature("vault", (r) => {
+      r.config({
+        keys: {
+          stripeSecret: createSystemConfig("text", {
+            write: access.systemAdmin,
+            backing: "secrets",
+            mask: { title: "vault.stripe-secret" },
+          }),
+        },
+      });
+    });
+    const app = buildAppSchema(createRegistry([vault]));
+    const screens = app.features.flatMap((feature) => feature.screens ?? []);
+    const settings = screens.find((candidate) => candidate.type === "configEdit");
+    if (settings?.type !== "configEdit") throw new Error("no generated configEdit screen");
+    expect(settings.fields["stripe-secret"]).toMatchObject({ type: "text", writeOnly: true });
+  });
+
+  test("hand-written configEdit text fields over an encrypted-at-rest key are projected writeOnly", () => {
+    const vault = defineFeature("vault", (r) => {
+      r.config({
+        keys: {
+          hookToken: createSystemConfig("text", { write: access.systemAdmin, backing: "secrets" }),
+          note: createSystemConfig("text", { write: access.systemAdmin }),
+        },
+      });
+      r.screen({
+        id: "vault-settings",
+        type: "configEdit",
+        scope: "system",
+        configKeys: { hookToken: "vault:config:hook-token", note: "vault:config:note" },
+        fields: { hookToken: { type: "text" }, note: { type: "text" } },
+        layout: { sections: [{ title: "Vault", fields: ["hookToken", "note"] }] },
+      });
+    });
+    const app = buildAppSchema(createRegistry([vault]));
+    const settings = app.features
+      .find((feature) => feature.featureName === "vault")
+      ?.screens?.find((candidate) => candidate.id === "vault-settings");
+    if (settings?.type !== "configEdit") throw new Error("no configEdit screen");
+    expect(settings.fields["hookToken"]).toMatchObject({ type: "text", writeOnly: true });
+    expect(settings.fields["note"]).not.toHaveProperty("writeOnly");
   });
 
   test("number/date/timestamp/locatedTimestamp: min/max/locale überleben die Projection (fw#2497)", () => {

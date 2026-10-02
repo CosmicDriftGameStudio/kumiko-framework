@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
 import { validateBoot as validateBootRaw } from "../boot-validator.js";
-import { createTenantConfig } from "../config-helpers.js";
+import { createSystemConfig, createTenantConfig } from "../config-helpers.js";
 import { defineFeature } from "../define-feature.js";
 import type { ConfigKeyDefinition } from "../types/index.js";
 
@@ -321,11 +321,43 @@ describe("validateBoot — optionsQueryPayload { field } on config keys", () => 
 
 describe.each([
   ["actionForm", featureWithActionForm],
-  ["configEdit", featureWithConfigEdit],
   ["writeForm", featureWithWriteForm],
 ] as const)("validateBoot — writeOnly on %s fieldDefs", (_screenType, build) => {
   test("a writeOnly field in the form fieldDefs throws", () => {
     const shop = build({ apiKey: { type: "text", writeOnly: true } });
     expect(() => validateBoot([catalog, shop])).toThrow(/field "apiKey" declares writeOnly/);
+  });
+});
+
+describe("validateBoot — writeOnly on configEdit fields follows the key's encryption", () => {
+  function featureWithSecretKey(key: ConfigKeyDefinition, scope: "tenant" | "system" = "tenant") {
+    return defineFeature("shop", (r) => {
+      r.config({ keys: { token: key } });
+      r.screen({
+        id: "settings",
+        type: "configEdit",
+        scope,
+        configKeys: { token: "shop:config:token" },
+        fields: { token: { type: "text", writeOnly: true } } as never,
+        layout: { sections: [{ title: "Basics", fields: ["token"] }] } as never,
+      });
+    });
+  }
+
+  test("a writeOnly field on an encrypted key boots", () => {
+    const shop = featureWithSecretKey(createTenantConfig("text", { encrypted: true }));
+    expect(() => validateBoot([shop])).not.toThrow();
+  });
+
+  test("a writeOnly field on a secrets-backed key boots", () => {
+    const shop = featureWithSecretKey(createSystemConfig("text", { backing: "secrets" }), "system");
+    expect(() => validateBoot([shop])).not.toThrow();
+  });
+
+  test("a writeOnly field on a plain key throws", () => {
+    const shop = featureWithSecretKey(createTenantConfig("text", { default: "" }));
+    expect(() => validateBoot([shop])).toThrow(
+      /field "token" declares writeOnly but config key "shop:config:token" is not encrypted at rest/,
+    );
   });
 });

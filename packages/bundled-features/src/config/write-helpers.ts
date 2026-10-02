@@ -10,6 +10,7 @@ import {
   type ConfigScope,
   ConfigScopes,
   extensionSelectorTargets,
+  isEncryptedAtRest,
   type Registry,
   type SessionUser,
   SYSTEM_ROLE,
@@ -222,12 +223,22 @@ export function resolvePiiSubject(
   return { kind: "tenant", tenantId };
 }
 
+// An encrypted value must not travel back in an error (logs, idempotency cache),
+// so rejection details spread this instead of naming `value` directly.
+function echoableValue(
+  keyDef: ConfigKeyDefinition,
+  value: string | number | boolean,
+): { value?: string | number | boolean } {
+  return isEncryptedAtRest(keyDef) ? {} : { value };
+}
+
 // An extension-selector key may only name a mounted plugin (or "" to clear) —
 // otherwise the settings screen would show no panel for a typo'd value.
 export function validateExtensionPlugin(
-  registry: Registry,
+  registry: Pick<Registry, "getAllExtensionSelectors" | "getExtensionUsages">,
   key: string,
   value: string | number | boolean,
+  keyDef: ConfigKeyDefinition,
 ): KumikoError | null {
   const extensionName = extensionSelectorTargets(registry).get(key);
   if (extensionName === undefined || value === "") return null;
@@ -235,7 +246,7 @@ export function validateExtensionPlugin(
   if (typeof value === "string" && allowed.includes(value)) return null;
   return new UnprocessableError(ConfigErrors.unknownExtensionPlugin, {
     i18nKey: "config.errors.unknownExtensionPlugin",
-    details: { key, value, allowed },
+    details: { key, ...echoableValue(keyDef, value), allowed },
   });
 }
 
@@ -262,7 +273,7 @@ export function validateType(
               path: "value",
               code: "invalid_option",
               i18nKey: "errors.validation.invalid_option",
-              params: { value, options: keyDef.options },
+              params: { ...echoableValue(keyDef, value), options: keyDef.options },
             },
           ],
         });
@@ -352,13 +363,14 @@ export function validatePattern(
   }
   if (re.test(value)) return null;
 
+  const echoedParams = { ...echoableValue(keyDef, value), pattern: keyDef.pattern.regex };
   return new ValidationError({
     fields: [
       {
         path: "value",
         code: "invalid_format",
         i18nKey: "errors.validation.invalid_format",
-        params: { value, pattern: keyDef.pattern.regex },
+        params: echoedParams,
       },
     ],
   });

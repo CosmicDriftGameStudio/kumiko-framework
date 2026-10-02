@@ -18,6 +18,7 @@
 import { isOptionsQueryFieldRef } from "@cosmicdrift/kumiko-types/fields";
 import { CONFIG_EDIT_ENTITY, fieldLabelKey } from "../i18n/required-surface-keys.js";
 import type { WorkspaceSchema } from "../ui-types/index.js";
+import { isEncryptedAtRest } from "./config-helpers.js";
 import type { ConfigScope } from "./constants.js";
 import {
   EXTENSION_SELECTOR_HINT_KEY,
@@ -903,7 +904,13 @@ function deriveField(
         ? createSelectField({ options: def.options })
         : createTextField({ personal: false, reason: "system_metadata" });
     default:
-      return createTextField({ personal: false, reason: "system_metadata" });
+      // A stored secret never goes back to the client: the form shows set/empty
+      // and sends only a replacement or a clear.
+      return createTextField({
+        personal: false,
+        reason: "system_metadata",
+        ...(def.type === "text" && isEncryptedAtRest(def) && { writeOnly: true }),
+      });
   }
 }
 

@@ -2,7 +2,7 @@ import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-en
 import { dedupeFeatures } from "../dedupe-features.js";
 import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.js";
 import { QnTypes, qualifyEntityName } from "../qualified-name.js";
-import type { FeatureDefinition } from "../types/index.js";
+import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.js";
 import { validateAccessDeclarations } from "./access-declarations.js";
 import { warnOnUniqueAccessRoles } from "./access-roles.js";
 import { validateActionWiring, validateFieldWiring } from "./action-wiring.js";
@@ -142,11 +142,11 @@ export function validateBoot(
   // `…:config:branding-title`; ohne toKebab failt jeder configEdit-Screen mit
   // multi-word Config-Key fälschlich. allConfigKeys oben nutzt das ältere
   // `feature.short`-Format für validateConfigReads.
-  const allConfigKeyQns = new Set<string>();
+  const configKeyDefsByQn = new Map<string, ConfigKeyDefinition>();
   for (const f of features) {
-    for (const key of Object.keys(f.configKeys)) {
+    for (const [key, def] of Object.entries(f.configKeys)) {
       allConfigKeys.add(`${f.name}.${key}`);
-      allConfigKeyQns.add(qualifyEntityName(f.name, QnTypes.config, key));
+      configKeyDefsByQn.set(qualifyEntityName(f.name, QnTypes.config, key), def);
     }
   }
 
@@ -247,7 +247,7 @@ export function validateBoot(
       featureMap,
       allWriteHandlerQns,
       allScreenQns,
-      allConfigKeyQns,
+      configKeyDefsByQn,
       screensByShortId,
       detailForScreens,
     );

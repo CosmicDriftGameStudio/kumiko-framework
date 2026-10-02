@@ -12,6 +12,7 @@ import {
   hasConfigAccess,
   resolvePiiSubject,
   resolveScopeIds,
+  validateExtensionPlugin,
   validatePattern,
   validateScope,
   validateType,
@@ -148,6 +149,14 @@ describe("validateType", () => {
     expect(err?.code).toBe("validation_error");
     expect(fieldCode(err)).toBe("invalid_option");
   });
+
+  test("an encrypted select key's rejection keeps the options but never echoes the value", () => {
+    const secretSelect = createTenantConfig("select", { encrypted: true, options: ["a", "b"] });
+    const err = validateType("secret-choice", secretSelect);
+    expect(fieldCode(err)).toBe("invalid_option");
+    expect(JSON.stringify(err?.details)).toContain('"a"');
+    expect(JSON.stringify(err?.details)).not.toContain("secret-choice");
+  });
 });
 
 describe("validatePattern", () => {
@@ -163,6 +172,17 @@ describe("validatePattern", () => {
     expect(fieldCode(err)).toBe("invalid_format");
   });
 
+  test("an encrypted key's rejection keeps the pattern but never echoes the value", () => {
+    const secretKey = createTenantConfig("text", {
+      encrypted: true,
+      pattern: { regex: "^[a-z]+$" },
+    });
+    const err = validatePattern("AB1-secret", secretKey);
+    expect(fieldCode(err)).toBe("invalid_format");
+    expect(JSON.stringify(err?.details)).toContain("^[a-z]+$");
+    expect(JSON.stringify(err?.details)).not.toContain("AB1-secret");
+  });
+
   test("a malformed author regex surfaces as InternalError, not a throw", () => {
     const badKey = createTenantConfig("text", { pattern: { regex: "(" } });
     const err = validatePattern("abc", badKey);
@@ -171,5 +191,34 @@ describe("validatePattern", () => {
 
   test("non-text keys (no pattern applicable) are skipped", () => {
     expect(validatePattern(5, createTenantConfig("number", {}))).toBeNull();
+  });
+});
+
+describe("validateExtensionPlugin", () => {
+  const registry = {
+    getAllExtensionSelectors: () => new Map([["ext", "feat:config:plugin"]]),
+    getExtensionUsages: () => [{ entityName: "alpha" }],
+  } as unknown as Parameters<typeof validateExtensionPlugin>[0]; // @cast-boundary registry stub
+
+  test("an unknown plugin echoes the rejected value for a plain key", () => {
+    const err = validateExtensionPlugin(
+      registry,
+      "feat:config:plugin",
+      "nope",
+      createTenantConfig("text", {}),
+    );
+    expect(JSON.stringify(err?.details)).toContain("nope");
+  });
+
+  test("an encrypted key's rejection keeps the allowed plugins but never echoes the value", () => {
+    const err = validateExtensionPlugin(
+      registry,
+      "feat:config:plugin",
+      "secret-plugin",
+      createTenantConfig("text", { encrypted: true }),
+    );
+    expect(err?.code).toBe("unprocessable");
+    expect(JSON.stringify(err?.details)).toContain("alpha");
+    expect(JSON.stringify(err?.details)).not.toContain("secret-plugin");
   });
 });

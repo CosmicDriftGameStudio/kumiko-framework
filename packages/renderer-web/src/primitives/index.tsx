@@ -593,22 +593,31 @@ const TRAILING_ACTION_ICONS = { clear: X, undo: Undo2 } as const;
 
 // In-field icon button on the right (same look as the date input's calendar
 // trigger). The wrapped input must reserve the room itself (`pr-9`).
-function withTrailingAction(action: TrailingInputAction | undefined, input: ReactNode): ReactNode {
-  if (action === undefined) return input;
-  const ActionIcon = TRAILING_ACTION_ICONS[action.icon];
+// `keepWrapper` holds the tree shape when the action comes and goes — a
+// write-only input loses its action on the first keystroke, and swapping the
+// wrapper would remount the input and drop focus mid-typing.
+function withTrailingAction(
+  action: TrailingInputAction | undefined,
+  input: ReactNode,
+  keepWrapper = false,
+): ReactNode {
+  if (action === undefined && !keepWrapper) return input;
+  const ActionIcon = action !== undefined ? TRAILING_ACTION_ICONS[action.icon] : undefined;
   return (
     <div className="relative">
       {input}
-      <button
-        type="button"
-        aria-label={action.label}
-        title={action.label}
-        data-testid={action.testId}
-        onClick={action.onPress}
-        className={inFieldIconButtonClass}
-      >
-        <ActionIcon className="size-4" aria-hidden="true" />
-      </button>
+      {action !== undefined && ActionIcon !== undefined && (
+        <button
+          type="button"
+          aria-label={action.label}
+          title={action.label}
+          data-testid={action.testId}
+          onClick={action.onPress}
+          className={inFieldIconButtonClass}
+        >
+          <ActionIcon className="size-4" aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }
@@ -910,6 +919,7 @@ function DefaultInput(props: InputProps): ReactNode {
           autoComplete={props.autoComplete ?? "current-password"}
           className={props.trailingAction !== undefined ? "pr-9" : undefined}
         />,
+        true,
       );
     case "number":
       return withUnitSuffix(

@@ -11,6 +11,7 @@ import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
 import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
+import { isEncryptedAtRest } from "../config-helpers.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.js";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
@@ -23,7 +24,12 @@ import {
   resolveNavParentScreen,
   sectionFieldSpecs,
 } from "../screen-helpers.js";
-import type { EntityDefinition, FeatureDefinition, FieldDefinition } from "../types/index.js";
+import type {
+  ConfigKeyDefinition,
+  EntityDefinition,
+  FeatureDefinition,
+  FieldDefinition,
+} from "../types/index.js";
 import { metricField } from "../types/index.js";
 import type {
   ActionFormRedirect,
@@ -735,6 +741,10 @@ function validateOptionsQueryFieldRefs(
   }
 }
 
+function isWriteOnlyField(fdef: FieldDefinition | undefined): boolean {
+  return (fdef as { writeOnly?: unknown } | undefined)?.writeOnly === true; // @cast-boundary schema-walk
+}
+
 // Inline forms have no stored value to hide or keep: writeOnly there would
 // render a "set / keep" affordance with nothing behind it.
 function rejectWriteOnlyFormField(
@@ -744,8 +754,7 @@ function rejectWriteOnlyFormField(
   fieldName: string,
   fdef: FieldDefinition,
 ): void {
-  if ((fdef as { writeOnly?: unknown }).writeOnly === true) {
-    // @cast-boundary schema-walk
+  if (isWriteOnlyField(fdef)) {
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fieldName}" declares writeOnly — ` +
         `writeOnly only applies to entity fields (nothing to hide on a form that stores no value). ` +
@@ -1358,7 +1367,7 @@ export function validateScreens(
   featureMap: ReadonlyMap<string, FeatureDefinition>,
   allWriteHandlerQns: ReadonlySet<string>,
   allScreenQns: ReadonlySet<string>,
-  allConfigKeyQns: ReadonlySet<string>,
+  configKeyDefsByQn: ReadonlyMap<string, ConfigKeyDefinition>,
   screensByShortId: ReadonlyMap<
     string,
     ReadonlyArray<{ readonly featureName: string; readonly screen: ScreenDefinition }>
@@ -1922,7 +1931,6 @@ export function validateScreens(
           );
         }
         validateFormSelectOptions(feature.name, screenId, "configEdit", fname, fdef, fieldNames);
-        rejectWriteOnlyFormField(feature.name, screenId, "configEdit", fname, fdef);
       }
       if (screen.layout.sections.length === 0) {
         throw new Error(
@@ -1979,13 +1987,21 @@ export function validateScreens(
               `einem qualifizierten Config-Key (\`<feature>:config:<short>\`).`,
           );
         }
-        if (!allConfigKeyQns.has(qualified)) {
+        const configKeyDef = configKeyDefsByQn.get(qualified);
+        if (configKeyDef === undefined) {
           throw new Error(
             `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" → ` +
               `Config-Key "${qualified}" ist in keiner Feature-Registry deklariert. Tippfehler? ` +
               `Erwartetes Format: "<feature>:config:<short>". Bekannte Keys: ${
-                [...allConfigKeyQns].sort().join(", ") || "(keine)"
+                [...configKeyDefsByQn.keys()].sort().join(", ") || "(keine)"
               }`,
+          );
+        }
+        if (isWriteOnlyField(screen.fields[fname]) && !isEncryptedAtRest(configKeyDef)) {
+          throw new Error(
+            `[Feature ${feature.name}] Screen "${screenId}" (configEdit) field "${fname}" declares writeOnly ` +
+              `but config key "${qualified}" is not encrypted at rest — writeOnly on a configEdit field ` +
+              `only hides a stored secret (declare the key with encrypted: true or backing: "secrets").`,
           );
         }
       }

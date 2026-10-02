@@ -8,6 +8,7 @@ import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   defineWriteHandler,
+  isEncryptedAtRest,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { requireConfigEncryption, requireSystemDb } from "../feature.js";
+import { MASKED } from "../read-redaction.js";
 import { configValueEntity, configValuesTable } from "../table.js";
 import {
   findConfigRow,
@@ -87,6 +89,7 @@ export const setWrite = defineWriteHandler({
       ctx.registry,
       event.payload.key,
       event.payload.value,
+      keyDef,
     );
     if (pluginError) return writeFailure(pluginError);
 
@@ -99,6 +102,10 @@ export const setWrite = defineWriteHandler({
 
     const patternError = validatePattern(event.payload.value, keyDef);
     if (patternError) return writeFailure(patternError);
+
+    // The batch idempotency cache stores this result and only masks entity
+    // writeOnly fields, so an at-rest-encrypted value must not be echoed.
+    const echoedValue = isEncryptedAtRest(keyDef) ? MASKED : event.payload.value;
 
     // backing="secrets": persist into the secrets store (system tenant, own
     // envelope encryption + audit) instead of config_values. Same JSON
@@ -122,7 +129,7 @@ export const setWrite = defineWriteHandler({
       );
       return {
         isSuccess: true,
-        data: { key: event.payload.key, value: event.payload.value, scope },
+        data: { key: event.payload.key, value: echoedValue, scope },
       };
     }
 
@@ -198,7 +205,7 @@ export const setWrite = defineWriteHandler({
 
     return {
       isSuccess: true,
-      data: { key: event.payload.key, value: event.payload.value, scope },
+      data: { key: event.payload.key, value: echoedValue, scope },
     };
   },
 });
