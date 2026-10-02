@@ -162,15 +162,35 @@ export function parseSourceFile(sourceFile: SourceFile): ParseResult {
 
   walkSetupCallback(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
   walkAiStepCalls(setupCallback.getBody(), registrarParamName, sourceFile, patterns, errors);
-  // Tie-break on filePath so cross-file registrar wrappers don't interleave by
-  // foreign line numbers alone.
+  // Tie-break on the path relative to the entry file's directory so cross-file
+  // registrar wrappers don't interleave by foreign line numbers alone, without
+  // the order depending on where the repo is checked out (worktrees).
+  const parseRoot = sourceFile.getDirectoryPath();
   patterns.sort((a, b) => {
-    const fileCmp = a.source.file.localeCompare(b.source.file);
+    const fileCmp = relativePosixPath(parseRoot, a.source.file).localeCompare(
+      relativePosixPath(parseRoot, b.source.file),
+    );
     if (fileCmp !== 0) return fileCmp;
     return a.source.start.line - b.source.start.line;
   });
 
   return { featureName, patterns, errors };
+}
+
+// node:path is avoided: the Designer runs this against an in-memory file
+// system outside Node. ts-morph paths are always posix-style.
+export function relativePosixPath(fromDirectory: string, filePath: string): string {
+  const fromSegments = fromDirectory.split("/").filter(Boolean);
+  const fileSegments = filePath.split("/").filter(Boolean);
+  let common = 0;
+  while (
+    common < fromSegments.length &&
+    common < fileSegments.length - 1 &&
+    fromSegments[common] === fileSegments[common]
+  ) {
+    common += 1;
+  }
+  return [...fromSegments.slice(common).map(() => ".."), ...fileSegments.slice(common)].join("/");
 }
 
 // =============================================================================

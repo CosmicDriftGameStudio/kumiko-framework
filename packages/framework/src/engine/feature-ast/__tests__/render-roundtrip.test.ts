@@ -945,3 +945,30 @@ ${stepCalls}
     expect(reparsed.patterns.map(stripLocations)).toEqual(aiPatterns.map(stripLocations));
   });
 });
+
+describe("renderFeatureFile default imports", () => {
+  test("emits the namespace zod import so generated files stay tree-shakeable", () => {
+    const rendered = renderFeatureFile({ featureName: "f", patterns: [] });
+    expect(rendered).toContain('import * as z from "zod";');
+    expect(rendered).not.toContain('import { z } from "zod";');
+  });
+
+  test("existing files using `import { z }` still parse and re-render without errors", () => {
+    const legacy = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("legacy", (r) => {
+  r.requires("auth");
+});
+`;
+    const parsed = parseSourceFile(
+      new Project({
+        useInMemoryFileSystem: true,
+        skipAddingFilesFromTsConfig: true,
+      }).createSourceFile("legacy.ts", legacy),
+    );
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.patterns).toMatchObject([{ kind: "requires" }]);
+  });
+});

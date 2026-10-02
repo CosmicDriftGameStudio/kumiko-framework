@@ -716,3 +716,130 @@ defineFeature("inventory", (r) => {
     });
   });
 });
+
+describe("updatePattern — combined set/unset and multiple appended keys", () => {
+  const HEAD = `import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";\n`;
+  const ID = { kind: "writeHandler", handlerName: "x" } as const;
+
+  function wrapHandler(literalBody: string): string {
+    return `${HEAD}
+defineFeature("f", (r) => {
+  r.writeHandler(${literalBody});
+});
+`;
+  }
+
+  function patchAndReparse(source: string, change: HandlerHeaderUpdate) {
+    const sf = makeSourceFile(source);
+    updatePattern(sf, change);
+    expect(syntaxErrors(sf)).toEqual([]);
+    const reparsed = parseSourceFile(sf);
+    expect(reparsed.errors).toEqual([]);
+    return {
+      text: sf.getFullText(),
+      pattern: reparsed.patterns.find((p) => p.kind === "writeHandler"),
+    };
+  }
+
+  const multiLine = (lastProperty: string) =>
+    wrapHandler(`{
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { openToAll: { reason: "test" } }${lastProperty}
+  }`);
+
+  const bothMissing = {
+    description: "d",
+    rateLimit: { disabled: true, reason: "r" },
+  } as const;
+
+  test("single-line: set a new key while unsetting the last property", () => {
+    const { text, pattern } = patchAndReparse(
+      wrapHandler(
+        '{ name: "x", schema: z.object({}), handler: async () => {}, access: { openToAll: { reason: "test" } }, description: "old" }',
+      ),
+      {
+        op: "update",
+        id: ID,
+        set: { rateLimit: { disabled: true, reason: "r" } },
+        unset: ["description"],
+      },
+    );
+    expect(text).not.toContain("old");
+    expect(pattern).toMatchObject({ rateLimit: { disabled: true, reason: "r" } });
+    expect(pattern).not.toHaveProperty("description");
+  });
+
+  test("single-line: two missing keys land in one comma-separated append", () => {
+    const { pattern } = patchAndReparse(
+      wrapHandler(
+        '{ name: "x", schema: z.object({}), handler: async () => {}, access: { openToAll: { reason: "test" } }, }',
+      ),
+      { op: "update", id: ID, set: bothMissing },
+    );
+    expect(pattern).toMatchObject({
+      description: "d",
+      rateLimit: { disabled: true, reason: "r" },
+    });
+  });
+
+  test("single-line: two missing keys without a trailing comma", () => {
+    const { pattern } = patchAndReparse(
+      wrapHandler(
+        '{ name: "x", schema: z.object({}), handler: async () => {}, access: { openToAll: { reason: "test" } } }',
+      ),
+      { op: "update", id: ID, set: bothMissing },
+    );
+    expect(pattern).toMatchObject({ description: "d" });
+  });
+
+  for (const [label, lastProperty] of [
+    ["with trailing comma", ","],
+    ["without trailing comma", ""],
+    ["with trailing comma and a line comment", ", // note"],
+    ["without trailing comma but a line comment", " // note"],
+  ] as const) {
+    test(`multi-line ${label}: two missing keys parse cleanly`, () => {
+      const { text, pattern } = patchAndReparse(multiLine(lastProperty), {
+        op: "update",
+        id: ID,
+        set: bothMissing,
+      });
+      expect(text).not.toContain(",,");
+      if (lastProperty.includes("note")) expect(text).toContain("// note");
+      expect(pattern).toMatchObject({
+        description: "d",
+        rateLimit: { disabled: true, reason: "r" },
+      });
+    });
+  }
+
+  test("multi-line: set a new key and unset an existing one in the same change", () => {
+    const { pattern } = patchAndReparse(multiLine(',\n    description: "old",'), {
+      op: "update",
+      id: ID,
+      set: { rateLimit: { disabled: true, reason: "r" } },
+      unset: ["description"],
+    });
+    expect(pattern).toMatchObject({ rateLimit: { disabled: true, reason: "r" } });
+    expect(pattern).not.toHaveProperty("description");
+  });
+
+  test("an append that cannot be placed leaves the file untouched, even with unsets", () => {
+    const source = wrapHandler(
+      '{\n    name: "x",\n    schema: z.object({}),\n    handler: async () => {},\n    description: "old",\n    access: { openToAll: { reason: "test" } } });',
+    ).replace("});\n});", "}); });");
+    const sf = makeSourceFile(source);
+    const before = sf.getFullText();
+    expect(() =>
+      updatePattern(sf, {
+        op: "update",
+        id: ID,
+        set: { agent: { enabled: true } as never },
+        unset: ["description"],
+      }),
+    ).toThrow(/shares a line/);
+    expect(sf.getFullText()).toBe(before);
+  });
+});

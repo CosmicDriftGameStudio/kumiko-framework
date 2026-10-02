@@ -723,7 +723,7 @@ export type RenderFeatureFileInput = {
 
 const DEFAULT_IMPORTS = [
   'import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";',
-  'import { z } from "zod";',
+  'import * as z from "zod";',
 ] as const;
 
 /**

@@ -349,37 +349,16 @@ const HEADER_KEY_FLAGS_BY_HANDLER_KIND: Readonly<
 
 type TextEdit = { readonly start: number; readonly end: number; readonly text: string };
 
-function propertyName(prop: Node): string | undefined {
-  const assign = prop.asKind(SyntaxKind.PropertyAssignment);
-  if (assign) return readNameLiteral(assign.getNameNode()) ?? assign.getNameNode().getText();
-  const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
-  if (shorthand) return shorthand.getName();
-  return undefined;
+function lastProperty(obj: ObjectLiteralExpression): Node | undefined {
+  return obj.getProperties().at(-1);
 }
 
-// Append after the literal's last property, skipping any property this
-// same change is about to unset — avoids interleaving the two edits' spans.
-function lastRemainingProperty(
-  obj: ObjectLiteralExpression,
-  unsetKeys: ReadonlySet<string>,
-): Node | undefined {
-  const props = obj.getProperties();
-  for (let i = props.length - 1; i >= 0; i--) {
-    const prop = props[i];
-    if (prop === undefined) continue;
-    const name = propertyName(prop);
-    if (name !== undefined && unsetKeys.has(name)) continue;
-    return prop;
-  }
-  return undefined;
-}
-
-function buildSetEdit(
+// Replaces the value of an already-present key; undefined when the key is missing.
+function buildInPlaceSetEdit(
   obj: ObjectLiteralExpression,
   key: string,
   value: unknown,
-  unsetKeys: ReadonlySet<string>,
-): TextEdit {
+): TextEdit | undefined {
   const sourceFile = obj.getSourceFile();
   const existing = obj.getProperty(key);
   const assign = existing?.asKind(SyntaxKind.PropertyAssignment);
@@ -401,30 +380,33 @@ function buildSetEdit(
       text: `${key}: ${renderValue(value, col - 1)}`,
     };
   }
+  return undefined;
+}
 
-  const last = lastRemainingProperty(obj, unsetKeys);
+// All missing keys go into ONE edit: separate edits would share the same
+// anchor position and depend on apply order and trailing-comma luck.
+function buildAppendEdit(
+  obj: ObjectLiteralExpression,
+  entries: readonly (readonly [string, unknown])[],
+): TextEdit {
+  const sourceFile = obj.getSourceFile();
+  const last = lastProperty(obj);
   const fullText = sourceFile.getFullText();
   const isSingleLineLiteral = !obj.getText().includes("\n");
 
   if (!last) {
-    // Empty (or fully-unset) literal — insert right after the opening brace.
+    // Empty literal — insert right after the opening brace.
     const openBrace = obj.getFirstChildByKindOrThrow(SyntaxKind.OpenBraceToken);
-    return {
-      start: openBrace.getEnd(),
-      end: openBrace.getEnd(),
-      text: ` ${key}: ${renderValue(value, 0)} `,
-    };
+    const joined = entries.map(([key, value]) => `${key}: ${renderValue(value, 0)}`).join(", ");
+    return { start: openBrace.getEnd(), end: openBrace.getEnd(), text: ` ${joined} ` };
   }
 
   if (isSingleLineLiteral) {
     let pos = last.getEnd();
     const hasComma = fullText[pos] === ",";
     if (hasComma) pos++;
-    return {
-      start: pos,
-      end: pos,
-      text: `${hasComma ? "" : ","} ${key}: ${renderValue(value, 0)}`,
-    };
+    const joined = entries.map(([key, value]) => `${key}: ${renderValue(value, 0)}`).join(", ");
+    return { start: pos, end: pos, text: `${hasComma ? "" : ","} ${joined}` };
   }
 
   const col = sourceFile.getLineAndColumnAtPos(last.getStart()).column;
@@ -443,13 +425,12 @@ function buildSetEdit(
       "updatePattern: cannot append a header field — the handler literal's last property shares a line with other code; use replace",
     );
   }
+  const appended = entries
+    .map(([key, value]) => `\n${indentStr}${key}: ${renderValue(value, col - 1)},`)
+    .join("");
   // Reconstruct the comma here (not inserted after the value) so it lands
   // right after the value, never inside a trailing `//` comment.
-  return {
-    start: valueEnd,
-    end: lineEndPos,
-    text: `,${restOfLine}\n${indentStr}${key}: ${renderValue(value, col - 1)},`,
-  };
+  return { start: valueEnd, end: lineEndPos, text: `,${restOfLine}${appended}` };
 }
 
 // Whole-line delete: property was alone on its line (with its indentation
@@ -512,12 +493,10 @@ function buildUnsetEdit(obj: ObjectLiteralExpression, key: string): TextEdit | u
   return buildInlineUnsetEdit(text, propStart, afterPos, hasTrailingComma);
 }
 
-/**
- * Apply a `HandlerHeaderUpdate` to the header fields named in `set`/`unset`
- * only, via targeted text edits — `schemaSource`, `handlerBody`, comments,
- * and every unnamed field stay byte-identical (narrower than replacePattern).
- */
-export function updatePattern(sourceFile: SourceFile, change: HandlerHeaderUpdate): void {
+function resolveUpdatableHandlerLiteral(
+  sourceFile: SourceFile,
+  change: HandlerHeaderUpdate,
+): ObjectLiteralExpression {
   const call = findCallForId(sourceFile, change.id);
   if (!call) {
     throw new Error(`updatePattern: no call found for ${describeId(change.id)}`);
@@ -545,6 +524,16 @@ export function updatePattern(sourceFile: SourceFile, change: HandlerHeaderUpdat
       "updatePattern: cannot update a handler literal containing a spread; use replace",
     );
   }
+  return obj;
+}
+
+/**
+ * Apply a `HandlerHeaderUpdate` to the header fields named in `set`/`unset`
+ * only, via targeted text edits — `schemaSource`, `handlerBody`, comments,
+ * and every unnamed field stay byte-identical (narrower than replacePattern).
+ */
+export function updatePattern(sourceFile: SourceFile, change: HandlerHeaderUpdate): void {
+  const obj = resolveUpdatableHandlerLiteral(sourceFile, change);
 
   const headerFlags = HEADER_KEY_FLAGS_BY_HANDLER_KIND[change.id.kind];
   const setEntries: [string, unknown][] = Object.entries(change.set).filter(
@@ -574,21 +563,48 @@ export function updatePattern(sourceFile: SourceFile, change: HandlerHeaderUpdat
   // Dedupe: two identical `unset` entries would otherwise produce two
   // overlapping deletes, the second eating text past the first's shrink.
   const unsetKeys = new Set<string>(unsetKeyList);
-  const edits: TextEdit[] = [
-    ...setEntries.map(([key, value]) => buildSetEdit(obj, key, value, unsetKeys)),
-    ...[...unsetKeys]
-      .map((key) => buildUnsetEdit(obj, key))
-      .filter((edit): edit is TextEdit => edit !== undefined),
-  ];
+  const originalText = sourceFile.getFullText();
+  try {
+    // Unsets run first and the set edits are built against the re-parsed
+    // result: an append anchor and an inline unset can otherwise share the
+    // same comma and overlap.
+    applyEditsDescending(
+      sourceFile,
+      [...unsetKeys]
+        .map((key) => buildUnsetEdit(obj, key))
+        .filter((edit): edit is TextEdit => edit !== undefined),
+    );
+    const settable = unsetKeys.size > 0 ? resolveUpdatableHandlerLiteral(sourceFile, change) : obj;
 
-  // Apply from the highest offset down so an earlier edit's positions,
-  // captured above against the pre-edit text, stay valid.
-  edits
-    .slice()
-    .sort((a, b) => b.start - a.start)
-    .forEach((edit) => {
-      sourceFile.replaceText([edit.start, edit.end], edit.text);
-    });
+    const inPlaceEdits: TextEdit[] = [];
+    const missingEntries: (readonly [string, unknown])[] = [];
+    for (const [key, value] of setEntries) {
+      const edit = buildInPlaceSetEdit(settable, key, value);
+      if (edit) inPlaceEdits.push(edit);
+      else missingEntries.push([key, value]);
+    }
+    applyEditsDescending(sourceFile, [
+      ...inPlaceEdits,
+      ...(missingEntries.length > 0 ? [buildAppendEdit(settable, missingEntries)] : []),
+    ]);
+  } catch (error) {
+    sourceFile.replaceWithText(originalText);
+    throw error;
+  }
+}
+
+// Apply from the highest offset down so an earlier edit's positions,
+// captured against the pre-edit text, stay valid.
+function applyEditsDescending(sourceFile: SourceFile, edits: readonly TextEdit[]): void {
+  const sorted = edits.slice().sort((a, b) => b.start - a.start);
+  for (let i = 1; i < sorted.length; i++) {
+    const previous = sorted[i - 1];
+    const current = sorted[i];
+    if (previous && current && current.end > previous.start) {
+      throw new Error("updatePattern: internal error, text edits overlap");
+    }
+  }
+  for (const edit of sorted) sourceFile.replaceText([edit.start, edit.end], edit.text);
 }
 
 // =============================================================================

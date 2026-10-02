@@ -6,6 +6,7 @@ import {
   resolveExportedVariable,
   resolveModuleFile,
 } from "../extractors/resolve-import.js";
+import { resolveSameFileObjectLiteral } from "../extractors/shared.js";
 import { parseFeatureFile, parseSourceFile } from "../parse.js";
 
 function loadFixture(relPath: string): SourceFile {
@@ -122,6 +123,76 @@ defineFeature("f", (r) => {
     const result = parseSourceFile(sf);
     expect(result.patterns).toEqual([]);
     expect(result.errors).toEqual([expect.objectContaining({ methodName: "extendsRegistrar" })]);
+  });
+
+  const shadowingBodies: ReadonlyArray<readonly [string, string]> = [
+    [
+      "a destructured parameter",
+      "const run = ({ NAME }) => { r.extendsRegistrar(NAME, {}); };\n  run({ NAME: 'x' });",
+    ],
+    [
+      "a destructured local const",
+      "const { NAME } = { NAME: 'x' };\n  r.extendsRegistrar(NAME, {});",
+    ],
+    ["an array-destructured local const", "const [NAME] = ['x'];\n  r.extendsRegistrar(NAME, {});"],
+    ["a for...of variable", "for (const NAME of ['x']) { r.extendsRegistrar(NAME, {}); }"],
+    ["a for...in variable", "for (const NAME in { x: 1 }) { r.extendsRegistrar(NAME, {}); }"],
+    ["a classic for variable", "for (let NAME = 'x'; ; ) { r.extendsRegistrar(NAME, {}); break; }"],
+    ["a catch variable", "try { throw 1; } catch (NAME) { r.extendsRegistrar(NAME, {}); }"],
+    ["a method parameter", "const o = { m(NAME) { r.extendsRegistrar(NAME, {}); } };\n  o.m('x');"],
+    [
+      "a constructor parameter",
+      "class C { constructor(NAME) { r.extendsRegistrar(NAME, {}); } }\n  new C('x');",
+    ],
+    [
+      "an accessor parameter",
+      "const o = { set v(NAME) { r.extendsRegistrar(NAME, {}); } };\n  o.v = 'x';",
+    ],
+  ];
+
+  for (const [label, body] of shadowingBodies) {
+    test(`${label} shadows an outer const instead of resolving to it`, () => {
+      const sf = makeSourceFile(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+const NAME = "outer";
+
+defineFeature("f", (r) => {
+  ${body}
+});
+`);
+      const result = parseSourceFile(sf);
+      expect(result.patterns).toEqual([]);
+      expect(result.errors).toEqual([expect.objectContaining({ methodName: "extendsRegistrar" })]);
+    });
+  }
+});
+
+describe("resolveSameFileObjectLiteral", () => {
+  test("does not follow an imported binding into another file", () => {
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      skipFileDependencyResolution: true,
+      useInMemoryFileSystem: true,
+    });
+    project.createSourceFile("config.ts", "export const CONFIG = { a: 1 };");
+    const sf = project.createSourceFile(
+      "use.ts",
+      'import { CONFIG } from "./config";\nconst x = CONFIG;\n',
+    );
+    const reference = sf.getVariableDeclarationOrThrow("x").getInitializerOrThrow();
+    expect(resolveSameFileObjectLiteral(reference)).toBeUndefined();
+  });
+
+  test("resolves a same-file const to its object literal", () => {
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      skipFileDependencyResolution: true,
+      useInMemoryFileSystem: true,
+    });
+    const sf = project.createSourceFile("use.ts", "const CONFIG = { a: 1 };\nconst x = CONFIG;\n");
+    const reference = sf.getVariableDeclarationOrThrow("x").getInitializerOrThrow();
+    expect(resolveSameFileObjectLiteral(reference)?.getText()).toBe("{ a: 1 }");
   });
 });
 
