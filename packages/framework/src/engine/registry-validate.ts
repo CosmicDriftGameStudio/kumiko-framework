@@ -22,6 +22,7 @@ import type {
   EventPiiFields,
   EventUpcastFn,
   FeatureDefinition,
+  NameOrRef,
   PostDeleteHookFn,
   PostSaveHookFn,
   PreDeleteHookFn,
@@ -680,28 +681,66 @@ export function validateEntityHookTargets(
   }
 }
 
-export function validateJobTriggers(state: RegistryState): void {
-  // Validate: job event triggers must reference an existing write/query
-  // handler OR an existing r.defineEvent registration. The latter is
-  // delivered async via the job-trigger event-consumer (server.ts), not
-  // the synchronous write-handler dispatch path — see
-  // createJobTriggerEventConsumer in pipeline/system-hooks.ts.
-  // Multi-Trigger-Form: jeden Eintrag im Array gegen allHandlers prüfen,
-  // auch wenn nur einer fehlt fail-fast.
+export function resolveJobTriggers(state: RegistryState): void {
+  // Job event triggers must reference an existing write/query handler OR an
+  // existing r.defineEvent registration. The latter is delivered async via the
+  // job-trigger event-consumer (server.ts), not the synchronous write-handler
+  // dispatch path — see createJobTriggerEventConsumer in
+  // pipeline/system-hooks.ts. Short names are qualified against the job's own
+  // feature and written back, because the job runner matches by exact QN.
   const allHandlers = allHandlerQns(state);
   for (const [jobName, jobDef] of state.jobMap) {
     if (!("on" in jobDef.trigger)) continue;
+    const featureName = state.jobFeatureMap.get(jobName);
     const triggerOn = jobDef.trigger.on;
-    const triggers = Array.isArray(triggerOn) ? triggerOn : [triggerOn];
-    for (const t of triggers) {
-      const rawName = resolveName(t);
-      if (allHandlers.has(rawName)) continue;
-      if (state.eventMap.has(rawName)) continue;
-      throw new Error(
-        `Job "${jobName}" triggers on "${rawName}" but no handler or event with that name exists`,
-      );
-    }
+    const resolveTrigger = (trigger: NameOrRef): string =>
+      resolveJobTriggerName(state, allHandlers, jobName, featureName, resolveName(trigger));
+    const resolvedOn = isNameOrRefList(triggerOn)
+      ? triggerOn.map(resolveTrigger)
+      : resolveTrigger(triggerOn);
+    state.jobMap.set(jobName, { ...jobDef, trigger: { ...jobDef.trigger, on: resolvedOn } });
   }
+}
+
+// Array.isArray does not narrow a readonly array out of a union.
+function isNameOrRefList(on: NameOrRef | readonly NameOrRef[]): on is readonly NameOrRef[] {
+  return Array.isArray(on);
+}
+
+// An already-qualified name (e.g. a misspelled own-feature QN) is not a
+// short name; qualify() rejects it, and the "no handler" error below names it.
+function qualifyShortTriggerName(
+  featureName: string,
+  type: "write" | "query" | "event",
+  trigger: string,
+): string[] {
+  try {
+    return [qualify(featureName, type, trigger)];
+  } catch {
+    return [];
+  }
+}
+
+function resolveJobTriggerName(
+  state: RegistryState,
+  allHandlers: ReadonlySet<string>,
+  jobName: string,
+  featureName: string | undefined,
+  trigger: string,
+): string {
+  if (allHandlers.has(trigger) || state.eventMap.has(trigger)) return trigger;
+  const candidates =
+    featureName === undefined
+      ? []
+      : (["write", "query", "event"] as const).flatMap((type) =>
+          qualifyShortTriggerName(featureName, type, trigger),
+        );
+  const match = candidates.find((qn) => allHandlers.has(qn) || state.eventMap.has(qn));
+  if (match !== undefined) return match;
+  throw new Error(
+    `Job "${jobName}" triggers on "${trigger}" but no handler or event with that name exists. ` +
+      `Tried: ${[trigger, ...candidates].map((name) => `"${name}"`).join(", ")}`,
+  );
 }
 
 export function validateLiveEntities(state: RegistryState): void {

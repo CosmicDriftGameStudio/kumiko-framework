@@ -28,6 +28,11 @@ const ordersFeature = defineFeature("orders", (r) => {
     },
     { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
+
+  // Short trigger name, qualified at boot against the job's own feature.
+  r.job("auditOrder", { trigger: { on: "orders:create" } }, async (payload) => {
+    jobExecutions.push({ name: "orders:job:audit-order", payload });
+  });
 });
 
 // Feature B: has a job that triggers on "orders:write:orders:create" (prefixed)
@@ -124,7 +129,7 @@ async function writeApi(user: SessionUser, type: string, payload: unknown) {
 // --- Tests ---
 
 describe("event trigger: write handler fires matching jobs", () => {
-  test("orders.create triggers both notification and analytics jobs", async () => {
+  test("orders.create triggers the notification, analytics and short-name audit jobs", async () => {
     jobExecutions.length = 0;
 
     const result = await writeApi(adminUser, "orders:write:orders:create", {
@@ -139,6 +144,7 @@ describe("event trigger: write handler fires matching jobs", () => {
         (e) => e.name === "notifications:job:send-order-confirmation",
       );
       const analytics = jobExecutions.find((e) => e.name === "analytics:job:track-order");
+      const audit = jobExecutions.find((e) => e.name === "orders:job:audit-order");
 
       expect(notification).toBeDefined();
       expect(notification?.payload["product"]).toBe("Widget");
@@ -146,6 +152,8 @@ describe("event trigger: write handler fires matching jobs", () => {
 
       expect(analytics).toBeDefined();
       expect(analytics?.payload["product"]).toBe("Widget");
+
+      expect(audit?.payload["product"]).toBe("Widget");
     });
   });
 

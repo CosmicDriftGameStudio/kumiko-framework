@@ -301,7 +301,7 @@ describe("custom roles :: access gates ownership, not the other way round", () =
 
   test("anonymous reaches no user-owned collection", async () => {
     const anon = createAnonymousUser(agentA.tenantId);
-    expect((await stack.http.queryErr(SIGNATURES_LIST, {}, anon)).code).toBe("access_denied");
+    expect((await stack.http.queryErr(SIGNATURES_LIST, {}, anon)).code).toBe("unauthenticated");
   });
 });
 

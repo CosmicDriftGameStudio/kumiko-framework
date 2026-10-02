@@ -186,15 +186,37 @@ function middlewareReject(
   );
 }
 
-// @wrapper-known error-helper
-function sessionInvalid(c: Context, reason: AuthSessionStatus | "no_sid"): Response {
-  return middlewareReject(c, {
+function sessionInvalidRejection(reason: AuthSessionStatus | "no_sid"): RejectArgs {
+  return {
     code: "session_invalid",
     status: 401,
     message: `session ${reason}`,
     i18nKey: "auth.errors.sessionInvalid",
     details: { reason },
-  });
+  };
+}
+
+const INVALID_TOKEN_REJECTION: RejectArgs = {
+  code: "invalid_token",
+  status: 401,
+  message: "token verification failed",
+  i18nKey: "auth.errors.invalidToken",
+};
+
+// A stale auth cookie (revoked session, rotated signing key) must not lock the
+// browser out of public handlers until the cookie expires, so with
+// anonymousAccess on the request continues anonymously and protected handlers
+// answer 401 unauthenticated in the dispatcher. Bearer clients own their header
+// and keep the explicit reject; /api/auth/* keeps it for the same reason as the
+// missing-token branch.
+function isStaleCookieDowngradable(
+  c: Context,
+  transport: AuthTransport,
+  anonymousAccess: AnonymousAccessResolved | undefined,
+): anonymousAccess is AnonymousAccessResolved {
+  return (
+    transport === "cookie" && anonymousAccess !== undefined && !c.req.path.startsWith("/api/auth/")
+  );
 }
 
 // Extract the JWT from either the kumiko_auth cookie (web) or the
@@ -306,16 +328,22 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       }
     }
 
+    const rejectInvalidCredential = async (
+      rejection: RejectArgs,
+    ): Promise<Response | undefined> => {
+      if (isStaleCookieDowngradable(c, transport, anonymousAccess)) {
+        return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus, {
+          rejectionIfTenantUnresolved: rejection,
+        });
+      }
+      return middlewareReject(c, rejection);
+    };
+
     let payload: Awaited<ReturnType<JwtHelper["verify"]>>;
     try {
       payload = await jwt.verify(token);
     } catch {
-      return middlewareReject(c, {
-        code: "invalid_token",
-        status: 401,
-        message: "token verification failed",
-        i18nKey: "auth.errors.invalidToken",
-      });
+      return await rejectInvalidCredential(INVALID_TOKEN_REJECTION);
     }
 
     // Session liveness check — only when both a checker is wired AND the
@@ -328,13 +356,13 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
         const result = await sessionChecker(payload.jti, payload.sub);
         const status = sessionCheckStatus(result);
         if (status !== "live") {
-          return sessionInvalid(c, status);
+          return await rejectInvalidCredential(sessionInvalidRejection(status));
         }
         if (typeof result === "object") {
           derivedRoles = result.roles;
         }
       } else {
-        return sessionInvalid(c, "no_sid");
+        return await rejectInvalidCredential(sessionInvalidRejection("no_sid"));
       }
     }
 
@@ -445,16 +473,23 @@ async function handleAnonymous(
   config: AnonymousAccessResolved,
   next: Next,
   resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
+  staleCredential?: { readonly rejectionIfTenantUnresolved: RejectArgs },
 ): Promise<Response | undefined> {
+  // A downgraded stale credential whose anonymous tenant can't be resolved or
+  // is torn down answers with the credential's own 401: a tenant error would
+  // hide the session end from the client.
+  const rejectTenant = (tenantError: RejectArgs): Response =>
+    middlewareReject(c, staleCredential?.rejectionIfTenantUnresolved ?? tenantError);
+
   // Step 1+2: parse client-supplied tenant. Reject malformed values before
   // they touch any downstream consumer (DB, cache, audit row).
   const headerRaw = c.req.header(TENANT_HEADER_NAME);
   const cookieRaw = getCookie(c, TENANT_COOKIE_NAME);
 
   const headerCheck = parseClientTenant(headerRaw, "X-Tenant header");
-  if (headerCheck.error) return middlewareReject(c, headerCheck.error);
+  if (headerCheck.error) return rejectTenant(headerCheck.error);
   const cookieCheck = parseClientTenant(cookieRaw, "kumiko_tenant cookie");
-  if (cookieCheck.error) return middlewareReject(c, cookieCheck.error);
+  if (cookieCheck.error) return rejectTenant(cookieCheck.error);
 
   const clientTenant: { id: TenantId; source: "header" | "cookie" } | null =
     headerCheck.tenantId !== null
@@ -465,13 +500,13 @@ async function handleAnonymous(
 
   // Step 3: pick the authoritative tenant.
   const resolved = await resolveTenant(c, config, clientTenant);
-  if ("error" in resolved) return middlewareReject(c, resolved.error);
+  if ("error" in resolved) return rejectTenant(resolved.error);
 
   // Step 4: existence check for untrusted sources.
   if (resolved.source !== "default" && config.tenantExists) {
     const exists = await config.tenantExists(resolved.tenantId);
     if (!exists) {
-      return middlewareReject(c, {
+      return rejectTenant({
         code: "tenant_not_found",
         status: 404,
         message: `tenant "${resolved.tenantId}" does not exist`,
@@ -487,7 +522,11 @@ async function handleAnonymous(
     resolved.tenantId,
     resolveTenantLifecycleStatus,
   );
-  if (lifecycleReject) return lifecycleReject;
+  if (lifecycleReject) {
+    return staleCredential
+      ? middlewareReject(c, staleCredential.rejectionIfTenantUnresolved)
+      : lifecycleReject;
+  }
   c.set(USER_KEY, createAnonymousUser(resolved.tenantId));
   await next();
   // skip: anonymous path completed — Hono middleware contract returns void

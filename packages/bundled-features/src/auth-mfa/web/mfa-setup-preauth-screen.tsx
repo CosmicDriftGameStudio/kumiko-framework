@@ -1,4 +1,6 @@
 // @runtime client
+// Consumers that type-check this source never include the ambient declaration on their own.
+/// <reference path="./qrcode-browser.d.ts" />
 // Pre-auth twin of the declarative auth-mfa-enable secretMint screen: a user
 // blocked at login by MFA enforcement and not yet enrolled lands here
 // straight out of the login flow — there is no session yet. Identity comes

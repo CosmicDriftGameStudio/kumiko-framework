@@ -8,7 +8,7 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
-import type { AnonymousAccessConfig } from "../api/auth-middleware.js";
+import { type AnonymousAccessConfig, AUTH_COOKIE_NAME } from "../api/auth-middleware.js";
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { asRawClient, selectMany } from "../db/query.js";
 import { buildEntityTable } from "../db/table-builder.js";
@@ -160,25 +160,83 @@ describe("anonymous access — single-tenant default", () => {
     expect(rows[0]?.["placedBy"]).toBe(ANONYMOUS_USER_ID);
   });
 
-  test("openToAll handler rejects anonymous (regression guard)", async () => {
-    // The advisor-flagged regression: enabling anonymousAccess must NOT
-    // silently expose every existing openToAll endpoint. hasAccess refuses
-    // anonymous on openToAll, so the dispatcher returns AccessDenied.
+  test("openToAll handler rejects anonymous with 401 unauthenticated (regression guard)", async () => {
+    // Enabling anonymousAccess must NOT silently expose every existing
+    // openToAll endpoint. 401 rather than 403: a browser drops the expired
+    // auth cookie, so this is how a lapsed session reaches the server.
     const res = await stack.http.raw("POST", "/api/query", {
       type: "anonshop:query:product:list-auth-only",
       payload: {},
     });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("unauthenticated");
+  });
+
+  test("role-gated write rejects anonymous with 401 unauthenticated", async () => {
+    const res = await stack.http.raw("POST", "/api/write", {
+      type: "anonshop:write:product:create",
+      payload: { name: "Tea Set" },
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("unauthenticated");
+    expect(await selectMany(stack.db, productTable)).toHaveLength(0);
+  });
+
+  test("signed-in user without the role still gets 403 access_denied", async () => {
+    const res = await stack.http.write(
+      "anonshop:write:product:create",
+      { name: "Tea Set" },
+      TestUsers.user,
+    );
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("access_denied");
   });
 
-  test("role-gated handler still rejects anonymous", async () => {
-    const res = await stack.http.raw("POST", "/api/write", {
-      type: "anonshop:write:product:create",
-      payload: { name: "Tea Set" },
+  test("stale auth cookie: anonymous handler stays reachable", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("stale auth cookie: protected handler answers 401 unauthenticated", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/write",
+      { type: "anonshop:write:product:create", payload: { name: "Tea Set" } },
+      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("unauthenticated");
+    expect(await selectMany(stack.db, productTable)).toHaveLength(0);
+  });
+
+  test("stale auth cookie on /api/auth/* keeps 401 invalid_token", async () => {
+    const res = await stack.http.raw("GET", "/api/auth/tenants", undefined, {
+      Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt`,
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
+  });
+
+  test("invalid bearer token keeps 401 invalid_token even on an anonymous handler", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Authorization: "Bearer not-a-valid-jwt" },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
   });
 
   test("authenticated user with JWT bypasses anonymous path entirely", async () => {
@@ -300,6 +358,18 @@ describe("anonymous access — header-supplied tenant", () => {
     expect(body.error.code).toBe("tenant_mismatch");
   });
 
+  test("stale auth cookie without a resolvable tenant keeps 401 invalid_token, not 400", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
+  });
+
   test("unknown tenant → 404 tenant_not_found", async () => {
     const res = await stack.http.raw(
       "POST",
@@ -310,6 +380,105 @@ describe("anonymous access — header-supplied tenant", () => {
     expect(res.status).toBe(404);
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe("tenant_not_found");
+  });
+});
+
+describe("anonymous access — revoked session cookie", () => {
+  let stack: TestStack;
+  const REVOKED_SID = "revoked-session";
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+      authConfig: {
+        membershipQuery: "anonshop:query:memberships",
+        sessionChecker: async (sid) => (sid === REVOKED_SID ? "revoked" : "live"),
+      },
+    });
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
+  });
+
+  afterAll(() => stack.cleanup());
+
+  async function revokedSessionCookie(): Promise<string> {
+    const token = await stack.jwt.sign({ ...TestUsers.admin, sid: REVOKED_SID });
+    return `${AUTH_COOKIE_NAME}=${token}`;
+  }
+
+  test("anonymous handler stays reachable", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: await revokedSessionCookie() },
+    );
+    expect(res.status).toBe(200);
+  });
+
+  test("protected handler answers 401 unauthenticated instead of acting as the revoked user", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list-auth-only", payload: {} },
+      { Cookie: await revokedSessionCookie() },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("unauthenticated");
+  });
+
+  test("the same revoked token as bearer keeps 401 session_invalid", async () => {
+    const token = await stack.jwt.sign({ ...TestUsers.admin, sid: REVOKED_SID });
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Authorization: `Bearer ${token}` },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("session_invalid");
+  });
+});
+
+describe("anonymous access — stale cookie on a torn-down tenant", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: { defaultTenantId: TENANT_ID },
+      authConfig: {
+        membershipQuery: "anonshop:query:memberships",
+        resolveTenantLifecycleStatus: async () => ({ status: "destroying" }),
+      },
+    });
+  });
+
+  afterAll(() => stack.cleanup());
+
+  test("answers the credential's 401 so the client ends the session", async () => {
+    const res = await stack.http.raw(
+      "POST",
+      "/api/query",
+      { type: "anonshop:query:product:list", payload: {} },
+      { Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt` },
+    );
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
+  });
+
+  test("a caller without a cookie still gets 410 tenant_unavailable", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "anonshop:query:product:list",
+      payload: {},
+    });
+    expect(res.status).toBe(410);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_unavailable");
   });
 });
 
@@ -514,5 +683,16 @@ describe("anonymous access — disabled by default", () => {
       payload: {},
     });
     expect(res.status).toBe(401);
+  });
+
+  test("SSE handshake with a stale auth cookie → 401 with a session-end code", async () => {
+    // The web client's EventSource probe relies on exactly this contract to
+    // end the session instead of silently losing live updates.
+    const res = await stack.http.raw("GET", "/api/sse", undefined, {
+      Cookie: `${AUTH_COOKIE_NAME}=not-a-valid-jwt`,
+    });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("invalid_token");
   });
 });

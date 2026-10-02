@@ -42,12 +42,15 @@ export type SseRouteOptions = {
   readonly anonymousLiveEntities: ReadonlySet<string>;
 };
 
-type EntitySignalWire = {
-  readonly id: unknown;
+type AnonymousEntitySignalWire = {
   readonly aggregateType: string;
   readonly eventType: string;
-  readonly version: unknown;
   readonly createdAt: unknown;
+};
+
+type EntitySignalWire = AnonymousEntitySignalWire & {
+  readonly id: unknown;
+  readonly version: unknown;
 };
 
 // Whitelist, never a spread: the wire frame is a signal without field
@@ -61,6 +64,20 @@ function toEntitySignalWire(
     aggregateType: data.aggregateType,
     eventType: event.type,
     version: data["version"],
+    createdAt: data["createdAt"],
+  };
+}
+
+// The signal covers every row of the entity, including rows the anonymous
+// query hides, so id and version would leak which hidden rows exist and
+// change. Anonymous clients refetch the whole query anyway.
+function toAnonymousEntitySignalWire(
+  event: SseEvent,
+  data: { aggregateType: string } & Record<string, unknown>,
+): AnonymousEntitySignalWire {
+  return {
+    aggregateType: data.aggregateType,
+    eventType: event.type,
     createdAt: data["createdAt"],
   };
 }
@@ -92,7 +109,10 @@ function decideWireFrame(
   if (isEntityEventData(data)) {
     // skip: anonymous connections only get signals for entities an anonymous query declares
     if (!mayReceiveEntitySignal(user, data.aggregateType, options)) return undefined;
-    return { name: data.aggregateType, data: toEntitySignalWire(event, data) };
+    const signal = isAnonymousSessionUser(user)
+      ? toAnonymousEntitySignalWire(event, data)
+      : toEntitySignalWire(event, data);
+    return { name: data.aggregateType, data: signal };
   }
   // skip: frames without an entity belong to their addressee only
   if (!isAddressedTo(event, user.id)) return undefined;

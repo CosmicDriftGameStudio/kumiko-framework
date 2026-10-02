@@ -256,7 +256,7 @@ describe("extraRoutes: entry:anonymous deps.write (kumiko-framework#3050 anonymo
     expect(res.status).toBe(200);
     const body = (await res.json()) as { isSuccess: boolean; error?: { code: string } };
     expect(body.isSuccess).toBe(false);
-    expect(body.error?.code).toBe("access_denied");
+    expect(body.error?.code).toBe("unauthenticated");
     expect(anonymousWriteStore.get(TENANT_ID)?.length ?? 0).toBe(before);
   });
 

@@ -150,8 +150,8 @@ describe("collection access :: declared roles, not hardcoded admin", () => {
 
   test("anonymous reaches neither", async () => {
     const anon = createAnonymousUser(agent.tenantId);
-    expect((await stack.http.queryErr(SNIPPETS_LIST, {}, anon)).code).toBe("access_denied");
-    expect((await stack.http.queryErr(PROMPTS_LIST, {}, anon)).code).toBe("access_denied");
+    expect((await stack.http.queryErr(SNIPPETS_LIST, {}, anon)).code).toBe("unauthenticated");
+    expect((await stack.http.queryErr(PROMPTS_LIST, {}, anon)).code).toBe("unauthenticated");
   });
 
   test("TenantAdmin is in the declared list for snippets, so it passes there", async () => {

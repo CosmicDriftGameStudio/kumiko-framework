@@ -27,6 +27,7 @@ import {
   finalizeWorkspaceNavMembership,
   populateHandlerEntityMappings,
   publishEventPiiCatalog,
+  resolveJobTriggers,
   resolveNotificationTriggersAndRegisterHooks,
   validateBootGates,
   validateEntityHookTargets,
@@ -35,7 +36,6 @@ import {
   validateExtensionUsageTargets,
   validateFieldAccessHandlersAreEntityMapped,
   validateJobBackoff,
-  validateJobTriggers,
   validateLifecycleHookTargets,
   validateLiveEntities,
   validateProjectionApplyKeys,
@@ -83,7 +83,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
   resolveNotificationTriggersAndRegisterHooks(state);
   validateLifecycleHookTargets(state);
   validateEntityHookTargets(state, features);
-  validateJobTriggers(state);
+  resolveJobTriggers(state);
   validateBootGates(state);
   validateLiveEntities(state);
   validateJobBackoff(state);

@@ -17,6 +17,7 @@ import {
   runStreamInstrumented,
   type WriteOrigin,
 } from "./dispatch-shared.js";
+import { handlerAccessError } from "./handler-access-error.js";
 
 // Standalone stream execution — used by the public dispatcher.stream().
 // Chunk-by-chunk analog of executeQuery: same gate order (feature → rate-
@@ -58,10 +59,7 @@ async function* executeStreamInner(
   await enforceRateLimit(ctx, handler.rateLimit, type, user, registry.isHandlerSystemScoped(type));
 
   if (!hasAccess(user, handler.access)) {
-    throw new AccessDeniedError({
-      message: `access denied for ${type}`,
-      details: { handler: type },
-    });
+    throw handlerAccessError(user, type);
   }
 
   const parsed = handler.schema.safeParse(payload);

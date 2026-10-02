@@ -6,8 +6,12 @@ import { createEventSourceLiveEvents } from "../live-events.js";
 // `typeof window !== "undefined"` to unlock — no real DOM required. Stub
 // both globals directly instead of pulling in the project's DOM test config.
 class FakeEventSource {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSED = 2;
   static instances: FakeEventSource[] = [];
   private readonly listeners = new Map<string, Set<(e: MessageEvent) => void>>();
+  readyState: number = FakeEventSource.CONNECTING;
 
   constructor(readonly url: string) {
     FakeEventSource.instances.push(this);
@@ -24,6 +28,11 @@ class FakeEventSource {
 
   close(): void {}
 
+  fail(readyState: number): void {
+    this.readyState = readyState;
+    for (const listener of this.listeners.get("error") ?? []) listener({} as MessageEvent);
+  }
+
   dispatch(entityName: string, data: unknown): void {
     const event = { data: JSON.stringify(data) } as MessageEvent;
     for (const listener of this.listeners.get(entityName) ?? []) listener(event);
@@ -32,9 +41,12 @@ class FakeEventSource {
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 const originalEventSource = Object.getOwnPropertyDescriptor(globalThis, "EventSource");
+const originalFetch = globalThis.fetch;
+let probedUrls: string[] = [];
 
 beforeEach(() => {
   FakeEventSource.instances.length = 0;
+  probedUrls = [];
   // biome-ignore lint/suspicious/noExplicitAny: test-only global stub
   (globalThis as any).window = globalThis;
   // biome-ignore lint/suspicious/noExplicitAny: test-only global stub
@@ -42,6 +54,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  globalThis.fetch = originalFetch;
   if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
   else delete (globalThis as { window?: unknown }).window;
   if (originalEventSource) Object.defineProperty(globalThis, "EventSource", originalEventSource);
@@ -97,5 +110,97 @@ describe("createEventSourceLiveEvents", () => {
 
     unsubInvoice();
     unsubUser();
+  });
+});
+
+function stubSseProbe(status: number, body: unknown): void {
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    probedUrls.push(String(input));
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+}
+
+function nextTick(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe("createEventSourceLiveEvents — session end", () => {
+  test("a refused handshake answered with a session 401 ends the session once", async () => {
+    stubSseProbe(401, { error: { code: "invalid_token", httpStatus: 401 } });
+    let sessionEndedCount = 0;
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {
+        sessionEndedCount += 1;
+      },
+    });
+    liveEvents("invoice", () => {});
+    liveEvents("user", () => {});
+
+    FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CLOSED);
+    await nextTick();
+
+    expect(probedUrls).toEqual(["/api/sse"]);
+    expect(sessionEndedCount).toBe(1);
+    expect(FakeEventSource.instances).toHaveLength(1);
+
+    liveEvents("order", () => {});
+    await nextTick();
+
+    expect(FakeEventSource.instances).toHaveLength(1);
+    expect(probedUrls).toEqual(["/api/sse"]);
+    expect(sessionEndedCount).toBe(1);
+  });
+
+  test("a refused handshake that is not a session 401 leaves the session alone", async () => {
+    stubSseProbe(503, { error: { code: "unavailable", httpStatus: 503 } });
+    let sessionEnded = false;
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {
+        sessionEnded = true;
+      },
+    });
+    liveEvents("invoice", () => {});
+
+    FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CLOSED);
+    await nextTick();
+
+    expect(probedUrls).toEqual(["/api/sse"]);
+    expect(sessionEnded).toBe(false);
+  });
+
+  test("a 401 with a non-session code leaves the session alone", async () => {
+    stubSseProbe(401, { error: { code: "something_else", httpStatus: 401 } });
+    let sessionEnded = false;
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {
+        sessionEnded = true;
+      },
+    });
+    liveEvents("invoice", () => {});
+
+    FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CLOSED);
+    await nextTick();
+
+    expect(sessionEnded).toBe(false);
+  });
+
+  test("a dropped stream the browser retries itself is not probed", async () => {
+    stubSseProbe(401, { error: { code: "invalid_token", httpStatus: 401 } });
+    let sessionEnded = false;
+    const liveEvents = createEventSourceLiveEvents({
+      onSessionEnded: () => {
+        sessionEnded = true;
+      },
+    });
+    liveEvents("invoice", () => {});
+
+    FakeEventSource.instances.at(-1)?.fail(FakeEventSource.CONNECTING);
+    await nextTick();
+
+    expect(probedUrls).toEqual([]);
+    expect(sessionEnded).toBe(false);
   });
 });

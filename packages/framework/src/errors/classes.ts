@@ -66,6 +66,23 @@ export class AccessDeniedError extends KumikoError {
   }
 }
 
+// A caller without a signed-in principal (the synthesised anonymousAccess
+// user) hit a handler that needs one. 401, not 403: an expired auth cookie is
+// dropped by the browser, so this is how a lapsed session reaches the server.
+export class UnauthenticatedError extends KumikoError {
+  readonly code = "unauthenticated";
+  readonly httpStatus = 401;
+
+  constructor(opts?: Pick<ErrorOpts, "message" | "details" | "cause">) {
+    super({
+      message: opts?.message ?? "this handler requires a signed-in user",
+      i18nKey: "auth.errors.missingToken",
+      ...(opts?.details !== undefined && { details: opts.details }),
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+  }
+}
+
 export type NotFoundDetails = {
   readonly entity: string;
   readonly id?: string;
