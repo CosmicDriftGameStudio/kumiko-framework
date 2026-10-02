@@ -42,7 +42,7 @@ const IS_TEST = /\.(?:test|integration)\.tsx?$/;
 const DEV_ENTRYPOINT = /(?:^|\/)bin\/server\.ts$/;
 
 // A `?? "literal"` / `|| "literal"` nullish/or fallback to a string literal.
-const STRING_FALLBACK = /(?:\?\?|\|\|)\s*(['"`])([^'"`\n]+)\1/;
+const STRING_FALLBACK = /(?:\?\?|\|\|)\s*(['"`])([^'"`\n]+)\1/g;
 // A secret-like identifier. Matched only against the text LEFT of the fallback
 // (assignee / property name): `cfg.title ?? "Secret Santa"` is a label, not a secret.
 const SECRET_NAME =
@@ -116,19 +116,24 @@ export function scanLinesForSecretLiterals(lines: readonly string[]): SecretLite
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i] ?? "";
     const code = maskedLines[i] ?? "";
-    const match = STRING_FALLBACK.exec(code);
-    if (!match) continue;
-    const literal = match[2];
-    if (!literal || literal.length < MIN_SECRET_LENGTH || TRIVIAL_LITERAL.test(literal)) continue;
-    const left = code.slice(0, match.index);
-    const name =
-      SECRET_NAME.exec(left)?.[0] ??
-      (SECRET_LITERAL_TOKEN.test(literal)
-        ? (LHS_NAME.exec(left)?.[1] ?? UNNAMED_PLACEHOLDER)
-        : undefined);
-    if (name === undefined) continue;
     if (raw.includes(IGNORE_TAG) || (lines[i - 1] ?? "").includes(IGNORE_TAG)) continue;
-    hits.push({ lineNumber: i + 1, name, literalLength: literal.length });
+    // Every fallback on the line is inspected; the name is read only from the text since the
+    // previous fallback, so an earlier assignee cannot lend its name to a later literal.
+    let previousEnd = 0;
+    for (const match of code.matchAll(STRING_FALLBACK)) {
+      const left = code.slice(previousEnd, match.index);
+      previousEnd = match.index + match[0].length;
+      const literal = match[2];
+      if (!literal || literal.length < MIN_SECRET_LENGTH || TRIVIAL_LITERAL.test(literal)) continue;
+      const name =
+        SECRET_NAME.exec(left)?.[0] ??
+        (SECRET_LITERAL_TOKEN.test(literal)
+          ? (LHS_NAME.exec(left)?.[1] ?? UNNAMED_PLACEHOLDER)
+          : undefined);
+      if (name === undefined) continue;
+      hits.push({ lineNumber: i + 1, name, literalLength: literal.length });
+      break;
+    }
   }
   return hits;
 }

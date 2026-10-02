@@ -405,6 +405,11 @@ function groupByCategory(all: readonly Site[]): Map<Category, Site[]> {
   return byCat;
 }
 
+// The per-site listings are advisory and long; inside the shared runner (every consumer's
+// `bun run check`) they would bury the output of guards that can fail, so only a standalone
+// run of this file prints them.
+const PRINT_SITE_LISTINGS = import.meta.main;
+
 function reportCasts(all: readonly Site[], scanned: number): void {
   const byCat = groupByCategory(all);
   console.log(`as-Cast Audit: ${scanned} files checked, ${all.length} casts total.\n`);
@@ -412,6 +417,7 @@ function reportCasts(all: readonly Site[], scanned: number): void {
     const count = byCat.get(c)?.length ?? 0;
     console.log(`  ${c.padEnd(18)} ${count}`);
   }
+  if (!PRINT_SITE_LISTINGS) return;
 
   const suspects = CATS.filter((c) => c.startsWith("suspect-"));
 
