@@ -122,6 +122,24 @@ function lookupClassification<T extends Record<string, KeyClassification>>(
   return key in map ? map[key as keyof T] : undefined;
 }
 
+function isStaticStringNode(node: Node): boolean {
+  const kind = node.getKind();
+  return kind === SyntaxKind.StringLiteral || kind === SyntaxKind.NoSubstitutionTemplateLiteral;
+}
+
+function isBooleanLiteralNode(node: Node): boolean {
+  const kind = node.getKind();
+  return kind === SyntaxKind.TrueKeyword || kind === SyntaxKind.FalseKeyword;
+}
+
+function readStaticStringProperty(obj: ObjectLiteralExpression, key: string): string | undefined {
+  const initializer = obj.getProperty(key)?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
+  return (
+    initializer?.asKind(SyntaxKind.StringLiteral) ??
+    initializer?.asKind(SyntaxKind.NoSubstitutionTemplateLiteral)
+  )?.getLiteralValue();
+}
+
 // True when the call's object body/options carry a shape the extractor
 // cannot losslessly model property-by-property (a spread, a method/accessor
 // shorthand, a computed key, or a key outside the classification map above).
@@ -137,12 +155,24 @@ function hasUnmodeledShape(
     const propAssign = prop.asKind(SyntaxKind.PropertyAssignment);
     if (propAssign) {
       if (propAssign.getNameNode().getKind() === SyntaxKind.ComputedPropertyName) return true;
-      if (lookupClassification(keyKinds, readPropertyKey(propAssign)) !== "modeled") return true;
+      const key = readPropertyKey(propAssign);
+      if (lookupClassification(keyKinds, key) !== "modeled") return true;
+      const initializer = propAssign.getInitializer();
+      if (key === "description" && !(initializer && isStaticStringNode(initializer))) return true;
+      if (
+        key === "unsafeSkipTransitionGuard" &&
+        !(initializer && isBooleanLiteralNode(initializer))
+      ) {
+        return true;
+      }
       continue;
     }
     const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);
     if (shorthand) {
-      if (lookupClassification(keyKinds, shorthand.getName()) !== "modeled") return true;
+      const key = shorthand.getName();
+      if (lookupClassification(keyKinds, key) !== "modeled") return true;
+      // A shorthand's value is invisible to the literal readers below.
+      if (key === "description" || key === "unsafeSkipTransitionGuard") return true;
       continue;
     }
     return true;
@@ -315,11 +345,7 @@ export function parseHandlerCall(
     }
     const headerResult = readHandlerHeaderFields(obj, methodName, sourceFile);
     if (headerResult.kind === "error") return headerResult;
-    const descriptionLiteral = obj
-      .getProperty("description")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral);
+    const description = readStaticStringProperty(obj, "description");
     const skip = readBooleanProperty(obj, "unsafeSkipTransitionGuard");
     return ok({
       source: sourceLocationFromNode(call, sourceFile),
@@ -327,9 +353,7 @@ export function parseHandlerCall(
       schemaSource: sourceLocationFromNode(schemaInit, sourceFile),
       handlerBody: sourceLocationFromNode(fn, sourceFile),
       ...headerResult.pattern,
-      ...(descriptionLiteral !== undefined && {
-        description: descriptionLiteral.getLiteralValue(),
-      }),
+      ...(description !== undefined && { description }),
       ...(skip === true && { unsafeSkipTransitionGuard: true }),
     });
   }
@@ -379,6 +403,7 @@ export function parseHandlerCall(
   const optionsArg = args[3];
   let headerFields: HandlerHeaderFields = {};
   let description: string | undefined;
+  let skipTransitionGuard: boolean | undefined;
   if (optionsArg) {
     const optionsObj = unwrapObjectLiteral(optionsArg);
     if (!optionsObj || hasUnmodeledShape(optionsObj, methodName)) {
@@ -387,12 +412,8 @@ export function parseHandlerCall(
     const headerResult = readHandlerHeaderFields(optionsObj, methodName, sourceFile);
     if (headerResult.kind === "error") return headerResult;
     headerFields = headerResult.pattern;
-    description = optionsObj
-      .getProperty("description")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer()
-      ?.asKind(SyntaxKind.StringLiteral)
-      ?.getLiteralValue();
+    description = readStaticStringProperty(optionsObj, "description");
+    skipTransitionGuard = readBooleanProperty(optionsObj, "unsafeSkipTransitionGuard");
   }
   return ok({
     source: sourceLocationFromNode(call, sourceFile),
@@ -401,6 +422,7 @@ export function parseHandlerCall(
     handlerBody: sourceLocationFromNode(fn, sourceFile),
     ...headerFields,
     ...(description !== undefined && { description }),
+    ...(skipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
   });
 }
 

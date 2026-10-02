@@ -33,7 +33,7 @@ function findPattern<K extends FeaturePattern["kind"]>(
 
 const DEFAULT_IMPORTS = [
   'import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";',
-  'import { z } from "zod";',
+  'import * as z from "zod";',
 ] as const;
 
 describe("access: ADMIN, imported const (object form)", () => {
@@ -665,5 +665,78 @@ defineFeature("f", (r) => {
     const reparsed = parse(rendered);
     expect(reparsed.errors).toEqual([]);
     expect(findPattern(reparsed.patterns, "writeHandler").handlerName).toBeUndefined();
+  });
+});
+
+describe("description / unsafeSkipTransitionGuard authored non-literally", () => {
+  const HEAD = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { DESC, SKIP } from "./consts";
+`;
+  const objectForm = (extra: string) => `${HEAD}
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    ${extra}
+  });
+});
+`;
+  const positionalForm = (extra: string) => `${HEAD}
+defineFeature("f", (r) => {
+  r.writeHandler("x", z.object({}), async () => {}, { ${extra} });
+});
+`;
+
+  const cases: ReadonlyArray<readonly [string, string]> = [
+    ["description: DESC (identifier)", "description: DESC,"],
+    ["shorthand description", "description,"],
+    ["description with template substitution", `description: \`a \${DESC}\`,`],
+    ["unsafeSkipTransitionGuard: SKIP (identifier)", "unsafeSkipTransitionGuard: SKIP,"],
+    ["shorthand unsafeSkipTransitionGuard", "unsafeSkipTransitionGuard,"],
+  ];
+
+  for (const [label, extra] of cases) {
+    for (const [form, build] of [
+      ["object form", objectForm],
+      ["positional form", positionalForm],
+    ] as const) {
+      test(`${label} (${form}) falls back to the opaque pattern and survives a roundtrip`, () => {
+        const result = parse(build(extra));
+        expect(result.errors).toEqual([]);
+        const pattern = findPattern(result.patterns, "writeHandler");
+        expect(pattern.handlerName).toBeUndefined();
+        const rendered = renderFeatureFile({
+          featureName: result.featureName ?? "",
+          patterns: result.patterns,
+          imports: [...DEFAULT_IMPORTS, 'import { DESC, SKIP } from "./consts";'],
+        });
+        expect(rendered).toContain(extra.replace(/,$/, ""));
+        const reparsed = parse(rendered);
+        expect(reparsed.errors).toEqual([]);
+      });
+    }
+  }
+
+  test("backtick description without substitution is read as a string", () => {
+    const result = parse(objectForm("description: `Creates a task.`,"));
+    expect(findPattern(result.patterns, "writeHandler")).toMatchObject({
+      handlerName: "x",
+      description: "Creates a task.",
+    });
+    const positional = parse(positionalForm("description: `Creates a task.`"));
+    expect(findPattern(positional.patterns, "writeHandler")).toMatchObject({
+      description: "Creates a task.",
+    });
+  });
+
+  test("literal unsafeSkipTransitionGuard is read in the positional form", () => {
+    const result = parse(positionalForm("unsafeSkipTransitionGuard: true"));
+    expect(findPattern(result.patterns, "writeHandler")).toMatchObject({
+      handlerName: "x",
+      unsafeSkipTransitionGuard: true,
+    });
   });
 });

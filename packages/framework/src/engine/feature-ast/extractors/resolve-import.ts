@@ -4,14 +4,8 @@
 // TypeScript program on first use, which against this repo's workspace
 // packages pulls in ~1000 source files and costs seconds instead of
 // milliseconds.
-import type {
-  Node,
-  ParameterDeclaration,
-  SourceFile,
-  Statement,
-  VariableDeclaration,
-} from "ts-morph";
-import { SyntaxKind, ts } from "ts-morph";
+import type { SourceFile, Statement, VariableDeclaration } from "ts-morph";
+import { Node, SyntaxKind, ts } from "ts-morph";
 
 const MODULE_RESOLUTION_OPTIONS: ts.CompilerOptions = {
   moduleResolution: ts.ModuleResolutionKind.Bundler,
@@ -146,36 +140,65 @@ function resolveViaStarExport(
   return undefined;
 }
 
-/** A function parameter of the same name shadows and stops the search — it has no statically readable initializer. */
+/**
+ * Any binding of the same name that is not a plain `const NAME = <init>`
+ * (parameter, destructuring, loop variable, catch variable) shadows and ends
+ * the search — it has no statically readable initializer.
+ */
 export function findScopedVariableDeclaration(
   identifier: Node,
   name: string,
 ): VariableDeclaration | undefined {
   for (const ancestor of [identifier, ...identifier.getAncestors()]) {
-    const params = getShadowingParameters(ancestor);
-    if (params?.some((p) => p.getName() === name)) return undefined;
+    if (declaresShadowingBinding(ancestor, name)) return undefined;
 
     const statements = getDirectStatements(ancestor);
     if (!statements) continue;
     for (const stmt of statements) {
       const varStmt = stmt.asKind(SyntaxKind.VariableStatement);
       if (!varStmt) continue;
-      const decl = varStmt
-        .getDeclarationList()
-        .getDeclarations()
-        .find((d) => d.getName() === name);
-      if (decl) return decl;
+      for (const decl of varStmt.getDeclarationList().getDeclarations()) {
+        const nameNode = decl.getNameNode();
+        if (Node.isIdentifier(nameNode)) {
+          if (nameNode.getText() === name) return decl;
+        } else if (bindingNames(nameNode).includes(name)) {
+          return undefined;
+        }
+      }
     }
   }
   return undefined;
 }
 
-function getShadowingParameters(node: Node): readonly ParameterDeclaration[] | undefined {
-  const fn =
-    node.asKind(SyntaxKind.ArrowFunction) ??
-    node.asKind(SyntaxKind.FunctionExpression) ??
-    node.asKind(SyntaxKind.FunctionDeclaration);
-  return fn?.getParameters();
+function bindingNames(nameNode: Node): string[] {
+  if (Node.isIdentifier(nameNode)) return [nameNode.getText()];
+  if (Node.isObjectBindingPattern(nameNode) || Node.isArrayBindingPattern(nameNode)) {
+    return nameNode
+      .getElements()
+      .flatMap((element) =>
+        Node.isBindingElement(element) ? bindingNames(element.getNameNode()) : [],
+      );
+  }
+  return [];
+}
+
+function declaresShadowingBinding(node: Node, name: string): boolean {
+  if (Node.isParametered(node)) {
+    return node.getParameters().some((p) => bindingNames(p.getNameNode()).includes(name));
+  }
+  if (Node.isForOfStatement(node) || Node.isForInStatement(node) || Node.isForStatement(node)) {
+    const initializer = node.getInitializer();
+    return (
+      initializer !== undefined &&
+      Node.isVariableDeclarationList(initializer) &&
+      initializer.getDeclarations().some((decl) => bindingNames(decl.getNameNode()).includes(name))
+    );
+  }
+  if (Node.isCatchClause(node)) {
+    const decl = node.getVariableDeclaration();
+    return decl !== undefined && bindingNames(decl.getNameNode()).includes(name);
+  }
+  return false;
 }
 
 function getDirectStatements(node: Node): readonly Statement[] | undefined {

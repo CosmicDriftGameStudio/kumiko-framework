@@ -2839,3 +2839,31 @@ describe("cross-file imported-constant name resolution against a real filesystem
     expect(result.patterns).toMatchObject([{ kind: "extendsRegistrar", extensionName: "audit" }]);
   });
 });
+
+describe("cross-file pattern order does not depend on the checkout location", () => {
+  function kindsFor(root: string): string[] {
+    const project = createProject();
+    project.createSourceFile(
+      `${root}/lib/wrap.ts`,
+      'export function registerFooScreens(r: any) { r.nav({ id: "foo", label: "Foo" }); }',
+    );
+    const entry = project.createSourceFile(
+      `${root}/app/feature.ts`,
+      `import { registerFooScreens } from "../lib/wrap";
+defineFeature("f", (r) => {
+  r.requires("config");
+  registerFooScreens(r);
+});`,
+    );
+    const result = parseSourceFile(entry);
+    expect(result.errors).toEqual([]);
+    return result.patterns.map((p) => p.kind);
+  }
+
+  test("two checkout roots yield the same order", () => {
+    const first = kindsFor("/zz-checkout-a");
+    const second = kindsFor("/Aa Checkout.b/nested");
+    expect(first).toEqual(["nav", "requires"]);
+    expect(second).toEqual(first);
+  });
+});
