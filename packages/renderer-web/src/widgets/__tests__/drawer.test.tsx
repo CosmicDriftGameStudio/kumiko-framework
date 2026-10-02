@@ -13,6 +13,24 @@ describe("Drawer", () => {
     expect(screen.getByText("Body")).toBeTruthy();
   });
 
+  test("footer wrappt (flex-wrap), damit viele Aktionen nicht über den Panel-Rand laufen", () => {
+    render(
+      <Drawer
+        open={true}
+        onOpenChange={() => {}}
+        title="Mail"
+        footer={<button type="button">Save</button>}
+      >
+        <div>Body</div>
+      </Drawer>,
+    );
+    const footer = screen
+      .getByRole("button", { name: "Save" })
+      .closest('[data-slot="sheet-footer"]');
+    expect(footer).not.toBeNull();
+    expect(footer?.className).toContain("flex-wrap");
+  });
+
   test("open=false rendert nichts", () => {
     render(
       <Drawer open={false} onOpenChange={() => {}} title="Mail">

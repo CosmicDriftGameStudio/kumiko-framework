@@ -3989,6 +3989,41 @@ describe("RenderEdit — slots.titleAction", () => {
     ).toBeNull();
   });
 
+  test("titleAction also renders in the chromeless layout (hideSectionTitles)", () => {
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{ TitleChips }}>
+          <RenderEdit<TestValues>
+            screen={{
+              id: "orders:screen:order-edit-title-action-chromeless",
+              type: "entityEdit",
+              entity: "order",
+              description: "Edit the order",
+              layout: {
+                sections: [{ title: "Basics", columns: 1, fields: [{ field: "title" }] }],
+              },
+              slots: { titleAction: { react: { __component: "TitleChips" } } },
+            }}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+            hideSectionTitles
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    const titleAction = screen.getByTestId("render-edit-form-title-action");
+    const chips = screen.getByTestId("title-chips");
+    expect(titleAction.contains(chips)).toBe(true);
+    expect(chips.getAttribute("data-entity-id")).toBe("order-1");
+    // Chromeless shell is full-width; the card layout would be max-w-4xl.
+    expect(titleAction.closest('[class*="max-w-full"]')).not.toBeNull();
+    expect(titleAction.closest('[class*="max-w-4xl"]')).toBeNull();
+  });
+
   test("without titleAction the title row has no action container", () => {
     render(
       <DispatcherProvider dispatcher={makeDispatcher()}>

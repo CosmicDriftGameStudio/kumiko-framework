@@ -11,7 +11,12 @@ import { describe, expect, mock, test } from "bun:test";
 import { type ColumnRendererProps, ColumnRenderersProvider } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { defaultPrimitives, END_LABEL_MIN_ROWS, FormScreenShell } from "../primitives/index.js";
+import {
+  defaultPrimitives,
+  END_LABEL_MIN_ROWS,
+  FormScreenShell,
+  ScreenWidthProvider,
+} from "../primitives/index.js";
 import { DefaultJsonView } from "../primitives/json-view.js";
 import { PageSection, Stack } from "../primitives/layout.js";
 import { fireEvent, render, screen, waitFor, within } from "./test-utils.js";
@@ -111,6 +116,35 @@ describe("Button", () => {
 
     render(<Button testId="btn-no-icon">Delete</Button>);
     expect(screen.getByTestId("btn-no-icon").querySelector("svg")).toBeNull();
+  });
+
+  test("iconEnd: rendert ein SVG nach dem Label", () => {
+    render(
+      <Button iconEnd="arrow-right" testId="btn">
+        Next
+      </Button>,
+    );
+    const btn = screen.getByTestId("btn") as HTMLButtonElement;
+    const svg = btn.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(btn.textContent).toBe("Next");
+    expect(btn.firstChild).not.toBe(svg);
+    expect(btn.lastChild).toBe(svg);
+  });
+
+  test("danger-ghost: destruktiv eingefärbt, normales ghost nicht", () => {
+    render(
+      <>
+        <Button variant="danger-ghost" testId="danger">
+          Delete
+        </Button>
+        <Button variant="ghost" testId="neutral">
+          Cancel
+        </Button>
+      </>,
+    );
+    expect(screen.getByTestId("danger").className).toContain("text-destructive");
+    expect(screen.getByTestId("neutral").className).not.toContain("text-destructive");
   });
 });
 
@@ -2248,6 +2282,25 @@ describe("PageSection", () => {
     );
     expect(screen.getByTestId("page-4xl").className).toContain("max-w-4xl");
     expect(screen.getByTestId("shell-4xl").className).toContain("max-w-4xl");
+  });
+
+  test("FormScreenShell erbt die Breite aus ScreenWidthProvider, explizites maxWidth gewinnt", () => {
+    render(
+      <ScreenWidthProvider width="full">
+        <FormScreenShell testId="shell-ctx">x</FormScreenShell>
+        <FormScreenShell testId="shell-explicit" maxWidth="3xl">
+          x
+        </FormScreenShell>
+      </ScreenWidthProvider>,
+    );
+    expect(screen.getByTestId("shell-ctx").className).toContain("max-w-full");
+    expect(screen.getByTestId("shell-explicit").className).toContain("max-w-3xl");
+    expect(screen.getByTestId("shell-explicit").className).not.toContain("max-w-full");
+  });
+
+  test("FormScreenShell ohne Provider fällt auf 4xl zurück", () => {
+    render(<FormScreenShell testId="shell-default">x</FormScreenShell>);
+    expect(screen.getByTestId("shell-default").className).toContain("max-w-4xl");
   });
 
   test("default maxWidth stays full-width (existing behavior)", () => {
