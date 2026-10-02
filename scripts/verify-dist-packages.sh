@@ -152,11 +152,23 @@ cat >"$consumer/tsconfig.json" <<'JSON'
 }
 JSON
 # skipLibCheck stays off so our .d.ts are really checked; third-party declaration errors (bun-types under the current tsc) are not ours to fix.
-typecheck_output="$(cd "$consumer" && "$repo_root/node_modules/.bin/tsc" -p tsconfig.json 2>&1 || true)"
-own_errors="$(grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$typecheck_output" || true)"
+tsc_bin="$repo_root/node_modules/.bin/tsc"
+typecheck_status=0
+if [ -x "$tsc_bin" ]; then
+  typecheck_output="$(cd "$consumer" && "$tsc_bin" -p tsconfig.json 2>&1)" || typecheck_status=$?
+else
+  typecheck_output=""
+  problems+=("consumer-shaped tsc --noEmit: $tsc_bin is missing, typecheck did not run")
+fi
+# Only diagnostics located in third-party node_modules are ignored; every other
+# error (entry file, config/option errors without a path, @cosmicdrift .d.ts) counts.
+own_errors="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" | grep -Ev '^[^ ]*node_modules/[^@][^(]*\([0-9]+,[0-9]+\): error TS' || true)"
 if [ -n "$own_errors" ]; then
   sed -n "1,40p" <<<"$own_errors" | sed -E 's#^.*node_modules/##' >&2
-  problems+=("consumer-shaped tsc --noEmit: $(wc -l <<<"$own_errors" | tr -d ' ') errors in shipped @cosmicdrift .d.ts")
+  problems+=("consumer-shaped tsc --noEmit: $(wc -l <<<"$own_errors" | tr -d ' ') errors outside third-party declarations")
+elif [ "$typecheck_status" -ge 2 ] && ! grep -qE 'error TS[0-9]+' <<<"$typecheck_output"; then
+  sed -n "1,40p" <<<"$typecheck_output" >&2
+  problems+=("consumer-shaped tsc --noEmit: exited $typecheck_status without diagnostics, typecheck did not run")
 fi
 
 # Lives inside the scratch consumer so resolution goes through node_modules,

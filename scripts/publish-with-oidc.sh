@@ -79,6 +79,9 @@ publish_and_tag() {
     # check missed it and hard-failed a release that had actually landed.
     if grep -qF "previously published versions: ${version}." <<<"$log"; then
       already_published_via_e403=1
+      # npm also answers this for an unpublished version, which never resolves
+      # on the registry; surface it so a green run can't hide that case.
+      echo "::warning::$name@$version rejected as already published (E403) and counted as skipped; verify it resolves on the registry" >&2
     else
       grep -q 'Cannot publish over previously staged version' <<<"$log" || return 1
       staged=1
@@ -98,6 +101,7 @@ publish_and_tag() {
   fi
   [ "$staged" = 1 ] || return 1
   echo "[warn] $name@$version was already staged; latest move deferred to the next run's registry repair (#2576)" >&2
+  echo "::warning::$name@$version staged but not yet resolvable; the latest dist-tag was not moved and stays on the previous version until a later run repairs it" >&2
   return 0
 }
 

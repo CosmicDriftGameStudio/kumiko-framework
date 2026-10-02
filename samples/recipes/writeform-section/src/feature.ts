@@ -13,6 +13,7 @@ import {
   defineFeature,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { z } from "zod";
+import { NOTE_DETAIL_FIELDS } from "./note-fixture";
 
 const NOTE_CATEGORIES = ["question", "bug", "idea"] as const;
 
@@ -21,14 +22,18 @@ const BODY_NOT_PERSONAL = {
   reason: "is_business_data",
 } as const;
 
+// Shared by the entityEdit form and the writeForm section so the parity
+// comparison can't drift through one-sided edits.
+const NOTE_FIELDS = {
+  title: createTextField({ personal: false, reason: "is_business_data", required: true }),
+  body: createTextField(BODY_NOT_PERSONAL),
+  category: createSelectField({ options: NOTE_CATEGORIES, default: "question" }),
+  priority: createNumberField(),
+};
+
 const noteEntity = createEntity({
   table: "read_sample_writeform_notes",
-  fields: {
-    title: createTextField({ personal: false, reason: "is_business_data", required: true }),
-    body: createTextField(BODY_NOT_PERSONAL),
-    category: createSelectField({ options: NOTE_CATEGORIES, default: "question" }),
-    priority: createNumberField(),
-  },
+  fields: NOTE_FIELDS,
 });
 
 const open = {
@@ -84,13 +89,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
   r.queryHandler(
     "note:summary",
     z.object({ id: z.string() }),
-    async (query) => ({
-      id: query.payload.id,
-      title: "Sample note",
-      category: "question",
-      priority: 2,
-      body: "...",
-    }),
+    async (query) => ({ id: query.payload.id, ...NOTE_DETAIL_FIELDS }),
     open,
   );
 
@@ -113,12 +112,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
           kind: "writeForm",
           title: "Add comment",
           columns: 2,
-          fieldDefs: {
-            title: createTextField({ personal: false, reason: "is_business_data", required: true }),
-            body: createTextField(BODY_NOT_PERSONAL),
-            category: createSelectField({ options: NOTE_CATEGORIES, default: "question" }),
-            priority: createNumberField(),
-          },
+          fieldDefs: NOTE_FIELDS,
           fields: [{ field: "title", span: 2 }, "category", "priority", { field: "body", span: 2 }],
           handler: "note-desk:write:note:comment",
         },

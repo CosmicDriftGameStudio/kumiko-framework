@@ -25,19 +25,11 @@ import type {
   WriteOpts,
   WriteResult,
 } from "@cosmicdrift/kumiko-headless";
+import { NOTE_DETAIL_FIELDS } from "../../src/note-fixture";
 
 const QUERY_NOTE_DETAIL = "note-desk:query:note:summary";
 const WRITE_NOTE_COMMENT = "note-desk:write:note:comment";
 const WRITE_NOTE_CREATE = "note-desk:write:note:create";
-
-// Same fixed values as the real server handler (src/feature.ts's
-// "note:summary" query handler) — only `id` varies with the request.
-const NOTE_DETAIL_FIELDS = {
-  title: "Sample note",
-  category: "question",
-  priority: 2,
-  body: "...",
-};
 
 export const CREATED_COMMENTS_KEY = "mock-created-comments";
 export const CREATED_NOTES_KEY = "mock-created-notes";

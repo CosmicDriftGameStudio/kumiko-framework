@@ -202,5 +202,3 @@ from SYSTEM_TENANT:
 
 - [packages/bundled-features/src/template-resolver/README.md](../../../packages/bundled-features/src/template-resolver/README.md) — content store
 - [packages/bundled-features/src/legal-pages/README.md](../../../packages/bundled-features/src/legal-pages/README.md) — DACH compliance wrapper
-- Private legal-template documentation — consolidated privacy plan index and
-  template sources for legally-sound texts

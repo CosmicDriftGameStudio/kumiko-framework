@@ -129,4 +129,22 @@ describe("migrateDbRawSource", () => {
     );
     expect(result.output.split("\n")[0]).not.toContain("fetchOne");
   });
+
+  it("lists an own-tenant call as manual when a later spread can override tenantId", () => {
+    const input = [
+      'import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";',
+      "export const read = defineQueryHandler({",
+      "  handler: async (query, ctx) => {",
+      "    const extra = query.payload.filters;",
+      "    return selectMany(ctx.db.raw, noteTable, { tenantId: ctx.user.tenantId, ...extra });",
+      "  },",
+      "});",
+      "",
+    ].join("\n");
+    const result = migrateDbRawSource(input, "spread.ts", { globalTables: DEFAULT_GLOBAL_TABLES });
+
+    expect(result.rewrites).toHaveLength(0);
+    expect(result.output).toBe(input);
+    expect(result.manual).toHaveLength(1);
+  });
 });

@@ -4,15 +4,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, test } from "bun:test";
 
-// ci-memlog-run.sh's check_rss_kb() iterates /proc/[0-9]*/status. A process can exit
-// between its `[ -r "$status" ]` guard and the awk read (TOCTOU): awk then fails on a
-// path that just looked readable. Under `set -eu` that failing command substitution
-// aborted log_snapshot(), which aborted cleanup() before it reached `exit "$code"` —
-// turning a wrapped command that exited 0 into a wrapper that exits 2 (fw#2636).
-// macOS awk silently no-ops on a bare directory (verified locally, no error, exit 0),
-// so it can't reproduce the crash here; these tests inject the failure via a PATH-shadowed
-// awk stub that fails only for one designated "vanished" status path and otherwise
-// delegates to the real awk, which reproduces the exact code path without a real race.
+// check_rss_kb must tolerate a /proc/PID/status that vanishes between the `-r` check
+// and the read; macOS awk doesn't fail on a missing directory, so an awk stub on PATH
+// injects the failure for one path.
 
 const SCRIPT_PATH = fileURLToPath(new URL("../ci-memlog-run.sh", import.meta.url));
 const REAL_AWK = Bun.which("awk");

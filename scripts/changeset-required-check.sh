@@ -30,5 +30,12 @@ changed_packages="$(
       done
 )"
 
+# Empty list means `changeset status` failed for another reason (config error,
+# missing ref, broken changeset file); its output above is the real cause.
+if [ -z "$changed_packages" ]; then
+  echo "::error::changeset status failed; see its output above"
+  exit 1
+fi
+
 echo "::error::No changeset found for changed package(s): $(echo "$changed_packages" | paste -sd, -). Run 'bun changeset' (or 'bun changeset --empty' if this change needs no release)."
 exit 1

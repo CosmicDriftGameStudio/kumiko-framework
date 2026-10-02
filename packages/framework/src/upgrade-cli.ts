@@ -77,10 +77,10 @@ function readChangelogFile(filePath: string): ChangelogEntry[] {
   }
 }
 
-function collectChangelogs(featuresDir: string): ChangelogEntry[] {
+export function findFeatureChangelogFiles(featuresDir: string): string[] {
   if (!existsSync(featuresDir)) return [];
 
-  const entries: ChangelogEntry[] = [];
+  const files: string[] = [];
   const features = readdirSync(featuresDir, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name);
@@ -93,11 +93,14 @@ function collectChangelogs(featuresDir: string): ChangelogEntry[] {
     const srcLayout = join(featuresDir, name, "src", "changes.json");
     const flatLayout = join(featuresDir, name, "changes.json");
     const changelogPath = existsSync(srcLayout) ? srcLayout : flatLayout;
-
-    entries.push(...readChangelogFile(changelogPath));
+    if (existsSync(changelogPath)) files.push(changelogPath);
   }
 
-  return entries;
+  return files;
+}
+
+function collectChangelogs(featuresDir: string): ChangelogEntry[] {
+  return findFeatureChangelogFiles(featuresDir).flatMap(readChangelogFile);
 }
 
 // bundled-features is excluded: findFeaturesDirs collects it per feature

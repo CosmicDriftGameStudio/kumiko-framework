@@ -14,6 +14,11 @@
 
 import { defineConfig, devices } from "@playwright/test";
 
+// The padding-parity spec only captures screenshots for manual review (no
+// regression assertions), so it stays out of regular runs and costs no runner
+// minutes unless this flag is set.
+const WITH_PARITY_SCREENSHOTS = !!process.env["PADDING_PARITY_SCREENSHOTS"];
+
 const PORT = 4190;
 const BASE_URL = `http://localhost:${PORT}`;
 
@@ -46,11 +51,15 @@ export default defineConfig({
     // "chromium" project above (that one ignores it) so the screenshot spec
     // gets its own explicit project name instead of hiding in "chromium"'s
     // catch-all — matches the phone project's split for the same reason.
-    {
-      name: "chromium-desktop-screenshots",
-      testMatch: /padding-parity-screenshots\.spec\.ts$/,
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
-    },
+    ...(WITH_PARITY_SCREENSHOTS
+      ? [
+          {
+            name: "chromium-desktop-screenshots",
+            testMatch: /padding-parity-screenshots\.spec\.ts$/,
+            use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+          },
+        ]
+      : []),
     // Phone viewport (fw#3234): the tab strip must stay within the panel
     // width — no horizontal document scroll — down to a narrow phone frame.
     // Plain Desktop Chrome with an iPhone-sized viewport, not the "iPhone
@@ -58,7 +67,9 @@ export default defineConfig({
     // sandbox's headless chromium) — width is what fw#3234 cares about.
     {
       name: "chromium-phone",
-      testMatch: /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/,
+      testMatch: WITH_PARITY_SCREENSHOTS
+        ? /(phone-viewport|padding-parity-screenshots)\.spec\.ts$/
+        : /phone-viewport\.spec\.ts$/,
       use: { ...devices["Desktop Chrome"], viewport: { width: 390, height: 844 } },
     },
   ],
