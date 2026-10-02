@@ -281,13 +281,18 @@ function validateRelatedListParentFilter(
 // A collapsed group without a header has no toggle, so its rows could never be opened.
 function validateRelatedListGroupBy(prefix: string, section: EditRelatedListSection): void {
   const groupBy = section.groupBy;
-  if (groupBy?.collapsedWhen === undefined) return;
-  const collapsedKey = relatedListGroupKey(groupBy.collapsedWhen);
-  if (relatedListGroupHeaderLabel(groupBy, collapsedKey) !== undefined) return;
-  throw new Error(
-    `${prefix}: groupBy.collapsedWhen "${collapsedKey}" names a group without a header; ` +
-      `set groupBy.label or groupBy.labels["${collapsedKey}"], or drop collapsedWhen.`,
-  );
+  const collapsedKey =
+    groupBy?.collapsedWhen === undefined ? undefined : relatedListGroupKey(groupBy.collapsedWhen);
+  if (
+    groupBy !== undefined &&
+    collapsedKey !== undefined &&
+    relatedListGroupHeaderLabel(groupBy, collapsedKey) === undefined
+  ) {
+    throw new Error(
+      `${prefix}: groupBy.collapsedWhen "${collapsedKey}" names a group without a header; ` +
+        `set groupBy.label or groupBy.labels["${collapsedKey}"], or drop collapsedWhen.`,
+    );
+  }
 }
 
 // relatedList sections declare search/facets the same way a projectionList
