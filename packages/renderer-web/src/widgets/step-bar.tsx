@@ -10,8 +10,9 @@ function chipTestId(testId: string | undefined, index: number): string | undefin
 }
 
 /** Wizard step overview — numbered chips with a connector line between
- *  them. With `onStepSelect`, done chips render as buttons for jumping back;
- *  current and upcoming chips never do. Three visual states, none conveyed by color alone:
+ *  them. With `onStepSelect`, done chips render as buttons for jumping back
+ *  (every non-current chip with `selectableSteps="all"`); the current chip
+ *  never does. `doneSteps` overrides the position-based done state. Three visual states, none conveyed by color alone:
  *  done (checkmark replaces the number, `aria-current` absent, a sr-only
  *  label says so since the number itself is gone), current (`aria-current
  *  ="step"`, own background), upcoming (dimmed, number visible). Below
@@ -24,6 +25,8 @@ export function StepBar({
   currentIndex,
   compactLabel,
   onStepSelect,
+  doneSteps,
+  selectableSteps = "done",
   narrowLayout = "label",
   orientation = "horizontal",
   heading,
@@ -37,6 +40,8 @@ export function StepBar({
   readonly currentIndex: number;
   readonly compactLabel: string;
   readonly onStepSelect?: (index: number) => void;
+  readonly doneSteps?: readonly boolean[];
+  readonly selectableSteps?: "done" | "all";
   readonly narrowLayout?: "label" | "steps";
   readonly orientation?: "horizontal" | "vertical";
   readonly heading?: string;
@@ -51,6 +56,14 @@ export function StepBar({
   readonly compactTestId?: string;
 }): ReactNode {
   const t = useTranslation();
+  const stepState = (i: number): { isCurrent: boolean; isDone: boolean; isSelectable: boolean } => {
+    const isCurrent = i === currentIndex;
+    const isDone =
+      !isCurrent && (doneSteps !== undefined ? doneSteps[i] === true : i < currentIndex);
+    const isSelectable =
+      onStepSelect !== undefined && !isCurrent && (selectableSteps === "all" || isDone);
+    return { isCurrent, isDone, isSelectable };
+  };
   if (orientation === "vertical") {
     return (
       <>
@@ -65,8 +78,7 @@ export function StepBar({
           )}
           <ol data-testid={testId} className="m-0 flex list-none flex-col gap-0.5 p-0">
             {steps.map((label, i) => {
-              const isDone = i < currentIndex;
-              const isCurrent = i === currentIndex;
+              const { isCurrent, isDone, isSelectable } = stepState(i);
               const rowClass = cn(
                 "flex min-h-9 w-full items-center gap-2.5 rounded-md px-2 py-1 text-left text-sm",
                 isCurrent && "bg-primary/10 font-semibold text-primary",
@@ -103,10 +115,10 @@ export function StepBar({
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
                 <li key={`${i}-${label}`}>
-                  {isDone && onStepSelect !== undefined ? (
+                  {isSelectable ? (
                     <button
                       type="button"
-                      onClick={() => onStepSelect(i)}
+                      onClick={() => onStepSelect?.(i)}
                       data-testid={chipTestId(testId, i)}
                       className={cn(rowClass, "hover:bg-muted-foreground/10")}
                     >
@@ -159,24 +171,30 @@ export function StepBar({
         )}
       >
         {steps.map((label, i) => {
-          const isDone = i < currentIndex;
-          const isCurrent = i === currentIndex;
+          const { isCurrent, isDone, isSelectable } = stepState(i);
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
             <li key={`${i}-${label}`} className="flex items-center gap-2">
               {i > 0 && <span aria-hidden="true" className="h-px w-4 bg-border" />}
-              {isDone && onStepSelect !== undefined ? (
+              {isSelectable ? (
                 <button
                   type="button"
-                  onClick={() => onStepSelect(i)}
+                  onClick={() => onStepSelect?.(i)}
                   data-testid={chipTestId(testId, i)}
                   className={cn(
                     CHIP_CLASS,
-                    "text-primary max-sm:min-h-11 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    isDone ? "text-primary" : "text-muted-foreground",
+                    "max-sm:min-h-11 hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   )}
                 >
-                  <Check aria-hidden="true" className="size-3.5" />
-                  <span className="sr-only">{t("kumiko.widget.step-bar.done")}</span>
+                  {isDone ? (
+                    <>
+                      <Check aria-hidden="true" className="size-3.5" />
+                      <span className="sr-only">{t("kumiko.widget.step-bar.done")}</span>
+                    </>
+                  ) : (
+                    <span className="text-xs font-semibold">{i + 1}</span>
+                  )}
                   {label}
                 </button>
               ) : (

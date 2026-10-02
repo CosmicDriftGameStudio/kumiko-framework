@@ -75,6 +75,12 @@ export type ExtensionSectionProps = {
    *  undefined in all other mounts, and undefined there too for a
    *  non-wizard form. */
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
+  /** Only set for extension steps of a `layout.mode: "wizard"` entityEdit
+   *  editing an existing record (update mode); undefined everywhere else.
+   *  Call it (typically from an effect) with whether the step already holds
+   *  its data, so the step bar shows the step as done. Repeated calls with
+   *  the same value are cheap. */
+  readonly reportStepComplete?: (complete: boolean) => void;
 };
 
 export type ExtensionSectionComponent = ComponentType<ExtensionSectionProps>;

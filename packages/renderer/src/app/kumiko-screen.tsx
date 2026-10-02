@@ -19,6 +19,7 @@ import type {
   RowAction,
   RowActionDrawer,
   RowActionNavigate,
+  RowActionWriteHandler,
   ScreenDefinition,
   ToolbarAction,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -405,17 +406,24 @@ function entityWriteCommand(
 // entityList-Screen für die Entity und navigiert dahin. Wird von
 // Create/Update/Delete genauso verwendet — alle drei haben "fertig
 // editiert, raus hier" als sinnvolles Default-Verhalten.
+function findEntityListScreen(
+  schema: FeatureSchema,
+  entityName: string,
+): ScreenDefinition | undefined {
+  return schema.screens.find(
+    (s: ScreenDefinition) => s.type === "entityList" && s.entity === entityName,
+  );
+}
+
 function useNavigateToListAfter(schema: FeatureSchema, entityName: string): () => void {
   const nav = useNav();
   return useCallback(() => {
-    const list = schema.screens.find(
-      (s: ScreenDefinition) => s.type === "entityList" && s.entity === entityName,
-    );
+    const list = findEntityListScreen(schema, entityName);
     if (!list) return;
     // schema.screens.id ist QN-form (registry-stamped); nav.navigate
     // erwartet Short-Form. Sonst landet die URL doppelt-qualifiziert.
     nav.navigate({ screenId: lastSegment(list.id) });
-  }, [nav, schema.screens, entityName]);
+  }, [nav, schema, entityName]);
 }
 
 // Default "+ Neu"-Navigation für die List-Toolbar: findet den ersten
@@ -1324,6 +1332,27 @@ function EntityEditUpdateForm({
   // pattern as ProjectionDetailBody.headerActions above (the edited record
   // stands in for the "row"), minus the cross-feature defaultEditAction
   // lookup that doesn't apply here (this screen already IS the edit form).
+  const handleRecordLeft = useCallback(
+    (action: RowActionWriteHandler, resultData: unknown) => {
+      if (action.redirect !== undefined) {
+        navigateAfterRedirect({
+          nav,
+          schema,
+          appFeatures,
+          returnTarget,
+          redirect: action.redirect,
+          resultData,
+          record,
+        });
+        return;
+      }
+      // Never return onto the just-deleted record.
+      const target = returnTarget?.entityId !== entityId ? returnTarget : undefined;
+      navigateToReturnOr(nav, target, navigateToList);
+      onDeleted?.();
+    },
+    [nav, schema, appFeatures, returnTarget, record, entityId, navigateToList, onDeleted],
+  );
   const buildSectionActions = useCallback(
     (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
       buildRecordActions({
@@ -1335,10 +1364,21 @@ function EntityEditUpdateForm({
         dispatcher,
         openDrawer,
         onWriteSuccess: onReload,
+        onRecordLeft: handleRecordLeft,
         defaultScreenTargetEntityId: entityId,
         defaultWritePayloadId: entityId,
       }),
-    [record, effectiveTranslate, nav, host, dispatcher, openDrawer, onReload, entityId],
+    [
+      record,
+      effectiveTranslate,
+      nav,
+      host,
+      dispatcher,
+      openDrawer,
+      onReload,
+      handleRecordLeft,
+      entityId,
+    ],
   );
   const headerActions = useMemo(
     (): readonly RenderEditAction[] | undefined => buildSectionActions(screen.actions ?? []),
@@ -1349,29 +1389,18 @@ function EntityEditUpdateForm({
       if (!result.isSuccess) return;
       const redirect = screen.redirect;
       if (redirect !== undefined) {
-        if (returnToWinsOverRedirect(returnTarget, redirect, schema, appFeatures)) {
-          navigateToReturn(nav, returnTarget);
-        } else if (typeof redirect === "string") {
-          // String form unchanged: navigates without an entityId, same as
-          // before the object form existed. The object form resolves like
-          // actionForm's — the update handler's success payload usually
-          // reports only this record's own id (event-store-executor-write.ts),
-          // so a parent FK named by `idFrom` falls back to the already-loaded
-          // `record`.
-          nav.navigate({ screenId: lastSegment(redirect) });
-        } else {
-          const { screenId, entityId: targetEntityId } = resolveRedirectTarget(
-            redirect,
-            result.data,
-            schema,
-            appFeatures,
-            overlayUpdatedProjection(record, result.data),
-          );
-          nav.navigate({
-            screenId,
-            ...(targetEntityId !== undefined && { entityId: targetEntityId }),
-          });
-        }
+        // The update handler's success payload usually reports only this
+        // record's own id (event-store-executor-write.ts), so a parent FK
+        // named by `idFrom` falls back to the already-loaded `record`.
+        navigateAfterRedirect({
+          nav,
+          schema,
+          appFeatures,
+          returnTarget,
+          redirect,
+          resultData: result.data,
+          record: overlayUpdatedProjection(record, result.data),
+        });
       } else {
         navigateToReturnOr(nav, returnTarget, navigateToList);
         onSaved?.();
@@ -3194,8 +3223,50 @@ function ProjectionDetailBody({
   const userRoles = useUserRoles();
   const dispatcher = useOptionalDispatcher();
   const host = useReturnHost();
+  const returnTargetParam = useReturnTarget(screen.id);
+  // A singleton has no record route to come back to — same as entityEdit.
+  const returnTarget = screen.singleton === true ? undefined : returnTargetParam;
   const { drawerAction, drawerScreen, drawerInitialValues, openDrawer, closeDrawer } =
     useDrawerAction(schema);
+  const handleRecordLeft = useCallback(
+    (action: RowActionWriteHandler, resultData: unknown) => {
+      const record = detailQuery.data ?? {};
+      if (action.redirect !== undefined) {
+        navigateAfterRedirect({
+          nav,
+          schema,
+          appFeatures,
+          returnTarget,
+          redirect: action.redirect,
+          resultData,
+          record,
+        });
+        return;
+      }
+      // Never return onto the just-deleted record.
+      const target = returnTarget?.entityId !== effectiveEntityId ? returnTarget : undefined;
+      navigateToReturnOr(nav, target, () => {
+        const listScreen =
+          screen.listScreenId ??
+          (screen.detailFor !== undefined
+            ? findEntityListScreen(schema, screen.detailFor)?.id
+            : undefined);
+        if (listScreen !== undefined) nav.navigate({ screenId: lastSegment(listScreen) });
+        else void detailQuery.refetch();
+      });
+    },
+    [
+      detailQuery.data,
+      detailQuery.refetch,
+      nav,
+      schema,
+      appFeatures,
+      returnTarget,
+      effectiveEntityId,
+      screen.listScreenId,
+      screen.detailFor,
+    ],
+  );
   const editScreen = useMemo(() => {
     const detailFor = screen.detailFor;
     if (detailFor === undefined) return undefined;
@@ -3253,6 +3324,7 @@ function ProjectionDetailBody({
         dispatcher,
         openDrawer,
         onWriteSuccess: detailQuery.refetch,
+        onRecordLeft: handleRecordLeft,
         sameEntityScreenId,
       }),
     [
@@ -3263,6 +3335,7 @@ function ProjectionDetailBody({
       host,
       dispatcher,
       openDrawer,
+      handleRecordLeft,
       sameEntityScreenId,
     ],
   );
@@ -3277,6 +3350,7 @@ function ProjectionDetailBody({
       dispatcher,
       openDrawer,
       onWriteSuccess: detailQuery.refetch,
+      onRecordLeft: handleRecordLeft,
       sameEntityScreenId,
     });
     if (defaultEditAction === undefined || declaredHasEdit) return resolved;
@@ -3291,6 +3365,7 @@ function ProjectionDetailBody({
     detailQuery.data,
     detailQuery.refetch,
     openDrawer,
+    handleRecordLeft,
     sameEntityScreenId,
   ]);
 
@@ -3692,6 +3767,38 @@ function resolveRedirectTarget(
     extractIdField(submittedData, idField) ??
     (fallbackRecord !== undefined ? extractIdField(fallbackRecord, idField) : undefined);
   return { screenId: targetId, entityId };
+}
+
+// Success navigation for a configured redirect — shared by entityEdit's
+// save and writeHandler record actions. The string form navigates without an
+// entityId; the object form resolves like actionForm's, with `record` as the
+// fallback id source.
+function navigateAfterRedirect(options: {
+  readonly nav: NavApi;
+  readonly schema: FeatureSchema;
+  readonly appFeatures: readonly FeatureSchema[];
+  readonly returnTarget: ScreenTarget | undefined;
+  readonly redirect: string | ActionFormRedirect;
+  readonly resultData: unknown;
+  readonly record: Readonly<Record<string, unknown>>;
+}): void {
+  const { nav, schema, appFeatures, returnTarget, redirect, resultData, record } = options;
+  if (returnToWinsOverRedirect(returnTarget, redirect, schema, appFeatures)) {
+    navigateToReturn(nav, returnTarget);
+    return;
+  }
+  if (typeof redirect === "string") {
+    nav.navigate({ screenId: lastSegment(redirect) });
+    return;
+  }
+  const { screenId, entityId } = resolveRedirectTarget(
+    redirect,
+    resultData,
+    schema,
+    appFeatures,
+    record,
+  );
+  nav.navigate({ screenId, ...(entityId !== undefined && { entityId }) });
 }
 
 // The update payload nests the saved projection under `data`; a changed

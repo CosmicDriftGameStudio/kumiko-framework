@@ -156,6 +156,61 @@ describe("validateBoot — action wiring (no function values)", () => {
     expect(() => validateBoot([feature])).toThrow(/action "archive" payload is a function/);
   });
 
+  test("projectionDetail writeHandler action redirect to an unknown screen → Throw", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.screen({
+        id: "order-detail",
+        type: "projectionDetail",
+        query: "shop:query:order:detail",
+        layout: { sections: [{ title: "s", fields: ["total"] }] },
+        actions: [
+          {
+            kind: "writeHandler",
+            id: "archive",
+            label: "actions.archive",
+            handler: "shop:write:archive",
+            redirect: "ghost-screen",
+          },
+        ],
+      });
+    });
+    expect(() => validateBoot([feature])).toThrow(
+      /redirect "ghost-screen" does not resolve to a registered screen/,
+    );
+  });
+
+  test("projectionDetail writeHandler action redirect to a registered screen does not trip the redirect check", () => {
+    const feature = defineFeature("shop", (r) => {
+      r.screen({
+        id: "order-overview",
+        type: "custom",
+        renderer: { react: "stub" },
+      });
+      r.screen({
+        id: "order-detail",
+        type: "projectionDetail",
+        query: "shop:query:order:detail",
+        layout: { sections: [{ title: "s", fields: ["total"] }] },
+        actions: [
+          {
+            kind: "writeHandler",
+            id: "archive",
+            label: "actions.archive",
+            handler: "shop:write:archive",
+            redirect: "order-overview",
+          },
+        ],
+      });
+    });
+    let message = "";
+    try {
+      validateBoot([feature]);
+    } catch (e) {
+      message = e instanceof Error ? e.message : String(e);
+    }
+    expect(message).not.toMatch(/redirect/);
+  });
+
   test("entityList column renderer as function → Throw", () => {
     const feature = defineFeature("shop", (r) => {
       r.entity(

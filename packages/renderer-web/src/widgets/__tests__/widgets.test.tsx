@@ -230,6 +230,72 @@ describe("StepBar", () => {
     expect(screen.getByTestId("steps-compact").className).toContain("sm:hidden");
   });
 
+  for (const orientation of ["horizontal", "vertical"] as const) {
+    test(`selectableSteps="all" (${orientation}): kommende Chips sind Buttons mit Nummer und ohne Done-Label, der aktuelle nie`, () => {
+      const onStepSelect = mock((_index: number) => {});
+      render(
+        <StepBar
+          steps={["Basics", "Industry", "Review"]}
+          currentIndex={0}
+          compactLabel="Step 1 of 3 · Basics"
+          onStepSelect={onStepSelect}
+          selectableSteps="all"
+          orientation={orientation}
+          testId="steps"
+        />,
+      );
+      const upcoming = screen.getByTestId("steps-step-2");
+      expect(upcoming.tagName).toBe("BUTTON");
+      expect(upcoming.textContent).toContain("3");
+      expect(upcoming.textContent).not.toContain("Done");
+      expect(upcoming.querySelector("svg")).toBeNull();
+      fireEvent.click(upcoming);
+      expect(onStepSelect).toHaveBeenCalledWith(2);
+
+      const current = screen.getByTestId("steps-step-0");
+      expect(current.tagName).toBe("SPAN");
+      expect(current.getAttribute("aria-current")).toBe("step");
+    });
+
+    test(`doneSteps (${orientation}) überstimmt die Position: ein späterer Schritt ist erledigt, ein früherer nicht`, () => {
+      render(
+        <StepBar
+          steps={["Basics", "Industry", "Review"]}
+          currentIndex={1}
+          compactLabel="Step 2 of 3 · Industry"
+          onStepSelect={() => {}}
+          doneSteps={[false, false, true]}
+          selectableSteps="all"
+          orientation={orientation}
+          testId="steps"
+        />,
+      );
+      const earlier = screen.getByTestId("steps-step-0");
+      expect(earlier.textContent).not.toContain("Done");
+      expect(earlier.textContent).toContain("1");
+
+      const later = screen.getByTestId("steps-step-2");
+      expect(later.textContent).toContain("Done");
+      expect(later.querySelector("svg")).not.toBeNull();
+      expect(later.tagName).toBe("BUTTON");
+    });
+  }
+
+  test("doneSteps ohne selectableSteps: nur erledigte Chips sind Buttons", () => {
+    render(
+      <StepBar
+        steps={["Basics", "Industry", "Review"]}
+        currentIndex={0}
+        compactLabel="Step 1 of 3 · Basics"
+        onStepSelect={() => {}}
+        doneSteps={[false, false, true]}
+        testId="steps"
+      />,
+    );
+    expect(screen.getByTestId("steps-step-1").tagName).toBe("SPAN");
+    expect(screen.getByTestId("steps-step-2").tagName).toBe("BUTTON");
+  });
+
   test("rendert den compactLabel-Fallback für schmale Viewports", () => {
     render(
       <StepBar

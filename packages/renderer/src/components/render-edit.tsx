@@ -38,6 +38,7 @@ export type {
 } from "./render-edit-types.js";
 
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type * as z from "zod";
 import {
   ExtensionFormRegistryProvider,
   useExtensionFormHost,
@@ -167,6 +168,78 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
   return out;
 }
 
+type FieldsSectionViewModel = Extract<EditSectionViewModel, { readonly kind: "fields" }>;
+
+type DryRunSnapshot = {
+  readonly values: unknown;
+  readonly fields: Readonly<Record<string, { readonly visible: boolean }>>;
+};
+
+// Dry-run parse against `schema` — NOT controller.validate(), which writes
+// field errors into the snapshot. Issues are filtered exactly like the
+// controller's validate(): hidden fields never count, `scope` narrows.
+function dryRunFieldIssues(
+  schema: z.ZodType,
+  snapshot: DryRunSnapshot,
+  scope: readonly string[] | undefined,
+  includeRoot: boolean,
+): ReturnType<typeof relevantFieldIssues> {
+  const parsed = schema.safeParse(snapshot.values);
+  if (parsed.success) return [];
+  const hiddenFields = new Set(
+    Object.entries(snapshot.fields)
+      .filter(([, state]) => !state.visible)
+      .map(([fieldKey]) => fieldKey),
+  );
+  return relevantFieldIssues(zodErrorToFieldIssues(parsed.error), {
+    hiddenFields,
+    ...(scope !== undefined && { scope }),
+    includeRoot,
+  });
+}
+
+// Index-independent: indices shift when a fields section hides.
+function wizardStepKey(section: EditSectionViewModel, index: number): string {
+  const declaredId =
+    section.kind === "fields" || section.kind === "extension" ? section.id : undefined;
+  return declaredId ?? section.title ?? `step-${index}`;
+}
+
+function isMoneyValue(value: unknown): value is { readonly amount: unknown } {
+  return typeof value === "object" && value !== null && "amount" in value;
+}
+
+// The seeds buildInitialValues writes for NULL columns of an existing record.
+function isEmptyFormValue(value: unknown): boolean {
+  if (value === null || value === undefined || value === "" || value === 0 || value === false) {
+    return true;
+  }
+  if (Array.isArray(value)) return value.length === 0;
+  return isMoneyValue(value) && value.amount === 0;
+}
+
+// select/boolean are excluded from the "holds user data" check: they are
+// often pre-filled (defaults, server-set values), so they say nothing about
+// whether the step was filled in. They still count through the validation.
+function isFieldsStepFilled(
+  section: FieldsSectionViewModel,
+  schema: z.ZodType | undefined,
+  snapshot: DryRunSnapshot,
+): boolean {
+  const fieldNames = section.fields.map((f) => f.field);
+  if (schema !== undefined && dryRunFieldIssues(schema, snapshot, fieldNames, false).length > 0) {
+    return false;
+  }
+  return section.fields.some(
+    (f) =>
+      f.visible &&
+      !f.readOnly &&
+      f.type !== "boolean" &&
+      f.type !== "select" &&
+      !isEmptyFormValue(f.value),
+  );
+}
+
 // Resolves an extension-section's `{ react: { __component: "X" } }` marker
 // to a registered React component via ExtensionSectionsProvider (filled in
 // createKumikoApp from clientFeatures.extensionSectionComponents) and
@@ -183,6 +256,8 @@ function ExtensionSectionMount({
   validate,
   hideTitle,
   actions,
+  stepKey,
+  onReportStepComplete,
 }: {
   readonly section: EditExtensionSectionViewModel;
   readonly entityName: string;
@@ -194,10 +269,18 @@ function ExtensionSectionMount({
   readonly hideTitle?: boolean;
   /** section.actions, already resolved into buttons by the caller. */
   readonly actions?: ReactNode;
+  readonly stepKey?: string;
+  readonly onReportStepComplete?: (stepKey: string, complete: boolean) => void;
 }): ReactNode {
   const { Banner, FillContainer, Section, Text } = usePrimitives();
   const name = extensionSectionName(section.component);
   const Component = useExtensionSectionComponent(name);
+  const reportStepComplete = useCallback(
+    (complete: boolean) => {
+      if (stepKey !== undefined) onReportStepComplete?.(stepKey, complete);
+    },
+    [stepKey, onReportStepComplete],
+  );
   const testId = `section-extension-${section.title}`;
   if (Component === undefined) {
     const placeholder = (
@@ -234,6 +317,7 @@ function ExtensionSectionMount({
       values={values}
       patch={patch}
       validate={validate}
+      {...(onReportStepComplete !== undefined && { reportStepComplete })}
     />
   );
   // Same reasoning as the placeholder branch above: tabs mode's outer Card
@@ -410,6 +494,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // flex justify-end action bar).
   const [actionError, setActionError] = useState<string | null>(null);
   const [rawStep, setRawStep] = useState(0);
+  const [passedStepKeys, setPassedStepKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const [extensionStepComplete, setExtensionStepComplete] = useState<
+    Readonly<Record<string, boolean>>
+  >({});
+  const reportExtensionStepComplete = useCallback((stepKey: string, complete: boolean) => {
+    setExtensionStepComplete((prev) =>
+      (prev[stepKey] === true) === complete ? prev : { ...prev, [stepKey]: complete },
+    );
+  }, []);
   // Tabs have stable ids, so the active tab follows its id: a field change
   // that hides an earlier tab must not shift the index onto another tab.
   const [activeTabId, setActiveTabId] = useState<string | undefined>(undefined);
@@ -662,23 +755,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // filtered exactly like submit()'s validate: hidden fields and fields
     // outside the `fields` scope never make the form invalid.
     const currentSchema = schemaRef.current;
-    const valid = (() => {
-      if (currentSchema === undefined) return true;
-      const parsed = currentSchema.safeParse(snapshot.values);
-      if (parsed.success) return true;
-      const hiddenFields = new Set(
-        Object.entries(snapshot.fields)
-          .filter(([, state]) => !state.visible)
-          .map(([fieldKey]) => fieldKey),
-      );
-      return (
-        relevantFieldIssues(zodErrorToFieldIssues(parsed.error), {
-          hiddenFields,
-          ...(scopeFieldNamesRef.current !== undefined && { scope: scopeFieldNamesRef.current }),
-          includeRoot: true,
-        }).length === 0
-      );
-    })();
+    const valid =
+      currentSchema === undefined ||
+      dryRunFieldIssues(currentSchema, snapshot, scopeFieldNamesRef.current, true).length === 0;
     cb({
       values: snapshot.values,
       changes: snapshot.changes,
@@ -905,6 +984,32 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   currentStepRef.current = currentStep;
   const isLastWizardStep = currentStep >= lastStepIndex;
 
+  const wizardDoneSteps = useMemo(() => {
+    if (!isWizard || isCreateMode) return undefined;
+    const snapshotForDryRun = { values: snapshot.values, fields: snapshot.fields };
+    return filteredSections.map((section, index) => {
+      if (passedStepKeys.has(wizardStepKey(section, index))) return true;
+      if (section.kind === "fields") return isFieldsStepFilled(section, schema, snapshotForDryRun);
+      return (
+        section.kind === "extension" &&
+        extensionStepComplete[wizardStepKey(section, index)] === true
+      );
+    });
+  }, [
+    isWizard,
+    isCreateMode,
+    filteredSections,
+    passedStepKeys,
+    extensionStepComplete,
+    schema,
+    snapshot.values,
+    snapshot.fields,
+  ]);
+  const updateModeStepBarProps =
+    wizardDoneSteps === undefined
+      ? {}
+      : { doneSteps: wizardDoneSteps, selectableSteps: "all" as const };
+
   function jumpToStep(index: number): void {
     setRawStep(index);
     if (isTabs) setActiveTabId(tabIdAt(filteredSections[index], index));
@@ -990,29 +1095,43 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       setRawStep(next);
       return;
     }
-    const section = filteredSections[currentStep];
-    const fieldNames = section?.kind === "fields" ? section.fields.map((f) => f.field) : [];
     // skip: the current step has field errors — no transition, no draft save.
-    if (fieldNames.length > 0 && !controller.validate(fieldNames)) return;
+    if (currentStepHasFieldErrors()) return;
+    if (!isCreateMode) {
+      const leftSection = filteredSections[currentStep];
+      if (leftSection !== undefined) {
+        const leftKey = wizardStepKey(leftSection, currentStep);
+        setPassedStepKeys((prev) => (prev.has(leftKey) ? prev : new Set(prev).add(leftKey)));
+      }
+    }
     setRawStep(next);
     saveDraft(next);
   }
 
-  function handleWizardBack(): void {
-    handleWizardJumpBack(currentStep - 1);
+  function currentStepHasFieldErrors(): boolean {
+    const section = filteredSections[currentStep];
+    const fieldNames = section?.kind === "fields" ? section.fields.map((f) => f.field) : [];
+    return fieldNames.length > 0 && !controller.validate(fieldNames);
   }
 
-  // Only backwards: a forward jump would skip the per-step validate() gate.
-  function handleWizardJumpBack(targetStep: number): void {
-    if (targetStep >= currentStep) return;
-    const previous = Math.max(targetStep, 0);
+  function handleWizardBack(): void {
+    handleWizardStepSelect(currentStep - 1);
+  }
+
+  // Update mode: the record already exists and the final Save validates the
+  // whole form and jumps to the first erroring step (findFirstErroringStep), so
+  // skipping steps forward is safe; leaving the current step still goes through
+  // its validate gate.
+  function handleWizardStepSelect(targetStep: number): void {
+    if (targetStep === currentStep) return;
+    const isForward = targetStep > currentStep;
+    // Create mode: a forward jump would skip the per-step validate() gate.
+    if (isForward && isCreateMode) return;
+    if (isForward && !disabled && currentStepHasFieldErrors()) return;
+    const clampedTarget = Math.min(Math.max(targetStep, 0), lastStepIndex);
     hasNavigatedRef.current = true;
-    if (disabled) {
-      setRawStep(previous);
-      return;
-    }
-    setRawStep(previous);
-    saveDraft(previous);
+    setRawStep(clampedTarget);
+    if (!disabled) saveDraft(clampedTarget);
   }
 
   async function discardDraft(): Promise<void> {
@@ -1617,7 +1736,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               steps={filteredSections.map((section) => section.title ?? "")}
               currentIndex={currentStep}
               compactLabel={compactStepLabel}
-              onStepSelect={handleWizardJumpBack}
+              onStepSelect={handleWizardStepSelect}
+              {...updateModeStepBarProps}
               orientation="vertical"
               heading={translate("kumiko.wizard.step", {
                 current: currentStep + 1,
@@ -1708,7 +1828,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   steps={filteredSections.map((section) => section.title ?? "")}
                   currentIndex={currentStep}
                   compactLabel={compactStepLabel}
-                  onStepSelect={handleWizardJumpBack}
+                  onStepSelect={handleWizardStepSelect}
+                  {...updateModeStepBarProps}
                   testId="render-edit-wizard-steps"
                   compactTestId="render-edit-wizard-step-label"
                 />
@@ -1809,6 +1930,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   }
                   validate={scopedValidate}
                   hideTitle={hideSectionTitles}
+                  {...(isWizard &&
+                    !isCreateMode && {
+                      stepKey: wizardStepKey(section, sectionIndex),
+                      onReportStepComplete: reportExtensionStepComplete,
+                    })}
                   // Tabs mode: actions move to the outer Card below — the inner
                   // Section is flattened (rendered inside this component's own
                   // Form) and would otherwise duplicate them.

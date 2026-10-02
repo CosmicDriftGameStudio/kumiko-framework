@@ -4446,6 +4446,8 @@ function DefaultStepBar({
   currentIndex,
   compactLabel,
   onStepSelect,
+  doneSteps,
+  selectableSteps,
   narrowLayout,
   orientation,
   heading,
@@ -4461,6 +4463,8 @@ function DefaultStepBar({
       currentIndex={currentIndex}
       compactLabel={compactLabel}
       onStepSelect={onStepSelect}
+      doneSteps={doneSteps}
+      selectableSteps={selectableSteps}
       narrowLayout={narrowLayout}
       orientation={orientation}
       heading={heading}
