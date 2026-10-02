@@ -601,12 +601,50 @@ describe("DataTable", () => {
       expect(screen.getAllByTestId(/^row-/)).toHaveLength(50);
     });
 
-    test("scrollBody: a short list gets the same flex-fill treatment (fills space instead of shrinking)", () => {
+    test("scrollBody: inner scroll surface keeps flex-1 even for a short list (fw#2778: only the outer wrapper sizes to content)", () => {
       render(<DataTable columns={cols} rows={shortRows} testId="t" scrollBody />);
       const wrapper = screen.getByTestId("t").parentElement?.parentElement;
       expect(wrapper?.className).toContain("overflow-auto");
       expect(wrapper?.className).toContain("flex-1");
       expect(wrapper?.className).toContain("min-h-0");
+    });
+
+    test("scrollBody: the outer wrapper shrinks (min-h-0) without flex-1, toolbar and pager footer do not shrink", () => {
+      render(
+        <DataTable
+          columns={cols}
+          rows={shortRows}
+          testId="t"
+          scrollBody
+          toolbarStart={<input data-testid="search" />}
+          pager={{ page: 1, limit: 50, total: 1, onPageChange: mock() }}
+        />,
+      );
+      const toolbar = screen.getByTestId("t-toolbar");
+      expect(toolbar.className).toContain("shrink-0");
+      const outer = toolbar.parentElement;
+      expect(outer?.className).toContain("min-h-0");
+      expect(outer?.className).not.toContain("flex-1");
+      expect(screen.getByTestId("t-pager").className).toContain("shrink-0");
+    });
+
+    test("FillContainer: min-h-0 without flex-1 by default, flex-1 only with grow", () => {
+      const { FillContainer } = defaultPrimitives;
+      if (FillContainer === undefined) throw new Error("defaultPrimitives has no FillContainer");
+      render(
+        <>
+          <FillContainer testId="fill-default">x</FillContainer>
+          <FillContainer testId="fill-grow" grow>
+            x
+          </FillContainer>
+        </>,
+      );
+      const plain = screen.getByTestId("fill-default").className;
+      expect(plain).toContain("min-h-0");
+      expect(plain).not.toContain("flex-1");
+      const grown = screen.getByTestId("fill-grow").className;
+      expect(grown).toContain("min-h-0");
+      expect(grown).toContain("flex-1");
     });
   });
 

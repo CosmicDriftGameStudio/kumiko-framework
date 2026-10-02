@@ -5,7 +5,10 @@
 // through the same `config:query:values` query and loading gate as entityEdit.
 
 import { describe, expect, test } from "bun:test";
-import type { ActionFormScreenDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
+import type {
+  ActionFormScreenDefinition,
+  SecretMintScreenDefinition,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema } from "@cosmicdrift/kumiko-renderer";
 import { DispatcherProvider, KumikoScreen } from "@cosmicdrift/kumiko-renderer";
@@ -132,5 +135,73 @@ describe("actionForm money field currency source (fw#2839)", () => {
 
     await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
     expect(queriedTypes).not.toContain("config:query:values");
+  });
+});
+
+describe("secretMint money field currency source (fw#2839)", () => {
+  const mintScreen = {
+    id: "mint-credit",
+    type: "secretMint",
+    handler: "billing:write:credit:mint",
+    fields: {
+      amount: { type: "money", required: true, currency: { kind: "literal", code: "CHF" } },
+      note: { type: "text" },
+    },
+    layout: { sections: [{ fields: ["amount", "note"] }] },
+    reveal: { fields: [{ field: "token", label: "Token" }] },
+    confirm: {
+      handler: "billing:write:credit:confirm",
+      fields: {
+        fee: { type: "money", required: true, currency: { kind: "literal", code: "GBP" } },
+        code: { type: "text" },
+      },
+      layout: { sections: [{ fields: ["fee", "code"] }] },
+    },
+  } as unknown as SecretMintScreenDefinition;
+
+  test("untouched literal money fields in the mint step and the confirm step both submit { amount: 0, currency }", async () => {
+    const writeCalls: { type: string; payload: unknown }[] = [];
+    const dispatcher = createMockDispatcher({
+      write: (async (type: string, payload: unknown) => {
+        writeCalls.push({ type, payload });
+        return { isSuccess: true, data: { token: "kpat_secret" } };
+      }) as unknown as Dispatcher["write"],
+    });
+    const schema: FeatureSchema = {
+      featureName: "billing",
+      entities: {},
+      screens: [mintScreen],
+    };
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="billing:screen:mint-credit" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-form")).toBeTruthy());
+    await typeText("field-note", "mint it");
+    await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(writeCalls.length).toBe(1));
+    const mintCall = writeCalls[0];
+    if (mintCall === undefined) throw new Error("expected a mint write call");
+    expect(mintCall.type).toBe("billing:write:credit:mint");
+    expect((mintCall.payload as { amount?: unknown }).amount).toEqual({
+      amount: 0,
+      currency: "CHF",
+    });
+
+    await waitFor(() => screen.getByTestId("kumiko-screen-secret-mint-reveal"));
+    await typeText("field-code", "123456");
+    await userEvent.setup().click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(writeCalls.length).toBe(2));
+    const confirmCall = writeCalls[1];
+    if (confirmCall === undefined) throw new Error("expected a confirm write call");
+    expect(confirmCall.type).toBe("billing:write:credit:confirm");
+    expect((confirmCall.payload as { fee?: unknown }).fee).toEqual({
+      amount: 0,
+      currency: "GBP",
+    });
   });
 });

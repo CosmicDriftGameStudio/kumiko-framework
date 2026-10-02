@@ -4710,6 +4710,43 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
     expect(screen.getByTestId("render-edit-form-error")).toBeTruthy();
   });
 
+  test("a server error whose every issue has a rendered field jumps to that tab and shows no form-level banner", async () => {
+    const dispatcher = makeDispatcher((async () => ({
+      isSuccess: false,
+      error: {
+        code: "validation_failed",
+        httpStatus: 422,
+        i18nKey: "kumiko.errors.validation",
+        message: "Validation failed",
+        details: {
+          fields: [{ path: "count", code: "unique", i18nKey: "kumiko.errors.required" }],
+        },
+      },
+    })) as Dispatcher["write"]);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Acme", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+    expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
+    expect(screen.getByTestId("field-count-errors")).toBeTruthy();
+    expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
+  });
+
   test("a required field on an unopened tab activates that tab instead of blocking in silence", async () => {
     const schema = z.object({
       title: z.string().min(1),

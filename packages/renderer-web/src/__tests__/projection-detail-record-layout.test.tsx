@@ -307,6 +307,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
       navigate: MetricNavigate,
       userRoles: readonly string[],
       features: readonly FeatureSchema[],
+      searchParamsCalls: Readonly<Record<string, string | null>>[] = [],
     ): Promise<readonly unknown[]> {
       const navigateCalls: unknown[] = [];
       const navApi: NavApi = {
@@ -315,7 +316,7 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
         replace: () => {},
         hrefFor: () => "",
         searchParams: {},
-        setSearchParams: () => {},
+        setSearchParams: (updates) => searchParamsCalls.push(updates),
       };
       const metricsScreen: ProjectionDetailScreenDefinition = {
         ...baseScreen,
@@ -373,6 +374,24 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
 
     test("a target that resolves to no screen at all is not clickable", async () => {
       expect(await clickMetric({ screen: "no-such-screen" }, ["ledger"], appFeatures)).toEqual([]);
+    });
+
+    test("without any app features (no screen registry) every metric stays clickable", async () => {
+      expect(await clickMetric({ screen: "tenant-detail" }, ["property"], [])).toEqual([
+        { screenId: "tenant-detail" },
+      ]);
+    });
+
+    test("a tab-only navigate stays on the record and is never role-gated", async () => {
+      const searchParamsCalls: Readonly<Record<string, string | null>>[] = [];
+      const navigateCalls = await clickMetric(
+        { tab: "history" },
+        ["property"],
+        appFeatures,
+        searchParamsCalls,
+      );
+      expect(navigateCalls).toEqual([]);
+      expect(searchParamsCalls).toContainEqual({ tab: "history" });
     });
   });
 

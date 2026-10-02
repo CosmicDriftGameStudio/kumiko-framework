@@ -179,4 +179,42 @@ describe("resolveDetailBreadcrumb", () => {
       "invoice-list",
     );
   });
+
+  test("explicit listScreenId on actionForm wins over the rowAction heuristic", () => {
+    const screens: ScreenDefinition[] = [
+      {
+        id: "invoice-list",
+        type: "entityList",
+        entity: "invoice",
+        columns: ["status"],
+        rowActions: [
+          {
+            kind: "navigate",
+            id: "approve",
+            label: "kumiko.actions.view",
+            screen: "invoice-approve",
+            entityId: "id",
+          },
+        ],
+      },
+      {
+        id: "invoice-archive",
+        type: "entityList",
+        entity: "invoice",
+        columns: ["status"],
+        rowActions: [],
+      },
+      {
+        id: "invoice-approve",
+        type: "actionForm",
+        handler: "billing:write:invoice:approve",
+        listScreenId: "invoice-archive",
+        fields: { notes: { type: "text" } },
+        layout: { sections: [{ fields: ["notes"] }] },
+      },
+    ];
+    expect(resolveDetailBreadcrumb(screens, "invoice-approve", t)?.[0]?.screenId).toBe(
+      "invoice-archive",
+    );
+  });
 });

@@ -613,6 +613,54 @@ describe("NavTree active-marker parent fallback", () => {
     expect(screen.getByText("Users").closest("a")?.getAttribute("data-active")).toBe("true");
     expect(screen.getByText("Add User").closest("a")?.getAttribute("data-active")).toBe("false");
   });
+
+  test("explicit listScreenId on an actionForm beats the rowAction heuristic for the nav highlight", () => {
+    const schema: FeatureSchema = {
+      featureName: "billing",
+      entities: {},
+      screens: [
+        {
+          id: "invoice-list",
+          type: "entityList",
+          entity: "invoice",
+          columns: [],
+          rowActions: [
+            {
+              kind: "navigate",
+              id: "approve",
+              label: "kumiko.actions.view",
+              screen: "invoice-approve",
+              entityId: "id",
+            },
+          ],
+        },
+        { id: "invoice-archive", type: "entityList", entity: "invoice", columns: [] },
+        {
+          id: "invoice-approve",
+          type: "actionForm",
+          handler: "billing:write:invoice:approve",
+          listScreenId: "invoice-archive",
+          fields: { notes: { type: "text" } },
+          layout: { sections: [{ fields: ["notes"] }] },
+        },
+      ],
+      navs: [
+        { id: "invoice-list", label: "Invoices", screen: "invoice-list", order: 10 },
+        { id: "invoice-archive", label: "Archive", screen: "invoice-archive", order: 20 },
+      ],
+    } as FeatureSchema;
+
+    render(
+      <NavProvider value={navWithRoute("invoice-approve")}>
+        <NavTree schema={schema} />
+      </NavProvider>,
+    );
+
+    const archiveLink = screen.getByText("Archive").closest("a");
+    expect(archiveLink?.getAttribute("data-active")).toBe("true");
+    expect(archiveLink?.hasAttribute("aria-current")).toBe(false);
+    expect(screen.getByText("Invoices").closest("a")?.getAttribute("data-active")).toBe("false");
+  });
 });
 
 // ── Visual-Tree-Merge: dynamische Knoten in der EINEN Nav ──────────────
