@@ -163,7 +163,7 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
         ? buildOptionLabels(
             translate,
             (value) => fieldOptionLabelKey(featureName, screen.entity, normalized.field, value),
-            (fieldDef as unknown as { options?: readonly string[] }).options ?? [],
+            fieldDef.options,
           )
         : undefined;
     const optionTones = fieldDef.type === "select" ? fieldDef.optionTones : undefined;

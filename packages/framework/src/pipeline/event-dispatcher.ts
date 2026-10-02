@@ -806,7 +806,10 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       preRegistered = true;
     },
 
-    drain: drainInFlightTurns,
+    async drain() {
+      await drainInFlightPasses();
+      await drainInFlightTurns();
+    },
 
     async withBackgroundPassesPaused(fn) {
       backgroundPassPauseDepth++;

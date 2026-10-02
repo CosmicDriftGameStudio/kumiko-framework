@@ -436,3 +436,80 @@ describe("directive classification: head read and per-run cache", () => {
     ).toBe("dev");
   });
 });
+
+describe("value re-exports count as runtime edges", () => {
+  test("reachability follows `export *` and `export { x } from` but not `export type`", () => {
+    const project = makeInMemoryProject({
+      "/repo/src/client.tsx": 'export * from "./barrel";',
+      "/repo/src/barrel.ts":
+        'export { a } from "./a";\nexport type { T } from "./t";\nexport { type U } from "./u";',
+      "/repo/src/a.ts": "export const a = 1;",
+      "/repo/src/t.ts": "export type T = number;",
+      "/repo/src/u.ts": "export type U = number;",
+    });
+    const isEntry = (sf: SourceFile) => isClientEntryPath(relative("/repo", sf.getFilePath()));
+    const reachable = computeClientReachablePaths(project.getSourceFiles(), isEntry);
+    expect(reachable.has("/repo/src/barrel.ts")).toBe(true);
+    expect(reachable.has("/repo/src/a.ts")).toBe(true);
+    expect(reachable.has("/repo/src/t.ts")).toBe(false);
+    expect(reachable.has("/repo/src/u.ts")).toBe(false);
+  });
+
+  test("client entry -> barrel -> runtime module is a violation on the re-export line", () => {
+    const root = mkdtempSync(join(tmpdir(), "kumiko-runtime-isolation-reexport-"));
+    try {
+      mkdirSync(join(root, "src"), { recursive: true });
+      mkdirSync(join(root, "packages/framework/src"), { recursive: true });
+      writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }), "utf-8");
+      writeFileSync(
+        join(root, "packages/framework/package.json"),
+        JSON.stringify({ name: "framework", kumiko: { runtime: "runtime" } }),
+        "utf-8",
+      );
+      writeFileSync(join(root, "src/client.tsx"), 'export * from "./index";\n', "utf-8");
+      writeFileSync(
+        join(root, "src/index.ts"),
+        'export * from "../packages/framework/src/engine";\n',
+        "utf-8",
+      );
+      writeFileSync(
+        join(root, "packages/framework/src/engine.ts"),
+        "export const engineFn = () => 1;\n",
+        "utf-8",
+      );
+      const project = new Project({ skipAddingFilesFromTsConfig: true });
+      const files = [
+        project.addSourceFileAtPath(join(root, "src/client.tsx")),
+        project.addSourceFileAtPath(join(root, "src/index.ts")),
+        project.addSourceFileAtPath(join(root, "packages/framework/src/engine.ts")),
+      ];
+      const reachable = computeClientReachablePaths(files, (sf) =>
+        isClientEntryPath(relative(root, sf.getFilePath())),
+      );
+      const { violations } = findRuntimeIsolationViolations(files, root, new Map(), reachable);
+      expect(violations).toHaveLength(1);
+      expect(violations[0]?.file).toBe(join(root, "src/index.ts"));
+      expect(violations[0]?.importedRuntime).toBe("runtime");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("findWorkspaceRuntime — repo-root package.json", () => {
+  test("reads the kumiko.runtime marker at the repo root (single-package consumer)", () => {
+    const root = mkdtempSync(join(tmpdir(), "kumiko-runtime-isolation-root-"));
+    try {
+      mkdirSync(join(root, "src"), { recursive: true });
+      writeFileSync(
+        join(root, "package.json"),
+        JSON.stringify({ name: "app", kumiko: { runtime: "client" } }),
+        "utf-8",
+      );
+      writeFileSync(join(root, "src/a.ts"), "export const a = 1;\n", "utf-8");
+      expect(classify(join(root, "src/a.ts"), root, new Map())).toBe("client");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

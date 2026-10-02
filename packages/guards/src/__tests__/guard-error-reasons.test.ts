@@ -27,3 +27,15 @@ declareEscapeHatch({ reason: "some prose justification with spaces" });`,
     expect(outcome.violations[0]?.message).toContain('details.reason "some prose"');
   });
 });
+
+describe("guard-error-reasons — withUnsafeRawGrant", () => {
+  test("does not flag an inline withUnsafeRawGrant reason (prose justification)", () => {
+    const sf = parse(
+      `declare function withUnsafeRawGrant(db: unknown, d: unknown): void;
+declare const db: unknown;
+withUnsafeRawGrant(db, { reason: "append provenance event" });`,
+      "packages/framework/src/x/handler.ts",
+    );
+    expect(guard.run([sf]).violations).toHaveLength(0);
+  });
+});

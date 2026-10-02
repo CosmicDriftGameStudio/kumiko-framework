@@ -109,9 +109,12 @@ export function pendingViolations(json: UpgradeJson, markerVersion: string): Gua
   }));
 }
 
-function resolveKumikoUpgradeBin(cwd: string): string | undefined {
-  const which = Bun.which("kumiko-upgrade");
-  if (which) return which;
+export function resolveKumikoUpgradeBin(
+  cwd: string,
+  pathEnv: string | undefined = process.env["PATH"],
+): string | undefined {
+  // Repo-pinned binary wins over PATH so the marker is measured against the
+  // version this checkout actually installs.
   let dir = cwd;
   for (;;) {
     const candidate = join(dir, "node_modules", ".bin", "kumiko-upgrade");
@@ -120,7 +123,7 @@ function resolveKumikoUpgradeBin(cwd: string): string | undefined {
     if (parent === dir) break;
     dir = parent;
   }
-  return undefined;
+  return Bun.which("kumiko-upgrade", { PATH: pathEnv }) ?? undefined;
 }
 
 async function runKumikoUpgrade(

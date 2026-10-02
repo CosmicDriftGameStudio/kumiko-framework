@@ -122,6 +122,42 @@ export function isValueImport(decl: ImportDeclaration): boolean {
   return true;
 }
 
+export type ValueModuleEdge = {
+  readonly spec: string;
+  readonly target: SourceFile;
+  readonly line: number;
+};
+
+/**
+ * Every runtime-weighted edge out of a file: value imports plus value
+ * re-exports (`export { x } from`, `export * from`) — barrels are how most
+ * client entries reach runtime code. Shared by the direct-edge check and the
+ * reachability walk so both see the same edge set.
+ */
+export function valueModuleEdges(sf: SourceFile): ValueModuleEdge[] {
+  const edges: ValueModuleEdge[] = [];
+  for (const decl of sf.getImportDeclarations()) {
+    if (!isValueImport(decl)) continue;
+    const target = decl.getModuleSpecifierSourceFile();
+    if (!target) continue;
+    edges.push({
+      spec: decl.getModuleSpecifierValue(),
+      target,
+      line: decl.getStartLineNumber(),
+    });
+  }
+  for (const decl of sf.getExportDeclarations()) {
+    if (decl.isTypeOnly()) continue;
+    const named = decl.getNamedExports();
+    if (named.length > 0 && named.every((n) => n.isTypeOnly())) continue;
+    const target = decl.getModuleSpecifierSourceFile();
+    const spec = decl.getModuleSpecifierValue();
+    if (!target || spec === undefined) continue;
+    edges.push({ spec, target, line: decl.getStartLineNumber() });
+  }
+  return edges;
+}
+
 /**
  * Map dist declaration files back to src. Project References make ts-morph
  * resolve imports to `.d.ts` under `dist/`; classification and the reachable
@@ -159,10 +195,7 @@ export function computeClientReachablePaths(
     if (fp.includes("/node_modules/") || fp.includes("/dist/")) continue;
     if (reached.has(fp)) continue;
     reached.add(fp);
-    for (const decl of sf.getImportDeclarations()) {
-      if (!isValueImport(decl)) continue;
-      const target = decl.getModuleSpecifierSourceFile();
-      if (!target) continue;
+    for (const { target } of valueModuleEdges(sf)) {
       const targetPath = toEffectivePath(target.getFilePath());
       if (targetPath.includes("/node_modules/") || targetPath.includes("/dist/")) continue;
       if (!reached.has(targetPath)) queue.push(target);
@@ -246,7 +279,8 @@ export function findWorkspaceRuntime(
   cache: Map<string, Runtime | null>,
 ): Runtime | null {
   let dir = path.dirname(filePath);
-  while (dir.startsWith(repoRoot) && dir !== repoRoot) {
+  // Includes repoRoot itself: a single-package consumer repo keeps its marker there.
+  while (dir.startsWith(repoRoot)) {
     const r = readWorkspaceRuntime(dir, cache);
     if (r) return r;
     // Stop at the first package.json — don't fall through to a parent
@@ -257,6 +291,7 @@ export function findWorkspaceRuntime(
     } catch {
       // No package.json here — keep climbing.
     }
+    if (dir === repoRoot) break;
     dir = path.dirname(dir);
   }
   return null;
@@ -365,10 +400,7 @@ export function findRuntimeIsolationViolations(
     const fileRt = classify(fp, repoRoot, workspaceCache, clientReachable, directiveOf);
     stats[fileRt]++;
 
-    for (const decl of sf.getImportDeclarations()) {
-      if (!isValueImport(decl)) continue;
-      const target = decl.getModuleSpecifierSourceFile();
-      if (!target) continue;
+    for (const { spec, target, line } of valueModuleEdges(sf)) {
       const targetPath = target.getFilePath();
       if (targetPath.includes("/node_modules/")) continue;
       if (!withinRoot(targetPath)) {
@@ -380,9 +412,9 @@ export function findRuntimeIsolationViolations(
       if (!COMPAT[fileRt].has(targetRt)) {
         violations.push({
           file: fp,
-          line: decl.getStartLineNumber(),
+          line,
           fileRuntime: fileRt,
-          importedSpec: decl.getModuleSpecifierValue(),
+          importedSpec: spec,
           importedFile: targetPath,
           importedRuntime: targetRt,
         });

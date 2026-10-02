@@ -1100,3 +1100,38 @@ describe("computeEditViewModel — writeForm sections (fw editable-detail-screen
     expect(section.submitLabel).toBe("orders:write-form.submit");
   });
 });
+
+describe("computeEditViewModel — extension section entityName override", () => {
+  function extensionEntityName(entityName: string | undefined): string | undefined {
+    const vm = computeEditViewModel({
+      screen: editScreen({
+        sections: [
+          {
+            kind: "extension",
+            title: "Notes",
+            component: { react: null },
+            ...(entityName !== undefined && { entityName }),
+          },
+        ],
+      }),
+      entity: orderEntity,
+      values: {},
+      translate,
+      featureName: "orders",
+    });
+    const section = vm.sections[0];
+    if (section?.kind !== "extension") throw new Error("expected extension section");
+    return section.entityName;
+  }
+
+  test("passes a regular override through, trimmed", () => {
+    expect(extensionEntityName("lease")).toBe("lease");
+    expect(extensionEntityName(" lease ")).toBe("lease");
+  });
+
+  test("blank override falls back to the host value (no entityName on the view model)", () => {
+    expect(extensionEntityName("")).toBeUndefined();
+    expect(extensionEntityName("   ")).toBeUndefined();
+    expect(extensionEntityName(undefined)).toBeUndefined();
+  });
+});

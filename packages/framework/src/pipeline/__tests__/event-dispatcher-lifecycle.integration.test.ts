@@ -158,6 +158,21 @@ describe("E.1 — .start() lifecycle + slow handler", () => {
   });
 });
 
+describe("drain", () => {
+  test("waits for a pass still in its idle pre-check, before any consumer turn is registered", async () => {
+    await stack.eventDispatcher?.ensureRegistered();
+    await appendWidget("drain-me");
+
+    // Not awaited: the pass is suspended in the idle pre-check query when
+    // drain() is called, so no consumer turn is in flight yet.
+    const pass = stack.eventDispatcher?.runOnce();
+    await stack.eventDispatcher?.drain();
+
+    expect(observations).toHaveLength(1);
+    await pass;
+  });
+});
+
 describe("withBackgroundPassesPaused", () => {
   test("timer and NOTIFY start no pass while paused, delivery resumes afterwards", async () => {
     await stack.eventDispatcher?.start();

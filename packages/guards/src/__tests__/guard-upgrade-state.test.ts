@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,6 +8,7 @@ import {
   pendingViolations,
   readMarker,
   resolveInstalledVersion,
+  resolveKumikoUpgradeBin,
 } from "../guard-upgrade-state";
 
 function withApp(files: Record<string, string> = {}): { dir: string; cleanup: () => void } {
@@ -155,5 +156,24 @@ describe("pendingViolations", () => {
     expect(violations[0]?.message).toContain("breaking");
     expect(violations[0]?.message).toContain("Some breaking change");
     expect(violations[0]?.message).toContain("kumiko-upgrade --apply");
+  });
+});
+
+describe("resolveKumikoUpgradeBin", () => {
+  test("prefers the repo-local node_modules/.bin over a PATH entry", () => {
+    const app = withApp({ "node_modules/.bin/kumiko-upgrade": "#!/bin/sh\n" });
+    const decoy = withApp({ "kumiko-upgrade": "#!/bin/sh\n" });
+    chmodSync(join(decoy.dir, "kumiko-upgrade"), 0o755);
+    try {
+      expect(resolveKumikoUpgradeBin(app.dir, decoy.dir)).toBe(
+        join(app.dir, "node_modules/.bin/kumiko-upgrade"),
+      );
+      expect(resolveKumikoUpgradeBin(join(decoy.dir, "nowhere"), decoy.dir)).toBe(
+        join(decoy.dir, "kumiko-upgrade"),
+      );
+    } finally {
+      app.cleanup();
+      decoy.cleanup();
+    }
   });
 });

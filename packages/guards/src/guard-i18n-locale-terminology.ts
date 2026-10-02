@@ -92,7 +92,7 @@ export function findViolations(files: readonly SourceFile[]): GuardViolation[] {
         violations.push({
           file: sf.getFilePath(),
           line: prop.getStartLineNumber(),
-          message: `[${locale}] verbotener Begriff "${hit}" in Übersetzungswert — nutze "${rule.preferred}" (fw#2200).`,
+          message: `[${locale}] forbidden term "${hit}" in translation value — use "${rule.preferred}" (fw#2200).`,
         });
       }
     }
@@ -104,7 +104,7 @@ export function findViolations(files: readonly SourceFile[]): GuardViolation[] {
 export const guard: AstGuard = {
   name: "i18n-Locale-Terminology Guard",
   scan: SCAN,
-  hint: "DE: Mandant statt Tenant/Organisation; ES: Organización statt tenant-Loanword. Rollen wie TenantAdmin sind OK.",
+  hint: "DE: Mandant instead of Tenant/Organisation; ES: Organización instead of the tenant loanword. Roles like TenantAdmin are fine.",
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations = findViolations(files)
       .map((v) => ({ ...v, file: relFromRepoRoot(v.file, roots) }))

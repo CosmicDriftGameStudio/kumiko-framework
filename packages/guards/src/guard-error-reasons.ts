@@ -60,6 +60,10 @@ const UNPROC_CALL_NAMES = new Set(["UnprocessableError", "failUnprocessable"]);
 // justification, not an error-reason code.
 const ACCESS_DECLARATION_NAMES = new Set(["openToAll", "escapeHatch"]);
 
+// Calls whose object-literal argument carries a prose `reason` for an
+// access grant / escape hatch.
+const ACCESS_DECLARATION_CALLS = new Set(["declareEscapeHatch", "withUnsafeRawGrant"]);
+
 interface Violation {
   readonly file: string;
   readonly line: number;
@@ -135,8 +139,8 @@ function scanFile(sf: SourceFile): Violation[] {
 }
 
 // A `reason` PropertyAssignment whose object literal is the initializer of
-// an `openToAll` / `escapeHatch` PropertyAssignment, or the sole argument
-// object of a bare `declareEscapeHatch(...)` call, is an access-declaration
+// an `openToAll` / `escapeHatch` PropertyAssignment, or an argument
+// object of a bare `declareEscapeHatch(...)` / `withUnsafeRawGrant(...)` call, is an access-declaration
 // justification, not an error-reason code.
 export function isAccessDeclarationReason(prop: Node): boolean {
   const objectLiteral = prop.getParent();
@@ -147,7 +151,7 @@ export function isAccessDeclarationReason(prop: Node): boolean {
   }
   if (owner?.isKind(SyntaxKind.CallExpression)) {
     const callee = owner.getExpression();
-    return callee.isKind(SyntaxKind.Identifier) && callee.getText() === "declareEscapeHatch";
+    return callee.isKind(SyntaxKind.Identifier) && ACCESS_DECLARATION_CALLS.has(callee.getText());
   }
   return false;
 }

@@ -199,9 +199,7 @@ function deriveSelectFieldHints(
   fieldName: string,
 ): SelectFieldHints {
   const options =
-    fieldDef.type === "select" || fieldDef.type === "multiSelect"
-      ? ((fieldDef as unknown as { options?: readonly string[] }).options ?? [])
-      : undefined;
+    fieldDef.type === "select" || fieldDef.type === "multiSelect" ? fieldDef.options : undefined;
   const optionLabels =
     options !== undefined
       ? buildOptionLabels(
@@ -479,13 +477,17 @@ function buildExtensionSectionViewModel(
   sectionSpec: EditExtensionSection,
   translate: Translate,
 ): Extract<EditSectionViewModel, { kind: "extension" }> {
+  const entityNameOverride = sectionSpec.entityName?.trim();
   return {
     kind: "extension" as const,
     ...(sectionSpec.id !== undefined && { id: sectionSpec.id }),
     title: translate(sectionSpec.title),
     component: sectionSpec.component,
     contributesToFormSubmit: sectionSpec.contributesToFormSubmit === true,
-    ...(sectionSpec.entityName !== undefined && { entityName: sectionSpec.entityName }),
+    // Blank override must fall back to the host value: the renderer's `??`
+    // would otherwise pass "" through to the mounted extension.
+    ...(entityNameOverride !== undefined &&
+      entityNameOverride.length > 0 && { entityName: entityNameOverride }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
   };
 }

@@ -28,7 +28,7 @@ addFees(100);`,
       run({
         [LIB]: `export function addFees(base: number): number { return base * 1.02; }`,
       }),
-    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
   test("verknüpfter Test, aber Funktion nicht referenziert → Funktions-Verstoß", () => {
@@ -59,7 +59,7 @@ addFees(100);`,
         "/src/lib/__tests__/fixtures.ts": `import { addFees } from "../calc";
 export const sample = addFees(1);`,
       }),
-    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
   test("Fixture unter __tests__ selbst ist keine lib-Quelle", () => {
@@ -75,7 +75,7 @@ export const sample = addFees(1);`,
       run({
         "/src/lib/foo.tsx": `export function renderFoo(): number { return 1; }`,
       }),
-    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
   test("Scan-Scope erfasst .tsx und verschachtelte lib-Ebenen", () => {
@@ -94,7 +94,7 @@ export const sample = addFees(1);`,
         "/src/features/demo/lib/__tests__/calc.test.ts": `import { addFees } from "../other";
 addFees(1);`,
       }),
-    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
   test("Test eine Ebene über lib/ (features/<x>/__tests__ → ../lib/calc) zählt", () => {
@@ -182,7 +182,7 @@ describe("guard-lib-test-coverage — export default function (coverage-gap fix)
       run({
         [LIB]: `export default function addFees(base: number): number { return base * 1.02; }`,
       }),
-    ).toEqual([expect.stringContaining("Kein Test importiert dieses lib-Modul")]);
+    ).toEqual([expect.stringContaining("No test imports this lib module")]);
   });
 
   test("export default function mit verknüpftem, referenzierendem Test → grün", () => {

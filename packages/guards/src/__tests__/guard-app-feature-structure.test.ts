@@ -12,7 +12,7 @@ describe("guard-app-feature-structure", () => {
     const sf = parse(`export const screens = {};`, "src/features/money-horse/web.tsx");
     const outcome = guard.run([sf]);
     expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.message).toContain("Monolith");
+    expect(outcome.violations[0]?.message).toContain("monolith");
   });
 
   test("flaggt JSX-Screen am Feature-Root", () => {
@@ -36,7 +36,7 @@ describe("guard-app-feature-structure", () => {
     const sf = parse(`${body}\nexport const f = 1;`, "src/features/demo/feature.ts");
     const outcome = guard.run([sf]);
     expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.message).toContain("Zeilen");
+    expect(outcome.violations[0]?.message).toContain("lines");
   });
 
   test("flaggt r.screen type custom ohne Allowlist-Tag", () => {
@@ -96,7 +96,7 @@ describe("guard-app-feature-structure", () => {
     );
     const outcome = guard.run([sf]);
     expect(outcome.violations).toHaveLength(1);
-    expect(outcome.violations[0]?.message).toContain("Zeilen");
+    expect(outcome.violations[0]?.message).toContain("lines");
   });
 
   test("scan includes bundled-features src paths", () => {

@@ -40,8 +40,8 @@ export const guard: AstGuard = {
   name: "App-Feature-Structure Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Konvention: feature.ts nur Registrierung, Screens unter web/ (eine Datei pro Screen), Handler unter handlers/, " +
-    `Domain-Logik unter lib/. Custom-Screens brauchen // ${IGNORE_TAG} <Grund> (deklarative Screen-Typen sind der Default).`,
+    "Convention: feature.ts is registration only, screens live under web/ (one file per screen), handlers under handlers/, " +
+    `domain logic under lib/. Custom screens need // ${IGNORE_TAG} <reason> (declarative screen types are the default).`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];
     for (const sf of files) {
@@ -56,7 +56,7 @@ export const guard: AstGuard = {
             file: filePath,
             line: 1,
             message:
-              "web-Monolith am Feature-Root — Screens/Client-Def gehören unter web/ (index.ts + eine Datei pro Screen)",
+              "web monolith at feature root — screens/client def belong under web/ (index.ts + one file per screen)",
           });
         }
       }
@@ -74,7 +74,7 @@ export const guard: AstGuard = {
         violations.push({
           file: filePath,
           line: 1,
-          message: "JSX-Komponente am Feature-Root — unter web/ verschieben",
+          message: "JSX component at feature root — move it under web/",
         });
       }
 
@@ -85,7 +85,7 @@ export const guard: AstGuard = {
           violations.push({
             file: filePath,
             line: 1,
-            message: `feature.ts hat ${lines} Zeilen (max ${MAX_FEATURE_TS_LINES}) — Handler nach handlers/, Schemas nach schema/, Logik nach lib/`,
+            message: `feature.ts has ${lines} lines (max ${MAX_FEATURE_TS_LINES}) — move handlers to handlers/, schemas to schema/, logic to lib/`,
           });
         }
       }
@@ -103,7 +103,7 @@ export const guard: AstGuard = {
         violations.push({
           file: filePath,
           line: prop.getStartLineNumber(),
-          message: `r.screen type:"custom" ohne Allowlist-Tag — deklarativen Screen-Typ nutzen oder // ${IGNORE_TAG} <Grund>`,
+          message: `r.screen type:"custom" without allowlist tag — use a declarative screen type or // ${IGNORE_TAG} <reason>`,
         });
       }
     }
