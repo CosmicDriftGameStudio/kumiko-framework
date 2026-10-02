@@ -628,6 +628,38 @@ describe("RenderEdit", () => {
     expect(shell?.className).not.toContain("max-w-4xl");
   });
 
+  function renderScreenForm(width: "full" | undefined): HTMLElement {
+    render(
+      <ScreenWidthProvider width={width}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <RenderEdit<TestValues>
+            screen={makeScreen()}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "", count: 0, isUrgent: false }}
+            writeCommand="order:create"
+            fillScreenHeight
+          />
+        </DispatcherProvider>
+      </ScreenWidthProvider>,
+    );
+    const column = screen
+      .getByTestId("render-edit-form-scroll")
+      .querySelector<HTMLElement>(".max-w-full, .max-w-\\[640px\\]");
+    if (column === null) throw new Error("screen-form column not found");
+    return column;
+  }
+
+  test("ScreenWidthProvider width='full' widens the screen-form column of a default entityEdit", () => {
+    const column = renderScreenForm("full");
+    expect(column.className).toContain("max-w-full");
+    expect(column.className).not.toContain("max-w-[640px]");
+  });
+
+  test("a screen-form column without screenWidth keeps the 640px default", () => {
+    expect(renderScreenForm(undefined).className).toContain("max-w-[640px]");
+  });
+
   test("layout.width: '3xl' overrides ScreenWidthProvider width='full' (fw#2656)", () => {
     const screenDef = makeScreen();
     render(

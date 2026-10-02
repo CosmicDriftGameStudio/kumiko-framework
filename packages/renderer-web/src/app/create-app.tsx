@@ -465,7 +465,7 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
       <LocaleProvider resolver={props.localeResolver} fallbackBundles={fallbackBundles}>
         <DocumentLangSync resolver={props.localeResolver} />
         <PrimitivesProvider value={props.primitives}>
-          <ScreenWidthProvider width={props.screenWidth ?? "4xl"}>
+          <ScreenWidthProvider width={props.screenWidth}>
             <AppFeaturesProvider features={app?.features ?? EMPTY_FEATURES}>
               <DispatcherProvider dispatcher={props.dispatcher}>
                 <DraftStorageProvider value={props.draftStorage}>

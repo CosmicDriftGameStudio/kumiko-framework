@@ -3313,15 +3313,16 @@ export function BareFormProvider({ children }: { children: ReactNode }): ReactNo
 }
 
 // App-wide default for FormScreenShell's width when a screen doesn't set its
-// own `layout.width`. Default "4xl" keeps today's behavior for apps that
-// don't opt into `createKumikoApp({ screenWidth })` (fw#2656).
-const ScreenWidthContext = createContext<FormWidth>("4xl");
+// own `layout.width`. Undefined (no `createKumikoApp({ screenWidth })`) lets each
+// shell keep its own default: "4xl" for FormScreenShell, 640px for the
+// screen-form column.
+const ScreenWidthContext = createContext<FormWidth | undefined>(undefined);
 
 export function ScreenWidthProvider({
   width,
   children,
 }: {
-  readonly width: FormWidth;
+  readonly width: FormWidth | undefined;
   readonly children: ReactNode;
 }): ReactNode {
   return <ScreenWidthContext.Provider value={width}>{children}</ScreenWidthContext.Provider>;
@@ -3842,6 +3843,7 @@ function DefaultForm({
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
   const isEmbeddedForm = useContext(EmbeddedFormContext);
+  const contextWidth = useContext(ScreenWidthContext);
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
   if (useContext(BareFormContext)) {
@@ -3915,6 +3917,7 @@ function DefaultForm({
   }
 
   const isScreenForm = screenForm === true && fillHeight === true && chromeless !== true;
+  const screenFormWidth = width ?? contextWidth;
   const sections = (
     <FormSections
       chromeless={chromeless === true}
@@ -3954,7 +3957,9 @@ function DefaultForm({
               <div
                 className={cn(
                   "flex w-full min-w-0 flex-col gap-9",
-                  width !== undefined ? screenFormColumnWidthClassName[width] : "max-w-[640px]",
+                  screenFormWidth !== undefined
+                    ? screenFormColumnWidthClassName[screenFormWidth]
+                    : "max-w-[640px]",
                 )}
               >
                 <InsideScreenFormColumnContext.Provider value={true}>
@@ -4104,7 +4109,7 @@ export function FormScreenShell({
   readonly fillHeight?: boolean;
 }): ReactNode {
   const contextWidth = useContext(ScreenWidthContext);
-  const width = maxWidth ?? contextWidth;
+  const width = maxWidth ?? contextWidth ?? "4xl";
   return (
     <div
       data-testid={testId}
