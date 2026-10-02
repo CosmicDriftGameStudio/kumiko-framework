@@ -46,7 +46,11 @@ import { seedTenantMembership } from "../../tenant/seeding.js";
 import { createUserFeature } from "../../user/feature.js";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { seedUser } from "../../user/seeding.js";
-import { SUBJECT_FORGET_DENIED_EVENT_NAME, SUBJECT_FORGOTTEN_EVENT_NAME } from "../constants.js";
+import {
+  SUBJECT_FORGET_DENIED_EVENT_NAME,
+  SUBJECT_FORGOTTEN_EVENT_NAME,
+  TARGET_TENANT_NOT_ADMIN_TENANT,
+} from "../constants.js";
 import { createCryptoShreddingFeature } from "../feature.js";
 
 const FORGET = "crypto-shredding:write:forget-subject";
@@ -177,6 +181,7 @@ describe("crypto-shredding :: forget-subject", () => {
       reason: REASON,
       forgottenBy: dpoUser.id,
       actorTenantId: dpoUser.tenantId,
+      denial: TARGET_TENANT_NOT_ADMIN_TENANT,
     });
   });
 

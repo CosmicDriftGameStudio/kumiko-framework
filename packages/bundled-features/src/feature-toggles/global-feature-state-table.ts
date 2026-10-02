@@ -1,4 +1,4 @@
-import { asEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
+import { requireEntityTableMeta } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   boolean,
   declareGlobalTenancy,
@@ -41,11 +41,7 @@ export const globalFeatureStateTable: SchemaTable & TenancyBrand<"global"> = dec
 // the pgTable made queries type-check while the migration generator stayed
 // blind to it, failing in prod with "column ... does not exist" while every
 // mocked-stack test stayed green.
-const derivedMeta = asEntityTableMeta(globalFeatureStateTable);
-if (!derivedMeta) {
-  throw new Error(
-    "global-feature-state-table: asEntityTableMeta(globalFeatureStateTable) returned undefined " +
-      "— the pgTable definition no longer round-trips through the unmanaged-table meta builder.",
-  );
-}
-export const globalFeatureStateTableMeta: EntityTableMeta = derivedMeta;
+export const globalFeatureStateTableMeta: EntityTableMeta = requireEntityTableMeta(
+  globalFeatureStateTable,
+  "globalFeatureStateTable",
+);

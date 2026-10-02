@@ -170,25 +170,29 @@ describe("email channel List-Unsubscribe headers", () => {
     expect(sent.headers).toBeUndefined();
   });
 
-  test('an explicit data.headers["List-Unsubscribe"] wins over the auto header', async () => {
+  const unsubscribeUrl = "https://app.example/api/delivery/unsubscribe?token=abc";
+
+  async function sendWithHeaders(headers: Record<string, string>) {
     const transport = createInMemoryTransport();
-    const unsubscribeUrl = "https://app.example/api/delivery/unsubscribe?token=abc";
     const message: ChannelMessage = {
       notificationType: "x",
       title: "t",
       body: "b",
-      data: {
-        subject: "t",
-        body: "b",
-        unsubscribeUrl,
-        headers: { "List-Unsubscribe": "<mailto:override@example.com>" },
-      },
+      data: { subject: "t", body: "b", unsubscribeUrl, headers },
     };
     await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
-
     const [sent] = transport.sent;
     if (!sent) throw new Error("expected a sent mail");
-    expect(sent.headers?.["List-Unsubscribe"]).toBe("<mailto:override@example.com>");
-    expect(sent.headers?.["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    return sent;
+  }
+
+  test("overriding List-Unsubscribe alone drops the auto one-click Post header", async () => {
+    const sent = await sendWithHeaders({ "List-Unsubscribe": "<mailto:override@example.com>" });
+    expect(sent.headers).toEqual({ "List-Unsubscribe": "<mailto:override@example.com>" });
+  });
+
+  test("a lowercase override replaces the auto pair instead of duplicating it", async () => {
+    const sent = await sendWithHeaders({ "list-unsubscribe": "<mailto:override@example.com>" });
+    expect(sent.headers).toEqual({ "list-unsubscribe": "<mailto:override@example.com>" });
   });
 });

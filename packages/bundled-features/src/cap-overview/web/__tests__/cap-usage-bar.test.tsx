@@ -83,7 +83,7 @@ describe("CapUsageBar", () => {
     );
 
     expect(screen.queryByTestId("cap-usage-bar")).toBeNull();
-    expect(screen.getByTestId("cap-usage-unlimited").textContent).toBe("165");
+    expect(screen.getByTestId("cap-usage-unlimited").textContent).toBe("cap-overview.unlimited");
   });
 
   test("renders nothing for an unlimited cap when showLabel is false", () => {

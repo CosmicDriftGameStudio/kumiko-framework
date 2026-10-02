@@ -11,7 +11,9 @@ export type ConfigRow = {
   readonly userId: string | null;
 };
 
-// Method-form so a tenant-mode TenantDb stays filtered.
+// Method-form so a tenant-mode TenantDb stays filtered. Two parallel selects
+// (disjoint via userId IS NULL) instead of one OR query: the buckets don't share
+// a snapshot, so a concurrent config write can mix old scope and new user values.
 export async function selectConfigRowsForScope(
   db: DbRunner | TenantDb,
   systemTenantId: TenantId,
