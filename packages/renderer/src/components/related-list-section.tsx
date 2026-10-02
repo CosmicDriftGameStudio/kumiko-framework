@@ -543,12 +543,9 @@ export function RelatedListSection({
             {...(rowTone !== undefined && { rowTone })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
-            {...(hideTitle === true && {
-              scrollBody: true,
-              screenPadding: false,
-              chromeless: true,
-            })}
-            {...(embedded === true && { screenPadding: false, chromeless: true })}
+            screenPadding={false}
+            {...(hideTitle === true && { scrollBody: true, chromeless: true })}
+            {...(embedded === true && { chromeless: true })}
           />
         </PageHeaderSlotAvailableProvider>
       </>
