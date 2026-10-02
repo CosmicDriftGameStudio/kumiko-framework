@@ -1,5 +1,6 @@
 import {
   i18nKey,
+  MAX_LIST_LIMIT,
   type ProjectionListScreenDefinition,
   type SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -12,6 +13,10 @@ export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
   query: PatQueries.mine,
+  // The `mine` handler honours `limit` only (no offset/total), so a pager would
+  // show page 1 forever: send one max-size request and render no pager.
+  pagination: false,
+  pageSize: MAX_LIST_LIMIT,
   defaultSort: { field: "createdAt", dir: "desc" },
   columns: [
     { field: "name", label: i18nKey("pat.list.col.name") },

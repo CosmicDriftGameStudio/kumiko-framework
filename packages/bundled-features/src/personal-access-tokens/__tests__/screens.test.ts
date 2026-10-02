@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
 import { PAT_FEATURE_I18N } from "../i18n.js";
 import { patListScreen } from "../screens.js";
 
@@ -23,5 +24,14 @@ describe("PAT list status column", () => {
     for (const status of PAT_STATUSES) {
       expect(PAT_FEATURE_I18N[`${renderer.keyPrefix}${status}`]?.en).toBeTruthy();
     }
+  });
+});
+
+describe("PAT list pagination contract", () => {
+  // `mine` accepts only `limit` (no offset/totalCount), so a pager would
+  // re-serve page 1 and hide older tokens from revocation.
+  test("fetches one max-size page and renders no pager", () => {
+    expect(patListScreen.pagination).toBe(false);
+    expect(patListScreen.pageSize).toBe(MAX_LIST_LIMIT);
   });
 });
