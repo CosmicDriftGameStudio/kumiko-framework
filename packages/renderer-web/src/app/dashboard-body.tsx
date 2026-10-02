@@ -842,6 +842,7 @@ function useTimeRange(
 ): { readonly params: Readonly<Record<string, unknown>>; readonly control: ReactNode } {
   const t = useTranslation();
   const nav = useNav();
+  const resolver = useLocale();
   const timeRange = screen.timeRange;
   if (timeRange === undefined) return { params: {}, control: null };
   const fromUrl = nav.searchParams[timeRange.id];
@@ -849,7 +850,9 @@ function useTimeRange(
     ? (fromUrl as string)
     : timeRange.default;
   return {
-    params: { [timeRange.id]: value },
+    // Metric buckets are cut server-side; without the user's zone they default
+    // to UTC while the axis labels are formatted in the user's zone.
+    params: { [timeRange.id]: value, timeZone: resolver.timeZone() },
     control: (
       <ModeSwitch
         value={value}

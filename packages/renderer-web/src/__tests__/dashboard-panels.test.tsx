@@ -392,9 +392,11 @@ describe("dashboard timeRange, filter and scope", () => {
     expect(calls.find((c) => c.type === "demo:query:kpi:scoped")?.payload).toEqual({
       region: "eu",
       range: "7d",
+      timeZone: expect.any(String),
     });
     expect(calls.find((c) => c.type === "demo:query:kpi:global")?.payload).toEqual({
       range: "7d",
+      timeZone: expect.any(String),
       source: "system",
     });
   });
