@@ -1,11 +1,11 @@
 // Split from kumiko-screen.tsx: related-list-section.tsx renders through
 // kumiko-screen.tsx, so importing this back from there would be a require cycle.
 
-import type { ListFacetSpec } from "@cosmicdrift/kumiko-framework/ui-types";
+import type { EntityListFacetConfig, ListFacetSpec } from "@cosmicdrift/kumiko-framework/ui-types";
 import { parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
-import type { DataTableFacet } from "../primitives.js";
+import type { DataTableFacet, DataTableFacetChip } from "../primitives.js";
 
 // One resolved facet, independent of where the type info came from — an
 // entity field (entityList) or an explicit ListFacetSpec (projectionList,
@@ -44,6 +44,106 @@ export function mergeReferenceFacetOptions(
 
 export function buildFilterFacets(specs: readonly ResolvedFacetSpec[]): DataTableFacet[] {
   return specs.map((spec) => ({ field: spec.field, label: spec.label, options: spec.options }));
+}
+
+type FacetConfigByField = Readonly<Record<string, EntityListFacetConfig | false>>;
+
+// Chips are the field's own options plus the declared extra choices
+// ("Running" bundle, "All"), in the order the config's `position` asks for.
+export function buildFacetChips(
+  spec: ResolvedFacetSpec,
+  config: EntityListFacetConfig,
+  translate: Translate,
+): DataTableFacetChip[] {
+  const extras = config.extraOptions ?? [];
+  const toChip = (extra: (typeof extras)[number]): DataTableFacetChip => ({
+    id: extra.id,
+    label: translate(extra.label),
+    values: extra.values,
+  });
+  return [
+    ...extras.filter((extra) => extra.position !== "end").map(toChip),
+    ...spec.options.map((option) => ({
+      id: option.value,
+      label: option.label,
+      values: [option.value],
+    })),
+    ...extras.filter((extra) => extra.position === "end").map(toChip),
+  ];
+}
+
+// entityList facet controls: `false` drops the control, `display: "chips"`
+// turns it into toggle chips; counts (when requested) are merged in by chip.
+export function buildEntityFilterFacets(
+  specs: readonly ResolvedFacetSpec[],
+  configs: FacetConfigByField | undefined,
+  translate: Translate,
+  counts: Readonly<Record<string, number>>,
+): DataTableFacet[] {
+  const out: DataTableFacet[] = [];
+  for (const spec of specs) {
+    const config = configs?.[spec.field];
+    if (config === false) continue;
+    const base = { field: spec.field, label: spec.label, options: spec.options };
+    if (config?.display !== "chips") {
+      out.push(base);
+      continue;
+    }
+    out.push({
+      ...base,
+      chips: buildFacetChips(spec, config, translate).map((chip) => {
+        const count = counts[facetCountKey(spec.field, chip.id)];
+        return count === undefined ? chip : { ...chip, count };
+      }),
+      ...(config.showCounts === true && { showCounts: true }),
+      ...(config.hideEmpty === true && { hideEmpty: true }),
+    });
+  }
+  return out;
+}
+
+export function facetCountKey(field: string, chipId: string): string {
+  return `${field}\u0000${chipId}`;
+}
+
+export type FacetCountRequest = {
+  readonly key: string;
+  readonly field: string;
+  readonly values: readonly string[];
+};
+
+// One count request per chip of a facet that shows counts or hides empty
+// chips. The chip's own values replace that facet's selection; other facets
+// keep theirs.
+export function buildFacetCountRequests(
+  specs: readonly ResolvedFacetSpec[],
+  configs: FacetConfigByField | undefined,
+  translate: Translate,
+): FacetCountRequest[] {
+  const out: FacetCountRequest[] = [];
+  for (const spec of specs) {
+    const config = configs?.[spec.field];
+    if (config === undefined || config === false || config.display !== "chips") continue;
+    if (config.showCounts !== true && config.hideEmpty !== true) continue;
+    for (const chip of buildFacetChips(spec, config, translate)) {
+      out.push({ key: facetCountKey(spec.field, chip.id), field: spec.field, values: chip.values });
+    }
+  }
+  return out;
+}
+
+// `defaultFilters` values are option values or a boolean; the URL-state shape
+// is string[] (booleans as "true"/"false", like buildFilterPayload expects).
+export function normalizeDefaultFilters(
+  defaults: Readonly<Record<string, readonly string[] | boolean>> | undefined,
+): Readonly<Record<string, readonly string[]>> {
+  if (defaults === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(defaults).map(([field, value]) => [
+      field,
+      typeof value === "boolean" ? [String(value)] : value,
+    ]),
+  );
 }
 
 // User-selected faceted filters from URL-state → payload.filters. Boolean

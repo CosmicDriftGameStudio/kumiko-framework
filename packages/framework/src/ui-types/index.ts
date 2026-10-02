@@ -68,6 +68,7 @@ export type {
 export { isOpenToAllGranted, isUiAccessGranted } from "../engine/types/handlers.js";
 export type { IconKey, NavDefinition, NavIconKey } from "../engine/types/nav.js";
 export type {
+  ActionFormFooterAction,
   ActionFormRedirect,
   ActionFormScreenDefinition,
   ConfigEditScreenDefinition,
@@ -101,6 +102,8 @@ export type {
   EditWriteFormSection,
   EntityEditScreenDefinition,
   EntityListExpandableRow,
+  EntityListFacetConfig,
+  EntityListFacetExtraOption,
   EntityListScreenDefinition,
   FieldCondition,
   FieldIconKey,
@@ -117,9 +120,13 @@ export type {
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RecordHeaderSubtitlePart,
+  RelatedListGroupBy,
+  RelatedListRowTone,
   RelatedListToolbarAction,
   RowAction,
+  RowActionDisplay,
   RowActionDrawer,
+  RowActionMode,
   RowActionNavigate,
   RowActionWriteHandler,
   RowFieldExtractor,

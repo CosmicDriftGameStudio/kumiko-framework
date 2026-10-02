@@ -28,6 +28,8 @@ export function StepBar({
   orientation = "horizontal",
   heading,
   description,
+  subtitles,
+  upNext,
   testId,
   compactTestId,
 }: {
@@ -39,6 +41,12 @@ export function StepBar({
   readonly orientation?: "horizontal" | "vertical";
   readonly heading?: string;
   readonly description?: string;
+  readonly subtitles?: readonly (string | undefined)[];
+  readonly upNext?: {
+    readonly heading: string;
+    readonly title: string;
+    readonly subtitle?: string;
+  };
   readonly testId?: string;
   readonly compactTestId?: string;
 }): ReactNode {
@@ -60,7 +68,7 @@ export function StepBar({
               const isDone = i < currentIndex;
               const isCurrent = i === currentIndex;
               const rowClass = cn(
-                "flex h-9 w-full items-center gap-2.5 rounded-md px-2 text-left text-sm",
+                "flex min-h-9 w-full items-center gap-2.5 rounded-md px-2 py-1 text-left text-sm",
                 isCurrent && "bg-primary/10 font-semibold text-primary",
                 isDone && "text-foreground",
                 !isCurrent && !isDone && "text-foreground-secondary",
@@ -79,7 +87,17 @@ export function StepBar({
                     {isDone ? <Check className="size-3" /> : i + 1}
                   </span>
                   {isDone && <span className="sr-only">{t("kumiko.widget.step-bar.done")}</span>}
-                  <span className="truncate">{label}</span>
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate">{label}</span>
+                    {subtitles?.[i] !== undefined && (
+                      <span
+                        data-testid={testId !== undefined ? `${testId}-subtitle-${i}` : undefined}
+                        className="truncate text-xs font-normal text-foreground-secondary"
+                      >
+                        {subtitles[i]}
+                      </span>
+                    )}
+                  </span>
                 </>
               );
               return (
@@ -107,6 +125,20 @@ export function StepBar({
               );
             })}
           </ol>
+          {upNext !== undefined && (
+            <div
+              data-testid={testId !== undefined ? `${testId}-up-next` : undefined}
+              className="mt-2 flex flex-col gap-1 rounded-md border border-border bg-card px-3 py-2.5"
+            >
+              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {upNext.heading}
+              </span>
+              <span className="text-sm font-medium text-foreground">{upNext.title}</span>
+              {upNext.subtitle !== undefined && (
+                <span className="text-xs text-foreground-secondary">{upNext.subtitle}</span>
+              )}
+            </div>
+          )}
         </nav>
         <p
           data-testid={compactTestId}

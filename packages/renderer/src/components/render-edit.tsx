@@ -17,6 +17,7 @@ import type {
   FieldConditions,
   FormValues,
   SubmitResult,
+  Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
 import { RenderEditActionButton } from "./render-edit-action-button.js";
@@ -36,6 +37,7 @@ import {
   useExtensionFormHost,
 } from "../app/extension-form-submit.js";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.js";
+import { layoutEditFields } from "../app/layout-fields.js";
 import { useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useDraftStorage } from "../context/draft-storage-context.js";
 import { formatWhen } from "../format-when.js";
@@ -299,6 +301,28 @@ export function resolveRecordTitle(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() !== "" ? value : undefined;
 }
 
+const TITLE_PLACEHOLDER_PATTERN = /\{(\w+)\}/g;
+
+// Falls back to the plain title while any placeholder value is still empty,
+// so the header never shows "Add  " mid-typing.
+function resolveTitleTemplate(
+  template: string | undefined,
+  values: Readonly<Record<string, unknown>>,
+  translate: Translate,
+  fallback: string,
+): string {
+  if (template === undefined) return fallback;
+  const placeholders = [...translate(template).matchAll(TITLE_PLACEHOLDER_PATTERN)].map(
+    (match) => match[1] ?? "",
+  );
+  const isFilled = (name: string): boolean => {
+    const value = values[name];
+    return value !== undefined && value !== null && String(value).trim() !== "";
+  };
+  if (!placeholders.every(isFilled)) return fallback;
+  return translate(template, values);
+}
+
 export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   props: RenderEditProps<TValues, TCtx>,
 ): ReactNode {
@@ -324,6 +348,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     onRelatedListDrawerAction,
     submitLabel,
     submitVariant,
+    footerActions,
     summary,
     labelAppendix,
     fieldAppendix,
@@ -455,12 +480,20 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Submit-Config nur wenn der Caller einen writeCommand mitgibt; bei
   // customSubmit-Pfad kommt der Form-Controller ohne Submit-Wiring,
   // weil wir controller.submit() eh nicht rufen.
+  const omitFields = useMemo(
+    () =>
+      layoutEditFields(screen)
+        .filter((spec) => spec.submit === false)
+        .map((spec) => spec.field),
+    [screen],
+  );
   const submitConfig =
     writeCommand !== undefined
       ? {
           type: writeCommand,
           payloadMode,
           ...(buildPayload !== undefined && { buildPayload }),
+          ...(omitFields.length > 0 && { omitFields }),
           ...(serverFieldPathPrefix !== undefined && { serverFieldPathPrefix }),
           ...(scopeFieldNames !== undefined && { validateScope: scopeFieldNames }),
         }
@@ -1332,6 +1365,24 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             : translate("kumiko.actions.next")}
         </Button>
       )}
+      {showsSubmit &&
+        (!isWizard || isLastWizardStep) &&
+        footerActions?.map((action) => (
+          <Button
+            key={action.id}
+            type="button"
+            variant={action.variant ?? "secondary"}
+            {...(action.icon !== undefined && { icon: action.icon })}
+            disabled={isSubmitting || disabled}
+            onClick={() => {
+              controller.setValues(action.patch as Partial<TValues>);
+              void handleSubmit();
+            }}
+            testId={`render-edit-footer-action-${action.id}`}
+          >
+            {translate(action.label)}
+          </Button>
+        ))}
       {showsSubmit && (!isWizard || isLastWizardStep) && (
         <Button
           type="submit"
@@ -1379,7 +1430,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     }
     return undefined;
   };
-  const formTitle = resolveScreenText("title") ?? screen.id;
+  const plainFormTitle = resolveScreenText("title") ?? screen.id;
+  const formTitle = resolveTitleTemplate(
+    screen.titleTemplate,
+    snapshot.values as Readonly<Record<string, unknown>>,
+    translate,
+    plainFormTitle,
+  );
   // screen.description is head-card copy, not tab content — in tabs mode
   // (hideSectionTitles) the head card already carries title/subtitle/status.
   const formSubtitle =
@@ -1395,6 +1452,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     </Text>
   );
   const stepRail = isWizard && isScreenForm && StepBar !== undefined;
+  const upNextSection =
+    screen.layout.wizard?.aside?.upNext === true ? filteredSections[currentStep + 1] : undefined;
   const changedFieldCount = isCreate ? 0 : Object.keys(snapshot.changes).length;
   const unsavedCount =
     isCreate || !isScreenForm
@@ -1469,6 +1528,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 total: lastStepIndex + 1,
               })}
               {...(formSubtitle !== undefined && { description: formSubtitle })}
+              subtitles={filteredSections.map((section) =>
+                section.kind === "fields" ? section.subtitle : undefined,
+              )}
+              {...(upNextSection !== undefined && {
+                upNext: {
+                  heading: translate("kumiko.wizard.up-next"),
+                  title: upNextSection.title ?? "",
+                  ...(upNextSection.kind === "fields" &&
+                    upNextSection.subtitle !== undefined && { subtitle: upNextSection.subtitle }),
+                },
+              })}
               testId="render-edit-wizard-steps"
               compactTestId="render-edit-wizard-step-label"
             />

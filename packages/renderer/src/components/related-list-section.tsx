@@ -1,10 +1,16 @@
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
+  RelatedListGroupBy,
+  RelatedListRowTone,
   RowActionDrawer,
   RowActionNavigate,
 } from "@cosmicdrift/kumiko-framework/ui-types";
-import { normalizeListColumn, parseRefTarget } from "@cosmicdrift/kumiko-framework/ui-types";
+import {
+  evalFieldCondition,
+  normalizeListColumn,
+  parseRefTarget,
+} from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   EditRelatedListSectionViewModel,
   ListRowViewModel,
@@ -34,9 +40,14 @@ import { useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
 import type { ListSort } from "../hooks/use-list-url-state.js";
 import { useQuery } from "../hooks/use-query.js";
-import { useTranslation } from "../i18n.js";
+import { useLocale, useTranslation } from "../i18n.js";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.js";
-import { type DataTableFacet, usePrimitives } from "../primitives.js";
+import {
+  type DataTableFacet,
+  type DataTableProps,
+  type DataTableRowGrouping,
+  usePrimitives,
+} from "../primitives.js";
 import { sortByAccessor } from "../sort-by-accessor.js";
 import { RenderEditActionButton } from "./render-edit-action-button.js";
 import { RenderList } from "./render-list.js";
@@ -85,6 +96,46 @@ function warnRelatedListEmptyStateDrawerDropped(actionId: string): void {
   console.warn(
     `[kumiko] relatedList emptyState.action "${actionId}" is kind: "drawer" but no onOpenDrawer was supplied — dropped.`,
   );
+}
+
+function buildRowGrouping(
+  groupBy: RelatedListGroupBy,
+  translate: Translate,
+  locale: string,
+): DataTableRowGrouping {
+  return {
+    keyOf: (row) => String(row.values[groupBy.field] ?? ""),
+    startsCollapsed: (key) =>
+      groupBy.collapsedWhen !== undefined && key === String(groupBy.collapsedWhen),
+    headerLabel: (key, rows) => {
+      const dates =
+        groupBy.dateField === undefined
+          ? []
+          : rows
+              .map((row) => String(row.values[groupBy.dateField ?? ""] ?? ""))
+              .filter((value) => value !== "")
+              .sort();
+      const latest = dates[dates.length - 1];
+      return translate(groupBy.labels?.[key] ?? groupBy.label, {
+        count: rows.length,
+        value: key,
+        lastDate:
+          latest === undefined
+            ? ""
+            : new Date(latest).toLocaleDateString(locale, {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                timeZone: "UTC",
+              }),
+      });
+    },
+  };
+}
+
+function buildRowTone(rule: RelatedListRowTone | undefined): DataTableProps["rowTone"] {
+  if (rule === undefined) return undefined;
+  return (row) => (evalFieldCondition(rule, { ...row.values }) ? rule.tone : undefined);
 }
 
 export function RelatedListSection({
@@ -136,6 +187,15 @@ export function RelatedListSection({
   const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+  const locale = useLocale().locale();
+  const rowGrouping = useMemo(
+    () =>
+      section.groupBy === undefined
+        ? undefined
+        : buildRowGrouping(section.groupBy, effectiveTranslate, locale),
+    [section.groupBy, effectiveTranslate, locale],
+  );
+  const rowTone = useMemo(() => buildRowTone(section.rowTone), [section.rowTone]);
   const nav = useNav();
   const host = useReturnHost();
   const dispatcher = useOptionalDispatcher();
@@ -478,6 +538,9 @@ export function RelatedListSection({
             })}
             {...(onRowClick !== undefined && { onRowClick })}
             {...(rowActions !== undefined && { rowActions })}
+            {...(section.rowActionMode !== undefined && { rowActionMode: section.rowActionMode })}
+            {...(rowGrouping !== undefined && { rowGrouping })}
+            {...(rowTone !== undefined && { rowTone })}
             {...(toolbarActionButtons !== undefined && { toolbarActions: toolbarActionButtons })}
             {...(emptyStateContent !== undefined && { emptyState: emptyStateContent })}
             {...(hideTitle === true && {

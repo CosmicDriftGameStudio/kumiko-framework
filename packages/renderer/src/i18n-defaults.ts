@@ -27,6 +27,7 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.finish": "Finish",
 
     "kumiko.wizard.step": "Step {current} of {total}",
+    "kumiko.wizard.up-next": "Up next",
     "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
 
     "kumiko.version.update-available": "A new version is available.",

@@ -1,4 +1,5 @@
 import type {
+  ActionFormFooterAction,
   EntityDefinition,
   EntityEditScreenDefinition,
   IconKey,
@@ -90,6 +91,9 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly submitLabel?: string;
   /** Visual style of the submit button (actionForm `submitStyle`). Default "primary". */
   readonly submitVariant?: "primary" | "danger";
+  /** Extra footer buttons (actionForm `footerActions`): each sets its `patch`
+   *  on the form values, then submits through the normal validate + write path. */
+  readonly footerActions?: readonly ActionFormFooterAction[];
   /** Context box above the drawer form (title + optional subtitle, already resolved). */
   readonly summary?: { readonly title: string; readonly subtitle?: string };
   /** Per-field extra content inline after the label (e.g.

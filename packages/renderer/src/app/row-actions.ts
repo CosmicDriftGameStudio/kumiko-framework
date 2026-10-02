@@ -134,6 +134,7 @@ function buildNavigateRowAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
     ...(action.rowClick === true && { rowClick: true }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
@@ -183,6 +184,7 @@ function buildDrawerRowAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onTrigger: (row: ListRowViewModel) => {
@@ -217,6 +219,7 @@ function buildWriteHandlerRowAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
     icon: resolveActionIcon(action.id, action.icon),
     ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
     ...(action.confirmLabel !== undefined && {
@@ -463,6 +466,7 @@ function buildNavigateRecordAction(
       id: action.id,
       label: translate(action.label),
       ...(action.style !== undefined && { style: action.style }),
+      ...(action.display !== undefined && { display: action.display }),
       confirmRequired: false,
       ...(actionIcon !== undefined && { icon: actionIcon }),
       onPress: () => {
@@ -484,6 +488,7 @@ function buildNavigateRecordAction(
       id: action.id,
       label: translate(action.label),
       ...(action.style !== undefined && { style: action.style }),
+      ...(action.display !== undefined && { display: action.display }),
       confirmRequired: false,
       ...(actionIcon !== undefined && { icon: actionIcon }),
       onPress: () => {
@@ -516,6 +521,7 @@ function buildDrawerRecordAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
     confirmRequired: false,
     ...(actionIcon !== undefined && { icon: actionIcon }),
     onPress: () => {
@@ -541,6 +547,7 @@ function buildWriteHandlerRecordAction(
     id: action.id,
     label: translate(action.label),
     ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
     ...(actionIcon !== undefined && { icon: actionIcon }),
     ...(action.confirm !== undefined && { confirm: translate(action.confirm) }),
     ...(action.confirmLabel !== undefined && {

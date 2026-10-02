@@ -73,6 +73,57 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
+  test("narrow viewport: rowGrouping puts rows under toggleable headers, collapsed rows are not shown", () => {
+    withViewportWidth(500, () => {
+      const rows = [
+        { id: "a1", values: { name: "A1", role: "open" } },
+        { id: "a2", values: { name: "A2", role: "done" } },
+        { id: "a3", values: { name: "A3", role: "done" } },
+      ];
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={rows}
+          testId="t"
+          rowGrouping={{
+            keyOf: (row) => String(row.values["role"]),
+            headerLabel: (key, members) => `${key} (${members.length})`,
+            startsCollapsed: (key) => key === "done",
+          }}
+        />,
+      );
+      expect(screen.getByTestId("row-group-done").textContent).toBe("done (2)");
+      expect(screen.getByTestId("row-group-open").textContent).toBe("open (1)");
+      expect(screen.getByTestId("row-a1")).toBeTruthy();
+      expect(screen.queryByTestId("row-a2")).toBeNull();
+
+      fireEvent.click(screen.getByTestId("row-group-done-toggle"));
+      expect(screen.getByTestId("row-a2")).toBeTruthy();
+      expect(screen.getByTestId("row-a3")).toBeTruthy();
+    });
+  });
+
+  test("narrow viewport: rowTone tints only matching cards", () => {
+    withViewportWidth(500, () => {
+      const rows = [
+        { id: "a1", values: { name: "A1", role: "late" } },
+        { id: "a2", values: { name: "A2", role: "ok" } },
+      ];
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={rows}
+          testId="t"
+          rowTone={(row) => (row.values["role"] === "late" ? "bad" : undefined)}
+        />,
+      );
+      const late = screen.getByTestId("row-a1");
+      expect(late.getAttribute("data-tone")).toBe("bad");
+      expect(late.className).toContain("bg-status-bad/10");
+      expect(screen.getByTestId("row-a2").getAttribute("data-tone")).toBeNull();
+    });
+  });
+
   test("highlighted column becomes the row title", () => {
     withViewportWidth(500, () => {
       const columns = COLUMNS.map((c) => (c.field === "role" ? { ...c, highlighted: true } : c));

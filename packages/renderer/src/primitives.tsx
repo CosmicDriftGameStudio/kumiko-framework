@@ -40,6 +40,7 @@ import type {
   FormWidth,
   IconKey,
   NavIconKey,
+  RowActionDisplay,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
@@ -592,6 +593,10 @@ export type DataTableRowAction = {
    *  drives both the icon-left-of-text render and the icon-only collapse
    *  rule (see `shouldRenderActionsIconOnly`). */
   readonly icon?: IconKey;
+  /** Author-chosen inline form (`RowAction.display`). Set: the action stays
+   *  inline even in the adaptive layout and is exempt from the automatic
+   *  icon-only collapse. */
+  readonly display?: RowActionDisplay;
 };
 
 /** Teil-C action-icon collapse rule: a group of more than two actions where
@@ -615,6 +620,23 @@ export type DataTableFacet = {
   /** Auswählbare Werte mit Anzeige-Label. value = roher Filterwert
    *  (select-option / "true"|"false"), als String transportiert. */
   readonly options: readonly { readonly value: string; readonly label: string }[];
+  /** Present: render the facet as a row of single-choice toggle chips instead
+   *  of a dropdown. A chip is pressed while the selection equals its values. */
+  readonly chips?: readonly DataTableFacetChip[];
+  /** Chips only: show each chip's `count` next to its label. */
+  readonly showCounts?: boolean;
+  /** Chips only: hide chips whose `count` is 0 (unless pressed). */
+  readonly hideEmpty?: boolean;
+};
+
+export type DataTableFacetChip = {
+  readonly id: string;
+  /** Translated chip label. */
+  readonly label: string;
+  /** Selection a click sets; `[]` clears the facet. */
+  readonly values: readonly string[];
+  /** Matching row count, undefined while unknown. */
+  readonly count?: number;
 };
 
 // Time-range filter slot in the toolbar (fw#3104): two date inputs
@@ -629,9 +651,20 @@ export type DataTableDateRangeFacet = {
   readonly to: string;
 };
 
+/** Splits rows into collapsible groups (order of first appearance). A
+ *  renderer without grouping support shows the flat list. */
+export type DataTableRowGrouping = {
+  readonly keyOf: (row: ListRowViewModel) => string;
+  readonly headerLabel: (groupKey: string, rows: readonly ListRowViewModel[]) => string;
+  readonly startsCollapsed: (groupKey: string) => boolean;
+};
+
 export type DataTableProps = {
   readonly columns: readonly ListColumnViewModel[];
   readonly rows: readonly ListRowViewModel[];
+  readonly rowGrouping?: DataTableRowGrouping;
+  /** Tints a row. Renderers without row tinting ignore it. */
+  readonly rowTone?: (row: ListRowViewModel) => SelectOptionTone | undefined;
   readonly onRowClick?: (row: ListRowViewModel) => void;
   /** Aktuelle Sortierung (oder null = unsorted). Wenn columns ein
    *  `sortable: true`-Feld haben und onSortChange gesetzt ist, rendert
@@ -1121,6 +1154,8 @@ export type DrawerProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly title?: string;
+  /** Muted line under the title. */
+  readonly subtitle?: string;
   readonly children: ReactNode;
   readonly testId?: string;
 };
@@ -1248,6 +1283,14 @@ export type StepBarProps = {
   /** Vertical only: rail heading ("Step 4 of 6") and optional description. */
   readonly heading?: string;
   readonly description?: string;
+  /** Vertical only: line under each step label, same order as `steps`. */
+  readonly subtitles?: readonly (string | undefined)[];
+  /** Vertical only: box under the rail announcing the next step. */
+  readonly upNext?: {
+    readonly heading: string;
+    readonly title: string;
+    readonly subtitle?: string;
+  };
   readonly testId?: string;
   readonly compactTestId?: string;
 };

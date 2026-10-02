@@ -781,6 +781,46 @@ describe("KumikoScreen", () => {
     });
   });
 
+  test("entityList rowActions: display pins an action inline next to the kebab, rowActionMode inline shows all", async () => {
+    const dispatcher = makeDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { rows: [{ id: "r1", title: "Alpha", count: 1, done: false }], nextCursor: null },
+      })) as unknown as Dispatcher["query"],
+    });
+    const actions = [
+      { id: "open", label: "actions.open", handler: "tasks:write:task:open", display: "button" },
+      { id: "archive", label: "actions.archive", handler: "tasks:write:task:archive" },
+      { id: "purge", label: "actions.purge", handler: "tasks:write:task:purge" },
+    ] as const;
+    const mount = async (rowActionMode?: "inline") => {
+      const def: EntityListScreenDefinition = {
+        id: "task-list",
+        type: "entityList",
+        entity: "task",
+        columns: ["title"],
+        rowActions: actions,
+        ...(rowActionMode !== undefined && { rowActionMode }),
+      };
+      const view = render(
+        <DispatcherProvider dispatcher={dispatcher}>
+          <KumikoScreen schema={{ ...schema, screens: [def] }} qn="tasks:screen:task-list" />
+        </DispatcherProvider>,
+      );
+      await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+      return view;
+    };
+
+    const adaptive = await mount();
+    expect(screen.getByTestId("row-r1-action-open")).toBeTruthy();
+    expect(screen.queryByTestId("row-r1-action-archive")).toBeNull();
+    adaptive.unmount();
+
+    await mount("inline");
+    expect(screen.getByTestId("row-r1-action-archive")).toBeTruthy();
+    expect(screen.getByTestId("row-r1-action-purge")).toBeTruthy();
+  });
+
   // Regression zum Prod-Bug 2026-06-07 (Bug 4): dispatcher.write wirft
   // nicht — ein Failure-Result wurde verworfen, der Confirm-Dialog
   // schloss kommentarlos und der User sah "nichts passiert". Jetzt:

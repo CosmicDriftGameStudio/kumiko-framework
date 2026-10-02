@@ -8,7 +8,9 @@
 //   <screenId>.dir      — "asc" | "desc"
 //   <screenId>.q        — search term (URL-encoded)
 //   <screenId>.page     — 1-based page number (nur bei pagination="pages")
-//   <screenId>.f.<field> — Faceted-Filter: comma-joined selected values
+//   <screenId>.f.<field> — Faceted-Filter: comma-joined selected values;
+//                          NO_FILTER_URL_VALUE = "no filter", chosen on purpose
+//                          for a field that has a declared default
 //
 // Schreibt mit setSearchParams (replaceState — kein push), damit
 // Sort/Filter-Toggles nicht die Browser-History fluten.
@@ -16,6 +18,11 @@
 import { useCallback, useMemo } from "react";
 import { useNav } from "../app/nav.js";
 import type { DataTableSort, DataTableSortDir } from "../primitives.js";
+
+// A facet with a `defaultFilters` entry falls back to that default whenever
+// its URL key is absent. Clearing it therefore has to leave a marker, or the
+// default would come straight back.
+export const NO_FILTER_URL_VALUE = "~";
 
 // ListSort + DataTableSort hatten dieselbe Shape und drohten zu driften
 // — aliased auf den primitives-Type (eine Quelle, kein Cast in RenderList).
@@ -87,7 +94,10 @@ function parsePage(value: string | undefined): number {
   return Number.isFinite(n) && n > 0 ? n : 1;
 }
 
-export function useListUrlState(screenId: string): ListUrlStateApi {
+export function useListUrlState(
+  screenId: string,
+  defaultFilters?: Readonly<Record<string, readonly string[]>>,
+): ListUrlStateApi {
   const nav = useNav();
   const params = nav.searchParams;
 
@@ -111,10 +121,21 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
       if (field === "") continue;
       // ponytail: comma-join — Facet-Werte sind select-Options/booleans
       // ohne Komma; upgrade auf repeated-keys falls je Komma-Werte nötig.
-      out[field] = v.split(",").filter((s) => s !== "");
+      out[field] = v === NO_FILTER_URL_VALUE ? [] : v.split(",").filter((s) => s !== "");
+    }
+    for (const [field, values] of Object.entries(defaultFilters ?? {})) {
+      if (!Object.hasOwn(out, field)) out[field] = values;
     }
     return out;
-  }, [params, filterPrefix]);
+  }, [params, filterPrefix, defaultFilters]);
+
+  const clearedFilterValue = useCallback(
+    (field: string): string | null =>
+      defaultFilters !== undefined && Object.hasOwn(defaultFilters, field)
+        ? NO_FILTER_URL_VALUE
+        : null,
+    [defaultFilters],
+  );
 
   const setSort = useCallback(
     (next: ListSort | null) => {
@@ -166,11 +187,12 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
   const setFilter = useCallback(
     (field: string, values: readonly string[]) => {
       nav.setSearchParams({
-        [key(screenId, `f.${field}`)]: values.length === 0 ? null : values.join(","),
+        [key(screenId, `f.${field}`)]:
+          values.length === 0 ? clearedFilterValue(field) : values.join(","),
         [key(screenId, "page")]: null,
       });
     },
-    [nav, screenId],
+    [nav, screenId, clearedFilterValue],
   );
 
   const setDateRange = useCallback(
@@ -186,9 +208,11 @@ export function useListUrlState(screenId: string): ListUrlStateApi {
 
   const clearFilters = useCallback(() => {
     const updates: Record<string, string | null> = { [key(screenId, "page")]: null };
-    for (const field of Object.keys(filters)) updates[key(screenId, `f.${field}`)] = null;
+    for (const field of Object.keys(filters)) {
+      updates[key(screenId, `f.${field}`)] = clearedFilterValue(field);
+    }
     nav.setSearchParams(updates);
-  }, [nav, screenId, filters]);
+  }, [nav, screenId, filters, clearedFilterValue]);
 
   return {
     sort,

@@ -668,6 +668,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.wizard.next-with-title": "Next: {title}",
   "kumiko.wizard.save-and-close": "Save and close",
   "kumiko.wizard.step": "Step {current} of {total}",
+  "kumiko.wizard.up-next": "Up next",
   "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
   "kumiko.workspace.select": "Select workspace",
   "kumiko.workspace.switch": "Switch workspace",

@@ -226,6 +226,18 @@ export type RowFieldExtractor =
   | { readonly pick: readonly string[] }
   | { readonly map: Readonly<Record<string, string>> };
 
+/** How a row action renders inline in the row-action column. `"button"` is a
+ *  bordered button (its colour follows the action's `style`), `"link"` a text
+ *  link, `"icon"` an icon-only button (needs a resolved icon, falls back to
+ *  `"link"` without one). Unset: the renderer decides (primary action as link,
+ *  the rest in the kebab menu). */
+export type RowActionDisplay = "button" | "link" | "icon";
+
+/** Row-action column layout. `"adaptive"` (default): primary action as link,
+ *  the rest in a kebab menu — except actions with an explicit `display`, which
+ *  stay inline. `"inline"`: every action inline, no kebab. */
+export type RowActionMode = "adaptive" | "inline";
+
 // RowAction — per-Row Button/Dropdown-Item das einen Write-Handler
 // triggert oder zu einem anderen Screen navigiert.
 //
@@ -278,6 +290,8 @@ export type RowActionWriteHandler = {
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
    *  (renderer-web), analogous to EditFieldSpec.icon. */
   readonly icon?: IconKey;
+  /** Inline render form in the row-action column — see `RowActionDisplay`. */
+  readonly display?: RowActionDisplay;
 };
 
 export type RowActionNavigateBase = {
@@ -313,6 +327,8 @@ export type RowActionNavigateBase = {
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
    *  (renderer-web), analogous to EditFieldSpec.icon. */
   readonly icon?: IconKey;
+  /** Inline render form in the row-action column — see `RowActionDisplay`. */
+  readonly display?: RowActionDisplay;
 };
 
 /** Exactly one of `screen` / `entity` — mutual exclusivity is type-enforced
@@ -355,6 +371,15 @@ export type RowActionDrawer = {
    *  kumiko-renderer) — closed IconKey vocabulary into the ICONS registry
    *  (renderer-web), analogous to EditFieldSpec.icon. */
   readonly icon?: IconKey;
+  /** Inline render form in the row-action column — see `RowActionDisplay`. */
+  readonly display?: RowActionDisplay;
+  /** Drawer heading (i18n key) instead of the action `label`. `{name}`
+   *  placeholders resolve from the drawer prefill (`params`), formatted for
+   *  display like `ActionFormScreenDefinition.summary`. */
+  readonly title?: string;
+  /** Line under the drawer heading (i18n key or a bare `{name}` template),
+   *  resolved like `title`. */
+  readonly subtitle?: string;
 };
 
 // ToolbarAction — button in the list header. Three variants: navigate to
@@ -405,6 +430,10 @@ export type ToolbarAction =
        *  not force a confirm dialog here: the target form is the
        *  confirmation. */
       readonly style?: "primary" | "secondary" | "danger";
+      /** Drawer heading (i18n key) instead of `label`. */
+      readonly title?: string;
+      /** Line under the drawer heading (i18n key). */
+      readonly subtitle?: string;
     };
 
 // relatedList-only extension of ToolbarAction:
@@ -439,6 +468,33 @@ export type RelatedListToolbarAction =
  *  expansion kinds can be added without a breaking change. */
 export type EntityListExpandableRow = Omit<EditRelatedListSection, "id" | "countField">;
 
+/** An extra choice on a facet next to the field's own options: a named
+ *  bundle of values ("Running" = several statuses) or "no filter" (`values:
+ *  []`, e.g. "All"). Chips only. */
+export type EntityListFacetExtraOption = {
+  readonly id: string;
+  /** i18n key. */
+  readonly label: string;
+  /** Option values this choice selects; `[]` selects nothing, i.e. no filter. */
+  readonly values: readonly string[];
+  /** Where the chip sits relative to the field's own options. Default "start". */
+  readonly position?: "start" | "end";
+};
+
+export type EntityListFacetConfig = {
+  /** `"select"` (default): dropdown with checkboxes. `"chips"`: one toggle
+   *  chip per option, single choice. */
+  readonly display?: "select" | "chips";
+  /** Chips show how many rows each option matches (other facets and the
+   *  search apply). Counts come from the list query itself, one `limit: 1`
+   *  count request per chip. */
+  readonly showCounts?: boolean;
+  /** Chips with zero matching rows are not shown. Needs counts; implies
+   *  `showCounts`'s requests even when the number itself is not shown. */
+  readonly hideEmpty?: boolean;
+  readonly extraOptions?: readonly EntityListFacetExtraOption[];
+};
+
 export type EntityListScreenDefinition = {
   readonly id: string;
   readonly type: "entityList";
@@ -462,10 +518,13 @@ export type EntityListScreenDefinition = {
   // from `columns`. cardRenderer fills the same role on compact layouts.
   readonly rowRenderer?: PlatformComponent;
   readonly cardRenderer?: PlatformComponent;
-  /** Per-Row-Aktionen — rendert eine Actions-Spalte rechts in der Tabelle.
-   *  Bis zu 2 actions als inline-Buttons; >2 als Kebab-Dropdown.
-   *  Reihenfolge im Array = Reihenfolge in der UI. */
+  /** Per-row actions, rendered as an actions column on the right.
+   *  Adaptive (default, see `rowActionMode`): the primary action as a link,
+   *  the rest in the kebab menu; actions with an explicit `display` stay
+   *  inline. Array order is UI order. */
   readonly rowActions?: readonly RowAction[];
+  /** Layout of the row-action column — see `RowActionMode`. */
+  readonly rowActionMode?: RowActionMode;
   /** Toolbar-Aktionen (List-Header). "Open Incident", "Schedule Maintenance"
    *  etc. — neben "+ Neu" wenn vorhanden. Reihenfolge im Array = UI-
    *  Reihenfolge, primary-style links. */
@@ -493,6 +552,17 @@ export type EntityListScreenDefinition = {
   // `field` muss in der Entity sortable: true sein — Boot-Validator
   // pinnt das.
   readonly defaultSort?: ListSortSpec;
+  /** Initial facet selection, per filterable field: option values (string
+   *  facets) or a boolean. Applies only while the URL carries no value for
+   *  that field, so a link or the user's own choice wins; picking "no filter"
+   *  (an `extraOptions` entry with `values: []`, or clearing the facet) is
+   *  remembered in the URL and is not overridden again. */
+  readonly defaultFilters?: Readonly<Record<string, readonly string[] | boolean>>;
+  /** Per-facet display options for the entity's `filterable` fields, keyed by
+   *  field name. `false` hides the facet's control (its filter stays usable
+   *  through `defaultFilters` and the URL). Fields without an entry keep the
+   *  default dropdown. */
+  readonly facets?: Readonly<Record<string, EntityListFacetConfig | false>>;
   /** i18n key for the primary create button label (default `kumiko.actions.create`). */
   readonly createLabel?: string;
   /** i18n key for the search field placeholder (default `kumiko.list.search-placeholder`). */
@@ -585,6 +655,8 @@ export type ProjectionListScreenDefinition = {
   readonly rowRenderer?: PlatformComponent;
   readonly cardRenderer?: PlatformComponent;
   readonly rowActions?: readonly RowAction[];
+  /** Layout of the row-action column — see `RowActionMode`. */
+  readonly rowActionMode?: RowActionMode;
   readonly toolbarActions?: readonly ToolbarAction[];
   readonly pagination?: ListPaginationMode;
   readonly pageSize?: number;
@@ -996,6 +1068,11 @@ export type EditFieldSpec =
       readonly readOnly?: FieldCondition;
       readonly required?: FieldCondition;
       readonly renderer?: FieldRenderer;
+      /** `false` keeps the field out of the submitted payload — for values
+       *  that are shown or prefilled for display only (a label, a counter)
+       *  and that the write handler's schema does not accept. Validation and
+       *  rendering are unchanged. */
+      readonly submit?: false;
       /** Prefix icon on the input — closed FieldIconKey vocabulary into
        *  the FIELD_ICONS registry (renderer-web), analogous to
        *  `ScreenNavSugar.icon` / NavIconKey. Only takes effect for
@@ -1067,6 +1144,10 @@ export type EditFieldsSection = {
    *  Ignored outside tabs mode or when the field's value is not a finite
    *  number. */
   readonly countField?: string;
+  /** Short line (i18n key) under this step's title in the wizard step rail
+   *  and in the "up next" box. Wizard layouts only; unlike `description` it
+   *  is not shown inside the step. */
+  readonly subtitle?: string;
   /** Rendered top-right in the section's Card title row — same
    *  navigate/drawer/writeHandler dispatch as `ProjectionDetailScreenDefinition.actions`,
    *  evaluated against the same record. Every action must resolve an icon
@@ -1103,6 +1184,28 @@ export type EditExtensionSection = {
    *  evaluated against the same record. Every action must resolve an icon
    *  (declared or id-derived); the boot-validator rejects one that doesn't. */
   readonly actions?: readonly RowAction[];
+};
+
+/** Rows are grouped by `field` in order of first appearance. Every group gets
+ *  a collapsible header. */
+export type RelatedListGroupBy = {
+  readonly field: string;
+  /** Groups whose field value equals this start collapsed; the others start open. */
+  readonly collapsedWhen?: string | number | boolean | null;
+  /** i18n key of the group header. Placeholders: `{count}` rows in the group,
+   *  `{value}` the group's field value, `{lastDate}` the group's latest
+   *  `dateField` value as a locale date. */
+  readonly label: string;
+  /** Header i18n key per group value (as string), overriding `label`. */
+  readonly labels?: Readonly<Record<string, string>>;
+  /** Row field (ISO date or timestamp) behind `{lastDate}`. */
+  readonly dateField?: string;
+};
+
+/** Row tint rule: rows where the `FieldCondition` (`{ field, eq }`, `{ field,
+ *  in }` …) holds get the tone. `bad` renders red. */
+export type RelatedListRowTone = Exclude<FieldCondition, boolean> & {
+  readonly tone: SelectOptionTone;
 };
 
 // Read-only list of related records, driven by its own query — for a
@@ -1173,6 +1276,13 @@ export type EditRelatedListSection = {
    *  writeHandler action re-runs this section's own query, same as a
    *  projectionList row action re-running its list query. */
   readonly rowActions?: readonly RowAction[];
+  /** Layout of the row-action column — see `RowActionMode`. */
+  readonly rowActionMode?: RowActionMode;
+  /** Groups rows by the value of a field under collapsible group headers. */
+  readonly groupBy?: RelatedListGroupBy;
+  /** Tints rows whose field matches — a declarative rule, not a function, so
+   *  the screen definition stays serializable. */
+  readonly rowTone?: RelatedListRowTone;
   /** Toolbar actions above the table — same type and dispatch semantics as
    *  `entityList`/`projectionList`'s `toolbarActions` ("+ Anlegen" etc.),
    *  plus `visible`/`params` evaluated against the parent record (see
@@ -1264,6 +1374,10 @@ export type EditLayout = {
   /** Persists in-progress wizard state as a resumable draft instead of
    *  discarding it on navigation away. */
   readonly draft?: boolean;
+  /** Wizard layouts only. `upNext: true` adds an "up next" box to the step
+   *  rail with the following step's title and `subtitle`; the last step
+   *  shows none. */
+  readonly wizard?: { readonly aside?: { readonly upNext: true } };
 };
 
 export type EntityEditScreenDefinition = {
@@ -1288,6 +1402,11 @@ export type EntityEditScreenDefinition = {
   readonly entity: string;
   /** Entity field whose value names the loaded record in the header breadcrumb (edit mode only). */
   readonly recordTitleField?: string;
+  /** Screen title (i18n key) with `{field}` placeholders filled from the
+   *  current form values, so the title follows what the user types (create
+   *  wizard: "Add {make} {model}"). Falls back to the plain title while the
+   *  placeholders are still empty. */
+  readonly titleTemplate?: string;
   readonly layout: EditLayout;
   /** Optionaler i18n-Key (oder Roh-String) für den Submit-Button. Default
    *  `kumiko.actions.save`. Lässt den Auto-Edit-Screen domain-spezifische
@@ -1409,6 +1528,12 @@ export type ActionFormScreenDefinition = {
   /** i18n-key für den Submit-Button. Default: i18n-Default des
    *  Renderers (typischerweise "actions.submit"). */
   readonly submitLabel?: string;
+  /** Extra buttons in the form footer next to the submit button. A click
+   *  applies `patch` to the form values, then submits the form (same
+   *  validation, same handler) — e.g. a "Mark as posted" button that sets
+   *  `posted: true`. The patched field need not be rendered by the layout.
+   *  Order in the array = order in the footer, before the submit button. */
+  readonly footerActions?: readonly ActionFormFooterAction[];
   /** Context box above the fields (i18n keys). `{name}` placeholders resolve from the
    *  drawer prefill (`params` of the opening row action), formatted for display. */
   readonly summary?: { readonly title: string; readonly subtitle?: string };
@@ -1451,6 +1576,18 @@ export type ActionFormScreenDefinition = {
   readonly listScreenId?: string;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
+};
+
+export type ActionFormFooterAction = {
+  /** Stable id (kebab-case), used for the test id. */
+  readonly id: string;
+  /** i18n key. */
+  readonly label: string;
+  readonly icon?: IconKey;
+  /** Button style. Default "secondary". */
+  readonly variant?: "primary" | "secondary" | "danger";
+  /** Form values set before the submit. JSON-safe literals only. */
+  readonly patch: Readonly<Record<string, string | number | boolean | null>>;
 };
 
 /** Redirect target plus the success-payload field carrying the navigation

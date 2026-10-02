@@ -82,15 +82,19 @@ import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config
 import { useCustomScreenComponent } from "./custom-screens.js";
 import { useDashboardBody } from "./dashboard-body.js";
 import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
+import { FacetCountBridges, type FacetCountQuery } from "./facet-count-bridge.js";
 import type { FeatureSchema } from "./feature-schema.js";
 import { buildFormSchema } from "./form-schema.js";
 import { layoutFieldNames } from "./layout-fields.js";
 import {
   buildDateRangePayload,
+  buildEntityFilterFacets,
+  buildFacetCountRequests,
   buildFilterFacets,
   buildFilterPayload,
   clampDateRange,
   mergeReferenceFacetOptions,
+  normalizeDefaultFilters,
   type ResolvedFacetSpec,
   readDateRange,
   resolveDateRangeFacets,
@@ -629,6 +633,15 @@ function formatSummaryValue(value: unknown, locale: string): string {
   return value === null || value === undefined ? "" : String(value);
 }
 
+function formatSummaryParams(
+  prefill: Readonly<Record<string, unknown>> | undefined,
+  locale: string,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(prefill ?? {}).map(([name, value]) => [name, formatSummaryValue(value, locale)]),
+  );
+}
+
 function resolveActionFormSummary(
   summary: ActionFormScreenDefinition["summary"],
   prefill: Readonly<Record<string, unknown>> | undefined,
@@ -636,9 +649,7 @@ function resolveActionFormSummary(
   locale: string,
 ): { readonly title: string; readonly subtitle?: string } | undefined {
   if (summary === undefined) return undefined;
-  const params = Object.fromEntries(
-    Object.entries(prefill ?? {}).map(([name, value]) => [name, formatSummaryValue(value, locale)]),
-  );
+  const params = formatSummaryParams(prefill, locale);
   return {
     title: translate(summary.title, params),
     ...(summary.subtitle !== undefined && { subtitle: translate(summary.subtitle, params) }),
@@ -1709,6 +1720,7 @@ function DrawerHost({
   const { Drawer, Banner, Text, Dialog } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
+  const locale = useLocale().locale();
   const [hasUnsavedInput, setHasUnsavedInput] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const closeAndReset = useCallback(() => {
@@ -1741,6 +1753,7 @@ function DrawerHost({
   // "Access denied" state KumikoScreen's top-level gate would show for a
   // direct hit on that screen, never the form.
   const allowed = screenAccessAllows(drawerScreen?.access, userRoles);
+  const titleParams = formatSummaryParams(drawerInitialValues, locale);
 
   return (
     <>
@@ -1749,7 +1762,10 @@ function DrawerHost({
         onOpenChange={(open) => {
           if (!open) requestClose();
         }}
-        title={effectiveTranslate(drawerAction.label)}
+        title={effectiveTranslate(drawerAction.title ?? drawerAction.label, titleParams)}
+        {...(drawerAction.subtitle !== undefined && {
+          subtitle: effectiveTranslate(drawerAction.subtitle, titleParams),
+        })}
         testId={`toolbar-drawer-${drawerAction.id}`}
       >
         <PageHeaderSlotAvailableProvider value={false}>
@@ -1866,7 +1882,11 @@ function EntityListBody({
   // damit zwei Lists auf derselben Route nicht über dieselben
   // Query-Keys streiten. Default-Sort aus der Screen-Def gewinnt nur
   // wenn URL keinen sort hat — Author-Default vs User-Choice.
-  const urlState = useListUrlState(screen.id);
+  const defaultFilters = useMemo(
+    () => normalizeDefaultFilters(screen.defaultFilters),
+    [screen.defaultFilters],
+  );
+  const urlState = useListUrlState(screen.id, defaultFilters);
   const effectiveSort = urlState.sort ?? screen.defaultSort ?? null;
   const limit = urlState.pageSize ?? screen.pageSize ?? 50;
   const paginationMode = screen.pagination ?? "pages";
@@ -2016,10 +2036,51 @@ function EntityListBody({
       ),
     [],
   );
+  const [facetCounts, setFacetCounts] = useState<Record<string, number>>({});
+  const handleFacetCount = useCallback(
+    (key: string, count: number) =>
+      setFacetCounts((prev) => (prev[key] === count ? prev : { ...prev, [key]: count })),
+    [],
+  );
   const filterFacets = useMemo<DataTableFacet[]>(
     () =>
-      buildFilterFacets(mergeReferenceFacetOptions(entityFacetSpecs, entityReferenceFacetOptions)),
-    [entityFacetSpecs, entityReferenceFacetOptions],
+      buildEntityFilterFacets(
+        mergeReferenceFacetOptions(entityFacetSpecs, entityReferenceFacetOptions),
+        screen.facets,
+        effectiveTranslate,
+        facetCounts,
+      ),
+    [entityFacetSpecs, entityReferenceFacetOptions, screen.facets, effectiveTranslate, facetCounts],
+  );
+  const facetCountQueries = useMemo<FacetCountQuery[]>(
+    () =>
+      buildFacetCountRequests(entityFacetSpecs, screen.facets, effectiveTranslate).map(
+        (request) => {
+          const filters = buildFilterPayload(
+            { ...urlState.filters, [request.field]: request.values },
+            (field) => (entity.fields[field] as { type?: string } | undefined)?.type,
+          );
+          return {
+            key: request.key,
+            payload: {
+              limit: 1,
+              totalCount: true,
+              ...(urlState.q !== "" && { search: urlState.q }),
+              ...(screen.filter !== undefined && { filter: screen.filter }),
+              ...(filters.length > 0 && { filters }),
+            },
+          };
+        },
+      ),
+    [
+      entityFacetSpecs,
+      screen.facets,
+      screen.filter,
+      effectiveTranslate,
+      urlState.filters,
+      urlState.q,
+      entity.fields,
+    ],
   );
 
   // Soft-Dispatcher: in Tests die ohne DispatcherProvider mounten,
@@ -2111,6 +2172,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(action.display !== undefined && { display: action.display }),
             confirmRequired: false,
             ...(navigateAction.rowClick === true && { rowClick: true }),
             ...(actionIcon !== undefined && { icon: actionIcon }),
@@ -2128,6 +2190,7 @@ function EntityListBody({
             id: action.id,
             label: effectiveTranslate(action.label),
             ...(action.style !== undefined && { style: action.style }),
+            ...(action.display !== undefined && { display: action.display }),
             confirmRequired: false,
             ...(actionIcon !== undefined && { icon: actionIcon }),
             onTrigger: (row: ListRowViewModel) => {
@@ -2330,6 +2393,11 @@ function EntityListBody({
   return (
     <>
       <ReferenceFacetBridges specs={entityFacetSpecs} onOptions={handleEntityFacetOptions} />
+      <FacetCountBridges
+        queryType={queryType}
+        queries={facetCountQueries}
+        onCount={handleFacetCount}
+      />
       <RenderList
         screen={screen}
         entity={entity}
@@ -2344,6 +2412,7 @@ function EntityListBody({
         {...(screenFillsHeight(screen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
+        {...(screen.rowActionMode !== undefined && { rowActionMode: screen.rowActionMode })}
         {...(toolbarActions !== undefined && toolbarActions.length > 0 && { toolbarActions })}
         {...(useInfinite && {
           onReachEnd: loadMore,
@@ -2682,6 +2751,7 @@ function ProjectionListBody({
         {...(screenFillsHeight(listScreen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
+        {...(screen.rowActionMode !== undefined && { rowActionMode: screen.rowActionMode })}
         {...(toolbarActions !== undefined && { toolbarActions })}
         {...(translate !== undefined && { translate })}
         {...(wrappedOnRowClick !== undefined && { onRowClick: wrappedOnRowClick })}
@@ -3766,6 +3836,7 @@ function ActionFormBody({
         submitLabel: screen.submitLabel ?? submitLabelFallback,
       })}
       {...(screen.submitStyle !== undefined && { submitVariant: screen.submitStyle })}
+      {...(screen.footerActions !== undefined && { footerActions: screen.footerActions })}
       {...(summary !== undefined && { summary })}
       {...(translate !== undefined && { translate })}
     />

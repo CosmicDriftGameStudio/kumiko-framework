@@ -392,6 +392,18 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
         );
       }
 
+      if (
+        submitCfg.omitFields !== undefined &&
+        submitCfg.omitFields.length > 0 &&
+        typeof payload === "object" &&
+        payload !== null &&
+        !Array.isArray(payload)
+      ) {
+        payload = Object.fromEntries(
+          Object.entries(payload).filter(([key]) => !submitCfg.omitFields?.includes(key)),
+        );
+      }
+
       // Only enforced here, right before the write actually happens — a
       // form that never reaches this point (blocked by validation, or a
       // clean payloadMode "changes" no-op) must not throw just because no
