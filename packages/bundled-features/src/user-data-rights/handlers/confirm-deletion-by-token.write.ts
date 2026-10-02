@@ -1,14 +1,9 @@
-import type { DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
-import {
-  createSystemUser,
-  defineWriteHandler,
-  type HandlerContext,
-} from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { USER_STATUS, userTable } from "../../user/index.js";
 import { redeemDeletionToken } from "../deletion-token.js";
-import { startDeletionGracePeriod } from "./deletion-grace-period.js";
+import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.js";
 
 export type ConfirmDeletionByTokenOptions = {
   readonly deletionTokenSecret?: string;
@@ -72,13 +67,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
-      // the compliance-profile shape.
-      const profile = (await ctx.queryAs(
-        createSystemUser(event.user.tenantId),
-        "compliance-profiles:query:for-tenant",
-        {},
-      )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
+      const gracePeriod = await resolveGracePeriod(ctx, event.user.tenantId);
 
       let gracePeriodEndIso: string | undefined;
 
@@ -95,7 +84,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
           const res = await startDeletionGracePeriod(
             ctx,
             userId,
-            profile.profile.userRights.gracePeriod,
+            gracePeriod,
             ctx.db.unsafeRaw(
               "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream",
             ),

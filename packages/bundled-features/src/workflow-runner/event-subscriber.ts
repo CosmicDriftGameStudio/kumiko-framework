@@ -32,6 +32,7 @@ import type {
   WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { evaluateEventMatch } from "@cosmicdrift/kumiko-framework/engine";
+import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { workflowRunPendingTable } from "./tables.js";
 
 type CandidateRow = {
@@ -68,7 +69,7 @@ const wakeupApply: MultiStreamApplyFn = async (event, tx) => {
       {
         triggerEventType: event.type,
         triggerPayload: event.payload,
-        wakeAt: Temporal.Now.instant().toString(),
+        wakeAt: getTemporal().Now.instant().toString(),
       },
       { tenantId: row.tenantId, runId: row.runId, stepIndex: row.stepIndex },
     );

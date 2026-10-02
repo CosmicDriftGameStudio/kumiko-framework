@@ -1,6 +1,5 @@
 import { createTransportForTenant } from "@cosmicdrift/kumiko-bundled-features/mail-foundation";
-import type { DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
-import { createSystemUser, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import { defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { USER_STATUS } from "../../user/index.js";
@@ -9,7 +8,7 @@ import {
   isMailTransportAvailable,
   makeDefaultDeletionRequestedEmail,
 } from "../lib/default-mailers.js";
-import { startDeletionGracePeriod } from "./deletion-grace-period.js";
+import { resolveGracePeriod, startDeletionGracePeriod } from "./deletion-grace-period.js";
 
 // Atom 5b — Email-Notification beim deletion-requested-flip. Pattern:
 // password-reset-Callback aus auth-routes.ts. Best-effort — Throw beim
@@ -62,17 +61,11 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
       "Starts the GDPR Art. 17 deletion of the calling user's own account by arming the grace period from the tenant compliance profile and mailing a confirmation, after which only cancel-deletion can stop the erasure.",
     agent: { risk: "high" },
     handler: async (event, ctx) => {
-      // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
-      // the compliance-profile shape.
-      const profile = (await ctx.queryAs(
-        createSystemUser(event.user.tenantId),
-        "compliance-profiles:query:for-tenant",
-        {},
-      )) as { profile: { userRights: { gracePeriod: DurationSpec } } };
+      const gracePeriod = await resolveGracePeriod(ctx, event.user.tenantId);
       const res = await startDeletionGracePeriod(
         ctx,
         event.user.id,
-        profile.profile.userRights.gracePeriod,
+        gracePeriod,
         ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
       );
       if (!res.ok) return writeFailure(res.error);

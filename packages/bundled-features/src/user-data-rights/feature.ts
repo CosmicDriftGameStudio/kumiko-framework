@@ -55,6 +55,7 @@ import { resolveAppTenantModel } from "./lib/resolve-tenant-model.js";
 import { makeTenantStorageProviderResolver } from "./lib/storage-provider-resolver.js";
 import {
   EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
+  EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC,
   runExportJobs,
   type SendExportFailedEmailFn,
   type SendExportReadyEmailFn,
@@ -545,9 +546,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // Surfaces a stalled export-cleanup cron: if the daily
     // pass stops running, done-status export bundles keep sitting in
     // storage past their TTL+grace with downloadStorageKey still set
-    // (unencrypted PII at rest). Emitted from the same job that cleans up
-    // (see handler below) — a dead cron makes the metric go stale too,
-    // which an `absent()` alert catches without a second liveness signal.
+    // (unencrypted PII at rest). Gauges keep their last value in-process, so
+    // a dead cron does NOT make the backlog gauge absent; the last-run
+    // timestamp gauge below is the liveness signal.
     // Scope: Done-status bundles only — Failed-status cleanup candidates
     // have no expiresAt/TTL (immediate cleanup, see storageCleanupPass).
     r.metric(EXPORT_CLEANUP_BACKLOG_AGE_METRIC, {
@@ -555,6 +556,12 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       unit: "seconds",
       description:
         "Age in seconds of the oldest done-status export bundle whose expiresAt+grace has passed but downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog.",
+    });
+    r.metric(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC, {
+      type: "gauge",
+      unit: "seconds",
+      description:
+        "Unix timestamp of the last export storage-cleanup pass that completed. Alert on time() minus this value exceeding the cron interval plus a buffer; the backlog-age gauge alone stays at its last value when the cron stops.",
     });
 
     // S2.U3 Atom 3b — Worker fuer Async Export-Pipeline. Cron-getriggert.

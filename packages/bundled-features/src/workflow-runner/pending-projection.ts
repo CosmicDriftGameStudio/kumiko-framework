@@ -12,7 +12,7 @@
 // this table and dispatches the actual resume. This projection only writes
 // the rows.
 
-import { deleteMany, upsertOnConflict } from "@cosmicdrift/kumiko-framework/bun-db";
+import { deleteMany, fetchOne, upsertOnConflict } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
 import type {
   FeatureRegistrar,
@@ -66,6 +66,15 @@ type PendingRow = {
 };
 
 async function upsertPending(tx: DbRunner, row: PendingRow): Promise<void> {
+  // At-least-once redelivery of a suspension event after the event-subscriber
+  // already matched a trigger onto this row must not reset wakeAt/trigger —
+  // the run would sleep until timeout and lose the matched payload.
+  const existing = await fetchOne<{ triggerEventType: string | null }>(
+    tx,
+    workflowRunPendingTable,
+    { tenantId: row.tenantId, runId: row.runId, stepIndex: row.stepIndex },
+  );
+  if (existing?.triggerEventType != null) return;
   await upsertOnConflict(
     tx,
     workflowRunPendingTable,
