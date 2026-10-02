@@ -23,7 +23,7 @@ export const userContentExportHook: UserDataExportHook = async (ctx) => {
       title: r["title"],
       content: r["content"],
       folder: r["folder"],
-      updatedAt: String(r["updatedAt"] ?? ""),
+      modifiedAt: String(r["modifiedAt"] ?? ""),
     })),
   };
 };

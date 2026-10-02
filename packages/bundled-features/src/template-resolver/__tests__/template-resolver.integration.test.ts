@@ -72,8 +72,8 @@ async function seedTemplate(args: {
     variableSchema: JSON.stringify(args.variableSchema ?? {}),
     linkedResources: JSON.stringify(args.linkedResources ?? {}),
     parentTemplateId: args.parentTemplateId ?? null,
-    createdBy: "test",
-    updatedBy: "test",
+    insertedById: "test",
+    modifiedById: "test",
   });
 }
 

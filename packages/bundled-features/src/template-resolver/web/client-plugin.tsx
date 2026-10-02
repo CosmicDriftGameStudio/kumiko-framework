@@ -49,7 +49,7 @@ export type BlockSummary = {
   readonly title: string | null;
   readonly content: string | null;
   readonly folder: string | null;
-  readonly updatedAt: string;
+  readonly modifiedAt: string | null;
 };
 
 type ByTenantResponse = {
@@ -253,7 +253,7 @@ type TextBlock = {
   readonly content: string | null;
   readonly contentFormat: string;
   readonly folder: string | null;
-  readonly updatedAt: string;
+  readonly modifiedAt: string | null;
 };
 
 // The collection's declared contentFormat ("plain" | "rich" | "markdown",

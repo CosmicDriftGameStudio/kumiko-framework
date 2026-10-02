@@ -180,6 +180,22 @@ describe("legal-pages :: cache-control", () => {
     expect(second.status).toBe(304);
   });
 
+  test("etag changes once the block was edited", async () => {
+    const before = (await stack.app.request("/legal/datenschutz")).headers.get("etag");
+    await seedTextBlock(db, {
+      tenantId: SYSTEM_TENANT_ID,
+      slug: "privacy",
+      locale: "de",
+      title: "Datenschutzerklärung",
+      content: "**Tracking-Cookies** neu gefasst",
+      ifExists: "update",
+    });
+    const after = (await stack.app.request("/legal/datenschutz")).headers.get("etag");
+    expect(before).toBeTruthy();
+    expect(after).toBeTruthy();
+    expect(after).not.toBe(before);
+  });
+
   test("HEAD → 200 without body, etag present", async () => {
     const res = await stack.app.request("/legal/impressum", { method: "HEAD" });
     expect(res.status).toBe(200);
@@ -447,7 +463,7 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
         scope: "system",
         parentTemplateId: null,
         status: "active",
-        updatedAt: new Date(),
+        modifiedAt: null,
       };
     };
     return {

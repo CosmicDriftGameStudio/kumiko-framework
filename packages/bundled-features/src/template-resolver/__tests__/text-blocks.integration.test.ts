@@ -288,6 +288,30 @@ describe("text-blocks :: query (openToAll)", () => {
     });
   });
 
+  test("by-slug and by-tenant expose modifiedAt as an ISO timestamp once a block was edited", async () => {
+    const payload = { slug: "edited", locale: "de", title: "v1", content: "first" };
+    await stack.http.writeOk(TemplateResolverHandlers.set, payload, tenantAdmin);
+    await stack.http.writeOk(
+      TemplateResolverHandlers.set,
+      { ...payload, title: "v2", content: "second" },
+      tenantAdmin,
+    );
+
+    const bySlug = await stack.http.queryOk<{ modifiedAt?: unknown }>(
+      TemplateResolverQueries.bySlug,
+      { slug: "edited", locale: "de" },
+      tenantAdmin,
+    );
+    expect(typeof bySlug.modifiedAt).toBe("string");
+    expect(Number.isNaN(Date.parse(String(bySlug.modifiedAt)))).toBe(false);
+
+    const byTenant = await stack.http.queryOk<{
+      blocks: ReadonlyArray<{ slug: string; modifiedAt?: unknown }>;
+    }>(TemplateResolverQueries.byTenant, {}, tenantAdmin);
+    const block = byTenant.blocks.find((b) => b.slug === "edited");
+    expect(typeof block?.modifiedAt).toBe("string");
+  });
+
   test("by-slug returns null for missing block", async () => {
     const result = await stack.http.queryOk<Record<string, unknown> | null>(
       TemplateResolverQueries.bySlug,

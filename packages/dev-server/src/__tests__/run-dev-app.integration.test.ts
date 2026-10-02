@@ -186,7 +186,7 @@ describe("runDevApp — extraContext merge order: app values win over boot defau
         scope: "system",
         parentTemplateId: null,
         status: "active",
-        updatedAt: new Date(0),
+        modifiedAt: null,
       }),
       resolveTemplate: async () => {
         throw new Error("not used in this test");

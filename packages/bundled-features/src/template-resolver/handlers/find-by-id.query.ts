@@ -38,7 +38,7 @@ export const findByIdQuery = defineQueryHandler({
       scope: row.scope,
       parentTemplateId: row.parentTemplateId,
       status: row.status,
-      updatedAt: row.updatedAt,
+      modifiedAt: row.modifiedAt,
     };
   },
 });

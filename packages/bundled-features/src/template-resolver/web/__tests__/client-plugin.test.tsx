@@ -98,9 +98,16 @@ describe("textBlocksClient — Provider unwrappt den Content-Container", () => {
         title: "Imprint",
         content: "x",
         folder: null,
-        updatedAt: "",
+        modifiedAt: null,
       },
-      { slug: "hero", locale: "de", title: "Hero", content: null, folder: "page", updatedAt: "" },
+      {
+        slug: "hero",
+        locale: "de",
+        title: "Hero",
+        content: null,
+        folder: "page",
+        modifiedAt: null,
+      },
     ];
     // Test-mock boundary: bun's mock doesn't cover the full fetch signature
     // (preconnect etc.) — double-cast is deliberate, only this test calls fetch.
@@ -180,7 +187,7 @@ describe("textBlocksClient — content collections", () => {
                 title: "Reminder",
                 content: "x",
                 folder: null,
-                updatedAt: "",
+                modifiedAt: null,
               },
             ],
           },

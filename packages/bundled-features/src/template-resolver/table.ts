@@ -5,6 +5,7 @@ import {
   createSelectField,
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "temporal-polyfill";
 import {
   CONTENT_FORMATS,
   TEMPLATE_KINDS,
@@ -58,6 +59,15 @@ export const templateResourceEntity = createEntity({
 
 export const templateResourcesTable = buildEntityTable("template-resource", templateResourceEntity);
 
+// Base columns buildEntityTable adds to every entity table. modifiedAt/By stay
+// null until the first update; inserts only set insertedAt/By.
+export type EntityAuditColumns = {
+  readonly insertedAt: Temporal.Instant;
+  readonly modifiedAt: Temporal.Instant | null;
+  readonly insertedById: string | null;
+  readonly modifiedById: string | null;
+};
+
 // Concrete Row-Type — single-source dafür dass die unknown-Werte die
 // Drizzle aus `Record<string, unknown>` liefert genau einmal benannt
 // werden (statt 12× `row["x"] as Y` Casts in Handlern + Resolver).
@@ -77,8 +87,4 @@ export type TemplateResourceRow = {
   readonly scope: string;
   readonly parentTemplateId: string | null;
   readonly status: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  readonly createdBy: string;
-  readonly updatedBy: string;
-};
+} & EntityAuditColumns;

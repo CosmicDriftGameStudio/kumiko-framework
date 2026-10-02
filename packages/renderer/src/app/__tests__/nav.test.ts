@@ -72,6 +72,29 @@ describe("formatPath", () => {
   });
 });
 
+describe("Segment encoding", () => {
+  test.each(["foo/bar", "ä b", "a%b", "x?y#z"])(
+    "entityId %p survives formatPath → parsePath",
+    (entityId) => {
+      const target = { screenId: "task-edit", entityId };
+      const path = formatPath(target);
+      expect(path.split("/")).toHaveLength(3);
+      expect(parsePath(path)).toEqual(target);
+      const withWorkspace = { workspaceId: "admin", ...target };
+      expect(parsePath(formatPath(withWorkspace), true)).toEqual(withWorkspace);
+    },
+  );
+
+  test("a browser-encoded pathname is decoded exactly once", () => {
+    expect(parsePath("/task-edit/%C3%A4%20b")).toEqual({ screenId: "task-edit", entityId: "ä b" });
+  });
+
+  test("malformed percent-escape yields no route", () => {
+    expect(parsePath("/task-edit/%zz")).toBeUndefined();
+    expect(parsePath("/admin/task-edit/%E0%A4%A", true)).toBeUndefined();
+  });
+});
+
 describe("Roundtrip parsePath ↔ formatPath", () => {
   test("non-workspace", () => {
     const t = { screenId: "task-edit", entityId: "abc" };

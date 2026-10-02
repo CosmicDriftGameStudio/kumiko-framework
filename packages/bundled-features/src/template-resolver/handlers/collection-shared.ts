@@ -7,6 +7,7 @@ import type {
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "temporal-polyfill";
 import { templateResourceEntity, templateResourcesTable } from "../table.js";
 import { userContentEntriesTable, userContentEntryEntity } from "../user-content-table.js";
 
@@ -36,7 +37,7 @@ export type CollectionEntryRow = {
   readonly content: string | null;
   readonly contentFormat: string;
   readonly folder: string | null;
-  readonly updatedAt: Date;
+  readonly modifiedAt: Temporal.Instant | null;
 };
 
 export type CollectionStore = {
@@ -84,6 +85,6 @@ export function toCollectionEntry(row: CollectionEntryRow) {
     content: row.content,
     contentFormat: row.contentFormat,
     folder: row.folder,
-    updatedAt: row.updatedAt,
+    modifiedAt: row.modifiedAt,
   };
 }
