@@ -161,7 +161,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
 
   if (done) {
     return (
-      <Card>
+      <Card options={{ screenBody: true }}>
         <Banner variant="info" testId="kumiko-screen-secret-mint-done">
           {effectiveTranslate(confirm?.doneMessage ?? "kumiko.secretMint.done")}
         </Banner>
@@ -189,7 +189,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
       ];
     });
     return (
-      <Card testId="kumiko-screen-secret-mint-card">
+      <Card options={{ screenBody: true }} testId="kumiko-screen-secret-mint-card">
         <Heading variant="page">
           {effectiveTranslate(screen.reveal.title ?? "kumiko.secretMint.title")}
         </Heading>
@@ -251,6 +251,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
       writeCommand={screen.handler}
       payloadMode="values"
       onSubmit={handleSubmitted}
+      fillScreenHeight
       {...(handleCancel !== undefined && { onCancel: handleCancel })}
       {...(translate !== undefined && { translate })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}

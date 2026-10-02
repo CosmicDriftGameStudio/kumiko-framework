@@ -18,6 +18,7 @@ import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type BannerProps,
+  type CardProps,
   type CorePrimitives,
   PrimitivesProvider,
   type SecretRevealProps,
@@ -27,6 +28,8 @@ import {
 import type { FeatureSchema } from "../feature-schema.js";
 import { KumikoScreen } from "../kumiko-screen.js";
 import { NavProvider, type NavTarget } from "../nav.js";
+
+const cardOptionsSeen: Array<CardProps["options"]> = [];
 
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 const noop = () => null;
@@ -104,7 +107,10 @@ const testPrimitives: CorePrimitives = {
   DataTable: noop,
   Form: testForm,
   Section: testSection,
-  Card: passChildren,
+  Card: ({ children, options }: CardProps) => {
+    cardOptionsSeen.push(options);
+    return children;
+  },
   Grid: passChildren,
   GridCell: passChildren,
   Text: testText,
@@ -254,6 +260,24 @@ describe("SecretMintBody (fw#2548)", () => {
     await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
 
     expect(queryCalls.length).toBe(0);
+  });
+
+  test("the reveal and done phases render as the screen body, not as a raw card", async () => {
+    cardOptionsSeen.length = 0;
+    const { dispatcher } = stubDispatcher({ token: "kpat_secret", id: "x" });
+    renderMintScreen(dispatcher);
+
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+    expect(cardOptionsSeen.at(-1)).toEqual({ screenBody: true });
+
+    cardOptionsSeen.length = 0;
+    fireEvent.click(rtlScreen.getByTestId("kumiko-screen-secret-mint-confirm"));
+    await waitFor(() =>
+      expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-done")).not.toBeNull(),
+    );
+    expect(cardOptionsSeen.at(-1)).toEqual({ screenBody: true });
   });
 
   test("acknowledging without a confirm step and without a redirect shows the done banner", async () => {

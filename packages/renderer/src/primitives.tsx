@@ -1269,6 +1269,11 @@ export type CardOptions = {
   /** false drops border, background, shadow and radius but keeps padding and
    *  header slots — a panel inside a host surface such as a tab panel. Default true. */
   readonly framed?: boolean;
+  /** The card is the whole screen body (secretMint reveal and done phase):
+   *  no frame, the shared screen insets and width of form screens, children
+   *  stacked with a gap. Without it such a screen sits raw against the
+   *  shell edge. Default false. */
+  readonly screenBody?: boolean;
 };
 
 /** Generische Card-Chrome (border/bg/radius/shadow + Header/Body/Footer) als
