@@ -12,8 +12,8 @@
  * Checked:
  *   - Imports:  react-dom/*, jsdom, @cosmicdrift/kumiko-renderer-web, @cosmicdrift/kumiko-renderer-native
  *   - Symbols:  window., document., location., history., localStorage,
- *               sessionStorage, navigator., EventSource, fetch
- *               (bare — unqualified)
+ *               sessionStorage, navigator., EventSource, fetch(
+ *               (bare — unqualified), HTMLElement, createRoot
  *
  * __tests__ folders are excluded — tests mount in jsdom, that's expected.
  */
@@ -43,6 +43,7 @@ const FORBIDDEN_SYMBOLS = [
   /\bsessionStorage\b/,
   /\bnavigator\s*\./,
   /\bEventSource\b/,
+  /(?<![.\w])fetch\s*\(/,
   /\bHTMLElement\b/,
   /\bcreateRoot\b/,
 ];
@@ -56,7 +57,7 @@ const FORBIDDEN_SYMBOLS = [
 // Ignored: fragment `<>`, components `<Capitalized`, attribute values like
 // `<string>` in a type-annotation context (the regex only matches right
 // after whitespace/newline/>, not after an identifier character).
-const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)[\s/>]/;
+const FORBIDDEN_JSX_TAG = /(^|\s|>|\()<([a-z][a-zA-Z0-9-]*)(?=[\s/>])/g;
 
 type Violation = {
   readonly file: string;
@@ -113,8 +114,7 @@ export function findViolations(file: string, root: string): Violation[] {
         });
       }
     }
-    const jsxMatch = line.match(FORBIDDEN_JSX_TAG);
-    if (jsxMatch !== null) {
+    for (const jsxMatch of line.matchAll(FORBIDDEN_JSX_TAG)) {
       violations.push({
         file: path.relative(root, file),
         line: i + 1,

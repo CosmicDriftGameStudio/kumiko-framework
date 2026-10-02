@@ -81,7 +81,10 @@ export function formatDiagnosticLines(
 const MAX_FAILURE_LINES = 200;
 // bun prints diff and stack BEFORE the "(fail) <name>" line, hence the backward window.
 const FAIL_LINE = /^\(fail\)\s/;
-const FAIL_WINDOW_LINES_BEFORE = 40;
+const TEST_RESULT_LINE = /^\((?:pass|fail|skip)\)\s/;
+const TEST_FILE_HEADER = /^\S+\.(?:test|spec)\.[cm]?[jt]sx?:$/;
+// Upper bound for the backward walk to the failing test's first output line.
+const FAIL_WINDOW_MAX_LINES_BEFORE = 80;
 const FAIL_WINDOW_LINES_AFTER = 2;
 const MAX_FAIL_WINDOWS = 5;
 // Bounds the full-output group so one runaway step can't grow the log
@@ -118,16 +121,20 @@ export function formatCompactFailure(
   const body = capLines(lines, MAX_FAILURE_LINES, (omitted) =>
     omissionMarker(omitted, willGroup ? `see the 'Full output: ${label}' group below` : undefined),
   );
-  const compact = `${header}\n${body.map((line) => `    ${line}`).join("\n")}\n`;
+  const token = options.stopCommandsToken ?? crypto.randomUUID();
+  const bodyText = `${body.map((line) => `    ${line}`).join("\n")}\n`;
+  // ::stop-commands:: disarms workflow-command parsing around every copy of
+  // test output so a test's own output (e.g. a literal "::error::" or
+  // "::stop-commands::x" in an assertion message) can't be misread as a real
+  // command; ::<token>:: re-arms it afterwards.
+  const compact = isGitHubActions(env)
+    ? `${header}\n::stop-commands::${token}\n${bodyText}::${token}::\n`
+    : `${header}\n${bodyText}`;
   if (!willGroup) return compact;
 
   // The full dump goes into the job log (not an artifact) so registered
   // secrets stay masked, and `gh run view --log-failed` still returns it in
-  // full. ::stop-commands:: disarms workflow-command parsing for the dump so
-  // a test's own output (e.g. a literal "::error::" in an assertion message)
-  // can't be misread as a real command; ::<token>:: re-arms it before
-  // ::endgroup::.
-  const token = options.stopCommandsToken ?? crypto.randomUUID();
+  // full.
   const fullLines = capLines(lines, FULL_OUTPUT_MAX_LINES, (omitted) =>
     omissionMarker(omitted, `full output exceeds the ${FULL_OUTPUT_MAX_LINES}-line cap`),
   );
@@ -142,6 +149,19 @@ export function formatCompactFailure(
 }
 
 type LineRange = { start: number; end: number };
+
+// bun prints the failing test's source snippet, `error:` line, diff and stack
+// after the previous test's result line (or the file header), so walk back to
+// that boundary instead of a fixed distance a long diff can overflow.
+function failWindowStart(lines: readonly string[], failIndex: number): number {
+  const floor = Math.max(0, failIndex - FAIL_WINDOW_MAX_LINES_BEFORE);
+  for (let i = failIndex - 1; i >= floor; i--) {
+    const line = lines[i]?.trim() ?? "";
+    if (TEST_RESULT_LINE.test(line)) return i + 1;
+    if (TEST_FILE_HEADER.test(line)) return i;
+  }
+  return floor;
+}
 
 function capLines(
   lines: readonly string[],
@@ -166,7 +186,7 @@ function capLines(
     { start: 0, end: half - 1 },
     { start: lines.length - half, end: lines.length - 1 },
     ...failIndexes.map((idx) => ({
-      start: Math.max(0, idx - FAIL_WINDOW_LINES_BEFORE),
+      start: failWindowStart(lines, idx),
       end: Math.min(lines.length - 1, idx + FAIL_WINDOW_LINES_AFTER),
     })),
   ].sort((a, b) => a.start - b.start);

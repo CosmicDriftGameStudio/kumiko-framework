@@ -71,7 +71,7 @@ function collectUsedKeys(sf: SourceFile): UsedKey[] {
       !first?.isKind(SyntaxKind.NoSubstitutionTemplateLiteral)
     )
       continue;
-    const literal = first.getText().slice(1, -1);
+    const literal = first.getLiteralText();
     if (!literal.includes(":")) continue;
     keys.push({
       key: literal,
@@ -90,7 +90,7 @@ function findEnclosingFeatureName(node: Node): string | null {
       if (call.getExpression().getText() === "defineFeature") {
         const first = call.getArguments()[0];
         if (first?.isKind(SyntaxKind.StringLiteral)) {
-          return first.getText().slice(1, -1);
+          return first.getLiteralText();
         }
       }
     }
@@ -108,7 +108,7 @@ function extractKeysFromTranslationsObject(
     const nameNode = prop.getNameNode();
     let keyName: string;
     if (nameNode.isKind(SyntaxKind.StringLiteral)) {
-      keyName = nameNode.getText().slice(1, -1);
+      keyName = nameNode.getLiteralText();
     } else if (nameNode.isKind(SyntaxKind.Identifier)) {
       keyName = nameNode.getText();
     } else continue;
@@ -119,8 +119,7 @@ function extractKeysFromTranslationsObject(
     for (const localeProp of initializer.getProperties()) {
       if (!localeProp.isKind(SyntaxKind.PropertyAssignment)) continue;
       const localeName = localeProp.getNameNode();
-      if (localeName.isKind(SyntaxKind.StringLiteral))
-        locales.add(localeName.getText().slice(1, -1));
+      if (localeName.isKind(SyntaxKind.StringLiteral)) locales.add(localeName.getLiteralText());
       else if (localeName.isKind(SyntaxKind.Identifier)) locales.add(localeName.getText());
     }
     out.push({ key: keyName, locales, line: prop.getStartLineNumber() });
@@ -148,7 +147,7 @@ function extractLocaleFirstKeys(
       if (!prop.isKind(SyntaxKind.PropertyAssignment)) continue;
       const nameNode = prop.getNameNode();
       if (nameNode.isKind(SyntaxKind.StringLiteral)) {
-        keySet.add(nameNode.getText().slice(1, -1));
+        keySet.add(nameNode.getLiteralText());
       }
     }
   }
@@ -160,7 +159,7 @@ function extractLocaleFirstKeys(
       const has = map.getProperties().some((prop) => {
         if (!prop.isKind(SyntaxKind.PropertyAssignment)) return false;
         const nameNode = prop.getNameNode();
-        return nameNode.isKind(SyntaxKind.StringLiteral) && nameNode.getText().slice(1, -1) === key;
+        return nameNode.isKind(SyntaxKind.StringLiteral) && nameNode.getLiteralText() === key;
       });
       if (has) locales.add(locale);
     }

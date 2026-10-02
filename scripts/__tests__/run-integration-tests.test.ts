@@ -61,4 +61,17 @@ describe("runIntegrationTests", () => {
     expect(code).toBe(0);
     expect(stdout).toContain("Integration run complete.");
   }, 30_000);
+
+  test("runs only the discovered files, not other test files whose path contains theirs", async () => {
+    tmpDir = writeFixture("");
+    writeFileSync(
+      join(tmpDir, "packages", "x", "a.integration.test.ts.unit.test.ts"),
+      `import { expect, test } from "bun:test";\n\ntest("must not run", () => {\n  expect(1).toBe(2);\n});\n`,
+    );
+    const { code, stdout } = await runRunnerIn(tmpDir);
+
+    expect(code).toBe(0);
+    expect(stdout).toContain("Files: 1/1 executed");
+    expect(stdout).not.toContain("must not run");
+  }, 30_000);
 });

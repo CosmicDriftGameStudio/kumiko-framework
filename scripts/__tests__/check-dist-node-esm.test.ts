@@ -34,4 +34,19 @@ describe("check-dist-node-esm", () => {
     expect(status).toBe(1);
     expect(output).toContain("./missing");
   });
+
+  test("a stray backtick in a block comment does not hide a later unresolvable import", () => {
+    const { status, output } = runCheck({
+      "index.js": [
+        "/**",
+        " * Uses the `derive option, never closed.",
+        " */",
+        'import { x } from "./missing";',
+        "export const t = `template`;",
+        "",
+      ].join("\n"),
+    });
+    expect(status).toBe(1);
+    expect(output).toContain("./missing");
+  });
 });

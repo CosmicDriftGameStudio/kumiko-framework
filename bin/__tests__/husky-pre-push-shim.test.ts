@@ -51,4 +51,27 @@ describe(".husky/pre-push shim", () => {
 
     expect(runShim(repo)).toEqual({ status: 0, stdout: "installed" });
   });
+
+  test("never execs a node_modules/.bin planted in a shared ancestor directory", () => {
+    const repo = makeRepoWithShim();
+    writeExecutable(
+      join(repo, "..", "node_modules", ".bin", "kumiko-pre-push"),
+      "#!/bin/sh\necho planted\n",
+    );
+
+    const result = runShim(repo);
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toContain("planted");
+  });
+
+  test("resolves the install from the parent-workspace root above a worktree", () => {
+    const repo = makeRepoWithShim();
+    writeFileSync(join(repo, "..", "package.json"), '{ "name": "cosmicdriftgamestudio" }\n');
+    writeExecutable(
+      join(repo, "..", "node_modules", ".bin", "kumiko-pre-push"),
+      "#!/bin/sh\necho workspace-installed\n",
+    );
+
+    expect(runShim(repo)).toEqual({ status: 0, stdout: "workspace-installed" });
+  });
 });

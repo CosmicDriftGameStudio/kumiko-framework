@@ -77,7 +77,7 @@ describe("CI output formatting", () => {
   test("never drops repeated lines from failure output, even identical ones", () => {
     const output = "error: same\nerror: same\nsource.ts:1\nsource.ts:2\n";
 
-    expect(formatCompactFailure("TypeScript", 2, output)).toBe(
+    expect(formatCompactFailure("TypeScript", 2, output, { env: {} })).toBe(
       "  ✗ TypeScript (exit 2; 4 line(s))\n" +
         "    error: same\n" +
         "    error: same\n" +
@@ -143,9 +143,9 @@ describe("CI output formatting", () => {
 
     for (let i = 0; i < 5; i++) expect(result).toContain(failLine(i));
     expect(result).not.toContain(failLine(5));
-    // MAX_FAILURE_LINES (200) + 5 windows * 43 lines = 415 content lines, plus
+    // MAX_FAILURE_LINES (200) + 5 windows * 83 lines = 615 content lines, plus
     // header, indentation and a handful of omission markers.
-    expect(result.split("\n").length).toBeLessThanOrEqual(430);
+    expect(result.split("\n").length).toBeLessThanOrEqual(630);
   });
 
   test("leaves a short failure output unmodified with no omission marker", () => {
@@ -272,7 +272,7 @@ describe("CI output formatting", () => {
     });
 
     const groupIndex = result.indexOf("::group::Full output: Huge failure (710 lines)");
-    const stopIndex = result.indexOf("::stop-commands::TOKEN");
+    const stopIndex = result.indexOf("::stop-commands::TOKEN", groupIndex);
     const resumeIndex = result.indexOf("::TOKEN::", stopIndex + 1);
     const endgroupIndex = result.indexOf("::endgroup::");
 
@@ -328,9 +328,14 @@ describe("CI output formatting", () => {
     expect(result).toMatch(/line\(s\) omitted …/);
   });
 
-  test("keeps workflow-command-looking test output inside the stop-commands pair", () => {
+  test("keeps workflow-command-looking test output inside stop-commands pairs, compact copy included", () => {
     const before = Array.from({ length: 300 }, (_, i) => `noise ${i}`);
-    const failureBlock = ["::add-mask::x", "::error::boom", "(fail) probe fails [1ms]"];
+    const failureBlock = [
+      "::stop-commands::x",
+      "::add-mask::x",
+      "::error::boom",
+      "(fail) probe fails [1ms]",
+    ];
     const after = Array.from({ length: 300 }, (_, i) => `noise ${300 + i}`);
     const output = [...before, ...failureBlock, ...after].join("\n");
 
@@ -339,16 +344,64 @@ describe("CI output formatting", () => {
       stopCommandsToken: "TOKEN",
     });
 
-    const stopIndex = result.indexOf("::stop-commands::TOKEN");
-    const resumeIndex = result.indexOf("::TOKEN::", stopIndex + 1);
-    const maskIndex = result.indexOf("::add-mask::x", stopIndex + 1);
-    const errorIndex = result.indexOf("::error::boom", stopIndex + 1);
+    const resume = "::TOKEN::";
+    const groupIndex = result.indexOf("::group::");
+    const compactStop = result.indexOf("::stop-commands::TOKEN");
+    const compactResume = result.indexOf(resume);
+    const dumpStop = result.indexOf("::stop-commands::TOKEN", groupIndex);
+    const dumpResume = result.indexOf(resume, dumpStop);
 
-    expect(stopIndex).toBeGreaterThan(-1);
-    expect(maskIndex).toBeGreaterThan(stopIndex);
-    expect(errorIndex).toBeGreaterThan(stopIndex);
-    expect(maskIndex).toBeLessThan(resumeIndex);
-    expect(errorIndex).toBeLessThan(resumeIndex);
+    expect(compactStop).toBeGreaterThan(-1);
+    expect(compactResume).toBeGreaterThan(compactStop);
+    expect(compactResume).toBeLessThan(groupIndex);
+    expect(dumpStop).toBeGreaterThan(groupIndex);
+    expect(dumpResume).toBeGreaterThan(dumpStop);
+
+    const stoppedRanges = [
+      [compactStop, compactResume],
+      [dumpStop, dumpResume],
+    ] as const;
+    for (const command of ["::add-mask::x", "::error::boom", "::stop-commands::x"]) {
+      let searchFrom = 0;
+      for (;;) {
+        const at = result.indexOf(command, searchFrom);
+        if (at === -1) break;
+        expect(stoppedRanges.some(([from, to]) => at > from && at < to)).toBe(true);
+        searchFrom = at + 1;
+      }
+    }
+  });
+
+  test("protects workflow-command-looking output of an uncapped failure on GitHub Actions", () => {
+    const output = ["::error::boom", "(fail) probe fails [1ms]"].join("\n");
+
+    const result = formatCompactFailure("Small failure", 1, output, {
+      env: GITHUB_ACTIONS_ENV,
+      stopCommandsToken: "TOKEN",
+    });
+
+    expect(result).not.toContain("::group::");
+    expect(result.indexOf("::stop-commands::TOKEN")).toBeLessThan(result.indexOf("::error::boom"));
+    expect(result.indexOf("::error::boom")).toBeLessThan(result.indexOf("::TOKEN::"));
+  });
+
+  test("keeps the error line and file header of a failure with a diff longer than 40 lines", () => {
+    const noise = Array.from({ length: 300 }, (_, i) => `noise ${i}`);
+    const failureBlock = [
+      "(pass) earlier test [1ms]",
+      "packages/a/__tests__/long-diff.test.ts:",
+      "error: expect(received).toEqual(expected)",
+      ...Array.from({ length: 60 }, (_, i) => `  diff line ${i}`),
+      "(fail) long diff fails [1ms]",
+    ];
+    const output = [...noise, ...failureBlock, ...noise].join("\n");
+
+    const result = formatCompactFailure("Long diff", 1, output, { env: {} });
+
+    expect(result).toContain("packages/a/__tests__/long-diff.test.ts:");
+    expect(result).toContain("error: expect(received).toEqual(expected)");
+    expect(result).toContain("(fail) long diff fails");
+    expect(result).not.toContain("(pass) earlier test");
   });
 });
 
