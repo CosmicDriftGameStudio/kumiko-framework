@@ -96,7 +96,7 @@ export type LoginResult =
   | { readonly kind: "mfa-setup-required"; readonly preauthSetupToken: string }
   | { readonly kind: "failure"; readonly error: LoginFailure };
 
-function toLoginResponse(
+export function toLoginResponse(
   token: string,
   user: LoginResponse["user"],
   landingPath: unknown,

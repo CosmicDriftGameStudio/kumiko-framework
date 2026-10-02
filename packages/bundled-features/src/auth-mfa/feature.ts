@@ -16,6 +16,9 @@ import { createMfaStatusChecker, type MfaStatusChecker } from "./mfa-status-chec
 import { userMfaEntity } from "./schema/user-mfa.js";
 import { mfaDisableScreen, mfaEnableScreen, mfaRegenerateRecoveryScreen } from "./screens.js";
 
+const REENCRYPT_ESCAPE_HATCH_REASON =
+  "re-encrypts MFA secrets of every tenant's users with the new master key";
+
 export type AuthMfaFeatureOptions = {
   // HMAC secret for the stateless enable-flow token (carries the generated
   // TOTP secret + recovery-code hashes between enable.start and
@@ -142,15 +145,13 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
       name: "reencrypt",
       trigger: { manual: true },
       escapeHatch: {
-        reason: "re-encrypts MFA secrets of every tenant's users with the new master key",
+        reason: REENCRYPT_ESCAPE_HATCH_REASON,
       },
       handler: (payload, ctx) =>
         mfaReencryptJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(
-            "re-encrypts MFA secrets of every tenant's users with the new master key",
-          ) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw(REENCRYPT_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
         ),
     });
 

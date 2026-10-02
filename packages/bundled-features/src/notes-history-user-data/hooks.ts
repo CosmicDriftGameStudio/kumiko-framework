@@ -6,7 +6,10 @@
 
 import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveRetentionPolicyForTenant, resolveTenantRetentionPreset } from "../data-retention/index.js";
+import {
+  resolveRetentionPolicyForTenant,
+  resolveTenantRetentionPreset,
+} from "../data-retention/index.js";
 import { noteEntryTable, noteMentionTable } from "../notes-history/index.js";
 import { policyToStrategy } from "../user-data-rights/index.js";
 

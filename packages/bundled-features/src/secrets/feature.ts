@@ -16,6 +16,8 @@ import { createSetHandler } from "./handlers/set.write.js";
 import { secretReadSchema } from "./secrets-context.js";
 import { tenantSecretEntity, tenantSecretsTable } from "./table.js";
 
+const ROTATE_ESCAPE_HATCH_REASON = "re-encrypts every tenant's secrets with the new master key";
+
 /**
  * Env-vars contract for the `secrets` feature. Apps merge this via
  * `composeEnvSchema({ features: [secretsFeature, ...] })` so boot-time
@@ -173,15 +175,13 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
       name: "rotate",
       trigger: { manual: true },
       escapeHatch: {
-        reason: "re-encrypts every tenant's secrets with the new master key",
+        reason: ROTATE_ESCAPE_HATCH_REASON,
       },
       handler: (payload, ctx) =>
         rotateJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(
-            "re-encrypts every tenant's secrets with the new master key",
-          ) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw(ROTATE_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
         ),
     });
 

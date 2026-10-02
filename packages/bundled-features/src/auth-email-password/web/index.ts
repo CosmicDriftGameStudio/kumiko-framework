@@ -26,6 +26,7 @@ export {
   requestPasswordReset,
   requestSignup,
   resetPassword,
+  toLoginResponse,
   verifyEmail,
 } from "./auth-client.js";
 export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives.js";

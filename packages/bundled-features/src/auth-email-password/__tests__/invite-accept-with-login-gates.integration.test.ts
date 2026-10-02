@@ -7,7 +7,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type SessionUser,
+  SYSTEM_TENANT_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -172,7 +176,7 @@ function aliceSession(): SessionUser {
 // needs from the challenge token, not from this actor.
 const GUEST: SessionUser = {
   id: "anonymous",
-  tenantId: "00000000-0000-4000-8000-000000000000" as TenantId,
+  tenantId: SYSTEM_TENANT_ID,
   roles: ["anonymous"],
 };
 

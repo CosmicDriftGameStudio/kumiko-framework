@@ -24,6 +24,9 @@ import {
 } from "./handlers/sweep-orphaned-derivatives.job.js";
 import { fileRefStorageDestroyHook, fileRefTenantDestroyHook } from "./hooks.js";
 
+const SWEEP_ORPHANED_DERIVATIVES_ESCAPE_HATCH_REASON =
+  "iterates every tenant and checks fileRef owners per tenant";
+
 export function createFilesTenantDataFeature(): FeatureDefinition {
   return defineFeature("files-tenant-data", (r) => {
     r.describe(
@@ -46,15 +49,13 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
       concurrency: "skip",
       schema: sweepOrphanedDerivativesPayloadSchema,
       escapeHatch: {
-        reason: "iterates every tenant and checks fileRef owners per tenant",
+        reason: SWEEP_ORPHANED_DERIVATIVES_ESCAPE_HATCH_REASON,
       },
       handler: (payload, ctx) =>
         sweepOrphanedDerivativesJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(
-            "iterates every tenant and checks fileRef owners per tenant",
-          ) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw(SWEEP_ORPHANED_DERIVATIVES_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
         ),
     });
   });

@@ -8,7 +8,11 @@
 // mintSessionAndRespond() for both routes.
 
 // kumiko-lint-ignore cross-feature-import client-only types, the feature's server barrel has no web/ re-export
-import type { LoginFailure, LoginResponse } from "../../auth-email-password/web/index.js";
+import {
+  type LoginFailure,
+  type LoginResponse,
+  toLoginResponse,
+} from "../../auth-email-password/web/index.js";
 
 export type MfaVerifyResult =
   | { readonly kind: "success"; readonly data: LoginResponse }
@@ -44,11 +48,7 @@ export async function verifyMfaChallenge(
   if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
     return {
       kind: "success",
-      data: {
-        token: body.token,
-        user: body.user,
-        ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
-      },
+      data: toLoginResponse(body.token, body.user, body.landingPath),
     };
   }
   const err = body.error;
@@ -176,11 +176,7 @@ export async function confirmMfaSetupPreauth(
   if (body.isSuccess === true && body.token !== undefined && body.user !== undefined) {
     return {
       kind: "success",
-      data: {
-        token: body.token,
-        user: body.user,
-        ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
-      },
+      data: toLoginResponse(body.token, body.user, body.landingPath),
     };
   }
   const err = body.error;
