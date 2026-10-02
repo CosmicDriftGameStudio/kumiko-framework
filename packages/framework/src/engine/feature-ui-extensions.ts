@@ -161,7 +161,12 @@ export function buildUiExtensionsMethods<TName extends string>(
           `r.nav("${navDefinition.id}", ...) call or the screen's inline nav.`,
       );
     }
-    state.navs[navDefinition.id] = navDefinition;
+    // Explicit `undefined` values (e.g. `icon: cond ? "x" : undefined`) would trip
+    // buildAppSchema's JSON-safety check, so strip them for every nav path.
+    // @cast-boundary engine-bridge — filtering undefined keeps the NavDefinition shape.
+    state.navs[navDefinition.id] = Object.fromEntries(
+      Object.entries(navDefinition).filter(([, value]) => value !== undefined),
+    ) as NavDefinition;
   }
 
   return {
@@ -472,15 +477,12 @@ export function buildUiExtensionsMethods<TName extends string>(
         // Sugar for the common "one nav entry pointing at this screen"
         // case — synthesizes id/screen from the screen's own id. Beyond
         // label/icon/parent/order, declare a standalone r.nav() instead.
-        // Optional fields stay absent rather than explicitly undefined —
-        // buildAppSchema's JSON-safety check flags undefined values. Same
-        // pattern as r.contentCollection() below.
         registerNav({
           id: definition.id,
           label: definition.nav.label,
-          ...(definition.nav.icon !== undefined && { icon: definition.nav.icon }),
-          ...(definition.nav.parent !== undefined && { parent: definition.nav.parent }),
-          ...(definition.nav.order !== undefined && { order: definition.nav.order }),
+          icon: definition.nav.icon,
+          parent: definition.nav.parent,
+          order: definition.nav.order,
           screen: `${name}:screen:${definition.id}`,
         });
       }
@@ -496,26 +498,20 @@ export function buildUiExtensionsMethods<TName extends string>(
         );
       }
       // registerNav owns the kebab + collision checks, including collisions
-      // with a plain r.nav() of the same id. Optional fields stay absent
-      // rather than explicitly undefined — buildAppSchema's JSON-safety check
-      // flags undefined values.
+      // with a plain r.nav() of the same id.
       registerNav({
         id: definition.id,
         label: definition.nav.label,
-        ...(definition.nav.icon !== undefined && { icon: definition.nav.icon }),
-        ...(definition.nav.parent !== undefined && { parent: definition.nav.parent }),
-        ...(definition.nav.order !== undefined && { order: definition.nav.order }),
+        icon: definition.nav.icon,
+        parent: definition.nav.parent,
+        order: definition.nav.order,
         // Nav visibility follows the collection's access unless the caller
         // overrode it — a node the handler would refuse has no business in
         // the sidebar.
-        ...((definition.nav.access ?? definition.access) !== undefined && {
-          access: definition.nav.access ?? definition.access,
-        }),
-        ...(definition.nav.workspaces !== undefined && { workspaces: definition.nav.workspaces }),
-        ...(definition.nav.createAction !== undefined && {
-          createAction: definition.nav.createAction,
-        }),
-        ...(definition.nav.actions !== undefined && { actions: definition.nav.actions }),
+        access: definition.nav.access ?? definition.access,
+        workspaces: definition.nav.workspaces,
+        createAction: definition.nav.createAction,
+        actions: definition.nav.actions,
         // The tree children come from a runtime provider keyed on this QN —
         // a collection without it would render as an empty leaf.
         provider: true,

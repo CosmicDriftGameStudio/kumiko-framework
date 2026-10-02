@@ -1,4 +1,4 @@
-import { describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
 import { validateBoot as validateBootRaw } from "../boot-validator.js";
 import { defineFeature } from "../define-feature.js";
@@ -445,8 +445,15 @@ describe("validateBoot — nav action validation (fw#2750)", () => {
 });
 
 describe("nav access inversion warning (fw#2640)", () => {
+  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
   test("leaf role-gate disjoint from its parent section's → warns but boot still succeeds", () => {
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "section", label: "s", access: { roles: ["Manager"] } });
       r.nav({
@@ -460,11 +467,9 @@ describe("nav access inversion warning (fw#2640)", () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('Nav entry "shop:nav:leaf" requires roles [Admin]'),
     );
-    warnSpy.mockRestore();
   });
 
   test("leaf role-gate overlapping its parent's → no warning", () => {
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "section", label: "s", access: { roles: ["Manager", "Admin"] } });
       r.nav({
@@ -476,11 +481,9 @@ describe("nav access inversion warning (fw#2640)", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
     expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("Nav entry"));
-    warnSpy.mockRestore();
   });
 
   test("parent open to everyone (unset access) → a role-gated leaf never warns", () => {
-    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
     const feature = defineFeature("shop", (r) => {
       r.nav({ id: "section", label: "s" });
       r.nav({
@@ -492,6 +495,5 @@ describe("nav access inversion warning (fw#2640)", () => {
     });
     expect(() => validateBoot([feature])).not.toThrow();
     expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining("Nav entry"));
-    warnSpy.mockRestore();
   });
 });

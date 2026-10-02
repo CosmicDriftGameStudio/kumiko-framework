@@ -2263,6 +2263,30 @@ defineFeature("f", (r) => {
     });
   });
 
+  test("emits ParseError when anonymous is a non-literal expression (no silent rewrite to false)", () => {
+    const result = parseInline(`
+const isPublic = true;
+defineFeature("f", (r) => {
+  r.httpRoute({ method: "GET", path: "/feed.xml", anonymous: isPublic, handler: async () => {} });
+});
+`);
+
+    expect(result.patterns).toEqual([]);
+    expect(result.errors[0]?.methodName).toBe("httpRoute");
+    expect(result.errors[0]?.reason).toMatch(/anonymous must be a boolean literal/);
+  });
+
+  test("a legacy httpRoute without anonymous still parses as anonymous: false", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  r.httpRoute({ method: "GET", path: "/feed.xml", handler: async () => {} });
+});
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({ kind: "httpRoute", anonymous: false });
+  });
+
   test("emits ParseError when the argument is not an inline object", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {

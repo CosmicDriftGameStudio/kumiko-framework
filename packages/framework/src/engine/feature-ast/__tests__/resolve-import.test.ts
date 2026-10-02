@@ -125,6 +125,30 @@ defineFeature("f", (r) => {
     expect(result.errors).toEqual([expect.objectContaining({ methodName: "extendsRegistrar" })]);
   });
 
+  test("a non-literal inner const shadows a same-named import instead of resolving to the imported value", () => {
+    const project = new Project({
+      skipAddingFilesFromTsConfig: true,
+      skipFileDependencyResolution: true,
+      useInMemoryFileSystem: true,
+    });
+    project.createSourceFile("names.ts", `export const NAME = "imported";\n`);
+    const sf = project.createSourceFile(
+      "shadow-import.ts",
+      `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { NAME } from "./names";
+
+defineFeature("f", (r) => {
+  const NAME = compute();
+  r.extendsRegistrar(NAME, {});
+});
+`,
+    );
+    const result = parseSourceFile(sf);
+    expect(result.patterns).toEqual([]);
+    expect(result.errors).toEqual([expect.objectContaining({ methodName: "extendsRegistrar" })]);
+  });
+
   const shadowingBodies: ReadonlyArray<readonly [string, string]> = [
     [
       "a destructured parameter",
