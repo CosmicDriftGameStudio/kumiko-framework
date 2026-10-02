@@ -35,6 +35,7 @@ import {
   defineWorkflow,
   type JobContext,
   stepsPipeline,
+  type TenantId,
   WORKFLOW_RESUMED_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
   WORKFLOW_RUN_COMPLETED_TYPE,
@@ -48,6 +49,7 @@ import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-f
 import { bridgeStub } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { workflowRunAggregateId } from "../aggregate-id.js";
+import { DUE_RUNS_BATCH_SIZE, selectDueWorkflowRunPending } from "../db/queries/due-runs.js";
 import { registerEventTrigger } from "../event-trigger.js";
 import { workflowRunnerFeature } from "../feature.js";
 
@@ -275,6 +277,31 @@ describe("workflow-runner resume loop", () => {
 
     await stack.eventDispatcher?.runOnce();
     expect(await pendingRowExists(runId, 0)).toBe(false);
+  });
+
+  test("due-row pickup returns the oldest rows first and at most one batch", async () => {
+    const otherTenantId = crypto.randomUUID() as TenantId;
+    const overflow = 5;
+    const total = DUE_RUNS_BATCH_SIZE + overflow;
+    await asRawClient(stack.db).unsafe(
+      `INSERT INTO workflow_run_pending (run_id, tenant_id, workflow_name, step_index, suspension_event_type, wake_at)
+       SELECT gen_random_uuid(), $1, 'rl-batch', n, 'workflow.waiting', now() - (n * interval '1 minute')
+       FROM generate_series(1, $2::int) AS n`,
+      [otherTenantId, total],
+    );
+    try {
+      const due = await selectDueWorkflowRunPending(stack.db, otherTenantId);
+
+      expect(due).toHaveLength(DUE_RUNS_BATCH_SIZE);
+      // step_index n has wake_at now - n minutes, so the oldest are the highest n.
+      expect(due.map((row) => row.step_index)).toEqual(
+        Array.from({ length: DUE_RUNS_BATCH_SIZE }, (_, i) => total - i),
+      );
+    } finally {
+      await asRawClient(stack.db).unsafe(`DELETE FROM workflow_run_pending WHERE tenant_id = $1`, [
+        otherTenantId,
+      ]);
+    }
   });
 
   test("a racing tick on an already-completed run whose definition changed appends no second terminal event", async () => {
