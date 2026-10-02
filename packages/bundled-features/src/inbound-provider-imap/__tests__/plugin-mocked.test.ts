@@ -356,7 +356,7 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
     // drainNew() does MIME-parsing before onMessages fires — a fixed sleep
     // flakes on a loaded CI runner; poll instead.
     await waitFor(() => received.some((batch) => batch.some((m) => m.subject === "pushed")), {
-      delays: Array(40).fill(5),
+      delays: Array(40).fill(50),
     });
     expect(received.some((batch) => batch.some((m) => m.subject === "pushed"))).toBe(true);
 
@@ -372,7 +372,7 @@ describe("imapInboundMailPlugin — mocked imapflow", () => {
       },
     });
     lastIdleClient?.emit("error", new Error("socket hang up"));
-    await waitFor(() => errors >= 1, { delays: Array(40).fill(5) });
+    await waitFor(() => errors >= 1, { delays: Array(40).fill(50) });
     lastIdleClient?.emit("error", new Error("second"));
     // Confirms onError stays unsubscribed after the first error. This is a
     // grace period for a negative outcome, not a wait-for-true condition, so

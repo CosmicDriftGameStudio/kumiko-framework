@@ -8,7 +8,7 @@
 // fetchOne(), throwing a Postgres 22P02 (malformed uuid literal) that
 // poisons the pooled Bun.SQL connection, an unauth DoS primitive.
 
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createFilesFeature,
@@ -23,7 +23,9 @@ import { PUBLIC_VARIANT_QN } from "../handlers/public-variant.query.js";
 describe("file-derivatives :: publicVariant query fileRefId validation", () => {
   let stack: TestStack;
 
-  beforeAll(async () => {
+  // Own stack per test: a regression of the malformed-UUID case poisons the pooled
+  // connection (22P02) and must not make the unknown-UUID test fail instead.
+  beforeEach(async () => {
     stack = await setupTestStack({
       features: [
         createConfigFeature(),
@@ -36,7 +38,7 @@ describe("file-derivatives :: publicVariant query fileRefId validation", () => {
     });
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await stack.cleanup();
   });
 
