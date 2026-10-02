@@ -24,7 +24,11 @@ const RANGE_DAYS: Readonly<Record<MetricRange, number>> = {
   "30d": 30,
 };
 
+// Offset strings ("+01:00") pass Intl/Temporal as ISO offsets but Postgres
+// date_trunc reads them as POSIX zones with the opposite sign, so only named
+// zones are accepted.
 export function isValidTimeZone(timeZone: string): boolean {
+  if (/^[+-]/.test(timeZone)) return false;
   try {
     new Intl.DateTimeFormat(undefined, { timeZone });
     return true;

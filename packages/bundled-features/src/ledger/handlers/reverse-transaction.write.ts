@@ -10,6 +10,7 @@ import { DEFAULT_LEDGER_ACCESS } from "../constants.js";
 import { transactionExecutor, transactionTable } from "../executor.js";
 import { normalizeLines } from "../reports.js";
 import { type ReverseTransactionPayload, reverseTransactionPayloadSchema } from "../schemas.js";
+import { readSubjectReference } from "../subject-reference.js";
 
 // reverse-transaction (Storno) — the ONLY correction path for a posted entry.
 // Books the mirror image (every amount negated) as a new posted entry that
@@ -69,9 +70,7 @@ export function createReverseTransactionHandler(
 
       // The reversal shares its subject with the original so filtering by
       // subjectId still finds the Storno; unset on the original stays unset.
-      const subjectType =
-        typeof original["subjectType"] === "string" ? original["subjectType"] : null;
-      const subjectId = typeof original["subjectId"] === "string" ? original["subjectId"] : null;
+      const { subjectType, subjectId } = readSubjectReference(original);
 
       return transactionExecutor.create(
         {

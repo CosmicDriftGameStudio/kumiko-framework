@@ -195,6 +195,17 @@ describe("metrics aggregates", () => {
     expect(res.status).toBe(400);
   });
 
+  test("an offset time zone is rejected", async () => {
+    for (const timeZone of ["+01:00", "-05:30"]) {
+      const res = await stack.http.query(
+        metricQueryName("tenant", countMetric.id),
+        { timeZone },
+        admin(TENANT_A),
+      );
+      expect(res.status).toBe(400);
+    }
+  });
+
   test("an unknown range is rejected", async () => {
     const res = await stack.http.query(
       metricQueryName("tenant", countMetric.id),

@@ -190,6 +190,19 @@ export type JobOutcomeMeta = {
     | undefined;
 };
 
+export type JobSubjectValue = string | number | boolean | null;
+
+// Single source of the stored subject string: the writer (jobSubjectKey) and
+// the tenant failures query both go through it. Matching is exact — field names
+// and JSON types must equal what the writer stored (`"1"` is not `1`).
+export function serializeJobSubject(subject: Readonly<Record<string, JobSubjectValue>>): string {
+  return JSON.stringify(
+    Object.keys(subject)
+      .sort()
+      .map((field) => [field, subject[field] ?? null]),
+  );
+}
+
 // Stable identity for the declared payload fields: sorted keys, so two runs
 // with the same subject values produce the same string and the later one
 // replaces the earlier record. Non-primitives would serialize into something
@@ -200,17 +213,17 @@ function jobSubjectKey(
   fields: readonly string[] | undefined,
 ): string | null {
   if (fields === undefined || fields.length === 0) return null;
-  const entries: [string, string | number | boolean | null][] = [];
-  for (const field of [...fields].sort()) {
+  const subject: Record<string, JobSubjectValue> = {};
+  for (const field of fields) {
     const value = payload[field] ?? null;
     if (value !== null && typeof value === "object") {
       throw new Error(
         `Job "${jobName}": tenantVisibleFailure.subjectFields["${field}"] must be a primitive, got ${typeof value}`,
       );
     }
-    entries.push([field, value as string | number | boolean | null]);
+    subject[field] = value as JobSubjectValue;
   }
-  return JSON.stringify(entries);
+  return serializeJobSubject(subject);
 }
 
 // Jobs that never touch ctx.db run fine on a runner built without one; a job

@@ -434,7 +434,8 @@ export type JobDefinition = {
   // `["campaignId", "language"]`); each must hold a primitive or the run
   // throws. Omit it for one record per job and tenant. Their values are
   // stored in clear, unlike the encrypted run payload — never name a PII
-  // field here.
+  // field here. The `jobs:query:failures` subject filter matches exactly: it
+  // needs every declared field, with the same JSON types as the payload.
   readonly tenantVisibleFailure?:
     | {
         readonly messageKey: string;

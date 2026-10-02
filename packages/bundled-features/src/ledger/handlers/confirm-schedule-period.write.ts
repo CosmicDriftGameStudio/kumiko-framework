@@ -17,6 +17,7 @@ import {
   type ConfirmSchedulePeriodPayload,
   confirmSchedulePeriodPayloadSchema,
 } from "../schemas.js";
+import { readSubjectReference } from "../subject-reference.js";
 
 // confirm-schedule-period — turn ONE projected period of a schedule into a posted,
 // balanced transaction (debit +amount / credit −amount), tagged with
@@ -100,9 +101,7 @@ export function createConfirmSchedulePeriodHandler(
       const amount = payload.amount ?? Number(schedule["amount"]);
       // The subject is a property of the schedule, not the confirm call — a
       // period without one stays without one, no backfill/error.
-      const subjectType =
-        typeof schedule["subjectType"] === "string" ? schedule["subjectType"] : null;
-      const subjectId = typeof schedule["subjectId"] === "string" ? schedule["subjectId"] : null;
+      const { subjectType, subjectId } = readSubjectReference(schedule);
       const created = await transactionExecutor.create(
         {
           id: generateId(),
