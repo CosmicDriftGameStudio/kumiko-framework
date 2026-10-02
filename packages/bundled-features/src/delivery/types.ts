@@ -43,7 +43,8 @@ export type RenderedMessage = {
 //   inline — sent synchronously inside notify() (inApp: DB insert + SSE).
 //   queued — sent asynchronously via the delivery.send job; channels with a
 //            render() additionally run through delivery.render first.
-export type DeliveryChannelMode = "inline" | "queued";
+export const DELIVERY_CHANNEL_MODES = ["inline", "queued"] as const;
+export type DeliveryChannelMode = (typeof DELIVERY_CHANNEL_MODES)[number];
 
 export type DeliveryChannel = {
   readonly name: string;
@@ -103,6 +104,8 @@ export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin 
     typeof o === "object" &&
     o !== null &&
     "mode" in o &&
+    DELIVERY_CHANNEL_MODES.some((mode) => mode === o.mode) &&
+    (!("render" in o) || o.render === undefined || typeof o.render === "function") &&
     "resolve" in o &&
     typeof o.resolve === "function" &&
     "send" in o &&

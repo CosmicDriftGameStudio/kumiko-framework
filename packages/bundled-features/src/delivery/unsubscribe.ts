@@ -331,12 +331,7 @@ function confirmationPage(token: string): string {
 // One-click clients put the token in the query string; only the
 // confirmation-page form submits it in the body.
 function tokenFromPostRequest(request: SignatureExtraRouteVerifyRequest): string | undefined {
-  const contentType = request.headers["content-type"];
-  if (contentType?.includes("application/x-www-form-urlencoded")) {
-    const fromBody = new URLSearchParams(request.rawBody).get("token");
-    if (fromBody) return fromBody;
-  }
-  return request.query["token"];
+  return tokenFromRequestBody(request) ?? request.query["token"];
 }
 
 // Resubscribe is deliberately NOT reachable via the query string — a mail
@@ -345,12 +340,10 @@ function tokenFromPostRequest(request: SignatureExtraRouteVerifyRequest): string
 // convention is built to avoid; resubscribe carries the same risk in
 // reverse (a prefetch that undoes a real opt-out) and gets no query-param
 // fallback at all.
-function tokenFromResubscribeRequest(
-  request: SignatureExtraRouteVerifyRequest,
-): string | undefined {
+function tokenFromRequestBody(request: SignatureExtraRouteVerifyRequest): string | undefined {
   const contentType = request.headers["content-type"];
   if (contentType?.includes("application/x-www-form-urlencoded")) {
-    return new URLSearchParams(request.rawBody).get("token") ?? undefined;
+    return new URLSearchParams(request.rawBody).get("token") || undefined;
   }
   if (contentType?.includes("application/json")) {
     try {
@@ -408,14 +401,13 @@ export function createUnsubscribeRoutes(
   });
 
   // Undo direction: token only from the JSON/form body, never the query
-  // (see tokenFromResubscribeRequest) — no GET confirmation-page variant,
+  // (see tokenFromRequestBody) — no GET confirmation-page variant,
   // this is a one-shot POST from the unsubscribe-page's "Undo" button.
   const resubscribeRoute = signatureRoute<VerifiedUnsubscribe>({
     method: "POST",
     path: DELIVERY_RESUBSCRIBE_PATH,
     entry: "signature",
-    verify: async (request) =>
-      verifyUnsubscribeToken(tokenFromResubscribeRequest(request), encodedSecret),
+    verify: async (request) => verifyUnsubscribeToken(tokenFromRequestBody(request), encodedSecret),
     handler: async (c, verified, deps) => {
       const outcome = await dispatchResubscribeWrite(verified, deps);
       if (outcome === "limit_reached") {

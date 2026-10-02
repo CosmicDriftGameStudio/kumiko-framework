@@ -2,7 +2,7 @@
 // hides the TenantDb shape the "app-data" stage actually passes.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
@@ -72,7 +72,7 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await resetTestTables(db, [tenantTable, tenantComplianceProfileTable]);
-  await stack.db.unsafe?.(
+  await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_document_extracts RESTART IDENTITY CASCADE`,
   );
 });

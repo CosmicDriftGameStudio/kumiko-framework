@@ -224,25 +224,24 @@ async function loadIngestSkippedEvents(): Promise<{ payload: Record<string, unkn
   return rows as { payload: Record<string, unknown> }[];
 }
 
-async function loadIngestRequestedEventsForFileRef(
+async function loadIngestEventsForFileRef(
+  eventType: string,
   fileRefId: string,
 ): Promise<{ payload: Record<string, unknown> }[]> {
   const rows = await asRawClient(stack.db).unsafe(
     `SELECT payload FROM kumiko_events WHERE type = $1 AND payload->>'fileRefId' = $2 ORDER BY id ASC`,
-    ["document-ingest-foundation:event:document-ingest-requested", fileRefId],
+    [eventType, fileRefId],
   );
   return rows as { payload: Record<string, unknown> }[];
 }
 
-async function loadIngestSkippedEventsForFileRef(
-  fileRefId: string,
-): Promise<{ payload: Record<string, unknown> }[]> {
-  const rows = await asRawClient(stack.db).unsafe(
-    `SELECT payload FROM kumiko_events WHERE type = $1 AND payload->>'fileRefId' = $2 ORDER BY id ASC`,
-    ["document-ingest-foundation:event:document-ingest-skipped", fileRefId],
+const loadIngestRequestedEventsForFileRef = (fileRefId: string) =>
+  loadIngestEventsForFileRef(
+    "document-ingest-foundation:event:document-ingest-requested",
+    fileRefId,
   );
-  return rows as { payload: Record<string, unknown> }[];
-}
+const loadIngestSkippedEventsForFileRef = (fileRefId: string) =>
+  loadIngestEventsForFileRef("document-ingest-foundation:event:document-ingest-skipped", fileRefId);
 
 async function seedDocumentExtract(tenantId: TenantId, fileRefId: string): Promise<string> {
   const user = createSystemUser(tenantId);
@@ -452,6 +451,15 @@ async function deleteFileRef(fileRefId: string): Promise<void> {
   expect(res.status).toBe(200);
 }
 
+async function restoreFileRef(fileRefId: string): Promise<void> {
+  const user = createSystemUser(admin.tenantId);
+  const tdb = createTenantDb(stack.db, admin.tenantId);
+  const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
+  if (!restoreResult.isSuccess) {
+    throw new Error(`restore failed: ${restoreResult.error.message}`);
+  }
+}
+
 describe("fileRef.restored → re-ingest", () => {
   test("delete → runOnce → restore → waitFor re-requests ingest and produces a fresh extract", async () => {
     const { id: fileRefId, storageKey } = await uploadFile(
@@ -469,12 +477,7 @@ describe("fileRef.restored → re-ingest", () => {
     await stack.eventDispatcher?.runOnce();
     expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
 
-    const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
-    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
-    if (!restoreResult.isSuccess) {
-      throw new Error(`restore failed: ${restoreResult.error.message}`);
-    }
+    await restoreFileRef(fileRefId);
 
     await waitFor(async () => {
       await stack.eventDispatcher?.runOnce();
@@ -507,12 +510,7 @@ describe("fileRef.restored → re-ingest", () => {
     // this race possible on every real deploy, not just in this test.
     await deleteFileRef(fileRefId);
 
-    const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
-    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
-    if (!restoreResult.isSuccess) {
-      throw new Error(`restore failed: ${restoreResult.error.message}`);
-    }
+    await restoreFileRef(fileRefId);
 
     await waitFor(async () => {
       await stack.eventDispatcher?.runOnce();
@@ -528,12 +526,7 @@ describe("fileRef.restored → re-ingest", () => {
 
     await deleteFileRef(fileRefId);
 
-    const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
-    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
-    if (!restoreResult.isSuccess) {
-      throw new Error(`restore failed: ${restoreResult.error.message}`);
-    }
+    await restoreFileRef(fileRefId);
 
     // The seeded extract stands in for a provider job that won the race: it
     // exists for the now-live fileRef before the forget consumer ever sees
@@ -551,12 +544,7 @@ describe("fileRef.restored → re-ingest", () => {
 
     await deleteFileRef(fileRefId);
 
-    const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
-    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
-    if (!restoreResult.isSuccess) {
-      throw new Error(`restore failed: ${restoreResult.error.message}`);
-    }
+    await restoreFileRef(fileRefId);
 
     await stack.eventDispatcher?.runOnce();
 
@@ -632,12 +620,7 @@ describe("fileRef soft-delete via a mid-risk agent tool", () => {
     expect(consumer?.last_error).toBeNull();
     expect(await selectMany(stack.db, documentExtractsTable, { fileRefId })).toHaveLength(0);
 
-    const user = createSystemUser(admin.tenantId);
-    const tdb = createTenantDb(stack.db, admin.tenantId);
-    const restoreResult = await fileRefExecutor.restore({ id: fileRefId }, user, tdb);
-    if (!restoreResult.isSuccess) {
-      throw new Error(`restore failed: ${restoreResult.error.message}`);
-    }
+    await restoreFileRef(fileRefId);
 
     await waitFor(async () => {
       await stack.eventDispatcher?.runOnce();

@@ -30,7 +30,11 @@ import {
   forgetExtractOnFileRefForgottenHook,
   forgetOrphanedDocumentExtractHook,
 } from "./forget-extract-with-file-ref.js";
-import { EXT_DOCUMENT_INGEST_PROVIDER, resolveDocumentIngestProviders } from "./providers.js";
+import {
+  EXT_DOCUMENT_INGEST_PROVIDER,
+  resolveDocumentIngestProviders,
+  UNCLAIMED_PROVIDER_SENTINEL,
+} from "./providers.js";
 import { documentExtractTenantDestroyHook } from "./tenant-destroy-hook.js";
 
 const FEATURE_NAME = "document-ingest-foundation";
@@ -171,10 +175,10 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
       {
         fromVersion: 1,
         toVersion: 2,
-        // "unknown" can never match a real where.provider filter — an
-        // upcast v1 row reads as unclaimed instead of silently misrouting to
-        // whichever provider happens to be mounted today.
-        transform: { default: { provider: "unknown" } },
+        // The sentinel can never match a real where.provider filter (providers
+        // may not register under it) — an upcast v1 row reads as unclaimed
+        // instead of silently misrouting to a currently mounted provider.
+        transform: { default: { provider: UNCLAIMED_PROVIDER_SENTINEL } },
       },
     ],
   });
