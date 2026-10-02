@@ -637,7 +637,11 @@ export function EmbeddedListInput({
                   <TableHeader className="bg-muted">
                     <TableRow className="hover:bg-transparent">
                       {columns.map((column) => (
-                        <TableHead key={column.field} className={columnAlignClass(column.type)}>
+                        <TableHead
+                          key={column.field}
+                          title={column.label}
+                          className={cn("truncate", columnAlignClass(column.type))}
+                        >
                           {column.label}
                         </TableHead>
                       ))}

@@ -2546,7 +2546,13 @@ function RowActionsKebab({
             <MoreHorizontal className="size-4" aria-hidden="true" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent
+          align="end"
+          // Radix refocuses the trigger after the exit animation, which by then sits behind the confirm dialog's aria-hidden.
+          onCloseAutoFocus={(e) => {
+            if (pendingConfirm !== null) e.preventDefault();
+          }}
+        >
           {actions.map((action) => (
             <DropdownMenuItem
               key={action.id}

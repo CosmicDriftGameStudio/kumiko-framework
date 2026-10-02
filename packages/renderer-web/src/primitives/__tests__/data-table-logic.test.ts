@@ -170,16 +170,26 @@ describe("defaultCellRender", () => {
     const warn = spyOn(console, "warn").mockImplementation(() => {});
     try {
       const iso = "2026-09-04T12:30:00.000Z";
-      expect(defaultCellRender(iso, "text", undefined, undefined, "createdAt")).toBe(iso);
+      expect(defaultCellRender(iso, "text", undefined, undefined, "dedupeProbeCreatedAt")).toBe(
+        iso,
+      );
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toContain("createdAt");
+      expect(warn.mock.calls[0]?.[0]).toContain("dedupeProbeCreatedAt");
       // Same column, second row with a different ISO value → no second warning.
       expect(
-        defaultCellRender("2026-09-05T08:00:00Z", "text", undefined, undefined, "createdAt"),
+        defaultCellRender(
+          "2026-09-05T08:00:00Z",
+          "text",
+          undefined,
+          undefined,
+          "dedupeProbeCreatedAt",
+        ),
       ).toBe("2026-09-05T08:00:00Z");
       expect(warn).toHaveBeenCalledTimes(1);
       // A different column still gets its own warning.
-      expect(defaultCellRender(iso, "text", undefined, undefined, "expiresAt")).toBe(iso);
+      expect(defaultCellRender(iso, "text", undefined, undefined, "dedupeProbeExpiresAt")).toBe(
+        iso,
+      );
       expect(warn).toHaveBeenCalledTimes(2);
       // Plain text and date-only strings never trigger the warning.
       expect(defaultCellRender("hallo", "text", undefined, undefined, "name")).toBe("hallo");

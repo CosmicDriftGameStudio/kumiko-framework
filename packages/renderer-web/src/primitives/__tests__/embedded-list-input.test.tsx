@@ -769,6 +769,23 @@ describe("EmbeddedListInput — desktop table width (solon#107)", () => {
     expect(table.style.minWidth).toBe("60rem");
   });
 
+  test("header labels truncate inside their fixed column instead of overlapping the neighbour", () => {
+    const longLabel = "Vorauszahlungsbetrag";
+    renderWithLocale(
+      <EmbeddedListInput
+        {...baseProps({
+          columns: [
+            { field: "quantity", label: longLabel, type: "number", required: true, derived: false },
+          ],
+          rows: [{}],
+        })}
+      />,
+    );
+    const header = within(screen.getByTestId("lines-desktop")).getByText(longLabel);
+    expect(header.className).toContain("truncate");
+    expect(header.getAttribute("title")).toBe(longLabel);
+  });
+
   test("the minimum width omits the actions column when the list is disabled", () => {
     renderWithLocale(<EmbeddedListInput {...baseProps({ columns, rows: [{}], disabled: true })} />);
     const table = screen.getByTestId("lines-desktop").querySelector("table");

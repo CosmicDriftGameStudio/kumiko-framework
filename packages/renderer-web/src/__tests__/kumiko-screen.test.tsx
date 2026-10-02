@@ -77,13 +77,15 @@ const schema: FeatureSchema = {
 // Re-queries the button (a held reference may have been detached by a
 // re-render) and waits for it to actually be clickable before firing the
 // click — a disabled native button swallows fireEvent.click silently.
-async function clickSubmitOnceEnabled(): Promise<void> {
+async function clickSubmitOnceEnabled(
+  scope: () => Pick<typeof screen, "getByTestId"> = () => screen,
+): Promise<void> {
   await waitFor(() => {
-    const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    const button = scope().getByTestId("render-edit-submit") as HTMLButtonElement;
     expect(button.disabled).toBe(false);
   });
   await act(async () => {
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    fireEvent.click(scope().getByTestId("render-edit-submit"));
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   });
 }
@@ -3437,7 +3439,7 @@ describe("KumikoScreen: entityEdit actions drawer-kind (fw#2710)", () => {
     const noteInput = drawer().getByTestId("field-note").querySelector("input");
     if (noteInput === null) throw new Error("expected an <input> inside field-note");
     fireEvent.change(noteInput, { target: { value: "hello" } });
-    fireEvent.click(drawer().getByTestId("render-edit-submit"));
+    await clickSubmitOnceEnabled(drawer);
 
     await waitFor(() => expect(writeCalls.length).toBe(1));
     expect(writeCalls[0]?.type).toBe("tasks:write:task:note");
