@@ -40,7 +40,7 @@ import { useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
 import type { ListSort } from "../hooks/use-list-url-state.js";
 import { useQuery } from "../hooks/use-query.js";
-import { useLocale, useOptionalLocale, useTranslation } from "../i18n.js";
+import { useOptionalLocale, useTranslation } from "../i18n.js";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.js";
 import {
   type DataTableFacet,
@@ -187,12 +187,12 @@ export function RelatedListSection({
   const [emptyStateActionError, setEmptyStateActionError] = useState<string | null>(null);
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
-  const locale = useLocale().locale();
+  const locale = useOptionalLocale();
   const rowGrouping = useMemo(
     () =>
       section.groupBy === undefined
         ? undefined
-        : buildRowGrouping(section.groupBy, effectiveTranslate, locale),
+        : buildRowGrouping(section.groupBy, effectiveTranslate, locale ?? "en"),
     [section.groupBy, effectiveTranslate, locale],
   );
   const rowTone = useMemo(() => buildRowTone(section.rowTone), [section.rowTone]);
@@ -327,7 +327,6 @@ export function RelatedListSection({
   // pager (see `payload` above: a one-shot fetch, no cursor/offset), so the
   // loaded set already IS the full display set and there is no "other page"
   // a client-side sort could misleadingly hide (fw#2722).
-  const locale = useOptionalLocale();
   const [sort, setSort] = useState<ListSort | null>(section.defaultSort ?? null);
   const sortAccessors = useMemo(() => {
     const accessors: Record<
