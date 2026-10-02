@@ -1350,8 +1350,10 @@ export async function createKumikoServer(
   // repeatables, delayed jobs) would pile up in the shared Redis forever.
   // A prefix-less duplicate: SCAN returns full key names, which the stack
   // client's keyPrefix would otherwise prepend a second time.
-  const deleteEphemeralJobQueues = async (): Promise<void> => {
-    const raw = stack.redis.redis.duplicate({ keyPrefix: "" });
+  // Takes the connection as a parameter: it must be opened before
+  // stack.cleanup() closes the stack client, yet used only after it, because
+  // closing the stack's enqueuer queues re-writes their `meta` keys.
+  const deleteEphemeralJobQueues = async (raw: typeof stack.redis.redis): Promise<void> => {
     try {
       const keys: string[] = [];
       for await (const batch of raw.scanStream({
@@ -1379,8 +1381,9 @@ export async function createKumikoServer(
       await stack.eventDispatcher.stop();
     }
     await devJobRunners.stop();
-    if (!persistentDb) await deleteEphemeralJobQueues();
+    const rawRedis = persistentDb ? undefined : stack.redis.redis.duplicate({ keyPrefix: "" });
     await stack.cleanup();
+    if (rawRedis) await deleteEphemeralJobQueues(rawRedis);
   };
 
   // --- graceful shutdown ---

@@ -401,9 +401,11 @@ function writePartialMarker(
   failedVersion: string,
   ran: readonly UpgradeMarkerCodemod[],
 ): void {
+  // skip: no codemod wrote files before the failure, nothing to resume after
   if (ran.length === 0) return;
   const doneBeforeFailure = pending.filter((e) => compareVersions(e.version, failedVersion) < 0);
   const version = markerVersionForPending(doneBeforeFailure, manualEntries, "");
+  // skip: no pending entry completed before the failure, so no marker version to record
   if (version === "") return;
   const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
   writeUpgradeMarker(targetDir, {

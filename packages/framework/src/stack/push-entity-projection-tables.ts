@@ -75,6 +75,7 @@ async function syncExistingProjectionTable(
   if (missingColumns.length === 0) {
     logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
     await addMissingIndexes(stack.db, physical, meta.indexes);
+    // skip: table is already in sync, only indexes needed backfilling
     return;
   }
 

@@ -493,6 +493,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "jobs.detail.retry": "Retry",
   "jobs.errors.notFound": "Not found.",
   "jobs.errors.notManual": "This job cannot be triggered manually.",
+  "jobs.errors.invalidPayload": "The payload must be a valid JSON object.",
   "jobs.errors.onlyFailedCanRetry": "Only failed runs can be retried.",
   "jobs.errors.payloadErased":
     "This run's payload can no longer be read — the triggering user's data was erased.",

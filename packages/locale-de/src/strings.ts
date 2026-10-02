@@ -515,6 +515,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "jobs.detail.retry": "Erneut ausführen",
   "jobs.errors.notFound": "Nicht gefunden.",
   "jobs.errors.notManual": "Dieser Job ist nicht manuell startbar.",
+  "jobs.errors.invalidPayload": "Die Nutzdaten müssen ein gültiges JSON-Objekt sein.",
   "jobs.errors.onlyFailedCanRetry": "Nur fehlgeschlagene Läufe können erneut gestartet werden.",
   "jobs.errors.payloadErased":
     "Der Payload dieses Laufs kann nicht mehr gelesen werden — die Daten des auslösenden Benutzers wurden gelöscht.",
