@@ -1,5 +1,7 @@
 import { ROLES } from "../auth/roles.js";
+import { EXT_ASSIGNABLE_ROLE } from "./extension-names.js";
 import { isForbiddenMembershipRole } from "./membership-roles.js";
+import type { Registry } from "./types/feature.js";
 
 const PLATFORM_ROLE_NAMES: ReadonlySet<string> = new Set<string>(Object.values(ROLES));
 
@@ -122,6 +124,41 @@ function requiredAssignRank(role: string, assignableAppRoles: AssignableAppRoles
   return assignableFrom === undefined ? Number.POSITIVE_INFINITY : getRoleRank(assignableFrom);
 }
 
+export function canActorAssignRole(
+  actorRoles: readonly string[],
+  role: string,
+  assignableAppRoles: AssignableAppRoles = NO_ASSIGNABLE_APP_ROLES,
+): boolean {
+  return requiredAssignRank(role, assignableAppRoles) <= maxRoleRank(actorRoles);
+}
+
+// An actor only removes what it could also grant; clients (the member form)
+// cannot render roles outside their option list, so those must survive a save.
+export function mergeAssignedRoles(
+  actorRoles: readonly string[],
+  assignedRoles: readonly string[],
+  targetCurrentRoles: readonly string[],
+  assignableAppRoles: AssignableAppRoles,
+): readonly string[] {
+  const preserved = targetCurrentRoles.filter(
+    (role) =>
+      !assignedRoles.includes(role) && !canActorAssignRole(actorRoles, role, assignableAppRoles),
+  );
+  return [...new Set([...assignedRoles, ...preserved])];
+}
+
+const assignableAppRolesByRegistry = new WeakMap<object, AssignableAppRoles>();
+
+export function assignableAppRolesOf(
+  registry: Pick<Registry, "getExtensionUsages">,
+): AssignableAppRoles {
+  const cached = assignableAppRolesByRegistry.get(registry);
+  if (cached !== undefined) return cached;
+  const built = assignableAppRolesFromUsages(registry.getExtensionUsages(EXT_ASSIGNABLE_ROLE));
+  assignableAppRolesByRegistry.set(registry, built);
+  return built;
+}
+
 export function findForbiddenRoleAssignment(
   actorRoles: readonly string[],
   assignedRoles: readonly string[],
@@ -134,7 +171,7 @@ export function findForbiddenRoleAssignment(
   // Assign path: fail-closed on unknown / above-actor roles — except unranked
   // app roles the target already holds (round-trip restore after strip).
   const forbiddenAssigned = assignedRoles.find((role) => {
-    if (requiredAssignRank(role, assignableAppRoles) <= actorRank) return false;
+    if (canActorAssignRole(actorRoles, role, assignableAppRoles)) return false;
     if (knownRoleRank(role) === undefined && targetCurrentRoles.includes(role)) return false;
     return true;
   });

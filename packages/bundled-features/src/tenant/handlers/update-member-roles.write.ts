@@ -2,11 +2,12 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
-  assignableAppRolesFromUsages,
+  assignableAppRolesOf,
   createSystemUser,
   defineWriteHandler,
-  EXT_ASSIGNABLE_ROLE,
   findForbiddenRoleAssignment,
+  mergeAssignedRoles,
+  SYSTEM_ROLE,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -57,7 +58,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
   // are session-scoped (event.user.tenantId).
   access: { roles: ["system", ...access.admin] },
   description:
-    "Replaces the roles a user holds in a tenant, rejecting reserved role names and any grant that would raise the target above the caller; admins act on their own tenant, SystemAdmins on any.",
+    "Sets the roles a user holds in a tenant, rejecting reserved role names and any grant that would raise the target above the caller; roles the caller could not grant (platform roles such as DataProtectionOfficer or TenantOwner, undeclared or higher-tier app roles) are kept, only the system user replaces the full list; admins act on their own tenant, SystemAdmins on any.",
   handler: async (event, ctx) => {
     if (!ctx.systemDb) {
       throw new InternalError({
@@ -66,8 +67,9 @@ export const updateMemberRolesWrite = defineWriteHandler({
       });
     }
 
-    const isSystem =
-      event.user.roles.includes("SystemAdmin") || event.user.roles.includes("system");
+    const isSystemActor = event.user.roles.includes(SYSTEM_ROLE);
+    const isSystem = event.user.roles.includes("SystemAdmin") || isSystemActor;
+    const assignableAppRoles = assignableAppRolesOf(ctx.registry);
     const targetTenantId = resolveTargetTenantId(
       isSystem,
       event.payload.tenantId,
@@ -109,20 +111,30 @@ export const updateMemberRolesWrite = defineWriteHandler({
     const row = existing as DbRow; // @cast-boundary generic-record
     const currentTargetRoles = parseRoles(row["roles"]);
 
-    if (!event.user.roles.includes("system")) {
+    if (!isSystemActor) {
       const forbiddenElevation = findForbiddenRoleAssignment(
         event.user.roles,
         event.payload.roles,
         currentTargetRoles,
-        assignableAppRolesFromUsages(ctx.registry.getExtensionUsages(EXT_ASSIGNABLE_ROLE)),
+        assignableAppRoles,
       );
       if (forbiddenElevation !== undefined) {
         return writeFailure(unassignableMembershipRoleError(forbiddenElevation));
       }
     }
 
+    // The system user is programmatic and replaces; human actors keep what they cannot grant.
+    const nextRoles = isSystemActor
+      ? event.payload.roles
+      : mergeAssignedRoles(
+          event.user.roles,
+          event.payload.roles,
+          currentTargetRoles,
+          assignableAppRoles,
+        );
+
     const targetIsTenantAdmin = currentTargetRoles.includes("TenantAdmin");
-    const willBeTenantAdmin = event.payload.roles.includes("TenantAdmin");
+    const willBeTenantAdmin = nextRoles.includes("TenantAdmin");
 
     if (targetIsTenantAdmin && !willBeTenantAdmin) {
       // assertNotLastTenantAdmin issues raw SQL, so it needs the raw runner, not
@@ -167,12 +179,16 @@ export const updateMemberRolesWrite = defineWriteHandler({
       {
         id: row["id"] as string, // @cast-boundary db-row
         version: row["version"] as number, // @cast-boundary db-row
-        changes: { roles: JSON.stringify(event.payload.roles) },
+        changes: { roles: JSON.stringify(nextRoles) },
       },
       { ...event.user, tenantId: targetTenantId },
       db,
     );
 
-    return withResponseData(result, { ...event.payload, tenantId: targetTenantId });
+    return withResponseData(result, {
+      ...event.payload,
+      roles: nextRoles,
+      tenantId: targetTenantId,
+    });
   },
 });
