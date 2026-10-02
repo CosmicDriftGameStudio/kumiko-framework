@@ -1,6 +1,7 @@
 import {
   access,
   i18nKey,
+  MAX_LIST_LIMIT,
   type ProjectionDetailScreenDefinition,
   type ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -18,6 +19,10 @@ export const sessionListScreen: ProjectionListScreenDefinition = {
   id: SESSION_LIST_SCREEN_ID,
   type: "projectionList",
   query: SessionQueries.list,
+  // The `list` handler honours `limit` only (no offset/total), so a pager would
+  // show page 1 forever: send one max-size request and render no pager.
+  pagination: false,
+  pageSize: MAX_LIST_LIMIT,
   // Mirrors list.query's own fallback (unrecognised/absent sort → createdAt
   // desc) — kept in sync by hand, boot-validator only requires the field
   // be present once the query accepts `sort` (fw#2230).

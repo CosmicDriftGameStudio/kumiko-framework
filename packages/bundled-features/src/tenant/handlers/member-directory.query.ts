@@ -16,6 +16,11 @@ import { isSystemAdmin } from "./is-system-admin.js";
 // members.query.ts.
 const KMS_POOL_CONCURRENCY = 4;
 
+// Display names are encrypted PII, so a search cannot run in SQL: candidates
+// are decrypted and filtered in memory. The cap keeps a SystemAdmin's global
+// search from decrypting every user.
+const SEARCH_SCAN_CAP = 1000;
+
 async function loadMemberUserIds(db: TenantDb, tenantId: string): Promise<readonly string[]> {
   const memberships = await selectMany(db, tenantMembershipsTable, { tenantId });
   return [...new Set(memberships.map((row) => String(row["userId"])))];
@@ -37,6 +42,8 @@ export const memberDirectoryQuery = definePagedQueryHandler({
   name: "memberDirectory",
   schema: z.object({
     limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(MAX_LIST_LIMIT),
+    // Sent by the reference combobox while the user types.
+    search: z.string().trim().min(1).optional(),
   }),
   access: { roles: access.admin },
   description:
@@ -49,19 +56,22 @@ export const memberDirectoryQuery = definePagedQueryHandler({
           "tenant:query:member-directory requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
       });
     }
-    const { limit } = query.payload;
+    const { limit, search } = query.payload;
+    // Without a search the first `limit` rows are enough; with one, every
+    // candidate must be decrypted before the limit can apply.
+    const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;
     let users: readonly { id: unknown; displayName?: unknown }[];
     if (isSystemAdmin(query.user)) {
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as user:query:user:list did",
       );
-      users = await selectMany(db, userTable, undefined, { limit });
+      users = await selectMany(db, userTable, undefined, { limit: scanLimit });
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
-      const userIds = (await loadMemberUserIds(db, query.user.tenantId)).slice(0, limit);
+      const userIds = (await loadMemberUserIds(db, query.user.tenantId)).slice(0, scanLimit);
       users = userIds.length > 0 ? await selectMany(db, userTable, { id: [...userIds] }) : [];
     }
-    const rows = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {
+    const resolved = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {
       const id = String(user.id);
       const label =
         typeof user.displayName === "string"
@@ -69,6 +79,11 @@ export const memberDirectoryQuery = definePagedQueryHandler({
           : null;
       return { id, label: label ?? id };
     });
+    const needle = search?.toLowerCase();
+    const rows =
+      needle === undefined
+        ? resolved
+        : resolved.filter((row) => row.label.toLowerCase().includes(needle)).slice(0, limit);
     return { rows, nextCursor: null };
   },
 });

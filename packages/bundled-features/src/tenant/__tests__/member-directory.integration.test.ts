@@ -52,10 +52,13 @@ async function seedMember(
   return id;
 }
 
-async function queryDirectory(caller: SessionUser): Promise<readonly DirectoryRow[]> {
+async function queryDirectory(
+  caller: SessionUser,
+  payload: Record<string, unknown> = {},
+): Promise<readonly DirectoryRow[]> {
   const result = await stack.http.queryOk<{ rows: readonly DirectoryRow[] }>(
     TenantQueries.memberDirectory,
-    {},
+    payload,
     caller,
   );
   return result.rows;
@@ -108,6 +111,19 @@ describe("tenant:query:member-directory (fw#3107)", () => {
     expect(byId.get(colleagueId)?.["label"]).toBe("Own Colleague");
     expect(byId.has(foreignId)).toBe(false);
     expect(rows.length).toBe(2);
+  });
+
+  test("search finds a member beyond the first `limit` rows, case-insensitively", async () => {
+    const adminId = await seedMember(ownTenantId, "Alpha Admin", ["TenantAdmin"]);
+    await seedMember(ownTenantId, "Bravo Member", ["User"]);
+    await seedMember(ownTenantId, "Charlie Member", ["User"]);
+    const targetId = await seedMember(ownTenantId, "Zulu Needle", ["User"]);
+    const foreignId = await seedMember(foreignTenantId, "Needle Foreign", ["User"]);
+
+    const rows = await queryDirectory(tenantAdmin(adminId), { limit: 2, search: "needle" });
+
+    expect(rows).toEqual([{ id: targetId, label: "Zulu Needle" }]);
+    expect(rows.some((row) => row["id"] === foreignId)).toBe(false);
   });
 
   test("rows carry only id and label — no email or roles leave the directory", async () => {

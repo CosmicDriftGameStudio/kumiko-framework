@@ -70,7 +70,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
         "SYSTEM_TENANT_ID user stream.",
     },
     agent: { expose: false },
-    rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+    rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — queryAs returns unknown, narrowed to
       // the compliance-profile shape.

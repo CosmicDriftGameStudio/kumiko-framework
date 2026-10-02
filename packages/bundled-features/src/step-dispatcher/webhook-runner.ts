@@ -124,14 +124,21 @@ async function buildWebhookHeaders(
   const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
   if (!spec.auth) return { ok: true, headers };
   if (!deps.secrets) return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
-  const revealed = await deps.secrets.get(deps.tenantId, webhookAuthSecretKey(spec.auth.secret), {
-    userId: deps.userId,
-    handlerName: "step-dispatcher:webhook.send",
-  });
-  if (!revealed) {
+  // A throwing get (corrupt envelope, rotated key, KMS error) must become a
+  // dispatch-failed event; rethrowing would retry and dead-letter the whole
+  // step-dispatcher consumer for every tenant.
+  let secret: string;
+  try {
+    const revealed = await deps.secrets.get(deps.tenantId, webhookAuthSecretKey(spec.auth.secret), {
+      userId: deps.userId,
+      handlerName: "step-dispatcher:webhook.send",
+    });
+    if (!revealed) return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
+    secret = revealed.reveal();
+  } catch {
+    log.warn("webhook auth secret lookup failed", { tenantId: deps.tenantId });
     return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
   }
-  const secret = revealed.reveal();
   if (spec.auth.kind === "bearer") {
     headers["authorization"] = `Bearer ${secret}`;
   } else {

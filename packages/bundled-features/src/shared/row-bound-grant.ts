@@ -78,6 +78,10 @@ export async function redeemRowBoundGrant(args: {
   readonly commitAnchor: AnchorCommit;
   readonly now?: Temporal.Instant;
 }): Promise<RowBoundGrantResult> {
+  // Misconfiguration must throw on every call, not only on the first valid redemption.
+  if (typeof args.commitAnchor !== "function" && !args.commitAnchor.unsafeSkip.reason.trim()) {
+    throw new Error("row-bound grant: unsafeSkip needs a non-empty reason");
+  }
   if (!args.secret) return FAILED;
 
   const subject = peekTokenSubject(args.token);
@@ -107,8 +111,6 @@ export async function redeemRowBoundGrant(args: {
   if (typeof args.commitAnchor === "function") {
     const spent = await args.commitAnchor(subject, anchor);
     if (!spent) return FAILED;
-  } else if (!args.commitAnchor.unsafeSkip.reason.trim()) {
-    throw new Error("row-bound grant: unsafeSkip needs a non-empty reason");
   }
 
   return { ok: true, subject, expiresAtMs: verified.expiresAtMs };

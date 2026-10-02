@@ -857,6 +857,47 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
     expect(JSON.parse(rows[0]?.["roles"] as string)).toEqual(["Admin"]);
   });
 
+  test("refuses removing the last TenantAdmin and keeps the membership", async () => {
+    const err = await stack.http.writeErr(
+      TenantHandlers.removeMember,
+      { userId: tenantAdminAId, tenantId: TENANT_A_ID },
+      TestUsers.systemAdmin,
+    );
+    expectErrorIncludes(err, "last_tenant_admin");
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: tenantAdminAId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(rows).toHaveLength(1);
+  });
+
+  test("allows removing a TenantAdmin when another TenantAdmin exists", async () => {
+    const { id: secondAdminId } = await seedUser(stack.db, {
+      email: "remove-second-admin@example.com",
+      displayName: "Remove Second Admin",
+      passwordHash: await hashPassword("pw-rm-adm2-1234"),
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, {
+      userId: secondAdminId,
+      tenantId: TENANT_A_ID,
+      roles: ["TenantAdmin"],
+    });
+
+    await stack.http.writeOk(
+      TenantHandlers.removeMember,
+      { userId: secondAdminId, tenantId: TENANT_A_ID },
+      TestUsers.systemAdmin,
+    );
+
+    const rows = await selectMany(stack.db, tenantMembershipsTable, {
+      userId: secondAdminId,
+      tenantId: TENANT_A_ID,
+    });
+    expect(rows).toHaveLength(0);
+  });
+
   test("SystemAdmin can update member roles across tenants", async () => {
     const { id: memberUserId } = await seedUser(stack.db, {
       email: "sysadmin-cross-target@example.com",

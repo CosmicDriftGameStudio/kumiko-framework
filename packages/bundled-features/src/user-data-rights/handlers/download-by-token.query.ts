@@ -84,7 +84,7 @@ export const downloadByTokenQuery = defineQueryHandler({
   // 30 attempts/min/IP reicht fuer legitime User (mehrere Klicks bei
   // Connection-Abbruch); blockiert automatisierte Probing-Loops.
   // Memory `feedback_security_default_on`.
-  rateLimit: { per: "ip", limit: 30, windowSeconds: 60 },
+  rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   escapeHatch: {
     reason: DOWNLOAD_BY_TOKEN_REASON,
   },
