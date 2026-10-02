@@ -33,6 +33,7 @@ import {
   createTzField,
 } from "../factories.js";
 import type { LongTextFieldDef, TextFieldDef } from "../types/index.js";
+import { unannotatedLongText, unannotatedText } from "./unannotated-fields.js";
 
 // The new personal/find union can no longer express some flag combinations
 // on purpose (e.g. two subjects on one field) — these tests deliberately
@@ -40,16 +41,8 @@ import type { LongTextFieldDef, TextFieldDef } from "../types/index.js";
 const rawField = <T>(f: T) => f as unknown as TextFieldDef;
 const rawLongTextField = <T>(f: T) => f as unknown as LongTextFieldDef;
 
-// The heuristics under test only fire without a personal stance; after #2810
-// the factories can no longer produce that shape.
-const unannotatedText: TextFieldDef = {
-  type: "text",
-  maxLength: 200,
-  required: false,
-  searchable: false,
-  sortable: false,
-};
-const unannotatedLongText: LongTextFieldDef = { type: "longText", required: false };
+// The heuristics under test only fire without a personal stance, which
+// the factories cannot produce.
 
 // Stubt einen leeren `<entity>:list`-Query-Handler damit der reference-
 // Field-Boot-Validator den Audit-Fix-#2-Check durchläßt. Wird gebraucht

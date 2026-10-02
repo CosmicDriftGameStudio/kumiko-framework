@@ -5,20 +5,14 @@
 // guard catches that combination before it ships.
 
 import { describe, expect, test } from "bun:test";
+import { unannotatedText } from "../../__tests__/unannotated-fields.js";
 import { defineFeature } from "../../define-feature.js";
 import { createEntity, createTextField } from "../../factories.js";
-import type { FeatureDefinition, TextFieldDef } from "../../types/index.js";
+import type { FeatureDefinition } from "../../types/index.js";
 import { validateRecordOwnedSubjects } from "../record-owned.js";
 
-// Presence/absence of the annotation is the test variable here; after #2810
-// the factory can no longer produce the unannotated shape.
-const unannotatedText: TextFieldDef = {
-  type: "text",
-  maxLength: 200,
-  required: false,
-  searchable: false,
-  sortable: false,
-};
+// Presence/absence of the annotation is the test variable here; the factory
+// cannot produce the unannotated shape.
 
 function featureWith(
   idType: "serial" | "uuid" | undefined,

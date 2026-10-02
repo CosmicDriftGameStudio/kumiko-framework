@@ -132,7 +132,7 @@ function validatePersonalDataValue(
     );
   }
   // skip: roles include "anonymous", which personalData: "public-intake" requires
-  if (Array.isArray(access.roles) && access.roles.includes(ANONYMOUS_ROLE)) return;
+  if (accessAllowsAnonymous(access)) return;
   throw new Error(
     `[Feature ${feature.name}] write handler "${handlerName}" declares ` +
       'access.personalData: "public-intake" but its roles do not include ' +
