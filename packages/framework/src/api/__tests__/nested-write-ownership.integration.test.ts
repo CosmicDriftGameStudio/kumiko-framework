@@ -98,10 +98,22 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
   // No escapeHatch needed — the lookup stays within the caller's own tenant.
   r.writeHandler(
     "project2:create",
-    z.object({ name: z.string().min(1), ownerId: z.string().uuid().optional() }),
+    z.object({
+      name: z.string().min(1),
+      ownerId: z.string().uuid().optional(),
+      returnPartialRow: z.boolean().optional(),
+    }),
     async (event, ctx) => {
       const existing = await ctx.db.fetchOne(project2Table, { name: event.payload.name });
-      if (existing) return { isSuccess: true as const, data: existing };
+      if (existing) {
+        // A projection without the ownership-bound field.
+        return {
+          isSuccess: true as const,
+          data: event.payload.returnPartialRow
+            ? { id: existing["id"], name: existing["name"] }
+            : existing,
+        };
+      }
       const crud = createEventStoreExecutor(project2Table, project2Entity, {
         entityName: "project2",
       });
@@ -314,5 +326,31 @@ describe("nested-write parent-row ownership check (fw#2861)", () => {
 
     const dbTasks = await selectMany(stack.db, task2Table);
     expect(dbTasks).toHaveLength(1);
+  });
+
+  test("(d) partial parent row without the ownership field is checked against the stored row", async () => {
+    const seedRes = await stack.http.write(
+      "nested-own:write:project2:create",
+      { name: "partial-row" },
+      ownerUser,
+    );
+    expect(seedRes.status).toBe(200);
+
+    const denied = await stack.http.write(
+      "nested-own:write:project2:create",
+      { name: "partial-row", returnPartialRow: true, tasks: [{ title: "t1" }] },
+      attackerUser,
+    );
+    expect(denied.status).toBe(403);
+    expect((await denied.json()).error.code).toBe("access_denied");
+    expect(await selectMany(stack.db, task2Table)).toHaveLength(0);
+
+    const allowed = await stack.http.write(
+      "nested-own:write:project2:create",
+      { name: "partial-row", returnPartialRow: true, tasks: [{ title: "t1" }] },
+      ownerUser,
+    );
+    expect(allowed.status).toBe(200);
+    expect(await selectMany(stack.db, task2Table)).toHaveLength(1);
   });
 });

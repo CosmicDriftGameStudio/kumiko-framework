@@ -18,6 +18,7 @@ import type {
   SessionUser,
   TenantId,
 } from "../engine/types/index.js";
+import { InternalError } from "../errors/index.js";
 import type { StoredEvent } from "../event-store/index.js";
 import type { SearchAdapter, SearchDocument } from "../search/types.js";
 import type { EventConsumer } from "./event-dispatcher.js";
@@ -260,7 +261,13 @@ async function readProjectionRowForSearch(
   // DbConnection: event-dispatcher creation is gated on it being set
   // (api/server.ts), never a HandlerContext's already-tenant-scoped TenantDb.
   const baseDb = ctx.db as DbConnection | undefined;
-  if (!baseDb) return undefined;
+  // undefined must keep meaning "no live row" (the caller removes the index
+  // entry), so a missing db fails the event for retry instead.
+  if (!baseDb) {
+    throw new InternalError({
+      message: `search consumer: no db on the consumer context — cannot read the live row of "${entityName}" ${entityId}`,
+    });
+  }
   const table = entityTableFromRegistry(registry, entityName, entity);
   const where: Record<string, unknown> = { id: entityId };
   if (entity.softDelete && table["isDeleted"]) {

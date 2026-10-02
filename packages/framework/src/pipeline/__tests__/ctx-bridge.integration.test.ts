@@ -78,7 +78,7 @@ const echoedBagIds: string[] = [];
 const bridgeFeature = defineFeature("ctxbridge", (r) => {
   const bag = r.entity("bag", bagEntity);
   const secret = r.entity("secret", secretEntity);
-  r.entity("echo", echoEntity);
+  const echo = r.entity("echo", echoEntity);
 
   r.writeHandler(
     "bag:create",
@@ -270,6 +270,10 @@ const bridgeFeature = defineFeature("ctxbridge", (r) => {
     },
     { phase: HookPhases.afterCommit },
   );
+
+  r.hook("postSave", { allOf: echo }, async (result) => {
+    afterCommitLog.push(`echo:${result.data["bagId"]}`);
+  });
 
   // afterCommit hook on secret — the entity targeted by the nested writeAs.
   // Proves: (a) hook fires exactly once per successful writeAs, (b) hook
@@ -508,5 +512,7 @@ describe("afterCommit hook context is usable for real DB work", () => {
     const echoes = await selectMany(stack.db, echoTable);
     expect(echoes).toHaveLength(1);
     expect((echoes[0] as { bagId: string }).bagId).toBe(expectedBagId);
+    // The nested write ran as its own batch, so ITS afterCommit hooks fired too.
+    expect(afterCommitLog).toContain(`echo:${expectedBagId}`);
   });
 });

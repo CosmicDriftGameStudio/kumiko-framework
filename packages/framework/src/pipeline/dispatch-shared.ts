@@ -82,6 +82,7 @@ import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
 import { appendDomainEventCore } from "./append-event-core.js";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.js";
+import { runBatch, unwrapSingle } from "./dispatch-batch.js";
 import { executeQuery } from "./dispatch-query.js";
 import { executeWrite } from "./dispatch-write.js";
 import {
@@ -285,6 +286,7 @@ export async function buildHandlerContext(
   tx?: DbTx,
   afterCommitHooks?: AfterCommitHook[],
   includeDeleted?: boolean,
+  isPostCommit?: boolean,
 ): Promise<HandlerContext> {
   const { registry, appContext: context, effectiveFeatures, jobRunner, lifecycle } = ctx;
   const isSystem = registry.isHandlerSystemScoped(type);
@@ -418,6 +420,16 @@ export async function buildHandlerContext(
   // Cross-feature bridge: ctx.query/write share the current tx + afterCommitHooks sink.
   // queryAs/writeAs to anyone but the caller itself needs r.systemScope() or { escapeHatch } (system-identity-switch.ts).
   const bridgeSink = afterCommitHooks ?? [];
+  // Post-commit hooks have no transaction left, so a bare executeWrite would
+  // auto-commit event append, projections and inTransaction hooks separately
+  // and its afterCommit hooks would land in an already-flushed sink. A
+  // batch-of-one gives the write its own transaction and its own flush.
+  const writeAsUser = async (asUser: SessionUser, targetType: string, payload: unknown) =>
+    isPostCommit
+      ? unwrapSingle(
+          await runBatch(ctx, [{ type: targetType, payload }], asUser, undefined, origin),
+        )
+      : executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink);
   const scheduleAfterCommit = (hook: AfterCommitHook): void => {
     bridgeSink.push(hook);
   };
@@ -430,8 +442,7 @@ export async function buildHandlerContext(
       // Inherits the caller's origin, so switching to SYSTEM cannot shed an anonymous root.
       queryAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
         executeQuery(ctx, targetType, payload, asUser, origin, tx), // @wrapper-known semantic-alias
-      writeAs: (asUser: SessionUser, targetType: string, payload: unknown) =>
-        executeWrite(ctx, targetType, payload, asUser, origin, tx, bridgeSink),
+      writeAs: writeAsUser,
     },
     identitySwitchAudit,
   );
@@ -492,10 +503,7 @@ export async function buildHandlerContext(
     query: (targetType: string, payload: unknown) =>
       executeQuery(ctx, targetType, payload, user, origin, tx), // @wrapper-known semantic-alias
     queryAs: identitySwitch.queryAs,
-    write: async (targetType: string, payload: unknown) => {
-      const res = await executeWrite(ctx, targetType, payload, user, origin, tx, bridgeSink);
-      return res;
-    },
+    write: (targetType: string, payload: unknown) => writeAsUser(user, targetType, payload),
     writeAs: identitySwitch.writeAs,
     // Strict + unsafe share the same runtime — only the type-surface
     // differs. The strict signature is what's exposed to typed callers;
@@ -786,11 +794,13 @@ export async function buildHandlerContext(
     if (cachedTz) {
       tenantTz = cachedTz.value;
     } else {
+      const generationAtRead = ctx.tenantTimezoneCache.generation();
       tenantTz = await config(TENANT_TIMEZONE_CONFIG_KEY);
       if (tx === undefined) {
-        ctx.tenantTimezoneCache.set(
+        ctx.tenantTimezoneCache.setIfFresh(
           user.tenantId,
           typeof tenantTz === "string" ? tenantTz : undefined,
+          generationAtRead,
         );
       }
     }
