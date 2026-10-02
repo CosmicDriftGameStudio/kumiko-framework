@@ -20,6 +20,7 @@ export function collectErasureFailure(
 }
 
 export function throwIfErasureFailed(failures: readonly string[]): void {
+  // skip: nothing failed, so there is nothing to report
   if (failures.length === 0) return;
   throw new Error(`[user-data-rights] failed to erase ${failures.join("; ")}`);
 }

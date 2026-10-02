@@ -63,30 +63,70 @@ async function revokedEventCount(): Promise<number> {
   return row?.count ?? 0;
 }
 
+async function withRejectingEventAppend(fn: () => Promise<void>): Promise<void> {
+  const raw = asRawClient(testDb.db);
+  await raw.unsafe(`
+    CREATE OR REPLACE FUNCTION session_revoker_test_reject() RETURNS trigger AS $$
+    BEGIN RAISE EXCEPTION 'event append rejected'; END $$ LANGUAGE plpgsql
+  `);
+  await raw.unsafe(`
+    CREATE TRIGGER session_revoker_test_reject BEFORE INSERT ON kumiko_events
+    FOR EACH ROW EXECUTE FUNCTION session_revoker_test_reject()
+  `);
+  try {
+    await fn();
+  } finally {
+    await raw.unsafe("DROP TRIGGER session_revoker_test_reject ON kumiko_events");
+    await raw.unsafe("DROP FUNCTION session_revoker_test_reject()");
+  }
+}
+
+const USER_ID = "00000000-0000-4000-8000-0000000000a1";
+
 describe("sessionRevoker atomicity", () => {
   test("a failing event append leaves the session live so a retry still revokes and emits", async () => {
-    const raw = asRawClient(testDb.db);
     const { sessionRevoker } = createSessionCallbacks({ db: testDb.db });
 
-    await raw.unsafe(`
-      CREATE OR REPLACE FUNCTION session_revoker_test_reject() RETURNS trigger AS $$
-      BEGIN RAISE EXCEPTION 'event append rejected'; END $$ LANGUAGE plpgsql
-    `);
-    await raw.unsafe(`
-      CREATE TRIGGER session_revoker_test_reject BEFORE INSERT ON kumiko_events
-      FOR EACH ROW EXECUTE FUNCTION session_revoker_test_reject()
-    `);
-    try {
+    await withRejectingEventAppend(async () => {
       await expect(sessionRevoker(SID)).rejects.toThrow();
-    } finally {
-      await raw.unsafe("DROP TRIGGER session_revoker_test_reject ON kumiko_events");
-      await raw.unsafe("DROP FUNCTION session_revoker_test_reject()");
-    }
+    });
 
     expect(await revokedAtOfSession()).toBeNull();
     expect(await revokedEventCount()).toBe(0);
 
     await sessionRevoker(SID);
+
+    expect(await revokedAtOfSession()).not.toBeNull();
+    expect(await revokedEventCount()).toBe(1);
+  });
+
+  test("sessionMassRevoker: a failing event append leaves sessions live so a retry still revokes and emits", async () => {
+    const { sessionMassRevoker } = createSessionCallbacks({ db: testDb.db });
+
+    await withRejectingEventAppend(async () => {
+      await expect(sessionMassRevoker(USER_ID)).rejects.toThrow();
+    });
+
+    expect(await revokedAtOfSession()).toBeNull();
+    expect(await revokedEventCount()).toBe(0);
+
+    expect(await sessionMassRevoker(USER_ID)).toBe(1);
+
+    expect(await revokedAtOfSession()).not.toBeNull();
+    expect(await revokedEventCount()).toBe(1);
+  });
+
+  test("sessionRevokeAllOthers: a failing event append leaves sessions live so a retry still revokes and emits", async () => {
+    const { sessionRevokeAllOthers } = createSessionCallbacks({ db: testDb.db });
+
+    await withRejectingEventAppend(async () => {
+      await expect(sessionRevokeAllOthers(USER_ID, undefined)).rejects.toThrow();
+    });
+
+    expect(await revokedAtOfSession()).toBeNull();
+    expect(await revokedEventCount()).toBe(0);
+
+    expect(await sessionRevokeAllOthers(USER_ID, undefined)).toBe(1);
 
     expect(await revokedAtOfSession()).not.toBeNull();
     expect(await revokedEventCount()).toBe(1);
