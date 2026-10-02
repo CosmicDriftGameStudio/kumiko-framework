@@ -19,8 +19,16 @@ import { Command } from "cmdk";
 import { Check, ChevronDown, Loader2, Plus } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
+import { groupOptions } from "./option-groups.js";
 
-export type ComboboxOption = { readonly value: string; readonly label: string };
+export type ComboboxOption = {
+  readonly value: string;
+  readonly label: string;
+  /** Muted second line in the list item; also matched by the local search. */
+  readonly description?: string;
+  /** Group heading; see `groupOptions` for the ordering rule. */
+  readonly group?: string;
+};
 
 // Discriminated Union per `multiple`-Flag — Single-Mode hat string-
 // value/onChange, Multi-Mode hat string[]/string[]. Caller muss den
@@ -100,8 +108,9 @@ const tagClass =
 // (User erwartet Prefix/Substring-Verhalten, nicht Subsequence-Match).
 // Returns 1 wenn search im value enthalten, 0 sonst — cmdk hidet Items
 // mit Score 0.
-function substringFilter(value: string, search: string): number {
-  return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+function substringFilter(value: string, search: string, keywords?: string[]): number {
+  const needle = search.toLowerCase();
+  return [value, ...(keywords ?? [])].some((text) => text.toLowerCase().includes(needle)) ? 1 : 0;
 }
 
 export function ComboboxInput(props: ComboboxInputProps): ReactNode {
@@ -233,43 +242,62 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
               <Command.Empty className="py-3 text-center text-sm text-muted-foreground">
                 {loading === true ? loadingText : effectiveEmptyText}
               </Command.Empty>
-              {options.map((opt) => {
-                const isSelected = multiple
-                  ? selectedValues.has(opt.value)
-                  : opt.value === singleValue;
-                return (
-                  <Command.Item
-                    key={opt.value}
-                    value={opt.label}
-                    onSelect={() => {
-                      if (props.multiple === true) {
-                        toggleMulti(opt.value);
-                      } else {
-                        props.onChange(opt.value);
-                        setOpen(false);
-                      }
-                    }}
-                    // Browser-Click-Bug-Fix: Item-className enthielt vorher
-                    // `data-[disabled]:pointer-events-none`. Im Showcase
-                    // (mit Tailwind-CSS aktiv) waren Mouse-Clicks lautlos
-                    // tot — Keyboard-Select via Pfeiltasten funktionierte.
-                    // jsdom-Tests grün, weil dort kein Tailwind-CSS greift.
-                    // Genauer Trigger-Mechanismus (welches state setzt
-                    // `data-disabled` auf das Item?) wurde nicht weiter
-                    // untersucht — Class-Removal war ausreichend, um den
-                    // Click zu reaktivieren. Defensiv: keine pointer-events-
-                    // Schalter-Klassen mehr auf dem Item, sodass auch ein
-                    // zukünftig wieder gesetztes `data-disabled` keinen
-                    // stillen Click-Verlust mehr produzieren kann.
-                    className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
-                  >
-                    {isSelected && (
-                      <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
-                        <Check className="h-4 w-4" />
+              {groupOptions(options).map((section) => {
+                const items = section.options.map((opt) => {
+                  const isSelected = multiple
+                    ? selectedValues.has(opt.value)
+                    : opt.value === singleValue;
+                  return (
+                    <Command.Item
+                      key={opt.value}
+                      value={opt.label}
+                      keywords={opt.description !== undefined ? [opt.description] : undefined}
+                      onSelect={() => {
+                        if (props.multiple === true) {
+                          toggleMulti(opt.value);
+                        } else {
+                          props.onChange(opt.value);
+                          setOpen(false);
+                        }
+                      }}
+                      // Browser-Click-Bug-Fix: Item-className enthielt vorher
+                      // `data-[disabled]:pointer-events-none`. Im Showcase
+                      // (mit Tailwind-CSS aktiv) waren Mouse-Clicks lautlos
+                      // tot — Keyboard-Select via Pfeiltasten funktionierte.
+                      // jsdom-Tests grün, weil dort kein Tailwind-CSS greift.
+                      // Genauer Trigger-Mechanismus (welches state setzt
+                      // `data-disabled` auf das Item?) wurde nicht weiter
+                      // untersucht — Class-Removal war ausreichend, um den
+                      // Click zu reaktivieren. Defensiv: keine pointer-events-
+                      // Schalter-Klassen mehr auf dem Item, sodass auch ein
+                      // zukünftig wieder gesetztes `data-disabled` keinen
+                      // stillen Click-Verlust mehr produzieren kann.
+                      className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
+                    >
+                      {isSelected && (
+                        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                          <Check className="h-4 w-4" />
+                        </span>
+                      )}
+                      <span className="flex min-w-0 flex-col">
+                        <span>{opt.label}</span>
+                        {opt.description !== undefined && (
+                          <span className="text-xs text-muted-foreground">{opt.description}</span>
+                        )}
                       </span>
-                    )}
-                    <span>{opt.label}</span>
-                  </Command.Item>
+                    </Command.Item>
+                  );
+                });
+                return section.heading === undefined ? (
+                  items
+                ) : (
+                  <Command.Group
+                    key={section.heading}
+                    heading={section.heading}
+                    className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground"
+                  >
+                    {items}
+                  </Command.Group>
                 );
               })}
             </Command.List>

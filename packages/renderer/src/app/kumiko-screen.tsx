@@ -33,6 +33,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import {
+  buildOptionLabels,
   computeRelatedListSectionViewModel,
   fieldLabelKey,
   fieldOptionLabelKey,
@@ -41,6 +42,10 @@ import {
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  QueryOptionLabel,
+  resolveOptionsQueryPayload,
+} from "../components/query-options-select.js";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog.js";
 import {
   RenderEdit,
@@ -4037,6 +4042,26 @@ function ConfigEditBody({
       </Banner>
     );
   }
+  // Cascade values of a select show the option label the select itself shows,
+  // not the stored value (a UUID for optionsQuery selects).
+  const cascadeValueRenderer = (
+    fieldName: string,
+  ): ((value: string | number | boolean) => ReactNode) | undefined => {
+    const fieldDef = screen.fields[fieldName];
+    if (fieldDef?.type !== "select") return undefined;
+    if (fieldDef.optionsQuery !== undefined) {
+      const query = fieldDef.optionsQuery;
+      const payload = resolveOptionsQueryPayload(fieldDef.optionsQueryPayload ?? {}, initial);
+      return (value) => <QueryOptionLabel query={query} payload={payload} value={value} />;
+    }
+    if (fieldDef.options.length === 0) return undefined;
+    return (value) =>
+      buildOptionLabels(
+        effectiveTranslate,
+        (option) => fieldOptionLabelKey(schema.featureName, synthScreen.entity, fieldName, option),
+        [String(value)],
+      )[String(value)];
+  };
   return (
     <RenderEdit
       screen={synthScreen}
@@ -4050,6 +4075,7 @@ function ConfigEditBody({
       labelAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
         if (cascade === undefined) return undefined;
+        const renderValue = cascadeValueRenderer(fieldName);
         return (
           <ConfigCascadeView
             slot="trigger"
@@ -4057,6 +4083,7 @@ function ConfigEditBody({
             screenScope={screen.scope}
             expanded={expandedFields.has(fieldName)}
             onToggle={() => toggleExpanded(fieldName)}
+            {...(renderValue !== undefined && { renderValue })}
           />
         );
       }}
@@ -4065,6 +4092,7 @@ function ConfigEditBody({
         // Panel nur rendern wenn aufgeklappt — sonst kein leerer Abstand
         // unter dem Input.
         if (cascade === undefined || !expandedFields.has(fieldName)) return undefined;
+        const renderValue = cascadeValueRenderer(fieldName);
         return (
           <ConfigCascadeView
             slot="panel"
@@ -4072,6 +4100,7 @@ function ConfigEditBody({
             screenScope={screen.scope}
             expanded
             qualifiedKey={screen.configKeys[fieldName]}
+            {...(renderValue !== undefined && { renderValue })}
             onReset={async (key, scope) => {
               await dispatcher.write("config:write:reset", { key, scope });
               await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);

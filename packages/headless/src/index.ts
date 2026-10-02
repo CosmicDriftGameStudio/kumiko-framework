@@ -104,6 +104,7 @@ export type {
   Translate,
 } from "./view-model/index.js";
 export {
+  buildOptionLabels,
   computeDerivedCellValue,
   computeEditViewModel,
   computeListViewModel,

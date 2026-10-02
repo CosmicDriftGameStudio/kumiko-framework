@@ -135,6 +135,8 @@ export type {
   MoneyFieldDef,
   MultiSelectFieldDef,
   NumberFieldDef,
+  OptionsQueryPayload,
+  OptionsQueryPayloadValue,
   ParentRefDef,
   PersonalAnnotations,
   PersonalAnnotationsLongText,

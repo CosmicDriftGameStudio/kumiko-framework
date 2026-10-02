@@ -377,8 +377,13 @@ export type InputProps =
         | readonly {
             readonly value: string;
             readonly label: string;
-            /** Second line under the label; shown by `radioVariant="card"`. */
+            /** Muted second line under the label (radio list and dropdown items;
+             *  the dropdown search matches it too). */
             readonly description?: string;
+            /** Group heading. Groups form in order of first occurrence; options
+             *  without a group stay ungrouped and come before all groups. Options
+             *  with description or group never render as a segmented control. */
+            readonly group?: string;
           }[];
       readonly disabled?: boolean;
       readonly required?: boolean;
@@ -1196,6 +1201,9 @@ export type ConfigCascadeViewProps = {
   readonly slot?: "trigger" | "panel";
   readonly expanded?: boolean;
   readonly onToggle?: () => void;
+  /** Display form of a level value (e.g. a select's label instead of its raw
+   *  value). Absent = the raw value; a missing value stays "—". */
+  readonly renderValue?: (value: string | number | boolean) => ReactNode;
 };
 
 /** Card-Slots — benannte Inhalts-Regionen, alle optional. Neue Slots später =

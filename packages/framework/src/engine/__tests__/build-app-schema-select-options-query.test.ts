@@ -54,3 +54,41 @@ describe("select config key with optionsQuery: key → client schema → role pr
     });
   });
 });
+
+describe("select config key with a { field } payload ref", () => {
+  function hubFields(vendorGroup: string | undefined) {
+    const feature = defineFeature("ai-provider", (r) => {
+      r.config({
+        keys: {
+          modelVendor: createTenantConfig("text", {
+            default: "",
+            mask: { title: "ai-provider.model-vendor" },
+            ...(vendorGroup !== undefined && { group: vendorGroup }),
+          }),
+          model: createTenantConfig("select", {
+            mask: { title: "ai-provider.model" },
+            optionsQuery: "catalog:query:model-options",
+            optionsQueryPayload: { vendor: { field: "modelVendor" }, modality: "text" },
+          }),
+        },
+      });
+    });
+    const schema = buildAppSchema(createRegistry([catalog, feature]));
+    const hub = schema.features.find((f) => f.featureName === SETTINGS_HUB_FEATURE);
+    const screen = hub?.screens.find((s) => s.type === "configEdit");
+    if (screen?.type !== "configEdit") throw new Error("configEdit hub screen missing");
+    return screen.fields;
+  }
+
+  test("the ref points at the generated field id of the referenced key", () => {
+    expect(hubFields(undefined)["model"]).toMatchObject({
+      optionsQueryPayload: { vendor: { field: "model-vendor" }, modality: "text" },
+    });
+  });
+
+  test("a referenced key on another generated screen throws a clear error", () => {
+    expect(() => hubFields("other-group")).toThrow(
+      /ai-provider:config:model" optionsQueryPayload "vendor" references key "modelVendor", which is not on the same generated settings screen/,
+    );
+  });
+});

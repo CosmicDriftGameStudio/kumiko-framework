@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 import type { ConcurrencyMode } from "./concurrency-mode.js";
 import type { ConfigScope } from "./config-scope.js";
 import type { DbConnection } from "./db-connection.js";
-import type { FieldDefinition } from "./fields.js";
+import type { FieldDefinition, OptionsQueryPayload } from "./fields.js";
 import type { EscapeHatchDeclaration, JobContext } from "./handlers.js";
 import type {
   PostDeleteHookFn,
@@ -101,12 +101,14 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   readonly piiEncrypted?: boolean;
   readonly options?: readonly string[];
   /** Only on `type: "select"`: loads the options from this query (QN), contract
-   *  `{ rows: { value, label }[] }`, labels shown verbatim. Mutually exclusive with
+   *  `{ rows: { value, label, description?, group? }[] }`, labels shown verbatim. Mutually exclusive with
    *  `options` and `allowPerRequest`. The write side does not check the value against
    *  the query result; the consuming feature validates it where it uses it. */
   readonly optionsQuery?: string;
-  /** Static payload sent with every `optionsQuery` call. Requires `optionsQuery`. */
-  readonly optionsQueryPayload?: Readonly<Record<string, string | number | boolean>>;
+  /** Payload sent with every `optionsQuery` call. Requires `optionsQuery`. `{ field }`
+   *  names another config key (short name) of the owner feature, resolved on the
+   *  generated settings screen. */
+  readonly optionsQueryPayload?: OptionsQueryPayload;
   readonly bounds?: ConfigBounds;
   // Per-key string-pattern validation for type="text". The value must match
   // the regex at write time — set.write hard-rejects a mismatch with

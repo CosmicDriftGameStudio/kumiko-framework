@@ -7,6 +7,7 @@ import type {
   ListColumnSpec,
   ListFacetSpec,
   ListSortSpec,
+  OptionsQueryPayload,
   PlatformComponent,
   RelatedListGroupBy,
   RelatedListRowTone,
@@ -160,12 +161,13 @@ export type EditFieldViewModel = {
    *  `<feature>:entity:<entity>:field:<field>:option:<value>`. */
   readonly optionLabels?: Readonly<Record<string, string>>;
   /** Set for `type: "select"` when SelectFieldDef.optionsQuery is set: the
-   *  renderer loads the options from this query (`{ rows: { value, label }[] }`,
-   *  labels verbatim) instead of `options`. `payload` is the static
-   *  optionsQueryPayload, `{}` when absent. */
+   *  renderer loads the options from this query (`{ rows: { value, label,
+   *  description?, group? }[] }`, labels verbatim) instead of `options`. `payload`
+   *  is optionsQueryPayload (`{ field }` refs are resolved by the renderer against
+   *  the live form values), `{}` when absent. */
   readonly selectOptionsQuery?: {
     readonly query: string;
-    readonly payload: Readonly<Record<string, string | number | boolean>>;
+    readonly payload: OptionsQueryPayload;
   };
   /** Set for `type: "multiSelect"` when MultiSelectFieldDef.display is
    *  "checkboxes" — the renderer shows a checkbox grid with a select-all

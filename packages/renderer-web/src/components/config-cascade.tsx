@@ -58,9 +58,13 @@ function SourceBadge({
   );
 }
 
-function formatValue(value: string | number | boolean | undefined, hasValue: boolean): string {
+function formatValue(
+  value: string | number | boolean | undefined,
+  hasValue: boolean,
+  renderValue?: (value: string | number | boolean) => ReactNode,
+): ReactNode {
   if (!hasValue || value === undefined) return "—";
-  return String(value);
+  return renderValue !== undefined ? renderValue(value) : String(value);
 }
 
 function scopeToSource(scope: ConfigScope): ConfigValueSource {
@@ -126,6 +130,7 @@ type ConfigCascadeViewProps = {
   readonly slot?: "trigger" | "panel";
   readonly expanded?: boolean;
   readonly onToggle?: () => void;
+  readonly renderValue?: (value: string | number | boolean) => ReactNode;
 };
 
 export function ConfigCascadeView({
@@ -136,6 +141,7 @@ export function ConfigCascadeView({
   slot,
   expanded: expandedProp,
   onToggle,
+  renderValue,
 }: ConfigCascadeViewProps): ReactNode {
   const t = useTranslation();
   const [localExpanded, setLocalExpanded] = useState(false);
@@ -169,7 +175,7 @@ export function ConfigCascadeView({
         })}
       />
       <span className="text-gray-400">
-        {formatValue(activeDisplay.level.value, activeDisplay.level.hasValue)}
+        {formatValue(activeDisplay.level.value, activeDisplay.level.hasValue, renderValue)}
       </span>
     </>
   ) : (
@@ -193,7 +199,11 @@ export function ConfigCascadeView({
     expanded && expandable ? (
       <div className="mt-1 flex flex-col gap-0.5 pl-3 border-l-2 border-gray-100">
         {displayLevels.map((display) => (
-          <CascadeLevelRow key={display.level.source} display={display} />
+          <CascadeLevelRow
+            key={display.level.source}
+            display={display}
+            {...(renderValue !== undefined && { renderValue })}
+          />
         ))}
 
         {hasOverride && onReset && qualifiedKey ? (
@@ -228,7 +238,13 @@ export function ConfigCascadeView({
   );
 }
 
-function CascadeLevelRow({ display }: { display: DisplayLevel }): ReactNode {
+function CascadeLevelRow({
+  display,
+  renderValue,
+}: {
+  display: DisplayLevel;
+  renderValue?: (value: string | number | boolean) => ReactNode;
+}): ReactNode {
   const t = useTranslation();
   const { level } = display;
   return (
@@ -239,7 +255,7 @@ function CascadeLevelRow({ display }: { display: DisplayLevel }): ReactNode {
         source={display.badgeSource}
         {...(display.badgeLabelKey !== undefined && { labelKey: display.badgeLabelKey })}
       />
-      <span>{formatValue(level.value, level.hasValue)}</span>
+      <span>{formatValue(level.value, level.hasValue, renderValue)}</span>
       {level.isActive ? (
         <span className="text-[10px] text-gray-400">{t("kumiko.config.cascade.activeMarker")}</span>
       ) : null}

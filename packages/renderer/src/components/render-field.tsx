@@ -149,6 +149,7 @@ export function RenderField({
         field={field}
         query={field.selectOptionsQuery.query}
         payload={field.selectOptionsQuery.payload}
+        row={row ?? { [field.field]: field.value }}
         id={id}
         hasError={hasError}
         onChange={onChange}
