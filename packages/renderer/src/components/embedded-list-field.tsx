@@ -129,7 +129,18 @@ function coerceCellValue(column: EmbeddedListColumn, text: string, currency: str
   }
 }
 
-export function EmbeddedListField({
+// The reference-column queries are hooks called in a loop, so their count must
+// stay fixed per mount. Keying on the reference cells remounts when that set
+// changes (field-level access, in-place entity swap) instead of breaking hook order.
+export function EmbeddedListField(props: EmbeddedListFieldProps): ReactNode {
+  const referenceKey = (props.field.embeddedListCells ?? [])
+    .filter((c) => c.type === "reference")
+    .map((c) => `${c.field}:${c.refFeature ?? ""}:${c.refEntity ?? ""}`)
+    .join("|");
+  return <EmbeddedListFieldInner key={referenceKey} {...props} />;
+}
+
+function EmbeddedListFieldInner({
   field,
   id,
   onChange,
@@ -152,7 +163,7 @@ export function EmbeddedListField({
     referenceOptionSource(cell, cell.refFeature ?? featureName, cell.refEntity ?? ""),
   );
   const referenceQueries = referenceSources.map((source) =>
-    // biome-ignore lint/correctness/useHookAtTopLevel: referenceCells comes from the entity-schema definition — fixed for the screen's lifetime, not a real conditional-hook risk.
+    // biome-ignore lint/correctness/useHookAtTopLevel: the wrapper keys this component on the reference-cell set, so the hook count is fixed per mount.
     useQuery<{ rows: ReadonlyArray<Record<string, unknown>> }>(source.queryQn, {
       limit: REFERENCE_COMBOBOX_LIMIT,
     }),

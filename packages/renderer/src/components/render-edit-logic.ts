@@ -1,4 +1,5 @@
 import type {
+  DispatcherError,
   EditFieldViewModel,
   EditSectionViewModel,
   SubmitResult,
@@ -45,15 +46,19 @@ export function shouldNotifyCaller(
   return !(result.isSuccess && !extensionsPersisted);
 }
 
-// Matched on the first path segment (embedded-list rows are dotted, e.g. `tasks.2.title`).
+// Embedded-list rows are dotted (e.g. `tasks.2.title`); the form field is the first segment.
+export function issueRootField(path: string): string {
+  return path.split(".")[0] ?? path;
+}
+
 // No issues at all counts as unmatched, so the caller keeps the banner.
 export function hasIssueWithoutRenderedField(
   issuePaths: readonly string[],
   sections: readonly EditSectionViewModel[],
 ): boolean {
-  const renderedFields = sections
-    .filter((s) => s.kind === "fields" && (s.visible || s.fields.length === 0))
-    .flatMap((s) => (s.kind === "fields" ? s.fields : []));
+  const renderedFields = sections.flatMap((s) =>
+    s.kind === "fields" && s.visible ? s.fields : [],
+  );
   return hasIssueWithoutVisibleField(issuePaths, renderedFields);
 }
 
@@ -63,7 +68,23 @@ export function hasIssueWithoutVisibleField(
 ): boolean {
   if (issuePaths.length === 0) return true;
   const visibleFields = new Set(fields.filter((f) => f.visible).map((f) => f.field));
-  return issuePaths.some((path) => !visibleFields.has(path.split(".")[0] ?? path));
+  return issuePaths.some((path) => !visibleFields.has(issueRootField(path)));
+}
+
+// Same visibility rule as hasIssueWithoutRenderedField: a hidden field shows
+// no error, so jumping to its step would strand the user on an error-less step.
+export function findFirstErroringSectionIndex(
+  sections: readonly EditSectionViewModel[],
+  issuePaths: readonly string[],
+): number | undefined {
+  const erroredFields = new Set(issuePaths.map(issueRootField));
+  const index = sections.findIndex(
+    (s) =>
+      s.kind === "fields" &&
+      s.visible &&
+      s.fields.some((f) => f.visible && erroredFields.has(f.field)),
+  );
+  return index === -1 ? undefined : index;
 }
 
 // Extension, relatedList and writeForm sections skip the `fields` filter
@@ -91,4 +112,17 @@ export function filterEditSections(
     result.push({ ...section, fields });
   }
   return result;
+}
+
+// `onDelete` is typed `() => void`-compatible, so a caller can return any value
+// at runtime (a WriteResult, `true`); only a real DispatcherError is a rejection.
+export function isDispatcherRejection(value: unknown): value is DispatcherError {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "code" in value &&
+    typeof value.code === "string" &&
+    "i18nKey" in value &&
+    typeof value.i18nKey === "string"
+  );
 }
