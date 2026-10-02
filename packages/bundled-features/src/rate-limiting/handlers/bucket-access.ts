@@ -1,5 +1,5 @@
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
-import type { RateLimitPer } from "@cosmicdrift/kumiko-framework/engine";
+import type { RateLimitPer, SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { RateLimitErrors } from "../constants.js";
 
@@ -7,11 +7,7 @@ import { RateLimitErrors } from "../constants.js";
 // rate-limit/bucket.ts) — only `tenant*` and `user*` carry a subject the
 // caller can own. `l1:`/`l2:` (middleware.ts) and every `ip*` bucket are
 // global, so they stay SystemAdmin-only.
-type BucketCaller = {
-  readonly id: string;
-  readonly tenantId: string;
-  readonly roles: readonly string[];
-};
+type BucketCaller = Pick<SessionUser, "id" | "tenantId" | "roles">;
 
 // Typed against RateLimitPer so a renamed dimension in bucket.ts
 // breaks the typecheck instead of silently denying access.

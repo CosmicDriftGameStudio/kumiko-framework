@@ -25,7 +25,12 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
-import { type MailSpec, mailSpecSchema, performMailDispatch } from "./mail-runner.js";
+import {
+  type MailSpec,
+  mailSpecSchema,
+  performMailDispatch,
+  redactEmailAddresses,
+} from "./mail-runner.js";
 import {
   performWebhookDispatch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
@@ -280,7 +285,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
             if (payload.stepKind === "mail.send") {
               log.warn("mail dispatch failed", {
                 aggregateId: event.aggregateId,
-                reason: result.error,
+                reason: redactEmailAddresses(result.error),
               });
               await recordFailure(payload.stepKind, MAIL_DELIVERY_FAILED_ERROR);
             } else {

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createRecordingRedisFake } from "./__tests__/recording-redis-fake.js";
 import { createLockoutCounter } from "./lockout-counter.js";
 
 // Production Redis has active lockout/mfa-verify entries under these exact
@@ -12,35 +13,14 @@ import { createLockoutCounter } from "./lockout-counter.js";
 // operations are) — verify the key shape indirectly through a fake Redis
 // client that records the keys it's called with.
 function fakeRedis(incrResult = 1) {
-  const calls: { method: string; args: unknown[] }[] = [];
-  const redis = {
-    mget: async (...args: unknown[]) => {
-      calls.push({ method: "mget", args });
-      return [null, null];
-    },
-    incr: async (...args: unknown[]) => {
-      calls.push({ method: "incr", args });
-      return incrResult;
-    },
-    expire: async (...args: unknown[]) => {
-      calls.push({ method: "expire", args });
-      return 1;
-    },
-    set: async (...args: unknown[]) => {
-      calls.push({ method: "set", args });
-      return "OK";
-    },
-    get: async (...args: unknown[]) => {
-      calls.push({ method: "get", args });
-      return null;
-    },
-    del: async (...args: unknown[]) => {
-      calls.push({ method: "del", args });
-      return 1;
-    },
-    // biome-ignore lint/suspicious/noExplicitAny: minimal ioredis stand-in for key-string assertions
-  } as any;
-  return { redis, calls };
+  return createRecordingRedisFake({
+    mget: [null, null],
+    incr: incrResult,
+    expire: 1,
+    set: "OK",
+    get: null,
+    del: 1,
+  });
 }
 
 describe("account-lockout Redis key strings", () => {

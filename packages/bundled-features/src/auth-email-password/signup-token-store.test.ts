@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createRecordingRedisFake } from "../shared/__tests__/recording-redis-fake.js";
 import { normalizeEmail, storeSignupToken } from "./signup-token-store.js";
 
 // Asserts on the raw Redis key: a case-sensitivity
@@ -6,15 +7,7 @@ import { normalizeEmail, storeSignupToken } from "./signup-token-store.js";
 // "User@Example.com" and "user@example.com" would silently get separate
 // live-token entries instead of the second invalidating the first.
 function fakeRedis() {
-  const calls: { method: string; args: unknown[] }[] = [];
-  const redis = {
-    set: async (...args: unknown[]) => {
-      calls.push({ method: "set", args });
-      return "OK";
-    },
-    // biome-ignore lint/suspicious/noExplicitAny: minimal ioredis stand-in for key-string assertions
-  } as any;
-  return { redis, calls };
+  return createRecordingRedisFake({ set: "OK", get: null, del: 1, mget: [], incr: 1, expire: 1 });
 }
 
 describe("storeSignupToken", () => {

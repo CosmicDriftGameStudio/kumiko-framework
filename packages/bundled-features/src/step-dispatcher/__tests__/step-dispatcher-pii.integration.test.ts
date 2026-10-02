@@ -188,7 +188,21 @@ describe("step-dispatcher payload crypto-shredding", () => {
     await stack.http.writeOk("step-pii-probe:write:notify-mail", MAIL_INPUT, admin);
     const requested = await requestedRow();
 
-    await drain();
+    const warnings: unknown[][] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args);
+    };
+    try {
+      await drain();
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    const mailFailureLogs = warnings.filter((args) => String(args[0]).includes("mail dispatch"));
+    expect(mailFailureLogs).toHaveLength(1);
+    expect(JSON.stringify(mailFailureLogs)).not.toContain("ops@example.com");
+    expect(JSON.stringify(mailFailureLogs)).toContain("rejected");
 
     const failed = await eventsOfType(DISPATCH_FAILED);
     expect(failed).toHaveLength(1);

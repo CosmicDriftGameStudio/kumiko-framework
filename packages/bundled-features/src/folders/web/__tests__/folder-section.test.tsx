@@ -28,7 +28,7 @@ const dispatchSpy = mock(async (type: string) =>
     : { isSuccess: true, data: undefined },
 );
 
-const useQuerySpy = mock((type: string) => ({
+const useQuerySpy = mock((type: string, _params?: unknown) => ({
   data: type === FoldersQueries.folderList ? { rows: folderRows } : { rows: assignmentRows },
   loading: false,
   error: null,
@@ -85,6 +85,22 @@ function StubComboboxWrapper({ children }: { readonly children: ReactNode }): Re
 }
 
 describe("FolderSection", () => {
+  test("filters assignments on entityType and entityId server-side", () => {
+    useQuerySpy.mockClear();
+    render(
+      <Wrapper>
+        <FolderSection entityName="credit" entityId="c-1" />
+      </Wrapper>,
+    );
+    const call = useQuerySpy.mock.calls.find((c) => c[0] === FoldersQueries.assignmentList);
+    expect(call?.[1]).toEqual({
+      filters: [
+        { field: "entityType", op: "eq", value: "credit" },
+        { field: "entityId", op: "eq", value: "c-1" },
+      ],
+    });
+  });
+
   test("options carry the full folder path (not just the leaf name)", () => {
     folderRows = [
       { id: "f1", name: "Immobilie", parentId: null, version: 1 },

@@ -50,10 +50,12 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
+  parseTenantId,
   type StorageProviderDestroyTenantHook,
   type StorageProviderHookCtx,
   type TenantDataDestroyHook,
   type TenantDataHookCtx,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   assertSafeStorageKey,
@@ -103,6 +105,14 @@ export const fileRefTenantDestroyHook: TenantDataDestroyHook = async (ctx) => {
   }
 };
 
+// The bytes live under the tenant that uploaded them (`<tenantId>/…` or
+// `exports/<tenantId>/…`), so with per-tenant storage config that tenant's
+// provider — not the destroyed destination tenant's — holds them.
+function storageKeyOwnerTenant(storageKey: string, fallback: TenantId): TenantId {
+  const [first, second] = storageKey.split("/");
+  return parseTenantId(first) ?? (first === "exports" ? parseTenantId(second) : null) ?? fallback;
+}
+
 async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string): Promise<void> {
   if (!ctx.fileProviderResolver) {
     // skip: same graceful-degradation stance as fileRefStorageDestroyHook —
@@ -113,12 +123,13 @@ async function deleteHandedOverBinary(ctx: TenantDataHookCtx, storageKey: string
     // skip: no provider wired, so there is no store to delete from — logged above.
     return;
   }
+  const ownerTenantId = storageKeyOwnerTenant(storageKey, ctx.tenantId);
   let provider: Awaited<ReturnType<NonNullable<TenantDataHookCtx["fileProviderResolver"]>>>;
   try {
-    provider = await ctx.fileProviderResolver(ctx.tenantId);
+    provider = await ctx.fileProviderResolver(ownerTenantId);
   } catch (err) {
     ctx.log?.(
-      `[files-tenant-data] no file provider resolvable for tenant ${ctx.tenantId}: ${err instanceof Error ? err.message : String(err)} — handed-over binary for ${storageKey} NOT deleted`,
+      `[files-tenant-data] no file provider resolvable for tenant ${ownerTenantId}: ${err instanceof Error ? err.message : String(err)} — handed-over binary for ${storageKey} NOT deleted`,
     );
     // skip: provider resolution failed, so there is nothing this call can delete — logged above.
     return;

@@ -41,6 +41,9 @@ export const JOBS_I18N: Readonly<Record<string, LocalizedString>> = {
   "jobs.errors.notManual": {
     en: "This job cannot be triggered manually.",
   },
+  "jobs.errors.invalidPayload": {
+    en: "The payload must be a valid JSON object.",
+  },
   "jobs.errors.notFound": { en: "Not found." },
   "jobs.errors.onlyFailedCanRetry": {
     en: "Only failed runs can be retried.",

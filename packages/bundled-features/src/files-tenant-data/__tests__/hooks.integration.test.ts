@@ -355,6 +355,34 @@ describe("files-tenant-data :: tenant destroy", () => {
       expect(await provider.exists(handedOverKey)).toBe(false);
     });
 
+    test("deletes the handed-over binary from the SOURCE tenant's provider when storage is per-tenant", async () => {
+      await seedTenant(tenantA);
+      await seedTenant(tenantB);
+
+      const handedOverKey = buildStorageKey(
+        tenantA.tenantId,
+        "fileRef",
+        1,
+        "attachment",
+        "photo.jpg",
+        "u1",
+      );
+      const { id: fileRefId } = await seedFileRef(tenantA.tenantId, handedOverKey);
+      const providerOfA = createInMemoryFileProvider();
+      const providerOfB = createInMemoryFileProvider();
+      await providerOfA.write(handedOverKey, new Uint8Array([1]));
+
+      await handOverFileRef(fileRefId, tenantB.tenantId);
+
+      await seedDestroyingTenant(tenantB.tenantId);
+      const finalStatus = await driveDestructionToCompletion(tenantB.tenantId, async (tenantId) =>
+        tenantId === tenantA.tenantId ? providerOfA : providerOfB,
+      );
+      expect(finalStatus).toBe("destroyed");
+
+      expect(await providerOfA.exists(handedOverKey)).toBe(false);
+    });
+
     test("the SOURCE tenant's destroy does not delete a file — or its derivative — a foreign tenant claimed, but still sweeps a true orphan", async () => {
       await seedTenant(tenantA);
       await seedTenant(tenantB);
