@@ -773,6 +773,37 @@ describe("createStripePlanSwitchSession", () => {
     expect(listMock).not.toHaveBeenCalled();
   });
 
+  test("an allowed price whose prices.retrieve fails throws UnprocessableError('price_unavailable') before any portal configuration is listed or created", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscription());
+    spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) => {
+      if (id === "price_switch_flaky") throw new Error("stripe 503");
+      return stripePrice({ id, product: "prod_switch_ok" });
+    }) as never);
+    const listMock = spyOn(stripe.billingPortal.configurations, "list");
+    const createConfigMock = spyOn(stripe.billingPortal.configurations, "create");
+
+    const planSwitch = createStripePlanSwitchSession(
+      ctxRuntime(stripe),
+      createStripePriceCache(),
+      new Map<string, string>(),
+    );
+    const promise = planSwitch(stubCtx, {
+      providerSubscriptionId: "sub_switch_001",
+      targetPriceId: "price_switch_flaky",
+      allowedPriceIds: ["price_switch_current", "price_switch_flaky"],
+      returnUrl: "https://example.com/return",
+    });
+    await expect(promise).rejects.toBeInstanceOf(UnprocessableError);
+    await expect(promise).rejects.toMatchObject({
+      httpStatus: 422,
+      i18nKey: "billing-foundation.errors.priceUnavailable",
+      details: { reason: "price_unavailable" },
+    });
+    expect(listMock).not.toHaveBeenCalled();
+    expect(createConfigMock).not.toHaveBeenCalled();
+  });
+
   test("a StripeInvalidRequestError from configurations.create() concerning subscription_update products becomes UnprocessableError('plan_tiers_share_product')", async () => {
     const stripe = buildStripe();
     spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscription());

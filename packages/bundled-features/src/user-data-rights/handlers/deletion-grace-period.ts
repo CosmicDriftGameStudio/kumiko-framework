@@ -117,10 +117,12 @@ export async function startDeletionGracePeriod(
     { expect: { status: USER_STATUS.Active, ...additionalExpect } },
   );
   if (!applied) {
+    // userRow predates the write, so its status is stale for the concurrent loser.
+    const currentRow = await ctx.db.global(userTable).fetchOne<{ status: string }>({ id: userId });
     return {
       ok: false,
       error: new UnprocessableError("user_not_in_active_state", {
-        details: { currentStatus: userRow["status"] },
+        details: { currentStatus: currentRow?.["status"] ?? userRow["status"] },
       }),
     };
   }
