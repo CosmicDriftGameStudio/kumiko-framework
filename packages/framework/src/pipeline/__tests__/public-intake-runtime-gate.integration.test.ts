@@ -543,6 +543,10 @@ describe("public-intake runtime gate", () => {
     expect(res.status).toBe(403);
     const body = (await res.json()) as { error: { details: { reason: string } } };
     expect(body.error.details.reason).toBe("public_intake_required");
+    // The 403 reaches anonymous callers: it must not map the schema.
+    expect(body.error.details).not.toHaveProperty("target");
+    expect(body.error.details).not.toHaveProperty("fields");
+    expect(JSON.stringify(body)).not.toContain(contactTable.tableName);
     expect(await rowCount()).toBe(0);
   });
 

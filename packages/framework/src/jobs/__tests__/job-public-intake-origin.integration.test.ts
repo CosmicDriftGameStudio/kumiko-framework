@@ -379,9 +379,8 @@ describe("job/event write-origin inheritance", () => {
     expect((failure?.details as { rootHandler?: string } | undefined)?.rootHandler).toBe(
       rootHandler,
     );
-    expect((failure?.details as { fields?: readonly string[] } | undefined)?.fields).toContain(
-      "value",
-    );
+    expect(failure?.details).not.toHaveProperty("fields");
+    expect(failure?.details).not.toHaveProperty("target");
     expect(failure?.message).toContain(`via job "${job}"`);
   }
 

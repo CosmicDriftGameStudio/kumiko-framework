@@ -65,6 +65,7 @@ export {
   emitDispatcherHandler,
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
+  emitEventConsumerPassSkipped,
   emitEventConsumerRearmExhausted,
   emitEventDispatcherListenConnected,
   emitHttpRequest,

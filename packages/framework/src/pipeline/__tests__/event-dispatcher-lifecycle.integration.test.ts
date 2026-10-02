@@ -171,6 +171,35 @@ describe("drain", () => {
     expect(observations).toHaveLength(1);
     await pass;
   });
+
+  test("waits for a slow in-flight consumer turn, then leaves the dispatcher running", async () => {
+    slowHandlerDelayMs = 300;
+    await stack.eventDispatcher?.start();
+    try {
+      await appendWidget("in-flight");
+      await waitFor(() => observations.length >= 1, { delays: Array(40).fill(50) });
+
+      await stack.eventDispatcher?.drain();
+      expect(slowHandlerInvocations).toHaveLength(1);
+
+      // No second start(): drain() must keep the timer / LISTEN wake-up alive.
+      slowHandlerDelayMs = 0;
+      await appendWidget("after-drain");
+      await waitFor(() => observations.length >= 2, { delays: Array(40).fill(50) });
+      expect(observations[1]?.event.payload["name"]).toBe("after-drain");
+    } finally {
+      await stack.eventDispatcher?.stop();
+    }
+  });
+
+  test("without a started dispatcher and nothing in flight it is a no-op that starts no pass", async () => {
+    await stack.eventDispatcher?.ensureRegistered();
+    await appendWidget("not-delivered");
+
+    await stack.eventDispatcher?.drain();
+
+    expect(observations).toHaveLength(0);
+  });
 });
 
 describe("withBackgroundPassesPaused", () => {

@@ -97,6 +97,16 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
     description: "Consumer transitioned to dead with its auto-rearm budget exhausted.",
     labels: ["consumer", "instance_id"],
   },
+  // An idle-gated consumer turn opens no events.consumer.pass span (the lock-free
+  // pre-check proves there is nothing to do), so this counter is the only trace of
+  // per-tick pass frequency for consumers that are idle or disabled.
+  {
+    name: "kumiko_event_consumer_pass_skipped_total",
+    type: "counter",
+    description:
+      "Consumer turns skipped before opening a pass span because the idle pre-check proved nothing to deliver.",
+    labels: ["consumer", "instance_id", "reason"],
+  },
   // LISTEN-subscription health. 1 = active, 0 = dropped. Drops to 0 while
   // the dispatcher is running signal that delivery latency has regressed
   // from sub-millisecond (LISTEN) to pollIntervalMs (timer fallback); ops
@@ -246,6 +256,18 @@ export function emitEventConsumerRearmExhausted(
   meter.counter("kumiko_event_consumer_rearm_exhausted_total").inc(1, {
     consumer: labels.consumer,
     instance_id: labels.instanceId,
+  });
+}
+
+export function emitEventConsumerPassSkipped(
+  meter: Meter,
+  labels: { readonly consumer: string; readonly instanceId: string },
+  reason: "idle",
+): void {
+  meter.counter("kumiko_event_consumer_pass_skipped_total").inc(1, {
+    consumer: labels.consumer,
+    instance_id: labels.instanceId,
+    reason,
   });
 }
 
