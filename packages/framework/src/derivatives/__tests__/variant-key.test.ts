@@ -107,6 +107,10 @@ describe("derivativeListPrefix + isDerivativeKeyOf — real deriveKey() output",
     expect(isDerivativeKeyOf(original, "tenant/photo.jpg")).toBe(false);
   });
 
+  test("an uppercase-hex hash segment is not a derivative (specHash is lowercase)", () => {
+    expect(isDerivativeKeyOf(original, "tenant/photo.thumb-0123456789ABCDEF.jpg")).toBe(false);
+  });
+
   test("extension-less original: derivatives have no trailing extension either", () => {
     const noExtOriginal = "tenant/document";
     const noExtSuffix = variantSuffix("preview", { maxEdge: 256 });

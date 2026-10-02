@@ -42,7 +42,9 @@ export function variantSuffix(name: string, spec: VariantSpec): string {
 // A full derivative-suffix segment is `<name>-<16 hex chars>` — mirrors
 // VARIANT_NAME_PATTERN (name grammar) + specHash's fixed 16-char slice.
 // Keep in sync with both if either changes.
-const DERIVATIVE_SUFFIX_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}-[0-9a-f]{16}$/i;
+// The hash part stays case-sensitive (specHash emits lowercase hex only), so
+// the erasure sweep never matches a differently-cased sibling file.
+const DERIVATIVE_SUFFIX_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,31}-[0-9a-f]{16}$/;
 
 // Mirrors deriveKey's own split so callers get the exact same base/ext this
 // key's derivatives were built from.

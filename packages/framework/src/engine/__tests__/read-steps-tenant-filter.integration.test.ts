@@ -88,16 +88,21 @@ const listEscapedHandler = defineWriteHandler({
   schema: listEscapedSchema,
   access: { roles: ["Admin"] },
   escapeHatch: { reason: ESCAPED_REASON },
-  perform: stepsPipeline<z.infer<typeof listEscapedSchema>, { count: number }>(({ r }) => [
-    r.step.read.findMany("items", {
-      table: readFilterTable,
-      unsafeAllTenants: { reason: ESCAPED_REASON },
-    }),
-    r.step.return(({ steps }) => ({
-      isSuccess: true as const,
-      data: { count: (steps["items"] as readonly unknown[]).length },
-    })),
-  ]),
+  perform: stepsPipeline<z.infer<typeof listEscapedSchema>, { count: number; ids: string[] }>(
+    ({ r }) => [
+      r.step.read.findMany("items", {
+        table: readFilterTable,
+        unsafeAllTenants: { reason: ESCAPED_REASON },
+      }),
+      r.step.return(({ steps }) => {
+        const rows = steps["items"] as readonly { id: string }[];
+        return {
+          isSuccess: true as const,
+          data: { count: rows.length, ids: rows.map((row) => row.id) },
+        };
+      }),
+    ],
+  ),
 });
 
 const readStepsTenantFilterFeature = defineFeature("read-steps-tenant-filter", (r) => {
@@ -193,13 +198,14 @@ describe("r.step.read.findOne/findMany tenant-filtering (fw#2914)", () => {
   test("unsafeAllTenants with escapeHatch on the handler sees rows across tenants and reports unsafe-raw", async () => {
     events.length = 0;
 
-    const data = await stack.http.writeOk<{ count: number }>(
+    const data = await stack.http.writeOk<{ count: number; ids: string[] }>(
       "read-steps-tenant-filter:write:list-escaped",
       {},
       admin,
     );
 
-    expect(data.count).toBeGreaterThanOrEqual(2);
+    expect(data.ids).toContain(adminRowId);
+    expect(data.ids).toContain(otherTenantRowId);
 
     const matches = events.filter((e) => e.kind === "unsafe-raw");
     expect(matches).toEqual([
