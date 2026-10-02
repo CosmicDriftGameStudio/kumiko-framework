@@ -97,6 +97,33 @@ describe("delivery:query:log — PagedRows contract", () => {
     expect(second.rows.map((r) => r.type)).toEqual(["logtest:gamma"]);
     expect(second.nextCursor).toBeNull();
   });
+
+  test.each(["asc", "desc"] as const)(
+    "paging by a column with duplicate values (%s) neither skips nor repeats rows at the page boundary",
+    async (sortDirection) => {
+      type Page = { rows: readonly LogRow[]; nextCursor: string | null };
+      const everyRow = await stack.http.queryOk<Page>(
+        DeliveryQueries.log,
+        { limit: 50, sort: "status", sortDirection },
+        systemAdmin,
+      );
+      // Two rows share status "sent" (one per tenant), so a page of 3 ends inside the tie.
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const page: Page = await stack.http.queryOk<Page>(
+          DeliveryQueries.log,
+          { limit: 3, sort: "status", sortDirection, ...(cursor ? { cursor } : {}) },
+          systemAdmin,
+        );
+        seen.push(...page.rows.map((r) => r.id));
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor);
+
+      expect(everyRow.rows.length).toBe(4);
+      expect(seen).toEqual(everyRow.rows.map((r) => r.id));
+    },
+  );
 });
 
 describe("delivery:query:log — sort", () => {

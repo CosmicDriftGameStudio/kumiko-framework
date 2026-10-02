@@ -14,8 +14,11 @@
 
 import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { mapWithConcurrency } from "../../../shared/index.js";
 import { encryptFailureError } from "../../job-run-logger.js";
 import { jobRunsTable } from "../../job-run-table.js";
+
+const KMS_POOL_CONCURRENCY = 4;
 
 export const STALE_JOB_RUN_ERROR =
   "job run exceeded the stale-run timeout without a completion signal (likely a crashed worker process)";
@@ -33,41 +36,49 @@ export async function markStaleJobRunsFailed(
 
   // Fetch the matched rows first: `error` carries the same per-triggering-
   // user subject annotation as job-run-logger.ts's onJobFailed path
-  // (personal: { of: "triggeredById" } on job-run-table.ts), and a batch
-  // updateMany can't encrypt per-row — different matched runs can belong to
-  // different users, each under their own DEK. One updateMany per row keeps
-  // this crash-recovery sweep's write on the same encrypted footing as the
-  // normal failure path instead of writing STALE_JOB_RUN_ERROR in the clear.
+  // (personal: { of: "triggeredById" } on job-run-table.ts), so it is encrypted
+  // under that subject's DEK. Runs are grouped by subject: one encrypt and one
+  // updateMany per subject instead of per run.
   const stale = await selectMany<{ id: string; triggeredById: string | null }>(db, jobRunsTable, {
     status: "running",
     startedAt: { lt: cutoff },
   });
 
+  const idsBySubject = new Map<string | null, string[]>();
+  for (const run of stale) {
+    const ids = idsBySubject.get(run.triggeredById);
+    if (ids) ids.push(run.id);
+    else idsBySubject.set(run.triggeredById, [run.id]);
+  }
+
   // duration is deliberately left untouched: we don't know when the run
   // actually died, only that it crossed the timeout, so recording a
   // duration would misrepresent it as measured. detail-screen/list-screen
   // both already render a null duration as "—".
-  let runsMarkedFailed = 0;
-  for (const run of stale) {
-    const encryptedError = await encryptFailureError(STALE_JOB_RUN_ERROR, run.triggeredById);
-    const updated = await updateMany(
-      db,
-      jobRunsTable,
-      {
-        status: "failed",
-        error: encryptedError,
-        finishedAt: now,
-        modifiedAt: now,
-        modifiedById: "system",
-      },
-      // Re-assert status: "running" here (not just id) — closes the race
-      // window between the selectMany above and this write, where the run
-      // could have completed/failed normally in between and must not be
-      // clobbered back to "failed" with the stale-timeout message.
-      { id: run.id, status: "running" },
-    );
-    runsMarkedFailed += updated.length;
-  }
+  const updatedPerSubject = await mapWithConcurrency(
+    [...idsBySubject],
+    KMS_POOL_CONCURRENCY,
+    async ([triggeredById, ids]) => {
+      const encryptedError = await encryptFailureError(STALE_JOB_RUN_ERROR, triggeredById);
+      const updated = await updateMany(
+        db,
+        jobRunsTable,
+        {
+          status: "failed",
+          error: encryptedError,
+          finishedAt: now,
+          modifiedAt: now,
+          modifiedById: "system",
+        },
+        // Re-assert status: "running" (not just id) — closes the race window
+        // between the selectMany above and this write, where a run could have
+        // completed/failed normally and must not be clobbered back to "failed".
+        { id: { in: ids }, status: "running" },
+      );
+      return updated.length;
+    },
+  );
+  const runsMarkedFailed = updatedPerSubject.reduce((sum, count) => sum + count, 0);
 
   return { runsMarkedFailed };
 }

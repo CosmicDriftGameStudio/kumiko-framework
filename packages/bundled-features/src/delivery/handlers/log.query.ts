@@ -1,5 +1,5 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
-import { decodeCursor, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
+import { decodeKeysetCursor, encodeKeysetCursor } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   definePagedQueryHandler,
@@ -53,17 +53,18 @@ type DeliveryLogSortColumn = (typeof DELIVERY_LOG_SORT_COLUMNS)[DeliveryLogSortF
 // PHYSICAL column, not the display alias — row only has the DB field names
 // (e.g. notificationType), never the alias (e.g. "type").
 function encodeSortCursor(column: DeliveryLogSortColumn, row: DeliveryLogRow): string {
-  if (column === "createdAt") return encodeCursor(row.createdAt.toString());
-  return encodeCursor(String(row[column]));
+  const sortValue = column === "createdAt" ? row.createdAt.toString() : String(row[column]);
+  return encodeKeysetCursor(sortValue, row.id);
 }
 
-function decodeSortCursor(
-  column: DeliveryLogSortColumn,
-  cursor: string,
-): Temporal.Instant | string {
-  const decoded = decodeCursor(cursor);
-  if (column === "createdAt") return Temporal.Instant.from(decoded);
-  return decoded;
+type DecodedSortCursor = { sortValue: Temporal.Instant | string; lastId: string | undefined };
+
+// lastId is undefined for a legacy sort-value-only cursor still in flight.
+function decodeSortCursor(column: DeliveryLogSortColumn, cursor: string): DecodedSortCursor {
+  const decoded = decodeKeysetCursor(cursor);
+  const raw = decoded.sortValue ?? decoded.id;
+  const sortValue = column === "createdAt" ? Temporal.Instant.from(raw) : raw;
+  return { sortValue, lastId: decoded.sortValue === undefined ? undefined : decoded.id };
 }
 
 export const logQuery = definePagedQueryHandler({
@@ -104,26 +105,47 @@ export const logQuery = definePagedQueryHandler({
 
     // TenantAdmin/Admin stay strictly tenant-scoped; SystemAdmin sees every
     // tenant's attempts (platform waitlist confirmations live on SYSTEM_TENANT_ID).
-    const where: WhereObject = isSystemAdmin ? {} : { tenantId: query.user.tenantId };
-    if (query.payload.cursor) {
-      where[sortColumn] = {
-        [sortDirection === "asc" ? "gt" : "lt"]: decodeSortCursor(sortColumn, query.payload.cursor),
-      };
-    }
+    const baseWhere: WhereObject = isSystemAdmin ? {} : { tenantId: query.user.tenantId };
+    const limit = query.payload.limit;
+    const cursor = query.payload.cursor
+      ? decodeSortCursor(sortColumn, query.payload.cursor)
+      : undefined;
+    const beyondSortValue = sortDirection === "asc" ? "gt" : "lt";
 
-    const rows = await selectMany<DeliveryLogRow>(db, deliveryAttemptsTable, where, {
-      // Tie-breaker on id keeps ordering stable across pages when the sort
-      // column has duplicate values (e.g. many rows with the same status).
-      orderBy: [
-        { col: sortColumn, direction: sortDirection },
-        { col: "id", direction: "asc" },
-      ],
-      limit: query.payload.limit,
-    });
+    // Keyset page = rows still tied on the cursor's sort value (id after the
+    // cursor's id), then rows strictly beyond it. Both halves are ordered the
+    // same way as the overall ORDER BY, so concatenation preserves it.
+    const tiedRows =
+      cursor?.lastId !== undefined
+        ? await selectMany<DeliveryLogRow>(
+            db,
+            deliveryAttemptsTable,
+            { ...baseWhere, [sortColumn]: cursor.sortValue, id: { gt: cursor.lastId } },
+            { orderBy: [{ col: "id", direction: "asc" }], limit },
+          )
+        : [];
+    const beyondRows =
+      tiedRows.length < limit
+        ? await selectMany<DeliveryLogRow>(
+            db,
+            deliveryAttemptsTable,
+            cursor
+              ? { ...baseWhere, [sortColumn]: { [beyondSortValue]: cursor.sortValue } }
+              : baseWhere,
+            {
+              orderBy: [
+                { col: sortColumn, direction: sortDirection },
+                { col: "id", direction: "asc" },
+              ],
+              limit: limit - tiedRows.length,
+            },
+          )
+        : [];
+    const rows = [...tiedRows, ...beyondRows];
 
     const lastRow = rows[rows.length - 1];
     const nextCursor =
-      rows.length === query.payload.limit && lastRow ? encodeSortCursor(sortColumn, lastRow) : null;
+      rows.length === limit && lastRow ? encodeSortCursor(sortColumn, lastRow) : null;
 
     // recipientAddress is stored encrypted under the recipient's DEK (#799)
     // — decrypt for the admin log view; forgotten subjects show [[erased]].
