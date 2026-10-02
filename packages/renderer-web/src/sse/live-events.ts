@@ -43,6 +43,7 @@ function hasErrorCode(body: unknown): body is { readonly error: { readonly code:
 async function isSessionEndedRejection(url: string): Promise<boolean> {
   const controller = new AbortController();
   try {
+    // guard-allow: same-origin fetch
     const res = await fetch(url, {
       credentials: "same-origin",
       headers: { Accept: "text/event-stream" },
@@ -97,6 +98,7 @@ export function createEventSourceLiveEvents(
     const connection = new EventSource(url);
     source = connection;
     const { onSessionEnded } = options;
+    // skip: no session-end consumer, a refused handshake needs no probe
     if (onSessionEnded === undefined) return;
     connection.addEventListener("error", () => {
       // skip: CONNECTING means a dropped stream the browser retries itself;
