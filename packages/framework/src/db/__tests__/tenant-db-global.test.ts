@@ -223,6 +223,15 @@ describe("TenantDb.global()", () => {
     ).rejects.toThrow(/SYSTEM/);
   });
 
+  test("tenant-mode updateMany/deleteMany on a global-tenancy table reject instead of silently matching nothing", async () => {
+    const tdb = createTenantDb(unreachableRunner(), own);
+    const erasedTable = globalManagedTable as unknown as TableColumns;
+    await expect(tdb.updateMany(erasedTable, { name: "y" }, { id: "x" })).rejects.toThrow(
+      /db\.global/,
+    );
+    await expect(tdb.deleteMany(erasedTable, { id: "x" })).rejects.toThrow(/db\.global/);
+  });
+
   test("plain (non-global) insertOne on a global-tenancy managed table (has tenant_id) with a foreign tenant rejects before touching the runner", async () => {
     const tdb = createTenantDb(unreachableRunner(), own);
     // insertOne's WritableTable param types out branded EntityTables — same

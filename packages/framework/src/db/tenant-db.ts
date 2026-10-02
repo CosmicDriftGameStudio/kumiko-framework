@@ -540,6 +540,20 @@ export function createTenantDb(
     return new AccessDeniedError({ message });
   }
 
+  // A tenant-mode write against a "global" table can never match (rows carry SYSTEM_TENANT_ID, writeWhere pins the caller's tenant), so reject loudly instead of silently affecting zero rows.
+  function tenantWriteOnGlobalTable(
+    table: Table,
+    method: "updateMany" | "deleteMany",
+  ): AccessDeniedError | undefined {
+    if (mode !== "tenant" || !hasTenantColumn(table)) return undefined;
+    if (asEntityTableMeta(table)?.tenancy !== "global") return undefined;
+    return new AccessDeniedError({
+      message:
+        `${method}(${tableNameOf(table)}): "global" table rows carry SYSTEM_TENANT_ID and never match the caller's tenant; ` +
+        "use db.global(table) with escapeHatch instead.",
+    });
+  }
+
   function globalTable<TTable extends (SchemaTable | EntityTableMeta) & TenancyBrand<"global">>(
     table: TTable,
   ): GlobalTableDb<TTable> {
@@ -698,6 +712,8 @@ export function createTenantDb(
           ),
         );
       }
+      const globalDenied = tenantWriteOnGlobalTable(table, "updateMany");
+      if (globalDenied) return Promise.reject(globalDenied);
       const personalDenied = personalDataDenied(table, Object.keys(set));
       if (personalDenied) return Promise.reject(personalDenied);
       const filter = writeWhere(table, where);
@@ -712,6 +728,8 @@ export function createTenantDb(
           ),
         );
       }
+      const globalDenied = tenantWriteOnGlobalTable(table, "deleteMany");
+      if (globalDenied) return Promise.reject(globalDenied);
       const filter = writeWhere(table, where);
       return withDbSpan("delete", table, async () => bunDeleteMany(db, table, filter));
     },
