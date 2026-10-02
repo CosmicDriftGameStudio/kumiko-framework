@@ -14,6 +14,7 @@
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import { asRawClient } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
@@ -222,5 +223,63 @@ describe("createSubscriptionTierSync — tier-sync effect", () => {
     };
     expect(listed.rows).toHaveLength(1);
     expect(listed.rows[0]?.["tier"]).toBe("free");
+  });
+});
+
+// =============================================================================
+// 'fail-webhook' retry — the option exists so a provider retry with the same
+// providerEventId re-runs the sync after the primary write already committed.
+// The real transient fault: tier-engine is mounted but its table is gone for
+// the first delivery and restored before the retry.
+// =============================================================================
+
+describe("createSubscriptionTierSync 'fail-webhook' — provider retry", () => {
+  let stack: TestStack;
+  let webhookPath: string;
+
+  beforeAll(async () => {
+    const sync = createSubscriptionTierSync<TestTier>({
+      isTierName,
+      defaultTier: "free",
+      onSyncError: "fail-webhook",
+    });
+    const route = sync.createWebhookRoute();
+    webhookPath = route.path;
+    stack = await bootStack(
+      [
+        ...sharedBaseFeatures(),
+        createTierEngineFeature({ defaultTier: "free", tierMap: TEST_TIER_MAP }),
+      ],
+      [route],
+    );
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+    resetPiiSubjectKmsForTests();
+  });
+
+  test("500 on the failed sync, then the same providerEventId retries as duplicate and fixes the tier", async () => {
+    const tenantId = testTenantId(9201);
+    const event = buildEvent(tenantId, "evt_retry_1", {
+      status: SubscriptionStatuses.active,
+      tier: "pro",
+    });
+
+    await asRawClient(stack.db).unsafe("DROP TABLE read_tier_assignments");
+    const first = await postWebhook(stack, webhookPath, event);
+    expect(first.status).toBe(500);
+
+    await unsafeCreateEntityTable(stack.db, tierAssignmentEntity);
+    const retry = await postWebhook(stack, webhookPath, event);
+    expect(retry.status).toBe(200);
+    expect(((await retry.json()) as { duplicate: boolean }).duplicate).toBe(true);
+
+    const admin = createTestUser({ id: 9201, tenantId, roles: ["SystemAdmin"] });
+    const listed = (await stack.http.queryOk(TierEngineQueries.list, {}, admin)) as {
+      rows: Array<Record<string, unknown>>;
+    };
+    expect(listed.rows).toHaveLength(1);
+    expect(listed.rows[0]?.["tier"]).toBe("pro");
   });
 });

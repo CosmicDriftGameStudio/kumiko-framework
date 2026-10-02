@@ -13,6 +13,9 @@ function isPayload(value: unknown): value is MfaPreauthSetupPayload {
   return typeof v["userId"] === "string" && typeof v["tenantId"] === "string";
 }
 
+// Domain "mfa-preauth-setup" must never equal the challenge domain: a setup
+// token has to fail verification as a challenge token and vice versa. The
+// challenge token secret is reused deliberately; the domain carries the separation.
 const codec = createHmacTokenCodec("mfa-preauth-setup", isPayload);
 
 export function signMfaPreauthSetupToken(

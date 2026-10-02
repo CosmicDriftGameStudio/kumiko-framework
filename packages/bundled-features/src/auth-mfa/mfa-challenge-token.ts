@@ -13,6 +13,10 @@ function isPayload(value: unknown): value is MfaChallengePayload {
   return typeof v["userId"] === "string" && typeof v["tenantId"] === "string";
 }
 
+// Domain-separated from mfa-preauth-setup (see hmac-token-codec). Single-use is
+// enforced by the consumer via burnToken (purpose "mfa-challenge"); this codec
+// only signs and verifies. Brute-forcing the code behind a valid token is
+// limited separately in mfa-verify-attempts.ts.
 const codec = createHmacTokenCodec("mfa-challenge", isPayload);
 
 export function signMfaChallengeToken(

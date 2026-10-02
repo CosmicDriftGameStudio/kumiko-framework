@@ -9,6 +9,10 @@ import type { SessionBootstrapFailure } from "./session.js";
 export type SessionBootstrapErrorScreenProps = {
   readonly failure: SessionBootstrapFailure;
   readonly onRetry: () => Promise<void>;
+  /** A permanent bootstrap failure (e.g. 403/500 on the membership query) would
+   *  otherwise trap the user: the HttpOnly session cookie can only be cleared
+   *  server-side. */
+  readonly onSignOut?: () => Promise<void>;
 };
 
 /** Retry delay measured from failure time, not click time. */
@@ -25,6 +29,7 @@ function wait(ms: number): Promise<void> {
 export function SessionBootstrapErrorScreen({
   failure,
   onRetry,
+  onSignOut,
 }: SessionBootstrapErrorScreenProps): ReactNode {
   const t = useTranslation();
   const { Banner, Button } = usePrimitives();
@@ -49,6 +54,11 @@ export function SessionBootstrapErrorScreen({
           <Button variant="primary" onClick={handleRetry} disabled={retrying}>
             {retrying ? t("auth.sessionBootstrap.retrying") : t("auth.sessionBootstrap.retry")}
           </Button>
+          {onSignOut !== undefined && (
+            <Button variant="secondary" onClick={() => void onSignOut()} disabled={retrying}>
+              {t("auth.sessionBootstrap.signOut")}
+            </Button>
+          )}
         </div>
       </AuthCard>
     </div>

@@ -237,6 +237,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Demasiadas solicitudes en poco tiempo. Espera un momento y vuelve a intentarlo.",
   "auth.sessionBootstrap.retry": "Reintentar",
   "auth.sessionBootstrap.retrying": "Reintentando…",
+  "auth.sessionBootstrap.signOut": "Cerrar sesión",
   "auth.signup.email": "Correo electrónico",
   "auth.signup.haveAccount": "¿Ya tienes una cuenta? Inicia sesión",
   "auth.signup.intro":

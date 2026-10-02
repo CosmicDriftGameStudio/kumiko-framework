@@ -66,7 +66,7 @@ export function createLoginRoute(
   const MfaSetupComponent = opts.mfaSetupScreen;
 
   function LoginRoute(): ReactNode {
-    const { status, refresh, bootstrapFailure } = useSession();
+    const { status, refresh, bootstrapFailure, logout } = useSession();
     const { onAuthenticated } = opts;
     // Pending challenge-token from LoginScreen's onMfaChallenge. Lives here
     // (not in SessionState) because it's a UI-only transition — the server
@@ -88,7 +88,13 @@ export function createLoginRoute(
       );
     }
     if (status === "error" && bootstrapFailure !== null) {
-      return <SessionBootstrapErrorScreen failure={bootstrapFailure} onRetry={refresh} />;
+      return (
+        <SessionBootstrapErrorScreen
+          failure={bootstrapFailure}
+          onRetry={refresh}
+          onSignOut={logout}
+        />
+      );
     }
     // A standalone mount (no parent gate, no onAuthenticated wired — e.g. an
     // apex/marketing surface that just places <LoginRoute /> directly) has no

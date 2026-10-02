@@ -26,8 +26,13 @@ function isLostCounterRace(result: WriteResult): boolean {
   return !result.isSuccess && result.error.code === "version_conflict";
 }
 
-// Each attempt writes event + projection atomically, so a conflict means another booker just committed — bounded by how many bookers run at once (pool max, default 10); this ceiling only guards against non-convergence.
+// Each attempt writes event + projection atomically, so a conflict means another booker just committed. Contention is bounded by the bookers running at once across ALL replicas on the same DB (not per pool), so the jittered backoff spreads out losers instead of letting them collide again in lockstep; the ceiling only guards against non-convergence.
 const MAX_COUNTER_WRITE_ATTEMPTS = 20;
+const BACKOFF_JITTER_MS_PER_ATTEMPT = 5;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function retryCounterWriteOnVersionConflict(
   writeAttempt: () => Promise<WriteResult>,
@@ -38,6 +43,7 @@ async function retryCounterWriteOnVersionConflict(
     attempt < MAX_COUNTER_WRITE_ATTEMPTS && isLostCounterRace(result);
     attempt++
   ) {
+    await sleepMs(Math.random() * attempt * BACKOFF_JITTER_MS_PER_ATTEMPT);
     result = await writeAttempt();
   }
   return result;

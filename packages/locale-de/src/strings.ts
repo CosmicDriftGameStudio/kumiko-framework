@@ -238,6 +238,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Zu viele Anfragen in kurzer Zeit. Bitte kurz warten und erneut versuchen.",
   "auth.sessionBootstrap.retry": "Erneut versuchen",
   "auth.sessionBootstrap.retrying": "Wird erneut versucht …",
+  "auth.sessionBootstrap.signOut": "Abmelden",
   "auth.signup.email": "E-Mail",
   "auth.signup.haveAccount": "Bereits einen Account? Anmelden",
   "auth.signup.intro":
