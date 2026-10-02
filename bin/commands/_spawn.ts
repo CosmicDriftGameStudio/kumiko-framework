@@ -14,6 +14,20 @@ export function exitStatusFromChild(code: number | null, signal: NodeJS.Signals 
   return 1;
 }
 
+const KILL_GRACE_MS = 500;
+
+export interface RunResult {
+  readonly status: number;
+  readonly stdout: string;
+  readonly stderr: string;
+  /** Distinguishes our own timeout kill from a spawn failure (ENOENT), both of which report status -1. */
+  readonly timedOut: boolean;
+}
+
+export function isProbeTimeout(result: RunResult): boolean {
+  return result.timedOut;
+}
+
 /** Strips GIT_DIR/GIT_WORK_TREE/etc from the current env — a `git` hook
  *  (e.g. pre-push) sets these for itself, and without stripping them any
  *  `git` subprocess spawned from here (incl. inside a temp-repo test)
@@ -30,8 +44,13 @@ export function envWithoutGitOverrides(): NodeJS.ProcessEnv {
 export function run(
   cmd: string,
   args: ReadonlyArray<string>,
-  opts?: { readonly cwd?: string; readonly env?: Record<string, string>; readonly timeoutMs?: number },
-): Promise<{ status: number; stdout: string; stderr: string }> {
+  opts?: {
+    readonly cwd?: string;
+    readonly env?: Record<string, string>;
+    readonly timeoutMs?: number;
+    readonly killGraceMs?: number;
+  },
+): Promise<RunResult> {
   return new Promise((resolve) => {
     const child = spawn(cmd, args as string[], {
       cwd: opts?.cwd,
@@ -40,12 +59,14 @@ export function run(
     let stdout = "";
     let stderr = "";
     let settled = false;
+    let timedOut = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
     const settle = (status: number): void => {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      resolve({ status, stdout, stderr });
+      resolve({ status, stdout, stderr, timedOut });
     };
     child.stdout?.on("data", (c: Buffer) => {
       stdout += c.toString("utf-8");
@@ -54,19 +75,24 @@ export function run(
       stderr += c.toString("utf-8");
     });
     child.on("error", () => settle(-1));
-    child.on("exit", (code, signal) => settle(exitStatusFromChild(code, signal)));
+    child.on("exit", (code, signal) => {
+      if (killTimer) clearTimeout(killTimer);
+      settle(exitStatusFromChild(code, signal));
+    });
     if (opts?.timeoutMs) {
       timer = setTimeout(() => {
         if (child.exitCode === null && child.signalCode === null) {
           child.kill("SIGTERM");
           child.stdout?.destroy();
           child.stderr?.destroy();
-          const killTimer = setTimeout(() => {
+          // Stays ref'd on purpose: it must fire even after settle(), otherwise a
+          // child ignoring SIGTERM outlives the CLI. Cleared on the child's real exit.
+          killTimer = setTimeout(() => {
             if (child.exitCode === null && child.signalCode === null) {
               child.kill("SIGKILL");
             }
-          }, 500);
-          killTimer.unref();
+          }, opts.killGraceMs ?? KILL_GRACE_MS);
+          timedOut = true;
           settle(-1);
         }
       }, opts.timeoutMs);

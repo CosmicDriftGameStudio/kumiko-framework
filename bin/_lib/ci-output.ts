@@ -4,6 +4,21 @@ const DIAGNOSTIC_LINE =
 const ACTIONABLE_MESSAGE =
   /^(?:An update to .* not wrapped in act|No baseline found|.*(?:plaintext|couldn't|does not exist|no persistent|not registered|will not render|PII ciphertext|already auto-mounted|skipped:|not found))/i;
 
+/** Reads both streams into one buffer in arrival order — concatenating
+ *  stdout + stderr afterwards would move error output away from the log
+ *  lines that explain it. */
+export async function collectInterleavedOutput(
+  ...streams: ReadonlyArray<ReadableStream<Uint8Array>>
+): Promise<string> {
+  const chunks: Uint8Array[] = [];
+  await Promise.all(
+    streams.map(async (stream) => {
+      for await (const chunk of stream) chunks.push(chunk);
+    }),
+  );
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 export function isCI(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
   return env["CI"] === "true";
 }

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 
-import { formatCompactFailure, formatCompactSuccess } from "../bin/_lib/ci-output";
+import { collectInterleavedOutput, formatCompactFailure, formatCompactSuccess } from "../bin/_lib/ci-output";
 
 const argv = process.argv.slice(2);
 const separator = argv.indexOf("--");
@@ -26,13 +26,9 @@ const heartbeat = setInterval(
   () => process.stdout.write(`  … ${label} still running (${Math.round((Date.now() - heartbeatStart) / 1000)}s)\n`),
   30_000,
 );
-const [stdout, stderr] = await Promise.all([
-  new Response(proc.stdout).text(),
-  new Response(proc.stderr).text(),
-]);
+const output = await collectInterleavedOutput(proc.stdout, proc.stderr);
 clearInterval(heartbeat);
 const code = await proc.exited;
-const output = stdout + stderr;
 
 if (code === 0) {
   process.stdout.write(formatCompactSuccess(label, output));

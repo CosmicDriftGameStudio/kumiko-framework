@@ -116,6 +116,21 @@ describe("waitForNpmVisibility", () => {
     ]);
   });
 
+  test("a request that never answers is aborted and counts as a failed poll", async () => {
+    const fetchImpl = ((_url: unknown, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal?.reason));
+      })) as typeof fetch;
+
+    const result = await waitForNpmVisibility(
+      [{ name: "@cosmicdrift/kumiko-types", version: "0.236.1" }],
+      { fetchImpl, pollIntervalMs: 1, timeoutMs: 0, requestTimeoutMs: 20 },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.missing).toEqual([{ name: "@cosmicdrift/kumiko-types", version: "0.236.1" }]);
+  });
+
   test("a network error on one package counts as not-yet-caught-up and is retried", async () => {
     let calls = 0;
     const fetchImpl = (async () => {

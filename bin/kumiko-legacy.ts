@@ -12,8 +12,10 @@ import {
   acquireCheckLock,
   checkLockPaths,
   followCheck,
+  parseCliScope,
   registerLockCleanup,
 } from "./_lib/check-lock";
+import { decideGuardScanRoot } from "./_lib/guard-scan-root";
 
 // Fast checks are CPU-bound (tsc, ts-morph guards). A fixed pool=6 thrashes
 // wherever spare CPU < 6 — the 1-CPU CI runner, or a loaded dev box (4 parallel
@@ -138,12 +140,7 @@ const KUMIKO_CLI = resolvePath(import.meta.dir, "..", "packages", "cli", "bin", 
 // a tooling-anchor (typing reference, ES-table discovery, ...) even when
 // the actual scope of interest is one of the other repos.
 const SCOPED_CLI_REPOS: ReadonlySet<string> | null = (() => {
-  const env = process.env["KUMIKO_CLI_SCOPE"];
-  if (!env) return null;
-  const names = env
-    .split(/[\s,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const names = parseCliScope(process.env["KUMIKO_CLI_SCOPE"]);
   return names.length > 0 ? new Set(names) : null;
 })();
 
@@ -171,7 +168,19 @@ function guardScanRoot(): string {
   const candidate = scoped !== undefined ? repoAbsPath(scoped) : undefined;
   // The anchor comes from import.meta, not repoAbsPath: the latter resolves
   // siblings of this checkout, which under .wt/ is the worktree dir.
-  return candidate !== undefined && existsSync(candidate) ? candidate : resolvePath(import.meta.dir, "..");
+  const decision = decideGuardScanRoot({
+    scopedRepo: scoped,
+    scopedRepoPath: candidate,
+    scopedRepoExists: candidate !== undefined && existsSync(candidate),
+    anchorPath: resolvePath(import.meta.dir, ".."),
+  });
+  if (decision.kind === "missing-scoped-repo") {
+    console.error(
+      `KUMIKO_CLI_SCOPE=${decision.repo}: repo path not found at ${decision.path} — refusing to fall back to the framework checkout`,
+    );
+    process.exit(1);
+  }
+  return decision.path;
 }
 
 const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: string }> = (() => {

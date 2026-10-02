@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { doctorCommand } from "../doctor";
@@ -39,5 +42,40 @@ describe("doctor command", () => {
     const out = spy.logs.join("\n");
     // ✓ on .env line, ✗ on most other lines (no node_modules, no docker)
     expect(out).toMatch(/✓ \.env file/);
+  });
+
+  test("missing docker binary gets an install hint, not the daemon-hung hint", async () => {
+    const cwd = tmp();
+    const emptyBin = mkdtempSync(join(tmpdir(), "kumiko-emptybin-"));
+    const originalPath = process.env["PATH"];
+    cleanups.push(() => {
+      if (originalPath === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = originalPath;
+      rmSync(emptyBin, { recursive: true, force: true });
+    });
+    process.env["PATH"] = emptyBin;
+
+    const spy = makeSpyOutput();
+    await doctorCommand.run(makeContext({ cwd, out: spy.out }));
+    const out = spy.logs.join("\n");
+    expect(out).toContain("docker binary not found");
+    expect(out).not.toContain("daemon hängt");
+  });
+
+  test("hanging docker is reported with the daemon-hung hint", async () => {
+    const cwd = tmp();
+    const binDir = mkdtempSync(join(tmpdir(), "kumiko-fakebin-"));
+    writeFileSync(join(binDir, "docker"), "#!/bin/sh\nexec sleep 30\n", { mode: 0o755 });
+    const originalPath = process.env["PATH"];
+    cleanups.push(() => {
+      if (originalPath === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = originalPath;
+      rmSync(binDir, { recursive: true, force: true });
+    });
+    process.env["PATH"] = originalPath === undefined ? binDir : `${binDir}:${originalPath}`;
+
+    const spy = makeSpyOutput();
+    await doctorCommand.run(makeContext({ cwd, out: spy.out }));
+    expect(spy.logs.join("\n")).toContain("daemon hängt");
   });
 });

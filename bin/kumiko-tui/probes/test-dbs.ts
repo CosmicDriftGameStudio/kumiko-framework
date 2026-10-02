@@ -1,5 +1,5 @@
 import { defineProbe } from "./registry";
-import { run } from "./_lib";
+import { run } from "../../commands/_spawn";
 
 export const testDbsProbe = defineProbe({
   id: "test-dbs",

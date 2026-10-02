@@ -66,6 +66,24 @@ describe("status command", () => {
     expect(joined).toContain("Docker probe timed out (daemon slow or hung)");
   });
 
+  test("missing docker binary is reported as not found, not as a timeout", async () => {
+    const cwd = tmp();
+    const emptyBin = mkdtempSync(join(tmpdir(), "kumiko-emptybin-"));
+    const originalPath = process.env["PATH"];
+    cleanups.push(() => {
+      if (originalPath === undefined) delete process.env["PATH"];
+      else process.env["PATH"] = originalPath;
+      rmSync(emptyBin, { recursive: true, force: true });
+    });
+    process.env["PATH"] = emptyBin;
+
+    const spy = makeSpyOutput();
+    await statusCommand.run(makeContext({ cwd, out: spy.out }));
+    const joined = spy.logs.join("\n");
+    expect(joined).toContain("docker binary not found");
+    expect(joined).not.toContain("timed out");
+  });
+
   test("real git repo shows current branch + status", async () => {
     const cwd = tmp();
     // Setup a real, tiny git repo so we can verify the integration.

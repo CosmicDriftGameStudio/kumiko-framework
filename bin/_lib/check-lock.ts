@@ -9,20 +9,29 @@ export type CheckLockPaths = {
 
 const SAFE_SCOPE_PATTERN = /^[A-Za-z0-9._-]+$/;
 
+/** `KUMIKO_CLI_SCOPE` is a comma/whitespace-separated repo list. Sorted and
+ *  deduplicated so `a,b` and `b,a` map to the same lock. */
+export function parseCliScope(raw: string | undefined): string[] {
+  if (raw === undefined) return [];
+  const parts = raw.split(/[\s,]+/).filter(Boolean);
+  for (const part of parts) {
+    if (!SAFE_SCOPE_PATTERN.test(part) || part === "." || part === "..") {
+      throw new Error(
+        `KUMIKO_CLI_SCOPE entry "${part}" is not a safe lock-file suffix — only [A-Za-z0-9._-] path segments are allowed`,
+      );
+    }
+  }
+  return [...new Set(parts)].sort();
+}
+
 /** Scopes the lock/log/result file names by `KUMIKO_CLI_SCOPE` (the repo the
  *  pre-push hook is checking) so concurrent `kumiko check` runs for
  *  different repos never share a lock — without a scope, both landed on the
  *  same literal file names once the pre-push hook cd's into the shared
  *  parent workspace, letting one repo's run adopt another's exit code. */
 export function checkLockPaths(scope: string | undefined, baseDir = ""): CheckLockPaths {
-  if (scope !== undefined && scope !== "") {
-    if (!SAFE_SCOPE_PATTERN.test(scope) || scope === "." || scope === "..") {
-      throw new Error(
-        `KUMIKO_CLI_SCOPE "${scope}" is not a safe lock-file suffix — only a single path segment of [A-Za-z0-9._-] is allowed`,
-      );
-    }
-  }
-  const suffix = scope ? `.${scope}` : "";
+  const scopeParts = parseCliScope(scope);
+  const suffix = scopeParts.length > 0 ? `.${scopeParts.join("__")}` : "";
   return {
     lockDir: join(baseDir, `.kumiko-check.lock${suffix}`),
     logPath: join(baseDir, `.kumiko-check.log${suffix}`),
