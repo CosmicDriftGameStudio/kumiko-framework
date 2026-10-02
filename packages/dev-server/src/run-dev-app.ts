@@ -311,26 +311,24 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
   });
 
   // An explicitly wired file provider (options.files) satisfies the
-  // FILE_STORAGE_PROVIDER boot gate — set it before validateBoot runs. Only
-  // if WE set it (532/2): deleting it after use instead of leaving a
-  // permanent process.env mutation, so a second runDevApp call in the same
-  // process (no files this time) doesn't fall through the gate falsely.
-  const setFileStorageProviderEnv =
-    options.files !== undefined && process.env[FILE_STORAGE_PROVIDER_ENV] === undefined;
-  if (setFileStorageProviderEnv) {
-    process.env[FILE_STORAGE_PROVIDER_ENV] = FILE_STORAGE_PROVIDER_BOOT_SENTINEL;
-  }
+  // FILE_STORAGE_PROVIDER boot gate. Passed via the validateBoot env option
+  // instead of mutating process.env, so nothing leaks into later runDevApp
+  // calls in the same process.
+  const baseBootEnv = options.validateBootOptions?.env ?? process.env;
+  const bootOptions: ValidateBootOptions | undefined =
+    options.files !== undefined && baseBootEnv[FILE_STORAGE_PROVIDER_ENV] === undefined
+      ? {
+          ...options.validateBootOptions,
+          env: { ...baseBootEnv, [FILE_STORAGE_PROVIDER_ENV]: FILE_STORAGE_PROVIDER_BOOT_SENTINEL },
+        }
+      : options.validateBootOptions;
 
   // Boot-Validation als allererstes — vor fs-Watcher und Server. Dieselbe
   // Fehlerklasse (unqualifizierte nav-/handler-QNs, screen-access etc.),
   // die früher nur runProdApp fing und sonst erst den Prod-Pod im
   // CrashLoopBackOff sterben ließ (#359). Wirft synchron, bevor ein
   // Socket oder Watcher (codegen-Write) aufgeht.
-  try {
-    validateBoot(features, options.validateBootOptions);
-  } finally {
-    if (setFileStorageProviderEnv) delete process.env[FILE_STORAGE_PROVIDER_ENV];
-  }
+  validateBoot(features, bootOptions);
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
 

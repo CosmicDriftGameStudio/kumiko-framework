@@ -292,7 +292,7 @@ export function validateBoot(
     validateEntityFieldEncryptionAvailable(options?.env);
   }
 
-  if (hasFileFields && !process.env[FILE_STORAGE_PROVIDER_ENV]) {
+  if (hasFileFields && !(options?.env ?? process.env)[FILE_STORAGE_PROVIDER_ENV]) {
     throw new Error(
       `${FILE_STORAGE_PROVIDER_ENV} environment variable is required (file/image fields in use)`,
     );

@@ -401,6 +401,22 @@ describe("boot-validator", () => {
     }
   });
 
+  test("file-storage gate reads the injected env option, not process.env", () => {
+    delete process.env["FILE_STORAGE_PROVIDER"];
+    const features = [
+      defineFeature("a", (r) => {
+        r.entity("doc", createEntity({ table: "Docs", fields: { photo: { type: "image" } } }));
+      }),
+    ];
+    const fixtured = withBootValidatorFixture(features);
+    expect(() =>
+      validateBootRaw(fixtured, { env: { FILE_STORAGE_PROVIDER: "s3-env" } }),
+    ).not.toThrow();
+    expect(() => validateBootRaw(fixtured, { env: {} })).toThrow(
+      /FILE_STORAGE_PROVIDER.*required/i,
+    );
+  });
+
   // --- extendSchema column collision ---
 
   test("throws when extendSchema column conflicts with existing field", () => {
