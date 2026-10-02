@@ -17,6 +17,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  createAnonymousUser,
   createSystemUser,
   defineFeature,
   EXT_ASSIGNABLE_ROLE,
@@ -91,11 +92,7 @@ function newTenantId(_suffix: string): TenantId {
   return rand as TenantId;
 }
 
-const GUEST: SessionUser = {
-  id: "anonymous",
-  tenantId: SYSTEM_TENANT_ID,
-  roles: ["anonymous"],
-};
+const GUEST: SessionUser = createAnonymousUser(SYSTEM_TENANT_ID);
 
 function extractTokenFromMail(html: string): string {
   const match = html.match(/[?&]token=([^&"'<\s]+)/);

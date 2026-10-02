@@ -104,4 +104,52 @@ describe("pushEntityProjectionTables — persistent dev DB column sync", () => {
       await firstBoot.cleanup();
     }
   });
+
+  test("a unique index declared after the first boot is created on the existing table", async () => {
+    const dbName = freshDbName("colsync_unique");
+    const fields = {
+      name: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    };
+    const v1 = defineFeature("colsync-unique", (r) => {
+      r.entity("widget", createEntity({ table: "colsync_unique_widgets", fields }));
+    });
+    const firstBoot = await setupTestStack({ features: [v1], dbName });
+    try {
+      await pushEntityProjectionTables(firstBoot, firstBoot.registry);
+
+      const widgetV2 = createEntity({
+        table: "colsync_unique_widgets",
+        fields: {
+          ...fields,
+          code: createTextField({ personal: false, reason: "test_fixture" }),
+        },
+        indexes: [{ columns: ["code"], unique: true }],
+      });
+      const v2 = defineFeature("colsync-unique", (r) => {
+        r.entity("widget", widgetV2);
+        r.writeHandler(
+          defineEntityCreateHandler("widget", widgetV2, { access: { roles: ["Admin"] } }),
+        );
+      });
+      const secondBoot = await setupTestStack({ features: [v2], dbName, persistentDb: true });
+      try {
+        await pushEntityProjectionTables(secondBoot, secondBoot.registry);
+        await secondBoot.http.writeOk(
+          "colsync-unique:write:widget:create",
+          { name: "first", code: "dup" },
+          TestUsers.admin,
+        );
+        const second = await secondBoot.http.writeErr(
+          "colsync-unique:write:widget:create",
+          { name: "second", code: "dup" },
+          TestUsers.admin,
+        );
+        expect(second.code).toBe("unique_violation");
+      } finally {
+        await secondBoot.cleanup();
+      }
+    } finally {
+      await firstBoot.cleanup();
+    }
+  });
 });

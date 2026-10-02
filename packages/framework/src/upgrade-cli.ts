@@ -135,9 +135,11 @@ export function findPackageChangelogFiles(cwd: string): string[] {
         .map((d) => d.name);
       for (const name of pkgNames) {
         if (seenNames.has(name)) continue;
+        // Claimed by the nearest scope even without a changelog, so a farther
+        // node_modules can't contribute another version of the same package.
+        seenNames.add(name);
         const changelogPath = join(scopeDir, name, "src", "changes.json");
         if (!existsSync(changelogPath)) continue;
-        seenNames.add(name);
         const realPath = realpathSync(changelogPath);
         if (seenRealPaths.has(realPath)) continue;
         seenRealPaths.add(realPath);
@@ -389,9 +391,36 @@ function logManualMarkerOutcome(
   }
 }
 
+// Records the codemods that already wrote files before a later one failed, so
+// a re-run resumes after them instead of replaying non-idempotent codemods.
+function writePartialMarker(
+  out: UpgradeCliOut,
+  targetDir: string,
+  pending: readonly ChangelogEntry[],
+  manualEntries: readonly ChangelogEntry[],
+  failedVersion: string,
+  ran: readonly UpgradeMarkerCodemod[],
+): void {
+  if (ran.length === 0) return;
+  const doneBeforeFailure = pending.filter((e) => compareVersions(e.version, failedVersion) < 0);
+  const version = markerVersionForPending(doneBeforeFailure, manualEntries, "");
+  if (version === "") return;
+  const pendingManual = manualEntries.map((e) => ({ version: e.version, title: e.title }));
+  writeUpgradeMarker(targetDir, {
+    version,
+    appliedAt: Temporal.Now.instant().toString(),
+    codemods: ran,
+    ...(pendingManual.length > 0 && { pendingManual }),
+  });
+  out.err(
+    `  ⚠ ${ran.length} codemod(s) already applied; wrote marker at ${version} so a re-run resumes at the failed one.`,
+  );
+}
+
 // Runs every pending breaking entry's codemod, oldest version first (so a
 // later codemod can assume an earlier one already ran). Stops on the first
-// failure — no partial marker. Writes the marker whenever dryRun is false —
+// failure; codemods that already ran are kept in a partial marker. Writes the
+// marker whenever dryRun is false —
 // even with zero pending entries, so an already-current app still gets a
 // bootstrap marker recording its installed version (fw#2299).
 // kumiko-lint-ignore complexity-budget sequential codemod runner with zero-pending bootstrap marker
@@ -462,6 +491,7 @@ async function applyCodemods(
     const scriptPath = resolveCodemodScript(repoRoot, e.codemod);
     if (!scriptPath) {
       out.err(`  ✗ ${e.version} · ${e.title} — invalid codemod path "${e.codemod}"`);
+      if (!dryRun) writePartialMarker(out, targetDir, pending, manualEntries, e.version, ran);
       return 1;
     }
 
@@ -470,6 +500,7 @@ async function applyCodemods(
     if (result.output) out.log(result.output);
     if (!result.ok) {
       out.err(`  ✗ ${e.version} · ${e.codemod} failed`);
+      if (!dryRun) writePartialMarker(out, targetDir, pending, manualEntries, e.version, ran);
       return 1;
     }
     ran.push({ version: e.version, codemod: e.codemod, title: e.title });

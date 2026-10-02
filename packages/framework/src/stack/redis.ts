@@ -18,6 +18,13 @@ export type TestRedis = {
   cleanup: () => Promise<void>;
 };
 
+// BullMQ queues live on the raw redisUrl, outside the test Redis keyPrefix, so
+// parallel stacks sharing the prod default queue name would consume each
+// other's jobs. BullMQ rejects `:` in queue names.
+export function queueNamePrefixForTestRedis(keyPrefix: string): string {
+  return keyPrefix.split(":").filter(Boolean).join("-");
+}
+
 export async function createTestRedis(): Promise<TestRedis> {
   const Redis = (await import("ioredis")).Redis;
   const redisUrl = requireEnv("REDIS_URL");
@@ -27,13 +34,13 @@ export async function createTestRedis(): Promise<TestRedis> {
   const prefix = `kt:${generateId().slice(-8)}:`;
   const redis = new Redis(redisUrl, { keyPrefix: prefix });
 
-  async function flushNamespace(): Promise<void> {
+  async function deleteKeysMatching(pattern: string): Promise<void> {
     // Open a prefix-less client for the scan — ioredis' keyPrefix is applied
     // per-command but SCAN's returned keys are full names, so managing the
     // del set with the prefix already on the connection is error-prone.
     const raw = new Redis(redisUrl);
     try {
-      const stream = raw.scanStream({ match: `${prefix}*`, count: 500 });
+      const stream = raw.scanStream({ match: pattern, count: 500 });
       const keys: string[] = [];
       for await (const batch of stream) keys.push(...batch);
       if (keys.length > 0) await raw.del(...keys);
@@ -42,6 +49,8 @@ export async function createTestRedis(): Promise<TestRedis> {
     }
   }
 
+  const flushNamespace = (): Promise<void> => deleteKeysMatching(`${prefix}*`);
+
   return {
     redis,
     redisUrl,
@@ -49,6 +58,8 @@ export async function createTestRedis(): Promise<TestRedis> {
     flushNamespace,
     cleanup: async () => {
       await flushNamespace();
+      // The derived per-stack JobRunner queues sit outside the keyPrefix.
+      await deleteKeysMatching(`bull:${queueNamePrefixForTestRedis(prefix)}-*`);
       redis.disconnect();
     },
   };

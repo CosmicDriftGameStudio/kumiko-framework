@@ -6,8 +6,7 @@
 // Usage:
 //   bun scripts/codemod/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>
 
-import { lstatSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   Node,
   type ObjectLiteralExpression,
@@ -15,6 +14,7 @@ import {
   type PropertyAssignment,
   SyntaxKind,
 } from "ts-morph";
+import { collectSourceFiles } from "./collect-source-files.js";
 
 const DEFAULT_TEST_REASON = "test handler callable by any signed-in test user";
 
@@ -164,38 +164,8 @@ function isMigratableFile(name: string): boolean {
   return /\.(ts|tsx)$/.test(name);
 }
 
-const SKIPPED_DIR_NAMES: ReadonlySet<string> = new Set([
-  "node_modules",
-  "dist",
-  "build",
-  ".next",
-  ".git",
-]);
-
-function walkDir(dir: string, out: string[]): void {
-  for (const name of readdirSync(dir)) {
-    if (SKIPPED_DIR_NAMES.has(name)) continue;
-    const full = join(dir, name);
-    const stat = lstatSync(full);
-    // Symlinks can point back at a parent directory (workspace links) and loop forever.
-    if (stat.isSymbolicLink()) continue;
-    if (stat.isDirectory()) {
-      walkDir(full, out);
-      continue;
-    }
-    if (isMigratableFile(name)) out.push(full);
-  }
-}
-
 export function collectFiles(paths: string[]): string[] {
-  const files: string[] = [];
-  for (const p of paths) {
-    const abs = resolve(p);
-    const stat = statSync(abs);
-    if (stat.isDirectory()) walkDir(abs, files);
-    else if (isMigratableFile(abs)) files.push(abs);
-  }
-  return files;
+  return collectSourceFiles(paths, { isMigratableFile });
 }
 
 // Remaining manual sites still fail boot validation, so upgrade-cli must not

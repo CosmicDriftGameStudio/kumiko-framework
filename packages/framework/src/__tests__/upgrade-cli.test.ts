@@ -351,6 +351,15 @@ describe("resolveCodemodScript", () => {
     ]);
   });
 
+  test("findPackageChangelogFiles: a nearer package without changes.json is not shadowed by a farther one", () => {
+    const cwd = tmp({
+      "node_modules/@cosmicdrift/kumiko-framework/src/changes.json": "[]",
+      "apps/web/node_modules/@cosmicdrift/kumiko-framework/package.json": "{}",
+    });
+
+    expect(findPackageChangelogFiles(join(cwd, "apps/web"))).toEqual([]);
+  });
+
   test("findCodemodScriptsRoot resolves through a hoisted node_modules symlink", () => {
     const cwd = tmp({ "apps/web/package.json": "{}" });
     const nmPkgDir = join(cwd, "node_modules/@cosmicdrift/kumiko-framework");
@@ -491,6 +500,54 @@ describe("upgrade command — --apply", () => {
     expect(exit).toBe(1);
     expect(spy.errs.join("\n")).toContain("scripts/codemod/always-fail.ts failed");
     expect(existsSync(join(cwd, ".kumiko/upgrade-state.json"))).toBe(false);
+  });
+
+  test("a failing later codemod keeps the marker for the ones that already ran, so a re-run resumes", async () => {
+    const cwd = tmp({
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.190.0" }),
+      "packages/framework/src/changes.json": JSON.stringify([
+        {
+          version: "0.167.0",
+          type: "breaking",
+          title: "first",
+          migration: "m",
+          codemod: "scripts/codemod/ok.ts",
+        },
+        {
+          version: "0.168.0",
+          type: "breaking",
+          title: "second",
+          migration: "m",
+          codemod: "scripts/codemod/always-fail.ts",
+        },
+      ]),
+    });
+    const repoRootWithScripts = tmp({
+      "packages/framework/src/scripts/codemod/ok.ts": "process.exit(0);\n",
+      "packages/framework/src/scripts/codemod/always-fail.ts": "process.exit(1);\n",
+    });
+
+    const firstRun = makeSpyOutput();
+    const firstExit = await runUpgradeCli(["--from", "0.165.0", "--apply"], cwd, firstRun.out, {
+      repoRoot: repoRootWithScripts,
+    });
+
+    expect(firstExit).toBe(1);
+    const marker = JSON.parse(readFileSync(join(cwd, ".kumiko/upgrade-state.json"), "utf-8"));
+    expect(marker.version).toBe("0.167.0");
+    expect(marker.codemods).toEqual([
+      { version: "0.167.0", codemod: "scripts/codemod/ok.ts", title: "first" },
+    ]);
+
+    const rerun = makeSpyOutput();
+    const rerunExit = await runUpgradeCli(["--apply"], cwd, rerun.out, {
+      repoRoot: repoRootWithScripts,
+    });
+
+    expect(rerunExit).toBe(1);
+    const rerunLog = rerun.logs.join("\n");
+    expect(rerunLog).toContain("running scripts/codemod/always-fail.ts");
+    expect(rerunLog).not.toContain("running scripts/codemod/ok.ts");
   });
 
   test("breaking changes without a codemod field are reported as manual; marker still written", async () => {

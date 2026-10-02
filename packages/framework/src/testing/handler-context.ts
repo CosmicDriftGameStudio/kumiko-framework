@@ -6,7 +6,7 @@
 // calls without a real dispatcher). Hence the runtime classification despite
 // living under `testing/` — no vitest imports, no test side-effects.
 
-import { ANONYMOUS_ROLE } from "../engine/system-user.js";
+import { createAnonymousUser } from "../engine/system-user.js";
 import type {
   AppendEventArgs,
   FetchForWritingArgs,
@@ -75,11 +75,9 @@ export function bridgeStub(opts?: {
   // anonymous default values when no user is passed explicitly. Test code
   // that cares about identity passes its own SessionUser here and gets it
   // back on ctx.
-  const stubUser: SessionUser = opts?.user ?? {
-    id: "00000000-0000-0000-0000-000000000000",
-    tenantId: "00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"], // @cast-boundary engine-bridge
-    roles: [ANONYMOUS_ROLE],
-  };
+  const stubUser: SessionUser =
+    opts?.user ??
+    createAnonymousUser("00000000-0000-0000-0000-000000000000" as SessionUser["tenantId"]); // @cast-boundary engine-bridge
   return {
     user: stubUser,
     query: notAvailable("query") as HandlerContext["query"], // @cast-boundary engine-bridge
