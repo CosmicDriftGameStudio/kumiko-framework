@@ -471,7 +471,8 @@ function hasDeclaredEscapeHatchStatement(fn: Node): boolean {
     body = fn.getBody();
   }
   if (!body?.isKind(SyntaxKind.Block)) return false;
-  return body.getStatements().some((stmt) => isValidDeclareEscapeHatchCall(stmt));
+  const firstStatement = body.getStatements()[0];
+  return firstStatement !== undefined && isValidDeclareEscapeHatchCall(firstStatement);
 }
 
 function isInsideEscapeHatchDeclaredFunction(node: Node): boolean {

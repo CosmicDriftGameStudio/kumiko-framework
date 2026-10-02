@@ -99,6 +99,8 @@ export const guard: AstGuard = {
         // Nur r.screen-Kontext: das umgebende Call-Target muss auf .screen enden.
         const call = prop.getFirstAncestorByKind(SyntaxKind.CallExpression);
         if (call === undefined || !call.getExpression().getText().endsWith(".screen")) continue;
+        // Only the screen's own config declares its type; nested `{ type: "custom" }` objects are widget config.
+        if (prop.getParent() !== call.getArguments()[0]) continue;
         if (hasIgnoreTag(call, IGNORE_TAG) || hasIgnoreTag(prop, IGNORE_TAG)) continue;
         violations.push({
           file: filePath,
