@@ -1,4 +1,4 @@
-import type { PendingGapEntry } from "../../pipeline/event-consumer-state.js";
+import type { ConsumerStatuses, PendingGapEntry } from "../../pipeline/event-consumer-state.js";
 import type { AnyDb } from "../query.js";
 import { asRawClient } from "../query.js";
 
@@ -148,15 +148,16 @@ export async function deleteOrphanedPerInstanceConsumerRows(
 // exists past its cursor. Paired via unnest so the two positional arrays
 // zip element-wise into rows instead of a cartesian product.
 //
-// `deadStatus` is passed in rather than imported from event-consumer-state.ts
-// (which defines ConsumerStatuses) — that module already imports from this
-// one, so importing back would be a require cycle (same pattern as
-// deleteOrphanedPerInstanceConsumerRows above).
+// `deadStatus` is passed in rather than imported as a value from
+// event-consumer-state.ts (which defines ConsumerStatuses) — that module
+// already imports from this one, so a value import back would be a require
+// cycle (same pattern as deleteOrphanedPerInstanceConsumerRows above). The
+// type-only import keeps the parameter pinned to the "dead" literal.
 export async function selectProvablyIdleConsumerPairs(
   db: AnyDb,
   names: readonly string[],
   instanceIds: readonly string[],
-  deadStatus: string,
+  deadStatus: typeof ConsumerStatuses.dead,
 ): Promise<ReadonlyArray<{ readonly name: string; readonly instanceId: string }>> {
   const rows = (await asRawClient(db).unsafe(
     `SELECT c."name" AS name, c."instance_id" AS instance_id

@@ -44,13 +44,18 @@ describe("r.storeTable — DB roundtrip via setupTestStack", () => {
     const eventId = "evt_test_123";
     const payload = JSON.stringify({ type: "invoice.paid", amount: 4200 });
 
+    const windowStart = Temporal.Now.instant().subtract({ seconds: 60 });
     await insertOne(stack.db, stripeWebhookCacheMeta, { eventId, payload });
+    const windowEnd = Temporal.Now.instant().add({ seconds: 60 });
 
     const rows = await selectMany(stack.db, stripeWebhookCacheMeta, { eventId: eventId });
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.payload).toBe(payload);
-    expect(rows[0]?.receivedAt).toBeInstanceOf(Temporal.Instant);
+    const receivedAt = rows[0]?.receivedAt;
+    if (!(receivedAt instanceof Temporal.Instant)) throw new Error("receivedAt is not an Instant");
+    expect(Temporal.Instant.compare(receivedAt, windowStart)).toBeGreaterThan(0);
+    expect(Temporal.Instant.compare(receivedAt, windowEnd)).toBeLessThan(0);
   });
 
   test("registry exposes the store table with its reason and featureName", () => {

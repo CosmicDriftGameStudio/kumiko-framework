@@ -184,30 +184,30 @@ export async function selectStreamMaxVersion(
   aggregateId: string,
   tenantId: string,
 ): Promise<number> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ v: number | null }>(
     db,
     `SELECT MAX("version") AS v FROM "kumiko_events" WHERE "aggregate_id" = $1 AND "tenant_id" = $2`,
     [aggregateId, tenantId],
-  )) as ReadonlyArray<{ v: number | null }>;
+  );
   return rows[0]?.v ?? 0;
 }
 
 /** MAX(version) for one aggregate stream — no tenant filter (seed idempotency). */
 export async function selectAggregateMaxVersion(db: AnyDb, aggregateId: string): Promise<number> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ v: number | null }>(
     db,
     `SELECT MAX("version") AS v FROM "kumiko_events" WHERE "aggregate_id" = $1`,
     [aggregateId],
-  )) as ReadonlyArray<{ v: number | null }>;
+  );
   return rows[0]?.v ?? 0;
 }
 
 export async function selectEventsHighWaterMark(db: AnyDb): Promise<bigint> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ max: bigint | string | number | null }>(
     db,
     `SELECT COALESCE(MAX("id"), 0)::bigint AS max FROM "kumiko_events"`,
     [],
-  )) as ReadonlyArray<{ max: bigint | string | number | null }>;
+  );
   const raw = rows[0]?.max;
   if (typeof raw === "bigint") return raw;
   if (raw === null || raw === undefined) return 0n;
@@ -221,11 +221,11 @@ export async function selectEventsHeadId(db: AnyDb): Promise<bigint> {
 }
 
 export async function selectNextEventIdAfter(db: AnyDb, afterId: bigint): Promise<bigint | null> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ id: string | bigint }>(
     db,
     `SELECT "id" FROM "kumiko_events" WHERE "id" > $1 ORDER BY "id" ASC LIMIT 1`,
     [afterId],
-  )) as ReadonlyArray<{ id: string | bigint }>;
+  );
   const row = rows[0];
   if (!row) return null;
   return typeof row.id === "bigint" ? row.id : BigInt(row.id);
@@ -341,14 +341,14 @@ export async function selectSmallestVisibleIdInRanges(
   pendingRanges: readonly PendingIdRange[],
 ): Promise<bigint | null> {
   if (pendingRanges.length === 0) return null;
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ id: string | null }>(
     db,
     `SELECT MIN("id")::text AS id FROM "kumiko_events"
      WHERE EXISTS (
        SELECT 1 FROM unnest($1::bigint[], $2::bigint[]) AS g(f, t) WHERE "id" BETWEEN g.f AND g.t
      )`,
     [pendingRanges.map((r) => r.from.toString()), pendingRanges.map((r) => r.to.toString())],
-  )) as ReadonlyArray<{ id: string | null }>;
+  );
   const id = rows[0]?.id;
   return id === null || id === undefined ? null : BigInt(id);
 }

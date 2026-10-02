@@ -30,9 +30,11 @@ afterEach(() => {
 
 test("reserved connection rejects with CONNECTION_CLOSED instead of crashing on a dead socket", async () => {
   let downstream: net.Socket | undefined;
+  const upstreams: net.Socket[] = [];
   const proxy = net.createServer((socket) => {
     downstream = socket;
     const upstream = net.connect(Number(dbUrl.port), dbUrl.hostname);
+    upstreams.push(upstream);
     socket.pipe(upstream).pipe(socket);
     socket.on("error", () => upstream.destroy());
     upstream.on("error", () => socket.destroy());
@@ -60,6 +62,7 @@ test("reserved connection rejects with CONNECTION_CLOSED instead of crashing on 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const HANG = Symbol("hang");
+      let hangTimer: ReturnType<typeof setTimeout> | undefined;
       const result = await Promise.race([
         reserved`select 1`.then(
           () => {
@@ -67,8 +70,10 @@ test("reserved connection rejects with CONNECTION_CLOSED instead of crashing on 
           },
           (err: unknown) => err,
         ),
-        new Promise((resolve) => setTimeout(() => resolve(HANG), 3000)),
-      ]);
+        new Promise((resolve) => {
+          hangTimer = setTimeout(() => resolve(HANG), 3000);
+        }),
+      ]).finally(() => clearTimeout(hangTimer));
 
       if (result === HANG) {
         throw new Error("query on the dead-socket connection hung instead of rejecting");
@@ -81,6 +86,7 @@ test("reserved connection rejects with CONNECTION_CLOSED instead of crashing on 
       reserved.release();
     }
   } finally {
+    for (const upstream of upstreams) upstream.destroy();
     proxy.close();
     await sql.end({ timeout: 1 });
   }

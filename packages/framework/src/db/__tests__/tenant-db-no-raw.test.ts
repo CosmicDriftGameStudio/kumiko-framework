@@ -30,11 +30,11 @@ describe("TenantDb has no .raw", () => {
 
   test("createTenantDb rejects an already tenant-scoped TenantDb: compile error, and raw access throws", () => {
     const tdb = createTenantDb(fakeRunner(), tenantId);
-    expect(() => {
-      // @ts-expect-error TenantDb is already tenant-scoped; createTenantDb only accepts a raw DbRunner.
-      const rewrapped = createTenantDb(tdb, tenantId);
-      asRawClient(tenantDbRunner(rewrapped));
-    }).toThrow();
+    // @ts-expect-error TenantDb is already tenant-scoped; createTenantDb only accepts a raw DbRunner.
+    const rewrapped = createTenantDb(tdb, tenantId);
+    expect(() => asRawClient(tenantDbRunner(rewrapped))).toThrow(
+      /asRawClient: received a tenant-scoped TenantDb/,
+    );
   });
 });
 

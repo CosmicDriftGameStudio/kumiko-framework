@@ -26,7 +26,7 @@ export async function selectEventsForProjectionRebuildBatch(
   // Archived streams don't replay (Marten-aligned): their aggregates are
   // frozen ops-tombstones — replaying them would resurrect rows (or, for
   // stranded duplicate-aggregates like fw#832, collide on unique indexes).
-  return (await unsafeReadRetrying(
+  return unsafeReadRetrying<Record<string, unknown>>(
     db,
     `SELECT * FROM "kumiko_events" e
      WHERE e."aggregate_type" = ANY($1::text[])
@@ -39,7 +39,7 @@ export async function selectEventsForProjectionRebuildBatch(
      ORDER BY e."id" ASC
      LIMIT $4`,
     [aggregateTypes, eventTypes, afterId, limit],
-  )) as ReadonlyArray<Record<string, unknown>>;
+  );
 }
 
 // Total subscribed events in the log — same source/type filter as
@@ -54,7 +54,7 @@ export async function countSubscribedEvents(
   // Same archived-streams exclusion as the batch query — the #443 recompute
   // compares this count against applied events; a filter mismatch would make
   // every rebuild with an archived stream loop the full-re-replay forever.
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ n: bigint | string | number | null }>(
     db,
     `SELECT count(*)::bigint AS n FROM "kumiko_events" e
      WHERE e."aggregate_type" = ANY($1::text[])
@@ -64,7 +64,7 @@ export async function countSubscribedEvents(
           WHERE a."tenant_id" = e."tenant_id" AND a."aggregate_id" = e."aggregate_id"
        )`,
     [aggregateTypes, eventTypes],
-  )) as ReadonlyArray<{ n: bigint | string | number | null }>;
+  );
   const raw = rows[0]?.n;
   if (typeof raw === "bigint") return raw;
   if (raw === null || raw === undefined) return 0n;

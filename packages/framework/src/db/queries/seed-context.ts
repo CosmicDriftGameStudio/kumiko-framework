@@ -21,14 +21,14 @@ export type SeedTenantDbRow = {
 };
 
 export async function selectUserByEmail(db: AnyDb, email: string): Promise<SeedUserRow | null> {
-  const rows = (await unsafeReadRetrying(
+  const rows = await unsafeReadRetrying<{ id: string; email: string; tenant_id: string }>(
     db,
     `SELECT id::text AS id, email, tenant_id::text AS tenant_id
      FROM read_users
      WHERE email = $1
      LIMIT 1`,
     [email],
-  )) as readonly { id: string; email: string; tenant_id: string }[];
+  );
   const row = rows[0];
   if (!row) return null;
   return { id: row.id, email: row.email, tenantId: row.tenant_id };
@@ -38,7 +38,7 @@ export async function selectMembershipsOfUser(
   db: AnyDb,
   userId: string,
 ): Promise<readonly SeedMembershipDbRow[]> {
-  return (await unsafeReadRetrying(
+  return unsafeReadRetrying<SeedMembershipDbRow>(
     db,
     `SELECT m.user_id::text AS user_id,
             m.tenant_id::text AS tenant_id,
@@ -48,15 +48,15 @@ export async function selectMembershipsOfUser(
      JOIN kumiko_events e ON e.aggregate_id = m.id AND e.version = 1
      WHERE m.user_id = $1`,
     [userId],
-  )) as readonly SeedMembershipDbRow[];
+  );
 }
 
 export async function selectAllTenants(db: AnyDb): Promise<readonly SeedTenantDbRow[]> {
-  return (await unsafeReadRetrying(
+  return unsafeReadRetrying<SeedTenantDbRow>(
     db,
     `SELECT id::text AS id, name, key AS tenant_key
      FROM read_tenants
      ORDER BY inserted_at`,
     [],
-  )) as readonly SeedTenantDbRow[];
+  );
 }

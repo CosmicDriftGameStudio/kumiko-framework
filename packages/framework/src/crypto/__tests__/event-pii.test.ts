@@ -298,12 +298,22 @@ describe("encryptEventPayloadPii", () => {
         [CANONICAL_TYPE, { recipientAddress: { personal: { of: "recipientId" } } }],
       ]),
     );
-    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+    const ctx = { requestId: "test" };
 
     const legacy = await encryptEventPayloadPii(LEGACY_TYPE, payload, ENVELOPE);
     const canonical = await encryptEventPayloadPii(CANONICAL_TYPE, payload, ENVELOPE);
-    expect(String(legacy["recipientAddress"])).toContain("user:u-1");
-    expect(String(canonical["recipientAddress"])).toContain("user:u-1");
+    for (const out of [legacy, canonical]) {
+      const back = await decryptPiiFieldValues(out, ["recipientAddress"], kms, ctx);
+      expect(back["recipientAddress"]).toBe("u1@example.com");
+    }
+
+    await kms.eraseKey({ kind: "user", userId: "u-1" });
+    for (const out of [legacy, canonical]) {
+      const back = await decryptPiiFieldValues(out, ["recipientAddress"], kms, ctx);
+      expect(back["recipientAddress"]).toBe(PII_ERASED_SENTINEL);
+    }
   });
 
   const systemPayload = {
