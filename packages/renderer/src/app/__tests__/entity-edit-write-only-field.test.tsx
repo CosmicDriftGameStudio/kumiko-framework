@@ -26,10 +26,6 @@ import { KumikoScreen } from "../kumiko-screen.js";
 import { NavProvider } from "../nav.js";
 
 const capturedInputs: Record<string, InputProps | undefined> = {};
-const captureInput: ComponentType<InputProps> = (props) => {
-  capturedInputs[props.name] = props;
-  return null;
-};
 let capturedFormSubmit: ((e?: FormEvent) => void) | undefined;
 const captureForm: ComponentType<FormProps> = (props) => {
   capturedFormSubmit = props.onSubmit;
@@ -42,12 +38,35 @@ const domButton: ComponentType<ButtonProps> = (props) => (
     {props.children}
   </button>
 );
+const domInput: ComponentType<InputProps> = (props) => {
+  capturedInputs[props.name] = props;
+  const action = props.kind === "password" ? props.trailingAction : undefined;
+  return (
+    <>
+      <input
+        type="password"
+        aria-label={props.name}
+        placeholder={props.kind === "password" ? props.placeholder : undefined}
+        disabled={props.disabled}
+        readOnly
+      />
+      {action && (
+        <button
+          type="button"
+          aria-label={action.label}
+          title={action.label}
+          onClick={action.onPress}
+        />
+      )}
+    </>
+  );
+};
 
 const testPrimitives: CorePrimitives = {
   Button: domButton,
   Banner: passChildren,
   Field: passChildren,
-  Input: captureInput,
+  Input: domInput,
   DataTable: noop,
   Form: captureForm,
   Section: passChildren,
@@ -188,31 +207,29 @@ describe("entityEdit writeOnly field", () => {
 
   test("Undo cancels a pending removal", async () => {
     mountEdit(SET_RECORD);
-    await waitFor(() => {
-      expect(screen.getByText("Remove")).toBeDefined();
-    });
-    fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => {
-      expect(screen.getByText("Removed on save")).toBeDefined();
-    });
+    const remove = await screen.findByRole("button", { name: "Remove stored value" });
+    fireEvent.click(remove);
+    const undo = await screen.findByRole("button", { name: "Undo" });
+    const input = screen.getByLabelText("apiKey") as HTMLInputElement;
+    expect(input.placeholder).toBe("Removed on save");
+    expect(input.disabled).toBe(true);
 
-    fireEvent.click(screen.getByText("Undo"));
+    fireEvent.click(undo);
     await waitFor(() => {
-      expect(screen.queryByText("Removed on save")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     });
+    expect(screen.getByRole("button", { name: "Remove stored value" })).toBeDefined();
     const changes = await submitAndReadChanges();
     expect(Object.hasOwn(changes, "apiKey")).toBe(false);
   });
 
   test("Remove then save sends null", async () => {
     mountEdit(SET_RECORD);
-    await waitFor(() => {
-      expect(screen.getByText("Remove")).toBeDefined();
-    });
-    fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => {
-      expect(screen.getByText("Removed on save")).toBeDefined();
-    });
+    fireEvent.click(await screen.findByRole("button", { name: "Remove stored value" }));
+    await screen.findByRole("button", { name: "Undo" });
+    // The only buttons are the in-field icon actions — no text link-button below the field.
+    expect(screen.queryByText("Undo")).toBeNull();
+    expect(screen.queryByText("Remove stored value")).toBeNull();
     const changes = await submitAndReadChanges();
     expect(changes["apiKey"]).toBeNull();
   });
@@ -232,7 +249,7 @@ describe("entityEdit writeOnly field", () => {
     await waitFor(() => {
       expect(capturedInputs["apiKey"]).toBeDefined();
     });
-    expect(screen.queryByText("Remove")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove stored value" })).toBeNull();
     const changes = await submitAndReadChanges();
     expect(Object.hasOwn(changes, "apiKey")).toBe(false);
   });

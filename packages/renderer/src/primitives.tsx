@@ -208,6 +208,13 @@ export type FieldProps = {
 /** Discriminated union — jede Input-Sorte hat ihre eigene value/onChange
  *  Signatur. Custom-Impls dispatchen intern, rendern anders (Toggle
  *  statt Checkbox), oder nur einzelne kinds unterschiedlich. */
+export type TrailingInputAction = {
+  readonly icon: "clear" | "undo";
+  readonly label: string;
+  readonly onPress: () => void;
+  readonly testId?: string;
+};
+
 export type InputProps =
   | {
       readonly kind: "text";
@@ -268,6 +275,9 @@ export type InputProps =
        *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
        *  Native: textContentType="password" / "newPassword". */
       readonly autoComplete?: "current-password" | "new-password";
+      /** Icon button inside the field's trailing edge (clear a stored value,
+       *  undo a pending removal). `label` is its accessible name + tooltip. */
+      readonly trailingAction?: TrailingInputAction;
       readonly testId?: string;
     }
   | {

@@ -597,7 +597,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.field.time": "Hora",
   "kumiko.field.timezone": "Zona horaria",
   "kumiko.field.unsupported": "Este tipo de campo todavía no se puede editar aquí.",
-  "kumiko.field.writeOnly.remove": "Quitar",
+  "kumiko.field.writeOnly.remove": "Quitar el valor guardado",
   "kumiko.field.writeOnly.set": "Establecido",
   "kumiko.field.writeOnly.setPlaceholder": "Establecido: dejar vacío para conservarlo",
   "kumiko.field.writeOnly.undo": "Deshacer",

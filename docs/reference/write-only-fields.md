@@ -40,4 +40,4 @@ Known limit: masking runs for entity-bound query handlers whose result is an arr
 
 ## UI
 
-The edit form renders a password input. A stored value shows the placeholder "Set"; typing replaces it. Optional fields get a "Remove" action that marks the value for removal on save, with an "Undo". Nothing is prefilled and the secret never reaches the browser.
+The edit form renders a password input. A stored value shows the placeholder "Set"; typing replaces it. Optional fields get a clear icon inside the input ("Remove stored value") that marks the value for removal on save; an undo icon in the same place reverts it. Nothing is prefilled and the secret never reaches the browser.

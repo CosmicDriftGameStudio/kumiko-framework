@@ -54,6 +54,7 @@ import {
   statusToneForOptionTone,
   statusToneForValue,
   type TextProps,
+  type TrailingInputAction,
   useColumnRenderer,
   useInsideDrawer,
   useOptionalLocale,
@@ -85,6 +86,7 @@ import {
   Search,
   SlidersHorizontal,
   Tag,
+  Undo2,
   User,
   X,
 } from "lucide-react";
@@ -119,6 +121,7 @@ import { Textarea } from "../ui/textarea.js";
 import { ProgressBar } from "../widgets/progress-bar.js";
 import { StatusBadge } from "../widgets/status-badge.js";
 import { StepBar } from "../widgets/step-bar.js";
+import { inFieldIconButtonClass } from "./calendar-popover.js";
 import { ComboboxInput } from "./combobox.js";
 import { DateInput } from "./date-input.js";
 import { DefaultDialog } from "./dialog.js";
@@ -499,6 +502,30 @@ function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
+const TRAILING_ACTION_ICONS = { clear: X, undo: Undo2 } as const;
+
+// In-field icon button on the right (same look as the date input's calendar
+// trigger). The wrapped input must reserve the room itself (`pr-9`).
+function withTrailingAction(action: TrailingInputAction | undefined, input: ReactNode): ReactNode {
+  if (action === undefined) return input;
+  const ActionIcon = TRAILING_ACTION_ICONS[action.icon];
+  return (
+    <div className="relative">
+      {input}
+      <button
+        type="button"
+        aria-label={action.label}
+        title={action.label}
+        data-testid={action.testId}
+        onClick={action.onPress}
+        className={inFieldIconButtonClass}
+      >
+        <ActionIcon className="size-4" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 // Default presentation for `kind: "select"` without a `display` of its own
 // (board rule): up to 3 short options read as a segmented control, up to 3
 // longer ones as a vertical radio list, everything else as a dropdown. Labels
@@ -781,7 +808,8 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "password":
-      return (
+      return withTrailingAction(
+        props.trailingAction,
         <UiInput
           type="password"
           {...common}
@@ -790,7 +818,8 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           autoComplete={props.autoComplete ?? "current-password"}
-        />
+          className={props.trailingAction !== undefined ? "pr-9" : undefined}
+        />,
       );
     case "number":
       return withUnitSuffix(

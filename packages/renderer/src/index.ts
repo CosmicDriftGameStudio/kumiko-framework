@@ -259,6 +259,7 @@ export type {
   StickyPrimaryActionMarker,
   TabsProps,
   TextProps,
+  TrailingInputAction,
   WizardStepGroupProps,
 } from "./primitives.js";
 export {

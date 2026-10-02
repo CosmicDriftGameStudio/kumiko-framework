@@ -213,44 +213,55 @@ function WriteOnlyTextInput({
   readonly onChange: (value: unknown) => void;
   readonly changed: boolean;
 }): ReactNode {
-  const { Input, Button, Text } = usePrimitives();
+  const { Input } = usePrimitives();
   const t = useTranslation();
   const isSet = field.value === true;
   const isMarkedForRemoval = field.value === null && changed;
 
   if (isMarkedForRemoval) {
     return (
-      <>
-        <Text variant="muted" testId={`field-write-only-removal-${field.field}`}>
-          {t("kumiko.field.writeOnly.willRemove")}
-        </Text>
-        <Button variant="link" size="sm" className="self-start" onClick={() => onChange(true)}>
-          {t("kumiko.field.writeOnly.undo")}
-        </Button>
-      </>
-    );
-  }
-
-  return (
-    <>
       <Input
         kind="password"
         id={id}
         name={field.field}
-        disabled={field.readOnly}
-        required={field.required && !isSet}
+        disabled
         hasError={hasError}
-        value={typeof field.value === "string" ? field.value : ""}
-        onChange={(v) => onChange(v)}
+        value=""
+        onChange={() => {}}
         autoComplete="new-password"
-        {...(isSet && { placeholder: t("kumiko.field.writeOnly.setPlaceholder") })}
+        placeholder={t("kumiko.field.writeOnly.willRemove")}
+        testId={`field-write-only-removal-${field.field}`}
+        trailingAction={{
+          icon: "undo",
+          label: t("kumiko.field.writeOnly.undo"),
+          onPress: () => onChange(true),
+        }}
       />
-      {isSet && !field.required && !field.readOnly && (
-        <Button variant="link" size="sm" className="self-start" onClick={() => onChange(null)}>
-          {t("kumiko.field.writeOnly.remove")}
-        </Button>
-      )}
-    </>
+    );
+  }
+
+  return (
+    <Input
+      kind="password"
+      id={id}
+      name={field.field}
+      disabled={field.readOnly}
+      required={field.required && !isSet}
+      hasError={hasError}
+      value={typeof field.value === "string" ? field.value : ""}
+      onChange={(v) => onChange(v)}
+      autoComplete="new-password"
+      {...(isSet && { placeholder: t("kumiko.field.writeOnly.setPlaceholder") })}
+      {...(isSet &&
+        !field.required &&
+        !field.readOnly && {
+          trailingAction: {
+            icon: "clear",
+            label: t("kumiko.field.writeOnly.remove"),
+            onPress: () => onChange(null),
+          },
+        })}
+    />
   );
 }
 
