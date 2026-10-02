@@ -321,12 +321,18 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         "userDataRights.privacyCenter.field.gracePeriodEnd": { en: "Scheduled deletion date" },
         "userDataRights.privacyCenter.export.title": { en: "Export your data (Art. 20)" },
         "userDataRights.privacyCenter.restriction.title": { en: "Restrict processing (Art. 18)" },
+        "userDataRights.privacyCenter.restriction.explainer": {
+          en: "Freeze your account: processing of your data is paused and you are signed out. Lifting the restriction afterwards is only possible via support.",
+        },
         "userDataRights.privacyCenter.restriction.restrict": { en: "Restrict account" },
         "userDataRights.privacyCenter.restriction.dialogTitle": { en: "Restrict your account?" },
         "userDataRights.privacyCenter.restriction.dialogDescription": {
           en: "You will be signed out immediately and cannot sign in again until support lifts the restriction.",
         },
         "userDataRights.privacyCenter.deletion.title": { en: "Delete account (Art. 17)" },
+        "userDataRights.privacyCenter.deletion.explainer": {
+          en: "Request deletion of your account. Until the grace period ends you can cancel the deletion.",
+        },
         "userDataRights.privacyCenter.deletion.delete": { en: "Delete account" },
         "userDataRights.privacyCenter.deletion.cancel": { en: "Cancel deletion" },
         "userDataRights.privacyCenter.deletion.dialogTitle": { en: "Delete your account?" },
@@ -382,7 +388,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             // when `showDeletion` is false, and status covers restriction
             // AND deletion state, so it can't hang off the optional section.
             title: i18nKey("userDataRights.privacyCenter.restriction.title"),
-            description: "userDataRights.privacyCenter.restriction.explainer",
+            description: i18nKey("userDataRights.privacyCenter.restriction.explainer"),
             fields: [
               {
                 field: "status",
@@ -394,7 +400,7 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
             ? [
                 {
                   title: i18nKey("userDataRights.privacyCenter.deletion.title"),
-                  description: "userDataRights.privacyCenter.deletion.explainer",
+                  description: i18nKey("userDataRights.privacyCenter.deletion.explainer"),
                   // gracePeriodEnd is only meaningful once a deletion is
                   // actually pending — hide it instead of showing an empty
                   // date when status isn't deletionRequested.
@@ -549,13 +555,13 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
     // (unencrypted PII at rest). Gauges keep their last value in-process, so
     // a dead cron does NOT make the backlog gauge absent; the last-run
     // timestamp gauge below is the liveness signal.
-    // Scope: Done-status bundles only — Failed-status cleanup candidates
-    // have no expiresAt/TTL (immediate cleanup, see storageCleanupPass).
+    // Scope: Done-status bundles past expiresAt+grace plus Failed-status
+    // orphans (no TTL, due from completedAt ?? startedAt; see storageCleanupPass).
     r.metric(EXPORT_CLEANUP_BACKLOG_AGE_METRIC, {
       type: "gauge",
       unit: "seconds",
       description:
-        "Age in seconds of the oldest done-status export bundle whose expiresAt+grace has passed but downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog.",
+        "Age in seconds of the oldest export bundle (done: expiresAt+grace passed; failed: orphaned ZIP since completedAt or startedAt) whose downloadStorageKey is still set. 0 when the storage-cleanup pass has no backlog.",
     });
     r.metric(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC, {
       type: "gauge",

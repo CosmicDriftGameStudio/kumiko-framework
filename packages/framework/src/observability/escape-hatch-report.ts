@@ -120,10 +120,14 @@ export function createEscapeHatchReporter(opts: {
   };
 }
 
+// Sentinel for escape-hatch uses whose caller did not thread an actor through —
+// distinct from a real system actor so audit queries can tell them apart.
+export const UNATTRIBUTED_ACTOR = "<unattributed>";
+
 export function fallbackEscapeHatchReporter(tenantId: TenantId): EscapeHatchReporter {
   return createEscapeHatchReporter({
     handler: "<unattributed>",
     tenantId,
-    actor: "<unattributed>",
+    actor: UNATTRIBUTED_ACTOR,
   });
 }

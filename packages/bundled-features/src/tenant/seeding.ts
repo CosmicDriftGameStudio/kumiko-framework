@@ -204,6 +204,10 @@ export async function fireEntityPostSave(
  * a second call for the same `id` is a no-op (no update path). Same
  * TX-semantics as the real `TenantHandlers.create`, minus the SystemAdmin-
  * access-check and minus ConflictError-on-duplicate.
+ *
+ * `hooks` run only for the call that actually creates the tenant: a call that
+ * finds the tenant/stream already present (or loses a concurrent create race)
+ * returns without firing postSave.
  */
 export async function seedTenant(
   db: DbRunner,
@@ -235,8 +239,11 @@ export async function seedTenant(
   );
   if (!result.isSuccess) {
     // Same idempotency case as the stream-version check above, only detected
-    // one instruction later: a dispatcher cycle appended to the stream between
-    // that read and this create. Both paths return without firing postSave.
+    // one instruction later: a concurrent writer (e.g. a parallel seedTenant
+    // for the same id) created the stream between the version read above and
+    // this create; the executor confines the failed append to a savepoint, so
+    // the surrounding TX stays usable. Both paths return without firing
+    // postSave — hooks only run for the call that actually created the tenant.
     if (result.error.code === "version_conflict") return { id: options.id };
     throw new Error(
       `seedTenant failed: ${result.error.code} — ${JSON.stringify(result.error.details ?? {})}`,

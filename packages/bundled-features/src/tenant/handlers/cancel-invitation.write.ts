@@ -11,24 +11,14 @@
 // = invitation_not_found.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-// kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
-import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store.js";
-import {
-  INVITATION_STATUS,
-  tenantInvitationEntity,
-  tenantInvitationsTable,
-} from "../invitation-table.js";
+import { cancelPendingInvitation } from "../cancel-pending-invitation.js";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
 
 const CancelInvitationSchema = z.object({
   invitationId: z.string(),
-});
-
-const executor = createEventStoreExecutor(tenantInvitationsTable, tenantInvitationEntity, {
-  entityName: "tenant-invitation",
 });
 
 export const cancelInvitationWrite = defineWriteHandler({
@@ -65,24 +55,13 @@ export const cancelInvitationWrite = defineWriteHandler({
       return { isSuccess: true, data: { id: event.payload.invitationId, alreadyDone: true } };
     }
 
-    // Status update via event-store
-    const updateResult = await executor.update(
-      {
-        id: event.payload.invitationId,
-        version: invitation["version"] as number, // @cast-boundary db-row
-        changes: { status: INVITATION_STATUS.cancelled },
-      },
-      event.user,
+    const cancelFailure = await cancelPendingInvitation(
       db,
+      { id: event.payload.invitationId, version: invitation["version"] as number }, // @cast-boundary db-row
+      event.user,
+      ctx.redis,
     );
-    if (!updateResult.isSuccess) return updateResult;
-
-    // Delete the token from Redis (if still there). If Redis is
-    // unavailable or the token already expired: not a problem, the DB
-    // row is the single source of truth for the UI.
-    if (ctx.redis) {
-      await invalidateExistingInviteToken(ctx.redis, event.payload.invitationId);
-    }
+    if (cancelFailure) return cancelFailure;
 
     return { isSuccess: true, data: { id: event.payload.invitationId, alreadyDone: false } };
   },
