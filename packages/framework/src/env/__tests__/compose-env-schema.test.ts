@@ -350,6 +350,13 @@ describe("kms env slots", () => {
         KumikoBootError,
       );
     });
+
+    it("parseEnv reports a refinement that throws on a ciphertext-only slot as a boot error", () => {
+      const reading = schema.superRefine((value) => {
+        value.MASTER_KEY.length;
+      });
+      expect(() => parseEnv(reading, { MASTER_KEY_CIPHERTEXT: "abc" })).toThrow(KumikoBootError);
+    });
   });
 });
 

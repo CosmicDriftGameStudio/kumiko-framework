@@ -211,19 +211,6 @@ agent.iteration_limit:
     Narrow the task, or fix the tool call that keeps repeating. The
     conversation's turn history shows which one it was.
 
-agent.permission_denied:
-  endUser: |
-    You don't have permission for this action.
-    The assistant can only do what your own account is allowed to do.
-  developer: |
-    `AccessDeniedError` from the agent's tool dispatch: the tool exists in the
-    catalog, but the caller's roles don't cover the handler behind it. The
-    agent runs strictly with the calling user's permissions — it never
-    escalates.
-
-    Grant the role on the handler, or accept that this tool stays unavailable
-    for that user.
-
 agent.high_risk_no_always:
   endUser: |
     High-risk actions can't be set to "always allow".

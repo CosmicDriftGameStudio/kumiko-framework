@@ -48,7 +48,6 @@ describe("AgentReasons", () => {
   test("exposes stable agent-prefixed reason codes", () => {
     expect(AgentReasons.toolNotAllowed).toBe("agent.tool_not_allowed");
     expect(AgentReasons.iterationLimit).toBe("agent.iteration_limit");
-    expect(AgentReasons.permissionDenied).toBe("agent.permission_denied");
     expect(AgentReasons.highRiskNoAlways).toBe("agent.high_risk_no_always");
   });
 

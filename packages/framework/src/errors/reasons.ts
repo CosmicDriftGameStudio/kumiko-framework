@@ -13,8 +13,8 @@
 // reasons surface from the AI-agent runtime (tool dispatch, permission and
 // risk gates), not from a handler's own domain logic, and the `agent.`
 // prefix keeps them visibly distinct from FrameworkReasons in error payloads.
-// Both the docs site (`errors/` pages) and the enterprise repo read this same
-// source, so the prefix stays a naming convention here, not a new registry.
+// The docs site (`errors/` pages) reads this source; the enterprise repo keeps
+// its own AGENT_REASONS, so only reasons it actually emits belong in both.
 
 export const FrameworkReasons = {
   // ConflictError: atomic UPDATE lost the race (another writer moved the row
@@ -90,10 +90,6 @@ export const AgentReasons = {
   // Not thrown: the run ends with a `clarify` turn (`payload.reason`) once
   // MAX_AGENT_ROUNDS is reached.
   iterationLimit: "agent.iteration_limit",
-
-  // AccessDeniedError: the tool exists, but the caller's roles don't cover
-  // the handler behind it.
-  permissionDenied: "agent.permission_denied",
 
   // UnprocessableError: a permission rule with `always` was requested for an
   // `agent: { risk: "high" }` handler; `details.handlerQn` names it.

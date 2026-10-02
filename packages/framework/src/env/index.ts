@@ -78,6 +78,9 @@ export function kmsSlotsOf(schema: z.ZodObject<z.ZodRawShape>): readonly string[
 // only exists after the boot-time decrypt, so requiring it here would reject
 // exactly the deployment this meta enables. safeExtend, not extend: Zod 4 throws
 // on extend for schemas carrying refinements (app-level superRefine).
+// Caveat: refinements run against the relaxed object, so they see such a slot as
+// `undefined` despite `z.infer<S>` promising a string. A refinement that reads the
+// slot must tolerate that; a throw from it is reported by parseEnv as a boot error.
 function relaxCiphertextOnlySlots<S extends z.ZodObject<z.ZodRawShape>>(
   schema: S,
   env: Readonly<Record<string, string>>,
@@ -330,6 +333,26 @@ export type ParseEnvOptions = {
   readonly pulumiPrefix?: string;
 };
 
+// safeParse does not catch exceptions thrown inside refinements; a refinement
+// reading a ciphertext-only slot (undefined here) would otherwise escape as a raw
+// TypeError past the KumikoBootError mapping.
+function safeParseReportingThrows(
+  schema: z.ZodObject<z.ZodRawShape>,
+  input: Record<string, string>,
+): ReturnType<z.ZodObject<z.ZodRawShape>["safeParse"]> {
+  try {
+    return schema.safeParse(input);
+  } catch (error) {
+    throw new KumikoBootError([
+      {
+        name: "<schema refinement>",
+        kind: "invalid",
+        message: `an env schema refinement threw: ${error instanceof Error ? error.message : String(error)}. If it reads a kms slot delivered only as <NAME>_CIPHERTEXT, the value is undefined at this point.`,
+      },
+    ]);
+  }
+}
+
 export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
   schema: S,
   env: Record<string, string | undefined>,
@@ -343,7 +366,7 @@ export function parseEnv<S extends z.ZodObject<z.ZodRawShape>>(
     if (v !== undefined) cleaned[k] = v;
   }
 
-  const result = relaxCiphertextOnlySlots(schema, cleaned).safeParse(cleaned);
+  const result = safeParseReportingThrows(relaxCiphertextOnlySlots(schema, cleaned), cleaned);
   if (result.success) {
     // @cast-boundary schema-walk — z.infer<S> erasure across safeParse result
     return result.data as z.infer<S>;

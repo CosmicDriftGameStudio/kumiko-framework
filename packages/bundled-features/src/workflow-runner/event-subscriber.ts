@@ -32,6 +32,7 @@ import type {
   WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { evaluateEventMatch } from "@cosmicdrift/kumiko-framework/engine";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { workflowRunPendingTable } from "./tables.js";
 
@@ -42,6 +43,33 @@ type CandidateRow = {
   readonly matchExpr: unknown | null;
 };
 
+const log = createFallbackLogger("workflow-runner");
+
+// A row whose persisted matchExpr cannot be evaluated (unknown version from a
+// rolling deploy, corrupt AST) must not abort the whole projection: that would
+// block every other waiting run of this event type on the same event forever.
+function rowMatchesEvent(row: CandidateRow, eventType: string, payload: unknown): boolean {
+  if (!row.matchExpr) return true;
+  try {
+    return evaluateEventMatch(
+      // @cast-boundary engine-payload — matchExpr round-trips through
+      // jsonb as the EventMatch AST waitForEvent's `match` resolver
+      // persisted (see steps/wait-for-event.ts); evaluateEventMatch
+      // rejects a malformed shape itself.
+      row.matchExpr as Parameters<typeof evaluateEventMatch>[0],
+      payload,
+    );
+  } catch (error) {
+    log.error("workflow wakeup skipped a pending row with an unevaluable matchExpr", {
+      runId: row.runId,
+      stepIndex: row.stepIndex,
+      eventType,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
+}
+
 const wakeupApply: MultiStreamApplyFn = async (event, tx) => {
   const rows = await selectMany<CandidateRow>(tx, workflowRunPendingTable, {
     tenantId: event.tenantId,
@@ -49,16 +77,7 @@ const wakeupApply: MultiStreamApplyFn = async (event, tx) => {
   });
 
   for (const row of rows) {
-    const matches = row.matchExpr
-      ? evaluateEventMatch(
-          // @cast-boundary engine-payload — matchExpr round-trips through
-          // jsonb as the EventMatch AST waitForEvent's `match` resolver
-          // persisted (see steps/wait-for-event.ts); never an unchecked
-          // external value.
-          row.matchExpr as Parameters<typeof evaluateEventMatch>[0],
-          event.payload,
-        )
-      : true;
+    const matches = rowMatchesEvent(row, event.type, event.payload);
     // skip: this row's matchExpr rejected the event — not this row's
     // resume, leave wakeAt/triggerEventType untouched.
     if (!matches) continue;

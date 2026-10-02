@@ -220,19 +220,6 @@ agent.iteration_limit:
     Aufgabe verkleinern oder den sich wiederholenden Tool-Call fixen. Die
     Turn-Historie der Unterhaltung zeigt, welcher es war.
 
-agent.permission_denied:
-  endUser: |
-    Dir fehlt die Berechtigung für diese Aktion.
-    Der Assistent darf nur das, was dein eigener Account darf.
-  developer: |
-    `AccessDeniedError` aus dem Tool-Dispatch des Agenten: das Tool steht im
-    Katalog, aber die Rollen des Aufrufers decken den dahinterliegenden Handler
-    nicht ab. Der Agent läuft strikt mit den Rechten des aufrufenden Users — er
-    eskaliert nie.
-
-    Rolle am Handler ergänzen, oder hinnehmen, dass dieses Tool für diesen User
-    nicht verfügbar ist.
-
 agent.high_risk_no_always:
   endUser: |
     Für risikoreiche Aktionen kann „immer erlauben“ nicht gesetzt werden.

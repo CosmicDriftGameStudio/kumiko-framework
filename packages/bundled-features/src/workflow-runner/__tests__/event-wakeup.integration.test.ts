@@ -278,6 +278,25 @@ describe("workflow-runner event-wakeup", () => {
     ]);
   });
 
+  test("a pending row with a corrupt matchExpr does not block other runs awaiting the same event", async () => {
+    const corruptKey = crypto.randomUUID();
+    const healthyKey = crypto.randomUUID();
+    const corruptRunId = workflowRunAggregateId(waitForEventWorkflow.name, corruptKey);
+    const healthyRunId = workflowRunAggregateId(waitForEventWorkflow.name, healthyKey);
+
+    await fireTrigger("wk-test.start", { runKey: corruptKey });
+    await fireTrigger("wk-test.start", { runKey: healthyKey });
+    await asRawClient(stack.db).unsafe(
+      `UPDATE workflow_run_pending SET match_expr = $1::jsonb WHERE run_id = $2`,
+      [JSON.stringify({ version: 1, expr: { kind: "and" } }), corruptRunId],
+    );
+
+    await fireAwaitedEvent("wk-test.replied", { from: "match@example.com", body: "hi" });
+
+    expect((await pendingRow(corruptRunId, 0))?.triggerEventType).toBeNull();
+    expect((await pendingRow(healthyRunId, 0))?.triggerEventType).toBe("wk-test.replied");
+  });
+
   test("an event no workflow awaits leaves every pending row untouched", async () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(waitForEventWorkflow.name, runKey);
