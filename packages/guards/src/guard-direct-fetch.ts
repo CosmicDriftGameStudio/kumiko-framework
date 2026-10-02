@@ -118,7 +118,7 @@ export const guard: AstGuard = {
   hint:
     "Replace raw fetch(...) with egress(policy)(...) from @cosmicdrift/kumiko-framework/http (framework#2147). " +
     'Same-origin path literal (`"/api/..."`) is allowed; otherwise put `// guard-allow: same-origin fetch` on the line above. ' +
-    "Local bindings named fetch are flagged (false positive — unblock via that marker or ALLOWLIST in infra/guards/guard-direct-fetch.ts). " +
+    "Local bindings named fetch are flagged (false positive — unblock via that marker). " +
     'Known gap: bracket access (globalThis["fetch"](...)).',
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     const violations: Array<{ file: string; line: number; message: string }> = [];

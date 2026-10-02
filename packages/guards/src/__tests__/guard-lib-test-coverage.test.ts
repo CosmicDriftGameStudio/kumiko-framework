@@ -195,3 +195,28 @@ addFees(100);`,
     ).toHaveLength(0);
   });
 });
+
+describe("guard-lib-test-coverage — Namen mit $", () => {
+  const TEST = "/src/features/demo/lib/__tests__/calc.test.ts";
+
+  test("export format$ wird durch eine Referenz auf format$ abgedeckt", () => {
+    expect(
+      run({
+        [LIB]: `export function format$(base: number): number { return base; }`,
+        [TEST]: `import { format$ } from "../calc";
+format$(1);`,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("Referenz auf format$ deckt den Export format nicht ab", () => {
+    expect(
+      run({
+        [LIB]: `export function format(base: number): number { return base; }
+export function format$(base: number): number { return base; }`,
+        [TEST]: `import { format$ } from "../calc";
+format$(1);`,
+      }),
+    ).toEqual([expect.stringContaining("format")]);
+  });
+});

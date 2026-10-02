@@ -13,7 +13,7 @@
  *
  * Usage:
  *   bun guards/guard-access-denied-test.ts
- *   Baseline: bun guards/run-guards.ts --write-security-baseline
+ *   Baseline: kumiko-guards guards --write-security-baseline
  */
 
 import * as path from "node:path";
@@ -117,7 +117,7 @@ export const guard: AstGuard = {
   name: "Access-Denied-Test Guard",
   scan: SCAN,
   security: true,
-  hint: "Role-restricted write handlers need a test that references the handler and asserts a caller without the role is rejected (AccessDeniedError / access_denied / 403). Existing gaps are frozen in the security baseline; after closing one: `bun guards/run-guards.ts --write-security-baseline`.",
+  hint: "Role-restricted write handlers need a test that references the handler and asserts a caller without the role is rejected (AccessDeniedError / access_denied / 403). Existing gaps are frozen in the security baseline; after closing one: `kumiko-guards guards --write-security-baseline`.",
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
     // consumer CI scans only its own repo, so a sibling repo's test must not count as coverage
     const violations: GuardViolation[] = findHandlersWithoutAccessDeniedTest(files, roots).map(

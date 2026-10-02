@@ -1,6 +1,9 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as path from "node:path";
 import { Project, SyntaxKind } from "ts-morph";
-import { categorize, guard } from "../check-as-casts";
+import { categorize, guard, loadBaseline, reportBaseline } from "../check-as-casts";
 
 function castIn(code: string) {
   const project = new Project({ useInMemoryFileSystem: true });
@@ -33,5 +36,45 @@ describe("As-Casts Audit", () => {
       "declare const x: unknown;\nexport const y = x as string;",
     );
     expect(guard.run([sf]).violations).toEqual([]);
+  });
+});
+
+describe("cast baseline file", () => {
+  let dir: string;
+  let file: string;
+  beforeEach(() => {
+    dir = mkdtempSync(path.join(tmpdir(), "cast-baseline-"));
+    file = path.join(dir, ".kumiko-cast-baseline.json");
+  });
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  test("a merge-conflict baseline yields a violation naming the file, not a throw", () => {
+    writeFileSync(file, '<<<<<<< HEAD\n{"format":2}\n=======\n{"format":2}\n>>>>>>> main\n');
+    const violations = reportBaseline([], file);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.file).toBe(file);
+    expect(violations[0]?.message).toContain(`Cannot read cast baseline ${file}`);
+  });
+
+  test("a baseline with a wrongly shaped perFile is invalid", () => {
+    writeFileSync(
+      file,
+      JSON.stringify({ format: 2, generated: "x", totalSuspect: 1, perFile: { a: { b: "1" } } }),
+    );
+    expect(loadBaseline(file).kind).toBe("invalid");
+    expect(reportBaseline([], file)).toHaveLength(1);
+  });
+
+  test("a valid baseline loads and reports no violations", () => {
+    writeFileSync(
+      file,
+      JSON.stringify({ format: 2, generated: "x", totalSuspect: 0, perFile: {} }),
+    );
+    expect(loadBaseline(file).kind).toBe("ok");
+    expect(reportBaseline([], file)).toEqual([]);
+  });
+
+  test("a missing baseline is still only a warning", () => {
+    expect(reportBaseline([], file)).toEqual([]);
   });
 });

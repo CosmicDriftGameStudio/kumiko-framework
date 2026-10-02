@@ -144,7 +144,7 @@ export const cleanup = async () => ctx.db.unsafeRaw("cleanup tenant rows");
     const sfs = files({
       "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
 declare const ctx: { db: unknown };
-declare function withUnsafeRawGrant(db: unknown, grant: { reason: string }): { unsafeRaw: (reason: string) => unknown };
+import { withUnsafeRawGrant } from "@cosmicdrift/kumiko-framework/db";
 export const x = withUnsafeRawGrant(ctx.db, { reason: "append provenance event" }).unsafeRaw("append provenance event");
 `,
     });
@@ -391,7 +391,7 @@ export const h = defineWriteHandler({
   test("flags a placeholder declareEscapeHatch reason, and the escalation it fails to cover", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomething(passedCtx: typeof ctx) {
 	declareEscapeHatch({ reason: "TODO" });
@@ -410,7 +410,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("flags an empty or whitespace-only declareEscapeHatch reason", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomething(passedCtx: typeof ctx) {
 	declareEscapeHatch({ reason: "" });
@@ -418,7 +418,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
 }
 `,
       "/r/packages/bundled-features/src/foo/other-helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomethingElse(passedCtx: typeof ctx) {
 	declareEscapeHatch({ reason: "   " });
@@ -966,7 +966,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("does not clear on declareEscapeHatch({}) — no reason at all", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomething(passedCtx: typeof ctx) {
 	declareEscapeHatch({});
@@ -982,7 +982,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("does not clear on a non-literal reason (declareEscapeHatch({ reason: someVar }))", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 declare const someVar: string;
 export async function loadSomething(passedCtx: typeof ctx) {
@@ -1000,7 +1000,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("a declareEscapeHatch in a nested function does not cover the outer function's escalation", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function outer(passedCtx: typeof ctx) {
 	const inner = () => {
@@ -1019,7 +1019,7 @@ export async function outer(passedCtx: typeof ctx) {
   test("clears unsafeRaw in a standalone function with a valid declareEscapeHatch", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomething(passedCtx: typeof ctx) {
 	declareEscapeHatch({ reason: "reads something on behalf of the caller" });
@@ -1033,7 +1033,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("clears queryAs(systemUser, ...) in a standalone function with a valid declareEscapeHatch (R3)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { queryAs: (...a: unknown[]) => unknown };
 async function loadValidatedUser(passedCtx: typeof ctx, systemUser: unknown, userId: string) {
 	declareEscapeHatch({ reason: "reads the user row on behalf of the caller's handler" });
@@ -1049,7 +1049,7 @@ describe("module-local const reason resolution (#2978)", () => {
   test("resolves a module-local const reason and clears the escalation (AC1)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 const FORGET_CASCADE_RAW_REASON = "GDPR forget cascade needs a cross-tenant delete";
 export async function loadSomething(passedCtx: typeof ctx) {
@@ -1065,7 +1065,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("a const reason resolving to a placeholder is still rejected (AC2)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 const PLACEHOLDER_REASON = "todo";
 export async function loadSomething(passedCtx: typeof ctx) {
@@ -1085,7 +1085,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("a `let` reassignable binding never resolves, even with a concrete text", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 let mutableReason = "reads something on behalf of the caller";
 export async function loadSomething(passedCtx: typeof ctx) {
@@ -1107,7 +1107,7 @@ export const SHARED_REASON = "reads something on behalf of the caller";
 `,
       "/r/packages/bundled-features/src/foo/helper.ts": `
 import { SHARED_REASON } from "./reasons";
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomething(passedCtx: typeof ctx) {
 	declareEscapeHatch({ reason: SHARED_REASON });
@@ -1126,7 +1126,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("rejects a reason produced by a function call, and the message says why (AC3)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare function buildReason(): string;
 declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
 export async function loadSomething(passedCtx: typeof ctx) {
@@ -1145,7 +1145,7 @@ export async function loadSomething(passedCtx: typeof ctx) {
   test("rejects a template-with-substitution reason, and the message says why (AC3)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/foo/helper.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare const ctx: { queryAs: (...a: unknown[]) => unknown };
 declare const systemUser: unknown;
 declare const why: string;
@@ -1210,7 +1210,7 @@ export const run = async () => ctx.queryProjection("proj", { unsafeAllTenants: t
 
     const unresolvable = files({
       "/r/packages/bundled-features/src/foo/handlers/y.query.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 declare function buildReason(): string;
 declare const ctx: { queryProjection: (name: string, opts: unknown) => unknown };
 export async function run() {
@@ -1230,7 +1230,7 @@ export async function run() {
   test("resolves a shared const reason across arrow-const-assigned named hooks (AC5, publicstatus shape)", () => {
     const sfs = files({
       "/r/packages/bundled-features/src/user-data-hooks.ts": `
-declare function declareEscapeHatch(d: unknown): void;
+import { declareEscapeHatch } from "@cosmicdrift/kumiko-framework/engine";
 type UserDataDeleteHook = (ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } }) => Promise<void>;
 const GDPR_CASCADE_REASON = "GDPR delete cascade needs a cross-tenant raw delete";
 
@@ -1416,5 +1416,86 @@ export const a = ctx.systemDb.acknowledgeCrossTenant("todo");
     expect(result.blocking).toHaveLength(1);
     expect(result.blocking[0]?.message).toMatch(/placeholder reason/);
     expect(result.frozen).toBe(0);
+  });
+});
+
+describe("origin of declareEscapeHatch / withUnsafeRawGrant", () => {
+  const DECLARED_BODY = `
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function load(passedCtx: typeof ctx) {
+	declareEscapeHatch({ reason: "reads something on behalf of the caller" });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`;
+
+  test("a locally declared declareEscapeHatch does not clear", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+const declareEscapeHatch = (_: unknown): void => {};${DECLARED_BODY}`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("declareEscapeHatch imported from a foreign module does not clear", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+import { declareEscapeHatch } from "./my-noop";${DECLARED_BODY}`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("an aliased framework import still clears", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/helper.ts": `
+import { declareEscapeHatch as declare } from "@cosmicdrift/kumiko-framework/engine";
+declare const ctx: { systemDb: { unsafeRaw: (reason: string) => unknown } };
+export async function load(passedCtx: typeof ctx) {
+	declare({ reason: "reads something on behalf of the caller" });
+	return passedCtx.systemDb.unsafeRaw("reads something on behalf of the caller");
+}
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("a locally declared withUnsafeRawGrant does not clear", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/handlers/x.write.ts": `
+declare const ctx: { db: unknown };
+declare function withUnsafeRawGrant(db: unknown, grant: { reason: string }): { unsafeRaw: (reason: string) => unknown };
+export const x = withUnsafeRawGrant(ctx.db, { reason: "append provenance event" }).unsafeRaw("append provenance event");
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
+  });
+
+  test("withUnsafeRawGrant imported relatively inside the framework package clears", () => {
+    const sfs = files({
+      "/r/packages/framework/src/event-store/x.ts": `
+import { withUnsafeRawGrant } from "../db/tenant-db.js";
+declare const db: unknown;
+export const x = withUnsafeRawGrant(db, { reason: "append provenance event" }).unsafeRaw("append provenance event");
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r")).toHaveLength(0);
+  });
+
+  test("a relative import outside the framework package does not clear", () => {
+    const sfs = files({
+      "/r/packages/bundled-features/src/foo/x.ts": `
+import { withUnsafeRawGrant } from "./grant";
+declare const db: unknown;
+export const x = withUnsafeRawGrant(db, { reason: "append provenance event" }).unsafeRaw("append provenance event");
+`,
+    });
+    expect(findEscapeHatchFindings(sfs, "/r").map((f) => f.rule)).toEqual([
+      "unsafe-raw-outside-system-scope",
+    ]);
   });
 });

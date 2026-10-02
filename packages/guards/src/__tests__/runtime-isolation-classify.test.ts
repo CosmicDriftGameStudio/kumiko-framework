@@ -12,8 +12,10 @@ import { join, relative } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import {
   classify,
+  classifyByDirective,
   classifyByPath,
   computeClientReachablePaths,
+  createDirectiveClassifier,
   findRuntimeIsolationViolations,
   isClientEntryPath,
   isValueImport,
@@ -393,5 +395,44 @@ describe("findRuntimeIsolationViolations — 'prod' workspace marker", () => {
 
   test("runtime -> prod is not a violation", () => {
     expect(scan("runtime").violations).toHaveLength(0);
+  });
+});
+
+describe("directive classification: head read and per-run cache", () => {
+  test("reads the directive from the head reader's text", () => {
+    expect(classifyByDirective("/x/a.ts", () => "// @runtime client\nexport {};")).toBe("client");
+    expect(classifyByDirective("/x/a.ts", () => "export {};")).toBeNull();
+    expect(classifyByDirective("/x/a.ts", () => null)).toBeNull();
+  });
+
+  test("reads each file head once per classifier, including negative results", () => {
+    const reads: string[] = [];
+    const directiveOf = createDirectiveClassifier((file) => {
+      reads.push(file);
+      return file.endsWith("marked.ts") ? "// @runtime prod\n" : "export {};";
+    });
+    expect(directiveOf("/x/marked.ts")).toBe("prod");
+    expect(directiveOf("/x/marked.ts")).toBe("prod");
+    expect(directiveOf("/x/plain.ts")).toBeNull();
+    expect(directiveOf("/x/plain.ts")).toBeNull();
+    expect(reads).toEqual(["/x/marked.ts", "/x/plain.ts"]);
+  });
+
+  test("a new classifier does not share the cache of another", () => {
+    let reads = 0;
+    const reader = () => {
+      reads++;
+      return "export {};";
+    };
+    createDirectiveClassifier(reader)("/x/a.ts");
+    createDirectiveClassifier(reader)("/x/a.ts");
+    expect(reads).toBe(2);
+  });
+
+  test("classify uses the supplied directive classifier", () => {
+    const directiveOf = createDirectiveClassifier(() => "// @runtime dev\n");
+    expect(
+      classify("/nonexistent/app/src/a.ts", "/nonexistent/app", new Map(), undefined, directiveOf),
+    ).toBe("dev");
   });
 });

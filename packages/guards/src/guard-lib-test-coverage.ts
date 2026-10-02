@@ -29,6 +29,7 @@
 import { dirname, resolve } from "node:path";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import { escapeRegExp } from "./_lib/handler-name-forms";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
 // isTestFile() classifies by regex on the file's own path, not by which within-glob matched it, so lib/ vs. test classification stays correct regardless of scan-scope resolution.
@@ -116,7 +117,11 @@ function bodyTextWithoutImports(testSf: SourceFile): string {
 }
 
 function referencesName(testSf: SourceFile, name: string): boolean {
-  return new RegExp(`\\b${name}\\b`).test(bodyTextWithoutImports(testSf));
+  // `\b` does not treat `$` as a word character, so identifiers like `format$`
+  // need explicit identifier-char lookarounds.
+  return new RegExp(`(?<![\\w$])${escapeRegExp(name)}(?![\\w$])`).test(
+    bodyTextWithoutImports(testSf),
+  );
 }
 
 export const guard: AstGuard = {
