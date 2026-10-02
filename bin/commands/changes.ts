@@ -100,19 +100,23 @@ function findFrameworkCoreChangelogFile(repoRoot: string): string | null {
 // the container directory for the loop above, not a feature itself. A
 // packages/<name> without its own package.json (e.g. __tests__ fixtures) is
 // not a target.
-function resolveStandaloneFrameworkPackage(repoRoot: string, featureName: string): PackageTarget | null {
-  if (!isFrameworkRepo(repoRoot)) return null;
-  if (featureName === "framework" || featureName === "bundled-features") return null;
-  if (featureName === "" || featureName === "." || featureName === ".." || /[/\\]/.test(featureName)) return null;
+function listStandaloneFrameworkPackageNames(repoRoot: string): string[] {
+  if (!isFrameworkRepo(repoRoot)) return [];
+  const packagesDir = join(repoRoot, "packages");
+  return readdirSync(packagesDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .filter((name) => name !== "framework" && name !== "bundled-features")
+    .filter((name) => readPackageName(join(packagesDir, name)) !== null);
+}
 
+function resolveStandaloneFrameworkPackage(repoRoot: string, featureName: string): PackageTarget | null {
+  if (!listStandaloneFrameworkPackageNames(repoRoot).includes(featureName)) return null;
   const packageDir = join(repoRoot, "packages", featureName);
   const packageName = readPackageName(packageDir);
   if (!packageName) return null;
-
-  const srcLayout = join(packageDir, "src", "changes.json");
-  const flatLayout = join(packageDir, "changes.json");
-  const changelogPath = existsSync(srcLayout) || existsSync(join(packageDir, "src")) ? srcLayout : flatLayout;
-  return { packageName, changelogPath };
+  // upgrade-cli's findPackageChangelogFiles only reads src/changes.json.
+  return { packageName, changelogPath: join(packageDir, "src", "changes.json") };
 }
 
 export function resolveFeatureTarget(repoRoot: string, featureName: string): PackageTarget | null {
@@ -143,21 +147,14 @@ export function resolveFeatureTarget(repoRoot: string, featureName: string): Pac
 
 function listAvailableFeatures(repoRoot: string): string[] {
   const names = new Set<string>();
-  if (existsSync(join(repoRoot, "packages/framework"))) names.add("framework");
+  if (isFrameworkRepo(repoRoot)) names.add("framework");
   for (const dir of findFeaturesDirs(repoRoot)) {
     if (isNodeModulesDir(dir) || !existsSync(dir)) continue;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) names.add(entry.name);
     }
   }
-  if (isFrameworkRepo(repoRoot)) {
-    const packagesDir = join(repoRoot, "packages");
-    for (const entry of readdirSync(packagesDir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      if (entry.name === "framework" || entry.name === "bundled-features") continue;
-      if (readPackageName(join(packagesDir, entry.name))) names.add(entry.name);
-    }
-  }
+  for (const name of listStandaloneFrameworkPackageNames(repoRoot)) names.add(name);
   return [...names].sort();
 }
 

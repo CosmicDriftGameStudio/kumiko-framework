@@ -14,7 +14,7 @@ runner — stop coming back out of habit. For diagnosing a red or flaky test,
 see [`test-failures.md`](/en/guides/test-failures/); this guide is the model behind
 those steps.
 
-## Three classes, never mixed
+## Four classes, never mixed
 
 | Class | Files | Command | Budget |
 |---|---|---|---|
@@ -37,11 +37,11 @@ that keep each class in its own lane. Bun ignores a `[test] timeout` key, so
 the budget above is a `--timeout` flag in the scripts, from one constant
 (`TEST_TIMEOUT_MS`) — not something an app sets per file.
 
-Unit, DOM and integration all preload `SCHEMA_ENV_DEFAULTS`
+Unit, DOM, integration and real all preload `SCHEMA_ENV_DEFAULTS`
 (`JWT_SECRET`, `KUMIKO_SECRETS_MASTER_KEY_V1`,
 `KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION`) — the env keys the framework's
 own schema (auth, secrets, field-encryption) requires, each filled with `??=`
-so an app's own value always wins. Integration additionally preloads
+so an app's own value always wins. Integration and real additionally preload
 `SERVICE_ENV_DEFAULTS` (`DATABASE_URL`, `REDIS_URL`, …); unit and DOM don't,
 so a unit test that accidentally reaches for a service still fails instead of
 silently connecting. An app-specific default (a demo email, a seed value) is
@@ -113,122 +113,35 @@ target handler must admit SystemAdmin; data no normal handler produces
 seeder to call.
 
 `defineAppE2eConfig` sizes workers off the CPU count rather than maximizing
-them: `#3118` measured that oversubscribing workers on a small (1.5-CPU) CI
-runner made the e2e run both slower and flakier, not faster — too many
-Chromium processes contending for too little CPU. A project that sets its own
+them: on a small (1.5-CPU) CI runner, 1/2/4 workers measured 2.6/2.6/2.7 min,
+so the run is already saturated at one worker and more only adds Chromium
+processes. A project that sets its own
 `workers` throws.
 
-## Measured effect
+## Parallel runs
 
-#3118's own findings ("Richtwerte, keine Baseline": rough signals, not a
-clean measurement) describe the pre-template state: e2e defaulted to
-`workers: 1` everywhere; phronexsis's e2e at 2 workers already showed
-1.85x, but 4 workers went red from a shared-tenant collision (two flow
-specs racing on one tenant), not from a CPU limit, the reason
-`seedTenant()` per flow exists.
+Framework integration runs as one `bun test --parallel=4 --no-isolate` call
+over every `*.integration.test.ts` file, built by the same
+`buildIntegrationTestArgs` the CLI uses. The framework's unit step uses the
+same flags; DOM steps stay serial. Perf gates run serially.
 
-#3119 collected the actual baseline. Its CI job-minutes table (median of
-the last 10 successful runs per app, taken before any port/config change)
-is the comparison point, meant to prove the template's runtime is not
-worse than it; comparing it against each migrated app's post-migration CI
-minutes has not been done yet. Locally, publicstatus's integration suite
-(53 files, 370 tests, loaded machine, two runs) measured sequential at
-27.0 s / 24.5 s and `--parallel=4` at 29.3 s / 25.3 s, with 2-4 s of
-run-to-run noise.
+`--no-isolate` is required: bun's `--parallel` implies `--isolate`, which
+leaks native memory per test file and can OOM-kill a small CI runner. It is
+safe because the template isolates through data (`seedTenant` per flow, a
+queue prefix per stack), not through OS processes. The integration guard
+also blocks `mock.module`, the one way files could leak state into each other.
 
-With the template, the same class of suite (56 files, 381 tests, measured
-in PR #3294) runs `--parallel=4 --no-isolate` at 27.1 s: within the
-baseline's noise band, not worse, with 11 more tests. `--no-isolate` is
-required because bun 1.4.0's `--parallel` implies `--isolate`, which leaks
-native memory per test file while the JS heap stays flat: the same suite
-under bun's `--isolate` default peaks at 3.31 GiB / 49.9 s, OOM-killing
-the 3-GiB CI runner, against 1.31 GiB / 27.1 s and 381/381 green under
-`--no-isolate` (the runner's default since 0.316.0). That pair is
-isolate-vs-no-isolate within the template, not a comparison against the
-pre-template baseline. `--no-isolate` is safe here because the template
-already isolates through data (`seedTenant` per flow, a queue prefix per
-stack), not through OS processes, the same property that makes parallel
-e2e safe above.
+The CI Postgres runs with `fsync=off`, `synchronous_commit=off` and
+`full_page_writes=off`: `DROP DATABASE` in `stack.cleanup()` forces a
+synchronous checkpoint that queues up under concurrent teardowns.
 
-kumiko-framework's own `scripts/run-integration-tests.ts` was the one
-runner still serial (#3118's last open item). It spawned one `bun test`
-per integration directory, one after another, so a per-directory
-`--parallel` would only have parallelized within a directory (most hold
-1-4 files), never across the roughly 150 directories doing the actual
-serializing. It now builds a single invocation over every discovered
-`*.integration.test.ts` file via the same `buildIntegrationTestArgs` the
-CLI uses, defaulting to `--parallel=4 --no-isolate`.
+Result for the framework integration suite: about 460 s serial against 170 to
+215 s with `--parallel=4`.
 
-Measured locally (515 files, 4228 tests, one file failing in every run
-because MinIO isn't running locally, unrelated to this change): serial
-460 s / 683 MB peak RSS (`/usr/bin/time -l`, valid for serial since only
-one worker runs at a time) against five `--parallel=4` runs at 168-215 s,
-2526 MB peak summed RSS as an upper bound (`/usr/bin/time -l` only
-reports the single largest descendant, so the four `--test-worker`
-processes were sampled by `ps` every second and summed; other local
-processes sharing the same `bun` binary can inflate this figure, so
-treat it as an upper bound, not an exact number). Four of the five
-parallel runs matched serial's pass/fail counts exactly; one hit the
-ioredis "Connection is closed" flake tracked in #1805. That flake is
-pre-existing: its issue thread records the same failure, in the same
-file, on PR #3296's CI under the still-serial runner earlier the same
-day. `--no-isolate` itself isn't leaking state between files (the
-integration guard already blocks `mock.module`, and none of the
-framework's own suites use it); a `KUMIKO_INTEGRATION_COVERAGE=1` run
-under `--parallel=4` produced a complete lcov report (1500 unique `SF:`
-entries against main's own last coverage run's 1499, `LH` 78833 against
-78964, within 1%, `LF` 116992 against 123504, about 5% lower, no worker
-overwriting another's output). A sixth local run is excluded here: the
-machine entered a 583 s macOS maintenance sleep mid-run (`pmset -g log`
-shows Sleep about three minutes in and Wake 583 s later), matching the
-~580 s durations of the tests that were in flight when it happened. That
-run also hit #3265 (jobs sequential-concurrency) once; unlike the other
-failures in that run, its cause there is not confirmed. CI measurements:
-434 s (serial, median of the last 5 successful pull-request runs' "Run
-integration tests" step; main-push runs also collect coverage and are
-not a clean baseline) vs. three `--parallel=4` runs on this PR. The CI
-comparison bundles two changes at once, the new `--parallel=4`
-invocation and the Postgres durability flags below, so it doesn't
-isolate either one; the local comparison does, since the local
-`docker-compose.yml` already had the durability flags before this
-change (#3299). The CI job's own ephemeral Postgres gained the same
-`fsync=off -c synchronous_commit=off -c full_page_writes=off` flags as
-the app template's reusable workflow (infra#936) and this repo's local
-`docker-compose.yml` (#3299), for the same reason: `DROP DATABASE` in
-`stack.cleanup()` forces a synchronous checkpoint that queues up under
-concurrent teardowns.
-
-After that, the framework's unit step in `bun kumiko check` ("Unit Tests
-(framework)", one `bun test` process, about 155 s in CI) was the longest
-part of the `test` job, the critical path. It now runs with
-`--parallel=4 --no-isolate` too, only for kumiko-framework; the sibling
-repos' unit steps and the DOM steps are unchanged. Measured locally with
-the CI profile (`CI=true`, `bunfig.ci.toml`, coverage on), in a worktree
-with its own `bun install`, three runs each: serial 71-74 s,
-`--parallel=4 --no-isolate` 29-34 s. Every run reported 9072 tests across
-803 files with 0 failures, and the per-test JUnit results (file, name,
-status) were identical across all six runs: no cross-file dependency on
-worker assignment showed up in three parallel runs. Peak summed RSS,
-sampled with `ps` every second, was 3.5-4.2 GB serial against 4.5-4.9 GB
-parallel. The same upper-bound caveat as above applies.
-
-Coverage under `--parallel` differs in two ways, both confirmed on the
-lcov files of one serial and one parallel run. First, bun 1.4.0's
-parallel workers ignore `coveragePathIgnorePatterns` from the bunfig (also
-with `--config` after `test`), so the parallel lcov also listed about 70
-files under `bin/`, `scripts/` and `test-setup/`. `scripts/coverage-badge.ts`
-now filters all three lcov inputs against `bunfig.ci.toml`'s patterns
-itself. After that filter, both runs cover the same 1762 files with the
-same 80560 hit lines. Second, the parallel run reports 7001 more
-executable lines (`DA` entries), all with zero hits. It is a strict
-superset of the serial run's lines, and no line changes hit status. The
-cause is not isolated; a likely explanation is that each worker reports
-lines of the functions it compiled, and the union over four workers
-includes more of them. The unit-only line coverage computed by
-`coverage-badge.ts` therefore drops from 55.5 % to 52.9 % without a single
-test covering less; how much of that reaches the merged badge depends on
-the integration and DOM lcov. The parallel line total varies by about 50
-lines between runs, depending on which files share a worker.
+Under `--parallel`, bun's workers ignore `coveragePathIgnorePatterns` and
+report more executable lines with zero hits, so unit line coverage reads
+lower without any test covering less. `scripts/coverage-badge.ts` filters
+all lcov inputs against `bunfig.ci.toml` itself.
 
 ## Timeouts and retries belong to the template
 
@@ -272,9 +185,9 @@ to re-copy it, and usually nobody does. Calling the API instead means an
 improvement ships to every app, including third-party ones, through an
 ordinary version bump of `@cosmicdrift/kumiko-testing` — no coordinated
 find-and-replace across repos. The `test-template-drift` guard enforces this:
-a config-level `viewport` or a `deviceScaleFactor` anywhere is flagged unless
-it's genuinely not a Playwright-config value (a scenario field) and carries a
-`// @template-drift-exception: #<issue> <reason>` marker directly above it.
+a config-level `viewport` or a `deviceScaleFactor` anywhere is flagged, and a
+`// @template-drift-exception: #<issue> <reason>` marker directly above it
+suppresses the finding.
 A spec's own `test.use({ viewport })` is not flagged — the template defaults
 to a 1920px desktop viewport, and a spec asserting a layout that only exists
 below that width (a mobile breakpoint, a narrow-container overflow case) sets
