@@ -318,7 +318,7 @@ export function validateBounds(
           path: "value",
           code: "out_of_bounds",
           i18nKey: "errors.validation.out_of_bounds",
-          params: { value, min, max: max ?? null },
+          params: { ...echoableValue(keyDef, value), min, max: max ?? null },
         },
       ],
     });
@@ -330,7 +330,7 @@ export function validateBounds(
           path: "value",
           code: "out_of_bounds",
           i18nKey: "errors.validation.out_of_bounds",
-          params: { value, min: min ?? null, max },
+          params: { ...echoableValue(keyDef, value), min: min ?? null, max },
         },
       ],
     });

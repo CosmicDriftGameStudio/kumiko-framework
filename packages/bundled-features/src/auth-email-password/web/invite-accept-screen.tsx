@@ -44,18 +44,28 @@ type Mode = "loggedin" | "anon-existing" | "anon-new";
 // All three accept routes answer 200 with tenantId + the invitation role;
 // the two session-minting branches additionally carry the stripped session
 // roles. An MFA challenge is also a 200 and carries none of them.
-type InviteAcceptResponse = {
+type InviteAcceptMfaPending = {
+  readonly tenantId?: undefined;
+  readonly mfaRequired?: boolean;
+  readonly mfaSetupRequired?: boolean;
+};
+
+type InviteAcceptSucceeded = {
   readonly tenantId: string;
   readonly role?: string;
   readonly user?: { readonly roles?: readonly string[] };
   // Present only when the server's auth.postAuthLanding resolver returned a
   // valid path — see auth-routes.ts.
   readonly landingPath?: string;
-  readonly mfaRequired?: boolean;
-  readonly mfaSetupRequired?: boolean;
 };
 
-function grantedRoles(data: InviteAcceptResponse): readonly string[] {
+type InviteAcceptResponse = InviteAcceptMfaPending | InviteAcceptSucceeded;
+
+function isMfaPending(data: InviteAcceptResponse): data is InviteAcceptMfaPending {
+  return data.tenantId === undefined;
+}
+
+function grantedRoles(data: InviteAcceptSucceeded): readonly string[] {
   if (data.user?.roles !== undefined) return data.user.roles;
   return data.role === undefined ? [] : [data.role];
 }
@@ -88,7 +98,7 @@ export function InviteAcceptScreen({
   // challenge / setup requirement, but no session cookie was minted: send the
   // user to the login screen (now a member) instead of a tenant URL.
   const finishAccept = (data: InviteAcceptResponse): void => {
-    if (data.mfaRequired === true || data.mfaSetupRequired === true) {
+    if (isMfaPending(data)) {
       window.location.assign(loginHref);
       return;
     }

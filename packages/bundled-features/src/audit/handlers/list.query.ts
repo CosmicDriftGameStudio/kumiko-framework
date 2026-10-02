@@ -31,6 +31,10 @@ function buildDateRange(
   return range;
 }
 
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (m) => `\\${m}`);
+}
+
 function buildAuditWhere(
   tenantId: string,
   p: {
@@ -48,8 +52,8 @@ function buildAuditWhere(
   const where: WhereObject = { tenantId };
   if (p.aggregateType) where["aggregateType"] = p.aggregateType;
   if (p.aggregateId) where["aggregateId"] = p.aggregateId;
-  const type = p.eventType ?? p.search;
-  if (type) where["type"] = type;
+  if (p.eventType) where["type"] = p.eventType;
+  else if (p.search) where["type"] = { like: `%${escapeLikePattern(p.search)}%` };
   if (p.userId) where["createdBy"] = p.userId;
   const range = buildDateRange(p.from, p.to);
   if (range) where["createdAt"] = range;

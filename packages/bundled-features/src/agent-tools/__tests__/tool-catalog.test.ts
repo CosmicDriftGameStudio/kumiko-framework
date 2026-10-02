@@ -280,18 +280,25 @@ describe("buildToolCatalog — handler-derived query/write tools", () => {
     expect(names).toContain("ask_user");
   });
 
-  test("a name collision between two handler-derived tools skips the later one instead of shadowing it", () => {
+  test("a name collision between two handler-derived tools keeps both, the later one under a hashed name", () => {
     const catalog = buildCatalog(ADMIN);
     const collidingName = toolNameForQn("catalog-test:write:widget:approve-x");
     expect(collidingName).toBe(toolNameForQn("catalog-test:write:widget:approve--x"));
 
-    const matches = catalog.tools.filter((t) => t.name === collidingName);
-    expect(matches).toHaveLength(1);
     // manifest.handlers is qn-sorted; "approve--x" < "approve-x" by code point (the extra
-    // "-" beats "x" at the first differing position), so it's added first and wins the name.
+    // "-" beats "x" at the first differing position), so it's added first and keeps the plain name.
     expect(catalog.dispatchTable.get(collidingName)).toMatchObject({
       qn: "catalog-test:write:widget:approve--x",
     });
+    const laterEntry = [...catalog.dispatchTable.entries()].find(
+      ([, descriptor]) =>
+        descriptor.kind === "server" && descriptor.qn === "catalog-test:write:widget:approve-x",
+    );
+    expect(laterEntry).toBeDefined();
+    const laterName = laterEntry?.[0] ?? "";
+    expect(laterName).toMatch(new RegExp(`^${collidingName}_[0-9a-f]{8}$`));
+    expect(catalog.tools.map((t) => t.name)).toContain(laterName);
+    expect(buildCatalog(ADMIN).dispatchTable.has(laterName)).toBe(true);
   });
 });
 

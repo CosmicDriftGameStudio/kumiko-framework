@@ -273,6 +273,26 @@ export function toolNameForQn(qn: string): string {
   return sanitized.slice(0, MAX_TOOL_NAME_LENGTH);
 }
 
+// FNV-1a: only needs to be stable and well-spread, not collision-proof — a hash clash
+// on top of a name clash falls through to the sink's drop-later-tool guard.
+function shortQnHash(qn: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < qn.length; index++) {
+    hash = Math.imul(hash ^ qn.charCodeAt(index), 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+/** Sanitizing, verb-dropping and truncation make distinct QNs share a tool name; the
+ *  first QN in manifest order keeps the plain name, later ones get a QN-hash suffix so
+ *  no handler silently disappears from the catalog. */
+function uniqueToolNameForQn(qn: string, usedNames: ReadonlySet<string>): string {
+  const plainName = toolNameForQn(qn);
+  if (!usedNames.has(plainName)) return plainName;
+  const hashSuffix = `_${shortQnHash(qn)}`;
+  return `${plainName.slice(0, MAX_TOOL_NAME_LENGTH - hashSuffix.length)}${hashSuffix}`;
+}
+
 export const OPEN_FORM_TOOL_NAME = "open_form";
 
 function buildNavigateTool(manifest: AgentManifest): {
@@ -478,7 +498,7 @@ function addQueryHandlerTools(
     if (handler.kind !== "query") continue;
     if (denyQns.has(handler.qn)) continue;
     if (entityListDetailQns.has(handler.qn)) continue;
-    const name = toolNameForQn(handler.qn);
+    const name = uniqueToolNameForQn(handler.qn, sink.usedNames);
 
     addTool(
       sink,
@@ -503,7 +523,7 @@ function addWriteHandlerTools(
   for (const handler of manifest.handlers) {
     if (handler.kind !== "write") continue;
     if (denyQns.has(handler.qn)) continue;
-    const name = toolNameForQn(handler.qn);
+    const name = uniqueToolNameForQn(handler.qn, sink.usedNames);
 
     const detailQn =
       handler.entity !== undefined ? detailQnByEntity.get(handler.entity) : undefined;

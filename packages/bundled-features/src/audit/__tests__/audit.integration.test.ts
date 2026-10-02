@@ -167,6 +167,29 @@ describe("audit: list query", () => {
     expect(deletes.rows[0]?.type).toBe("widget.deleted");
   });
 
+  test("search matches event types by substring and treats LIKE wildcards literally", async () => {
+    const id = await createWidget(admin, "S");
+    await stack.http.writeOk(
+      "widgets:write:widget:update",
+      { id, version: 1, changes: { color: "red" } },
+      admin,
+    );
+
+    const partial = await stack.http.queryOk<AuditResponse>(
+      AuditQueries.list,
+      { search: "idget.upd" },
+      admin,
+    );
+    expect(partial.rows.map((r) => r.type)).toEqual(["widget.updated"]);
+
+    const wildcard = await stack.http.queryOk<AuditResponse>(
+      AuditQueries.list,
+      { search: "%" },
+      admin,
+    );
+    expect(wildcard.rows).toHaveLength(0);
+  });
+
   test("filter by aggregateId pins the event chain for one entity", async () => {
     const a = await createWidget(admin, "A");
     const b = await createWidget(admin, "B");

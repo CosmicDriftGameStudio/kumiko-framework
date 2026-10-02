@@ -40,16 +40,47 @@ function entryAsLabels(entry: TranslationEntry): Readonly<Record<string, string>
   );
 }
 
+const labelsIndexByTranslations = new WeakMap<
+  TranslationKeys,
+  Map<string, Readonly<Record<string, string>>>
+>();
+
+/** Every tail starting at a key boundary (`:` or `.`, with and without the
+ *  separator) maps to the labels of the first key that ends with it. */
+function buildSuffixIndex(
+  translations: TranslationKeys,
+): Map<string, Readonly<Record<string, string>>> {
+  const index = new Map<string, Readonly<Record<string, string>>>();
+  for (const [key, entry] of Object.entries(translations)) {
+    const labels = entryAsLabels(entry);
+    const addTail = (start: number): void => {
+      const tail = key.slice(start);
+      if (!index.has(tail)) index.set(tail, labels);
+    };
+    addTail(0);
+    for (let position = 0; position < key.length; position++) {
+      if (key[position] === ":" || key[position] === ".") {
+        addTail(position);
+        addTail(position + 1);
+      }
+    }
+  }
+  return index;
+}
+
 /** Translation keys carry a feature prefix the manifest can't reconstruct
- *  (`showcase:entity:item:field:title`), so match on the suffix instead. */
+ *  (`showcase:entity:item:field:title`), so match on the suffix instead. The
+ *  suffix must start at a `:` or `.` boundary of the key. */
 function labelsForSuffix(
   translations: TranslationKeys,
   suffix: string,
 ): Readonly<Record<string, string>> {
-  for (const [key, labels] of Object.entries(translations)) {
-    if (key === suffix || key.endsWith(suffix)) return entryAsLabels(labels);
+  let index = labelsIndexByTranslations.get(translations);
+  if (index === undefined) {
+    index = buildSuffixIndex(translations);
+    labelsIndexByTranslations.set(translations, index);
   }
-  return {};
+  return index.get(suffix) ?? {};
 }
 
 /** Nav/screen/workspace gating is opt-in: no rule means visible to everyone
@@ -299,6 +330,10 @@ function lastSegment(qualifiedId: string): string {
   return idx === -1 ? qualifiedId : qualifiedId.slice(idx + 1);
 }
 
+function detailIdParam(screen: ScreenDefinition): string {
+  return screen.type === "projectionDetail" ? (screen.idParam ?? "id") : "id";
+}
+
 function buildScreens(
   screens: ReadonlyMap<string, ScreenDefinition>,
   navs: ReadonlyMap<string, NavDefinition>,
@@ -346,8 +381,8 @@ function buildScreens(
         description: labelsForSuffix(translations, screen.description)["en"] ?? screen.description,
       }),
       ...("entity" in screen && screen.entity !== undefined && { entity: screen.entity }),
-      // A detail screen takes the row id; everything else is parameterless.
-      params: screen.detailFor !== undefined ? ["id"] : [],
+      // A detail screen takes the row id under its idParam; everything else is parameterless.
+      params: screen.detailFor !== undefined ? [detailIdParam(screen)] : [],
       workspaces: screenWorkspaces,
       ...(screen.detailFor !== undefined && { detailFor: screen.detailFor }),
       ...("handler" in screen && typeof screen.handler === "string" && { handler: screen.handler }),

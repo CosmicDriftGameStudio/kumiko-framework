@@ -12,6 +12,7 @@ import {
   hasConfigAccess,
   resolvePiiSubject,
   resolveScopeIds,
+  validateBounds,
   validateExtensionPlugin,
   validatePattern,
   validateScope,
@@ -156,6 +157,30 @@ describe("validateType", () => {
     expect(fieldCode(err)).toBe("invalid_option");
     expect(JSON.stringify(err?.details)).toContain('"a"');
     expect(JSON.stringify(err?.details)).not.toContain("secret-choice");
+  });
+});
+
+describe("validateBounds", () => {
+  test("a plain number key's rejection reports the value with min and max", () => {
+    const key = createTenantConfig("number", { bounds: { min: 1, max: 1000 } });
+    expect(JSON.stringify(validateBounds(98765, key)?.details)).toContain("98765");
+    expect(JSON.stringify(validateBounds(-4242, key)?.details)).toContain("-4242");
+  });
+
+  test("an encrypted key's rejection keeps min and max but never echoes the value", () => {
+    const secretKey = createTenantConfig("number", {
+      encrypted: true,
+      bounds: { min: 10, max: 1000 },
+    });
+    const above = validateBounds(98765, secretKey);
+    expect(fieldCode(above)).toBe("out_of_bounds");
+    expect(JSON.stringify(above?.details)).toContain("1000");
+    expect(JSON.stringify(above?.details)).not.toContain("98765");
+
+    const below = validateBounds(3, secretKey);
+    expect(fieldCode(below)).toBe("out_of_bounds");
+    expect(JSON.stringify(below?.details)).toContain("10");
+    expect(JSON.stringify(below?.details)).not.toMatch(/"value":3\b/);
   });
 });
 
