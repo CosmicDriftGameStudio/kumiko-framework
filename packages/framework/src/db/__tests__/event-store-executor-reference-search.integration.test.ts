@@ -283,6 +283,45 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
     expect(res.rows).toHaveLength(0);
   });
 
+  test("totalCount with a reference hit excludes search ids that fall out of tenant scope", async () => {
+    const [acme] = await seedRows(testDb.db, customerTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Acme Corp" },
+    ]);
+    const [refMatchOrder] = await seedRows(testDb.db, orderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "nothing special here",
+        customerId: (acme as { id: string }).id,
+      },
+    ]);
+    // Native-search hit that the tenant filter removes afterwards: the id is
+    // in tenant A's search index but the row lives in tenant B.
+    const [foreignOrder] = await seedRows(testDb.db, orderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: otherTenantAdmin.tenantId,
+        note: "acme foreign deal",
+      },
+    ]);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+    await searchAdapter.index(admin.tenantId, {
+      entityType: "refSearchOrder",
+      entityId: (foreignOrder as { id: string }).id,
+      weight: 1,
+      fields: { note: "acme foreign deal" },
+    });
+
+    const res = await orderExec.list({ search: "acme", totalCount: true }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch,
+    });
+    expect(res.rows.map((r) => r["id"])).toEqual([(refMatchOrder as { id: string }).id]);
+    expect(res.total).toBe(res.rows.length);
+  });
+
   test("drops the reference clause above 200 target matches — native search still applies", async () => {
     const fooCustomers = Array.from({ length: 201 }, (_, i) => ({
       id: crypto.randomUUID(),

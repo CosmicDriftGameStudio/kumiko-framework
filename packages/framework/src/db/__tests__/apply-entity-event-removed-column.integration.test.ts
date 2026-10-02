@@ -95,6 +95,32 @@ describe("applyEntityEvent — event field no longer on the entity", () => {
     expect(await readRow()).toMatchObject({ title: "new", version: 2 });
   });
 
+  test("rebuild replays an updated event whose changes only hold removed fields", async () => {
+    await append(stack.db, {
+      aggregateId: AGGREGATE_ID,
+      aggregateType: "removed-note",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "removed-note.created",
+      payload: { title: "old" },
+      metadata: { userId: admin.id },
+    });
+    await append(stack.db, {
+      aggregateId: AGGREGATE_ID,
+      aggregateType: "removed-note",
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
+      type: "removed-note.updated",
+      payload: { changes: { legacyNote: "x" }, previous: {} },
+      metadata: { userId: admin.id },
+    });
+
+    const result = await rebuildProjection(PROJECTION, { db: stack.db, registry: stack.registry });
+
+    expect(result.eventsProcessed).toBe(2);
+    expect(await readRow()).toMatchObject({ title: "old", version: 2 });
+  });
+
   test("live update after the rebuild still works", async () => {
     await appendHistoricalEvents();
     await rebuildProjection(PROJECTION, { db: stack.db, registry: stack.registry });

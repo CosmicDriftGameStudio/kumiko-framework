@@ -28,6 +28,7 @@ export async function nullBlindIndexesForSubject(
   subjectKey: string,
 ): Promise<void> {
   const likePattern = subjectCiphertextLikePattern(subjectKey);
+  const candidates: { tableName: string; lookupable: readonly string[] }[] = [];
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
       const lookupable = collectLookupableFields(entity);
@@ -35,27 +36,47 @@ export async function nullBlindIndexesForSubject(
       // No featureName prefix — the dispatcher builds entity tables without
       // one (buildEntityTable with no featureName option), the sweep has to
       // hit the same names.
-      const tableName = resolveTableName(entityName, entity, undefined);
-      // Skip entities whose projection was never migrated — same class as
-      // subjectRowExistsInTenant (fw#2348). A throw here runs AFTER eraseKey
-      // in forget-subject and would leave deterministic bidx columns still
-      // linkable (fw#2550).
-      if (!(await tableExists(db, tableName))) continue;
-      // Same hazard for a migrated table that predates a later-added
-      // lookupable field: skip fields whose columns are missing instead of
-      // aborting the sweep for the remaining ones.
-      const columns = await columnNamesOf(db, tableName);
-      for (const fieldName of lookupable) {
-        const snake = toSnakeCase(fieldName);
-        if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
-        await executeRawQuery(
-          db,
-          `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
-          [likePattern],
-        );
-      }
+      candidates.push({ tableName: resolveTableName(entityName, entity, undefined), lookupable });
     }
   }
+  // Skip entities whose projection was never migrated — same class as
+  // subjectRowExistsInTenant (fw#2348). A throw here runs AFTER eraseKey
+  // in forget-subject and would leave deterministic bidx columns still
+  // linkable (fw#2550). One batched existence query instead of one
+  // roundtrip per entity.
+  const existing = await existingTableNames(
+    db,
+    candidates.map((c) => c.tableName),
+  );
+  for (const { tableName, lookupable } of candidates) {
+    if (!existing.has(tableName)) continue;
+    // Same hazard for a migrated table that predates a later-added
+    // lookupable field: skip fields whose columns are missing instead of
+    // aborting the sweep for the remaining ones.
+    const columns = await columnNamesOf(db, tableName);
+    for (const fieldName of lookupable) {
+      const snake = toSnakeCase(fieldName);
+      if (!columns.has(snake) || !columns.has(`${snake}_bidx`)) continue;
+      await executeRawQuery(
+        db,
+        `UPDATE ${quoteIdent(tableName)} SET ${quoteIdent(`${snake}_bidx`)} = NULL WHERE ${quoteIdent(snake)} LIKE $1`,
+        [likePattern],
+      );
+    }
+  }
+}
+
+async function existingTableNames(
+  db: DbRunner,
+  tableNames: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (tableNames.length === 0) return new Set();
+  const rows = await executeRawQueryRead<{ name: string }>(
+    db,
+    `SELECT t.name FROM unnest($1::text[]) AS t(name) WHERE to_regclass(quote_ident(t.name)) IS NOT NULL`,
+    [tableNames],
+  );
+  return new Set(rows.map((r) => r.name));
 }
 
 // Tenant-scope oracle for crypto-shredding's forget-subject (mh#349): a
