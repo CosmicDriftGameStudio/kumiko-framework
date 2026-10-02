@@ -6,12 +6,13 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import type { Temporal } from "temporal-polyfill";
 import type { ContentFormat, TemplateKind } from "./constants.js";
 import { FALLBACK_LOCALE, SYSTEM_TENANT_ID } from "./constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "./table.js";
 
 // Public TemplateResource — was Konsumenten sehen. Versteckt DB-interne
-// Spalten (createdBy, internal id-type), behält Felder die zum Rendern
+// Spalten (insertedById, internal id-type), behält Felder die zum Rendern
 // gebraucht werden.
 export type TemplateResource = {
   readonly id: string;
@@ -29,7 +30,7 @@ export type TemplateResource = {
   readonly scope: "system" | "tenant";
   readonly parentTemplateId: string | null;
   readonly status: "draft" | "active" | "archived";
-  readonly updatedAt: Date;
+  readonly modifiedAt: Temporal.Instant | null;
 };
 
 export type ResolveRequest = {
@@ -154,7 +155,7 @@ function toPublic(row: TemplateResourceRow): TemplateResource {
     scope,
     parentTemplateId: row.parentTemplateId,
     status,
-    updatedAt: row.updatedAt,
+    modifiedAt: row.modifiedAt,
   };
 }
 

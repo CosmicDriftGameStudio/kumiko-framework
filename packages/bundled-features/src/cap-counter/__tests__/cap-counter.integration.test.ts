@@ -7,7 +7,7 @@
 // test pattern.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { type DbConnection, selectMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
   defineFeature,
@@ -24,7 +24,12 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
+import { rollingCapAggregateId } from "../aggregate-id.js";
+import {
+  CapCounterHandlers,
+  CapCounterQueries,
+  ROLLING_INCREMENTED_EVENT_QN,
+} from "../constants.js";
 import {
   CapExceededError,
   currentCalendarMonthStartIso,
@@ -371,6 +376,12 @@ describe("scenario 5: rolling-window through dispatcher", () => {
   test("incrementRolling appends a rolling-incremented-event without creating a projection-row", async () => {
     const admin = adminFor(901);
     await incrementRolling(admin, "ai-tokens-7d", 1500);
+
+    const events = await selectMany(db, eventsTable, {
+      aggregateId: rollingCapAggregateId(admin.tenantId, "ai-tokens-7d"),
+    });
+    expect(events.map((e) => e.type)).toEqual([ROLLING_INCREMENTED_EVENT_QN]);
+    expect(events[0]?.payload).toMatchObject({ capName: "ai-tokens-7d", amount: 1500 });
 
     // Drift-Pin: Rolling-Counter MUSS den Calendar-Counter NICHT
     // berühren. Wenn ein Refactor die Pfade vermischt, taucht hier

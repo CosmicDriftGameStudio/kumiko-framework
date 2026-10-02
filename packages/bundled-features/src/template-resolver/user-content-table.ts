@@ -6,6 +6,7 @@ import {
   createTextField,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { CONTENT_FORMATS, TEMPLATE_KINDS } from "./constants.js";
+import type { EntityAuditColumns } from "./table.js";
 
 // UserContentEntry — the per-user half of the content store: mail signatures
 // and personal reply snippets, one row per (tenantId, ownerId, slug, kind,
@@ -64,8 +65,4 @@ export type UserContentEntryRow = {
   readonly folder: string | null;
   readonly content: string | null;
   readonly contentFormat: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  readonly createdBy: string;
-  readonly updatedBy: string;
-};
+} & EntityAuditColumns;

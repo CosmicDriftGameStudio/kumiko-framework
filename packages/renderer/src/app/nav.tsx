@@ -86,8 +86,20 @@ export type NavApi = {
 // Alles nach den ersten 2/3 Segmenten wird ignoriert — kumikos
 // Navigation-Grammatik nested nicht weiter. Nested-Routes wäre eine
 // Spec-Änderung, nicht ein URL-Shape-Unfall.
+function decodeSegments(segments: readonly string[]): string[] | undefined {
+  try {
+    return segments.map((segment) => decodeURIComponent(segment));
+  } catch {
+    // Malformed percent-escape ("%zz") — treat the URL as no route.
+    return undefined;
+  }
+}
+
 export function parsePath(pathname: string, hasWorkspaces?: boolean): NavRoute | undefined {
-  const parts = pathname.split("/").filter((p) => p !== "");
+  const rawParts = pathname.split("/").filter((p) => p !== "");
+  // Only the segments the grammar uses are decoded; ignored trailing ones may be junk.
+  const parts = decodeSegments(rawParts.slice(0, hasWorkspaces === true ? 3 : 2));
+  if (parts === undefined) return undefined;
   if (hasWorkspaces === true) {
     const [workspaceId, screenId, entityId] = parts;
     if (workspaceId === undefined || workspaceId === "") return undefined;
@@ -115,7 +127,7 @@ export function formatPath(target: ScreenTarget): string {
   if (target.workspaceId !== undefined) segments.push(target.workspaceId);
   segments.push(target.screenId);
   if (target.entityId !== undefined) segments.push(target.entityId);
-  return `/${segments.join("/")}`;
+  return `/${segments.map((segment) => encodeURIComponent(segment)).join("/")}`;
 }
 
 // Shared entity→detailFor-screen lookup — resolveTarget's ObjectTarget

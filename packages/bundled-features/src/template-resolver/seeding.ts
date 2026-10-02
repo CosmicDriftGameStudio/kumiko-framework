@@ -268,7 +268,7 @@ export async function seedTextBlock(
     },
     update: async (row) => {
       // Skip no-op updates so a legal re-seed on every pod boot does not bump
-      // version/updatedAt (ETag, "last changed", event-store growth).
+      // version/modifiedAt (ETag, "last changed", event-store growth).
       if (
         existingRow?.title === fields.title &&
         existingRow?.content === fields.content &&

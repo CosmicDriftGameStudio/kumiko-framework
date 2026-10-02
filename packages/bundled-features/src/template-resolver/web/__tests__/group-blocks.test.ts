@@ -33,7 +33,7 @@ function block(opts: {
     // Not ?? — null should be passed through (state="stub" test).
     content: opts.content === undefined ? "irgendwas" : opts.content,
     folder: opts.folder === undefined ? null : opts.folder,
-    updatedAt: "2026-05-19T00:00:00Z",
+    modifiedAt: "2026-05-19T00:00:00Z",
   };
 }
 describe("groupBlocksByFolder", () => {

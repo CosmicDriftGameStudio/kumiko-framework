@@ -54,7 +54,7 @@ export const listQuery = defineQueryHandler({
       scope: row.scope,
       status: row.status,
       contentFormat: row.contentFormat,
-      updatedAt: row.updatedAt,
+      modifiedAt: row.modifiedAt,
     }));
   },
 });

@@ -55,7 +55,7 @@ export const bySlugQuery = defineQueryHandler({
       content: row.content,
       contentFormat: row.contentFormat,
       folder: row.folder,
-      updatedAt: row.updatedAt,
+      modifiedAt: row.modifiedAt,
     };
   },
 });

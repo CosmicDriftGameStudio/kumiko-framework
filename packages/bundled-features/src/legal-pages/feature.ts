@@ -31,7 +31,8 @@ const TEXT_BLOCK_BY_SLUG_QN = "template-resolver:query:by-slug";
 type TextBlockQueryResult = {
   title: string | null;
   content: string | null;
-  updatedAt: string;
+  // In-process systemQuery hands back the Temporal.Instant itself, not JSON.
+  modifiedAt: { toString(): string } | null;
 } | null;
 
 // 60s-shared-cache saves the origin-revalidate roundtrip; legal-content edits are live within 60s.
@@ -162,7 +163,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
             SYSTEM_TENANT_ID,
             route.slug,
             route.lang,
-            data.updatedAt,
+            String(data.modifiedAt ?? ""),
           ]);
           const extra = { "content-type": "text/html; charset=utf-8" };
           // 304 (Revision unverändert) und HEAD überspringen beide das

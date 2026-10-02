@@ -4,6 +4,7 @@ import {
   crossTenantOverrideDenied,
   defineQueryHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { TEXT_BLOCK_KIND } from "../constants.js";
 import { type TemplateResourceRow, templateResourcesTable } from "../table.js";
@@ -23,7 +24,7 @@ export type TextBlockSummary = {
   readonly title: string | null;
   readonly content: string | null;
   readonly folder: string | null;
-  readonly updatedAt: Date;
+  readonly modifiedAt: Temporal.Instant | null;
 };
 
 export const byTenantQuery = defineQueryHandler({
@@ -55,7 +56,7 @@ export const byTenantQuery = defineQueryHandler({
         title: row.title,
         content: row.content,
         folder: row.folder,
-        updatedAt: row.updatedAt,
+        modifiedAt: row.modifiedAt,
       })),
     };
   },
