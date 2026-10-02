@@ -4,5 +4,6 @@ export type {
   JobOutcomeMeta,
   JobRunner,
   JobRunnerOptions,
+  JobSubjectValue,
 } from "./job-runner.js";
-export { createJobRunner } from "./job-runner.js";
+export { createJobRunner, serializeJobSubject } from "./job-runner.js";

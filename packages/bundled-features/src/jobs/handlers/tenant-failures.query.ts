@@ -1,6 +1,7 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
+import { serializeJobSubject } from "@cosmicdrift/kumiko-framework/jobs";
 import { parseJsonSafe } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { tenantJobFailuresTable } from "../tenant-job-failure-table.js";
@@ -14,16 +15,6 @@ type TenantJobFailureRow = {
 };
 
 const DEFAULT_LIMIT = 50;
-
-// Mirrors job-runner.ts's jobSubjectKey: sorted field names, so a caller that
-// passes the same subject values gets the same string the writer stored.
-function subjectKey(subject: Record<string, string | number | boolean | null>): string {
-  return JSON.stringify(
-    Object.keys(subject)
-      .sort()
-      .map((field) => [field, subject[field] ?? null]),
-  );
-}
 
 function isSubjectEntry(value: unknown): value is [string, unknown] {
   return Array.isArray(value) && typeof value[0] === "string";
@@ -42,7 +33,7 @@ function parseSubject(stored: string | null): Record<string, unknown> | null {
 export const tenantFailuresQuery = defineQueryHandler({
   name: "failures",
   description:
-    "Lists the calling tenant's own failed jobs — one record per job and subject, newest first, each carrying a translation key for the reason, never the provider's own error message; use it to tell a tenant that their asynchronous job failed instead of leaving the screen waiting.",
+    "Lists the calling tenant's own failed jobs — one record per job and subject, newest first, each carrying a translation key for the reason, never the provider's own error message; the optional subject filter matches exactly: all declared subjectFields with the same JSON types as the job payload; use it to tell a tenant that their asynchronous job failed instead of leaving the screen waiting.",
   schema: z.object({
     jobName: z.string().optional(),
     subject: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
@@ -64,7 +55,7 @@ export const tenantFailuresQuery = defineQueryHandler({
     const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
     const where: Record<string, unknown> = { tenantId: [query.user.tenantId] };
     if (query.payload.jobName) where["jobName"] = query.payload.jobName;
-    if (query.payload.subject) where["subject"] = subjectKey(query.payload.subject);
+    if (query.payload.subject) where["subject"] = serializeJobSubject(query.payload.subject);
     const rows = await selectMany<TenantJobFailureRow>(db, tenantJobFailuresTable, where, {
       orderBy: { col: "failedAt", direction: "desc" },
       limit: query.payload.limit ?? DEFAULT_LIMIT,
