@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.333.0",
+    "type": "improvement",
+    "title": "Apps declare assignable membership roles via EXT_ASSIGNABLE_ROLE"
+  },
+  {
     "version": "0.313.0",
     "type": "fix",
     "title": "Team member status and roles now translate instead of showing the raw enum value",

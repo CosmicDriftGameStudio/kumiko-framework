@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.333.0
+
+### Minor Changes
+
+- 90420cb: Additive screen options for list, drawer, form and wizard screens
+
+  entityList: `facets` (per-field `display: "chips"`, `showCounts`, `hideEmpty`, `extraOptions`, or `false` to hide), `defaultFilters` (initial value only, the URL wins, "no filter" stays chosen) and `rowActionMode`. Row actions get `display: "button" | "link" | "icon"`; with `display` set an action stays inline next to the kebab. Drawer actions get `title` / `subtitle` (i18n keys, `{param}` filled from the row prefill). Edit fields get `submit: false` (kept out of the payload), actionForm gets `footerActions` (patch values, then submit), relatedList gets `groupBy` / `rowTone` / `rowActionMode`. Wizard sections get `subtitle`, `layout.wizard.aside.upNext` adds an "up next" box, entityEdit gets `titleTemplate`. `Button` gets a `pressed` style, the DataTable contract `rowGrouping` / `rowTone`, `StepBar` `subtitles` / `upNext`, `Drawer` `subtitle`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: New optional screen options for facet chips, default filters, row action display, drawer titles, footer actions, grouped related lists and wizard side info
+  migration: No code change needed.
+  -->
+
+  - Screenshot runner: `SCREENSHOT_DESKTOP_WIDTH` overrides the desktop viewport width (default 1920).
+
+### Patch Changes
+
+- 75bd427: `ActionOverflowMenu` renders its trigger as the outline icon Button, so it has the same size, border and 44 px phone touch target as the icon buttons next to it.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Overflow menu trigger matches neighbouring icon buttons
+  -->
+
+- Updated dependencies [2d7f76f]
+- Updated dependencies [90420cb]
+  - @cosmicdrift/kumiko-framework@0.333.0
+  - @cosmicdrift/kumiko-types@0.333.0
+  - @cosmicdrift/kumiko-headless@0.333.0
+  - @cosmicdrift/kumiko-renderer@0.333.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.333.0
+
 ## 0.332.0
 
 ### Minor Changes
