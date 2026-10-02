@@ -54,7 +54,10 @@ export function getZodObjectShape(
 ): Record<string, ZodType> | undefined {
   if (schema === undefined) return undefined;
   const unwrapped = unwrapZodType(schema);
-  return unwrapped instanceof ZodObject ? unwrapped.shape : undefined;
+  // loose()/catchall() objects accept keys beyond the declared shape, so the
+  // declared keys are not the full set callers may legitimately reference.
+  const hasOpenKeys = unwrapped instanceof ZodObject && unwrapped.def.catchall !== undefined;
+  return unwrapped instanceof ZodObject && !hasOpenKeys ? unwrapped.shape : undefined;
 }
 
 // The shape of one row for a query whose result follows the paged-list

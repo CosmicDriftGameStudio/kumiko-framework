@@ -65,14 +65,14 @@ function projectionDetailNavigateActions(
   return [
     ...scopeActions(screen.actions, screen.detailFor),
     ...screen.layout.sections.flatMap((section) =>
-      section.kind === "relatedList" ? scopeActions(section.rowActions, undefined) : [],
-    ),
-    ...screen.layout.sections.flatMap((section) =>
-      section.kind === "relatedList"
-        ? scopeActions(section.toolbarActions, undefined, {
-            pick: [relatedListParentParamField(section)],
-          })
-        : [],
+      section.kind !== "relatedList"
+        ? []
+        : [
+            ...scopeActions(section.rowActions, undefined),
+            ...scopeActions(section.toolbarActions, undefined, {
+              pick: [relatedListParentParamField(section)],
+            }),
+          ],
     ),
     ...(screen.metrics ?? []).flatMap((metric) =>
       typeof metric === "string" || metric.navigate === undefined
