@@ -20,6 +20,23 @@ const { Button, Banner, Field, Input, DataTable, Form, Text, Heading, Dialog, Ca
   defaultPrimitives;
 
 describe("Button", () => {
+  test("expanded is forwarded as aria-expanded", () => {
+    render(
+      <>
+        <Button expanded testId="open">
+          A
+        </Button>
+        <Button expanded={false} testId="closed">
+          B
+        </Button>
+        <Button testId="plain">C</Button>
+      </>,
+    );
+    expect(screen.getByTestId("open").getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("closed").getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByTestId("plain").hasAttribute("aria-expanded")).toBe(false);
+  });
+
   test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
     render(
       <Button disabled testId="btn">

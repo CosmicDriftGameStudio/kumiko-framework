@@ -74,6 +74,27 @@ function renderHeader(toggleMode: () => void, mode: "light" | "dark" = "light") 
 }
 
 describe("header overflow menu", () => {
+  test("an item testId overrides the default data-testid and the item is clickable", () => {
+    setViewportWidth(PHONE);
+    const onSelect = mock(() => {});
+    renderWithSidebar(
+      <PageHeaderSlotProvider>
+        <ShellHeader schema={emptySchema} />
+        <HeaderItems
+          items={[
+            { id: "export", label: "Export", testId: "my-export", onSelect },
+            { id: "plain", label: "Plain", onSelect: () => {} },
+          ]}
+        />
+      </PageHeaderSlotProvider>,
+    );
+    fireEvent.click(screen.getByTestId("shell-header-overflow-trigger"));
+    expect(screen.queryByTestId("shell-header-overflow-item-export")).toBeNull();
+    expect(screen.getByTestId("shell-header-overflow-item-plain")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("my-export"));
+    expect(onSelect).toHaveBeenCalledTimes(1);
+  });
+
   test("is a right-aligned menu with menuitem rows, not a full-width panel", () => {
     setViewportWidth(PHONE);
     renderHeader(() => {});

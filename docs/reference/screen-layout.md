@@ -41,6 +41,8 @@ The shell header hosts the breadcrumb (the last crumb is the `h1`) and two slots
 
 At phone width the shell header gives the title priority: the declarative screens keep their primary action as an icon button and move the rest into the shell's "…" menu (`data-testid="shell-header-overflow-trigger"`). The menu is a right-aligned dropdown with labelled rows (`role="menu"`, arrow-key navigation), and the app header controls inside it stack vertically. A list whose primary toolbar action has no `onCreate` (a navigate or drawer action) also gets that action as the header icon button on phones. E2E tests on mobile open that menu before they click a secondary header action.
 
+Below 768 px the whole `[data-kumiko-layout="header-actions"]` container is hidden inside the closed "…" menu, so its controls are not reachable until the menu is open. E2E settled checks after login should wait for `[data-kumiko-layout="shell-header"]` instead, and open header actions through `shell-header-overflow-trigger`. An `ActionMenuItemSpec` can set `testId` to give its menu entry a stable `data-testid` (default `shell-header-overflow-item-<id>` in the header menu, `<trigger testId>-item-<id>` in row menus).
+
 A custom screen that renders its own `PageHeader` decides the split itself. `usePageHeaderCompact()` from `@cosmicdrift/kumiko-renderer` is `true` while a shell with page header slots renders at phone width. The shell shows `overflowItems` only in that state and ignores them on desktop, so the screen branches:
 
 ```tsx illustration
