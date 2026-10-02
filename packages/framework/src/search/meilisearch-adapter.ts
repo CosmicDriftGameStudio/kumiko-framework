@@ -181,7 +181,6 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     async removeBatch(tenantId, items) {
       // skip: empty batch — avoid an unnecessary Meilisearch round-trip
       if (items.length === 0) return;
-      await ensureConfigured(tenantId);
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       const ids = items.map((i) => meilisearchDocId(i.entityType, i.entityId));
       await awaitSucceededTask(index.deleteDocuments(ids), REMOVE_TOLERATED_ERROR_CODES);
@@ -213,7 +212,6 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
     },
 
     async remove(tenantId, entityType, entityId) {
-      await ensureConfigured(tenantId);
       const index = client.index(meilisearchTenantIndex(prefix, tenantId));
       await awaitSucceededTask(
         index.deleteDocument(meilisearchDocId(entityType, entityId)),

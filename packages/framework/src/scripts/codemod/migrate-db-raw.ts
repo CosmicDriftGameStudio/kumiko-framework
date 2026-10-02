@@ -7,9 +7,9 @@
 // Usage:
 //   bun scripts/codemod/migrate-db-raw.ts [--dry-run] [--global-tables a,b] <path...>
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
 import { Node, Project, type SourceFile, SyntaxKind, VariableDeclarationKind } from "ts-morph";
+import { collectSourceFiles } from "./collect-source-files.js";
 
 const DEFAULT_GLOBAL_TABLES: ReadonlySet<string> = new Set([
   "userTable",
@@ -334,28 +334,11 @@ function isMigratableFile(name: string): boolean {
   return true;
 }
 
-function walkDir(dir: string, out: string[]): void {
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === "__tests__") continue;
-    const full = join(dir, name);
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      walkDir(full, out);
-      continue;
-    }
-    if (isMigratableFile(name)) out.push(full);
-  }
-}
-
 function collectFiles(paths: string[]): string[] {
-  const files: string[] = [];
-  for (const p of paths) {
-    const abs = resolve(p);
-    const stat = statSync(abs);
-    if (stat.isDirectory()) walkDir(abs, files);
-    else if (isMigratableFile(abs)) files.push(abs);
-  }
-  return files;
+  return collectSourceFiles(paths, {
+    isMigratableFile,
+    extraSkippedDirNames: ["__tests__"],
+  });
 }
 
 async function main(): Promise<void> {

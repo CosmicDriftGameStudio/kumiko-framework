@@ -30,7 +30,7 @@ import type { SearchAdapter } from "../search/types.js";
 import { createTestDb } from "./db.js";
 import { createJobFailureTracker, drainJobs } from "./drain-jobs.js";
 import { createEventCollector, type EventCollector } from "./event-collector.js";
-import { createTestRedis, type TestRedis } from "./redis.js";
+import { createTestRedis, queueNamePrefixForTestRedis, type TestRedis } from "./redis.js";
 import { createRequestHelper, type RequestHelper } from "./request-helper.js";
 import { unsafePushTables } from "./table-helpers.js";
 
@@ -219,13 +219,6 @@ export type TestStackOptions = {
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
-
-// BullMQ queues live on the raw redisUrl, outside the test Redis keyPrefix, so
-// parallel stacks sharing the prod default queue name would consume each
-// other's jobs. BullMQ rejects `:` in queue names.
-function queueNamePrefixForTestRedis(keyPrefix: string): string {
-  return keyPrefix.split(":").filter(Boolean).join("-");
-}
 
 export async function setupTestStack(options: TestStackOptions): Promise<TestStack> {
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;

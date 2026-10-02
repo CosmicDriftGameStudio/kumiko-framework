@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createAnonymousUser,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -48,11 +52,7 @@ const CHALLENGE_TOKEN_SECRET = "test-mfa-challenge-secret-at-least-32-bytes!!";
 // route dispatches with the anonymous identity — a literal here is enough
 // since the handler derives everything from the challenge-token payload,
 // not from event.user.
-const GUEST: SessionUser = {
-  id: "anonymous",
-  tenantId: "00000000-0000-4000-8000-000000000001" as TenantId,
-  roles: ["anonymous"],
-};
+const GUEST: SessionUser = createAnonymousUser("00000000-0000-4000-8000-000000000001" as TenantId);
 
 beforeAll(async () => {
   const encryption = createTestEnvelopeCipher();

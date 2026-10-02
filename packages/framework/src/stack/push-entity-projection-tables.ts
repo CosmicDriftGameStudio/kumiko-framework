@@ -3,7 +3,12 @@ import type { DbConnection } from "../db/connection.js";
 import type { ColumnMeta } from "../db/entity-table-meta.js";
 import { columnNamesOf, tableExists } from "../db/schema-inspection.js";
 import type { Registry } from "../engine/types/index.js";
-import { addMissingColumns, tableToMeta, unsafePushTables } from "./table-helpers.js";
+import {
+  addMissingColumns,
+  addMissingIndexes,
+  tableToMeta,
+  unsafePushTables,
+} from "./table-helpers.js";
 
 type DbHolder = { readonly db: DbConnection };
 
@@ -56,7 +61,7 @@ function isUnsafeToAutoAdd(col: ColumnMeta): boolean {
   return col.notNull && !col.primaryKey && col.defaultSql === undefined;
 }
 
-// Backfills columns a persistent dev DB predates; a required column with no
+// Backfills columns and indexes a persistent dev DB predates; a required column with no
 // default can't be added safely on a table that may hold rows, so that
 // stays a boot error instead.
 async function syncExistingProjectionTable(
@@ -69,7 +74,7 @@ async function syncExistingProjectionTable(
   const missingColumns = meta.columns.filter((c) => !liveColumns.has(c.name));
   if (missingColumns.length === 0) {
     logInfo(`[kumiko-stack] table ${physical} already exists — skipping create`);
-    // skip: live table already has every declared column
+    await addMissingIndexes(stack.db, physical, meta.indexes);
     return;
   }
 
@@ -92,4 +97,5 @@ async function syncExistingProjectionTable(
       `${missingColumns.map((c) => `"${c.name}"`).join(", ")} — adding`,
   );
   await addMissingColumns(stack.db, physical, missingColumns);
+  await addMissingIndexes(stack.db, physical, meta.indexes);
 }

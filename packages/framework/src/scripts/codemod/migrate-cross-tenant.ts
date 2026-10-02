@@ -6,8 +6,7 @@
 // Usage:
 //   bun scripts/codemod/migrate-cross-tenant.ts [--dry-run] <path...>
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   type CallExpression,
   Node,
@@ -16,6 +15,7 @@ import {
   type PropertyAssignment,
   SyntaxKind,
 } from "ts-morph";
+import { collectSourceFiles } from "./collect-source-files.js";
 
 export interface Rewrite {
   readonly file: string;
@@ -264,28 +264,8 @@ function isMigratableFile(name: string): boolean {
   return /\.(ts|tsx)$/.test(name);
 }
 
-function walkDir(dir: string, out: string[]): void {
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules") continue;
-    const full = join(dir, name);
-    const stat = statSync(full);
-    if (stat.isDirectory()) {
-      walkDir(full, out);
-      continue;
-    }
-    if (isMigratableFile(name)) out.push(full);
-  }
-}
-
 function collectFiles(paths: string[]): string[] {
-  const files: string[] = [];
-  for (const p of paths) {
-    const abs = resolve(p);
-    const stat = statSync(abs);
-    if (stat.isDirectory()) walkDir(abs, files);
-    else if (isMigratableFile(abs)) files.push(abs);
-  }
-  return files;
+  return collectSourceFiles(paths, { isMigratableFile });
 }
 
 async function main(): Promise<void> {

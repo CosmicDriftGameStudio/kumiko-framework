@@ -4,6 +4,7 @@
 // context slot and isn't guaranteed by this test passing.
 
 import { afterEach, describe, expect, test } from "bun:test";
+import { Redis } from "ioredis";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
 import { InternalError, writeFailure } from "../../errors/index.js";
@@ -181,5 +182,41 @@ describe("setupTestStack({ jobs }) job context matches the request-path context"
       hasSearchAdapter: true,
       hasEffectiveFeatures: false,
     });
+  });
+});
+
+describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
+  async function bullKeysFor(redisUrl: string, queuePrefix: string): Promise<string[]> {
+    const raw = new Redis(redisUrl);
+    try {
+      const keys: string[] = [];
+      for await (const batch of raw.scanStream({ match: `bull:${queuePrefix}-*` })) {
+        keys.push(...batch);
+      }
+      return keys;
+    } finally {
+      raw.disconnect();
+    }
+  }
+
+  test("cleanup() removes the BullMQ keys of the derived per-stack queues", async () => {
+    laneIsolationRuns.length = 0;
+    const live = await setupTestStack({
+      features: [laneIsolationFeature],
+      jobs: { consumerLane: "worker" },
+    });
+    const { redisUrl, keyPrefix } = live.redis;
+    const queuePrefix = keyPrefix.split(":").filter(Boolean).join("-");
+    try {
+      await live.jobRunner?.dispatch("laneisolation:job:record", { from: "cleanup-check" });
+      await waitFor(() => {
+        expect(laneIsolationRuns.some((run) => run.from === "cleanup-check")).toBe(true);
+      });
+      expect((await bullKeysFor(redisUrl, queuePrefix)).length).toBeGreaterThan(0);
+    } finally {
+      await live.cleanup();
+    }
+
+    expect(await bullKeysFor(redisUrl, queuePrefix)).toEqual([]);
   });
 });

@@ -324,6 +324,23 @@ describe.skipIf(!MEILI_UP)("meilisearch adapter — lazy default config", () => 
     expect(results).toEqual([]);
   });
 
+  test("remove/removeBatch on a never-indexed tenant do not create an index", async () => {
+    const tenant = uuid();
+    const lazyAdapter = createMeilisearchAdapter({
+      url: MEILI_URL,
+      apiKey: MEILI_KEY,
+      indexPrefix: lazyPrefix,
+    });
+    lazyAdapter.setDefaultConfig?.({ searchableFields: ["firstName"] });
+
+    await lazyAdapter.remove(tenant, "user", 1);
+    await lazyAdapter.removeBatch?.(tenant, [{ entityType: "user", entityId: 2 }]);
+
+    await expect(
+      lazyClient.getIndex(meilisearchTenantIndex(lazyPrefix, tenant)),
+    ).rejects.toMatchObject({ cause: { code: "index_not_found" } });
+  });
+
   test("explicit configure() wins over a later setDefaultConfig() — never overwritten", async () => {
     const tenant = uuid();
     const lazyAdapter = createMeilisearchAdapter({

@@ -4,7 +4,7 @@ import {
 } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type { DbConnection } from "../db/connection.js";
 import { pgTypeToSqlType } from "../db/dialect.js";
-import type { ColumnMeta, EntityTableMeta } from "../db/entity-table-meta.js";
+import type { ColumnMeta, EntityTableMeta, IndexMeta } from "../db/entity-table-meta.js";
 import {
   alterTableAddColumn,
   createIndexIfNotExists,
@@ -93,6 +93,19 @@ export async function addMissingColumns(
   }
 }
 
+/** CREATE [UNIQUE] INDEX IF NOT EXISTS for exactly the given indexes. */
+export async function addMissingIndexes(
+  db: DbConnection,
+  tableName: string,
+  indexes: readonly IndexMeta[],
+): Promise<void> {
+  for (const idx of indexes) {
+    const kind = idx.unique ? "UNIQUE INDEX" : "INDEX";
+    const colList = idx.columns.map((c) => `"${c}"`).join(", ");
+    await createIndexIfNotExists(db, kind, idx.name, tableName, colList, idx.whereSql);
+  }
+}
+
 /**
  * Bypass: pushes table definitions to the database directly. Produces
  * CREATE TABLE IF NOT EXISTS + CREATE INDEX statements via renderTableDdl
@@ -123,13 +136,11 @@ export async function unsafePushTables(
       const newCols = meta.columns.filter((c) => !prevCols.has(c.name));
       await addMissingColumns(db, meta.tableName, newCols);
       const prevIdxNames = new Set(prev.indexes.map((i) => i.name));
-      for (const idx of meta.indexes) {
-        if (!prevIdxNames.has(idx.name)) {
-          const kind = idx.unique ? "UNIQUE INDEX" : "INDEX";
-          const colList = idx.columns.map((c) => `"${c}"`).join(", ");
-          await createIndexIfNotExists(db, kind, idx.name, meta.tableName, colList, idx.whereSql);
-        }
-      }
+      await addMissingIndexes(
+        db,
+        meta.tableName,
+        meta.indexes.filter((i) => !prevIdxNames.has(i.name)),
+      );
     } else {
       const statements = renderTableDdl(meta);
       for (const stmt of statements) {
