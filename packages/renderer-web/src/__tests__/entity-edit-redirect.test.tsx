@@ -435,6 +435,48 @@ describe("entityEdit redirect (#1942)", () => {
     );
   });
 
+  test("update: redirect object form with idFrom prefers the saved projection over the pre-edit record", async () => {
+    const navigated: NavTarget[] = [];
+    const dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { id: "42", version: 1, name: "Existing", parentId: "old-parent" },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({
+        isSuccess: true,
+        data: { kind: "save", id: "42", data: { id: "42", parentId: "new-parent" } },
+      })) as unknown as Dispatcher["write"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <NavProvider
+          value={{
+            route: { screenId: "shop:screen:product-edit", entityId: "42" },
+            navigate: (target) => navigated.push(target),
+            replace: () => {},
+            hrefFor: () => "",
+            searchParams: {},
+            setSearchParams: () => {},
+          }}
+        >
+          <KumikoScreen
+            schema={buildParentRedirectSchema()}
+            qn="shop:screen:product-edit"
+            entityId="42"
+          />
+        </NavProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("field-name")).toBeTruthy());
+    fillNameAndSubmit();
+
+    await waitFor(() =>
+      expect(navigated).toEqual([{ screenId: "parent-detail", entityId: "new-parent" }]),
+    );
+  });
+
   test("create: redirect object form with idFrom reads the id from the write handler's payload", async () => {
     const navigated: NavTarget[] = [];
     const dispatcher = createMockDispatcher({

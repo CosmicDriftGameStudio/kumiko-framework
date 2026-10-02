@@ -40,7 +40,7 @@ import { useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
 import type { ListSort } from "../hooks/use-list-url-state.js";
 import { useQuery } from "../hooks/use-query.js";
-import { useLocale, useTranslation } from "../i18n.js";
+import { useLocale, useOptionalLocale, useTranslation } from "../i18n.js";
 import { PageHeaderSlotAvailableProvider } from "../page-header-slot.js";
 import {
   type DataTableFacet,
@@ -327,22 +327,26 @@ export function RelatedListSection({
   // pager (see `payload` above: a one-shot fetch, no cursor/offset), so the
   // loaded set already IS the full display set and there is no "other page"
   // a client-side sort could misleadingly hide (fw#2722).
+  const locale = useOptionalLocale();
   const [sort, setSort] = useState<ListSort | null>(section.defaultSort ?? null);
   const sortAccessors = useMemo(() => {
-    const accessors: Record<string, (row: Readonly<Record<string, unknown>>) => string | number> =
-      {};
+    const accessors: Record<
+      string,
+      (row: Readonly<Record<string, unknown>>) => string | number | null
+    > = {};
     for (const col of section.columns) {
       const field = normalizeListColumn(col).field;
       accessors[field] = (row) => {
         const value = row[field];
-        return typeof value === "number" ? value : String(value ?? "");
+        if (value === null || value === undefined) return null;
+        return typeof value === "number" ? value : String(value);
       };
     }
     return accessors;
   }, [section.columns]);
   const sortedRows = useMemo(
-    () => sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors),
-    [rowsQuery.data, sort, sortAccessors],
+    () => sortByAccessor(rowsQuery.data?.rows ?? [], sort, sortAccessors, locale),
+    [rowsQuery.data, sort, sortAccessors, locale],
   );
 
   const rowClick = section.rowClick;

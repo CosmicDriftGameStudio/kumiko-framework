@@ -184,17 +184,17 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
   // step-1's still-unresolved errors from an earlier submit() (or vice
   // versa when step-2 newly has issues).
   function replaceScopedErrors(
-    scopeSet: Set<string> | undefined,
+    isInScope: ((path: string) => boolean) | undefined,
     grouped: Readonly<Record<string, readonly FieldIssue[]>>,
   ): void {
-    if (scopeSet === undefined) {
+    if (isInScope === undefined) {
       errors = Object.freeze(grouped);
       // skip: unscoped replace — wholesale overwrite, nothing left to merge
       return;
     }
     const merged: Record<string, readonly FieldIssue[]> = {};
     for (const [path, issues] of Object.entries(errors)) {
-      if (!scopeSet.has(path)) merged[path] = issues;
+      if (!isInScope(path)) merged[path] = issues;
     }
     Object.assign(merged, grouped);
     errors = Object.freeze(merged);
@@ -205,14 +205,17 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     opts?: { readonly includeRoot?: boolean },
   ): boolean {
     // See the validate() doc comment in types.ts for the scope contract.
-    // Normalize nested scope entries (`address.city` → `address`) so wizard
-    // callers that pass dotted paths still match issue root segments (#1898).
-    const scopeSet =
-      scope === undefined ? undefined : new Set(scope.map((s) => s.split(".")[0] ?? s));
+    // A scope entry matches its exact path and everything below it, but not
+    // siblings: `address.city` must not pull in `address.zip` (#1898).
+    const isInScope =
+      scope === undefined
+        ? undefined
+        : (path: string): boolean =>
+            scope.some((entry) => path === entry || path.startsWith(`${entry}.`));
     const includeRoot = opts?.includeRoot === true;
     if (!options.schema) {
       if (Object.keys(errors).length > 0) {
-        replaceScopedErrors(scopeSet, {});
+        replaceScopedErrors(isInScope, {});
         invalidate();
       }
       return true;
@@ -221,7 +224,7 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     const parsed = options.schema.safeParse(values);
     if (parsed.success) {
       if (Object.keys(errors).length > 0) {
-        replaceScopedErrors(scopeSet, {});
+        replaceScopedErrors(isInScope, {});
         invalidate();
       }
       return true;
@@ -238,19 +241,19 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
       // still drops them (#1885); submit() passes includeRoot so RenderEdit
       // fields={…} cannot silently skip cross-field rules (#1907).
       const isRootIssue = issue.path === "(root)";
-      if (scopeSet && !(includeRoot && isRootIssue) && !scopeSet.has(rootField)) {
+      if (isInScope && !(includeRoot && isRootIssue) && !isInScope(issue.path)) {
         return false;
       }
       return true;
     });
     if (relevantIssues.length === 0) {
       if (Object.keys(errors).length > 0) {
-        replaceScopedErrors(scopeSet, {});
+        replaceScopedErrors(isInScope, {});
         invalidate();
       }
       return true;
     }
-    replaceScopedErrors(scopeSet, groupIssuesByPath(relevantIssues));
+    replaceScopedErrors(isInScope, groupIssuesByPath(relevantIssues));
     invalidate();
     return false;
   }

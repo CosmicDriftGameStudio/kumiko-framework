@@ -153,4 +153,22 @@ describe("RenderEdit — screen.description as form subtitle (fw#2723)", () => {
 
     expect(captured && "subtitle" in captured).toBe(false);
   });
+
+  test("tabs mode keeps an explicit subtitle override that differs from the description", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "widget-edit",
+      type: "entityEdit",
+      entity: "widget",
+      description: "Plain description.",
+      layout: { mode: "tabs", sections: [{ title: "Basics", fields: ["name"] }] },
+    };
+
+    const { captured } = renderEditCapturingForm(
+      screen,
+      { "en-US": { "screen:widget-edit.subtitle": "Explicit subtitle." } },
+      true,
+    );
+
+    expect(captured?.subtitle).toBe("Explicit subtitle.");
+  });
 });
