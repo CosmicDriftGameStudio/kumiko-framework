@@ -197,13 +197,13 @@ describe("resolveSameFileObjectLiteral", () => {
 });
 
 describe("parseFeatureFile resolves cross-file constants without a Program", () => {
-  test("sessions' imported event-name constant resolves to its real value", () => {
+  test("an event-name constant imported through an alias + export-star chain and an aliased registrar wrapper both resolve", () => {
     const result = parseFeatureFile(
-      resolve(__dirname, "../../../../../bundled-features/src/sessions/feature.ts"),
+      resolve(__dirname, "fixtures/cross-file-alias-chain/feature.ts"),
     );
-    const defineEvent = result.patterns.find((p) => p.kind === "defineEvent");
-    // SESSION_REVOKED_EVENT_SHORT is imported from ./session-revoked-event —
-    // only resolves through the cross-file resolver this change replaces.
-    expect(defineEvent).toMatchObject({ eventName: "session-revoked" });
+    expect(result.errors).toEqual([]);
+    expect(result.patterns.map((p) => p.kind)).toEqual(["defineEvent", "nav"]);
+    expect(result.patterns[0]).toMatchObject({ eventName: "session-revoked" });
+    expect(result.patterns[1]).toMatchObject({ kind: "nav", definition: { id: "aliased" } });
   });
 });

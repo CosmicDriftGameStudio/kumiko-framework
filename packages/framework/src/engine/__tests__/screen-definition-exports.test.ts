@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type {
+  ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   CustomScreenDefinition,
   DashboardScreenDefinition,
   DashboardStatPanel,
+  EntityEditScreenDefinition,
+  EntityListScreenDefinition,
   ProjectionDetailScreenDefinition,
   ProjectionListScreenDefinition,
   RowFieldExtractor,
@@ -21,8 +25,8 @@ import { requiredKeysFromScreen, screenTitleKey } from "../../i18n/required-surf
 //
 // The import above is `import type`, erased at runtime — this file guards
 // the barrel at compile time only (tsc, via `check-wt.sh`/CI), not via
-// `bun test`. If a type export regresses, `tsc --build` fails; this suite
-// still passes green.
+// `bun test`. If a type export regresses, `tsc --build` fails; the runtime
+// assertions only cover requiredKeysFromScreen on the typed literals.
 describe("engine barrel exports the per-screen definition types", () => {
   test("ProjectionListScreenDefinition is assignable and feeds requiredKeysFromScreen", () => {
     const screen: ProjectionListScreenDefinition = {
@@ -76,8 +80,9 @@ describe("engine barrel exports the per-screen definition types", () => {
       nav,
       detailFor: "component",
     };
-    expect(screen.nav?.label).toBe("publicstatus:nav.componentDetail");
-    expect(screen.detailFor).toBe("component");
+    expect(requiredKeysFromScreen("publicstatus", screen)).toEqual([
+      screenTitleKey("component-detail"),
+    ]);
   });
 
   test("ProjectionListScreenDefinition also carries nav/detailFor directly, not just via ScreenDefinition", () => {
@@ -89,14 +94,69 @@ describe("engine barrel exports the per-screen definition types", () => {
       nav: { label: "publicstatus:nav.jobList" },
       detailFor: "job",
     };
-    expect(screen.nav?.label).toBe("publicstatus:nav.jobList");
-    expect(screen.detailFor).toBe("job");
+    expect(requiredKeysFromScreen("publicstatus", screen)).toContain(screenTitleKey("job-list"));
   });
 
-  test("UnitKey / RowFieldExtractor are exported and usable standalone", () => {
-    const unit: UnitKey = "km";
-    const extractor: RowFieldExtractor = { pick: ["id", "version"] };
-    expect(unit).toBe("km");
-    expect(extractor).toEqual({ pick: ["id", "version"] });
+  test("EntityListScreenDefinition carries nav/detailFor directly", () => {
+    const screen: EntityListScreenDefinition = {
+      id: "incident-list",
+      type: "entityList",
+      entity: "incident",
+      columns: ["title"],
+      nav: { label: "publicstatus:nav.incidentList" },
+      detailFor: "incident",
+    };
+    const keys = requiredKeysFromScreen("publicstatus", screen);
+    expect(keys).toContain(screenTitleKey("incident-list"));
+    expect(keys).toContain("publicstatus:entity:incident:field:title");
+  });
+
+  test("EntityEditScreenDefinition carries nav/detailFor directly", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "incident-edit",
+      type: "entityEdit",
+      entity: "incident",
+      layout: { sections: [{ fields: ["title"] }] },
+      nav: { label: "publicstatus:nav.incidentEdit" },
+      detailFor: "incident",
+    };
+    expect(requiredKeysFromScreen("publicstatus", screen)).toContain(
+      screenTitleKey("incident-edit"),
+    );
+  });
+
+  test("ActionFormScreenDefinition carries nav/detailFor directly", () => {
+    const screen: ActionFormScreenDefinition = {
+      id: "post-update",
+      type: "actionForm",
+      handler: "publicstatus:write:incident:postUpdate",
+      fields: { message: { type: "text" } },
+      layout: { sections: [{ fields: ["message"] }] },
+      nav: { label: "publicstatus:nav.postUpdate" },
+      detailFor: "incident",
+    };
+    expect(requiredKeysFromScreen("publicstatus", screen)).toContain(screenTitleKey("post-update"));
+  });
+
+  test("ConfigEditScreenDefinition carries nav/detailFor directly", () => {
+    const screen: ConfigEditScreenDefinition = {
+      id: "status-settings",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: { title: "publicstatus:config:title" },
+      fields: { title: { type: "text" } },
+      layout: { sections: [{ fields: ["title"] }] },
+      nav: { label: "publicstatus:nav.settings" },
+      detailFor: "status",
+    };
+    expect(requiredKeysFromScreen("publicstatus", screen)).toContain(
+      screenTitleKey("status-settings"),
+    );
   });
 });
+
+// Compile-time only: tsc fails if either export leaves the public barrel.
+const unitKeyGuard: UnitKey = "km";
+const rowFieldExtractorGuard = { pick: ["id", "version"] } satisfies RowFieldExtractor;
+void unitKeyGuard;
+void rowFieldExtractorGuard;

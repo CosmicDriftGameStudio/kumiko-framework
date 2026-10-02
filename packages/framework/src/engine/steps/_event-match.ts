@@ -9,13 +9,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function resolvePath(payload: unknown, path: readonly string[]): unknown {
+type ResolvedPath = { readonly found: false } | { readonly found: true; readonly value: unknown };
+
+// A missing path must stay distinguishable from a present-but-undefined value:
+// `ne` would otherwise match events that lack the field entirely.
+function resolvePath(payload: unknown, path: readonly string[]): ResolvedPath {
   let current: unknown = payload;
   for (const segment of path) {
-    if (!isRecord(current)) return undefined;
+    if (!isRecord(current) || !Object.hasOwn(current, segment)) return { found: false };
     current = current[segment];
   }
-  return current;
+  return { found: true, value: current };
 }
 
 function compareOrdered(
@@ -82,6 +86,13 @@ function malformed(what: string): Error {
   return new Error(`Malformed EventMatch: ${what}`);
 }
 
+function evaluateExprAtom(op: EventMatchOp, resolved: ResolvedPath): boolean {
+  // Evaluate before checking `found` so a malformed op still throws on a
+  // payload that lacks the path.
+  const matched = evaluateOp(op, resolved.found ? resolved.value : undefined);
+  return resolved.found && matched;
+}
+
 function evaluateExpr(expr: EventMatchExpr, payload: unknown): boolean {
   if (!isRecord(expr)) throw malformed("expr is not an object");
   switch (expr.kind) {
@@ -95,7 +106,7 @@ function evaluateExpr(expr: EventMatchExpr, payload: unknown): boolean {
     case "atom":
       if (!Array.isArray(expr.path)) throw malformed(`"atom" expr has no "path" array`);
       if (!isRecord(expr.op)) throw malformed(`"atom" expr has no "op" object`);
-      return evaluateOp(expr.op, resolvePath(payload, expr.path));
+      return evaluateExprAtom(expr.op, resolvePath(payload, expr.path));
     default: {
       const unrecognized: { readonly kind: string } = expr;
       throw new Error(`Unknown EventMatchExpr kind "${unrecognized.kind}"`);

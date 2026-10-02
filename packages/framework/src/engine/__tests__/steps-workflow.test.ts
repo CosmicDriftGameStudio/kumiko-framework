@@ -279,6 +279,15 @@ describe("evaluateEventMatch", () => {
     expect(evaluateEventMatch(match, { status: "cancelled" })).toBe(false);
   });
 
+  it("ne does not match when the path is absent from the payload", () => {
+    const match: EventMatch = {
+      version: 1,
+      expr: { kind: "atom", path: ["status"], op: { kind: "ne", value: "cancelled" } },
+    };
+    expect(evaluateEventMatch(match, {})).toBe(false);
+    expect(evaluateEventMatch(match, { other: 1 })).toBe(false);
+  });
+
   it("compares numbers with gte", () => {
     const match: EventMatch = {
       version: 1,

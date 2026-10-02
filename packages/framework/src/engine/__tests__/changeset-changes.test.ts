@@ -44,6 +44,25 @@ describe("parseChangesetChanges", () => {
     expect(changes[0]?.migration).toBe("First paragraph.\n\nSecond paragraph after a blank line.");
   });
 
+  test("a trailing blank line ends the block's content and the next key parses as its own field", () => {
+    const changes = parseChangesetChanges(
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\ndetail: |\n  A.\n\nmigration: |\n  B.\n-->`,
+      ".changeset/trailing-blank.md",
+    );
+
+    expect(changes[0]?.detail).toBe("A.");
+    expect(changes[0]?.migration).toBe("B.");
+  });
+
+  test("a whitespace-only line with fewer than two spaces inside a block is a paragraph break", () => {
+    const changes = parseChangesetChanges(
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\n<!-- kumiko-changes\nfeature: framework\ntype: breaking\ntitle: Removes the old flow\nmigration: |\n  First.\n \n  Second.\n-->`,
+      ".changeset/space-line.md",
+    );
+
+    expect(changes[0]?.migration).toBe("First.\n\nSecond.");
+  });
+
   test("rejects a breaking change without migration", () => {
     expect(() =>
       parseChangesetChanges(

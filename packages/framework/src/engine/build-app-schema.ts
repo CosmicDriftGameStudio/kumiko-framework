@@ -66,7 +66,14 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
   ]);
   const encryptedConfigKeyQns = collectEncryptedConfigKeyQns(registry);
   for (const [featureName, feature] of registry.features) {
-    const navs = Object.values(feature.navs);
+    // r.nav() may carry explicit `undefined` optionals; drop them so the
+    // schema stays free of non-JSON-safe values.
+    const navs = Object.values(feature.navs).map(
+      (nav) =>
+        Object.fromEntries(
+          Object.entries(nav).filter(([, value]) => value !== undefined),
+        ) as typeof nav, // @cast-boundary generic-record
+    );
     // The nav entry alone doesn't say which kind a collection lists, so the
     // client can't derive its tree provider from `navs` — project the
     // collections separately, with the nav QN already qualified.

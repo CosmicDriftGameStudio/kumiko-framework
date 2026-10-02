@@ -740,3 +740,87 @@ defineFeature("f", (r) => {
     });
   });
 });
+
+describe("fully literal but unrecognized header values report a ParseError naming the field", () => {
+  const unrecognizedHeaders: readonly [string, string][] = [
+    ["agent", '{ risk: "extreme" }'],
+    ["rateLimit", "{ disabled: true, reason: 'x', extra: 1 }"],
+    ["rateLimit", "{ disabled: false }"],
+    ["escapeHatch", "{ reason: 1 }"],
+  ];
+
+  for (const [field, literal] of unrecognizedHeaders) {
+    test(`writeHandler ${field}: ${literal}`, () => {
+      const result = parse(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { roles: ["Admin"] },
+    ${field}: ${literal},
+  });
+});
+`);
+      expect(result.patterns.some((p) => p.kind === "writeHandler")).toBe(false);
+      expect(result.errors).toHaveLength(1);
+      expect(result.errors[0]?.reason).toContain(field);
+    });
+  }
+
+  test("hook escapeHatch: { reason: 1 }", () => {
+    const result = parse(`
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("f", (r) => {
+  r.hook("postSave", "task", async (event, ctx) => {}, { escapeHatch: { reason: 1 } });
+});
+`);
+    expect(result.patterns.some((p) => p.kind === "hook")).toBe(false);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]?.reason).toContain("escapeHatch");
+  });
+});
+
+describe("agent authored as a reference", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+import { AGENT_HINTS } from "./agent-hints";
+
+defineFeature("f", (r) => {
+  r.queryHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async () => ({}),
+    access: { roles: ["Admin"] },
+    agent: AGENT_HINTS,
+  });
+});
+`;
+  const result = parse(source);
+
+  test("is kept as a raw sentinel", () => {
+    expect(result.errors).toEqual([]);
+    expect(findPattern(result.patterns, "queryHandler")).toMatchObject({
+      agent: { __raw: "AGENT_HINTS" },
+    });
+  });
+
+  test("render → parse roundtrip keeps the reference verbatim", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+      imports: [...DEFAULT_IMPORTS, 'import { AGENT_HINTS } from "./agent-hints";'],
+    });
+    expect(rendered).toContain("agent: AGENT_HINTS,");
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "queryHandler")).toMatchObject({
+      agent: { __raw: "AGENT_HINTS" },
+    });
+  });
+});
