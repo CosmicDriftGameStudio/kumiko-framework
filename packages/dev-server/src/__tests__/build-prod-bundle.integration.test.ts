@@ -26,8 +26,12 @@ const __dirname = dirname(__filename);
 const KUMIKO_BUILD_BIN = resolve(__dirname, "../../bin/kumiko-build.ts");
 
 // Each of these tests spawns kumiko-build, which runs the real Bun.build +
-// tailwind pipeline; bun's 5s default kills it mid-build on a loaded CI runner.
+// tailwind pipeline; bun's 5s default kills the test on a loaded CI runner.
+// A single build takes ~1s locally. The spawn is synchronous, so the test
+// timeout only fires after the child exits: BUILD_PROCESS_TIMEOUT_MS is what
+// actually kills a hung build. Two sequential builds must fit the test budget.
 const FULL_PIPELINE_TIMEOUT_MS = 60_000;
+const BUILD_PROCESS_TIMEOUT_MS = 25_000;
 
 function bunAvailable(): boolean {
   try {
@@ -178,7 +182,10 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
       // renderer-web-Fallback fehlschlägt und gracefully undefined liefert.
       await writeFile(join(tmp, "package.json"), `{"name":"build-it-fixture","private":true}`);
 
-      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
+        stdio: "pipe",
+        timeout: BUILD_PROCESS_TIMEOUT_MS,
+      });
 
       const manifest = JSON.parse(
         await readFile(join(tmp, "dist/manifest.json"), "utf8"),
@@ -210,7 +217,10 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
       let stderr = "";
       expect(() => {
         try {
-          execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+          execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
+            stdio: "pipe",
+            timeout: BUILD_PROCESS_TIMEOUT_MS,
+          });
         } catch (err) {
           const e = err as { stderr?: Buffer };
           stderr = e.stderr?.toString() ?? "";
@@ -239,7 +249,10 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
       let stderr = "";
       expect(() => {
         try {
-          execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+          execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
+            stdio: "pipe",
+            timeout: BUILD_PROCESS_TIMEOUT_MS,
+          });
         } catch (err) {
           const e = err as { stderr?: Buffer };
           stderr = e.stderr?.toString() ?? "";
@@ -254,7 +267,10 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
   );
 
   function runKumikoBuild(cwd: string): { status: number | null; stdout: string; stderr: string } {
-    const result = spawnSync("bun", [KUMIKO_BUILD_BIN, cwd], { encoding: "utf8" });
+    const result = spawnSync("bun", [KUMIKO_BUILD_BIN, cwd], {
+      encoding: "utf8",
+      timeout: BUILD_PROCESS_TIMEOUT_MS,
+    });
     return { status: result.status, stdout: result.stdout, stderr: result.stderr };
   }
 
@@ -362,12 +378,18 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
       );
       await writeFile(join(tmp, "package.json"), `{"name":"hash-stability","private":true}`);
 
-      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
+        stdio: "pipe",
+        timeout: BUILD_PROCESS_TIMEOUT_MS,
+      });
       const manifest1 = JSON.parse(
         await readFile(join(tmp, "dist/manifest.json"), "utf8"),
       ) as Record<string, string>;
 
-      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], { stdio: "pipe" });
+      execFileSync("bun", [KUMIKO_BUILD_BIN, tmp], {
+        stdio: "pipe",
+        timeout: BUILD_PROCESS_TIMEOUT_MS,
+      });
       const manifest2 = JSON.parse(
         await readFile(join(tmp, "dist/manifest.json"), "utf8"),
       ) as Record<string, string>;

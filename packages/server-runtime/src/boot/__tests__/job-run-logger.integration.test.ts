@@ -108,6 +108,9 @@ const attachNoteEntity = createEntity({
 });
 const attachNoteTable = buildEntityTable("note", attachNoteEntity);
 
+const attachJobPayload = z.object({ text: z.string() });
+const attachListRows = z.array(z.object({ text: z.string() }));
+
 const attachResults: Array<{ writeOk: boolean; rowCount: number }> = [];
 const attachFailures: string[] = [];
 
@@ -132,12 +135,12 @@ const attachDispatcherFeature = defineFeature("jobattach", (r) => {
 
   r.job("record", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     try {
-      const text = (payload as { text: string }).text;
+      const { text } = attachJobPayload.parse(payload);
       const writeResult = await ctx.write("jobattach:write:create", { text });
       const rows = await ctx.queryAs(TestUsers.admin, "jobattach:query:list", {});
       attachResults.push({
         writeOk: writeResult.isSuccess,
-        rowCount: (rows as unknown[]).length,
+        rowCount: attachListRows.parse(rows).length,
       });
     } catch (error) {
       attachFailures.push(error instanceof Error ? error.message : String(error));

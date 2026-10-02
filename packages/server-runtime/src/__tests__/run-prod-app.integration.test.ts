@@ -1188,16 +1188,16 @@ describe("runProdApp: lokaler Event-Dispatcher (MSP-Anwendung im Single-Containe
         // Tabelle komplett leer, DER Beweis dass nie ein Dispatcher lief.
         // The cursor is committed after the projection row, so poll on the
         // cursor value itself — a registered consumer still reads 0 for a moment.
-        const consumers = await pollFor(async () => {
+        const consumer = await pollFor(async () => {
           const rows = (await asRawClient(db).unsafe(
             `SELECT name, last_processed_event_id FROM kumiko_event_consumers
-           WHERE name = 'prod-probe:projection:probe-ping-projection'
-              OR name LIKE '%probe-ping-projection%'`,
+           WHERE name = $1`,
+            ["prod-probe:projection:probe-ping-projection"],
           )) as Array<{ name: string; last_processed_event_id: string | number }>;
-          return Number(rows[0]?.last_processed_event_id) > 0 ? rows : undefined;
+          const [consumerRow] = rows;
+          return Number(consumerRow?.last_processed_event_id) > 0 ? consumerRow : undefined;
         });
-        expect(consumers.length).toBeGreaterThan(0);
-        expect(Number(consumers[0]?.last_processed_event_id)).toBeGreaterThan(0);
+        expect(Number(consumer.last_processed_event_id)).toBeGreaterThan(0);
       } finally {
         await close();
       }

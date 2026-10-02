@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -21,19 +22,50 @@ import { dirname, join, resolve } from "node:path";
 
 const PACKAGE_ROOT = resolve(import.meta.dir, "../..");
 
+function declaresWorkspaces(dir: string): boolean {
+  const manifestPath = join(dir, "package.json");
+  if (!existsSync(manifestPath)) return false;
+  const parsed: unknown = JSON.parse(readFileSync(manifestPath, "utf8"));
+  return typeof parsed === "object" && parsed !== null && "workspaces" in parsed;
+}
+
+function outermostWorkspaceRoot(): string {
+  let outermost = PACKAGE_ROOT;
+  let dir = PACKAGE_ROOT;
+  while (dirname(dir) !== dir) {
+    dir = dirname(dir);
+    if (declaresWorkspaces(dir)) outermost = dir;
+  }
+  return outermost;
+}
+
+function pathEntryExists(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Workspace hoisting installs @cosmicdrift/* into the parent workspace's
 // node_modules, not this repo's, so a fixed `<repo>/node_modules` path is
-// only right for a standalone clone (#3021). Walk up like node's resolver.
+// only right for a standalone clone (#3021). Walk up like node's resolver,
+// but never past the outermost workspace root: a stray ~/node_modules must
+// not be picked up as the install.
 function installedPackageDir(name: string): string {
+  const stopAt = outermostWorkspaceRoot();
   let dir = PACKAGE_ROOT;
   for (;;) {
     const candidate = join(dir, "node_modules", name);
     if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) {
-      throw new Error(`no node_modules above ${PACKAGE_ROOT} contains ${name} — run bun install`);
+    if (pathEntryExists(candidate)) {
+      throw new Error(`${candidate} is a broken symlink — run bun install`);
     }
-    dir = parent;
+    if (dir === stopAt) {
+      throw new Error(`no node_modules up to ${stopAt} contains ${name} — run bun install`);
+    }
+    dir = dirname(dir);
   }
 }
 

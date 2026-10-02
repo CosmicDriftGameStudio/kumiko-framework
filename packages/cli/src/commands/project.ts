@@ -2,6 +2,13 @@ import { join } from "node:path";
 import { loadAppConfig } from "./load-app-config";
 import type { CliCommand, CliCommandContext } from "./types";
 
+const PROJECT_SUBCOMMANDS = ["list", "status", "rebuild"] as const;
+type ProjectSubcommand = (typeof PROJECT_SUBCOMMANDS)[number];
+
+function isProjectSubcommand(value: string | undefined): value is ProjectSubcommand {
+  return PROJECT_SUBCOMMANDS.some((known) => known === value);
+}
+
 export const projectCommand: CliCommand = {
   id: "project",
   description: "Manage projections (list | status <name> | rebuild <name>)",
@@ -9,6 +16,13 @@ export const projectCommand: CliCommand = {
   run: async (ctx) => {
     const sub = ctx.argv[0];
     const arg = ctx.argv[1];
+
+    if (!isProjectSubcommand(sub)) {
+      ctx.out.err("");
+      ctx.out.err("  Usage: kumiko project <list | status <name> | rebuild <name>>");
+      ctx.out.err("");
+      return 1;
+    }
 
     const configPath = join(ctx.cwd, "kumiko.config.ts");
     if (!(await Bun.file(configPath).exists())) {
@@ -44,9 +58,9 @@ export const projectCommand: CliCommand = {
 
     const registry = createRegistry(config.features);
     const { db, close } = createDbConnection(databaseUrl);
-    await createProjectionStateTable(db);
 
     try {
+      await createProjectionStateTable(db);
       switch (sub) {
         case "list":
           return await listProjections(ctx, db, registry, listProjectionsWithState);
@@ -54,12 +68,12 @@ export const projectCommand: CliCommand = {
           return await showProjectionStatus(ctx, db, arg, registry, getProjectionState);
         case "rebuild":
           return await rebuildOne(ctx, db, arg, registry, rebuildProjection);
-        default:
-          ctx.out.log("");
-          ctx.out.log("  Usage: kumiko project <list | status <name> | rebuild <name>>");
-          ctx.out.log("");
-          return 1;
       }
+    } catch (e) {
+      ctx.out.err("");
+      ctx.out.err(`  ✗ ${e instanceof Error ? e.message : String(e)}`);
+      ctx.out.err("");
+      return 1;
     } finally {
       await close();
     }
