@@ -876,17 +876,25 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // Public auth routes (login) need to be registered BEFORE the generic
   // api routes so Hono matches them first.
   if (options.auth) {
-    // A membershipQuery handler is registered but nothing fulfils
-    // principalStatus — surface that misconfig at boot instead of an InternalError on first login/switch-tenant.
-    if (
-      options.registry.getQueryHandler(options.auth.membershipQuery) &&
-      options.registry.getExtensionUsages(EXT_PRINCIPAL_STATUS).length === 0
-    ) {
-      throw new Error(
-        `[kumiko] auth membershipQuery "${options.auth.membershipQuery}" is registered but no feature ` +
-          'provides the "principalStatus" contract — mount the user feature (tenant switch and sign-in ' +
-          "need it to reject blocked principals).",
-      );
+    // A membershipQuery handler is registered but principalStatus is not provided by exactly
+    // one feature — surface that misconfig at boot instead of an InternalError on first login/switch-tenant.
+    if (options.registry.getQueryHandler(options.auth.membershipQuery)) {
+      const principalStatusProviders =
+        options.registry.getExtensionUsages(EXT_PRINCIPAL_STATUS).length;
+      if (principalStatusProviders === 0) {
+        throw new Error(
+          `[kumiko] auth membershipQuery "${options.auth.membershipQuery}" is registered but no feature ` +
+            'provides the "principalStatus" contract — mount the user feature (tenant switch and sign-in ' +
+            "need it to reject blocked principals).",
+        );
+      }
+      if (principalStatusProviders > 1) {
+        throw new Error(
+          `[kumiko] auth membershipQuery "${options.auth.membershipQuery}" is registered but ` +
+            `${principalStatusProviders} features provide the "principalStatus" contract — exactly one ` +
+            "is expected (the bundled user feature already provides it).",
+        );
+      }
     }
     app.route(
       "/api",

@@ -211,3 +211,17 @@ describe("where — multi-field AND", () => {
     });
   });
 });
+
+describe("where — ordering/pattern operators on a jsonb option array", () => {
+  const jsonbCols = [{ name: "tags", pgType: "jsonb" as const, notNull: true }] as const;
+
+  test("lt/gt/lte/gte match nothing and like does not crash", async () => {
+    await withTable(jsonbCols, async ({ db, meta }) => {
+      await insertMany(db, meta, [{ tags: ["a"] }, { tags: ["b"] }]);
+      for (const op of ["lt", "gt", "lte", "gte", "like"] as const) {
+        const rows = await selectMany(db, meta, { tags: { [op]: "a" } });
+        expect(rows).toEqual([]);
+      }
+    });
+  });
+});

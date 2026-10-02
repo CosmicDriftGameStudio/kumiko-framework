@@ -674,6 +674,12 @@ function buildWhereClause(
       for (const [opKey, opSym] of Object.entries(opMap)) {
         const opVal = (value as Record<string, unknown>)[opKey];
         if (opVal === undefined) continue;
+        // Mirrors applyMultiSelectFilter: ordering/pattern ops have no meaning on a jsonb
+        // option array (`like` would crash as `jsonb ~~ jsonb`), so match nothing.
+        if (pgType === "jsonb" && opKey !== "ne") {
+          conditions.push("FALSE");
+          continue;
+        }
         if (opKey === "ne" && pgType === "jsonb" && isJsonbScalar(opVal)) {
           const p = prepareJsonbValue([opVal]);
           if (p && p.kind === "param") {
@@ -1068,13 +1074,11 @@ export async function updateMany<TRow = any>(
     return scoped.updateMany<TRow>(table, set, where);
   }
   const info = extractTableInfo(table);
-  const setEntries = Object.entries(set)
-    .filter(([k]) => info.hasColumn(k))
-    .map(([k, v]) => {
-      const col = info.columnOf(k);
-      const pgType = info.pgTypeOf(col);
-      return { col, prepared: prepareValue(v, pgType) };
-    });
+  const setEntries = Object.entries(set).map(([k, v]) => {
+    const col = info.columnOf(k);
+    const pgType = info.pgTypeOf(col);
+    return { col, prepared: prepareValue(v, pgType) };
+  });
   if (setEntries.length === 0) throw new Error("updateMany: empty set object");
   const values: unknown[] = [];
   let idx = 1;

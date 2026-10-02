@@ -243,6 +243,27 @@ describe("buildServer — auth membershipQuery requires a principalStatus provid
     ).toThrow(/no feature provides the "principalStatus" contract/);
   });
 
+  test("throws when more than one feature provides principalStatus", () => {
+    const secondPrincipalStatusFeature = defineFeature("second-principal-status", (r) => {
+      r.useExtension(EXT_PRINCIPAL_STATUS, "second-principal-status", {
+        resolveStatus: async () => "active" as const,
+        resolveProfile: async () => ({ globalRoles: [] }),
+      });
+    });
+    expect(() =>
+      buildServer({
+        registry: createRegistry([
+          membershipQueryFeature,
+          principalStatusFeature,
+          secondPrincipalStatusFeature,
+        ]),
+        context: {},
+        jwtSecret: JWT_SECRET,
+        auth: { membershipQuery: MEMBERSHIP_QN },
+      }),
+    ).toThrow(/2 features provide the "principalStatus" contract/);
+  });
+
   test("boots when a feature provides principalStatus", () => {
     expect(() =>
       buildServer({

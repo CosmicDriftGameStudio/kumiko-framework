@@ -134,8 +134,11 @@ export async function applyEntityEvent(
       // UPDATE so Postgres doesn't error with "column X does not exist".
       const changes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(rawChanges)) {
-        const fieldType = entity.fields[key]?.type;
-        if (fieldType === "files" || fieldType === "images") continue;
+        const field = entity.fields[key];
+        // Historical events can carry fields since removed from the entity; the
+        // tolerance lives here (not in updateMany) so a live typo still throws.
+        if (field === undefined) continue;
+        if (field.type === "files" || field.type === "images") continue;
         changes[key] = value;
       }
       const rows = await updateMany<DbRow>(
