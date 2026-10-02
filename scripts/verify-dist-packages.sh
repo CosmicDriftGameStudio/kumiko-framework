@@ -160,9 +160,14 @@ else
   typecheck_output=""
   problems+=("consumer-shaped tsc --noEmit: $tsc_bin is missing, typecheck did not run")
 fi
-# Only diagnostics located in third-party node_modules are ignored; every other
-# error (entry file, config/option errors without a path, @cosmicdrift .d.ts) counts.
-own_errors="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" | grep -Ev '^[^ ]*node_modules/[^@][^(]*\([0-9]+,[0-9]+\): error TS' || true)"
+# Only diagnostics located in third-party node_modules are ignored (unscoped and
+# scoped alike, e.g. @types/*); every other error counts: entry file, config/option
+# errors without a path, and @cosmicdrift .d.ts.
+diagnostics="$(grep -E 'error TS[0-9]+' <<<"$typecheck_output" || true)"
+own_errors="$({
+  grep -v 'node_modules/' <<<"$diagnostics" || true
+  grep -E 'node_modules/@cosmicdrift/[^(]*\([0-9]+,[0-9]+\): error TS' <<<"$diagnostics" || true
+} | sed '/^$/d')"
 if [ -n "$own_errors" ]; then
   sed -n "1,40p" <<<"$own_errors" | sed -E 's#^.*node_modules/##' >&2
   problems+=("consumer-shaped tsc --noEmit: $(wc -l <<<"$own_errors" | tr -d ' ') errors outside third-party declarations")
