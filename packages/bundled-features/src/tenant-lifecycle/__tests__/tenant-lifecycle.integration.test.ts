@@ -452,8 +452,8 @@ describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's
 });
 
 // No authConfig here on purpose: buildServer derives the 410 gate from the
-// mounted tenantLifecycleStatus provider. The stacks above keep the explicit
-// auth.resolveTenantLifecycleStatus override covered.
+// mounted tenantLifecycleStatus provider. The last describe pins that an
+// explicit auth.resolveTenantLifecycleStatus wins over the derived one.
 describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () => {
   let derivedStack: TestStack;
 
@@ -550,5 +550,64 @@ describe("tenant-lifecycle :: 410 gate derived from the mounted provider", () =>
     const res = await derivedStack.http.write(CANCEL, {}, tenantAdmin);
     expect(res.status).toBe(410);
     expect(await rejectionCode(res)).toBe("tenant_unavailable");
+  });
+});
+
+describe("tenant-lifecycle :: explicit auth override beats the mounted provider", () => {
+  let overrideStack: TestStack;
+
+  beforeAll(async () => {
+    const encryption = createTestEnvelopeCipher(randomBytes(32).toString("base64"));
+    const resolver = createConfigResolver({ cipher: encryption });
+    overrideStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createUserFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        authFoundationFeature,
+        createSessionsFeature(),
+        createTenantLifecycleFeature(),
+      ],
+      extraContext: { configResolver: resolver, configEncryption: encryption },
+      authConfig: {
+        resolveTenantLifecycleStatus: async (_tenantId: TenantId) => ({
+          status: "active" as const,
+        }),
+      } as import("@cosmicdrift/kumiko-framework/api").AuthRoutesConfig,
+    });
+  });
+
+  afterAll(async () => {
+    await overrideStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    overrideStack.events.reset();
+    resetTenantLifecycleGateCacheForTests();
+    await resetTestTables(overrideStack.db, [
+      tenantTable,
+      tenantComplianceProfileTable,
+      userSessionTable,
+      tenantMembershipsTable,
+      eventsTable,
+    ]);
+    await overrideStack.http.writeOk(
+      TenantHandlers.create,
+      { id: tenantAdmin.tenantId, key: "acme", name: "ACME Corp" },
+      TestUsers.systemAdmin,
+    );
+    await overrideStack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, tenantAdmin);
+  });
+
+  test("override reporting active lets a destroyRequested tenant through (derived gate would 410)", async () => {
+    await overrideStack.http.writeOk(REQUEST, {}, tenantAdmin);
+    resetTenantLifecycleGateCacheForTests();
+
+    const rows = await selectMany(overrideStack.db, tenantTable, { id: tenantAdmin.tenantId });
+    expect(rows[0]?.["status"]).toBe("destroyRequested");
+
+    const res = await overrideStack.http.query(TenantQueries.me, {}, tenantAdmin);
+    expect(res.status).toBe(200);
   });
 });

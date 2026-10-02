@@ -51,7 +51,17 @@ describe("securityBaselineFeatures", () => {
   test("each call yields fresh feature instances (no shared mutable state)", () => {
     const a = securityBaselineFeatures();
     const b = securityBaselineFeatures();
-    expect(a[0]).not.toBe(b[0]);
+    expect(a).toHaveLength(b.length);
+    a.forEach((feature, i) => {
+      expect(feature).not.toBe(b[i]);
+    });
+
+    const withoutSessionsA = securityBaselineFeatures({ includeSessions: false });
+    const withoutSessionsB = securityBaselineFeatures({ includeSessions: false });
+    expect(withoutSessionsA).toHaveLength(3);
+    withoutSessionsA.forEach((feature, i) => {
+      expect(feature).not.toBe(withoutSessionsB[i]);
+    });
   });
 
   test("dsgvoSelfServiceFeatures() + securityBaselineFeatures() boots with exactly one sessions", () => {

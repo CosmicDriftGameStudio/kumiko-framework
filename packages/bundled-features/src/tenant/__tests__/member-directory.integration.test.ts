@@ -126,6 +126,29 @@ describe("tenant:query:member-directory (fw#3107)", () => {
     expect(rows.some((row) => row["id"] === foreignId)).toBe(false);
   });
 
+  test("limit caps the rows without a search and never reaches into a foreign tenant", async () => {
+    const adminId = await seedMember(ownTenantId, "Own Admin", ["TenantAdmin"]);
+    const colleagueId = await seedMember(ownTenantId, "Own Colleague", ["User"]);
+    const foreignId = await seedMember(foreignTenantId, "Foreign Person", ["User"]);
+
+    const rows = await queryDirectory(tenantAdmin(adminId), { limit: 1 });
+
+    expect(rows.length).toBe(1);
+    expect([adminId, colleagueId]).toContain(String(rows[0]?.["id"]));
+    expect(rows[0]?.["id"]).not.toBe(foreignId);
+  });
+
+  test("search with limit 1 returns exactly one of several matches", async () => {
+    const adminId = await seedMember(ownTenantId, "Own Admin", ["TenantAdmin"]);
+    const firstId = await seedMember(ownTenantId, "Needle One", ["User"]);
+    const secondId = await seedMember(ownTenantId, "Needle Two", ["User"]);
+
+    const rows = await queryDirectory(tenantAdmin(adminId), { limit: 1, search: "needle" });
+
+    expect(rows.length).toBe(1);
+    expect([firstId, secondId]).toContain(String(rows[0]?.["id"]));
+  });
+
   test("rows carry only id and label — no email or roles leave the directory", async () => {
     const adminId = await seedMember(ownTenantId, "Own Admin", ["TenantAdmin"]);
 

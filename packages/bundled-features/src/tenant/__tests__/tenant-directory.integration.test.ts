@@ -124,6 +124,52 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
     expect(rows).toEqual([{ id: foreignTenantId, label: "Foreign Tenant" }]);
   });
 
+  test("a SystemAdmin limit caps the rows without a search", async () => {
+    const { id: operatorId } = await seedUser(stack.db, {
+      email: "limit-operator@example.com",
+      displayName: "Limit Operator",
+      emailVerified: true,
+    });
+
+    const rows = await queryDirectory(
+      { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
+      { limit: 1 },
+    );
+
+    expect(rows.length).toBe(1);
+  });
+
+  test("a SystemAdmin search with limit 1 returns exactly one of several matches", async () => {
+    const { id: operatorId } = await seedUser(stack.db, {
+      email: "search-limit-operator@example.com",
+      displayName: "Search Limit Operator",
+      emailVerified: true,
+    });
+
+    const rows = await queryDirectory(
+      { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
+      { limit: 1, search: "tenant" },
+    );
+
+    expect(rows.length).toBe(1);
+    expect(String(rows[0]?.["label"]).toLowerCase()).toContain("tenant");
+  });
+
+  test("a TenantAdmin search only matches their own tenant, never a foreign one", async () => {
+    const { id: adminId } = await seedUser(stack.db, {
+      email: "search-admin@example.com",
+      displayName: "Search Admin",
+      emailVerified: true,
+    });
+
+    expect(await queryDirectory(tenantAdmin(adminId), { search: "OWN" })).toEqual([
+      { id: ownTenantId, label: "Own Tenant" },
+    ]);
+    expect(await queryDirectory(tenantAdmin(adminId), { search: "foreign", limit: 50 })).toEqual(
+      [],
+    );
+  });
+
   test("a plain member without an admin role is refused", async () => {
     const { id: memberId } = await seedUser(stack.db, {
       email: "plain-member@example.com",
