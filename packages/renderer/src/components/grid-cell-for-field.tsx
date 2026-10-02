@@ -1,6 +1,6 @@
 import type { EditFieldViewModel, FieldIssue } from "@cosmicdrift/kumiko-headless";
 import type { ReactNode } from "react";
-import type { FieldCellWidth, usePrimitives } from "../primitives.js";
+import type { FieldCellWidth, FieldProps, usePrimitives } from "../primitives.js";
 import { RenderField } from "./render-field.js";
 
 // Extracted out of render-edit.tsx so write-form-section.tsx can reuse it
@@ -16,6 +16,9 @@ export type GridCellForFieldProps = {
   readonly featureName: string;
   readonly labelAppendix?: ReactNode;
   readonly fieldAppendix?: ReactNode;
+  readonly appendixPlacement?: FieldProps["appendixPlacement"];
+  readonly description?: ReactNode;
+  readonly status?: FieldProps["status"];
   /** Full issues-by-path map (FormSnapshot.errors) — passed through for
    *  embedded-list fields, which bucket row-/cell-level issues themselves. */
   readonly allIssues: Readonly<Record<string, readonly FieldIssue[]>>;
@@ -25,6 +28,8 @@ export type GridCellForFieldProps = {
   readonly row: Readonly<Record<string, unknown>>;
   readonly changed?: boolean;
   readonly flow?: boolean;
+  readonly layout?: FieldProps["layout"];
+  readonly accent?: boolean;
 };
 
 const FIELD_CELL_WIDTH_BY_TYPE: Readonly<Record<string, FieldCellWidth>> = {
@@ -66,11 +71,16 @@ export function GridCellForField({
   featureName,
   labelAppendix,
   fieldAppendix,
+  appendixPlacement,
+  description,
+  status,
   allIssues,
   valueDisplay,
   row,
   changed,
   flow,
+  layout,
+  accent,
 }: GridCellForFieldProps): ReactNode {
   // RenderField renders nothing for a hidden field, but the GridCell around it still claims the row.
   if (!field.visible) return null;
@@ -85,10 +95,15 @@ export function GridCellForField({
         featureName={featureName}
         {...(labelAppendix !== undefined && { labelAppendix })}
         {...(fieldAppendix !== undefined && { fieldAppendix })}
+        {...(appendixPlacement !== undefined && { appendixPlacement })}
+        {...(description !== undefined && { description })}
+        {...(status !== undefined && { status })}
         allIssues={allIssues}
         valueDisplay={valueDisplay}
         row={row}
         {...(changed === true && { changed })}
+        {...(layout !== undefined && { layout })}
+        {...(accent === true && { accent })}
       />
     </GridCell>
   );

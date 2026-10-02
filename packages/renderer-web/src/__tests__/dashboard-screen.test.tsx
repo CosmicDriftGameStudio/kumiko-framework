@@ -90,6 +90,28 @@ describe("KumikoScreen dashboard", () => {
     // List-Panel: Row aus der paged envelope.
     await waitFor(() => expect(screen.getByText("API-Ausfall")).toBeTruthy());
   });
+
+  test("showUpdatedAt=false hides the updated-at stamp; default shows it", async () => {
+    const quiet: FeatureSchema = {
+      featureName: "status",
+      entities: {},
+      screens: [{ ...dashboardScreen, showUpdatedAt: false }],
+    };
+    const view = (s: FeatureSchema) => (
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <DashboardBodyProvider value={WebDashboardBody}>
+          <KumikoScreen schema={s} qn="status:screen:overview" />
+        </DashboardBodyProvider>
+      </DispatcherProvider>
+    );
+    const first = render(view(quiet));
+    await waitFor(() => expect(screen.getByText("99,98 %")).toBeTruthy());
+    expect(screen.queryByTestId("dashboard-overview-updated-at")).toBeNull();
+    first.unmount();
+    render(view(schema));
+    await waitFor(() => expect(screen.getByText("99,98 %")).toBeTruthy());
+    expect(screen.getByTestId("dashboard-overview-updated-at")).toBeTruthy();
+  });
 });
 
 // screen.description exists on DashboardScreenDefinition (types/src/
@@ -579,6 +601,15 @@ const mfaSchema: FeatureSchema = {
 
 const mfaStatus = { query: "auth-mfa:query:user-mfa:status", field: "enabled" } as const;
 
+// fillHeight lists carry no screen padding at all, so the padding assertions
+// need a list that opts out of it.
+const paddedSessionsSchema: FeatureSchema = {
+  ...sessionsSchema,
+  screens: sessionsSchema.screens.map((screenDef) =>
+    screenDef.type === "projectionList" ? { ...screenDef, fillHeight: false } : screenDef,
+  ),
+};
+
 const accountSecuritySchema: FeatureSchema = {
   featureName: "account-security",
   entities: {},
@@ -611,7 +642,11 @@ const accountSecuritySchema: FeatureSchema = {
   ],
 };
 
-function renderAccountSecurity(mfaEnabled: boolean): void {
+function renderAccountSecurity(
+  mfaEnabled: boolean,
+  schema: FeatureSchema = accountSecuritySchema,
+  sessions: FeatureSchema = sessionsSchema,
+): void {
   const dispatcher = createMockDispatcher({
     query: (async (type: string) => {
       if (type === mfaStatus.query) return { isSuccess: true, data: { enabled: mfaEnabled } };
@@ -629,14 +664,11 @@ function renderAccountSecurity(mfaEnabled: boolean): void {
   });
   render(
     <DispatcherProvider dispatcher={dispatcher}>
-      <AppFeaturesProvider features={[accountSecuritySchema, sessionsSchema, mfaSchema]}>
+      <AppFeaturesProvider features={[schema, sessions, mfaSchema]}>
         <UserRolesProvider roles={["User"]}>
           <BrowserNav>
             <DashboardBodyProvider value={WebDashboardBody}>
-              <KumikoScreen
-                schema={accountSecuritySchema}
-                qn="account-security:screen:account-security"
-              />
+              <KumikoScreen schema={schema} qn="account-security:screen:account-security" />
             </DashboardBodyProvider>
           </BrowserNav>
         </UserRolesProvider>
@@ -675,5 +707,37 @@ describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
     expect(screen.queryByTestId("dashboard-panel-admin-sessions")).toBeNull();
     expect(screen.queryByText("ADMIN ROW")).toBeNull();
     expect(screen.queryByTestId("kumiko-screen-access-denied")).toBeNull();
+  });
+
+  test("chromeless list panel drops the card and the list's own screen padding", async () => {
+    const chromelessSchema: FeatureSchema = {
+      ...accountSecuritySchema,
+      screens: accountSecuritySchema.screens.map((screenDef) =>
+        screenDef.type === "dashboard"
+          ? {
+              ...screenDef,
+              panels: screenDef.panels.map((panel) =>
+                panel.kind === "screen" && panel.id === "sessions"
+                  ? { ...panel, chromeless: true }
+                  : panel,
+              ),
+            }
+          : screenDef,
+      ),
+    };
+    renderAccountSecurity(false, chromelessSchema, paddedSessionsSchema);
+    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    const panel = screen.getByTestId("dashboard-panel-sessions");
+    expect(panel.querySelector("[data-slot=card]")).toBeNull();
+    expect(panel.querySelector(".px-6")).toBeNull();
+    expect(screen.getByText("account-security:panel:sessions")).toBeTruthy();
+  });
+
+  test("list panel without the option keeps card and screen padding", async () => {
+    renderAccountSecurity(false, accountSecuritySchema, paddedSessionsSchema);
+    await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
+    const panel = screen.getByTestId("dashboard-panel-sessions");
+    expect(panel.querySelector("[data-slot=card]")).not.toBeNull();
+    expect(panel.querySelector(".px-6")).not.toBeNull();
   });
 });

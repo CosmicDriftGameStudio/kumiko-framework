@@ -18,14 +18,28 @@ export const SETTINGS_HUB_I18N: TranslationKeys = {
   "config.settings.tenant": { en: "Tenant" },
   "config.settings.user": { en: "Personal" },
   "config.settings.extensionSelectorHint": {
-    en: "Save the provider selection to show its settings below.",
+    en: "Choose a provider and save. Its settings appear below.",
   },
+  "config.settings.provider": { en: "Provider" },
+  "config.settings.saveProvider": { en: "Save provider" },
+  "config.settings.audience.system": {
+    en: "Applies to every tenant unless a tenant sets its own value.",
+  },
+  "config.settings.audience.tenant": {
+    en: "Applies to everyone in this tenant. Platform defaults are shown where nothing is set here.",
+  },
+  "config.settings.audience.user": { en: "Only applies to you." },
   "config.secrets.title": { en: "Secrets" },
   "config.secrets.notSet": { en: "Not set" },
   "config.secrets.set": { en: "Set" },
-  "config.secrets.required": { en: "Required" },
+  "config.secrets.saved": { en: "Saved" },
+  "config.secrets.section": { en: "Secrets" },
+  "config.secrets.description": {
+    en: "Stored encrypted. Saved values are never shown again.",
+  },
+  "config.secrets.stored": { en: "Stored: {preview}" },
   "config.secrets.placeholder": { en: "Enter a value" },
-  "config.secrets.replacePlaceholder": { en: "Enter a new value to replace" },
-  "config.secrets.delete": { en: "Delete" },
+  "config.secrets.replacePlaceholder": { en: "Enter a new value to replace it" },
+  "config.secrets.delete": { en: "Remove" },
   "screen:secrets.title": { en: "Secrets" },
 };

@@ -131,6 +131,7 @@ export {
 } from "./context/dispatcher-context.js";
 export type { DraftStorage, DraftStorageProviderProps } from "./context/draft-storage-context.js";
 export { DraftStorageProvider, useDraftStorage } from "./context/draft-storage-context.js";
+export { EmbeddedScreenProvider, useIsEmbeddedScreen } from "./context/embedded-screen-context.js";
 export type { UserRolesProviderProps } from "./context/user-roles-context.js";
 export { UserRolesProvider, useUserRoles } from "./context/user-roles-context.js";
 export { formatWhen } from "./format-when.js";

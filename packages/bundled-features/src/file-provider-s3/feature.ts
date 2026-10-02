@@ -52,7 +52,7 @@ export const fileProviderS3Feature = defineFeature(FEATURE_NAME, (r) => {
   r.requires("file-foundation");
 
   const secretAccessKey = r.secret("s3.secretAccessKey", {
-    label: { en: "S3 Secret Access Key" },
+    label: { en: "S3 secret access key" },
     hint: {
       en: "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'.",
     },

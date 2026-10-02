@@ -29,21 +29,24 @@ export function createTenantSettingsFeature(
     r.config({ keys: buildTenantSettingsKeys(opts) });
     r.translations({
       keys: {
-        "tenant-settings.currency": { en: "Default Currency" },
-        "tenant-settings.locale": { en: "Default Locale" },
+        "tenant-settings.currency": { en: "Default currency" },
+        "tenant-settings.locale": { en: "Default locale" },
         // Settings-Hub-derived configEdit screen title (buildConfigFeatureSchema) —
         // required by the i18n boot-validator whenever a feature masks config keys.
-        "screen:tenant-settings-system.title": { en: "Tenant Settings" },
-        "screen:tenant-settings-tenant.title": { en: "Tenant Settings" },
+        "screen:tenant-settings-system.title": { en: "Tenant defaults" },
+        "screen:tenant-settings-tenant.title": { en: "Tenant settings" },
         // Settings-Hub nav label + configEdit section heading (same key, both
         // scopes fall back here — see buildConfigFeatureSchema).
-        "tenant-settings.settings": { en: "Tenant Settings" },
+        "tenant-settings.settings": { en: "Tenant settings" },
+        // Section heading below the page title (the page title is the same words as
+        // `.settings`, which RenderEdit would drop as a repeat).
+        "tenant-settings.settings.section": { en: "Currency and language" },
         // Both currency/locale are tenant-home with admin write access, which
         // cascades a SystemAdmin-only "set the platform default" screen up to
         // the system audience — scoped override so its nav entry reads
         // differently from the tenant-home entry instead of repeating the
         // same words under both "Platform" and "Organization".
-        "tenant-settings.settings.system": { en: "Tenant Settings (Platform Default)" },
+        "tenant-settings.settings.system": { en: "Tenant defaults" },
       },
     });
   });

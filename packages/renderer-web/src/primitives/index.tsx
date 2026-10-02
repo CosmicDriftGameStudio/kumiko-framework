@@ -346,8 +346,12 @@ function DefaultField({
   issues,
   labelAppendix,
   fieldAppendix,
+  appendixPlacement,
+  description,
+  status,
   children,
   layout,
+  accent,
   hideLabel,
   testId,
   changed,
@@ -404,15 +408,77 @@ function DefaultField({
     changed === true ? (
       <span
         data-testid={testId !== undefined ? `${testId}-changed` : undefined}
-        className="inline-flex items-center gap-1 text-xs text-primary"
+        className="inline-flex items-center gap-1 text-xs text-status-active"
       >
         <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
         {t("kumiko.form.changed")}
       </span>
     ) : null;
 
+  const statusEl =
+    status !== undefined ? (
+      <StatusBadge
+        tone={status.tone}
+        testId={status.testId ?? (testId !== undefined ? `${testId}-status` : undefined)}
+      >
+        {status.label}
+      </StatusBadge>
+    ) : null;
+  const belowControl = appendixPlacement === "below-control";
+
+  // Settings row: label/help/origin on the left, control on the right. The
+  // hairlines between rows come from the list Grid, not from the row itself.
+  if (layout === "row") {
+    return (
+      <div
+        data-testid={testId}
+        className={cn(
+          "group/row relative grid gap-x-6 gap-y-2 py-4 @2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @2xl:grid-rows-[auto_auto_auto_1fr] @2xl:gap-y-0",
+          // Switch rows keep label left / switch right when stacked.
+          "@max-2xl:has-[[data-slot=switch]]:grid-cols-[minmax(0,1fr)_auto]",
+          accent === true && "@max-2xl:pl-3",
+        )}
+      >
+        {accent === true && (
+          <span
+            aria-hidden="true"
+            data-testid={testId !== undefined ? `${testId}-accent` : undefined}
+            className="absolute inset-y-3 w-0.5 bg-status-active @max-2xl:left-0 @2xl:-left-4"
+          />
+        )}
+        <div className="flex min-w-0 items-center gap-2 @2xl:col-start-1 @2xl:row-start-1">
+          {labelEl}
+          {changedMarker}
+          {labelAppendix !== undefined && labelAppendix}
+          {statusEl}
+        </div>
+        {description !== undefined && (
+          <div
+            data-testid={testId !== undefined ? `${testId}-description` : undefined}
+            className="min-w-0 text-sm text-muted-foreground @2xl:col-start-1 @2xl:row-start-2 @2xl:mt-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-span-2"
+          >
+            {description}
+          </div>
+        )}
+        <div className="flex min-w-0 flex-col gap-1.5 has-[[data-slot=switch]]:items-end @2xl:col-start-2 @2xl:row-span-4 @2xl:row-start-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-start-2 @max-2xl:group-has-[[data-slot=switch]]/row:row-start-1">
+          <FieldLayoutContext.Provider value="row">{children}</FieldLayoutContext.Provider>
+          {errorsEl}
+        </div>
+        {fieldAppendix !== undefined && (
+          <div className="min-w-0 @2xl:col-start-1 @2xl:row-start-3 @2xl:mt-1 @max-2xl:group-has-[[data-slot=switch]]/row:col-span-2">
+            {fieldAppendix}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div data-testid={testId} className="flex flex-col gap-1.5">
+    <div
+      data-testid={testId}
+      {...(belowControl && fieldAppendix !== undefined && { "data-appendix-below": "" })}
+      className="flex flex-col gap-1.5"
+    >
       <div className="flex items-center justify-between gap-2">
         {changedMarker !== null ? (
           <div className="flex min-w-0 items-center gap-2">
@@ -425,13 +491,24 @@ function DefaultField({
         {/* appendix neben dem <label>, nicht darin — interaktiver Inhalt
             (Disclosure-Button) gehört nicht in ein label-Element. */}
         {labelAppendix !== undefined && labelAppendix}
+        {statusEl}
       </div>
-      {/* fieldAppendix (Cascade-Detail-Panel) über dem Input — das
-          aufgeklappte Detail gehört direkt unter seinen Trigger in der
-          Label-Row, nicht durch den Input davon getrennt. */}
-      {fieldAppendix !== undefined && fieldAppendix}
+      {description !== undefined && (
+        <div
+          data-testid={testId !== undefined ? `${testId}-description` : undefined}
+          className="text-sm text-muted-foreground"
+        >
+          {description}
+        </div>
+      )}
+      {/* Default: fieldAppendix above the input, so an expanded detail sits
+          right under its trigger in the label row instead of being separated
+          from it by the input. below-control keeps the inputs of neighbouring
+          fields on one line. */}
+      {!belowControl && fieldAppendix !== undefined && fieldAppendix}
       {children}
       {errorsEl}
+      {belowControl && fieldAppendix !== undefined && fieldAppendix}
     </div>
   );
 }
@@ -3190,6 +3267,15 @@ const InsideFormContext = createContext(false);
 // (gestapelte Felder, kein eigener Rahmen/max-width).
 const BareFormContext = createContext(false);
 
+// Dashboard panels with an embedded settings form (`DashboardScreenPanel.chromeless`):
+// the form renders in the page grid like a standalone screen form, without the
+// card frame, but keeps its own (non-pinned) save bar.
+const EmbeddedFormContext = createContext(false);
+
+export function EmbeddedFormProvider({ children }: { children: ReactNode }): ReactNode {
+  return <EmbeddedFormContext.Provider value={true}>{children}</EmbeddedFormContext.Provider>;
+}
+
 export function BareFormProvider({ children }: { children: ReactNode }): ReactNode {
   return <BareFormContext.Provider value={true}>{children}</BareFormContext.Provider>;
 }
@@ -3416,7 +3502,7 @@ function FormFooter({
   chromeless,
   stickyActions,
   fillHeight,
-  unsavedCount = 0,
+  unsavedCount,
   railed = false,
 }: {
   readonly actions: ReactNode;
@@ -3473,15 +3559,27 @@ function FormFooter({
         !pinned && fillHeight === true && "shrink-0",
       )}
     >
-      {pinned && unsavedCount > 0 && (
+      {unsavedCount !== undefined && (
         <div
           data-testid={testId !== undefined ? `${testId}-unsaved` : undefined}
-          className="mr-auto flex items-center gap-2 text-[13px] text-foreground-secondary"
+          className={cn(
+            "mr-auto flex min-w-0 items-center gap-2 text-[13px]",
+            // Only the stacked (flex-col-reverse) footer moves the status above the
+            // actions; the pinned single-row footer keeps it on the left.
+            !pinned && "max-sm:order-last",
+            unsavedCount > 0 ? "text-foreground-secondary" : "text-muted-foreground",
+          )}
         >
-          <span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
-          {unsavedCount === 1
-            ? t("kumiko.form.unsaved.one")
-            : t("kumiko.form.unsaved.other", { count: unsavedCount })}
+          {unsavedCount > 0 && (
+            <span className="size-1.5 shrink-0 rounded-full bg-status-active" aria-hidden="true" />
+          )}
+          <span className="truncate">
+            {unsavedCount === 0
+              ? t("kumiko.form.noUnsavedChanges")
+              : unsavedCount === 1
+                ? t("kumiko.form.unsaved.one")
+                : t("kumiko.form.unsaved.other", { count: unsavedCount })}
+          </span>
         </div>
       )}
       {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
@@ -3499,10 +3597,10 @@ function FormFooter({
         <div
           data-testid={testId !== undefined ? `${testId}-actions` : undefined}
           className={cn(
-            "flex flex-wrap items-center gap-2",
+            "flex items-center gap-2",
             pinned
-              ? "max-md:[&>button]:min-h-11"
-              : "max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
+              ? "shrink-0 max-md:[&>button]:min-h-11"
+              : "flex-wrap max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
             // Below sm (640px): pin only the primary action to the viewport
             // bottom instead of normal flow, so a virtual keyboard shrinking
             // the viewport can't push it out of reach (fw#1918). `fixed`
@@ -3678,6 +3776,7 @@ function DefaultForm({
   summary,
 }: FormProps): ReactNode {
   const insideDrawer = useInsideDrawer();
+  const isEmbeddedForm = useContext(EmbeddedFormContext);
   // Eingebettet (AuthCard etc.): nacktes <form>, gestapelte Felder mit gap —
   // der Container trägt Card/Titel selbst, sonst Card-in-Card.
   if (useContext(BareFormContext)) {
@@ -3715,6 +3814,38 @@ function DefaultForm({
       >
         {children}
       </DrawerFormLayout>
+    );
+  }
+
+  if (isEmbeddedForm) {
+    return (
+      <FormRoot onSubmit={onSubmit} testId={testId} className="flex w-full flex-col gap-6">
+        <FormTitleBlock
+          title={title}
+          subtitle={subtitle}
+          titleAction={titleAction}
+          testId={testId}
+          bordered={false}
+          fillHeight={false}
+        />
+        <FormSections chromeless stickyActions={undefined} fillHeight={false} screenForm>
+          {children}
+        </FormSections>
+        {/* Divider spans only the settings-list width (max-w-4xl), not the page. */}
+        {(actions !== undefined || secondaryActions !== undefined) && (
+          <div className="max-w-4xl border-t border-border">
+            <FormFooter
+              actions={actions}
+              secondaryActions={secondaryActions}
+              testId={testId}
+              chromeless
+              stickyActions={undefined}
+              fillHeight={false}
+              {...(unsavedCount !== undefined && { unsavedCount })}
+            />
+          </div>
+        )}
+      </FormRoot>
     );
   }
 
@@ -3929,6 +4060,7 @@ function DefaultSection({
   children,
   actions,
   variant = "default",
+  layout = "stacked",
   testId,
   icon,
 }: SectionProps): ReactNode {
@@ -4000,6 +4132,7 @@ function DefaultSection({
             ? "flex scroll-mt-4 flex-col gap-4 [&:not(:first-of-type)]:border-t [&:not(:first-of-type)]:border-border [&:not(:first-of-type)]:pt-7"
             : "flex flex-col gap-4 px-6 py-4",
           variant === "destructive" && "border-l-2 border-destructive/40",
+          layout === "settings-list" && "@container max-w-4xl",
         )}
       >
         {header}
@@ -4062,15 +4195,27 @@ const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   toggle: "w-auto min-w-40 shrink-0 self-start [&_[data-slot=switch]]:my-[0.55rem]",
 };
 
-function DefaultGrid({ columns, children, testId, maxRows, flow }: GridProps): ReactNode {
+function DefaultGrid({ columns, children, testId, maxRows, flow, list }: GridProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
+  if (list === true) {
+    return (
+      <div data-testid={testId} className="flex flex-col divide-y divide-border">
+        {children}
+      </div>
+    );
+  }
   if (flow === true) {
     return (
       <div
         data-testid={testId}
         className={cn(
           "flex gap-4",
-          insideDrawerBody ? "flex-col items-start" : "flex-wrap items-end",
+          insideDrawerBody
+            ? "flex-col items-start"
+            : // items-end aligns inputs when labels wrap to different heights; a
+              // below-control appendix grows only the one cell and would push its
+              // neighbours down, so such rows align to the top instead.
+              "flex-wrap items-end has-[[data-appendix-below]]:items-start",
         )}
       >
         {children}

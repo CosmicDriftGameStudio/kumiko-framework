@@ -945,7 +945,7 @@
         {
           "qualifiedName": "file-provider-s3:secret:s3-secret-access-key",
           "scope": "tenant",
-          "label": "S3 Secret Access Key",
+          "label": "S3 secret access key",
           "hint": "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'."
         }
       ],

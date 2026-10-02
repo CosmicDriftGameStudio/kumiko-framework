@@ -330,6 +330,10 @@ export function requiredKeysFromScreen(
     case "configEdit": {
       const config = screen as ConfigEditScreenDefinition;
       pushKey(out, config.submitLabel);
+      pushKey(out, config.description, treatDotFormAsKey);
+      for (const key of Object.values(config.fieldDescriptions ?? {})) {
+        pushKey(out, key, treatDotFormAsKey);
+      }
       for (const fieldName of Object.keys(config.fields)) {
         const override = config.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
@@ -342,6 +346,7 @@ export function requiredKeysFromScreen(
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushSectionTitles(out, section, treatDotFormAsKey);
+        pushKey(out, section.description, treatDotFormAsKey);
         for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           const override = config.fieldLabels?.[fieldName];

@@ -4,9 +4,11 @@ import type {
   ConfigScope,
   ConfigValueSource,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { useTranslation } from "@cosmicdrift/kumiko-renderer";
+import { usePrimitives, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Icon } from "../icons.js";
+import { cn } from "../lib/cn.js";
 
 const SOURCE_I18N_KEY: Record<ConfigValueSource, string> = {
   "user-row": "kumiko.config.source.user",
@@ -16,16 +18,6 @@ const SOURCE_I18N_KEY: Record<ConfigValueSource, string> = {
   computed: "kumiko.config.source.computed",
   default: "kumiko.config.source.default",
   missing: "kumiko.config.source.missing",
-};
-
-const SOURCE_COLORS: Record<ConfigValueSource, string> = {
-  "user-row": "text-blue-600 bg-blue-50 border-blue-200",
-  "tenant-row": "text-green-600 bg-green-50 border-green-200",
-  "system-row": "text-purple-600 bg-purple-50 border-purple-200",
-  "app-override": "text-orange-600 bg-orange-50 border-orange-200",
-  computed: "text-teal-600 bg-teal-50 border-teal-200",
-  default: "text-gray-500 bg-gray-50 border-gray-200",
-  missing: "text-red-500 bg-red-50 border-red-200",
 };
 
 // Fallback-Reihenfolge der Cascade, spezifischste Quelle zuerst.
@@ -41,30 +33,36 @@ const SOURCE_ORDER: readonly ConfigValueSource[] = [
   "missing",
 ];
 
-function SourceBadge({
-  source,
-  labelKey,
-}: {
-  source: ConfigValueSource;
-  labelKey?: string;
-}): ReactNode {
-  const t = useTranslation();
-  return (
-    <span
-      className={`inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-medium ${SOURCE_COLORS[source]}`}
-    >
-      {t(labelKey ?? SOURCE_I18N_KEY[source])}
-    </span>
-  );
-}
+type CascadeValueRenderer = (value: string | number | boolean) => ReactNode;
 
 function formatValue(
   value: string | number | boolean | undefined,
   hasValue: boolean,
-  renderValue?: (value: string | number | boolean) => ReactNode,
+  t: (key: string) => string,
+  renderValue?: CascadeValueRenderer,
 ): ReactNode {
-  if (!hasValue || value === undefined) return "—";
-  return renderValue !== undefined ? renderValue(value) : String(value);
+  if (!hasValue || value === undefined) return t("kumiko.config.cascade.noValue");
+  if (renderValue !== undefined) return renderValue(value);
+  if (typeof value === "boolean")
+    return t(value ? "kumiko.config.cascade.on" : "kumiko.config.cascade.off");
+  return String(value);
+}
+
+// The origin sentence interpolates the fallback value, which can be a node (a
+// select's option label resolved by a query), so the translated template is
+// split at a marker instead of interpolating a string.
+const VALUE_MARKER = "\u0000";
+
+function interpolateValue(template: string, value: ReactNode): ReactNode {
+  const markerIndex = template.indexOf(VALUE_MARKER);
+  if (markerIndex === -1) return template;
+  return (
+    <>
+      {template.slice(0, markerIndex)}
+      {value}
+      {template.slice(markerIndex + VALUE_MARKER.length)}
+    </>
+  );
 }
 
 function scopeToSource(scope: ConfigScope): ConfigValueSource {
@@ -117,20 +115,26 @@ function toDisplayLevels(
   ];
 }
 
+const OWN_LEVEL_ORIGIN_KEY: Record<ConfigScope, string> = {
+  tenant: "kumiko.config.cascade.origin.tenant",
+  user: "kumiko.config.cascade.origin.user",
+  system: "kumiko.config.cascade.origin.system",
+};
+
+// A missing or empty default reads as "Default is ." — drop the clause instead.
+const OWN_LEVEL_ORIGIN_NO_DEFAULT_KEY: Record<ConfigScope, string> = {
+  tenant: "kumiko.config.cascade.originNoDefault.tenant",
+  user: "kumiko.config.cascade.originNoDefault.user",
+  system: "kumiko.config.cascade.originNoDefault.system",
+};
+
 type ConfigCascadeViewProps = {
   readonly cascade: ConfigCascade;
   readonly screenScope: ConfigScope;
   readonly onReset?: (key: string, scope: ConfigScope) => void;
   readonly qualifiedKey?: string;
-  // Component-Split (#429): "trigger" rendert nur die collapsed-Zeile
-  // (▶ + Quelle + Wert) für die Label-Row, "panel" nur die aufgeklappte
-  // Cascade + Reset für unter den Input. Im Split-Modus hält der Screen den
-  // expanded-State (beide Slots teilen ihn). Ohne `slot` rendert die
-  // Komponente beides mit eigenem State (Backward-Compat).
-  readonly slot?: "trigger" | "panel";
-  readonly expanded?: boolean;
-  readonly onToggle?: () => void;
-  readonly renderValue?: (value: string | number | boolean) => ReactNode;
+  readonly required?: boolean;
+  readonly renderValue?: CascadeValueRenderer;
 };
 
 export function ConfigCascadeView({
@@ -138,21 +142,18 @@ export function ConfigCascadeView({
   screenScope,
   onReset,
   qualifiedKey,
-  slot,
-  expanded: expandedProp,
-  onToggle,
+  required = false,
   renderValue,
 }: ConfigCascadeViewProps): ReactNode {
   const t = useTranslation();
-  const [localExpanded, setLocalExpanded] = useState(false);
+  const { Button } = usePrimitives();
+  const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
 
   // Safety net: callers should already filter malformed cascades, but
   // a missing levels-array (e.g. from a partial mock) shouldn't crash
   // the screen.
   if (!Array.isArray(cascade?.levels)) return null;
-
-  const expanded = slot === undefined ? localExpanded : (expandedProp ?? false);
-  const toggle = slot === undefined ? () => setLocalExpanded((v) => !v) : onToggle;
 
   const screenScopeSource = scopeToSource(screenScope);
   const displayLevels = toDisplayLevels(cascade.levels, screenScopeSource);
@@ -165,75 +166,97 @@ export function ConfigCascadeView({
   // aufklappbar und das Panel nur eine Wiederholung des Triggers.
   const valuedLevels = displayLevels.filter((d) => d.level.hasValue);
   const expandable = hasOverride || valuedLevels.length > 1;
+  const isUnset = activeDisplay === undefined || !activeDisplay.level.hasValue;
 
-  const triggerInner = activeDisplay ? (
-    <>
-      <SourceBadge
-        source={activeDisplay.badgeSource}
-        {...(activeDisplay.badgeLabelKey !== undefined && {
-          labelKey: activeDisplay.badgeLabelKey,
-        })}
-      />
-      <span className="text-gray-400">
-        {formatValue(activeDisplay.level.value, activeDisplay.level.hasValue, renderValue)}
-      </span>
-    </>
-  ) : (
-    <span className="text-gray-400">{t("kumiko.config.cascade.noValue")}</span>
-  );
+  // The value the field falls back to if this level is reset: the next level
+  // below the active one that holds a value.
+  const activeIndex = activeDisplay === undefined ? -1 : displayLevels.indexOf(activeDisplay);
+  const fallbackLevel = displayLevels.slice(activeIndex + 1).find((d) => d.level.hasValue)?.level;
+  const fallbackValue =
+    fallbackLevel === undefined || fallbackLevel.value === ""
+      ? undefined
+      : formatValue(fallbackLevel.value, true, t, renderValue);
 
-  const trigger = expandable ? (
-    <button
-      type="button"
-      onClick={toggle}
-      className="flex items-center gap-1 text-gray-500 hover:text-gray-700 cursor-pointer"
-    >
-      <span className="text-[10px]">{expanded ? "▼" : "▶"}</span>
-      {triggerInner}
-    </button>
-  ) : (
-    <div className="flex items-center gap-1 text-gray-500">{triggerInner}</div>
-  );
+  const origin = hasOverride
+    ? {
+        text:
+          fallbackValue === undefined
+            ? t(OWN_LEVEL_ORIGIN_NO_DEFAULT_KEY[screenScope])
+            : interpolateValue(
+                t(OWN_LEVEL_ORIGIN_KEY[screenScope], { value: VALUE_MARKER }),
+                fallbackValue,
+              ),
+        className: "text-status-active",
+      }
+    : isUnset
+      ? required
+        ? {
+            text: t("kumiko.config.cascade.notSetRequired"),
+            className: "text-status-bad",
+          }
+        : {
+            text: t("kumiko.config.cascade.noValue"),
+            className: "text-muted-foreground",
+          }
+      : {
+          text:
+            screenScope === "system"
+              ? t(SOURCE_I18N_KEY[activeDisplay.badgeSource])
+              : t("kumiko.config.cascade.origin.default"),
+          className: "text-muted-foreground",
+        };
 
-  const panel =
-    expanded && expandable ? (
-      <div className="mt-1 flex flex-col gap-0.5 pl-3 border-l-2 border-gray-100">
-        {displayLevels.map((display) => (
-          <CascadeLevelRow
-            key={display.level.source}
-            display={display}
-            {...(renderValue !== undefined && { renderValue })}
-          />
-        ))}
-
-        {hasOverride && onReset && qualifiedKey ? (
-          <button
-            type="button"
+  return (
+    <div className="flex flex-col gap-1 text-xs" data-testid="config-cascade">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+        <span className={cn("inline-flex items-center gap-1.5", origin.className)}>
+          {origin.text}
+        </span>
+        {hasOverride && onReset !== undefined && qualifiedKey !== undefined ? (
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onReset(qualifiedKey, screenScope)}
-            className="mt-1 self-start text-[10px] text-orange-500 hover:text-orange-700 cursor-pointer underline"
+            testId="config-cascade-reset"
+            className="h-auto px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground"
           >
-            {t("kumiko.config.cascade.resetTo", {
-              scope: t(SOURCE_I18N_KEY[screenScopeSource]),
-            })}
-          </button>
+            {t(
+              screenScope === "system"
+                ? "kumiko.config.cascade.resetToApp"
+                : "kumiko.config.cascade.resetTo",
+            )}
+          </Button>
         ) : null}
       </div>
-    ) : null;
-
-  if (slot === "trigger") {
-    return (
-      <div className="text-xs font-normal" data-testid="config-cascade">
-        {trigger}
-      </div>
-    );
-  }
-  if (slot === "panel") return panel;
-
-  // Backward-Compat (ungeteilt): Trigger + Panel zusammen unter dem Input.
-  return (
-    <div className="mt-1 text-xs" data-testid="config-cascade">
-      {trigger}
-      {panel}
+      {expandable && (cascade.levels.length > 2 || screenScope === "system") ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          {...(expanded && { "aria-controls": panelId })}
+          className="inline-flex cursor-pointer items-center gap-1 self-start rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Icon
+            name="chevron-right"
+            className={cn(
+              "size-3.5 transition-transform motion-reduce:transition-none",
+              expanded && "rotate-90",
+            )}
+          />
+          {t(expanded ? "kumiko.config.cascade.hideLevels" : "kumiko.config.cascade.showLevels")}
+        </button>
+      ) : null}
+      {expanded && expandable && (cascade.levels.length > 2 || screenScope === "system") ? (
+        <ul id={panelId} className="flex flex-col gap-0.5 border-l border-border pl-3">
+          {displayLevels.map((display) => (
+            <CascadeLevelRow
+              key={display.level.source}
+              display={display}
+              {...(renderValue !== undefined && { renderValue })}
+            />
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -243,22 +266,26 @@ function CascadeLevelRow({
   renderValue,
 }: {
   display: DisplayLevel;
-  renderValue?: (value: string | number | boolean) => ReactNode;
+  renderValue?: CascadeValueRenderer;
 }): ReactNode {
   const t = useTranslation();
   const { level } = display;
   return (
-    <div
-      className={`flex items-center gap-1.5 ${level.isActive ? "font-medium" : "text-gray-400"}`}
+    <li
+      className={cn(
+        "flex items-baseline gap-3",
+        level.isActive ? "text-foreground" : "text-muted-foreground",
+      )}
     >
-      <SourceBadge
-        source={display.badgeSource}
-        {...(display.badgeLabelKey !== undefined && { labelKey: display.badgeLabelKey })}
-      />
-      <span>{formatValue(level.value, level.hasValue, renderValue)}</span>
+      <span className="w-28 shrink-0">
+        {t(display.badgeLabelKey ?? SOURCE_I18N_KEY[display.badgeSource])}
+      </span>
+      <span className={cn(level.isActive && "font-medium")}>
+        {formatValue(level.value, level.hasValue, t, renderValue)}
+      </span>
       {level.isActive ? (
-        <span className="text-[10px] text-gray-400">{t("kumiko.config.cascade.activeMarker")}</span>
+        <span className="text-primary">{t("kumiko.config.cascade.activeMarker")}</span>
       ) : null}
-    </div>
+    </li>
   );
 }

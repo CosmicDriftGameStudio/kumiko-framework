@@ -199,9 +199,9 @@ export function createSubscriptionStripeFeature(
 
     r.translations({
       keys: {
-        "subscription-stripe.api-key": { en: "Stripe API Key" },
-        "subscription-stripe.webhook-secret": { en: "Stripe Webhook Secret" },
-        "subscription-stripe.billing-live": { en: "Stripe Billing Live" },
+        "subscription-stripe.api-key": { en: "Stripe API key" },
+        "subscription-stripe.webhook-secret": { en: "Stripe webhook secret" },
+        "subscription-stripe.billing-live": { en: "Live billing" },
         "subscription-stripe.settings": { en: "Stripe" },
         "screen:subscription-stripe-system.title": { en: "Stripe" },
       },

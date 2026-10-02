@@ -990,6 +990,11 @@ export type DashboardScreenPanel = {
   readonly screen: string;
   readonly label?: string;
   readonly visibleWhen?: DashboardPanelVisibility;
+  /** Render the embedded form without its own card frame and padding, aligned to
+   *  the dashboard's page grid like a standalone settings screen. Default false
+   *  (framed card); set for panels whose body is a settings-list form, where a
+   *  card inside the page would double the inset. */
+  readonly chromeless?: boolean;
 };
 
 export type DashboardPanelDefinition =
@@ -1048,6 +1053,10 @@ export type DashboardScreenDefinition = {
   readonly timeRange?: DashboardTimeRangeDefinition;
   /** Marks the screen as spanning more than the caller's own scope. */
   readonly scope?: DashboardScopeDefinition;
+  /** Show the "Updated at" timestamp in the toolbar. Default true; turn off for
+   *  dashboards that host forms rather than live metrics, where a load time
+   *  next to the form reads as stale data. */
+  readonly showUpdatedAt?: boolean;
   readonly slots?: ScreenSlots;
   readonly access?: AccessRule;
 };
@@ -1371,6 +1380,12 @@ export type EditLayout = {
    *  boot-validator rejects it on entityEdit, see the check for the reason);
    *  requires >= 2 sections, each with a title and an `id`. */
   readonly mode?: "single" | "wizard" | "tabs";
+  /** "settings-list" lays each section out as a band with a title column on
+   *  the left and one hairline-separated row per field (label + help left,
+   *  control right) — the familiar settings pattern, for screens that are a
+   *  list of independent preferences rather than one record form. Default
+   *  "form" keeps the grid of cells. */
+  readonly variant?: "form" | "settings-list";
   /** Persists in-progress wizard state as a resumable draft instead of
    *  discarding it on navigation away. */
   readonly draft?: boolean;
@@ -1794,6 +1809,11 @@ export type ConfigEditScreenDefinition = {
    *  ohne es unter der `__config-edit__`-Konvention zu duplizieren.
    *  Fehlt ein Eintrag, gilt die Konvention. */
   readonly fieldLabels?: Readonly<Record<string, string>>;
+  /** Per-field help text i18n key (Field-Name → Key), from `mask.description`. */
+  readonly fieldDescriptions?: Readonly<Record<string, string>>;
+  /** Field names whose config key declares `required: true` — drives the
+   *  "Not set. Required." origin line, not form validation. */
+  readonly requiredFields?: readonly string[];
   /** i18n-key für den Submit-Button. Default: "kumiko.actions.save". */
   readonly submitLabel?: string;
   readonly slots?: ScreenSlots;

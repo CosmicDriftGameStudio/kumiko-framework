@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import type { ConfigCascade, ConfigCascadeLevel } from "@cosmicdrift/kumiko-framework/engine";
 import userEvent from "@testing-library/user-event";
 import { ConfigCascadeView } from "../components/config-cascade.js";
-import { render, screen } from "./test-utils.js";
+import { render, screen, within } from "./test-utils.js";
 
 function level(overrides: Partial<ConfigCascadeLevel> & { source: ConfigCascadeLevel["source"] }) {
   return {
@@ -60,20 +60,22 @@ function tenantCascade(overrides?: {
 }
 
 describe("ConfigCascadeView — i18n (Bug 7)", () => {
-  test("Source-Badges zeigen übersetzte Labels, keine rohen Keys", async () => {
+  test("Herkunftssatz und Panel zeigen übersetzte Labels, keine rohen Keys", async () => {
     const user = userEvent.setup();
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
     );
-    // Collapsed-Header: aktive Ebene = Tenant.
-    expect(view.container.textContent).toContain("Tenant");
+    expect(view.container.textContent).toContain("Set for this tenant");
     expect(view.container.textContent).not.toContain("config.source");
+    expect(view.container.textContent).not.toContain("kumiko.config");
 
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "Show all levels" }));
     expect(view.container.textContent).not.toContain("config.source");
-    expect(view.container.textContent).not.toContain("config.cascade");
-    // activeMarker übersetzt.
-    expect(view.container.textContent).toContain("active");
+    expect(view.container.textContent).not.toContain("kumiko.config");
+    expect(view.container.textContent).toContain("in use");
+    expect(screen.getByRole("button", { name: "Hide levels" }).getAttribute("aria-expanded")).toBe(
+      "true",
+    );
   });
 });
 
@@ -85,31 +87,25 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
     );
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "Show all levels" }));
 
-    // Sichtbar: Tenant-Zeile + genau eine neutrale "Standard"-Zeile (Bug-Bash 3
-    // #11: ein durchgängiger Begriff, EN-Locale → "Default").
-    expect(view.container.textContent).toContain("Tenant");
-    expect(view.container.textContent).toContain("Default");
-    // Unsichtbar: alles was nur der Operator steuert.
-    expect(view.container.textContent).not.toContain("System");
-    expect(view.container.textContent).not.toContain("App override");
-    expect(view.container.textContent).not.toContain("Computed");
-    // Der deklarierte Default erscheint als Wert der neutralen Standard-Zeile,
-    // nicht als eigene Operator-Ebene.
-    expect(view.container.textContent).toContain("fallback");
+    const panel = within(view.container.querySelector("ul") as HTMLElement);
+    expect(panel.getByText("Tenant")).toBeTruthy();
+    expect(panel.getByText("Default")).toBeTruthy();
+    expect(panel.queryByText("Platform")).toBeNull();
+    expect(panel.queryByText("App override")).toBeNull();
+    expect(panel.queryByText("Computed")).toBeNull();
+    expect(panel.getByText("fallback")).toBeTruthy();
   });
 
-  test("screenScope=tenant mit aktivem System-Wert: Standard-Zeile zeigt den effektiven Wert neutral, nicht aufklappbar", async () => {
+  test("screenScope=tenant mit aktivem System-Wert: nur der Standard-Hinweis, nicht aufklappbar", async () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ systemActive: true })} screenScope="tenant" />,
     );
-    // Effektiver Wert sichtbar, Operator-Quelle neutral als "Standard"
-    // maskiert. Nur eine Wert-Ebene (der geerbte System-Wert) → kein
-    // Aufklappen, das Panel wäre nur eine Wiederholung.
-    expect(view.container.textContent).toContain("Default");
-    expect(view.container.textContent).toContain("system-smtp");
-    expect(view.container.textContent).not.toContain("System");
+    // The operator source stays masked as "Uses the default". With only one
+    // value level there is nothing to expand.
+    expect(view.container.textContent).toContain("Uses the default");
+    expect(view.container.textContent).not.toContain("Platform");
     expect(view.queryByRole("button")).toBeNull();
   });
 
@@ -118,14 +114,14 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
     const view = render(
       <ConfigCascadeView cascade={tenantCascade({ systemActive: true })} screenScope="system" />,
     );
-    await user.click(screen.getByRole("button"));
-    expect(view.container.textContent).toContain("System");
+    await user.click(screen.getByRole("button", { name: "Show all levels" }));
+    expect(view.container.textContent).toContain("Platform");
     expect(view.container.textContent).toContain("App override");
     expect(view.container.textContent).toContain("Computed");
     expect(view.container.textContent).toContain("Default");
   });
 
-  test("Reset-Button erscheint nur bei eigener Überschreibung und nennt den Scope übersetzt", async () => {
+  test("Reset-Button erscheint nur bei eigener Überschreibung, ohne Aufklappen", async () => {
     const user = userEvent.setup();
     const resets: { key: string; scope: string }[] = [];
     render(
@@ -136,9 +132,7 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
         onReset={(key, scope) => resets.push({ key, scope })}
       />,
     );
-    await user.click(screen.getByRole("button"));
-    const reset = screen.getByText("Reset override (Tenant)");
-    await user.click(reset);
+    await user.click(screen.getByRole("button", { name: "Reset to default" }));
     expect(resets).toEqual([{ key: "branding.title", scope: "tenant" }]);
   });
 
@@ -151,10 +145,74 @@ describe("ConfigCascadeView — Scope-Filter (Bug 8)", () => {
         onReset={() => undefined}
       />,
     );
-    // Nichts aufzuklappen → statische Zeile statt Aufklapp-Button.
     expect(view.queryByRole("button")).toBeNull();
-    expect(view.container.textContent).toContain("Default");
-    expect(view.container.textContent).toContain("fallback");
-    expect(view.queryByText("Reset override (Tenant)")).toBeNull();
+    expect(view.container.textContent).toContain("Uses the default");
+  });
+
+  test("ungesetzt und required: roter Hinweis statt Standard", () => {
+    const empty: ConfigCascade = {
+      value: undefined,
+      source: "missing",
+      levels: [level({ source: "tenant-row" }), level({ source: "missing", isActive: true })],
+    };
+    const view = render(<ConfigCascadeView cascade={empty} screenScope="tenant" required />);
+    expect(view.container.textContent).toContain("Not set. Required.");
+    expect(view.queryByRole("button")).toBeNull();
+  });
+});
+
+describe("ConfigCascadeView — Herkunftssatz mit Default-Wert", () => {
+  test("eigener Wert: Satz nennt den Standard inline", () => {
+    const view = render(
+      <ConfigCascadeView cascade={tenantCascade({ tenantValue: "acme" })} screenScope="tenant" />,
+    );
+    expect(view.container.textContent).toContain("Set for this tenant. Default is fallback.");
+  });
+
+  test("leerer Default: Satz ohne Standard-Klausel", () => {
+    const emptyDefault: ConfigCascade = {
+      value: "acme",
+      source: "tenant-row",
+      levels: [
+        level({ source: "tenant-row", value: "acme", hasValue: true, isActive: true }),
+        level({ source: "default", value: "", hasValue: true }),
+      ],
+    };
+    const view = render(<ConfigCascadeView cascade={emptyDefault} screenScope="tenant" />);
+    expect(view.container.textContent).toContain("Set for this tenant.");
+    expect(view.container.textContent).not.toContain("Default is");
+  });
+
+  test("Disclosure entfällt bei höchstens zwei Ebenen im Tenant-Scope", () => {
+    const twoLevels: ConfigCascade = {
+      value: "acme",
+      source: "tenant-row",
+      levels: [
+        level({ source: "tenant-row", value: "acme", hasValue: true, isActive: true }),
+        level({ source: "default", value: "fallback", hasValue: true }),
+      ],
+    };
+    const view = render(<ConfigCascadeView cascade={twoLevels} screenScope="tenant" />);
+    expect(view.queryByRole("button", { name: "Show all levels" })).toBeNull();
+  });
+});
+
+describe("ConfigCascadeView — renderValue", () => {
+  test("origin line and level rows show the rendered label, not the stored value", async () => {
+    const user = userEvent.setup();
+    const labels: Record<string, string> = { acme: "Acme Mail", fallback: "Built-in mail" };
+    const view = render(
+      <ConfigCascadeView
+        cascade={tenantCascade({ tenantValue: "acme" })}
+        screenScope="tenant"
+        renderValue={(value) => <b>{labels[String(value)]}</b>}
+      />,
+    );
+    expect(view.container.textContent).toContain("Built-in mail");
+    expect(view.container.textContent).not.toContain("fallback");
+
+    await user.click(screen.getByRole("button", { name: "Show all levels" }));
+    expect(view.container.textContent).toContain("Acme Mail");
+    expect(view.container.textContent).not.toContain("acme");
   });
 });

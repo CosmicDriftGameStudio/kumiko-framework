@@ -1,4 +1,8 @@
-import type { ConfigCascade } from "@cosmicdrift/kumiko-framework/engine";
+import type {
+  ConfigCascade,
+  ConfigCascadeLevel,
+  ConfigScope,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type {
   ActionFormRedirect,
   ActionFormScreenDefinition,
@@ -60,6 +64,7 @@ import {
 } from "../components/render-edit-action-button.js";
 import { RenderList } from "../components/render-list.js";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
+import { useIsEmbeddedScreen } from "../context/embedded-screen-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
 import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.js";
 import { type UseQueryResult, useQuery } from "../hooks/use-query.js";
@@ -83,7 +88,11 @@ import {
 import { screenFillsHeight } from "../screen-fills-height.js";
 import { synthesizeActionFormEntity, synthesizeActionFormScreen } from "./action-form-shim.js";
 import { useAppFeatures } from "./app-features-context.js";
-import { synthesizeConfigEditEntity, synthesizeConfigEditScreen } from "./config-edit-shim.js";
+import {
+  buildConfigEditSchema,
+  synthesizeConfigEditEntity,
+  synthesizeConfigEditScreen,
+} from "./config-edit-shim.js";
 import { useCustomScreenComponent } from "./custom-screens.js";
 import { useDashboardBody } from "./dashboard-body.js";
 import { EntityListExpandedRow } from "./entity-list-expanded-row.js";
@@ -113,6 +122,7 @@ import {
 import { synthesizeProjectionEntity, synthesizeProjectionScreen } from "./projection-list-shim.js";
 import { lastSegment, toKebab } from "./qn.js";
 import { featureNameFromQualifiedScreenId, qualifyScreenId } from "./qualify-screen-id.js";
+import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.js";
 import { ReferenceFacetBridges, type ReferenceFacetOption } from "./reference-facet-bridge.js";
 import {
   navigateToReturn,
@@ -1867,6 +1877,7 @@ function EntityListBody({
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
+  const isEmbeddedScreen = useIsEmbeddedScreen();
   const featureName = schema.featureName;
   const onCreate = useNavigateToCreateFor(schema, screen.entity, screen.createScreen);
   const { Banner } = usePrimitives();
@@ -2413,7 +2424,9 @@ function EntityListBody({
         onSearchChange={urlState.setQ}
         sort={effectiveSort}
         onSortChange={urlState.setSort}
-        screenPadding
+        {...(isEmbeddedScreen
+          ? { screenPadding: false, chromeless: true }
+          : { screenPadding: true })}
         {...(screenFillsHeight(screen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
@@ -2477,6 +2490,7 @@ function ProjectionListBody({
   readonly translate?: Translate;
   readonly onRowClick?: (row: ListRowViewModel, entityName: string) => void;
 }): ReactNode {
+  const isEmbeddedScreen = useIsEmbeddedScreen();
   const { Banner, Text } = usePrimitives();
   const t = useTranslation();
   const nav = useNav();
@@ -2752,7 +2766,9 @@ function ProjectionListBody({
         onSearchChange={urlState.setQ}
         sort={activeSort}
         onSortChange={urlState.setSort}
-        screenPadding
+        {...(isEmbeddedScreen
+          ? { screenPadding: false, chromeless: true }
+          : { screenPadding: true })}
         {...(screenFillsHeight(listScreen) && { scrollBody: true })}
         {...(pager !== undefined && { pager })}
         {...(rowActions !== undefined && { rowActions })}
@@ -3883,6 +3899,12 @@ function unwrapMoneyValue(value: unknown): unknown {
   return value;
 }
 
+const CONFIG_SCOPE_SOURCE = {
+  user: "user-row",
+  tenant: "tenant-row",
+  system: "system-row",
+} as const satisfies Record<ConfigScope, ConfigCascadeLevel["source"]>;
+
 function ConfigEditBody({
   schema,
   screen,
@@ -3892,7 +3914,7 @@ function ConfigEditBody({
   readonly screen: ConfigEditScreenDefinition;
   readonly translate?: Translate;
 }): ReactNode {
-  const { Banner, ConfigCascadeView } = usePrimitives();
+  const { ConfigCascadeView } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
@@ -3906,6 +3928,7 @@ function ConfigEditBody({
 
   const synthEntity = useMemo(() => synthesizeConfigEditEntity(screen.fields), [screen.fields]);
   const synthScreen = useMemo(() => synthesizeConfigEditScreen(screen), [screen]);
+  const boundsSchema = useMemo(() => buildConfigEditSchema(screen.fields), [screen.fields]);
 
   // Initial-Values: pro Field-Name den Wert aus `values[qualifiedKey]`
   // abholen. Fehlt der Key auf dem Server (= noch nie gesetzt), nutzen
@@ -4023,40 +4046,17 @@ function ConfigEditBody({
     ],
   );
 
-  // Cascade-Disclosure (#429): Trigger sitzt in der Label-Row, das Panel
-  // unter dem Input — zwei getrennte Render-Slots teilen sich den
-  // expanded-State, der daher hier (pro Feld) statt in der Komponente lebt.
-  const [expandedFields, setExpandedFields] = useState<ReadonlySet<string>>(new Set());
-  const toggleExpanded = useCallback((fieldName: string) => {
-    setExpandedFields((prev) => {
-      const next = new Set(prev);
-      if (next.has(fieldName)) next.delete(fieldName);
-      else next.add(fieldName);
-      return next;
-    });
-  }, []);
-
-  if (valuesQuery.loading && valuesQuery.data === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
-  }
+  if (valuesQuery.loading && valuesQuery.data === null) return <QueryLoadingBanner />;
   if (valuesQuery.error) {
     return (
-      <Banner padded variant="error" testId="kumiko-screen-error">
-        {dispatcherErrorText(valuesQuery.error, effectiveTranslate)}
-      </Banner>
+      <QueryErrorBanner
+        error={valuesQuery.error}
+        translate={effectiveTranslate}
+        onRetry={valuesQuery.refetch}
+      />
     );
   }
-  if (initial === null) {
-    return (
-      <Banner padded variant="loading" testId="kumiko-screen-loading">
-        Loading…
-      </Banner>
-    );
-  }
+  if (initial === null) return <QueryLoadingBanner />;
   // Cascade values of a select show the option label the select itself shows,
   // not the stored value (a UUID for optionsQuery selects).
   const cascadeValueRenderer = (
@@ -4083,38 +4083,35 @@ function ConfigEditBody({
       entity={synthEntity}
       featureName={schema.featureName}
       initial={initial}
+      schema={boundsSchema}
       customSubmit={customSubmit}
+      dirtyFooter
+      validateOnChange
       {...(screenFillsHeight(screen) && { fillScreenHeight: true })}
       {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
       {...(translate !== undefined && { translate })}
-      labelAppendix={(fieldName: string) => {
+      fieldAppendixPlacement="below-control"
+      fieldAccent={(fieldName: string) =>
+        cascades[fieldName]?.levels.find((level) => level.isActive)?.source ===
+        CONFIG_SCOPE_SOURCE[screen.scope]
+      }
+      markChangedFields
+      {...(screen.fieldDescriptions !== undefined && {
+        fieldDescription: (fieldName: string) => {
+          const key = screen.fieldDescriptions?.[fieldName];
+          return key === undefined ? undefined : effectiveTranslate(key);
+        },
+      })}
+      fieldAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
         if (cascade === undefined) return undefined;
         const renderValue = cascadeValueRenderer(fieldName);
         return (
           <ConfigCascadeView
-            slot="trigger"
             cascade={cascade}
             screenScope={screen.scope}
-            expanded={expandedFields.has(fieldName)}
-            onToggle={() => toggleExpanded(fieldName)}
-            {...(renderValue !== undefined && { renderValue })}
-          />
-        );
-      }}
-      fieldAppendix={(fieldName: string) => {
-        const cascade = cascades[fieldName];
-        // Panel nur rendern wenn aufgeklappt — sonst kein leerer Abstand
-        // unter dem Input.
-        if (cascade === undefined || !expandedFields.has(fieldName)) return undefined;
-        const renderValue = cascadeValueRenderer(fieldName);
-        return (
-          <ConfigCascadeView
-            slot="panel"
-            cascade={cascade}
-            screenScope={screen.scope}
-            expanded
             qualifiedKey={screen.configKeys[fieldName]}
+            required={screen.requiredFields?.includes(fieldName) ?? false}
             {...(renderValue !== undefined && { renderValue })}
             onReset={async (key, scope) => {
               await dispatcher.write("config:write:reset", { key, scope });

@@ -103,6 +103,17 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   /** Per-field extra content below the input (e.g. ConfigCascadeView).
    *  Called with the field name, returns a ReactNode or undefined. */
   readonly fieldAppendix?: (fieldName: string) => ReactNode | undefined;
+  /** Placement of every `fieldAppendix` relative to its control. Default
+   *  above-control; below-control keeps the inputs of neighbouring fields
+   *  on one line when an appendix expands. */
+  readonly fieldAppendixPlacement?: "above-control" | "below-control";
+  /** Per-field help text rendered under the label (translated by the caller). */
+  readonly fieldDescription?: (fieldName: string) => ReactNode | undefined;
+  /** Marks fields whose value is set at this level; drawn by `settings-list` rows. */
+  readonly fieldAccent?: (fieldName: string) => boolean;
+  /** Edit-mode "changed" markers also for screens without an entity id
+   *  (configEdit loads its values from a query, not a record). */
+  readonly markChangedFields?: boolean;
   /** Controlled mode (issue #1887): fires on every values-snapshot change
    *  (typing, `patch(...)` from outside) with the current values. `changes`
    *  is the delta against the initial values — same semantics as
@@ -179,6 +190,15 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  screens with `fillHeight !== false`; dialogs and other embedded hosts
    *  omit it and keep document-flow height. */
   readonly fillScreenHeight?: boolean;
+  /** Show the unsaved-changes footer (count, Discard, "Save changes") even
+   *  without an entity id or a screen-height form — for hosts that edit an
+   *  existing server-side record through `customSubmit` (configEdit, also when
+   *  embedded as a dashboard panel). */
+  readonly dirtyFooter?: boolean;
+  /** Validate the edited field right after each change instead of only on
+   *  submit, so a bounds violation shows at the field while the Save button
+   *  looks enabled. Set where Save never blocks on a pre-check (configEdit). */
+  readonly validateOnChange?: boolean;
   /** Extra content rendered above the card, sharing its left padding and
    *  width — for a host with its own header region (title/metrics/tabs)
    *  that would otherwise render as unpadded siblings before RenderEdit.

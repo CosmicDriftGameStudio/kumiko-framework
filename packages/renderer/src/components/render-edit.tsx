@@ -352,6 +352,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     summary,
     labelAppendix,
     fieldAppendix,
+    fieldAppendixPlacement,
+    fieldDescription,
+    fieldAccent,
+    markChangedFields = false,
     entityId: entityIdProp,
     extensionInitialValues,
     onChange,
@@ -362,6 +366,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     valueDisplay = "form",
     hideSectionTitles,
     fillScreenHeight,
+    dirtyFooter,
+    validateOnChange,
     headerRegion,
     buildSectionActions,
   } = props;
@@ -1323,6 +1329,22 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     footerSlot !== undefined ||
     writeFormFooterAction !== undefined;
   const nextStepTitle = isWizard ? filteredSections[currentStep + 1]?.title : undefined;
+  const isCreate = (() => {
+    const id = resolveExtensionEntityId(entityIdProp, vm.id);
+    return id == null || id === "";
+  })();
+  const changedFieldCount = Object.keys(snapshot.changes).length;
+  // Edit-mode screen forms always carry the dirty status (0 = quiet "No unsaved
+  // changes"); wizards keep the status-only-when-dirty behaviour.
+  const hasDirtyFooter = !isWizard && (dirtyFooter === true || (isScreenForm && !isCreate));
+  const unsavedCount = !hasDirtyFooter
+    ? undefined
+    : changedFieldCount > 0
+      ? changedFieldCount
+      : extensionDirty
+        ? 1
+        : 0;
+  const isSettingsList = screen.layout.variant === "settings-list" && hideSectionTitles !== true;
   const formActions = (
     <>
       {isWizard && currentStep > 0 && (
@@ -1391,6 +1413,18 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             {translate(action.label)}
           </Button>
         ))}
+      {hasDirtyFooter && showsSubmit && unsavedCount !== undefined && unsavedCount > 0 && (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={isSubmitting || disabled}
+          onClick={() => controller.reset()}
+          testId="render-edit-discard"
+          {...{ [STICKY_PRIMARY_ACTION_PROP]: true }}
+        >
+          {translate("kumiko.form.discard")}
+        </Button>
+      )}
       {showsSubmit && (!isWizard || isLastWizardStep) && (
         <Button
           type="submit"
@@ -1403,7 +1437,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           variant={submitVariant ?? "primary"}
           testId="render-edit-submit"
         >
-          {translate(submitLabel ?? (isWizard ? "kumiko.actions.finish" : "kumiko.actions.save"))}
+          {translate(
+            submitLabel ??
+              (isWizard
+                ? "kumiko.actions.finish"
+                : hasDirtyFooter
+                  ? "kumiko.form.saveChanges"
+                  : "kumiko.actions.save"),
+          )}
         </Button>
       )}
       {writeFormFooterAction}
@@ -1420,10 +1461,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // prose, same as it does for an unknown key (fw#2723 review). Same slot
   // section.description already fills for a section. Falls back to
   // undefined (no subtitle) when neither is set.
-  const isCreate = (() => {
-    const id = resolveExtensionEntityId(entityIdProp, vm.id);
-    return id == null || id === "";
-  })();
   const formMode = isCreate ? "create" : "edit";
   const recordTitle =
     !isCreate && screen.recordTitleField !== undefined
@@ -1454,6 +1491,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
         (screen.description !== undefined ? translate(screen.description) : undefined))
       : undefined;
 
+  // Embedded settings-list forms (dashboard panels) have no shell header: the
+  // form title/subtitle move into the first section's header column instead of
+  // floating as a heading above the band.
+  const titleInSettingsHeader = isSettingsList && !titleInShell;
   const usesFieldFlow = isScreenForm || insideDrawer;
   const allRequiredHint = (
     <Text variant="muted" testId="render-edit-all-required-hint">
@@ -1463,15 +1504,6 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const stepRail = isWizard && isScreenForm && StepBar !== undefined;
   const upNextSection =
     screen.layout.wizard?.aside?.upNext === true ? filteredSections[currentStep + 1] : undefined;
-  const changedFieldCount = isCreate ? 0 : Object.keys(snapshot.changes).length;
-  const unsavedCount =
-    isCreate || !isScreenForm
-      ? 0
-      : changedFieldCount > 0
-        ? changedFieldCount
-        : extensionDirty
-          ? 1
-          : 0;
   const sectionNavItems: readonly FormSectionNavItem[] =
     isScreenForm && !isStepped
       ? filteredSections.flatMap((section, index) =>
@@ -1519,10 +1551,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       )}
       <Form
         onSubmit={() => void handleSubmit()}
-        {...(hideSectionTitles !== true && !titleInShell && { title: formTitle })}
-        {...(formSubtitle !== undefined && !stepRail && { subtitle: formSubtitle })}
+        {...(hideSectionTitles !== true &&
+          !titleInShell &&
+          !titleInSettingsHeader && { title: formTitle })}
+        {...(formSubtitle !== undefined &&
+          !stepRail &&
+          !titleInSettingsHeader && { subtitle: formSubtitle })}
         {...(isScreenForm && { screenForm: true })}
-        {...(unsavedCount > 0 && { unsavedCount })}
+        {...(unsavedCount !== undefined &&
+          (unsavedCount > 0 || hasDirtyFooter) && { unsavedCount })}
         {...(sectionNavItems.length > 0 && { sectionNav: sectionNavItems })}
         {...(stepRail && {
           sideRail: (
@@ -1815,16 +1852,25 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               columns: number,
               gridKey: string,
             ): ReactNode => (
-              <Grid key={gridKey} columns={columns} {...(usesFieldFlow && { flow: true })}>
+              <Grid
+                key={gridKey}
+                columns={columns}
+                {...(isSettingsList ? { list: true } : usesFieldFlow && { flow: true })}
+              >
                 {fields.map((field: EditFieldViewModel) => (
                   <GridCellForField
                     key={field.field}
                     field={disabled ? { ...field, readOnly: true } : field}
                     columns={columns}
-                    {...(usesFieldFlow && { flow: true })}
+                    {...(!isSettingsList && usesFieldFlow && { flow: true })}
+                    {...(isSettingsList && {
+                      layout: "row" as const,
+                      accent: fieldAccent?.(field.field) === true,
+                    })}
                     issues={snapshot.errors[field.field]}
                     onChange={(v) => {
                       (controller.setField as (k: string, v: unknown) => void)(field.field, v);
+                      if (validateOnChange === true) controller.validate([field.field]);
                     }}
                     GridCell={GridCell}
                     featureName={featureName}
@@ -1834,10 +1880,17 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     {...(fieldAppendix !== undefined && {
                       fieldAppendix: fieldAppendix(field.field),
                     })}
+                    {...(fieldAppendixPlacement !== undefined && {
+                      appendixPlacement: fieldAppendixPlacement,
+                    })}
+                    {...(fieldDescription !== undefined && {
+                      description: fieldDescription(field.field),
+                    })}
                     allIssues={snapshot.errors}
                     valueDisplay={valueDisplay}
                     row={snapshot.values}
-                    {...(!isCreate && field.field in snapshot.changes && { changed: true })}
+                    {...((!isCreate || markChangedFields) &&
+                      field.field in snapshot.changes && { changed: true })}
                   />
                 ))}
               </Grid>
@@ -1902,8 +1955,14 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             // tab label right above it. Without a Tabs primitive the sections
             // render stacked, and then the titles are what tells them apart.
             const repeatsTabLabel = isTabs && isStepped;
-            const sectionTitle =
-              section.title === formTitle || repeatsTabLabel ? undefined : section.title;
+            const headerFallback = titleInSettingsHeader && sectionIndex === 0;
+            const sectionTitle = headerFallback
+              ? (section.title ?? formTitle)
+              : section.title === formTitle || repeatsTabLabel
+                ? undefined
+                : section.title;
+            const sectionSubtitle =
+              section.description ?? (headerFallback ? formSubtitle : undefined);
             const sectionEl = (
               <Section
                 key={sectionKey}
@@ -1911,9 +1970,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                   id: formSectionDomId(sectionIndex),
                 })}
                 {...(sectionTitle !== undefined && { title: sectionTitle })}
-                {...(section.description !== undefined && { subtitle: section.description })}
+                {...(sectionSubtitle !== undefined && { subtitle: sectionSubtitle })}
                 {...(section.icon !== undefined && { icon: section.icon })}
                 {...(sectionActionsEl !== undefined && { actions: sectionActionsEl })}
+                {...(isSettingsList && { layout: "settings-list" as const })}
                 testId={`section-${sectionKey}`}
               >
                 {showsAllRequiredHint && insideDrawer && sectionIndex === 0 && allRequiredHint}

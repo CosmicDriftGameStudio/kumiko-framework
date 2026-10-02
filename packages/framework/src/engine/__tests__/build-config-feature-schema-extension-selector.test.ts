@@ -123,25 +123,45 @@ describe("buildConfigFeatureSchema — extension selector", () => {
   test("owner tenant screen is a dashboard: selection, plugin config panels, plugin secrets panel", () => {
     const schema = build(gatedFeatures());
     const dashboard = screenOf(schema, "mail-foundation-tenant", "dashboard");
-    expect(dashboard.description).toBe("config.settings.extensionSelectorHint");
+    expect(dashboard.description).toBeUndefined();
+    expect(dashboard.showUpdatedAt).toBe(false);
+    for (const panel of dashboard.panels) {
+      if (panel.kind === "screen") expect(panel.chromeless).toBe(true);
+    }
+    const selection = screenOf(schema, "mail-foundation-tenant-selection", "configEdit");
+    const selectionSection = selection.layout.sections[0];
+    expect(
+      selectionSection && "description" in selectionSection
+        ? selectionSection.description
+        : undefined,
+    ).toBe("config.settings.extensionSelectorHint");
+    expect(selection.submitLabel).toBe("config.settings.saveProvider");
     expect(dashboard.panels).toEqual([
-      { kind: "screen", id: "selection", screen: "mail-foundation-tenant-selection" },
+      {
+        kind: "screen",
+        id: "selection",
+        screen: "mail-foundation-tenant-selection",
+        chromeless: true,
+      },
       {
         kind: "screen",
         id: "mail-inmemory-config",
         screen: "mail-inmemory-tenant",
+        chromeless: true,
         visibleWhen: { query: SELECTED_EXTENSIONS_QUERY, field: "mailTransport", eq: "inmemory" },
       },
       {
         kind: "screen",
         id: "mail-smtp-config",
         screen: "mail-smtp-tenant",
+        chromeless: true,
         visibleWhen: { query: SELECTED_EXTENSIONS_QUERY, field: "mailTransport", eq: "smtp" },
       },
       {
         kind: "screen",
         id: "mail-smtp-secrets",
         screen: "mail-smtp-tenant-secrets",
+        chromeless: true,
         visibleWhen: { query: SELECTED_EXTENSIONS_QUERY, field: "mailTransport", eq: "smtp" },
       },
     ]);
@@ -221,32 +241,12 @@ describe("buildConfigFeatureSchema — extension selector", () => {
     expect(audience?.access).toEqual({ roles: ["TenantAdmin", "Admin", "SystemAdmin"] });
   });
 
-  test("selection title translation is copied from the owner's tenant label, else its settings label", () => {
-    const withTenantLabel = build(gatedFeatures());
-    expect(withTenantLabel.translations?.["screen:mail-foundation-tenant-selection.title"]).toEqual(
-      {
-        en: "Mail (tenant)",
-        de: "Mail (Mandant)",
-      },
-    );
-
-    const plainOwner = defineFeature("mail-foundation", (r) => {
-      r.translations({ keys: { "mail-foundation.settings": { en: "Mail" } } });
-      r.extendsRegistrar("mailTransport", { onRegister: () => undefined });
-      const keys = r.config({
-        keys: {
-          provider: createTenantConfig("text", {
-            default: "",
-            write: TENANT_ADMIN_WRITE,
-            mask: { title: "mail.provider" },
-          }),
-        },
-      });
-      r.extensionSelector("mailTransport", keys.provider);
-    });
-    const schema = build([plainOwner, smtp, inmemory]);
+  test("selection panel is titled Provider regardless of the owner's label", () => {
+    const schema = build(gatedFeatures());
     expect(schema.translations?.["screen:mail-foundation-tenant-selection.title"]).toEqual({
-      en: "Mail",
+      en: "Provider",
+      de: "Anbieter",
+      es: "Proveedor",
     });
   });
 

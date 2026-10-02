@@ -142,12 +142,18 @@ describe("buildConfigFeatureSchema — structure", () => {
     expect(configScreen("billing-tenant").layout.width).toBe("full");
   });
 
-  test("section has no description when the feature never declares the '<feature>.settings.description' key", () => {
-    // billing declares no translations at all — the section must NOT carry a
-    // description prop (not just undefined), else the renderer would try to
-    // subtitle-render translate()'s undeclared-key fallback (the raw key).
+  test("section falls back to the audience sentence when the feature never declares '<feature>.settings.description'", () => {
+    // The feature key is gated on declaration (translate() echoes undeclared keys);
+    // the audience key is always declared by the config feature itself.
     const section = configScreen("billing-tenant").layout.sections[0];
-    expect(section && "description" in section).toBe(false);
+    expect(section && "description" in section ? section.description : undefined).toBe(
+      "config.settings.audience.tenant",
+    );
+    expect(configScreen("billing-tenant").description).toBeUndefined();
+  });
+
+  test("configEdit screens use the settings-list layout variant", () => {
+    expect(configScreen("billing-tenant").layout.variant).toBe("settings-list");
   });
 
   test("section carries description when the feature declares '<feature>.settings.description'", () => {
@@ -164,6 +170,7 @@ describe("buildConfigFeatureSchema — structure", () => {
     expect(section && "description" in section ? section.description : undefined).toBe(
       "described.settings.description",
     );
+    expect(screen.description).toBe("config.settings.audience.tenant");
   });
 
   test("excludes unmasked keys and computed keys", () => {
@@ -507,5 +514,35 @@ describe("buildConfigFeatureSchema — cross-feature group", () => {
       });
     });
     expect(() => buildConfigFeatureSchema(createRegistry([feature]))).toThrow(/kebab-case/);
+  });
+});
+
+describe("buildConfigFeatureSchema — number bounds and descriptions", () => {
+  const limits = defineFeature("limits", (r) => {
+    r.config({
+      keys: {
+        maxUpload: createTenantConfig("number", {
+          write: access.roles("TenantAdmin"),
+          bounds: { min: 1, max: 1000 },
+          mask: { title: "limits.max-upload", description: "limits.max-upload.help" },
+        }),
+      },
+    });
+  });
+  const limitsSchema = buildConfigFeatureSchema(createRegistry([limits]));
+  const limitsScreen = limitsSchema.screens.find((s) => s.type === "configEdit");
+
+  test("config bounds reach the generated number field so the input can validate them", () => {
+    if (limitsScreen?.type !== "configEdit") throw new Error("no configEdit screen");
+    expect(limitsScreen.fields["max-upload"]).toMatchObject({ type: "number", min: 1, max: 1000 });
+  });
+
+  test("mask.description is exposed per field and the audience sentence heads the section", () => {
+    if (limitsScreen?.type !== "configEdit") throw new Error("no configEdit screen");
+    expect(limitsScreen.fieldDescriptions).toEqual({ "max-upload": "limits.max-upload.help" });
+    const section = limitsScreen.layout.sections[0];
+    expect(section && "description" in section ? section.description : undefined).toBe(
+      "config.settings.audience.tenant",
+    );
   });
 });
