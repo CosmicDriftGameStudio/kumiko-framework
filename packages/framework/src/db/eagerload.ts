@@ -30,6 +30,7 @@ import {
   decryptPiiFieldValues,
 } from "../crypto/index.js";
 import { selectMany } from "../db/query.js";
+import { maskWriteOnlyFields } from "../engine/field-access.js";
 import { parseRefTargetEntityName } from "../engine/parse-ref-target.js";
 import type {
   EntityDefinition,
@@ -171,7 +172,7 @@ async function buildRefLookupMap(
       continue;
     }
     const id = decrypted["id"];
-    if (typeof id === "string") map.set(id, decrypted);
+    if (typeof id === "string") map.set(id, maskWriteOnlyFields(refEntity, decrypted));
   }
   return map;
 }

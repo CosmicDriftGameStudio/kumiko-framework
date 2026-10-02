@@ -21,6 +21,7 @@ import {
   wrapToKumiko,
 } from "./dispatcher-utils.js";
 import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
+import { maskBatchResultForClient } from "./write-result-masking.js";
 
 // afterCommit hooks fire in flushAfterCommit, outside the command's scope.
 function rewrapHooksWithOrigin(
@@ -85,13 +86,19 @@ async function runBatchBody(
     }
   }
 
+  // Hooks already ran on the plaintext results; what is returned and cached
+  // for retries must not carry writeOnly values.
+  const maskForClient = (result: BatchResult): BatchResult =>
+    maskBatchResultForClient(ctx.registry, commands, result);
+
   // Cache the result under requestId so retries get the same answer. Only a
   // provably rolled-back 5xx releases the lock instead (releaseOrFinalize).
   const finalize = async (result: BatchResult): Promise<BatchResult> => {
+    const masked = maskForClient(result);
     if (requestId && idempotency && idempotencyToken) {
-      await idempotency.store(user.tenantId, user.id, requestId, idempotencyToken, result);
+      await idempotency.store(user.tenantId, user.id, requestId, idempotencyToken, masked);
     }
-    return result;
+    return masked;
   };
 
   // Never for the no-tx fallback: without a rollback, a re-run would repeat
@@ -102,7 +109,7 @@ async function runBatchBody(
   ): Promise<BatchResult> => {
     if (isRetryableRollback && requestId && idempotency && idempotencyToken) {
       await idempotency.release(user.tenantId, user.id, requestId, idempotencyToken);
-      return result;
+      return maskForClient(result);
     }
     return finalize(result);
   };

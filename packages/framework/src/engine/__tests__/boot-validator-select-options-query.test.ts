@@ -318,3 +318,14 @@ describe("validateBoot — optionsQueryPayload { field } on config keys", () => 
     ).toThrow(/references itself/);
   });
 });
+
+describe.each([
+  ["actionForm", featureWithActionForm],
+  ["configEdit", featureWithConfigEdit],
+  ["writeForm", featureWithWriteForm],
+] as const)("validateBoot — writeOnly on %s fieldDefs", (_screenType, build) => {
+  test("a writeOnly field in the form fieldDefs throws", () => {
+    const shop = build({ apiKey: { type: "text", writeOnly: true } });
+    expect(() => validateBoot([catalog, shop])).toThrow(/field "apiKey" declares writeOnly/);
+  });
+});

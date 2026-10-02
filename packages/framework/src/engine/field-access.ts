@@ -2,6 +2,47 @@ import type { DbRow } from "../db/connection.js";
 import { normalizeAccessEntry, userCanReadFieldRow, userCanWriteFieldRow } from "./ownership.js";
 import type { EntityDefinition, SessionUser } from "./types/index.js";
 
+function writeOnlyFieldNames(entity: EntityDefinition): readonly string[] {
+  const names: string[] = [];
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if (field.type === "text" && field.writeOnly === true) names.push(name);
+  }
+  return names;
+}
+
+function maskWriteOnlyValue(value: unknown): true | null {
+  return value === null || value === undefined || value === "" ? null : true;
+}
+
+// writeOnly text fields never leave the server as plaintext: set -> true,
+// empty -> null. Only keys present in the row are touched (a partial `changes`
+// stays partial). Returns the same object when the entity has no such field.
+export function maskWriteOnlyFields<T extends Readonly<Record<string, unknown>>>(
+  entity: EntityDefinition,
+  row: T,
+): T {
+  const names = writeOnlyFieldNames(entity);
+  if (names.length === 0) return row;
+  const masked: Record<string, unknown> = { ...row };
+  for (const name of names) {
+    if (name in masked) masked[name] = maskWriteOnlyValue(masked[name]);
+  }
+  return masked as T; // @cast-boundary engine-payload
+}
+
+// Write payloads: "" on a writeOnly field means "unchanged" (an untouched
+// masked input submits it), so the key is dropped before the executor sees it.
+export function dropEmptyWriteOnlyValues<T extends Readonly<Record<string, unknown>>>(
+  entity: EntityDefinition,
+  values: T,
+): T {
+  const names = writeOnlyFieldNames(entity).filter((name) => values[name] === "");
+  if (names.length === 0) return values;
+  const kept: Record<string, unknown> = { ...values };
+  for (const name of names) delete kept[name];
+  return kept as T; // @cast-boundary engine-payload
+}
+
 // Field-level read filtering. Returns a copy of `data` with fields stripped
 // if the user's roles don't grant read access OR the ownership-rule for the
 // matching role doesn't accept this concrete row. Fields without access
@@ -30,6 +71,11 @@ export function filterReadFields(
     const accessMap = normalizeAccessEntry(field.access?.read);
     if (!userCanReadFieldRow(user, accessMap, data)) {
       continue; // entire field stripped
+    }
+
+    if (field.type === "text" && field.writeOnly === true) {
+      result[key] = maskWriteOnlyValue(value);
+      continue;
     }
 
     // For embedded fields: filter sub-fields with access restrictions.

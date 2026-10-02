@@ -155,7 +155,15 @@ export function RenderField({
         onChange={onChange}
       />
     ) : readOnlyText && !isComplexFieldType(field.type) ? (
-      <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale)}</Text>
+      <Text testId={`field-value-${field.field}`}>{readOnlyDisplayText(field, appLocale, t)}</Text>
+    ) : field.type === "text" && field.writeOnly === true && !readOnlyText ? (
+      <WriteOnlyTextInput
+        field={field}
+        id={id}
+        hasError={hasError}
+        onChange={onChange}
+        changed={changed === true}
+      />
     ) : (
       renderInput({
         field,
@@ -185,6 +193,64 @@ export function RenderField({
     >
       {control}
     </Field>
+  );
+}
+
+// Wire value of a writeOnly field is `true` (set) / `null` (empty), never the
+// secret. Typing sets a new value; an untouched or emptied input submits
+// nothing / "" which the server reads as "keep". `null` after a loaded `true`
+// (changed) means "remove on save".
+function WriteOnlyTextInput({
+  field,
+  id,
+  hasError,
+  onChange,
+  changed,
+}: {
+  readonly field: EditFieldViewModel;
+  readonly id: string;
+  readonly hasError: boolean;
+  readonly onChange: (value: unknown) => void;
+  readonly changed: boolean;
+}): ReactNode {
+  const { Input, Button, Text } = usePrimitives();
+  const t = useTranslation();
+  const isSet = field.value === true;
+  const isMarkedForRemoval = field.value === null && changed;
+
+  if (isMarkedForRemoval) {
+    return (
+      <>
+        <Text variant="muted" testId={`field-write-only-removal-${field.field}`}>
+          {t("kumiko.field.writeOnly.willRemove")}
+        </Text>
+        <Button variant="link" size="sm" onClick={() => onChange(true)}>
+          {t("kumiko.field.writeOnly.undo")}
+        </Button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Input
+        kind="password"
+        id={id}
+        name={field.field}
+        disabled={field.readOnly}
+        required={field.required && !isSet}
+        hasError={hasError}
+        value={typeof field.value === "string" ? field.value : ""}
+        onChange={(v) => onChange(v)}
+        autoComplete="new-password"
+        {...(isSet && { placeholder: t("kumiko.field.writeOnly.setPlaceholder") })}
+      />
+      {isSet && !field.required && !field.readOnly && (
+        <Button variant="link" size="sm" onClick={() => onChange(null)}>
+          {t("kumiko.field.writeOnly.remove")}
+        </Button>
+      )}
+    </>
   );
 }
 
@@ -911,9 +977,14 @@ function locatedValue(v: unknown): { at: string; tz: string; utc?: string } | ""
 // covered here — it needs a live label lookup, see ReadOnlyReferenceValue.
 // `isComplexFieldType` types aren't covered either — callers keep those on
 // `renderInput`'s existing Banner fallback.
-function readOnlyDisplayText(field: EditFieldViewModel, appLocale: string): string {
+function readOnlyDisplayText(
+  field: EditFieldViewModel,
+  appLocale: string,
+  t: ReturnType<typeof useTranslation>,
+): string {
   const { type, value } = field;
   if (value === undefined || value === null || value === "") return "—";
+  if (type === "text" && field.writeOnly === true) return t("kumiko.field.writeOnly.set");
   if (type === "text" && field.format === "password") return "••••••••";
   switch (type) {
     case "boolean":

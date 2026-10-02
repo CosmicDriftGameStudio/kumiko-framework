@@ -45,10 +45,12 @@ export type FieldAccess = {
 //
 // Encrypting a field is NOT a reason to make it unfindable. A user table you
 // cannot search by name is a user table with no working search. The line that
-// actually forbids search is `sensitive: true` — nobody may read those values
-// back, and the event-store executor already strips them before the search
-// consumer ever sees a payload. Password hashes, API tokens, bank details:
-// never indexed. Email, username, display name: encrypted at rest, findable.
+// actually forbids search is `sensitive: true` — ciphertext at rest, never
+// searchable, stripped from event echoes before the search consumer ever sees
+// a payload (authorized readers can still read the value back). Password
+// hashes, API tokens, bank details: never indexed. Email, username, display
+// name: encrypted at rest, findable. A value that must never be returned at
+// all takes `writeOnly: true` on top.
 //
 // Why `encrypted: true` erases nothing: it uses the app-wide master key,
 // which is never destroyed per subject. Encryption-at-rest, nothing more.
@@ -259,6 +261,13 @@ export type TextFieldDef = {
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
+  /** Write-only secret (API key): the value is never returned to clients. Reads
+   *  (list/detail/write responses) show `true` = set, `null` = empty. Writes:
+   *  `""` or omitted = unchanged, `null` = clear, string = new value. Server
+   *  code (ctx.db, handlers) still reads the plaintext. Requires `sensitive`
+   *  (via `find: "secret"`); forbidden with default/searchable/sortable/filterable/
+   *  lookupable and on screen/form fields. */
+  readonly writeOnly?: boolean;
   /** A later run reads this field's value as an instruction — prompt, rule,
    *  template. Every create/update whose payload writes it requires agent.risk
    *  "high" on the directly-dispatched entry handler; a revert doesn't undo a

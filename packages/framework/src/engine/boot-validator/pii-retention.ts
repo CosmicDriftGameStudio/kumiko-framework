@@ -1,4 +1,4 @@
-import type { EntityDefinition, ResolvedPiiFlags } from "../types/fields.js";
+import type { EntityDefinition, FieldDefinition, ResolvedPiiFlags } from "../types/fields.js";
 import type { FeatureDefinition } from "../types/index.js";
 import {
   PII_DIRECT_NAME_HINTS,
@@ -36,6 +36,54 @@ function ownerFieldNamesReferencedByPersonalOf(
     if (typeof ownerFieldName === "string") ownerFieldNames.add(ownerFieldName);
   }
   return ownerFieldNames;
+}
+
+const WRITE_ONLY_FORBIDDEN_FLAGS = [
+  "default",
+  "searchable",
+  "sortable",
+  "filterable",
+  "lookupable",
+] as const;
+
+function validateWriteOnlyField(
+  featureName: string,
+  entityName: string,
+  fieldName: string,
+  field: FieldDefinition,
+): void {
+  const where = `[Feature ${featureName}] Field "${fieldName}" on entity "${entityName}"`;
+  if (field.type === "embedded") {
+    for (const [subName, subField] of Object.entries(field.schema)) {
+      if ((subField as { writeOnly?: unknown }).writeOnly === true) {
+        // @cast-boundary schema-walk
+        throw new Error(
+          `${where} declares writeOnly on embedded sub-field "${subName}" — writeOnly is only supported on top-level text fields.`,
+        );
+      }
+    }
+    return;
+  }
+  const flags = field as { readonly writeOnly?: boolean } & Record<string, unknown>; // @cast-boundary schema-walk
+  if (flags.writeOnly !== true) return;
+  if (field.type !== "text") {
+    throw new Error(
+      `${where} declares { writeOnly: true } but has type "${field.type}" — writeOnly only applies to text fields.`,
+    );
+  }
+  if (field.sensitive !== true) {
+    throw new Error(
+      `${where} declares { writeOnly: true } without { sensitive: true } — add find: "secret" (ciphertext at rest, stripped from event echoes).`,
+    );
+  }
+  for (const flag of WRITE_ONLY_FORBIDDEN_FLAGS) {
+    const value = flags[flag];
+    if (value !== undefined && value !== false) {
+      throw new Error(
+        `${where} combines { writeOnly: true } with { ${flag} } — a value that is never returned cannot be defaulted, searched, sorted, filtered or looked up.`,
+      );
+    }
+  }
 }
 
 // --- PII / Subject-Key Annotations + Retention validation ---
@@ -124,12 +172,14 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         );
       }
 
+      validateWriteOnlyField(feature.name, entityName, fieldName, field);
+
       // Sorting reads the projection column — that stays ciphertext, so
       // sortable + subject annotation stays a boot-fail. searchable has
       // been allowed since #1610: the search consumer decrypts into the
       // derived index and forget purges those docs (see
       // createSearchEventConsumer). sensitive + searchable stays forbidden
-      // (nobody-may-read-back).
+      // (never searchable).
       {
         const flags = field as {
           readonly searchable?: boolean;
@@ -143,7 +193,7 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
         }
         if (flags.sensitive === true && flags.searchable === true) {
           throw new Error(
-            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines { sensitive: true } with { searchable: true } — sensitive means nobody may read the value back (passwords, tokens, tax IDs). Subject-annotated identity fields may be searchable (#1610); sensitive fields may not.`,
+            `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines { sensitive: true } with { searchable: true } — sensitive means ciphertext at rest, never searchable, stripped from event echoes — authorized readers can still read it back (passwords, tokens, tax IDs). Subject-annotated identity fields may be searchable (#1610); sensitive fields may not. To never return the value at all, add { writeOnly: true }.`,
           );
         }
       }

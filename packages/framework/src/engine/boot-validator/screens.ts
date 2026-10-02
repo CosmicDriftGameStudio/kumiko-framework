@@ -719,6 +719,7 @@ function validateFormFieldsMap(
       validateFormMoneyCurrency(featureName, screenId, context, fname, fdef);
     }
     validateFormSelectOptions(featureName, screenId, context, fname, fdef, fieldNames);
+    rejectWriteOnlyFormField(featureName, screenId, context, fname, fdef);
   }
   return fieldNames;
 }
@@ -738,6 +739,25 @@ function validateOptionsQueryFieldRefs(
         `${where} optionsQueryPayload references unknown field "${ref}" — it must be another field of the same form`,
       );
     }
+  }
+}
+
+// Inline forms have no stored value to hide or keep: writeOnly there would
+// render a "set / keep" affordance with nothing behind it.
+function rejectWriteOnlyFormField(
+  featureName: string,
+  screenId: string,
+  context: string,
+  fieldName: string,
+  fdef: FieldDefinition,
+): void {
+  if ((fdef as { writeOnly?: unknown }).writeOnly === true) {
+    // @cast-boundary schema-walk
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fieldName}" declares writeOnly — ` +
+        `writeOnly only applies to entity fields (nothing to hide on a form that stores no value). ` +
+        `Use format: "password" for a masked input.`,
+    );
   }
 }
 
@@ -1729,6 +1749,13 @@ export function validateScreens(
               fdef,
               writeFormFieldNames,
             );
+            rejectWriteOnlyFormField(
+              feature.name,
+              screenId,
+              `projectionDetail section "${section.title}" writeForm`,
+              defName,
+              fdef,
+            );
           }
           // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
@@ -1858,6 +1885,7 @@ export function validateScreens(
           );
         }
         validateFormSelectOptions(feature.name, screenId, "configEdit", fname, fdef, fieldNames);
+        rejectWriteOnlyFormField(feature.name, screenId, "configEdit", fname, fdef);
       }
       if (screen.layout.sections.length === 0) {
         throw new Error(

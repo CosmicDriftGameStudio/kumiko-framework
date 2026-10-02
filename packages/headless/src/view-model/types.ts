@@ -191,6 +191,8 @@ export type EditFieldViewModel = {
   readonly multiline?: boolean | { readonly rows?: number };
   /** From TextFieldDef.format — `password` makes the renderer mask the input. */
   readonly format?: "email" | "url" | "phone" | "password";
+  /** From TextFieldDef.writeOnly — value is `true` (set) / `null` (empty), never plaintext. */
+  readonly writeOnly?: true;
   /** Nur bei `type: "timestamp"` gesetzt wenn TimestampFieldDef.locatedBy
    *  existiert — Wall-Clock-Zeit ohne Offset. Der Renderer emittiert
    *  dann lokale Zeit ohne `Z` statt eines UTC-Instants. */
