@@ -11,7 +11,7 @@
 // build`) or let the dev-server regenerate it — otherwise the z.infer
 // type drifts from the runtime schema.
 
-import { z } from "zod";
+import * as z from "zod";
 
 // inventory:event:product-archived — from src/feature.ts:93
 export const _kg_inventory__productArchived = z.object({ reason: z.string() });

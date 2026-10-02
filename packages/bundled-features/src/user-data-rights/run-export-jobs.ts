@@ -690,8 +690,8 @@ async function storageCleanupPass(args: {
     for (const c of candidates) {
       if (!c.downloadStorageKey) continue;
 
-      // Done-Jobs brauchen expiresAt+grace-Check. Failed-Jobs gehen direkt
-      // durch (kein User-Pfad → sofort cleanup).
+      // Done jobs need the expiresAt+grace check. Failed jobs pass straight
+      // through (no user path, so clean up immediately).
       if (c.status === EXPORT_JOB_STATUS.Done) {
         if (!c.expiresAt) continue;
         // Count the candidate as overdue (lower bound, grace unknown) before the
@@ -710,18 +710,18 @@ async function storageCleanupPass(args: {
         }
         overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
       }
-      // Failed-Job-Branch: kein TTL-Check, sofort cleanup.
+      // Failed-job branch: no TTL check, clean up immediately.
       else {
         const failedAt = c.completedAt ?? c.startedAt;
         if (failedAt) overdueDoneCleanupAfterMs.set(c.id, failedAt.epochMilliseconds);
       }
 
-      // Storage-Datei loeschen + DB-Spalte nullen.
+      // Delete the storage file and null the DB column.
       try {
         const provider = await buildStorageProvider(c.requestedFromTenantId);
         await provider.delete(c.downloadStorageKey);
       } catch {
-        // best-effort; wenn Storage-Delete failed, retry beim naechsten Pass
+        // best-effort; if the storage delete fails, retry on the next pass
         continue;
       }
       const result = await crud.update(

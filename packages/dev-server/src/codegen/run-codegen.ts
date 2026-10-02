@@ -268,10 +268,10 @@ type ManifestRead =
   | { readonly kind: "invalid"; readonly reason: string };
 
 /**
- * Fallback: liest `feature-manifest.json` aus dem appRoot und extrahiert
- * alle Write-Handler-QNs. Ein fehlendes Manifest ist kein Fehler (CLI ohne
- * Manifest-Generator), ein kaputtes wird separat gemeldet; beides lässt den
- * bestehenden Block stehen.
+ * Fallback: reads `feature-manifest.json` from appRoot and extracts all
+ * write-handler QNs. A missing manifest is not an error (CLI without a
+ * manifest generator); a broken one is reported separately. Either way the
+ * existing block is left untouched.
  */
 function readHandlerQnsFromManifest(appRoot: string): ManifestRead {
   const manifestPath = join(appRoot, "feature-manifest.json");

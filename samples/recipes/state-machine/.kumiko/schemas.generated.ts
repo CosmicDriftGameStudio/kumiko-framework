@@ -11,7 +11,7 @@
 // build`) or let the dev-server regenerate it — otherwise the z.infer
 // type drifts from the runtime schema.
 
-import { z } from "zod";
+import * as z from "zod";
 
 // billing:event:invoice-cancelled — from src/feature.ts:50
 export const _kg_billing__invoiceCancelled = z.object({});
