@@ -653,6 +653,48 @@ describe("GET /__test/inbox", () => {
     expect(body.messages.map((message) => message.subject)).toEqual(["outbox mail"]);
   });
 
+  test("a tenantId request with only mailOutbox mounted returns the outbox mail, not 501", async () => {
+    const outbox = createInMemoryTransport();
+    const h = await boot([noteFeature], { mailOutbox: outbox });
+    await outbox.send({ to: "outbox@example.test", subject: "outbox only", html: "<p>x</p>" });
+
+    const res = await inbox(h, crypto.randomUUID(), "outbox@example.test");
+
+    expect(res.status).toBe(200);
+    const body = inboxResponseSchema.parse(await res.json());
+    expect(body.messages.map((message) => message.subject)).toEqual(["outbox only"]);
+  });
+
+  test("tenant buffer and mailOutbox both mounted: tenant mails first, then outbox mails, each newest first", async () => {
+    const outbox = createInMemoryTransport();
+    const h = await boot([mailFoundationFeature, mailTransportInMemoryFeature], {
+      mailOutbox: outbox,
+    });
+    const seeded = await seedTenantVia(h);
+    const usage = mailTransportInMemoryFeature.extensionUsages.find(
+      (candidate) => candidate.entityName === "inmemory",
+    );
+    if (!usage || !isMailTransportPlugin(usage.options)) throw new Error("plugin not registered");
+    const transport = await usage.options.build({}, seeded.id);
+    clearInbox(seeded.id);
+    const to = "both@example.test";
+    await transport.send({ to, subject: "tenant-1", html: "<p>1</p>" });
+    await transport.send({ to, subject: "tenant-2", html: "<p>2</p>" });
+    await outbox.send({ to, subject: "outbox-1", html: "<p>3</p>" });
+    await outbox.send({ to, subject: "outbox-2", html: "<p>4</p>" });
+
+    const res = await inbox(h, seeded.id, to);
+
+    expect(res.status).toBe(200);
+    const body = inboxResponseSchema.parse(await res.json());
+    expect(body.messages.map((message) => message.subject)).toEqual([
+      "tenant-2",
+      "tenant-1",
+      "outbox-2",
+      "outbox-1",
+    ]);
+  });
+
   test("two mails to the same address come back newest first; mailCapture with match still finds the older one", async () => {
     const outbox = createInMemoryTransport();
     const h = await boot([noteFeature], { mailOutbox: outbox });

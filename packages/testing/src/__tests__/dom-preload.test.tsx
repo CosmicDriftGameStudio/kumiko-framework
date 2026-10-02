@@ -18,6 +18,46 @@ describe("preload/dom", () => {
     expect(screen.getByRole("button", { name: "preload works" })).toBeTruthy();
   });
 
+  // Printing a happy-dom node used to walk ownerDocument plus every React fiber
+  // (15 MB for a two-element tree). Bounded output means the inspect hook is
+  // still honoured by this Bun + happy-dom combination.
+  const MAX_PRINTED_NODE_LENGTH = 2100;
+
+  test("printing a rendered HTML element stays bounded", () => {
+    const { container } = render(
+      <div>
+        <span>hello</span>
+      </div>,
+    );
+    const printed = Bun.inspect(container);
+    expect(printed.length).toBeLessThan(MAX_PRINTED_NODE_LENGTH);
+    expect(printed).toContain("hello");
+  });
+
+  test("printing a large HTML tree is truncated, not dumped", () => {
+    const { container } = render(
+      <ul>
+        {Array.from({ length: 500 }, (_, index) => (
+          <li key={index}>item {index}</li>
+        ))}
+      </ul>,
+    );
+    expect(container.outerHTML.length).toBeGreaterThan(MAX_PRINTED_NODE_LENGTH);
+    expect(Bun.inspect(container).length).toBeLessThan(MAX_PRINTED_NODE_LENGTH);
+  });
+
+  test("printing an SVG element stays bounded too", () => {
+    const { container } = render(
+      <svg role="img" aria-label="icon">
+        <title>icon</title>
+        <circle cx="5" cy="5" r="4" />
+      </svg>,
+    );
+    const svg = container.querySelector("svg");
+    expect(svg).not.toBeNull();
+    expect(Bun.inspect(svg).length).toBeLessThan(MAX_PRINTED_NODE_LENGTH);
+  });
+
   test("Request stays Bun's native implementation, not happy-dom's", () => {
     // happy-dom's own Request implementation returns null for
     // headers.get("cookie") regardless of what was set, the exact bug the

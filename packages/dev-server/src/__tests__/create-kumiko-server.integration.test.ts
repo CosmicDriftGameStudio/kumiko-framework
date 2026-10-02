@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -840,6 +848,15 @@ describe("createKumikoServer — tryHonoFirst 404-vs-router-miss (#2435)", () =>
 // which had no public/-serving at all. publicDir is process.cwd()-relative
 // (same App-Root convention as resolveStylesheet's src/styles.css lookup),
 // so these tests chdir into a fixture directory for the boot.
+const probeRobotsRouteFeature = defineFeature("dev-server-probe-robots-route", (r) => {
+  r.httpRoute({
+    method: "GET",
+    path: "/robots.txt",
+    anonymous: true,
+    handler: async (c) => c.text("ROUTE-ROBOTS", 200),
+  });
+});
+
 describe("createKumikoServer — public/ static files", () => {
   test("GET on an existing file under public/ → 200, correct content-type + content", async () => {
     const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-")));
@@ -902,6 +919,77 @@ describe("createKumikoServer — public/ static files", () => {
       // (e.g. as an error body).
       expect(await literal.clone().text()).not.toContain("TOP-SECRET");
       expect(await encoded.clone().text()).not.toContain("TOP-SECRET");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("a symlink under public/ pointing outside it is never served", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-symlink-")));
+    const publicDir = join(tmpDir, "public");
+    mkdirSync(publicDir, { recursive: true });
+    writeFileSync(join(tmpDir, "secret.txt"), "TOP-SECRET");
+    // Lexically inside public/, so resolvePublicFilePath's containment check
+    // passes; only the realpath guard in servePublicFile catches the escape.
+    symlinkSync(join(tmpDir, "secret.txt"), join(publicDir, "leak.txt"));
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/leak.txt"));
+      expect(res.status).not.toBe(200);
+      expect(await res.text()).not.toContain("TOP-SECRET");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("an r.httpRoute owning a dotted path wins over the file in public/", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-route-")));
+    const publicDir = join(tmpDir, "public");
+    mkdirSync(publicDir, { recursive: true });
+    writeFileSync(join(publicDir, "robots.txt"), "FILE-ROBOTS");
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeRobotsRouteFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(new Request("http://localhost/robots.txt"));
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("ROUTE-ROBOTS");
+    } finally {
+      process.chdir(cwdBefore);
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  test("HEAD on a file under public/ → 200 with the file's content-type", async () => {
+    const tmpDir = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-public-head-")));
+    const publicDir = join(tmpDir, "public");
+    mkdirSync(join(publicDir, "marketing"), { recursive: true });
+    writeFileSync(join(publicDir, "marketing", "hero.png"), "PNGDATA");
+    const cwdBefore = process.cwd();
+    process.chdir(tmpDir);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+      const res = await handle.fetch(
+        new Request("http://localhost/marketing/hero.png", { method: "HEAD" }),
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
     } finally {
       process.chdir(cwdBefore);
       rmSync(tmpDir, { recursive: true, force: true });
