@@ -354,10 +354,8 @@ describe("createDerivativesContext — variant() overlay token resolution", () =
     expect(specs()[0]?.resolvedOverlays).toEqual([imageLayer]);
   });
 
-  test("overlays change the variant suffix without touching the source storage key", async () => {
+  test("overlays change the variant suffix", async () => {
     const { ctx } = await setupWithOverlayResolver(async () => "https://example.com/v/vehicle-1");
-    const provider = createInMemoryFileProvider();
-    await provider.write("tenant/photo.jpg", new Uint8Array([1, 2, 3]), "image/jpeg");
 
     const withOverlay = await ctx.variant(FILE_REF_ID, { overlays: [QR_LAYER] }, "card");
     const withoutOverlay = await ctx.variant(FILE_REF_ID, {}, "card");

@@ -1,6 +1,7 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.js";
+import { access as accessPresets } from "../config-helpers.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import type {
   EmbeddedFieldDef,
@@ -182,7 +183,7 @@ export function validateNoAllRoleInHandlerAccess(
   // skip: openToAll has no roles list to check
   if (!("roles" in access)) return;
   // skip: no "all" in the roles list, nothing unreachable to report
-  if (!access.roles.includes("all")) return;
+  if (!accessPresets.all.some((role) => access.roles.includes(role))) return;
   throw new Error(
     `${kind} handler "${featureName}:${kind}:${handlerName}" declares access: { roles: ["all"] } — ` +
       `no session ever carries the role "all", so this handler is unreachable by any caller. ` +

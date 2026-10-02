@@ -4,6 +4,7 @@ import {
   createGatedIdentitySwitch,
   type QueryAsFn,
   type ResolveActiveMembershipFn,
+  systemIdentitySwitchDenied,
 } from "../../pipeline/system-identity-switch.js";
 import { createEntity, createRegistry, createSystemUser, defineFeature } from "../index.js";
 import type { TenantId } from "../types/identifiers.js";
@@ -155,26 +156,28 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
     expect(ungatedResolveActiveMembership).not.toHaveBeenCalled();
   });
 
-  test("entity-wide hook WITH escapeHatch reaches the original resolveActiveMembership even when the handler's own grant was false", async () => {
-    const activeResult: ActiveMembershipResult = {
-      kind: "active",
-      membership: { tenantId: TENANT, roles: ["User"] },
-    };
-    const ungatedResolveActiveMembership = mock(async () => activeResult);
+  test("entity-wide hook WITH escapeHatch does not re-grant resolveActiveMembership the handler was denied (deny-only)", async () => {
+    const handlerLabel = 'handler "test:write:thing:create"';
     const handlerCtx = {
-      ...createGatedIdentitySwitch('handler "test:write:thing:create"', undefined, false, {
+      ...createGatedIdentitySwitch(handlerLabel, undefined, false, {
         queryAs: mock(async () => "ok") as QueryAsFn,
         writeAs: async () => ({ isSuccess: true as const, data: null }),
       }),
-      resolveActiveMembership: ungatedResolveActiveMembership as ResolveActiveMembershipFn,
+      resolveActiveMembership: (async () => {
+        throw systemIdentitySwitchDenied(handlerLabel);
+      }) as ResolveActiveMembershipFn,
     };
 
-    let resolveResult: unknown;
+    let caught: unknown;
     const feature = defineFeature("test", (r) => {
       const thing = r.entity("thing", createEntity({ table: "things", fields: {} }));
       const hookFn: PostSaveHookFn = async (_result, ctx) => {
         const asContext = ctx as unknown as { resolveActiveMembership: ResolveActiveMembershipFn };
-        resolveResult = await asContext.resolveActiveMembership("user-1", TENANT);
+        try {
+          await asContext.resolveActiveMembership("user-1", TENANT);
+        } catch (err) {
+          caught = err;
+        }
       };
       r.hook("postSave", { allOf: thing }, hookFn, {
         escapeHatch: { reason: "test: allOf hook needs SYSTEM" },
@@ -187,7 +190,9 @@ describe("r.hook({ allOf }, ...) identity-switch gate", () => {
 
     await hooks[0]?.(dummySaveContext, handlerCtx as unknown as AppContext);
 
-    expect(resolveResult).toEqual(activeResult);
-    expect(ungatedResolveActiveMembership).toHaveBeenCalledWith("user-1", TENANT);
+    expect(caught).toBeInstanceOf(AccessDeniedError);
+    expect((caught as AccessDeniedError).details).toEqual({
+      reason: FrameworkReasons.systemIdentitySwitchDenied,
+    });
   });
 });

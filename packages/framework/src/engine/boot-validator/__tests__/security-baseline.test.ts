@@ -39,9 +39,7 @@ describe("warnOnMissingSecurityBaseline", () => {
 
     expect(warnSpy).toHaveBeenCalledTimes(1);
     const msg = String(warnSpy.mock.calls[0]?.[0]);
-    expect(msg).toContain("crypto-shredding");
-    expect(msg).toContain("rate-limiting");
-    expect(msg).not.toContain("missing feature(s): sessions");
+    expect(msg).toContain("missing feature(s): crypto-shredding, rate-limiting.");
   });
 
   test("production + all four baseline features mounted → no warning", () => {

@@ -47,6 +47,24 @@ function stubListHandler(
 }
 
 describe("boot-validator", () => {
+  function noteFeatureWithColumn(columnName: string, options?: { readonly softDelete?: boolean }) {
+    return defineFeature("notes", (r) => {
+      r.entity(
+        "note",
+        createEntity({
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+          softDelete: options?.softDelete,
+        }),
+      );
+      r.screen({
+        id: "note-list",
+        type: "entityList",
+        entity: "note",
+        columns: ["title", columnName],
+      });
+    });
+  }
+
   test("passes for valid features with no issues", () => {
     const features = [
       defineFeature("a", (r) => {
@@ -2157,27 +2175,6 @@ describe("boot-validator", () => {
   // assertions: list.test.ts (headless renderer draws the same set) and
   // list-row-meta-drift.test.ts (LIST_ROW_META_COLUMNS key-set drift guard).
   describe("entityList row-meta column — accepted by both boot validators", () => {
-    function noteFeatureWithColumn(
-      columnName: string,
-      options?: { readonly softDelete?: boolean },
-    ) {
-      return defineFeature("notes", (r) => {
-        r.entity(
-          "note",
-          createEntity({
-            fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-            softDelete: options?.softDelete,
-          }),
-        );
-        r.screen({
-          id: "note-list",
-          type: "entityList",
-          entity: "note",
-          columns: ["title", columnName],
-        });
-      });
-    }
-
     for (const [columnName, columnType] of Object.entries(LIST_ROW_META_COLUMNS)) {
       test(`"${columnName}" (${columnType}) on a non-softDelete entity → kein Throw`, () => {
         const feature = noteFeatureWithColumn(columnName);
@@ -2225,40 +2222,14 @@ describe("boot-validator", () => {
 
     for (const typo of typoColumns) {
       test(`"${typo}" fails validateScreens (via validateBoot)`, () => {
-        const feature = defineFeature("notes", (r) => {
-          r.entity(
-            "note",
-            createEntity({
-              fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          );
-          r.screen({
-            id: "note-list",
-            type: "entityList",
-            entity: "note",
-            columns: ["title", typo],
-          });
-        });
+        const feature = noteFeatureWithColumn(typo);
         expect(() => validateBoot([feature])).toThrow(
           new RegExp(`references field "${typo}" which does not exist`),
         );
       });
 
       test(`"${typo}" fails validateEntityListScreens directly ("unknown column field")`, () => {
-        const feature = defineFeature("notes", (r) => {
-          r.entity(
-            "note",
-            createEntity({
-              fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
-            }),
-          );
-          r.screen({
-            id: "note-list",
-            type: "entityList",
-            entity: "note",
-            columns: ["title", typo],
-          });
-        });
+        const feature = noteFeatureWithColumn(typo);
         const fixed = withBootValidatorFixture([feature]);
         expect(() => validateEntityListScreens(fixed)).toThrow(
           new RegExp(`unknown column field "${typo}"`),
