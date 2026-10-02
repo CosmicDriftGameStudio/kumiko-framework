@@ -57,6 +57,7 @@ function evaluateOp(op: EventMatchOp, actual: unknown): boolean {
     case "ne":
       return actual !== op.value;
     case "in":
+      if (!Array.isArray(op.values)) throw malformed(`"in" op has no "values" array`);
       return op.values.some((value) => value === actual);
     case "gt":
     case "gte":
@@ -75,13 +76,25 @@ function evaluateOp(op: EventMatchOp, actual: unknown): boolean {
   }
 }
 
+// The AST round-trips through jsonb, so a truncated or hand-edited row must
+// fail with a readable format error rather than a bare TypeError.
+function malformed(what: string): Error {
+  return new Error(`Malformed EventMatch: ${what}`);
+}
+
 function evaluateExpr(expr: EventMatchExpr, payload: unknown): boolean {
+  if (!isRecord(expr)) throw malformed("expr is not an object");
   switch (expr.kind) {
     case "and":
-      return expr.nodes.every((node) => evaluateExpr(node, payload));
-    case "or":
-      return expr.nodes.some((node) => evaluateExpr(node, payload));
+    case "or": {
+      if (!Array.isArray(expr.nodes)) throw malformed(`"${expr.kind}" expr has no "nodes" array`);
+      return expr.kind === "and"
+        ? expr.nodes.every((node) => evaluateExpr(node, payload))
+        : expr.nodes.some((node) => evaluateExpr(node, payload));
+    }
     case "atom":
+      if (!Array.isArray(expr.path)) throw malformed(`"atom" expr has no "path" array`);
+      if (!isRecord(expr.op)) throw malformed(`"atom" expr has no "op" object`);
       return evaluateOp(expr.op, resolvePath(payload, expr.path));
     default: {
       const unrecognized: { readonly kind: string } = expr;
@@ -91,6 +104,7 @@ function evaluateExpr(expr: EventMatchExpr, payload: unknown): boolean {
 }
 
 export function evaluateEventMatch(match: EventMatch, payload: unknown): boolean {
+  if (!isRecord(match)) throw malformed("match is not an object");
   if (match.version !== 1) {
     throw new Error(`Unsupported EventMatch version ${JSON.stringify(match.version)} — expected 1`);
   }

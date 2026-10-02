@@ -234,6 +234,22 @@ describe("evaluateEventMatch", () => {
     expect(() => evaluateEventMatch(bad, {})).toThrow(/kind/i);
   });
 
+  it("throws a readable format error, not a TypeError, on a structurally malformed AST", () => {
+    const missingNodes = JSON.parse(JSON.stringify({ version: 1, expr: { kind: "and" } }));
+    expect(() => evaluateEventMatch(missingNodes, {})).toThrow(/Malformed EventMatch.*nodes/);
+    const missingPath = JSON.parse(
+      JSON.stringify({ version: 1, expr: { kind: "atom", op: { kind: "eq", value: 1 } } }),
+    );
+    expect(() => evaluateEventMatch(missingPath, {})).toThrow(/Malformed EventMatch.*path/);
+    const missingValues = JSON.parse(
+      JSON.stringify({
+        version: 1,
+        expr: { kind: "atom", path: ["x"], op: { kind: "in" } },
+      }),
+    );
+    expect(() => evaluateEventMatch(missingValues, {})).toThrow(/Malformed EventMatch.*values/);
+  });
+
   it("and with empty nodes is true, or with empty nodes is false", () => {
     expect(evaluateEventMatch({ version: 1, expr: { kind: "and", nodes: [] } }, {})).toBe(true);
     expect(evaluateEventMatch({ version: 1, expr: { kind: "or", nodes: [] } }, {})).toBe(false);

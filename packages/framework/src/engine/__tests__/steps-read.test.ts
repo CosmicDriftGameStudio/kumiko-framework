@@ -3,7 +3,7 @@ import type { EscapeHatchReporter } from "@cosmicdrift/kumiko-types/handlers";
 import type { DbRunner } from "../../db/connection.js";
 import { table, text, uuid } from "../../db/dialect.js";
 import { createTenantDb, createUncheckedSystemDb, type TenantDb } from "../../db/tenant-db.js";
-import { AccessDeniedError } from "../../errors/index.js";
+import { AccessDeniedError, InternalError } from "../../errors/index.js";
 import { testTenantId } from "../../stack/index.js";
 import { getStep } from "../define-step.js";
 import { buildReadFindManyStep } from "../steps/read-find-many.js";
@@ -144,6 +144,19 @@ describe("read.findOne run", () => {
       ),
     ).rejects.toThrow(AccessDeniedError);
 
+    expect(unsafeMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a boolean unsafeAllTenants with a framework error instead of a TypeError", async () => {
+    const stepDef = getStep("read.findOne");
+    const args = {
+      name: "lookup",
+      table: testTable,
+      where: { id: "x" },
+      unsafeAllTenants: true,
+    };
+
+    await expect(stepDef!.run(args, mockCtx)).rejects.toThrow(InternalError);
     expect(unsafeMock).not.toHaveBeenCalled();
   });
 

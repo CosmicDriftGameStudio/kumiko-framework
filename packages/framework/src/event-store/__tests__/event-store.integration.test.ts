@@ -5,6 +5,8 @@ import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId as uuid } from "../../utils/index.js";
 import {
   append,
+  archiveStream,
+  getStreamVersion,
   IdempotentAppendConflictError,
   loadAggregate,
   loadAggregateAsOf,
@@ -447,6 +449,88 @@ describe("event-store: loadAggregate aggregateType filter (#2979)", () => {
       aggregateType: "cart",
     });
     expect(sameTenant).toHaveLength(1);
+  });
+
+  async function appendCartThenReservation(aggregateId: string): Promise<void> {
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "cart",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "cart.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "reservation",
+      tenantId: tenantA,
+      expectedVersion: 1,
+      type: "reservation.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+  }
+
+  test("includeArchived combined with aggregateType returns only that type's events of an archived stream", async () => {
+    const aggregateId = uuid();
+    await appendCartThenReservation(aggregateId);
+    await archiveStream(testDb.db, {
+      tenantId: tenantA,
+      aggregateId,
+      aggregateType: "cart",
+      archivedBy: userA,
+    });
+
+    expect(await loadAggregate(testDb.db, aggregateId, tenantA, { aggregateType: "cart" })).toEqual(
+      [],
+    );
+    const archivedCart = await loadAggregate(testDb.db, aggregateId, tenantA, {
+      includeArchived: true,
+      aggregateType: "cart",
+    });
+    expect(archivedCart.map((e) => e.type)).toEqual(["cart.created"]);
+  });
+
+  test("an unknown aggregateType yields an empty array, not the full stream", async () => {
+    const aggregateId = uuid();
+    await appendCartThenReservation(aggregateId);
+
+    const events = await loadAggregate(testDb.db, aggregateId, tenantA, {
+      aggregateType: "does-not-exist",
+    });
+    expect(events).toEqual([]);
+  });
+
+  test("filtered events empty while the stream version is > 0: a create-append at expectedVersion 0 conflicts", async () => {
+    const aggregateId = uuid();
+    await append(testDb.db, {
+      aggregateId,
+      aggregateType: "cart",
+      tenantId: tenantA,
+      expectedVersion: 0,
+      type: "cart.created",
+      payload: {},
+      metadata: { userId: userA },
+    });
+
+    const reservationEvents = await loadAggregate(testDb.db, aggregateId, tenantA, {
+      aggregateType: "reservation",
+    });
+    expect(reservationEvents).toHaveLength(0);
+    expect(await getStreamVersion(testDb.db, aggregateId, tenantA)).toBe(1);
+
+    await expect(
+      append(testDb.db, {
+        aggregateId,
+        aggregateType: "reservation",
+        tenantId: tenantA,
+        expectedVersion: 0,
+        type: "reservation.created",
+        payload: {},
+        metadata: { userId: userA },
+      }),
+    ).rejects.toThrow(VersionConflictError);
   });
 });
 
