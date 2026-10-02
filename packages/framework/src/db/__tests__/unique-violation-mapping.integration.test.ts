@@ -198,3 +198,20 @@ describe("F8 — restore touch'd nur isDeleted, kein 23505-Pfad", () => {
     expect(restored.isSuccess).toBe(true);
   });
 });
+
+describe("F8 — restore re-colliding with a live row that re-took the unique value", () => {
+  test("restore of a soft-deleted row whose email was re-used maps to unique_violation 409", async () => {
+    const old = await exec.create({ email: "dave@example.com", displayName: "Old" }, admin, tdb);
+    if (!old.isSuccess) throw new Error("create failed in setup");
+    const deleted = await exec.delete({ id: old.data.id }, admin, tdb);
+    expect(deleted.isSuccess).toBe(true);
+    const reused = await exec.create({ email: "dave@example.com", displayName: "New" }, admin, tdb);
+    expect(reused.isSuccess).toBe(true);
+
+    const restored = await exec.restore({ id: old.data.id }, admin, tdb);
+    expect(restored.isSuccess).toBe(false);
+    if (restored.isSuccess) return;
+    expect(restored.error.code).toBe("unique_violation");
+    expect(restored.error.httpStatus).toBe(409);
+  });
+});

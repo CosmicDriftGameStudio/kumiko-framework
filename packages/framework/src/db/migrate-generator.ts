@@ -171,36 +171,28 @@ function diffOneTable(prev: EntityTableMeta, next: EntityTableMeta): TableDiff |
       newIndexes.push(idx);
       continue;
     }
-    const change: IndexChange = { name };
-    if (!indexColumnsEqual(prevI.columns, idx.columns)) {
-      Object.assign(change, {
-        columnsChanged: { from: prevI.columns, to: idx.columns },
-      });
-    }
-    if ((prevI.unique ?? false) !== (idx.unique ?? false)) {
-      Object.assign(change, {
-        uniqueChanged: { from: prevI.unique ?? false, to: idx.unique ?? false },
-      });
-    }
-    if (prevI.whereSql !== idx.whereSql) {
-      Object.assign(change, {
-        whereSqlChanged: { from: prevI.whereSql, to: idx.whereSql },
-      });
-    }
-    if ((prevI.needsManualWhere ?? false) !== (idx.needsManualWhere ?? false)) {
-      Object.assign(change, {
-        needsManualWhereChanged: {
-          from: prevI.needsManualWhere ?? false,
-          to: idx.needsManualWhere ?? false,
-        },
-      });
-    }
-    if (
-      change.columnsChanged ||
-      change.uniqueChanged ||
-      change.whereSqlChanged ||
-      change.needsManualWhereChanged
-    ) {
+    const columnsChanged = indexColumnsEqual(prevI.columns, idx.columns)
+      ? undefined
+      : { from: prevI.columns, to: idx.columns };
+    const uniqueChanged =
+      (prevI.unique ?? false) === (idx.unique ?? false)
+        ? undefined
+        : { from: prevI.unique ?? false, to: idx.unique ?? false };
+    const whereSqlChanged =
+      prevI.whereSql === idx.whereSql ? undefined : { from: prevI.whereSql, to: idx.whereSql };
+    const needsManualWhereChanged =
+      (prevI.needsManualWhere ?? false) === (idx.needsManualWhere ?? false)
+        ? undefined
+        : { from: prevI.needsManualWhere ?? false, to: idx.needsManualWhere ?? false };
+    if (columnsChanged || uniqueChanged || whereSqlChanged || needsManualWhereChanged) {
+      // Single literal typed as IndexChange so a misspelled key fails to compile instead of silently dropping the change.
+      const change: IndexChange = {
+        name,
+        ...(columnsChanged && { columnsChanged }),
+        ...(uniqueChanged && { uniqueChanged }),
+        ...(whereSqlChanged && { whereSqlChanged }),
+        ...(needsManualWhereChanged && { needsManualWhereChanged }),
+      };
       changedIndexes.push(change);
     }
   }
@@ -273,6 +265,16 @@ function describeRecreateReasons(td: TableDiff): readonly string[] {
     .map((idx) => idx.name);
   if (newUniqueIndexes.length > 0) {
     reasons.push(`new UNIQUE index(es): ${newUniqueIndexes.join(", ")}`);
+  }
+  // A changed index that ends up UNIQUE (newly unique, new columns, widened WHERE) can fail on existing duplicates in place.
+  const uniqueNextNames = new Set(
+    td.nextMeta.indexes.filter((idx) => idx.unique === true).map((idx) => idx.name),
+  );
+  const changedToUnique = td.changedIndexes
+    .filter((c) => uniqueNextNames.has(c.name))
+    .map((c) => c.name);
+  if (changedToUnique.length > 0) {
+    reasons.push(`changed UNIQUE index(es): ${changedToUnique.join(", ")}`);
   }
   const madeNotNull = td.changedColumns
     .filter((c) => c.nullabilityChanged?.to === true)

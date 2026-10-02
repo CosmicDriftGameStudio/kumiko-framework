@@ -880,9 +880,17 @@ export function createWriteVerbs(
       // Live==Rebuild via applyEntityEvent. Restore only writes isDeleted=false
       // plus the version bump, so there is no sensitive-field drift and no
       // payload override is needed.
-      const restoreResult = await runInSavepointIfSupported(runner, async (sp) =>
-        applyEntityEvent(event, table, entity, sp),
-      );
+      // Soft-delete unique indexes are partial (WHERE is_deleted = false), so a live row may have re-taken the value this restore brings back.
+      let restoreResult: Awaited<ReturnType<typeof applyEntityEvent>>;
+      try {
+        restoreResult = await runInSavepointIfSupported(runner, async (sp) =>
+          applyEntityEvent(event, table, entity, sp),
+        );
+      } catch (e) {
+        const mapped = tryMapUniqueViolation(e, entityName);
+        if (mapped) return mapped;
+        throw e;
+      }
       if (restoreResult.kind !== "applied" || restoreResult.row === null) {
         return writeFailure(new InternalError({ message: "projection restore returned no row" }));
       }

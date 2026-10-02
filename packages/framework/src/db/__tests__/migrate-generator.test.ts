@@ -371,6 +371,42 @@ describe("renderMigrationSql — changed index predicates (kumiko-framework#2492
   });
 });
 
+describe("renderMigrationSql — managed recreate for changed unique indexes", () => {
+  const nonUnique: IndexMeta = { name: "read_u_email_idx", columns: ["email"] };
+
+  test("managed: existing index made unique → DROP+CREATE, no in-place CREATE UNIQUE INDEX", () => {
+    const prev = snapshotFromMetas([metaWithIndexes("read_u", [nonUnique], "managed")]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_u", [{ ...nonUnique, unique: true }], "managed"),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "uniq", sequenceNumber: 14 });
+    expect(sql).toContain('DROP TABLE IF EXISTS "read_u";');
+    expect(sql).toContain("changed UNIQUE index(es): read_u_email_idx");
+  });
+
+  test("managed: unique index with a widened WHERE → DROP+CREATE", () => {
+    const base: IndexMeta = {
+      name: "read_u_email_uniq",
+      columns: ["email"],
+      unique: true,
+      whereSql: '"is_deleted" = false',
+    };
+    const prev = snapshotFromMetas([metaWithIndexes("read_u", [base], "managed")]);
+    const next = snapshotFromMetas([
+      metaWithIndexes("read_u", [{ ...base, whereSql: undefined }], "managed"),
+    ]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "wide", sequenceNumber: 15 });
+    expect(sql).toContain('DROP TABLE IF EXISTS "read_u";');
+  });
+
+  test("unmanaged: same change stays in place", () => {
+    const prev = snapshotFromMetas([metaWithIndexes("read_u", [nonUnique])]);
+    const next = snapshotFromMetas([metaWithIndexes("read_u", [{ ...nonUnique, unique: true }])]);
+    const sql = renderMigrationSql(diffSnapshots(prev, next), { name: "uniq", sequenceNumber: 16 });
+    expect(sql).not.toContain("DROP TABLE");
+  });
+});
+
 describe("assertValidMigrationName", () => {
   test("accepts alphanumeric hyphenated names", () => {
     expect(() => assertValidMigrationName("add-user-table")).not.toThrow();
