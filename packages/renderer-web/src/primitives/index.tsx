@@ -212,6 +212,7 @@ function DefaultButton({
   ariaLabel,
   title,
   pressed,
+  expanded,
   width = "auto",
   children,
   testId,
@@ -256,6 +257,7 @@ function DefaultButton({
       size={BUTTON_SIZE[size]}
       aria-label={ariaLabel}
       aria-pressed={pressed}
+      aria-expanded={expanded}
       title={title ?? (size === "icon" ? ariaLabel : undefined)}
       className={resolvedClassName}
     >
@@ -2332,7 +2334,7 @@ function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): 
           return (
             <DropdownMenuItem
               key={item.id}
-              data-testid={`${testId ?? "action-overflow-menu"}-item-${item.id}`}
+              data-testid={item.testId ?? `${testId ?? "action-overflow-menu"}-item-${item.id}`}
               disabled={item.disabled === true}
               onSelect={(e) => {
                 e.preventDefault();

@@ -105,6 +105,8 @@ export type ButtonProps = {
   readonly title?: string;
   /** Toggle state for toggle buttons — web sets `aria-pressed`; leave unset for plain buttons. */
   readonly pressed?: boolean;
+  /** Disclosure state for buttons that open a menu or panel — web sets `aria-expanded`. */
+  readonly expanded?: boolean;
   /** Breite — default="auto" (inhaltsbreit). "full" streckt CTA-Buttons auf
    *  die Container-Breite (Karten/Panels). Andere Breiten sind Layout-Sache
    *  des Containers, kein Button-Prop (Kit hält arbiträres Sizing draußen). */
@@ -1397,6 +1399,7 @@ export type ActionMenuItemSpec = {
   readonly icon?: IconKey;
   readonly disabled?: boolean;
   readonly variant?: "default" | "danger";
+  readonly testId?: string;
   readonly onSelect: () => void;
 };
 

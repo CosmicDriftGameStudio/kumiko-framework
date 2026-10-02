@@ -8,7 +8,7 @@ describe("Icon (fw#3056 public export)", () => {
     expect(container.querySelector("svg")).not.toBeNull();
   });
 
-  test.each(["camera", "headphones"] as const)("%s resolves to an svg", (name) => {
+  test.each(["camera", "headphones", "chevron-up"] as const)("%s resolves to an svg", (name) => {
     const { container } = render(<Icon name={name} />);
     expect(container.querySelector("svg")).not.toBeNull();
   });

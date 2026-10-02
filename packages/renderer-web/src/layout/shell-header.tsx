@@ -285,7 +285,7 @@ function HeaderOverflow({
                 type="button"
                 role="menuitem"
                 disabled={item.disabled === true}
-                data-testid={`shell-header-overflow-item-${item.id}`}
+                data-testid={item.testId ?? `shell-header-overflow-item-${item.id}`}
                 onClick={() => {
                   setOpen(false);
                   item.onSelect();
