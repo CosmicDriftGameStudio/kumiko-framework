@@ -10,7 +10,13 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type { FeatureSchema, NavTarget } from "@cosmicdrift/kumiko-renderer";
-import { DispatcherProvider, KumikoScreen, NavProvider } from "@cosmicdrift/kumiko-renderer";
+import {
+  createStaticLocaleResolver,
+  DispatcherProvider,
+  KumikoScreen,
+  LocaleProvider,
+  NavProvider,
+} from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
 import { createMockDispatcher, fireEvent, render, screen, waitFor, within } from "./test-utils.js";
 
@@ -126,6 +132,36 @@ describe("rowActions kind:'drawer'", () => {
     expect(within(scroll).getByTestId("render-edit-form-subtitle")).toBeTruthy();
     expect(within(footer).getByTestId("render-edit-cancel")).toBeTruthy();
     expect(within(footer).getByTestId("render-edit-submit")).toBeTruthy();
+  });
+
+  test("title and subtitle override the label and interpolate {param} from the row prefill", async () => {
+    const user = userEvent.setup();
+    const bundles = {
+      en: { "drawer.noteFor": "Note for {title}", "drawer.rowSelected": "Row {title} selected" },
+    };
+    render(
+      <LocaleProvider resolver={createStaticLocaleResolver()} fallbackBundles={[bundles]}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <KumikoScreen
+            schema={schemaWithRowAction({
+              ...drawerAction,
+              title: "drawer.noteFor",
+              subtitle: "drawer.rowSelected",
+              params: { pick: ["title"] },
+            })}
+            qn="tasks:screen:task-list"
+          />
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+    await waitFor(() => expect(screen.queryByTestId("kumiko-screen-loading")).toBeNull());
+    await user.click(screen.getByTestId("row-r1-action-add-note"));
+    await waitFor(() => expect(screen.getByTestId(DRAWER_TEST_ID)).toBeTruthy());
+
+    const header = screen.getByTestId(`${DRAWER_TEST_ID}-header`);
+    expect(within(header).getByText("Note for Alpha")).toBeTruthy();
+    expect(within(header).queryByText("actions.addNote")).toBeNull();
+    expect(screen.getByTestId(`${DRAWER_TEST_ID}-subtitle`).textContent).toBe("Row Alpha selected");
   });
 
   test("closing without input needs no confirmation", async () => {

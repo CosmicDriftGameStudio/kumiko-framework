@@ -19,6 +19,7 @@ export function DefaultDrawer({
   open,
   onOpenChange,
   title,
+  subtitle,
   children,
   testId,
 }: DrawerProps): ReactNode {
@@ -38,9 +39,19 @@ export function DefaultDrawer({
     >
       <div
         data-testid={testId !== undefined ? `${testId}-header` : undefined}
-        className="flex h-14 shrink-0 items-center gap-3 border-b border-border pr-3 pl-6"
+        className="flex min-h-14 shrink-0 items-center gap-3 border-b border-border py-2 pr-3 pl-6"
       >
-        <SheetTitle className="flex-1 text-base font-semibold">{title ?? ""}</SheetTitle>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <SheetTitle className="text-base font-semibold">{title ?? ""}</SheetTitle>
+          {subtitle !== undefined && (
+            <p
+              data-testid={testId !== undefined ? `${testId}-subtitle` : undefined}
+              className="text-sm text-muted-foreground"
+            >
+              {subtitle}
+            </p>
+          )}
+        </div>
         <button
           type="button"
           aria-label={t("kumiko.dialog.close")}

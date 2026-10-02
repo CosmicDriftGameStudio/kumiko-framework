@@ -31,6 +31,7 @@ import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
   type DataTableProps,
+  type DataTableRowGrouping,
   type FieldCellWidth,
   type FieldProps,
   type FillContainerProps,
@@ -231,6 +232,9 @@ function DefaultButton({
       : "",
     variant === "ghost" ? "text-primary hover:text-primary hover:bg-primary/10" : "",
     variant === "secondary" ? "border-input hover:bg-muted" : "",
+    pressed === true
+      ? "border-primary/40 bg-accent text-accent-foreground ring-1 ring-primary/30"
+      : "",
     width === "full" ? "w-full" : "",
     className,
   );
@@ -1057,6 +1061,52 @@ function DefaultInput(props: InputProps): ReactNode {
 
 // ---- DataTable (shadcn: Table) ----
 
+function sameValueSet(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value) => b.includes(value));
+}
+
+// Single-choice chip row for a facet with `chips`: a chip is pressed while the
+// current selection equals its values, a click replaces the selection.
+function FacetChips({
+  facet,
+  selected,
+  onChange,
+}: {
+  facet: DataTableFacet;
+  selected: readonly string[];
+  onChange: (field: string, values: readonly string[]) => void;
+}): ReactNode {
+  const chips = (facet.chips ?? []).filter(
+    (chip) => facet.hideEmpty !== true || chip.count !== 0 || sameValueSet(selected, chip.values),
+  );
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a <fieldset> brings browser default borders/legend layout the chip row must not have
+    <div
+      role="group"
+      aria-label={facet.label}
+      className="flex flex-wrap items-center gap-1.5"
+      data-testid={`facet-${facet.field}`}
+    >
+      {chips.map((chip) => (
+        <DefaultButton
+          key={chip.id}
+          variant="secondary"
+          size="sm"
+          pressed={sameValueSet(selected, chip.values)}
+          onClick={() => onChange(facet.field, chip.values)}
+          testId={`facet-${facet.field}-${chip.id}`}
+          className="rounded-full"
+        >
+          {chip.label}
+          {facet.showCounts === true && chip.count !== undefined && (
+            <span className="tabular-nums text-muted-foreground">{chip.count}</span>
+          )}
+        </DefaultButton>
+      ))}
+    </div>
+  );
+}
+
 // Faceted-Filter-Dropdown: Outline-Button (wie shadcns "Columns"-Toggle) +
 // Multi-Select-Checkboxen. Aktive Auswahl → Count-Badge am Button.
 function FacetFilter({
@@ -1075,6 +1125,9 @@ function FacetFilter({
     const next = checked ? [...selected, value] : selected.filter((v) => v !== value);
     onChange(facet.field, next);
   };
+  if (facet.chips !== undefined) {
+    return <FacetChips facet={facet} selected={selected} onChange={onChange} />;
+  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -1271,6 +1324,8 @@ function DefaultDataTable({
   itemNoun,
   rowActions,
   rowActionMode,
+  rowGrouping,
+  rowTone,
   filterFacets,
   filterValues,
   onFilterChange,
@@ -1298,6 +1353,7 @@ function DefaultDataTable({
   // single-mount pattern as EmbeddedListInput/embedded-list-input.tsx.
   const isNarrow = useIsNarrowViewport();
   const [facetsOpenNarrow, setFacetsOpenNarrow] = useState(false);
+  const [toggledGroups, setToggledGroups] = useState<ReadonlySet<string>>(new Set());
   // Toolbar-Wrapper: gemeinsamer Container für Toolbar+Tabelle damit
   // beide visuell zusammengehören. Toolbar ist NICHT sticky — Lists
   // scrollen typischerweise mit dem Page-Container, nicht intern.
@@ -1383,6 +1439,33 @@ function DefaultDataTable({
     </div>
   );
 
+  const tableItems = buildTableItems(rows, rowGrouping, toggledGroups);
+
+  function renderGroupToggle(item: Extract<TableItem, { kind: "group" }>): ReactNode {
+    return (
+      <button
+        type="button"
+        aria-expanded={!item.collapsed}
+        data-testid={`row-group-${item.key}-toggle`}
+        onClick={() =>
+          setToggledGroups((prev) => {
+            const next = new Set(prev);
+            if (!next.delete(item.key)) next.add(item.key);
+            return next;
+          })
+        }
+        className="flex w-full items-center gap-2 px-4 py-2 text-left text-xs font-medium text-foreground-secondary"
+      >
+        {item.collapsed ? (
+          <ChevronRight className="size-3.5" />
+        ) : (
+          <ChevronDown className="size-3.5" />
+        )}
+        {item.label}
+      </button>
+    );
+  }
+
   function tableInner(): ReactNode {
     if (isEmpty) return emptyBlock;
     return (
@@ -1436,109 +1519,130 @@ function DefaultDataTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
-              <Fragment key={row.id}>
-                <TableRow
-                  data-testid={rowTestId(row)}
-                  onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
-                  className={cn(
-                    onRowClick !== undefined && "cursor-pointer",
-                    fillsHeight && "h-10 border-border-row hover:bg-muted",
-                  )}
-                >
-                  {isRowExpandable && (
+            {tableItems.map((item) => {
+              if (item.kind === "group") {
+                return (
+                  <TableRow key={`group-${item.key}`} data-testid={`row-group-${item.key}`}>
                     <TableCell
-                      data-testid={getCellTestId?.(row, "expand") ?? `cell-${row.id}-expand`}
-                      className={EXPAND_TOGGLE_CELL_CLASS}
+                      colSpan={
+                        columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0)
+                      }
+                      className="bg-muted/40 p-0"
                     >
-                      {renderExpandToggle(row)}
+                      {renderGroupToggle(item)}
                     </TableCell>
-                  )}
-                  {columns.map((col, colIndex) => (
-                    <TableCell
-                      key={col.field}
-                      data-testid={getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`}
-                      data-highlighted={col.highlighted === true ? "true" : undefined}
-                      // Cells truncate long values with ellipsis instead of
-                      // wrapping — lists stay single-line + scannable (Linear
-                      // pattern). max-w-xs gives a sensible default upper
-                      // bound; the table container scrolls horizontally
-                      // if the sum of the columns gets too wide.
-                      className={cn(
-                        "max-w-xs truncate",
-                        colIndex === 0
-                          ? "font-medium text-foreground"
-                          : "text-foreground-secondary",
-                        NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
-                        TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
-                        col.highlighted === true && "bg-accent/40",
-                      )}
-                      title={cellTitle(row.values[col.field])}
-                    >
-                      <FirstCellLink
-                        enabled={
-                          colIndex === 0 && onRowClick !== undefined && onCellChange === undefined
-                        }
-                        onOpen={() => onRowClick?.(row)}
-                        empty={isEmptyCellValue(row.values[col.field])}
-                        emptyLabel={rowClickLabel}
+                  </TableRow>
+                );
+              }
+              const row = item.row;
+              return (
+                <Fragment key={row.id}>
+                  <TableRow
+                    data-testid={rowTestId(row)}
+                    data-tone={rowTone?.(row)}
+                    onClick={onRowClick !== undefined ? () => onRowClick(row) : undefined}
+                    className={cn(
+                      rowToneClass(rowTone?.(row)),
+                      onRowClick !== undefined && "cursor-pointer",
+                      fillsHeight && "h-10 border-border-row hover:bg-muted",
+                    )}
+                  >
+                    {isRowExpandable && (
+                      <TableCell
+                        data-testid={getCellTestId?.(row, "expand") ?? `cell-${row.id}-expand`}
+                        className={EXPAND_TOGGLE_CELL_CLASS}
                       >
-                        <DataTableCell
-                          value={row.values[col.field]}
-                          row={row.values}
-                          field={col.field}
-                          type={col.type}
-                          renderer={col.renderer}
-                          translate={tableTranslate}
-                          locale={tableLocale}
-                          {...(col.optionLabels !== undefined && {
-                            optionLabels: col.optionLabels,
-                          })}
-                          {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
-                          {...(col.grouping !== undefined && { grouping: col.grouping })}
-                          {...(onCellChange !== undefined && {
-                            onChange: (value: unknown) => onCellChange(row.id, col.field, value),
-                          })}
+                        {renderExpandToggle(row)}
+                      </TableCell>
+                    )}
+                    {columns.map((col, colIndex) => (
+                      <TableCell
+                        key={col.field}
+                        data-testid={
+                          getCellTestId?.(row, col.field) ?? `cell-${row.id}-${col.field}`
+                        }
+                        data-highlighted={col.highlighted === true ? "true" : undefined}
+                        // Cells truncate long values with ellipsis instead of
+                        // wrapping — lists stay single-line + scannable (Linear
+                        // pattern). max-w-xs gives a sensible default upper
+                        // bound; the table container scrolls horizontally
+                        // if the sum of the columns gets too wide.
+                        className={cn(
+                          "max-w-xs truncate",
+                          colIndex === 0
+                            ? "font-medium text-foreground"
+                            : "text-foreground-secondary",
+                          NUMERIC_COLUMN_TYPES.has(col.type) && "text-right",
+                          TABULAR_COLUMN_TYPES.has(col.type) && "tabular-nums",
+                          col.highlighted === true && "bg-accent/40",
+                        )}
+                        title={cellTitle(row.values[col.field])}
+                      >
+                        <FirstCellLink
+                          enabled={
+                            colIndex === 0 && onRowClick !== undefined && onCellChange === undefined
+                          }
+                          onOpen={() => onRowClick?.(row)}
+                          empty={isEmptyCellValue(row.values[col.field])}
+                          emptyLabel={rowClickLabel}
+                        >
+                          <DataTableCell
+                            value={row.values[col.field]}
+                            row={row.values}
+                            field={col.field}
+                            type={col.type}
+                            renderer={col.renderer}
+                            translate={tableTranslate}
+                            locale={tableLocale}
+                            {...(col.optionLabels !== undefined && {
+                              optionLabels: col.optionLabels,
+                            })}
+                            {...(col.optionTones !== undefined && { optionTones: col.optionTones })}
+                            {...(col.grouping !== undefined && { grouping: col.grouping })}
+                            {...(onCellChange !== undefined && {
+                              onChange: (value: unknown) => onCellChange(row.id, col.field, value),
+                            })}
+                          />
+                        </FirstCellLink>
+                      </TableCell>
+                    ))}
+                    {hasTableActions && (
+                      <TableCell
+                        data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
+                        // From md: sticky-right so the actions stay visible on the
+                        // right edge during horizontal scroll. Below md, actions
+                        // scroll with the row like any other cell — sticky there
+                        // would hide the neighboring data column on narrow
+                        // viewports. bg-background sets the column apart during
+                        // scroll — no border-l (divider too heavy).
+                        className={cn(
+                          "text-right md:sticky md:right-0 md:z-10 md:bg-background",
+                          fillsHeight && "md:bg-card",
+                        )}
+                        // Action-cell events must not trigger the row click/activation
+                        // (typically "Open Detail" — the user wanted the action,
+                        // not navigation). We stopPropagation for mouse and
+                        // keyboard so a11y stays consistent.
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <RowActionsCell
+                          row={row}
+                          actions={tableActions}
+                          mode={rowActionMode}
+                          rowIsLink={rowIsLink}
                         />
-                      </FirstCellLink>
-                    </TableCell>
-                  ))}
-                  {hasTableActions && (
-                    <TableCell
-                      data-testid={getCellTestId?.(row, "actions") ?? `cell-${row.id}-actions`}
-                      // From md: sticky-right so the actions stay visible on the
-                      // right edge during horizontal scroll. Below md, actions
-                      // scroll with the row like any other cell — sticky there
-                      // would hide the neighboring data column on narrow
-                      // viewports. bg-background sets the column apart during
-                      // scroll — no border-l (divider too heavy).
-                      className={cn(
-                        "text-right md:sticky md:right-0 md:z-10 md:bg-background",
-                        fillsHeight && "md:bg-card",
-                      )}
-                      // Action-cell events must not trigger the row click/activation
-                      // (typically "Open Detail" — the user wanted the action,
-                      // not navigation). We stopPropagation for mouse and
-                      // keyboard so a11y stays consistent.
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                    >
-                      <RowActionsCell
-                        row={row}
-                        actions={tableActions}
-                        mode={rowActionMode}
-                        rowIsLink={rowIsLink}
-                      />
-                    </TableCell>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                  {renderExpansion(
+                    row,
+                    "row",
+                    columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0),
                   )}
-                </TableRow>
-                {renderExpansion(
-                  row,
-                  "row",
-                  columns.length + (isRowExpandable ? 1 : 0) + (hasTableActions ? 1 : 0),
-                )}
-              </Fragment>
-            ))}
+                </Fragment>
+              );
+            })}
           </TableBody>
         </TableRoot>
       </div>
@@ -1670,8 +1774,10 @@ function DefaultDataTable({
       <li
         key={row.id}
         data-testid={rowTestId(row)}
+        data-tone={rowTone?.(row)}
         className={cn(
           "flex min-h-[72px] items-center gap-2 border-b border-border-row py-3",
+          rowToneClass(rowTone?.(row)),
           isRowExpandable ? "pl-2" : "pl-4",
           hasMenu ? "pr-2" : "pr-4",
         )}
@@ -1766,7 +1872,19 @@ function DefaultDataTable({
           </div>
         )}
         <ul className="m-0 list-none border-t border-border-row p-0">
-          {rows.map((row) => renderCard(row))}
+          {tableItems.map((item) =>
+            item.kind === "group" ? (
+              <li
+                key={`group-${item.key}`}
+                data-testid={`row-group-${item.key}`}
+                className="border-b border-border-row bg-muted/40"
+              >
+                {renderGroupToggle(item)}
+              </li>
+            ) : (
+              renderCard(item.row)
+            ),
+          )}
         </ul>
       </div>
     );
@@ -2008,16 +2126,29 @@ function RowActionsCell({
 }): ReactNode {
   const visible = actions.filter((a) => a.isVisible === undefined || a.isVisible(row));
   if (visible.length === 0) return null;
+  const hasExplicitDisplay = visible.some((a) => a.display !== undefined);
   if (mode === "inline") {
     // Teil C: >2 actions all carrying an icon collapse to icon-only —
     // otherwise "inline" is exactly the wall-to-wall text-button problem
-    // this feature exists to fix.
-    const iconOnly = shouldRenderActionsIconOnly(visible);
+    // this feature exists to fix. An author-set `display` takes that choice over.
+    const iconOnly = !hasExplicitDisplay && shouldRenderActionsIconOnly(visible);
     return (
       <div className="flex w-full items-center gap-1 justify-start">
         {visible.map((a) => (
           <RowActionButton key={a.id} row={row} action={a} iconOnly={iconOnly} />
         ))}
+      </div>
+    );
+  }
+  if (hasExplicitDisplay) {
+    const inline = visible.filter((a) => a.display !== undefined);
+    const rest = visible.filter((a) => a.display === undefined);
+    return (
+      <div className="inline-flex items-center gap-1 justify-end">
+        {inline.map((a) => (
+          <RowActionButton key={a.id} row={row} action={a} />
+        ))}
+        {rest.length > 0 && <RowActionsKebab row={row} actions={rest} />}
       </div>
     );
   }
@@ -2168,17 +2299,27 @@ function RowActionButton({
   const { busy, triggerNow } = useRowActionTrigger(row);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const variantClass =
-    action.style === "danger"
+  const resolvedIcon = actionIconFor(action.icon);
+  // "icon" without a resolvable icon would render an empty button.
+  const display = action.display === "icon" && resolvedIcon === undefined ? "link" : action.display;
+  const isBorderedButton = display === "button";
+  const showIconOnly =
+    display === "icon" || (display === undefined && iconOnly && resolvedIcon !== undefined);
+  const linkLike = display === "link" || (display === undefined && asLink);
+
+  const variantClass = isBorderedButton
+    ? action.style === "primary"
+      ? "border border-transparent bg-primary text-primary-foreground hover:bg-primary/90"
+      : action.style === "danger"
+        ? "border border-destructive/40 bg-card text-destructive hover:bg-destructive/10"
+        : "border border-border-strong bg-card text-foreground hover:bg-accent"
+    : action.style === "danger"
       ? "text-destructive hover:bg-destructive/10"
-      : asLink
+      : linkLike
         ? "font-medium text-primary hover:bg-muted"
         : action.style === "primary"
           ? "text-primary hover:bg-primary/10"
           : "text-foreground hover:bg-accent";
-
-  const resolvedIcon = actionIconFor(action.icon);
-  const showIconOnly = iconOnly && resolvedIcon !== undefined;
 
   return (
     <>
@@ -2197,8 +2338,12 @@ function RowActionButton({
         }}
         className={cn(
           "inline-flex items-center justify-center gap-1.5 text-sm",
-          asLink ? "h-7 rounded-md px-2.5 max-md:h-11" : "h-8 rounded-sm",
-          showIconOnly ? "w-8" : !asLink && "px-2",
+          isBorderedButton
+            ? "h-8 rounded-md px-3 font-medium max-md:h-11"
+            : linkLike
+              ? "h-7 rounded-md px-2.5 max-md:h-11"
+              : "h-8 rounded-sm",
+          showIconOnly ? "w-8" : !linkLike && !isBorderedButton && "px-2",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
           "disabled:opacity-50 disabled:pointer-events-none",
           variantClass,
@@ -2206,7 +2351,7 @@ function RowActionButton({
       >
         {busy ? (
           <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
-        ) : resolvedIcon === undefined || (asLink && !showIconOnly) ? (
+        ) : resolvedIcon === undefined || (linkLike && !showIconOnly) ? (
           action.label
         ) : showIconOnly ? (
           <Icon name={resolvedIcon} className="size-4" />
@@ -2815,6 +2960,48 @@ type DataTableCellProps = {
 };
 
 const EMPTY_CELL_PLACEHOLDER = "–";
+
+type TableItem =
+  | {
+      readonly kind: "group";
+      readonly key: string;
+      readonly label: string;
+      readonly collapsed: boolean;
+    }
+  | { readonly kind: "row"; readonly row: ListRowViewModel };
+
+function buildTableItems(
+  rows: readonly ListRowViewModel[],
+  grouping: DataTableRowGrouping | undefined,
+  toggledGroups: ReadonlySet<string>,
+): readonly TableItem[] {
+  if (grouping === undefined) return rows.map((row) => ({ kind: "row", row }));
+  const groups = new Map<string, ListRowViewModel[]>();
+  for (const row of rows) {
+    const key = grouping.keyOf(row);
+    const members = groups.get(key);
+    if (members === undefined) groups.set(key, [row]);
+    else members.push(row);
+  }
+  return [...groups].flatMap(([key, members]): TableItem[] => {
+    const collapsed = grouping.startsCollapsed(key) !== toggledGroups.has(key);
+    return [
+      { kind: "group", key, label: grouping.headerLabel(key, members), collapsed },
+      ...(collapsed ? [] : members.map((row): TableItem => ({ kind: "row", row }))),
+    ];
+  });
+}
+
+const ROW_TONE_CLASS: Readonly<Record<SelectOptionTone, string>> = {
+  bad: "bg-status-bad/10 hover:bg-status-bad/15",
+  warn: "bg-status-warn/10 hover:bg-status-warn/15",
+  ok: "bg-status-ok/10 hover:bg-status-ok/15",
+  neutral: "",
+};
+
+function rowToneClass(tone: SelectOptionTone | undefined): string {
+  return tone === undefined ? "" : ROW_TONE_CLASS[tone];
+}
 
 const NUMERIC_COLUMN_TYPES: ReadonlySet<string> = new Set(["number", "decimal", "bigInt", "money"]);
 // Digits stand in columns here, so they need equal-width figures; the body no longer sets tabular-nums.
@@ -4014,6 +4201,8 @@ function DefaultStepBar({
   orientation,
   heading,
   description,
+  subtitles,
+  upNext,
   testId,
   compactTestId,
 }: StepBarProps): ReactNode {
@@ -4027,6 +4216,8 @@ function DefaultStepBar({
       orientation={orientation}
       heading={heading}
       description={description}
+      subtitles={subtitles}
+      upNext={upNext}
       testId={testId}
       compactTestId={compactTestId}
     />

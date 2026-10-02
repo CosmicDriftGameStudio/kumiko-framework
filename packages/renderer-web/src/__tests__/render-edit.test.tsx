@@ -5,10 +5,12 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, FormSnapshot, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import {
+  createStaticLocaleResolver,
   DispatcherProvider,
   DraftStorageProvider,
   ExtensionSectionsProvider,
   type ExtensionSubmitContext,
+  LocaleProvider,
   RenderEdit,
   type RenderEditChangeState,
   type RenderEditControls,
@@ -445,6 +447,81 @@ describe("RenderEdit", () => {
     expect(write).toHaveBeenCalledWith("order:create", expect.anything());
     expect(seenResults).toHaveLength(1);
     expect(seenResults[0]?.isSuccess).toBe(true);
+  });
+
+  test("a field with submit:false is rendered and validated but not in the written payload", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"];
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [{ fields: ["title", { field: "notes", submit: false }] }],
+      },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", notes: "display only" }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.getByTestId("field-notes")).toBeTruthy();
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Hello" } });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+
+    expect(write).toHaveBeenCalledTimes(1);
+    const payload = (write as unknown as { mock: { calls: [string, Record<string, unknown>][] } })
+      .mock.calls[0]?.[1];
+    expect(payload?.["title"]).toBe("Hello");
+    expect(payload).not.toHaveProperty("notes");
+  });
+
+  test("a footer action applies its patch to the values, then submits them", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "1" } })) as Dispatcher["write"];
+    const screenDef: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: { sections: [{ fields: ["title"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={screenDef}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "" }}
+          writeCommand="order:create"
+          footerActions={[{ id: "mark-urgent", label: "Mark urgent", patch: { isUrgent: true } }]}
+        />
+      </DispatcherProvider>,
+    );
+
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Hello" } });
+    expect(write).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("render-edit-footer-action-mark-urgent"));
+      await Promise.resolve();
+    });
+
+    expect(write).toHaveBeenCalledTimes(1);
+    const payload = (write as unknown as { mock: { calls: [string, Record<string, unknown>][] } })
+      .mock.calls[0]?.[1];
+    expect(payload?.["title"]).toBe("Hello");
+    expect(payload?.["isUrgent"]).toBe(true);
   });
 
   test("layout.width defaults the form shell to max-w-4xl when unset", () => {
@@ -4500,5 +4577,72 @@ describe("RenderEdit screen form (fillScreenHeight)", () => {
       screen.getByTestId("render-edit-wizard-steps-step-1").getAttribute("aria-current"),
     ).toBeNull();
     expect(screen.getByTestId("render-edit-wizard-next").textContent).toContain("Details");
+  });
+
+  test("wizard: section.subtitle shows in the rail and aside.upNext announces the following step", () => {
+    renderScreenForm({
+      screenDef: {
+        id: "orders:screen:order-wizard",
+        type: "entityEdit",
+        entity: "order",
+        layout: {
+          mode: "wizard",
+          wizard: { aside: { upNext: true } },
+          sections: [
+            { title: "Basics", subtitle: "Name it", columns: 1, fields: [{ field: "title" }] },
+            { title: "Details", subtitle: "Count it", columns: 1, fields: [{ field: "count" }] },
+          ],
+        },
+      },
+    });
+    expect(screen.getByTestId("render-edit-wizard-steps-subtitle-0").textContent).toBe("Name it");
+    const upNext = screen.getByTestId("render-edit-wizard-steps-up-next");
+    expect(upNext.textContent).toContain("Details");
+    expect(upNext.textContent).toContain("Count it");
+  });
+
+  test("wizard: no up-next box on the last step or without aside", () => {
+    renderScreenForm({
+      screenDef: {
+        id: "orders:screen:order-wizard",
+        type: "entityEdit",
+        entity: "order",
+        layout: {
+          mode: "wizard",
+          sections: [
+            { title: "Basics", columns: 1, fields: [{ field: "title" }] },
+            { title: "Details", columns: 1, fields: [{ field: "count" }] },
+          ],
+        },
+      },
+    });
+    expect(screen.queryByTestId("render-edit-wizard-steps-up-next")).toBeNull();
+  });
+
+  test("titleTemplate follows the typed values and falls back to the plain title while empty", () => {
+    const bundles = { en: { "orders.title.add": "Add {title}" } };
+    render(
+      <LocaleProvider resolver={createStaticLocaleResolver()} fallbackBundles={[bundles]}>
+        <DispatcherProvider dispatcher={makeDispatcher()}>
+          <RenderEdit<TestValues>
+            screen={{
+              ...threeSectionScreen(),
+              titleTemplate: "orders.title.add",
+            }}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "" } as TestValues}
+            writeCommand="order:create"
+            fillScreenHeight
+          />
+        </DispatcherProvider>
+      </LocaleProvider>,
+    );
+    const heading = () => screen.getByTestId("render-edit-form-title").textContent;
+    expect(heading()).not.toContain("Add");
+
+    const input = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Golf" } });
+    expect(heading()).toBe("Add Golf");
   });
 });

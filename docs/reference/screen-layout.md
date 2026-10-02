@@ -71,6 +71,17 @@ The slot holds one `overflowItems` list per page; the last `PageHeader` that set
 | `description` | relatedList section | i18n key for the hint in the tab toolbar |
 | `itemNoun` | relatedList section | i18n key with plural forms for the footer count |
 | `summary` | actionForm | `{ title, subtitle? }` context box; `{name}` placeholders come from the drawer prefill |
+| `facets` | entityList | `{ [field]: { display?: "select" \| "chips", showCounts?, hideEmpty?, extraOptions? } \| false }`; `false` hides the control |
+| `defaultFilters` | entityList | `{ [field]: string[] \| boolean }`, initial filter; the URL wins |
+| `rowActionMode` | entityList, projectionList, relatedList | `"adaptive"` (default) or `"inline"` |
+| `display` | row action | `"button" \| "link" \| "icon"`; the action stays inline next to the kebab |
+| `title`, `subtitle` | drawer action | i18n keys; `{param}` comes from the row prefill; `title` replaces `label` as the drawer title |
+| `submit: false` | edit field | shown and validated, but not in the written payload |
+| `footerActions` | actionForm | extra footer buttons: `{ id, label, icon?, variant?, patch }` |
+| `groupBy`, `rowTone` | relatedList | collapsible row groups and a row tint rule |
+| `subtitle` | wizard section | line under the step title in the rail |
+| `wizard.aside` | entityEdit layout | `{ upNext: true }` adds an "up next" box |
+| `titleTemplate` | entityEdit | title key with `{field}` placeholders from the form values |
 
 ## Header subtitle with several parts
 
@@ -146,5 +157,35 @@ expandableRow: {
 - `entity` (also available on projectionDetail relatedList sections) names the entity behind the query rows, as an entity name or `feature:entity`. Columns that name one of its fields render like entityList columns: a select as a status badge with the translated option label, dates locale-formatted, and the header from the field's label key. The column's own `sortable` still decides the header sort. Without `entity`, every column is plain text.
 - The boot validator checks the area like a relatedList section (query, columns against the output schema, handlers, rowClick target, defaultSort, search and facets).
 - Custom DataTable primitives (for example a native renderer) implement `expandedRowIds`, `onToggleRowExpanded` and `renderExpandedRow` from `DataTableProps`. A primitive that ignores them renders the list without the arrow column.
+
+## List filters and row actions
+
+```ts illustration
+facets: {
+  status: {
+    display: "chips",
+    showCounts: true,
+    hideEmpty: true,
+    extraOptions: [{ id: "all", label: "campaigns.filter.all", values: [] }],
+  },
+},
+defaultFilters: { status: ["open"] },
+rowActionMode: "adaptive",
+rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler: "...", display: "button" }],
+```
+
+- Chips are single choice: a click sets the chip's `values`, an empty `values` clears the facet. An `extraOptions` entry sits at the start unless `position: "end"`.
+- Counts come from the list query itself: one request with `limit: 1` and `totalCount: true` per chip, with the other facets and the search applied. They are not live; a change in the data shows after the next reload. `hideEmpty` needs the counts and keeps a chip visible while it is selected.
+- `defaultFilters` applies only while the URL has no value for that field. Choosing "no filter" is stored in the URL as `~`, so the default does not come back. `facets: { field: false }` hides the control but keeps the filter active.
+- With `display` set, the row-action column keeps that action inline next to the kebab even in the adaptive layout. Without `display`, nothing changes. `rowActionMode: "inline"` shows every action inline.
+- relatedList `groupBy: { field, collapsedWhen?, label, labels?, dateField? }` groups rows in order of first appearance under collapsible headers. The header key takes `{count}`, `{value}` and `{lastDate}`. `rowTone` is a field condition plus a tone, for example `{ field: "status", eq: "failed", tone: "bad" }`.
+- A DataTable primitive that has no support for `rowGrouping`, `rowTone` or `filterFacets[].chips` (for example a native renderer) shows the flat list and the default facet control.
+
+## Forms
+
+- `submit: false` on an edit field keeps it out of the payload. Validation and rendering stay as they are.
+- `footerActions` on an actionForm render before the submit button. A click sets `patch` on the form values, then submits through the normal validation and write path. The patched field does not have to be in the layout.
+- Wizard sections take `subtitle`; with `layout.wizard.aside.upNext` the step rail shows the next step's title and subtitle (not on the last step). `titleTemplate` follows what the user types and falls back to the screen title while a placeholder is empty.
+- An actionForm in a drawer shows `title` and `subtitle` of the opening drawer action instead of the action label.
 
 Related: `docs/reference/theming.md` for tokens and fonts, `docs/reference/select-field.md` for the select presentation.

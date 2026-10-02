@@ -141,6 +141,9 @@ export function computeRelatedListSectionViewModel(
     ...(sectionSpec.facets !== undefined && { facets: sectionSpec.facets }),
     ...(sectionSpec.rowClick !== undefined && { rowClick: sectionSpec.rowClick }),
     ...(sectionSpec.rowActions !== undefined && { rowActions: sectionSpec.rowActions }),
+    ...(sectionSpec.rowActionMode !== undefined && { rowActionMode: sectionSpec.rowActionMode }),
+    ...(sectionSpec.groupBy !== undefined && { groupBy: sectionSpec.groupBy }),
+    ...(sectionSpec.rowTone !== undefined && { rowTone: sectionSpec.rowTone }),
     ...(sectionSpec.toolbarActions !== undefined && { toolbarActions: sectionSpec.toolbarActions }),
     ...(sectionSpec.actions !== undefined && { actions: sectionSpec.actions }),
     ...(sectionSpec.emptyState !== undefined && {
@@ -628,6 +631,7 @@ export function computeEditViewModel<
       ...(sectionSpec.description !== undefined && {
         description: translate(sectionSpec.description),
       }),
+      ...(sectionSpec.subtitle !== undefined && { subtitle: translate(sectionSpec.subtitle) }),
       columns: sectionSpec.columns ?? defaultColumns,
       fields,
       ...(groups !== undefined && { groups }),

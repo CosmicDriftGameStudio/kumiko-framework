@@ -37,6 +37,25 @@ describe("Button", () => {
     expect(screen.getByTestId("plain").hasAttribute("aria-expanded")).toBe(false);
   });
 
+  test("pressed sets aria-pressed and a visible pressed style; unpressed buttons carry neither", () => {
+    render(
+      <>
+        <Button pressed variant="secondary" testId="on">
+          A
+        </Button>
+        <Button pressed={false} variant="secondary" testId="off">
+          B
+        </Button>
+      </>,
+    );
+    const on = screen.getByTestId("on");
+    const off = screen.getByTestId("off");
+    expect(on.getAttribute("aria-pressed")).toBe("true");
+    expect(on.className).toContain("bg-accent");
+    expect(off.getAttribute("aria-pressed")).toBe("false");
+    expect(off.className).not.toContain("ring-primary/30");
+  });
+
   test("disabled: attribute gesetzt + Tailwind-Klassen für pointer-events/opacity", () => {
     render(
       <Button disabled testId="btn">
@@ -394,6 +413,41 @@ describe("Input kind=boolean: switch vs checkbox", () => {
 });
 
 describe("DataTable", () => {
+  test("facet chips: click selects the chip's values, pressed follows filterValues, hideEmpty drops zero-count chips", () => {
+    const onFilterChange = mock();
+    render(
+      <DataTable
+        columns={[{ field: "name", label: "Name", type: "string", sortable: false }]}
+        rows={[{ id: "r1", values: { name: "A" } }]}
+        testId="t"
+        filterFacets={[
+          {
+            field: "status",
+            label: "Status",
+            options: [],
+            showCounts: true,
+            hideEmpty: true,
+            chips: [
+              { id: "all", label: "All", values: [], count: 5 },
+              { id: "open", label: "Open", values: ["open"], count: 3 },
+              { id: "done", label: "Done", values: ["done"], count: 0 },
+            ],
+          },
+        ]}
+        filterValues={{ status: ["open"] }}
+        onFilterChange={onFilterChange}
+      />,
+    );
+
+    expect(screen.queryByTestId("facet-status-done")).toBeNull();
+    expect(screen.getByTestId("facet-status-open").getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTestId("facet-status-all").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByTestId("facet-status-open").textContent).toContain("3");
+
+    fireEvent.click(screen.getByTestId("facet-status-all"));
+    expect(onFilterChange).toHaveBeenCalledWith("status", []);
+  });
+
   test("empty rows render empty-state slot with derived testId", () => {
     render(
       <DataTable

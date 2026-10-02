@@ -21,8 +21,10 @@ import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header
 import {
   type DataTableDateRangeFacet,
   type DataTableFacet,
+  type DataTableProps,
   type DataTableRowAction,
   type DataTableRowActionMode,
+  type DataTableRowGrouping,
   shouldRenderActionsIconOnly,
   usePrimitives,
 } from "../primitives.js";
@@ -102,6 +104,9 @@ export type RenderListProps = {
    *  KumikoScreen derives it from the actions themselves; without it the
    *  DataTable falls back to its adaptive default. */
   readonly rowActionMode?: DataTableRowActionMode;
+  /** Forwarded to `DataTableProps.rowGrouping` / `rowTone`. */
+  readonly rowGrouping?: DataTableRowGrouping;
+  readonly rowTone?: DataTableProps["rowTone"];
   /** Toolbar-Aktionen im List-Header — Resolved-Form (KumikoScreen baut
    *  das aus EntityListScreenDefinition.toolbarActions: navigate-target
    *  → useNav, handler-QN → dispatcher-Call). RenderList rendert die
@@ -197,6 +202,8 @@ export function RenderList(props: RenderListProps): ReactNode {
     hasMore,
     rowActions,
     rowActionMode,
+    rowGrouping,
+    rowTone,
     toolbarActions,
     filterFacets,
     filterValues,
@@ -489,6 +496,8 @@ export function RenderList(props: RenderListProps): ReactNode {
         {...(itemNoun !== undefined && { itemNoun })}
         {...(rowActions !== undefined && { rowActions })}
         {...(rowActionMode !== undefined && { rowActionMode })}
+        {...(rowGrouping !== undefined && { rowGrouping })}
+        {...(rowTone !== undefined && { rowTone })}
         {...(filterFacets !== undefined && { filterFacets })}
         {...(filterValues !== undefined && { filterValues })}
         {...(onFilterChange !== undefined && { onFilterChange })}

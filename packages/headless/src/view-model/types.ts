@@ -8,8 +8,11 @@ import type {
   ListFacetSpec,
   ListSortSpec,
   PlatformComponent,
+  RelatedListGroupBy,
+  RelatedListRowTone,
   RelatedListToolbarAction,
   RowAction,
+  RowActionMode,
   ScreenSlots,
   SelectOptionTone,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -300,6 +303,8 @@ export type EditFieldsSectionViewModel = {
   /** Translated help text under the block heading, from
    *  `EditFieldsSection.description`. Renders even without `title`. */
   readonly description?: string;
+  /** Translated `EditFieldsSection.subtitle` (wizard step rail / up-next box). */
+  readonly subtitle?: string;
   readonly columns: number;
   readonly fields: readonly EditFieldViewModel[];
   /** From `EditFieldsSection.groups` — each entry's `fields` are the same
@@ -351,6 +356,9 @@ export type EditRelatedListSectionViewModel = {
   readonly facets?: readonly ListFacetSpec[];
   readonly rowClick?: { readonly entity: string; readonly idColumn?: string };
   readonly rowActions?: readonly RowAction[];
+  readonly rowActionMode?: RowActionMode;
+  readonly groupBy?: RelatedListGroupBy;
+  readonly rowTone?: RelatedListRowTone;
   readonly toolbarActions?: readonly RelatedListToolbarAction[];
   /** From `EditRelatedListSection.actions` — rendered in the
    *  Section's title row, distinct from `toolbarActions` (which render

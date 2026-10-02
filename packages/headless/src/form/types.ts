@@ -255,6 +255,10 @@ export type SubmitConfig<TValues extends FormValues = FormValues> = {
    *  "values" doc for why the stripping exists. Default `true` (current
    *  behavior). Set `false` to send those fields as `""` unchanged. */
   readonly stripEmptySeeds?: boolean;
+  /** Top-level payload keys removed right before dispatch, for fields that
+   *  are shown or validated but must not reach the write handler. Applied
+   *  to the built payload only when it is a plain object. */
+  readonly omitFields?: readonly string[];
   // Optional payload transformer — overrides payloadMode. Used for
   // nested-writes: the submit path calls buildPayload(snapshot) once at
   // submit-time and sends the result. The snapshot is the one captured

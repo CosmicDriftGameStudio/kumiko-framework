@@ -680,6 +680,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "kumiko.wizard.next-with-title": "Siguiente: {title}",
   "kumiko.wizard.save-and-close": "Guardar y cerrar",
   "kumiko.wizard.step": "Paso {current} de {total}",
+  "kumiko.wizard.up-next": "A continuación",
   "kumiko.wizard.step-with-title": "Paso {current} de {total} · {title}",
   "kumiko.workspace.select": "Selecciona un espacio de trabajo",
   "kumiko.workspace.switch": "Cambiar de espacio de trabajo",

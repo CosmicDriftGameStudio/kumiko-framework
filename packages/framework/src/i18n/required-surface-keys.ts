@@ -88,10 +88,11 @@ function editFieldName(f: string | { readonly field: string }): string {
 // Group titles are translated exactly like the section title (computeEditViewModel).
 function pushSectionTitles(
   out: Set<string>,
-  section: { readonly title?: string } & FieldsOrGroupsSection,
+  section: { readonly title?: string; readonly subtitle?: string } & FieldsOrGroupsSection,
   treatAsKey = false,
 ): void {
   pushKey(out, section.title, treatAsKey);
+  pushKey(out, section.subtitle, treatAsKey);
   for (const group of section.groups ?? []) pushKey(out, group.title, treatAsKey);
 }
 
@@ -100,6 +101,10 @@ function pushRowActionKeys(out: Set<string>, action: RowAction): void {
   if (action.kind === "writeHandler" || action.kind === undefined) {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
+  }
+  if (action.kind === "drawer") {
+    pushKey(out, action.title);
+    pushKey(out, action.subtitle);
   }
 }
 
@@ -149,9 +154,12 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
   }
-  // drawer-kind carries no confirm/confirmLabel — action.label (the
-  // toolbar button AND the Drawer title, see ToolbarDrawerHost) is
-  // already pushed above.
+  // drawer-kind carries no confirm/confirmLabel — action.label is the
+  // toolbar button and the Drawer title unless `title` overrides it.
+  if (action.kind === "drawer") {
+    pushKey(out, action.title);
+    pushKey(out, action.subtitle);
+  }
 }
 
 function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpandableRow): void {
@@ -228,6 +236,7 @@ export function requiredKeysFromScreen(
     case "entityEdit": {
       const edit = screen as EntityEditScreenDefinition;
       pushKey(out, edit.submitLabel);
+      pushKey(out, edit.titleTemplate);
       for (const section of edit.layout.sections) {
         if (isExtensionEditSection(section)) {
           pushKey(out, section.title);
@@ -249,6 +258,7 @@ export function requiredKeysFromScreen(
       pushKey(out, form.submitLabel);
       pushKey(out, form.summary?.title);
       pushKey(out, form.summary?.subtitle);
+      for (const action of form.footerActions ?? []) pushKey(out, action.label);
       for (const fieldName of Object.keys(form.fields)) {
         const override = form.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override);
@@ -360,6 +370,10 @@ export function requiredKeysFromScreen(
         }
         if (section.kind === "relatedList") {
           pushRelatedListSectionKeys(out, section);
+          if (section.groupBy !== undefined) {
+            pushKey(out, section.groupBy.label);
+            for (const label of Object.values(section.groupBy.labels ?? {})) pushKey(out, label);
+          }
           continue;
         }
         if (isWriteFormEditSection(section)) {
