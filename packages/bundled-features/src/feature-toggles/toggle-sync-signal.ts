@@ -1,4 +1,7 @@
-import { createRedisPubSubSignal } from "@cosmicdrift/kumiko-framework/redis";
+import {
+  createRedisPubSubSignal,
+  type RedisClientOptions,
+} from "@cosmicdrift/kumiko-framework/redis";
 import type { ToggleSyncSignal } from "./toggle-runtime.js";
 
 // Single fixed channel — unlike the SSE broker there's no per-tenant/
@@ -28,11 +31,15 @@ function isTogglePayload(value: unknown): value is { featureName: string; enable
 // replicas > 1 is expected to set REDIS_URL, so app-boot code should build
 // this only when REDIS_URL is present and pass it into
 // createFeatureToggleRuntime.
-export function createRedisToggleSyncSignal(redisUrl: string): RedisToggleSyncSignal {
+export function createRedisToggleSyncSignal(
+  redisUrl: string,
+  clientOptions?: RedisClientOptions,
+): RedisToggleSyncSignal {
   const signal = createRedisPubSubSignal({
     redisUrl,
     channelPattern: TOGGLE_SYNC_CHANNEL,
     label: "feature-toggles",
+    ...(clientOptions ? { clientOptions } : {}),
   });
 
   return {

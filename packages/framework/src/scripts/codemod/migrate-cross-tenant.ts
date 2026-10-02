@@ -168,8 +168,20 @@ export function migrateCrossTenantSource(
   const rewrites: Rewrite[] = [];
   const manual: ManualSite[] = [];
 
+  // Captured up front: a forgotten node can no longer report its position.
+  const lineByAssignment = new Map(targets.map((a) => [a, a.getStartLineNumber()]));
+
   for (const assignment of targets) {
-    if (assignment.wasForgotten()) continue;
+    // A forgotten node has no position or text left; a bare `continue` would
+    // drop a security-relevant crossTenant switch from the report entirely.
+    if (assignment.wasForgotten()) {
+      manual.push({
+        file: fileName,
+        line: lineByAssignment.get(assignment) ?? 0,
+        why: "node was invalidated by an earlier rewrite in this file — run the codemod on this file again",
+      });
+      continue;
+    }
     const line = assignment.getStartLineNumber();
     const init = assignment.getInitializer();
 
@@ -327,7 +339,7 @@ async function main(): Promise<void> {
     }
   }
 
-  process.exit(0);
+  process.exit(allManual.length > 0 ? 1 : 0);
 }
 
 if (import.meta.main) {

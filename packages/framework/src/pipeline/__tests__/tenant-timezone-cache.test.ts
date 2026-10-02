@@ -96,6 +96,14 @@ describe("TenantTimezoneCache", () => {
     expect(cache.get("a" as TenantId)).toEqual({ value: "UTC" });
   });
 
+  test("maxEntries 0 still stays bounded instead of growing without limit", () => {
+    const cache = createTenantTimezoneCache({ maxEntries: 0, ttlMs: 60_000 });
+    for (let i = 0; i < 5; i++) {
+      cache.set(`tenant-${i}` as TenantId, "UTC");
+    }
+    expect(cache.size()).toBe(1);
+  });
+
   test("default maxEntries is 1000", () => {
     const cache = createTenantTimezoneCache();
     for (let i = 0; i < 1001; i++) {
