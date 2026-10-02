@@ -370,6 +370,7 @@ export function requiredKeysFromScreen(
         }
         if (isWriteFormEditSection(section)) {
           pushKey(out, section.title);
+          pushKey(out, section.description);
           pushKey(out, section.submitLabel);
           // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
@@ -426,7 +427,10 @@ function collectEntityListFilterKeys(feature: FeatureDefinition, out: Set<string
         for (const key of booleanFacetOptionKeys(feature.name, screen.entity, fieldName)) {
           out.add(key);
         }
-      } else if (def.type === "select" && Array.isArray(def.options)) {
+      } else if (
+        (def.type === "select" || def.type === "multiSelect") &&
+        Array.isArray(def.options)
+      ) {
         for (const value of def.options) {
           out.add(selectFacetOptionKey(feature.name, screen.entity, fieldName, value));
         }

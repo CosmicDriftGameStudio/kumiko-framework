@@ -26,8 +26,8 @@ import { isKumikoError } from "../errors/kumiko-error.js";
 import { createFileContext } from "../files/file-handle.js";
 import { createFallbackLogger } from "../logging/index.js";
 import type { Logger } from "../logging/types.js";
-import { createEscapeHatchReporter } from "../observability/escape-hatch-report.js";
 import {
+  createEscapeHatchReporter,
   emitJobLastSuccess,
   emitJobQueueDepth,
   getFallbackTracer,
@@ -724,6 +724,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // and a drained test stack would stay green over a fan-out that never ran.
       try {
         if (!getActiveTenantIds) {
+          if (registry.getQueryHandler(ACTIVE_TENANT_IDS_QUERY_NAME)) {
+            throw new Error(
+              `perTenant job "${actualName}": the tenant feature is mounted but the job runner has no ` +
+                "`context.db`: pass a DbConnection in the runner context or supply options.getActiveTenantIds",
+            );
+          }
           throw new Error(
             `perTenant job "${actualName}" requires either options.getActiveTenantIds or the ` +
               `tenant feature mounted (it registers "${ACTIVE_TENANT_IDS_QUERY_NAME}", which the ` +
@@ -1292,8 +1298,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           Promise.all([queues.api.waitUntilReady(), queues.worker.waitUntilReady()]),
           readinessTimeout.promise,
         ]);
-      } catch {
-        // close() below still has to run
+      } catch (err) {
+        // close() below still has to run; stopping is already true, so debug matches the other shutdown logs
+        errorLogger.debug("queue readiness wait failed during stop()", {
+          error: err instanceof Error ? err.message : String(err),
+        });
       } finally {
         readinessTimeout.cancel();
       }

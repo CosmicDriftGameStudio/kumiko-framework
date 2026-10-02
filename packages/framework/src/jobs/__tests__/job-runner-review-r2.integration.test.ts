@@ -4,6 +4,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { Queue } from "bullmq";
 import { Redis } from "ioredis";
+import * as z from "zod";
 import { requestContext } from "../../api/request-context.js";
 import { createRegistry, defineFeature } from "../../engine/index.js";
 import type { AppContext } from "../../engine/types/index.js";
@@ -66,6 +67,41 @@ describe("job runner without a db connection", () => {
       expect(failures[0]).toContain("without a db connection");
       expect(failures[0]).toContain("nodbjob:job:needs-db");
       expect(handlerRan).toBe(true);
+    } finally {
+      await runner.stop();
+      await purgeWorkerKeys(queueNamePrefix);
+    }
+  });
+});
+
+describe("perTenant job on a runner without a db connection", () => {
+  test("with the tenant feature mounted the failure names the missing context.db, not the tenant feature", async () => {
+    const failures: string[] = [];
+    const tenantFeature = defineFeature("tenant", (r) => {
+      r.queryHandler("active-tenant-ids", z.object({}), async () => [], {
+        access: { roles: ["system"] },
+      });
+    });
+    const fanOutFeature = defineFeature("nodbfanout", (r) => {
+      r.job("fanOut", { trigger: { manual: true }, perTenant: true, retries: 0 }, async () => {});
+    });
+    const queueNamePrefix = uniquePrefix("nodbtenant");
+    const runner = createJobRunner({
+      registry: createRegistry([tenantFeature, fanOutFeature]),
+      context: {},
+      redisUrl,
+      consumerLane: "worker",
+      queueNamePrefix,
+      onJobFailed: (_name, _id, error) => {
+        failures.push(error);
+      },
+    });
+    await runner.start();
+    try {
+      await runner.dispatch("nodbfanout:job:fan-out", {});
+      await waitFor(() => failures.length > 0);
+      expect(failures[0]).toContain("context.db");
+      expect(failures[0]).not.toContain("requires either options.getActiveTenantIds");
     } finally {
       await runner.stop();
       await purgeWorkerKeys(queueNamePrefix);
