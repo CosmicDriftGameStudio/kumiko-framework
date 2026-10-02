@@ -354,6 +354,30 @@ describe("createDerivativesContext — variant() overlay token resolution", () =
     expect(specs()[0]?.resolvedOverlays).toEqual([imageLayer]);
   });
 
+  test("a caller-supplied resolvedOverlays never reaches the renderer", async () => {
+    const { ctx, specs } = await setupWithOverlayResolver(
+      async () => "https://example.com/v/vehicle-1",
+    );
+    const literalQr = {
+      kind: "qr",
+      data: "https://evil.example",
+      widthPct: 0.2,
+      gravity: "center",
+    } as const;
+
+    await ctx.variant(FILE_REF_ID, { resolvedOverlays: [literalQr] }, "card");
+    await ctx.variant(
+      FILE_REF_ID,
+      { overlays: [QR_LAYER], resolvedOverlays: [literalQr] },
+      "card2",
+    );
+
+    expect(specs()[0]?.resolvedOverlays).toBeUndefined();
+    expect(specs()[1]?.resolvedOverlays).toEqual([
+      { kind: "qr", data: "https://example.com/v/vehicle-1", widthPct: 0.2, gravity: "center" },
+    ]);
+  });
+
   test("overlays change the variant suffix", async () => {
     const { ctx } = await setupWithOverlayResolver(async () => "https://example.com/v/vehicle-1");
 

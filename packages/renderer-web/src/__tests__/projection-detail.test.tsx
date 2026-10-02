@@ -1264,7 +1264,7 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
     );
   }
 
-  test("mounted through KumikoScreen -> ProjectionDetailBody -> RenderEdit, the section's own form degrades to a <div> so only one <form> lands in the DOM", async () => {
+  function renderFormExtensionScreen(overrides: { write?: Dispatcher["write"] } = {}) {
     const extensionScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       layout: {
@@ -1289,9 +1289,10 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
         isSuccess: true,
         data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
       })) as unknown as Dispatcher["query"],
+      ...overrides,
     });
 
-    const { container } = render(
+    return render(
       <DispatcherProvider dispatcher={dispatcher}>
         <ExtensionSectionsProvider value={{ FormExtensionSection }}>
           <KumikoScreen
@@ -1302,6 +1303,10 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
         </ExtensionSectionsProvider>
       </DispatcherProvider>,
     );
+  }
+
+  test("mounted through KumikoScreen -> ProjectionDetailBody -> RenderEdit, the section's own form degrades to a <div> so only one <form> lands in the DOM", async () => {
+    const { container } = renderFormExtensionScreen();
 
     await waitFor(() => screen.getByTestId("nested-section-form"));
     // Structural proof of the fix: RenderEdit renders one
@@ -1314,47 +1319,12 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
 
   test("clicking the nested section's own submit button dispatches its write, even though FormRoot degraded its <Form> to a <div>", async () => {
     const writes: Array<{ type: string; payload: unknown }> = [];
-    const extensionScreen: ProjectionDetailScreenDefinition = {
-      ...detailScreen,
-      layout: {
-        sections: [
-          ...detailScreen.layout.sections,
-          {
-            kind: "extension",
-            title: "Note",
-            component: { react: { __component: "FormExtensionSection" } },
-            entityName: "user-session",
-          },
-        ],
-      },
-    };
-    const extensionSchema: FeatureSchema = {
-      featureName: "sessions",
-      entities: {},
-      screens: [extensionScreen],
-    };
-    const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
-        isSuccess: true,
-        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
+    renderFormExtensionScreen({
       write: (async (type: string, payload: unknown) => {
         writes.push({ type, payload });
         return { isSuccess: true, data: {} };
       }) as unknown as Dispatcher["write"],
     });
-
-    render(
-      <DispatcherProvider dispatcher={dispatcher}>
-        <ExtensionSectionsProvider value={{ FormExtensionSection }}>
-          <KumikoScreen
-            schema={extensionSchema}
-            qn="sessions:screen:session-detail"
-            entityId="sess-1"
-          />
-        </ExtensionSectionsProvider>
-      </DispatcherProvider>,
-    );
 
     await waitFor(() => screen.getByTestId("nested-section-submit"));
     fireEvent.click(screen.getByTestId("nested-section-submit"));
@@ -1378,43 +1348,7 @@ describe("KumikoScreen / projectionDetail extension section with its own <form> 
   // cannot tell the two apart: RenderEdit's own handleSubmit is a no-op for
   // this readOnly projectionDetail screen either way).
   test("clicking the nested section's own submit button does not also fire a native submit on the outer host <form>", async () => {
-    const extensionScreen: ProjectionDetailScreenDefinition = {
-      ...detailScreen,
-      layout: {
-        sections: [
-          ...detailScreen.layout.sections,
-          {
-            kind: "extension",
-            title: "Note",
-            component: { react: { __component: "FormExtensionSection" } },
-            entityName: "user-session",
-          },
-        ],
-      },
-    };
-    const extensionSchema: FeatureSchema = {
-      featureName: "sessions",
-      entities: {},
-      screens: [extensionScreen],
-    };
-    const dispatcher: Dispatcher = createMockDispatcher({
-      query: (async () => ({
-        isSuccess: true,
-        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
-      })) as unknown as Dispatcher["query"],
-    });
-
-    const { container } = render(
-      <DispatcherProvider dispatcher={dispatcher}>
-        <ExtensionSectionsProvider value={{ FormExtensionSection }}>
-          <KumikoScreen
-            schema={extensionSchema}
-            qn="sessions:screen:session-detail"
-            entityId="sess-1"
-          />
-        </ExtensionSectionsProvider>
-      </DispatcherProvider>,
-    );
+    const { container } = renderFormExtensionScreen();
 
     await waitFor(() => screen.getByTestId("nested-section-submit"));
     const outerForm = container.querySelector('[data-testid="render-edit-form"]');
