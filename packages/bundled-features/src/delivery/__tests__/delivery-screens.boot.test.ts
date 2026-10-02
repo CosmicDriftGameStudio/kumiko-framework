@@ -56,6 +56,27 @@ describe("delivery screens + handler access alignment", () => {
     );
   });
 
+  test("collectChannels rejects an unknown mode and a non-function render", () => {
+    const channelBase = {
+      resolve: async () => null,
+      send: async () => ({ success: true }),
+    };
+    for (const [name, options] of [
+      ["bad-mode", { ...channelBase, mode: "async" }],
+      ["no-mode", { ...channelBase, mode: undefined }],
+      ["bad-render", { ...channelBase, mode: "queued", render: "x" }],
+    ] as const) {
+      const broken = defineFeature(`broken-${name}`, (r) => {
+        // @ts-expect-error deliberately malformed options (JS consumer / cast)
+        r.useExtension(DELIVERY_CHANNEL_EXTENSION, name, options);
+      });
+      const registry = createRegistry([...features, broken]);
+      expect(() => collectChannels(registry)).toThrow(
+        `registration for "${name}" has invalid options`,
+      );
+    }
+  });
+
   test("boot-validates with a narrowed access option", () => {
     expect(() =>
       validateBoot([

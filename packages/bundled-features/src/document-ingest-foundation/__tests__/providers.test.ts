@@ -22,6 +22,7 @@ import {
   EXT_DOCUMENT_INGEST_PROVIDER,
   listIngestibleMimeTypes,
   resolveDocumentIngestProviders,
+  UNCLAIMED_PROVIDER_SENTINEL,
 } from "../providers.js";
 
 function makeProviderFeature(name: string, options: DocumentIngestProviderOptions) {
@@ -52,6 +53,15 @@ describe("resolveDocumentIngestProviders", () => {
     expect(resolved.size).toBe(2);
     expect(resolved.get("application/pdf")).toEqual({ name: "alpha", maxFileBytes: 1000 });
     expect(resolved.get("image/png")).toEqual({ name: "alpha", maxFileBytes: 1000 });
+  });
+
+  test("a provider named like the legacy-event sentinel is rejected as reserved", () => {
+    const feature = makeProviderFeature(UNCLAIMED_PROVIDER_SENTINEL, {
+      mimeTypes: ["application/pdf"],
+      maxFileBytes: 1000,
+    });
+
+    expect(() => resolveDocumentIngestProviders(feature.extensionUsages)).toThrow(/reserved/);
   });
 
   test("two providers claiming the same mimeType throws", () => {

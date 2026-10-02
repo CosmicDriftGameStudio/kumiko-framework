@@ -477,6 +477,21 @@ describe("renderImage — overlays", () => {
     );
   });
 
+  test("a non-finite marginPct throws instead of reaching sharp", async () => {
+    const input = await jpegFixture(200, 200);
+    const layer: ResolvedOverlayLayer = {
+      kind: "image",
+      imageBase64: await tinyImageOverlayBase64(10, 10, { r: 1, g: 1, b: 1 }),
+      widthPct: 0.2,
+      marginPct: Number.NaN,
+      gravity: "north-west",
+    };
+
+    await expect(renderImage(input, { resolvedOverlays: [layer] }, "image/jpeg")).rejects.toThrow(
+      /marginPct/,
+    );
+  });
+
   test("a qr data length beyond MAX_QR_DATA_LENGTH throws", async () => {
     const input = await jpegFixture(200, 200);
     const layer: ResolvedOverlayLayer = {

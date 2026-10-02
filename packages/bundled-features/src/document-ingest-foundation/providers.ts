@@ -27,6 +27,10 @@ export type ResolvedDocumentIngestProvider = {
   readonly maxFileBytes: number;
 };
 
+// Stamped on upcast v1 documentIngest.requested events; a provider may not
+// claim it, or replayed v1 events would route to that provider.
+export const UNCLAIMED_PROVIDER_SENTINEL = "unknown";
+
 type ExtensionUsages = FeatureDefinition["extensionUsages"];
 
 // Throws on an invalid options shape or two providers claiming the same
@@ -37,6 +41,11 @@ export function resolveDocumentIngestProviders(
   const byMime = new Map<string, ResolvedDocumentIngestProvider>();
   for (const usage of usages) {
     if (usage.extensionName !== EXT_DOCUMENT_INGEST_PROVIDER) continue;
+    if (usage.entityName === UNCLAIMED_PROVIDER_SENTINEL) {
+      throw new Error(
+        `document-ingest-foundation: provider name "${UNCLAIMED_PROVIDER_SENTINEL}" is reserved for upcast legacy events.`,
+      );
+    }
     const parsed = documentIngestProviderOptionsSchema.safeParse(usage.options);
     if (!parsed.success) {
       throw new Error(

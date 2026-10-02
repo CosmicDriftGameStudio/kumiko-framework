@@ -299,7 +299,10 @@ function assertOverlayLayerBounds(layer: ResolvedOverlayLayer): void {
       `derivatives-sharp: overlay widthPct ${layer.widthPct} is out of range — must be a finite number in (0, 1].`,
     );
   }
-  if (layer.marginPct !== undefined && (layer.marginPct < 0 || layer.marginPct >= 0.5)) {
+  if (
+    layer.marginPct !== undefined &&
+    (!Number.isFinite(layer.marginPct) || layer.marginPct < 0 || layer.marginPct >= 0.5)
+  ) {
     throw new Error(
       `derivatives-sharp: overlay marginPct ${layer.marginPct} is out of range — must be within [0, 0.5).`,
     );
