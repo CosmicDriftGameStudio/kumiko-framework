@@ -864,6 +864,7 @@ describe("updateMemberRoles — TenantAdmin session-scoped path and safety gates
       TestUsers.systemAdmin,
     );
     expectErrorIncludes(err, "last_tenant_admin");
+    expectErrorIncludes(err, "cannot remove the last tenant admin");
 
     const rows = await selectMany(stack.db, tenantMembershipsTable, {
       userId: tenantAdminAId,

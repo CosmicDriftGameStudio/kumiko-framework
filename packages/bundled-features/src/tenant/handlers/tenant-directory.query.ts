@@ -16,10 +16,16 @@ import { isSystemAdmin } from "./is-system-admin.js";
 // them; a TenantAdmin only ever sees their own tenant.
 // ponytail: capped at `limit` (200 list lookup, 50 combobox) like every
 // reference lookup; beyond that the cell falls back to the raw id.
+// A search filters in memory over a bounded scan so the combobox can reach
+// tenants beyond the first `limit`; the cap keeps it from reading every tenant.
+const SEARCH_SCAN_CAP = 1000;
+
 export const tenantDirectoryQuery = definePagedQueryHandler({
   name: "tenantDirectory",
   schema: z.object({
     limit: z.number().int().min(1).max(MAX_LIST_LIMIT).default(MAX_LIST_LIMIT),
+    // Sent by the reference combobox while the user types.
+    search: z.string().trim().min(1).optional(),
   }),
   access: { roles: access.admin },
   description:
@@ -32,22 +38,28 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
           "tenant:query:tenant-directory requires ctx.systemDb — is r.systemScope() still set on the tenant feature?",
       });
     }
-    const { limit } = query.payload;
+    const { limit, search } = query.payload;
+    const scanLimit = search === undefined ? limit : SEARCH_SCAN_CAP;
     let tenants: readonly { id: unknown; name?: unknown }[];
     if (isSystemAdmin(query.user)) {
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as tenant:query:tenant:list did",
       );
-      tenants = await selectMany(db, tenantTable, undefined, { limit });
+      tenants = await selectMany(db, tenantTable, undefined, { limit: scanLimit });
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
       const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });
       tenants = row ? [row] : [];
     }
-    const rows = tenants.map((tenant) => {
+    const labeled = tenants.map((tenant) => {
       const id = String(tenant.id);
       return { id, label: typeof tenant.name === "string" ? tenant.name : id };
     });
+    const needle = search?.toLowerCase();
+    const rows =
+      needle === undefined
+        ? labeled
+        : labeled.filter((row) => row.label.toLowerCase().includes(needle)).slice(0, limit);
     return { rows, nextCursor: null };
   },
 });

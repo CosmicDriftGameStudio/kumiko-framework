@@ -202,15 +202,14 @@ export function createTierEngineFeature<
     r.writeHandler(
       defineEntityCreateHandler("tier-assignment", tierAssignmentEntity, {
         ...writeAccess,
-        description:
-          "Creates the tier-assignment row of the caller's tenant with a tier name and its source; prefer `set-tenant-tier`, which upserts and refreshes the feature gate.",
+        // Bypasses the feature-gate refresh that set-tenant-tier performs.
+        agent: { expose: false },
       }),
     );
     r.writeHandler(
       defineEntityUpdateHandler("tier-assignment", tierAssignmentEntity, {
         ...writeAccess,
-        description:
-          "Updates an existing tier-assignment row by id; prefer `set-tenant-tier`, which resolves the tenant's row itself and refreshes the feature gate.",
+        agent: { expose: false },
       }),
     );
 

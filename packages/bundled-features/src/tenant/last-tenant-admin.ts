@@ -16,6 +16,7 @@ export async function assertNotLastTenantAdmin(
   db: TenantDb,
   tenantId: string,
   userId: string,
+  action: "demote" | "remove" = "demote",
 ): Promise<ReturnType<typeof writeFailure> | undefined> {
   await acquireNamespacedAdvisoryLock(db, LAST_TENANT_ADMIN_LOCK_NAMESPACE, tenantId);
   const allMemberships = await selectMany(db, tenantMembershipsTable, { tenantId });
@@ -25,8 +26,11 @@ export async function assertNotLastTenantAdmin(
   if (adminCount <= 1) {
     return writeFailure(
       new ConflictError({
-        message: "cannot demote the last tenant admin",
-        i18nKey: "tenant.errors.cannotDemoteLastTenantAdmin",
+        message: `cannot ${action} the last tenant admin`,
+        i18nKey:
+          action === "remove"
+            ? "tenant.errors.cannotRemoveLastTenantAdmin"
+            : "tenant.errors.cannotDemoteLastTenantAdmin",
         details: {
           reason: TenantErrors.lastTenantAdmin,
           userId,

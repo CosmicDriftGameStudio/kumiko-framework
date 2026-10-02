@@ -36,10 +36,13 @@ function tenantAdmin(userId: string): SessionUser {
   return { id: userId, tenantId: ownTenantId, roles: ["TenantAdmin"] };
 }
 
-async function queryDirectory(caller: SessionUser): Promise<readonly DirectoryRow[]> {
+async function queryDirectory(
+  caller: SessionUser,
+  payload: Record<string, unknown> = {},
+): Promise<readonly DirectoryRow[]> {
   const result = await stack.http.queryOk<{ rows: readonly DirectoryRow[] }>(
     TenantQueries.tenantDirectory,
-    {},
+    payload,
     caller,
   );
   return result.rows;
@@ -104,6 +107,21 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
     const labelById = new Map(rows.map((row) => [String(row["id"]), row["label"]]));
     expect(labelById.get(ownTenantId)).toBe("Own Tenant");
     expect(labelById.get(foreignTenantId)).toBe("Foreign Tenant");
+  });
+
+  test("a SystemAdmin search narrows the labels case-insensitively", async () => {
+    const { id: operatorId } = await seedUser(stack.db, {
+      email: "search-operator@example.com",
+      displayName: "Search Operator",
+      emailVerified: true,
+    });
+
+    const rows = await queryDirectory(
+      { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
+      { search: "foreign" },
+    );
+
+    expect(rows).toEqual([{ id: foreignTenantId, label: "Foreign Tenant" }]);
   });
 
   test("a plain member without an admin role is refused", async () => {

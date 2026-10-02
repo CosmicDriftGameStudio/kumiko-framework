@@ -11,7 +11,7 @@ import {
   type WriteErrorInfo,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
+import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
@@ -39,7 +39,13 @@ export const createWrite = defineWriteHandler({
     email: z.email(),
     passwordHash: z.string().optional(),
     displayName: z.string().min(1).max(100),
-    locale: z.string().min(2).max(10).refine(isValidLocaleTag, "invalid locale tag").optional(),
+    locale: z
+      .string()
+      .min(2)
+      .max(10)
+      .refine(isValidLocaleTag, "invalid locale tag")
+      .transform(canonicalizeLocaleTag)
+      .optional(),
     timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
     // Field-level write access (privileged) is defense-in-depth — create is
     // already system/SystemAdmin-only.
