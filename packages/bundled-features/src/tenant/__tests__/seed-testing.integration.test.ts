@@ -108,6 +108,28 @@ describe("seedTenant", () => {
   });
 });
 
+describe("seedTenant — concurrent create for the same id", () => {
+  // The losing creates see stream version 0 at the pre-check and only learn
+  // about the winner via version_conflict from create(); that must resolve to
+  // the id, not throw, and leave exactly one created event.
+  test("parallel seeds all resolve with the id and write exactly one tenant.created event", async () => {
+    for (let round = 0; round < 5; round++) {
+      const id = crypto.randomUUID() as TenantId;
+      const results = await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+          seedTenant(stack.db, { id, key: `race-${round}-${i}`, name: `Race ${round}-${i}` }),
+        ),
+      );
+      expect(results.map((r) => r.id)).toEqual(Array.from({ length: 8 }, () => id));
+
+      const rows = await selectMany(stack.db, tenantTable, { id });
+      expect(rows).toHaveLength(1);
+      const events = await selectMany(stack.db, eventsTable, { aggregateId: id });
+      expect(events.filter((e) => e.type === "tenant.created")).toHaveLength(1);
+    }
+  });
+});
+
 describe("seedTenantMembership", () => {
   test("writes the projection row with the given userId / tenantId / roles", async () => {
     await seedTenantMembership(stack.db, {

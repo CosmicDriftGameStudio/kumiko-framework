@@ -7,11 +7,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import {
-  type SessionUser,
-  SYSTEM_TENANT_ID,
-  type TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -107,6 +103,7 @@ beforeAll(async () => {
     authConfig: {
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
+      mfaVerifyHandler: AuthMfaHandlers.verify,
       invite: {
         acceptHandler: AuthHandlers.inviteAccept,
         acceptWithLoginHandler: AuthHandlers.inviteAcceptWithLogin,
@@ -169,16 +166,6 @@ beforeEach(async () => {
 function aliceSession(): SessionUser {
   return { id: aliceId, tenantId: TENANT_A_ID, roles: ["Admin"] };
 }
-
-// auth-mfa:write:verify runs pre-session (access: { roles: ["anonymous"] }) —
-// dispatched here the same way the framework's /api/auth/mfa/verify route
-// would, with the anonymous identity. The handler derives everything it
-// needs from the challenge token, not from this actor.
-const GUEST: SessionUser = {
-  id: "anonymous",
-  tenantId: SYSTEM_TENANT_ID,
-  roles: ["anonymous"],
-};
 
 async function inviteEmail(email: string, role: string): Promise<string> {
   await stack.http.writeOk(AuthHandlers.inviteCreate, { email, role }, aliceSession());
@@ -252,7 +239,7 @@ describe("invite-accept-with-login: MFA gate", () => {
     email: string;
     password: string;
     locale?: string;
-  }): Promise<SessionUser> {
+  }): Promise<{ locale?: string }> {
     const mfaActor = createTestUser({ id: opts.actorId, tenantId: TENANT_A_ID, roles: ["User"] });
     const start = await stack.http.writeOk<{ setupToken: string; otpauthUri: string }>(
       AuthMfaHandlers.enableStart,
@@ -291,31 +278,33 @@ describe("invite-accept-with-login: MFA gate", () => {
       throw new Error("invite-accept-with-login did not return a challenge token");
     }
 
-    const verified = await stack.http.writeOk<{ session: SessionUser }>(
-      AuthMfaHandlers.verify,
-      { challengeToken: acceptBody.challengeToken, code: currentTotpCode(secret) },
-      GUEST,
-    );
-    return verified.session;
+    const verifyRes = await stack.http.raw("POST", "/api/auth/mfa/verify", {
+      challengeToken: acceptBody.challengeToken,
+      code: currentTotpCode(secret),
+    });
+    expect(verifyRes.status).toBe(200);
+    const verifyBody = (await verifyRes.json()) as { isSuccess: boolean; token: string };
+    expect(verifyBody.isSuccess).toBe(true);
+    return stack.jwt.verify(verifyBody.token);
   }
 
   test("completing the mfa/verify challenge carries the invitee's locale into the session", async () => {
-    const session = await acceptWithLoginThenVerifyMfa({
+    const claims = await acceptWithLoginThenVerifyMfa({
       actorId: 702,
       email: "mfa-locale-invitee@example.com",
       password: "mfa-locale-invitee-pw-1234",
       locale: "de-DE",
     });
-    expect(session.locale).toBe("de-DE");
+    expect(claims.locale).toBe("de-DE");
   });
 
   test("completing the mfa/verify challenge without a stored locale omits the claim", async () => {
-    const session = await acceptWithLoginThenVerifyMfa({
+    const claims = await acceptWithLoginThenVerifyMfa({
       actorId: 703,
       email: "mfa-nolocale-invitee@example.com",
       password: "mfa-nolocale-invitee-pw-1234",
     });
-    expect(session.locale).toBeUndefined();
+    expect(claims.locale).toBeUndefined();
   });
 });
 
