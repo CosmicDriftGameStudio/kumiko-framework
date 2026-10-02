@@ -703,6 +703,68 @@ describe("computeEditViewModel — embedded-list cells (#1835)", () => {
     const field = asFields(vm.sections[0]).fields[0];
     expect(field?.capture).toBeUndefined();
   });
+
+  // `images` has no `capture` on its field def (a multi-picker never opens
+  // the camera directly), so the hint stays image-only.
+  describe("images field", () => {
+    function imagesField(): EditFieldsSectionViewModel["fields"][number] | undefined {
+      const entity = {
+        fields: {
+          gallery: {
+            type: "images",
+            accept: ["image/png"],
+            maxSize: "5MB",
+            capture: "environment",
+            variants: {
+              thumb: { fit: "cover", size: { width: 128, height: 128 }, format: "webp" },
+              big: { fit: "cover", size: { width: 1024, height: 1024 }, format: "webp" },
+            },
+          },
+        },
+      } as unknown as EntityDefinition;
+
+      const vm = computeEditViewModel({
+        screen: editScreen({ sections: [{ title: "x", fields: ["gallery"] }] }),
+        entity,
+        values: {},
+        translate,
+        featureName: "orders",
+      });
+      return asFields(vm.sections[0]).fields[0];
+    }
+
+    test("is treated as a file field: upload target and accept/maxSize travel with it", () => {
+      const field = imagesField();
+      expect(field?.entityType).toBe("order");
+      expect(field?.fieldName).toBe("gallery");
+      expect(field?.accept).toEqual(["image/png"]);
+      expect(field?.maxSize).toBe("5MB");
+    });
+
+    test("imageVariant is the first declared variant", () => {
+      expect(imagesField()?.imageVariant).toBe("thumb");
+    });
+
+    test("capture is not forwarded, even if the def carries it", () => {
+      expect(imagesField()?.capture).toBeUndefined();
+    });
+
+    test("a plain file field gets upload hints but no imageVariant", () => {
+      const entity = {
+        fields: { doc: { type: "file", variants: { thumb: {} } } },
+      } as unknown as EntityDefinition;
+      const vm = computeEditViewModel({
+        screen: editScreen({ sections: [{ title: "x", fields: ["doc"] }] }),
+        entity,
+        values: {},
+        translate,
+        featureName: "orders",
+      });
+      const field = asFields(vm.sections[0]).fields[0];
+      expect(field?.fieldName).toBe("doc");
+      expect(field?.imageVariant).toBeUndefined();
+    });
+  });
 });
 
 describe("computeEditViewModel — multiSelect display/columns/maxRows passthrough", () => {

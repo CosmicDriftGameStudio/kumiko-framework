@@ -407,8 +407,7 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     },
   };
 
-  // The confirm form mounts from an async post-mint update, so its form-store subscription can
-  // still be pending when the change fires — clicking before that subscription re-renders hits a disabled submit.
+  // The submit is disabled until the code is entered; wait for it to enable before clicking.
   async function enterConfirmCodeAndSubmit(code: string): Promise<void> {
     fireEvent.change(rtlScreen.getByLabelText(/code/i), { target: { value: code } });
     await waitFor(() =>
@@ -438,6 +437,30 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     );
     const confirmCall = writeCalls.find((c) => c.command === "shop:write:token:confirm");
     expect(confirmCall?.payload).toEqual({ code: "123456", setupToken: "stok_123" });
+  });
+
+  test("the confirm submit stays disabled until the code is entered; a click before that dispatches nothing", async () => {
+    const { dispatcher, writeCalls } = stubMultiWriteDispatcher({
+      "shop:write:token:mint": { token: "kpat_secret", id: "x", setupToken: "stok_123" },
+      "shop:write:token:confirm": {},
+    });
+    renderMintScreen(dispatcher, mintScreenWithConfirm);
+    fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+    fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+
+    const submit = rtlScreen.getByTestId<HTMLButtonElement>("render-edit-submit");
+    expect(submit.disabled).toBe(true);
+    fireEvent.click(submit);
+    expect(writeCalls.map((c) => c.command)).toEqual(["shop:write:token:mint"]);
+
+    await enterConfirmCodeAndSubmit("123456");
+    await waitFor(() =>
+      expect(writeCalls.map((c) => c.command)).toEqual([
+        "shop:write:token:mint",
+        "shop:write:token:confirm",
+      ]),
+    );
   });
 
   describe("shell title of the confirm form", () => {

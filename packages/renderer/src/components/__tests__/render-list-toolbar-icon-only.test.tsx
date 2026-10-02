@@ -28,12 +28,14 @@ const TestButton: ComponentType<ButtonProps> = ({
   ariaLabel,
   title,
   size,
+  icon,
 }) => (
   <button
     type="button"
     title={title}
     data-testid={testId}
     data-size={size ?? "md"}
+    data-icon={icon}
     aria-label={ariaLabel}
     onClick={() => {
       void onClick?.();
@@ -130,6 +132,8 @@ describe("RenderList toolbar actions collapse to icon-only", () => {
       expect(button.getAttribute("aria-label")).toBe(label);
       expect(button.getAttribute("title")).toBe(label);
       expect(button.textContent).toBe("");
+      // Without the icon the collapsed button would be empty and unlabelled.
+      expect(button.getAttribute("data-icon")).toBe("archive");
     }
   });
 

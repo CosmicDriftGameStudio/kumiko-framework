@@ -40,6 +40,7 @@ function renderEditCapturingForm(
   screen: EntityEditScreenDefinition,
   extraTranslations?: TranslationsByLocale,
   hideSectionTitles = false,
+  entityId?: string,
 ): {
   captured: FormProps | undefined;
 } {
@@ -84,6 +85,7 @@ function renderEditCapturingForm(
           featureName="widgets"
           initial={{ name: "" }}
           {...(hideSectionTitles && { hideSectionTitles: true })}
+          {...(entityId !== undefined && { entityId })}
         />
       </PrimitivesProvider>
     </LocaleProvider>,
@@ -152,6 +154,58 @@ describe("RenderEdit — screen.description as form subtitle (fw#2723)", () => {
     );
 
     expect(captured && "subtitle" in captured).toBe(false);
+  });
+
+  test("tabs mode drops a description whose key is unrelated to the subtitle probe", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "widget-edit",
+      type: "entityEdit",
+      entity: "widget",
+      description: "screen:widget-edit.description",
+      layout: { mode: "tabs", sections: [{ title: "Basics", fields: ["name"] }] },
+    };
+
+    const { captured } = renderEditCapturingForm(
+      screen,
+      { "en-US": { "screen:widget-edit.description": "Widget details." } },
+      true,
+    );
+
+    expect(captured && "subtitle" in captured).toBe(false);
+  });
+
+  test("tabs mode keeps a mode-specific subtitle override when the screen has no description", () => {
+    const screen: EntityEditScreenDefinition = {
+      id: "widget-edit",
+      type: "entityEdit",
+      entity: "widget",
+      layout: { mode: "tabs", sections: [{ title: "Basics", fields: ["name"] }] },
+    };
+
+    const { captured } = renderEditCapturingForm(
+      screen,
+      {
+        "en-US": {
+          "screen:widget-edit.create.subtitle": "Create subtitle.",
+          "screen:widget-edit.edit.subtitle": "Edit subtitle.",
+        },
+      },
+      true,
+    );
+    expect(captured?.subtitle).toBe("Create subtitle.");
+
+    const edit = renderEditCapturingForm(
+      screen,
+      {
+        "en-US": {
+          "screen:widget-edit.create.subtitle": "Create subtitle.",
+          "screen:widget-edit.edit.subtitle": "Edit subtitle.",
+        },
+      },
+      true,
+      "widget-1",
+    );
+    expect(edit.captured?.subtitle).toBe("Edit subtitle.");
   });
 
   test("tabs mode keeps an explicit subtitle override that differs from the description", () => {

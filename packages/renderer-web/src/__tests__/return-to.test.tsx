@@ -102,6 +102,22 @@ const tokenTabsScreen: ScreenDefinition = {
   actions: [{ kind: "navigate", id: "tabs-action", label: "tabs-action", screen: "token-action" }],
 };
 
+// Same tabs host, but its header action opens the secretMint screen — covers
+// the mint cancel/confirm jump back onto `?tab=`.
+const tokenTabsMintScreen: ScreenDefinition = {
+  id: "token-tabs-mint",
+  type: "projectionDetail",
+  query: "tokens:query:token:detail",
+  layout: {
+    mode: "tabs",
+    sections: [
+      { id: "overview", title: "Overview", fields: ["name"] },
+      { id: "keys", title: "Keys", fields: ["name"] },
+    ],
+  },
+  actions: [{ kind: "navigate", id: "mint-action", label: "mint-action", screen: "token-create" }],
+};
+
 // A second, distinct record screen for the same entity/id — lets returnTo
 // name a record screen that is NOT the one being deleted (delete-guard test).
 // Also carries a relatedList section for the host-threading test (18/19
@@ -162,6 +178,7 @@ const schema: FeatureSchema = {
     tokenOpenScreen,
     tokenEditScreen,
     tokenTabsScreen,
+    tokenTabsMintScreen,
     tokenDetailScreen,
     tokenStatsScreen,
     adminOnlyScreen,
@@ -585,6 +602,47 @@ describe("returnTo", () => {
     expect(new URLSearchParams(window.location.search).get("tab")).toBe("keys");
   });
 
+  test("21b. projectionDetail ?tab=keys → secretMint → cancel returns to the same tab", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/token-tabs-mint/tok-1?tab=keys");
+    renderApp();
+
+    await user.click(await screen.findByTestId("render-edit-action-mint-action"));
+    expect(window.location.pathname).toBe("/token-create");
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(
+      "token-tabs-mint/tok-1?tab=keys",
+    );
+
+    await user.click(await screen.findByTestId("render-edit-cancel"));
+
+    expect(window.location.pathname).toBe("/token-tabs-mint/tok-1");
+    const restored = new URLSearchParams(window.location.search);
+    expect(restored.get("tab")).toBe("keys");
+    expect(restored.get("returnTo")).toBeNull();
+  });
+
+  test("21c. projectionDetail ?tab=keys → secretMint → confirm after reveal returns to the same tab", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/token-tabs-mint/tok-1?tab=keys");
+    renderApp();
+
+    await user.click(await screen.findByTestId("render-edit-action-mint-action"));
+    const input = (await screen.findByTestId("field-label")).querySelector(
+      "input",
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "My token" } });
+    await user.click(await waitForEnabled("render-edit-submit"));
+    await waitFor(() =>
+      expect(screen.getByTestId("kumiko-screen-secret-mint-reveal")).toBeTruthy(),
+    );
+    await user.click(screen.getByTestId("kumiko-screen-secret-mint-confirm"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/token-tabs-mint/tok-1"));
+    const restored = new URLSearchParams(window.location.search);
+    expect(restored.get("tab")).toBe("keys");
+    expect(restored.get("returnTo")).toBeNull();
+  });
+
   test("22. list with sort in the URL → create → save restores the sort", async () => {
     const user = userEvent.setup();
     window.history.replaceState(null, "", "/token-list?token-list.sort=name&token-list.dir=desc");
@@ -603,6 +661,30 @@ describe("returnTo", () => {
       target: { value: "New Token" },
     });
     await user.click(await waitForEnabled("render-edit-submit"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/token-list"));
+    const restored = new URLSearchParams(window.location.search);
+    expect(restored.get("token-list.sort")).toBe("name");
+    expect(restored.get("token-list.dir")).toBe("desc");
+    expect(restored.get("returnTo")).toBeNull();
+  });
+
+  test("22b. list with sort in the URL → open record → delete restores the sort", async () => {
+    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/token-list?token-list.sort=name&token-list.dir=desc");
+    renderApp();
+
+    await waitFor(() => expect(screen.getByText("Token 1")).toBeTruthy());
+    await user.click(await screen.findByTestId("row-tok-1-action-edit"));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/token-edit/tok-1"));
+    expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(
+      "token-list?token-list.sort=name&token-list.dir=desc",
+    );
+
+    await screen.findByTestId("field-name");
+    await user.click(screen.getByTestId("render-edit-delete"));
+    await user.click(screen.getByTestId("render-edit-delete-dialog-confirm"));
 
     await waitFor(() => expect(window.location.pathname).toBe("/token-list"));
     const restored = new URLSearchParams(window.location.search);
