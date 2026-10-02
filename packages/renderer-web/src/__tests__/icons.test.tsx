@@ -24,5 +24,7 @@ describe("Icon (fw#3056 public export)", () => {
       <Icon name="not-a-real-icon" />,
     );
     expect(container.querySelector("svg")).toBeNull();
+    expect(container.textContent).toBe("not-a-real-icon");
+    expect(container.querySelector("span")?.getAttribute("aria-hidden")).toBe("true");
   });
 });

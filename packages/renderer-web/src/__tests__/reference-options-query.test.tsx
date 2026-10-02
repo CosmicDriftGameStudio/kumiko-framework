@@ -112,4 +112,55 @@ describe("reference optionsQuery (fw#2780)", () => {
       ),
     );
   });
+
+  test("embedded-list reference cell queries the declared handler and shows its composed label", async () => {
+    const user = userEvent.setup();
+    const dispatcher = makeDispatcher();
+    const embeddedEntity = {
+      fields: {
+        leases: {
+          type: "embedded",
+          multiple: true,
+          schema: {
+            leaseId: {
+              type: "reference",
+              entity: "lease",
+              labelField: "startDate",
+              optionsQuery: "deposits:query:lease:options",
+            },
+          },
+        },
+      },
+    } as unknown as EntityDefinition;
+    const embeddedScreen: EntityEditScreenDefinition = {
+      id: "deposit-edit",
+      type: "entityEdit",
+      entity: "deposit",
+      layout: { sections: [{ fields: ["leases"] }] },
+    };
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <RenderEdit
+          screen={embeddedScreen}
+          entity={embeddedEntity}
+          featureName="deposits"
+          initial={{ leases: [{ leaseId: "" }] }}
+          customSubmit={noopSubmit}
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const cell = await waitFor(() => {
+      const found = document.querySelector("[data-cell-id] button");
+      if (found === null) throw new Error("reference cell combobox not rendered yet");
+      return found;
+    });
+    await user.click(cell);
+
+    expect(await screen.findByText("Max Nachmieter · WE-12 · Haus Ahornweg")).toBeDefined();
+    expect(dispatcher.queried).toContain("deposits:query:lease:options");
+    expect(dispatcher.queried).not.toContain("deposits:query:lease:list");
+  });
 });

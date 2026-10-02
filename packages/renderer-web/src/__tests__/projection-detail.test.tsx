@@ -9,6 +9,7 @@ import { describe, expect, test } from "bun:test";
 import type {
   ActionFormScreenDefinition,
   ProjectionDetailScreenDefinition,
+  SecretMintScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import type {
@@ -23,9 +24,11 @@ import {
   KumikoScreen,
   NavProvider,
   useDispatcher,
+  useExtensionFormSubmit,
   usePrimitives,
 } from "@cosmicdrift/kumiko-renderer";
-import type { ReactNode } from "react";
+import userEvent from "@testing-library/user-event";
+import { type ReactNode, useState } from "react";
 import { PageHeaderSlotProvider } from "../layout/page-header-slot.js";
 import { ShellHeader } from "../layout/shell-header.js";
 import { BareFormProvider } from "../primitives/index.js";
@@ -604,6 +607,95 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
 
     await waitFor(() => screen.getByTestId("session-notes"));
     expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+  });
+
+  test("a layout of only an extension section that registers with the form host still gets its Save, which runs the extension's submit", async () => {
+    const submitted: string[] = [];
+    function RegisteringNotes({ entityId }: { entityId: string | null }): ReactNode {
+      const [dirty, setDirty] = useState(false);
+      useExtensionFormSubmit({
+        dirty,
+        onSubmit: async (ctx) => {
+          submitted.push(ctx.entityId);
+          return { isSuccess: true };
+        },
+      });
+      return (
+        <button type="button" data-testid="notes-touch" onClick={() => setDirty(true)}>
+          {entityId}
+        </button>
+      );
+    }
+    const extensionOnlyScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      layout: {
+        sections: [
+          {
+            kind: "extension",
+            title: "Notes",
+            component: { react: { __component: "RegisteringNotes" } },
+            entityName: "user-session",
+          },
+        ],
+      },
+    };
+    const extensionOnlySchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [extensionOnlyScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+    });
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <ExtensionSectionsProvider value={{ RegisteringNotes }}>
+          <KumikoScreen
+            schema={extensionOnlySchema}
+            qn="sessions:screen:session-detail"
+            entityId="sess-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("notes-touch"));
+    const submit = await waitFor(() => screen.getByTestId("render-edit-submit"));
+    fireEvent.click(screen.getByTestId("notes-touch"));
+    await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+    });
+    await waitFor(() => expect(submitted).toEqual(["sess-1"]));
+  });
+
+  test("a fieldless secretMint form (not a projectionDetail) keeps its submit button enabled", async () => {
+    const fieldlessMint: SecretMintScreenDefinition = {
+      id: "mint-token",
+      type: "secretMint",
+      handler: "shop:write:token:mint",
+      fields: {},
+      layout: { sections: [{ title: "Mint", fields: [] }] },
+      reveal: { fields: [{ field: "token", label: "Token" }] },
+    };
+    const mintSchema: FeatureSchema = {
+      featureName: "shop",
+      entities: {},
+      screens: [fieldlessMint],
+    };
+
+    render(
+      <DispatcherProvider dispatcher={createMockDispatcher({})}>
+        <KumikoScreen schema={mintSchema} qn="shop:screen:mint-token" />
+      </DispatcherProvider>,
+    );
+
+    const submit = await waitFor(() => screen.getByTestId("render-edit-submit"));
+    expect((submit as HTMLButtonElement).disabled).toBe(false);
   });
 
   test("layout.mode: 'tabs' — mounts only when its tab is active, not on first render of another tab", async () => {
@@ -1700,7 +1792,7 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     expect(screen.queryByTestId("render-edit-form-actions-secondary")).toBeNull();
   });
 
-  test("switching tabs leaves the action in place — same head placement regardless of which tab is active", async () => {
+  test("initial tab: same head placement regardless of which tab the screen starts on", async () => {
     const tabsScreen: ProjectionDetailScreenDefinition = {
       ...detailScreen,
       header: { title: "userId" },
@@ -1764,5 +1856,87 @@ describe("KumikoScreen / projectionDetail header actions placement (fw#2713)", (
     expect(
       buttonOnMeta.compareDocumentPosition(fieldOnMeta) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  test("switching tabs within one mount keeps the same action node in the head and keeps an open action error", async () => {
+    const tabsScreen: ProjectionDetailScreenDefinition = {
+      ...detailScreen,
+      header: { title: "userId" },
+      layout: {
+        mode: "tabs",
+        sections: [
+          { id: "overview", title: "Session", fields: ["userId"] },
+          { id: "meta", title: "Meta", fields: ["createdAt"] },
+        ],
+      },
+      actions: [
+        {
+          kind: "navigate",
+          id: "open-user",
+          label: "sessions.detail.action.openUser",
+          screen: "user-detail",
+        },
+        {
+          id: "archive",
+          label: "sessions.detail.action.archive",
+          handler: "sessions:write:archive",
+        },
+      ],
+    };
+    const tabsSchema: FeatureSchema = {
+      featureName: "sessions",
+      entities: {},
+      screens: [tabsScreen],
+    };
+    const failingWriteDispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { userId: "user-42", createdAt: "2026-07-01T00:00:00Z" },
+      })) as unknown as Dispatcher["query"],
+      write: (async () => ({
+        isSuccess: false,
+        error: { code: "BOOM", httpStatus: 500, i18nKey: "errors.boom", message: "archive failed" },
+      })) as unknown as Dispatcher["write"],
+    });
+    function StatefulTabNav({ children }: { readonly children: ReactNode }): ReactNode {
+      const [tab, setTab] = useState<string | undefined>("overview");
+      const navApi: NavApi = {
+        route: undefined,
+        navigate: () => {},
+        replace: () => {},
+        hrefFor: () => "",
+        searchParams: tab !== undefined ? { tab } : {},
+        setSearchParams: (updates) => {
+          const next = updates["tab"];
+          setTab(next === null || next === undefined ? undefined : next);
+        },
+      };
+      return <NavProvider value={navApi}>{children}</NavProvider>;
+    }
+    const user = userEvent.setup();
+
+    render(
+      <StatefulTabNav>
+        <DispatcherProvider dispatcher={failingWriteDispatcher}>
+          <KumikoScreen schema={tabsSchema} qn="sessions:screen:session-detail" entityId="sess-1" />
+        </DispatcherProvider>
+      </StatefulTabNav>,
+    );
+    const buttonBefore = await waitFor(() => screen.getByTestId("render-edit-action-open-user"));
+    expect(screen.queryByTestId("field-createdAt")).toBeNull();
+
+    await user.click(screen.getByTestId("render-edit-action-archive"));
+    const banner = await waitFor(() => screen.getByTestId("render-edit-action-error"));
+    expect(banner.textContent).toContain("archive failed");
+
+    await user.click(screen.getByTestId("kumiko-screen-projection-detail-tabs-meta"));
+    const fieldOnMeta = await waitFor(() => screen.getByTestId("field-createdAt"));
+    expect(screen.queryByTestId("field-userId")).toBeNull();
+
+    expect(screen.getByTestId("render-edit-action-open-user")).toBe(buttonBefore);
+    expect(
+      buttonBefore.compareDocumentPosition(fieldOnMeta) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.getByTestId("render-edit-action-error").textContent).toContain("archive failed");
   });
 });
