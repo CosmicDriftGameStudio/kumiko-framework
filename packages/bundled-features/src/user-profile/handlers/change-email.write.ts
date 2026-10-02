@@ -43,6 +43,8 @@ export const changeEmailWrite = defineWriteHandler({
       "email uniqueness the same way, and writes the new email via ctx.writeAs(SYSTEM, " +
       "user:update) — field-access on passwordHash/email is privileged-only.",
   },
+  // Payload carries the current password.
+  agent: { expose: false },
   description:
     "Replaces the signed-in caller's own email address after re-checking their current password, refusing an unchanged or already-taken address and clearing the verified flag so the app can re-run email verification.",
   handler: async (event, ctx) => {

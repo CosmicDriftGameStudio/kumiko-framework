@@ -27,6 +27,8 @@ export const changePasswordWrite = defineWriteHandler({
       "and writes the new hash via ctx.writeAs(SYSTEM, user:update) — the caller's own " +
       "identity can't reach either, field-access on passwordHash is privileged-only.",
   },
+  // Payload carries the old and new password.
+  agent: { expose: false },
   description:
     "Replaces the signed-in caller's own password after re-checking the current one; use it for a self-service password change rather than the emailed reset flow.",
   handler: async (event, ctx) => {
