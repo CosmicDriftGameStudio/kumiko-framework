@@ -137,7 +137,9 @@ function loadManifestFile(
   const result = repoManifestSchema.safeParse(json);
   if (!result.success) {
     const issues = result.error.issues
-      .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
+      .map(
+        (issue) => `${issue.path.length > 0 ? issue.path.join(".") : "<root>"}: ${issue.message}`,
+      )
       .join("; ");
     throw new RepoManifestError(manifestPath, `invalid repo manifest — ${issues}`);
   }

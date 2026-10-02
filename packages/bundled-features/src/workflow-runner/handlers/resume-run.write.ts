@@ -64,7 +64,7 @@ import { getWorkflow } from "../workflow-registry.js";
 const log = createFallbackLogger("workflow-runner");
 
 const resumeRunSchema = z.object({
-  runId: z.string().min(1),
+  runId: z.string().uuid(),
   stepIndex: z.number().int().nonnegative(),
 });
 
@@ -260,6 +260,15 @@ export const resumeRunHandler: WriteHandlerDef = {
     }
 
     const { workflowName } = pending;
+    const runEvents = await ctx.loadAggregate(runId);
+
+    // Before the workflow resolution: a racing tick on an already-settled run
+    // must not append run-failed after run-completed when the definition has
+    // since changed or been removed.
+    if (isRunAlreadySettled(runEvents, stepIndex, pending.retryAttempt ?? undefined)) {
+      return { isSuccess: true, data: { outcome: "already-resumed" as const } };
+    }
+
     const resolved = resolveRunnableWorkflow(
       workflowName,
       runId,
@@ -271,12 +280,6 @@ export const resumeRunHandler: WriteHandlerDef = {
       return { isSuccess: true, data: { outcome: "failed" as const } };
     }
     const workflow = resolved.workflow;
-
-    const runEvents = await ctx.loadAggregate(runId);
-
-    if (isRunAlreadySettled(runEvents, stepIndex, pending.retryAttempt ?? undefined)) {
-      return { isSuccess: true, data: { outcome: "already-resumed" as const } };
-    }
 
     const claim = await ctx.tryAppendEvent({
       aggregateId: runId,

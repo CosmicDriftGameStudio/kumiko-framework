@@ -67,6 +67,7 @@ function harness(
     readonly repoMissing?: boolean;
     readonly appSchemaMissing?: boolean;
     readonly guardsLoadError?: Error;
+    readonly schemaLoadError?: Error;
     readonly exitCodes?: Partial<Record<"guards" | "ui" | "checks" | "schema", number>>;
   } = {},
 ): Harness {
@@ -127,7 +128,10 @@ function harness(
         if (options.guardsLoadError) throw options.guardsLoadError;
         return guardsCli;
       },
-      loadSchemaCli: async () => schemaCli,
+      loadSchemaCli: async () => {
+        if (options.schemaLoadError) throw options.schemaLoadError;
+        return schemaCli;
+      },
     },
   };
 }
@@ -195,6 +199,19 @@ describe("kumiko check", () => {
     const h = harness({ exitCodes: { schema: 1 } });
     expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(1);
     expect(h.calls.guards).toEqual([[]]);
+  });
+
+  test("a throwing boot step counts as a failure and the remaining suites still run", async () => {
+    const h = harness({ schemaLoadError: new Error("schema import exploded") });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(1);
+    expect(h.errs.join("\n")).toContain("schema import exploded");
+    expect(h.calls.guards).toEqual([[]]);
+    expect(h.calls.checks).toEqual([[]]);
+  });
+
+  test("--explain propagates a failing guards explain exit code", async () => {
+    const h = harness({ exitCodes: { guards: 2 } });
+    expect(await runCheck({ argv: ["--explain"], cwd: h.cwd, out: h.out }, h.deps)).toBe(2);
   });
 
   test("--explain prints the step list, scans nothing but the guards' own explain", async () => {

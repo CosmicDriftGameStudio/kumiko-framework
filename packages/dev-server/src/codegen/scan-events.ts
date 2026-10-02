@@ -90,13 +90,12 @@ export type SchemaSource =
       readonly generatedConstName: string;
     };
 
-export type ScanWarning = {
-  /** Absent for warnings that aren't tied to a scanned source line
-   *  (e.g. a codegen-level warning about a missing manifest file). */
-  readonly file?: string;
-  readonly line?: number;
-  readonly message: string;
-};
+/** `file` + `line` come as a pair; the location-less variant covers warnings
+ *  that aren't tied to a scanned source line (e.g. a codegen-level warning
+ *  about a missing manifest file). */
+export type ScanWarning =
+  | { readonly file: string; readonly line: number; readonly message: string }
+  | { readonly file?: undefined; readonly line?: undefined; readonly message: string };
 
 export type ScanResult = {
   readonly events: readonly ScannedEvent[];
@@ -461,7 +460,7 @@ function looksLikeZodCall(call: CallExpression): boolean {
   // Walk the callee head — `z.something(...)` or `z.something.foo(...)`,
   // anything that traces back to an Identifier `z`. Conservative: we
   // don't try to verify it's the actual zod-import (the runtime check
-  // happens through the schemas-file's `import { z } from "zod"` anyway,
+  // happens through the schemas-file's `import * as z from "zod"` anyway,
   // which fails loudly if the user's `z` is something else).
   let cur: Node = call.getExpression();
   while (cur.asKind(SyntaxKind.PropertyAccessExpression) || cur.asKind(SyntaxKind.CallExpression)) {

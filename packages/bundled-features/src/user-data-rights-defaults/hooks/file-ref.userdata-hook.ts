@@ -10,6 +10,7 @@ import {
   type UserDataHookCtx,
   type UserDataStorageProvider,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { fileRefEntity, fileRefsTable } from "@cosmicdrift/kumiko-framework/files";
 import { assertErased } from "../../shared/index.js";
 
@@ -249,9 +250,9 @@ export const fileRefDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (storageProvider) {
     const failedKeys = await deleteBinaries(personalRows, storageProvider);
     if (failedKeys.length > 0) {
-      throw new Error(
-        `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
-      );
+      throw new InternalError({
+        message: `[user-data-rights-defaults:fileRef] ${failedKeys.length} binary delete(s) failed — aborting forget so the rows are retried next run (keys: ${failedKeys.join(", ")})`,
+      });
     }
   } else {
     // No warn-once guard: a forget-cleanup cron runs rarely enough (not a hot

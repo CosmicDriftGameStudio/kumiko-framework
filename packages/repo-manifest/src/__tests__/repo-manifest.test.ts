@@ -68,6 +68,11 @@ describe("loadRepoManifest", () => {
     expectErrorIncludes(root, "kind");
   });
 
+  test("a non-object root is reported as <root>, not an empty path", () => {
+    writeRaw(root, "[]");
+    expectErrorIncludes(root, "invalid repo manifest — <root>:");
+  });
+
   test("invalid kind is rejected", () => {
     writeManifest(root, {
       kind: "enterprise",
