@@ -18,12 +18,21 @@ export function isValidLocaleTag(value: string): boolean {
   return value.length <= MAX_LOCALE_TAG_LENGTH && LOCALE_TAG_RE.test(value);
 }
 
-/** BCP-47 is case-insensitive; canonicalize the primary subtag to lowercase
- *  so registry lookups (`mailT`, `hasMailTranslations`) hit registered keys. */
+/** BCP-47 is case-insensitive; canonicalize to the RFC 5646 conventional form
+ *  (`de-AT`, `zh-Hant-TW`) so registry lookups (`mailT`, `hasMailTranslations`)
+ *  hit registered keys regardless of header casing. */
 export function canonicalizeLocaleTag(tag: string): string {
-  const dash = tag.indexOf("-");
-  if (dash === -1) return tag.toLowerCase();
-  return `${tag.slice(0, dash).toLowerCase()}${tag.slice(dash)}`;
+  return tag
+    .split("-")
+    .map((subtag, index) => {
+      if (index === 0) return subtag.toLowerCase();
+      if (/^[A-Za-z]{2}$/.test(subtag)) return subtag.toUpperCase();
+      if (/^[A-Za-z]{4}$/.test(subtag)) {
+        return subtag.charAt(0).toUpperCase() + subtag.slice(1).toLowerCase();
+      }
+      return subtag.toLowerCase();
+    })
+    .join("-");
 }
 
 type AcceptLanguageCandidate = { readonly tag: string; readonly q: number; readonly index: number };

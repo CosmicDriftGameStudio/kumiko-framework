@@ -3,7 +3,15 @@ import type { Registry } from "../../engine/types/index.js";
 import { makeFileProviderResolver } from "../provider-resolver.js";
 import type { FileStorageProvider } from "../types.js";
 
-const fakeProvider = { name: "fake" } as unknown as FileStorageProvider;
+const fakeProvider: FileStorageProvider = {
+  write: async () => {},
+  writeStream: async () => {},
+  read: async () => new Uint8Array(),
+  readStream: async function* () {},
+  delete: async () => {},
+  exists: async () => false,
+  list: async () => [],
+};
 
 function fakeRegistry(): Registry {
   return {
@@ -66,5 +74,20 @@ describe("makeFileProviderResolver — per-tenant cache", () => {
     await expect(resolver("tenant-a" as never)).rejects.toThrow("transient failure");
     const second = await resolver("tenant-a" as never);
     expect(second).toBe(fakeProvider);
+  });
+
+  test("a plugin whose built provider lacks list() fails loud instead of surfacing as a bucket-permission error later", async () => {
+    const { list: _omitted, ...withoutList } = fakeProvider;
+    const resolver = makeFileProviderResolver({
+      registry: {
+        getExtensionUsages: () => [
+          { entityName: "fake", options: { build: async () => withoutList } },
+        ],
+      } as unknown as Registry,
+      _configAccessorFactory: () => async (_key: unknown) => "fake",
+      db: {} as never,
+    });
+
+    await expect(resolver("tenant-a" as never)).rejects.toThrow("required method list()");
   });
 });

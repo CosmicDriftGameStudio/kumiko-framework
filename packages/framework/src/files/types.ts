@@ -250,6 +250,15 @@ export function validateFileContent(
 ): FileContentValidationResult {
   const ext = extractExtension(fileName);
   if (!ext) return { kind: "ok" };
+  // validateFile accepts aliased declared MIMEs (csv as vnd.ms-excel) on
+  // metadata alone, so the byte check has to live on this exported path too:
+  // a text-format extension with an alias must never carry a binary signature.
+  if (Object.hasOwn(EXTENSION_MIME_ALIASES, ext) && sniffMimeType(content) !== null) {
+    return {
+      kind: "rejected",
+      error: `content_mismatch: ".${ext}" upload bytes are a binary format`,
+    };
+  }
   const signatureMimeTypes = signatureMimeTypesForExtension(ext);
   if (signatureMimeTypes.length === 0) return { kind: "ok" };
   const sniffed = sniffMimeType(content);
@@ -320,9 +329,16 @@ export function buildStorageKey(
   return `${tenantId}/${entityType}/${entityId}/${fieldName}/${uniqueId}.${ext}`;
 }
 
+const EXPORTS_PREFIX_SEGMENT = "exports";
+
 /** Fixed leading segment so one S3 lifecycle rule (Prefix: "exports/") can expire export bundles for every tenant without matching a buildStorageKey() upload. */
 export function tenantExportPrefix(tenantId: TenantId): string {
-  return `exports/${tenantId}/`;
+  // A tenant named like the reserved segment would make the sweep prefix
+  // "exports/" match every tenant's export bundles.
+  if (tenantId === EXPORTS_PREFIX_SEGMENT) {
+    throw new Error(`tenantId "${tenantId}" collides with the reserved storage segment`);
+  }
+  return `${EXPORTS_PREFIX_SEGMENT}/${tenantId}/`;
 }
 
 /**

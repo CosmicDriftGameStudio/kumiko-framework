@@ -42,6 +42,11 @@ describe("tenant storage prefixes", () => {
     expect(prefix.endsWith("/")).toBe(true);
   });
 
+  test("a tenant named like the reserved exports segment is rejected", () => {
+    expect(() => tenantExportPrefix("exports" as never)).toThrow();
+    expect(() => tenantStoragePrefixes("exports" as never)).toThrow();
+  });
+
   test("tenantStoragePrefixes covers both the upload layout and the export layout", () => {
     const prefixes = tenantStoragePrefixes(tenant);
     expect(prefixes).toContain("T1/");

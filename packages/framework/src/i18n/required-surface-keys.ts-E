@@ -7,14 +7,22 @@ import {
   sectionFieldSpecs,
 } from "../engine/screen-helpers.js";
 import type {
+  ActionFormScreenDefinition,
+  ConfigEditScreenDefinition,
   DashboardFilterDefinition,
   DashboardPanelDefinition,
   DashboardScreenDefinition,
+  EntityEditScreenDefinition,
   EntityListExpandableRow,
+  EntityListScreenDefinition,
   FeatureDefinition,
   NavDefinition,
+  ProjectionDetailScreenDefinition,
+  ProjectionListScreenDefinition,
   RowAction,
   ScreenDefinition,
+  SecretMintScreenDefinition,
+  SecretsEditScreenDefinition,
   ToolbarAction,
   WorkspaceDefinition,
 } from "../engine/types/index.js";
@@ -80,11 +88,10 @@ function editFieldName(f: string | { readonly field: string }): string {
 // Group titles are translated exactly like the section title (computeEditViewModel).
 function pushSectionTitles(
   out: Set<string>,
-  section: { readonly title?: string; readonly subtitle?: string } & FieldsOrGroupsSection,
+  section: { readonly title?: string } & FieldsOrGroupsSection,
   treatAsKey = false,
 ): void {
   pushKey(out, section.title, treatAsKey);
-  pushKey(out, section.subtitle, treatAsKey);
   for (const group of section.groups ?? []) pushKey(out, group.title, treatAsKey);
 }
 
@@ -93,10 +100,6 @@ function pushRowActionKeys(out: Set<string>, action: RowAction): void {
   if (action.kind === "writeHandler" || action.kind === undefined) {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
-  }
-  if (action.kind === "drawer") {
-    pushKey(out, action.title);
-    pushKey(out, action.subtitle);
   }
 }
 
@@ -146,12 +149,9 @@ function pushToolbarActionKeys(out: Set<string>, action: ToolbarAction): void {
     pushKey(out, action.confirm);
     pushKey(out, action.confirmLabel);
   }
-  // drawer-kind carries no confirm/confirmLabel — action.label is the
-  // toolbar button and the Drawer title unless `title` overrides it.
-  if (action.kind === "drawer") {
-    pushKey(out, action.title);
-    pushKey(out, action.subtitle);
-  }
+  // drawer-kind carries no confirm/confirmLabel — action.label (the
+  // toolbar button AND the Drawer title, see ToolbarDrawerHost) is
+  // already pushed above.
 }
 
 function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpandableRow): void {
@@ -192,7 +192,7 @@ export function requiredKeysFromScreen(
 
   switch (screen.type) {
     case "entityList": {
-      const list = screen;
+      const list = screen as EntityListScreenDefinition;
       for (const col of list.columns) {
         const normalized = normalizeListColumn(col);
         if (normalized.label !== undefined) {
@@ -209,7 +209,7 @@ export function requiredKeysFromScreen(
       break;
     }
     case "projectionList": {
-      const list = screen;
+      const list = screen as ProjectionListScreenDefinition;
       // Keine Entity → keine field-label-Fallbacks; nur explizite Column-Labels.
       for (const col of list.columns) {
         const normalized = normalizeListColumn(col);
@@ -222,13 +222,12 @@ export function requiredKeysFromScreen(
       break;
     }
     case "dashboard": {
-      pushDashboardScreenKeys(out, screen);
+      pushDashboardScreenKeys(out, screen as DashboardScreenDefinition);
       break;
     }
     case "entityEdit": {
-      const edit = screen;
+      const edit = screen as EntityEditScreenDefinition;
       pushKey(out, edit.submitLabel);
-      pushKey(out, edit.titleTemplate);
       for (const section of edit.layout.sections) {
         if (isExtensionEditSection(section)) {
           pushKey(out, section.title);
@@ -246,11 +245,10 @@ export function requiredKeysFromScreen(
       break;
     }
     case "actionForm": {
-      const form = screen;
+      const form = screen as ActionFormScreenDefinition;
       pushKey(out, form.submitLabel);
       pushKey(out, form.summary?.title);
       pushKey(out, form.summary?.subtitle);
-      for (const action of form.footerActions ?? []) pushKey(out, action.label);
       for (const fieldName of Object.keys(form.fields)) {
         const override = form.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override);
@@ -275,7 +273,7 @@ export function requiredKeysFromScreen(
     case "secretMint": {
       // Mirrors the actionForm case above (submitLabel, fields/section titles
       // via ACTION_FORM_ENTITY) plus the reveal-phase's own i18n surface.
-      const mint = screen;
+      const mint = screen as SecretMintScreenDefinition;
       pushKey(out, mint.submitLabel);
       for (const fieldName of Object.keys(mint.fields)) {
         out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
@@ -320,12 +318,8 @@ export function requiredKeysFromScreen(
       break;
     }
     case "configEdit": {
-      const config = screen;
+      const config = screen as ConfigEditScreenDefinition;
       pushKey(out, config.submitLabel);
-      pushKey(out, config.description, treatDotFormAsKey);
-      for (const key of Object.values(config.fieldDescriptions ?? {})) {
-        pushKey(out, key, treatDotFormAsKey);
-      }
       for (const fieldName of Object.keys(config.fields)) {
         const override = config.fieldLabels?.[fieldName];
         if (override !== undefined) pushKey(out, override, treatDotFormAsKey);
@@ -338,7 +332,6 @@ export function requiredKeysFromScreen(
         }
         if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
         pushSectionTitles(out, section, treatDotFormAsKey);
-        pushKey(out, section.description, treatDotFormAsKey);
         for (const f of sectionFieldSpecs(section)) {
           const fieldName = editFieldName(f);
           const override = config.fieldLabels?.[fieldName];
@@ -349,7 +342,7 @@ export function requiredKeysFromScreen(
       break;
     }
     case "secretsEdit": {
-      const secretsEdit = screen;
+      const secretsEdit = screen as SecretsEditScreenDefinition;
       for (const key of Object.values(secretsEdit.fieldLabels))
         pushKey(out, key, treatDotFormAsKey);
       for (const key of Object.values(secretsEdit.fieldHints ?? {})) {
@@ -359,7 +352,7 @@ export function requiredKeysFromScreen(
       break;
     }
     case "projectionDetail": {
-      const detail = screen;
+      const detail = screen as ProjectionDetailScreenDefinition;
       for (const section of detail.layout.sections) {
         if (isExtensionEditSection(section)) {
           pushKey(out, section.title);
@@ -367,10 +360,6 @@ export function requiredKeysFromScreen(
         }
         if (section.kind === "relatedList") {
           pushRelatedListSectionKeys(out, section);
-          if (section.groupBy !== undefined) {
-            pushKey(out, section.groupBy.label);
-            for (const label of Object.values(section.groupBy.labels ?? {})) pushKey(out, label);
-          }
           continue;
         }
         if (isWriteFormEditSection(section)) {

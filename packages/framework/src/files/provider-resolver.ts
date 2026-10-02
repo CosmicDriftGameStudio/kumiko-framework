@@ -125,8 +125,30 @@ export async function createFileProviderForTenant(
         `extension options must be a FileProviderPlugin.`,
     );
   }
-  return usage.options.build(ctx, tenantId);
+  const built = await usage.options.build(ctx, tenantId);
+  // Extension payloads are never type-checked, so a plugin predating a
+  // required method (list) would otherwise surface as a misleading
+  // "missing s3:ListBucket permission" hint during erasure.
+  for (const method of REQUIRED_PROVIDER_METHODS) {
+    if (typeof built[method] !== "function") {
+      throw new Error(
+        `${FEATURE_NAME}: provider "${provider}" built without the required method ${method}() — ` +
+          `update the file-provider plugin to the current FileStorageProvider contract.`,
+      );
+    }
+  }
+  return built;
 }
+
+const REQUIRED_PROVIDER_METHODS = [
+  "write",
+  "writeStream",
+  "read",
+  "readStream",
+  "delete",
+  "exists",
+  "list",
+] as const satisfies readonly (keyof FileStorageProvider)[];
 
 export type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 
