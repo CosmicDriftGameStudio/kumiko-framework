@@ -175,6 +175,18 @@ describe("denyQns removes a tool", () => {
     expect(manifest.handlers.map((h) => h.qn)).toContain(DENY_TEST_QN_B);
   });
 
+  test("an unknown denyQns entry throws at manifest build instead of denying nothing", () => {
+    const registry = createRegistry([buildDenyTestFeature()]);
+
+    expect(() =>
+      buildAgentManifest(registry, {
+        locale: "en",
+        roles: ["Admin"],
+        denyQns: ["deny-test:query:alpa"],
+      }),
+    ).toThrow("deny-test:query:alpa");
+  });
+
   test("denyQns passed only to buildToolCatalog still removes the tool, even though the manifest still lists the handler", () => {
     const registry = createRegistry([buildDenyTestFeature()]);
     const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });

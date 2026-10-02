@@ -14,6 +14,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { exitStatusFromChild } from "../../bin/commands/_spawn.ts";
 import { runCreate } from "../../packages/create-kumiko-app/src/index.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -123,6 +124,6 @@ const child = spawn("bun", ["dev"], {
 const forward = (sig: NodeJS.Signals) => () => child.kill(sig);
 process.on("SIGTERM", forward("SIGTERM"));
 process.on("SIGINT", forward("SIGINT"));
-child.on("exit", (code) => process.exit(code ?? 0));
+child.on("exit", (code, signal) => process.exit(exitStatusFromChild(code, signal)));
 
 

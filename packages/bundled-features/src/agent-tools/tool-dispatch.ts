@@ -1,5 +1,6 @@
 import { runAsDirectCallEntry } from "@cosmicdrift/kumiko-framework/api";
 import type { SessionUser, WriteResult } from "@cosmicdrift/kumiko-framework/engine";
+import { FILTER_OPS, isRecord } from "./filter-ops.js";
 import type { ToolDispatchDescriptor } from "./types.js";
 
 /** Narrow view of `Dispatcher` (packages/framework/src/pipeline/dispatcher.ts) — kept out of
@@ -40,16 +41,11 @@ export type ToolCallRequest = {
 const SEARCH_RESULT_LIMIT = 10;
 const DEFAULT_LIST_LIMIT = 10;
 const MAX_LIST_LIMIT = 200;
-const FILTER_OPS = ["eq", "ne", "lt", "gt", "lte", "gte", "in"] as const;
 type FilterOp = (typeof FILTER_OPS)[number];
 
 type PayloadResult =
   | { readonly ok: true; readonly value: Readonly<Record<string, unknown>> }
   | { readonly ok: false; readonly error: string };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isFilterOp(value: unknown): value is FilterOp {
   return typeof value === "string" && (FILTER_OPS as readonly string[]).includes(value);

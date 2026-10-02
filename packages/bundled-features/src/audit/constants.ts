@@ -5,7 +5,7 @@ export const AUDIT_FEATURE = "audit" as const;
 /** Literal `createdBy` written by hand-built system actors (secrets/jobs/…). */
 export const SYSTEM_ACTOR_ID = "system" as const;
 
-/** Literal `createdBy` for anonymous / unauthenticated actors. */
+/** Literal `createdBy` for anonymous / unauthenticated actors. Duplicated from `/engine` on purpose: a value import would pull the engine into the client bundle; constants.test.ts guards against drift. */
 export const ANONYMOUS_USER_ID = "anonymous" as const;
 
 /** All `createdBy` values that mean "system" in the audit UI (nil-UUID from createSystemUser + literal). */
