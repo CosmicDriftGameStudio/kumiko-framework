@@ -316,8 +316,7 @@ export function createLoginHandler(opts: LoginHandlerOptions = {}) {
       const statusGate = gateEnforceAccountStatus(found);
       if (!statusGate.ok) return statusGate.result;
 
-      // Still needed for candidate ORDER (preferred tenant first) — the actual
-      // active/blocked/teardown decision comes from ctx.resolveActiveMembership below.
+      // Still needed for candidate ORDER (preferred tenant first) in gateResolveMembership.
       const memberships = (await ctx.queryAs(systemUser, TENANT_MEMBERSHIPS_QUERY, {
         userId: found.id,
       })) as Array<Membership>; // @cast-boundary db-runner

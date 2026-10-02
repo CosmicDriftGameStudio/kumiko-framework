@@ -140,8 +140,8 @@ export function createNotesHistoryFeature(
   if (opts.parents !== undefined && opts.parents.length === 0) {
     throw new Error(
       "createNotesHistoryFeature({ parents }): parents must not be an empty array — " +
-        "an empty allowlist rejects every add-note call. Omit `parents` to keep " +
-        "today's unrestricted behavior instead.",
+        "an empty allowlist rejects every add-note call. Omit `parents` to allow " +
+        "any registered entity the caller can read as a note parent.",
     );
   }
   return defineFeature(NOTES_HISTORY_FEATURE_NAME, (r) =>

@@ -49,7 +49,8 @@ export function createAddNoteHandler(
       try {
         // read_users is tenant-agnostic → ctx.db.unsafeRaw, not the tenant-scoped ctx.db.
         // Bun.SQL poisons the whole tx after any error inside it, even one that's
-        // caught — a bare try/catch here would take the note write down with it.
+        // caught — so the lookup runs in a savepoint where available, otherwise directly
+        // (pool statements are their own units).
         authorName = await runInSavepointIfSupported(
           ctx.db.unsafeRaw(READ_AUTHOR_DISPLAY_NAME_REASON),
           async (sp) => {

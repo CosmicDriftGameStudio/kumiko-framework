@@ -190,7 +190,7 @@ export const userEntity = createEntity({
       reason: "technical_reference",
     }),
   },
-  // fw#2134 — email is `personal: "self", find: "exact"`, so the column holds
+  // email is `personal: "self", find: "fuzzy"` (lookupable), so the column holds
   // per-row ciphertext: a plain unique index on it can't catch duplicates.
   // `unique: true` over a lookupable column makes buildEntityTable /
   // deriveEntityTableMeta emit a second, partial unique index over the

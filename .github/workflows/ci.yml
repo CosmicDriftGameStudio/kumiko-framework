@@ -469,16 +469,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PACKAGES_PAT || secrets.GITHUB_TOKEN }}
         run: bun "$GITHUB_WORKSPACE/scripts/ci-compact-run.ts" --label "Install" -- bun install --frozen-lockfile
 
-      # #2798: this container only exists to be measured and thrown away —
-      # durability guarantees buy nothing here but add write-path variance
+      # Same fsync-off variant as the integration job and docker-compose.yml,
+      # plus checkpoint_timeout. This container only exists to be measured
+      # and thrown away — durability guarantees buy nothing here but add write-path variance
       # (commit fsync wait, post-checkpoint full-page-write amplification)
       # that showed up as scattered p95 spikes unrelated to event-store code.
       # fsync/synchronous_commit/full_page_writes off removes that noise;
       # checkpoint_timeout keeps a time-triggered checkpoint from firing
       # mid-run (the ~5k rows this job writes never approach the default
       # max_wal_size, so a volume-triggered checkpoint isn't a factor here).
-      # Correctness jobs keep default (production) commit semantics — only
-      # this measurement job is tuned.
       - name: Start postgres
         run: |
           docker run -d --name kumiko-ci-pg -p 15432:5432 \

@@ -173,7 +173,7 @@ function renderWriteForm(
 }
 
 describe("WriteFormSection", () => {
-  test("submit button renders in the section's actions footer, not the body (fw#2675)", () => {
+  test("submit button renders in the section's title-row actions slot, not the body", () => {
     const { dispatcher } = stubDispatcher();
     renderWriteForm(noteSection, dispatcher, noop);
 

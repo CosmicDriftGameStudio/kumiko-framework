@@ -1059,8 +1059,8 @@ describe("embedded-list derived cell recomputation (kumiko-framework#1837)", () 
       },
     });
     const schema = buildInsertSchema(entity);
-    // 2400.58 - 93 = 2307.58 major units — not representable by money's
-    // integer minor-unit constraint without rounding (#1867).
+    // The derived 2400.58 - 93 = 2307.58 is not a whole number, which money's
+    // integer constraint requires, so it rounds to 2308.
     const result = schema.safeParse({ lines: [{ gross: 2400.58, refund: 93 }] });
     expect(result.success).toBe(true);
     if (result.success) {

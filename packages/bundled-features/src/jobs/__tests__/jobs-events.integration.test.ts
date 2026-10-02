@@ -34,8 +34,6 @@ beforeAll(async () => {
   testRedis = await createTestRedis();
   registry = createRegistry([createJobsFeature()]);
   await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
-  // Kept only for the negative assertion below (no jobs:event:run-* rows) —
-  // the write path itself no longer touches the event store.
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
 

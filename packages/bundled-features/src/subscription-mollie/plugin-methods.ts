@@ -62,11 +62,9 @@ export function createMollieCheckoutSession(
     }
 
     // mode "payment" (one-off top-up) → sequenceType.oneoff, no mandate
-    // setup. verify-webhook.ts's ensureSubscriptionForMandate already
-    // gates on sequenceType === "first" — a oneoff payment falls into
-    // its "not our domain" branch and creates NO Mollie subscription.
-    // Webhook resolution for oneoff payments is separate follow-up
-    // work (offlot#109), not part of this contract.
+    // setup. Oneoff payments carry no subscriptionId and are not
+    // sequenceType "first", so verifyAndParseMollieWebhook drops them before
+    // any mandate/subscription handling.
     const sequenceType = options.mode === "payment" ? SequenceType.oneoff : SequenceType.first;
 
     // payments.create ist overloaded (Promise OR void mit callback);

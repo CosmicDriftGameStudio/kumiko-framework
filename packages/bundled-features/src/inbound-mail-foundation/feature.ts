@@ -113,7 +113,7 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
   // piiFields: "none" — address/subject/snippet are already ciphertext under the tenant subject key before append (see events.ts).
   // "displayName" stays plaintext (often the mailbox owner's real name for
   // personal accounts); encrypting it would break the entity-projection read
-  // path that carries it as `personal: false` (#2776).
+  // path that carries it as `personal: false`.
   r.defineEvent(MAIL_ACCOUNT_CONNECTED_EVENT_SHORT, mailAccountEventPayloadSchema, {
     piiFields: "none",
   });
