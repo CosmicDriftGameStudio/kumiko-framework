@@ -1072,8 +1072,9 @@ describe("perTenant across multiple runner instances", () => {
       // stop() tears down consumers, so a post-finally sleep/assert races
       // on unprocessed children (fw#2556: expected 4, got 2). Snapshot
       // drainedCalls inside the predicate; do not assert a post-stop
-      // log-length ceiling — in-flight children (and sequential multi-
-      // runner stop) can still append after the snapshot.
+      // log-length ceiling against drainedCalls — in-flight children can
+      // still append after the snapshot. A ceiling against the live
+      // wrapperCalls is race-free: it is bumped before each child dispatch.
       await waitFor(
         () => {
           expect(wrapperCalls).toBeGreaterThanOrEqual(1);
@@ -1094,7 +1095,7 @@ describe("perTenant across multiple runner instances", () => {
     // It only confirms each wrapper run that did happen fanned out to
     // every tenant exactly once. Slice to the drained prefix so a late
     // tick that lands during stop() cannot break the multiset check.
-    expect(log.length).toBeGreaterThanOrEqual(drainedCalls * tenants.length);
+    expect(log.length).toBeLessThanOrEqual(wrapperCalls * tenants.length);
     const seenTenants = log
       .slice(0, drainedCalls * tenants.length)
       .map((e) => e.tenantId)
@@ -1284,7 +1285,7 @@ describe("perTenant wrapper re-run for the same trigger", () => {
       await runner.stop();
     }
 
-    expect(log.length).toBeGreaterThanOrEqual(drainedCalls * tenants.length);
+    expect(log.length).toBeLessThanOrEqual(wrapperCalls * tenants.length);
     const seenTenants = log
       .slice(0, drainedCalls * tenants.length)
       .map((e) => e.tenantId)
@@ -1441,6 +1442,29 @@ describe("boot gates", () => {
     }
   });
 
+  test("a hung gate rejects start() naming the gate once its timeout elapses", async () => {
+    let releaseGate: () => void = () => {};
+    const gateHang = new Promise<void>((resolve) => {
+      releaseGate = resolve;
+    });
+    const feature = defineFeature("hunggate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true, timeout: 150 }, async () => {
+        await gateHang;
+      });
+    });
+    const prefix = uniquePrefix();
+    const runner = createGateRunner(feature, prefix);
+    try {
+      await expect(runner.start()).rejects.toThrow(
+        /boot gate "hunggate:job:check" did not finish within 150ms/,
+      );
+    } finally {
+      releaseGate();
+      await runner.stop();
+      await purge(prefix);
+    }
+  });
+
   test("a gate with retries still sees finalAttempt on its only run", async () => {
     const seen: boolean[] = [];
     const feature = defineFeature("retrygate", (r) => {
@@ -1569,7 +1593,6 @@ describe("runner lifecycle: immediate stop (fw#1805)", () => {
     };
     process.on("unhandledRejection", onUnhandled);
     try {
-      // @timeout-exception: #1805 the 0-4ms delay is the variable under test (stop during connect), nothing to poll for
       for (let i = 0; i < 20; i++) {
         const runner = createJobRunner({
           registry: createRegistry([testFeature]),
@@ -1578,13 +1601,15 @@ describe("runner lifecycle: immediate stop (fw#1805)", () => {
           consumerLane: "worker",
           queueNamePrefix: `kumiko-test-stop-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 8)}`,
         });
-        // Deterministic 0-4ms delays hit the window where the Queue
-        // connection is still 'initializing'.
-        await sleep(i % 5);
+        // No await between construction and stop(): the Queue connection is
+        // guaranteed to still be 'initializing' here.
         await runner.stop();
       }
-      // Rejections surface on a later tick.
-      await sleep(200);
+      // Rejections surface on later event-loop turns; yield a bounded number
+      // of them instead of sleeping wall-clock time.
+      for (let turn = 0; turn < 100; turn++) {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+      }
     } finally {
       process.off("unhandledRejection", onUnhandled);
     }

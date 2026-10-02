@@ -5,8 +5,9 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createLiveDispatcher } from "@cosmicdrift/kumiko-dispatcher-live";
 import * as z from "zod";
 import { generateToken } from "../../api/tokens.js";
+import { executeRawQuery } from "../../db/queries/raw-sql.js";
 import { createSystemUser, defineFeature } from "../../engine/index.js";
-import type { SessionUser } from "../../engine/types/index.js";
+import type { EscapeHatchUseEvent, SessionUser } from "../../engine/types/index.js";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
 const user = TestUsers.user;
@@ -20,6 +21,9 @@ const otherUserWithAdminRole: SessionUser = createTestUser({
   tenantId: user.tenantId,
   roles: ["Admin"],
 });
+
+const UNSAFE_RAW_REASON = "test: stream declares unsafeRaw";
+const escapeHatchEvents: EscapeHatchUseEvent[] = [];
 
 const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
   r.queryHandler(
@@ -66,6 +70,26 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     },
   );
 
+  r.streamHandler(
+    "unsafe-raw-no-hatch",
+    z.object({}),
+    async function* (_query, ctx) {
+      const runner = ctx.db.unsafeRaw("no escapeHatch declared — must throw before this runs");
+      yield await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
+    },
+    { access: { roles: ["User"] } },
+  );
+
+  r.streamHandler(
+    "unsafe-raw-with-hatch",
+    z.object({}),
+    async function* (_query, ctx) {
+      const runner = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      yield await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
+    },
+    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
+  );
+
   // --- ctx.queryAs(nonSystemUser, ...) from a stream handler (fw#2876): a foreign
   // user needs the stream handler's escapeHatch; the target's own access rule still applies. ---
   r.streamHandler(
@@ -98,7 +122,14 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
 let stack: TestStack;
 
 beforeAll(async () => {
-  stack = await setupTestStack({ features: [streamProbeFeature] });
+  stack = await setupTestStack({
+    features: [streamProbeFeature],
+    extraContext: {
+      _escapeHatchAuditSink: async (event: EscapeHatchUseEvent) => {
+        escapeHatchEvents.push(event);
+      },
+    },
+  });
 });
 
 afterAll(async () => {
@@ -150,6 +181,46 @@ describe("ctx.queryAs(SYSTEM, ...) from a stream handler — gated by the handle
       ),
     );
     expect(chunks[0]?.roles).toContain("system");
+  });
+});
+
+describe("ctx.db.unsafeRaw() from a stream handler — gated by the handler's own escapeHatch", () => {
+  test("WITHOUT escapeHatch: fails with access_denied", async () => {
+    const dispatcher = await buildDispatcherFor(user);
+    let thrown: unknown;
+    try {
+      for await (const _ of dispatcher.stream(
+        "stream-idswitch-probe:stream:unsafe-raw-no-hatch",
+        {},
+      )) {
+        // should not yield
+      }
+    } catch (e) {
+      thrown = e;
+    }
+    expect(thrown).toMatchObject({ code: "access_denied" });
+  });
+
+  test("WITH escapeHatch: succeeds and reports one unsafe-raw audit event with the declared reason", async () => {
+    escapeHatchEvents.length = 0;
+    const dispatcher = await buildDispatcherFor(user);
+    const chunks = await collectAll(
+      dispatcher.stream<Array<{ one: number }>>(
+        "stream-idswitch-probe:stream:unsafe-raw-with-hatch",
+        {},
+      ),
+    );
+    expect(chunks[0]?.[0]?.one).toBe(1);
+    expect(
+      escapeHatchEvents
+        .filter((e) => e.kind === "unsafe-raw")
+        .map((e) => ({ handler: e.handler, reason: e.reason })),
+    ).toEqual([
+      {
+        handler: "stream-idswitch-probe:stream:unsafe-raw-with-hatch",
+        reason: UNSAFE_RAW_REASON,
+      },
+    ]);
   });
 });
 

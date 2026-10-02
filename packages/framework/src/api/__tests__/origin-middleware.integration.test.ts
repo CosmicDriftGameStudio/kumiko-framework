@@ -234,6 +234,25 @@ describe("origin-middleware + anonymousAccess: foreign-origin cookie becomes ano
     expect(await errorCode(res)).toBe("origin_not_allowed");
   });
 
+  test("no Origin + Sec-Fetch-Site: cross-site + cookie → anonymous, not 403", async () => {
+    const res = await stack.http.raw("POST", "/api/query", anonEchoQuery, {
+      Cookie: authCookie,
+      "Sec-Fetch-Site": "cross-site",
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { userId: string } };
+    expect(body.data.userId).toBe("anonymous");
+  });
+
+  test("no Origin + Sec-Fetch-Site: same-site + cookie → real user path still requires CSRF", async () => {
+    const res = await stack.http.raw("POST", "/api/write", userOnlyRoute, {
+      Cookie: authCookie,
+      "Sec-Fetch-Site": "same-site",
+    });
+    expect(res.status).toBe(403);
+    expect(await errorCode(res)).toBe("csrf_token_mismatch");
+  });
+
   test("allowed origin + cookie, no CSRF token → real user path still requires CSRF", async () => {
     const res = await stack.http.raw("POST", "/api/write", userOnlyRoute, {
       Cookie: authCookie,
