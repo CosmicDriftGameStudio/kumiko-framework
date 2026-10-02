@@ -24,8 +24,9 @@ const QUALIFIED_PARSE_RE = new RegExp(`^(${IDENT_SRC})(?:\\.(${IDENT_SRC}))?$`);
 
 // Resolve the SQL column names a table exposes, so the lint can tell a
 // real column reference apart from a table alias / function name / SQL
-// keyword. Returns an empty set when nothing is derivable (fail-open on
-// the lint itself would be worse than skipping it).
+// keyword. Returns an empty set when nothing is derivable; the column-aware
+// check then finds no bare column and is effectively skipped (only the
+// self-comparison check still applies).
 export function tableColumnSqlNames(table: unknown): ReadonlySet<string> {
   if (table === null || typeof table !== "object") return new Set();
 

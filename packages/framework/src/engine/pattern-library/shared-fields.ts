@@ -37,6 +37,25 @@ export const ID_TYPE_OPTIONS = [
   { value: "serial", label: { en: "Serial integer", de: "Serial Integer" } },
 ] as const;
 
+export const agentDescriptionField: FormFieldSpec = {
+  path: "description",
+  label: { en: "Description", de: "Beschreibung" },
+  hint: {
+    en: "Prose the AI agent sees as the tool description. Without it the handler stays invisible to the agent.",
+  },
+  input: "textarea",
+};
+
+export const agentHintsField: FormFieldSpec = {
+  path: "agent",
+  label: { en: "Agent hints", de: "Agent-Hinweise" },
+  hint: {
+    en: "expose override + risk level for the AI-agent manifest.",
+    de: "Expose-Override und Risikostufe für das KI-Agent-Manifest.",
+  },
+  input: "json-readonly",
+};
+
 export const accessRuleField: FormFieldSpec = {
   path: "access",
   label: { en: "Access", de: "Zugriff" },

@@ -1,6 +1,12 @@
 // Mixed pattern schemas (header form + opaque body source).
 
-import { accessRuleField, HOOK_TYPE_OPTIONS, HTTP_METHOD_OPTIONS } from "./shared-fields.js";
+import {
+  accessRuleField,
+  agentDescriptionField,
+  agentHintsField,
+  HOOK_TYPE_OPTIONS,
+  HTTP_METHOD_OPTIONS,
+} from "./shared-fields.js";
 import type { FormFieldSpec, PatternFormSchema } from "./types.js";
 
 // --- Mixed patterns (header form + opaque body source) --------------------
@@ -76,20 +82,8 @@ export const writeHandlerSchema: PatternFormSchema = {
       readOnly: true,
     },
     accessRuleField,
-    {
-      path: "description",
-      label: { en: "Description", de: "Beschreibung" },
-      hint: {
-        en: "Prose the AI agent sees as the tool description. Without it the handler stays invisible to the agent.",
-      },
-      input: "textarea",
-    },
-    {
-      path: "agent",
-      label: { en: "Agent hints", de: "Agent-Hinweise" },
-      hint: { en: "expose override + risk level for the AI-agent manifest." },
-      input: "json-readonly",
-    },
+    agentDescriptionField,
+    agentHintsField,
     {
       path: "rateLimit",
       label: { en: "Rate limit", de: "Rate-Limit" },
@@ -132,20 +126,8 @@ export const queryHandlerSchema: PatternFormSchema = {
       readOnly: true,
     },
     accessRuleField,
-    {
-      path: "description",
-      label: { en: "Description", de: "Beschreibung" },
-      hint: {
-        en: "Prose the AI agent sees as the tool description. Without it the handler stays invisible to the agent.",
-      },
-      input: "textarea",
-    },
-    {
-      path: "agent",
-      label: { en: "Agent hints", de: "Agent-Hinweise" },
-      hint: { en: "expose override + risk level for the AI-agent manifest." },
-      input: "json-readonly",
-    },
+    agentDescriptionField,
+    agentHintsField,
     {
       path: "rateLimit",
       label: { en: "Rate limit", de: "Rate-Limit" },
@@ -566,6 +548,16 @@ export const defineEventSchema: PatternFormSchema = {
       label: { en: "Zod schema (source)", de: "Zod-Schema (Source)" },
       input: "code-block",
       language: "zod",
+      readOnly: true,
+    },
+    {
+      path: "piiFields",
+      label: { en: "PII fields (source)", de: "PII-Felder (Source)" },
+      hint: {
+        en: 'Which payload fields are encrypted, or "none" when the event carries no PII.',
+      },
+      input: "code-block",
+      language: "typescript",
       readOnly: true,
     },
     {

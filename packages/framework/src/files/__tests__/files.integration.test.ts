@@ -362,15 +362,13 @@ describe("file validation", () => {
     });
   });
 
-  test("validateFile with accept: ['constructor'] and a matching filename never throws", () => {
-    let result: string | null = null;
-    expect(() => {
-      result = validateFile(
+  test("validateFile with accept: ['constructor'] and a matching filename passes without throwing", () => {
+    expect(
+      validateFile(
         { fileName: "x.constructor", mimeType: "application/octet-stream", size: 10 },
         { accept: ["constructor"] },
-      );
-    }).not.toThrow();
-    expect(result === null || typeof result === "string").toBe(true);
+      ),
+    ).toBeNull();
   });
 
   test("sniffMimeType recognizes doc (OLE) and docx (ZIP) signatures", () => {
