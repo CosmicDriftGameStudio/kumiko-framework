@@ -2,6 +2,13 @@ import { join } from "node:path";
 import { loadAppConfig } from "./load-app-config";
 import type { CliCommand, CliCommandContext } from "./types";
 
+const CONSUMER_SUBCOMMANDS = ["list", "status", "restart", "disable", "enable", "skip"] as const;
+type ConsumerSubcommand = (typeof CONSUMER_SUBCOMMANDS)[number];
+
+function isConsumerSubcommand(value: string | undefined): value is ConsumerSubcommand {
+  return CONSUMER_SUBCOMMANDS.some((known) => known === value);
+}
+
 export const consumerCommand: CliCommand = {
   id: "consumer",
   description: "Manage event consumers (list | status | restart | disable | enable | skip)",
@@ -9,6 +16,13 @@ export const consumerCommand: CliCommand = {
   run: async (ctx) => {
     const sub = ctx.argv[0];
     const arg = ctx.argv[1];
+
+    if (!isConsumerSubcommand(sub)) {
+      ctx.out.err("");
+      ctx.out.err(`  Usage: kumiko consumer <${CONSUMER_SUBCOMMANDS.join(" | ")}> <name>`);
+      ctx.out.err("");
+      return 1;
+    }
 
     const configPath = join(ctx.cwd, "kumiko.config.ts");
     if (!(await Bun.file(configPath).exists())) {
@@ -43,42 +57,34 @@ export const consumerCommand: CliCommand = {
     } = await import("@cosmicdrift/kumiko-framework/pipeline");
 
     const registry = createRegistry(config.features);
-    const { db, close } = createDbConnection(databaseUrl);
-    await createEventConsumerStateTable(db);
-
     const registeredConsumerNames = [
       SSE_BROADCAST_CONSUMER_NAME,
       SEARCH_CONSUMER_NAME,
       ...registry.getAllMultiStreamProjections().keys(),
     ];
-
-    const printOutcome = (prefix: string, state: { name: string; status: string }): void => {
-      ctx.out.log("");
-      ctx.out.log(`  ✓ ${prefix} ${state.name} → ${state.status}`);
-      ctx.out.log("");
-    };
+    const { db, close } = createDbConnection(databaseUrl);
 
     try {
+      await createEventConsumerStateTable(db);
       switch (sub) {
         case "list":
           return await listConsumers(ctx, db, registeredConsumerNames, listConsumersWithState);
         case "status":
           return await showConsumerStatus(ctx, db, arg, registeredConsumerNames, getConsumerState);
         case "restart":
-          return await restartOne(ctx, db, arg, restartConsumer, printOutcome);
-        case "disable":
-          return await disableOne(ctx, db, arg, disableConsumer, printOutcome);
-        case "enable":
-          return await enableOne(ctx, db, arg, enableConsumer, printOutcome);
-        case "skip":
-          return await skipOne(ctx, db, arg, skipPoisonEvent, printOutcome);
-        default:
-          ctx.out.log("");
-          ctx.out.log(
-            "  Usage: kumiko consumer <list | status | restart | disable | enable | skip> <name>",
+          return await transitionOne(ctx, "restart", arg, "restarted", (name) =>
+            restartConsumer(db, name),
           );
-          ctx.out.log("");
-          return 1;
+        case "disable":
+          return await transitionOne(ctx, "disable", arg, "disabled", (name) =>
+            disableConsumer(db, name),
+          );
+        case "enable":
+          return await transitionOne(ctx, "enable", arg, "enabled", (name) =>
+            enableConsumer(db, name),
+          );
+        case "skip":
+          return await skipOne(ctx, db, arg, skipPoisonEvent);
       }
     } catch (e) {
       ctx.out.err("");
@@ -163,43 +169,26 @@ async function showConsumerStatus(
   return 0;
 }
 
-async function restartOne(
+async function transitionOne(
   ctx: CliCommandContext,
-  db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
+  sub: string,
   arg: string | undefined,
-  restartConsumer: typeof import("@cosmicdrift/kumiko-framework/pipeline").restartConsumer,
-  printOutcome: (prefix: string, state: { name: string; status: string }) => void,
+  verb: string,
+  transition: (name: string) => Promise<{ name: string; status: string }>,
 ): Promise<number> {
-  if (!arg) return usage(ctx, "restart");
-  const state = await restartConsumer(db, arg);
-  printOutcome("restarted", state);
+  if (!arg) return usage(ctx, sub);
+  printOutcome(ctx, verb, await transition(arg));
   return 0;
 }
 
-async function disableOne(
+function printOutcome(
   ctx: CliCommandContext,
-  db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
-  arg: string | undefined,
-  disableConsumer: typeof import("@cosmicdrift/kumiko-framework/pipeline").disableConsumer,
-  printOutcome: (prefix: string, state: { name: string; status: string }) => void,
-): Promise<number> {
-  if (!arg) return usage(ctx, "disable");
-  const state = await disableConsumer(db, arg);
-  printOutcome("disabled", state);
-  return 0;
-}
-
-async function enableOne(
-  ctx: CliCommandContext,
-  db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
-  arg: string | undefined,
-  enableConsumer: typeof import("@cosmicdrift/kumiko-framework/pipeline").enableConsumer,
-  printOutcome: (prefix: string, state: { name: string; status: string }) => void,
-): Promise<number> {
-  if (!arg) return usage(ctx, "enable");
-  const state = await enableConsumer(db, arg);
-  printOutcome("enabled", state);
-  return 0;
+  prefix: string,
+  state: { name: string; status: string },
+): void {
+  ctx.out.log("");
+  ctx.out.log(`  ✓ ${prefix} ${state.name} → ${state.status}`);
+  ctx.out.log("");
 }
 
 async function skipOne(
@@ -207,7 +196,6 @@ async function skipOne(
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection,
   arg: string | undefined,
   skipPoisonEvent: typeof import("@cosmicdrift/kumiko-framework/pipeline").skipPoisonEvent,
-  printOutcome: (prefix: string, state: { name: string; status: string }) => void,
 ): Promise<number> {
   if (!arg) return usage(ctx, "skip");
   const state = await skipPoisonEvent(db, arg);
@@ -216,7 +204,7 @@ async function skipOne(
     ctx.out.log(`  ~ ${state.name}: cursor already at head — nothing to skip.`);
     ctx.out.log("");
   } else {
-    printOutcome(`skipped event ${state.skippedEventId},`, state);
+    printOutcome(ctx, `skipped event ${state.skippedEventId},`, state);
   }
   return 0;
 }
