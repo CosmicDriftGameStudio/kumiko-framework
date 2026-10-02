@@ -65,12 +65,10 @@ import { createFileContext } from "../files/file-handle.js";
 import { DEFAULT_LOCALE, isValidLocaleTag } from "../i18n/request-locale.js";
 import {
   createEscapeHatchReporter,
-  type EscapeHatchReportWindow,
-} from "../observability/escape-hatch-report.js";
-import {
   createMetricsHandle,
   createNoopMetricsHandle,
   createSafeMetricsHandle,
+  type EscapeHatchReportWindow,
   emitDispatcherError,
   emitDispatcherHandler,
   type getFallbackMeter,

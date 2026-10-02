@@ -1574,7 +1574,7 @@ describe("meta route with field-encrypted fileName", () => {
     expect(res.status).toBe(404);
   });
 
-  test("soft-deleted file's meta still 404s (executor.detail() doesn't filter isDeleted)", async () => {
+  test("soft-deleted file's meta still 404s", async () => {
     configurePiiSubjectKms(new InMemoryKmsAdapter());
 
     const uploadRes = await uploadFile(adminUser, "trashed.png", testPng, "image/png", {

@@ -57,7 +57,6 @@ export type FileRef = {
   entityId: string | null;
   fieldName: string | null;
   insertedById: string | null;
-  isDeleted: boolean;
 };
 
 // fileRef is a standard ES entity: upload/delete go through the entity
@@ -561,11 +560,10 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const row = await executor.detail({ id }, user, createTenantDb(db, user.tenantId));
     if (!row) return c.json({ error: "not_found" }, 404);
     const fileRef = row as FileRef; // @cast-boundary db-row (decrypted via executor.detail)
-    // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM)
-    // and doesn't filter isDeleted (list() does, detail() doesn't) — both
+    // detail()'s "pass"-ownership read widens to tenantId IN (self, SYSTEM),
     // narrower in loadFileForTenant's selectMany. Restore that here so meta
-    // doesn't leak reference-tenant or soft-deleted rows.
-    if (fileRef.tenantId !== user.tenantId || fileRef.isDeleted) {
+    // doesn't leak reference-tenant rows.
+    if (fileRef.tenantId !== user.tenantId) {
       return c.json({ error: "not_found" }, 404);
     }
 

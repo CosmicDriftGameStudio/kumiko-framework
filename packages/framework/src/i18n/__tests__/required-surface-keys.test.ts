@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import type { FeatureDefinition } from "../../engine/types";
 import {
   booleanFacetOptionKeys,
+  requiredKeysFromFeature,
   requiredKeysFromScreen,
   selectFacetOptionKey,
 } from "../required-surface-keys.js";
@@ -49,5 +51,50 @@ describe("requiredKeysFromScreen — entityList expandableRow", () => {
     expect(keys).toContain("campaigns:posts:mark-posted");
     expect(keys).toContain("campaigns:posts:empty");
     expect(keys).toContain("campaigns:posts:empty-hint");
+  });
+});
+
+describe("requiredKeysFromScreen — projectionDetail writeForm section", () => {
+  test("includes the section description alongside title and submit label", () => {
+    const keys = requiredKeysFromScreen("billing", {
+      id: "invoice-detail",
+      type: "projectionDetail",
+      layout: {
+        sections: [
+          {
+            kind: "writeForm",
+            title: "billing:form:title",
+            description: "billing:form:description",
+            submitLabel: "billing:form:submit",
+            handler: "billing:write:invoice:update",
+            fieldDefs: {},
+            fields: [],
+          },
+        ],
+      },
+    } as unknown as Parameters<typeof requiredKeysFromScreen>[1]);
+    expect(keys).toContain("billing:form:title");
+    expect(keys).toContain("billing:form:description");
+    expect(keys).toContain("billing:form:submit");
+  });
+});
+
+describe("requiredKeysFromFeature — filterable multiSelect facets", () => {
+  test("requires one option key per multiSelect option", () => {
+    const feature = {
+      name: "crm",
+      screens: { list: { type: "entityList", entity: "contact", columns: [] } },
+      navs: {},
+      workspaces: {},
+      configKeys: {},
+      entities: {
+        contact: {
+          fields: { tags: { type: "multiSelect", filterable: true, options: ["a", "b"] } },
+        },
+      },
+    } as unknown as FeatureDefinition;
+    const keys = requiredKeysFromFeature(feature);
+    expect(keys).toContain(selectFacetOptionKey("crm", "contact", "tags", "a"));
+    expect(keys).toContain(selectFacetOptionKey("crm", "contact", "tags", "b"));
   });
 });

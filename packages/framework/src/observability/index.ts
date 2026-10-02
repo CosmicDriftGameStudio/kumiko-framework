@@ -3,6 +3,15 @@
 export { type ConsoleProviderOptions, createConsoleProvider } from "./console-provider.js";
 
 export { observabilityContext } from "./context.js";
+export {
+  createEscapeHatchReporter,
+  createEscapeHatchReportWindow,
+  ESCAPE_HATCH_USED_SIGNAL,
+  type EscapeHatchReportWindow,
+  fallbackEscapeHatchReporter,
+  reportEscapeHatchUse,
+  UNATTRIBUTED_ACTOR,
+} from "./escape-hatch-report.js";
 export { getFallbackMeter, getFallbackProvider, getFallbackTracer } from "./fallback.js";
 export { generateSpanId, generateTraceId } from "./ids.js";
 export {

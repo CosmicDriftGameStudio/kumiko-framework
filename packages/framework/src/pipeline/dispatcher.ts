@@ -21,8 +21,8 @@ import type {
   WriteResult,
 } from "../engine/types/index.js";
 import { InternalError, reraiseAsKumikoError } from "../errors/index.js";
-import { createEscapeHatchReportWindow } from "../observability/escape-hatch-report.js";
 import {
+  createEscapeHatchReportWindow,
   getFallbackMeter,
   getFallbackTracer,
   registerStandardMetrics,

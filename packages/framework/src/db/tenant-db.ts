@@ -34,9 +34,9 @@ import {
   InternalError,
   memberResolutionReadOnlyDenied,
 } from "../errors/index.js";
-import { fallbackEscapeHatchReporter } from "../observability/escape-hatch-report.js";
 import {
   emitDbQuery,
+  fallbackEscapeHatchReporter,
   type Meter,
   registerStandardMetrics,
   type Tracer,
