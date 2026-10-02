@@ -355,6 +355,7 @@ describe("NavTree", () => {
       screens: [
         { id: "delivery-log", type: "entityList", entity: "x", columns: [] },
         { id: "profile-picker", type: "entityList", entity: "x", columns: [] },
+        { id: "cap-list", type: "entityList", entity: "x", columns: [] },
       ],
       navs: [
         { id: "delivery-log", label: "Log", screen: "delivery-log", order: 10, icon: "send" },
@@ -377,10 +378,7 @@ describe("NavTree", () => {
     const schema = {
       featureName: "showcase",
       entities: {},
-      screens: [
-        { id: "x", type: "entityList", entity: "x", columns: [] },
-        { id: "cap-list", type: "entityList", entity: "x", columns: [] },
-      ],
+      screens: [{ id: "x", type: "entityList", entity: "x", columns: [] }],
       navs: [
         {
           id: "x",

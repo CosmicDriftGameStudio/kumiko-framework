@@ -980,13 +980,12 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
     expect(dispatcher.calls).toHaveLength(1);
   });
 
-  test("clicking a tab calls nav.setSearchParams with the tab's id", async () => {
+  test("clicking a tab switches the rendered section", async () => {
     const dispatcher = dispatcherReturning(rowData);
-    const { navApi, setSearchParamsCalls } = navWithTab(undefined);
     const user = userEvent.setup();
 
     render(
-      <NavProvider value={navApi}>
+      <StatefulTabNav>
         <DispatcherProvider dispatcher={dispatcher}>
           <KumikoScreen
             schema={schemaFor(tabsScreen)}
@@ -994,15 +993,17 @@ describe("KumikoScreen / projectionDetail — layout.mode: 'tabs'", () => {
             entityId="rent-1"
           />
         </DispatcherProvider>
-      </NavProvider>,
+      </StatefulTabNav>,
     );
 
-    const trigger = await waitFor(() =>
-      screen.getByTestId("kumiko-screen-projection-detail-tabs-payments"),
-    );
-    await user.click(trigger);
+    await waitFor(() => screen.getByTestId("field-description"));
+    expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(false);
+    await user.click(screen.getByTestId("kumiko-screen-projection-detail-tabs-payments"));
 
-    expect(setSearchParamsCalls).toContainEqual({ tab: "payments" });
+    await waitFor(() =>
+      expect(dispatcher.calls.some((c) => c.type === "rentals:query:rent:payments")).toBe(true),
+    );
+    expect(screen.queryByTestId("field-description")).toBeNull();
   });
 
   test("relatedList tab content renders without its own Section card wrapper", async () => {
