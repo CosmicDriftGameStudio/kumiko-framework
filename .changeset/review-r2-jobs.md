@@ -9,7 +9,7 @@ In the jobs feature, a failing tenant-failure record write no longer blocks the 
 
 <!-- kumiko-changes
 feature: jobs
-type: fix
+type: breaking
 title: Job runner keeps retry budget on sequential lock conflicts, names the error without a db, fails loudly on bad tenantVisibleFailure subjects, stamps the raw feature name; jobs list filters multi-status
 migration: |
   Events written by a job of a camelCase feature now carry metadata.feature with the raw feature name (for example "pubSubOrders") instead of the kebab-case form; update any audit or metrics filter that matched the kebab-case value. Custom Registry implementations must add getJobFeature(qualifiedJobName). A jobs:query:list call with filters on a field other than status is now rejected.

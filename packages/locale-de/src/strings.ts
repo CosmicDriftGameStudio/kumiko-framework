@@ -842,6 +842,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "profile.password.submit": "Passwort ändern",
   "profile.password.success": "Passwort geändert.",
   "profile.password.title": "Passwort",
+  "rateLimiting.errors.bucketOutsideTenant":
+    "Du kannst nur Rate-Limit-Buckets deines eigenen Mandanten oder Benutzers einsehen.",
+  "rateLimiting.errors.resolverUnavailable": "Rate-Limiting ist auf diesem Server nicht verfügbar.",
   "screen:api-token-create.title": "Neuen Token erstellen",
   "screen:api-tokens.title": "Personal Access Tokens",
   "screen:audit-log-detail.title": "Ereignis",

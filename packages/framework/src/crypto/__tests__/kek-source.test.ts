@@ -180,7 +180,7 @@ describe("resolvePlatformKeks", () => {
     expect(error instanceof Error ? error.cause : undefined).toBe(rootCause);
   });
 
-  test("a second pass over the resolved env does not report the used ciphertext as ignored", async () => {
+  test("the resolved env keeps the consumed ciphertext, so a second pass reports it as ignored", async () => {
     const { fetch } = trackedFetch([jsonResponse(200, { plaintext: PLAINTEXT_A })]);
     const lines: string[] = [];
     const env: KekSourceEnv = {
@@ -196,7 +196,7 @@ describe("resolvePlatformKeks", () => {
       log: (line) => lines.push(line),
     });
 
-    expect(lines).toEqual(["PLATFORM_KEK source=plaintext-env"]);
+    expect(lines).toEqual(["PLATFORM_KEK source=plaintext-env (ciphertext present and ignored)"]);
   });
 
   test("returns env unchanged and calls fetch zero times when nothing is set", async () => {

@@ -6,6 +6,8 @@
 
 <!-- kumiko-changes
 feature: billing-foundation
-type: fix
+type: breaking
 title: Unregistered catalog.providerName fails unconfigured; switch-plan checks provider mismatch before lookup
+migration: |
+  If `catalog.providerName` names a provider that is not mounted, billing-plans now fails with `unconfigured` instead of rendering billing as disabled; mount the provider or remove `providerName`.
 -->

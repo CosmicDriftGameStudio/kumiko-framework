@@ -6,6 +6,8 @@ Several fail-loud fixes. `buildServer` now also rejects more than one `principal
 
 <!-- kumiko-changes
 feature: framework
-type: fix
+type: breaking
 title: Boot rejects multiple principalStatus providers, updateMany rejects unknown columns again
+migration: |
+  `updateMany` now throws when `set` or `where` contains a key that is not a column of the table; remove such keys from your calls. Replay of historical update events still skips removed fields.
 -->

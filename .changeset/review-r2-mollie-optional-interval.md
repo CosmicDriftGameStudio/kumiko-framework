@@ -6,6 +6,8 @@
 
 <!-- kumiko-changes
 feature: subscription-mollie
-type: fix
+type: breaking
 title: Mollie one-off prices no longer need an interval; a subscription price without one is rejected
+migration: |
+  Mollie checkout creation now throws for a subscription price without `interval`; set `interval` on every subscription price (one-off `mode: "payment"` prices need none).
 -->

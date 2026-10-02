@@ -120,6 +120,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "kumiko.form.draft.resume-single":
     "Ein offener Entwurf für dieses Formular gefunden. Möchten Sie ihn fortsetzen?",
   "notesHistory.section.createMode": "Speichern Sie zuerst den Eintrag, um Notizen anzulegen.",
+  "rateLimiting.errors.bucketOutsideTenant":
+    "Sie können nur Rate-Limit-Buckets Ihres eigenen Mandanten oder Benutzers einsehen.",
   "screen:my-sessions.title": "Ihre Sitzungen",
   "profile.danger.dialogDescription":
     "Nach Ablauf der Frist werden Ihre Daten endgültig gelöscht. Bis dahin können Sie die Löschung abbrechen.",

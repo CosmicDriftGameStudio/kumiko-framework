@@ -6,6 +6,8 @@ File storage and locale hardening. `validateFileContent` now rejects binary byte
 
 <!-- kumiko-changes
 feature: framework
-type: fix
+type: breaking
 title: File content check covers csv alias, local list scoped to prefix, provider contract checked, locale tags canonicalized
+migration: |
+  A file-provider plugin whose built provider lacks a required method now throws at resolve time; make sure custom file providers implement the full provider interface.
 -->
