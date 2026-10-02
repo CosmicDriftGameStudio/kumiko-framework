@@ -130,8 +130,7 @@ const TENANT_B = "00000000-0000-4000-8000-0000000000e2";
 const FORGET_USER = "cccccccc-cccc-4ccc-8ccc-0000000000e1";
 
 let stack: TestStack;
-// biome-ignore lint/suspicious/noExplicitAny: dummy writer; this fixture has no binaries.
-const seed = (db: unknown) => createForgetSeeders(db as any, { write: async () => {} });
+const seed = (db: TestStack["db"]) => createForgetSeeders(db, { write: async () => {} });
 
 function tenantAdmin(id: string, tenantId: string) {
   return createTestUser({ id, tenantId, roles: ["TenantAdmin"] });
@@ -140,15 +139,10 @@ function tenantAdmin(id: string, tenantId: string) {
 async function fetchInvoice(
   id: string,
 ): Promise<{ id: string; inserted_by_id: string | null } | null> {
-  const result = await asRawClient(stack.db).unsafe(
+  const rows = await asRawClient(stack.db).unsafe<{ id: string; inserted_by_id: string | null }>(
     `SELECT id, inserted_by_id FROM ${INVOICE_TABLE} WHERE id = $1`,
     [id],
   );
-  // biome-ignore lint/suspicious/noExplicitAny: drizzle execute typing
-  const rows = ((result as any).rows ?? result) as Array<{
-    id: string;
-    inserted_by_id: string | null;
-  }>;
   return rows[0] ?? null;
 }
 

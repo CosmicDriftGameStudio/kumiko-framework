@@ -418,6 +418,13 @@ async function resolvePortalConfiguration(
     const price = cache.get(priceId);
     return price ? [price] : [];
   });
+  // A transient prices.retrieve failure would otherwise yield a different
+  // priceSetHash and persist an incomplete portal configuration at Stripe.
+  if (prices.length !== allowedPriceIds.length) {
+    throw new UnprocessableError("price_unavailable", {
+      i18nKey: "billing-foundation.errors.priceUnavailable",
+    });
+  }
 
   const hash = priceSetHash(prices);
   const cached = portalConfigCache.get(hash);

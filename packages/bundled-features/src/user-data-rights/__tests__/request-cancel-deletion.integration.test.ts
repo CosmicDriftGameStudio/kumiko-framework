@@ -241,6 +241,33 @@ describe("POST request-deletion :: state-transitions", () => {
   });
 });
 
+describe("POST request-deletion :: concurrent requests", () => {
+  test("parallel requests: one wins, every loser reports the status the winner wrote, never Active", async () => {
+    await seedAlice();
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () => stack.http.write(REQUEST_DELETION, {}, aliceUser)),
+    );
+    const bodies = await Promise.all(
+      responses.map(
+        (res) =>
+          res.json() as Promise<{
+            isSuccess?: boolean;
+            error?: { details?: { reason?: string; currentStatus?: string } };
+          }>,
+      ),
+    );
+
+    const losers = bodies.filter((body) => body.isSuccess !== true);
+    expect(bodies.filter((body) => body.isSuccess === true)).toHaveLength(1);
+    expect(losers).toHaveLength(4);
+    for (const loser of losers) {
+      expect(loser.error?.details?.reason).toBe("user_not_in_active_state");
+      expect(loser.error?.details?.currentStatus).toBe(USER_STATUS.DeletionRequested);
+    }
+  });
+});
+
 describe("POST cancel-deletion :: happy path", () => {
   test("innerhalb Grace → status=Active + gracePeriodEnd=NULL", async () => {
     const futureGrace = instantFromOffsetMs(25 * 24 * 60 * 60 * 1000);
