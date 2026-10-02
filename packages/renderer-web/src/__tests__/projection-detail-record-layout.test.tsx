@@ -619,6 +619,26 @@ describe("KumikoScreen / projectionDetail — record header + metrics band", () 
     await waitFor(() => screen.getByTestId("render-edit-form"));
     expect(screen.queryByTestId("render-edit-form-actions")).toBeNull();
   });
+
+  test("a detail with a header card renders as a screen form, not a card form, and shows no dirty status", async () => {
+    const dispatcher = dispatcherReturning(rowData);
+
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={schemaFor({ ...baseScreen, header: { title: "tenantName" } })}
+          qn="rentals:screen:rent-detail"
+          entityId="rent-1"
+        />
+      </DispatcherProvider>,
+    );
+
+    const form = await waitFor(() => screen.getByTestId("render-edit-form"));
+    expect(screen.getByTestId("render-edit-form-scroll")).toBeTruthy();
+    // The head card (headerRegion) stays; only the form-level card is gone.
+    expect(form.closest("[data-slot=card]")).toBeNull();
+    expect(screen.queryByText(/unsaved/i)).toBeNull();
+  });
 });
 
 describe("KumikoScreen / projectionDetail — header actions sit in the title row", () => {
