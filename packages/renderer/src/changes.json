@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.332.0",
+    "type": "improvement",
+    "title": "projectionDetail header subtitle can show several parts, each optionally linking to the referenced record",
+    "detail": "`header.subtitle` accepts a list of parts (field name or `{ field, navigate }`). Empty parts drop out, the rest are joined by a \"·\" separator, and a part with `navigate` links to the referenced record (entity or screen target, only when reachable). The Link primitive gets an optional `onPress` for SPA navigation, Text an optional `decorative` flag. `subtitleHref` stays valid with the string form only; the boot validator rejects the combination with a list.",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.331.0",
     "type": "improvement",
     "title": "entityList rows can expand into a related list with its own row actions (expandableRow)",

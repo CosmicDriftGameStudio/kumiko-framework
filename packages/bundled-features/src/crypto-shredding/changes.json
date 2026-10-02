@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "forget-subject respects tenant retention blockDelete"
+  },
+  {
     "version": "0.167.0",
     "type": "breaking",
     "title": "Test-only reset helpers moved from /crypto to /testing (fw#1631).",

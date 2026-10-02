@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "tenant-caps:list declares its unsafeRaw escapeHatch"
+  },
+  {
     "version": "0.318.0",
     "type": "improvement",
     "title": "Cap limits can come from runtime config",

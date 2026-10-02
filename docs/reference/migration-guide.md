@@ -2,13 +2,29 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-01
+verified: 2026-10-02
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.332.0
+
+### framework-core
+
+**buildInsertSchema strips id again; caller-chosen ids need { allowCallerId: true }**
+
+**Migration:** Custom-Create-Handler, die eine caller-gewaehlte id brauchen, uebergeben { allowCallerId: true } und erlauben sie nur System-Identities.
+
+**ctx.fetchForWriting scopes handle.events to the aggregateType since the #2979 release (correction, not purely additive)**
+
+The #2979 changeset described the `aggregateType` filter as "purely additive". For `ctx.fetchForWriting` that was wrong: since that release, `handle.events` only contains events of the fetched aggregateType, even when a handler never passed an `aggregateType` option. Events of another aggregateType on the same aggregateId are no longer part of the handle. `loadAggregate` without `aggregateType` is unchanged.
+
+**Migration:** handle.events von ctx.fetchForWriting ist seit Einführung des aggregateType-Filters
+typ-gescoped; Handler prüfen, die Events eines anderen aggregateType auf derselben
+aggregateId erwartet haben, und diese per loadAggregate ohne aggregateType lesen.
 
 ## 0.330.1
 

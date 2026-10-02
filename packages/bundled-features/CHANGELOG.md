@@ -1,5 +1,51 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.332.0
+
+### Patch Changes
+
+- dcf135e: forget-subject respects tenant retention `blockDelete`.
+
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject respects tenant retention blockDelete
+  -->
+
+- dcf135e: A transient Stripe retrieve error now answers 503 instead of being treated as ignored.
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: Stripe retrieve transient errors answer 503 instead of ignored
+  -->
+
+- dcf135e: tenant-caps:list declares the `unsafeRaw` escapeHatch.
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: tenant-caps:list declares its unsafeRaw escapeHatch
+  -->
+
+- Updated dependencies [991ed87]
+- Updated dependencies [dcf135e]
+- Updated dependencies [ae6d506]
+- Updated dependencies [3917e63]
+- Updated dependencies [b81f794]
+- Updated dependencies [541d24b]
+- Updated dependencies [e82b023]
+- Updated dependencies [14c0fb8]
+- Updated dependencies [b4e827d]
+- Updated dependencies [dcf135e]
+- Updated dependencies [dcf135e]
+  - @cosmicdrift/kumiko-framework@0.332.0
+  - @cosmicdrift/kumiko-renderer-web@0.332.0
+  - @cosmicdrift/kumiko-renderer@0.332.0
+  - @cosmicdrift/kumiko-types@0.332.0
+  - @cosmicdrift/kumiko-headless@0.332.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.332.0
+
 ## 0.331.0
 
 ### Minor Changes

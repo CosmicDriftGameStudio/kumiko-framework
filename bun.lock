@@ -30,7 +30,7 @@
     },
     "packages/bundled-features": {
       "name": "@cosmicdrift/kumiko-bundled-features",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -67,7 +67,7 @@
     },
     "packages/cli": {
       "name": "@cosmicdrift/kumiko-cli",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "bin": {
         "kumiko": "./bin/cli.ts",
       },
@@ -83,7 +83,7 @@
     },
     "packages/create-kumiko-app": {
       "name": "create-kumiko-app",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "bin": {
         "create-kumiko-app": "./bin/cli.ts",
       },
@@ -98,7 +98,7 @@
     },
     "packages/dev-server": {
       "name": "@cosmicdrift/kumiko-dev-server",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "bin": {
         "kumiko-build": "./bin/kumiko-build.ts",
         "kumiko-dev": "./bin/kumiko-dev.ts",
@@ -120,14 +120,14 @@
     },
     "packages/dispatcher-live": {
       "name": "@cosmicdrift/kumiko-dispatcher-live",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-headless": "workspace:*",
       },
     },
     "packages/framework": {
       "name": "@cosmicdrift/kumiko-framework",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-http": "workspace:*",
         "@cosmicdrift/kumiko-types": "workspace:*",
@@ -153,7 +153,7 @@
     },
     "packages/guards": {
       "name": "@cosmicdrift/kumiko-guards",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "bin": {
         "kumiko-guards": "./src/cli.ts",
         "kumiko-pre-push": "./src/pre-push.sh",
@@ -165,7 +165,7 @@
     },
     "packages/headless": {
       "name": "@cosmicdrift/kumiko-headless",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "temporal-polyfill": "^0.3.2",
@@ -174,25 +174,25 @@
     },
     "packages/http": {
       "name": "@cosmicdrift/kumiko-http",
-      "version": "0.331.0",
+      "version": "0.332.0",
     },
     "packages/locale-de": {
       "name": "@cosmicdrift/kumiko-locale-de",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
     "packages/locale-es": {
       "name": "@cosmicdrift/kumiko-locale-es",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
     "packages/renderer": {
       "name": "@cosmicdrift/kumiko-renderer",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-framework": "workspace:*",
         "@cosmicdrift/kumiko-headless": "workspace:*",
@@ -212,7 +212,7 @@
     },
     "packages/renderer-web": {
       "name": "@cosmicdrift/kumiko-renderer-web",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -263,14 +263,14 @@
     },
     "packages/repo-manifest": {
       "name": "@cosmicdrift/kumiko-repo-manifest",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "zod": "^4.4.3",
       },
     },
     "packages/server-runtime": {
       "name": "@cosmicdrift/kumiko-server-runtime",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "dependencies": {
         "@cosmicdrift/kumiko-bundled-features": "workspace:*",
         "@cosmicdrift/kumiko-framework": "workspace:*",
@@ -283,7 +283,7 @@
     },
     "packages/testing": {
       "name": "@cosmicdrift/kumiko-testing",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "bin": {
         "kumiko-testing": "./bin/kumiko-testing.ts",
       },
@@ -311,7 +311,7 @@
     },
     "packages/types": {
       "name": "@cosmicdrift/kumiko-types",
-      "version": "0.331.0",
+      "version": "0.332.0",
       "devDependencies": {
         "hono": "^4.13.1",
         "ioredis": "^5.10.1",

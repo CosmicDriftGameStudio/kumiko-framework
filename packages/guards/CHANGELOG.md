@@ -1,5 +1,83 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.332.0
+
+### Patch Changes
+
+- dcf135e: The direct-entity-writes canary counts only real table writes.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: direct-entity-writes canary counts only real table writes
+  -->
+
+- 3917e63: The package root re-exports `gitEnv` for repo scripts.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: gitEnv is exported from the package root
+  -->
+
+- dcf135e: The git fetch in the changes-json guard keeps the git transport environment.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: git transport env is kept for the changes-json fetch
+  -->
+
+- 7b67f69: Several guards resolve code more precisely: lib-test-coverage, test-stack-drift, direct-fetch, no-framed-extension-sections, thin-wrappers, and the PII and text-field scans no longer log from scan functions.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: guards resolve aliased imports, literal values, tsx lib files and entityEdit slots precisely
+  migration: |
+    Neue Violations moeglich: lib-test-coverage erfasst jetzt .tsx und tiefere lib-Ebenen und zaehlt Fixtures unter __tests__ ohne .test-Suffix nicht als Test; test-stack-drift loest Import-Aliase auf; direct-fetch wertet den Laufzeitwert des Literals aus; no-framed-extension-sections behandelt nur slots.header von entityEdit-Screens als Header. Betroffene Stellen mit Test, echtem Import oder Anpassung beheben.
+  -->
+
+- 563b80e: Coverage guards now see test files, the admin-API allowlist and primitives-discipline resolve repo roots correctly, and the real-provider isolation check covers chained scripts and workspace packages.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: Coverage guards scan test files; admin-api, primitives-discipline and real-provider-isolation resolve roots and workspaces properly
+  migration: |
+    Neue Violations moeglich: access-denied-test und tenant-escalation zaehlen jetzt auch *.integration.ts und Tests ausserhalb der sourceRoots als Coverage (Scope source+tests); primitives-discipline scannt alle flat-src-App-Roots; check-real-provider-isolation flaggt Scripts, die test:real/e2e:real aufrufen, und prueft alle Workspace-package.json. Betroffene Stellen fixen oder per Security-Baseline neu einfrieren.
+  -->
+
+- 3786597: Guard review fixes: the secret-literal check finds comments via the TypeScript parser (no more skipped code after regex or template literals), matches the secret name left of the fallback, also flags literals containing hmac/private-key/signing-key, supports `kumiko-lint-ignore secret-literal`, and no longer prints the literal; `loadSecurityBaseline` returns an invalid result instead of throwing on a bad repo name; plus smaller message, scope and URL-literal fixes in the loadAllEvents, escape-hatch and process-env guards.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: secret-literal guard flags more fallbacks and no longer leaks literals
+  migration: |
+    Neue Violations bei `*/ code`-Zeilen, Code-Zeilen mit fuehrendem `*` und Literalen mit hmac/private-key/signing-key; die Violation-Message nennt Name und Laenge statt der Zeile. Fallbacks entfernen und das Secret hart aus dem validierten Env lesen.
+  -->
+
+- dcf135e: The html-escape guard now checks nested templates and local helpers that return input unescaped.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: html-escape guard flags unescaped intermediate templates and raw-returning local helpers
+  migration: |
+    Neue Violations bei ungeescapten Zwischen-Templates und lokalen Helfern, die Input roh zurueckgeben; diese per escapeHtml absichern.
+  -->
+
+- 1201fcc: The pre-push worktree branch without `scripts/check-wt.sh` also runs `kumiko-guards guards`, `kumiko-guards checks` and `kumiko-guard-comment-lang`, matching consumer CI.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: worktree pre-push runs the consumer-CI guards
+  -->
+
+  - @cosmicdrift/kumiko-repo-manifest@0.332.0
+
 ## 0.331.0
 
 ### Minor Changes
