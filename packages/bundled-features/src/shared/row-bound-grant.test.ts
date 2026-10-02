@@ -276,7 +276,20 @@ describe("redeemRowBoundGrant", () => {
       now: NOW,
     });
 
-    expect(redeem).rejects.toThrow(/non-empty reason/);
+    await expect(redeem).rejects.toThrow(/non-empty reason/);
+  });
+
+  test("refuses an unsafeSkip without a reason even for an invalid token", async () => {
+    const redeem = redeemRowBoundGrant({
+      token: "garbage",
+      purpose: PURPOSE,
+      secret: SECRET,
+      loadAnchor: anchorIs("pending"),
+      commitAnchor: { unsafeSkip: { reason: "" } },
+      now: NOW,
+    });
+
+    await expect(redeem).rejects.toThrow(/non-empty reason/);
   });
 
   test("rejects when the anchor can no longer be spent", async () => {

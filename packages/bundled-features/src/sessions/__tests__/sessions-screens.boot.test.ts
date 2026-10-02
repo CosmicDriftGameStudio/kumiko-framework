@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import { MAX_LIST_LIMIT, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
 import { createConfigFeature } from "../../config/feature.js";
@@ -34,6 +34,13 @@ describe("sessions screens + query access alignment (kumiko-framework#255)", () 
         expect(screen.access.roles).toEqual(["TenantAdmin", "Admin", "SystemAdmin"]);
       }
     }
+  });
+
+  test("session-list fetches one max-size page and renders no pager", () => {
+    const list = createSessionsFeature().screens[SESSION_LIST_SCREEN_ID];
+    if (list?.type !== "projectionList") throw new Error("expected projectionList");
+    expect(list.pagination).toBe(false);
+    expect(list.pageSize).toBe(MAX_LIST_LIMIT);
   });
 
   test("session-list timestamp columns declare renderer.format (fw#2569)", () => {

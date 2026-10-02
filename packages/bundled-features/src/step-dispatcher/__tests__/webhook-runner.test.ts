@@ -242,6 +242,34 @@ describe("performWebhookDispatch — auth.secret resolution", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  test("a throwing secrets lookup fails generically instead of throwing", async () => {
+    setWebhookFetch(fetchMock as unknown as typeof fetch);
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";
+    const secrets: SecretsContext = {
+      get: async () => {
+        throw new Error("corrupt envelope for incident-hook");
+      },
+      has: async () => true,
+      set: async () => {},
+      delete: async () => true,
+    };
+
+    const result = await performWebhookDispatch(
+      {
+        url: "http://hooks.example/hook",
+        method: "POST",
+        headers: {},
+        auth: { kind: "bearer", secret: "incident-hook" },
+      },
+      { tenantId: TEST_TENANT_ID, userId: TEST_USER_ID, secrets },
+    );
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error("unreachable");
+    expect(result.error).toBe("webhook auth secret is not available");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   test("an undefined secrets context fails the same generic way as a missing secret", async () => {
     setWebhookFetch(fetchMock as unknown as typeof fetch);
     process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";

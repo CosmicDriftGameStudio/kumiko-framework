@@ -114,8 +114,13 @@ export const removeMemberWrite = defineWriteHandler({
 
     const currentRoles = parseRoles((existing as DbRow)["roles"]);
     if (currentRoles.includes("TenantAdmin")) {
+      // assertNotLastTenantAdmin issues raw SQL, so it needs the raw runner, not
+      // the tenant-scoped `db` — the count is filtered by the explicit tenantId.
+      const lockRunner = ctx.systemDb.unsafeRaw(
+        "tenant:write:removeMember last-TenantAdmin advisory lock + membership count",
+      );
       const lastAdmin = await assertNotLastTenantAdmin(
-        db,
+        lockRunner,
         event.payload.tenantId,
         event.payload.userId,
       );

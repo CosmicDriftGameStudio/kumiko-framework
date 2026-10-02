@@ -156,6 +156,8 @@ describe("createStripeCheckoutSession", () => {
       // Default-on: without the runtime option, mode:"payment" gets a
       // Stripe invoice.
       invoice_creation: { enabled: true },
+      // Guest checkouts would leave the webhook without a customer id.
+      customer_creation: "always",
     });
   });
 

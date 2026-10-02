@@ -79,6 +79,10 @@ export function createStripeCheckoutSession(
         : {
             payment_intent_data: { metadata: { tenantId: options.tenantId } },
             invoice_creation: { enabled: paymentInvoiceCreation },
+            // Without a customer, Stripe's default "if_required" makes a guest
+            // checkout when invoice_creation is off; the webhook then has no
+            // customer id and drops the paid payment as ignored.
+            ...(!options.providerCustomerId && { customer_creation: "always" as const }),
           }),
       ...(options.providerCustomerId && { customer: options.providerCustomerId }),
     });

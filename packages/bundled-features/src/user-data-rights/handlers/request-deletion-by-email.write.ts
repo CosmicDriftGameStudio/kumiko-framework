@@ -67,7 +67,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     // Mails a deletion link to any address the caller names.
     agent: { risk: "high" },
     // Defense-in-depth gegen Email-Probing auf dem anonymen Endpoint.
-    rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+    rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     escapeHatch: {
       reason: APPEND_LIFECYCLE_EVENT_REASON,
     },
