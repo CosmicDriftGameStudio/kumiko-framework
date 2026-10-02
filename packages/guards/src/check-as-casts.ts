@@ -48,6 +48,7 @@ import {
   buildSharedProject,
   filesForGuard,
   type GuardOutcome,
+  type GuardViolation,
   runStandalone,
   type ScanSpec,
 } from "./_lib/guard-kit";
@@ -546,26 +547,89 @@ function writeBaseline(all: readonly Site[]): void {
 // Per File:target: aktueller Count gegen baseline. Mehr → Regression.
 // Cast-Tausch (Cast A weg, Cast B mit anderem target hinzu) wird so erkannt
 // obwohl Total stabil bleibt. Nur Report — Warnung, kein Fail.
-function reportBaseline(all: readonly Site[]): void {
+// Merge-conflict markers, truncated writes and hand edits all land here; the
+// file is read once at the boundary so the comparison below can trust its shape.
+function isCountsByFile(value: unknown): value is Record<string, Record<string, number>> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  return Object.values(value).every(
+    (targets) =>
+      typeof targets === "object" &&
+      targets !== null &&
+      !Array.isArray(targets) &&
+      Object.values(targets).every((count) => typeof count === "number"),
+  );
+}
+
+type BaselineLoad =
+  | { kind: "missing" }
+  | { kind: "format-drift"; format: unknown }
+  | { kind: "invalid"; reason: string }
+  | { kind: "ok"; baseline: Baseline };
+
+export function loadBaseline(file: string): BaselineLoad {
+  if (!existsSync(file)) return { kind: "missing" };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(file, "utf-8"));
+  } catch (error) {
+    return { kind: "invalid", reason: error instanceof Error ? error.message : String(error) };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { kind: "invalid", reason: "expected a JSON object" };
+  }
+  const record: Record<string, unknown> = { ...parsed };
+  if (record["format"] !== BASELINE_FORMAT_VERSION) {
+    return { kind: "format-drift", format: record["format"] };
+  }
+  const { generated, totalSuspect, perFile } = record;
+  if (
+    typeof generated !== "string" ||
+    typeof totalSuspect !== "number" ||
+    !isCountsByFile(perFile)
+  ) {
+    return {
+      kind: "invalid",
+      reason: "expected { format, generated: string, totalSuspect: number, perFile: object }",
+    };
+  }
+  return {
+    kind: "ok",
+    baseline: { format: BASELINE_FORMAT_VERSION, generated, totalSuspect, perFile },
+  };
+}
+
+export function reportBaseline(
+  all: readonly Site[],
+  baselineFile: string = baselinePath,
+): GuardViolation[] {
   const repoLocalSuspects = repoLocal(suspectByFileAndTarget(all));
   const repoLocalTotal = totalOf(repoLocalSuspects);
 
-  if (!existsSync(baselinePath)) {
+  const loaded = loadBaseline(baselineFile);
+  if (loaded.kind === "missing") {
     console.log(
       "\n  No baseline found. Freeze one with `--write-baseline` first — warning, no fail until then.",
     );
-    return;
+    return [];
   }
-
-  const rawBaseline = JSON.parse(readFileSync(baselinePath, "utf-8")) as Partial<Baseline>;
-  if (rawBaseline.format !== BASELINE_FORMAT_VERSION) {
+  if (loaded.kind === "invalid") {
+    // A corrupt baseline must not read as "no regressions".
+    return [
+      {
+        file: baselineFile,
+        line: 1,
+        message: `Cannot read cast baseline ${baselineFile}: ${loaded.reason}. Fix the file (e.g. resolve merge-conflict markers) or regenerate it with \`bun packages/guards/src/check-as-casts.ts --write-baseline\`.`,
+      },
+    ];
+  }
+  if (loaded.kind === "format-drift") {
     console.log(
-      `\n  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${rawBaseline.format ?? "<missing>"}.`,
+      `\n  Baseline format drift: expected format=${BASELINE_FORMAT_VERSION}, read format=${String(loaded.format ?? "<missing>")}.`,
     );
     console.log("  Run `bun packages/guards/src/check-as-casts.ts --write-baseline` once.");
-    return;
+    return [];
   }
-  const baseline = rawBaseline as Baseline;
+  const { baseline } = loaded;
 
   type Regression = { file: string; target: string; baseline: number; current: number };
   const regressions: Regression[] = [];
@@ -602,7 +666,7 @@ function reportBaseline(all: readonly Site[]): void {
         "    3. If a cleanup reduction in one file offsets an increase in another: " +
         "run `bun packages/guards/src/check-as-casts.ts --write-baseline` after committing",
     );
-    return;
+    return [];
   }
 
   console.log(`\n  ✓ Baseline (${baseline.totalSuspect}) — current ${repoLocalTotal}`);
@@ -611,17 +675,21 @@ function reportBaseline(all: readonly Site[]): void {
       `  ✓ ${reduced} suspect cast(s) reduced since baseline. Run \`--write-baseline\` if appropriate.`,
     );
   }
+  return [];
 }
 
 function analyseCasts(files: readonly SourceFile[], compareBaseline: boolean): GuardOutcome {
   const { all, scanned } = scanCasts(files);
   reportCasts(all, scanned);
   reportUnknownReasons(all);
-  if (compareBaseline) reportBaseline(all);
-  else console.log("\n  Baseline comparison skipped (--no-baseline).");
+  if (!compareBaseline) {
+    console.log("\n  Baseline comparison skipped (--no-baseline).");
+    return { violations: [] };
+  }
   // WARNUNG, kein Fail (coding-standards.md → "Type Assertions"): weder
-  // unbekannte @cast-boundary-Reasons noch Baseline-Regression blocken.
-  return { violations: [] };
+  // unbekannte @cast-boundary-Reasons noch Baseline-Regression blocken. Nur
+  // eine unlesbare Baseline schlägt fehl.
+  return { violations: reportBaseline(all) };
 }
 
 export const guard: AstGuard = {

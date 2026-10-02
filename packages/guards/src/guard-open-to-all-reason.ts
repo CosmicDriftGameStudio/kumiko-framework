@@ -12,7 +12,7 @@
  *
  * Usage:
  *   bun guards/guard-open-to-all-reason.ts
- *   Baseline: bun guards/run-guards.ts --write-security-baseline
+ *   Baseline: kumiko-guards guards --write-security-baseline
  */
 import * as path from "node:path";
 import { type SourceFile, SyntaxKind } from "ts-morph";
@@ -85,7 +85,7 @@ export function createOpenToAllReasonGuard(opts: { root: string }): AstGuard {
     name: "Open-To-All-Reason Guard",
     scan: SCAN,
     security: true,
-    hint: 'Provide openToAll: { reason: "<why any authenticated user may call this>" } (+ personalData: "tenant-members" for write handlers with unbound personal data). Baseline after a deliberate reduction: `bun guards/run-guards.ts --write-security-baseline`',
+    hint: 'Provide openToAll: { reason: "<why any authenticated user may call this>" } (+ personalData: "tenant-members" for write handlers with unbound personal data). Baseline after a deliberate reduction: `kumiko-guards guards --write-security-baseline`',
     run(files) {
       const violations: GuardViolation[] = [
         ...findGenericOpenToAllReasons(files, opts.root).map((f) => ({

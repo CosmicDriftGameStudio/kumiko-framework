@@ -11,7 +11,7 @@
 // classification rules down so future edits trip a test, not a
 // production drift.
 
-import { existsSync, readFileSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs";
 import * as path from "node:path";
 import type { ImportDeclaration, SourceFile } from "ts-morph";
 
@@ -171,22 +171,67 @@ export function computeClientReachablePaths(
   return reached;
 }
 
+const DIRECTIVE_HEAD_BYTES = 600;
+const DIRECTIVE_HEAD_LINES = 8;
+
+export type HeadReader = (filePath: string) => string | null;
+
+// Reads only the file head, so classifying a large source file does not pull
+// it fully into memory.
+export function readFileHead(filePath: string): string | null {
+  let fd: number;
+  try {
+    fd = openSync(filePath, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const buffer = Buffer.alloc(DIRECTIVE_HEAD_BYTES);
+    const bytesRead = readSync(fd, buffer, 0, DIRECTIVE_HEAD_BYTES, 0);
+    return buffer.toString("utf8", 0, bytesRead);
+  } catch {
+    return null;
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /**
  * Classify a file by its top-of-file `// @runtime <kind>` directive.
  * Reads the first 600 bytes only (cap blast radius on huge files).
  */
-export function classifyByDirective(filePath: string): Runtime | null {
-  let head: string;
-  try {
-    head = readFileSync(filePath, "utf8").slice(0, 600);
-  } catch {
-    return null;
-  }
-  for (const line of head.split("\n").slice(0, 8)) {
+export function classifyByDirective(
+  filePath: string,
+  readHead: HeadReader = readFileHead,
+): Runtime | null {
+  const head = readHead(filePath);
+  if (head === null) return null;
+  for (const line of head.split("\n").slice(0, DIRECTIVE_HEAD_LINES)) {
     const m = line.match(/\/\/\s*@runtime\s+(\w+)/);
     if (m && ALL_RUNTIMES.has(m[1] ?? "")) return m[1] as Runtime;
   }
   return null;
+}
+
+export type DirectiveClassifier = (filePath: string) => Runtime | null;
+
+/**
+ * Per-run memo of `classifyByDirective`: the guard classifies each file in
+ * several passes (client reachability, then violations), and each pass would
+ * otherwise re-read the same head. Created per run, not module-global, so
+ * tests stay isolated.
+ */
+export function createDirectiveClassifier(
+  readHead: HeadReader = readFileHead,
+): DirectiveClassifier {
+  const cache = new Map<string, Runtime | null>();
+  return (filePath) => {
+    const cached = cache.get(filePath);
+    if (cached !== undefined) return cached;
+    const result = classifyByDirective(filePath, readHead);
+    cache.set(filePath, result);
+    return result;
+  };
 }
 
 /**
@@ -250,12 +295,13 @@ export function classify(
   repoRoot: string,
   workspaceCache: Map<string, Runtime | null>,
   clientReachable?: ReadonlySet<string>,
+  directiveOf: DirectiveClassifier = (file) => classifyByDirective(file),
 ): Runtime {
   const effectivePath = toEffectivePath(filePath);
 
   const rel = path.relative(repoRoot, effectivePath);
   return (
-    classifyByDirective(effectivePath) ??
+    directiveOf(effectivePath) ??
     classifyByPath(rel) ??
     findWorkspaceRuntime(effectivePath, repoRoot, workspaceCache) ??
     (clientReachable?.has(effectivePath) ? "client" : undefined) ??
@@ -284,6 +330,7 @@ export function findRuntimeIsolationViolations(
   repoRoot: string,
   workspaceCache: Map<string, Runtime | null>,
   clientReachable: ReadonlySet<string> = new Set(),
+  directiveOf: DirectiveClassifier = createDirectiveClassifier(),
 ): {
   readonly violations: readonly Violation[];
   readonly stats: Record<Runtime, number>;
@@ -315,7 +362,7 @@ export function findRuntimeIsolationViolations(
       noteOutside(fp);
       continue;
     }
-    const fileRt = classify(fp, repoRoot, workspaceCache, clientReachable);
+    const fileRt = classify(fp, repoRoot, workspaceCache, clientReachable, directiveOf);
     stats[fileRt]++;
 
     for (const decl of sf.getImportDeclarations()) {

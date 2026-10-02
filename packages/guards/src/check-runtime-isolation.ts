@@ -68,6 +68,7 @@ import { type ScanSpec, scanFiles, scanRoots } from "./_lib/scan-scope";
 import {
   classify,
   computeClientReachablePaths,
+  createDirectiveClassifier,
   findRuntimeIsolationViolations,
   isClientEntryPath,
   type Runtime,
@@ -142,10 +143,13 @@ function scanRoot(root: RepoRoot): {
     });
 
   const workspaceCache = new Map<string, Runtime | null>();
+  const directiveOf = createDirectiveClassifier();
   const clientReachable = computeClientReachablePaths(scannedFiles, (sf) => {
     const rel = path.relative(root.absPath, sf.getFilePath());
     if (isClientEntryPath(rel)) return true;
-    return classify(sf.getFilePath(), root.absPath, workspaceCache) === "client";
+    return (
+      classify(sf.getFilePath(), root.absPath, workspaceCache, undefined, directiveOf) === "client"
+    );
   });
 
   const { violations: allViolations, outsideRoot } = findRuntimeIsolationViolations(
@@ -153,6 +157,7 @@ function scanRoot(root: RepoRoot): {
     root.absPath,
     workspaceCache,
     clientReachable,
+    directiveOf,
   );
 
   return { allViolations, outsideRoot, scannedFiles: scannedFiles.length };

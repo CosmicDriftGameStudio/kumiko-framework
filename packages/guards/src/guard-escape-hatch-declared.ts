@@ -46,10 +46,11 @@
  * unresolved and the R2/R3 finding names that explicitly. The declaration
  * does not propagate upward: it covers escalations inside that function's
  * own body, not the function it is nested inside. This detection is purely
- * lexical — the guard matches on the name `declareEscapeHatch`, not on where
- * it was imported from, so a same-named local function clears just as well;
- * consistent with `escapeHatch:` itself, which is likewise never checked for
- * origin. Referenced-by-variable functions, spread options, computed/string
+ * lexical except for origin: `declareEscapeHatch` (and `withUnsafeRawGrant`
+ * for R2) must resolve to an import from `@cosmicdrift/kumiko-framework`
+ * (or, inside the framework package, a relative import into its `src`), so a
+ * same-named local function does not clear. `escapeHatch:` itself is a plain
+ * property and is never checked for origin. Referenced-by-variable functions, spread options, computed/string
  * keys, and a non-literal, non-module-local-const `escapeHatch`/`reason`
  * value are conservatively not recognized (miss, don't falsely clear).
  *
@@ -68,7 +69,7 @@
  *
  * Usage:
  *   bun guards/guard-escape-hatch-declared.ts
- *   Baseline: bun guards/run-guards.ts --write-security-baseline
+ *   Baseline: kumiko-guards guards --write-security-baseline
  */
 import * as path from "node:path";
 import {
@@ -78,6 +79,7 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
+import { isFrameworkImportOf } from "./_lib/framework-import";
 import { isGenericReason, resolveReasonText } from "./_lib/generic-reason";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 
@@ -230,7 +232,7 @@ function isExplicitUnsafeRawGrant(call: Node): boolean {
   const receiver = expr.getExpression();
   return (
     receiver.isKind(SyntaxKind.CallExpression) &&
-    receiver.getExpression().getText() === "withUnsafeRawGrant"
+    isFrameworkImportOf(receiver.getExpression(), "withUnsafeRawGrant")
   );
 }
 
@@ -387,9 +389,7 @@ function declareEscapeHatchReasonNode(stmt: Node): Node | undefined {
   const expr = stmt.getExpression();
   if (!expr.isKind(SyntaxKind.CallExpression)) return undefined;
   const callee = expr.getExpression();
-  if (!callee.isKind(SyntaxKind.Identifier) || callee.getText() !== "declareEscapeHatch") {
-    return undefined;
-  }
+  if (!isFrameworkImportOf(callee, "declareEscapeHatch")) return undefined;
   const args = expr.getArguments();
   const arg = args[0];
   if (args.length !== 1 || !arg?.isKind(SyntaxKind.ObjectLiteralExpression)) return undefined;
@@ -680,7 +680,7 @@ export function createEscapeHatchGuard(opts: { root: string }): AstGuard {
     name: "Escape-Hatch-Declared Guard",
     scan: SCAN,
     security: true,
-    hint: 'Declare an escape hatch (r.systemScope() on the feature definition, .job.ts/r.job(...) for jobs, or { escapeHatch: { reason: "..." } } on the handler or hook), or remove the ctx.db.raw/unsafeRaw/queryAs|writeAs(system)/unsafeAllTenants access. Baseline after a deliberate reduction: `bun guards/run-guards.ts --write-security-baseline`',
+    hint: 'Declare an escape hatch (r.systemScope() on the feature definition, .job.ts/r.job(...) for jobs, or { escapeHatch: { reason: "..." } } on the handler or hook), or remove the ctx.db.raw/unsafeRaw/queryAs|writeAs(system)/unsafeAllTenants access. Baseline after a deliberate reduction: `kumiko-guards guards --write-security-baseline`',
     run(files) {
       const violations: GuardViolation[] = [
         ...findGenericReasonCalls(files, opts.root).map((f) => ({
