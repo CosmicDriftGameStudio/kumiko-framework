@@ -190,7 +190,7 @@ describe("setupTestStack({ jobs }) cleanup of derived queue keys", () => {
     const raw = new Redis(redisUrl);
     try {
       const keys: string[] = [];
-      for await (const batch of raw.scanStream({ match: `bull:${queuePrefix}-*` })) {
+      for await (const batch of raw.scanStream({ match: `bull:${queuePrefix}-*`, count: 500 })) {
         keys.push(...batch);
       }
       return keys;

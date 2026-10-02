@@ -507,6 +507,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "jobs.detail.retry": "Reintentar",
   "jobs.errors.notFound": "No encontrado.",
   "jobs.errors.notManual": "Este trabajo no se puede iniciar manualmente.",
+  "jobs.errors.invalidPayload": "La carga útil debe ser un objeto JSON válido.",
   "jobs.errors.onlyFailedCanRetry": "Solo se pueden reintentar las ejecuciones fallidas.",
   "jobs.errors.payloadErased":
     "El payload de esta ejecución ya no se puede leer: se borraron los datos del usuario que la inició.",
