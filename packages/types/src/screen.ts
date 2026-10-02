@@ -294,6 +294,14 @@ export type RowActionWriteHandler = {
   readonly icon?: IconKey;
   /** Inline render form in the row-action column — see `RowActionDisplay`. */
   readonly display?: RowActionDisplay;
+  /** Where to go after the write succeeded instead of staying on the shown
+   *  record. Same forms as entityEdit `redirect`. Honored on record actions
+   *  (projectionDetail header/section actions, entityEdit header/section
+   *  actions); a valid `returnTo` wins under the same rule as
+   *  entityEdit.redirect. Not used by list row actions. Without it, an action
+   *  deleting the shown record (`<feature>:write:<entity>:delete` with that
+   *  record's id) leaves to `returnTo`/the list; any other action refetches. */
+  readonly redirect?: string | ActionFormRedirect;
 };
 
 export type RowActionNavigateBase = {

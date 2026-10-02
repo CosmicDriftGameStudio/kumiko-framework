@@ -550,6 +550,22 @@ function buildDrawerRecordAction(
   };
 }
 
+// Entity delete handler QN: `<feature>:write:<entity>:delete` (see
+// entityWriteCommand in kumiko-screen.tsx).
+const ENTITY_DELETE_HANDLER_PATTERN = /:write:[^:]+:delete$/;
+
+export function deletesShownRecord(
+  action: RowActionWriteHandler,
+  payload: Readonly<Record<string, unknown>>,
+  shownRecordId: unknown,
+): boolean {
+  return (
+    ENTITY_DELETE_HANDLER_PATTERN.test(action.handler) &&
+    payload["id"] !== undefined &&
+    payload["id"] === shownRecordId
+  );
+}
+
 function buildWriteHandlerRecordAction(
   action: RowActionWriteHandler,
   options: {
@@ -559,10 +575,19 @@ function buildWriteHandlerRecordAction(
     readonly dispatcher: Dispatcher;
     readonly onWriteSuccess: () => void | Promise<void>;
     readonly defaultWritePayloadId: string | undefined;
+    readonly onRecordLeft: RecordLeftHandler | undefined;
   },
 ): RenderEditAction {
-  const { record, translate, actionIcon, dispatcher, onWriteSuccess, defaultWritePayloadId } =
-    options;
+  const {
+    record,
+    translate,
+    actionIcon,
+    dispatcher,
+    onWriteSuccess,
+    defaultWritePayloadId,
+    onRecordLeft,
+  } = options;
+  const shownRecordId = defaultWritePayloadId ?? record["id"];
   return {
     id: action.id,
     label: translate(action.label),
@@ -577,15 +602,26 @@ function buildWriteHandlerRecordAction(
       const payload =
         action.payload !== undefined
           ? evalRowExtractor(action.payload, record)
-          : { id: defaultWritePayloadId ?? record["id"] };
+          : { id: shownRecordId };
       const result = await dispatcher.write(action.handler, payload);
       if (!result.isSuccess) {
         throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
       }
-      await onWriteSuccess();
+      const deletedShownRecord = deletesShownRecord(action, payload, shownRecordId);
+      if (onRecordLeft !== undefined && (action.redirect !== undefined || deletedShownRecord)) {
+        onRecordLeft(action, result.data, deletedShownRecord);
+      } else {
+        await onWriteSuccess();
+      }
     },
   };
 }
+
+export type RecordLeftHandler = (
+  action: RowActionWriteHandler,
+  resultData: unknown,
+  deletedShownRecord: boolean,
+) => void;
 
 // Shared builder for a RowAction[] evaluated against one "record"
 // context (not a specific list row) — a head card's `screen.actions`, an
@@ -606,6 +642,11 @@ export function buildRecordActions(options: {
   ) => void;
   /** Called after a writeHandler action succeeds (refetch/reload). */
   readonly onWriteSuccess: () => void | Promise<void>;
+  /** Called INSTEAD of `onWriteSuccess` when a writeHandler action succeeds
+   *  and leaves the shown record (`redirect` set, or it deletes the record).
+   *  Callers whose actions run on the shown record pass it; callers whose
+   *  records are list rows omit it. */
+  readonly onRecordLeft?: RecordLeftHandler;
   /** Screen-target navigate default entityId when the action declares no
    *  explicit `entityId` field-source. A caller editing a fixed entity can
    *  pass its own `entityId` here directly (the record it already is). A
@@ -631,6 +672,7 @@ export function buildRecordActions(options: {
     dispatcher,
     openDrawer,
     onWriteSuccess,
+    onRecordLeft,
     defaultScreenTargetEntityId,
     sameEntityScreenId,
     defaultWritePayloadId,
@@ -666,6 +708,7 @@ export function buildRecordActions(options: {
         dispatcher,
         onWriteSuccess,
         defaultWritePayloadId,
+        onRecordLeft,
       }),
     );
   }

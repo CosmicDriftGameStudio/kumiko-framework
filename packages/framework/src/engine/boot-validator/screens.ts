@@ -923,7 +923,7 @@ function validateFormLayoutSections(
 function validateRedirectTarget(
   feature: FeatureDefinition,
   screenId: string,
-  screenKind: "actionForm" | "secretMint" | "entityEdit",
+  screenKind: "actionForm" | "secretMint" | "entityEdit" | "projectionDetail",
   redirect: string | ActionFormRedirect,
   allScreenQns: ReadonlySet<string>,
 ): void {
@@ -955,6 +955,20 @@ function validateRedirectTarget(
     allScreenQns,
     feature.screens,
   );
+}
+
+// A writeHandler record action's redirect (projectionDetail/entityEdit
+// header and section actions) follows the entityEdit.redirect rule.
+function validateRecordActionRedirect(
+  feature: FeatureDefinition,
+  screenId: string,
+  screenKind: "projectionDetail" | "entityEdit",
+  action: RowAction,
+  allScreenQns: ReadonlySet<string>,
+): void {
+  if (action.kind !== "navigate" && action.kind !== "drawer" && action.redirect !== undefined) {
+    validateRedirectTarget(feature, screenId, screenKind, action.redirect, allScreenQns);
+  }
 }
 
 function validateInlineFormNavTargets(
@@ -1684,6 +1698,13 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
+            validateRecordActionRedirect(
+              feature,
+              screenId,
+              "projectionDetail",
+              action,
+              allScreenQns,
+            );
             validateNavigateActionTab(
               feature.name,
               screenId,
@@ -1855,6 +1876,7 @@ export function validateScreens(
       if (screen.actions !== undefined) {
         for (const action of screen.actions) {
           validateActionHasIcon(feature.name, screenId, "projectionDetail", "action", action);
+          validateRecordActionRedirect(feature, screenId, "projectionDetail", action, allScreenQns);
           if (action.kind === "navigate" && action.rowClick === true) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +
@@ -2435,6 +2457,7 @@ export function validateScreens(
               `section "${sectionLabel}" action`,
               action,
             );
+            validateRecordActionRedirect(feature, screenId, "entityEdit", action, allScreenQns);
             validateNavigateActionTab(
               feature.name,
               screenId,
@@ -2494,6 +2517,7 @@ export function validateScreens(
       // row to click either.
       if (screen.actions !== undefined) {
         for (const action of screen.actions) {
+          validateRecordActionRedirect(feature, screenId, "entityEdit", action, allScreenQns);
           if (action.kind === "navigate" && action.rowClick === true) {
             throw new Error(
               `[Feature ${feature.name}] Screen "${qualifyEntityName(feature.name, "screen", screenId)}" ` +

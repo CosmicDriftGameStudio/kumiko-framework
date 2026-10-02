@@ -1307,10 +1307,9 @@ export type ProgressProps = {
 };
 
 /** Wizard step overview — numbered chips, one per step label, with the
- *  active step highlighted. With `onStepSelect`, completed steps (index
- *  below `currentIndex`) become buttons for going back; forward jumps stay
- *  impossible because step-jump validation is a separate concern
- *  (kumiko-framework#1966). Implementations render a
+ *  active step highlighted. With `onStepSelect`, completed steps become
+ *  buttons (every non-current step with `selectableSteps: "all"`); the caller
+ *  owns the validation gate for forward jumps. Implementations render a
  *  narrow-viewport fallback showing `compactLabel` instead (caller
  *  supplies it pre-translated, e.g. "Step 2 of 5 · Industry") — which of
  *  the two is visible is a responsive layout choice owned by the
@@ -1320,6 +1319,12 @@ export type StepBarProps = {
   readonly currentIndex: number;
   readonly compactLabel: string;
   readonly onStepSelect?: (index: number) => void;
+  /** Explicit done state per step index. Absent: a step is done when its
+   *  index is below `currentIndex`. The current step is never done. */
+  readonly doneSteps?: readonly boolean[];
+  /** "done" (default): only done steps are jump targets. "all": every
+   *  non-current step is, when `onStepSelect` is set. */
+  readonly selectableSteps?: "done" | "all";
   /** "label" (default) swaps the step row for `compactLabel` on narrow
    *  viewports; "steps" keeps the row there too — for short wizards whose
    *  labels fit a phone and whose done steps must stay tappable. */

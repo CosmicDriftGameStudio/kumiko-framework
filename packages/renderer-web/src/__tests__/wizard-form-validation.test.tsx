@@ -213,6 +213,23 @@ describe("entityEdit wizard — step bar (fw#1966)", () => {
     expect(screen.getByTestId("render-edit-wizard-steps-step-1").tagName).toBe("SPAN");
   });
 
+  test("create mode: done follows position — Next marks the left step done, Back unmarks it again", async () => {
+    const { container } = renderWizard();
+    const isDone = (index: number): boolean =>
+      screen.getByTestId(`render-edit-wizard-steps-step-${index}`).textContent?.includes("Done") ===
+      true;
+
+    await userEvent.type(container.querySelector("#kumiko-edit-fullName") as Element, "Ada");
+    await userEvent.click(screen.getByTestId("render-edit-wizard-next"));
+    expect(isDone(0)).toBe(true);
+    expect(isDone(1)).toBe(false);
+
+    await userEvent.click(screen.getByTestId("render-edit-wizard-back"));
+    expect(isDone(0)).toBe(false);
+    expect(isDone(1)).toBe(false);
+    expect(screen.getByTestId("render-edit-wizard-steps-step-1").tagName).toBe("SPAN");
+  });
+
   test("a wizard with N sections renders N step entries", () => {
     const threeStepScreen: EntityEditScreenDefinition = {
       id: "profile-edit-3",

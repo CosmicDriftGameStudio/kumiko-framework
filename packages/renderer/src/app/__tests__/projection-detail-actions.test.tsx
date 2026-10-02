@@ -159,6 +159,7 @@ const testPrimitives: CorePrimitives = {
 function stubDispatcher(
   record: Readonly<Record<string, unknown>>,
   writeErrorMessage?: string,
+  calls?: { readonly writes: unknown[][]; queries: number },
 ): Dispatcher {
   const writeResult =
     writeErrorMessage !== undefined
@@ -173,8 +174,14 @@ function stubDispatcher(
         }
       : { isSuccess: true, data: {} };
   return {
-    write: (async () => writeResult) as unknown as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: record })) as unknown as Dispatcher["query"],
+    write: (async (...args: unknown[]) => {
+      calls?.writes.push(args);
+      return writeResult;
+    }) as unknown as Dispatcher["write"],
+    query: (async () => {
+      if (calls !== undefined) calls.queries += 1;
+      return { isSuccess: true, data: record };
+    }) as unknown as Dispatcher["query"],
     batch: (async () => ({ isSuccess: true, results: [] })) as unknown as Dispatcher["batch"],
     statusStore: {
       getState: () => "online",
@@ -223,6 +230,8 @@ function renderDetail(opts: {
   readonly record?: Readonly<Record<string, unknown>>;
   readonly onNavigate?: (target: ScreenTarget) => void;
   readonly writeErrorMessage?: string;
+  readonly searchParams?: Readonly<Record<string, string>>;
+  readonly calls?: { readonly writes: unknown[][]; queries: number };
 }): ReturnType<typeof render> {
   const navApi: NavApi = {
     route: { screenId: "app:screen:rent-detail" },
@@ -233,7 +242,7 @@ function renderDetail(opts: {
     },
     replace: () => {},
     hrefFor: () => "",
-    searchParams: {},
+    searchParams: opts.searchParams ?? {},
     setSearchParams: () => {},
   };
   return render(
@@ -245,6 +254,7 @@ function renderDetail(opts: {
         dispatcher={stubDispatcher(
           opts.record ?? { id: "rent-1", description: "Rent for April" },
           opts.writeErrorMessage,
+          opts.calls,
         )}
       >
         <AppFeaturesProvider features={opts.features}>
@@ -715,5 +725,140 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     expect(
       getByTestId("render-edit-action-archive").closest('[data-testid="form-actions"]'),
     ).toBeNull();
+  });
+});
+
+describe("projectionDetail writeHandler actions that leave the shown record", () => {
+  const listScreen = {
+    id: "rent-list",
+    type: "entityList",
+    entity: "rent",
+    columns: ["description"],
+  } as unknown as FeatureSchema["screens"][number];
+
+  const overviewScreen = {
+    id: "rent-overview",
+    type: "entityList",
+    entity: "rent",
+    columns: ["description"],
+  } as unknown as FeatureSchema["screens"][number];
+
+  const deleteAction = {
+    kind: "writeHandler",
+    id: "delete",
+    label: "actions.delete",
+    handler: "app:write:rent:delete",
+    style: "danger",
+    confirm: "actions.deleteConfirm",
+  } as const;
+
+  function schemaWith(
+    actions: ProjectionDetailScreenDefinition["actions"],
+    extra?: Partial<ProjectionDetailScreenDefinition>,
+  ): FeatureSchema {
+    return {
+      featureName: "app",
+      entities: {},
+      screens: [detailScreen({ actions, ...extra }), listScreen, overviewScreen],
+    };
+  }
+
+  async function runAction(
+    schema: FeatureSchema,
+    actionId: string,
+    opts?: { readonly searchParams?: Readonly<Record<string, string>> },
+  ): Promise<{
+    readonly navigated: ScreenTarget[];
+    readonly calls: { readonly writes: unknown[][]; queries: number };
+    readonly queryByText: (text: string) => HTMLElement | null;
+    readonly queriesAfterLoad: number;
+  }> {
+    TestDialog.lastProps = null as DialogProps | null;
+    const navigated: ScreenTarget[] = [];
+    const calls = { writes: [] as unknown[][], queries: 0 };
+    const { getByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+      onNavigate: (target) => navigated.push(target),
+      calls,
+      ...(opts?.searchParams !== undefined && { searchParams: opts.searchParams }),
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+    const queriesAfterLoad = calls.queries;
+    await act(async () => {
+      fireEvent.click(getByTestId(`render-edit-action-${actionId}`));
+    });
+    if (TestDialog.lastProps?.open === true) {
+      await act(async () => {
+        await TestDialog.lastProps?.onConfirm();
+      });
+    }
+    await waitFor(() => expect(calls.writes.length).toBe(1));
+    return { navigated, calls, queryByText, queriesAfterLoad };
+  }
+
+  test("a confirmed delete of the shown record navigates to listScreenId instead of showing record-not-found", async () => {
+    const schema = schemaWith([deleteAction], { listScreenId: "rent-list" });
+    const { navigated, queryByText } = await runAction(schema, "delete");
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-list" }]));
+    expect(queryByText("Record rent-1 not found.")).toBeNull();
+  });
+
+  test("a delete with a valid returnTo goes back there instead of the list", async () => {
+    const schema = schemaWith([deleteAction], { listScreenId: "rent-list" });
+    const { navigated } = await runAction(schema, "delete", {
+      searchParams: { returnTo: "rent-overview" },
+    });
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-overview" }]));
+  });
+
+  test("a delete never returns onto the deleted record, also when it carries a redirect", async () => {
+    const editScreen = {
+      id: "rent-edit",
+      type: "entityEdit",
+      entity: "rent",
+      layout: { sections: [{ fields: ["description"] }] },
+    } as unknown as FeatureSchema["screens"][number];
+    const base = schemaWith([{ ...deleteAction, redirect: "rent-list" }]);
+    const schema: FeatureSchema = { ...base, screens: [...base.screens, editScreen] };
+    const { navigated } = await runAction(schema, "delete", {
+      searchParams: { returnTo: "rent-edit/rent-1" },
+    });
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-list" }]));
+  });
+
+  test("an explicit redirect on a non-delete writeHandler navigates there", async () => {
+    const schema = schemaWith([
+      {
+        kind: "writeHandler",
+        id: "archive",
+        label: "actions.archive",
+        handler: "app:write:archive",
+        redirect: "rent-list",
+      },
+    ]);
+    const { navigated, calls, queriesAfterLoad } = await runAction(schema, "archive");
+
+    await waitFor(() => expect(navigated).toEqual([{ screenId: "rent-list" }]));
+    expect(calls.queries).toBe(queriesAfterLoad);
+  });
+
+  test("a non-delete writeHandler without redirect stays on the record and refetches", async () => {
+    const schema = schemaWith([
+      {
+        kind: "writeHandler",
+        id: "archive",
+        label: "actions.archive",
+        handler: "app:write:archive",
+      },
+    ]);
+    const { navigated, calls, queriesAfterLoad } = await runAction(schema, "archive");
+
+    await waitFor(() => expect(calls.queries).toBeGreaterThan(queriesAfterLoad));
+    expect(navigated).toEqual([]);
   });
 });
