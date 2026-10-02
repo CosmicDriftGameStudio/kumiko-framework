@@ -9,6 +9,7 @@
 //      verbrannt für gescheiterte writes)
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntityExecutor,
@@ -25,6 +26,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
+import { capCounterAggregateId } from "../aggregate-id.js";
 import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.js";
 import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import type { SoftHitNotifier } from "../enforce-cap.js";
@@ -549,5 +551,16 @@ describe("markCapSoftWarned - parallel marks on an existing counter", () => {
 
     const counter = await readCounter(user, PARALLEL_SOFT_WARN_CAP_NAME, TENANT_ONLY_PERIOD);
     expect(counter?.["lastSoftWarnedAt"]).not.toBeNull();
+
+    // Losers of the version race must see the flag on retry and not append duplicates:
+    // one create (increment) + exactly one update (the winning mark).
+    const events = await selectMany(stack.db, eventsTable, {
+      aggregateId: capCounterAggregateId(
+        user.tenantId,
+        PARALLEL_SOFT_WARN_CAP_NAME,
+        TENANT_ONLY_PERIOD,
+      ),
+    });
+    expect(events).toHaveLength(2);
   });
 });

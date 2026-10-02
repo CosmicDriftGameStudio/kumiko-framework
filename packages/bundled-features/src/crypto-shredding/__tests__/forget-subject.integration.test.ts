@@ -104,10 +104,10 @@ async function forgottenEvents(): Promise<Array<{ payload: Record<string, unknow
 // tenant+user-mounted stack further down — each has its own events table.
 async function deniedEvents(
   db: TestStack["db"] = stack.db,
-): Promise<Array<{ payload: Record<string, unknown> }>> {
+): Promise<Array<{ payload: Record<string, unknown>; tenantId: string; aggregateId: string }>> {
   return (await selectMany(db, eventsTable, {
     type: SUBJECT_FORGET_DENIED_EVENT_NAME,
-  })) as Array<{ payload: Record<string, unknown> }>;
+  })) as Array<{ payload: Record<string, unknown>; tenantId: string; aggregateId: string }>;
 }
 
 describe("crypto-shredding :: forget-subject", () => {
@@ -183,6 +183,11 @@ describe("crypto-shredding :: forget-subject", () => {
       actorTenantId: dpoUser.tenantId,
       denial: TARGET_TENANT_NOT_ADMIN_TENANT,
     });
+    // The row itself must land in the actor's tenant, not the probed one: the raw runner
+    // bypasses TenantDb scoping, so the payload alone does not prove this.
+    expect(denied[0]?.tenantId).toBe(dpoUser.tenantId);
+    expect(denied[0]?.tenantId).not.toBe(TARGET_TENANT_ID);
+    expect(denied[0]?.aggregateId).not.toBe(dpoUser.id);
   });
 
   test("SystemAdmin bypasses the tenant-scope guard", async () => {
@@ -538,6 +543,9 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
       forgottenBy: dpoUser.id,
       actorTenantId: dpoUser.tenantId,
     });
+    expect(denied[0]?.tenantId).toBe(dpoUser.tenantId);
+    expect(denied[0]?.tenantId).not.toBe(TENANT_B);
+    expect(denied[0]?.aggregateId).not.toBe(dpoUser.id);
   });
 
   // fw#2591 payload-hardening coverage (previously untested): the denial

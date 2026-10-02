@@ -430,6 +430,45 @@ describe("crypto-shredding :: forget-subject (record subject) retention gate, #2
       forgottenBy: dpoRetentionUser.id,
     });
   });
+
+  // The gate runs after the SystemAdmin early return of the tenant-scope check, so SystemAdmin
+  // must not be able to bypass a legal retention hold either.
+  test("blockDelete entity refuses the shred for SystemAdmin too — plaintext stays readable", async () => {
+    const systemAdminUser = {
+      id: "cccccccc-cccc-4ccc-8ccc-000000000005",
+      tenantId: RETENTION_TENANT,
+      roles: ["SystemAdmin"],
+    };
+    const tenantDb = createTenantDb(retentionStack.db, RETENTION_TENANT, "system");
+    const plaintext = "ledger entry under legal hold";
+    const created = await blockDeleteProbeExecutor().create(
+      { body: plaintext },
+      dpoRetentionUser,
+      tenantDb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const rowId = String(created.data.id);
+
+    const err = await retentionStack.http.writeErr(
+      FORGET,
+      {
+        subject: { kind: "record", entity: BLOCK_DELETE_PROBE_ENTITY_NAME, id: rowId },
+        reason: REASON,
+      },
+      systemAdminUser,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect((err.details as { reason?: string } | undefined)?.reason).toBe(
+      TARGET_RECORD_RETENTION_BLOCK_DELETE,
+    );
+
+    const stillReadable = await blockDeleteProbeExecutor().detail(
+      { id: rowId },
+      dpoRetentionUser,
+      tenantDb,
+    );
+    expect(stillReadable?.["body"]).toBe(plaintext);
+  });
 });
 
 // #2805: the entity declares no retention, but the owning tenant's effective

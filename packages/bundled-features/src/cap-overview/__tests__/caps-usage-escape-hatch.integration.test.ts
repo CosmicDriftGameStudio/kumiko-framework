@@ -38,6 +38,7 @@ import type { CapSpec } from "../types.js";
 const RAW_USAGE_REASON =
   "test: cap provider sums cap_overview_raw_usage_probe via raw SQL (fw#2971 regression)";
 const TENANT_A = testTenantId(9101);
+const TENANT_B = testTenantId(9102);
 
 const rawSqlSumCap: CapSpec = {
   id: "raw-sql-sum",
@@ -101,6 +102,12 @@ beforeAll(async () => {
   await asRawClient(db).unsafe(
     "INSERT INTO cap_overview_raw_usage_probe (tenant_id, amount) VALUES ($1, $2), ($1, $3)",
     [TENANT_A, 30, 12],
+  );
+  // Another tenant's rows: the providers' own tenant_id filter is the only thing keeping
+  // this out of TENANT_A's sum (the system-mode db handed to them is unfiltered).
+  await asRawClient(db).unsafe(
+    "INSERT INTO cap_overview_raw_usage_probe (tenant_id, amount) VALUES ($1, $2)",
+    [TENANT_B, 500],
   );
 
   await seedTenant(db, { id: TENANT_A, key: `cap-overview-raw-${TENANT_A}`, name: "Tenant Raw" });
