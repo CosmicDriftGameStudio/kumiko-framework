@@ -22,7 +22,7 @@ export function createTenantHandoverFeature(
       "Try-before-signup ownership handover: claims the rows of a declared-transferable " +
         "entity graph (root plus its parentRef-linked children) from an anonymous/public " +
         "tenant into the caller's own tenant, legitimized by a row-bound grant the anonymous " +
-        "flow minted. Idempotent, audited via a `<entityType>.tenantHandover` domain event.",
+        "flow minted. Idempotent, audited via a `tenant-handover:event:claimed` event on its own `tenant-handover-claim` aggregate.",
     );
     r.uiHints({
       displayLabel: "Tenant Handover",

@@ -110,8 +110,8 @@ beforeAll(async () => {
   await unsafePushTables(db, { configValuesTable });
   // Post-ES config writes go through the event-store executor, which needs
   // the framework events + archived-streams tables to exist before the
-  // first append. setupTestStack provisions them automatically; this test
-  // builds its DB manually (createTestDb + unsafePushTables), so we do it here.
+  // first append. createTestDb only provisions the events table;
+  // archived_streams must be created here.
   await createArchivedStreamsTable(db);
 
   const encryption = createTestEnvelopeCipher(testEncryptionKey);

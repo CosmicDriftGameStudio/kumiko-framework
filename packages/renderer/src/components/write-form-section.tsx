@@ -194,9 +194,8 @@ export function WriteFormSection({
     );
   }
 
-  // Routed through Section's `actions` slot (same mechanism render-edit.tsx
-  // uses via Form's `actions`) so the button gets the established right-
-  // aligned footer treatment instead of stretching full-width inline.
+  // Submit plus caller actions share the title row's actions slot (submit is
+  // lifted into the footer instead when onFooterAction is set).
   return (
     <Section
       {...(section.title !== undefined && { title: section.title })}

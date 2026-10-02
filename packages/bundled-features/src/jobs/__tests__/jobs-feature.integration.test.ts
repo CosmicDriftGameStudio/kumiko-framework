@@ -79,10 +79,6 @@ beforeAll(async () => {
 
   const registry = createRegistry([appFeature, jobsFeature]);
 
-  // jobRuns + jobRunLogs are projection tables (auto-pushed by
-  // unsafePushTables via the registry-declared inline projections in jobs-feature).
-  // We need events + archived_streams for the ES writes the job-runner's
-  // logger does.
   await unsafePushTables(db, { jobRunsTable, jobRunLogsTable });
 
   const redisUrl = `redis://${testRedis.redis.options.host}:${testRedis.redis.options.port}/${testRedis.redis.options.db}`;

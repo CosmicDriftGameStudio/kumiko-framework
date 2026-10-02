@@ -128,8 +128,9 @@ function registerCustomFields(
   // Event-types — qualified als "custom-fields:event:<short-name>".
   // Returned EventDefs liefern .name als compile-time literal-typed string,
   // den Handler + MSP-keys konsumieren statt Template-Literal-Konstruktion.
-  // `value: z.unknown()` has no field-level schema to catalog under piiFields;
-  // "no PII" is a naming convention (#972), not an enforced guarantee — see #2776.
+  // `value: z.unknown()` has no field-level schema to catalog under piiFields
+  // (event PII covers string fields only), so "no PII" is a convention here,
+  // not an enforced guarantee.
   const setEvent = r.defineEvent(CUSTOM_FIELD_SET_EVENT, customFieldSetSchema, {
     piiFields: "none",
   });

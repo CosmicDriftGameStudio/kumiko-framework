@@ -124,11 +124,9 @@ export function defineQueryHandler<
 }
 
 // Runtime marker set only by definePagedQueryHandler. A plain
-// defineQueryHandler-built object never carries it. Kept as a type-level
-// signal (fw#2216) even though no validator gates on it — QueryHandlerDef
-// has no output schema, so a boot check can't distinguish "returns
-// PagedRows" from "doesn't" without running the handler; the actual
-// enforcement is a runtime shape guard in the renderer (kumiko-screen.tsx).
+// defineQueryHandler-built object never carries it. query-output-columns.ts
+// reads it to gate the paged envelope check on outputSchema; the renderer's
+// runtime shape guard (kumiko-screen.tsx) remains as a second line.
 //
 // A string key, not a Symbol: bundled-features imports this module through
 // the package's "@cosmicdrift/kumiko-framework/engine" subpath (symlinked

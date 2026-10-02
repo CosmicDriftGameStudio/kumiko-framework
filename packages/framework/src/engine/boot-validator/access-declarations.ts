@@ -89,7 +89,8 @@ function validateEscapeHatchReason(
   throw new Error(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +
-      "explaining why this handler needs db.global() write access or a SYSTEM identity switch.",
+      "explaining why this handler needs db.global() write access, a SYSTEM identity switch " +
+      "or a cross-tenant ctx.queryProjection({ unsafeAllTenants: true }) read.",
   );
 }
 

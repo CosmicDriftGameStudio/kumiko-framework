@@ -14,9 +14,9 @@
 //
 // Runs isolated in the `event-store-perf` CI job (test:integration:perf:eventstore,
 // #1940) — gate on p95 for typical latency; p99 keeps a separate tail budget for
-// residual scheduling noise. CI's Postgres container runs with fsync/synchronous_commit/
-// full_page_writes off (#2798) — it exists only to be measured and thrown away, so these
-// numbers aren't comparable to a default-config local container.
+// residual scheduling noise. CI and the local docker-compose Postgres both run with
+// fsync/synchronous_commit/full_page_writes off — numbers aren't comparable to a
+// default-config Postgres.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { type BunTestDb, createTestDb } from "../../bun-db/__tests__/bun-test-db.js";

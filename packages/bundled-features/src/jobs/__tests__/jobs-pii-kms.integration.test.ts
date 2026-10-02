@@ -57,8 +57,6 @@ beforeAll(async () => {
   testRedis = await createTestRedis();
   const registry = createRegistry([createJobsFeature()]);
   await unsafePushTables(testDb.db, { jobRunsTable, jobRunLogsTable });
-  // Kept only so the "no event store involved" assertion below has a table
-  // to assert against — the write path itself never touches it.
   logger = createJobRunLogger({ db: testDb.db, registry });
 });
 

@@ -56,9 +56,9 @@ function resolvePiiStance(eventType: string): EventPiiStance | undefined {
 // (user/tenant/self — resolveEventSubject, fw#2801). No-op when the event
 // type is uncatalogued or no subject KMS is configured (plaintext rollout
 // mode — the hard boot gate governs whether that is acceptable). A
-// user-subject field with no resolvable owner (system cron runs,
-// recipient-less skip attempts) leaves the value plaintext: there is no
-// user key to shred. This is the ONLY live-write encrypt path — the backfill
+// user-subject field with an empty owner follows its declared `whenAbsent`
+// (tenant key or acknowledged plaintext) and aborts the append when none is
+// declared. This is the ONLY live-write encrypt path — the backfill
 // catalog branch (`backfill-pii.ts`) resolves through the same
 // resolveEventSubject so a field never ends up encrypted under different
 // subjects depending on which path wrote it.
