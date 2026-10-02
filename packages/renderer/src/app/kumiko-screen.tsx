@@ -549,6 +549,8 @@ function resolveTenantCurrency(
 // lands here — same last resort as the entityEdit path's `?? "EUR"`.
 const ACTION_FORM_CURRENCY_FALLBACK = "EUR";
 
+const HEADER_CARD_DEFAULT_WIDTH = "4xl" as const;
+
 // Shared by the update payload shape and the server-error path prefix so both can't drift.
 const UPDATE_CHANGES_KEY = "changes";
 
@@ -3293,6 +3295,27 @@ function ProjectionDetailBody({
     openDrawer,
     sameEntityScreenId,
   ]);
+  const hasHeader = screen.header !== undefined;
+  const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
+  // ?? [] rather than threading `headerActions !== undefined` through every
+  // use below — an empty array is a safe no-op for .map/.length.
+  const headerActionsList = headerActions ?? [];
+  const hasHeaderActions = headerActionsList.length > 0;
+  const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions;
+  // A header card (metric band, status, actions) needs more room than the
+  // 640px form column; screens with only a record title keep the narrow one.
+  const widensScreenFormColumn =
+    hasHeaderCard &&
+    !hasTabs &&
+    screenFillsHeight(screen) &&
+    detailScreen.layout.width === undefined;
+  const renderedDetailScreen = useMemo(
+    () =>
+      widensScreenFormColumn
+        ? { ...detailScreen, layout: { ...detailScreen.layout, width: HEADER_CARD_DEFAULT_WIDTH } }
+        : detailScreen,
+    [detailScreen, widensScreenFormColumn],
+  );
 
   if (effectiveEntityId === undefined && screen.singleton !== true) {
     return (
@@ -3330,12 +3353,6 @@ function ProjectionDetailBody({
       </Banner>
     );
   }
-  const hasHeader = screen.header !== undefined;
-  const hasMetrics = screen.metrics !== undefined && screen.metrics.length > 0;
-  // ?? [] rather than threading `headerActions !== undefined` through every
-  // use below — an empty array is a safe no-op for .map/.length.
-  const headerActionsList = headerActions ?? [];
-  const hasHeaderActions = headerActionsList.length > 0;
   // Grouped into the head Card alongside title/status/metrics (fw#2713):
   // these are actions on the record the head shows, not on whichever tab is
   // open, so they must stay in place across tab switches instead of
@@ -3351,7 +3368,6 @@ function ProjectionDetailBody({
       />
     </Grid>
   );
-  const hasHeaderCard = hasHeader || hasMetrics || hasHeaderActions;
   // Rendered as RenderEdit's headerRegion (not as JSX siblings before it) so
   // this shares the same page padding/width as the record's edit card below
   // it, instead of sitting flush against the screen edge (fw record-screen
@@ -3570,7 +3586,7 @@ function ProjectionDetailBody({
     <>
       <RenderEdit
         key={`${entityId}:${reloadNonce}`}
-        screen={detailScreen}
+        screen={renderedDetailScreen}
         entity={entity}
         featureName={schema.featureName}
         initial={record as FormValues}
