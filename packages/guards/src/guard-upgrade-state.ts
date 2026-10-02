@@ -126,9 +126,12 @@ export function resolveKumikoUpgradeBin(
   return Bun.which("kumiko-upgrade", { PATH: pathEnv }) ?? undefined;
 }
 
-async function runKumikoUpgrade(
+const KUMIKO_UPGRADE_TIMEOUT_MS = 120_000;
+
+export async function runKumikoUpgrade(
   version: string,
   cwd: string,
+  timeoutMs: number = KUMIKO_UPGRADE_TIMEOUT_MS,
 ): Promise<{ ok: true; json: UpgradeJson } | { ok: false; error: string }> {
   const binPath = resolveKumikoUpgradeBin(cwd);
   if (!binPath) {
@@ -142,14 +145,22 @@ async function runKumikoUpgrade(
     cmd: [binPath, "--from", version, "--json"],
     cwd,
     env: { ...process.env, INIT_CWD: cwd },
+    stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
+    timeout: timeoutMs,
   });
   const [stdout, stderr, exitCode] = await Promise.all([
     new Response(proc.stdout).text(),
     new Response(proc.stderr).text(),
     proc.exited,
   ]);
+  if (proc.signalCode !== null) {
+    return {
+      ok: false,
+      error: `\`kumiko-upgrade --from ${version} --json\` timed out after ${timeoutMs} ms (killed by ${proc.signalCode})`,
+    };
+  }
   if (exitCode !== 0) {
     return {
       ok: false,

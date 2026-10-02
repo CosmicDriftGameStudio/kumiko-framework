@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runInitDeployCli } from "../init-deploy-cli.js";
@@ -37,6 +37,18 @@ describe("runInitDeployCli", () => {
     const code = await runInitDeployCli({ argv: [], cwd: tmp, out });
     expect(code).toBe(0);
     expect(logs.some((l) => l.includes("some-app"))).toBe(true);
+  });
+
+  it("defaults --app from the --out directory's package.json, not cwd's", async () => {
+    const otherApp = join(tmp, "other-app");
+    mkdirSync(otherApp);
+    writeFileSync(join(tmp, "package.json"), JSON.stringify({ name: "cwd-app" }));
+    writeFileSync(join(otherApp, "package.json"), JSON.stringify({ name: "@scope/out-app" }));
+    const { out, logs } = makeOut();
+    const code = await runInitDeployCli({ argv: ["--out", otherApp], cwd: tmp, out });
+    expect(code).toBe(0);
+    expect(logs.some((l) => l.includes("out-app"))).toBe(true);
+    expect(logs.some((l) => l.includes("cwd-app"))).toBe(false);
   });
 
   it("fails with a usage error when --app is missing and package.json has no name", async () => {

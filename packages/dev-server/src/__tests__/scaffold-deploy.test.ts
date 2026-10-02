@@ -323,9 +323,74 @@ describe("scaffoldDeploy", () => {
       );
       scaffoldDeploy({ appName: "dirapp", destination: tmp });
       const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
-      expect(migrate).toContain('STACK_NETWORK="$(basename "$PWD")_stack"');
+      expect(migrate).toContain("basename");
       expect(migrate).toContain("docker network inspect");
       expect(migrate).not.toContain("docker network ls");
+    });
+
+    describe('stackNetwork "directory" executed against a fake docker', () => {
+      function runMigrateStep(
+        projectDir: string,
+        env: Record<string, string>,
+      ): { readonly status: number; readonly inspected: string } {
+        const binDir = join(tmp, "bin");
+        mkdirSync(binDir, { recursive: true });
+        const inspectLog = join(tmp, "inspected.log");
+        writeFileSync(
+          join(binDir, "docker"),
+          [
+            "#!/bin/sh",
+            'if [ "$1 $2" = "network inspect" ]; then',
+            `  echo "$3" >> "${inspectLog}"`,
+            '  case "$3" in myapp_stack|custom_stack) exit 0 ;; *) exit 1 ;; esac',
+            "fi",
+            "exit 0",
+            "",
+          ].join("\n"),
+          { mode: 0o755 },
+        );
+        writeFileSync(join(projectDir, ".env"), "DB_PASSWORD=pw\n");
+        const proc = Bun.spawnSync(["bash", join(projectDir, "migrate-step.sh")], {
+          cwd: projectDir,
+          env: { PATH: `${binDir}:${process.env["PATH"] ?? ""}`, ...env },
+          stderr: "pipe",
+        });
+        return {
+          status: proc.exitCode,
+          inspected: existsSync(inspectLog) ? readFileSync(inspectLog, "utf-8").trim() : "",
+        };
+      }
+
+      function scaffoldInto(projectDir: string): void {
+        mkdirSync(projectDir, { recursive: true });
+        writeFileSync(
+          join(projectDir, "package.json"),
+          JSON.stringify({ name: "dirapp", kumiko: { deploy: { stackNetwork: "directory" } } }),
+        );
+        scaffoldDeploy({ appName: "dirapp", destination: projectDir });
+        writeFileSync(
+          join(projectDir, "migrate-step.sh"),
+          readFileSync(join(projectDir, "deploy", "migrate-step.sh"), "utf-8"),
+        );
+      }
+
+      it("lowercases and sanitises the directory name like compose does", () => {
+        const projectDir = join(tmp, "My App!");
+        scaffoldInto(projectDir);
+        const { status, inspected } = runMigrateStep(projectDir, {});
+        expect(inspected).toBe("myapp_stack");
+        expect(status).toBe(0);
+      });
+
+      it("prefers COMPOSE_PROJECT_NAME over the directory name", () => {
+        const projectDir = join(tmp, "srv-dir");
+        scaffoldInto(projectDir);
+        const { status, inspected } = runMigrateStep(projectDir, {
+          COMPOSE_PROJECT_NAME: "custom",
+        });
+        expect(inspected).toBe("custom_stack");
+        expect(status).toBe(0);
+      });
     });
 
     it.each(["a;rm -rf /", "$(id)", "a b", ""])(

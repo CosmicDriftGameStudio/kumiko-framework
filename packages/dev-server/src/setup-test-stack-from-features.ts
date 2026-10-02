@@ -27,6 +27,23 @@ export type SetupTestStackFromFeaturesOptions = Omit<TestStackOptions, "features
   readonly presets?: readonly TestStackPreset[];
 };
 
+function isConfigResolver(value: unknown): value is ConfigResolver {
+  return (
+    typeof value === "object" && value !== null && "get" in value && typeof value.get === "function"
+  );
+}
+
+function resolveBaseConfigResolver(fromBase: Record<string, unknown>): ConfigResolver | undefined {
+  const supplied = fromBase["configResolver"];
+  if (supplied === undefined) return undefined;
+  if (!isConfigResolver(supplied)) {
+    throw new Error(
+      "extraContext.configResolver must be a ConfigResolver (an object with get()), e.g. from createConfigResolver() — got a different value; pass the instance, not a factory.",
+    );
+  }
+  return supplied;
+}
+
 export function mergeExtraContext(
   base: TestStackOptions["extraContext"],
   presets: readonly TestStackPreset[],
@@ -40,8 +57,7 @@ export function mergeExtraContext(
 
     if (presets.includes("config")) {
       // Same precedence as mergeConfigResolverDefault (run-dev-app.ts) — a base-supplied resolver wins, factory always derives from it (fw#3313).
-      const configResolver =
-        (fromBase["configResolver"] as ConfigResolver | undefined) ?? createConfigResolver();
+      const configResolver = resolveBaseConfigResolver(fromBase) ?? createConfigResolver();
       Object.assign(merged, addConfigAccessorFactory({ configResolver }, deps.registry));
     }
     if (presets.includes("template-resolver")) {

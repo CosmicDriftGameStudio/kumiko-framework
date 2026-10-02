@@ -187,8 +187,14 @@ export const check: RepoCheck = {
 
     const counts = countByKey(rootAbsPath, allViolations);
     const resolveLine = (key: string): number => {
-      const relFile = key.split("::")[0];
-      return allViolations.find((v) => path.relative(rootAbsPath, v.file) === relFile)?.line ?? 1;
+      const separator = key.indexOf("::");
+      const relFile = key.slice(0, separator);
+      const importedSpec = key.slice(separator + 2);
+      return (
+        allViolations.find(
+          (v) => path.relative(rootAbsPath, v.file) === relFile && v.importedSpec === importedSpec,
+        )?.line ?? 1
+      );
     };
     const violations: GuardViolation[] = ratchetFor(rootAbsPath).check(
       counts,

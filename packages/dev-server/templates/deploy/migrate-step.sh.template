@@ -33,9 +33,11 @@ if [ -z "$STACK_NETWORK" ]; then
 fi
 {{/stackNetworkDiscover}}
 {{#stackNetworkDirectory}}
-STACK_NETWORK="$(basename "$PWD")_stack"
+# Compose lowercases the project name and drops characters outside [a-z0-9_-].
+COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')}"
+STACK_NETWORK="${COMPOSE_PROJECT}_stack"
 if ! docker network inspect "$STACK_NETWORK" >/dev/null 2>&1; then
-  echo "Stack network '$STACK_NETWORK' not found — compose project not running?" >&2
+  echo "Stack network '$STACK_NETWORK' not found (derived from COMPOSE_PROJECT_NAME or the directory name '$(basename "$PWD")') — compose project not running?" >&2
   exit 1
 fi
 {{/stackNetworkDirectory}}

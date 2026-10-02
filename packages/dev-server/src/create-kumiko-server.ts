@@ -16,7 +16,7 @@
 // with a different options shape (clientDist, auth config, db url).
 
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, statSync } from "node:fs";
+import { existsSync, mkdtempSync, realpathSync, statSync } from "node:fs";
 import { readFile, realpath, watch } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve, sep } from "node:path";
@@ -486,12 +486,13 @@ async function servePublicFile(
   const filePath = resolvePublicFilePath(pathname, publicDir);
   if (filePath === undefined) return undefined;
   try {
-    const bytes = await readFile(filePath);
     // Lexical containment (above) only catches "..", not a symlink inside
     // publicDir that points outside it on disk — realpath resolves the
-    // actual target and the same containment check runs against it.
+    // actual target and the same containment check runs against it. Read
+    // from the resolved path so the checked target is the one read.
     const real = await realpath(filePath);
     if (real !== publicDir && !real.startsWith(publicDir + sep)) return undefined;
+    const bytes = await readFile(real);
     return { bytes, mime: publicFileMimeType(filePath) };
   } catch (err) {
     const code = (err as { code?: string }).code;
@@ -1092,7 +1093,12 @@ export async function createKumikoServer(
 
   // App-root convention (same as expandWatchPatterns/resolveStylesheet above):
   // process.cwd() is the app workspace, so public/ is its static asset dir.
-  const publicDir = resolve(process.cwd(), "public");
+  // Symlink-resolved once: servePublicFile compares realpath()s against it, so
+  // a symlinked public/ would otherwise 404 every file.
+  const lexicalPublicDir = resolve(process.cwd(), "public");
+  const publicDir = existsSync(lexicalPublicDir)
+    ? realpathSync(lexicalPublicDir)
+    : lexicalPublicDir;
   // The app's cwd first, this package's own location as fallback (the cwd may
   // not have renderer-web installed, e.g. a fixture dir).
   const rendererWebFontsDir = resolveRendererWebFontsDir([process.cwd(), import.meta.dir]);
@@ -1340,6 +1346,26 @@ export async function createKumikoServer(
     }
   }
 
+  // The per-boot prefix is never reused, so its BullMQ keys (queues,
+  // repeatables, delayed jobs) would pile up in the shared Redis forever.
+  // A prefix-less duplicate: SCAN returns full key names, which the stack
+  // client's keyPrefix would otherwise prepend a second time.
+  const deleteEphemeralJobQueues = async (): Promise<void> => {
+    const raw = stack.redis.redis.duplicate({ keyPrefix: "" });
+    try {
+      const keys: string[] = [];
+      for await (const batch of raw.scanStream({
+        match: `bull:${jobQueueNamePrefix}-*`,
+        count: 500,
+      })) {
+        keys.push(...batch);
+      }
+      if (keys.length > 0) await raw.del(...keys);
+    } finally {
+      raw.disconnect();
+    }
+  };
+
   const stop = async (): Promise<void> => {
     // Watcher zuerst stoppen damit kein onChange während des Teardowns
     // mehr feuert (sonst können tmpdir-rmSync ein process.exit(75)
@@ -1353,6 +1379,7 @@ export async function createKumikoServer(
       await stack.eventDispatcher.stop();
     }
     await devJobRunners.stop();
+    if (!persistentDb) await deleteEphemeralJobQueues();
     await stack.cleanup();
   };
 

@@ -15,16 +15,15 @@ import { closeSync, existsSync, openSync, readFileSync, readSync } from "node:fs
 import * as path from "node:path";
 import type { ImportDeclaration, SourceFile } from "ts-morph";
 
-export type Runtime = "runtime" | "client" | "prod" | "dev" | "tooling" | "test";
+const RUNTIME_KINDS = ["runtime", "client", "prod", "dev", "tooling", "test"] as const;
 
-export const ALL_RUNTIMES: ReadonlySet<string> = new Set([
-  "runtime",
-  "client",
-  "prod",
-  "dev",
-  "tooling",
-  "test",
-]);
+export type Runtime = (typeof RUNTIME_KINDS)[number];
+
+export const ALL_RUNTIMES: ReadonlySet<string> = new Set(RUNTIME_KINDS);
+
+function isRuntime(value: unknown): value is Runtime {
+  return typeof value === "string" && ALL_RUNTIMES.has(value);
+}
 
 export const COMPAT: Record<Runtime, ReadonlySet<Runtime>> = {
   runtime: new Set(["runtime", "client", "prod"]),
@@ -284,7 +283,8 @@ export function classifyByDirective(
   if (head === null) return null;
   for (const line of head.split("\n").slice(0, DIRECTIVE_HEAD_LINES)) {
     const m = line.match(/\/\/\s*@runtime\s+(\w+)/);
-    if (m && ALL_RUNTIMES.has(m[1] ?? "")) return m[1] as Runtime;
+    const declared = m?.[1];
+    if (isRuntime(declared)) return declared;
   }
   return null;
 }
@@ -346,9 +346,11 @@ function readWorkspaceRuntime(dir: string, cache: Map<string, Runtime | null>): 
   const pkgPath = path.join(dir, "package.json");
   let result: Runtime | null = null;
   try {
-    const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
-    const r = pkg.kumiko?.runtime;
-    if (typeof r === "string" && ALL_RUNTIMES.has(r)) result = r as Runtime;
+    const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
+    const kumiko = typeof pkg === "object" && pkg !== null && "kumiko" in pkg ? pkg.kumiko : null;
+    const declared =
+      typeof kumiko === "object" && kumiko !== null && "runtime" in kumiko ? kumiko.runtime : null;
+    if (isRuntime(declared)) result = declared;
   } catch {
     // package.json missing or unreadable — unmarked
   }
