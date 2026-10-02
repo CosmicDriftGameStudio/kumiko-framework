@@ -155,22 +155,50 @@ function assertPresentableMappings(mappings: readonly PresentIdentity[]): void {
   }
 }
 
-// Runs in the browser, so it may not reference module scope.
+declare global {
+  interface Window {
+    __kumikoPresentRestore?: Array<() => void>;
+  }
+}
+
+// Runs in the browser, so it may not reference module scope. Originals are kept
+// on window so a later evaluate can put them back (captureScreenshot runs
+// mid-flow, where the spec keeps asserting and submitting forms).
 function replaceIdentitiesInDocument(mappings: readonly PresentIdentity[]): void {
+  const restorers = (window.__kumikoPresentRestore ??= []);
   const present = (text: string): string =>
     mappings.reduce((current, { from, to }) => current.replaceAll(from, to), text);
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
     const text = node.nodeValue ?? "";
     const presented = present(text);
-    if (presented !== text) node.nodeValue = presented;
+    if (presented !== text) {
+      const textNode = node;
+      textNode.nodeValue = presented;
+      restorers.push(() => {
+        textNode.nodeValue = text;
+      });
+    }
   }
   for (const field of document.querySelectorAll("input, textarea")) {
     if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
-      const presented = present(field.value);
-      if (presented !== field.value) field.value = presented;
+      const original = field.value;
+      const presented = present(original);
+      if (presented !== original) {
+        field.value = presented;
+        restorers.push(() => {
+          field.value = original;
+        });
+      }
     }
   }
+}
+
+// Reverse order: a second presentation pass records already-presented values.
+function restoreIdentitiesInDocument(): void {
+  const restorers = window.__kumikoPresentRestore ?? [];
+  for (const restore of restorers.reverse()) restore();
+  window.__kumikoPresentRestore = [];
 }
 
 async function presentIdentitiesOnPage(
@@ -178,6 +206,13 @@ async function presentIdentitiesOnPage(
   mappings: readonly PresentIdentity[],
 ): Promise<void> {
   if (mappings.length > 0) await page.evaluate(replaceIdentitiesInDocument, mappings);
+}
+
+async function restoreIdentitiesOnPage(
+  page: Page,
+  mappings: readonly PresentIdentity[],
+): Promise<void> {
+  if (mappings.length > 0) await page.evaluate(restoreIdentitiesInDocument);
 }
 
 function collectPresentIdentities(): {
@@ -357,8 +392,10 @@ const DEFAULT_LOCALE_TAGS: Readonly<Record<string, string>> = { en: "en-US", de:
 // own `localeTags` instead of relying on the derived default.
 function deriveLocaleTag(locale: string): string | undefined {
   try {
-    const region = new Intl.Locale(locale).maximize().region;
-    return region === undefined ? undefined : `${locale}-${region}`;
+    const parsed = new Intl.Locale(locale);
+    if (parsed.region !== undefined) return parsed.toString();
+    const region = parsed.maximize().region;
+    return region === undefined ? undefined : `${parsed.language}-${region}`;
   } catch {
     return undefined;
   }
@@ -459,10 +496,14 @@ export function resolveMatrixViewports(
   const deviceProjectIds = new Set(
     projects.filter((p) => p.isMobile && isViewportId(p.name)).map((p) => p.name),
   );
-  return {
-    mode: "desktop",
-    viewports: allowedViewports.filter((id) => !deviceProjectIds.has(id)),
-  };
+  const viewports = allowedViewports.filter((id) => !deviceProjectIds.has(id));
+  if (viewports.length === 0) {
+    return {
+      mode: "skip",
+      reason: `no viewports left for project "${projectName}": SCREENSHOT_VIEWPORTS [${allowedViewports.join(", ")}] all covered by device projects`,
+    };
+  }
+  return { mode: "desktop", viewports };
 }
 
 export function runMatrix<T extends string>(
@@ -657,8 +698,12 @@ export async function captureScreenshot(
   mkdirSync(dirname(path), { recursive: true });
   // Before the content fit too: a presented value of another length can change the overflow.
   await presentIdentitiesOnPage(page, identities);
-  if (fit === "content") await captureGrownToContent(page, name, path, identities);
-  else await page.screenshot({ path, animations: "disabled", fullPage: fit === "fullPage" });
+  try {
+    if (fit === "content") await captureGrownToContent(page, name, path, identities);
+    else await page.screenshot({ path, animations: "disabled", fullPage: fit === "fullPage" });
+  } finally {
+    await restoreIdentitiesOnPage(page, identities);
+  }
 }
 
 async function captureGrownToContent(

@@ -38,11 +38,6 @@ async function rerenderGeneratedIdentity(page: Page): Promise<void> {
   await expect(page.locator("#email")).toHaveValue(GENERATED);
 }
 
-async function expectPresentableDom(page: Page): Promise<void> {
-  await expect(page.locator("#who")).toHaveText(`Signed in as ${PRESENTABLE}`);
-  await expect(page.locator("#email")).toHaveValue(PRESENTABLE);
-}
-
 async function applyIdentityTheme(
   page: Page,
   theme: (typeof MATRIX_THEMES)[number],
@@ -63,10 +58,12 @@ test("captureScreenshot shows the presentable identity on every capture of a pag
   await captureScreenshot(page, "identity-unmapped");
 
   await captureScreenshot(page, "identity-first", { presentIdentities: IDENTITIES });
-  await expectPresentableDom(page);
+  // Later assertions and form submits in the same spec see the real values again.
+  await expect(page.locator("#who")).toHaveText(`Signed in as ${GENERATED}`);
+  await expect(page.locator("#email")).toHaveValue(GENERATED);
   await rerenderGeneratedIdentity(page);
   await captureScreenshot(page, "identity-second", { presentIdentities: IDENTITIES });
-  await expectPresentableDom(page);
+  await expect(page.locator("#email")).toHaveValue(GENERATED);
 
   const reference = capturedPng("identity-reference.png");
   expect(capturedPng("identity-unmapped.png").equals(reference)).toBe(false);

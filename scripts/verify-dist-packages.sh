@@ -30,6 +30,10 @@ for pkg_json in packages/*/package.json; do
   name="$(jq -r .name "$pkg_json")"
   echo "== pack $name" >&2
 
+  # publishConfig.exports is a hand-kept copy; a subpath only added to `exports` would pass workspace and CI yet be missing for consumers.
+  jq -e '(.exports | keys) == (.publishConfig.exports | keys)' "$pkg_json" >/dev/null \
+    || fail "$name: exports and publishConfig.exports declare different subpaths"
+
   tarball="$(bash scripts/pack-with-publish-config.sh "$pkg_dir")"
   tarball_path="$scratch/$tarball"
   mv "$pkg_dir/$tarball" "$tarball_path"
