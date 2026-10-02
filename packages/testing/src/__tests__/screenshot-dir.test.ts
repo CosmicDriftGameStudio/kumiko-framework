@@ -58,7 +58,11 @@ describe("captureScreenshot", () => {
 
   // Fingerprint polls return a constant (page settled at once); scrollDeficit
   // polls pop the next scripted overflow value.
-  function recordingPage(deficits: number[]) {
+  type ScriptedDeficit =
+    | number
+    | { documentDeficit: number; containers: readonly (readonly [number, number])[] };
+
+  function recordingPage(deficits: ScriptedDeficit[]) {
     const calls = {
       emulateMedia: [] as unknown[],
       screenshot: [] as unknown[],
@@ -71,8 +75,11 @@ describe("captureScreenshot", () => {
       },
       on: () => {},
       off: () => {},
-      evaluate: async (fn: () => unknown) =>
-        fn.name === "scrollDeficit" ? (deficits.shift() ?? 0) : "fixed-fingerprint",
+      evaluate: async (fn: () => unknown) => {
+        if (fn.name !== "scrollDeficit") return "fixed-fingerprint";
+        const next = deficits.shift() ?? 0;
+        return typeof next === "number" ? { documentDeficit: next, containers: [] } : next;
+      },
       viewportSize: () => viewport,
       setViewportSize: async (size: { width: number; height: number }) => {
         viewport = size;
@@ -132,6 +139,34 @@ describe("captureScreenshot", () => {
       );
       expect(calls.screenshot).toEqual([]);
       expect(calls.viewportSizes.at(-1)).toEqual({ width: 1280, height: 800 });
+    }));
+
+  test('fit "content" ignores a container whose overflow does not shrink with the viewport', () =>
+    withScreenshotDir(async (dir) => {
+      const textarea = { documentDeficit: 0, containers: [[7, 200]] as const };
+      const { page, calls } = recordingPage([textarea, textarea]);
+      await captureScreenshot(page, "form", { fit: "content" });
+      expect(calls.screenshot).toEqual([
+        {
+          path: `${dir}/form.png`,
+          animations: "disabled",
+          viewportAtCapture: { width: 1280, height: 1000 },
+        },
+      ]);
+    }));
+
+  test('fit "content" keeps growing for a container whose overflow shrinks with the viewport', () =>
+    withScreenshotDir(async () => {
+      const { page, calls } = recordingPage([
+        { documentDeficit: 0, containers: [[7, 300]] },
+        { documentDeficit: 0, containers: [[7, 100]] },
+        0,
+      ]);
+      await captureScreenshot(page, "shell", { fit: "content" });
+      expect(calls.viewportSizes.slice(0, 2)).toEqual([
+        { width: 1280, height: 1100 },
+        { width: 1280, height: 1200 },
+      ]);
     }));
 });
 

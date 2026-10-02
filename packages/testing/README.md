@@ -89,10 +89,14 @@ receives the seeded-tenant fixture too:
 ```ts
 { name: "dispatch", flow: async (page, { seedTenant }) => {
     const tenant = await seedTenant({ users: 1 });
-    await tenant.loginAs(page, tenant.members[0]!);
+    const [member] = tenant.members;
+    if (!member) throw new Error("seedTenant returned no member");
+    await tenant.loginAs(page, member);
     await page.goto("/dispatch");
   },
-  beforeCapture: async (page) => page.addStyleTag({ content: ".live-clock { visibility: hidden }" }),
+  beforeCapture: async (page) => {
+    await page.addStyleTag({ content: ".live-clock { visibility: hidden }" });
+  },
 }
 ```
 

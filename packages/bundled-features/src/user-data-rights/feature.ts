@@ -442,6 +442,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
                 handler: UserDataRightsHandlers.cancelDeletion,
                 visible: { field: "status", eq: "deletionRequested" },
                 style: "secondary" as const,
+                // Declared: the id's last segment ("deletion") would otherwise resolve to the destructive trash icon.
+                icon: "x" as const,
               },
             ]
           : []),

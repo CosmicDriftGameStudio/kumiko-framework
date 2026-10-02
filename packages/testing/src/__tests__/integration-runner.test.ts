@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
   buildIntegrationTestArgs,
+  listIntegrationTestFiles,
   resolveRequestedIntegrationFiles,
   selectIntegrationFiles,
 } from "../integration-runner";
@@ -150,5 +154,31 @@ describe("selectIntegrationFiles", () => {
         "src/e2e/flow.integration.test.ts",
       ]),
     ).toEqual(["src/a/y.integration.test.ts", "src/b/z.integration.test.ts"]);
+  });
+});
+
+describe("listIntegrationTestFiles", () => {
+  test("finds nested integration tests and never descends into excluded or dot directories", () => {
+    const root = mkdtempSync(join(tmpdir(), "integration-files-"));
+    try {
+      for (const file of [
+        "src/a/y.integration.test.ts",
+        "src/a/unit.test.ts",
+        "top.integration.test.ts",
+        "node_modules/pkg/x.integration.test.ts",
+        "dist/x.integration.test.ts",
+        "src/e2e/flow.integration.test.ts",
+        ".worktree/x.integration.test.ts",
+      ]) {
+        mkdirSync(join(root, dirname(file)), { recursive: true });
+        writeFileSync(join(root, file), "");
+      }
+      expect(listIntegrationTestFiles(root).sort()).toEqual([
+        "src/a/y.integration.test.ts",
+        "top.integration.test.ts",
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

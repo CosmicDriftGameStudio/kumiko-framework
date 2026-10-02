@@ -635,46 +635,65 @@ export interface CaptureScreenshotOptions {
 
 const CONTENT_FIT_MAX_ROUNDS = 4;
 
-// Runs in the browser: the largest vertical overflow of the document or of any
+type ScrollMeasurement = {
+  readonly documentDeficit: number;
+  // [index in document.querySelectorAll("*"), overflow px] per scrolling container.
+  readonly containers: readonly (readonly [number, number])[];
+};
+
+// Runs in the browser: the document's vertical overflow plus that of every
 // visible scrolling container. Serialized into the page, so it may not reference
 // module scope. A 1px container deficit is sub-pixel rounding, not content: an
 // `overflow-x-auto` table wrapper computes overflow-y to `auto` as well and
 // reported scrollHeight one pixel above clientHeight in solon at 1280px, so
 // growth never converged.
-function scrollDeficit(): number {
-  const containerDeficits = [...document.querySelectorAll("*")]
-    .filter((el) => {
-      const style = getComputedStyle(el);
-      return (
-        (style.overflowY === "auto" || style.overflowY === "scroll") &&
-        el.scrollHeight - el.clientHeight > 1 &&
-        el.getClientRects().length > 0 &&
-        style.visibility !== "hidden"
-      );
-    })
-    .map((el) => el.scrollHeight - el.clientHeight);
-  return Math.max(
-    0,
-    document.documentElement.scrollHeight - window.innerHeight,
-    ...containerDeficits,
-  );
+function scrollDeficit(): ScrollMeasurement {
+  const containers: [number, number][] = [];
+  [...document.querySelectorAll("*")].forEach((el, index) => {
+    const style = getComputedStyle(el);
+    if (
+      (style.overflowY === "auto" || style.overflowY === "scroll") &&
+      el.scrollHeight - el.clientHeight > 1 &&
+      el.getClientRects().length > 0 &&
+      style.visibility !== "hidden"
+    ) {
+      containers.push([index, el.scrollHeight - el.clientHeight]);
+    }
+  });
+  return {
+    documentDeficit: Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
+    containers,
+  };
 }
 
 // Growing the viewport re-flows flex-1 regions under an h-svh shell, which can
-// reveal more content, hence rounds. A deficit left after the last round throws
-// instead of writing a silently cropped screenshot.
+// reveal more content, hence rounds. A container whose overflow is unchanged
+// after a growth round (a textarea, a fixed-height log pane, a max-h list) does
+// not depend on the viewport, so it is ignored from then on instead of
+// inflating the viewport until the round budget runs out; this costs one
+// wasted growth step. A deficit left after the last round throws instead of
+// writing a silently cropped screenshot.
 async function growViewportToContent(page: Page, name: string, width: number): Promise<void> {
-  for (let round = 0; round < CONTENT_FIT_MAX_ROUNDS; round++) {
-    const deficit = await page.evaluate(scrollDeficit);
-    if (deficit === 0) break;
+  const ignored = new Set<number>();
+  let previous = new Map<number, number>();
+  for (let round = 0; ; round++) {
+    const measurement = await page.evaluate(scrollDeficit);
+    for (const [index, deficit] of measurement.containers) {
+      if (previous.get(index) === deficit) ignored.add(index);
+    }
+    previous = new Map(measurement.containers);
+    const deficit = Math.max(
+      measurement.documentDeficit,
+      ...measurement.containers.filter(([index]) => !ignored.has(index)).map(([, d]) => d),
+    );
+    if (deficit === 0) return;
+    if (round === CONTENT_FIT_MAX_ROUNDS) {
+      throw new Error(
+        `captureScreenshot(${name}): viewport growth did not converge after ${CONTENT_FIT_MAX_ROUNDS} rounds, ${deficit}px still overflow`,
+      );
+    }
     const height = page.viewportSize()?.height ?? 0;
     await page.setViewportSize({ width, height: height + deficit });
-  }
-  const remaining = await page.evaluate(scrollDeficit);
-  if (remaining > 0) {
-    throw new Error(
-      `captureScreenshot(${name}): viewport growth did not converge after ${CONTENT_FIT_MAX_ROUNDS} rounds, ${remaining}px still overflow`,
-    );
   }
 }
 

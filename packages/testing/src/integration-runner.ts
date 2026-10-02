@@ -11,6 +11,20 @@ export type IntegrationRunOptions = {
 
 const EXCLUDED_SEGMENTS: ReadonlySet<string> = new Set(["node_modules", "dist", "e2e"]);
 
+// Walks `cwd` without descending into excluded or dot directories, so a
+// hoisted node_modules is never traversed (a glob scan would walk it in full).
+export function listIntegrationTestFiles(cwd: string, relativeDir = ""): string[] {
+  const entries = readdirSync(join(cwd, relativeDir), { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const relativePath = relativeDir === "" ? entry.name : `${relativeDir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (EXCLUDED_SEGMENTS.has(entry.name) || entry.name.startsWith(".")) return [];
+      return listIntegrationTestFiles(cwd, relativePath);
+    }
+    return relativePath.endsWith(".integration.test.ts") ? [relativePath] : [];
+  });
+}
+
 export function selectIntegrationFiles(paths: readonly string[]): string[] {
   return paths
     .filter((path) => path.endsWith(".integration.test.ts"))

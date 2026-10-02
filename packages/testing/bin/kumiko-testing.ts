@@ -3,10 +3,10 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { Glob } from "bun";
 import { BUNFIG_FILES, mergeBunfig, renderBunfigFiles } from "../src/bunfig";
 import {
   buildIntegrationTestArgs,
+  listIntegrationTestFiles,
   resolveRequestedIntegrationFiles,
   selectIntegrationFiles,
 } from "../src/integration-runner";
@@ -82,9 +82,7 @@ async function runIntegration(args: readonly string[]): Promise<number> {
       return 1;
     }
   } else {
-    files = selectIntegrationFiles(
-      await Array.fromAsync(new Glob("**/*.integration.test.ts").scan({ cwd: process.cwd() })),
-    );
+    files = selectIntegrationFiles(listIntegrationTestFiles(process.cwd()));
     if (files.length === 0) {
       console.error("no *.integration.test.ts files found");
       return 1;
