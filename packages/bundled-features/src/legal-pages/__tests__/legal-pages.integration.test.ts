@@ -427,6 +427,19 @@ describe("legal-pages :: configurable routes/requiredBlocks (non-DACH apps)", ()
     ).toThrow(/must start with/);
   });
 
+  test("createLegalPagesFeature throws when custom routes cover no default required block and requiredBlocks is omitted", () => {
+    const esRoutes = [
+      { path: "/legal/aviso-legal", slug: "imprint", lang: "es", titleFallback: "Aviso" },
+    ];
+    expect(() => createLegalPagesFeature({ routes: esRoutes })).toThrow(/without `requiredBlocks`/);
+    expect(() =>
+      createLegalPagesFeature({
+        routes: esRoutes,
+        requiredBlocks: [{ slug: "imprint", lang: "es" }],
+      }),
+    ).not.toThrow();
+  });
+
   test("empty routes array is allowed (boot-check only, no public routes)", () => {
     expect(() => createLegalPagesFeature({ routes: [] })).not.toThrow();
   });

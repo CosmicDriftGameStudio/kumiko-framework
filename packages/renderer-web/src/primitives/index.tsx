@@ -654,6 +654,9 @@ function SegmentedSelect({
   readonly hasError?: boolean;
 }): ReactNode {
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  // An unknown/legacy value checks no segment; the first one must still be tabbable.
+  const selectedIndex = options.findIndex((opt) => opt.value === value);
+  const tabStopIndex = selectedIndex === -1 ? 0 : selectedIndex;
 
   const selectAt = (index: number): void => {
     const target = options[index];
@@ -697,7 +700,7 @@ function SegmentedSelect({
             type="button"
             role="radio"
             aria-checked={checked}
-            tabIndex={checked || (value === "" && index === 0) ? 0 : -1}
+            tabIndex={index === tabStopIndex ? 0 : -1}
             disabled={disabled}
             data-testid={`segmented-${id}-${opt.value}`}
             onClick={() => onChange(opt.value)}

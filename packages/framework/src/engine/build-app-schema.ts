@@ -450,8 +450,7 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (isJsonSafeValue(def["default"])) out["default"] = def["default"];
   // Select: options-Liste ist plain JSON, durchschicken.
   if (Array.isArray(def["options"])) out["options"] = def["options"];
-  if (isPlainObject(def["optionTones"]) && isJsonSafeValue(def["optionTones"]))
-    out["optionTones"] = def["optionTones"];
+  if (isJsonSafeObject(def["optionTones"])) out["optionTones"] = def["optionTones"];
   // Reference: entity-Target + labelField + multiple müssen zum Renderer.
   // Der ReferenceInput baut die Options-Query aus refEntity/refFeature und
   // resolved das Label über labelField — ohne diese Properties fällt das
@@ -469,10 +468,7 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["maxRows"] === "number") out["maxRows"] = def["maxRows"];
   // text/longText: textarea row count — DefaultInput renders a single-line
   // input otherwise (fw#2497).
-  if (
-    typeof def["multiline"] === "boolean" ||
-    (isPlainObject(def["multiline"]) && isJsonSafeValue(def["multiline"]))
-  )
+  if (typeof def["multiline"] === "boolean" || isJsonSafeObject(def["multiline"]))
     out["multiline"] = def["multiline"];
   // number: Zod write-boundary bounds. date/timestamp/locatedTimestamp:
   // ISO-string picker bounds — same keys, different literal type (fw#2497).
@@ -499,26 +495,22 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["locatedBy"] === "string") out["locatedBy"] = def["locatedBy"];
   // file/image/images: upload picker constraints; the first variant key picks
   // the preview variant.
-  if (Array.isArray(def["accept"]) && isJsonSafeValue(def["accept"])) out["accept"] = def["accept"];
+  if (isJsonSafeArray(def["accept"])) out["accept"] = def["accept"];
   if (typeof def["maxSize"] === "string") out["maxSize"] = def["maxSize"];
-  if (isPlainObject(def["variants"]) && isJsonSafeValue(def["variants"]))
-    out["variants"] = def["variants"];
+  if (isJsonSafeObject(def["variants"])) out["variants"] = def["variants"];
   // decimal, incl. embedded sub-fields: rounding of derived embedded-list cells.
   if (typeof def["scale"] === "number") out["scale"] = def["scale"];
   // money: declared currency source (MoneyCurrencySource, fw#2933) — without
   // it the renderer can't tell a "currency: { kind: 'tenant' }" field apart
   // from an undeclared one and always falls back to entity.defaultCurrency.
-  if (isPlainObject(def["currency"]) && isJsonSafeValue(def["currency"]))
-    out["currency"] = def["currency"];
+  if (isJsonSafeObject(def["currency"])) out["currency"] = def["currency"];
   // embedded lists: row-count bounds, computed cells, totals row, and the
   // sibling-money-field totals check (fw#2497).
   if (typeof def["minItems"] === "number") out["minItems"] = def["minItems"];
   if (typeof def["maxItems"] === "number") out["maxItems"] = def["maxItems"];
-  if (isPlainObject(def["derived"]) && isJsonSafeValue(def["derived"]))
-    out["derived"] = def["derived"];
-  if (Array.isArray(def["totals"]) && isJsonSafeValue(def["totals"])) out["totals"] = def["totals"];
-  if (isPlainObject(def["totalsMatch"]) && isJsonSafeValue(def["totalsMatch"]))
-    out["totalsMatch"] = def["totalsMatch"];
+  if (isJsonSafeObject(def["derived"])) out["derived"] = def["derived"];
+  if (isJsonSafeArray(def["totals"])) out["totals"] = def["totals"];
+  if (isJsonSafeObject(def["totalsMatch"])) out["totalsMatch"] = def["totalsMatch"];
   // embedded lists: the sub-field map itself — without it the client-side
   // edit view-model iterates `undefined` and the screen crashes (fw#2507).
   // Recursive per sub-field, NOT a blanket isJsonSafeValue gate: a single
@@ -536,6 +528,14 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
+}
+
+function isJsonSafeObject(value: unknown): value is Record<string, unknown> {
+  return isPlainObject(value) && isJsonSafeValue(value);
+}
+
+function isJsonSafeArray(value: unknown): value is readonly unknown[] {
+  return Array.isArray(value) && isJsonSafeValue(value);
 }
 
 function isJsonSafeValue(value: unknown): boolean {

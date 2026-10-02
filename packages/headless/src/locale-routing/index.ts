@@ -149,7 +149,9 @@ export type WrapUrlLocaleResolverOptions = {
   resolvePage: (pathname: string) => string | undefined;
   detectLang: (pathname: string) => string;
   pathname?: () => string | undefined;
-  /** Optional pathname-change subscription (browser default: popstate). */
+  /** Optional pathname-change subscription. Browser default listens to `popstate` only,
+   *  which does not fire on `history.pushState`/`replaceState`: apps with a client-side
+   *  router must supply this themselves. */
   subscribePathname?: (listener: () => void) => () => void;
   /** When set, translate against the URL-resolved locale instead of base.translate
    *  (needed for fixed-T / cloneInstance resolvers that are not locale-live). */
