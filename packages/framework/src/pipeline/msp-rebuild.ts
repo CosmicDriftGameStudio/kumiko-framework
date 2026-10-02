@@ -105,6 +105,10 @@ export type MspRebuildDeps = {
   // so the live consumer is intact; an automatic background rebuild passes false
   // to not park it as dead and logs the failure itself.
   readonly markDeadOnFailure?: boolean;
+  // Checked per replayed event: the replay holds one tx and the consumer-row
+  // FOR UPDATE lock, so a shutdown must abort (rolling everything back)
+  // instead of blocking the live dispatcher until the pod is killed.
+  readonly signal?: AbortSignal;
 };
 
 function createRebuildCtx(
@@ -205,6 +209,7 @@ export async function rebuildMultiStreamProjection(
 
         const upcasters = registry.getEventUpcasters();
         for (const row of events) {
+          deps.signal?.throwIfAborted();
           const raw: StoredEvent = {
             id: String(row.id),
             aggregateId: row.aggregateId,

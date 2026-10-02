@@ -33,6 +33,7 @@ const batchItemTable = buildEntityTable("batchItem", batchItemEntity);
 let transientCallCount = 0;
 let unprocessableCallCount = 0;
 let batchTransientCallCount = 0;
+let commitFailureCallCount = 0;
 
 const transientFailureFeature = defineFeature("idempotencytransient", (r) => {
   r.entity("probe", probeEntity);
@@ -62,6 +63,19 @@ const transientFailureFeature = defineFeature("idempotencytransient", (r) => {
     async () => {
       unprocessableCallCount++;
       return writeFailure(new UnprocessableError("always_rejected"));
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
+  // The handler itself succeeds; a deferred constraint trigger (created in
+  // beforeAll) rejects the row only when COMMIT runs.
+  r.writeHandler(
+    "probe:create-commit-fails",
+    z.object({ label: z.string() }),
+    async (event, ctx) => {
+      commitFailureCallCount++;
+      const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
+      return crud.create(event.payload, event.user, ctx.db);
     },
     { access: { roles: ["Admin"] } },
   );
@@ -101,6 +115,20 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [transientFailureFeature] });
   await unsafeCreateEntityTable(stack.db, probeEntity);
   await unsafeCreateEntityTable(stack.db, batchItemEntity);
+  await asRawClient(stack.db).unsafe(`
+    CREATE FUNCTION idempotency_transient_reject_at_commit() RETURNS trigger AS $$
+    BEGIN
+      IF NEW.label = 'commit-fails' THEN
+        RAISE EXCEPTION 'rejected at commit';
+      END IF;
+      RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql`);
+  await asRawClient(stack.db).unsafe(`
+    CREATE CONSTRAINT TRIGGER idempotency_transient_commit_gate
+    AFTER INSERT ON "${probeTable.tableName}"
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION idempotency_transient_reject_at_commit()`);
 });
 
 afterAll(async () => {
@@ -111,6 +139,7 @@ beforeEach(async () => {
   transientCallCount = 0;
   unprocessableCallCount = 0;
   batchTransientCallCount = 0;
+  commitFailureCallCount = 0;
   await asRawClient(stack.db).unsafe(`DELETE FROM "${probeTable.tableName}"`);
   await asRawClient(stack.db).unsafe(`DELETE FROM "${batchItemTable.tableName}"`);
   await stack.redis.flushNamespace();
@@ -199,5 +228,27 @@ describe("idempotent retry after a rolled-back transient 5xx", () => {
     expect(batchItems).toHaveLength(1);
     const probes = await selectMany(stack.db, probeTable);
     expect(probes).toHaveLength(1);
+  });
+
+  test("write: a failure raised by COMMIT itself stays cached — the outcome is unknown, so the retry must not re-run the handler", async () => {
+    const requestId = "req-commit-failure-1";
+    const call = () =>
+      stack.http.write(
+        "idempotencytransient:write:probe:create-commit-fails",
+        { label: "commit-fails" },
+        admin,
+        requestId,
+      );
+
+    const first = await call();
+    const firstBody = (await first.json()) as { isSuccess: boolean; error?: { code?: string } };
+    expect(firstBody.isSuccess).toBe(false);
+    expect(commitFailureCallCount).toBe(1);
+
+    const second = await call();
+    const secondBody = (await second.json()) as typeof firstBody;
+    expect(secondBody.isSuccess).toBe(false);
+    expect(secondBody.error?.code).toEqual(firstBody.error?.code);
+    expect(commitFailureCallCount).toBe(1);
   });
 });
