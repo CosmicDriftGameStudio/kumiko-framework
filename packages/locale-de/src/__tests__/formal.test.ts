@@ -13,7 +13,7 @@ function placeholders(s: string): string[] {
 const duFormRegex = /\b(du|dich|dir|dein\w*|Du|Dich|Dir|Dein\w*)\b/;
 
 // Informal imperatives carry no pronoun, so duFormRegex misses them. Only
-// sentence-initial verbs are checked; formal forms ("Wählen Sie") don't match
+// sentence-initial verbs are checked; formal forms (verb followed by "Sie") don't match
 // because the regex requires the bare imperative followed by a non-letter.
 const informalImperativeRegex =
   /(^|[.!?]\s+)(Gib|Wähle|Speichere|Klicke|Bestätige|Fordere|Scanne|Kopiere|Lege|Melde|Versuche|Prüfe|Öffne|Setze|Trage|Nutze|Verwende|Wende)(?![\p{L}])/u;
