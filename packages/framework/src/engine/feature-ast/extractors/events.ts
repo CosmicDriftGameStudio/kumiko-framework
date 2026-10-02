@@ -1,4 +1,4 @@
-import type { CallExpression, Node, SourceFile } from "ts-morph";
+import type { CallExpression, Node, ObjectLiteralExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { DefineEventPattern, NotificationPattern } from "../patterns.js";
 import type { SourceLocation } from "../source-location.js";
@@ -83,6 +83,15 @@ function extractEventMigrationsField(
   return result && Object.keys(result).length > 0 ? result : undefined;
 }
 
+// `{ piiFields }` shorthand is a valid stance; its name node doubles as the location.
+function readPiiFieldsNode(obj: ObjectLiteralExpression | undefined): Node | undefined {
+  const prop = obj?.getProperty("piiFields");
+  return (
+    prop?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer() ??
+    prop?.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getNameNode()
+  );
+}
+
 export function extractDefineEvent(
   call: CallExpression,
   sourceFile: SourceFile,
@@ -131,10 +140,7 @@ export function extractDefineEvent(
       const v = readDataLiteralNode(versionInit);
       if (typeof v === "number") version = v;
     }
-    const piiFieldsInit = obj
-      .getProperty("piiFields")
-      ?.asKind(SyntaxKind.PropertyAssignment)
-      ?.getInitializer();
+    const piiFieldsInit = readPiiFieldsNode(obj);
     if (!piiFieldsInit) {
       return fail(
         "defineEvent",
@@ -180,11 +186,15 @@ export function extractDefineEvent(
   let migrations: Readonly<Record<string, SourceLocation>> | undefined;
   const optionsArg = args[2];
   const optionsObj = optionsArg?.asKind(SyntaxKind.ObjectLiteralExpression);
-  const piiFieldsInit = optionsObj
-    ?.getProperty("piiFields")
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
+  const piiFieldsInit = readPiiFieldsNode(optionsObj);
   if (!piiFieldsInit) {
+    if (optionsArg && !optionsObj) {
+      return fail(
+        "defineEvent",
+        sourceLocationFromNode(call, sourceFile),
+        "options must be an object literal",
+      );
+    }
     return fail(
       "defineEvent",
       sourceLocationFromNode(call, sourceFile),
