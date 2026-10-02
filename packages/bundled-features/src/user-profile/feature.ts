@@ -57,6 +57,9 @@ export function createUserProfileFeature(): FeatureDefinition {
         "profile.email.title": { en: "Email address" },
         "profile.password.title": { en: "Password" },
         "profile.danger.title": { en: "Delete account" },
+        "profile.danger.explainer": {
+          en: "Your account will be permanently deleted after a grace period. Until then you can cancel the deletion at any time.",
+        },
         "profile.danger.gracePeriodEnd": { en: "Deletion date" },
         "profile.danger.delete": { en: "Delete account" },
         "profile.danger.dialogDescription": {
@@ -111,7 +114,7 @@ export function createUserProfileFeature(): FeatureDefinition {
           },
           {
             title: i18nKey("profile.danger.title"),
-            description: "profile.danger.explainer",
+            description: i18nKey("profile.danger.explainer"),
             // gracePeriodEnd is only meaningful once a deletion is actually
             // pending — hide it instead of showing an empty date when status
             // isn't deletionRequested (same rule as privacy-center).

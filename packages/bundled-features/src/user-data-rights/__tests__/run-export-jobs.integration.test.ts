@@ -501,6 +501,43 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
     expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBeGreaterThan(0);
   });
 
+  test("failed-Job mit Orphan-ZIP und fehlschlagendem Delete → Metrik > 0", async () => {
+    const jobId = await seedPendingJob();
+    const T = getTemporal();
+    const longAgo = T.Instant.fromEpochMilliseconds(Date.now() - 365 * 24 * 60 * 60 * 1000);
+    const storageKey = `exports/${tenantA}/${jobId}.zip`;
+    const provider = await buildProvider(tenantA);
+    await provider.write(storageKey, new Uint8Array([4, 5, 6]));
+
+    await updateRows(
+      stack.db,
+      exportJobsTable,
+      {
+        status: EXPORT_JOB_STATUS.Failed,
+        startedAt: longAgo,
+        completedAt: longAgo,
+        downloadStorageKey: storageKey,
+      },
+      { id: jobId },
+    );
+
+    const metrics = createRecordingMetricsHandle();
+    await runExportJobs({
+      db: stack.db,
+      registry: stack.registry,
+      buildStorageProvider: async () => ({
+        ...provider,
+        delete: async () => {
+          throw new Error("synthetic storage delete failure");
+        },
+      }),
+      now: NOW(),
+      metrics,
+    });
+
+    expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBeGreaterThan(0);
+  });
+
   test("done-Job wird erfolgreich cleaned → Metrik ist 0", async () => {
     const jobId = await seedPendingJob();
     const T = getTemporal();

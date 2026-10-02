@@ -22,7 +22,10 @@ import {
   type TenantResourceExtensionName,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-framework/files";
-import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createEscapeHatchReporter,
+  UNATTRIBUTED_ACTOR,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import {
   tenantEntity,
@@ -93,7 +96,7 @@ async function runTenantDataHooks(ctx: DestructionStageCtx): Promise<void> {
     const report = createEscapeHatchReporter({
       handler: `${EXT_TENANT_DATA}:${usage.entityName}`,
       tenantId: ctx.tenantId,
-      actor: ctx.actor ?? "system",
+      actor: ctx.actor ?? UNATTRIBUTED_ACTOR,
       sink: ctx.escapeHatchAuditSink,
     });
     const hookCtx: TenantDataHookCtx = {

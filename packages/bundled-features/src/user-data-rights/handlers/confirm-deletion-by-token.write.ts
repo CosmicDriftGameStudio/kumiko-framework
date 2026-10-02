@@ -67,8 +67,6 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
     agent: { expose: false },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     handler: async (event, ctx) => {
-      const gracePeriod = await resolveGracePeriod(ctx, event.user.tenantId);
-
       let gracePeriodEndIso: string | undefined;
 
       // The row's requestId is part of the verify key, so a token from a
@@ -84,7 +82,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
           const res = await startDeletionGracePeriod(
             ctx,
             userId,
-            gracePeriod,
+            () => resolveGracePeriod(ctx, event.user.tenantId),
             ctx.db.unsafeRaw(
               "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream",
             ),

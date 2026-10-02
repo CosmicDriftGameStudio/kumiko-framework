@@ -65,14 +65,16 @@ export type StartGracePeriodResult =
 // true). No-op for the authenticated request-deletion path, which never set
 // a pendingDeletionRequestId to begin with.
 //
-// `gracePeriod` and `lifecycleRunner` are resolved by the caller: both
-// require an escalation (reading the tenant compliance profile, appending to
-// the SYSTEM_TENANT_ID user stream) that only the declaring handler's
-// escapeHatch covers.
+// `resolveGracePeriodSpec` and `lifecycleRunner` are supplied by the caller:
+// both require an escalation (reading the tenant compliance profile,
+// appending to the SYSTEM_TENANT_ID user stream) that only the declaring
+// handler's escapeHatch covers. The grace period is a lazy provider so the
+// privileged compliance-profile query only runs for a user that is still
+// Active, not for replayed tokens or already-requested deletions.
 export async function startDeletionGracePeriod(
   ctx: HandlerContext,
   userId: string,
-  gracePeriod: DurationSpec,
+  resolveGracePeriodSpec: () => Promise<DurationSpec>,
   lifecycleRunner: DbRunner,
   additionalExpect?: Readonly<Record<string, string | number | boolean | null>>,
 ): Promise<StartGracePeriodResult> {
@@ -88,8 +90,17 @@ export async function startDeletionGracePeriod(
     };
   }
 
+  if (userRow["status"] !== USER_STATUS.Active) {
+    return {
+      ok: false,
+      error: new UnprocessableError("user_not_in_active_state", {
+        details: { currentStatus: userRow["status"] },
+      }),
+    };
+  }
+
   const T = getTemporal();
-  const gracePeriodEnd = addDurationSpec(T.Now.instant(), gracePeriod);
+  const gracePeriodEnd = addDurationSpec(T.Now.instant(), await resolveGracePeriodSpec());
 
   const { applied } = await updateUserLifecycle(
     lifecycleRunner,

@@ -1,5 +1,11 @@
 export { TenantCommandSchemas } from "./command-schemas.js";
-export { TENANT_FEATURE, TenantErrors, TenantHandlers, TenantQueries } from "./constants.js";
+export {
+  OWNER_INVITE_ROLE_OPTIONS,
+  TENANT_FEATURE,
+  TenantErrors,
+  TenantHandlers,
+  TenantQueries,
+} from "./constants.js";
 export { collectAssignableAppRoles, createTenantFeature } from "./feature.js";
 export type { InvitationStatus } from "./invitation-table.js";
 export {

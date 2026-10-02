@@ -43,7 +43,10 @@ import {
   type UserDataExportHook,
   type UserDataExportSnippet,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { createEscapeHatchReporter } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createEscapeHatchReporter,
+  UNATTRIBUTED_ACTOR,
+} from "@cosmicdrift/kumiko-framework/pipeline";
 import type { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { tenantMembershipsTable } from "../tenant/index.js";
 import { buildFileRefZipPath } from "./zip-path.js";
@@ -112,7 +115,7 @@ function buildHookDb(
   const report = createEscapeHatchReporter({
     handler: `${EXT_USER_DATA}:${entry.entityName}`,
     tenantId,
-    actor: args.actor ?? "system",
+    actor: args.actor ?? UNATTRIBUTED_ACTOR,
     sink: args.escapeHatchAuditSink,
   });
   return createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {

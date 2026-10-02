@@ -5,6 +5,7 @@ export {
   ESCAPE_HATCH_USED_SIGNAL,
   fallbackEscapeHatchReporter,
   reportEscapeHatchUse,
+  UNATTRIBUTED_ACTOR,
 } from "../observability/escape-hatch-report.js";
 export type { ResolveAuthClaimsArgs } from "./auth-claims-resolver.js";
 export { resolveAuthClaims } from "./auth-claims-resolver.js";

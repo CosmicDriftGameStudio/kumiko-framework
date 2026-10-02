@@ -11,6 +11,8 @@ export type ExportJobCleanupCandidate = {
   readonly requestedFromTenantId: TenantId;
   readonly downloadStorageKey: string | null;
   readonly expiresAt: Temporal.Instant | null;
+  readonly completedAt: Temporal.Instant | null;
+  readonly startedAt: Temporal.Instant | null;
 };
 
 // @wrapper-known semantic-alias

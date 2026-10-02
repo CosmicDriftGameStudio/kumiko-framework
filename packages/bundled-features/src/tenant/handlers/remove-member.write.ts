@@ -19,27 +19,16 @@ import {
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
 import * as z from "zod";
-// kumiko-lint-ignore cross-feature-import cancel needs invite-token-store for Redis cleanup
-import { invalidateExistingInviteToken } from "../../auth-email-password/invite-token-store.js";
 import { decryptStoredPii } from "../../shared/index.js";
 import { userTable } from "../../user/index.js";
-import {
-  INVITATION_STATUS,
-  tenantInvitationEntity,
-  tenantInvitationsTable,
-} from "../invitation-table.js";
+import { cancelPendingInvitation } from "../cancel-pending-invitation.js";
+import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
 import { assertNotLastTenantAdmin } from "../last-tenant-admin.js";
 import { tenantMembershipEntity, tenantMembershipsTable } from "../membership-table.js";
 
 const executor = createEventStoreExecutor(tenantMembershipsTable, tenantMembershipEntity, {
   entityName: "tenant-membership",
 });
-
-const invitationExecutor = createEventStoreExecutor(
-  tenantInvitationsTable,
-  tenantInvitationEntity,
-  { entityName: "tenant-invitation" },
-);
 
 type PendingInvitationCancel = {
   readonly userId: string;
@@ -62,17 +51,8 @@ async function cancelPendingInvitationsOfUser(
     { tenantId: options.tenantId, email, status: INVITATION_STATUS.pending },
   );
   for (const invitation of pendingInvitations) {
-    const updateResult = await invitationExecutor.update(
-      {
-        id: invitation.id,
-        version: invitation.version,
-        changes: { status: INVITATION_STATUS.cancelled },
-      },
-      options.actor,
-      db,
-    );
-    if (!updateResult.isSuccess) return updateResult;
-    if (options.redis) await invalidateExistingInviteToken(options.redis, invitation.id);
+    const failure = await cancelPendingInvitation(db, invitation, options.actor, options.redis);
+    if (failure) return failure;
   }
   return undefined;
 }

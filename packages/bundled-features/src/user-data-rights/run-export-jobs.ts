@@ -679,12 +679,11 @@ async function storageCleanupPass(args: {
   );
 
   const cleaned: string[] = [];
-  // Done-status candidates past expiresAt+grace, keyed by that due-instant —
-  // used below to report how far cleanup has fallen behind if a candidate
-  // is still standing (delete threw, or the version-checked null-out lost
-  // a race) once the pass is done. Failed-status jobs have no expiresAt
-  // (immediate cleanup, no TTL) so they're out of scope for this signal —
-  // see EXPORT_CLEANUP_BACKLOG_AGE_METRIC's r.metric() description.
+  // Candidates past their due-instant, keyed by that instant — used below to
+  // report how far cleanup has fallen behind if a candidate is still standing
+  // (delete threw, or the version-checked null-out lost a race) once the pass
+  // is done. Done jobs are due at expiresAt+grace; Failed jobs (orphaned ZIPs,
+  // no TTL) are due at completedAt ?? startedAt, i.e. from the first pass.
   const overdueDoneCleanupAfterMs = new Map<string, number>();
   let passCompleted = false;
   try {
@@ -712,6 +711,10 @@ async function storageCleanupPass(args: {
         overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
       }
       // Failed-Job-Branch: kein TTL-Check, sofort cleanup.
+      else {
+        const failedAt = c.completedAt ?? c.startedAt;
+        if (failedAt) overdueDoneCleanupAfterMs.set(c.id, failedAt.epochMilliseconds);
+      }
 
       // Storage-Datei loeschen + DB-Spalte nullen.
       try {
@@ -741,8 +744,8 @@ async function storageCleanupPass(args: {
   return cleaned;
 }
 
-// Seconds since the longest-overdue Done-status bundle should have been
-// deleted (expiresAt+grace passed) but still isn't — 0 when the pass
+// Seconds since the longest-overdue bundle (Done: expiresAt+grace passed;
+// Failed: completedAt ?? startedAt) should have been deleted but still isn't — 0 when the pass
 // cleaned everything that was due, or nothing was due.
 function oldestOverdueAgeSeconds(
   overdueDoneCleanupAfterMs: ReadonlyMap<string, number>,
