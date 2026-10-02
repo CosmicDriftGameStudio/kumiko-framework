@@ -639,7 +639,7 @@ function ListPanelBody({
   readonly screenParams: ScreenParams;
   readonly translate: Translate;
 }): ReactNode {
-  const { formatPercent, formatNumber } = useDashboardFormats();
+  const { formatPercent, formatNumber, formatDateTime } = useDashboardFormats();
   const columns = panel.columns.map((c) => {
     const normalized = normalizeListColumn(c);
     return {
@@ -666,6 +666,7 @@ function ListPanelBody({
           rows={data.rows ?? []}
           formatPercent={formatPercent}
           formatNumber={formatNumber}
+          formatDateTime={formatDateTime}
           translate={translate}
         />
       )}

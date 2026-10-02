@@ -223,7 +223,7 @@ export const APP_FEATURES = [
   // tiering + caps
   tierEngineFeature,
   capCounterFeature,
-  // cap-overview: read-only tier/usage visibility. Caps are three example
+  // cap-overview: read-only tier/usage visibility. Caps are example
   // entities this sample already mounts (notes-history, tags,
   // tenant-membership) — see cap-overview-caps.ts. Requires tenant
   // (auto-mounted) + tier-engine + billing-foundation, all mounted above.
@@ -236,7 +236,7 @@ export const APP_FEATURES = [
   createCapOverviewFeature({
     caps: CAP_OVERVIEW_CAPS,
     tiers: ["free", "pro"],
-    listCaps: ["notes", "tags", "seats"],
+    listCaps: CAP_OVERVIEW_CAPS.map((cap) => cap.id),
   }),
   capOverviewLabelsFeature,
 

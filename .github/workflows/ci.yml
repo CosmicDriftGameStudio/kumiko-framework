@@ -408,7 +408,9 @@ jobs:
           # job misconfiguration, not a real absence; fail loud instead of
           # the live adapter suite silently skipping (kumiko-framework#1124).
           REQUIRE_MEILI: "1"
-          # Main pushes only, feeds the coverage badge. A single
+          # Main pushes only, feeds the coverage badge. Timing therefore differs
+          # from PR runs on purpose: a flake that only turns red on main is
+          # investigated as coverage overhead first. A single
           # `--parallel` invocation writes straight to
           # coverage/integration/lcov.info; no per-dir parts to merge.
           KUMIKO_INTEGRATION_COVERAGE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && '1' || '' }}

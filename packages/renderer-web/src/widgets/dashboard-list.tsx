@@ -5,7 +5,7 @@ export type DashboardListColumn = {
   readonly field: string;
   /** Translated by the caller. */
   readonly label: string;
-  readonly display?: "bar" | "badge";
+  readonly display?: "bar" | "badge" | "datetime";
   readonly badgeToneField?: string;
 };
 
@@ -30,12 +30,14 @@ function Cell({
   row,
   formatPercent,
   formatNumber,
+  formatDateTime,
   translate,
 }: {
   readonly column: DashboardListColumn;
   readonly row: Row;
   readonly formatPercent: (fraction: number) => string;
   readonly formatNumber: (value: number) => string;
+  readonly formatDateTime: (atMs: number) => string;
   readonly translate: (key: string) => string;
 }): ReactNode {
   const raw = row[column.field];
@@ -68,6 +70,12 @@ function Cell({
     const tone = (typeof toneKey === "string" ? BADGE_TONE[toneKey] : undefined) ?? "muted";
     return <StatusBadge tone={tone}>{String(raw)}</StatusBadge>;
   }
+  if (column.display === "datetime") {
+    const atMs =
+      typeof raw === "number" ? raw : typeof raw === "string" ? Date.parse(raw) : Number.NaN;
+    if (!Number.isFinite(atMs)) return "—";
+    return <span className="tabular-nums">{formatDateTime(atMs)}</span>;
+  }
   if (typeof raw === "number") return <span className="tabular-nums">{formatNumber(raw)}</span>;
   if (raw === undefined || raw === null || raw === "") return "—";
   const text = String(raw);
@@ -81,6 +89,7 @@ export function DashboardListTable({
   rows,
   formatPercent,
   formatNumber,
+  formatDateTime,
   translate,
   testId,
 }: {
@@ -88,6 +97,7 @@ export function DashboardListTable({
   readonly rows: readonly Row[];
   readonly formatPercent: (fraction: number) => string;
   readonly formatNumber: (value: number) => string;
+  readonly formatDateTime: (atMs: number) => string;
   readonly translate: (key: string) => string;
   readonly testId?: string;
 }): ReactNode {
@@ -116,6 +126,7 @@ export function DashboardListTable({
                     row={row}
                     formatPercent={formatPercent}
                     formatNumber={formatNumber}
+                    formatDateTime={formatDateTime}
                     translate={translate}
                   />
                 </td>

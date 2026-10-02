@@ -581,6 +581,41 @@ describe("dashboard list columns", () => {
     expect(badge.className).toContain("bg-status-bad-surface");
   });
 
+  test("datetime columns format ISO strings via the locale instead of showing them raw", async () => {
+    renderDashboard(
+      {
+        id: "lists",
+        type: "dashboard",
+        panels: [
+          {
+            kind: "list",
+            id: "when",
+            label: "demo:when",
+            query: "demo:query:when:list",
+            columns: [
+              { field: "name", label: "demo:col-name" },
+              { field: "at", label: "demo:col-at", display: "datetime" },
+            ],
+          },
+        ],
+      },
+      {
+        "demo:query:when:list": () =>
+          ok({
+            rows: [
+              { id: "w1", name: "Nightly", at: "2026-10-01T12:34:56.789Z" },
+              { id: "w2", name: "Weekly", at: "not-a-date" },
+            ],
+            nextCursor: null,
+          }),
+      },
+    );
+    await waitFor(() => expect(screen.getByText("Nightly")).toBeTruthy());
+    expect(screen.queryByText("2026-10-01T12:34:56.789Z")).toBeNull();
+    expect(screen.getByText(/Oct 1, 2026/)).toBeTruthy();
+    expect(screen.queryByText("not-a-date")).toBeNull();
+  });
+
   test("text cells translate i18n keys and leave other strings untouched", async () => {
     renderDashboard(
       {

@@ -24,7 +24,7 @@ export default defineConfig({
   testIgnore: ["**/fixtures/**", "build-server.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env["CI"],
-  retries: process.env["CI"] ? 2 : 0,
+  retries: 0,
   workers: 1,
   reporter: [["list"]],
   timeout: 15_000,
