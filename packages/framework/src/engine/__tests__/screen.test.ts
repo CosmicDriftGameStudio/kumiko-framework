@@ -556,6 +556,72 @@ describe("r.screen() — registration", () => {
     });
   });
 
+  describe("relatedList groupBy", () => {
+    function featuresWithGroupBy(groupBy: {
+      readonly field: string;
+      readonly collapsedWhen?: string | null;
+      readonly label?: string;
+      readonly labels?: Readonly<Record<string, string>>;
+    }) {
+      return [
+        defineFeature("app", (r) => {
+          r.queryHandler("foo:detail", z.object({}), async () => ({}), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.queryHandler("foo:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+            access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          });
+          r.screen({
+            id: "x",
+            type: "projectionDetail",
+            query: "app:query:foo:detail",
+            layout: {
+              sections: [
+                {
+                  kind: "relatedList",
+                  title: "s",
+                  query: "app:query:foo:list",
+                  columns: ["name"],
+                  parentParam: "orderId",
+                  groupBy,
+                },
+              ],
+            },
+          });
+        }),
+      ];
+    }
+
+    test("accepts headerless groups next to a collapsed group that has its own header", () => {
+      const features = featuresWithGroupBy({
+        field: "status",
+        collapsedWhen: "done",
+        labels: { done: "app:posts.done" },
+      });
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+
+    test("rejects collapsedWhen naming a group without a header", () => {
+      const features = featuresWithGroupBy({
+        field: "status",
+        collapsedWhen: "done",
+        labels: { open: "app:posts.open" },
+      });
+      expect(() => validateBoot(features)).toThrow(
+        /groupBy\.collapsedWhen "done" names a group without a header/,
+      );
+    });
+
+    test("collapsedWhen null matches the labels entry of the empty group key", () => {
+      const features = featuresWithGroupBy({
+        field: "status",
+        collapsedWhen: null,
+        labels: { "": "app:posts.unset" },
+      });
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
   describe("relatedList parentFilter", () => {
     test("rejects parentFilter combined with parentParam on the same section", () => {
       const features = [

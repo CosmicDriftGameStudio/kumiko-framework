@@ -54,6 +54,30 @@ describe("requiredKeysFromScreen — entityList expandableRow", () => {
   });
 });
 
+describe("requiredKeysFromScreen — entityList expandableRow groupBy", () => {
+  test("requires the group header keys of an expandable sub-list", () => {
+    const keys = requiredKeysFromScreen("campaigns", {
+      id: "campaign-list",
+      type: "entityList",
+      entity: "campaign",
+      columns: ["name"],
+      expandableRow: {
+        kind: "relatedList",
+        title: "campaigns:posts:title",
+        query: "campaigns:query:post:list",
+        parentParam: "campaign",
+        columns: ["datum"],
+        groupBy: {
+          field: "status",
+          collapsedWhen: "done",
+          labels: { done: "campaigns:posts:group-done" },
+        },
+      },
+    });
+    expect(keys).toContain("campaigns:posts:group-done");
+  });
+});
+
 describe("requiredKeysFromScreen — projectionDetail writeForm section", () => {
   test("includes the section description alongside title and submit label", () => {
     const keys = requiredKeysFromScreen("billing", {

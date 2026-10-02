@@ -144,7 +144,11 @@ export type {
   SecretsEditSection,
   ToolbarAction,
 } from "../engine/types/screen.js";
-export { metricField } from "../engine/types/screen.js";
+export {
+  metricField,
+  relatedListGroupHeaderLabel,
+  relatedListGroupKey,
+} from "../engine/types/screen.js";
 export type { TargetRef } from "../engine/types/target-ref.js";
 export type { TreeAction, TreeNode, TreeNodeState } from "../engine/types/tree-node.js";
 export type { WorkspaceDefinition } from "../engine/types/workspace.js";

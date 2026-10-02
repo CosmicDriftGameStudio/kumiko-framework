@@ -698,10 +698,12 @@ export type DataTableDateRangeFacet = {
 };
 
 /** Splits rows into collapsible groups (order of first appearance). A
- *  renderer without grouping support shows the flat list. */
+ *  renderer without grouping support shows the flat list. A group whose
+ *  `headerLabel` is undefined shows its rows without a header and never
+ *  collapses. */
 export type DataTableRowGrouping = {
   readonly keyOf: (row: ListRowViewModel) => string;
-  readonly headerLabel: (groupKey: string, rows: readonly ListRowViewModel[]) => string;
+  readonly headerLabel: (groupKey: string, rows: readonly ListRowViewModel[]) => string | undefined;
   readonly startsCollapsed: (groupKey: string) => boolean;
 };
 

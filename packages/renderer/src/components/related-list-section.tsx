@@ -10,6 +10,8 @@ import {
   evalFieldCondition,
   normalizeListColumn,
   parseRefTarget,
+  relatedListGroupHeaderLabel,
+  relatedListGroupKey,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   EditRelatedListSectionViewModel,
@@ -104,10 +106,12 @@ function buildRowGrouping(
   locale: string,
 ): DataTableRowGrouping {
   return {
-    keyOf: (row) => String(row.values[groupBy.field] ?? ""),
+    keyOf: (row) => relatedListGroupKey(row.values[groupBy.field]),
     startsCollapsed: (key) =>
-      groupBy.collapsedWhen !== undefined && key === String(groupBy.collapsedWhen),
+      groupBy.collapsedWhen !== undefined && key === relatedListGroupKey(groupBy.collapsedWhen),
     headerLabel: (key, rows) => {
+      const labelKey = relatedListGroupHeaderLabel(groupBy, key);
+      if (labelKey === undefined) return undefined;
       const dates =
         groupBy.dateField === undefined
           ? []
@@ -116,7 +120,7 @@ function buildRowGrouping(
               .filter((value) => value !== "")
               .sort();
       const latest = dates[dates.length - 1];
-      return translate(groupBy.labels?.[key] ?? groupBy.label, {
+      return translate(labelKey, {
         count: rows.length,
         value: key,
         lastDate:

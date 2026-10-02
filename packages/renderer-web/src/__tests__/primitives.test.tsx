@@ -337,6 +337,16 @@ describe("Input kind mapping", () => {
     expect((input as HTMLInputElement).value).toBe("58");
   });
 
+  test('kind="number" icon="hash" unit="km": icon, input and unit share one number-field box', () => {
+    render(
+      <Input id="i" name="i" kind="number" value={58} icon="hash" unit="km" onChange={() => {}} />,
+    );
+    const box = screen.getByRole("textbox").parentElement;
+    expect(box?.getAttribute("data-slot")).toBe("number-field");
+    expect(screen.getByText("km").parentElement).toBe(box ?? null);
+    expect(box?.querySelector("svg[aria-hidden='true']")?.parentElement).toBe(box ?? null);
+  });
+
   test('kind="number" without unit: no suffix rendered, no right padding', () => {
     render(<Input id="i" name="i" kind="number" value={58} onChange={() => {}} />);
     expect(screen.queryByText("km")).toBeNull();
