@@ -110,6 +110,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.login.resendRateLimited": "Bitte warte kurz und versuche es erneut.",
   "auth.login.resendSuccess": "Wir haben dir eine neue Bestätigungs-Mail geschickt.",
   "auth.login.resendVerification": "Bestätigungs-Mail erneut senden",
+  "auth.login.sessionEnded": "Deine Sitzung wurde beendet. Bitte melde dich erneut an.",
   "auth.login.submit": "Einloggen",
   "auth.login.submitting": "…",
   "auth.login.title": "Anmelden",

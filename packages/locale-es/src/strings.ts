@@ -110,6 +110,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "auth.login.resendRateLimited": "Espera un momento e inténtalo de nuevo.",
   "auth.login.resendSuccess": "Te hemos enviado un nuevo correo de confirmación.",
   "auth.login.resendVerification": "Reenviar correo de confirmación",
+  "auth.login.sessionEnded": "Tu sesión ha finalizado. Vuelve a iniciar sesión.",
   "auth.login.submit": "Iniciar sesión",
   "auth.login.submitting": "…",
   "auth.login.title": "Iniciar sesión",

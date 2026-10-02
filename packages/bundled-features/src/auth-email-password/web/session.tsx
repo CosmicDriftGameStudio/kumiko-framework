@@ -10,6 +10,7 @@
 // und die Transitions.
 
 import { readCsrfToken } from "@cosmicdrift/kumiko-dispatcher-live";
+import { useSessionEndedSignal } from "@cosmicdrift/kumiko-renderer";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import {
   AuthRequestError,
@@ -45,6 +46,10 @@ export type SessionState = {
    *  tenants[active].roles damit nav-filtering greift. Dedupliziert. */
   readonly roles: readonly string[];
   readonly bootstrapFailure: SessionBootstrapFailure | null;
+  /** Set when an authenticated session was ended server-side (revoked,
+   *  expired) so the login screen can explain why it appeared. Optional so
+   *  SessionApi values apps build themselves (test doubles) stay valid. */
+  readonly signedOutReason?: "session-ended" | null;
 };
 
 export type SessionApi = SessionState & {
@@ -68,6 +73,7 @@ export const UNAUTHENTICATED: SessionState = {
   tenants: [],
   roles: [],
   bootstrapFailure: null,
+  signedOutReason: null,
 };
 
 const INITIAL: SessionState = {
@@ -77,6 +83,7 @@ const INITIAL: SessionState = {
   tenants: [],
   roles: [],
   bootstrapFailure: null,
+  signedOutReason: null,
 };
 
 // kumiko_auth ist HttpOnly — kumiko_csrf wird beim Login gemeinsam gesetzt.
@@ -129,6 +136,7 @@ async function refresh(): Promise<SessionState> {
     tenants: tenants.tenants,
     roles: computeActiveRoles(user, tenants.activeTenantId, tenants.tenants),
     bootstrapFailure: null,
+    signedOutReason: null,
   };
 }
 
@@ -161,6 +169,20 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
   useEffect(() => {
     void doRefresh();
   }, [doRefresh]);
+
+  const sessionEndedSignal = useSessionEndedSignal();
+  // Only an authenticated session can "end": an anonymous 401 on a public
+  // surface must not show the hint.
+  // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+  useEffect(() => {
+    return sessionEndedSignal?.subscribe(() => {
+      setState((prev) =>
+        prev.status === "authenticated"
+          ? { ...UNAUTHENTICATED, signedOutReason: "session-ended" }
+          : prev,
+      );
+    });
+  }, [sessionEndedSignal]);
 
   const login = useCallback<SessionApi["login"]>(
     async (req) => {

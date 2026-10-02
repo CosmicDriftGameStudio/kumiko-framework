@@ -104,6 +104,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.login.resendError": "Could not send. Please try again.",
   "auth.login.resendRateLimited": "Please wait a moment and try again.",
   "auth.login.resendSuccess": "We've sent you a new verification email.",
+  "auth.login.sessionEnded": "Your session has ended. Please sign in again.",
   "auth.login.resendVerification": "Send verification email again",
   "auth.login.submit": "Sign in",
   "auth.login.submitting": "…",

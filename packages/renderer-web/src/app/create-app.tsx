@@ -15,6 +15,7 @@ import {
   type ContentEditorComponent,
   ContentEditorsProvider,
   CustomScreensProvider,
+  createSessionEndedSignal,
   DashboardBodyProvider,
   DispatcherProvider,
   type DraftStorage,
@@ -38,6 +39,8 @@ import {
   type QualifiedContentCollection,
   qualifyScreenId,
   type ReturnHost,
+  type SessionEndedSignal,
+  SessionEndedSignalProvider,
   TokensProvider,
   type TranslationsByLocale,
   toAppSchema,
@@ -45,6 +48,7 @@ import {
   useNav,
   usePrimitives,
   useTranslation,
+  withSessionEndedDetection,
 } from "@cosmicdrift/kumiko-renderer";
 import { type ComponentType, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -375,6 +379,7 @@ type KumikoAppRootProps = {
   readonly contentEditors: Readonly<Record<string, ContentEditorComponent>>;
   readonly resolvers: ReadonlyMap<string, ResolverComponent>;
   readonly dispatcher: Dispatcher;
+  readonly sessionEndedSignal: SessionEndedSignal;
   readonly draftStorage: DraftStorage;
   readonly primitives: PrimitivesRegistry;
   readonly liveEvents: LiveEventSubscriber;
@@ -474,10 +479,12 @@ function KumikoAppRoot(props: KumikoAppRootProps): ReactNode {
                                 <ResolversProvider resolvers={props.resolvers}>
                                   <ToastProvider>
                                     <UpdateChecker />
-                                    {stackWrappers(
-                                      props.providers,
-                                      stackWrappers(props.gates, screenNode),
-                                    )}
+                                    <SessionEndedSignalProvider signal={props.sessionEndedSignal}>
+                                      {stackWrappers(
+                                        props.providers,
+                                        stackWrappers(props.gates, screenNode),
+                                      )}
+                                    </SessionEndedSignalProvider>
                                   </ToastProvider>
                                 </ResolversProvider>
                               </NavProvidersProvider>
@@ -601,7 +608,11 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
     }
   }
 
-  const dispatcher = options.dispatcher ?? createLiveDispatcher();
+  const sessionEndedSignal = createSessionEndedSignal();
+  const dispatcher = withSessionEndedDetection(
+    options.dispatcher ?? createLiveDispatcher(),
+    sessionEndedSignal,
+  );
   const draftStorage = options.draftStorage ?? createBrowserDraftStorage();
   const primitives: PrimitivesRegistry = { ...defaultPrimitives, ...(options.primitives ?? {}) };
   const liveEvents = createEventSourceLiveEvents();
@@ -669,6 +680,7 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
       contentEditors={contentEditors}
       resolvers={resolvers}
       dispatcher={dispatcher}
+      sessionEndedSignal={sessionEndedSignal}
       draftStorage={draftStorage}
       primitives={primitives}
       liveEvents={liveEvents}

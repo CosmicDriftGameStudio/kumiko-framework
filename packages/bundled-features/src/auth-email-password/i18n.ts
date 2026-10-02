@@ -18,6 +18,7 @@ export const defaultTranslations: TranslationsByLocale = {
     "auth.login.submitting": "…",
     "auth.login.forgotPassword": "Forgot password?",
     "auth.login.unlockAccount": "Unlock account?",
+    "auth.login.sessionEnded": "Your session has ended. Please sign in again.",
     "auth.login.resendVerification": "Send verification email again",
     "auth.login.resendSuccess": "We've sent you a new verification email.",
     "auth.login.resendRateLimited": "Please wait a moment and try again.",
