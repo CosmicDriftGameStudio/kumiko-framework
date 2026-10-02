@@ -31,7 +31,6 @@ import {
   table as pgTable,
   plainDate,
   type SchemaTable,
-  SQL_EXPR_BRAND,
   type SqlExpression,
   serial,
   sql,
@@ -40,6 +39,10 @@ import {
   uniqueIndex,
   uuid,
 } from "./dialect.js";
+
+// Partial-index predicate for soft-delete entities; table-builder and
+// entity-table-meta must render identical index definitions.
+export const SOFT_DELETE_LIVE_ROW_PREDICATE = `"is_deleted" = false`;
 
 // Shared by the CRUD executor and the parent-ref read-gate — a field's
 // declared column name if it has one, else its snake_case default.
@@ -641,13 +644,7 @@ export function buildEntityTable<E extends EntityDefinition>(
         } else if (def.unique === true && entity.softDelete === true) {
           // Soft-deleted rows keep their value, so a full unique index would
           // permanently block reuse; kept in lock-step with entity-table-meta.ts (framework#2593).
-          const softDeleteWhere: SqlExpression = {
-            kind: "sql-expr",
-            text: `"is_deleted" = false`,
-            params: [],
-            [SQL_EXPR_BRAND]: true,
-          };
-          chain = chain.where(softDeleteWhere);
+          chain = chain.where(sql.raw(SOFT_DELETE_LIVE_ROW_PREDICATE));
         }
         indexes[indexName] = chain;
         // Partielles bidx-Pendant für unique-Indices über lookupable-Spalten
@@ -667,15 +664,10 @@ export function buildEntityTable<E extends EntityDefinition>(
               // holds (framework#2464).
               const whereText = (
                 entity.softDelete === true
-                  ? [...notNullParts, `"is_deleted" = false`]
+                  ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE]
                   : notNullParts
               ).join(" AND ");
-              const partialWhere: SqlExpression = {
-                kind: "sql-expr",
-                text: whereText,
-                params: [],
-                [SQL_EXPR_BRAND]: true,
-              };
+              const partialWhere = sql.raw(whereText);
               indexes[`${indexName}_bidx`] = uniqueIndex(`${indexName}_bidx`)
                 .on(...bidxCols)
                 .where(partialWhere);

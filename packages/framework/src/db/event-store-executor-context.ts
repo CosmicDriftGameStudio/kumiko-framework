@@ -417,27 +417,21 @@ export function buildExecutorContext(
     ];
   }
 
-  // Combined, atomic read for the `expect:` precondition (#3024): the
-  // projection row's expect-checked fields AND the events table's current
-  // MAX(version) for this aggregate, in ONE SQL statement.
+  // Combined, atomic read for the `expect:` precondition: the projection
+  // row's expect-checked fields AND the events table's current MAX(version)
+  // for this aggregate, in ONE SQL statement.
   //
-  // Two separate reads (loadById then getStreamVersion, in either order)
-  // leave a real gap: applyEntityEvent writes the projection in a SEPARATE
-  // statement AFTER its event commits, so a second reader can see a version
-  // that already reflects a concurrent writer's event while its OWN read of
-  // the expect fields still reflects the pre-write projection row — verified
-  // empirically: ~40% of genuinely concurrent update() calls slipped a stale
-  // precondition through with two round-trips, regardless of read order. One
-  // query removes the gap: Postgres executes it against a single consistent
-  // snapshot.
+  // Two separate reads leave a gap: applyEntityEvent writes the projection in
+  // a separate statement after its event commits, so a second reader can see
+  // a version that already reflects a concurrent writer's event while its read
+  // of the expect fields still shows the pre-write row. One query runs against
+  // a single consistent snapshot.
   //
-  // This also sidesteps a correctness bug the row's own `version` column
-  // can't be trusted for: applyEntityEvent only keeps row.version in
-  // lock-step with the OTHER projection columns for rows this executor
-  // itself wrote. A row seeded directly (raw INSERT — test fixtures, or
-  // legacy pre-#762 data) can carry a default version (e.g. 1) with ZERO
-  // matching events. Deriving expectedVersion from such a row.version makes
-  // the append below target a non-existent predecessor and fail outright.
+  // The row's own `version` column can't be trusted instead: it is only in
+  // lock-step with the events for rows this executor wrote. A raw-seeded row
+  // (test fixtures, legacy data) can carry a default version with zero
+  // matching events, so deriving expectedVersion from it makes the append
+  // target a non-existent predecessor and fail.
   // The events table's MAX(version) (0 for such a row) is the only value
   // append() can safely use as expectedVersion — exactly what
   // getStreamVersion() already returns for every other (non-`expect`)

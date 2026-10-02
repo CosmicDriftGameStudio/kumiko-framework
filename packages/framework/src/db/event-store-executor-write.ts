@@ -128,7 +128,6 @@ export function createWriteVerbs(
 
   return {
     async create(payload, user, db, options) {
-      const runner = tenantDbRunner(db);
       if (isForeignTenantOnGlobalEntity(entity, payload["tenantId"])) {
         throw new AccessDeniedError({
           message:
@@ -136,6 +135,7 @@ export function createWriteVerbs(
             "SYSTEM_TENANT_ID or omitted.",
         });
       }
+      const runner = tenantDbRunner(db);
       // Respect an explicit id in the payload (seed pattern, SCIM import). Without
       // one the framework mints a fresh UUIDv7 via generateId. Strip it out of the
       // event payload so defaults + downstream consumers don't see a redundant id field.
@@ -428,20 +428,8 @@ export function createWriteVerbs(
       // trip `events_aggregate_version_uq` (tenant_id, aggregate_id, version)
       // with version_conflict.
       //
-      // `expect:` (#3024) reads this same authoritative version, but through
-      // loadExpectSnapshot's single combined query instead of a second,
-      // separate getStreamVersion() round-trip: two reads (in either order)
-      // leave a real gap — applyEntityEvent writes the projection in a
-      // SEPARATE statement after its event commits, so a second reader's
-      // version-read can land in that gap and see a fresh, non-conflicting
-      // version paired with a still-stale projection row (verified
-      // empirically: ~40% of genuinely concurrent runs slipped through with
-      // two round-trips). One query removes the gap. It also avoids trusting
-      // the row's own `version` column for the expectedVersion: that column
-      // is only in lock-step with the rest of the row for rows THIS executor
-      // wrote — a raw-seeded row (test fixture, or legacy pre-#762 data) can
-      // carry a default version with zero matching events, which would make
-      // the append below target a non-existent predecessor and fail outright.
+      // With `expect:` the version comes from loadExpectSnapshot's combined
+      // query instead; see its comment for why.
       let currentVersion: number;
       if (updateOptions?.expect) {
         const expectKeys = Object.keys(updateOptions.expect);
@@ -794,7 +782,6 @@ export function createWriteVerbs(
     },
 
     async restore(payload, user, db) {
-      const runner = tenantDbRunner(db);
       if (!softDelete) {
         return writeFailure(
           new UnprocessableError("soft_delete_not_enabled", {
@@ -802,6 +789,7 @@ export function createWriteVerbs(
           }),
         );
       }
+      const runner = tenantDbRunner(db);
 
       // Tenant boundary: db.fetchOne applies TenantDb's tenant predicate,
       // selectMany(runner, ...) did not — any caller could un-delete a foreign

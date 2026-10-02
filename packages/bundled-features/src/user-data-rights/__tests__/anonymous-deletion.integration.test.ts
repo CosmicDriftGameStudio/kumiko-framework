@@ -184,7 +184,7 @@ describe("anonymous deletion flow", () => {
     expect(second.status).toBe(422);
     expect(await statusOf()).toBe(USER_STATUS.DeletionRequested);
 
-    // #354/2 + #3024: the anonymous endpoint returns the same generic reason
+    // The anonymous endpoint returns the same generic reason
     // for EVERY error path as an invalid token — since the grace-period
     // transition now lives inside commitDeletion (the anchor spend), there is
     // no separate res.ok branch left that could leak the concrete user status
@@ -198,7 +198,7 @@ describe("anonymous deletion flow", () => {
     expect(serialized).not.toContain(USER_STATUS.DeletionRequested);
   });
 
-  test("concurrent confirm-by-token (#3024): two simultaneous redemptions of the same token leave exactly one winner", async () => {
+  test("concurrent confirm-by-token: two simultaneous redemptions of the same token leave exactly one winner", async () => {
     // Real concurrency case, real HTTP calls via setupTestStack, no sleep —
     // the interleaving width varies between runs, hence 20 repetitions
     // instead of a single run (probabilistic test).

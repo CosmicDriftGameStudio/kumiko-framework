@@ -302,6 +302,18 @@ describe("backfillEventPiiEncryption", () => {
     expect(String(row["address"])).toContain(`tenant:${TENANT}`);
   });
 
+  test("unresolvable catalog subject fails without the owner-resolution retry hint", async () => {
+    await appendPlain(generateId(), "Bad Type!", SELF_NOTE_EVENT_TYPE, { note: "secret" });
+
+    armKms();
+    const result = await backfillEventPiiEncryption(testDb.db, registry);
+
+    expect(result.failures).toHaveLength(1);
+    const reason = result.failures[0]?.reason ?? "";
+    expect(reason).toContain("catalog event subject unresolvable");
+    expect(reason).not.toContain("resolveOwnerFromProjection");
+  });
+
   test("idempotent: second run updates nothing; dryRun writes nothing", async () => {
     const c1 = generateId();
     await appendPlain(c1, "contact", "contact.created", { id: c1, email: "a@x.com" });

@@ -47,7 +47,7 @@ export type StartGracePeriodResult =
 // ctx.db.global(userTable); only the grace period duration is tenant-configured.
 // That read only supplies email/locale for the caller's notification — it is
 // NOT the transition's guard. The guard is `expect: { status: Active }` on
-// the lifecycle write itself (#3024): the executor re-checks it against a
+// the lifecycle write itself: the executor re-checks it against a
 // fresh row right before writing, so a concurrent caller that already moved
 // the user off Active is rejected even though this read saw Active.
 //

@@ -27,7 +27,12 @@ import type {
   IndexMeta,
   UnmanagedTableInput,
 } from "./entity-table-meta-types.js";
-import { READ_MODEL_PREFIX, toSnakeCase, toTableName } from "./table-builder.js";
+import {
+  READ_MODEL_PREFIX,
+  SOFT_DELETE_LIVE_ROW_PREDICATE,
+  toSnakeCase,
+  toTableName,
+} from "./table-builder.js";
 
 export type {
   BuildEntityTableMetaOptions,
@@ -345,7 +350,7 @@ export function deriveEntityTableMeta(
     const whereSql =
       explicitWhereSql ??
       (def.where === undefined && def.unique === true && entity.softDelete === true
-        ? `"is_deleted" = false`
+        ? SOFT_DELETE_LIVE_ROW_PREDICATE
         : undefined);
     indexes.push({
       name: indexName,
@@ -368,7 +373,9 @@ export function deriveEntityTableMeta(
         // row can't reuse a value a soft-deleted sibling still holds
         // (framework#2464). Kept in lock-step with table-builder.ts.
         const whereParts =
-          entity.softDelete === true ? [...notNullParts, `"is_deleted" = false`] : notNullParts;
+          entity.softDelete === true
+            ? [...notNullParts, SOFT_DELETE_LIVE_ROW_PREDICATE]
+            : notNullParts;
         indexes.push({
           name: `${indexName}_bidx`,
           columns: bidxCols,
