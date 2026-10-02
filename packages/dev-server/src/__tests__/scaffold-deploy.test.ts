@@ -341,6 +341,14 @@ describe("scaffoldDeploy", () => {
       },
     );
 
+    it("an over-long appName without deploy config blames appName, not kumiko.deploy.dbUser", () => {
+      const appName = "a".repeat(64);
+      writeFileSync(join(tmp, "package.json"), JSON.stringify({ name: appName }));
+      expect(() => scaffoldDeploy({ appName, destination: tmp })).toThrow(
+        /appName ".*" cannot serve as the default DB user/,
+      );
+    });
+
     it("rejects an invalid stackNetwork value", () => {
       writeFileSync(
         join(tmp, "package.json"),

@@ -44,8 +44,12 @@ for (const dist of distDirs) {
 
 const failures = [];
 for (const file of emitted) {
-	// Template literals hold generated source and whole-line comments hold usage examples, not real imports.
-	const code = readFileSync(file, "utf8").replace(/^\s*\/\/.*$/gm, "").replace(/`(?:\\.|[^`\\])*`/gs, "``");
+	// Template literals hold generated source, whole-line comments hold usage examples, and lines that start
+	// with a quote are string-array elements of generated source (a real import statement never starts with one).
+	const code = readFileSync(file, "utf8")
+		.replace(/^\s*\/\/.*$/gm, "")
+		.replace(/^\s*["'].*$/gm, "")
+		.replace(/`(?:\\.|[^`\\])*`/gs, "``");
 	for (const [, specifier] of code.matchAll(SPECIFIER)) {
 		const { target, problem } = resolveLikeNode(specifier, file);
 		if (problem) failures.push(`${relative(process.cwd(), file)}: "${specifier}" -> ${relative(process.cwd(), target)} (${problem})`);
