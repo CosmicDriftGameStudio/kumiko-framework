@@ -41,7 +41,16 @@ function validateLiteralCurrencyCode(
 ): void {
   // @cast-boundary schema-walk — feature-config inspection (Author may circumvent type-check)
   const shape = field as { type?: unknown; currency?: { kind?: unknown; code?: unknown } };
-  if (shape.type === "money" && shape.currency?.kind === "literal") {
+  if (shape.type !== "money" || shape.currency === undefined) return;
+  // An unknown kind would project through to the renderer, which silently falls
+  // back to entity.defaultCurrency instead of failing.
+  if (shape.currency?.kind !== "literal" && shape.currency?.kind !== "tenant") {
+    throw new Error(
+      `${where} declares an unknown currency kind ${JSON.stringify(shape.currency?.kind)}. ` +
+        `Expected { kind: "tenant" } or { kind: "literal", code }.`,
+    );
+  }
+  if (shape.currency.kind === "literal") {
     const code = shape.currency.code;
     if (typeof code !== "string" || !currencies.includes(code)) {
       throw new Error(

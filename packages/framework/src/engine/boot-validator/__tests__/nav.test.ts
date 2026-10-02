@@ -1,4 +1,9 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import * as z from "zod";
+import { withBootValidatorFixture } from "../../../testing/boot-validator-fixture.js";
+import { validateBoot } from "../../boot-validator.js";
+import { defineFeature } from "../../define-feature.js";
+import { createEntity, createTextField } from "../../index.js";
 import type { NavDefinition, WorkspaceDefinition } from "../../types/index.js";
 import { warnOnNavAccessInversion, warnOnUnreachableNavScreens } from "../nav.js";
 import { deriveNavAllowlistFromWorkspaces, resolveNavAllowlist } from "../workspaces.js";
@@ -371,5 +376,61 @@ describe("deriveNavAllowlistFromWorkspaces", () => {
     const allowlist = deriveNavAllowlistFromWorkspaces(allNavQns, allWorkspaceQns);
 
     expect(allowlist).toEqual(new Set(["vehicles:nav:a", "vehicles:nav:b"]));
+  });
+});
+
+describe("validateBoot nav allowlist wiring", () => {
+  let warnSpy: ReturnType<typeof spyOn<Console, "warn">>;
+
+  beforeEach(() => {
+    warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  function shopFeature(options: { readonly withWorkspace: boolean }) {
+    return defineFeature("shop", (r) => {
+      r.entity(
+        "item",
+        createEntity({
+          fields: { title: createTextField({ personal: false, reason: "test_fixture" }) },
+        }),
+      );
+      r.queryHandler("item:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.screen({ id: "item-list", type: "entityList", entity: "item", columns: ["title"] });
+      r.screen({ id: "orphan-list", type: "entityList", entity: "item", columns: ["title"] });
+      r.nav({ id: "items", label: "Items", screen: "shop:screen:item-list" });
+      r.nav({ id: "orphan", label: "Orphan", screen: "shop:screen:orphan-list" });
+      if (options.withWorkspace) {
+        r.workspace({ id: "main", label: "Main", nav: ["shop:nav:items"] });
+      }
+    });
+  }
+
+  function unreachableWarnings(): unknown[][] {
+    return warnSpy.mock.calls.filter(([message]) => String(message).includes("unreachable"));
+  }
+
+  test("a workspace app warns once for a nav no workspace reaches", () => {
+    validateBoot(withBootValidatorFixture([shopFeature({ withWorkspace: true })]));
+    const warnings = unreachableWarnings();
+    expect(warnings).toHaveLength(1);
+    expect(String(warnings[0]?.[0])).toContain("shop:nav:orphan");
+  });
+
+  test("navAllowlistExempt passed to validateBoot suppresses that warning", () => {
+    validateBoot(withBootValidatorFixture([shopFeature({ withWorkspace: true })]), {
+      navAllowlistExempt: new Set(["shop:nav:orphan"]),
+    });
+    expect(unreachableWarnings()).toHaveLength(0);
+  });
+
+  test("an app without workspaces and without an allowlist does not warn", () => {
+    validateBoot(withBootValidatorFixture([shopFeature({ withWorkspace: false })]));
+    expect(unreachableWarnings()).toHaveLength(0);
   });
 });

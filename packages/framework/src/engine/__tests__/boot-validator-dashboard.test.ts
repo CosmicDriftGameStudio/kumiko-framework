@@ -377,6 +377,49 @@ describe("validateBoot — dashboard screen panels (fw#2841)", () => {
     );
   });
 
+  describe("visibleWhen field against the query outputSchema", () => {
+    const typedCatalog = defineFeature("catalog", (r) => {
+      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+      });
+      r.queryHandler("items:status", z.object({}), async () => ({ enabled: true }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: z.object({ enabled: z.boolean() }),
+      });
+      r.screen({
+        id: "items",
+        type: "projectionList",
+        query: "catalog:query:items:list",
+        columns: ["name"],
+      });
+      r.translations({ keys: { "screen:items.title": { de: "Artikel", en: "Items" } } });
+    });
+
+    test("rejects a visibleWhen field missing from the declared outputSchema", () => {
+      const feature = screenPanelFeature({
+        kind: "screen",
+        id: "items",
+        screen: "catalog:screen:items",
+        label: "demo:dashboard:panel:latest",
+        visibleWhen: { query: "catalog:query:items:status", field: "enable", eq: true },
+      });
+      expect(() => validateBoot([feature, typedCatalog])).toThrow(
+        /screen-panel "items" visibleWhen references field "enable" which is not present in query "catalog:query:items:status"'s outputSchema/,
+      );
+    });
+
+    test("accepts a visibleWhen field present in the declared outputSchema", () => {
+      const feature = screenPanelFeature({
+        kind: "screen",
+        id: "items",
+        screen: "catalog:screen:items",
+        label: "demo:dashboard:panel:latest",
+        visibleWhen: { query: "catalog:query:items:status", field: "enabled", eq: true },
+      });
+      expect(() => validateBoot([feature, typedCatalog])).not.toThrow();
+    });
+  });
+
   test("rejects a visibleWhen with an empty field", () => {
     const feature = screenPanelFeature({
       kind: "screen",

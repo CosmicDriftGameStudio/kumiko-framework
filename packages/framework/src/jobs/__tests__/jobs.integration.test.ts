@@ -1516,6 +1516,13 @@ describe("boot gates", () => {
       );
     });
     expect(() => createRegistry([sequentialGate])).toThrow(/bootGate with concurrency/);
+
+    const runOnBootGate = defineFeature("bootgate", (r) => {
+      r.job("check", { trigger: { manual: true }, bootGate: true, runOnBoot: true }, async () => {
+        gateLog.push("never");
+      });
+    });
+    expect(() => createRegistry([runOnBootGate])).toThrow(/bootGate with runOnBoot/);
   });
 
   test("object-form backoff.delayMs must be a positive integer", () => {

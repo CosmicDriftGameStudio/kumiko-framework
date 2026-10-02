@@ -108,6 +108,22 @@ const leasesFeature = defineFeature("leases", (r) => {
             },
           ],
         },
+        {
+          kind: "relatedList",
+          title: "Filter-field items",
+          query: "leases:query:lease:items",
+          columns: ["name"],
+          parentParam: "ignoredParentParam",
+          parentFilter: { field: "leaseRef" },
+          toolbarActions: [
+            {
+              kind: "navigate",
+              id: "silent-add-filter-field",
+              label: "Silent add",
+              screen: "item-toolbar-filter-field",
+            },
+          ],
+        },
       ],
     },
     metrics: [
@@ -138,6 +154,12 @@ const leasesFeature = defineFeature("leases", (r) => {
   });
   r.screen({
     id: "item-toolbar-custom-parent",
+    type: "entityEdit",
+    entity: "item",
+    layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
+  });
+  r.screen({
+    id: "item-toolbar-filter-field",
     type: "entityEdit",
     entity: "item",
     layout: { sections: [{ title: "x", fields: ["leaseId", "note"] }] },
@@ -218,5 +240,9 @@ describe("buildAppSchema — urlPrefillFields derived from navigate params", () 
 
   test("a relatedList toolbarAction without params uses the section's own parentParam key", () => {
     expect(urlPrefillFieldsOf("leases", "item-toolbar-custom-parent")).toEqual(["customParentId"]);
+  });
+
+  test("a relatedList toolbarAction without params prefers parentFilter.field over parentParam", () => {
+    expect(urlPrefillFieldsOf("leases", "item-toolbar-filter-field")).toEqual(["leaseRef"]);
   });
 });

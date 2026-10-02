@@ -13,6 +13,7 @@ import { userMfaTable } from "../schema/user-mfa.js";
 export const mfaStatusQuery = defineQueryHandler({
   name: "user-mfa:status",
   schema: z.object({}),
+  outputSchema: z.object({ enabled: z.boolean() }),
   access: {
     openToAll: {
       reason:
