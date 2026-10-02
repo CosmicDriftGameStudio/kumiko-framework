@@ -87,6 +87,37 @@ describe("scanTemplateDrift", () => {
     expect(findings.some((f) => /Literal "/.test(f.message))).toBe(false);
   });
 
+  test("flags template-owned keys set next to a ...defineAppE2eConfig(...) spread", () => {
+    const sf = sourceFileAt(
+      "/private/repo/packages/app/playwright.config.ts",
+      'import { defineAppE2eConfig } from "@cosmicdrift/kumiko-testing/e2e";\nconst workers = 1;\nexport default { ...defineAppE2eConfig({ port: 4321 }), workers, retries: 2, timeout: 60_000 };\n',
+    );
+    const findings = scanTemplateDrift(sf, []).filter((f) => /Config key/.test(f.message));
+    expect(findings.map((f) => f.message.match(/"(\w+)"/)?.[1])).toEqual([
+      "workers",
+      "retries",
+      "timeout",
+    ]);
+  });
+
+  test("allows a defineAppE2eConfig spread that only adds globalSetup", () => {
+    const sf = sourceFileAt(
+      "/private/repo/packages/app/playwright.config.ts",
+      'import { defineAppE2eConfig } from "@cosmicdrift/kumiko-testing/e2e";\nexport default { ...defineAppE2eConfig({ port: 4321 }), globalSetup: "./setup.ts" };\n',
+    );
+    expect(scanTemplateDrift(sf, [])).toEqual([]);
+  });
+
+  test("flags a shorthand deviceScaleFactor in a test.use(...) argument", () => {
+    const sf = sourceFileAt(
+      "/private/repo/packages/app/e2e/x.spec.ts",
+      'import { test } from "@playwright/test";\nconst deviceScaleFactor = 2;\ntest.use({ deviceScaleFactor });\n',
+    );
+    expect(
+      scanTemplateDrift(sf, []).some((f) => /Literal "deviceScaleFactor"/.test(f.message)),
+    ).toBe(true);
+  });
+
   test("flags a direct page.screenshot(...) call", () => {
     const sf = sourceFileAt(
       "/private/repo/packages/app/e2e/_helpers/shot.ts",

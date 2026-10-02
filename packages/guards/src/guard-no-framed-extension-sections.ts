@@ -59,32 +59,65 @@ function isExternalSourceFile(sf: SourceFile): boolean {
   return sf.getFilePath().includes("/node_modules/");
 }
 
+function addRegistryMembers(
+  sf: SourceFile,
+  literal: ObjectLiteralExpression,
+  entries: Map<string, string>,
+  visited: Set<Node>,
+): void {
+  if (visited.has(literal)) return;
+  visited.add(literal);
+  for (const member of literal.getProperties()) {
+    // { NOTES_SECTION_EXTENSION_NAME: NotesSection } (PropertyAssignment,
+    // possibly computed-key) or { NotesSection } (ShorthandPropertyAssignment).
+    if (Node.isPropertyAssignment(member)) {
+      const valueInit = member.getInitializer();
+      if (valueInit === undefined || valueInit.getKind() !== SyntaxKind.Identifier) continue;
+      const nameNode = member.getNameNode();
+      const key = Node.isComputedPropertyName(nameNode)
+        ? nameNode.getExpression().getText()
+        : Node.isStringLiteral(nameNode)
+          ? nameNode.getLiteralValue()
+          : member.getName();
+      entries.set(valueInit.getText(), key);
+    } else if (Node.isShorthandPropertyAssignment(member)) {
+      const name = member.getName();
+      entries.set(name, name);
+    } else if (Node.isSpreadAssignment(member)) {
+      addRegistryFromExpression(sf, member.getExpression(), entries, visited);
+    }
+  }
+}
+
+// The registry may be inline, a same-file variable (`extensionSectionComponents:
+// shared`, `{ extensionSectionComponents }`) or spread in (`{ ...shared }`).
+function addRegistryFromExpression(
+  sf: SourceFile,
+  expression: Node,
+  entries: Map<string, string>,
+  visited: Set<Node>,
+): void {
+  if (Node.isObjectLiteralExpression(expression)) {
+    addRegistryMembers(sf, expression, entries, visited);
+    return;
+  }
+  if (!Node.isIdentifier(expression)) return;
+  const init = sf.getVariableDeclaration(expression.getText())?.getInitializer();
+  if (init !== undefined) addRegistryFromExpression(sf, init, entries, visited);
+}
+
 /** Maps each registered component's identifier to the registry key usage sites reference via `__component: SOME_CONST`. */
 function findExtensionComponentEntries(sf: SourceFile): Map<string, string> {
   const entries = new Map<string, string>();
+  const visited = new Set<Node>();
   for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
     if (prop.getName() !== "extensionSectionComponents") continue;
     const init = prop.getInitializer();
-    if (init === undefined || init.getKind() !== SyntaxKind.ObjectLiteralExpression) continue;
-    for (const member of init.asKindOrThrow(SyntaxKind.ObjectLiteralExpression).getProperties()) {
-      // { NOTES_SECTION_EXTENSION_NAME: NotesSection } (PropertyAssignment,
-      // possibly computed-key) or { NotesSection } (ShorthandPropertyAssignment).
-      if (member.getKind() === SyntaxKind.PropertyAssignment) {
-        const pa = member.asKindOrThrow(SyntaxKind.PropertyAssignment);
-        const valueInit = pa.getInitializer();
-        if (valueInit === undefined || valueInit.getKind() !== SyntaxKind.Identifier) continue;
-        const nameNode = pa.getNameNode();
-        const key = Node.isComputedPropertyName(nameNode)
-          ? nameNode.getExpression().getText()
-          : Node.isStringLiteral(nameNode)
-            ? nameNode.getLiteralValue()
-            : pa.getName();
-        entries.set(valueInit.getText(), key);
-      } else if (member.getKind() === SyntaxKind.ShorthandPropertyAssignment) {
-        const name = member.asKindOrThrow(SyntaxKind.ShorthandPropertyAssignment).getName();
-        entries.set(name, name);
-      }
-    }
+    if (init !== undefined) addRegistryFromExpression(sf, init, entries, visited);
+  }
+  for (const prop of sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment)) {
+    if (prop.getName() !== "extensionSectionComponents") continue;
+    addRegistryFromExpression(sf, prop.getNameNode(), entries, visited);
   }
   return entries;
 }

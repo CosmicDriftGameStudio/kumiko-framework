@@ -43,6 +43,18 @@ export function demoClient() {
     expect(guard.run([sf]).violations).toHaveLength(1);
   });
 
+  test("resolves a registry held in a variable, shorthand or spread", () => {
+    const body = "function NotesSection() { return <Card>x</Card>; }\n";
+    const variants = [
+      `${body}const shared = { notes: NotesSection };\nexport const a = { extensionSectionComponents: shared };`,
+      `${body}const extensionSectionComponents = { notes: NotesSection };\nexport const a = { extensionSectionComponents };`,
+      `${body}const shared = { notes: NotesSection };\nexport const a = { extensionSectionComponents: { ...shared } };`,
+    ];
+    for (const source of variants) {
+      expect(guard.run([parse(source)]).violations).toHaveLength(1);
+    }
+  });
+
   test("allows the same component using plain containers instead of a card", () => {
     const sf = parse(
       `function NotesSection() { return <div className="flex flex-col gap-3"><Heading>Notes</Heading>x</div>; }

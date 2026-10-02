@@ -72,6 +72,7 @@ import {
   findRuntimeIsolationViolations,
   isClientEntryPath,
   type Runtime,
+  readDeclaredClientEntries,
 } from "./runtime-isolation-classify";
 
 const SCAN: ScanSpec = { scope: "source", extensions: ["ts", "tsx"] };
@@ -142,11 +143,12 @@ function scanRoot(root: RepoRoot): {
       return !fp.includes("/node_modules/") && !fp.includes("/dist/");
     });
 
+  const declaredClientEntries = readDeclaredClientEntries(root.absPath);
   const workspaceCache = new Map<string, Runtime | null>();
   const directiveOf = createDirectiveClassifier();
   const clientReachable = computeClientReachablePaths(scannedFiles, (sf) => {
     const rel = path.relative(root.absPath, sf.getFilePath());
-    if (isClientEntryPath(rel)) return true;
+    if (isClientEntryPath(rel, declaredClientEntries)) return true;
     return (
       classify(sf.getFilePath(), root.absPath, workspaceCache, undefined, directiveOf) === "client"
     );

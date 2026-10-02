@@ -30,6 +30,28 @@ describe("isIntegrationTestFile", () => {
 });
 
 describe("scanFile", () => {
+  test("a marker inside a string literal does not opt the file out", () => {
+    const sf = parseSource(
+      "/repo/packages/framework/src/guard.integration.test.ts",
+      `import { createDispatcher } from "@cosmicdrift/kumiko-framework";
+const fixture = "// @no-server-stack: fixture payload";
+const dispatcher = createDispatcher({});
+`,
+    );
+    expect(scanFile(sf)).not.toBeNull();
+  });
+
+  test("a real comment marker still opts the file out", () => {
+    const sf = parseSource(
+      "/repo/packages/framework/src/guard.integration.test.ts",
+      `// @no-server-stack: legacy harness
+import { createDispatcher } from "@cosmicdrift/kumiko-framework";
+const dispatcher = createDispatcher({});
+`,
+    );
+    expect(scanFile(sf)).toBeNull();
+  });
+
   test("blocks a .integration.test.ts that builds a parallel stack", () => {
     const sf = parseSource(
       "/repo/packages/framework/src/feature.integration.test.ts",

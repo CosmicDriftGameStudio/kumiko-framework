@@ -169,5 +169,6 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
 // Only run on direct invocation — otherwise `import { GUARDS }` would kick
 // off the whole suite and the list wouldn't be testable.
 if (import.meta.main) {
-  process.exit(runGuardsCli(process.argv.slice(2)));
+  // Exit codes wrap at 256, so a raw failure count could read as success.
+  process.exit(runGuardsCli(process.argv.slice(2)) > 0 ? 1 : 0);
 }
