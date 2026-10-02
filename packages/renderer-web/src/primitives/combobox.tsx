@@ -260,18 +260,9 @@ export function ComboboxInput(props: ComboboxInputProps): ReactNode {
                           setOpen(false);
                         }
                       }}
-                      // Browser-Click-Bug-Fix: Item-className enthielt vorher
-                      // `data-[disabled]:pointer-events-none`. Im Showcase
-                      // (mit Tailwind-CSS aktiv) waren Mouse-Clicks lautlos
-                      // tot — Keyboard-Select via Pfeiltasten funktionierte.
-                      // jsdom-Tests grün, weil dort kein Tailwind-CSS greift.
-                      // Genauer Trigger-Mechanismus (welches state setzt
-                      // `data-disabled` auf das Item?) wurde nicht weiter
-                      // untersucht — Class-Removal war ausreichend, um den
-                      // Click zu reaktivieren. Defensiv: keine pointer-events-
-                      // Schalter-Klassen mehr auf dem Item, sodass auch ein
-                      // zukünftig wieder gesetztes `data-disabled` keinen
-                      // stillen Click-Verlust mehr produzieren kann.
+                      // No pointer-events toggles on the item: with Tailwind active,
+                      // `data-[disabled]:pointer-events-none` silently swallowed mouse
+                      // clicks (keyboard select still worked, jsdom tests stayed green).
                       className="relative flex cursor-pointer select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground"
                     >
                       {isSelected && (
