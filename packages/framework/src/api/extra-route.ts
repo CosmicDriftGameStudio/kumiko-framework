@@ -167,9 +167,10 @@ export class ExtraRouteRejection extends Error {
           "ExtraRouteRejection: retryAfterSeconds is only valid with status 503",
         );
       }
-      if (!Number.isInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
+      // isSafeInteger, not isInteger: String(1e21) is "1e+21", not 1*DIGIT.
+      if (!Number.isSafeInteger(retryAfterSeconds) || retryAfterSeconds < 0) {
         throw new RangeError(
-          "ExtraRouteRejection: retryAfterSeconds must be a non-negative integer",
+          "ExtraRouteRejection: retryAfterSeconds must be a non-negative safe integer",
         );
       }
     }

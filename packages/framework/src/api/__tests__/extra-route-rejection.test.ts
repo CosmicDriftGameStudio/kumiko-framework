@@ -24,6 +24,12 @@ describe("ExtraRouteRejection retryAfterSeconds invariants", () => {
     ).toThrow(RangeError);
   });
 
+  test("retryAfterSeconds beyond the safe-integer range throws RangeError", () => {
+    expect(
+      () => new ExtraRouteRejection(503, { error: "x" }, undefined, { retryAfterSeconds: 1e21 }),
+    ).toThrow(RangeError);
+  });
+
   test("retryAfterSeconds: 0 with status 503 is accepted", () => {
     const rejection = new ExtraRouteRejection(503, { error: "x" }, undefined, {
       retryAfterSeconds: 0,
