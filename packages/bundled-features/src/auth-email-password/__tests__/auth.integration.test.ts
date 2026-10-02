@@ -392,7 +392,7 @@ describe("scenario 6: logout", () => {
     expect(data.kind).toBe("logged-out");
   });
 
-  test("unauthenticated call to logout is rejected by framework access", async () => {
+  test("unauthenticated call to logout is rejected as unauthenticated", async () => {
     // roles: ["anonymous"] — no authenticated role. Handler's access is
     // access.authenticated which requires User/Admin/SystemAdmin.
     const guest = createTestUser({
@@ -401,7 +401,7 @@ describe("scenario 6: logout", () => {
       roles: ["anonymous"],
     });
     const error = await stack.http.writeErr(AuthHandlers.logout, {}, guest);
-    expectErrorIncludes(error, "access_denied");
+    expectErrorIncludes(error, "unauthenticated");
   });
 });
 

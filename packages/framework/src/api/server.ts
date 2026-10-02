@@ -73,7 +73,12 @@ import {
   getUser,
   type TenantLifecycleStatusResolver,
 } from "./auth-middleware.js";
-import { type AuthRoutesConfig, createAuthRoutes, type LoginRateLimiter } from "./auth-routes.js";
+import {
+  type AuthRoutesConfig,
+  assertSessionCallbacksPaired,
+  createAuthRoutes,
+  type LoginRateLimiter,
+} from "./auth-routes.js";
 import {
   assertValidTrustedProxyHops,
   type ClientIpResolver,
@@ -846,6 +851,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // without an allowlist and without an explicit opt-out — that config is the
   // unguarded-subdomain-XSS footgun, not a warn-and-continue case.
   assertOriginGuardConfig(options.auth);
+  assertSessionCallbacksPaired(options.auth);
   const allowedOrigins = options.auth?.allowedOrigins;
   const originGuard =
     allowedOrigins && allowedOrigins.length > 0 ? originMiddleware(allowedOrigins) : undefined;

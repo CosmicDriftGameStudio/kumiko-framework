@@ -615,7 +615,9 @@ export function createKumikoApp(options: CreateKumikoAppOptions = {}): { readonl
   );
   const draftStorage = options.draftStorage ?? createBrowserDraftStorage();
   const primitives: PrimitivesRegistry = { ...defaultPrimitives, ...(options.primitives ?? {}) };
-  const liveEvents = createEventSourceLiveEvents();
+  const liveEvents = createEventSourceLiveEvents({
+    onSessionEnded: () => sessionEndedSignal.notify(),
+  });
 
   // Feature plugins: providers stack outermost (every gate + screen sees
   // every provider), gates stack between the renderer providers and the

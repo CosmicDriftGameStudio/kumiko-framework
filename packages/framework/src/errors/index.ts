@@ -19,6 +19,7 @@ export {
   NotFoundError,
   PreconditionFailedError,
   RateLimitError,
+  UnauthenticatedError,
   UnconfiguredError,
   UniqueViolationError,
   UnprocessableError,

@@ -270,6 +270,30 @@ export type SessionMassRevoker = (userId: string) => Promise<number>;
 export type SessionChecker = AuthSessionChecker;
 export type { AuthSessionStatus };
 
+// A sid minted by sessionCreator is only revocable when logout can revoke it
+// (sessionRevoker) AND every request re-checks it (sessionChecker). Wiring the
+// first without the other two would make logout look effective while the JWT
+// stays valid until expiry. A checker alone stays allowed: it fails closed.
+export function assertSessionCallbacksPaired(
+  auth: Pick<AuthRoutesConfig, "sessionCreator" | "sessionRevoker" | "sessionChecker"> | undefined,
+): void {
+  if (auth === undefined) return;
+  const issuesSessions = auth.sessionCreator !== undefined || auth.sessionRevoker !== undefined;
+  if (!issuesSessions) return;
+  const missing = [
+    ...(auth.sessionCreator === undefined ? ["sessionCreator"] : []),
+    ...(auth.sessionRevoker === undefined ? ["sessionRevoker"] : []),
+    ...(auth.sessionChecker === undefined ? ["sessionChecker"] : []),
+  ];
+  if (missing.length === 0) return;
+  throw new Error(
+    `[kumiko:boot] auth session callbacks are wired partially — missing ${missing.join(", ")}. ` +
+      "Server sessions need sessionCreator, sessionRevoker and sessionChecker together, " +
+      "otherwise logout leaves the JWT valid until it expires. Wire all three (the sessions " +
+      "feature's sessionStore provides them) or none for stateless JWTs.",
+  );
+}
+
 export type AuthRoutesConfig = {
   membershipQuery: string; // qualified query handler name, e.g. config.membershipQuery
   // Optional: qualified query handler that returns the user-row inkl.

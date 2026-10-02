@@ -53,6 +53,7 @@ import {
   prefixValidationPath,
   wrapToKumiko,
 } from "./dispatcher-utils.js";
+import { handlerAccessError } from "./handler-access-error.js";
 import { runProjections } from "./projections-runner.js";
 
 function getTable(
@@ -489,12 +490,7 @@ async function executeWriteInner(
   // so in normal boots this branch shouldn't fire — the guard is belt-and-
   // suspenders in case a handler sneaks through (e.g. runtime injection).
   if (!hasAccess(user, handler.access)) {
-    return writeFailure(
-      new AccessDeniedError({
-        message: `access denied for ${type}`,
-        details: { handler: type },
-      }),
-    );
+    return writeFailure(handlerAccessError(user, type));
   }
 
   const parsed = handler.schema.safeParse(payload);

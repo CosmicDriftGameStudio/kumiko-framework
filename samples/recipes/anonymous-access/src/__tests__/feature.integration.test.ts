@@ -107,14 +107,14 @@ describe("guest checkout: anonymous write lands with placedBy=anonymous", () => 
 
 describe("regression guards", () => {
   test("openToAll handler rejects anonymous (was the silent-public bug)", async () => {
-    // The advisor-flagged regression risk: enabling anonymousAccess must NOT
-    // turn every existing openToAll endpoint public. hasAccess explicitly
-    // rejects anonymous on openToAll, so the dispatcher returns 403.
+    // Enabling anonymousAccess must NOT turn every existing openToAll endpoint
+    // public. hasAccess rejects anonymous on openToAll, and the dispatcher
+    // answers 401: the caller has to sign in, not ask for another role.
     const res = await stack.http.raw("POST", "/api/query", {
       type: "shop:query:product:authenticated-only",
       payload: {},
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 
   test("admin-only handler rejects anonymous", async () => {
@@ -122,6 +122,6 @@ describe("regression guards", () => {
       type: "shop:write:product:create",
       payload: { name: "Tea Set", priceCents: "1000" },
     });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(401);
   });
 });

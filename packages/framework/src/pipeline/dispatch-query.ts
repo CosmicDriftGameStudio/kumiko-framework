@@ -2,7 +2,7 @@ import type { DbRow, DbTx } from "../db/connection.js";
 import { hasAccess } from "../engine/access.js";
 import { filterReadFields } from "../engine/field-access.js";
 import type { QueryHandlerDef, SessionUser } from "../engine/types/index.js";
-import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors/index.js";
+import { NotFoundError, validationErrorFromZod } from "../errors/index.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
 import {
   buildHandlerContext,
@@ -13,6 +13,7 @@ import {
   runHandlerInstrumented,
   type WriteOrigin,
 } from "./dispatch-shared.js";
+import { handlerAccessError } from "./handler-access-error.js";
 import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.js";
 
 // Standalone query execution — used by the public dispatcher.query() and
@@ -64,10 +65,7 @@ async function executeQueryInner(
   // so in normal boots this branch shouldn't fire — the guard is belt-and-
   // suspenders in case a handler sneaks through (e.g. runtime injection).
   if (!hasAccess(user, handler.access)) {
-    throw new AccessDeniedError({
-      message: `access denied for ${type}`,
-      details: { handler: type },
-    });
+    throw handlerAccessError(user, type);
   }
 
   const parsed = handler.schema.safeParse(payload);
