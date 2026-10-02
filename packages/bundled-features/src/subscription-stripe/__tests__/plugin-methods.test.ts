@@ -238,6 +238,88 @@ describe("createStripeCheckoutSession", () => {
     ).rejects.toThrow(/returned no url/);
   });
 
+  describe("stored customer unknown to Stripe", () => {
+    const baseOptions = {
+      priceId: "price_x",
+      tenantId: "tenant-stale",
+      successUrl: "https://x/s",
+      cancelUrl: "https://x/c",
+    };
+
+    function unknownCustomerError(param: string): Stripe.errors.StripeInvalidRequestError {
+      return new Stripe.errors.StripeInvalidRequestError({
+        type: "invalid_request_error",
+        code: "resource_missing",
+        param,
+        message: "No such customer: 'cus_stale'",
+      });
+    }
+
+    test("subscription-mode: retries once without customer and returns the url", async () => {
+      const stripe = buildStripe();
+      const createMock = spyOn(stripe.checkout.sessions, "create")
+        .mockRejectedValueOnce(unknownCustomerError("customer"))
+        // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+        .mockResolvedValueOnce({ url: "https://checkout.stripe.com/c/pay/fresh" } as any);
+
+      const result = await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
+        ...baseOptions,
+        providerCustomerId: "cus_stale",
+      });
+
+      expect(result).toEqual({ url: "https://checkout.stripe.com/c/pay/fresh" });
+      expect(createMock).toHaveBeenCalledTimes(2);
+      expect(createMock.mock.calls[0]?.[0]).toHaveProperty("customer", "cus_stale");
+      expect(createMock.mock.calls[1]?.[0]).not.toHaveProperty("customer");
+    });
+
+    test("payment-mode: retry creates a customer via customer_creation=always", async () => {
+      const stripe = buildStripe();
+      const createMock = spyOn(stripe.checkout.sessions, "create")
+        .mockRejectedValueOnce(unknownCustomerError("customer"))
+        // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+        .mockResolvedValueOnce({ url: "https://x/fresh" } as any);
+
+      await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
+        ...baseOptions,
+        mode: "payment",
+        providerCustomerId: "cus_stale",
+      });
+
+      expect(createMock).toHaveBeenCalledTimes(2);
+      const retryParams = createMock.mock.calls[1]?.[0];
+      expect(retryParams).not.toHaveProperty("customer");
+      expect(retryParams).toHaveProperty("customer_creation", "always");
+    });
+
+    test("resource_missing on another param is rethrown without retry", async () => {
+      const stripe = buildStripe();
+      const createMock = spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
+        unknownCustomerError("line_items[0][price]"),
+      );
+
+      await expect(
+        createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
+          ...baseOptions,
+          providerCustomerId: "cus_stale",
+        }),
+      ).rejects.toBeInstanceOf(Stripe.errors.StripeInvalidRequestError);
+      expect(createMock).toHaveBeenCalledTimes(1);
+    });
+
+    test("without providerCustomerId the error is rethrown without retry", async () => {
+      const stripe = buildStripe();
+      const createMock = spyOn(stripe.checkout.sessions, "create").mockRejectedValue(
+        unknownCustomerError("customer"),
+      );
+
+      await expect(
+        createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, baseOptions),
+      ).rejects.toBeInstanceOf(Stripe.errors.StripeInvalidRequestError);
+      expect(createMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
   test("Stripe-API-failure (z.B. 500 / network) → propagated zum Caller (Foundation mapped auf 500)", async () => {
     // Drift-Pin: Plugin schluckt KEINE Stripe-Errors. Foundation
     // verlässt sich darauf dass create-checkout-session-handler einen

@@ -1,5 +1,6 @@
 // Stripe-Plugin-Methoden für die POST-tenant-resolution-Phase:
-// createCheckoutSession, createPortalSession, cancelSubscription.
+// createCheckoutSession, createPortalSession, cancelSubscription,
+// retrieveSubscription, retrievePrices, planSwitchSession.
 //
 // Werden vom Plugin-build (feature.ts) als methods auf dem
 // SubscriptionProviderPlugin registriert. Anders als
@@ -8,7 +9,7 @@
 // runtime auf (api-key aus system-secrets, audited), statt aus einem
 // mount-time-Closure. Key-Rotation wirkt damit ohne Redeploy.
 //
-// **Type-Ableitung:** die options-shapes der drei methods werden
+// **Type-Ableitung:** die options-shapes der methods werden
 // **direkt vom Plugin-Contract** abgeleitet (`Parameters<NonNullable
 // <SubscriptionProviderPlugin["...method"]>>[1]`). Wenn Foundation den
 // Contract erweitert (z.B. neuer optionaler Field), bemerkt der
@@ -48,6 +49,14 @@ export type StripeCheckoutSessionRuntimeOptions = {
   readonly paymentInvoiceCreation?: boolean;
 };
 
+function isUnknownCustomerStripeError(error: unknown): boolean {
+  return (
+    isResourceMissingStripeError(error) &&
+    error instanceof Stripe.errors.StripeInvalidRequestError &&
+    error.param === "customer"
+  );
+}
+
 export function createStripeCheckoutSession(
   runtime: StripeCtxRuntime,
   { paymentInvoiceCreation = true }: StripeCheckoutSessionRuntimeOptions = {},
@@ -62,7 +71,9 @@ export function createStripeCheckoutSession(
     const stripe = await runtime.clientForCtx(ctx);
     const mode = options.mode ?? "subscription";
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams = (
+      providerCustomerId: string | undefined,
+    ): Stripe.Checkout.SessionCreateParams => ({
       mode,
       line_items: [{ price: options.priceId, quantity: 1 }],
       success_url: options.successUrl,
@@ -82,10 +93,21 @@ export function createStripeCheckoutSession(
             // Without a customer, Stripe's default "if_required" makes a guest
             // checkout when invoice_creation is off; the webhook then has no
             // customer id and drops the paid payment as ignored.
-            ...(!options.providerCustomerId && { customer_creation: "always" as const }),
+            ...(!providerCustomerId && { customer_creation: "always" as const }),
           }),
-      ...(options.providerCustomerId && { customer: options.providerCustomerId }),
+      ...(providerCustomerId && { customer: providerCustomerId }),
     });
+
+    let session: Stripe.Checkout.Session;
+    try {
+      session = await stripe.checkout.sessions.create(sessionParams(options.providerCustomerId));
+    } catch (error) {
+      if (!options.providerCustomerId || !isUnknownCustomerStripeError(error)) throw error;
+      // Stripe account switch (test -> live) or a customer deleted in the dashboard leaves a
+      // stored customer id Stripe no longer knows; checkout creates a fresh customer instead.
+      ctx.log?.warn("subscription-stripe: stored customer unknown to Stripe, retrying without it");
+      session = await stripe.checkout.sessions.create(sessionParams(undefined));
+    }
 
     if (!session.url) {
       // Defensive: Stripe returns a hosted url for both modes today —
