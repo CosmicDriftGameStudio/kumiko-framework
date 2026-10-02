@@ -40,6 +40,7 @@ import {
   listPendingRebuilds,
   PROJECTION_REBUILD_JOB,
   queueRebuildsFromMarkers,
+  rebuildProjectionOrMultiStream,
   runPendingRebuilds,
 } from "../pending-rebuilds.js";
 
@@ -241,6 +242,33 @@ describe("pending-rebuilds queue", () => {
     const consumerAfter = await getConsumerState(testDb.db, MSP_PROJECTION_NAME);
     expect(consumerAfter?.status).toBe("idle");
     expect(consumerAfter?.lastProcessedEventId).toBe(cursorBefore);
+  });
+
+  test("skipApplyErrors on a multi-stream projection is reported as ignored, not dropped silently", async () => {
+    await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
+    const warnings: string[] = [];
+    const logger = {
+      error: () => {},
+      warn: (msg: string) => {
+        warnings.push(msg);
+      },
+    };
+
+    const result = await rebuildProjectionOrMultiStream(MSP_PROJECTION_NAME, {
+      db: testDb.db,
+      registry,
+      errorPolicy: { skipApplyErrors: true },
+      logger,
+    });
+
+    expect(result.eventsProcessed).toBe(1);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(MSP_PROJECTION_NAME);
+    expect(warnings[0]).toContain("skipApplyErrors ignored");
+
+    warnings.length = 0;
+    await rebuildProjectionOrMultiStream(MSP_PROJECTION_NAME, { db: testDb.db, registry, logger });
+    expect(warnings).toEqual([]);
   });
 
   test("tables without a registered projection are drained, not stuck forever", async () => {

@@ -51,14 +51,20 @@ function findTargetFiles(rootDir: string): string[] {
   return files.sort();
 }
 
+const NAMESPACE_IMPORT = "*";
+
 type ImportedBinding = { readonly importedName: string; readonly moduleSpecifier: string };
 
-/** Local-name -> where it's imported from, for every named value import in the file. */
+/** Local-name -> where it's imported from, for every named or namespace value import in the file. */
 function collectImportedNames(sourceFile: SourceFile): Map<string, ImportedBinding> {
   const bindings = new Map<string, ImportedBinding>();
   for (const imp of sourceFile.getImportDeclarations()) {
     if (imp.isTypeOnly()) continue;
     const moduleSpecifier = imp.getModuleSpecifierValue();
+    const namespaceImport = imp.getNamespaceImport();
+    if (namespaceImport) {
+      bindings.set(namespaceImport.getText(), { importedName: NAMESPACE_IMPORT, moduleSpecifier });
+    }
     for (const spec of imp.getNamedImports()) {
       if (spec.isTypeOnly()) continue;
       const importedName = spec.getName();
@@ -264,6 +270,17 @@ const FAIL_UNPROCESSABLE_CALL: MigratableCall = {
   process: processFailUnprocessableCall,
 };
 
+function isKumikoNamespaceReceiver(
+  receiver: Node,
+  importedNames: ReadonlyMap<string, ImportedBinding>,
+): boolean {
+  if (!Node.isIdentifier(receiver)) return false;
+  const binding = importedNames.get(receiver.getText());
+  return (
+    binding?.importedName === NAMESPACE_IMPORT && KUMIKO_MODULE_RE.test(binding.moduleSpecifier)
+  );
+}
+
 function migrateCallSite(
   sourceFile: SourceFile,
   importedNames: ReadonlyMap<string, ImportedBinding>,
@@ -272,10 +289,27 @@ function migrateCallSite(
   skips: SkipEntry[],
 ): boolean {
   const callee = site.getExpression();
-  if (!Node.isIdentifier(callee)) return false;
-  const localName = callee.getText();
   const line = site.getStartLineNumber();
   const file = sourceFile.getFilePath();
+
+  if (!Node.isIdentifier(callee)) {
+    const unresolvedCallee = callee.getText();
+    const resolvedViaNamespace =
+      Node.isPropertyAccessExpression(callee) &&
+      callee.getName() === target.exportName &&
+      isKumikoNamespaceReceiver(callee.getExpression(), importedNames);
+    if (resolvedViaNamespace) return processCall(site, target, skips, file, line);
+    if (unresolvedCallee.endsWith(target.exportName)) {
+      skips.push({
+        file,
+        line,
+        note: `${target.exportName} is called through "${unresolvedCallee}", which is not a @cosmicdrift/kumiko-* namespace import this codemod can resolve`,
+        kind: "manual",
+      });
+    }
+    return false;
+  }
+  const localName = callee.getText();
 
   const binding = importedNames.get(localName);
   if (binding?.importedName !== target.exportName) {
@@ -296,6 +330,16 @@ function migrateCallSite(
     return false;
   }
 
+  return processCall(site, target, skips, file, line);
+}
+
+function processCall(
+  site: Node & { getArguments(): Node[] },
+  target: MigratableCall,
+  skips: SkipEntry[],
+  file: string,
+  line: number,
+): boolean {
   const outcome = target.process(site.getArguments(), (note, kind) =>
     skips.push({ file, line, note, kind }),
   );

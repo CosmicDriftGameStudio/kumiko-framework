@@ -76,6 +76,27 @@ const extOnlyEntity = createEntity({
 const extOnlyTable = buildEntityTable("ext-only", extOnlyEntity);
 const EXT_ROW_MARKER = "ext-row-projection-marker";
 
+// Holds a sensitive column; a generic extension that echoes the state's keys must never see it.
+const vaultEntity = createEntity({
+  table: "read_named_search_vaults",
+  fields: {
+    title: createTextField({
+      personal: false,
+      reason: "test_fixture",
+      required: true,
+      maxLength: 100,
+    }),
+    apiToken: createTextField({
+      personal: "self",
+      find: "secret",
+      sensitive: true,
+      required: true,
+      maxLength: 100,
+    }),
+  },
+});
+const vaultTable = buildEntityTable("vault", vaultEntity);
+
 const ROW_LABEL = "row-projection-value";
 
 const namedSearchFeature = defineFeature("named-search", (r) => {
@@ -88,7 +109,25 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
   const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }), {
     piiFields: "none",
   });
+  const vault = r.entity("vault", vaultEntity);
+  r.searchPayloadExtension(vault, ({ state }) => ({ stateKeys: Object.keys(state).join(" ") }));
+
   const poked = r.defineEvent("poked", z.object({}), { piiFields: "none" });
+
+  r.writeHandler(
+    "vault:poke",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => {
+      await ctx.unsafeAppendEvent({
+        aggregateId: event.payload.id,
+        aggregateType: "vault",
+        type: poked.name,
+        payload: {},
+      });
+      return { isSuccess: true as const, data: { id: event.payload.id } };
+    },
+    { access: { roles: ["Admin"] } },
+  );
 
   r.writeHandler(
     "note:relabel",
@@ -191,13 +230,14 @@ beforeAll(async () => {
     features: [namedSearchFeature],
     searchConfig: {
       tenantId: admin.tenantId,
-      searchableFields: ["label", "extIndexed"],
-      rankingFields: ["label", "extIndexed"],
+      searchableFields: ["label", "extIndexed", "stateKeys"],
+      rankingFields: ["label", "extIndexed", "stateKeys"],
     },
   });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
   await unsafeCreateEntityTable(stack.db, secretEntity, "secret");
   await unsafeCreateEntityTable(stack.db, extOnlyEntity, "ext-only");
+  await unsafeCreateEntityTable(stack.db, vaultEntity, "vault");
 });
 
 beforeEach(() => {
@@ -214,6 +254,7 @@ afterEach(async () => {
     "read_named_search_notes",
     "read_named_search_secrets",
     "read_named_search_ext_only",
+    "read_named_search_vaults",
   ]);
 });
 
@@ -295,6 +336,26 @@ describe("search consumer: named domain events (#2765)", () => {
       filterType: "ext-only",
     });
     expect(hits.some((h) => String(h.entityId) === id)).toBe(true);
+  });
+
+  test("named event never hands sensitive row fields to a search payload extension", async () => {
+    const created = await createEventStoreExecutor(vaultTable, vaultEntity, {
+      entityName: "vault",
+    }).create({ title: "vault-title", apiToken: "tok-123" }, admin, tenantDb());
+    if (!created.isSuccess) throw new Error("create failed");
+    const id = String(created.data.id);
+
+    await stack.http.writeOk("named-search:write:vault:poke", { id }, admin);
+    await stack.eventDispatcher?.runOnce();
+
+    const titleKeyHits = await stack.search.search(admin.tenantId, "title", {
+      filterType: "vault",
+    });
+    expect(titleKeyHits.some((h) => String(h.entityId) === id)).toBe(true);
+    const sensitiveKeyHits = await stack.search.search(admin.tenantId, "apiToken", {
+      filterType: "vault",
+    });
+    expect(sensitiveKeyHits).toHaveLength(0);
   });
 
   test("named event with no live projection row removes the index entry", async () => {

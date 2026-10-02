@@ -89,6 +89,16 @@ const gateFeature = defineFeature("gatetest", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  r.streamHandler(
+    "delete-hard",
+    z.object({ id: z.uuid() }),
+    async function* (query, ctx) {
+      await hardExecutor.delete({ id: query.payload.id }, query.user, ctx.db);
+      yield "deleted";
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   r.job("forgetHardJob", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
     const id = payload["id"] as string; // @cast-boundary dynamic-key
     await hardExecutor.forget({ id }, ctx.systemUser, ctx.db);
@@ -181,6 +191,24 @@ describe("executor.delete — irreversible only without softDelete", () => {
     await stack.http.writeOk("gatetest:write:delete-soft-mid", { id }, admin);
     const row = await stack.http.queryOk("gatetest:query:soft:detail", { id }, admin);
     expect(row).toBeNull();
+  });
+});
+
+describe("stream entry handlers resolve mid risk", () => {
+  test("a stream hard-deleting a row is denied with a stream-specific remedy, row survives", async () => {
+    const id = await createHard("streamed");
+    const headers = { Authorization: `Bearer ${await stack.jwt.sign(admin)}` };
+    const res = await stack.http.raw(
+      "POST",
+      "/api/stream",
+      { type: "gatetest:stream:delete-hard", payload: { id } },
+      headers,
+    );
+    const body = await res.text();
+    expect(body).toContain("irreversible_operation_requires_high_risk");
+    expect(body).toContain("stream handlers cannot declare an agent risk");
+    expect(body).not.toContain('declare agent: { risk: "high" } on "gatetest:stream');
+    expect(await hardRowExists(id)).toBe(true);
   });
 });
 

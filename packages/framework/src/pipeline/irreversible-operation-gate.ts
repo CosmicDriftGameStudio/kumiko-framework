@@ -40,12 +40,19 @@ function assertEntryHandlerHighRisk(args: {
   });
 }
 
+// Stream handlers have no agent hint, so the "declare risk high" advice cannot apply to them.
+function highRiskRemedy(entryHandler: EntryHandler): string {
+  return entryHandler.qn.includes(":stream:")
+    ? 'stream handlers cannot declare an agent risk and always resolve "mid" — dispatch a risk "high" write handler directly instead'
+    : `declare agent: { risk: "high" } on "${entryHandler.qn}"`;
+}
+
 export function assertIrreversibleOperationAllowed(operation: string): void {
   assertEntryHandlerHighRisk({
     reason: FrameworkReasons.irreversibleOperationRequiresHighRisk,
     buildMessage: (entryHandler) =>
       `Handler "${entryHandler.qn}" performs an irreversible ${operation} but resolves agent risk ` +
-      `"${entryHandler.risk}" — declare agent: { risk: "high" } on "${entryHandler.qn}". The ` +
+      `"${entryHandler.risk}" — ${highRiskRemedy(entryHandler)}. The ` +
       "directly called handler must carry it; delegating via ctx.write/writeAs does not.",
     details: { operation },
   });
@@ -68,8 +75,8 @@ export function assertInstructionFieldWriteAllowed(
     reason: FrameworkReasons.instructionFieldWriteRequiresHighRisk,
     buildMessage: (entryHandler) =>
       `Handler "${entryHandler.qn}" ${verb}s "${entityName}" field(s) ${fields.join(", ")} ` +
-      `flagged readAsInstruction: true but resolves agent risk "${entryHandler.risk}" — declare ` +
-      `agent: { risk: "high" } on "${entryHandler.qn}". The directly called handler must carry ` +
+      `flagged readAsInstruction: true but resolves agent risk "${entryHandler.risk}" — ` +
+      `${highRiskRemedy(entryHandler)}. The directly called handler must carry ` +
       "it; delegating via ctx.write/writeAs does not.",
     details: { entityName, verb, fields },
   });

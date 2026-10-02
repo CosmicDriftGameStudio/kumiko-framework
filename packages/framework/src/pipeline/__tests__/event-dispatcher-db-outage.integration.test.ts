@@ -125,7 +125,10 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
     const proxiedUrl = new URL(dbUrl.toString());
     proxiedUrl.hostname = "127.0.0.1";
     proxiedUrl.port = String(proxyPort);
-    const proxiedDb = createDbConnection(proxiedUrl.toString(), { maxConnections: 1 });
+    const proxiedDb = createDbConnection(proxiedUrl.toString(), {
+      maxConnections: 1,
+      closeTimeoutSeconds: 0,
+    });
 
     const observed: string[] = [];
     const consumer: EventConsumer = {
@@ -198,12 +201,9 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
     } finally {
       await dispatcher.stop();
       await listenClient.end({ timeout: 1 });
-      // Destroy instead of a graceful end(): when proxy2.stop() kills a socket
-      // mid-query, postgres.js keeps that query referenced on the dead
-      // connection, and a plain end() then waits for a resolver only
-      // terminate() fires, so it never returns. The pool is test-owned and
-      // every assertion has already run, so dropping in-flight work is safe.
-      await proxiedDb.client.end({ timeout: 0 });
+      // Timeout 0 keeps teardown fast: sockets killed mid-query would otherwise
+      // wait out the default close grace period.
+      await proxiedDb.close();
     }
   });
 });

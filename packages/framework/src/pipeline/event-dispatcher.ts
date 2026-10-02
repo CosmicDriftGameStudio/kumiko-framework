@@ -1,5 +1,9 @@
 import type { DbTx, PgClient } from "../db/connection.js";
-import { selectSnapshotXmax, selectSnapshotXmin } from "../db/queries/event-consumer.js";
+import {
+  recordConsumerPassFailure,
+  selectSnapshotXmax,
+  selectSnapshotXmin,
+} from "../db/queries/event-consumer.js";
 import { SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type { AppContext } from "../engine/types/index.js";
 import { EVENTS_PUBSUB_CHANNEL, type StoredEvent } from "../event-store/index.js";
@@ -24,7 +28,6 @@ import {
   markProcessing,
   type PersistedConsumerOutcome,
   persistConsumerOutcome,
-  persistConsumerPassFailure,
   preRegisterConsumers,
   selectIdleConsumerKeys,
 } from "./event-dispatcher-delivery.js";
@@ -254,6 +257,14 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
   }
   const tracer: Tracer = options.tracer ?? getFallbackTracer();
   const meter: Meter = options.meter ?? getFallbackMeter();
+  // A standalone dispatcher has no logger on its context; console.error keeps the failure in pod logs.
+  const logDispatcherError = (message: string): void => {
+    if (context.log) {
+      context.log.error(message);
+    } else {
+      console.error(message);
+    }
+  };
   // Tracks which (consumer, instanceId) pairs already fired
   // kumiko_event_consumer_rearm_exhausted_total, so a consumer stuck dead
   // across many poll passes emits the ops-signal once, not every pass
@@ -465,7 +476,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     //
     // A failure here (e.g. a transient DB blip) must not abort the whole
     // pass — timer/LISTEN callers swallow doPass()'s rejection silently
-    // (see start()), which would mean no log, no persistConsumerPassFailure,
+    // (see start()), which would mean no log, no recordConsumerPassFailure,
     // and no backoff for every consumer this tick. Falling back to "nothing
     // proven idle" instead routes every consumer through its normal
     // acquireConsumerState path, whose own try/catch already covers this.
@@ -501,11 +512,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         emitEventDispatcherListenConnected(meter, false);
         const msg = e instanceof Error ? e.message : String(e);
         const logMsg = `[event-dispatcher] idle pre-check failed, falling back to per-consumer locking every tick until it recovers: ${msg}`;
-        if (context.log) {
-          context.log.error(logMsg);
-        } else {
-          console.error(logMsg);
-        }
+        logDispatcherError(logMsg);
       }
     }
 
@@ -677,14 +684,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // callers and at-least-once-with-duplicate-delivery on the next pass;
       // neither is what we want, so ops needs to see it.
       const msg = e instanceof Error ? e.message : String(e);
-      if (context.log) {
-        context.log.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
-      } else {
-        // No logger wired onto this context (e.g. createEventDispatcher used
-        // standalone) — console.error is the only way ops still sees this in
-        // pod logs instead of the failure vanishing with the rolled-back tx.
-        console.error(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
-      }
+      logDispatcherError(`[event-dispatcher] ${consumer.name} pass failed: ${msg}`);
       span.setStatus("error", msg);
 
       // The whole pass rolled back, so markProcessing/persistConsumerOutcome
@@ -694,16 +694,12 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       // so any failure here is swallowed after logging.
       try {
         await db.begin(async (tx: DbTx) => {
-          await persistConsumerPassFailure(tx, consumer.name, instanceId, msg);
+          await recordConsumerPassFailure(tx, consumer.name, instanceId, msg);
         });
       } catch (persistErr) {
         const persistMsg = persistErr instanceof Error ? persistErr.message : String(persistErr);
         const failureMsg = `[event-dispatcher] ${consumer.name} failed to persist pass-failure state: ${persistMsg}`;
-        if (context.log) {
-          context.log.error(failureMsg);
-        } else {
-          console.error(failureMsg);
-        }
+        logDispatcherError(failureMsg);
       }
 
       // Escalate the backoff so this consumer isn't retried on the very

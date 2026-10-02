@@ -14,11 +14,17 @@ function isReadOnlyTransactionViolation(e: unknown): boolean {
   return extractPgError(e)?.code === PG_READ_ONLY_SQLSTATE;
 }
 
+class SavepointDiscard extends Error {
+  constructor() {
+    super("savepoint discarded on purpose");
+    this.name = "SavepointDiscard";
+  }
+}
+
 async function runInDiscardedReadOnlySavepoint<T>(
   tx: DbTx,
   fn: (readOnlyTx: DbTx) => Promise<T>,
 ): Promise<T> {
-  const discardMarker = {};
   const settled: { outcome?: { readonly value: T } } = {};
   try {
     await runInSavepoint(tx, async (sp) => {
@@ -27,10 +33,10 @@ async function runInDiscardedReadOnlySavepoint<T>(
       // @cast-boundary driver savepoint handle — structurally a DbTx, same shape runInSavepoint's caller relies on
       settled.outcome = { value: await fn(sp as DbTx) };
       // Always discarded: RELEASE SAVEPOINT would leave the outer tx read-only too.
-      throw discardMarker;
+      throw new SavepointDiscard();
     });
   } catch (e) {
-    if (e !== discardMarker) throw e;
+    if (!(e instanceof SavepointDiscard)) throw e;
   }
   if (!settled.outcome) {
     throw new InternalError({
