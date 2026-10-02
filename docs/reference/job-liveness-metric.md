@@ -27,7 +27,11 @@ langlebigen App-Pod laufen und kein CronJob-Objekt erzeugen.
 - Braucht einen gesetzten `context.meter`. Ohne Meter (z. B. Noop-Setup) wird
   nichts emittiert.
 - Der per-Tenant-Fan-out-Wrapper stempelt nicht; die einzelnen Kind-Jobs tun es
-  unter demselben Job-Namen.
+  unter demselben Job-Namen, ohne Tenant-Dimension (Kardinalität). Bei
+  `perTenant`-Jobs heißt die Metrik deshalb „mindestens ein Tenant war
+  erfolgreich“: scheitert Tenant A dauerhaft und Tenant B läuft durch, bleibt
+  sie frisch. Gibt es keine aktiven Tenants, entsteht nie eine Serie. Einzelne
+  Tenants überwacht die Failure-Metrik oder der `tenantVisibleFailure`-Record.
 
 ## Alerting: das `for:` muss den Neustart überleben
 

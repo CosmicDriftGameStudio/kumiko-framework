@@ -386,6 +386,10 @@ const BOOT_REDIS_TIMEOUT_MS = 10_000;
 // readiness wait in stop() is capped well below the boot timeout.
 const STOP_QUEUE_READY_TIMEOUT_MS = 1_000;
 
+// A hung gate (DB lock, slow resolver) would otherwise block boot silently
+// until the readiness probe kills the pod, with no log naming the gate.
+const BOOT_GATE_DEFAULT_TIMEOUT_MS = 60_000;
+
 function timeoutReject(
   ms: number,
   message: string,
@@ -1147,14 +1151,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
       if (!jobDef.bootGate) continue;
+      const gateTimeoutMs = jobDef.timeout ?? BOOT_GATE_DEFAULT_TIMEOUT_MS;
+      const gateTimeout = timeoutReject(
+        gateTimeoutMs,
+        `job-runner: boot gate "${name}" did not finish within ${gateTimeoutMs}ms`,
+      );
       try {
-        await handleJob({
-          id: bootJobIdForJobName(name),
-          name,
-          data: {},
-          attemptsMade: 0,
-          retryable: false,
-        });
+        await Promise.race([
+          handleJob({
+            id: bootJobIdForJobName(name),
+            name,
+            data: {},
+            attemptsMade: 0,
+            retryable: false,
+          }),
+          gateTimeout.promise,
+        ]);
       } catch (err) {
         // The worker is already consuming here; leaving its Redis connections
         // open would keep the event loop alive and turn the aborted boot into
@@ -1162,6 +1174,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         await worker?.close();
         worker = null;
         throw err;
+      } finally {
+        gateTimeout.cancel();
       }
     }
   }

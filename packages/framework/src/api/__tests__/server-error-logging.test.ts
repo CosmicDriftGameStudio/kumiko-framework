@@ -18,6 +18,8 @@ const openToAll = {
   access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
 } as const;
 
+let midRequestController = new AbortController();
+
 const boomFeature = defineFeature("boom", (r) => {
   r.queryHandler(
     "explode",
@@ -76,6 +78,26 @@ const boomFeature = defineFeature("boom", (r) => {
     },
     openToAll,
   );
+  r.queryHandler(
+    "abort-mid-request",
+    z.object({}),
+    async (_query, ctx) => {
+      await Promise.resolve();
+      midRequestController.abort();
+      ctx.signal?.throwIfAborted();
+      return { ok: true };
+    },
+    openToAll,
+  );
+  r.streamHandler(
+    "abort-before-first-yield",
+    z.object({}),
+    async function* (_query, ctx) {
+      ctx.signal?.throwIfAborted();
+      yield { ok: true };
+    },
+    openToAll,
+  );
 });
 
 const { app, jwt } = buildServer({
@@ -129,6 +151,41 @@ async function queryWithCapturedWarnings(
       headers: await auth(),
       body: JSON.stringify({ type, payload }),
     });
+    return { status: res.status, warnings, errors };
+  } finally {
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  }
+}
+
+function apiAbortWarning(warnings: unknown[][]): unknown[] | undefined {
+  return warnings.find(
+    (args) => typeof args[0] === "string" && args[0].includes("[api] request aborted by client"),
+  );
+}
+
+async function requestWithAbortSignal(
+  path: string,
+  type: string,
+  signal: AbortSignal,
+): Promise<{ status: number; warnings: unknown[][]; errors: unknown[][] }> {
+  const warnings: unknown[][] = [];
+  const errors: unknown[][] = [];
+  const warnSpy = spyOn(console, "warn").mockImplementation((...args) => {
+    warnings.push(args);
+  });
+  const errorSpy = spyOn(console, "error").mockImplementation((...args) => {
+    errors.push(args);
+  });
+  try {
+    const res = await app.request(
+      new Request(`http://test.local${path}`, {
+        method: "POST",
+        headers: await auth(),
+        body: JSON.stringify({ type, payload: {} }),
+        signal,
+      }),
+    );
     return { status: res.status, warnings, errors };
   } finally {
     warnSpy.mockRestore();
@@ -225,6 +282,31 @@ describe("HTTP layer logs unexpected 5xx faults", () => {
       warnSpy.mockRestore();
       errorSpy.mockRestore();
     }
+  });
+
+  test("a client abort during a running query 499s with a warn and no error log", async () => {
+    midRequestController = new AbortController();
+    const { status, warnings, errors } = await requestWithAbortSignal(
+      "/api/query",
+      "boom:query:abort-mid-request",
+      midRequestController.signal,
+    );
+    expect(status).toBe(499);
+    expect(apiFaultLog(errors)).toBeUndefined();
+    expect(apiAbortWarning(warnings)).toBeDefined();
+  });
+
+  test("a pre-aborted client signal on /api/stream 499s before the first yield with a warn, no error log", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const { status, warnings, errors } = await requestWithAbortSignal(
+      "/api/stream",
+      "boom:stream:abort-before-first-yield",
+      controller.signal,
+    );
+    expect(status).toBe(499);
+    expect(apiFaultLog(errors)).toBeUndefined();
+    expect(apiAbortWarning(warnings)).toBeDefined();
   });
 
   test("a pre-aborted client signal still 500s + logs when the handler fails for an unrelated reason", async () => {
