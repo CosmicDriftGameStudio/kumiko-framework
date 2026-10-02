@@ -224,73 +224,79 @@ export function createSessionCallbacks(opts: SessionCallbacksOptions): SessionCa
     async sessionMassRevoker(userId: string): Promise<number> {
       // Count is accurate because we only touch live rows — a previously
       // revoked row stays in its state and isn't double-counted.
-      const result = await updateMany(
-        db,
-        userSessionTable,
-        { revokedAt: Temporal.Now.instant() },
-        { userId, revokedAt: null },
-      );
+      // One transaction, same reason as sessionRevoker: a failed append must
+      // not leave sessions revoked without the event.
+      return transaction(db, async (tx) => {
+        const result = await updateMany(
+          tx,
+          userSessionTable,
+          { revokedAt: Temporal.Now.instant() },
+          { userId, revokedAt: null },
+        );
 
-      // Lightweight append alongside the direct-write above, same pattern
-      // as revoke.write.ts (#1559) — this callback is the password-change
-      // auto-revoke path (sessions/feature.ts postSave hook) and has no
-      // dispatcher ctx to call unsafeAppendEvent from, so it uses the raw
-      // append() like revoke-all-for-user.write.ts does. Without this, the
-      // access-invalidation consumer (#1560) never hears about a password
-      // change and an already-open SSE stream survives it — the exact
-      // "stale JWT mid-stream" gap this feature exists to close.
-      if (result.length > 0) {
-        const payload = sessionRevokedSchema.parse({
-          userId,
-          sessionIds: result.map((row: { id: string }) => row.id),
-        });
-        await append(db, {
-          aggregateId: generateId(),
-          aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-          tenantId: SYSTEM_TENANT_ID,
-          expectedVersion: 0,
-          type: SESSION_REVOKED_EVENT_QN,
-          payload,
-          metadata: { userId },
-        });
-      }
+        // Lightweight append alongside the direct-write above, same pattern
+        // as revoke.write.ts (#1559) — this callback is the password-change
+        // auto-revoke path (sessions/feature.ts postSave hook) and has no
+        // dispatcher ctx to call unsafeAppendEvent from, so it uses the raw
+        // append() like revoke-all-for-user.write.ts does. Without this, the
+        // access-invalidation consumer (#1560) never hears about a password
+        // change and an already-open SSE stream survives it — the exact
+        // "stale JWT mid-stream" gap this feature exists to close.
+        if (result.length > 0) {
+          const payload = sessionRevokedSchema.parse({
+            userId,
+            sessionIds: result.map((row: { id: string }) => row.id),
+          });
+          await append(tx, {
+            aggregateId: generateId(),
+            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
+            tenantId: SYSTEM_TENANT_ID,
+            expectedVersion: 0,
+            type: SESSION_REVOKED_EVENT_QN,
+            payload,
+            metadata: { userId },
+          });
+        }
 
-      return result.length;
+        return result.length;
+      });
     },
 
     async sessionRevokeAllOthers(userId: string, currentSid: string | undefined): Promise<number> {
-      const result = await updateMany(
-        db,
-        userSessionTable,
-        { revokedAt: Temporal.Now.instant() },
-        currentSid
-          ? { userId, revokedAt: null, id: { ne: currentSid } }
-          : { userId, revokedAt: null },
-      );
+      return transaction(db, async (tx) => {
+        const result = await updateMany(
+          tx,
+          userSessionTable,
+          { revokedAt: Temporal.Now.instant() },
+          currentSid
+            ? { userId, revokedAt: null, id: { ne: currentSid } }
+            : { userId, revokedAt: null },
+        );
 
-      // Same reasoning as sessionMassRevoker above — this raw callback
-      // (used by auth-mfa and other internal callers, distinct from the
-      // user-facing revoke-all-others.write.ts handler which already
-      // appends this event) needs its own append so callers reached
-      // through here also cut open SSE streams.
-      if (result.length > 0) {
-        const payload = sessionRevokedSchema.parse({
-          userId,
-          sessionIds: result.map((row: { id: string }) => row.id),
-          keptSessionId: currentSid,
-        });
-        await append(db, {
-          aggregateId: generateId(),
-          aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
-          tenantId: SYSTEM_TENANT_ID,
-          expectedVersion: 0,
-          type: SESSION_REVOKED_EVENT_QN,
-          payload,
-          metadata: { userId },
-        });
-      }
+        // Same reasoning as sessionMassRevoker above — this raw callback
+        // (used by auth-mfa and other internal callers, distinct from the
+        // user-facing revoke-all-others.write.ts handler which already
+        // appends this event) needs its own append so callers reached
+        // through here also cut open SSE streams.
+        if (result.length > 0) {
+          const payload = sessionRevokedSchema.parse({
+            userId,
+            sessionIds: result.map((row: { id: string }) => row.id),
+            keptSessionId: currentSid,
+          });
+          await append(tx, {
+            aggregateId: generateId(),
+            aggregateType: SESSION_REVOKED_AGGREGATE_TYPE,
+            tenantId: SYSTEM_TENANT_ID,
+            expectedVersion: 0,
+            type: SESSION_REVOKED_EVENT_QN,
+            payload,
+            metadata: { userId },
+          });
+        }
 
-      return result.length;
+        return result.length;
+      });
     },
   };
 }

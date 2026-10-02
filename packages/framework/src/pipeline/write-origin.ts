@@ -93,7 +93,8 @@ function personalDataTableMap(registry: Registry): ReadonlyMap<string, ReadonlyS
 
 // The error reaches the anonymous HTTP caller, so table and column names stay out of
 // message/details (they would map the DB schema); they travel in `cause`, which the
-// serializer never sends to clients but the error log keeps.
+// serializer never sends to clients. The 4xx log line carries only status and code, so
+// `cause` is not logged today; it is only available to in-process error handling.
 export function publicIntakeRequiredError(
   origin: WriteOrigin,
   target: string,

@@ -417,6 +417,7 @@ function reportCasts(all: readonly Site[], scanned: number): void {
     const count = byCat.get(c)?.length ?? 0;
     console.log(`  ${c.padEnd(18)} ${count}`);
   }
+  // skip: site listings are printed only on a standalone run of this guard
   if (!PRINT_SITE_LISTINGS) return;
 
   const suspects = CATS.filter((c) => c.startsWith("suspect-"));

@@ -413,8 +413,9 @@ export type JobDefinition = {
   // process exits before it ever reports ready. That makes it a real deploy
   // gate, unlike `runOnBoot`. Runs on every start, never deduped.
   // `retries`/`backoff` are BullMQ options and do not apply on the inline
-  // path; `timeout` bounds the gate (default 60s) and rejects start() naming
-  // the gate when exceeded. Incompatible with `perTenant` and `concurrency: "sequential"`.
+  // path; an explicit `timeout` bounds the gate and rejects start() naming
+  // the gate when exceeded. Without `timeout` the gate waits indefinitely and
+  // logs a warning naming it after 60s. Incompatible with `perTenant` and `concurrency: "sequential"`.
   // The gate runs wherever a job runner for its lane starts — a setup that
   // starts no runner for that lane runs no gate.
   readonly bootGate?: boolean | undefined;

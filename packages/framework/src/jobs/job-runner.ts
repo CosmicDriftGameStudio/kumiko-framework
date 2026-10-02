@@ -386,9 +386,9 @@ const BOOT_REDIS_TIMEOUT_MS = 10_000;
 // readiness wait in stop() is capped well below the boot timeout.
 const STOP_QUEUE_READY_TIMEOUT_MS = 1_000;
 
-// A hung gate (DB lock, slow resolver) would otherwise block boot silently
-// until the readiness probe kills the pod, with no log naming the gate.
-const BOOT_GATE_DEFAULT_TIMEOUT_MS = 60_000;
+// A gate without an explicit `timeout` may legitimately run long (migration-style
+// checks), so it is never rejected; a hang just must not stay silent.
+const BOOT_GATE_SLOW_WARN_MS = 60_000;
 
 function timeoutReject(
   ms: number,
@@ -1151,11 +1151,22 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     for (const [name, jobDef] of allJobs) {
       if (laneForJob(jobDef) !== lane) continue;
       if (!jobDef.bootGate) continue;
-      const gateTimeoutMs = jobDef.timeout ?? BOOT_GATE_DEFAULT_TIMEOUT_MS;
-      const gateTimeout = timeoutReject(
-        gateTimeoutMs,
-        `job-runner: boot gate "${name}" did not finish within ${gateTimeoutMs}ms`,
-      );
+      const gateTimeout =
+        jobDef.timeout !== undefined
+          ? timeoutReject(
+              jobDef.timeout,
+              `job-runner: boot gate "${name}" did not finish within ${jobDef.timeout}ms`,
+            )
+          : undefined;
+      const slowWarnTimer =
+        gateTimeout === undefined
+          ? setTimeout(() => {
+              errorLogger.warn("boot gate still running, no timeout configured", {
+                gate: name,
+                afterMs: BOOT_GATE_SLOW_WARN_MS,
+              });
+            }, BOOT_GATE_SLOW_WARN_MS)
+          : undefined;
       try {
         await Promise.race([
           handleJob({
@@ -1165,7 +1176,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             attemptsMade: 0,
             retryable: false,
           }),
-          gateTimeout.promise,
+          ...(gateTimeout ? [gateTimeout.promise] : []),
         ]);
       } catch (err) {
         // The worker is already consuming here; leaving its Redis connections
@@ -1175,7 +1186,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         worker = null;
         throw err;
       } finally {
-        gateTimeout.cancel();
+        gateTimeout?.cancel();
+        if (slowWarnTimer !== undefined) clearTimeout(slowWarnTimer);
       }
     }
   }
