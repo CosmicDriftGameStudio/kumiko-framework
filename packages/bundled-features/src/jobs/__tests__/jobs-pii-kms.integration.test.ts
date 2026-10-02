@@ -35,7 +35,7 @@ import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
   seedRow,
-  sleep,
+  waitFor,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { JobHandlers, JobQueries } from "../constants.js";
@@ -614,9 +614,9 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
     }>(JobHandlers.retry, { runId: row?.["id"] }, TestUsers.systemAdmin);
     expect(result.jobName).toBe(RETRY_JOB_NAME);
 
-    await sleep(1000);
-
-    expect(capturedPayloads).toHaveLength(1);
+    await waitFor(() => {
+      expect(capturedPayloads).toHaveLength(1);
+    });
     expect(capturedPayloads[0]).toEqual(JSON.parse(SECRET_PAYLOAD));
   });
 
@@ -666,7 +666,9 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
       retriedFromRunId: string;
     }>(JobHandlers.retry, { runId: originalRow?.["id"] }, TestUsers.systemAdmin);
 
-    await sleep(1000);
+    await waitFor(() => {
+      expect(capturedTriggeredBy).toHaveLength(1);
+    });
 
     expect(capturedTriggeredBy).toEqual([RETRY_USER_ID]);
     expect(capturedTriggeredBy[0]).not.toBe(TestUsers.systemAdmin.id);

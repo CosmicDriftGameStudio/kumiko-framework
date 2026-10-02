@@ -29,7 +29,7 @@ import {
   testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { sleep } from "@cosmicdrift/kumiko-framework/testing";
+import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import type { Hono } from "hono";
 import * as z from "zod";
 import { JobQueries } from "../constants.js";
@@ -168,7 +168,6 @@ async function generate(
     payload: { campaignId, mode },
   });
   expect((await res.json()).isSuccess).toBe(true);
-  await sleep(1500);
 }
 
 async function failures(user: SessionUser, payload: unknown = {}): Promise<FailureRow[]> {
@@ -183,8 +182,10 @@ describe("jobs:query:failures (fw#3079)", () => {
     await generate(userA, "campaign-1", "fail");
     await generate(userA, "campaign-2", "budget");
 
+    await waitFor(async () => {
+      expect(await failures(userA)).toHaveLength(2);
+    });
     const rows = await failures(userA);
-    expect(rows).toHaveLength(2);
     const byCampaign = new Map(rows.map((row) => [row.subject?.["campaignId"], row]));
     expect(byCampaign.get("campaign-1")?.jobName).toBe("app:job:generate-texts");
     // Plain Error → the key declared at the job.
@@ -198,8 +199,10 @@ describe("jobs:query:failures (fw#3079)", () => {
 
     await generate(userB, "campaign-1", "fail");
 
+    await waitFor(async () => {
+      expect(await failures(userB)).toHaveLength(1);
+    });
     const rowsB = await failures(userB);
-    expect(rowsB).toHaveLength(1);
     expect(rowsB[0]?.subject?.["campaignId"]).toBe("campaign-1");
     // Tenant A's two records are untouched by B's own run of the same job
     // and the same campaign id.
@@ -217,23 +220,27 @@ describe("jobs:query:failures (fw#3079)", () => {
   test("a later successful run of the same subject clears the record", async () => {
     await generate(userA, "campaign-1", "succeed");
 
-    const rows = await failures(userA);
-    expect(rows.map((row) => row.subject?.["campaignId"])).toEqual(["campaign-2"]);
+    await waitFor(async () => {
+      const rows = await failures(userA);
+      expect(rows.map((row) => row.subject?.["campaignId"])).toEqual(["campaign-2"]);
+    });
   });
 
   test("only the final attempt records — a retried job leaves one record", async () => {
     const res = await post("/api/write", userB, { type: "app:write:start-flaky", payload: {} });
     expect((await res.json()).isSuccess).toBe(true);
-    await sleep(2500);
 
+    await waitFor(async () => {
+      expect(await failures(userB, { jobName: "app:job:flaky" })).toHaveLength(1);
+    });
     const rows = await failures(userB, { jobName: "app:job:flaky" });
-    expect(rows).toHaveLength(1);
     expect(rows[0]?.subject).toBeNull();
 
     // Both attempts did land as their own failed run — the single record
     // above is the final-attempt gate, not a missing second attempt.
-    const runs = await selectMany(db, jobRunsTable, { jobName: "app:job:flaky" });
-    expect(runs).toHaveLength(2);
+    await waitFor(async () => {
+      expect(await selectMany(db, jobRunsTable, { jobName: "app:job:flaky" })).toHaveLength(2);
+    });
   });
 
   test("the subject filter selects one record", async () => {
