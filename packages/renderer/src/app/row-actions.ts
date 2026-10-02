@@ -412,10 +412,10 @@ export function buildProjectionToolbarActions(options: {
   if (toolbarActions === undefined) return undefined;
   const out: ToolbarActionButton[] = [];
   for (const action of toolbarActions) {
+    // Fail closed: a conditional action without a record to evaluate against stays hidden.
     if (
       action.visible !== undefined &&
-      record !== undefined &&
-      !evalFieldCondition(action.visible, record)
+      (record === undefined || !evalFieldCondition(action.visible, record))
     ) {
       continue;
     }
@@ -558,9 +558,11 @@ function buildWriteHandlerRecordAction(
     readonly actionIcon: IconKey | undefined;
     readonly dispatcher: Dispatcher;
     readonly onWriteSuccess: () => void | Promise<void>;
+    readonly defaultWritePayloadId: string | undefined;
   },
 ): RenderEditAction {
-  const { record, translate, actionIcon, dispatcher, onWriteSuccess } = options;
+  const { record, translate, actionIcon, dispatcher, onWriteSuccess, defaultWritePayloadId } =
+    options;
   return {
     id: action.id,
     label: translate(action.label),
@@ -575,7 +577,7 @@ function buildWriteHandlerRecordAction(
       const payload =
         action.payload !== undefined
           ? evalRowExtractor(action.payload, record)
-          : { id: record["id"] };
+          : { id: defaultWritePayloadId ?? record["id"] };
       const result = await dispatcher.write(action.handler, payload);
       if (!result.isSuccess) {
         throw new WriteFailedError(result.error, dispatcherErrorText(result.error, translate));
@@ -615,6 +617,10 @@ export function buildRecordActions(options: {
    *  belongs to (cross-feature lookup) — undefined otherwise. Omitted by
    *  callers with no such cross-screen lookup. */
   readonly sameEntityScreenId?: (targetScreen: string) => string | undefined;
+  /** Default `{ id }` for a writeHandler action declaring no `payload`. A
+   *  caller editing a fixed entity passes its route id so the payload does
+   *  not depend on the loaded record carrying an `id` field. */
+  readonly defaultWritePayloadId?: string;
 }): readonly RenderEditAction[] | undefined {
   const {
     actions,
@@ -627,6 +633,7 @@ export function buildRecordActions(options: {
     onWriteSuccess,
     defaultScreenTargetEntityId,
     sameEntityScreenId,
+    defaultWritePayloadId,
   } = options;
   const out: RenderEditAction[] = [];
   for (const action of actions) {
@@ -658,6 +665,7 @@ export function buildRecordActions(options: {
         actionIcon,
         dispatcher,
         onWriteSuccess,
+        defaultWritePayloadId,
       }),
     );
   }

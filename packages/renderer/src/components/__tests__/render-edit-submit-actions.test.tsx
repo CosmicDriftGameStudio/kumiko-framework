@@ -6,6 +6,7 @@ import type {
 import type { Dispatcher, DispatcherError, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
+import { stubDispatcher } from "../../__tests__/stub-dispatcher.js";
 import { buildFormSchema } from "../../app/form-schema.js";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
@@ -117,58 +118,29 @@ function buildEntity(required = false): EntityDefinition {
   };
 }
 
-function stubDispatcher(writeImpl?: Dispatcher["write"]): {
-  dispatcher: Dispatcher;
-  writes: Array<{ type: string; payload: unknown }>;
-} {
-  const writes: Array<{ type: string; payload: unknown }> = [];
-  const dispatcher: Dispatcher = {
-    write: (async (type, payload) => {
-      writes.push({ type, payload });
-      if (writeImpl) return writeImpl(type, payload);
-      return { isSuccess: true, data: { id: "n1" } };
-    }) as Dispatcher["write"],
-    query: (async () => ({ isSuccess: true, data: {} })) as Dispatcher["query"],
-    batch: (async () => ({ isSuccess: true, results: [] })) as Dispatcher["batch"],
-    statusStore: {
-      getState: () => "online",
-      subscribe: () => () => {},
-    } as unknown as Dispatcher["statusStore"],
-    async *stream() {},
-    pendingWrites: () => [],
-    pendingFiles: () => [],
-  };
-  return { dispatcher, writes };
-}
-
 function renderEdit(
   screen: EntityEditScreenDefinition,
   overrides: Partial<RenderEditProps<Values>> = {},
   entity: EntityDefinition = buildEntity(),
-  dispatcher?: Dispatcher,
+  dispatcher: Dispatcher = stubDispatcher().dispatcher,
 ) {
-  const body = (
+  return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
-      <PrimitivesProvider value={testPrimitives()}>
-        <RenderEdit
-          screen={screen}
-          entity={entity}
-          featureName="contacts"
-          initial={{ name: "" }}
-          {...overrides}
-        />
-      </PrimitivesProvider>
-    </LocaleProvider>
-  );
-  return render(
-    dispatcher !== undefined ? (
-      <DispatcherProvider dispatcher={dispatcher}>{body}</DispatcherProvider>
-    ) : (
-      body
-    ),
+      <DispatcherProvider dispatcher={dispatcher}>
+        <PrimitivesProvider value={testPrimitives()}>
+          <RenderEdit
+            screen={screen}
+            entity={entity}
+            featureName="contacts"
+            initial={{ name: "" }}
+            {...overrides}
+          />
+        </PrimitivesProvider>
+      </DispatcherProvider>
+    </LocaleProvider>,
   );
 }
 
@@ -304,10 +276,12 @@ describe("RenderEdit — submit path", () => {
         fields: [{ path: "name", code: "too_small", i18nKey: "kumiko.errors.required" }],
       },
     };
-    const { dispatcher } = stubDispatcher(async () => ({
-      isSuccess: false,
-      error: writeFailure,
-    }));
+    const { dispatcher } = stubDispatcher({
+      write: (async () => ({
+        isSuccess: false,
+        error: writeFailure,
+      })) as unknown as Dispatcher["write"],
+    });
     renderEdit(
       oneFieldScreen,
       { writeCommand: "contacts:write:contact:update" },
@@ -408,10 +382,12 @@ describe("RenderEdit — writeCommand path", () => {
       i18nKey: "errors.conflict",
       message: "conflict",
     };
-    const { dispatcher } = stubDispatcher(async () => ({
-      isSuccess: false,
-      error: writeFailure,
-    }));
+    const { dispatcher } = stubDispatcher({
+      write: (async () => ({
+        isSuccess: false,
+        error: writeFailure,
+      })) as unknown as Dispatcher["write"],
+    });
     let submitted: SubmitResult<unknown> | undefined;
     renderEdit(
       oneFieldScreen,
@@ -441,10 +417,12 @@ describe("RenderEdit — writeCommand path", () => {
         fields: [{ path: "name", code: "too_small", i18nKey: "kumiko.errors.required" }],
       },
     };
-    const { dispatcher } = stubDispatcher(async () => ({
-      isSuccess: false,
-      error: writeFailure,
-    }));
+    const { dispatcher } = stubDispatcher({
+      write: (async () => ({
+        isSuccess: false,
+        error: writeFailure,
+      })) as unknown as Dispatcher["write"],
+    });
     renderEdit(
       oneFieldScreen,
       { writeCommand: "contacts:write:contact:update" },

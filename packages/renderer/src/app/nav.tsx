@@ -134,14 +134,20 @@ export function formatPath(target: ScreenTarget): string {
 // branch and hasDetailScreen (create-app's row-click default, fw#2164) both
 // need "is there a detail screen for this entity", one to resolve it, the
 // other to just check before falling back to a different default.
-function findDetailForScreen(
+export function findDetailForScreen(
   features: readonly FeatureSchema[],
   entity: string,
-): { readonly featureName: string; readonly screenId: string } | undefined {
+):
+  | {
+      readonly featureName: string;
+      readonly screenId: string;
+      readonly screen: FeatureSchema["screens"][number];
+    }
+  | undefined {
   for (const feature of features) {
     for (const screen of feature.screens) {
       if (screen.detailFor === entity)
-        return { featureName: feature.featureName, screenId: screen.id };
+        return { featureName: feature.featureName, screenId: screen.id, screen };
     }
   }
   return undefined;

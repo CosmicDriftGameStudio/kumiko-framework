@@ -350,6 +350,32 @@ describe("SecretMintBody (fw#2548)", () => {
   });
 });
 
+describe("SecretMintBody missing reveal fields", () => {
+  test("a write result without any declared reveal field shows an error instead of an empty reveal card", async () => {
+    const { dispatcher } = stubDispatcher({ id: "x" });
+    const loggedErrors: unknown[][] = [];
+    // biome-ignore lint/suspicious/noConsole: capturing the logged diagnostic
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      loggedErrors.push(args);
+    };
+    try {
+      renderMintScreen(dispatcher);
+      fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+      fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+
+      await waitFor(() =>
+        expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-missing")).not.toBeNull(),
+      );
+    } finally {
+      console.error = originalConsoleError;
+    }
+    expect(rtlScreen.queryByTestId("kumiko-screen-secret-mint-card")).toBeNull();
+    expect(rtlScreen.queryByTestId("render-edit-submit")).toBeNull();
+    expect(String(loggedErrors[0]?.[0])).toContain("token");
+  });
+});
+
 describe("SecretMintBody confirm step (fw#2838)", () => {
   const mintScreenWithConfirm: SecretMintScreenDefinition = {
     ...mintScreen,

@@ -3,6 +3,7 @@ import type {
   FeatureSchema,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { isUiAccessGranted } from "@cosmicdrift/kumiko-framework/ui-types";
+import { findDetailForScreen } from "./nav.js";
 import { lastSegment } from "./qn.js";
 
 // Shared UI-visibility predicate for the screen-render path (#1203 — nav
@@ -28,16 +29,16 @@ export function navigateTargetAllows(
   // resolve against; gating on an empty one would hide every jump, not the
   // forbidden ones.
   if (appFeatures.length === 0) return true;
-  for (const feature of appFeatures) {
-    for (const candidate of feature.screens) {
-      const isTarget =
-        entity !== undefined
-          ? candidate.detailFor === entity
-          : lastSegment(candidate.id) === screen;
-      // First match IS the destination: short ids are globally unique
-      // (validateScreenShortIdCollisions) and both the router and
-      // resolveTarget take the first hit.
-      if (isTarget) return isUiAccessGranted(candidate.access, userRoles);
+  // Entity targets share nav's lookup so the gate and resolveTarget can't
+  // pick different screens. Short ids are globally unique
+  // (validateScreenShortIdCollisions), so the first screen hit is the one.
+  if (entity !== undefined) {
+    const found = findDetailForScreen(appFeatures, entity);
+    if (found !== undefined) return isUiAccessGranted(found.screen.access, userRoles);
+  } else {
+    for (const feature of appFeatures) {
+      const candidate = feature.screens.find((s) => lastSegment(s.id) === screen);
+      if (candidate !== undefined) return isUiAccessGranted(candidate.access, userRoles);
     }
   }
   // Unresolvable target — the boot-validator doesn't check metric navigate

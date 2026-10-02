@@ -45,6 +45,21 @@ export function referenceLookupSource(
   };
 }
 
+// Where a reference field's option rows come from, and which of their keys
+// holds the display text — the entity's own list handler plus `refLabelField`
+// by default, or an author-supplied handler whose rows carry `label`
+// (fw#2780), for targets with no readable column of their own.
+export function referenceOptionSource(
+  field: { readonly refLabelField?: string; readonly refOptionsQuery?: string },
+  refFeature: string,
+  refEntity: string,
+): { readonly queryQn: string; readonly labelKey: string } {
+  if (field.refOptionsQuery !== undefined) {
+    return { queryQn: field.refOptionsQuery, labelKey: "label" };
+  }
+  return referenceLookupSource(refFeature, refEntity, field.refLabelField ?? "id");
+}
+
 /** Empty while the query loads (or fails), so callers fall back to the raw id.
  *  `featureName` is the reference's target feature, not the screen's. */
 export function useReferenceLookup(

@@ -1336,6 +1336,7 @@ function EntityEditUpdateForm({
         openDrawer,
         onWriteSuccess: onReload,
         defaultScreenTargetEntityId: entityId,
+        defaultWritePayloadId: entityId,
       }),
     [record, effectiveTranslate, nav, host, dispatcher, openDrawer, onReload, entityId],
   );

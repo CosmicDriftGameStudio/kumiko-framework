@@ -20,7 +20,7 @@ import { screenAccessAllows } from "../app/screen-access.js";
 import { useUserRoles } from "../context/user-roles-context.js";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.js";
 import { useQuery } from "../hooks/use-query.js";
-import { referenceLookupSource } from "../hooks/use-reference-lookup.js";
+import { referenceOptionSource } from "../hooks/use-reference-lookup.js";
 import { useLocale, useTranslation } from "../i18n.js";
 import { type FieldProps, usePrimitives } from "../primitives.js";
 import { EmbeddedListField } from "./embedded-list-field.js";
@@ -278,21 +278,6 @@ function WriteOnlyTextInput({
         })}
     />
   );
-}
-
-// Where a reference field's option rows come from, and which of their keys
-// holds the display text — the entity's own list handler plus `refLabelField`
-// by default, or an author-supplied handler whose rows carry `label`
-// (fw#2780), for targets with no readable column of their own.
-function referenceOptionSource(
-  field: Pick<EditFieldViewModel, "refLabelField" | "refOptionsQuery">,
-  refFeature: string,
-  refEntity: string,
-): { readonly queryQn: string; readonly labelKey: string } {
-  if (field.refOptionsQuery !== undefined) {
-    return { queryQn: field.refOptionsQuery, labelKey: "label" };
-  }
-  return referenceLookupSource(refFeature, refEntity, field.refLabelField ?? "id");
 }
 
 // Tier 2.7e-3 + 2.1c: Reference-Input rendert eine Searchable Combobox
