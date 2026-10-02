@@ -12,9 +12,9 @@ import {
   DispatcherProvider,
   ExtensionSectionsProvider,
   KumikoScreen,
+  useReportStepComplete,
 } from "@cosmicdrift/kumiko-renderer";
 import userEvent from "@testing-library/user-event";
-import { useEffect } from "react";
 import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 const profileEntity = {
@@ -61,9 +61,7 @@ const schema: FeatureSchema = {
 };
 
 function ReportsComplete({ reportStepComplete }: ExtensionSectionProps) {
-  useEffect(() => {
-    reportStepComplete?.(true);
-  }, [reportStepComplete]);
+  useReportStepComplete(reportStepComplete, true);
   return <div data-testid="reports-complete" />;
 }
 
