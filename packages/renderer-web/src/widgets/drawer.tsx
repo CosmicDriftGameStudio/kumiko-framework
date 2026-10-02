@@ -107,6 +107,8 @@ function normalizeWidth(width: number | string): string {
 // Must match the static `max(600px,37.5vw)` in sidePanelClass — Tailwind's
 // JIT can't read DEFAULT_WIDTH_MIN_PX/DEFAULT_WIDTH_VIEWPORT_RATIO at
 // runtime, so the two are kept in sync by hand.
+// Same cap as WIDTH_CLASS: an explicit `width` must not outgrow the viewport.
+const MAX_VIEWPORT_WIDTH = "85vw";
 const WIDTH_CLASS = "w-[max(600px,37.5vw)] max-w-[85vw] sm:max-w-[max(600px,37.5vw)]";
 
 // "floating": 32px margin + 32px radius so the panel reads as detached from
@@ -186,7 +188,7 @@ export function Drawer({
   const canResize = resize !== undefined && (side === "left" || side === "right");
   const customWidthStyle =
     !canResize && !narrow && (side === "left" || side === "right") && width !== undefined
-      ? { width: normalizeWidth(width), maxWidth: "none" }
+      ? { width: normalizeWidth(width), maxWidth: MAX_VIEWPORT_WIDTH }
       : undefined;
   const minWidthPx = resize?.minWidthPx ?? MIN_WIDTH_PX;
   const maxWidthPx = resize?.maxWidthPx ?? MAX_WIDTH_PX;

@@ -287,6 +287,7 @@ describe("Drawer", () => {
         </Drawer>,
       );
       expect(screen.getByTestId("drawer").style.width).toBe("420px");
+      expect(screen.getByTestId("drawer").style.maxWidth).toBe("85vw");
     });
 
     test('width="30rem": reflected as-is (CSS length string)', () => {

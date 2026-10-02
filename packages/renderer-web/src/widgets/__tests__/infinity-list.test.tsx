@@ -41,26 +41,30 @@ function makeFakeLiveEvents(): {
   };
 }
 
-// jsdom has no IntersectionObserver — stub stores the callback per observer
-// so tests can fire the "sentinel became visible" event manually instead of
-// simulating real scrolling.
-const observers: ((entries: readonly { isIntersecting: boolean }[]) => void)[] = [];
+// jsdom has no IntersectionObserver — stub tracks the live observers so tests
+// can fire the "sentinel became visible" event manually instead of
+// simulating real scrolling. disconnect() removes the entry, so observers of
+// unmounted components or superseded effects never linger across tests.
+type IntersectCallback = (entries: readonly { isIntersecting: boolean }[]) => void;
+const activeObservers = new Set<IntersectCallback>();
 globalThis.IntersectionObserver = class {
-  constructor(cb: (entries: readonly { isIntersecting: boolean }[]) => void) {
-    observers.push(cb);
+  private readonly cb: IntersectCallback;
+  constructor(cb: IntersectCallback) {
+    this.cb = cb;
+    activeObservers.add(cb);
   }
   observe(): void {}
   unobserve(): void {}
-  disconnect(): void {}
+  disconnect(): void {
+    activeObservers.delete(this.cb);
+  }
 } as unknown as typeof IntersectionObserver;
 
-// Waiting for the row alone races the observer-registering effect; each page
-// registers a fresh observer, so wait for one more than we last fired.
-let firedObservers = 0;
+// Waiting for the row alone races the observer-registering effect: wait until
+// exactly the current component's observer is registered, then fire it.
 async function fireIntersect(): Promise<void> {
-  await waitFor(() => expect(observers.length).toBeGreaterThan(firedObservers));
-  firedObservers = observers.length;
-  observers[observers.length - 1]?.([{ isIntersecting: true }]);
+  await waitFor(() => expect(activeObservers.size).toBe(1));
+  for (const cb of activeObservers) cb([{ isIntersecting: true }]);
 }
 
 function renderWithDispatcher(ui: ReactNode, dispatcher: Dispatcher) {
@@ -456,6 +460,68 @@ describe("InfinityList", () => {
       await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
       expect(screen.queryByText("Erste")).toBeNull();
       expect(screen.getByText("Zweite")).toBeTruthy();
+    });
+
+    function messageEvent(
+      id: string,
+    ): Parameters<ReturnType<typeof makeFakeLiveEvents>["inject"]>[1] {
+      return { id, aggregateType: "message", version: 1, payload: {}, createdAt: "" };
+    }
+
+    test("ein Burst schneller SSE-Events löst genau eine Refresh-Query aus", async () => {
+      let calls = 0;
+      const dispatcher = createMockDispatcher({
+        query: (() => {
+          calls += 1;
+          const subject = calls === 1 ? "Alt" : "Neu";
+          return Promise.resolve({
+            isSuccess: true,
+            data: { rows: [{ id: "m1", subject }], nextCursor: null },
+          });
+        }) as unknown as Dispatcher["query"],
+      });
+      const fake = makeFakeLiveEvents();
+      renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
+      await waitFor(() => expect(screen.getByText("Alt")).toBeTruthy());
+
+      act(() => {
+        for (const id of ["a", "b", "c", "d", "e"])
+          fake.inject("message.updated", messageEvent(id));
+      });
+
+      await waitFor(() => expect(screen.getByText("Neu")).toBeTruthy(), liveWait);
+      expect(calls).toBe(2);
+    });
+
+    test("Event während laufendem Refresh: genau ein Trailing-Pass danach", async () => {
+      let calls = 0;
+      let releaseRefresh: () => void = () => {};
+      const dispatcher = createMockDispatcher({
+        query: (() => {
+          calls += 1;
+          const subject = `v${calls}`;
+          const result = {
+            isSuccess: true,
+            data: { rows: [{ id: "m1", subject }], nextCursor: null },
+          };
+          if (calls !== 2) return Promise.resolve(result);
+          return new Promise((resolve) => {
+            releaseRefresh = () => resolve(result);
+          });
+        }) as unknown as Dispatcher["query"],
+      });
+      const fake = makeFakeLiveEvents();
+      renderWithLive(list("inbox:query:message:list", true), dispatcher, fake.subscriber);
+      await waitFor(() => expect(screen.getByText("v1")).toBeTruthy());
+
+      act(() => fake.inject("message.updated", messageEvent("a")));
+      await waitFor(() => expect(calls).toBe(2), liveWait);
+
+      act(() => fake.inject("message.updated", messageEvent("b")));
+      act(() => releaseRefresh());
+
+      await waitFor(() => expect(screen.getByText("v3")).toBeTruthy(), liveWait);
+      expect(calls).toBe(3);
     });
 
     test("live=false: SSE-Event wird ignoriert, kein Refetch", async () => {

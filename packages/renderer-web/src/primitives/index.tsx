@@ -564,13 +564,19 @@ function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
 // Mirrors withFieldIcon on the right side: a muted, non-interactive unit
 // suffix rendered inside the input's visual box. Pure decoration — never
 // focusable, never touches the input's value.
-function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
+// The unit changes the meaning of the value ("58 mi" vs "58 km"), so it is
+// exposed as the input's description rather than hidden from assistive tech.
+function unitSuffixId(inputId: string): string {
+  return `${inputId}-unit`;
+}
+
+function withUnitSuffix(inputId: string, unit: string | undefined, input: ReactNode): ReactNode {
   if (unit === undefined) return input;
   return (
     <div className="relative">
       {input}
       <span
-        aria-hidden="true"
+        id={unitSuffixId(inputId)}
         className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
       >
         {unit}
@@ -903,6 +909,7 @@ function DefaultInput(props: InputProps): ReactNode {
       );
     case "number":
       return withUnitSuffix(
+        props.id,
         props.unit,
         withFieldIcon(
           props.icon,
@@ -915,6 +922,7 @@ function DefaultInput(props: InputProps): ReactNode {
             required={props.required}
             hasError={props.hasError}
             testId={props.testId}
+            {...(props.unit !== undefined && { ariaDescribedBy: unitSuffixId(props.id) })}
             {...(props.locale !== undefined && { locale: props.locale })}
             {...(props.grouping !== undefined && { grouping: props.grouping })}
             {...(props.integer !== undefined && { integer: props.integer })}
