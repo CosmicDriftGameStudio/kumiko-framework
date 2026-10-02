@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { TestUsers } from "../../stack/index.js";
 import { authMiddleware } from "../auth-middleware.js";
 import { createJwtHelper } from "../jwt.js";
-import type { SseBroker, SseEvent } from "../sse-broker.js";
+import type { AccessInvalidationCredential, SseBroker, SseEvent } from "../sse-broker.js";
 import { createSseRoute } from "../sse-route.js";
 
 const JWT_SECRET = "sse-route-unit-test-secret-at-least-32-characters";
@@ -234,12 +234,120 @@ describe("sse-route frame naming", () => {
 
     sendEvent({
       type: "channel-in-app:event:delivered",
-      data: { id: "m1", userId: "u1", notificationType: "info", title: "Hi" },
+      data: { id: "m1", userId: TestUsers.user.id, notificationType: "info", title: "Hi" },
     });
 
     const frame = await readNextEntityFrame(reader);
     controller.abort();
 
     expect(frame.event).toBe("channel-in-app:event:delivered");
+  });
+
+  test("frames addressed to another user are dropped, own and unaddressed frames pass", async () => {
+    const { broker, send } = createSendCapturingBroker();
+    const { app, token } = await buildSseApp(broker);
+
+    const controller = new AbortController();
+    const responsePromise = Promise.resolve(
+      app.request("/api/sse", {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: controller.signal,
+      }),
+    );
+
+    const sendEvent = await send;
+    const response = await responsePromise;
+    const reader = response.body!.getReader();
+
+    sendEvent({
+      type: "channel-in-app:event:delivered",
+      data: { id: "other", userId: TestUsers.admin.id, title: "not for you" },
+    });
+    sendEvent({
+      type: "channel-in-app:event:delivered",
+      data: { id: "mine", userId: TestUsers.user.id, title: "for you" },
+    });
+
+    const frame = await readNextEntityFrame(reader);
+    controller.abort();
+
+    expect(JSON.parse(frame.data).id).toBe("mine");
+  });
+});
+
+describe("sse-route access invalidation", () => {
+  type Recording = {
+    broker: SseBroker;
+    credentials: AccessInvalidationCredential[];
+    invalidate: Promise<() => void>;
+    removeClientCalls: number;
+    unsubscribeCalls: number;
+  };
+
+  function createRecordingBroker(): Recording {
+    let resolveInvalidate!: (cb: () => void) => void;
+    const recording: Recording = {
+      credentials: [],
+      invalidate: new Promise<() => void>((resolve) => {
+        resolveInvalidate = resolve;
+      }),
+      removeClientCalls: 0,
+      unsubscribeCalls: 0,
+      broker: {
+        addClient: () => "test-client-id",
+        removeClient: () => {
+          recording.removeClientCalls++;
+        },
+        pushToChannel() {},
+        getClientCount: () => 0,
+        getTotalClientCount: () => 0,
+        subscribeAccessInvalidation: (_userId, onInvalidate, credential) => {
+          if (credential) recording.credentials.push(credential);
+          resolveInvalidate(onInvalidate);
+          return () => {
+            recording.unsubscribeCalls++;
+          };
+        },
+        publishAccessInvalidation() {},
+      },
+    };
+    return recording;
+  }
+
+  async function openStream(recording: Recording, sid: string) {
+    const jwt = createJwtHelper(JWT_SECRET);
+    const token = await jwt.sign({ ...TestUsers.user, sid });
+    const app = new Hono();
+    app.use("/api/*", authMiddleware(jwt));
+    app.route("/api", createSseRoute(recording.broker));
+    const response = await app.request("/api/sse", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.body!.getReader();
+  }
+
+  test("subscribes with the session id of the token as credential", async () => {
+    const recording = createRecordingBroker();
+    const reader = await openStream(recording, "sid-1");
+    await recording.invalidate;
+    await reader.cancel();
+
+    expect(recording.credentials).toEqual([{ sid: "sid-1" }]);
+  });
+
+  test("invalidation ends the response and releases client and subscription exactly once", async () => {
+    const recording = createRecordingBroker();
+    const reader = await openStream(recording, "sid-1");
+    const invalidate = await recording.invalidate;
+
+    invalidate();
+
+    let done = false;
+    while (!done) {
+      ({ done } = await reader.read());
+    }
+
+    expect(recording.removeClientCalls).toBe(1);
+    expect(recording.unsubscribeCalls).toBe(1);
   });
 });

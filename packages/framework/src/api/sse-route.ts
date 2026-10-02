@@ -3,7 +3,7 @@ import { streamSSE } from "hono/streaming";
 import { tenantChannel } from "../engine/constants.js";
 import { Routes } from "./api-constants.js";
 import { getUser } from "./auth-middleware.js";
-import type { SseBroker } from "./sse-broker.js";
+import { accessInvalidationCredentialFor, type SseBroker, type SseEvent } from "./sse-broker.js";
 
 /**
  * Heartbeat-Cadence für SSE-Streams.
@@ -36,6 +36,13 @@ function isEntityEventData(data: Record<string, unknown>): data is { aggregateTy
   return typeof data["aggregateType"] === "string";
 }
 
+// The tenant channel fans out to every member; user-addressed frames
+// (e.g. channel-in-app:event:delivered) would otherwise reach the whole tenant.
+function isAddressedToOtherUser(event: SseEvent, userId: string): boolean {
+  const addressee = event.data["userId"];
+  return typeof addressee === "string" && addressee !== userId;
+}
+
 export function createSseRoute(broker: SseBroker) {
   const route = new Hono();
 
@@ -46,26 +53,55 @@ export function createSseRoute(broker: SseBroker) {
     const channel = tenantChannel(user.tenantId);
 
     return streamSSE(c, async (stream) => {
+      let resolveEnded!: () => void;
+      const ended = new Promise<void>((resolve) => {
+        resolveEnded = resolve;
+      });
+      const closeStream = () => {
+        resolveEnded();
+        void stream.close();
+      };
+
       const clientId = broker.addClient(
         channel,
         (event) => {
+          // skip: user-addressed frames on the shared tenant channel belong to their recipient only
+          if (isAddressedToOtherUser(event, user.id)) return;
           const wireEventName = isEntityEventData(event.data)
             ? event.data.aggregateType
             : event.type;
           stream.writeSSE({ event: wireEventName, data: JSON.stringify(event.data) });
         },
-        () => stream.close(),
+        closeStream,
+      );
+      const unsubscribeAccessInvalidation = broker.subscribeAccessInvalidation(
+        user.id,
+        closeStream,
+        accessInvalidationCredentialFor(user),
       );
 
-      stream.onAbort(() => {
+      let released = false;
+      const release = () => {
+        // skip: onAbort and the finally block both release, the second call is a no-op
+        if (released) return;
+        released = true;
+        // A client disconnect must also wake the heartbeat sleep, not only a server close.
+        resolveEnded();
         broker.removeClient(channel, clientId);
-      });
+        unsubscribeAccessInvalidation();
+      };
+
+      stream.onAbort(release);
 
       // Keep connection alive with heartbeat — siehe SSE_HEARTBEAT_INTERVAL_MS
       // header für die Layer-für-Layer-Begründung der 15s-Cadence.
-      while (true) {
-        await stream.writeSSE({ event: "ping", data: "" });
-        await stream.sleep(SSE_HEARTBEAT_INTERVAL_MS);
+      try {
+        while (!stream.closed && !stream.aborted) {
+          await stream.writeSSE({ event: "ping", data: "" });
+          await Promise.race([stream.sleep(SSE_HEARTBEAT_INTERVAL_MS), ended]);
+        }
+      } finally {
+        release();
       }
     });
   });

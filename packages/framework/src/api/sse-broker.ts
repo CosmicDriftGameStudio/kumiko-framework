@@ -1,4 +1,5 @@
 import { userAccessChannel } from "../engine/constants.js";
+import type { SessionUser } from "../engine/types/index.js";
 import { generateId } from "../utils/index.js";
 
 export type SseClient = {
@@ -36,6 +37,15 @@ export type AccessInvalidationCredential = {
   readonly sid?: string;
   readonly patTokenId?: string;
 };
+
+export function accessInvalidationCredentialFor(
+  user: Pick<SessionUser, "sid" | "pat">,
+): AccessInvalidationCredential {
+  return {
+    ...(user.sid !== undefined && { sid: user.sid }),
+    ...(user.pat?.tokenId !== undefined && { patTokenId: user.pat.tokenId }),
+  };
+}
 
 export type SseBroker = {
   addClient(channel: string, send: (event: SseEvent) => void, close: () => void): string;

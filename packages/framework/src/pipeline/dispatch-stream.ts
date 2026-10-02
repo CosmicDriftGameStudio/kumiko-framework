@@ -1,4 +1,4 @@
-import type { AccessInvalidationCredential } from "../api/sse-broker.js";
+import { accessInvalidationCredentialFor } from "../api/sse-broker.js";
 import { hasAccess } from "../engine/access.js";
 import type { SessionUser } from "../engine/types/index.js";
 import {
@@ -75,16 +75,12 @@ async function* executeStreamInner(
   const invalidated = new Promise<void>((resolve) => {
     resolveInvalidated = resolve;
   });
-  const streamCredential: AccessInvalidationCredential = {
-    ...(user.sid !== undefined && { sid: user.sid }),
-    ...(user.pat?.tokenId !== undefined && { patTokenId: user.pat.tokenId }),
-  };
   const unsubscribeAccessInvalidation = ctx.sseBroker?.subscribeAccessInvalidation(
     user.id,
     () => {
       resolveInvalidated?.();
     },
-    streamCredential,
+    accessInvalidationCredentialFor(user),
   );
 
   let iterator: AsyncIterator<unknown> | undefined;
