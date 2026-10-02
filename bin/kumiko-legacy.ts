@@ -115,6 +115,9 @@ function banner(): void {
 // --- Commands ---
 
 const REPO_ROOT = resolvePath(import.meta.dir, "..", "..");
+// Derived from import.meta, not repoAbsPath: under .wt/ the latter resolves
+// siblings of the worktree dir, not of this checkout.
+const FRAMEWORK_REPO_ROOT = resolvePath(import.meta.dir, "..");
 const BIN_PATH = (() => {
   const rootBin = join(REPO_ROOT, "node_modules", ".bin");
   if (existsSync(rootBin)) return rootBin;
@@ -167,13 +170,11 @@ function repoAbsPath(repoName: string): string {
 function guardScanRoot(): string {
   const scoped = SCOPED_CLI_REPOS && SCOPED_CLI_REPOS.size === 1 ? [...SCOPED_CLI_REPOS][0] : undefined;
   const candidate = scoped !== undefined ? repoAbsPath(scoped) : undefined;
-  // The anchor comes from import.meta, not repoAbsPath: the latter resolves
-  // siblings of this checkout, which under .wt/ is the worktree dir.
   const decision = decideGuardScanRoot({
     scopedRepo: scoped,
     scopedRepoPath: candidate,
     scopedRepoExists: candidate !== undefined && existsSync(candidate),
-    anchorPath: resolvePath(import.meta.dir, ".."),
+    anchorPath: FRAMEWORK_REPO_ROOT,
   });
   if (decision.kind === "missing-scoped-repo") {
     console.error(
@@ -317,18 +318,16 @@ const FAST_CHECK_STEPS: ReadonlyArray<{ readonly name: string; readonly cmd: str
       "Semantic-Duplicates Guard übersprungen: infra/guards nicht im Workspace (CI-standalone).",
     );
   }
-  const frameworkRepoRoot = resolvePath(import.meta.dir, "..");
   // Stay on 0.x — block major changesets and package.json major ≥ 1 (accidental 1.0/2.0).
   steps.push({
     name: "No-Major-Gt-Zero Guard",
-    cmd: `bun ${join(frameworkRepoRoot, "scripts/guard-no-major-gt-zero.ts")}`,
+    cmd: `bun ${join(FRAMEWORK_REPO_ROOT, "scripts/guard-no-major-gt-zero.ts")}`,
   });
-  // Runs the framework's own validateChangelog()/compareVersions over every real
-  // changes.json (#2684); the infra/guards copy re-implements the rules and is
-  // skipped in a standalone checkout.
+  // Uses the framework's own parseFeatureChangelog/validateChangelog/compareVersions
+  // so the rules cannot drift from the runtime parser.
   steps.push({
     name: "Changes-JSON Guard",
-    cmd: `bun "${join(frameworkRepoRoot, "scripts/guard-changes-json.ts")}"`,
+    cmd: `bun "${join(FRAMEWORK_REPO_ROOT, "scripts/guard-changes-json.ts")}"`,
   });
   // Local override only; the "kumiko check" step above already covers
   // raw-sql detection via the public package when this file is absent.

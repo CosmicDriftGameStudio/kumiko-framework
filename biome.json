@@ -147,6 +147,14 @@
                   "zod": {
                     "importNames": ["z"],
                     "message": "import * as z from \"zod\" instead — { z } pulls the whole namespace (all locales, json-schema) into client bundles."
+                  },
+                  "zod/v4": {
+                    "importNames": ["z"],
+                    "message": "import * as z from \"zod/v4\" instead — { z } pulls the whole namespace (all locales, json-schema) into client bundles."
+                  },
+                  "zod/v3": {
+                    "importNames": ["z"],
+                    "message": "import * as z from \"zod/v3\" instead — { z } pulls the whole namespace (all locales, json-schema) into client bundles."
                   }
                 }
               }

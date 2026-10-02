@@ -91,6 +91,13 @@ It is safe only because of three properties, all enforced together:
   never a degraded or partial response. An app opts individual entity types
   into public serving; nothing is public by default.
 
+Deployment assumption on top of the three properties: the route's only
+throttle is `rateLimit: { per: "ip" }`, and the client IP comes from the
+server's `trustedProxyHops` (see `api/client-ip.ts`). It must equal the real
+number of reverse proxies in front of the server. At the default `0` behind a
+proxy, every caller shares one bucket; set too high, a caller can rotate
+`x-forwarded-for` values to dodge the limit.
+
 ## Region-blur vs. whole-image blur vs. masking
 
 - **Region-blur** (`spec.blurRegions`, imperative path only) blurs one or more
