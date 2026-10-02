@@ -97,8 +97,11 @@ describe("PAT route guard — dispatcher routes only", () => {
   test("PAT → non-anonymous r.httpRoute → 403", async () => {
     const res = await stack.app.request("/pat-guard-private", { headers: patHeaders() });
     expect(res.status).toBe(403);
-    const body = (await res.json()) as { error: { code: string } };
+    const body = (await res.json()) as {
+      error: { code: string; details?: { reason?: string } };
+    };
     expect(body.error.code).toBe("access_denied");
+    expect(body.error.details?.reason).toBe("pat_dispatcher_routes_only");
   });
 
   test("JWT user still reaches the same r.httpRoute (regression)", async () => {

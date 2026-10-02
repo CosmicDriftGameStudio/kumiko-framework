@@ -875,11 +875,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
     return csrfGuard(c, next);
   });
 
-  // Same order as /api/* above: auth → PAT route scope → PAT rate-limit → origin → CSRF.
+  // No PAT rate-limit here: patRouteGuardMiddleware rejects every PAT on httpRoutes before it could count.
   const sessionOnlyHttpRouteGuards: readonly MiddlewareHandler[] = [
     sessionOnlyGuard,
     patRouteGuardMiddleware,
-    ...(patRateLimitGuard ? [patRateLimitGuard] : []),
     ...(originGuard ? [originGuard] : []),
     csrfGuard,
   ];
