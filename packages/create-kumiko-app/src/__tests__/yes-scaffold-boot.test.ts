@@ -128,7 +128,7 @@ describe("--yes resolved set through runProdApp's PII boot gate (issue-2330 regr
     );
   });
 
-  test("requireKmsWiring aborts when NODE_ENV=production and the trio is empty", () => {
+  test("requireKmsWiring throws the required-trio error when the trio is empty", () => {
     expect(() =>
       requireKmsWiring(
         {},
@@ -137,7 +137,9 @@ describe("--yes resolved set through runProdApp's PII boot gate (issue-2330 regr
           plaintextReason: "should-not-fallback",
         },
       ),
-    ).toThrow(/PLATFORM_KEK|SUBJECT_KEYS|BLIND_INDEX|trio|required/i);
+    ).toThrow(
+      "[test] PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL / KUMIKO_BLIND_INDEX_KEY are required here",
+    );
   });
 
   test("with resolveKmsWiring's fallback (generated bin/main.ts non-prod path), boot succeeds", async () => {
@@ -236,5 +238,44 @@ describe("generated bin/main.ts actually boots (issue-2330 regression, real subp
     expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).toBe(0);
     expect(`${stdout}${stderr}`).not.toContain("BOOT ABORTED");
     expect(stdout).toContain("boot validation OK");
+    // The scaffold no longer warns itself; the plaintext path must still be loud via the boot gate.
+    expect(`${stdout}${stderr}`).toContain("stored in PLAINTEXT");
+  }, 30_000);
+
+  test("NODE_ENV=production with an empty KMS trio aborts the generated bin/main.ts", async () => {
+    mkdirSync(FIXTURE_ROOT, { recursive: true });
+    const cwd = mkdtempSync(join(FIXTURE_ROOT, "boot-prod-"));
+    createdDirs.push(cwd);
+
+    const exitCode = await runCreate({ name: "boot-prod-fixture", yes: true, cwd, log: () => {} });
+    expect(exitCode).toBe(0);
+
+    const proc = Bun.spawn({
+      cmd: ["bun", "bin/main.ts"],
+      cwd: join(cwd, "boot-prod-fixture"),
+      env: {
+        ...process.env,
+        NODE_ENV: "production",
+        KUMIKO_DRY_RUN_ENV: "boot",
+        JWT_SECRET: "a".repeat(32),
+        KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+        DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",
+        REDIS_URL: "redis://127.0.0.1:1",
+        PLATFORM_KEK: "",
+        SUBJECT_KEYS_DATABASE_URL: "",
+        KUMIKO_BLIND_INDEX_KEY: "",
+      },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(code, `stdout:\n${stdout}\nstderr:\n${stderr}`).not.toBe(0);
+    expect(`${stdout}${stderr}`).toContain("PLATFORM_KEK / SUBJECT_KEYS_DATABASE_URL");
+    expect(`${stdout}${stderr}`).toContain("are required here");
   }, 30_000);
 });

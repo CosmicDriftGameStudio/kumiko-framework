@@ -30,6 +30,7 @@ type Calls = {
   readonly ui: string[][];
   readonly checks: string[][];
   readonly schema: string[][];
+  readonly schemaCwd: string[];
 };
 
 type Harness = {
@@ -39,6 +40,7 @@ type Harness = {
   readonly errs: string[];
   readonly out: Output;
   readonly cwd: string;
+  readonly repoDir: string;
 };
 
 const tmpRepos: string[] = [];
@@ -68,7 +70,7 @@ function harness(
     readonly exitCodes?: Partial<Record<"guards" | "ui" | "checks" | "schema", number>>;
   } = {},
 ): Harness {
-  const calls: Calls = { guards: [], ui: [], checks: [], schema: [] };
+  const calls: Calls = { guards: [], ui: [], checks: [], schema: [], schemaCwd: [] };
   const logs: string[] = [];
   const errs: string[] = [];
   const codes = options.exitCodes ?? {};
@@ -106,8 +108,9 @@ function harness(
   };
 
   const schemaCli: SchemaCli = {
-    runSchemaCli: async (argv) => {
+    runSchemaCli: async (argv, appCwd) => {
       calls.schema.push([...argv]);
+      calls.schemaCwd.push(appCwd);
       return codes.schema ?? 0;
     },
   };
@@ -117,6 +120,7 @@ function harness(
     logs,
     errs,
     cwd: process.cwd(),
+    repoDir,
     out: { log: (l) => logs.push(l), err: (l) => errs.push(l) },
     deps: {
       loadGuards: async () => {
@@ -176,6 +180,7 @@ describe("kumiko check", () => {
     const code = await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps);
     expect(code).toBe(0);
     expect(h.calls.schema).toEqual([["validate"]]);
+    expect(h.calls.schemaCwd).toEqual([h.repoDir]);
     expect(h.calls.guards).toEqual([[]]);
     expect(h.calls.ui).toEqual([[]]);
     expect(h.calls.checks).toEqual([[]]);

@@ -16,6 +16,7 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import * as z from "zod";
 import {
   renderDefineFile,
   renderInlineSchemasFile,
@@ -85,9 +86,9 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   // "the manifest doesn't exist" — both come back as an empty array —
   // so an empty result here is a known-lossy read, not authoritative
   // data the way run-dev-app's live registry is.
-  const usingManifestFallback = opts.handlerQns === undefined;
-  const handlerQns = opts.handlerQns ?? readHandlerQnsFromManifest(opts.appRoot);
-  const hasHandlerQns = handlerQns.length > 0;
+  const manifestRead =
+    opts.handlerQns === undefined ? readHandlerQnsFromManifest(opts.appRoot) : undefined;
+  const handlerQns = opts.handlerQns ?? (manifestRead?.kind === "ok" ? manifestRead.qns : []);
   const defineContent = renderDefineFile(handlerQns);
   const schemasContent = renderInlineSchemasFile(scan.events, opts.appRoot);
   // package.json — turns `.kumiko/` into a real installable package
@@ -108,7 +109,9 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
   // not a missing-manifest gap, so it clears the block like before.
   // Only the manifest fallback coming back empty is ambiguous enough to
   // warrant carrying the previous block forward instead of dropping it.
-  const shouldPreserveStaleBlock = !hasHandlerQns && usingManifestFallback;
+  // A valid manifest that lists zero handlers is real data and clears the block;
+  // only a missing or unreadable manifest is ambiguous.
+  const shouldPreserveStaleBlock = manifestRead !== undefined && manifestRead.kind !== "ok";
   const finalTypesContent = shouldPreserveStaleBlock
     ? withPreservedBlock(
         typesContent,
@@ -139,7 +142,9 @@ export function runCodegen(opts: CodegenOptions): CodegenResult {
         ...scan.warnings,
         {
           message:
-            "No feature-manifest.json found — the WriteHandlerQn/TypedDispatcher block could not be determined from here; run the dev-server to get the exact handler list.",
+            manifestRead?.kind === "invalid"
+              ? `feature-manifest.json invalid: ${manifestRead.reason} — the WriteHandlerQn/TypedDispatcher block could not be determined from here; fix or regenerate the manifest, or run the dev-server.`
+              : "No feature-manifest.json found — the WriteHandlerQn/TypedDispatcher block could not be determined from here; run the dev-server to get the exact handler list.",
         },
       ]
     : scan.warnings;
@@ -253,26 +258,31 @@ function removeIfExists(path: string): boolean {
   return true;
 }
 
+const featureManifestSchema = z.object({
+  features: z.array(z.object({ writeHandlers: z.array(z.string()).optional() })),
+});
+
+type ManifestRead =
+  | { readonly kind: "ok"; readonly qns: readonly string[] }
+  | { readonly kind: "missing" }
+  | { readonly kind: "invalid"; readonly reason: string };
+
 /**
  * Fallback: liest `feature-manifest.json` aus dem appRoot und extrahiert
- * alle Write-Handler-QNs. Fehlende/stale Manifeste sind kein Fehler —
- * dann wird schlicht keine `WriteHandlerQn`-Union generiert (CLI ohne
- * Manifest oder CI-Setup ohne Manifest-Generator).
+ * alle Write-Handler-QNs. Ein fehlendes Manifest ist kein Fehler (CLI ohne
+ * Manifest-Generator), ein kaputtes wird separat gemeldet; beides lässt den
+ * bestehenden Block stehen.
  */
-function readHandlerQnsFromManifest(appRoot: string): readonly string[] {
+function readHandlerQnsFromManifest(appRoot: string): ManifestRead {
+  const manifestPath = join(appRoot, "feature-manifest.json");
+  if (!existsSync(manifestPath)) return { kind: "missing" };
   try {
-    const manifestPath = join(appRoot, "feature-manifest.json");
-    const raw = readFileSync(manifestPath, "utf-8");
-    const manifest = JSON.parse(raw) as {
-      readonly features: ReadonlyArray<{ readonly writeHandlers?: readonly string[] }>;
-    };
-    const qns: string[] = [];
-    for (const f of manifest.features) {
-      if (f.writeHandlers) qns.push(...f.writeHandlers);
-    }
+    const parsed = featureManifestSchema.safeParse(JSON.parse(readFileSync(manifestPath, "utf-8")));
+    if (!parsed.success) return { kind: "invalid", reason: z.prettifyError(parsed.error) };
+    const qns = parsed.data.features.flatMap((f) => f.writeHandlers ?? []);
     qns.sort();
-    return qns;
-  } catch {
-    return [];
+    return { kind: "ok", qns };
+  } catch (e) {
+    return { kind: "invalid", reason: e instanceof Error ? e.message : String(e) };
   }
 }

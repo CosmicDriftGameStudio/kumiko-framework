@@ -571,6 +571,43 @@ export default defineFeature("app", (r) => {
       expect(result.didWriteDefine).toBe(false);
     });
 
+    test("a valid manifest listing zero write handlers clears a previously generated block", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+      runCodegen({ appRoot, handlerQns: ["app:write:create"] });
+      write(
+        appRoot,
+        "feature-manifest.json",
+        JSON.stringify({ features: [{ writeHandlers: [] }] }),
+      );
+
+      const result = runCodegen({ appRoot });
+
+      expect(readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8")).not.toContain(
+        "app:write:create",
+      );
+      expect(readFileSync(join(appRoot, ".kumiko", "define.ts"), "utf-8")).not.toContain(
+        "createTypedDispatcher",
+      );
+      expect(result.warnings.some((w) => w.message.includes("feature-manifest.json"))).toBe(false);
+    });
+
+    test("a broken manifest preserves the block and warns that it is invalid", () => {
+      const appRoot = makeAppDir();
+      writeSingleEventFeature(appRoot);
+      runCodegen({ appRoot, handlerQns: ["app:write:create"] });
+      write(appRoot, "feature-manifest.json", JSON.stringify({ features: "nope" }));
+
+      const result = runCodegen({ appRoot });
+
+      expect(readFileSync(join(appRoot, ".kumiko", "types.generated.d.ts"), "utf-8")).toContain(
+        '| "app:write:create"',
+      );
+      expect(result.warnings.some((w) => w.message.includes("feature-manifest.json invalid"))).toBe(
+        true,
+      );
+    });
+
     test("a block from a pre-#2757 file (no marker) survives a run without handlerQns", () => {
       const appRoot = makeAppDir();
       writeSingleEventFeature(appRoot);
