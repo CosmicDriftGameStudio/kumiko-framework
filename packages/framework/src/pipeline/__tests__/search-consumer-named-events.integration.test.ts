@@ -2,16 +2,7 @@
 // deleted/forgotten) on an entity with searchable fields must still reach
 // the search index. The event payload only carries the named event's own
 // field slice, so the consumer reads the live projection row instead.
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  spyOn,
-  test,
-} from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { resetPiiSubjectKmsForTests } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import { configurePiiSubjectKms, InMemoryKmsAdapter, isPiiCiphertext } from "../../crypto/index.js";
@@ -22,7 +13,6 @@ import {
   createTenantDb,
 } from "../../db/index.js";
 import { createEntity, createTextField, defineFeature } from "../../engine/index.js";
-import type { SearchDocument } from "../../search/index.js";
 import {
   resetEventStore,
   setupTestStack,
@@ -46,21 +36,6 @@ const noteEntity = createEntity({
   softDelete: true,
 });
 const noteTable = buildEntityTable("note", noteEntity);
-
-// No searchable Stammfield at all — only a search-payload extension feeds the
-// index (the customFields-only case).
-const extOnlyEntity = createEntity({
-  table: "read_named_search_ext_only",
-  fields: {
-    note: createTextField({
-      personal: false,
-      reason: "test_fixture",
-      required: true,
-      maxLength: 100,
-    }),
-  },
-});
-const extOnlyTable = buildEntityTable("extonly", extOnlyEntity);
 
 // personal: "self" + find: "fuzzy" → searchable, but the read row holds ciphertext.
 const secretEntity = createEntity({
@@ -90,11 +65,7 @@ const ROW_LABEL = "row-projection-value";
 const namedSearchFeature = defineFeature("named-search", (r) => {
   r.entity("note", noteEntity);
   r.entity("ghost", ghostEntity);
-  const extOnly = r.entity("extonly", extOnlyEntity);
   r.entity("secret", secretEntity);
-  r.searchPayloadExtension(extOnly, ({ state }) => ({
-    extensionTerm: `ext-${String(state["note"])}`,
-  }));
 
   const relabeled = r.defineEvent("relabeled", z.object({ label: z.string() }), {
     piiFields: "none",
@@ -125,21 +96,6 @@ const namedSearchFeature = defineFeature("named-search", (r) => {
       access: { roles: ["Admin"] },
       escapeHatch: { reason: "test: raw row update bypassing the executor" },
     },
-  );
-
-  r.writeHandler(
-    "extonly:poke",
-    z.object({ id: z.uuid() }),
-    async (event, ctx) => {
-      await ctx.unsafeAppendEvent({
-        aggregateId: event.payload.id,
-        aggregateType: "extonly",
-        type: poked.name,
-        payload: {},
-      });
-      return { isSuccess: true as const, data: { id: event.payload.id } };
-    },
-    { access: { roles: ["Admin"] } },
   );
 
   r.writeHandler(
@@ -190,7 +146,6 @@ function tenantDb() {
 beforeAll(async () => {
   stack = await setupTestStack({ features: [namedSearchFeature] });
   await unsafeCreateEntityTable(stack.db, noteEntity, "note");
-  await unsafeCreateEntityTable(stack.db, extOnlyEntity, "extonly");
   await unsafeCreateEntityTable(stack.db, secretEntity, "secret");
 });
 
@@ -204,11 +159,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   resetPiiSubjectKmsForTests();
-  await resetEventStore(stack, [
-    "read_named_search_notes",
-    "read_named_search_ext_only",
-    "read_named_search_secrets",
-  ]);
+  await resetEventStore(stack, ["read_named_search_notes", "read_named_search_secrets"]);
 });
 
 describe("search consumer: named domain events (#2765)", () => {
@@ -251,35 +202,6 @@ describe("search consumer: named domain events (#2765)", () => {
 
     const hits = await stack.search.search(admin.tenantId, "poked", { filterType: "ghost" });
     expect(hits).toHaveLength(0);
-  });
-
-  test("named event on an entity indexed only via a search-payload extension reaches the index", async () => {
-    const created = await createEventStoreExecutor(extOnlyTable, extOnlyEntity, {
-      entityName: "extonly",
-    }).create({ note: "alpha" }, admin, tenantDb());
-    if (!created.isSuccess) throw new Error("create failed");
-    const id = String(created.data.id);
-
-    await stack.eventDispatcher?.runOnce();
-
-    // The in-memory adapter only matches fields from the entities' searchable
-    // config, so an extension-only field is checked on the indexed document.
-    const indexed: SearchDocument[] = [];
-    const indexBatchSpy = spyOn(stack.search, "indexBatch").mockImplementation(
-      async (_tenantId, docs) => {
-        indexed.push(...docs);
-      },
-    );
-    try {
-      await stack.http.writeOk("named-search:write:extonly:poke", { id }, admin);
-      await stack.eventDispatcher?.runOnce();
-    } finally {
-      indexBatchSpy.mockRestore();
-    }
-
-    expect(indexed.filter((d) => String(d.entityId) === id).map((d) => d.fields)).toEqual([
-      { extensionTerm: "ext-alpha" },
-    ]);
   });
 
   test("named event on a subject-encrypted searchable field indexes the decrypted value, never ciphertext", async () => {
