@@ -26,6 +26,22 @@ const connectionEntity = createEntity({
       writeOnly: true,
       required: true,
     }),
+    vaultId: createTextField({ personal: false, reason: "test_fixture" }),
+  },
+});
+
+const linkEntity = createEntity({
+  table: "wo_links",
+  fields: {
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    connection: { type: "reference", entity: "connection" },
+  },
+});
+
+const vaultEntity = createEntity({
+  table: "wo_vaults",
+  fields: {
+    name: createTextField({ personal: false, reason: "test_fixture", required: true }),
   },
 });
 
@@ -57,6 +73,22 @@ const feature = defineFeature("wo", (r) => {
     write: { access: { roles: ["Admin"] } },
     read: { access: { roles: ["Admin"] } },
   });
+  r.entity("link", linkEntity);
+  r.crud("link", linkEntity, {
+    write: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin"] } },
+  });
+  r.entity("vault", vaultEntity);
+  r.relation("vault", "connections", {
+    type: "hasMany",
+    target: "connection",
+    foreignKey: "vaultId",
+    nestedWrite: true,
+  });
+  r.crud("vault", vaultEntity, {
+    write: { access: { roles: ["Admin"] } },
+    read: { access: { roles: ["Admin"] } },
+  });
 });
 
 const CREATE = "wo:write:connection:create";
@@ -76,7 +108,7 @@ afterAll(async () => {
 
 afterEach(async () => {
   hookSawApiKeys.length = 0;
-  await resetEventStore(stack, ["wo_connections"]);
+  await resetEventStore(stack, ["wo_connections", "wo_links", "wo_vaults"]);
 });
 
 async function createConnection(extra: Record<string, unknown> = {}): Promise<string> {
@@ -214,6 +246,49 @@ describe("writeOnly entity field", () => {
       admin,
     );
     expect(createError.httpStatus).toBe(400);
+  });
+
+  test("eager-loaded _refs carry true for a writeOnly field of the referenced row", async () => {
+    const connectionId = await createConnection({ apiKey: PLAINTEXT });
+    const { id: linkId } = await stack.http.writeOk<{ id: string }>(
+      "wo:write:link:create",
+      { label: "l", connection: connectionId },
+      admin,
+    );
+
+    const list = await stack.http.queryOk<{ rows: Record<string, unknown>[] }>(
+      "wo:query:link:list",
+      { limit: 10 },
+      admin,
+    );
+    const refs = list.rows[0]?.["_refs"] as Record<string, Record<string, unknown>>;
+    expect(refs["connection"]?.["id"]).toBe(connectionId);
+    expect(refs["connection"]?.["apiKey"]).toBe(true);
+    expect(JSON.stringify(list)).not.toContain(PLAINTEXT);
+
+    const linkDetail = await stack.http.queryOk<Record<string, unknown>>(
+      "wo:query:link:detail",
+      { id: linkId },
+      admin,
+    );
+    expect(JSON.stringify(linkDetail)).not.toContain(PLAINTEXT);
+    expect(JSON.stringify(linkDetail)).toContain('"apiKey":true');
+  });
+
+  test("nested children in a write result are masked", async () => {
+    const created = await stack.http.writeOk<Record<string, unknown>>(
+      "wo:write:vault:create",
+      {
+        name: "v",
+        connections: [{ label: "c", requiredKey: "req-key-1", apiKey: PLAINTEXT }],
+      },
+      admin,
+    );
+    const children = savedRow(created)["connections"] as Record<string, unknown>[];
+    expect(children).toHaveLength(1);
+    expect(children[0]?.["apiKey"]).toBe(true);
+    expect(children[0]?.["requiredKey"]).toBe(true);
+    expect(JSON.stringify(created)).not.toContain(PLAINTEXT);
   });
 
   test("batch responses are masked too", async () => {

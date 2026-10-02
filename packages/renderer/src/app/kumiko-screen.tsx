@@ -3974,7 +3974,22 @@ function ConfigEditBody({
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         const qualified = screen.configKeys[shortName];
         if (qualified === undefined) continue;
-        const ftype = (screen.fields[shortName] as { type?: string } | undefined)?.type;
+        const fieldDef = screen.fields[shortName] as // @cast-boundary schema-walk
+          | { type?: string; optionsQuery?: string }
+          | undefined;
+        const ftype = fieldDef?.type;
+        // A query-backed select is cleared to "" when its dependent value became
+        // invalid. config:write:set would store that as an empty override (the
+        // badge shows "Mandant" with no value); reset falls back to the inherited
+        // value. set can't do it: deleting the row is irreversible, reset is
+        // the high-risk handler.
+        if (ftype === "select" && fieldDef?.optionsQuery !== undefined && value === "") {
+          commands.push({
+            type: "config:write:reset",
+            payload: { key: qualified, scope: screen.scope },
+          });
+          continue;
+        }
         commands.push({
           type: "config:write:set",
           payload: {

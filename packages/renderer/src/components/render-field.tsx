@@ -224,7 +224,7 @@ function WriteOnlyTextInput({
         <Text variant="muted" testId={`field-write-only-removal-${field.field}`}>
           {t("kumiko.field.writeOnly.willRemove")}
         </Text>
-        <Button variant="link" size="sm" onClick={() => onChange(true)}>
+        <Button variant="link" size="sm" className="self-start" onClick={() => onChange(true)}>
           {t("kumiko.field.writeOnly.undo")}
         </Button>
       </>
@@ -246,7 +246,7 @@ function WriteOnlyTextInput({
         {...(isSet && { placeholder: t("kumiko.field.writeOnly.setPlaceholder") })}
       />
       {isSet && !field.required && !field.readOnly && (
-        <Button variant="link" size="sm" onClick={() => onChange(null)}>
+        <Button variant="link" size="sm" className="self-start" onClick={() => onChange(null)}>
           {t("kumiko.field.writeOnly.remove")}
         </Button>
       )}

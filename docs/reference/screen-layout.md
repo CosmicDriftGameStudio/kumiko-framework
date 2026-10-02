@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-02
-evidence: "kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts"
+evidence: "kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -185,7 +185,7 @@ rowActions: [{ id: "mark-posted", label: "campaigns.action.mark-posted", handler
 
 - `submit: false` on an edit field keeps it out of the payload. Validation and rendering stay as they are.
 - `footerActions` on an actionForm render before the submit button. A click sets `patch` on the form values, then submits through the normal validation and write path. The patched field does not have to be in the layout.
-- A `writeForm` section that is the whole tab of a `projectionDetail` or `entityEdit` screen puts its submit button into the pinned form footer, right-aligned like every other save button. Several sections on one tab keep their submit in their own title row.
+- A `writeForm` section that is the whole tab of a `projectionDetail` tabs layout puts its submit button into the pinned form footer, right-aligned like every other save button. Outside a tab (stacked sections) it keeps its submit in its own title row. `writeForm` is a `projectionDetail`-only primitive; the boot validator rejects it on other screen types.
 - Wizard sections take `subtitle`; with `layout.wizard.aside.upNext` the step rail shows the next step's title and subtitle (not on the last step). `titleTemplate` follows what the user types and falls back to the screen title while a placeholder is empty.
 - An actionForm in a drawer shows `title` and `subtitle` of the opening drawer action instead of the action label.
 

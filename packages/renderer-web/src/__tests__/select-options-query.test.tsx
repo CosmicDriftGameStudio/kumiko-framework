@@ -255,10 +255,17 @@ describe("select optionsQuery depending on a sibling field", () => {
     );
     await user.click(screen.getByTestId("render-edit-submit"));
     await waitFor(() => expect(batchSpy).toHaveBeenCalled());
+    // "" must not be stored as an override: it resets the key to the inherited value.
     expect(batchSpy.mock.calls[0]?.[0]).toContainEqual({
-      type: "config:write:set",
-      payload: { key: "demo:config:model", value: "", scope: "tenant" },
+      type: "config:write:reset",
+      payload: { key: "demo:config:model", scope: "tenant" },
     });
+    expect(batchSpy.mock.calls[0]?.[0]).not.toContainEqual(
+      expect.objectContaining({
+        type: "config:write:set",
+        payload: expect.objectContaining({ key: "demo:config:model" }),
+      }),
+    );
   });
 
   test("changing the sibling keeps a value that the new rows still contain", async () => {
@@ -279,6 +286,71 @@ describe("select optionsQuery depending on a sibling field", () => {
     expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).toContain(
       "Model A (fast)",
     );
+  });
+});
+
+describe("config origin badge for a static-options select", () => {
+  test("shows the option label instead of the raw value", async () => {
+    const staticScreen: ConfigEditScreenDefinition = {
+      id: "static-settings",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: { mode: "demo:config:mode" },
+      fields: {
+        mode: { type: "select", options: ["fast-mode", "slow-mode"] },
+        // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+      } as ConfigEditScreenDefinition["fields"],
+      layout: { sections: [{ title: "Mode", fields: ["mode"] }] },
+    };
+    const staticSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: {},
+      screens: [staticScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:mode": {
+                value: "fast-mode",
+                source: "tenant-row",
+                levels: [
+                  {
+                    source: "tenant-row",
+                    label: "tenant-row",
+                    value: "fast-mode",
+                    isActive: true,
+                    hasValue: true,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: { "demo:config:mode": { value: "fast-mode", scope: "tenant" } },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    const translate = (key: string) =>
+      key.endsWith(":field:mode:option:fast-mode") ? "Fast mode" : key;
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={staticSchema}
+          qn="demo:screen:static-settings"
+          translate={translate}
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const cascade = await waitFor(() => screen.getByTestId("config-cascade"));
+    await waitFor(() => expect(cascade.textContent).toContain("Fast mode"));
+    expect(cascade.textContent).not.toContain("fast-mode");
   });
 });
 

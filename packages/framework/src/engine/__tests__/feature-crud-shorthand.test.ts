@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import * as z from "zod";
 import { defineFeature } from "../define-feature.js";
 import { createEntity, createTextField } from "../factories.js";
 
@@ -69,5 +70,44 @@ describe("r.crud", () => {
     expect(feature.writeHandlers?.["task:restore"]?.access).toEqual(restoreAccess);
     expect(feature.queryHandlers?.["task:list"]?.access).toEqual(listAccess);
     expect(feature.queryHandlers?.["task:detail"]?.access).toEqual(read.access);
+  });
+});
+
+describe("duplicate handler names inside one feature", () => {
+  const access = { openToAll: { reason: "test handler callable by any signed-in test user" } };
+  const crudAccess = { write: { access: { roles: ["Admin"] } }, read: { access } } as const;
+
+  test("a custom query named like an r.crud handler throws and names the cause", () => {
+    expect(() =>
+      defineFeature("dup-crud", (r) => {
+        r.crud("task", taskEntity, crudAccess);
+        r.queryHandler("task:detail", z.object({}), async () => null, { access });
+      }),
+    ).toThrow(
+      /Feature "dup-crud" registers the query handler "task:detail" twice\. r\.crud\("task", \.\.\.\) already registers that name; use a distinct name or drop the "detail" verb from r\.crud\./,
+    );
+  });
+
+  test("the order does not matter: r.crud after the custom handler throws too", () => {
+    expect(() =>
+      defineFeature("dup-crud-after", (r) => {
+        r.entity("task", taskEntity);
+        r.writeHandler("task:create", z.object({}), async () => ({ isSuccess: true, data: {} }), {
+          access: { roles: ["Admin"] },
+        });
+        r.crud("task", taskEntity, crudAccess);
+      }),
+    ).toThrow(/registers the write handler "task:create" twice/);
+  });
+
+  test("a plain duplicate custom name throws", () => {
+    expect(() =>
+      defineFeature("dup-plain", (r) => {
+        r.queryHandler("lookup", z.object({}), async () => null, { access });
+        r.queryHandler("lookup", z.object({}), async () => null, { access });
+      }),
+    ).toThrow(
+      /Feature "dup-plain" registers the query handler "lookup" twice\. Use a distinct name\./,
+    );
   });
 });

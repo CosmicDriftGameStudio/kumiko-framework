@@ -251,6 +251,7 @@ export {
   checkWriteFieldOwnership,
   checkWriteFieldRoles,
   filterReadFields,
+  maskWriteOnlyFields,
 } from "./field-access.js";
 export { resolveName, withResponseData } from "./handler-helpers.js";
 export { i18nKey } from "./i18n-key.js";

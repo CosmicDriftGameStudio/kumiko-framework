@@ -540,6 +540,28 @@ describe("buildAppSchema", () => {
     expect(fields["title"]?.["multiline"]).toBeUndefined();
   });
 
+  test("text: writeOnly survives the projection (the renderer picks the masked input from it)", () => {
+    const entity = {
+      fields: {
+        apiKey: { type: "text", sensitive: true, writeOnly: true },
+        plain: { type: "text" },
+      },
+    } as unknown as EntityDefinition;
+
+    const f = defineFeature("ent", (r) => {
+      r.entity("thing", entity);
+    });
+    const app = buildAppSchema(createRegistry([f]));
+    const fields = (
+      app.features[0]!.entities["thing"] as unknown as {
+        fields: Record<string, Record<string, unknown>>;
+      }
+    ).fields;
+
+    expect(fields["apiKey"]?.["writeOnly"]).toBe(true);
+    expect(fields["plain"]?.["writeOnly"]).toBeUndefined();
+  });
+
   test("number/date/timestamp/locatedTimestamp: min/max/locale überleben die Projection (fw#2497)", () => {
     // Regression: input bounds and locale overrides never arrived at the
     // renderer, so the browser's own range validation and date-picker

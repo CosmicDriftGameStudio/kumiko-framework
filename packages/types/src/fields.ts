@@ -263,10 +263,15 @@ export type TextFieldDef = {
   readonly sensitive?: boolean;
   /** Write-only secret (API key): the value is never returned to clients. Reads
    *  (list/detail/write responses) show `true` = set, `null` = empty. Writes:
-   *  `""` or omitted = unchanged, `null` = clear, string = new value. Server
-   *  code (ctx.db, handlers) still reads the plaintext. Requires `sensitive`
-   *  (via `find: "secret"`); forbidden with default/searchable/sortable/filterable/
-   *  lookupable and on screen/form fields. */
+   *  `""` or omitted = unchanged, `null` = clear, string = new value.
+   *  Server-side: executor reads (detail/list in server handlers) and
+   *  postSave/postQuery hooks see the plaintext; ctx.query, dispatcher.query,
+   *  agent tools and `_refs` see true/null; ctx.db sees the ciphertext.
+   *  Known limit: masking runs for entity-bound query handlers with array /
+   *  {rows} / flat results; an unbound custom query handler that returns
+   *  executor rows must call maskWriteOnlyFields itself (same scope limit as
+   *  access.read). Requires `sensitive` (via `find: "secret"`); forbidden with
+   *  default/searchable/sortable/filterable/lookupable and on screen/form fields. */
   readonly writeOnly?: boolean;
   /** A later run reads this field's value as an instruction — prompt, rule,
    *  template. Every create/update whose payload writes it requires agent.risk

@@ -493,6 +493,8 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   // Write-response redaction stays server-side; the renderer needs the flag to
   // refuse any prefill (URL or handoff) into the field.
   if (def["sensitive"] === true) out["sensitive"] = true;
+  // Without it the renderer shows a plain text input for a field whose value never leaves the server.
+  if (def["writeOnly"] === true) out["writeOnly"] = true;
   // timestamp: the edit view-model derives its wall-clock input mode from this.
   if (typeof def["locatedBy"] === "string") out["locatedBy"] = def["locatedBy"];
   // file/image/images: upload picker constraints; the first variant key picks
