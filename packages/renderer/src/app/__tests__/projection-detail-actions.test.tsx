@@ -160,6 +160,7 @@ function stubDispatcher(
   record: Readonly<Record<string, unknown>>,
   writeErrorMessage?: string,
   calls?: { readonly writes: unknown[][]; queries: number },
+  holdWrites?: Promise<void>,
 ): Dispatcher {
   const writeResult =
     writeErrorMessage !== undefined
@@ -176,6 +177,7 @@ function stubDispatcher(
   return {
     write: (async (...args: unknown[]) => {
       calls?.writes.push(args);
+      await holdWrites;
       return writeResult;
     }) as unknown as Dispatcher["write"],
     query: (async () => {
@@ -232,6 +234,7 @@ function renderDetail(opts: {
   readonly writeErrorMessage?: string;
   readonly searchParams?: Readonly<Record<string, string>>;
   readonly calls?: { readonly writes: unknown[][]; queries: number };
+  readonly holdWrites?: Promise<void>;
 }): ReturnType<typeof render> {
   const navApi: NavApi = {
     route: { screenId: "app:screen:rent-detail" },
@@ -255,6 +258,7 @@ function renderDetail(opts: {
           opts.record ?? { id: "rent-1", description: "Rent for April" },
           opts.writeErrorMessage,
           opts.calls,
+          opts.holdWrites,
         )}
       >
         <AppFeaturesProvider features={opts.features}>
@@ -630,6 +634,60 @@ describe("projectionDetail default edit action (fw#2166)", () => {
     expect(
       getByTestId("kumiko-screen-projection-detail-actions-overflow-item-audit-log").textContent,
     ).toBe("actions.auditLog");
+  });
+
+  test("an overflow-menu writeHandler cannot be fired a second time while the first write is running", async () => {
+    const schema: FeatureSchema = {
+      featureName: "app",
+      entities: {},
+      screens: [
+        detailScreen({
+          actions: [
+            { kind: "navigate", id: "edit", label: "actions.edit", screen: "rent-edit" },
+            { kind: "navigate", id: "duplicate", label: "actions.duplicate", screen: "rent-edit" },
+            {
+              kind: "writeHandler",
+              id: "archive",
+              label: "actions.archive",
+              handler: "app:write:archive",
+            },
+          ],
+        }),
+        editScreen("rent"),
+      ],
+    };
+    let releaseWrite: () => void = () => {};
+    const holdWrites = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const calls = { writes: [] as unknown[][], queries: 0 };
+    const { getByTestId, queryByText } = renderDetail({
+      primarySchema: schema,
+      features: [schema],
+      userRoles: [],
+      calls,
+      holdWrites,
+    });
+    await waitFor(() => expect(queryByText("Loading…")).toBeNull());
+
+    const overflow = "kumiko-screen-projection-detail-actions-overflow";
+    fireEvent.click(getByTestId(overflow));
+    await act(async () => {
+      fireEvent.click(getByTestId(`${overflow}-item-archive`));
+    });
+    await waitFor(() => expect(calls.writes.length).toBe(1));
+
+    const archiveItem = getByTestId(`${overflow}-item-archive`) as HTMLButtonElement;
+    expect(archiveItem.disabled).toBe(true);
+    fireEvent.click(archiveItem);
+    expect(calls.writes.length).toBe(1);
+
+    await act(async () => {
+      releaseWrite();
+    });
+    await waitFor(() =>
+      expect((getByTestId(`${overflow}-item-archive`) as HTMLButtonElement).disabled).toBe(false),
+    );
   });
 
   test("a danger overflow-menu action still asks for confirmation before firing (fw bedienkonzept A7)", async () => {
