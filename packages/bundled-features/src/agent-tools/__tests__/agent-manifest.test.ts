@@ -220,6 +220,36 @@ describe("buildAgentManifest", () => {
     expect(manifest.screens.map((s) => s.id)).toEqual(["nav-leak-test:screen:public-board"]);
   });
 
+  test("a child nav under a parent hidden from the role is dropped with its screen", () => {
+    const feature = defineFeature("nav-parent", (r) => {
+      r.screen({
+        id: "child-board",
+        type: "custom",
+        renderer: { react: "stub" },
+        description: "Child board.",
+      });
+      r.nav({
+        id: "admin-root",
+        label: "nav-parent:nav:admin-root",
+        access: { roles: ["admin"] },
+      });
+      r.nav({
+        id: "child",
+        label: "nav-parent:nav:child",
+        parent: "nav-parent:nav:admin-root",
+        screen: "nav-parent:screen:child-board",
+      });
+    });
+    const registry = createRegistry([feature]);
+
+    const asAdmin = buildAgentManifest(registry, { locale: "en", roles: ["admin"] });
+    const asViewer = buildAgentManifest(registry, { locale: "en", roles: ["viewer"] });
+
+    expect(asAdmin.navs.map((n) => n.id)).toEqual(["nav-parent:nav:admin-root", "nav-parent:nav:child"]);
+    expect(asViewer.navs).toEqual([]);
+    expect(asViewer.screens.map((s) => s.id)).toEqual([]);
+  });
+
   test("a screen description that is an i18n key resolves to its English prose, not the raw key", () => {
     const feature = defineFeature("i18n-description-test", (r) => {
       r.translations({

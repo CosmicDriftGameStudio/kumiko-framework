@@ -52,6 +52,34 @@ describe("findAgentDocGaps", () => {
     ]);
   });
 
+  test("R1: handler exposed via agent.expose:true without description -> exposed-without-description gap", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+        access: OPEN_ACCESS,
+        agent: { expose: true },
+      });
+    });
+
+    const gaps = findAgentDocGaps([feature]);
+
+    expect(gaps.map((g) => [g.qn, g.kind])).toEqual([
+      ["doc-gap-demo:write:do-a", AgentDocGapKinds.handlerWithoutDescription],
+    ]);
+    expect(gaps[0]?.message).toContain("is exposed to the AI agent");
+    expect(gaps[0]?.message).not.toContain("stays invisible");
+  });
+
+  test("R1: blank description -> gap", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.writeHandler("do-a", z.object({}), noopWriteHandler, {
+        access: OPEN_ACCESS,
+        description: "   ",
+      });
+    });
+
+    expect(findAgentDocGaps([feature]).map((g) => g.qn)).toEqual(["doc-gap-demo:write:do-a"]);
+  });
+
   test("R1: handler with description -> no gap", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
       r.writeHandler("do-a", z.object({}), noopWriteHandler, {

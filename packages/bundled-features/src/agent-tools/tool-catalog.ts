@@ -4,6 +4,7 @@ import type {
   QueryHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { hasAccess } from "@cosmicdrift/kumiko-framework/engine";
+import { FILTER_OPS, isRecord } from "./filter-ops.js";
 import type {
   AgentManifest,
   AgentManifestEntity,
@@ -17,7 +18,6 @@ import type {
   ToolDispatchDescriptor,
 } from "./types.js";
 
-const FILTER_OPS = ["eq", "ne", "lt", "gt", "lte", "gte", "in"] as const;
 const MAX_TOOL_NAME_LENGTH = 64;
 
 /** Field types that declare `filterable` (per `packages/framework/src/engine/types/fields.ts`).
@@ -232,10 +232,6 @@ function filterableFieldsOf(entity: AgentManifestEntity | undefined): readonly s
 
 function compareByCodePoint(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function schemaRequiresField(schema: Readonly<Record<string, unknown>>, field: string): boolean {

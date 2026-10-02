@@ -216,6 +216,17 @@ function buildHandlers(
   return result;
 }
 
+// A typo or a QN renamed by a framework update would otherwise deny nothing
+// and leave the handler exposed without anyone noticing.
+function assertDenyQnsExist(denyQns: readonly string[], registry: RegistryManifestView): void {
+  const queryHandlers = registry.getAllQueryHandlers();
+  const writeHandlers = registry.getAllWriteHandlers();
+  const unknown = denyQns.filter((qn) => !queryHandlers.has(qn) && !writeHandlers.has(qn));
+  if (unknown.length > 0) {
+    throw new Error(`agent denyQns names handlers that are not registered: ${unknown.join(", ")}`);
+  }
+}
+
 function buildNavs(
   navs: ReadonlyMap<string, NavDefinition>,
   workspaces: ReadonlyMap<string, WorkspaceDefinition>,
@@ -242,7 +253,19 @@ function buildNavs(
       workspaces: visibleWorkspaces,
     });
   }
-  return result;
+  return withoutOrphanedNavs(result);
+}
+
+// A child under a parent hidden from this role would point at an id that
+// isn't in the manifest; hiding cascades down the whole subtree.
+function withoutOrphanedNavs(navs: readonly AgentManifestNav[]): readonly AgentManifestNav[] {
+  let remaining = navs;
+  for (;;) {
+    const ids = new Set(remaining.map((nav) => nav.id));
+    const reachable = remaining.filter((nav) => nav.parent === undefined || ids.has(nav.parent));
+    if (reachable.length === remaining.length) return remaining;
+    remaining = reachable;
+  }
 }
 
 function lastSegment(qualifiedId: string): string {
@@ -256,6 +279,7 @@ function buildScreens(
   workspaces: ReadonlyMap<string, WorkspaceDefinition>,
   translations: TranslationKeys,
   roles: readonly string[],
+  visibleNavIds: ReadonlySet<string>,
 ): readonly AgentManifestScreen[] {
   const allNavs = [...navs.values()];
   const result: AgentManifestScreen[] = [];
@@ -265,7 +289,9 @@ function buildScreens(
     // builds `navigate`'s screen-id enum straight from `manifest.screens`.
     if (!isAgentVisibleScreen(screen)) continue;
     const matchingNavs = allNavs.filter((nav) => nav.screen === screen.id);
-    const accessibleNavs = matchingNavs.filter((nav) => uiVisible(nav.access, roles));
+    const accessibleNavs = matchingNavs.filter(
+      (nav) => visibleNavIds.has(nav.id) && uiVisible(nav.access, roles),
+    );
 
     // A screen with no nav pointing at it is a detail view, reached only via
     // navigation from a list row — never hidden by nav/workspace gating.
@@ -332,6 +358,7 @@ export function buildAgentManifest(
   const workspaceMap = registry.getAllWorkspaces();
   const navMap = registry.getAllNavs();
   const { roles } = options;
+  assertDenyQnsExist(options.denyQns ?? [], registry);
 
   const features = buildFeatures(registry.features);
   const entities = buildEntities(registry.getAllEntities(), translations, (name) =>
@@ -346,7 +373,14 @@ export function buildAgentManifest(
   );
   const screenMap = registry.getAllScreens();
   const navs = buildNavs(navMap, workspaceMap, translations, roles, screenMap);
-  const screens = buildScreens(screenMap, navMap, workspaceMap, translations, roles);
+  const screens = buildScreens(
+    screenMap,
+    navMap,
+    workspaceMap,
+    translations,
+    roles,
+    new Set(navs.map((nav) => nav.id)),
+  );
   const workspaces = buildWorkspaces(workspaceMap, translations, roles);
 
   return {

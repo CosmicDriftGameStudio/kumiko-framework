@@ -73,16 +73,20 @@ function handlerDocGaps(
   const handlerKind = handlerQnType === QnTypes.write ? "write" : "query";
   for (const [name, def] of Object.entries(handlers)) {
     const handlerQn = qn(toKebab(feature.name), handlerQnType, toKebab(name));
-    if (resolveAgentExposure(def, handlerKind).expose) {
+    const isExposed = resolveAgentExposure(def, handlerKind).expose;
+    if (isExposed) {
       const schemaGap = schemaNotExpressibleGap(feature, handlerQn, def, handlerNoun);
       if (schemaGap) gaps.push(schemaGap);
     }
-    if (def.description !== undefined || def.agent?.expose === false) continue;
+    if (def.agent?.expose === false) continue;
+    if (def.description !== undefined && def.description.trim() !== "") continue;
     gaps.push({
       qn: handlerQn,
       feature: feature.name,
       kind: AgentDocGapKinds.handlerWithoutDescription,
-      message: `This ${handlerNoun} has no description, so it stays invisible to the AI agent — set \`description\` to expose it, or \`agent: { expose: false }\` to opt out deliberately.`,
+      message: isExposed
+        ? `This ${handlerNoun} is exposed to the AI agent but has no usable description, so the agent sees an empty tool text — set a non-empty \`description\`, or \`agent: { expose: false }\` to opt out deliberately.`
+        : `This ${handlerNoun} has no description, so it stays invisible to the AI agent — set \`description\` to expose it, or \`agent: { expose: false }\` to opt out deliberately.`,
     });
   }
   return gaps;
