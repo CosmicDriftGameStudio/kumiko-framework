@@ -1153,11 +1153,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   // Screen forms (entityEdit/actionForm filling the shell height) drop the card;
   // the title then lives in the shell header when the shell offers a slot.
-  const isScreenForm =
-    fillScreenHeight === true &&
-    hideSectionTitles !== true &&
-    headerRegion === undefined &&
-    !insideDrawer;
+  const isScreenForm = fillScreenHeight === true && hideSectionTitles !== true && !insideDrawer;
   const titleInShell =
     PageHeader !== undefined &&
     pageHeaderSlotAvailable &&
@@ -1336,7 +1332,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const changedFieldCount = Object.keys(snapshot.changes).length;
   // Edit-mode screen forms always carry the dirty status (0 = quiet "No unsaved
   // changes"); wizards keep the status-only-when-dirty behaviour.
-  const hasDirtyFooter = !isWizard && (dirtyFooter === true || (isScreenForm && !isCreate));
+  const hasDirtyFooter =
+    !isWizard &&
+    (dirtyFooter === true || (isScreenForm && !isCreate && headerRegion === undefined));
   const unsavedCount = !hasDirtyFooter
     ? undefined
     : changedFieldCount > 0
