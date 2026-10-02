@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { NO_ROUTE_MATCH_HEADER_NAME } from "@cosmicdrift/kumiko-framework/api";
+import { NO_ROUTE_MATCH_HEADER_NAME, requestContext } from "@cosmicdrift/kumiko-framework/api";
+import {
+  createAnonymousUser,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
+import type { PageHeadResolver } from "../run-prod-app.js";
 import {
   buildStaticFallback,
   mimeTypeFor,
@@ -302,6 +308,98 @@ describe("buildStaticFallback resolvePageHead", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("last-modified")).toBeNull();
     expect(await res.text()).toContain("<title>Vehicle X</title>");
+  });
+
+  test("default single-app path (no hostDispatch): resolver meta lands in the index.html response", async () => {
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, undefined, {
+      resolvePageHead: async ({ path }) => ({ title: `Default for ${path}` }),
+      dispatcher: stubDispatcher(),
+    });
+    const res = await handler(new Request("http://t/some/route"));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("<title>Default for /some/route</title>");
+  });
+
+  describe("systemQuery dispatch identity", () => {
+    const TENANT = "00000000-0000-4000-8000-0000000000aa" as TenantId;
+    type Seen = { type: string; payload: unknown; user: SessionUser; ip: string | undefined };
+
+    function spyDispatcher(seen: Seen[]) {
+      return {
+        query: async (type: string, payload: unknown, user: SessionUser) => {
+          seen.push({ type, payload, user, ip: requestContext.get()?.ip });
+          return {};
+        },
+      };
+    }
+
+    function resolverCallingSystemQuery(): PageHeadResolver {
+      return async ({ systemQuery }) => {
+        await systemQuery("probe:query:meta", { slug: "x" }, TENANT);
+        return { title: "T" };
+      };
+    }
+
+    const forwardedFor = { "x-forwarded-for": "203.0.113.7" };
+
+    test("pageHead.dispatcher runs the query as the anonymous user of that tenant with the proxied client IP", async () => {
+      const seen: Seen[] = [];
+      const handler = buildStaticFallback(
+        () => noRouteMatchedResponse(),
+        tmp,
+        undefined,
+        { resolvePageHead: resolverCallingSystemQuery(), dispatcher: spyDispatcher(seen) },
+        undefined,
+        1,
+      );
+      await handler(new Request("http://t/", { headers: forwardedFor }), "10.0.0.1");
+
+      expect(seen).toEqual([
+        {
+          type: "probe:query:meta",
+          payload: { slug: "x" },
+          user: createAnonymousUser(TENANT),
+          ip: "203.0.113.7",
+        },
+      ]);
+    });
+
+    test("without trusted proxy hops a spoofed X-Forwarded-For is ignored: the socket address wins", async () => {
+      const seen: Seen[] = [];
+      const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp, undefined, {
+        resolvePageHead: resolverCallingSystemQuery(),
+        dispatcher: spyDispatcher(seen),
+      });
+      await handler(new Request("http://t/", { headers: forwardedFor }), "10.0.0.1");
+
+      expect(seen.map((entry) => entry.ip)).toEqual(["10.0.0.1"]);
+    });
+
+    test("hostDispatch's systemQuery uses the same anonymous identity and client IP", async () => {
+      const seen: Seen[] = [];
+      const handler = buildStaticFallback(
+        () => noRouteMatchedResponse(),
+        tmp,
+        async (_target, { systemQuery }) => {
+          await systemQuery("probe:query:host", {}, TENANT);
+          return { kind: "html", file: "tenant.html" };
+        },
+        undefined,
+        spyDispatcher(seen),
+        1,
+      );
+      const res = await handler(new Request("http://t/", { headers: forwardedFor }), "10.0.0.1");
+
+      expect(res.status).toBe(200);
+      expect(seen).toEqual([
+        {
+          type: "probe:query:host",
+          payload: {},
+          user: createAnonymousUser(TENANT),
+          ip: "203.0.113.7",
+        },
+      ]);
+    });
   });
 
   test("no resolvePageHead configured → response is byte-identical to the no-resolver call", async () => {

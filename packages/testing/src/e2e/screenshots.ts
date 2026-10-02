@@ -216,6 +216,23 @@ async function restoreIdentitiesOnPage(
   if (mappings.length > 0) await page.evaluate(restoreIdentitiesInDocument);
 }
 
+// Order matters: beforeCapture first (it may hide/mask), identities after, so
+// the replaced text is what the screenshot sees. Exported for unit tests.
+export async function captureScenario(
+  page: Page,
+  scenario: Pick<Scenario, "beforeCapture" | "fullPage" | "captureStyle">,
+  mappings: readonly PresentIdentity[],
+  screenshotOptions: Omit<NonNullable<Parameters<Page["screenshot"]>[0]>, "fullPage" | "style">,
+): Promise<Buffer> {
+  if (scenario.beforeCapture) await scenario.beforeCapture(page);
+  await presentIdentitiesOnPage(page, mappings);
+  return page.screenshot({
+    ...screenshotOptions,
+    fullPage: scenario.fullPage ?? false,
+    ...(scenario.captureStyle !== undefined && { style: scenario.captureStyle }),
+  });
+}
+
 function collectPresentIdentities(): {
   readonly mappings: readonly PresentIdentity[];
   readonly register: (mappings: readonly PresentIdentity[]) => void;
@@ -303,14 +320,8 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
             seedTenant,
             presentIdentities: identities.register,
           });
-          if (s.beforeCapture) await s.beforeCapture(page);
-          await presentIdentitiesOnPage(page, identities.mappings);
           const path = `${outDir}/${s.name}.png`;
-          await page.screenshot({
-            path,
-            fullPage: s.fullPage ?? false,
-            ...(s.captureStyle !== undefined && { style: s.captureStyle }),
-          });
+          await captureScenario(page, s, identities.mappings, { path });
           expect.soft(statSync(path).size).toBeGreaterThan(MIN_BYTES);
         },
       );
@@ -570,19 +581,15 @@ export function runMatrix<T extends string>(
             for (const vp of plan.viewports) {
               if (plan.mode === "desktop") await page.setViewportSize(viewportSizes[vp]);
               await waitForSettledPage(page, inFlightDataRequests);
-              if (s.beforeCapture) await s.beforeCapture(page);
-              await presentIdentitiesOnPage(page, identities.mappings);
               const dir = `${projectBaseDir}/${s.name}/${locale}/${theme}`;
               mkdirSync(dir, { recursive: true });
               const path = `${dir}/${vp}.png`;
               // animations: "disabled" jumps to end-state at the engine level — immune to CSS specificity, unlike an addStyleTag injection.
               // screenshot() returns the same bytes it writes to `path` — reuse
               // them for both checks instead of a statSync/read-back roundtrip.
-              const buffer = await page.screenshot({
+              const buffer = await captureScenario(page, s, identities.mappings, {
                 path,
-                fullPage: s.fullPage ?? false,
                 animations: "disabled",
-                ...(s.captureStyle !== undefined && { style: s.captureStyle }),
               });
               expect.soft(buffer.length).toBeGreaterThan(MIN_BYTES);
               digests.push({

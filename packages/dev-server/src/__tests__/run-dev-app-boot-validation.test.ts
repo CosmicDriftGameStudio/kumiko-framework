@@ -29,6 +29,37 @@ function unresolvableNavFeature() {
   });
 }
 
+function fileFieldFeature() {
+  return defineFeature("docs", (r) => {
+    r.entity(
+      "doc",
+      createEntity({ table: "dev_boot_docs", fields: { contract: { type: "file" } } }),
+    );
+  });
+}
+
+describe("runDevApp validateBootOptions", () => {
+  const FILE_STORAGE_PROVIDER = "FILE_STORAGE_PROVIDER";
+
+  test("validateBootOptions.env reaches validateBoot (a file field needs a provider in THAT env)", async () => {
+    const saved = process.env[FILE_STORAGE_PROVIDER];
+    // process.env satisfies the gate, so only the option's own (empty) env can make it throw.
+    process.env[FILE_STORAGE_PROVIDER] = "local";
+    try {
+      await expect(
+        runDevApp({
+          features: [fileFieldFeature()],
+          port: 0,
+          validateBootOptions: { env: {} },
+        }),
+      ).rejects.toThrow(/FILE_STORAGE_PROVIDER.*required/);
+    } finally {
+      if (saved === undefined) delete process.env[FILE_STORAGE_PROVIDER];
+      else process.env[FILE_STORAGE_PROVIDER] = saved;
+    }
+  });
+});
+
 describe("runDevApp boot-validation (#359)", () => {
   test("unresolvable navigate-target throws at boot — dev/prod parity, no port bound", async () => {
     await expect(runDevApp({ features: [unresolvableNavFeature()] })).rejects.toThrow(

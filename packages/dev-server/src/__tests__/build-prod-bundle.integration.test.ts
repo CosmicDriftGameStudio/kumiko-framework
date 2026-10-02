@@ -13,7 +13,7 @@
 //      Skipped wenn `bun` nicht erreichbar — selten, aber sauber.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -249,6 +249,103 @@ describe.skipIf(!bunAvailable())("kumiko-build CLI (full pipeline with bun)", ()
 
       expect(stderr).toContain("keinen Entry-Tag für /client.js");
       expect(stderr).toContain(`<script type="module" src="/client.js"></script>`);
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
+
+  function runKumikoBuild(cwd: string): { status: number | null; stdout: string; stderr: string } {
+    const result = spawnSync("bun", [KUMIKO_BUILD_BIN, cwd], { encoding: "utf8" });
+    return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+  }
+
+  test(
+    "src/client-admin.tsx without a kumiko.clientEntries declaration → exit 1 with the declaration snippet on stderr",
+    async () => {
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await writeFile(join(tmp, "src/client-admin.tsx"), `console.log("admin");`);
+      await writeFile(join(tmp, "package.json"), `{"name":"legacy-entry","private":true}`);
+
+      const result = runKumikoBuild(tmp);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("✗");
+      expect(result.stderr).toContain('"kumiko.clientEntries"');
+      expect(result.stderr).toContain(
+        `{ "name": "admin", "sourceFile": "./src/client-admin.tsx" }`,
+      );
+      expect(existsSync(join(tmp, "dist"))).toBe(false);
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
+
+  test(
+    "clientEntry and clientEntries together → exit 1 through the shared error path",
+    async () => {
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await writeFile(join(tmp, "src/main.ts"), `console.log("x");`);
+      await writeFile(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "both-declared",
+          private: true,
+          kumiko: {
+            clientEntry: "./src/main.ts",
+            clientEntries: [{ name: "main", sourceFile: "./src/main.ts" }],
+          },
+        }),
+      );
+
+      const result = runKumikoBuild(tmp);
+
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("mutually exclusive");
+    },
+    FULL_PIPELINE_TIMEOUT_MS,
+  );
+
+  test(
+    "a valid kumiko.clientEntries declaration builds both bundles",
+    async () => {
+      await mkdir(join(tmp, "src"), { recursive: true });
+      await mkdir(join(tmp, "public"), { recursive: true });
+      await writeFile(join(tmp, "src/client-admin.ts"), `console.log("admin-bundle");`);
+      await writeFile(join(tmp, "src/client-public.ts"), `console.log("public-bundle");`);
+      await writeFile(
+        join(tmp, "public/admin.html"),
+        `<!doctype html><html><body><script type="module" src="/client-admin.js"></script></body></html>`,
+      );
+      await writeFile(
+        join(tmp, "public/index.html"),
+        `<!doctype html><html><body><script type="module" src="/client-public.js"></script></body></html>`,
+      );
+      await writeFile(
+        join(tmp, "package.json"),
+        JSON.stringify({
+          name: "multi-entry",
+          private: true,
+          kumiko: {
+            clientEntries: [
+              { name: "admin", sourceFile: "./src/client-admin.ts" },
+              { name: "public", sourceFile: "./src/client-public.ts" },
+            ],
+          },
+        }),
+      );
+
+      const result = runKumikoBuild(tmp);
+
+      expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: "" });
+      const manifest = JSON.parse(
+        await readFile(join(tmp, "dist/manifest.json"), "utf8"),
+      ) as Record<string, string>;
+      expect(manifest["client-admin.js"]).toMatch(/^\/assets\/client-admin-[a-z0-9]+\.js$/);
+      expect(manifest["client-public.js"]).toMatch(/^\/assets\/client-public-[a-z0-9]+\.js$/);
+      expect(
+        await readFile(join(tmp, "dist", manifest["client-admin.js"] ?? ""), "utf8"),
+      ).toContain("admin-bundle");
+      expect(
+        await readFile(join(tmp, "dist", manifest["client-public.js"] ?? ""), "utf8"),
+      ).toContain("public-bundle");
     },
     FULL_PIPELINE_TIMEOUT_MS,
   );

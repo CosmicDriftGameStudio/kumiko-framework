@@ -194,9 +194,10 @@ export function renderTestSetup(input: RenderTestSetupInput): ScaffoldTestSetup 
       // verified against bun 1.4), so it can't express "match only *.real.test.ts"
       // on its own — every *.test.ts file matches bun's default test glob too,
       // real.test.ts included. The positional filter narrows the run to files
-      // whose path contains "real.test.ts", so an unfiltered test:real never
+      // whose path contains ".real.test.ts" (a bare "real.test.ts" would also
+      // match unreal.test.ts), so an unfiltered test:real never
       // picks up the unit suite.
-      "test:real": `${REAL_PROVIDERS_ENV}=1 bun --config=${BUNFIG_FILES.real} test --timeout=${TEST_TIMEOUT_MS.real} real.test.ts`,
+      "test:real": `${REAL_PROVIDERS_ENV}=1 bun --config=${BUNFIG_FILES.real} test --timeout=${TEST_TIMEOUT_MS.real} .real.test.ts`,
       "test:bunfig": "bun kumiko-testing bunfig --hoisted",
       e2e: "bunx --bun playwright test",
       "e2e:real": `${REAL_PROVIDERS_ENV}=1 bunx --bun playwright test`,
