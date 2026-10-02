@@ -370,6 +370,11 @@ describe("validateAccessDeclarations — personal-data fields beyond a top-level
     ["map value", z.object({ byKey: z.map(z.string(), z.object({ email: z.string() })) })],
     ["map key", z.object({ byKey: z.map(z.object({ email: z.string() }), z.string()) })],
     ["set of objects", z.object({ items: z.set(z.object({ email: z.string() })) })],
+    ["xor", z.xor([z.object({ email: z.string() }), z.object({ title: z.string() })])],
+    ["tuple item", z.tuple([z.object({ email: z.string() })])],
+    ["tuple rest", z.tuple([z.string()], z.object({ email: z.string() }))],
+    ["prefault", z.object({ email: z.string() }).prefault({ email: "" })],
+    ["nonoptional", z.object({ email: z.string() }).optional().nonoptional()],
     ["promise", z.promise(z.object({ email: z.string() }))],
     ["catchall", z.object({ id: z.string() }).catchall(z.object({ email: z.string() }))],
     [

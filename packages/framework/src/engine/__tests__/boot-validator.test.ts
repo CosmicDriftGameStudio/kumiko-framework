@@ -2175,13 +2175,15 @@ describe("boot-validator", () => {
   // assertions: list.test.ts (headless renderer draws the same set) and
   // list-row-meta-drift.test.ts (LIST_ROW_META_COLUMNS key-set drift guard).
   describe("entityList row-meta column — accepted by both boot validators", () => {
-    for (const [columnName, columnType] of Object.entries(LIST_ROW_META_COLUMNS)) {
-      test(`"${columnName}" (${columnType}) on a non-softDelete entity → kein Throw`, () => {
-        const feature = noteFeatureWithColumn(columnName);
-        expect(() => validateBoot([feature])).not.toThrow();
-        const fixed = withBootValidatorFixture([feature]);
-        expect(() => validateEntityListScreens(fixed)).not.toThrow();
-      });
+    for (const softDelete of [false, true]) {
+      for (const [columnName, columnType] of Object.entries(LIST_ROW_META_COLUMNS)) {
+        test(`"${columnName}" (${columnType}) on a ${softDelete ? "softDelete" : "non-softDelete"} entity → kein Throw`, () => {
+          const feature = noteFeatureWithColumn(columnName, { softDelete });
+          expect(() => validateBoot([feature])).not.toThrow();
+          const fixed = withBootValidatorFixture([feature]);
+          expect(() => validateEntityListScreens(fixed)).not.toThrow();
+        });
+      }
     }
 
     // rowMetaFieldNames(true) also carries the softDelete-only columns

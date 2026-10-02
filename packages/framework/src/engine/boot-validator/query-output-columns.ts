@@ -3,6 +3,7 @@ import { isPagedQueryHandler } from "../define-handler.js";
 import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.js";
 import type {
   DashboardScreenDefinition,
+  DashboardScreenPanel,
   DashboardStatPanel,
   EditLayout,
   FeatureDefinition,
@@ -292,6 +293,25 @@ function checkDashboardStatPanelFields(
   checkPanelField("deltaToneField", panel.deltaToneField);
 }
 
+// visibleWhen reads a flat record like stat panels; a typo'd field would hide
+// the panel forever without any message.
+function checkScreenPanelVisibleWhenField(
+  queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
+  featureName: string,
+  screenId: string,
+  panel: DashboardScreenPanel,
+): void {
+  // skip: panel is always visible, no field to check
+  if (panel.visibleWhen === undefined) return;
+  const { query, field } = panel.visibleWhen;
+  checkFieldExists(
+    getZodObjectShape(queryHandlers.get(query)?.outputSchema),
+    field,
+    () =>
+      `[Feature ${featureName}] Screen "${screenId}" (dashboard) screen-panel "${panel.id}" visibleWhen references field "${field}" which is not present in query "${query}"'s outputSchema.`,
+  );
+}
+
 function checkDashboardOutputFields(
   queryHandlers: ReadonlyMap<string, QueryHandlerDef>,
   featureName: string,
@@ -305,6 +325,8 @@ function checkDashboardOutputFields(
       for (const stat of panel.stats) {
         checkDashboardStatPanelFields(queryHandlers, featureName, screenId, stat);
       }
+    } else if (panel.kind === "screen") {
+      checkScreenPanelVisibleWhenField(queryHandlers, featureName, screenId, panel);
     } else if (panel.kind === "list") {
       const rowShape = resolveListRowShape(
         queryHandlers,

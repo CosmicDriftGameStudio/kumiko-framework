@@ -29,6 +29,7 @@ import type {
   EntityDefinition,
   FeatureDefinition,
   FieldDefinition,
+  NavDefinition,
 } from "../types/index.js";
 import { metricField } from "../types/index.js";
 import type {
@@ -1089,20 +1090,43 @@ function validateSecretMintConfirm(
   }
 }
 
-// nav.screen is a full QN (cross-feature), so a standalone r.nav() pointing
-// at `targetQn` must be found by scanning every feature's nav entries and actions.
-function hasStandaloneNavEntry(
-  targetQn: string,
-  featureMap: ReadonlyMap<string, FeatureDefinition>,
-): boolean {
+type NavAreaIndex = {
+  readonly anyNavRegistered: boolean;
+  // nav.screen is a full QN (cross-feature): every screen QN a standalone
+  // r.nav() entry or one of its actions points at.
+  readonly navTargetQns: ReadonlySet<string>;
+  readonly allScreens: readonly ScreenDefinition[];
+};
+
+// validateScreenHasNavArea runs once per screen; the index is built once per
+// featureMap (immutable during boot) instead of re-scanning every feature each call.
+const navAreaIndexByFeatureMap = new WeakMap<
+  ReadonlyMap<string, FeatureDefinition>,
+  NavAreaIndex
+>();
+
+function navTargetScreenQns(nav: NavDefinition): readonly string[] {
+  return [nav.screen, nav.createAction?.screen, ...(nav.actions ?? []).map((a) => a.screen)].filter(
+    (qn): qn is string => qn !== undefined,
+  );
+}
+
+function getNavAreaIndex(featureMap: ReadonlyMap<string, FeatureDefinition>): NavAreaIndex {
+  const cached = navAreaIndexByFeatureMap.get(featureMap);
+  if (cached !== undefined) return cached;
+  const navTargetQns = new Set<string>();
+  const allScreens: ScreenDefinition[] = [];
+  let anyNavRegistered = false;
   for (const f of featureMap.values()) {
+    allScreens.push(...Object.values(f.screens));
     for (const nav of Object.values(f.navs)) {
-      if (nav.screen === targetQn) return true;
-      if (nav.createAction?.screen === targetQn) return true;
-      if (nav.actions?.some((a) => a.screen === targetQn)) return true;
+      anyNavRegistered = true;
+      for (const qn of navTargetScreenQns(nav)) navTargetQns.add(qn);
     }
   }
-  return false;
+  const index: NavAreaIndex = { anyNavRegistered, navTargetQns, allScreens };
+  navAreaIndexByFeatureMap.set(featureMap, index);
+  return index;
 }
 
 // Every screen must resolve nav via `nav`, `r.nav()`, a parent list, or
@@ -1117,14 +1141,13 @@ function validateScreenHasNavArea(
   if (screen.nav !== undefined) return;
   // skip: explicitly opted out via `dormant: true`.
   if (screen.dormant === true) return;
-  const anyNavRegistered = [...featureMap.values()].some((f) => Object.keys(f.navs).length > 0);
+  const { anyNavRegistered, navTargetQns, allScreens } = getNavAreaIndex(featureMap);
   // skip: no nav entries exist anywhere in the composed set — a feature/
   // recipe/test fixture booted without an app shell, not an omission.
   if (!anyNavRegistered) return;
   const targetQn = qualifyEntityName(feature.name, "screen", screenId);
   // skip: a standalone r.nav() elsewhere already points at this screen.
-  if (hasStandaloneNavEntry(targetQn, featureMap)) return;
-  const allScreens = [...featureMap.values()].flatMap((f) => Object.values(f.screens));
+  if (navTargetQns.has(targetQn)) return;
   // skip: resolves to a parent list via listScreenId/rowAction-target/same-entity.
   if (resolveNavParentScreen(allScreens, screen, (s) => s.id) !== undefined) return;
   throw new Error(

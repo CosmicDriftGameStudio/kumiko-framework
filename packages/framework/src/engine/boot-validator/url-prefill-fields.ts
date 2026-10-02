@@ -33,7 +33,10 @@ type ScopedNavigateAction = {
   readonly sourceScreenEntity: string | undefined;
   /** Used when the action itself declares no `params` — the field a
    *  relatedList toolbarAction's parent id lands under at runtime
-   *  (RelatedListSection's `navigatePrefill`, related-list-section.tsx). */
+   *  (RelatedListSection's `navigatePrefill`, related-list-section.tsx).
+   *  The parent id arrives via the URL, so it is attacker-controllable: write
+   *  handlers must validate parent references server-side (tenant-scoped
+   *  lookup), never trust the prefilled value. */
   readonly implicitParams?: RowFieldExtractor;
 };
 

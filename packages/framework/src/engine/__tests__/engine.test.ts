@@ -1270,6 +1270,36 @@ describe("createApp", () => {
     ).not.toThrow();
   });
 
+  test("rejects a money currency source with an unknown kind", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          defaultCurrency: "EUR",
+          fields: { total: { type: "money", currency: { kind: "literall", code: "CHF" } } },
+        } as never),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).toThrow(
+      /unknown currency kind "literall"/,
+    );
+  });
+
+  test("accepts currency: { kind: 'tenant' }", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity(
+        "invoice",
+        createEntity({
+          table: "Invoices",
+          defaultCurrency: "EUR",
+          fields: { total: { type: "money", currency: { kind: "tenant" } } },
+        } as never),
+      );
+    });
+    expect(() => createApp({ roles: ["Admin"], features: [feature] })).not.toThrow();
+  });
+
   test("rejects an unknown literal code on an actionForm screen field too", () => {
     const feature = defineFeature("test", (r) => {
       r.writeHandler({

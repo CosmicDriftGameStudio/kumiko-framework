@@ -728,6 +728,11 @@ export function validateBootGates(state: RegistryState): void {
     if (jobDef.concurrency === "sequential") {
       throw new Error(`Job "${jobName}" cannot combine bootGate with concurrency "sequential"`);
     }
+    // The gate already runs inline each start; runOnBoot would enqueue the same
+    // handler again under the same boot job id (runs twice, shared bull_job_id).
+    if (jobDef.runOnBoot) {
+      throw new Error(`Job "${jobName}" cannot combine bootGate with runOnBoot`);
+    }
   }
 }
 
