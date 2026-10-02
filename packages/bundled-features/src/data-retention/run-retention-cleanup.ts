@@ -327,25 +327,55 @@ function isFileRefBoundElsewhere(
   return false;
 }
 
-// A single-field fileRef-id can be shared by more than one row of the SAME
-// table (e.g. a stock-photo re-picked across records). Purging its bytes
-// would corrupt the row that isn't being deleted. Bounded by batchLimit rows
-// per run and singleFields.length queries per fileRef — the same per-row
-// event-cost tradeoff as the rest of this cron (see header).
+type SingleFileHolder = {
+  readonly table: Parameters<typeof selectMany>[1];
+  readonly tableHasTenantId: boolean;
+  readonly singleFields: readonly string[];
+};
+
+// Every implicit entity table with file/image fields: an unbound fileRef
+// (POST /files without entityType/entityId) can sit in single fields of
+// several entity types, so the sharing check must look beyond the purged
+// row's own table.
+function collectSingleFileHolders(registry: Registry): readonly SingleFileHolder[] {
+  const holders: SingleFileHolder[] = [];
+  for (const proj of registry.getAllProjections().values()) {
+    if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
+    const entity = registry.getEntity(proj.source);
+    if (!entity) continue;
+    const { singleFields } = planFileFields(entity.fields);
+    if (singleFields.length === 0) continue;
+    const table = proj.table as Record<string, unknown>; // @cast-boundary column-presence probe
+    holders.push({
+      table: proj.table,
+      tableHasTenantId: table["tenantId"] !== undefined,
+      singleFields,
+    });
+  }
+  return holders;
+}
+
+// A single-field fileRef-id can be shared by more than one row, in the SAME
+// table (e.g. a stock-photo re-picked across records) or in another entity's
+// table. Purging its bytes would corrupt the row that isn't being deleted.
+// Bounded by batchLimit rows per run and holderFields queries per fileRef —
+// the same per-row event-cost tradeoff as the rest of this cron (see header).
 async function isFileRefSharedByOtherRow(
   db: DbRunner,
-  table: Parameters<typeof selectMany>[1],
-  tableHasTenantId: boolean,
+  holders: readonly SingleFileHolder[],
+  ownTable: Parameters<typeof selectMany>[1],
   tenantId: TenantId,
   rowId: string,
-  singleFields: readonly string[],
   fileRefId: string,
 ): Promise<boolean> {
-  for (const field of singleFields) {
-    const where: WhereObject = { [field]: fileRefId, id: { ne: rowId } };
-    if (tableHasTenantId) where["tenantId"] = tenantId;
-    const others = await selectMany(db, table, where, { limit: 1 });
-    if (others.length > 0) return true;
+  for (const holder of holders) {
+    for (const field of holder.singleFields) {
+      const where: WhereObject = { [field]: fileRefId };
+      if (holder.table === ownTable) where["id"] = { ne: rowId };
+      if (holder.tableHasTenantId) where["tenantId"] = tenantId;
+      const others = await selectMany(db, holder.table, where, { limit: 1 });
+      if (others.length > 0) return true;
+    }
   }
   return false;
 }
@@ -359,7 +389,7 @@ async function isFileRefSharedByOtherRow(
 async function purgeHardDeleteRowWithFiles(args: {
   readonly db: DbRunner;
   readonly table: Parameters<typeof selectMany>[1];
-  readonly tableHasTenantId: boolean;
+  readonly fileHolders: readonly SingleFileHolder[];
   readonly tenantId: TenantId;
   readonly entityName: string;
   readonly entity: EntityDefinition;
@@ -408,11 +438,10 @@ async function purgeHardDeleteRowWithFiles(args: {
     if (isFileRefBoundElsewhere(fileRef, args.entityName, rowId)) continue;
     const shared = await isFileRefSharedByOtherRow(
       args.db,
+      args.fileHolders,
       args.table,
-      args.tableHasTenantId,
       args.tenantId,
       rowId,
-      args.plan.singleFields,
       String(fileRef["id"]),
     );
     if (shared) continue;
@@ -434,11 +463,18 @@ async function purgeHardDeleteRowWithFiles(args: {
   for (const fileRef of toDelete) {
     const key = fileRef["storageKey"];
     if (typeof key !== "string" || key.length === 0) continue;
-    const failedKeys = await deleteStoredFileAndDerivatives(
-      key,
-      store,
-      "data-retention:hardDelete",
-    );
+    // Throws (unsafe key, missing list permission) must fail this row closed,
+    // not abort the whole tenant run.
+    let failedKeys: readonly string[];
+    try {
+      failedKeys = await deleteStoredFileAndDerivatives(key, store, "data-retention:hardDelete");
+    } catch (err) {
+      failedKeys = [key];
+      // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
+      console.warn(
+        `[data-retention:hardDelete] tenant=${args.tenantId} entity=${args.entityName} row=${rowId} storage cleanup threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
     if (failedKeys.length > 0) {
       anyFailed = true;
       // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
@@ -474,7 +510,7 @@ async function purgeHardDeleteRowWithFiles(args: {
 async function purgeHardDeleteRowsWithFiles(args: {
   readonly db: DbRunner;
   readonly table: Parameters<typeof selectMany>[1];
-  readonly tableHasTenantId: boolean;
+  readonly fileHolders: readonly SingleFileHolder[];
   readonly where: WhereObject;
   readonly batchLimit: number;
   readonly tenantId: TenantId;
@@ -506,7 +542,7 @@ async function purgeHardDeleteRowsWithFiles(args: {
     const ok = await purgeHardDeleteRowWithFiles({
       db: args.db,
       table: args.table,
-      tableHasTenantId: args.tableHasTenantId,
+      fileHolders: args.fileHolders,
       tenantId: args.tenantId,
       entityName: args.entityName,
       entity: args.entity,
@@ -607,6 +643,7 @@ export async function runRetentionCleanup(
   // filter shrinks the set). A single batched forget/delete event is a follow-up.
   const systemUser = createSystemUser(tenantId);
   const tdb = createTenantDb(db, tenantId, "system");
+  const fileHolders = collectSingleFileHolders(registry);
 
   // Pre-load every override row for this tenant ONCE — N entities × M
   // tenants would otherwise mean one fetchOne per entity per tenant, even
@@ -681,7 +718,7 @@ export async function runRetentionCleanup(
         hardDeleted += await purgeHardDeleteRowsWithFiles({
           db,
           table: proj.table,
-          tableHasTenantId: table["tenantId"] !== undefined,
+          fileHolders,
           where,
           batchLimit,
           tenantId,

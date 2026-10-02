@@ -78,7 +78,18 @@ const anonDocEntity = createEntity({
   retention: { keepFor: "30d", strategy: "anonymize" },
 });
 
+// No retention policy: only holds an image field, so a fileRef can be shared
+// across entity types.
+const otherDocEntity = createEntity({
+  table: "read_c8_other_doc",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    cover: createImageField(),
+  },
+});
+
 const c8Feature = defineFeature("c8-retention-file-fixtures", (r) => {
+  r.entity("c8-other-doc", otherDocEntity);
   r.entity("c8-doc", docEntity);
   r.entity("c8-soft-doc", softDocEntity);
   r.entity("c8-anon-doc", anonDocEntity);
@@ -110,7 +121,7 @@ beforeAll(async () => {
     features: [createDataRetentionFeature(), c8Feature],
     files: { storageProvider: provider },
   });
-  for (const e of [docEntity, softDocEntity, anonDocEntity]) {
+  for (const e of [docEntity, softDocEntity, anonDocEntity, otherDocEntity]) {
     await unsafeCreateEntityTable(stack.db, e);
   }
   fileRefCrud = createEventStoreExecutor(fileRefsTable, fileRefEntity, { entityName: "fileRef" });
@@ -190,7 +201,7 @@ async function labels(table: string, tenantId: string): Promise<string[]> {
 }
 
 beforeEach(async () => {
-  for (const t of ["read_c8_doc", "read_c8_soft_doc", "read_c8_anon_doc"]) {
+  for (const t of ["read_c8_doc", "read_c8_soft_doc", "read_c8_anon_doc", "read_c8_other_doc"]) {
     await asRawClient(stack.db).unsafe(`DELETE FROM ${t}`);
   }
   await asRawClient(stack.db).unsafe(`DELETE FROM file_refs`);
@@ -298,6 +309,71 @@ describe("runRetentionCleanup :: hardDelete purges file bytes + derivatives + fi
     expect(await labels("read_c8_doc", T1)).toEqual(["fresh-shared"]);
     expect(await provider.exists(sharedKey)).toBe(true);
     expect(await fileRefExists(sharedId)).toBe(true);
+  });
+
+  test("unbound fileRef shared with another entity type's live row survives", async () => {
+    const rowA = await seedDoc("read_c8_doc", T1, "expired-xshared", pastIso);
+    const rowB = await seedDoc("read_c8_other_doc", T1, "live-other", withinIso);
+    const key = "t1/xshared/cover/orig.jpg";
+    const sharedId = await seedFileRef({
+      tenantId: T1,
+      entityName: null,
+      entityId: null,
+      fieldName: null,
+      key,
+    });
+    await setCover("read_c8_doc", rowA, sharedId);
+    await setCover("read_c8_other_doc", rowB, sharedId);
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+      files: filesCtx(),
+    });
+
+    expect(result.hardDeleted).toBe(1);
+    expect(await labels("read_c8_doc", T1)).toEqual([]);
+    expect(await labels("read_c8_other_doc", T1)).toEqual(["live-other"]);
+    expect(await provider.exists(key)).toBe(true);
+    expect(await fileRefExists(sharedId)).toBe(true);
+  });
+
+  test("a throwing storage list() skips the row (file_delete_failed) without aborting the tenant run", async () => {
+    const failingRow = await seedDoc("read_c8_doc", T1, "expired-list-throws", pastIso);
+    const key = "t1/list-throws/cover/orig.jpg";
+    const fileRefId = await seedFileRef({
+      tenantId: T1,
+      entityName: "c8-doc",
+      entityId: failingRow,
+      fieldName: "cover",
+      key,
+    });
+    await setCover("read_c8_doc", failingRow, fileRefId);
+    await seedDoc("read_c8_doc", T1, "expired-plain", pastIso);
+
+    const noListProvider: FileStorageProvider = {
+      ...provider,
+      list: async () => {
+        throw new Error("AccessDenied");
+      },
+    };
+
+    const result = await runRetentionCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      tenantId: T1,
+      preloadedTenantPreset: null,
+      now,
+      files: filesCtx(noListProvider),
+    });
+
+    expect(result.skipped).toContainEqual({ entityName: "c8-doc", reason: "file_delete_failed" });
+    expect(await labels("read_c8_doc", T1)).toEqual(["expired-list-throws"]);
+    expect(await fileRefExists(fileRefId)).toBe(true);
+    expect(await provider.exists(key)).toBe(true);
   });
 
   test("storage-delete failure fails the row closed; skipped + convergence on retry", async () => {
