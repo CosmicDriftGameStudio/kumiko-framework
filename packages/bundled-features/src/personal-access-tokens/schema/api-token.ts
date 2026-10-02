@@ -5,6 +5,7 @@ import {
   createTextField,
   createTimestampField,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { API_TOKEN_ENTITY_NAME } from "../constants.js";
 
 // One row per Personal Access Token. Like store_user_sessions this is a
 // direct-write store (r.unmanagedTable): the create/revoke handlers write it and
@@ -87,6 +88,6 @@ export const apiTokenEntity = createEntity({
 // deriveEntityTableMeta (not buildEntityTable): this is a direct-write store, so
 // the table must be a WritableTable (post ES-write-brand #742) — same as
 // sessions' userSessionTable. buildEntityTable is branded executor-only.
-export const apiTokenTable = deriveEntityTableMeta("api-token", apiTokenEntity, {
+export const apiTokenTable = deriveEntityTableMeta(API_TOKEN_ENTITY_NAME, apiTokenEntity, {
   source: "unmanaged",
 });

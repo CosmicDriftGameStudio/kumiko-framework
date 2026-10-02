@@ -5,6 +5,7 @@ import {
 } from "@cosmicdrift/kumiko-bundled-features/auth-foundation";
 import { type DbConnection, deriveEntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { USER_SESSION_ENTITY_NAME } from "./constants.js";
 import { cleanupJob } from "./handlers/cleanup.job.js";
 import { detailQuery } from "./handlers/detail.query.js";
 import { listQuery } from "./handlers/list.query.js";
@@ -112,7 +113,7 @@ export function createSessionsFeature(options?: SessionsFeatureOptions): Feature
       // table out of implicit rebuild, like jobs/channel-in-app/feature-toggles
       // which are direct-write stores too.
       r.storeTable(
-        deriveEntityTableMeta("user-session", userSessionEntity, { source: "unmanaged" }),
+        deriveEntityTableMeta(USER_SESSION_ENTITY_NAME, userSessionEntity, { source: "unmanaged" }),
         {
           reason: "read_side.user_sessions_direct_write",
           // sessionCreator encrypts ip/userAgent via encryptForDirectWrite (#820).

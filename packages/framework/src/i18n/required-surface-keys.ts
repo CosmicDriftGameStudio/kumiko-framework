@@ -15,6 +15,7 @@ import type {
   NavDefinition,
   RowAction,
   ScreenDefinition,
+  SecretMintScreenDefinition,
   ToolbarAction,
   WorkspaceDefinition,
 } from "../engine/types/index.js";
@@ -86,6 +87,30 @@ function pushSectionTitles(
   pushKey(out, section.title, treatAsKey);
   pushKey(out, section.subtitle, treatAsKey);
   for (const group of section.groups ?? []) pushKey(out, group.title, treatAsKey);
+}
+
+type ActionFormShapedStep = Pick<SecretMintScreenDefinition, "fields" | "layout">;
+
+// Field labels and section titles of a step rendered through the action-form shim.
+function pushActionFormShapedKeys(
+  out: Set<string>,
+  featureName: string,
+  step: ActionFormShapedStep,
+): void {
+  for (const fieldName of Object.keys(step.fields)) {
+    out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
+  }
+  for (const section of step.layout.sections) {
+    if (isExtensionEditSection(section)) {
+      pushKey(out, section.title);
+      continue;
+    }
+    if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
+    pushSectionTitles(out, section);
+    for (const f of sectionFieldSpecs(section)) {
+      out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, editFieldName(f)));
+    }
+  }
 }
 
 function pushRowActionKeys(out: Set<string>, action: RowAction): void {
@@ -273,25 +298,9 @@ export function requiredKeysFromScreen(
       break;
     }
     case "secretMint": {
-      // Mirrors the actionForm case above (submitLabel, fields/section titles
-      // via ACTION_FORM_ENTITY) plus the reveal-phase's own i18n surface.
       const mint = screen;
       pushKey(out, mint.submitLabel);
-      for (const fieldName of Object.keys(mint.fields)) {
-        out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
-      }
-      for (const section of mint.layout.sections) {
-        if (isExtensionEditSection(section)) {
-          pushKey(out, section.title);
-          continue;
-        }
-        if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-        pushSectionTitles(out, section);
-        for (const f of sectionFieldSpecs(section)) {
-          const fieldName = editFieldName(f);
-          out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
-        }
-      }
+      pushActionFormShapedKeys(out, featureName, mint);
       pushKey(out, mint.reveal.title);
       pushKey(out, mint.reveal.warning);
       pushKey(out, mint.reveal.confirmLabel);
@@ -301,21 +310,7 @@ export function requiredKeysFromScreen(
       if (mint.confirm !== undefined) {
         pushKey(out, mint.confirm.submitLabel);
         pushKey(out, mint.confirm.doneMessage);
-        for (const fieldName of Object.keys(mint.confirm.fields)) {
-          out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
-        }
-        for (const section of mint.confirm.layout.sections) {
-          if (isExtensionEditSection(section)) {
-            pushKey(out, section.title);
-            continue;
-          }
-          if (section.kind === "relatedList") continue; // rejected at boot, unreachable here
-          pushSectionTitles(out, section);
-          for (const f of sectionFieldSpecs(section)) {
-            const fieldName = editFieldName(f);
-            out.add(fieldLabelKey(featureName, ACTION_FORM_ENTITY, fieldName));
-          }
-        }
+        pushActionFormShapedKeys(out, featureName, mint.confirm);
       }
       break;
     }

@@ -4,7 +4,7 @@ import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
-import { PatErrors } from "../constants.js";
+import { API_TOKEN_ENTITY_NAME, PatErrors } from "../constants.js";
 import { PAT_REVOKED_AGGREGATE_TYPE, PAT_REVOKED_EVENT_QN } from "../pat-revoked-event.js";
 import { apiTokenTable } from "../schema/api-token.js";
 
@@ -52,7 +52,7 @@ export const revokePatWrite = defineWriteHandler({
         i18nKey: "errors.ownershipDenied",
         details: {
           scope: "entity",
-          entityName: "api-token",
+          entityName: API_TOKEN_ENTITY_NAME,
           action: "revoke",
           userId: event.user.id,
         },

@@ -3,11 +3,13 @@
 // user-data-rights' confirm-deletion-by-token and any "you just created this
 // row, now enrich it" flow.
 //
-// The row's own anchor (a value that moves on when the row is consumed: a
-// request id, a status, a version) is mixed INTO the HMAC purpose rather
-// than carried in the token. Verification recomputes it from the row's
-// CURRENT anchor, so a replayed token dies the moment the row moves on —
-// single-use semantics without a burn key or Redis. Minting and redeeming
+// The row's own anchor (a value that moves on when the row is consumed) is
+// mixed INTO the HMAC purpose rather than carried in the token. It must be
+// unique per cycle and never recur (request id, UUID, monotonic version): a
+// status can return to an earlier value and revive an old grant (ABA replay).
+// Verification recomputes it from the row's CURRENT anchor, so a replayed
+// token dies the moment the row moves on — single-use semantics without a
+// burn key or Redis. Minting and redeeming
 // share one purpose-building function so the two can't drift apart; that
 // coupling is the whole point of this module, since an unanchored purpose
 // silently degrades to a bearer token valid for the full TTL.

@@ -522,6 +522,7 @@ export type {
   QueryEvent,
   QueryHandlerDef,
   QueryHandlerFn,
+  RateLimitPer,
   RecordHeaderSpec,
   RecordHeaderSubtitlePart,
   ReferenceDataDef,

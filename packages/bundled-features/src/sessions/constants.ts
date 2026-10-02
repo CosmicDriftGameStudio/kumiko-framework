@@ -1,4 +1,5 @@
 export const SESSIONS_FEATURE = "sessions" as const;
+export const USER_SESSION_ENTITY_NAME = "user-session" as const;
 
 // Qualified write handler names — entity prefix is "userSession", snake_case
 // "user_session" on the wire.
