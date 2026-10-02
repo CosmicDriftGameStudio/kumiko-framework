@@ -150,13 +150,18 @@ function capLines(
 ): readonly string[] {
   if (lines.length <= max) return lines;
 
+  const half = Math.floor(max / 2);
+  // Fails already inside the head, the tail or the previous fail's window would
+  // spend a window slot without revealing any new lines.
   const failIndexes: number[] = [];
-  for (let i = 0; i < lines.length && failIndexes.length < MAX_FAIL_WINDOWS; i++) {
+  for (let i = half; i < lines.length - half && failIndexes.length < MAX_FAIL_WINDOWS; i++) {
     const line = lines[i];
-    if (line !== undefined && FAIL_LINE.test(line.trim())) failIndexes.push(i);
+    if (line === undefined || !FAIL_LINE.test(line.trim())) continue;
+    const previous = failIndexes.at(-1);
+    if (previous !== undefined && i <= previous + FAIL_WINDOW_LINES_AFTER) continue;
+    failIndexes.push(i);
   }
 
-  const half = Math.floor(max / 2);
   const ranges: LineRange[] = [
     { start: 0, end: half - 1 },
     { start: lines.length - half, end: lines.length - 1 },

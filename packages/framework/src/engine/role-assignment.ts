@@ -20,13 +20,16 @@ const ROLE_RANKS = new Map<string, number>([
   ["system", 5],
 ]);
 
-export type AssignableFromRole =
-  | "User"
-  | "Member"
-  | "Editor"
-  | "Admin"
-  | "TenantAdmin"
-  | "SystemAdmin";
+const ASSIGNABLE_FROM_ROLE_LIST = [
+  "User",
+  "Member",
+  "Editor",
+  "Admin",
+  "TenantAdmin",
+  "SystemAdmin",
+] as const;
+
+export type AssignableFromRole = (typeof ASSIGNABLE_FROM_ROLE_LIST)[number];
 
 /** App role → lowest built-in role allowed to assign it. */
 export type AssignableAppRoles = ReadonlyMap<string, AssignableFromRole>;
@@ -37,14 +40,7 @@ export const DEFAULT_APP_ROLE_ASSIGNABLE_FROM: AssignableFromRole = "Admin";
 
 const NO_ASSIGNABLE_APP_ROLES: AssignableAppRoles = new Map();
 
-const ASSIGNABLE_FROM_ROLES: ReadonlySet<string> = new Set<AssignableFromRole>([
-  "User",
-  "Member",
-  "Editor",
-  "Admin",
-  "TenantAdmin",
-  "SystemAdmin",
-]);
+const ASSIGNABLE_FROM_ROLES: ReadonlySet<string> = new Set<string>(ASSIGNABLE_FROM_ROLE_LIST);
 
 function isAssignableFromRole(value: unknown): value is AssignableFromRole {
   return typeof value === "string" && ASSIGNABLE_FROM_ROLES.has(value);

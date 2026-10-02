@@ -203,11 +203,18 @@ export async function runMetric(
   const fillBuckets = (byBucketMs: ReadonlyMap<number, number | null>): readonly MetricPoint[] =>
     bucketStarts.map((atMs) => ({ atMs, value: byBucketMs.get(atMs) ?? gapValue }));
 
-  const points = fillBuckets(
-    new Map(
-      aggregates.points.map((row): [number, number | null] => [Number(row.keys[0]), row.value]),
-    ),
-  );
+  // Grouped metrics carry their time series in `series`; fetchAggregates skips the total series, so filling gaps here would fake a flat zero line.
+  const points =
+    metric.groupBy === undefined
+      ? fillBuckets(
+          new Map(
+            aggregates.points.map((row): [number, number | null] => [
+              Number(row.keys[0]),
+              row.value,
+            ]),
+          ),
+        )
+      : [];
   const rows = buildRows(metric, aggregates, value, labelOf);
 
   return {
