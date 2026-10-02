@@ -355,6 +355,20 @@ type RuleFragmentResult =
   | { readonly kind: "empty" }
   | { readonly kind: "sql"; readonly sqlText: string; readonly params: readonly unknown[] };
 
+// The column set is constant per table object, but ruleToFragment runs on every
+// read with a where-rule.
+const columnSqlNamesByTable = new WeakMap<object, ReadonlySet<string>>();
+
+function cachedTableColumnSqlNames(table: unknown): ReadonlySet<string> {
+  if (table === null || typeof table !== "object") return tableColumnSqlNames(table);
+  let names = columnSqlNamesByTable.get(table);
+  if (!names) {
+    names = tableColumnSqlNames(table);
+    columnSqlNamesByTable.set(table, names);
+  }
+  return names;
+}
+
 function ruleToFragment(
   rule: OwnershipRule,
   user: SessionUser,
@@ -375,7 +389,7 @@ function ruleToFragment(
     // fail-open tautology (fw#2639) — throw instead of shipping it.
     assertQualifiedWhereFragment(
       frag.sqlText,
-      tableColumnSqlNames(table),
+      cachedTableColumnSqlNames(table),
       `ownership where-rule on "${tableNameOf(table)}"`,
     );
     return { kind: "sql", sqlText: frag.sqlText, params: frag.params };

@@ -26,6 +26,8 @@ import { ensureTemporalPolyfill } from "../../time/polyfill.js";
 import { generateId as uuid } from "../../utils/index.js";
 import { append, loadAggregate, loadAggregateWithSnapshot, saveSnapshot } from "../index.js";
 
+const WRITE_P95_BUDGET_MS = 30;
+
 let testDb: BunTestDb;
 const tenantId = uuid() as TenantId;
 const userId = uuid();
@@ -94,13 +96,13 @@ describe("event-store performance — Gate A", () => {
     const p50 = percentile(samples, 0.5);
     const p95 = percentile(samples, 0.95);
     const p99 = percentile(samples, 0.99);
-    const over30 = samples.filter((s) => s >= 30).length;
+    const overBudgetCount = samples.filter((s) => s >= WRITE_P95_BUDGET_MS).length;
     const top5 = samples.slice(-5).map((s) => s.toFixed(1));
     console.log(
-      `  Write-latency: p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=200) over30=${over30} top5=${top5}`,
+      `  Write-latency: p50=${p50.toFixed(2)}ms, p95=${p95.toFixed(2)}ms, p99=${p99.toFixed(2)}ms (n=200) over${WRITE_P95_BUDGET_MS}ms=${overBudgetCount} top5=${top5}`,
     );
 
-    expect(p95).toBeLessThan(30);
+    expect(p95).toBeLessThan(WRITE_P95_BUDGET_MS);
     // Tail budget: absorbs residual runner scheduling noise while still catching order-of-magnitude regressions.
     expect(p99).toBeLessThan(250);
   });
