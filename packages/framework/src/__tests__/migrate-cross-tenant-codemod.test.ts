@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { migrateCrossTenantSource } from "../scripts/codemod/migrate-cross-tenant.js";
 
 const FIXTURES_DIR = join(import.meta.dir, "fixtures", "migrate-cross-tenant");
-const PLACEHOLDER_PREFIXES = ["todo:", "fixme:", "tbd:"];
 
 function readFixture(name: string): { input: string; expected: string } {
   return {
@@ -88,19 +87,25 @@ describe("migrateCrossTenantSource", () => {
     expect(result.output).toContain("crossTenant: false");
   });
 
-  it("never generates a placeholder reason and never leaves a rewritten reason empty", () => {
+  it("builds each reason from the handler name, entity and access verb", () => {
     const { input } = readFixture("rewrite");
     const result = migrateCrossTenantSource(input, "export-job.handlers.ts");
 
+    const expectedParts: Record<number, { handler: string; entity: string; verb: string }> = {
+      16: { handler: "export-job:list", entity: "export-job", verb: "reads" },
+      24: { handler: "export-job:update", entity: "export-job", verb: "writes" },
+      31: { handler: "note:delete", entity: "note", verb: "writes" },
+      38: { handler: "export-job:detail", entity: "export-job", verb: "reads" },
+    };
+
+    expect(result.rewrites).toHaveLength(Object.keys(expectedParts).length);
     for (const rewrite of result.rewrites) {
-      const match = rewrite.after.match(/reason: "([^"]*)"/);
-      expect(match).not.toBeNull();
-      const reason = match?.[1] ?? "";
-      expect(reason.length).toBeGreaterThan(0);
-      const lower = reason.toLowerCase();
-      for (const prefix of PLACEHOLDER_PREFIXES) {
-        expect(lower.startsWith(prefix)).toBe(false);
-      }
+      const reason = rewrite.after.match(/reason: "([^"]*)"/)?.[1] ?? "";
+      const parts = expectedParts[rewrite.line];
+      expect(parts).toBeDefined();
+      expect(reason).toContain(parts?.handler ?? "");
+      expect(reason).toContain(parts?.entity ?? "");
+      expect(reason).toContain(parts?.verb ?? "");
     }
   });
 });

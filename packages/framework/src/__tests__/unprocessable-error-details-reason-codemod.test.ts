@@ -145,6 +145,60 @@ export function guard() {
     expect(output).toContain("removed 1 redundant");
   });
 
+  test("removes a string-literal reason key", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard() {
+  throw new UnprocessableError("x", { details: { "reason": "y", other: 1 } });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    await runCodemod(fixture.dir);
+
+    const out = read(fixture.dir, "guard.ts");
+    expect(out).toContain("details: { other: 1 }");
+    expect(out).not.toContain("reason");
+  });
+
+  test("removes a shorthand reason when the variable is still used positionally", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard(reason: string) {
+  throw new UnprocessableError(reason, { details: { reason, other: 1 } });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    await runCodemod(fixture.dir);
+
+    const out = read(fixture.dir, "guard.ts");
+    expect(out).toContain("new UnprocessableError(reason, { details: { other: 1 } })");
+  });
+
+  test("skips a shorthand reason whose variable is only used in details", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard() {
+  const reason = "y";
+  throw new UnprocessableError("x", { details: { reason, other: 1 } });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const before = read(fixture.dir, "guard.ts");
+    const output = await runCodemod(fixture.dir);
+
+    expect(read(fixture.dir, "guard.ts")).toBe(before);
+    expect(output).toContain("would leave the bound variable unused");
+  });
+
   test("does not touch a locally defined class with the same name", async () => {
     const fixture = makeFixtureDir({
       "guard.ts": `class UnprocessableError extends Error {}

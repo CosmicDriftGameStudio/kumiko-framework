@@ -150,6 +150,37 @@ describe("renderDryRun", () => {
     expect(out).not.toContain("CURRENT_VERSION");
   });
 
+  it.each(["pulumi", "k8s"] as const)(
+    "%s mode keeps a multi-line description of an optional field fully commented out",
+    (mode) => {
+      const composed = composeEnvSchema({
+        features: [],
+        extend: z.object({
+          OPT: z.string().optional().describe("line1\nline2\r\n  line3"),
+          REQ: z.string().describe("req1\nreq2"),
+        }),
+      });
+      const lines = renderDryRun(composed, mode).split("\n");
+
+      for (const marker of ["line2", "line3"]) {
+        const markerLines = lines.filter((l) => l.includes(marker));
+        expect(markerLines.length).toBeGreaterThan(0);
+        for (const l of markerLines) expect(l.trim().startsWith("#")).toBe(true);
+      }
+    },
+  );
+
+  it("pulumi mode keeps the continuation of a required multi-line description in the comment", () => {
+    const composed = composeEnvSchema({
+      features: [],
+      extend: z.object({ REQ: z.string().describe("req1\nreq2") }),
+    });
+    const lines = renderDryRun(composed, "pulumi").split("\n");
+    const reqLine = lines.find((l) => l.includes("req2"));
+
+    expect(reqLine).toContain("# REQ (app): req1 req2");
+  });
+
   it("k8s mode omits the Optional header when there are no optional fields", () => {
     const composed = composeEnvSchema({
       features: [],

@@ -242,7 +242,10 @@ function buildStoredEvent(
 // aggregateId alone, matching prior behavior. Callers that share id
 // generation across multiple aggregate types on the same id (e.g. a solon-
 // style collision) must pass it to avoid folding a foreign type's events
-// into the loaded stream.
+// into the loaded stream. The aggregateType condition stays an unindexed
+// post-filter on purpose: events_aggregate_version_uq already narrows the scan
+// to one aggregate's rows, so an index including aggregate_type would only add
+// write cost.
 export async function loadAggregate(
   db: DbRunner,
   aggregateId: string,

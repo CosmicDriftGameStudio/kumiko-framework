@@ -26,8 +26,10 @@ describe("reason i18n", () => {
         // The docgen skips a reason whose entry is missing or has neither
         // text — the page then stays absent from docs.kumiko.rocks.
         expect(entry, `${locale}.yaml has no entry for ${reason}`).toBeDefined();
-        expect(entry?.endUser?.trim() ?? "").not.toBe("");
-        expect(entry?.developer?.trim() ?? "").not.toBe("");
+        expect(entry?.endUser?.trim() ?? "", `${locale}.yaml ${reason}.endUser empty`).not.toBe("");
+        expect(entry?.developer?.trim() ?? "", `${locale}.yaml ${reason}.developer empty`).not.toBe(
+          "",
+        );
       }
     });
   }

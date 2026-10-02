@@ -152,13 +152,20 @@ function renderJson(fields: readonly EnvField[], options: DryRunOptions): string
   )}\n`;
 }
 
+// A newline in a `.describe()` text would end the `#` comment, so the rest of
+// the description would run as a shell command or break the YAML.
+function oneLineDescription(f: EnvField): string | undefined {
+  return f.description?.replace(/\s*\r?\n\s*/g, " ");
+}
+
 function pulumiConfigSetLine(f: EnvField, options: DryRunOptions): string {
   const meta = readKumikoMeta(f.field);
   const key = pulumiConfigKey(f.name, f.field, options.pulumiPrefix);
   const secretFlag = meta.pulumi?.secret ? " --secret" : "";
   const value = meta.pulumi?.generator ? `"$(${meta.pulumi.generator})"` : `"<set-me>"`;
-  const comment = f.description
-    ? ` # ${f.name} (${f.source}): ${f.description}`
+  const description = oneLineDescription(f);
+  const comment = description
+    ? ` # ${f.name} (${f.source}): ${description}`
     : ` # ${f.name} (${f.source})`;
   return `pulumi config set${secretFlag} ${key} ${value}${comment}`;
 }
@@ -196,7 +203,8 @@ function renderK8s(fields: readonly EnvField[], options: DryRunOptions): string 
   if (optional.length > 0) {
     lines.push("  # Optional (uncomment and set to enable):");
     for (const f of optional) {
-      const comment = f.description ? ` # (${f.source}): ${f.description}` : ` # (${f.source})`;
+      const description = oneLineDescription(f);
+      const comment = description ? ` # (${f.source}): ${description}` : ` # (${f.source})`;
       lines.push(`  # ${f.name}: "<set-me>"${comment}`);
     }
   }

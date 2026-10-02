@@ -105,9 +105,25 @@ function resolveDetailsProperty(optsLiteral: ObjectLiteralExpression): DetailsRe
 /** True if removing this shorthand-bound identifier would leave its declaration with no other use. */
 function wouldLeaveUnusedVariable(nameNode: Identifier): boolean {
   try {
-    const refs = nameNode.findReferencesAsNodes();
-    const others = refs.filter((r) => r !== nameNode);
-    return others.length === 0;
+    // The shorthand name resolves to the object-literal property symbol too, and
+    // a declaration counts as a reference, so look up the variable's own uses.
+    const shorthand = nameNode.getParent();
+    const variableSymbol = Node.isShorthandPropertyAssignment(shorthand)
+      ? shorthand.getValueSymbol()
+      : undefined;
+    const declarations = variableSymbol?.getDeclarations() ?? [];
+    const declarationNames = declarations.flatMap((declaration) =>
+      Node.isVariableDeclaration(declaration) || Node.isParameterDeclaration(declaration)
+        ? [declaration.getNameNode()]
+        : [],
+    );
+    // No resolvable declaration: can't verify, treat as unsafe.
+    if (declarationNames.length === 0) return true;
+    return declarationNames
+      .flatMap((declarationName) =>
+        Node.isIdentifier(declarationName) ? declarationName.findReferencesAsNodes() : [],
+      )
+      .every((usage) => usage === nameNode);
   } catch {
     // Can't verify — treat as unsafe rather than guess.
     return true;
