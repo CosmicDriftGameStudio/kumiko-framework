@@ -207,6 +207,10 @@ function actionIconFor(icon: IconKey | undefined): IconKey | undefined {
   return icon !== undefined && Object.hasOwn(NAV_ICONS, icon) ? icon : undefined;
 }
 
+// Shared by DefaultButton's `secondary` variant and triggers that need Radix `asChild`
+// prop forwarding (which DefaultButton does not support), so both stay visually identical.
+const SECONDARY_BUTTON_EXTRA_CLASSES = "border-input hover:bg-muted";
+
 function DefaultButton({
   type = "button",
   onClick,
@@ -235,7 +239,7 @@ function DefaultButton({
       ? "text-destructive hover:text-destructive hover:bg-destructive/10"
       : "",
     variant === "ghost" ? "text-primary hover:text-primary hover:bg-primary/10" : "",
-    variant === "secondary" ? "border-input hover:bg-muted" : "",
+    variant === "secondary" ? SECONDARY_BUTTON_EXTRA_CLASSES : "",
     pressed === true
       ? "border-primary/40 bg-accent text-accent-foreground ring-1 ring-primary/30"
       : "",
@@ -2617,7 +2621,7 @@ function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): 
           type="button"
           variant="outline"
           size="icon"
-          className="border-input hover:bg-muted"
+          className={SECONDARY_BUTTON_EXTRA_CLASSES}
           aria-label={label}
           data-testid={testId ?? "action-overflow-menu-trigger"}
         >
@@ -4614,19 +4618,29 @@ export function DefaultCard({
 // violate the rules of hooks.
 function QrSecretValue({ value }: { readonly value: string }): ReactNode {
   const [svg, setSvg] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    setFailed(false);
     QRCode.toString(value, { type: "svg", errorCorrectionLevel: "H" })
       .then((result) => {
         if (!cancelled) setSvg(result);
       })
       .catch(() => {
-        // a reveal value always has the plaintext/manual-entry display alongside — QR is just convenience
+        // A generic `qr` field may have no separate text display, so fall back to the plain value.
+        if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
     };
   }, [value]);
+  if (failed) {
+    return (
+      <code className="flex-1 overflow-x-auto whitespace-pre-wrap break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+        {value}
+      </code>
+    );
+  }
   if (svg === null) return null;
   return (
     <div

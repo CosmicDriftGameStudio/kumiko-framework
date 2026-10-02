@@ -55,4 +55,12 @@ describe("textarea rows → min-height (#2677)", () => {
       expect(textarea.getAttribute("rows")).toBe("4");
     }
   });
+
+  // textareaMinHeight hardcodes the vendored frame (py-2 + 1px border); a
+  // shadcn re-sync that changes either must fail here instead of drifting silently.
+  test("vendored textarea still carries the frame classes the min-height addend assumes", () => {
+    const classes = renderTextarea(4).className.split(/\s+/);
+    expect(classes).toContain("py-2");
+    expect(classes).toContain("border");
+  });
 });
