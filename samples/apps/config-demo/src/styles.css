@@ -4,50 +4,9 @@
 
 @source "./**/*.{ts,tsx}";
 
+/* Colour tokens come from renderer-web (dark default + light override); redefining
+   them here pinned light values and kept the app light under `.dark`. */
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #09090b;
-  --color-card: #ffffff;
-  --color-card-foreground: #09090b;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #09090b;
-  --color-border: #e4e4e7;
-  --color-input: #e4e4e7;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #71717a;
-  --color-secondary: #f4f4f5;
-  --color-secondary-foreground: #18181b;
-  --color-accent: #f4f4f5;
-  --color-accent-foreground: #18181b;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #fafafa;
-  --color-primary: #18181b;
-  --color-primary-foreground: #fafafa;
-  --color-ring: #18181b;
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-}
-
-@layer base {
-  :root:not(.dark) {
-    --color-background: #ffffff;
-    --color-foreground: #09090b;
-    --color-card: #ffffff;
-    --color-card-foreground: #09090b;
-    --color-popover: #ffffff;
-    --color-popover-foreground: #09090b;
-    --color-border: #e4e4e7;
-    --color-input: #e4e4e7;
-    --color-muted: #f4f4f5;
-    --color-muted-foreground: #71717a;
-    --color-secondary: #f4f4f5;
-    --color-secondary-foreground: #18181b;
-    --color-accent: #f4f4f5;
-    --color-accent-foreground: #18181b;
-    --color-destructive: #ef4444;
-    --color-destructive-foreground: #fafafa;
-    --color-primary: #18181b;
-    --color-primary-foreground: #fafafa;
-    --color-ring: #18181b;
-  }
 }

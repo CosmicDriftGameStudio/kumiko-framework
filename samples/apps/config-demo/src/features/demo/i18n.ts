@@ -14,10 +14,10 @@ export const configDemoTranslations: TranslationsByLocale = {
   },
   en: {
     "config-demo.settings": "Config Demo",
-    "config-demo.site-name": "Site Name",
-    "config-demo.theme-color": "Theme Color",
-    "config-demo.max-upload-size": "Max Upload Size (MB)",
-    "config-demo.email-notifications": "Email Notifications",
-    "config-demo.auto-approve": "Auto-Approve Orders",
+    "config-demo.site-name": "Site name",
+    "config-demo.theme-color": "Theme color",
+    "config-demo.max-upload-size": "Max upload size (MB)",
+    "config-demo.email-notifications": "Email notifications",
+    "config-demo.auto-approve": "Auto-approve orders",
   },
 };

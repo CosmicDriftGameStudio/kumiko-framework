@@ -15,16 +15,16 @@ import {
 // keys in — system/tenant/user).
 const REQUIRED_I18N = {
   "config-demo.settings": { de: "Config Demo", en: "Config Demo" },
-  "config-demo.site-name": { de: "Webseiten-Name", en: "Site Name" },
-  "config-demo.theme-color": { de: "Design-Farbe", en: "Theme Color" },
-  "config-demo.max-upload-size": { de: "Max. Upload-Größe (MB)", en: "Max Upload Size (MB)" },
+  "config-demo.site-name": { de: "Webseiten-Name", en: "Site name" },
+  "config-demo.theme-color": { de: "Design-Farbe", en: "Theme color" },
+  "config-demo.max-upload-size": { de: "Max. Upload-Größe (MB)", en: "Max upload size (MB)" },
   "config-demo.email-notifications": {
     de: "E-Mail-Benachrichtigungen",
-    en: "Email Notifications",
+    en: "Email notifications",
   },
   "config-demo.auto-approve": {
     de: "Bestellungen automatisch freigeben",
-    en: "Auto-Approve Orders",
+    en: "Auto-approve orders",
   },
   "screen:config-demo-system.title": { de: "System", en: "System" },
   "screen:config-demo-tenant.title": { de: "Organisation", en: "Organization" },
