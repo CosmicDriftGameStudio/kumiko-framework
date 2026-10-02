@@ -1,5 +1,43 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.332.0
+
+### Patch Changes
+
+- ae6d506: Narrow-card meta separator ("·") is now rendered as an element instead of `before:content`, so it survives consumer Tailwind scans of the published dist. The value span keeps its `data-testid` and exact text. The mobile page-header overflow trigger (`shell-header-overflow-trigger`) now has its own aria-label "Page actions" (was "More actions", same as row menus); E2E selectors by label need updating.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Card subtitle separators render in apps again, header overflow trigger has its own label
+  -->
+
+- 14c0fb8: The phone header overflow is now a right-aligned menu (`role="menu"`, arrow-key navigation) instead of a full-width panel, and `ThemeToggle` renders as a labelled row inside it. `ThemeToggle` titles default to the new i18n keys `kumiko.theme.dark` / `kumiko.theme.light`. On phones, a list's primary toolbar action without `onCreate` moves into the page header as an icon button.
+
+  Inline embedded-list tables no longer squeeze reference, select and number columns: columns have realistic minimum widths (the table scrolls horizontally below their sum), widths sit on `<col>` so text and reference columns take the free space, and the sticky actions column fits its four buttons.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Phone header overflow is a right-aligned menu with labelled rows, primary list toolbar action moves into the header on phones
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Embedded list tables keep readable column widths and scroll instead of squeezing, actions column fits its buttons
+  -->
+
+- Updated dependencies [991ed87]
+- Updated dependencies [dcf135e]
+- Updated dependencies [3917e63]
+- Updated dependencies [b81f794]
+- Updated dependencies [541d24b]
+- Updated dependencies [e82b023]
+- Updated dependencies [dcf135e]
+- Updated dependencies [dcf135e]
+  - @cosmicdrift/kumiko-framework@0.332.0
+
 ## 0.331.0
 
 ### Minor Changes

@@ -1,5 +1,95 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.332.0
+
+### Minor Changes
+
+- b81f794: projectionDetail header subtitle with several parts and links
+
+  `header.subtitle` accepts a list of parts (field name or `{ field, navigate }`). Empty parts drop out, the rest are joined by a "·" separator, and a part with `navigate` links to the referenced record (entity or screen target, only when reachable). The Link primitive gets an optional `onPress` for SPA navigation, Text an optional `decorative` flag. `subtitleHref` stays valid with the string form only; the boot validator rejects the combination with a list.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail header subtitle can show several parts, each optionally linking to the referenced record
+  migration: No code change needed.
+  -->
+
+- 541d24b: extensionSelector owner panels on the generated settings page
+
+  `r.extensionSelector(extension, key, { panels })` lets the selector owner add its own `custom` or `screen` panels to the generated `<ownerGroup>-tenant` settings dashboard, after the selection panel and before the plugin panels. Short `screen` refs resolve against the declaring feature. Dead screen or `visibleWhen` query refs, empty, duplicate or `selection` panel ids fail at boot or declaration.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A selector owner can add its own custom or screen panels to the generated settings page (extensionSelector panels)
+  migration: No code change needed.
+  -->
+
+### Patch Changes
+
+- 991ed87: The developer texts of `agent.tool_not_allowed`, `agent.iteration_limit` and `agent.high_risk_no_always` now describe the real error types and triggers.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: agent reason developer texts match the actual error types
+  -->
+
+- dcf135e: buildInsertSchema strips `id` from the insert payload again. A new 4th parameter `{ allowCallerId }` opts in to a caller-chosen id.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: buildInsertSchema strips id again; caller-chosen ids need { allowCallerId: true }
+  migration: |
+    Custom-Create-Handler, die eine caller-gewaehlte id brauchen, uebergeben { allowCallerId: true } und erlauben sie nur System-Identities.
+  -->
+
+- 3917e63: Changeset metadata blocks that a field value closes early with a `-->` line now fail with a clear error.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: early-closed kumiko-changes blocks fail with a clear error
+  -->
+
+- e82b023: Correction to the #2979 changeset: `ctx.fetchForWriting` always scopes `handle.events` to the aggregateType
+
+  The #2979 changeset described the `aggregateType` filter as "purely additive". For `ctx.fetchForWriting` that was wrong: since that release, `handle.events` only contains events of the fetched aggregateType, even when a handler never passed an `aggregateType` option. Events of another aggregateType on the same aggregateId are no longer part of the handle. `loadAggregate` without `aggregateType` is unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: ctx.fetchForWriting scopes handle.events to the aggregateType since the #2979 release (correction, not purely additive)
+  migration: |
+    handle.events von ctx.fetchForWriting ist seit Einführung des aggregateType-Filters
+    typ-gescoped; Handler prüfen, die Events eines anderen aggregateType auf derselben
+    aggregateId erwartet haben, und diese per loadAggregate ohne aggregateType lesen.
+  -->
+
+- dcf135e: The nested-write parent tenant check now fails closed when the parent row has no `tenantId`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Nested-write parent tenant check fails closed for parent rows without tenantId
+  -->
+
+- dcf135e: New column `kumiko_event_consumers.last_failed_event_id` (created by the boot bootstrap, no app migration). `skipPoisonEvent` now skips the event that actually failed.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: skipPoisonEvent skips the actually failed event via kumiko_event_consumers.last_failed_event_id
+  -->
+
+- Updated dependencies [b81f794]
+- Updated dependencies [541d24b]
+- Updated dependencies [b4e827d]
+  - @cosmicdrift/kumiko-types@0.332.0
+  - @cosmicdrift/kumiko-http@0.332.0
+
 ## 0.331.0
 
 ### Minor Changes

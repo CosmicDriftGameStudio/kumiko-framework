@@ -1,5 +1,41 @@
 # @cosmicdrift/kumiko-types
 
+## 0.332.0
+
+### Minor Changes
+
+- b81f794: projectionDetail header subtitle with several parts and links
+
+  `header.subtitle` accepts a list of parts (field name or `{ field, navigate }`). Empty parts drop out, the rest are joined by a "·" separator, and a part with `navigate` links to the referenced record (entity or screen target, only when reachable). The Link primitive gets an optional `onPress` for SPA navigation, Text an optional `decorative` flag. `subtitleHref` stays valid with the string form only; the boot validator rejects the combination with a list.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail header subtitle can show several parts, each optionally linking to the referenced record
+  migration: No code change needed.
+  -->
+
+- 541d24b: extensionSelector owner panels on the generated settings page
+
+  `r.extensionSelector(extension, key, { panels })` lets the selector owner add its own `custom` or `screen` panels to the generated `<ownerGroup>-tenant` settings dashboard, after the selection panel and before the plugin panels. Short `screen` refs resolve against the declaring feature. Dead screen or `visibleWhen` query refs, empty, duplicate or `selection` panel ids fail at boot or declaration.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: A selector owner can add its own custom or screen panels to the generated settings page (extensionSelector panels)
+  migration: No code change needed.
+  -->
+
+### Patch Changes
+
+- b4e827d: `ActionMenuItemSpec` takes an optional `testId` that overrides the menu entry's default `data-testid` in the action overflow menu and the phone header menu. `Button` takes `expanded` (rendered as `aria-expanded`). New icon key `chevron-up`. Below 768 px the whole `header-actions` container sits in the closed "…" menu: E2E settled checks should wait for `[data-kumiko-layout="shell-header"]` and open header actions via `shell-header-overflow-trigger`.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Menu items accept testId, Button accepts expanded, chevron-up icon
+  -->
+
 ## 0.331.0
 
 ### Minor Changes

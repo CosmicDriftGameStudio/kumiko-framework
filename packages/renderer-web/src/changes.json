@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "Card subtitle separators render in apps again, header overflow trigger has its own label"
+  },
+  {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "Phone header overflow is a right-aligned menu with labelled rows, primary list toolbar action moves into the header on phones",
+    "detail": "Inline embedded-list tables no longer squeeze reference, select and number columns: columns have realistic minimum widths (the table scrolls horizontally below their sum), widths sit on `<col>` so text and reference columns take the free space, and the sticky actions column fits its four buttons."
+  },
+  {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "Embedded list tables keep readable column widths and scroll instead of squeezing, actions column fits its buttons",
+    "detail": "Inline embedded-list tables no longer squeeze reference, select and number columns: columns have realistic minimum widths (the table scrolls horizontally below their sum), widths sit on `<col>` so text and reference columns take the free space, and the sticky actions column fits its four buttons."
+  },
+  {
+    "version": "0.332.0",
+    "type": "improvement",
+    "title": "Menu items accept testId, Button accepts expanded, chevron-up icon"
+  },
+  {
     "version": "0.331.0",
     "type": "fix",
     "title": "Card subtitle separators no longer appear at the start of a wrapped line",

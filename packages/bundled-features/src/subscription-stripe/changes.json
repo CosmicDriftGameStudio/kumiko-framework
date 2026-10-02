@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "Stripe retrieve transient errors answer 503 instead of ignored"
+  },
+  {
     "version": "0.320.0",
     "type": "fix",
     "title": "subscription-stripe narrows a recurring price interval to a closed union instead of widening on an unrecognized Stripe value",

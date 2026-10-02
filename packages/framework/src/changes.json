@@ -1,5 +1,45 @@
 [
   {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "agent reason developer texts match the actual error types"
+  },
+  {
+    "version": "0.332.0",
+    "type": "breaking",
+    "title": "buildInsertSchema strips id again; caller-chosen ids need { allowCallerId: true }",
+    "migration": "Custom-Create-Handler, die eine caller-gewaehlte id brauchen, uebergeben { allowCallerId: true } und erlauben sie nur System-Identities."
+  },
+  {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "early-closed kumiko-changes blocks fail with a clear error"
+  },
+  {
+    "version": "0.332.0",
+    "type": "improvement",
+    "title": "A selector owner can add its own custom or screen panels to the generated settings page (extensionSelector panels)",
+    "detail": "`r.extensionSelector(extension, key, { panels })` lets the selector owner add its own `custom` or `screen` panels to the generated `<ownerGroup>-tenant` settings dashboard, after the selection panel and before the plugin panels. Short `screen` refs resolve against the declaring feature. Dead screen or `visibleWhen` query refs, empty, duplicate or `selection` panel ids fail at boot or declaration.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.332.0",
+    "type": "breaking",
+    "title": "ctx.fetchForWriting scopes handle.events to the aggregateType since the #2979 release (correction, not purely additive)",
+    "detail": "The #2979 changeset described the `aggregateType` filter as \"purely additive\". For `ctx.fetchForWriting` that was wrong: since that release, `handle.events` only contains events of the fetched aggregateType, even when a handler never passed an `aggregateType` option. Events of another aggregateType on the same aggregateId are no longer part of the handle. `loadAggregate` without `aggregateType` is unchanged.",
+    "migration": "handle.events von ctx.fetchForWriting ist seit Einführung des aggregateType-Filters\ntyp-gescoped; Handler prüfen, die Events eines anderen aggregateType auf derselben\naggregateId erwartet haben, und diese per loadAggregate ohne aggregateType lesen."
+  },
+  {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "Nested-write parent tenant check fails closed for parent rows without tenantId"
+  },
+  {
+    "version": "0.332.0",
+    "type": "fix",
+    "title": "skipPoisonEvent skips the actually failed event via kumiko_event_consumers.last_failed_event_id"
+  },
+  {
     "version": "0.331.0",
     "type": "fix",
     "title": "A reference field's optionsQuery now reaches the client schema, so the picker uses the declared handler",

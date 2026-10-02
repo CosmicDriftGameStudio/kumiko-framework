@@ -1,5 +1,71 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.332.0
+
+### Minor Changes
+
+- b81f794: projectionDetail header subtitle with several parts and links
+
+  `header.subtitle` accepts a list of parts (field name or `{ field, navigate }`). Empty parts drop out, the rest are joined by a "·" separator, and a part with `navigate` links to the referenced record (entity or screen target, only when reachable). The Link primitive gets an optional `onPress` for SPA navigation, Text an optional `decorative` flag. `subtitleHref` stays valid with the string form only; the boot validator rejects the combination with a list.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: projectionDetail header subtitle can show several parts, each optionally linking to the referenced record
+  migration: No code change needed.
+  -->
+
+### Patch Changes
+
+- ae6d506: Narrow-card meta separator ("·") is now rendered as an element instead of `before:content`, so it survives consumer Tailwind scans of the published dist. The value span keeps its `data-testid` and exact text. The mobile page-header overflow trigger (`shell-header-overflow-trigger`) now has its own aria-label "Page actions" (was "More actions", same as row menus); E2E selectors by label need updating.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Card subtitle separators render in apps again, header overflow trigger has its own label
+  -->
+
+- 14c0fb8: The phone header overflow is now a right-aligned menu (`role="menu"`, arrow-key navigation) instead of a full-width panel, and `ThemeToggle` renders as a labelled row inside it. `ThemeToggle` titles default to the new i18n keys `kumiko.theme.dark` / `kumiko.theme.light`. On phones, a list's primary toolbar action without `onCreate` moves into the page header as an icon button.
+
+  Inline embedded-list tables no longer squeeze reference, select and number columns: columns have realistic minimum widths (the table scrolls horizontally below their sum), widths sit on `<col>` so text and reference columns take the free space, and the sticky actions column fits its four buttons.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Phone header overflow is a right-aligned menu with labelled rows, primary list toolbar action moves into the header on phones
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Embedded list tables keep readable column widths and scroll instead of squeezing, actions column fits its buttons
+  -->
+
+- b4e827d: `ActionMenuItemSpec` takes an optional `testId` that overrides the menu entry's default `data-testid` in the action overflow menu and the phone header menu. `Button` takes `expanded` (rendered as `aria-expanded`). New icon key `chevron-up`. Below 768 px the whole `header-actions` container sits in the closed "…" menu: E2E settled checks should wait for `[data-kumiko-layout="shell-header"]` and open header actions via `shell-header-overflow-trigger`.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Menu items accept testId, Button accepts expanded, chevron-up icon
+  -->
+
+- Updated dependencies [991ed87]
+- Updated dependencies [dcf135e]
+- Updated dependencies [ae6d506]
+- Updated dependencies [3917e63]
+- Updated dependencies [b81f794]
+- Updated dependencies [541d24b]
+- Updated dependencies [e82b023]
+- Updated dependencies [14c0fb8]
+- Updated dependencies [b4e827d]
+- Updated dependencies [dcf135e]
+- Updated dependencies [dcf135e]
+  - @cosmicdrift/kumiko-framework@0.332.0
+  - @cosmicdrift/kumiko-renderer@0.332.0
+  - @cosmicdrift/kumiko-types@0.332.0
+  - @cosmicdrift/kumiko-headless@0.332.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.332.0
+
 ## 0.331.0
 
 ### Minor Changes
