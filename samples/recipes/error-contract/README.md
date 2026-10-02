@@ -95,5 +95,3 @@ The chain lands in the log (for forensics), but **not** in the response to the c
 
 - Full class definitions: `packages/framework/src/errors/classes.ts`
 - Gold-standard integration test: `packages/framework/src/__tests__/error-contract.integration.test.ts`
-- Architecture rationale: keep the deployment-specific architecture notes in
-  your private operations documentation.

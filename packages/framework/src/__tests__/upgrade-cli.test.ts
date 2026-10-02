@@ -3,10 +3,8 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -14,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   findCodemodScriptsRoot,
+  findFeatureChangelogFiles,
   findFeaturesDirs,
   findPackageChangelogFiles,
   resolveCodemodScript,
@@ -751,24 +750,10 @@ describe("upgrade command — filter baseline is the marker, not the installed v
 });
 
 describe("changes.json codemod fields resolve to real published scripts", () => {
-  function findChangesJsonFiles(dir: string): string[] {
-    const found: string[] = [];
-    for (const name of readdirSync(dir)) {
-      if (name === "node_modules") continue;
-      const full = join(dir, name);
-      if (statSync(full).isDirectory()) {
-        found.push(...findChangesJsonFiles(full));
-      } else if (name === "changes.json") {
-        found.push(full);
-      }
-    }
-    return found;
-  }
-
   test("every codemod field is a scripts/codemod/*.ts path that resolves to an existing published script", () => {
     const changesJsonFiles = [
       ...findPackageChangelogFiles(REAL_REPO_ROOT),
-      ...findFeaturesDirs(REAL_REPO_ROOT).flatMap((dir) => findChangesJsonFiles(dir)),
+      ...findFeaturesDirs(REAL_REPO_ROOT).flatMap((dir) => findFeatureChangelogFiles(dir)),
     ];
     expect(changesJsonFiles.length).toBeGreaterThan(0);
 

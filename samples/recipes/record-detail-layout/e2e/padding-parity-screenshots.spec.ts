@@ -1,7 +1,8 @@
 // Manual visual evidence for fw#3234 review round 2 (padding parity) — one
 // screenshot per tab kind (fields, relatedList, extension) plus the head
 // card + screen actions, Desktop and Phone (see playwright.config.ts
-// "chromium-desktop-screenshots" / "chromium-phone" projects). Not an
+// "chromium-desktop-screenshots" / "chromium-phone" projects, enabled only
+// with PADDING_PARITY_SCREENSHOTS=1). Not an
 // assertion-bearing regression test (the DOM-level padding assertions live
 // in projection-detail.test.tsx) — this only captures what a reviewer sees.
 

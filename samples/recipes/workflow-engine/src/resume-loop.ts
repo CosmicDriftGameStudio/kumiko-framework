@@ -27,6 +27,9 @@ import {
   WORKFLOW_RUN_FAILED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { VersionConflictError } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+
+const log = createFallbackLogger("workflow-runner");
 
 export type SuspendableRun = {
   runId: string;
@@ -183,6 +186,13 @@ export async function runResumeLoop(
 
       resumed++;
     } catch (error) {
+      // The failed event keeps only a short description; log the raw error so
+      // the cause stays diagnosable.
+      log.warn("workflow run failed", {
+        runId: run.runId,
+        stepIndex: run.stepIndex,
+        error: String(error),
+      });
       await handlerCtx.unsafeAppendEvent({
         aggregateId: run.runId,
         aggregateType: WORKFLOW_AGGREGATE_TYPE,

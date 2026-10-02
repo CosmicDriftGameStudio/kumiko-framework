@@ -6,6 +6,7 @@ import {
   buildIntegrationTestArgs,
   selectIntegrationFiles,
 } from "@cosmicdrift/kumiko-testing/integration-runner";
+import { SCAFFOLD_INTEGRATION_PARALLEL } from "@cosmicdrift/kumiko-testing/scaffold";
 import { Glob } from "bun";
 import {
   INTEGRATION_GUARD,
@@ -17,12 +18,6 @@ import {
 } from "../bin/_lib/integration-test";
 
 const INTEGRATION_COVERAGE_OUT = "coverage/integration";
-
-// Matches the app template default: 4 workers, --no-isolate (bun 1.4.0's
-// --isolate leaks native memory per test file until it OOMs the runner).
-// Tests isolate through data (seedTenant per flow, queue prefix per stack),
-// not processes, the same contract the apps already run under.
-const DEFAULT_INTEGRATION_PARALLEL = 4;
 
 async function discoverAllIntegrationFiles(): Promise<string[]> {
   const scanned: string[] = [];
@@ -47,7 +42,7 @@ async function discoverIntegrationTargets(
 // splits them into their own job for the same reason). No env override for
 // bulk, the same contract as the app template, not a per-run knob.
 function resolveParallel(mode: IntegrationRunMode): number | undefined {
-  return mode === "perf" ? undefined : DEFAULT_INTEGRATION_PARALLEL;
+  return mode === "perf" ? undefined : SCAFFOLD_INTEGRATION_PARALLEL;
 }
 
 type RunOutcome = {

@@ -89,14 +89,22 @@ function isValidOwnTenantIdValue(valueNode: Node): boolean {
 
 function objectHasValidOwnTenantId(obj: Node): boolean {
   if (!Node.isObjectLiteralExpression(obj)) return false;
-  for (const prop of obj.getProperties()) {
-    if (Node.isPropertyAssignment(prop) && prop.getName() === "tenantId") {
-      const init = prop.getInitializer();
-      return init !== undefined && isValidOwnTenantIdValue(init);
-    }
-    if (Node.isShorthandPropertyAssignment(prop) && prop.getName() === "tenantId") {
-      return isConstTenantIdBinding(enclosingFunctionScope(prop), "tenantId");
-    }
+  const props = obj.getProperties();
+  const tenantIdIndex = props.findIndex(
+    (prop) =>
+      (Node.isPropertyAssignment(prop) || Node.isShorthandPropertyAssignment(prop)) &&
+      prop.getName() === "tenantId",
+  );
+  if (tenantIdIndex === -1) return false;
+  // A later spread can override the literal tenantId at runtime.
+  if (props.slice(tenantIdIndex + 1).some((prop) => Node.isSpreadAssignment(prop))) return false;
+  const prop = props[tenantIdIndex];
+  if (Node.isPropertyAssignment(prop)) {
+    const init = prop.getInitializer();
+    return init !== undefined && isValidOwnTenantIdValue(init);
+  }
+  if (Node.isShorthandPropertyAssignment(prop)) {
+    return isConstTenantIdBinding(enclosingFunctionScope(prop), "tenantId");
   }
   return false;
 }
