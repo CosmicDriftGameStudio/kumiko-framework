@@ -1,5 +1,7 @@
+import { configClient } from "@cosmicdrift/kumiko-bundled-features/config/web";
 import { localeDeClient } from "@cosmicdrift/kumiko-locale-de/web";
 import { createKumikoApp } from "@cosmicdrift/kumiko-renderer-web";
+import { aiSettingsClient } from "../features/ai-settings/web";
 import { contentClient } from "../features/content/web";
 import { styleguideClient } from "../features/demo/web";
 import { examplesClient } from "../features/examples/web";
@@ -15,6 +17,8 @@ createKumikoApp({
   shell: AppShell,
   clientFeatures: [
     localeDeClient(),
+    configClient(),
+    aiSettingsClient,
     styleguideClient,
     galleryClient,
     widgetsClient,
