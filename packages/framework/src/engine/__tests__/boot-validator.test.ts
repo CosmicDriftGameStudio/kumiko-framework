@@ -2732,6 +2732,17 @@ describe("boot-validator", () => {
       ).toThrow(/redirect\.idFrom is empty/);
     });
 
+    test("redirect object mit idFrom mit Leerzeichen → Throw", () => {
+      expect(() =>
+        validateBoot([
+          makeFeature({
+            redirect: { screen: "after-form", idFrom: " leaseId" },
+            extraScreens: ["after-form"],
+          }),
+        ]),
+      ).toThrow(/redirect\.idFrom " leaseId" has leading\/trailing whitespace/);
+    });
+
     test("cancelTarget → existing screen-id → kein Throw", () => {
       expect(() =>
         validateBoot([makeFeature({ cancelTarget: "after-form", extraScreens: ["after-form"] })]),

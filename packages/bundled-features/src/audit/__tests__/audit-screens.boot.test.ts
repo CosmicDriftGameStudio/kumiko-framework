@@ -27,10 +27,10 @@ describe("audit log screen + handler access alignment", () => {
   });
 
   test("the user:user actor reference makes `user` a hard boot dependency (fw#3103)", () => {
-    // fw#3108's refEntity check now catches the missing "user" feature before the "requires" check does.
+    // The refEntity check runs before the "requires" check and names the unmounted feature itself.
     expect(() =>
       validateBoot([createConfigFeature(), createTenantFeature(), createAuditFeature()]),
-    ).toThrow(/refEntity\) targets entity "user:user".*Known entities in feature "user": \(none\)/);
+    ).toThrow(/refEntity\) targets entity "user:user", but feature "user" is not mounted/);
   });
 
   test("audit-log screen is declarative, access.admin-gated", () => {

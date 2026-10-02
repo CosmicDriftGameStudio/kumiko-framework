@@ -413,6 +413,17 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
       );
     });
 
+    test("a subtitleHref field missing from the outputSchema throws", () => {
+      const feature = subtitleFeature({
+        title: "name",
+        subtitle: "unitName",
+        subtitleHref: "ghostUrl",
+      });
+      expect(() => validateBoot([feature])).toThrow(
+        /header\.subtitleHref references field "ghostUrl" which is not present/,
+      );
+    });
+
     test("subtitleHref together with a list throws", () => {
       const feature = subtitleFeature({
         title: "name",
@@ -775,6 +786,31 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
 
     test("section fields present in the outputSchema pass", () => {
       expect(() => validateBoot([featureWithSectionFields(["id", "name"])])).not.toThrow();
+    });
+
+    function featureWithCountField(countField: string) {
+      return defineFeature("app", (r) => {
+        r.queryHandler("tenant:detail", z.object({}), async () => ({ id: "1", openCount: 2 }), {
+          access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+          outputSchema: z.object({ id: z.string(), openCount: z.number() }),
+        });
+        r.screen({
+          id: "tenant-detail",
+          type: "projectionDetail",
+          query: "app:query:tenant:detail",
+          layout: { sections: [{ title: "Main", fields: ["id"], countField }] },
+        });
+      });
+    }
+
+    test("a section countField missing from the outputSchema throws", () => {
+      expect(() => validateBoot([featureWithCountField("ghostCount")])).toThrow(
+        /section "Main" countField references field "ghostCount" which is not present/,
+      );
+    });
+
+    test("a section countField present in the outputSchema passes", () => {
+      expect(() => validateBoot([featureWithCountField("openCount")])).not.toThrow();
     });
   });
 });

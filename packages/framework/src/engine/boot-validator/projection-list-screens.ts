@@ -128,6 +128,9 @@ function validateProjectionListDateRangeFacets(
   screen: ProjectionListScreenDefinition,
   schema: QueryHandlerDef["schema"] | undefined,
 ): void {
+  // Shared params overwrite each other in the payload, silently dropping the first pick.
+  // (Two facets on one field are already rejected by the generic duplicate-facet check.)
+  const usedParams = new Set<string>();
   for (const facet of screen.facets ?? []) {
     if (facet.type !== "dateRange") continue;
     if (facet.params.from === facet.params.to) {
@@ -143,6 +146,13 @@ function validateProjectionListDateRangeFacets(
             `which is a reserved list-payload key — pick the query's own time-bound param names.`,
         );
       }
+      if (usedParams.has(param)) {
+        throw new Error(
+          `${prefix}: dateRange facet on "${facet.field}" names "${param}" which another dateRange ` +
+            `facet on this screen already uses — the facets would overwrite each other's bound.`,
+        );
+      }
+      usedParams.add(param);
       if (schemaAccepts(schema, param)) continue;
       throw new Error(
         `${prefix}: dateRange facet on "${facet.field}" sends "${param}" but query ` +

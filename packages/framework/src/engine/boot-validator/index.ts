@@ -263,7 +263,12 @@ export function validateBoot(
     allWorkspaceQns,
   );
   if (effectiveNavAllowlist !== undefined) {
-    warnOnUnreachableNavScreens(allNavQns, effectiveNavAllowlist, options?.navAllowlistExempt);
+    warnOnUnreachableNavScreens(
+      allNavQns,
+      effectiveNavAllowlist,
+      options?.navAllowlistExempt,
+      options?.navAllowlist === undefined ? "workspaces" : "explicit",
+    );
   }
   validateDefaultWorkspaceUniqueness(allWorkspaceQns);
   validateI18nSurfaceKeys(features);

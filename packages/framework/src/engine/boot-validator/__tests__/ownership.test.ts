@@ -4,8 +4,10 @@
 // row at all. Without the guard such a map boots and only ever denies.
 
 import { describe, expect, test } from "bun:test";
+import { buildEntityTable } from "../../../db/table-builder.js";
 import { defineFeature } from "../../define-feature.js";
 import { createEntity, createTextField } from "../../factories.js";
+import { tableNameOf } from "../../ownership.js";
 import type { ClaimKeyDefinition, FeatureDefinition } from "../../types/index.js";
 import type { OwnershipMap, WhereRule } from "../../types/ownership.js";
 import { validateOwnershipRules } from "../ownership.js";
@@ -73,6 +75,37 @@ describe("validateOwnershipRules — where-rules on access.write", () => {
   test("a where-rule on access.write is rejected even next to an 'all' role", () => {
     const feature = featureWith({ write: { Admin: "all", Member: ownerWhere } });
     expect(() => validate(feature)).toThrow(/access\.write/);
+  });
+});
+
+describe("validateOwnershipRules — probe renders the rule with the runtime table name", () => {
+  test("ctx.tableName matches the built table's name, not the entity name", () => {
+    const seen: string[] = [];
+    const recordingWhere: WhereRule = {
+      kind: "where",
+      where: (user, ctx) => {
+        seen.push(ctx.tableName);
+        return { sqlText: `${ctx.tableName}.owner_id = $${ctx.paramStart}`, params: [user.id] };
+      },
+    };
+    const feature = defineFeature("memos", (r) => {
+      r.entity(
+        "user-mfa",
+        createEntity({
+          fields: {
+            ownerId: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+          },
+          access: { read: { Member: recordingWhere } },
+        }),
+      );
+    });
+
+    validate(feature);
+
+    const entity = feature.entities?.["user-mfa"];
+    if (entity === undefined) throw new Error("fixture entity missing");
+    expect(seen).toEqual([tableNameOf(buildEntityTable("user-mfa", entity))]);
+    expect(seen[0]).not.toBe("user-mfa");
   });
 });
 

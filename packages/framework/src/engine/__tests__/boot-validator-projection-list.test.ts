@@ -536,6 +536,55 @@ describe("validateBoot — projectionList screens", () => {
       expect(() => validateBoot([feature])).toThrow(/reserved list-payload key/);
     });
 
+    function featureWithDateRangeFacets(
+      facets: ReadonlyArray<{ field: string; from: string; to: string }>,
+    ): ReturnType<typeof defineFeature> {
+      return defineFeature("ledger", (r) => {
+        r.queryHandler(
+          "schedule:list",
+          z.object({
+            from: z.iso.datetime().optional(),
+            to: z.iso.datetime().optional(),
+            since: z.iso.datetime().optional(),
+            until: z.iso.datetime().optional(),
+          }),
+          async () => ({ rows: [], nextCursor: null }),
+          { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
+        );
+        r.screen({
+          id: "schedule-list",
+          type: "projectionList",
+          query: "ledger:query:schedule:list",
+          columns: [...new Set(facets.map((f) => f.field))],
+          facets: facets.map((f) => ({
+            field: f.field,
+            type: "dateRange" as const,
+            label: f.field,
+            params: { from: f.from, to: f.to },
+          })),
+        });
+        r.translations({
+          keys: { "screen:schedule-list.title": { de: "Liste", en: "List" } },
+        });
+      });
+    }
+
+    test("two dateRange facets sharing a param name are rejected", () => {
+      const feature = featureWithDateRangeFacets([
+        { field: "createdAt", from: "from", to: "to" },
+        { field: "updatedAt", from: "from", to: "to" },
+      ]);
+      expect(() => validateBoot([feature])).toThrow(/already uses/);
+    });
+
+    test("two dateRange facets with distinct fields and params boot", () => {
+      const feature = featureWithDateRangeFacets([
+        { field: "createdAt", from: "from", to: "to" },
+        { field: "updatedAt", from: "since", to: "until" },
+      ]);
+      expect(() => validateBoot([feature])).not.toThrow();
+    });
+
     test("a reference facet targeting an unknown entity is rejected", () => {
       const feature = defineFeature("ledger", (r) => {
         r.queryHandler(
