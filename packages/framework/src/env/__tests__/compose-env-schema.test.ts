@@ -346,9 +346,19 @@ describe("kms env slots", () => {
       expect(parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc" })["MASTER_KEY_CIPHERTEXT"]).toBe(
         "abc",
       );
-      expect(() => parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc", PLAIN: "forbidden" })).toThrow(
-        KumikoBootError,
-      );
+      const thrown = (() => {
+        try {
+          parseEnv(refined, { MASTER_KEY_CIPHERTEXT: "abc", PLAIN: "forbidden" });
+        } catch (err) {
+          return err;
+        }
+        return undefined;
+      })();
+
+      expect(thrown).toBeInstanceOf(KumikoBootError);
+      expect((thrown as KumikoBootError).errors).toEqual([
+        { name: "PLAIN", kind: "invalid", message: expect.stringContaining("PLAIN is forbidden") },
+      ]);
     });
 
     it("parseEnv reports a refinement that throws on a ciphertext-only slot as a boot error", () => {

@@ -150,6 +150,10 @@ export const EXT_DERIVATIVE_PUBLIC_PREDICATE = "derivativePublicPredicate" as co
  * an image silently rendered without its QR would look correct while being
  * wrong.
  *
+ * `resolve()` runs on every `variant()` call — including cache hits on the
+ * anonymous public route — because the spec hash needs the resolved value.
+ * It must be cheap or cache its own lookups.
+ *
  * Registered/consumed by: `file-derivatives`'s `variant()`
  * (derivatives-context.ts), before the variant's spec hash is computed.
  */

@@ -7,8 +7,15 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { resetBlindIndexKeyForTests } from "../crypto/blind-index.js";
-import { resetPiiSubjectKmsForTests } from "../crypto/pii-field-encryption.js";
+import {
+  configuredBlindIndexKey,
+  decodeBlindIndexKey,
+  resetBlindIndexKeyForTests,
+} from "../crypto/blind-index.js";
+import {
+  configuredPiiSubjectKms,
+  resetPiiSubjectKmsForTests,
+} from "../crypto/pii-field-encryption.js";
 import { defineFeature } from "../engine/index.js";
 import { runSchemaCli, type SchemaCliOut } from "../schema-cli.js";
 import { createTestDb, type TestDb } from "../stack/index.js";
@@ -128,6 +135,30 @@ describe("runSchemaCli apply — kmsSlots", () => {
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("PLATFORM_KEK source=key-manager");
     expect(cap.log.join("\n")).toContain("KUMIKO_BLIND_INDEX_KEY source=key-manager");
+    // The resolved values must reach the boot-injected singletons a rebuild reads.
+    expect(configuredBlindIndexKey()).toEqual(decodeBlindIndexKey(BLIND_INDEX_PLAINTEXT));
+    expect(configuredPiiSubjectKms()).toBeDefined();
+  });
+
+  test("with an empty kmsSlots list, no ciphertext is resolved and nothing is wired", async () => {
+    process.env["PLATFORM_KEK_CIPHERTEXT"] = PLATFORM_KEK_CIPHERTEXT;
+    process.env["KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT"] = BLIND_INDEX_CIPHERTEXT;
+    process.env["PLATFORM_KEK_KMS_KEY_ID"] = "key-1";
+    process.env["PLATFORM_KEK_KMS_TOKEN"] = "token-1";
+    const fetchCalls: string[] = [];
+    globalThis.fetch = mockDecryptFetch({}, fetchCalls);
+
+    const appCwd = writeAppWithTrivialMigration("0001_init");
+    const cap = captureOut();
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+    });
+
+    expect(code).toBe(0);
+    expect(fetchCalls).toEqual([]);
+    expect(configuredBlindIndexKey()).toBeUndefined();
+    expect(configuredPiiSubjectKms()).toBeUndefined();
   });
 
   test("only resolves the declared slots — an undeclared _PREVIOUS ciphertext is left untouched", async () => {

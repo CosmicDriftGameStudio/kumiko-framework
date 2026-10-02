@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source.js";
-import { buildPgKmsOptions } from "../kms-wiring.js";
+import { buildPgKmsOptions, resolveKmsWiringAsync } from "../kms-wiring.js";
 
 const TOKEN = "scw-secret-token";
 const CIPHERTEXT_A = Buffer.from("ciphertext-a").toString("base64");
@@ -465,6 +465,20 @@ describe("resolvePlatformKeks", () => {
       expect(lines).toEqual([
         "KUMIKO_SECRETS_MASTER_KEY_V1 source=key-manager keyId=key-1 region=fr-par",
       ]);
+    });
+
+    test("leaves a plaintext previous KEK without version to the wiring check when the slot is not declared", async () => {
+      const env: KekSourceEnv = {
+        PLATFORM_KEK: "current-plaintext",
+        SUBJECT_KEYS_DATABASE_URL: "postgresql://unused",
+        KUMIKO_BLIND_INDEX_KEY: "blind-index-plaintext",
+        PLATFORM_KEK_PREVIOUS: "old",
+      };
+
+      expect(await resolvePlatformKeks(env, { slots: [] })).toBe(env);
+      await expect(resolveKmsWiringAsync(env, { slots: [] })).rejects.toThrow(
+        /PLATFORM_KEK_PREVIOUS and PLATFORM_KEK_PREVIOUS_VERSION must be set together/,
+      );
     });
 
     test("still rejects a previous KEK without its version when that slot is declared", async () => {

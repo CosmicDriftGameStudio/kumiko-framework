@@ -88,6 +88,20 @@ describe("appendProvenanceEvent", () => {
     });
   });
 
+  test("a failing append outside a transaction throws, leaves one event and keeps the connection usable", async () => {
+    const aggregateId = uuid();
+    await appendProvenanceEvent(tdb, provenanceEvent({ aggregateId, expectedVersion: 0 }));
+
+    await expect(
+      appendProvenanceEvent(tdb, provenanceEvent({ aggregateId, expectedVersion: 0 })),
+    ).rejects.toThrow(VersionConflictError);
+
+    expect(await loadAggregate(testDb.db, aggregateId, tenantA)).toHaveLength(1);
+
+    await appendProvenanceEvent(tdb, provenanceEvent({ aggregateId, expectedVersion: 1 }));
+    expect(await loadAggregate(testDb.db, aggregateId, tenantA)).toHaveLength(2);
+  });
+
   test("a TenantDb not built by createTenantDb fails closed", async () => {
     const handBuilt = { tenantId: tenantA, mode: "tenant" } as unknown as TenantDb;
 
