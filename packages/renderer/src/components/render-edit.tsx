@@ -1352,10 +1352,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // DefaultForm renders an empty footer strip (border + padding, no content)
   // on read-only detail screens, since `actions` would otherwise always be
   // a defined (if empty) fragment.
+  const showWizardBack = isWizard && currentStep > 0;
+  const showWizardNext = isWizard && !isLastWizardStep;
+  const showSubmit = showsSubmit && (!isWizard || isLastWizardStep);
   const hasFormActions =
-    (isWizard && currentStep > 0) ||
-    (isWizard && !isLastWizardStep) ||
-    (showsSubmit && (!isWizard || isLastWizardStep)) ||
+    showWizardBack ||
+    showWizardNext ||
+    showSubmit ||
     footerSlot !== undefined ||
     writeFormFooterAction !== undefined;
   const nextStepTitle = isWizard ? filteredSections[currentStep + 1]?.title : undefined;
@@ -1379,7 +1382,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const isSettingsList = screen.layout.variant === "settings-list" && hideSectionTitles !== true;
   const formActions = (
     <>
-      {isWizard && currentStep > 0 && (
+      {showWizardBack && (
         <Button
           type="button"
           variant="secondary"
@@ -1415,7 +1418,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.wizard.save-and-close")}
         </Button>
       )}
-      {isWizard && !isLastWizardStep && (
+      {showWizardNext && (
         <Button
           type="submit"
           variant="primary"
@@ -1427,8 +1430,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             : translate("kumiko.actions.next")}
         </Button>
       )}
-      {showsSubmit &&
-        (!isWizard || isLastWizardStep) &&
+      {showSubmit &&
         footerActions?.map((action) => (
           <Button
             key={action.id}
@@ -1457,7 +1459,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           {translate("kumiko.form.discard")}
         </Button>
       )}
-      {showsSubmit && (!isWizard || isLastWizardStep) && (
+      {showSubmit && (
         <Button
           type="submit"
           disabled={

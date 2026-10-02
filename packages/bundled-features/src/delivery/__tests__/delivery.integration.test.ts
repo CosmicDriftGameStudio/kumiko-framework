@@ -2206,10 +2206,8 @@ describe("flow 19: address unsubscribe (route-based sends, no user account)", ()
     }
   });
 
-  // #3275: deliverToUser must also honor an address opt-out, not just
-  // deliverDirect's route-based sends — the two paths shared the same
-  // isAddressSuppressed check as of this change.
-  test("account send is suppressed when the resolved address has an opt-out row (#3275)", async () => {
+  // Account sends honor address opt-outs, same rule as deliverDirect.
+  test("account send is suppressed when the resolved address has an opt-out row", async () => {
     await stack.redis.redis.del(RATE_KEY_EMAIL);
     const notificationType = "app:notify:account-unsub-20";
     const address = testEmail(user1.id);

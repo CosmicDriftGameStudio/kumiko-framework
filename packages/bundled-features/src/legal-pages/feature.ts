@@ -171,6 +171,7 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
 
           const etag = computeRevisionEtag([
             SYSTEM_TENANT_ID,
+            route.path,
             route.slug,
             route.lang,
             String(data.modifiedAt ?? ""),
