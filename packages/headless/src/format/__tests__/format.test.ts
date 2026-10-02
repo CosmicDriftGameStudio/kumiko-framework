@@ -2,6 +2,21 @@ import { describe, expect, test } from "bun:test";
 import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
 import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.js";
 
+describe("applyFormatSpec — json", () => {
+  test("honors a numeric indent and defaults to 2", () => {
+    expect(applyFormatSpec({ format: "json", indent: 4 }, { a: 1 })).toBe('{\n    "a": 1\n}');
+    expect(applyFormatSpec({ format: "json" }, { a: 1 })).toBe('{\n  "a": 1\n}');
+    expect(applyFormatSpec({ format: "json", indent: "4" }, { a: 1 })).toBe('{\n  "a": 1\n}');
+  });
+
+  test("falls back to text for BigInt and circular values instead of throwing", () => {
+    expect(applyFormatSpec({ format: "json" }, 10n)).toBe("10");
+    const circular: Record<string, unknown> = {};
+    circular["self"] = circular;
+    expect(applyFormatSpec({ format: "json" }, circular)).toBe("[object Object]");
+  });
+});
+
 describe("applyFormatSpec — priority", () => {
   test("rendert emptyLabel für undefined/null/leer/0 (nicht den globalen ''-Collapse)", () => {
     expect(applyFormatSpec({ format: "priority" }, undefined)).toBe("—");

@@ -240,6 +240,7 @@ export async function resolvePublicHostname(
       `egress: host resolves to a non-public address: ${host} -> ${blocked.address}`,
     );
   }
+  // IPv4 first: hosts and runners without an IPv6 route would otherwise get an unreachable pinned address.
   const chosen = addresses.find((address) => address.family === 4) ?? addresses[0];
   if (!chosen) {
     throw new HostResolutionError(`egress: DNS resolution returned no records for host: ${host}`);

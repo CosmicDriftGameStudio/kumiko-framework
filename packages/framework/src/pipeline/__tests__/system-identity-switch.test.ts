@@ -155,6 +155,40 @@ describe("isIdentitySwitchAllowed", () => {
     expect(isIdentitySwitchAllowed(multiRoleCaller, memberCaller, false)).toBe(false);
   });
 
+  test("structurally equal object and array claims in a different key order are the same identity", () => {
+    const nestedCaller: SessionUser = {
+      ...multiRoleCaller,
+      claims: { "teams:scope": { a: 1, b: { c: [1, 2], d: "x" } }, "teams:ids": ["t1", "t2"] },
+    };
+    const reordered: SessionUser = {
+      ...nestedCaller,
+      claims: { "teams:ids": ["t1", "t2"], "teams:scope": { b: { d: "x", c: [1, 2] }, a: 1 } },
+    };
+    expect(isIdentitySwitchAllowed(nestedCaller, reordered, false)).toBe(true);
+  });
+
+  test("nested claim values that differ stay denied", () => {
+    const nestedCaller: SessionUser = {
+      ...multiRoleCaller,
+      claims: { "teams:scope": { a: 1, b: { c: [1, 2] } } },
+    };
+    const changedLeaf: SessionUser = {
+      ...nestedCaller,
+      claims: { "teams:scope": { b: { c: [1, 3] }, a: 1 } },
+    };
+    const reorderedArray: SessionUser = {
+      ...nestedCaller,
+      claims: { "teams:scope": { b: { c: [2, 1] }, a: 1 } },
+    };
+    const extraNestedKey: SessionUser = {
+      ...nestedCaller,
+      claims: { "teams:scope": { a: 1, b: { c: [1, 2] }, e: true } },
+    };
+    expect(isIdentitySwitchAllowed(nestedCaller, changedLeaf, false)).toBe(false);
+    expect(isIdentitySwitchAllowed(nestedCaller, reorderedArray, false)).toBe(false);
+    expect(isIdentitySwitchAllowed(nestedCaller, extraNestedKey, false)).toBe(false);
+  });
+
   test("without a known caller only a grant lets a switch through", () => {
     expect(isIdentitySwitchAllowed(undefined, normalUser, false)).toBe(false);
     expect(isIdentitySwitchAllowed(undefined, normalUser, true)).toBe(true);
