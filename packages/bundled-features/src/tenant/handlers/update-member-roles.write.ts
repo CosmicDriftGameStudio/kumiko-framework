@@ -162,11 +162,16 @@ export const updateMemberRolesWrite = defineWriteHandler({
     // session until the revoke write lands. Best-effort cross-feature call:
     // sessions may not be mounted (registry lookup instead of a hard
     // requires, see above).
+    // Editing your OWN roles keeps the current session: roles are re-derived
+    // per request, so the new roles apply at once without a re-login.
+    // Other sessions of that user and any foreign edit still revoke all.
+    const spareSessionId = event.payload.userId === event.user.id ? event.user.sid : undefined;
     const revoker = ctx.registry.getWriteHandler(REVOKE_ALL_SESSIONS_QN);
     if (revoker) {
       await ctx.writeAs(createSystemUser(targetTenantId), REVOKE_ALL_SESSIONS_QN, {
         userId: event.payload.userId,
         tenantId: targetTenantId,
+        ...(spareSessionId !== undefined && { exceptSessionId: spareSessionId }),
       });
     }
 

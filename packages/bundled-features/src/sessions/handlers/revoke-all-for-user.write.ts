@@ -21,7 +21,10 @@ const REVOKE_ALL_SESSIONS_REASON =
 // Art. 18) and potentially other ops flows ("ban user", "compromised
 // account"). Unlike revoke-all-others, the caller's own session (if any)
 // is revoked too — the caller is System (cron/operator/cross-feature),
-// not the end-user themselves.
+// not the end-user themselves. A caller that IS the end-user (an admin
+// editing their own roles) passes `exceptSessionId` to keep that one
+// session alive; the event then carries keptSessionId so the SSE streams of
+// that session stay open too.
 //
 // Tenant-scope: the userSession schema persists tenantId per row (a user
 // can have sessions in multiple tenants). Omitting `tenantId` revokes
@@ -35,10 +38,11 @@ export const revokeAllForUserWrite = defineWriteHandler({
   schema: z.object({
     userId: z.string().min(1),
     tenantId: z.string().min(1).optional(),
+    exceptSessionId: z.uuid().optional(),
   }),
   access: { roles: access.privileged },
   description:
-    "Irreversibly signs a named user out of all their live sessions, across every tenant unless a tenantId narrows it; use it for operator actions such as freezing or banning an account.",
+    "Irreversibly signs a named user out of all their live sessions, across every tenant unless a tenantId narrows it, optionally sparing one session (exceptSessionId); use it for operator actions such as freezing or banning an account, or a role change that must not end the editor's own session.",
   agent: { risk: "high" },
   escapeHatch: {
     reason: REVOKE_ALL_SESSIONS_REASON,
@@ -53,6 +57,9 @@ export const revokeAllForUserWrite = defineWriteHandler({
         userId: event.payload.userId,
         revokedAt: null,
         ...(event.payload.tenantId !== undefined && { tenantId: event.payload.tenantId }),
+        ...(event.payload.exceptSessionId !== undefined && {
+          id: { ne: event.payload.exceptSessionId },
+        }),
       },
     );
 
@@ -84,6 +91,9 @@ export const revokeAllForUserWrite = defineWriteHandler({
       const payload = sessionRevokedSchema.parse({
         userId: event.payload.userId,
         sessionIds: updated.map((row) => row.id),
+        ...(event.payload.exceptSessionId !== undefined && {
+          keptSessionId: event.payload.exceptSessionId,
+        }),
       });
       const reqCtx = requestContext.get();
       await append(runner, {
