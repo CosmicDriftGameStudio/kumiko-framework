@@ -375,6 +375,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "config.secrets.delete": "Quitar",
   "config.secrets.description":
     "Se guardan cifradas. Los valores guardados no se vuelven a mostrar.",
+  "config.secrets.deleteConfirm":
+    "¿Quitar este secreto? Todo lo que lo use dejará de funcionar y no se podrá recuperar.",
   "config.secrets.notSet": "Sin establecer",
   "config.secrets.placeholder": "Introduce un valor",
   "config.secrets.replacePlaceholder": "Introduce un valor nuevo para reemplazarlo",

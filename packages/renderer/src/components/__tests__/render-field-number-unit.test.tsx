@@ -179,6 +179,15 @@ describe("RenderField — editable number unit suffix", () => {
     expect(field.unit).toBeUndefined();
   });
 
+  test("overlong free-text sibling value: no suffix instead of overflowing the number", () => {
+    const entity = buildEntity({ field: "mileageUnit" });
+    const row = { mileage: 58, mileageUnit: "Kilometer pro Stunde laut Herstellerangabe" };
+    const field = renderMileageField(entity, row, row);
+    expect(field.kind).toBe("number");
+    if (field.kind !== "number") return;
+    expect(field.unit).toBeUndefined();
+  });
+
   test("empty-string sibling value: no suffix, no guessed default", () => {
     const entity = buildEntity({ field: "mileageUnit" });
     const field = renderMileageField(

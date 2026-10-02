@@ -35,7 +35,7 @@ function groupSectionsByTitle(
 // unlike ConfigEditBody there is no server value to pre-fill a draft with —
 // every input starts at "" and stays that way unless the user types into it.
 export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): ReactNode {
-  const { Banner, Form, Section, Field, Input, Button, Text, Grid } = usePrimitives();
+  const { Banner, Dialog, Form, Section, Field, Input, Button, Text, Grid } = usePrimitives();
   const t = useTranslation();
   const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
@@ -44,6 +44,8 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [pendingDeleteKey, setPendingDeleteKey] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const rowsByQualifiedKey = useMemo(() => {
     const out = new Map<string, SecretListRow>();
@@ -75,11 +77,14 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
 
   const handleDelete = useCallback(
     async (qualified: string): Promise<void> => {
+      setDeleting(true);
       const result = await dispatcher.write("secrets:write:delete", { key: qualified });
+      setDeleting(false);
       if (!result.isSuccess) {
         setSubmitError(dispatcherErrorText(result.error, effectiveTranslate));
         return;
       }
+      setSubmitError(null);
       await listQuery.refetch();
     },
     [dispatcher, listQuery.refetch, effectiveTranslate],
@@ -102,131 +107,149 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
   const unsavedCount = Object.values(drafts).filter((value) => value.trim() !== "").length;
 
   return (
-    <Form
-      onSubmit={() => {
-        void handleSubmit();
-      }}
-      testId="secrets-edit-form"
-      width="full"
-      fillHeight
-      stickyActions
-      screenForm
-      unsavedCount={unsavedCount}
-      {...(screen.description !== undefined && {
-        subtitle: effectiveTranslate(screen.description),
-      })}
-      actions={
-        <>
-          {unsavedCount > 0 && (
+    <>
+      <Form
+        onSubmit={() => {
+          void handleSubmit();
+        }}
+        testId="secrets-edit-form"
+        width="full"
+        fillHeight
+        stickyActions
+        screenForm
+        unsavedCount={unsavedCount}
+        {...(screen.description !== undefined && {
+          subtitle: effectiveTranslate(screen.description),
+        })}
+        actions={
+          <>
+            {unsavedCount > 0 && (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={submitting}
+                onClick={() => setDrafts({})}
+                testId="secrets-edit-discard"
+                {...{ [STICKY_PRIMARY_ACTION_PROP]: true }}
+              >
+                {effectiveTranslate("kumiko.form.discard")}
+              </Button>
+            )}
             <Button
-              type="button"
-              variant="ghost"
-              disabled={submitting}
-              onClick={() => setDrafts({})}
-              testId="secrets-edit-discard"
-              {...{ [STICKY_PRIMARY_ACTION_PROP]: true }}
+              type="submit"
+              variant="primary"
+              loading={submitting}
+              disabled={submitting || unsavedCount === 0}
+              testId="secrets-edit-submit"
             >
-              {effectiveTranslate("kumiko.form.discard")}
+              {effectiveTranslate("kumiko.form.saveChanges")}
             </Button>
-          )}
-          <Button
-            type="submit"
-            variant="primary"
-            loading={submitting}
-            disabled={submitting || unsavedCount === 0}
-            testId="secrets-edit-submit"
+          </>
+        }
+      >
+        {submitError !== null && (
+          <Banner variant="error" testId="secrets-edit-error">
+            {submitError}
+          </Banner>
+        )}
+        {sectionGroups.map((section) => (
+          <Section
+            key={section.title}
+            layout="settings-list"
+            title={effectiveTranslate(section.title)}
+            subtitle={effectiveTranslate("config.secrets.description")}
           >
-            {effectiveTranslate("kumiko.form.saveChanges")}
-          </Button>
-        </>
-      }
-    >
-      {submitError !== null && (
-        <Banner variant="error" testId="secrets-edit-error">
-          {submitError}
-        </Banner>
-      )}
-      {sectionGroups.map((section) => (
-        <Section
-          key={section.title}
-          layout="settings-list"
-          title={effectiveTranslate(section.title)}
-          subtitle={effectiveTranslate("config.secrets.description")}
-        >
-          <Grid columns={1} list>
-            {/* kumiko-lint-ignore section-fields-raw secretsEdit section fields are field-id strings, not EditFieldSpec */}
-            {section.fields.map((fieldId) => {
-              const qualified = screen.secretKeys[fieldId];
-              if (qualified === undefined) return null;
-              const row = rowsByQualifiedKey.get(qualified);
-              const hintKey = screen.fieldHints?.[fieldId];
-              const isRequired = screen.requiredFields?.includes(fieldId) ?? false;
-              return (
-                <Field
-                  key={fieldId}
-                  id={fieldId}
-                  layout="row"
-                  label={effectiveTranslate(screen.fieldLabels[fieldId] ?? fieldId)}
-                  required={isRequired}
-                  testId={`field-${fieldId}`}
-                  status={
-                    row !== undefined
-                      ? {
-                          tone: "ok",
-                          label: effectiveTranslate("config.secrets.saved"),
-                          testId: `secret-saved-${fieldId}`,
-                        }
-                      : {
-                          tone: isRequired ? "bad" : "muted",
-                          label: effectiveTranslate("config.secrets.notSet"),
-                          testId: `secret-not-set-${fieldId}`,
-                        }
-                  }
-                  {...(hintKey !== undefined && { description: effectiveTranslate(hintKey) })}
-                  {...(row !== undefined && {
-                    fieldAppendix: (
-                      <Grid columns="auto">
-                        <Text variant="muted" testId={`secret-preview-${fieldId}`}>
-                          {row.redactedPreview !== null
-                            ? effectiveTranslate("config.secrets.stored", {
-                                preview: row.redactedPreview,
-                              })
-                            : effectiveTranslate("config.secrets.set")}
-                        </Text>
-                        <Button
-                          type="button"
-                          variant="danger-ghost"
-                          size="sm"
-                          onClick={() => handleDelete(qualified)}
-                          testId={`secret-delete-${fieldId}`}
-                        >
-                          {effectiveTranslate("config.secrets.delete")}
-                        </Button>
-                      </Grid>
-                    ),
-                  })}
-                >
-                  <Input
-                    kind="password"
+            <Grid columns={1} list>
+              {/* kumiko-lint-ignore section-fields-raw secretsEdit section fields are field-id strings, not EditFieldSpec */}
+              {section.fields.map((fieldId) => {
+                const qualified = screen.secretKeys[fieldId];
+                if (qualified === undefined) return null;
+                const row = rowsByQualifiedKey.get(qualified);
+                const hintKey = screen.fieldHints?.[fieldId];
+                const isRequired = screen.requiredFields?.includes(fieldId) ?? false;
+                return (
+                  <Field
+                    key={fieldId}
                     id={fieldId}
-                    name={fieldId}
-                    value={drafts[fieldId] ?? ""}
-                    onChange={(v) => setDraft(fieldId, v)}
-                    placeholder={effectiveTranslate(
+                    layout="row"
+                    label={effectiveTranslate(screen.fieldLabels[fieldId] ?? fieldId)}
+                    required={isRequired}
+                    testId={`field-${fieldId}`}
+                    status={
                       row !== undefined
-                        ? "config.secrets.replacePlaceholder"
-                        : "config.secrets.placeholder",
-                    )}
-                    autoComplete="new-password"
-                    disabled={submitting}
-                    testId={`secret-input-${fieldId}`}
-                  />
-                </Field>
-              );
-            })}
-          </Grid>
-        </Section>
-      ))}
-    </Form>
+                        ? {
+                            tone: "ok",
+                            label: effectiveTranslate("config.secrets.saved"),
+                            testId: `secret-saved-${fieldId}`,
+                          }
+                        : {
+                            tone: isRequired ? "bad" : "muted",
+                            label: effectiveTranslate("config.secrets.notSet"),
+                            testId: `secret-not-set-${fieldId}`,
+                          }
+                    }
+                    {...(hintKey !== undefined && { description: effectiveTranslate(hintKey) })}
+                    {...(row !== undefined && {
+                      fieldAppendix: (
+                        <Grid columns="auto">
+                          <Text variant="muted" testId={`secret-preview-${fieldId}`}>
+                            {row.redactedPreview !== null
+                              ? effectiveTranslate("config.secrets.stored", {
+                                  preview: row.redactedPreview,
+                                })
+                              : effectiveTranslate("config.secrets.set")}
+                          </Text>
+                          <Button
+                            type="button"
+                            variant="danger-ghost"
+                            size="sm"
+                            disabled={submitting || deleting}
+                            onClick={() => setPendingDeleteKey(qualified)}
+                            testId={`secret-delete-${fieldId}`}
+                          >
+                            {effectiveTranslate("config.secrets.delete")}
+                          </Button>
+                        </Grid>
+                      ),
+                    })}
+                  >
+                    <Input
+                      kind="password"
+                      id={fieldId}
+                      name={fieldId}
+                      value={drafts[fieldId] ?? ""}
+                      onChange={(v) => setDraft(fieldId, v)}
+                      placeholder={effectiveTranslate(
+                        row !== undefined
+                          ? "config.secrets.replacePlaceholder"
+                          : "config.secrets.placeholder",
+                      )}
+                      autoComplete="new-password"
+                      disabled={submitting}
+                      testId={`secret-input-${fieldId}`}
+                    />
+                  </Field>
+                );
+              })}
+            </Grid>
+          </Section>
+        ))}
+      </Form>
+      <Dialog
+        open={pendingDeleteKey !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteKey(null);
+        }}
+        title={effectiveTranslate("config.secrets.delete")}
+        description={effectiveTranslate("config.secrets.deleteConfirm")}
+        confirmLabel={effectiveTranslate("config.secrets.delete")}
+        variant="danger"
+        initialFocus="cancel"
+        onConfirm={async () => {
+          if (pendingDeleteKey !== null) await handleDelete(pendingDeleteKey);
+        }}
+        testId="secrets-delete-dialog"
+      />
+    </>
   );
 }

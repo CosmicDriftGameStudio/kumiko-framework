@@ -506,7 +506,7 @@ export function buildInitialValues(
 // client-safe FieldDefinition subset, not the concrete MoneyFieldDef/
 // MoneyCurrencySource types, same idiom as the other field-shape narrowings
 // in this file (PrefillFieldShape etc.).
-function tenantCurrencyMoneyFieldNames(
+export function tenantCurrencyMoneyFieldNames(
   fields: Readonly<Record<string, unknown>>,
 ): readonly string[] {
   const names: string[] = [];
@@ -578,7 +578,7 @@ export function literalCurrencyOverrides(
 // on a fast click submit, the wrong currency. Callers pass the tenant field
 // names themselves because an edit form only needs the fetch for fields the
 // record has no stored value for.
-function useMoneyCurrencyOverrides(
+export function useMoneyCurrencyOverrides(
   fields: Readonly<Record<string, unknown>>,
   tenantFieldNames: readonly string[],
   fallback: string,

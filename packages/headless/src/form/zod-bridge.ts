@@ -49,6 +49,29 @@ export function zodErrorToFieldIssues(error: ZodError): FieldIssue[] {
   });
 }
 
+// The issues that count for validity: hidden fields never block, and a
+// scope narrows to the listed paths (an entry matches itself and everything
+// below it, not siblings — #1898). `includeRoot` keeps "(root)" refine issues
+// inside a scope (submit passes it, #1907). Shared by the controller's
+// validate() and RenderEdit's `valid` dry-run so the two cannot drift.
+export function relevantFieldIssues(
+  issues: readonly FieldIssue[],
+  opts: {
+    readonly hiddenFields: ReadonlySet<string>;
+    readonly scope?: readonly string[];
+    readonly includeRoot?: boolean;
+  },
+): FieldIssue[] {
+  const { hiddenFields, scope, includeRoot } = opts;
+  return issues.filter((issue) => {
+    const rootField = issue.path.split(".")[0] ?? "";
+    if (hiddenFields.has(rootField)) return false;
+    if (scope === undefined) return true;
+    if (includeRoot === true && issue.path === "(root)") return true;
+    return scope.some((entry) => issue.path === entry || issue.path.startsWith(`${entry}.`));
+  });
+}
+
 // Same magic key both sides of a superRefine can set to opt out of the
 // generic `errors.validation.custom` message — see form-schema.ts.
 export const I18N_KEY_PARAM = "i18nKey";

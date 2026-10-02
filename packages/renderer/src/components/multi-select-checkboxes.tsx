@@ -71,6 +71,9 @@ export function MultiSelectCheckboxes({
       <Grid
         columns={field.columns ?? 2}
         testId={`${id}-checkboxes`}
+        // Field's label targets `id`, which no checkbox carries here; point the
+        // group at Field's `${id}-label` element instead.
+        ariaLabelledBy={`${id}-label`}
         {...(field.maxRows !== undefined && { maxRows: field.maxRows })}
       >
         {options.map((opt) => (

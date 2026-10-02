@@ -17,6 +17,7 @@ import {
   RenderList,
 } from "@cosmicdrift/kumiko-renderer";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { defaultPrimitives } from "../primitives/index.js";
 
 // Minimal-Entity damit RenderList nicht über fehlende Felder stolpert.
@@ -111,6 +112,44 @@ describe("RenderList — Search-Debounce", () => {
       </LocaleProvider>,
     );
     expect((screen.getByDisplayValue("second") as HTMLInputElement).value).toBe("second");
+  });
+
+  test("Taste im selben Commit wie das Mount geht nicht verloren", () => {
+    const onSearchChange = mock();
+    // The keystroke is delivered from a layout effect, i.e. inside the mount
+    // commit and before RenderList's passive effects have run: an effect-based
+    // searchValue sync would reset the buffer afterwards and swallow the key.
+    function KeystrokeOnMount(): null {
+      useLayoutEffect(() => {
+        const input = document.querySelector("input");
+        if (input === null) throw new Error("search input not mounted");
+        fireEvent.change(input, { target: { value: "a" } });
+      }, []);
+      return null;
+    }
+    render(
+      <LocaleProvider resolver={createStaticLocaleResolver({ locale: "en" })}>
+        <PrimitivesProvider value={defaultPrimitives}>
+          <RenderList
+            screen={screenDef}
+            entity={entity}
+            rows={[]}
+            featureName="t"
+            searchable
+            searchValue=""
+            onSearchChange={onSearchChange}
+          />
+          <KeystrokeOnMount />
+        </PrimitivesProvider>
+      </LocaleProvider>,
+    );
+
+    expect((screen.getByDisplayValue("a") as HTMLInputElement).value).toBe("a");
+    act(() => {
+      jest.advanceTimersByTime(300);
+    });
+    expect(onSearchChange).toHaveBeenCalledTimes(1);
+    expect(onSearchChange).toHaveBeenCalledWith("a");
   });
 
   test("onSearchChange wird NICHT gerufen wenn lokal === searchValue (kein Echo)", () => {

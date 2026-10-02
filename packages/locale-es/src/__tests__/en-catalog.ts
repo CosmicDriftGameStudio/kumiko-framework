@@ -364,6 +364,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.secret.mail-transport-smtp.smtp-password.label": "SMTP password",
   "config.secrets.delete": "Remove",
   "config.secrets.description": "Stored encrypted. Saved values are never shown again.",
+  "config.secrets.deleteConfirm":
+    "Remove this secret? Anything using it stops working, and it cannot be restored.",
   "config.secrets.notSet": "Not set",
   "config.secrets.placeholder": "Enter a value",
   "config.secrets.replacePlaceholder": "Enter a new value to replace it",

@@ -52,7 +52,12 @@ export type {
   SubmitPayloadMode,
   SubmitResult,
 } from "./form/index.js";
-export { createFormController, I18N_KEY_PARAM } from "./form/index.js";
+export {
+  createFormController,
+  I18N_KEY_PARAM,
+  relevantFieldIssues,
+  zodErrorToFieldIssues,
+} from "./form/index.js";
 export {
   applyFormatSpec,
   currencyDecimals,

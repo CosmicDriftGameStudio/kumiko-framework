@@ -8,6 +8,7 @@ import {
   isFieldsEditSection,
   normalizeEditField,
   PROJECTION_DETAIL_ENTITY,
+  sectionFieldSpecs,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   DispatcherError,
@@ -19,7 +20,11 @@ import type {
   SubmitResult,
   Translate,
 } from "@cosmicdrift/kumiko-headless";
-import { computeEditViewModel } from "@cosmicdrift/kumiko-headless";
+import {
+  computeEditViewModel,
+  relevantFieldIssues,
+  zodErrorToFieldIssues,
+} from "@cosmicdrift/kumiko-headless";
 import { RenderEditActionButton } from "./render-edit-action-button.js";
 import type { RenderEditProps } from "./render-edit-types.js";
 import { AllFieldsRequiredProvider } from "./render-field.js";
@@ -143,7 +148,7 @@ function deriveFormFields<TValues extends FormValues, TCtx>(
   for (const section of screen.layout.sections) {
     // relatedList carries no `fields` for the form-condition map either.
     if (!isFieldsEditSection(section)) continue;
-    for (const spec of section.fields) {
+    for (const spec of sectionFieldSpecs(section)) {
       const normalized = normalizeEditField(spec);
       out[normalized.field] = {
         ...(normalized.visible !== undefined && {
@@ -649,10 +654,27 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     // on every keystroke, painting error messages while the user is still
     // typing. `valid` can therefore legitimately diverge from what's
     // currently rendered under the fields (the last *mutating* validate()
-    // call, e.g. from controls.validate() or submit()).
+    // call, e.g. from controls.validate() or submit()). The issues are
+    // filtered exactly like submit()'s validate: hidden fields and fields
+    // outside the `fields` scope never make the form invalid.
     const currentSchema = schemaRef.current;
-    const valid =
-      currentSchema === undefined ? true : currentSchema.safeParse(snapshot.values).success;
+    const valid = (() => {
+      if (currentSchema === undefined) return true;
+      const parsed = currentSchema.safeParse(snapshot.values);
+      if (parsed.success) return true;
+      const hiddenFields = new Set(
+        Object.entries(snapshot.fields)
+          .filter(([, state]) => !state.visible)
+          .map(([fieldKey]) => fieldKey),
+      );
+      return (
+        relevantFieldIssues(zodErrorToFieldIssues(parsed.error), {
+          hiddenFields,
+          ...(scopeFieldNamesRef.current !== undefined && { scope: scopeFieldNamesRef.current }),
+          includeRoot: true,
+        }).length === 0
+      );
+    })();
     cb({
       values: snapshot.values,
       changes: snapshot.changes,

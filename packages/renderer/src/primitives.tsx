@@ -1087,6 +1087,10 @@ export type GridProps = {
   /** One full-width row per child, separated by hairlines — the field rows of
    *  a `settings-list` section. Wins over `columns`/`flow`. */
   readonly list?: boolean;
+  /** Id of the element naming this grid (a Field label). Turns the grid into
+   *  a `role="group"` so a Field whose control is a set of inputs (checkbox
+   *  group) still gives screen readers a group name. */
+  readonly ariaLabelledBy?: string;
 };
 
 /** Width class of a field cell inside a `flow` grid: sized by what the field holds. */

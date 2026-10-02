@@ -155,6 +155,11 @@ describe("RenderField — multiSelect display: checkboxes", () => {
     expect(capturedGrid?.maxRows).toBe(3);
   });
 
+  test("the Grid is named by the Field label id so the checkbox group has an accessible name", () => {
+    renderField(languagesField());
+    expect(capturedGrid?.ariaLabelledBy).toBe("kumiko-edit-languages-label");
+  });
+
   test("omitting columns/maxRows keeps the default layout (no maxRows on the Grid)", () => {
     renderField(languagesField());
     expect(capturedGrid?.maxRows).toBeUndefined();

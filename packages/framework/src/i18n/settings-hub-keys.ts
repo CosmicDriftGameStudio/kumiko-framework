@@ -41,5 +41,8 @@ export const SETTINGS_HUB_I18N: TranslationKeys = {
   "config.secrets.placeholder": { en: "Enter a value" },
   "config.secrets.replacePlaceholder": { en: "Enter a new value to replace it" },
   "config.secrets.delete": { en: "Remove" },
+  "config.secrets.deleteConfirm": {
+    en: "Remove this secret? Anything using it stops working, and it cannot be restored.",
+  },
   "screen:secrets.title": { en: "Secrets" },
 };

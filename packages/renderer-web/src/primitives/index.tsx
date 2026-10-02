@@ -577,7 +577,7 @@ function withUnitSuffix(inputId: string, unit: string | undefined, input: ReactN
       {input}
       <span
         id={unitSuffixId(inputId)}
-        className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-muted-foreground"
+        className="pointer-events-none absolute right-2.5 top-1/2 max-w-[40%] -translate-y-1/2 truncate text-sm text-muted-foreground"
       >
         {unit}
       </span>
@@ -3625,7 +3625,9 @@ function FormFooter({
         <div
           data-testid={testId !== undefined ? `${testId}-actions-secondary` : undefined}
           className={cn(
-            "flex flex-wrap items-center gap-2 max-sm:[&_button]:text-xs",
+            // min-h-11: link-variant buttons (Copy link) are h-auto and would fall
+            // below the 24px touch-target minimum on narrow viewports.
+            "flex flex-wrap items-center gap-2 max-sm:[&_button]:min-h-11 max-sm:[&_button]:px-2 max-sm:[&_button]:text-xs",
             pinned && hasNonPrimaryOverflow && "mr-auto",
           )}
         >
@@ -4234,11 +4236,23 @@ const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   toggle: "w-auto min-w-40 shrink-0 self-start [&_[data-slot=switch]]:my-[0.55rem]",
 };
 
-function DefaultGrid({ columns, children, testId, maxRows, flow, list }: GridProps): ReactNode {
+function DefaultGrid({
+  columns,
+  children,
+  testId,
+  maxRows,
+  flow,
+  list,
+  ariaLabelledBy,
+}: GridProps): ReactNode {
   const insideDrawerBody = useContext(DrawerBodyContext);
+  const groupProps =
+    ariaLabelledBy !== undefined
+      ? { role: "group" as const, "aria-labelledby": ariaLabelledBy }
+      : {};
   if (list === true) {
     return (
-      <div data-testid={testId} className="flex flex-col divide-y divide-border">
+      <div {...groupProps} data-testid={testId} className="flex flex-col divide-y divide-border">
         {children}
       </div>
     );
@@ -4246,6 +4260,7 @@ function DefaultGrid({ columns, children, testId, maxRows, flow, list }: GridPro
   if (flow === true) {
     return (
       <div
+        {...groupProps}
         data-testid={testId}
         className={cn(
           "flex gap-4",
@@ -4266,7 +4281,7 @@ function DefaultGrid({ columns, children, testId, maxRows, flow, list }: GridPro
   // maxRows/scrolling don't apply — the row just wraps.
   if (columns === "auto") {
     return (
-      <div data-testid={testId} className="flex flex-wrap items-center gap-4">
+      <div {...groupProps} data-testid={testId} className="flex flex-wrap items-center gap-4">
         {children}
       </div>
     );
@@ -4299,6 +4314,7 @@ function DefaultGrid({ columns, children, testId, maxRows, flow, list }: GridPro
   } as unknown as CSSProperties;
   return (
     <div
+      {...groupProps}
       data-testid={testId}
       className="grid gap-4 grid-cols-1 sm:[grid-template-columns:var(--grid-cols)]"
       style={style}
