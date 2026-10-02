@@ -225,6 +225,24 @@ describe("scenario 3: jobs.list filters", () => {
       expect(run.jobName).toBe("app:job:sync-data");
     }
   });
+
+  test("multi-value status filter returns runs of every selected status", async () => {
+    const result = await query(systemAdmin, JobQueries.list, {
+      filters: [{ field: "status", op: "in", value: ["completed", "failed"] }],
+    });
+    const statuses: string[] = result.data.rows.map((run: { status: string }) => run.status);
+    expect(statuses).toContain("completed");
+    expect(statuses).toContain("failed");
+    for (const status of statuses) expect(["completed", "failed"]).toContain(status);
+  });
+
+  test("filter on an unknown field is rejected instead of ignored", async () => {
+    const res = await req("POST", "/api/query", systemAdmin, {
+      type: JobQueries.list,
+      payload: { filters: [{ field: "jobName", op: "in", value: ["app:job:sync-data"] }] },
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 // --- Scenario 4: jobs.detail ---

@@ -1,6 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
-import { type JobsOptions, Queue, Worker } from "bullmq";
+import { type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.js";
 import type { DbConnection, DbRow } from "../db/connection.js";
@@ -32,6 +32,7 @@ import {
   emitJobQueueDepth,
   getFallbackTracer,
   type Meter,
+  registerStandardMetrics,
   type SerializedTraceContext,
   type Tracer,
 } from "../observability/index.js";
@@ -212,6 +213,24 @@ function jobSubjectKey(
   return JSON.stringify(entries);
 }
 
+// Jobs that never touch ctx.db run fine on a runner built without one; a job
+// that does gets a named error instead of a bare TypeError on undefined.
+function missingDbProxy(jobName: string): TenantDb {
+  // @cast-boundary db-operator — every access throws, so no TenantDb member is ever returned
+  return new Proxy({} as TenantDb, {
+    get() {
+      throw new InternalError({
+        message: `[jobs] job runner constructed without a db connection — ctx.db is unavailable for "${jobName}"`,
+      });
+    },
+  });
+}
+
+function priorAttemptsOf(data: Record<string, unknown>): number {
+  const value = data["_priorAttempts"];
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
+
 // Only a translation key ever travels to the tenant: the thrown error's own
 // i18nKey when it carries one, otherwise the key declared at the job. The
 // error message itself can echo provider or payload content and stays on the
@@ -350,6 +369,10 @@ function parseRedisOpts(url: string): { host: string; port: number; db?: number 
 // would otherwise hang start() forever with no health endpoint to notice.
 const BOOT_REDIS_TIMEOUT_MS = 10_000;
 
+// Shutdown must fit a k8s grace period even when Redis is down, so the
+// readiness wait in stop() is capped well below the boot timeout.
+const STOP_QUEUE_READY_TIMEOUT_MS = 1_000;
+
 function timeoutReject(
   ms: number,
   message: string,
@@ -376,9 +399,12 @@ const DEFAULT_JOB_BACKOFF_DELAY_MS = 1_000;
 // perTenant wrapper/children, sequential re-enqueue) — a job with `retries`
 // set must retry the same way regardless of how it got enqueued, or it
 // fails for good on the very first error on whichever path skips this.
-function buildRetryBullOpts(jobDef: JobDefinition): Pick<JobsOptions, "attempts" | "backoff"> {
+function buildRetryBullOpts(
+  jobDef: JobDefinition,
+  priorAttempts = 0,
+): Pick<JobsOptions, "attempts" | "backoff"> {
   const opts: Pick<JobsOptions, "attempts" | "backoff"> = {};
-  if (jobDef.retries !== undefined) opts.attempts = jobDef.retries + 1;
+  if (jobDef.retries !== undefined) opts.attempts = Math.max(1, jobDef.retries + 1 - priorAttempts);
   if (jobDef.backoff) {
     opts.backoff =
       typeof jobDef.backoff === "string"
@@ -439,6 +465,9 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // boot); otherwise noop so dispatch/handleJob stay zero-cost without config.
   const tracer: Tracer = context.tracer ?? getFallbackTracer();
   const errorLogger = createFallbackLogger("job-runner", context.log);
+  // The last-success gauge throws if its metric was never registered; the runner
+  // must not depend on buildServer having done it first. Idempotent.
+  if (context.meter) registerStandardMetrics(context.meter);
   // Set at the top of stop() — a graceful shutdown closes the redis/BullMQ
   // clients itself, which fires the exact same 'error' listeners below with
   // an expected "Connection is closed." Downgrading to debug once stopping
@@ -478,7 +507,12 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           ...bridgeStub(),
         },
       );
-      // @cast-boundary engine-payload — generic query-handler return for typed convention
+      if (!Array.isArray(result) || result.some((id) => typeof id !== "string")) {
+        throw new InternalError({
+          message: `${ACTIVE_TENANT_IDS_QUERY_NAME} must return string[] of tenant ids`,
+        });
+      }
+      // @cast-boundary engine-payload — checked to be string[] above; TenantId is a brand
       return result as TenantId[];
     };
   }
@@ -723,14 +757,17 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         // same queue the worker just picked from (since only the consuming
         // lane runs handleJob at all), but route explicitly — no implicit
         // coupling to "whichever queue the caller happened to be on".
-        // The re-enqueued job starts with a full retry budget; a remaining
-        // budget is deliberately not carried over, since finalAttempt/
-        // tenantVisibleFailure are computed from jobDef.retries against
-        // attemptsMade, not against some inherited remainder.
-        await queues[laneForJob(jobDef)].add(jobName, bullJob.data, {
-          delay: SEQUENTIAL_RETRY_DELAY_MS,
-          ...buildRetryBullOpts(jobDef),
-        });
+        // Attempts already spent travel in _priorAttempts so a lock conflict
+        // on a retry cannot hand out a fresh budget and exceed `retries`.
+        const priorAttempts = priorAttemptsOf(bullJob.data) + bullJob.attemptsMade;
+        await queues[laneForJob(jobDef)].add(
+          jobName,
+          { ...bullJob.data, _priorAttempts: priorAttempts },
+          {
+            delay: SEQUENTIAL_RETRY_DELAY_MS,
+            ...buildRetryBullOpts(jobDef, priorAttempts),
+          },
+        );
         // skip: lock taken, work re-enqueued with delay, current invocation done
         return;
       }
@@ -746,7 +783,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // retry number, so audit queries distinguish fresh from retry runs
     // without peeking at BullMQ internals.
     const rawData = bullJob.data as DbRow;
-    const attempt = bullJob.attemptsMade + 1;
+    const attempt = bullJob.attemptsMade + 1 + priorAttemptsOf(rawData);
     const meta: JobMeta = {
       triggeredById: rawData["_triggeredById"] as string | undefined, // @cast-boundary dynamic-key
       payload: rawData["_payload"] as string | undefined, // @cast-boundary dynamic-key
@@ -770,18 +807,27 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // subject is read from the handler payload, so it is resolved here where
     // the payload is built, not in the callbacks.
     const tenantVisibleDecl = jobDef.tenantVisibleFailure;
-    const tenantVisibleSubject = tenantVisibleDecl
-      ? jobSubjectKey(jobName, payload, tenantVisibleDecl.subjectFields)
-      : null;
+    // A bad subject config must surface as a failed run, so it is thrown from
+    // inside runInSpan below instead of here, before any run record exists.
+    let tenantVisibleSubject: string | null = null;
+    let subjectConfigError: Error | undefined;
+    if (tenantVisibleDecl) {
+      try {
+        tenantVisibleSubject = jobSubjectKey(jobName, payload, tenantVisibleDecl.subjectFields);
+      } catch (err) {
+        subjectConfigError = err instanceof Error ? err : new Error(String(err));
+      }
+    }
     // BullMQ stops retrying once attemptsMade reaches the configured attempts
     // (`retries + 1`), so this is the attempt whose failure is final.
     const finalAttempt = attempt >= (jobDef.retries ?? 0) + 1;
     const outcomeMeta = (messageKey: string | null): JobOutcomeMeta => ({
       tenantId,
       finalAttempt,
-      ...(tenantVisibleDecl && {
-        tenantVisible: { subject: tenantVisibleSubject, messageKey },
-      }),
+      ...(tenantVisibleDecl &&
+        !subjectConfigError && {
+          tenantVisible: { subject: tenantVisibleSubject, messageKey },
+        }),
     });
 
     // Carry `_triggerName` from rawData when set — handleEvent injects it on
@@ -884,8 +930,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     let memberReader: MemberReader | undefined;
     const jobContext: JobContext = {
       ...context,
-      // Undefined only for a runner built without a db; JobContext requires db non-optional.
-      db: jobDb as TenantDb, // @cast-boundary db-operator
+      db: jobDb ?? missingDbProxy(jobName),
       files,
       derivatives,
       ...(notify !== undefined && { notify }),
@@ -959,6 +1004,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
 
     const runInSpan = async (): Promise<void> => {
       try {
+        if (subjectConfigError) {
+          // Retrying cannot fix a declaration error.
+          throw new UnrecoverableError(subjectConfigError.message);
+        }
         if (writeOriginInvalid) {
           throw new InternalError({
             message:
@@ -972,14 +1021,23 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
             correlationId: jobCorrelationId,
             // #3043 — events a job writes carry the job as their origin.
             handler: jobName,
-            feature: qnScope(jobName),
+            feature: registry.getJobFeature(jobName) ?? qnScope(jobName),
             writeOrigin: jobOrigin,
           },
           () => jobDef.handler(payload, jobContext),
         );
         // Stamped before the observer hook: a throwing onJobComplete must not
         // make a run that actually succeeded look dead to the liveness alert.
-        if (context.meter) emitJobLastSuccess(context.meter, jobName);
+        if (context.meter) {
+          try {
+            emitJobLastSuccess(context.meter, jobName);
+          } catch (err) {
+            errorLogger.warn("job last-success metric failed", {
+              job: jobName,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
         const duration = Date.now() - startTime;
         await options.onJobComplete?.(jobName, jobId, duration, logs, outcomeMeta(null));
       } catch (err) {
@@ -1186,9 +1244,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       // rejects the in-flight INFO with "Connection is closed." on an emitter
       // without listeners -> unhandled rejection (fw#1805). Wait for readiness
       // first; a failed/timed-out wait must not block the close itself.
+      const stopReadyTimeoutMs = Math.min(bootRedisTimeoutMs, STOP_QUEUE_READY_TIMEOUT_MS);
       const readinessTimeout = timeoutReject(
-        bootRedisTimeoutMs,
-        `job-runner: Queue not ready within ${bootRedisTimeoutMs}ms during stop()`,
+        stopReadyTimeoutMs,
+        `job-runner: Queue not ready within ${stopReadyTimeoutMs}ms during stop()`,
       );
       try {
         await Promise.race([

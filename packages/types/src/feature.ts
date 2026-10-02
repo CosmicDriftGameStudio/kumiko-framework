@@ -1025,6 +1025,9 @@ export type Registry = {
   // handlers and don't populate handlerFeatureMap.
   isJobSystemScoped(qualifiedJobName: string): boolean;
   getHandlerFeature(qualifiedHandler: string): string | undefined;
+  // Same raw feature name getHandlerFeature returns, so job- and handler-written
+  // events carry one metadata.feature value per feature.
+  getJobFeature(qualifiedJobName: string): string | undefined;
   // True iff at least one registered handler declares a `rateLimit`
   // option. Pre-computed at registry-build so the boot path can skip
   // wiring the RateLimitResolver (and its Lua-script registration on

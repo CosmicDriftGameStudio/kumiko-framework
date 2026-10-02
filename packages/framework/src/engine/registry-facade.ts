@@ -227,6 +227,10 @@ export function buildRegistryFacade(state: RegistryState): Registry {
       return state.handlerFeatureMap.get(qualifiedHandler);
     },
 
+    getJobFeature(qualifiedJobName: string): string | undefined {
+      return state.jobFeatureMap.get(qualifiedJobName);
+    },
+
     getAllMetrics() {
       return state.metricMap;
     },

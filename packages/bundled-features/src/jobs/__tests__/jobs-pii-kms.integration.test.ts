@@ -673,6 +673,26 @@ describe("jobs:write:retry decrypts payload before dispatch (#2465)", () => {
     expect(capturedPayloads).toEqual([JSON.parse(SECRET_PAYLOAD)]);
   });
 
+  test("retry on an encrypted payload while no KMS is configured is rejected instead of crashing", async () => {
+    await retryLogger.onJobStart?.(RETRY_JOB_NAME, "bull-retry-6", {
+      triggeredById: RETRY_USER_ID,
+      payload: SECRET_PAYLOAD,
+    });
+    await retryLogger.onJobFailed?.(RETRY_JOB_NAME, "bull-retry-6", "boom", []);
+
+    const row = await fetchOne(retryStack.db, jobRunsTable, { bullJobId: "bull-retry-6" });
+    expect(isPiiCiphertext(row?.["payload"])).toBe(true);
+    resetPiiSubjectKmsForTests();
+
+    const errInfo = await retryStack.http.writeErr(
+      JobHandlers.retry,
+      { runId: row?.["id"] },
+      TestUsers.systemAdmin,
+    );
+    expect(errInfo.code).toBe("unprocessable");
+    expect(capturedPayloads).toHaveLength(0);
+  });
+
   // The other producer of PII_ERASED_SENTINEL: job-run-logger writes the
   // literal "[[erased]]" string (not ciphertext) when the key is already
   // gone at onJobStart time (see the mirrored case above this describe
