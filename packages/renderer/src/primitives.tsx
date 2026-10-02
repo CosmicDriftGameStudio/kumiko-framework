@@ -1311,7 +1311,9 @@ export type ProgressProps = {
  *  buttons (every non-current step with `selectableSteps: "all"`); the caller
  *  owns the validation gate for forward jumps. Implementations render a
  *  narrow-viewport fallback showing `compactLabel` instead (caller
- *  supplies it pre-translated, e.g. "Step 2 of 5 · Industry") — which of
+ *  supplies it pre-translated, e.g. "Step 2 of 5 · Industry"). With
+ *  `onStepSelect` and `selectableSteps: "all"` that fallback is a dropdown
+ *  listing all steps so narrow viewports can jump too — which of
  *  the two is visible is a responsive layout choice owned by the
  *  implementation, not this contract. */
 export type StepBarProps = {
@@ -1323,7 +1325,8 @@ export type StepBarProps = {
    *  index is below `currentIndex`. The current step is never done. */
   readonly doneSteps?: readonly boolean[];
   /** "done" (default): only done steps are jump targets. "all": every
-   *  non-current step is, when `onStepSelect` is set. */
+   *  non-current step is, when `onStepSelect` is set; the compact label then
+   *  becomes a step picker. */
   readonly selectableSteps?: "done" | "all";
   /** "label" (default) swaps the step row for `compactLabel` on narrow
    *  viewports; "steps" keeps the row there too — for short wizards whose

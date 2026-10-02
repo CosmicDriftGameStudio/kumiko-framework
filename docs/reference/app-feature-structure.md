@@ -82,7 +82,7 @@ src/features/<name>/
   Nachbauten (`guard-no-custom-primitives`), Theme-Tokens statt raw Tailwind-
   Farben (`guard-raw-classname`), kein Inline-CSS (`guard-no-inline-styles`).
 - **Daten über den Hook-Satz**: `useQuery` (SSE via `live: true`),
-  `useMutation`, `useDisclosure` — kein rohes `useEffect`/`fetch()` in Screens
+  `useMutation`, `useDisclosure`, `useReportStepComplete` (Wizard-Extension-Steps) — kein rohes `useEffect`/`fetch()` in Screens
   (`guard-no-raw-hooks`).
 - **Text über i18n**: JSX-Text und Label-Props laufen über `t("…")`-Keys
   (`guard-i18n-ui-strings`); der Boot-Validator erzwingt die Key-Abdeckung.

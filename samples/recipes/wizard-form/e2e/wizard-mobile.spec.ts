@@ -38,16 +38,17 @@ async function assertNoOverlap(a: Locator, b: Locator): Promise<void> {
   expect(rectsOverlap(rectA, rectB)).toBe(false);
 }
 
-// Guard against a vacuously-green run: cardFooter (packages/renderer-web/
-// src/primitives/index.tsx) sets "flex" on the actions footer. Without
-// compiled Tailwind CSS this would stay the browser default "block" — the
-// following layout assertions would then run against unstyled markup
+// Guard against a vacuously-green run: below sm the pinned FormFooter
+// (packages/renderer-web/src/primitives/index.tsx) dissolves its actions group
+// with "display: contents" so the buttons can wrap as direct flex items.
+// Without compiled Tailwind CSS this would stay the browser default "block" —
+// the following layout assertions would then run against unstyled markup
 // instead of the real chrome.
 async function assertCssIsLive(page: Page): Promise<void> {
   const display = await page
     .getByTestId("render-edit-form-actions")
     .evaluate((el) => getComputedStyle(el).display);
-  expect(display).toBe("flex");
+  expect(display).toBe("contents");
 }
 
 test.describe("wizard-form — 375px mobile chrome (#1917)", () => {

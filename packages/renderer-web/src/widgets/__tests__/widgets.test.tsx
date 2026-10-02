@@ -307,6 +307,63 @@ describe("StepBar", () => {
     );
     expect(screen.getByTestId("steps-compact").textContent).toBe("Step 1 of 2 · Basics");
   });
+
+  describe("compact picker", () => {
+    function renderPicker(onStepSelect: (index: number) => void): void {
+      render(
+        <StepBar
+          steps={["Basics", "Industry", "Review"]}
+          currentIndex={1}
+          compactLabel="Step 2 of 3 · Industry"
+          compactTestId="steps-compact"
+          onStepSelect={onStepSelect}
+          doneSteps={[true, false, false]}
+          selectableSteps="all"
+        />,
+      );
+    }
+
+    test("opens a step list, jumps to an upcoming step and collapses", () => {
+      const onStepSelect = mock((_index: number) => {});
+      renderPicker(onStepSelect);
+      const toggle = screen.getByTestId("steps-compact");
+      expect(toggle.tagName).toBe("BUTTON");
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByTestId("steps-compact-step-0")).toBeNull();
+
+      fireEvent.click(toggle);
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(screen.getByTestId("steps-compact-step-0").textContent).toContain("Done");
+      expect(screen.getByTestId("steps-compact-step-1").getAttribute("aria-current")).toBe("step");
+
+      fireEvent.click(screen.getByTestId("steps-compact-step-2"));
+      expect(onStepSelect).toHaveBeenCalledWith(2);
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByTestId("steps-compact-step-2")).toBeNull();
+    });
+
+    test("Escape closes the list and returns focus to the toggle", () => {
+      renderPicker(() => {});
+      const toggle = screen.getByTestId("steps-compact");
+      fireEvent.click(toggle);
+      fireEvent.keyDown(screen.getByTestId("steps-compact-step-0"), { key: "Escape" });
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(toggle);
+    });
+
+    test("without selectableSteps=all the compact label stays plain text", () => {
+      render(
+        <StepBar
+          steps={["Basics", "Industry"]}
+          currentIndex={0}
+          compactLabel="Step 1 of 2 · Basics"
+          compactTestId="steps-compact"
+          onStepSelect={() => {}}
+        />,
+      );
+      expect(screen.getByTestId("steps-compact").tagName).toBe("P");
+    });
+  });
 });
 
 describe("ModeSwitch", () => {

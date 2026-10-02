@@ -1,6 +1,6 @@
 import { useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { Check } from "lucide-react";
-import type { ReactNode } from "react";
+import { Check, ChevronDown } from "lucide-react";
+import { type ReactNode, useId, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
 
 const CHIP_CLASS = "flex items-center gap-1.5 rounded-full px-3 py-1 text-sm transition-colors";
@@ -9,10 +9,165 @@ function chipTestId(testId: string | undefined, index: number): string | undefin
   return testId !== undefined ? `${testId}-step-${index}` : undefined;
 }
 
+type StepState = { isCurrent: boolean; isDone: boolean; isSelectable: boolean };
+
+function StepRailRow({
+  index,
+  label,
+  subtitle,
+  subtitleTestId,
+  rowTestId,
+  state: { isCurrent, isDone, isSelectable },
+  onSelect,
+  doneLabel,
+  minHeightClass = "min-h-9",
+}: {
+  readonly index: number;
+  readonly label: string;
+  readonly subtitle: string | undefined;
+  readonly subtitleTestId: string | undefined;
+  readonly rowTestId: string | undefined;
+  readonly state: StepState;
+  readonly onSelect: ((index: number) => void) | undefined;
+  readonly doneLabel: string;
+  readonly minHeightClass?: string;
+}): ReactNode {
+  const rowClass = cn(
+    "flex w-full items-center gap-2.5 rounded-md px-2 py-1 text-left text-sm",
+    minHeightClass,
+    isCurrent && "bg-primary/10 font-semibold text-primary",
+    isDone && "text-foreground",
+    !isCurrent && !isDone && "text-foreground-secondary",
+  );
+  const content = (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-[22px] shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+          isCurrent && "border-primary bg-primary text-primary-foreground",
+          isDone && "border-status-ok-surface bg-status-ok-surface text-status-ok",
+          !isCurrent && !isDone && "border-input bg-card text-foreground-secondary",
+        )}
+      >
+        {isDone ? <Check className="size-3" /> : index + 1}
+      </span>
+      {isDone && <span className="sr-only">{doneLabel}</span>}
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate">{label}</span>
+        {subtitle !== undefined && (
+          <span
+            data-testid={subtitleTestId}
+            className="truncate text-xs font-normal text-foreground-secondary"
+          >
+            {subtitle}
+          </span>
+        )}
+      </span>
+    </>
+  );
+  return isSelectable ? (
+    <button
+      type="button"
+      onClick={() => onSelect?.(index)}
+      data-testid={rowTestId}
+      className={cn(rowClass, "hover:bg-muted-foreground/10")}
+    >
+      {content}
+    </button>
+  ) : (
+    <span
+      aria-current={isCurrent ? "step" : undefined}
+      data-testid={rowTestId}
+      className={rowClass}
+    >
+      {content}
+    </span>
+  );
+}
+
+function CompactStepPicker({
+  steps,
+  compactLabel,
+  subtitles,
+  stepState,
+  onStepSelect,
+  compactTestId,
+  doneLabel,
+}: {
+  readonly steps: readonly string[];
+  readonly compactLabel: string;
+  readonly subtitles: readonly (string | undefined)[] | undefined;
+  readonly stepState: (index: number) => StepState;
+  readonly onStepSelect: (index: number) => void;
+  readonly compactTestId: string | undefined;
+  readonly doneLabel: string;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: wrapper only catches Escape bubbling from the toggle and list buttons; it is not itself interactive.
+    <div
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          setOpen(false);
+          toggleRef.current?.focus();
+        }
+      }}
+    >
+      <button
+        ref={toggleRef}
+        type="button"
+        aria-expanded={open}
+        aria-controls={listId}
+        data-testid={compactTestId}
+        onClick={() => setOpen((wasOpen) => !wasOpen)}
+        className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-border bg-card px-3 text-left text-sm font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {compactLabel}
+        <ChevronDown
+          aria-hidden="true"
+          className={cn("size-4 shrink-0 transition-transform", open && "rotate-180")}
+        />
+      </button>
+      {open && (
+        <ol
+          id={listId}
+          className="m-0 mt-1 flex list-none flex-col gap-0.5 rounded-md border border-border bg-card p-1"
+        >
+          {steps.map((label, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
+            <li key={`${i}-${label}`}>
+              <StepRailRow
+                index={i}
+                label={label}
+                subtitle={subtitles?.[i]}
+                subtitleTestId={undefined}
+                rowTestId={chipTestId(compactTestId, i)}
+                state={stepState(i)}
+                onSelect={(index) => {
+                  setOpen(false);
+                  onStepSelect(index);
+                }}
+                doneLabel={doneLabel}
+                minHeightClass="min-h-11"
+              />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
 /** Wizard step overview — numbered chips with a connector line between
  *  them. With `onStepSelect`, done chips render as buttons for jumping back
  *  (every non-current chip with `selectableSteps="all"`); the current chip
- *  never does. `doneSteps` overrides the position-based done state. Three visual states, none conveyed by color alone:
+ *  never does. `doneSteps` overrides the position-based done state. With
+ *  `onStepSelect` and `selectableSteps="all"` the narrow-viewport label becomes
+ *  a dropdown listing every step (same rows as the rail), so phones can jump
+ *  too. Three visual states, none conveyed by color alone:
  *  done (checkmark replaces the number, `aria-current` absent, a sr-only
  *  label says so since the number itself is gone), current (`aria-current
  *  ="step"`, own background), upcoming (dimmed, number visible). Below
@@ -56,7 +211,7 @@ export function StepBar({
   readonly compactTestId?: string;
 }): ReactNode {
   const t = useTranslation();
-  const stepState = (i: number): { isCurrent: boolean; isDone: boolean; isSelectable: boolean } => {
+  const stepState = (i: number): StepState => {
     const isCurrent = i === currentIndex;
     const isDone =
       !isCurrent && (doneSteps !== undefined ? doneSteps[i] === true : i < currentIndex);
@@ -64,6 +219,18 @@ export function StepBar({
       onStepSelect !== undefined && !isCurrent && (selectableSteps === "all" || isDone);
     return { isCurrent, isDone, isSelectable };
   };
+  const compactPicker = onStepSelect !== undefined && selectableSteps === "all";
+  const pickerElement = compactPicker ? (
+    <CompactStepPicker
+      steps={steps}
+      compactLabel={compactLabel}
+      subtitles={subtitles}
+      stepState={stepState}
+      onStepSelect={onStepSelect}
+      compactTestId={compactTestId}
+      doneLabel={t("kumiko.widget.step-bar.done")}
+    />
+  ) : null;
   if (orientation === "vertical") {
     return (
       <>
@@ -77,65 +244,21 @@ export function StepBar({
             </div>
           )}
           <ol data-testid={testId} className="m-0 flex list-none flex-col gap-0.5 p-0">
-            {steps.map((label, i) => {
-              const { isCurrent, isDone, isSelectable } = stepState(i);
-              const rowClass = cn(
-                "flex min-h-9 w-full items-center gap-2.5 rounded-md px-2 py-1 text-left text-sm",
-                isCurrent && "bg-primary/10 font-semibold text-primary",
-                isDone && "text-foreground",
-                !isCurrent && !isDone && "text-foreground-secondary",
-              );
-              const content = (
-                <>
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      "flex size-[22px] shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                      isCurrent && "border-primary bg-primary text-primary-foreground",
-                      isDone && "border-status-ok-surface bg-status-ok-surface text-status-ok",
-                      !isCurrent && !isDone && "border-input bg-card text-foreground-secondary",
-                    )}
-                  >
-                    {isDone ? <Check className="size-3" /> : i + 1}
-                  </span>
-                  {isDone && <span className="sr-only">{t("kumiko.widget.step-bar.done")}</span>}
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate">{label}</span>
-                    {subtitles?.[i] !== undefined && (
-                      <span
-                        data-testid={testId !== undefined ? `${testId}-subtitle-${i}` : undefined}
-                        className="truncate text-xs font-normal text-foreground-secondary"
-                      >
-                        {subtitles[i]}
-                      </span>
-                    )}
-                  </span>
-                </>
-              );
-              return (
-                // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
-                <li key={`${i}-${label}`}>
-                  {isSelectable ? (
-                    <button
-                      type="button"
-                      onClick={() => onStepSelect?.(i)}
-                      data-testid={chipTestId(testId, i)}
-                      className={cn(rowClass, "hover:bg-muted-foreground/10")}
-                    >
-                      {content}
-                    </button>
-                  ) : (
-                    <span
-                      aria-current={isCurrent ? "step" : undefined}
-                      data-testid={chipTestId(testId, i)}
-                      className={rowClass}
-                    >
-                      {content}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+            {steps.map((label, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: steps is a static, positional list — index is stable identity, no reorder/DnD.
+              <li key={`${i}-${label}`}>
+                <StepRailRow
+                  index={i}
+                  label={label}
+                  subtitle={subtitles?.[i]}
+                  subtitleTestId={testId !== undefined ? `${testId}-subtitle-${i}` : undefined}
+                  rowTestId={chipTestId(testId, i)}
+                  state={stepState(i)}
+                  onSelect={onStepSelect}
+                  doneLabel={t("kumiko.widget.step-bar.done")}
+                />
+              </li>
+            ))}
           </ol>
           {upNext !== undefined && (
             <div
@@ -152,12 +275,16 @@ export function StepBar({
             </div>
           )}
         </nav>
-        <p
-          data-testid={compactTestId}
-          className="px-4 pt-3 text-sm text-muted-foreground lg:hidden"
-        >
-          {compactLabel}
-        </p>
+        {compactPicker ? (
+          <div className="px-4 pt-3 lg:hidden">{pickerElement}</div>
+        ) : (
+          <p
+            data-testid={compactTestId}
+            className="px-4 pt-3 text-sm text-muted-foreground lg:hidden"
+          >
+            {compactLabel}
+          </p>
+        )}
       </>
     );
   }
@@ -223,15 +350,19 @@ export function StepBar({
           );
         })}
       </ol>
-      <p
-        data-testid={compactTestId}
-        className={cn(
-          "text-sm text-muted-foreground",
-          narrowLayout === "steps" ? "hidden" : "sm:hidden",
-        )}
-      >
-        {compactLabel}
-      </p>
+      {compactPicker ? (
+        <div className={narrowLayout === "steps" ? "hidden" : "sm:hidden"}>{pickerElement}</div>
+      ) : (
+        <p
+          data-testid={compactTestId}
+          className={cn(
+            "text-sm text-muted-foreground",
+            narrowLayout === "steps" ? "hidden" : "sm:hidden",
+          )}
+        >
+          {compactLabel}
+        </p>
+      )}
     </>
   );
 }

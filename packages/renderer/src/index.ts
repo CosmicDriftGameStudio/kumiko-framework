@@ -167,6 +167,7 @@ export type { UseMutationResult } from "./hooks/use-mutation.js";
 export { useMutation } from "./hooks/use-mutation.js";
 export type { UseQueryOptions, UseQueryResult } from "./hooks/use-query.js";
 export { entityFromQueryType, useQuery } from "./hooks/use-query.js";
+export { useReportStepComplete } from "./hooks/use-report-step-complete.js";
 export { useStore, useStoreSelector } from "./hooks/use-store.js";
 export type {
   StreamStatus,

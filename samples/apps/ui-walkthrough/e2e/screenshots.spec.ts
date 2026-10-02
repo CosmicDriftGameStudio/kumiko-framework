@@ -168,6 +168,17 @@ test("drawer-light", async ({ page }) => {
   await shot(page, "drawer-light");
 });
 
+async function openOctaviaEditForm(page: Page): Promise<void> {
+  const testViewport = page.viewportSize();
+  await page.setViewportSize(DESKTOP);
+  await login(page);
+  await page.goto("/vehicle-list");
+  await page.locator(LIST_TABLE).waitFor();
+  await page.getByText("Octavia").first().click();
+  await page.locator(EDIT_FORM).waitFor();
+  if (testViewport !== null) await page.setViewportSize(testViewport);
+}
+
 test("formular-light", async ({ page }) => {
   await login(page);
   await page.goto("/vehicle-list");
@@ -195,6 +206,28 @@ test("wizard-light", async ({ page }) => {
   }
   await expect(page.getByText("Lass leer, was du noch nicht weißt")).toBeVisible();
   await shot(page, "wizard-light");
+});
+
+// The row-action menu only exists in the desktop table, so the record is
+// opened at desktop width and the test's own viewport restored afterwards.
+async function openVehicleWizardForExistingRecord(page: Page): Promise<void> {
+  const testViewport = page.viewportSize();
+  await page.setViewportSize(DESKTOP);
+  await login(page);
+  await page.goto("/vehicle-list");
+  await page.locator(LIST_TABLE).waitFor();
+  await page.getByRole("button", { name: "Weitere Aktionen" }).first().click();
+  await page.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
+  await page.locator(EDIT_FORM).waitFor();
+  if (testViewport !== null) await page.setViewportSize(testViewport);
+}
+
+test("wizard-edit-desktop-light", async ({ page }) => {
+  await openVehicleWizardForExistingRecord(page);
+  for (let step = 0; step < 2; step++) {
+    await page.getByRole("button", { name: /^Weiter:/ }).click();
+  }
+  await shot(page, "wizard-edit-desktop-light");
 });
 
 const LEASE_HUB_URL = "/lease-hub/00000000-0000-4000-8000-000000003103";
@@ -320,6 +353,47 @@ test.describe("mobile", () => {
       .click();
     await expect(page.locator("[data-mobile='true']")).toBeVisible();
     await shot(page, "mobile-nav-light");
+  });
+
+  test("wizard-edit-mobile-light", async ({ page }) => {
+    await openVehicleWizardForExistingRecord(page);
+    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await shot(page, "wizard-edit-mobile-light");
+  });
+
+  test("wizard-edit-mobile-open-light", async ({ page }) => {
+    await openVehicleWizardForExistingRecord(page);
+    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await page.getByTestId("render-edit-wizard-step-label").click();
+    await shot(page, "wizard-edit-mobile-open-light");
+  });
+
+  test("wizard-footer-mobile-update-light", async ({ page }) => {
+    await openVehicleWizardForExistingRecord(page);
+    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await shot(page, "wizard-footer-mobile-update-light");
+  });
+
+  test("wizard-footer-mobile-create-light", async ({ page }) => {
+    await login(page);
+    await page.goto("/vehicle-wizard");
+    await page.locator(EDIT_FORM).waitFor();
+    await page.getByRole("button", { name: /^Weiter/ }).click();
+    await shot(page, "wizard-footer-mobile-create-light");
+  });
+
+  test("formular-footer-mobile-light", async ({ page }) => {
+    await openOctaviaEditForm(page);
+    await shot(page, "formular-footer-mobile-light");
+  });
+
+  test("formular-footer-mobile-dirty-light", async ({ page }) => {
+    await openOctaviaEditForm(page);
+    const mileage = page.getByLabel("Kilometerstand");
+    await mileage.fill("31000");
+    await mileage.blur();
+    await expect(page.getByTestId("render-edit-discard")).toBeVisible();
+    await shot(page, "formular-footer-mobile-dirty-light");
   });
 
   test("detail-slot-mobile", async ({ page }) => {
