@@ -492,6 +492,12 @@ describe("event-store: loadAggregate aggregateType filter (#2979)", () => {
     expect(archivedCart.map((e) => e.type)).toEqual(["cart.created"]);
   });
 
+  test("an empty aggregateType is rejected instead of silently loading the unfiltered stream", async () => {
+    await expect(loadAggregate(testDb.db, uuid(), tenantA, { aggregateType: "" })).rejects.toThrow(
+      /non-empty/,
+    );
+  });
+
   test("an unknown aggregateType yields an empty array, not the full stream", async () => {
     const aggregateId = uuid();
     await appendCartThenReservation(aggregateId);

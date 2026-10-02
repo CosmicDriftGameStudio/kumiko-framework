@@ -105,14 +105,17 @@ describe("appendProvenanceEvent", () => {
     expect(events).toHaveLength(0);
   });
 
-  test("rejects an unqualified type without a ':' and writes nothing", async () => {
-    const event = provenanceEvent({ type: "ai-call-recorded" });
+  test.each(["ai-call-recorded", ":ai-call-recorded", "ai-foundation:"])(
+    "rejects unowned type %p and writes nothing",
+    async (type) => {
+      const event = provenanceEvent({ type });
 
-    await expect(appendProvenanceEvent(tdb, event)).rejects.toThrow(InternalError);
+      await expect(appendProvenanceEvent(tdb, event)).rejects.toThrow(InternalError);
 
-    const events = await loadAggregate(testDb.db, event.aggregateId, tenantA);
-    expect(events).toHaveLength(0);
-  });
+      const events = await loadAggregate(testDb.db, event.aggregateId, tenantA);
+      expect(events).toHaveLength(0);
+    },
+  );
 
   test("a foreign event.tenantId is rejected and writes no row at all", async () => {
     const event = provenanceEvent({ tenantId: tenantB });

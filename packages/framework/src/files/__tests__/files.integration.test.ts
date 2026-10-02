@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { Hono } from "hono";
 import type { JwtHelper } from "../../api/jwt.js";
 import { buildServer } from "../../api/server.js";
+import { selectMany } from "../../bun-db/index.js";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "../../crypto/index.js";
 import {
   createEntity,
@@ -1501,6 +1502,11 @@ describe("meta route with field-encrypted fileName", () => {
     expect(uploadRes.status).toBe(201);
     const { id } = await uploadRes.json();
 
+    // Pin the precondition: the stored column really is ciphertext, so the
+    // decrypted fileName below proves decryption rather than no encryption.
+    const [rawRow] = await selectMany<{ fileName: string }>(testDb.db, fileRefsTable, { id });
+    expect(rawRow?.fileName.startsWith("kumiko-pii:")).toBe(true);
+
     const metaRes = await getFileMeta(adminUser, id);
     expect(metaRes.status).toBe(200);
     const body = await metaRes.json();
@@ -1509,6 +1515,33 @@ describe("meta route with field-encrypted fileName", () => {
     expect(body.size).toBe(testPng.length);
     expect(body.entityType).toBe("tenant");
     expect(body.fieldName).toBe("logo");
+  });
+
+  test("non-privileged uploader reads own meta (insertedById survives executor.detail), non-uploader gets 404", async () => {
+    configurePiiSubjectKms(new InMemoryKmsAdapter());
+    const memberUploader: SessionUser = {
+      id: "11111111-0000-4000-8000-000000000060",
+      tenantId: adminUser.tenantId,
+      roles: ["User"],
+    };
+    const memberOther: SessionUser = {
+      id: "11111111-0000-4000-8000-000000000061",
+      tenantId: adminUser.tenantId,
+      roles: ["User"],
+    };
+
+    const uploadRes = await uploadFile(memberUploader, "own-meta.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+
+    const ownRes = await getFileMeta(memberUploader, id);
+    expect(ownRes.status).toBe(200);
+    expect((await ownRes.json()).fileName).toBe("own-meta.png");
+    expect((await getFileMeta(memberOther, id)).status).toBe(404);
   });
 
   test("other tenant still gets 404 (tenant isolation survives the executor swap)", async () => {
@@ -1585,6 +1618,26 @@ describe("byte-serving routes with field-encrypted fileName", () => {
     const header = res.headers.get("Content-Disposition") ?? "";
     expect(header).toContain('filename="Krankheitsattest-Mai.png"');
     expect(header).not.toContain("kumiko-pii");
+  });
+
+  test("GET /files/:id still serves the bytes with a neutral filename after the subject key is erased", async () => {
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+
+    const uploadRes = await uploadFile(adminUser, "to-be-erased.png", testPng, "image/png", {
+      entityType: "tenant",
+      entityId: "1",
+      fieldName: "logo",
+    });
+    expect(uploadRes.status).toBe(201);
+    const { id } = await uploadRes.json();
+    await kms.eraseKey({ kind: "user", userId: id });
+
+    const res = await getFile(adminUser, id);
+    expect(res.status).toBe(200);
+    const header = res.headers.get("Content-Disposition") ?? "";
+    expect(header).toContain('filename="download"');
+    expect(header).not.toContain("__erased__");
   });
 
   test("GET /files/:id/download-url hints the decrypted fileName, never the ciphertext", async () => {

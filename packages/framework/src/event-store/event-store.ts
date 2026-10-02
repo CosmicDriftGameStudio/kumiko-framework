@@ -249,6 +249,11 @@ export async function loadAggregate(
   tenantId: TenantId,
   options?: { readonly includeArchived?: boolean; readonly aggregateType?: string },
 ): Promise<readonly StoredEvent[]> {
+  // "" must not fall through to the unfiltered load: a dynamically computed
+  // type that came out empty would silently fold in foreign aggregate types.
+  if (options?.aggregateType === "") {
+    throw new Error("loadAggregate: aggregateType must be a non-empty string when provided");
+  }
   if (!options?.includeArchived) {
     const archived = await isStreamArchived(db, tenantId, aggregateId);
     if (archived) return [];
@@ -256,7 +261,7 @@ export async function loadAggregate(
   const rows = await selectMany<SelectedEvent>(
     db,
     eventsTable,
-    options?.aggregateType
+    options?.aggregateType !== undefined
       ? { aggregateId, tenantId, aggregateType: options.aggregateType }
       : { aggregateId, tenantId },
     { orderBy: { col: "version", direction: "asc" } },
