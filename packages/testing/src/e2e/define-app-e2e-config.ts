@@ -210,7 +210,10 @@ export function defineAppE2eConfig(input: AppE2eConfigInput): PlaywrightTestConf
         // E2e clients all share ::1, so the default trustedProxyHops (0,
         // socket-only) would collapse every seeded user into one rate-limit
         // bucket. loginViaApi sends a synthetic per-user X-Forwarded-For, so
-        // trust exactly one hop to give each user its own bucket.
+        // trust exactly one hop to give each user its own bucket. An explicit
+        // `trustedProxyHops` / `auth.trustedProxyHops` in the consumer's
+        // server entrypoint wins over this env and brings the shared bucket
+        // (and 429s) back — such a server must read the value from the env.
         [TRUSTED_PROXY_HOPS_ENV]: "1",
       },
       reuseExistingServer: false,

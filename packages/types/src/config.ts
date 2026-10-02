@@ -390,7 +390,7 @@ export type JobDefinition = {
   // "sequential" is mutual exclusion, not a FIFO queue: same-name dispatches
   // never run concurrently, but a loser of the per-name lock is re-enqueued
   // to the back of its queue, so a job dispatched later can still complete
-  // before one dispatched earlier (fw#3265). Don't rely on dispatch order.
+  // before one dispatched earlier. Don't rely on dispatch order.
   readonly concurrency?: ConcurrencyMode | undefined;
   readonly maxPerTenant?: number | undefined;
   readonly debounceMs?: number | undefined;

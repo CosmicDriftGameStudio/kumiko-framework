@@ -143,6 +143,8 @@ export function createUserProfileFeature(): FeatureDefinition {
           handler: UserDataRightsHandlers.cancelDeletion,
           visible: { field: "status", eq: "deletionRequested" },
           style: "secondary",
+          // Declared: the id's last segment ("deletion") would otherwise resolve to the destructive trash icon.
+          icon: "x",
         },
       ],
     });

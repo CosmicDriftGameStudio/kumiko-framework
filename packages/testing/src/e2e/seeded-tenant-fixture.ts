@@ -100,7 +100,11 @@ export async function provideSeedTenant(
     if (cached !== undefined) return cached;
     let opened: Promise<BoundApi> | undefined;
     const bound = (): Promise<BoundApi> => {
-      opened ??= openLoggedInApi(user);
+      // A rejected login must not stay cached, or every later call replays the same stale error.
+      opened ??= openLoggedInApi(user).catch((error: unknown) => {
+        opened = undefined;
+        throw error;
+      });
       return opened;
     };
     const api: BoundApi = {

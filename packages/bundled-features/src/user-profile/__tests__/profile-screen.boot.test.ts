@@ -96,6 +96,7 @@ describe("user-profile screen (fw#2312 projectionDetail conversion)", () => {
     expect(byId["cancel-deletion"]).toMatchObject({
       handler: "user-data-rights:write:cancel-deletion",
       visible: { field: "status", eq: "deletionRequested" },
+      icon: "x",
     });
     expect((byId["cancel-deletion"] as { readonly confirm?: string }).confirm).toBeUndefined();
   });
