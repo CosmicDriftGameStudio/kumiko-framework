@@ -142,6 +142,22 @@ describe("FeaturePatcher — typed add helpers for mixed (closure-bearing) patte
     });
   });
 
+  test("addStreamHandler renders escapeHatch", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addStreamHandler({
+      name: "task:stream",
+      schemaSource: "z.object({})",
+      handlerSource: "async (q, ctx) => []",
+      escapeHatch: { reason: "system read for stream fan-out" },
+    });
+    expect(sf.getFullText()).toContain("escapeHatch: { reason: ");
+    expect(parseSourceFile(sf).patterns[0]).toMatchObject({
+      kind: "streamHandler",
+      handlerName: "task:stream",
+      escapeHatch: { reason: "system read for stream fan-out" },
+    });
+  });
+
   test("addHook with target string", () => {
     const sf = makeSourceFile(STARTER);
     createFeaturePatcher(sf).addHook({

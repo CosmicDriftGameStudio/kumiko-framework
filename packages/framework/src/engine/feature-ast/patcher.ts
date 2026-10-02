@@ -117,6 +117,7 @@ export type AddStreamHandlerArgs = {
   readonly handlerSource: string;
   readonly access?: AccessRule;
   readonly rateLimit?: RateLimitOption;
+  readonly escapeHatch?: EscapeHatchDeclaration;
 };
 
 export type AddHookArgs = {
@@ -416,7 +417,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
       });
     },
 
-    addStreamHandler({ name, schemaSource, handlerSource, access, rateLimit }) {
+    addStreamHandler({ name, schemaSource, handlerSource, access, rateLimit, escapeHatch }) {
       add({
         kind: "streamHandler",
         source: SYNTHETIC_LOC,
@@ -425,6 +426,7 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
         handlerBody: rawLoc(handlerSource),
         ...(access !== undefined && { access }),
         ...(rateLimit !== undefined && { rateLimit }),
+        ...(escapeHatch !== undefined && { escapeHatch }),
       });
     },
 

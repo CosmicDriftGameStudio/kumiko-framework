@@ -43,6 +43,7 @@ import {
 import {
   readNameLiteral,
   readNameOrRef,
+  readPropertyKey,
   resolveSameFileObjectLiteral,
 } from "./extractors/shared.js";
 import type {
@@ -353,6 +354,15 @@ function lastProperty(obj: ObjectLiteralExpression): Node | undefined {
   return obj.getProperties().at(-1);
 }
 
+// ts-morph's getProperty(name) keeps the quotes of string-literal keys, so `"description": x` would never match `description`.
+function findPropertyByKey(obj: ObjectLiteralExpression, key: string): Node | undefined {
+  return obj.getProperties().find((prop) => {
+    const assign = prop.asKind(SyntaxKind.PropertyAssignment);
+    if (assign) return readPropertyKey(assign) === key;
+    return prop.asKind(SyntaxKind.ShorthandPropertyAssignment)?.getName() === key;
+  });
+}
+
 // Replaces the value of an already-present key; undefined when the key is missing.
 function buildInPlaceSetEdit(
   obj: ObjectLiteralExpression,
@@ -360,7 +370,7 @@ function buildInPlaceSetEdit(
   value: unknown,
 ): TextEdit | undefined {
   const sourceFile = obj.getSourceFile();
-  const existing = obj.getProperty(key);
+  const existing = findPropertyByKey(obj, key);
   const assign = existing?.asKind(SyntaxKind.PropertyAssignment);
   if (assign) {
     const init = assign.getInitializer();
@@ -468,7 +478,7 @@ function buildInlineUnsetEdit(
 }
 
 function buildUnsetEdit(obj: ObjectLiteralExpression, key: string): TextEdit | undefined {
-  const prop = obj.getProperty(key);
+  const prop = findPropertyByKey(obj, key);
   if (!prop) return undefined; // no-op: nothing to remove, unset is idempotent
   const sourceFile = obj.getSourceFile();
   const text = sourceFile.getFullText();

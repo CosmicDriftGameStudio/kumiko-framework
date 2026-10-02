@@ -2339,6 +2339,27 @@ defineFeature("f", (r) => {
     });
   });
 
+  test("accepts a shorthand piiFields stance", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  const piiFields = "none" as const;
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), { piiFields });
+});
+`);
+    expect(result.errors).toEqual([]);
+    expect(result.patterns[0]).toMatchObject({ kind: "defineEvent", eventName: "incidentOpened" });
+  });
+
+  test("a non-literal options argument gets its own error", () => {
+    const result = parseInline(`
+defineFeature("f", (r) => {
+  const opts = { piiFields: "none" as const };
+  r.defineEvent("incidentOpened", z.object({ id: z.string() }), opts);
+});
+`);
+    expect(result.errors[0]?.reason).toContain("options must be an object literal");
+  });
+
   test("object form captures name, schema, version and migrations", () => {
     const result = parseInline(`
 defineFeature("f", (r) => {

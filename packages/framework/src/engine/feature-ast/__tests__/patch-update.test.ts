@@ -843,3 +843,44 @@ defineFeature("f", (r) => {
     expect(sf.getFullText()).toBe(before);
   });
 });
+
+describe("updatePattern — quoted keys", () => {
+  const starter = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+
+defineFeature("inventory", (r) => {
+  r.writeHandler({
+    name: "item:create",
+    schema: z.object({}),
+    handler: async () => {},
+    access: { openToAll: { reason: "test" } },
+    "description": "old",
+  });
+});
+`;
+
+  test("set replaces a string-literal key instead of appending a duplicate", () => {
+    const sf = makeSourceFile(starter);
+    updatePattern(sf, {
+      op: "update",
+      id: { kind: "writeHandler", handlerName: "item:create" },
+      set: { description: "new" },
+    });
+    const text = sf.getFullText();
+    expect(text.match(/description/g)).toHaveLength(1);
+    expect(text).toContain('"new"');
+    expect(syntaxErrors(sf)).toEqual([]);
+  });
+
+  test("unset removes a string-literal key", () => {
+    const sf = makeSourceFile(starter);
+    updatePattern(sf, {
+      op: "update",
+      id: { kind: "writeHandler", handlerName: "item:create" },
+      set: {},
+      unset: ["description"],
+    });
+    expect(sf.getFullText()).not.toContain("description");
+    expect(syntaxErrors(sf)).toEqual([]);
+  });
+});
