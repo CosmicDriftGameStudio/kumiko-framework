@@ -188,6 +188,12 @@ function collectFiles(paths: string[]): string[] {
   return files;
 }
 
+// Remaining manual sites still fail boot validation, so upgrade-cli must not
+// treat this run as a completed migration.
+export function exitCodeForManualSites(manualCount: number): 0 | 1 {
+  return manualCount > 0 ? 1 : 0;
+}
+
 async function main(): Promise<void> {
   let options: CliOptions;
   try {
@@ -241,7 +247,7 @@ async function main(): Promise<void> {
     }
   }
 
-  process.exit(0);
+  process.exit(exitCodeForManualSites(allManual.length));
 }
 
 if (import.meta.main) {

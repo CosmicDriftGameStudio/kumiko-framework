@@ -193,7 +193,84 @@ function processNewExpression(args: readonly Node[], report: (note: string) => v
   return "changed";
 }
 
+// `failUnprocessable(reason, details)` takes the details literal directly as
+// its second argument (no `{ details }` wrapper like the ctor's opts).
+function processFailUnprocessableCall(
+  args: readonly Node[],
+  report: (note: string) => void,
+): CallOutcome {
+  const detailsArg = args[1];
+  if (!detailsArg) return "not-a-match";
+
+  if (!Node.isObjectLiteralExpression(detailsArg)) {
+    report(
+      "second argument (details) is not a statically-analyzable object literal — cannot verify details.reason",
+    );
+    return "skipped";
+  }
+
+  const removal = removeReasonProperty(detailsArg);
+  if (removal.kind === "absent") return "not-a-match";
+  if (removal.kind === "skip") {
+    report(removal.note);
+    return "skipped";
+  }
+  return "changed";
+}
+
 type SkipEntry = { readonly file: string; readonly line: number; readonly note: string };
+
+type MigratableCall = {
+  readonly exportName: "UnprocessableError" | "failUnprocessable";
+  readonly localKind: "class" | "function";
+  readonly process: (args: readonly Node[], report: (note: string) => void) => CallOutcome;
+};
+
+const UNPROCESSABLE_ERROR_CTOR: MigratableCall = {
+  exportName: "UnprocessableError",
+  localKind: "class",
+  process: processNewExpression,
+};
+const FAIL_UNPROCESSABLE_CALL: MigratableCall = {
+  exportName: "failUnprocessable",
+  localKind: "function",
+  process: processFailUnprocessableCall,
+};
+
+function migrateCallSite(
+  sourceFile: SourceFile,
+  importedNames: ReadonlyMap<string, ImportedBinding>,
+  site: Node & { getExpression(): Node; getArguments(): Node[] },
+  target: MigratableCall,
+  skips: SkipEntry[],
+): boolean {
+  const callee = site.getExpression();
+  if (!Node.isIdentifier(callee)) return false;
+  const localName = callee.getText();
+  const line = site.getStartLineNumber();
+  const file = sourceFile.getFilePath();
+
+  const binding = importedNames.get(localName);
+  if (binding?.importedName !== target.exportName) {
+    if (localName !== target.exportName) return false;
+    const note = binding
+      ? `${target.exportName} is imported from "${binding.moduleSpecifier}", not a @cosmicdrift/kumiko-* package`
+      : `${target.exportName} has no @cosmicdrift/kumiko-* import in this file (likely a locally defined ${target.localKind})`;
+    skips.push({ file, line, note });
+    return false;
+  }
+  if (!KUMIKO_MODULE_RE.test(binding.moduleSpecifier)) {
+    skips.push({
+      file,
+      line,
+      note: `${target.exportName} is imported from "${binding.moduleSpecifier}", not a @cosmicdrift/kumiko-* package`,
+    });
+    return false;
+  }
+
+  const outcome = target.process(site.getArguments(), (note) => skips.push({ file, line, note }));
+  return outcome === "changed";
+}
 
 /** Migrates one file in place. Returns how many `reason` properties were removed. */
 function migrateFile(sourceFile: SourceFile, skips: SkipEntry[]): number {
@@ -201,34 +278,14 @@ function migrateFile(sourceFile: SourceFile, skips: SkipEntry[]): number {
   let removedCount = 0;
 
   for (const newExpr of sourceFile.getDescendantsOfKind(SyntaxKind.NewExpression)) {
-    const callee = newExpr.getExpression();
-    if (!Node.isIdentifier(callee)) continue;
-    const localName = callee.getText();
-
-    const binding = importedNames.get(localName);
-    const isFrameworkUnprocessableError = binding?.importedName === "UnprocessableError";
-
-    if (!isFrameworkUnprocessableError) {
-      if (localName !== "UnprocessableError") continue;
-      const note = binding
-        ? `UnprocessableError is imported from "${binding.moduleSpecifier}", not a @cosmicdrift/kumiko-* package`
-        : "UnprocessableError has no @cosmicdrift/kumiko-* import in this file (likely a locally defined class)";
-      skips.push({ file: sourceFile.getFilePath(), line: newExpr.getStartLineNumber(), note });
-      continue;
+    if (migrateCallSite(sourceFile, importedNames, newExpr, UNPROCESSABLE_ERROR_CTOR, skips)) {
+      removedCount++;
     }
-    if (!KUMIKO_MODULE_RE.test(binding.moduleSpecifier)) {
-      skips.push({
-        file: sourceFile.getFilePath(),
-        line: newExpr.getStartLineNumber(),
-        note: `UnprocessableError is imported from "${binding.moduleSpecifier}", not a @cosmicdrift/kumiko-* package`,
-      });
-      continue;
+  }
+  for (const call of sourceFile.getDescendantsOfKind(SyntaxKind.CallExpression)) {
+    if (migrateCallSite(sourceFile, importedNames, call, FAIL_UNPROCESSABLE_CALL, skips)) {
+      removedCount++;
     }
-
-    const outcome = processNewExpression(newExpr.getArguments(), (note) => {
-      skips.push({ file: sourceFile.getFilePath(), line: newExpr.getStartLineNumber(), note });
-    });
-    if (outcome === "changed") removedCount++;
   }
 
   return removedCount;

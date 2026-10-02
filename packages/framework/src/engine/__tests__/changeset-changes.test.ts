@@ -70,4 +70,28 @@ describe("parseChangesetChanges", () => {
       ),
     ).toThrow("closed early");
   });
+
+  test("derives title and detail per block from the prose before that block", () => {
+    const changes = parseChangesetChanges(
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\nFirst feature title.\n\nFirst detail.\n\n<!-- kumiko-changes\nfeature: framework\ntype: improvement\n-->\n\nSecond feature title.\n\nSecond detail.\n\n<!-- kumiko-changes\nfeature: sessions\ntype: fix\n-->`,
+      ".changeset/two-prose.md",
+    );
+
+    expect(changes.map(({ title, detail }) => ({ title, detail }))).toEqual([
+      { title: "First feature title.", detail: "First detail." },
+      { title: "Second feature title.", detail: "Second detail." },
+    ]);
+  });
+
+  test("keeps the first prose line as detail when an explicit title differs from it", () => {
+    const changes = parseChangesetChanges(
+      `---\n"@cosmicdrift/kumiko-framework": minor\n---\n\nBackground sentence.\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Short explicit title\n-->`,
+      ".changeset/explicit-title.md",
+    );
+
+    expect(changes[0]).toMatchObject({
+      title: "Short explicit title",
+      detail: "Background sentence.",
+    });
+  });
 });

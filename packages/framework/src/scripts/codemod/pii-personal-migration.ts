@@ -506,17 +506,28 @@ function reportStanceResolveEntity(call: CallExpression): string | null {
   return varDecl ? varDecl.getName() : null;
 }
 
-// A hint only counts at a segment boundary (index 0, an uppercase letter in
-// the original, or preceded by `_`) — otherwise a coincidental substring
-// like "text" inside "contextId" would false-positive.
+function isSegmentStart(fieldOriginal: string, index: number): boolean {
+  return (
+    index === 0 || /[A-Z]/.test(fieldOriginal[index] ?? "") || fieldOriginal[index - 1] === "_"
+  );
+}
+
+// A hint only counts when it starts and ends on a segment boundary (index 0 /
+// end of field, an uppercase letter in the original, or `_`) — otherwise a
+// coincidental substring like "text" in "contextId" or "type" in "contentType"
+// would false-positive.
 function hintOccursAtBoundary(fieldLower: string, fieldOriginal: string, hint: string): boolean {
   let searchFrom = 0;
   for (;;) {
     const index = fieldLower.indexOf(hint, searchFrom);
     if (index === -1) return false;
-    const atBoundary =
-      index === 0 || /[A-Z]/.test(fieldOriginal[index] ?? "") || fieldOriginal[index - 1] === "_";
-    if (atBoundary) return true;
+    const end = index + hint.length;
+    if (
+      isSegmentStart(fieldOriginal, index) &&
+      (end === fieldOriginal.length || isSegmentStart(fieldOriginal, end))
+    ) {
+      return true;
+    }
     searchFrom = index + 1;
   }
 }
@@ -532,23 +543,26 @@ function findLongestBoundaryHint(fieldLower: string, fieldOriginal: string): str
 
 function segmentAlignedSuffixes(fieldOriginal: string): string[] {
   const fieldLower = fieldOriginal.toLowerCase();
-  const suffixes: string[] = [];
+  const starts: number[] = [];
   for (let index = 0; index < fieldOriginal.length; index++) {
-    const atBoundary =
-      index === 0 || /[A-Z]/.test(fieldOriginal[index] ?? "") || fieldOriginal[index - 1] === "_";
-    if (atBoundary) suffixes.push(fieldLower.slice(index));
+    if (isSegmentStart(fieldOriginal, index)) starts.push(index);
   }
-  return suffixes;
+  // Hints are lowercase, so a hint's own segment boundary is unknowable. A
+  // single-segment tail ("Number", "Owner") is too generic to align with one;
+  // two or more segments ("UserId") are specific enough.
+  return starts.slice(0, -1).map((index) => fieldLower.slice(index));
 }
 
 // The hint sets only carry exact full names, so a suffix variant of one
 // (e.g. "...UserId" of "assigneeUserId") otherwise slips through undetected.
+// The suffix must be the tail of the hint: plain `includes` matched "number"
+// inside "phonenumber" for "orderNumber".
 function findShortestHintContainingSuffix(fieldOriginal: string): string | undefined {
   let best: string | undefined;
   for (const suffix of segmentAlignedSuffixes(fieldOriginal)) {
     if (suffix.length < 5) continue;
     for (const hint of ALL_PII_NAME_HINTS) {
-      if (!hint.includes(suffix)) continue;
+      if (hint === suffix || !hint.endsWith(suffix)) continue;
       if (!best || hint.length < best.length) best = hint;
     }
   }
@@ -556,12 +570,12 @@ function findShortestHintContainingSuffix(fieldOriginal: string): string | undef
 }
 
 function classifyFieldStance(field: string): { stance: StanceClass; hint: string | undefined } {
-  const fieldLower = field.toLowerCase();
+  const fieldLower = field.replaceAll("_", "").toLowerCase();
   if (PII_DIRECT_NAME_HINTS.has(fieldLower)) return { stance: "direct", hint: fieldLower };
   if (PII_USER_OWNED_NAME_HINTS.has(fieldLower)) return { stance: "user-owned", hint: fieldLower };
   if (PII_USER_REFERENCE_NAME_HINTS.has(fieldLower))
     return { stance: "user-reference", hint: fieldLower };
-  const containmentHint = findLongestBoundaryHint(fieldLower, field);
+  const containmentHint = findLongestBoundaryHint(field.toLowerCase(), field);
   if (containmentHint) return { stance: "near-miss", hint: containmentHint };
   const suffixHint = findShortestHintContainingSuffix(field);
   if (suffixHint) return { stance: "near-miss", hint: suffixHint };

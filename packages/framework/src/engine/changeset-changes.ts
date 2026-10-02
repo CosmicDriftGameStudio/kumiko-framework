@@ -66,20 +66,28 @@ function parseBlock(raw: string, source: string): ReadonlyMap<string, string> {
 function proseWithoutMetadata(markdown: string): string[] {
   const withoutFrontmatter = markdown.replace(/^\s*---\n[\s\S]*?\n---\s*/, "");
   return withoutFrontmatter
-    .replace(BLOCK_RE, "")
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line !== "");
 }
 
+function sameTitle(title: string, line: string | undefined): boolean {
+  const normalize = (text: string) => text.replace(/[.\s]+$/, "").toLowerCase();
+  return line !== undefined && normalize(title) === normalize(line);
+}
+
 /** Parse structured upgrade metadata embedded in a Changeset body. */
 export function parseChangesetChanges(markdown: string, source: string): readonly PendingChange[] {
   const changes: PendingChange[] = [];
-  const prose = proseWithoutMetadata(markdown);
+  // Each block only inherits prose from the markdown between the previous block
+  // and itself; document-wide prose would give two features the same title.
+  let segmentStart = 0;
   BLOCK_RE.lastIndex = 0;
   let match = BLOCK_RE.exec(markdown);
   while (match !== null) {
     const block = match[1];
+    const prose = proseWithoutMetadata(markdown.slice(segmentStart, match.index));
+    segmentStart = match.index + match[0].length;
     // BLOCK_RE closes at the first line starting with "-->"; text after it on
     // that line means a field value contained one and the block ended early.
     const restOfLine = markdown.slice(match.index + match[0].length).split("\n", 1)[0] ?? "";
@@ -95,13 +103,17 @@ export function parseChangesetChanges(markdown: string, source: string): readonl
     if (!TYPE_VALUES.has(rawType as ChangelogType)) {
       throw new Error(`${source}: kumiko-changes type must be breaking, improvement, or fix`);
     }
-    const title = fields.get("title")?.trim() || prose[0];
+    const explicitTitle = fields.get("title")?.trim();
+    const title = explicitTitle || prose[0];
     if (!title) throw new Error(`${source}: kumiko-changes title is required`);
 
+    // The first prose line is the title's source only when no title was given or
+    // the explicit one restates it; otherwise it is genuine detail.
+    const firstLineIsTitle = !explicitTitle || sameTitle(explicitTitle, prose[0]);
     const detail =
       fields.get("detail")?.trim() ||
       prose
-        .slice(prose.length > 0 ? 1 : 0)
+        .slice(firstLineIsTitle ? 1 : 0)
         .join("\n")
         .trim();
     const migration = fields.get("migration")?.trim();
