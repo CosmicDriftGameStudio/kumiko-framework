@@ -274,9 +274,11 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     const { dispatcher } = stubDispatcher();
     let capturedChromeless: boolean | undefined;
     let capturedScrollBody: boolean | undefined;
+    let capturedScreenPadding: boolean | undefined;
     const capturingDataTable: ComponentType<DataTableProps> = (props) => {
       capturedChromeless = props.chromeless;
       capturedScrollBody = props.scrollBody;
+      capturedScreenPadding = props.screenPadding;
       return testDataTable(props);
     };
     render(
@@ -303,6 +305,7 @@ describe("RelatedListSection — tabs-mode card chrome (fw#2722)", () => {
     expect(rtlScreen.getByTestId(`related-list-${historySection.title}`)).toBeTruthy();
     expect(capturedChromeless).toBeUndefined();
     expect(capturedScrollBody).toBeUndefined();
+    expect(capturedScreenPadding).toBe(false);
   });
 });
 
