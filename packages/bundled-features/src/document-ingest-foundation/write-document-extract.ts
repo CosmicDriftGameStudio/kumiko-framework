@@ -6,14 +6,14 @@
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
-import type { DocumentExtractMeta, IngestPage } from "./entity.js";
+import { type DocumentExtractMeta, documentExtractsTable, type IngestPage } from "./entity.js";
 import { documentExtractExecutor } from "./executor.js";
 import { isFileRefLive } from "./file-ref-liveness.js";
 import { writeIngestPages } from "./pages.js";
 
 export type DocumentExtractWriteResult =
   | { readonly kind: "written"; readonly documentExtractId: string }
-  | { readonly kind: "skipped"; readonly reason: "file_ref_deleted" };
+  | { readonly kind: "skipped"; readonly reason: "file_ref_deleted" | "already_extracted" };
 
 export async function writeDocumentExtractForLiveFileRef(input: {
   readonly tenantDb: TenantDb;
@@ -28,6 +28,15 @@ export async function writeDocumentExtractForLiveFileRef(input: {
   // documentExtract.created handler, which is the actual race-safety guarantee.
   if (!(await isFileRefLive(input.tenantDb, input.fileRefId))) {
     return { kind: "skipped", reason: "file_ref_deleted" };
+  }
+  // A redelivered documentIngest.requested, or the one a delete→restore race
+  // re-requests while the old extract is still standing, must not create a
+  // second extract for the same fileRef.
+  const existing = await input.tenantDb.selectMany<{ id: string }>(documentExtractsTable, {
+    fileRefId: input.fileRefId,
+  });
+  if (existing.length > 0) {
+    return { kind: "skipped", reason: "already_extracted" };
   }
   const result = await documentExtractExecutor.create(
     {

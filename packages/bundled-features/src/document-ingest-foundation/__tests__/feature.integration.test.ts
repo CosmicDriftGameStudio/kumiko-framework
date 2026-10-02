@@ -69,27 +69,22 @@ const testProviderAFeature = defineFeature("test-document-ingest-provider-a", (r
     { trigger: documentIngestProviderTrigger(PROVIDER_A_NAME), runIn: "worker" },
     async (rawPayload, ctx) => {
       const payload = documentIngestRequestedPayloadSchema.parse(rawPayload);
-      // Idempotent, mirrors LiteParse: a redelivered documentIngest.requested
-      // must not create a second extract for the same fileRef.
-      const existing = await ctx.db.selectMany(documentExtractsTable, {
+      // No own existence check on purpose: idempotency under redelivery and the
+      // delete→restore race is the helper's job.
+      await writeDocumentExtractForLiveFileRef({
+        tenantDb: ctx.db,
+        actor: ctx.systemUser,
         fileRefId: payload.fileRefId,
+        storageKey: payload.storageKey,
+        pages: [{ pageNumber: 1, text: "invoice text" }],
+        meta: {
+          provider: PROVIDER_A_NAME,
+          ms: 1,
+          needsOcr: false,
+          pagesParsed: 1,
+          totalPages: 1,
+        },
       });
-      if (existing.length === 0) {
-        await writeDocumentExtractForLiveFileRef({
-          tenantDb: ctx.db,
-          actor: ctx.systemUser,
-          fileRefId: payload.fileRefId,
-          storageKey: payload.storageKey,
-          pages: [{ pageNumber: 1, text: "invoice text" }],
-          meta: {
-            provider: PROVIDER_A_NAME,
-            ms: 1,
-            needsOcr: false,
-            pagesParsed: 1,
-            totalPages: 1,
-          },
-        });
-      }
       providerAProcessed.push({ fileRefId: payload.fileRefId });
     },
   );

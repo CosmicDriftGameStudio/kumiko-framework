@@ -164,31 +164,47 @@ async function applyOverlays(
   pipeline: Sharp,
   layers: readonly ResolvedOverlayLayer[],
 ): Promise<Sharp> {
-  const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+  // PNG intermediate: a bare toBuffer() re-encodes in the source format, so a
+  // JPEG source would gain an extra lossy generation before applyEncoder runs.
+  const { data, info } = await pipeline.png().toBuffer({ resolveWithObject: true });
 
   const composites: OverlayOptions[] = [];
   for (const layer of layers) {
+    const targetWidth = Math.max(1, Math.round(info.width * layer.widthPct));
+    // The QR is square, so the output height bounds its side just like the width does.
+    const qrSide = Math.min(targetWidth, info.height);
+    if (layer.kind === "qr" && qrSide < MIN_QR_PIXEL_WIDTH) {
+      throw new Error(
+        `derivatives-sharp: qr overlay would render at ${qrSide}px wide, below the ${MIN_QR_PIXEL_WIDTH}px minimum a camera can reliably scan.`,
+      );
+    }
+
+    // Rendered at its final size so the modules stay hard-edged; resampling a
+    // small default-size QR to a non-integer module size blurs them.
     const layerBytes =
       layer.kind === "qr"
-        ? await QRCode.toBuffer(layer.data, { margin: 1, errorCorrectionLevel: "M" })
+        ? await QRCode.toBuffer(layer.data, {
+            width: qrSide,
+            margin: 1,
+            errorCorrectionLevel: "M",
+          })
         : Buffer.from(layer.imageBase64, "base64");
 
     const layerMeta = await sharp(layerBytes, SHARP_INPUT_OPTIONS).metadata();
     assertNotSvg(layerMeta.format);
-
-    const targetWidth = Math.max(1, Math.round(info.width * layer.widthPct));
-    if (layer.kind === "qr" && targetWidth < MIN_QR_PIXEL_WIDTH) {
-      throw new Error(
-        `derivatives-sharp: qr overlay would render at ${targetWidth}px wide, below the ${MIN_QR_PIXEL_WIDTH}px minimum a camera can reliably scan.`,
-      );
-    }
 
     // PNG (not the layer's own format) to keep any alpha through the resize.
     // height caps the other axis too — sharp's composite() rejects an input
     // larger than the base image, which a tall/square layer would otherwise
     // hit once widthPct alone drives its width past the output's height.
     const resized = await sharp(layerBytes, SHARP_INPUT_OPTIONS)
-      .resize({ width: targetWidth, height: info.height, fit: "inside" })
+      .resize({
+        width: targetWidth,
+        height: info.height,
+        fit: "inside",
+        // Only ever a sub-pixel correction for a QR; keeps module edges crisp.
+        kernel: layer.kind === "qr" ? "nearest" : "lanczos3",
+      })
       .png()
       .toBuffer({ resolveWithObject: true });
 
@@ -372,7 +388,8 @@ export const renderImage: DerivativeRendererPlugin["render"] = async (
   let pipeline = sharp(input, SHARP_INPUT_OPTIONS).rotate();
 
   if (spec.blurRegions && spec.blurRegions.length > 0) {
-    const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+    // PNG intermediate for the same reason as in applyOverlays (no extra lossy generation).
+    const { data, info } = await pipeline.png().toBuffer({ resolveWithObject: true });
     const blurred = await applyBlurRegions(data, info.width, info.height, spec.blurRegions);
     pipeline = sharp(blurred, SHARP_INPUT_OPTIONS);
   }
