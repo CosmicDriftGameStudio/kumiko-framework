@@ -19,7 +19,12 @@
 
 import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
-import { access, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  assignableAppRolesFromUsages,
+  defineWriteHandler,
+  EXT_ASSIGNABLE_ROLE,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
@@ -77,7 +82,8 @@ export type InviteCreateOptions = {
   // further restrict assignable ranked roles.
   readonly canAssignRole?: (inviterRoles: readonly string[], targetRole: string) => boolean;
   /** Opt-in allow-list for app-defined (unranked) roles the elevation guard
-   *  would otherwise reject with unassignable_membership_role (fw#2398). */
+   *  would otherwise reject with unassignable_membership_role (fw#2398).
+   *  Rank-aware alternative: declare roles via EXT_ASSIGNABLE_ROLE. */
   readonly additionalAssignableRoles?: readonly string[];
 };
 
@@ -111,6 +117,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
         event.user.roles,
         [event.payload.role],
         [],
+        assignableAppRolesFromUsages(ctx.registry.getExtensionUsages(EXT_ASSIGNABLE_ROLE)),
       );
       if (
         elevationForbidden !== undefined &&

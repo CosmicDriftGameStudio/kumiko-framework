@@ -1,9 +1,11 @@
 import { AuthHandlers } from "@cosmicdrift/kumiko-bundled-features/auth-email-password/constants";
 import {
+  type AssignableAppRoles,
   access,
   type EntityEditScreenDefinition,
   type EntityListScreenDefinition,
   i18nKey,
+  isAssignableByRole,
   type ScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -161,39 +163,59 @@ export function createMembersScreen(options?: {
 // only entry point is the drawer button on /members. Only registered by
 // feature.ts when `TenantFeatureOptions.inviteScreen` is set — see
 // createMembersScreen's doc comment above for why.
-export const inviteCreateScreen = {
-  id: INVITE_CREATE_SCREEN_ID,
-  type: "actionForm",
-  handler: AuthHandlers.inviteCreate,
-  fields: {
-    email: { type: "text", required: true, format: "email" },
-    role: { type: "select", options: DEFAULT_INVITE_ROLE_OPTIONS, required: true },
-  },
-  layout: {
-    sections: [{ fields: ["email", "role"] }],
-  },
-  submitLabel: i18nKey("tenant.members.invite.submit"),
-  access: { roles: access.admin },
-} satisfies ScreenDefinition;
+export function createInviteCreateScreen(assignableAppRoles: AssignableAppRoles = new Map()) {
+  // Admin sees this screen too, so only app roles Admin may grant are offered (fw#2414).
+  const appRoleOptions = [...assignableAppRoles]
+    .filter(([, assignableFrom]) => isAssignableByRole(assignableFrom, "Admin"))
+    .map(([role]) => role);
+  return {
+    id: INVITE_CREATE_SCREEN_ID,
+    type: "actionForm",
+    handler: AuthHandlers.inviteCreate,
+    fields: {
+      email: { type: "text", required: true, format: "email" },
+      role: {
+        type: "select",
+        options: [...DEFAULT_INVITE_ROLE_OPTIONS, ...appRoleOptions],
+        required: true,
+      },
+    },
+    layout: {
+      sections: [{ fields: ["email", "role"] }],
+    },
+    submitLabel: i18nKey("tenant.members.invite.submit"),
+    access: { roles: access.admin },
+  } satisfies ScreenDefinition;
+}
 
-export const memberRolesEditScreen = {
-  id: MEMBER_ROLES_EDIT_SCREEN_ID,
-  type: "actionForm",
-  handler: TenantHandlers.updateMemberRoles,
-  redirect: MEMBERS_SCREEN_ID,
-  cancelTarget: MEMBERS_SCREEN_ID,
-  fields: {
-    userId: { type: "text", required: true },
-    // Prefilled with the member's current roles, so the option list must be
-    // able to represent every assignable rank — DEFAULT_INVITE_ROLE_OPTIONS
-    // omits TenantAdmin and would silently strip it on submit. Escalation
-    // still stays server-side via findForbiddenRoleAssignment (update-member-roles.write.ts).
-    roles: { type: "multiSelect", options: OWNER_INVITE_ROLE_OPTIONS, required: true },
-  },
-  layout: {
-    // Prefill userId from rowAction; readOnly so the operator cannot retarget.
-    sections: [{ fields: [{ field: "userId", readOnly: true }, "roles"] }],
-  },
-  submitLabel: i18nKey("tenant.members.roles.edit.submit"),
-  access: { roles: access.admin },
-} satisfies ScreenDefinition;
+export const inviteCreateScreen = createInviteCreateScreen();
+
+export function createMemberRolesEditScreen(assignableAppRoles: AssignableAppRoles = new Map()) {
+  return {
+    id: MEMBER_ROLES_EDIT_SCREEN_ID,
+    type: "actionForm",
+    handler: TenantHandlers.updateMemberRoles,
+    redirect: MEMBERS_SCREEN_ID,
+    cancelTarget: MEMBERS_SCREEN_ID,
+    fields: {
+      userId: { type: "text", required: true },
+      // Prefilled with the member's current roles, so the option list must be
+      // able to represent every assignable rank — DEFAULT_INVITE_ROLE_OPTIONS
+      // omits TenantAdmin and would silently strip it on submit. Escalation
+      // still stays server-side via findForbiddenRoleAssignment (update-member-roles.write.ts).
+      roles: {
+        type: "multiSelect",
+        options: [...OWNER_INVITE_ROLE_OPTIONS, ...assignableAppRoles.keys()],
+        required: true,
+      },
+    },
+    layout: {
+      // Prefill userId from rowAction; readOnly so the operator cannot retarget.
+      sections: [{ fields: [{ field: "userId", readOnly: true }, "roles"] }],
+    },
+    submitLabel: i18nKey("tenant.members.roles.edit.submit"),
+    access: { roles: access.admin },
+  } satisfies ScreenDefinition;
+}
+
+export const memberRolesEditScreen = createMemberRolesEditScreen();

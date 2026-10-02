@@ -18,6 +18,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   createSystemUser,
+  defineFeature,
+  EXT_ASSIGNABLE_ROLE,
   type SessionUser,
   SYSTEM_TENANT_ID,
   type TenantId,
@@ -68,6 +70,13 @@ const CAROL_PASSWORD = "carol-new-pw-1234";
 // directly (no jobRunner in the test stack → inline send).
 const emailTransport = createInMemoryTransport();
 
+// Declares one role Admin may grant (default) and one only TenantAdmin may grant.
+const assignableRolesAppFeature = defineFeature("invite-assignable-roles-app", (r) => {
+  r.requires("tenant");
+  r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
+  r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
+});
+
 let stack: TestStack;
 let aliceId: string;
 let bobId: string;
@@ -114,6 +123,7 @@ beforeAll(async () => {
       createAuthEmailPasswordFeature({
         invite: { tokenTtlMinutes: 60, appUrl: APP_ACCEPT_URL },
       }),
+      assignableRolesAppFeature,
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -1042,6 +1052,29 @@ describe("privilege escalation via invite role", () => {
       )) as { role: string };
       expect(result.role).toBe(role);
     }
+  });
+
+  test("app roles declared via EXT_ASSIGNABLE_ROLE follow their assignableFrom", async () => {
+    const result = (await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "property-manager@example.com", role: "PropertyManager" },
+      aliceSession(), // roles: ["Admin"]
+    )) as { role: string };
+    expect(result.role).toBe("PropertyManager");
+
+    const err = await stack.http.writeErr(
+      AuthHandlers.inviteCreate,
+      { email: "auditor@example.com", role: "Auditor" },
+      aliceSession(),
+    );
+    expect(err.details).toMatchObject({ reason: "unassignable_membership_role", role: "Auditor" });
+
+    const undeclared = await stack.http.writeErr(
+      AuthHandlers.inviteCreate,
+      { email: "undeclared@example.com", role: "Undeclared" },
+      aliceSession(),
+    );
+    expect(undeclared.details).toMatchObject({ reason: "unassignable_membership_role" });
   });
 
   test("Admin cannot invite TenantAdmin (elevation guard default)", async () => {

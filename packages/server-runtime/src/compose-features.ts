@@ -30,7 +30,10 @@ import {
   mfaStatusCheckerFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { createConfigFeature } from "@cosmicdrift/kumiko-bundled-features/config";
-import { createTenantFeature } from "@cosmicdrift/kumiko-bundled-features/tenant";
+import {
+  collectAssignableAppRoles,
+  createTenantFeature,
+} from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { createUserFeature } from "@cosmicdrift/kumiko-bundled-features/user";
 import { dedupeFeatures, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
 
@@ -83,7 +86,12 @@ export function composeFeatures(
     // makes auth-email-password register the invite-create write-handler
     // the /members invite drawer is bound to — without this, includeBundled
     // apps that DO configure invite still get /members with no invite button.
-    createTenantFeature({ inviteScreen: Boolean(authOptions?.invite) }),
+    // tenant is built here, so the app features are the only source of
+    // EXT_ASSIGNABLE_ROLE declarations the members/invite screens can list.
+    createTenantFeature({
+      inviteScreen: Boolean(authOptions?.invite),
+      assignableAppRoles: collectAssignableAppRoles(dedupedAppFeatures),
+    }),
     createAuthEmailPasswordFeature(authOptions ?? {}),
     // signup-request/signup-confirm are registered whenever authOptions.signup
     // is set (see above), but the handler itself no-ops unless the companion

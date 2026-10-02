@@ -10,7 +10,11 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import { securityBaselineFeatures } from "@cosmicdrift/kumiko-bundled-features/presets";
 import { createSessionsFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
-import { defineFeature, validateBoot } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  EXT_ASSIGNABLE_ROLE,
+  validateBoot,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { composeFeatures } from "../compose-features.js";
 
 const noopFeature = defineFeature("noop-app", () => {});
@@ -37,6 +41,30 @@ describe("composeFeatures", () => {
       "auth-email-password",
       "noop-app",
     ]);
+  });
+
+  test("includeBundled threads app-declared assignable roles into the tenant screens", () => {
+    const appWithRole = defineFeature("role-app", (r) => {
+      r.requires("tenant");
+      r.useExtension(EXT_ASSIGNABLE_ROLE, "PropertyManager");
+      r.useExtension(EXT_ASSIGNABLE_ROLE, "Auditor", { assignableFrom: "TenantAdmin" });
+    });
+    const features = composeFeatures([appWithRole], {
+      includeBundled: true,
+      authOptions: { invite: { appUrl: "https://app/invite" } },
+    });
+    const tenant = features.find((f) => f.name === "tenant");
+    const optionsOf = (screenId: string, field: string): readonly string[] => {
+      const screen = tenant?.screens[screenId] as unknown as {
+        fields: Record<string, { options: readonly string[] }>;
+      };
+      return screen.fields[field]?.options ?? [];
+    };
+    expect(optionsOf("member-roles-edit", "roles")).toEqual(
+      expect.arrayContaining(["PropertyManager", "Auditor"]),
+    );
+    expect(optionsOf("invite-create", "role")).toContain("PropertyManager");
+    expect(optionsOf("invite-create", "role")).not.toContain("Auditor");
   });
 
   test("authOptions.passwordReset → request-password-reset + reset-password handlers registriert", () => {

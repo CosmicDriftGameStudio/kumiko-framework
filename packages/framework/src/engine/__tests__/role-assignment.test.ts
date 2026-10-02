@@ -1,5 +1,11 @@
 import { describe, expect, test } from "bun:test";
-import { findForbiddenRoleAssignment } from "../role-assignment.js";
+import {
+  type AssignableAppRoles,
+  type AssignableFromRole,
+  assignableAppRolesFromUsages,
+  findForbiddenRoleAssignment,
+  isAssignableByRole,
+} from "../role-assignment.js";
 
 // Mirror DEFAULT_INVITE_ROLE_OPTIONS — framework must not import bundled-features
 // (tsc pulls source into framework's rootDir and fails the package build).
@@ -66,6 +72,121 @@ describe("role assignment guard", () => {
   test("TenantAdmin can assign every default invite role", () => {
     for (const role of DEFAULT_INVITE_ROLE_OPTIONS) {
       expect(findForbiddenRoleAssignment(["TenantAdmin"], [role], [])).toBeUndefined();
+    }
+  });
+});
+
+function appRoles(entries: [string, AssignableFromRole][]): AssignableAppRoles {
+  return new Map(entries);
+}
+
+describe("app-declared assignable roles", () => {
+  const declared = appRoles([
+    ["PropertyManager", "Admin"],
+    ["Auditor", "TenantAdmin"],
+  ]);
+
+  test("TenantAdmin and Admin grant a role assignable from Admin", () => {
+    expect(
+      findForbiddenRoleAssignment(["TenantAdmin"], ["PropertyManager"], [], declared),
+    ).toBeUndefined();
+    expect(
+      findForbiddenRoleAssignment(["Admin"], ["PropertyManager"], [], declared),
+    ).toBeUndefined();
+  });
+
+  test("Admin cannot grant a role assignable from TenantAdmin", () => {
+    expect(findForbiddenRoleAssignment(["Admin"], ["Auditor"], [], declared)).toBe("Auditor");
+  });
+
+  test("mixed payload still fails on the privileged built-in", () => {
+    expect(
+      findForbiddenRoleAssignment(["Admin"], ["PropertyManager", "TenantAdmin"], [], declared),
+    ).toBe("TenantAdmin");
+  });
+
+  test("undeclared roles stay forbidden with a non-empty map", () => {
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Unknown"], [], declared)).toBe("Unknown");
+  });
+
+  test("an app role does not raise the actor rank", () => {
+    const fromSystemAdmin = appRoles([["PropertyManager", "SystemAdmin"]]);
+    expect(findForbiddenRoleAssignment(["PropertyManager"], ["User"], [], fromSystemAdmin)).toBe(
+      "User",
+    );
+  });
+
+  test("an app role on the target does not block the actor", () => {
+    expect(
+      findForbiddenRoleAssignment(["Admin"], ["User"], ["PropertyManager"], declared),
+    ).toBeUndefined();
+  });
+
+  test("a declaration cannot re-tier a built-in role", () => {
+    const sneaky = appRoles([["TenantAdmin", "User"]]);
+    expect(findForbiddenRoleAssignment(["Admin"], ["TenantAdmin"], [], sneaky)).toBe("TenantAdmin");
+  });
+
+  test("Member ranks with User", () => {
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["Member"], [])).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["Member"], ["User"], [])).toBeUndefined();
+  });
+
+  test("prototype keys: declared 'constructor' works, undeclared 'toString' stays forbidden", () => {
+    const proto = appRoles([["constructor", "Admin"]]);
+    expect(findForbiddenRoleAssignment(["Admin"], ["constructor"], [], proto)).toBeUndefined();
+    expect(findForbiddenRoleAssignment(["TenantAdmin"], ["toString"], [], proto)).toBe("toString");
+  });
+
+  test("isAssignableByRole compares built-in ranks", () => {
+    expect(isAssignableByRole("Admin", "Admin")).toBe(true);
+    expect(isAssignableByRole("TenantAdmin", "Admin")).toBe(false);
+  });
+});
+
+describe("assignableAppRolesFromUsages", () => {
+  test("builds a map and defaults assignableFrom to Admin", () => {
+    const roles = assignableAppRolesFromUsages([
+      { entityName: "PropertyManager" },
+      { entityName: "Auditor", options: { assignableFrom: "TenantAdmin" } },
+    ]);
+    expect(roles.get("PropertyManager")).toBe("Admin");
+    expect(roles.get("Auditor")).toBe("TenantAdmin");
+  });
+
+  test("same role twice: equal resolved value is fine, conflict throws", () => {
+    expect(() =>
+      assignableAppRolesFromUsages([
+        { entityName: "X" },
+        { entityName: "X", options: { assignableFrom: "Admin" } },
+      ]),
+    ).not.toThrow();
+    expect(() =>
+      assignableAppRolesFromUsages([
+        { entityName: "X", options: { assignableFrom: "Admin" } },
+        { entityName: "X", options: { assignableFrom: "TenantAdmin" } },
+      ]),
+    ).toThrow(/conflicting/);
+  });
+
+  test("rejects empty, built-in and reserved role names", () => {
+    expect(() => assignableAppRolesFromUsages([{ entityName: "" }])).toThrow(/empty/);
+    expect(() => assignableAppRolesFromUsages([{ entityName: "Admin" }])).toThrow(/built-in/);
+    for (const platformRole of ["TenantOwner", "DataProtectionOfficer"]) {
+      expect(() => assignableAppRolesFromUsages([{ entityName: platformRole }])).toThrow(
+        /built-in/,
+      );
+    }
+    for (const reserved of ["system", "SystemAdmin", "all", "anonymous"]) {
+      expect(() => assignableAppRolesFromUsages([{ entityName: reserved }])).toThrow();
+    }
+  });
+
+  test("rejects an invalid assignableFrom", () => {
+    for (const bad of ["Root", "__proto__", "system", "", 3]) {
+      expect(() =>
+        assignableAppRolesFromUsages([{ entityName: "X", options: { assignableFrom: bad } }]),
+      ).toThrow(/assignableFrom/);
     }
   });
 });

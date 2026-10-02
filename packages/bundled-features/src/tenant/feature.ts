@@ -1,11 +1,14 @@
 import {
+  type AssignableAppRoles,
   access,
+  assignableAppRolesFromUsages,
   createSystemConfig,
   createTenantConfig,
   defineEntityDetailHandler,
   defineEntityListHandler,
   defineEntityUpdateHandler,
   defineFeature,
+  EXT_ASSIGNABLE_ROLE,
   type FeatureDefinition,
   i18nKey,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -31,9 +34,9 @@ import { tenantInvitationEntity } from "./invitation-table.js";
 import { tenantMembershipEntity } from "./membership-table.js";
 import { tenantEntity } from "./schema/tenant.js";
 import {
+  createInviteCreateScreen,
+  createMemberRolesEditScreen,
   createMembersScreen,
-  inviteCreateScreen,
-  memberRolesEditScreen,
   tenantEditScreen,
   tenantListScreen,
 } from "./screens.js";
@@ -49,7 +52,19 @@ export type TenantFeatureOptions = {
    *  handler lookup fails). Off by default: `tenant` cannot see whether an
    *  app configured that optional auth-email-password flow. */
   readonly inviteScreen?: boolean;
+  /** Screen options only — the elevation guard always reads the registry. */
+  readonly assignableAppRoles?: AssignableAppRoles;
 };
+
+export function collectAssignableAppRoles(
+  features: readonly FeatureDefinition[],
+): AssignableAppRoles {
+  return assignableAppRolesFromUsages(
+    features
+      .flatMap((feature) => feature.extensionUsages)
+      .filter((usage) => usage.extensionName === EXT_ASSIGNABLE_ROLE),
+  );
+}
 
 // --- Feature ---
 
@@ -65,6 +80,10 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     });
     r.systemScope();
     r.requires("config");
+    r.extendsRegistrar(EXT_ASSIGNABLE_ROLE, {});
+    r.bootCheck(({ features }) => {
+      collectAssignableAppRoles(features);
+    });
     r.entity("tenant", tenantEntity);
     r.entity("tenant-membership", tenantMembershipEntity);
     r.entity("tenant-invitation", tenantInvitationEntity);
@@ -175,9 +194,9 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     // §2.6), invite via a drawer-hosted actionForm, role-edit via
     // actionForm. Screen access matches handler access.admin.
     r.screen(createMembersScreen(options));
-    r.screen(memberRolesEditScreen);
+    r.screen(createMemberRolesEditScreen(options?.assignableAppRoles));
     if (options?.inviteScreen) {
-      r.screen(inviteCreateScreen);
+      r.screen(createInviteCreateScreen(options.assignableAppRoles));
     }
     r.nav({
       id: "members",
