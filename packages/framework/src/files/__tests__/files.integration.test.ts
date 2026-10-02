@@ -407,6 +407,17 @@ describe("file validation", () => {
     expectErrorIncludes(error, "mime_mismatch");
   });
 
+  test("validateFile + validateFileContent reject a renamed OLE binary declared as csv/vnd.ms-excel", () => {
+    expect(
+      validateFile(
+        { fileName: "data.csv", mimeType: "application/vnd.ms-excel", size: 100 },
+        { accept: ["csv"] },
+      ),
+    ).toBeNull();
+    const result = validateFileContent("data.csv", docBytes, ["csv"]);
+    expect(result.kind).toBe("rejected");
+  });
+
   describe("resolveUploadMimeType", () => {
     const textCsvBytes = new TextEncoder().encode("name,age\nAda,36\n");
 

@@ -1,6 +1,6 @@
-import { createReadStream, createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream, type Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { assertSafeStorageKey, type FileStorageProvider } from "./types.js";
 
@@ -109,22 +109,25 @@ export function createLocalProvider(basePath: string): FileStorageProvider {
     },
 
     async list(prefix: string): Promise<readonly string[]> {
-      // recursive:true returns POSIX- or OS-sep-joined relative paths for
-      // both files and directories; normalize to "/" (storage keys are
-      // always "/"-joined, matching S3) before the prefix match, then stat
-      // only the (few) matches to drop directory entries.
-      let entries: string[];
+      // Walk only the directory part of the prefix: a tenant-scoped sweep must
+      // not traverse every other tenant's files in a shared storage root.
+      // Keys are normalized to "/" (storage keys are always "/"-joined,
+      // matching S3) before the final prefix match.
+      const prefixDir = prefix.slice(0, prefix.lastIndexOf("/") + 1);
+      const walkRoot = prefixDir === "" ? resolvedBase : resolveContainedPath(prefixDir);
+      let entries: Dirent[];
       try {
-        entries = await readdir(resolvedBase, { recursive: true });
+        entries = await readdir(walkRoot, { recursive: true, withFileTypes: true });
       } catch (err) {
-        if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === "ENOENT" || code === "ENOTDIR") return [];
         throw err;
       }
       const results: string[] = [];
       for (const entry of entries) {
-        const key = entry.split(sep).join("/");
-        if (!key.startsWith(prefix)) continue;
-        if ((await stat(join(resolvedBase, entry))).isFile()) results.push(key);
+        if (!entry.isFile()) continue;
+        const key = relative(resolvedBase, join(entry.parentPath, entry.name)).split(sep).join("/");
+        if (key.startsWith(prefix)) results.push(key);
       }
       return results;
     },
