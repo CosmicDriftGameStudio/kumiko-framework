@@ -276,9 +276,10 @@ describe("buildAppSchema", () => {
       r.entity("thing", entity);
     });
     const app = buildAppSchema(createRegistry([f]));
-    const fields = (
-      app.features[0]?.entities["thing"] as unknown as { fields: Record<string, Record<string, unknown>> }
-    ).fields;
+    const thingEntity = app.features[0]?.entities["thing"] as unknown as {
+      fields: Record<string, Record<string, unknown>>;
+    };
+    const fields = thingEntity.fields;
     expect(fields["nan"]?.["default"]).toBeUndefined();
     expect(fields["inf"]?.["default"]).toBeUndefined();
     expect(fields["ok"]?.["default"]).toEqual({ x: { a: 1 }, y: { a: 1 } });

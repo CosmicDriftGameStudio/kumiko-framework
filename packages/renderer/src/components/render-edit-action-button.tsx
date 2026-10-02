@@ -85,7 +85,11 @@ export function RenderEditActionButton({
         variant={variant}
         loading={busy}
         {...(action.icon !== undefined && (!hideIcon || showIconOnly) && { icon: action.icon })}
-        {...(showIconOnly && { size: "icon" as const, ariaLabel: action.label, title: action.label })}
+        {...(showIconOnly && {
+          size: "icon" as const,
+          ariaLabel: action.label,
+          title: action.label,
+        })}
         onClick={() => {
           if (needsActionConfirm(action)) {
             setConfirmOpen(true);
