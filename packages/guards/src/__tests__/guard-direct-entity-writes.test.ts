@@ -341,6 +341,24 @@ describe("guard.run() :: empty esTables canary", () => {
     ).toBe(true);
   });
 
+  test("BLOCK: function-form updateMany(db, someTable, ...) without ES tables fires the canary too", () => {
+    const project = makeProject({
+      "/repo/foo.ts": `
+        declare function pgTable(name: string, cols: unknown): unknown;
+        declare function updateMany(db: unknown, table: unknown, set: unknown, where: unknown): Promise<void>;
+        const someTable = pgTable("some", {});
+        declare const db: unknown;
+        export async function write() {
+          await updateMany(db, someTable, {}, {});
+        }
+      `,
+    });
+    const outcome = guard.run(project.getSourceFiles());
+    expect(
+      outcome.violations.some((v) => v.message.includes("BLOCKED: guard found table writes")),
+    ).toBe(true);
+  });
+
   test("ALLOW: map.delete(key) / set.delete(id) are not table writes — no canary in a no-ES repo", () => {
     const project = makeProject({
       "/repo/foo.ts": `

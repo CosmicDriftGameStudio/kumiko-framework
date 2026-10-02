@@ -39,7 +39,7 @@ import {
 } from "ts-morph";
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { frameworkTsConfigPath } from "./_lib/roots";
-import { type ScanSpec, scanFiles, scanRoots } from "./_lib/scan-scope";
+import { keepsRootKind, type ScanSpec, scanFiles } from "./_lib/scan-scope";
 
 const ROOT = process.cwd();
 
@@ -387,7 +387,7 @@ export const check: RepoCheck = {
     // The kind filter (scan-scope.ts keepsRootKind) excludes "tooling" roots by
     // default — that's a deliberate scope choice, not a vacuous scan, so it must
     // report notApplicable instead of matchedFiles: 0.
-    if (scanRoots(SCAN, roots).length === 0) {
+    if (!roots.some((root) => keepsRootKind(SCAN, root))) {
       return { violations: [], matchedFiles: 0, notApplicable: true };
     }
 

@@ -62,6 +62,18 @@ describe("scanLinesForSecretLiterals", () => {
     );
   });
 
+  test("inspects every fallback on a line, not only the first", () => {
+    expect(
+      flaggedNames(['const a = env.X ?? "1", jwt = env.JWT_SECRET ?? "hardcoded-prod-secret";']),
+    ).toEqual(["JWT_SECRET"]);
+  });
+
+  test("an earlier secret-named assignee does not turn a later label fallback into a hit", () => {
+    expect(
+      flaggedNames(['const secretA = env.A ?? "x", label = t("k") ?? "Secret Santa label";']),
+    ).toEqual([]);
+  });
+
   test("does not flag a pure // comment line", () => {
     expect(flaggedNames(['// const s = env.JWT_SECRET ?? "hardcoded-prod-secret";'])).toEqual([]);
   });

@@ -164,7 +164,7 @@ function scanRoot(spec: ScanSpec, root: RepoRoot): RootScan {
   return { root, files, sourceSurface: sourceSurfaceHits.length };
 }
 
-function keepsRootKind(spec: ScanSpec, root: RepoRoot): boolean {
+export function keepsRootKind(spec: ScanSpec, root: RepoRoot): boolean {
   if (spec.kinds) return spec.kinds.includes(root.kind);
   return root.kind !== "tooling";
 }

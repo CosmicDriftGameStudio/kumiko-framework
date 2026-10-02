@@ -17,9 +17,11 @@ import {
   computeClientReachablePaths,
   createDirectiveClassifier,
   findRuntimeIsolationViolations,
+  findWorkspaceRuntime,
   isClientEntryPath,
   isValueImport,
   parseDeclaredClientEntries,
+  toEffectivePath,
 } from "../runtime-isolation-classify";
 
 describe("classifyByPath — test-runtime patterns", () => {
@@ -181,7 +183,7 @@ describe("isClientEntryPath — mirrors kumiko-build's discoverClientEntries", (
     expect(isClientEntryPath("src/app/client-admin.tsx")).toBe(false);
   });
 
-  test("rejects a file that merely starts with 'client'", () => {
+  test("accepts a hyphenated suffix, rejects camelCase", () => {
     expect(isClientEntryPath("src/client-features.ts")).toBe(true);
     expect(isClientEntryPath("src/clientHelpers.ts")).toBe(false);
   });
@@ -535,5 +537,64 @@ describe("findWorkspaceRuntime — repo-root package.json", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("classifyByDirective — only the first 8 head lines count", () => {
+  test("a directive on line 1 is read, one on line 9 is ignored", () => {
+    const head = (directiveLine: number) =>
+      Array.from({ length: 10 }, (_, i) =>
+        i + 1 === directiveLine ? "// @runtime client" : "export {};",
+      ).join("\n");
+    expect(classifyByDirective("/x/a.ts", () => head(1))).toBe("client");
+    expect(classifyByDirective("/x/a.ts", () => head(9))).toBeNull();
+  });
+});
+
+describe("findWorkspaceRuntime / toEffectivePath", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const c of cleanups) c();
+    cleanups.length = 0;
+  });
+
+  function tmpRepo(): string {
+    const root = mkdtempSync(join(tmpdir(), "kumiko-runtime-isolation-ws-"));
+    cleanups.push(() => rmSync(root, { recursive: true, force: true }));
+    return root;
+  }
+
+  test("a single-package repo keeps its marker in the repo-root package.json", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "src"), { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "app", kumiko: { runtime: "client" } }),
+      "utf-8",
+    );
+    expect(findWorkspaceRuntime(join(root, "src/a.ts"), root, new Map())).toBe("client");
+  });
+
+  test("the nearest package.json decides, an unmarked one does not fall through to a marked parent", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "packages/inner/src"), { recursive: true });
+    writeFileSync(
+      join(root, "package.json"),
+      JSON.stringify({ name: "repo", kumiko: { runtime: "client" } }),
+      "utf-8",
+    );
+    writeFileSync(join(root, "packages/inner/package.json"), JSON.stringify({ name: "inner" }));
+    expect(findWorkspaceRuntime(join(root, "packages/inner/src/a.ts"), root, new Map())).toBeNull();
+  });
+
+  test("a dist .d.ts maps to its src .ts sibling when that exists, otherwise stays", () => {
+    const root = tmpRepo();
+    mkdirSync(join(root, "pkg/src"), { recursive: true });
+    writeFileSync(join(root, "pkg/src/a.ts"), "export const a = 1;\n", "utf-8");
+    expect(toEffectivePath(join(root, "pkg/dist/a.d.ts"))).toBe(join(root, "pkg/src/a.ts"));
+    expect(toEffectivePath(join(root, "pkg/dist/missing.d.ts"))).toBe(
+      join(root, "pkg/dist/missing.d.ts"),
+    );
+    expect(toEffectivePath(join(root, "pkg/src/a.ts"))).toBe(join(root, "pkg/src/a.ts"));
   });
 });

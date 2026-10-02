@@ -455,6 +455,12 @@ describe("buildGuardKitInventory — the registration inventory, not a scan", ()
     expect(inventory.suites.checks).toEqual({ count: 0, names: [] });
     expect(inventory.total).toBe(0);
   });
+
+  test("carries a non-empty version string", () => {
+    const inventory = buildGuardKitInventory({ guards: [], uiGuards: [], checks: [] });
+    expect(typeof inventory.version).toBe("string");
+    expect(inventory.version.length).toBeGreaterThan(0);
+  });
 });
 
 describe("explainGuards — per guard and root: source, files, source surface", () => {
@@ -551,12 +557,41 @@ describe("printGuardKitBanner — exits(1) on the two globally-empty cases", () 
     }
   });
 
-  test("a resolved root and guards registered does not exit", () => {
+  test("zero registered guards prints no banner line", () => {
     const exit = mockExit();
-    printGuardKitBanner(30, undefined, {
-      resolution: { roots: [{ root: local, source: "local" }] },
-    });
-    expect(exit).not.toHaveBeenCalled();
-    exit.mockRestore();
+    const errorLog = spyOn(console, "error").mockImplementation(() => undefined);
+    const log = spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      printGuardKitBanner(0, undefined, {
+        resolution: { roots: [{ root: local, source: "local" }] },
+      });
+      expect(exit).toHaveBeenCalledWith(1);
+      expect(log).not.toHaveBeenCalled();
+    } finally {
+      log.mockRestore();
+      errorLog.mockRestore();
+      exit.mockRestore();
+    }
+  });
+
+  test("a resolved root and guards registered does not exit and prints version, roots and project size", () => {
+    const exit = mockExit();
+    const log = spyOn(console, "log").mockImplementation(() => undefined);
+    try {
+      const project = emptyProject();
+      project.createSourceFile("/ws/a.ts", "export const a = 1;");
+      printGuardKitBanner(30, project, {
+        resolution: { roots: [{ root: local, source: "local" }] },
+      });
+      expect(exit).not.toHaveBeenCalled();
+      const lines = log.mock.calls.map((call) => String(call[0]));
+      expect(lines).toHaveLength(3);
+      expect(lines[0]).toMatch(/^kumiko-guards \S+ - 30 guards registered$/);
+      expect(lines[1]).toBe("Roots: kumiko-framework (1)");
+      expect(lines[2]).toBe("Project: 1 files");
+    } finally {
+      log.mockRestore();
+      exit.mockRestore();
+    }
   });
 });

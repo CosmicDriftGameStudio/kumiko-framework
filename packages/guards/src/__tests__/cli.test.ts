@@ -71,6 +71,7 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(exitCode).toBe(0);
     expect(stderr).toBe("");
     const inventory = JSON.parse(stdout) as {
+      version: string;
       suites: {
         guards: { count: number; names: string[] };
         ui: { count: number; names: string[] };
@@ -88,6 +89,10 @@ describe("cli.ts — real process runs, no mocks", () => {
     expect(inventory.suites.ui.names).toEqual(UI_GUARDS.map((g) => g.name));
     expect(inventory.suites.checks.names).toEqual(REPO_CHECKS.map((c) => c.name));
     expect(inventory.total).toBe(GUARDS.length + UI_GUARDS.length + REPO_CHECKS.length);
+    const pkg: { version: string } = JSON.parse(
+      readFileSync(join(import.meta.dir, "..", "..", "package.json"), "utf8"),
+    );
+    expect(inventory.version).toBe(pkg.version);
   });
 
   test("checks runs the repo-checks suite and prints the guard-kit banner", async () => {

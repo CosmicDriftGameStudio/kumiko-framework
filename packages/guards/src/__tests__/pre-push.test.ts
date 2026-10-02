@@ -260,10 +260,22 @@ describe("kumiko-pre-push", () => {
       const { repoDir } = writeParentWorkspace(tmp);
       initGitRepo(repoDir, tmp);
 
-      const { output } = runHook(repoDir, tmp);
+      const { output, exitCode } = runHook(repoDir, tmp);
 
       expect(output).toContain("bun check (scoped: kumiko-framework)");
       expect(output).toContain("MAIN_KUMIKO_CLI_SCOPE=kumiko-framework");
+      expect(exitCode).toBe(0);
+    });
+
+    test("PRE_PUSH_SKIP=1 skips the hook before any check runs and exits 0", () => {
+      const { repoDir } = writeParentWorkspace(tmp);
+      initGitRepo(repoDir, tmp);
+
+      const { output, exitCode } = runHook(repoDir, tmp, { PRE_PUSH_SKIP: "1" });
+
+      expect(output).toContain("hook skipped");
+      expect(output).not.toContain("MAIN_CHECK_RAN");
+      expect(exitCode).toBe(0);
     });
 
     test("standalone clone with no cosmicdriftgamestudio ancestor falls back to the package.json test script", () => {

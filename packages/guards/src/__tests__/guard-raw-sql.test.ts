@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runRepoChecks } from "../_lib/guard-kit";
-import { isRawSqlAllowed, scanRepo } from "../_lib/sql-inventory";
+import { isRawSqlAllowed, scanRepo, sqlScanDirsFor } from "../_lib/sql-inventory";
 import { check, collectRawSqlFindings } from "../guard-raw-sql";
 import { fixtureRoot } from "./parent-workspace-fixture";
 
@@ -229,6 +229,28 @@ describe("check.run — RepoCheck seam", () => {
       expect(outcome.violations).toHaveLength(1);
       expect(outcome.violations[0]?.file).toBe("src/feature.ts");
       expect(outcome.violations[0]?.message).toBe('[unsafe] await client.unsafe("SELECT 1");');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("wildcard source roots from the manifest expand to relative dirs and are scanned without explicit dirs", async () => {
+    const dir = makeRepo({
+      "packages/a/src/x.ts": "export const a = 1;\n",
+      "packages/b/src/y.ts": "export const b = 1;\n",
+      "bin/backfill.ts": 'await client.unsafe("SELECT 1");\n',
+    });
+    try {
+      const root = fixtureRoot("app-repo", dir, {
+        kind: "app",
+        sourceRoots: ["packages/*/src", "bin", "missing/src"],
+        testGlobs: ["**/*.test.ts"],
+      });
+      expect(sqlScanDirsFor(root)).toEqual(["bin", "packages/a/src", "packages/b/src"]);
+      const outcome = await check.run([root]);
+      expect(outcome.matchedFiles).toBe(3);
+      expect(outcome.violations).toHaveLength(1);
+      expect(outcome.violations[0]?.file).toBe("bin/backfill.ts");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
