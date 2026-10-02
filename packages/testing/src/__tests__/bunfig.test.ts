@@ -206,6 +206,27 @@ describe("mergeBunfig", () => {
     expect(result).toEqual({ ok: true, content: generated });
   });
 
+  test("a template-owned ignore pattern the variant omits is dropped, not kept as an extra", () => {
+    const generated = renderBunfig("unit", { dom: true });
+    const existing = generated.replace(
+      "pathIgnorePatterns = [",
+      'pathIgnorePatterns = [\n  "**/*.test.tsx",',
+    );
+    expect(existing).toContain('"**/*.test.tsx"');
+    const result = mergeBunfig(generated, existing);
+    expect(result).toEqual({ ok: true, content: generated });
+  });
+
+  test("a genuine app-specific ignore pattern survives the merge", () => {
+    const generated = renderBunfig("unit");
+    const existing = generated.replace(
+      "pathIgnorePatterns = [",
+      'pathIgnorePatterns = [\n  "**/legacy/**",',
+    );
+    const result = mergeBunfig(generated, existing);
+    expect(result.ok && result.content).toContain('"**/legacy/**"');
+  });
+
   test("keeps a section the template doesn't manage, e.g. a private-registry scope", () => {
     const generated = renderBunfig("unit", { install: { linker: "hoisted" } });
     const existing = `${generated}\n[install.scopes]\n"@cosmicdriftgamestudio" = { token = "$GITHUB_TOKEN" }\n`;

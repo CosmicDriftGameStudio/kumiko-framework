@@ -83,6 +83,7 @@
   "peerDependencies": {
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2"
   },
   "peerDependenciesMeta": {
@@ -92,6 +93,9 @@
     "@playwright/test": {
       "optional": true
     },
+    "@testing-library/dom": {
+      "optional": true
+    },
     "@testing-library/react": {
       "optional": true
     }
@@ -99,6 +103,7 @@
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.11.2",
     "@playwright/test": "^1.62.1",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2"
   },
   "publishConfig": {

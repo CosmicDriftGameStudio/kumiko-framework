@@ -19,6 +19,7 @@ import {
   discoverHtmlTemplate,
   formatBuildResult,
   injectAssetTags,
+  isEntryOutputFor,
   readClientEntriesConfig,
   resolveClientEntries,
 } from "../build-prod-bundle.js";
@@ -720,5 +721,13 @@ describe("build-prod-bundle/buildMissingTemplateError", () => {
 
     expect(message).toContain("src/client.tsx");
     expect(message).not.toContain("kumiko.clientEntries");
+  });
+});
+
+describe("build-prod-bundle/isEntryOutputFor", () => {
+  test("matches only its own <base>-<hash>.js, not an entry whose base extends it", () => {
+    expect(isEntryOutputFor("client-admin-a1B2c3.js", "client-admin")).toBe(true);
+    expect(isEntryOutputFor("client-admin-legacy-a1B2c3.js", "client-admin")).toBe(false);
+    expect(isEntryOutputFor("client-admin-legacy-a1B2c3.js", "client-admin-legacy")).toBe(true);
   });
 });

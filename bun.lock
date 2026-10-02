@@ -298,16 +298,19 @@
       "devDependencies": {
         "@happy-dom/global-registrator": "^20.11.2",
         "@playwright/test": "^1.62.1",
+        "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
       },
       "peerDependencies": {
         "@happy-dom/global-registrator": "^20.11.2",
         "@playwright/test": "^1.62.1",
+        "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
       },
       "optionalPeers": [
         "@happy-dom/global-registrator",
         "@playwright/test",
+        "@testing-library/dom",
         "@testing-library/react",
       ],
     },

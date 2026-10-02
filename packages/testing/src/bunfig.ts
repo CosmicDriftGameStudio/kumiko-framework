@@ -141,8 +141,20 @@ const CURRENT_PACKAGE_PRELOADS = new Set<string>([...Object.values(PRELOADS).fla
 // regenerated doesn't run DOM setup twice.
 const SUPERSEDED_PRELOADS = new Set<string>(["./test-setup/dom.preload.ts"]);
 
+// Ignore patterns the generator owns across all variants. One it omits for
+// this variant (`**/*.test.tsx` with --dom, `**/*.integration.test.ts` in the
+// integration variant) is never a legit app extra: keeping it would silently
+// skip the whole suite the variant exists to run.
+const TEMPLATE_OWNED_IGNORE_PATTERNS = new Set<string>([
+  ...COVERAGE_IGNORED,
+  ...(Object.keys(PRELOADS) as BunfigVariant[]).flatMap((variant) => [
+    ...ignoredPaths(variant, false),
+    ...ignoredPaths(variant, true),
+  ]),
+]);
+
 function isKeepableExtra(key: MergedArrayKey, entry: string): boolean {
-  if (key !== "preload") return true;
+  if (key !== "preload") return !TEMPLATE_OWNED_IGNORE_PATTERNS.has(entry);
   if (SUPERSEDED_PRELOADS.has(entry)) return false;
   if (entry.startsWith(PRELOAD_PREFIX)) return CURRENT_PACKAGE_PRELOADS.has(entry);
   return true;
