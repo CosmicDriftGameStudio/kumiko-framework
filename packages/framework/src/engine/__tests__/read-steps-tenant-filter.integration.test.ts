@@ -105,12 +105,38 @@ const listEscapedHandler = defineWriteHandler({
   ),
 });
 
+const getEscapedSchema = z.object({ id: z.uuid() });
+const getEscapedHandler = defineWriteHandler({
+  name: "get-escaped",
+  schema: getEscapedSchema,
+  access: { roles: ["Admin"] },
+  escapeHatch: { reason: ESCAPED_REASON },
+  perform: stepsPipeline<
+    z.infer<typeof getEscapedSchema>,
+    { found: boolean; label: string | null }
+  >(({ event, r }) => [
+    r.step.read.findOne("item", {
+      table: readFilterTable,
+      where: () => ({ id: event.payload.id }),
+      unsafeAllTenants: { reason: ESCAPED_REASON },
+    }),
+    r.step.return(({ steps }) => {
+      const row = steps["item"] as { label?: string } | null;
+      return {
+        isSuccess: true as const,
+        data: { found: row !== null, label: row?.label ?? null },
+      };
+    }),
+  ]),
+});
+
 const readStepsTenantFilterFeature = defineFeature("read-steps-tenant-filter", (r) => {
   r.requires.projection("fw2914_read_filter_items");
   r.writeHandler(listHandler);
   r.writeHandler(getHandler);
   r.writeHandler(listUnsafeUndeclaredHandler);
   r.writeHandler(listEscapedHandler);
+  r.writeHandler(getEscapedHandler);
 });
 
 const admin = TestUsers.admin;
@@ -211,6 +237,27 @@ describe("r.step.read.findOne/findMany tenant-filtering (fw#2914)", () => {
     expect(matches).toEqual([
       {
         handler: "read-steps-tenant-filter:write:list-escaped",
+        kind: "unsafe-raw",
+        reason: ESCAPED_REASON,
+        tenantId: admin.tenantId,
+        actor: admin.id,
+      },
+    ]);
+  });
+
+  test("read.findOne with unsafeAllTenants and escapeHatch returns a foreign-tenant row and reports unsafe-raw", async () => {
+    events.length = 0;
+
+    const data = await stack.http.writeOk<{ found: boolean; label: string | null }>(
+      "read-steps-tenant-filter:write:get-escaped",
+      { id: otherTenantRowId },
+      admin,
+    );
+
+    expect(data).toEqual({ found: true, label: "other-tenant-row" });
+    expect(events.filter((e) => e.kind === "unsafe-raw")).toEqual([
+      {
+        handler: "read-steps-tenant-filter:write:get-escaped",
         kind: "unsafe-raw",
         reason: ESCAPED_REASON,
         tenantId: admin.tenantId,

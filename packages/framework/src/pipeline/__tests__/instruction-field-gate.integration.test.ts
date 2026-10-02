@@ -12,11 +12,20 @@ import {
   createEntity,
   createLongTextField,
   createTextField,
+  defineEntityDetailHandler,
+  defineEntityListHandler,
+  defineEntityUpdateHandler,
   defineFeature,
 } from "../../engine/index.js";
 import type { Registry } from "../../engine/types/index.js";
 import { resolveAgentExposure } from "../../engine/types/index.js";
-import { resetEventStore, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
+import {
+  resetEventStore,
+  setupTestStack,
+  type TestStack,
+  TestUsers,
+  unsafeCreateEntityTable,
+} from "../../stack/index.js";
 
 const admin = TestUsers.admin;
 
@@ -36,6 +45,41 @@ const promptExecutor = createEventStoreExecutor(promptTable, promptEntity, {
   entityName: "prompt",
 });
 
+const defaultedPromptEntity = createEntity({
+  table: "gate_instruction_defaulted_prompts",
+  fields: {
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    body: createLongTextField({
+      personal: false,
+      reason: "test_fixture",
+      readAsInstruction: true,
+      default: "default system prompt",
+    }),
+  },
+});
+const defaultedPromptTable = buildEntityTable("defaultedprompt", defaultedPromptEntity);
+const defaultedPromptExecutor = createEventStoreExecutor(
+  defaultedPromptTable,
+  defaultedPromptEntity,
+  { entityName: "defaultedprompt" },
+);
+
+// body is excluded from the standard update handler, but a preSave hook derives
+// it — the define-time floor cannot see that, the executor gate must.
+const ruleEntity = createEntity({
+  table: "gate_instruction_rules",
+  fields: {
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    body: createLongTextField({
+      personal: false,
+      reason: "test_fixture",
+      readAsInstruction: true,
+    }),
+  },
+});
+const ruleTable = buildEntityTable("rule", ruleEntity);
+const ruleExecutor = createEventStoreExecutor(ruleTable, ruleEntity, { entityName: "rule" });
+
 const gateFeature = defineFeature("instructiongate", (r) => {
   r.entity("prompt", promptEntity);
 
@@ -49,6 +93,38 @@ const gateFeature = defineFeature("instructiongate", (r) => {
     z.object({ label: z.string(), body: z.string().optional() }),
     async (event, ctx) => promptExecutor.create(event.payload, event.user, ctx.db),
     { access: { roles: ["Admin"] } },
+  );
+
+  r.entity("defaultedprompt", defaultedPromptEntity);
+  r.writeHandler(
+    "create-defaulted-prompt-mid",
+    z.object({ label: z.string() }),
+    async (event, ctx) => defaultedPromptExecutor.create(event.payload, event.user, ctx.db),
+    { access: { roles: ["Admin"] } },
+  );
+
+  r.queryHandler(
+    defineEntityListHandler("defaultedprompt", defaultedPromptEntity, {
+      access: { roles: ["Admin"] },
+    }),
+  );
+
+  r.entity("rule", ruleEntity);
+  r.queryHandler(defineEntityDetailHandler("rule", ruleEntity, { access: { roles: ["Admin"] } }));
+  r.hook("preSave", "rule:update", async (changes) =>
+    changes["label"] === "derive-body" ? { ...changes, body: "derived by hook" } : changes,
+  );
+  r.writeHandler(
+    "create-rule-high",
+    z.object({ label: z.string() }),
+    async (event, ctx) => ruleExecutor.create(event.payload, event.user, ctx.db),
+    { access: { roles: ["Admin"] }, agent: { risk: "high" } },
+  );
+  r.writeHandler(
+    defineEntityUpdateHandler("rule", ruleEntity, {
+      access: { roles: ["Admin"] },
+      excludeFields: ["body"],
+    }),
   );
 
   r.writeHandler(
@@ -95,6 +171,8 @@ let stack: TestStack;
 
 beforeAll(async () => {
   stack = await setupTestStack({ features: [gateFeature] });
+  await unsafeCreateEntityTable(stack.db, defaultedPromptEntity, "defaultedprompt");
+  await unsafeCreateEntityTable(stack.db, ruleEntity, "rule");
 });
 
 afterAll(async () => {
@@ -102,7 +180,11 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  await resetEventStore(stack, ["gate_instruction_prompts"]);
+  await resetEventStore(stack, [
+    "gate_instruction_prompts",
+    "gate_instruction_defaulted_prompts",
+    "gate_instruction_rules",
+  ]);
 });
 
 async function createPromptDirect(label: string, body: string): Promise<string> {
@@ -149,7 +231,46 @@ describe("executor.create — readAsInstruction field", () => {
   });
 });
 
+describe("executor.create — readAsInstruction field with a default", () => {
+  test("mid-risk handler omitting the field is denied because the default counts as written, no row created", async () => {
+    const err = await stack.http.writeErr(
+      "instructiongate:write:create-defaulted-prompt-mid",
+      { label: "defaulted-denied" },
+      admin,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(errorReason(err.details)).toBe("instruction_field_write_requires_high_risk");
+    const { rows } = await stack.http.queryOk<{ rows: readonly Record<string, unknown>[] }>(
+      "instructiongate:query:defaultedprompt:list",
+      {},
+      admin,
+    );
+    expect(rows).toEqual([]);
+  });
+});
+
 describe("executor.update — readAsInstruction field", () => {
+  test("standard update excluding the field is denied when a preSave hook derives it, value unchanged", async () => {
+    const { id } = await stack.http.writeOk<{ id: string }>(
+      "instructiongate:write:create-rule-high",
+      { label: "plain" },
+      admin,
+    );
+    const err = await stack.http.writeErr(
+      "instructiongate:write:rule:update",
+      { id, version: 1, changes: { label: "derive-body" } },
+      admin,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(errorReason(err.details)).toBe("instruction_field_write_requires_high_risk");
+    const row = await stack.http.queryOk<Record<string, unknown> | null>(
+      "instructiongate:query:rule:detail",
+      { id },
+      admin,
+    );
+    expect(row?.["label"]).toBe("plain");
+  });
+
   test("mid-risk handler delegating via ctx.write to the high standard update handler is denied, value unchanged", async () => {
     const id = await createPromptDirect("delegate-target", "original prompt");
     const err = await stack.http.writeErr(

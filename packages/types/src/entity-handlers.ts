@@ -30,7 +30,10 @@ export type EntityWriteHandlerOptions = EntityHandlerOptions & {
   /** Fields this handler never writes. They leave the payload schema as
    *  "must be absent": a payload that still carries one fails validation
    *  instead of being stripped silently. create rejects a required field
-   *  without default here, since the row could never be created. */
+   *  without default here, since the row could never be created. A readAsInstruction
+   *  field excluded here but derived by a preSave hook is invisible to the
+   *  define-time risk floor: declare `agent: { risk: "high" }` explicitly, or the
+   *  executor gate rejects every call. */
   readonly excludeFields?: readonly string[];
 };
 

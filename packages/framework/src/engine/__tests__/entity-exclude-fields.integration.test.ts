@@ -8,7 +8,12 @@ import {
 } from "../../stack/index.js";
 import { defineFeature } from "../define-feature.js";
 import { defineEntityUpdateHandler, defineEntityWriteHandler } from "../entity-handlers.js";
-import { createEntity, createTextField } from "../factories.js";
+import {
+  createEmbeddedListField,
+  createEntity,
+  createMoneyField,
+  createTextField,
+} from "../factories.js";
 
 const carEntity = createEntity({
   table: "exclude_fields_cars",
@@ -25,6 +30,29 @@ const carFeature = defineFeature("exclude-fields", (r) => {
     read: { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
     excludeFields: { create: ["internalNote"], update: ["vin"] },
   });
+});
+
+const defaultedEntity = createEntity({
+  table: "exclude_fields_defaulted",
+  fields: {
+    label: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+    status: createTextField({
+      required: true,
+      default: "x",
+      personal: false,
+      reason: "test_fixture",
+    }),
+  },
+});
+
+const defaultedFeature = defineFeature("exclude-defaulted", (r) => {
+  r.entity("thing", defaultedEntity);
+  r.writeHandler(
+    defineEntityWriteHandler("thing:create", defaultedEntity, {
+      access: { roles: ["User"] },
+      excludeFields: ["status"],
+    }),
+  );
 });
 
 const CREATE = "exclude-fields:write:car:create";
@@ -109,7 +137,56 @@ describe("excludeFields on the generic create/update handlers", () => {
   });
 });
 
+describe("excludeFields on a required field with a default", () => {
+  let stack: TestStack;
+
+  beforeAll(async () => {
+    stack = await setupTestStack({ features: [defaultedFeature] });
+    await unsafeCreateEntityTable(stack.db, defaultedEntity, "thing");
+  });
+
+  afterAll(async () => {
+    await stack.cleanup();
+  });
+
+  test("create without the excluded field succeeds and the row carries the default", async () => {
+    const res = await stack.http.write(
+      "exclude-defaulted:write:thing:create",
+      { label: "a" },
+      TestUsers.user,
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as WriteBody;
+    const id = body.data?.data.id;
+    const rows = await asRawClient(stack.db).unsafe(
+      'SELECT status FROM "exclude_fields_defaulted" WHERE id = $1',
+      [id],
+    );
+    expect(rows[0]).toMatchObject({ status: "x" });
+  });
+});
+
 describe("excludeFields definition-time checks", () => {
+  test("rejects excluding a field that is part of a totalsMatch pair", () => {
+    const invoiceEntity = createEntity({
+      table: "exclude_fields_invoices",
+      fields: {
+        total: createMoneyField({ required: true }),
+        lines: createEmbeddedListField(
+          { amount: { type: "money", required: true } },
+          { totalsMatch: { amount: "total" } },
+        ),
+      },
+      defaultCurrency: "EUR",
+    });
+    expect(() =>
+      defineEntityUpdateHandler("invoice", invoiceEntity, {
+        access: { roles: ["User"] },
+        excludeFields: ["total"],
+      }),
+    ).toThrow(/totalsMatch pair/);
+  });
+
   test("rejects an unknown field name", () => {
     expect(() =>
       defineEntityUpdateHandler("car", carEntity, {
