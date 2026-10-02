@@ -29,7 +29,7 @@ apiKey: createTextField({ personal: "tenant", find: "secret", writeOnly: true })
 - `ctx.db` sees the stored ciphertext.
 - The DSGVO user export decrypts encrypted fields but then masks writeOnly fields, so the bundle carries `true` / `null`, never the secret.
 
-Known limit: masking runs for entity-bound query handlers whose result is an array, a `{ rows }` object or a flat row. An unbound custom query handler that returns executor rows must call `maskWriteOnlyFields` itself, the same scope limit as `access.read`.
+Known limit: masking runs for entity-bound query handlers whose result is an array, a `{ rows }` object or a flat row. An unbound custom query handler that returns executor rows must call `maskWriteOnlyFields(entity, row)` from `@cosmicdrift/kumiko-framework/engine` itself, the same scope limit as `access.read`.
 
 ## Boot-validator restrictions
 
