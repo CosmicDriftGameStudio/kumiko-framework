@@ -65,27 +65,39 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
     if (commands.length === 0) return;
     setSubmitting(true);
     setSubmitError(null);
-    const result = await dispatcher.batch(commands);
-    setSubmitting(false);
-    if (!result.isSuccess) {
-      setSubmitError(dispatcherErrorText(result.error, effectiveTranslate));
-      return;
+    try {
+      const result = await dispatcher.batch(commands);
+      if (!result.isSuccess) {
+        setSubmitError(dispatcherErrorText(result.error, effectiveTranslate));
+        return;
+      }
+      setDrafts({});
+      await listQuery.refetch();
+    } catch {
+      // Transport failures reject instead of returning a result; drafts stay
+      // so the user can retry without retyping the secrets.
+      setSubmitError(effectiveTranslate("kumiko.form.error.generic"));
+    } finally {
+      setSubmitting(false);
     }
-    setDrafts({});
-    await listQuery.refetch();
   }, [dispatcher, drafts, screen.secretKeys, listQuery.refetch, effectiveTranslate]);
 
   const handleDelete = useCallback(
     async (qualified: string): Promise<void> => {
       setDeleting(true);
-      const result = await dispatcher.write("secrets:write:delete", { key: qualified });
-      setDeleting(false);
-      if (!result.isSuccess) {
-        setSubmitError(dispatcherErrorText(result.error, effectiveTranslate));
-        return;
+      try {
+        const result = await dispatcher.write("secrets:write:delete", { key: qualified });
+        if (!result.isSuccess) {
+          setSubmitError(dispatcherErrorText(result.error, effectiveTranslate));
+          return;
+        }
+        setSubmitError(null);
+        await listQuery.refetch();
+      } catch {
+        setSubmitError(effectiveTranslate("kumiko.form.error.generic"));
+      } finally {
+        setDeleting(false);
       }
-      setSubmitError(null);
-      await listQuery.refetch();
     },
     [dispatcher, listQuery.refetch, effectiveTranslate],
   );

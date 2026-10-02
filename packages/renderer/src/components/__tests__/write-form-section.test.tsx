@@ -12,11 +12,7 @@ import {
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import {
-  createStaticLocaleResolver,
-  LocaleProvider,
-  type TranslationsByLocale,
-} from "../../i18n.js";
+import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
 import {
   type BannerProps,
@@ -161,16 +157,11 @@ function renderWriteForm(
   section: EditWriteFormSectionViewModel,
   dispatcher: Dispatcher,
   onSubmitted: () => void,
-  extraTranslations?: TranslationsByLocale,
 ) {
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={
-        extraTranslations !== undefined
-          ? [extraTranslations, kumikoDefaultTranslations]
-          : [kumikoDefaultTranslations]
-      }
+      fallbackBundles={[kumikoDefaultTranslations]}
     >
       <DispatcherProvider dispatcher={dispatcher}>
         <PrimitivesProvider value={testPrimitives()}>

@@ -86,6 +86,9 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
   );
   const [revealed, setRevealed] = useState<Readonly<Record<string, unknown>> | null>(null);
   const [done, setDone] = useState(false);
+  // The secret was minted server-side but none of the declared reveal fields
+  // came back; the mint form must not return (a re-mint would invalidate it).
+  const [revealMissing, setRevealMissing] = useState(false);
   // Never rendered, never merged into `revealed` or the confirm form's
   // initial values — read only from `buildPayload` at confirm-submit time.
   const carriedRef = useRef<Readonly<Record<string, unknown>>>({});
@@ -120,11 +123,21 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         if (value === undefined) continue;
         values[revealField.field] = value;
       }
+      if (Object.values(values).every(isBlank)) {
+        // biome-ignore lint/suspicious/noConsole: the user-facing banner carries no detail; this names the screen and fields for the developer
+        console.error(
+          `secretMint "${screen.id}": write result carried no value for reveal fields [${screen.reveal.fields
+            .map((revealField) => revealField.field)
+            .join(", ")}]`,
+        );
+        setRevealMissing(true);
+        return;
+      }
       setRevealed(values);
       carriedRef.current =
         confirm?.carry !== undefined ? extractCarriedValues(result.data, confirm.carry) : {};
     },
-    [screen.reveal.fields, confirm?.carry],
+    [screen.id, screen.reveal.fields, confirm?.carry],
   );
 
   const handleCancel = useMemo<(() => void) | undefined>(() => {
@@ -172,6 +185,16 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
       <Card options={{ screenBody: true }}>
         <Banner variant="info" testId="kumiko-screen-secret-mint-done">
           {effectiveTranslate(confirm?.doneMessage ?? "kumiko.secretMint.done")}
+        </Banner>
+      </Card>
+    );
+  }
+
+  if (revealMissing) {
+    return (
+      <Card options={{ screenBody: true }}>
+        <Banner variant="error" testId="kumiko-screen-secret-mint-missing">
+          {effectiveTranslate("kumiko.form.error.generic")}
         </Banner>
       </Card>
     );

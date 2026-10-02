@@ -13,7 +13,7 @@ import {
 import { type ReactNode, useState } from "react";
 import { REFERENCE_COMBOBOX_LIMIT } from "../hooks/reference-limits.js";
 import { useQuery } from "../hooks/use-query.js";
-import { referenceLookupSource } from "../hooks/use-reference-lookup.js";
+import { referenceOptionSource } from "../hooks/use-reference-lookup.js";
 import { useTranslation } from "../i18n.js";
 import type { EmbeddedListColumn, EmbeddedListTotal } from "../primitives.js";
 import { usePrimitives } from "../primitives.js";
@@ -149,13 +149,7 @@ export function EmbeddedListField({
 
   const referenceCells = cells.filter((c) => c.type === "reference");
   const referenceSources = referenceCells.map((cell) =>
-    cell.refOptionsQuery !== undefined
-      ? { queryQn: cell.refOptionsQuery, labelKey: "label" }
-      : referenceLookupSource(
-          cell.refFeature ?? featureName,
-          cell.refEntity ?? "",
-          cell.refLabelField ?? "id",
-        ),
+    referenceOptionSource(cell, cell.refFeature ?? featureName, cell.refEntity ?? ""),
   );
   const referenceQueries = referenceSources.map((source) =>
     // biome-ignore lint/correctness/useHookAtTopLevel: referenceCells comes from the entity-schema definition — fixed for the screen's lifetime, not a real conditional-hook risk.
