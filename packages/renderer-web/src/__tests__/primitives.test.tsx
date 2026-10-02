@@ -292,12 +292,14 @@ describe("Input kind mapping", () => {
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
   });
 
-  test('kind="number" unit="km": renders a muted, aria-hidden suffix inside the field and pads the input', () => {
+  test('kind="number" unit="km": renders a muted suffix inside the field, pads the input and exposes the unit as its description', () => {
     render(<Input id="i" name="i" kind="number" value={58} unit="km" onChange={() => {}} />);
     const input = screen.getByRole("textbox");
     expect(input.className).toContain("pr-8");
     const suffix = screen.getByText("km");
-    expect(suffix.getAttribute("aria-hidden")).toBe("true");
+    expect(suffix.getAttribute("aria-hidden")).toBeNull();
+    expect(suffix.id).toBe("i-unit");
+    expect(input.getAttribute("aria-describedby")).toBe("i-unit");
     expect((input as HTMLInputElement).value).toBe("58");
   });
 
@@ -322,8 +324,7 @@ describe("Input kind mapping", () => {
     expect(input.className).toContain("pl-8");
     expect(input.className).toContain("pr-8");
     expect(document.querySelector("svg[aria-hidden='true']")).not.toBeNull();
-    const suffix = screen.getByText("km");
-    expect(suffix.getAttribute("aria-hidden")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toBe(screen.getByText("km").id);
   });
 });
 

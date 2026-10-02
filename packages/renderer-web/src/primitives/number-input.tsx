@@ -24,6 +24,7 @@ export type NumberInputProps = {
   readonly placeholder?: string;
   readonly testId?: string;
   readonly className?: string;
+  readonly ariaDescribedBy?: string;
 };
 
 // 20 is the Intl maximum: the display must never round a stored value.
@@ -43,6 +44,7 @@ export function NumberInput({
   placeholder,
   testId,
   className,
+  ariaDescribedBy,
 }: NumberInputProps): ReactNode {
   const resolvedLocale = resolveSafeLocale(locale);
   const [focused, setFocused] = useState(false);
@@ -87,6 +89,7 @@ export function NumberInput({
       disabled={disabled}
       aria-required={required}
       aria-invalid={hasError === true ? true : undefined}
+      aria-describedby={ariaDescribedBy}
       data-testid={testId}
       value={focused ? draft : format(grouping)}
       onFocus={() => {
