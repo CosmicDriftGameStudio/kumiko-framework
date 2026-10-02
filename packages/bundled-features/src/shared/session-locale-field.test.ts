@@ -6,9 +6,9 @@ describe("sessionLocaleField", () => {
     expect(sessionLocaleField("de-DE")).toEqual({ locale: "de-DE" });
   });
 
-  test("canonicalizes primary subtag", () => {
+  test("canonicalizes to the conventional BCP-47 casing", () => {
     expect(sessionLocaleField("DE")).toEqual({ locale: "de" });
-    expect(sessionLocaleField("DE-at")).toEqual({ locale: "de-at" });
+    expect(sessionLocaleField("DE-at")).toEqual({ locale: "de-AT" });
   });
 
   test("rejects malformed locale tags", () => {

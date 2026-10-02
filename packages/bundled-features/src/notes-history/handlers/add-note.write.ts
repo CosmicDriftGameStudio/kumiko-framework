@@ -1,7 +1,6 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
-import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { decryptStoredPii, joinRowParentIsVisible } from "../../shared/index.js";
+import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.js";
 import { userTable } from "../../user/index.js";
 import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.js";
 import { noteEntryExecutor, noteMentionExecutor } from "../executor.js";
@@ -37,19 +36,14 @@ export function createAddNoteHandler(
     handler: async (event, ctx) => {
       const payload = event.payload as AddNotePayload; // @cast-boundary engine-payload
 
-      // NotFoundError, not an access-denied error, so the response doesn't
-      // double as an existence oracle — same policy as executor.detail,
-      // which never distinguishes "no access" from "doesn't exist".
-      const visible = await joinRowParentIsVisible(
+      const denied = await denyUnlessJoinRowParentVisible(
         ctx.registry,
         "note-entry",
         payload,
         event.user,
         ctx.db,
       );
-      if (!visible) {
-        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
-      }
+      if (denied) return denied;
 
       let authorName: string | null = null;
       try {

@@ -30,6 +30,7 @@
 // the link. Where the id itself must stay hidden, use an opaque handle
 // (single-use-token-store) instead.
 
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Temporal } from "temporal-polyfill";
 import { peekTokenSubject, signToken, verifyToken } from "./signed-token.js";
 
@@ -44,6 +45,8 @@ export type RowBoundGrantResult =
 export type AnchorCommit =
   | ((subject: string, expectedAnchor: string) => Promise<boolean>)
   | { readonly unsafeSkip: { readonly reason: string } };
+
+const log = createFallbackLogger("row-bound-grant");
 
 const FAILED: RowBoundGrantResult = { ok: false };
 
@@ -95,7 +98,13 @@ export async function redeemRowBoundGrant(args: {
   let anchor: string | null;
   try {
     anchor = await args.loadAnchor(subject);
-  } catch {
+  } catch (error) {
+    // Name/code only: driver messages can echo the attacker-supplied subject.
+    // Logged so an infrastructure outage doesn't look like an expired link.
+    log.warn("row-bound grant anchor lookup failed", {
+      errorName: error instanceof Error ? error.name : typeof error,
+      code: error instanceof Error && "code" in error ? String(error.code) : undefined,
+    });
     return FAILED;
   }
   if (!anchor) return FAILED;

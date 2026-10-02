@@ -44,11 +44,14 @@ import {
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import Stripe from "stripe";
 import { Temporal } from "temporal-polyfill";
 import { STRIPE_PROVIDER_NAME, StripeEventTypes } from "./constants.js";
 import type { StripeWebhookRuntime } from "./runtime.js";
+
+const log = createFallbackLogger("subscription-stripe");
 
 export function isResourceMissingStripeError(error: unknown): boolean {
   return (
@@ -339,6 +342,17 @@ function isCheckoutSessionEventType(stripeType: string): boolean {
   );
 }
 
+// The session is already paid, so a silent drop means money collected with no
+// credit — warn (ids and reason only, no PII) so operators can spot it.
+function dropPaidSession(
+  event: Stripe.Event,
+  session: Stripe.Checkout.Session,
+  reason: string,
+): null {
+  log.warn("paid checkout session dropped", { eventId: event.id, sessionId: session.id, reason });
+  return null;
+}
+
 /** Parses a checkout.session.completed / .async_payment_succeeded event into
  *  a PaymentEvent, or null if it isn't a paid one-off-payment session. */
 async function parsePaymentEvent(
@@ -379,18 +393,17 @@ async function parsePaymentEvent(
   const paymentIntent = expanded.payment_intent;
   if (!paymentIntent || typeof paymentIntent === "string") {
     // Not expanded (Stripe-API-drift) or absent — no verified tenant-claim
-    // to trust. Drop silent, same as the subscription-path's missing-
-    // metadata case.
-    return null;
+    // to trust.
+    return dropPaidSession(event, session, "payment_intent_not_expanded");
   }
   const tenantId = paymentIntent.metadata?.["tenantId"];
   if (!tenantId || tenantId.length === 0) {
-    return null;
+    return dropPaidSession(event, session, "missing_tenant_id");
   }
 
   const priceId = expanded.line_items?.data[0]?.price?.id;
   if (!priceId) {
-    return null;
+    return dropPaidSession(event, session, "missing_price_id");
   }
 
   // providerCustomerId: session.customer is null for guest checkouts (no
@@ -403,7 +416,7 @@ async function parsePaymentEvent(
       ? paymentIntent.customer
       : paymentIntent.customer?.id);
   if (!providerCustomerId) {
-    return null;
+    return dropPaidSession(event, session, "missing_customer");
   }
 
   return {

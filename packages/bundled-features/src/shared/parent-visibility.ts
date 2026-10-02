@@ -6,6 +6,11 @@ import {
   type Registry,
   type SessionUser,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  NotFoundError,
+  type WriteFailure,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 
 // Keyed by definition identity, not by entity name — two test stacks can
 // register different EntityDefinitions under the same entity name.
@@ -80,4 +85,20 @@ export async function joinRowParentIsVisible(
   }
 
   return parentRowIsVisible(registry, entityType, entityId, user, db);
+}
+
+// Write-handler gate over joinRowParentIsVisible: null means proceed, anything
+// else is returned as-is. The host reference is client input, so this must run
+// FIRST in the handler, ahead of every other lookup — a denied caller then
+// can't tell an invisible parent apart from a missing assignment or an unknown
+// tag/folder; every path answers with the same NotFoundError.
+export async function denyUnlessJoinRowParentVisible(
+  registry: Registry,
+  joinEntityName: string,
+  payload: { readonly entityType: string; readonly entityId: string },
+  user: SessionUser,
+  db: TenantDb,
+): Promise<WriteFailure | null> {
+  if (await joinRowParentIsVisible(registry, joinEntityName, payload, user, db)) return null;
+  return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
 }

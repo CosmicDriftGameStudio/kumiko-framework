@@ -9,7 +9,7 @@
 // der den gespyten Client zurückgibt — die echte Resolution-Logik testet
 // runtime.test.ts.
 
-import { describe, expect, spyOn, test } from "bun:test";
+import { describe, expect, mock, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -368,6 +368,25 @@ describe("createStripeRetrievePrices", () => {
     const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
     const [result] = await retrieve(stubCtx, ["price_pro"]);
     expect(result?.interval).toBeNull();
+    expect(result?.intervalCount).toBeNull();
+  });
+
+  test("warns once per priceId about an unknown interval", async () => {
+    const stripe = buildStripe();
+    spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
+      stripePrice({ id, recurring: { interval: "biannual", interval_count: 1 } })) as never);
+    const warn = mock(() => {});
+    const ctx = { log: { warn } } as unknown as HandlerContext;
+    const retrieve = createStripeRetrievePrices(ctxRuntime(stripe), createStripePriceCache());
+
+    await retrieve(ctx, ["price_pro"]);
+    await retrieve(ctx, ["price_pro"]);
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.any(String), {
+      priceId: "price_pro",
+      interval: "biannual",
+    });
   });
 
   test("a cache-hit skips clientForCtx entirely — no Stripe SDK call fires", async () => {
@@ -708,7 +727,7 @@ describe("createStripePlanSwitchSession", () => {
     expect(createSessionMock).not.toHaveBeenCalled();
   });
 
-  test("a StripeInvalidRequestError from sessions.create() concerning subscription_update products becomes UnprocessableError and still evicts the cached configuration", async () => {
+  test("a StripeInvalidRequestError from sessions.create() for the flow items is NOT mapped to plan_tiers_share_product and still evicts the cached configuration", async () => {
     const stripe = buildStripe();
     spyOn(stripe.subscriptions, "retrieve").mockResolvedValue(stripeSubscription());
     spyOn(stripe.prices, "retrieve").mockImplementation((async (id: string) =>
@@ -722,7 +741,8 @@ describe("createStripePlanSwitchSession", () => {
     } as never);
     spyOn(stripe.billingPortal.sessions, "create").mockRejectedValue(
       new Stripe.errors.StripeInvalidRequestError({
-        message: "subscription_update configuration mismatch",
+        message: "The price is not active",
+        param: "flow_data.subscription_update_confirm.items[0].price",
       }),
     );
 
@@ -738,10 +758,8 @@ describe("createStripePlanSwitchSession", () => {
       allowedPriceIds: ["price_switch_current", "price_switch_session_target"],
       returnUrl: "https://example.com/return",
     });
-    await expect(promise).rejects.toBeInstanceOf(UnprocessableError);
-    await expect(promise).rejects.toMatchObject({
-      i18nKey: "billing-foundation.errors.planTiersShareProduct",
-    });
+    await expect(promise).rejects.toBeInstanceOf(Stripe.errors.StripeInvalidRequestError);
+    await expect(promise).rejects.not.toBeInstanceOf(UnprocessableError);
     expect(sharedCache.size).toBe(0);
   });
 

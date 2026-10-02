@@ -31,22 +31,19 @@ import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { TenantId } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
+import {
+  isHostAllowlisted,
+  readHostAllowlistFromEnv,
+} from "../foundation-shared/host-allowlist.js";
 
 const log = createFallbackLogger("step-dispatcher");
 
 export const WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR = "KUMIKO_WEBHOOK_ALLOWED_PRIVATE_HOSTS";
 
-/** Parses the comma-separated operator allowlist env var. Never throws —
- *  an unset or empty value just means no bypass. */
 export function readAllowedPrivateWebhookHostsFromEnv(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): readonly string[] {
-  const raw = env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR];
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((host) => host.trim())
-    .filter((host) => host.length > 0);
+  return readHostAllowlistFromEnv(WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR, env);
 }
 
 // Test-only DNS seam — production never calls this, resolvePublicHostname
@@ -154,10 +151,8 @@ async function resolveWebhookFetchTarget(
 ): Promise<
   { ok: true; fetchUrl: string | URL; requestInit: RequestInit } | { ok: false; error: string }
 > {
-  const isAllowedPrivateHost = readAllowedPrivateWebhookHostsFromEnv().some(
-    (candidate) => candidate.toLowerCase() === url.hostname.toLowerCase(),
-  );
-  if (isAllowedPrivateHost) return { ok: true, fetchUrl: rawUrl, requestInit: { headers } };
+  if (isHostAllowlisted(url.hostname, readAllowedPrivateWebhookHostsFromEnv()))
+    return { ok: true, fetchUrl: rawUrl, requestInit: { headers } };
   try {
     const resolved = await resolvePublicHostname(url.hostname, webhookHostLookup);
     const pinned = buildPinnedRequest(url, resolved, { headers });

@@ -21,6 +21,7 @@ import {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import type {
   Payment as MolliePayment,
   Subscription as MollieSubscription,
@@ -28,6 +29,8 @@ import type {
 import { Temporal } from "temporal-polyfill";
 import { MOLLIE_PROVIDER_NAME } from "./constants.js";
 import type { MolliePriceConfig } from "./plugin-methods.js";
+
+const log = createFallbackLogger("subscription-mollie");
 
 /** Minimal-Subset des Mollie-Clients, das der Plugin nutzt — separat
  *  damit Tests ohne den vollen MollieClient mocken können. Adapter in
@@ -160,6 +163,10 @@ async function ensureSubscriptionForMandate(
   if (!tenantId || !priceId) return null;
   const priceCfg = options.priceToConfig[priceId];
   if (!priceCfg) return null;
+  if (!priceCfg.interval) {
+    log.warn("price has no interval, no subscription created", { priceId });
+    return null;
+  }
 
   const existing = await client.customerSubscriptions.list(customerId);
   const matchingExisting = existing.find(

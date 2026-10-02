@@ -3,7 +3,7 @@
 // verify-webhook.test.ts — that file's fixtures stay subscription/invoice-
 // only, this one owns every checkout.session.* fixture.
 
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { BillingEventKinds } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { ExtraRouteRejection } from "@cosmicdrift/kumiko-framework/api";
 import Stripe from "stripe";
@@ -162,8 +162,18 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
     );
     const sig = await signEvent(payload);
 
-    const event = await verify(payload, { "stripe-signature": sig });
-    expect(event).toBeNull();
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const event = await verify(payload, { "stripe-signature": sig });
+      expect(event).toBeNull();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[1]).toMatchObject({
+        eventId: "evt_checkout_no_tenant",
+        reason: "missing_tenant_id",
+      });
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("retrieve fails with a network error → 503 rejection so Stripe retries (#2793)", async () => {

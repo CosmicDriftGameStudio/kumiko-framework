@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { Temporal } from "temporal-polyfill";
 import { redeemRowBoundGrant, signRowBoundGrant } from "./row-bound-grant.js";
 
@@ -121,6 +121,27 @@ describe("redeemRowBoundGrant", () => {
     });
 
     expect(result.ok).toBe(false);
+  });
+
+  test("logs a failing row lookup without leaking the subject or message", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      await redeemRowBoundGrant({
+        token: grantFor("pending"),
+        purpose: PURPOSE,
+        secret: SECRET,
+        loadAnchor: async () => {
+          throw new Error(`connection refused for ${SUBJECT}`);
+        },
+        commitAnchor: SKIP_COMMIT,
+        now: NOW,
+      });
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(SUBJECT);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("rejects an expired grant", async () => {

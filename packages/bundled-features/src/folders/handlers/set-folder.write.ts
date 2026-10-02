@@ -1,6 +1,6 @@
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { NotFoundError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
-import { joinRowParentIsVisible } from "../../shared/index.js";
+import { denyUnlessJoinRowParentVisible } from "../../shared/index.js";
 import { folderAssignmentAggregateId } from "../aggregate-id.js";
 import { DEFAULT_FOLDER_ACCESS } from "../constants.js";
 import { folderAssignmentExecutor, folderExecutor } from "../executor.js";
@@ -40,23 +40,14 @@ export function createSetFolderHandler(
       "Files a host entity into one existing folder and moves it out of whatever folder it was in, since an entity belongs to at most one folder; use it for both the first filing and every later move.",
     handler: async (event, ctx) => {
       const payload = event.payload as SetFolderPayload; // @cast-boundary engine-payload
-      // entityType/entityId are client input: the caller must be able to see
-      // the host row through that entity's own read path (tenant scope plus its
-      // `access.read` ownership) before its assignment row may be written.
-      // Checked FIRST, ahead of every lookup below, so a denied caller can't tell
-      // an invisible parent apart from a missing assignment or an unknown folder —
-      // every path answers with the same NotFoundError.
-      if (
-        !(await joinRowParentIsVisible(
-          ctx.registry,
-          "folder-assignment",
-          payload,
-          event.user,
-          ctx.db,
-        ))
-      ) {
-        return writeFailure(new NotFoundError(payload.entityType, payload.entityId));
-      }
+      const denied = await denyUnlessJoinRowParentVisible(
+        ctx.registry,
+        "folder-assignment",
+        payload,
+        event.user,
+        ctx.db,
+      );
+      if (denied) return denied;
 
       const id = folderAssignmentAggregateId(
         event.user.tenantId,

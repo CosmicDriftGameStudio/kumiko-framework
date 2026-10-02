@@ -4,8 +4,7 @@ import { createSingleUseTokenStore } from "./single-use-token-store.js";
 // Production Redis has active signup/invite tokens under these exact keys —
 // asserting the generated Redis key strings (not just behavior through a
 // mocked client) catches a prefix typo that would silently make existing
-// tokens unreachable. Only integration tests exercised this logic before
-// (which never assert on the raw key string), so this is new coverage.
+// tokens unreachable.
 function fakeRedis() {
   const calls: { method: string; args: unknown[] }[] = [];
   const redis = {

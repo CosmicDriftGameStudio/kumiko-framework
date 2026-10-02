@@ -1,21 +1,13 @@
 // Generic Redis-backed pre-activation token store: bidirectional
 // token↔subject mapping plus single-use burn/unburn semantics. Extracted
 // from auth-email-password/signup-token-store.ts and
-// auth-email-password/invite-token-store.ts (infra#446) — both were the
-// same Redis layout, differing only in their key prefixes and which field
-// (email vs. invitationId) plays the "subject" role.
+// auth-email-password/invite-token-store.ts — both were the same Redis
+// layout, differing only in their key prefixes and which field (email vs.
+// invitationId) plays the "subject" role.
 //
 // Public subpath export (./shared/single-use-token-store in package.json):
-// offlot-app (a separate repo, external consumer) carries its own copy of
-// this exact logic under `src/features/waitlist/signup-token-store.ts`,
-// with a comment noting it "must stay byte-compatible with
-// auth-email-password/signup-token-store" because signup-confirm resolves
-// tokens via the same Redis key layout. offlot-app#418 (separate issue,
-// after this ships) will replace that copy with
-// `createSingleUseTokenStore({ tokenPrefix: "signup:by-token:", subjectPrefix:
-// "signup:by-email:", burnPrefix: "signup:burn:" })` — i.e. the exact same
-// prefix strings the framework's own signup store below uses, so both stay
-// byte-compatible by construction instead of by hand-copied logic.
+// external consumers share the signup key layout, so the prefixes must stay
+// byte-identical.
 //
 // Token material: opaque random 256-bit (e.g. crypto.randomBytes,
 // base64url-encoded). Not designed for human typing — the subject clicks a
