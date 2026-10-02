@@ -503,14 +503,13 @@ function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
 // once per label instead of rendering a dead button.
 const warnedTreeActionLabels = new Set<string>();
 
-function warnTreeActionDropped(label: string): void {
-  // skip: already warned for this label — suppresses the repeat, not the warning itself.
-  if (warnedTreeActionLabels.has(label)) return;
-  warnedTreeActionLabels.add(label);
+function warnTreeActionMisconfigured(label: string, problem: string): void {
+  const key = `${label}:${problem}`;
+  // skip: already warned for this label and problem — suppresses the repeat, not the warning itself.
+  if (warnedTreeActionLabels.has(key)) return;
+  warnedTreeActionLabels.add(key);
   // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error
-  console.warn(
-    `[kumiko] Nav action "${label}" has neither "screen" nor "target" set — it will not render.`,
-  );
+  console.warn(`[kumiko] Nav action "${label}" ${problem}`);
 }
 
 // An action button carries screen XOR target (see TreeAction) — `screen`
@@ -531,6 +530,12 @@ function TreeActionControl({
   readonly workspaceId: string | undefined;
   readonly children: ReactNode;
 }): ReactNode {
+  if (action.screen !== undefined && action.target !== undefined) {
+    warnTreeActionMisconfigured(
+      action.label,
+      'has both "screen" and "target" set — using "screen", "target" is ignored.',
+    );
+  }
   if (action.screen !== undefined) {
     const screenId = lastSegment(action.screen);
     return (
@@ -560,7 +565,10 @@ function TreeActionControl({
       </button>
     );
   }
-  warnTreeActionDropped(action.label);
+  warnTreeActionMisconfigured(
+    action.label,
+    'has neither "screen" nor "target" set — it will not render.',
+  );
   return null;
 }
 

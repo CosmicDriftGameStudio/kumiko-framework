@@ -102,6 +102,30 @@ describe("resizeImageBeforeUpload", () => {
     }
   });
 
+  test("gibt die Bitmap frei, wenn kein 2d-Kontext verfügbar ist, und liefert das Original", async () => {
+    const bitmap = { close: mock(() => {}), height: 100, width: 100 };
+    class NoContextCanvas {
+      getContext() {
+        return null;
+      }
+    }
+    // @ts-expect-error test stub for a browser-only API missing in jsdom
+    globalThis.OffscreenCanvas = NoContextCanvas;
+    globalThis.createImageBitmap = mock(async () => bitmap);
+
+    try {
+      const file = new File(["x".repeat(2000)], "photo.jpg", { type: "image/jpeg" });
+      const result = await resizeImageBeforeUpload(file);
+      expect(result).toBe(file);
+      expect(bitmap.close).toHaveBeenCalledTimes(1);
+    } finally {
+      // @ts-expect-error restore missing-API baseline
+      globalThis.OffscreenCanvas = undefined;
+      // @ts-expect-error restore missing-API baseline
+      globalThis.createImageBitmap = undefined;
+    }
+  });
+
   test("benennt nach dem tatsächlich erzeugten Blob-Typ, nicht dem angeforderten", async () => {
     // A browser without webp encoding support silently falls back to png
     // (spec behavior of convertToBlob) — naming must follow the blob, or a

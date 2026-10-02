@@ -205,6 +205,13 @@ export function Drawer({
       ? { top: "var(--shell-header-height)", bottom: 0 }
       : undefined;
 
+  const widthStyle =
+    canResize && !narrow ? { width: effectiveWidthPx, maxWidth: "none" } : customWidthStyle;
+  const sheetStyle: React.CSSProperties | undefined =
+    widthStyle === undefined && verticalOffsetStyle === undefined
+      ? undefined
+      : { ...widthStyle, ...verticalOffsetStyle };
+
   const handleDrag = usePointerDrag({
     onStart: () => {
       setMaximized(false);
@@ -246,12 +253,7 @@ export function Drawer({
           fillBody && "gap-0",
           !narrow && panelClassName,
         )}
-        style={{
-          ...(canResize && !narrow
-            ? { width: effectiveWidthPx, maxWidth: "none" }
-            : customWidthStyle),
-          ...verticalOffsetStyle,
-        }}
+        style={sheetStyle}
       >
         {canResize && !narrow && (
           <button
