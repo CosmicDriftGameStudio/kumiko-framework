@@ -729,7 +729,7 @@ describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
     await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
     const panel = screen.getByTestId("dashboard-panel-sessions");
     expect(panel.querySelector("[data-slot=card]")).toBeNull();
-    expect(panel.querySelector(".px-6")).toBeNull();
+    expect(panel.querySelector(".px-4")).toBeNull();
     expect(screen.getByText("account-security:panel:sessions")).toBeTruthy();
   });
 
@@ -738,6 +738,6 @@ describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
     await waitFor(() => expect(screen.getByText("Firefox on Linux")).toBeTruthy());
     const panel = screen.getByTestId("dashboard-panel-sessions");
     expect(panel.querySelector("[data-slot=card]")).not.toBeNull();
-    expect(panel.querySelector(".px-6")).not.toBeNull();
+    expect(panel.querySelector(".px-4")).not.toBeNull();
   });
 });
