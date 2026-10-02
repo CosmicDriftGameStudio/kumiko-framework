@@ -111,6 +111,19 @@ describe("RenderList — format:unit-FormatSpec threads the app locale (fw#2437)
     };
     expect(renderAreaListUnderLocale("de-DE", 72.5, screen)).toBe("72.5 m²");
   });
+
+  test("ein explizit gesetztes renderer.locale: undefined überschreibt das App-Locale nicht", () => {
+    const optionalLocale: string | undefined = undefined;
+    const screen: EntityListScreenDefinition = {
+      id: "",
+      type: "entityList",
+      entity: "__projection__",
+      columns: [
+        { field: "area", renderer: { format: "unit", unit: "m2", locale: optionalLocale } },
+      ],
+    };
+    expect(renderAreaListUnderLocale("de-DE", 72.5, screen)).toBe("72,5 m²");
+  });
 });
 
 describe("RenderList — default number-column threads the app locale (fw#2437)", () => {

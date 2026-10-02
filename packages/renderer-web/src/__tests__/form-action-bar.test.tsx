@@ -226,6 +226,23 @@ describe("Form = eine Card, Sections als innere Abschnitte", () => {
     expect(form.className).toContain("gap-4");
   });
 
+  test("BareFormProvider: headerRegion is rendered inside the form, before the fields", () => {
+    render(
+      <BareFormProvider>
+        <Form
+          onSubmit={() => {}}
+          testId="bare-header"
+          headerRegion={<div data-testid="bare-header-region">head</div>}
+        >
+          <div data-testid="bare-field">a</div>
+        </Form>
+      </BareFormProvider>,
+    );
+    const form = screen.getByTestId("bare-header");
+    expect(form.querySelector("[data-testid='bare-header-region']")).not.toBeNull();
+    expect(form.firstElementChild?.getAttribute("data-testid")).toBe("bare-header-region");
+  });
+
   test("BareFormProvider: sections get the divider rule between them", () => {
     render(
       <BareFormProvider>

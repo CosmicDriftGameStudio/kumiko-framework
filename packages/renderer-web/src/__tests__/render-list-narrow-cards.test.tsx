@@ -325,6 +325,30 @@ describe("DataTable — card-mode sort select", () => {
     });
   });
 
+  test("a sort on a non-sortable column still shows up in the select instead of 'Unsorted'", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={COLUMNS}
+          rows={ROWS}
+          sort={{ field: "email", dir: "asc" }}
+          onSortChange={mock()}
+          testId="t"
+        />,
+      );
+      const select = screen.getByTestId("t-sort") as HTMLSelectElement;
+      expect(select.value).toBe("email:asc");
+      expect(select.selectedOptions[0]?.textContent).toBe("Email ↑");
+    });
+  });
+
+  test("narrow viewport: the bare testId stays resolvable next to -cards", () => {
+    withViewportWidth(500, () => {
+      render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
+      expect(within(screen.getByTestId("t")).getByTestId("t-cards")).not.toBeNull();
+    });
+  });
+
   test("no select without onSortChange — nothing to wire it to", () => {
     withViewportWidth(500, () => {
       render(<DataTable columns={COLUMNS} rows={ROWS} testId="t" />);
