@@ -132,6 +132,15 @@ function isBooleanLiteralNode(node: Node): boolean {
   return kind === SyntaxKind.TrueKeyword || kind === SyntaxKind.FalseKeyword;
 }
 
+// The literal readers below only understand a static string `description` and
+// a true/false `unsafeSkipTransitionGuard`; any other value shape is lossy.
+function hasUnreadableLiteralValue(key: string, initializer: Node | undefined): boolean {
+  if (key === "description") return !(initializer && isStaticStringNode(initializer));
+  if (key === "unsafeSkipTransitionGuard")
+    return !(initializer && isBooleanLiteralNode(initializer));
+  return false;
+}
+
 function readStaticStringProperty(obj: ObjectLiteralExpression, key: string): string | undefined {
   const initializer = obj.getProperty(key)?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
   return (
@@ -158,13 +167,7 @@ function hasUnmodeledShape(
       const key = readPropertyKey(propAssign);
       if (lookupClassification(keyKinds, key) !== "modeled") return true;
       const initializer = propAssign.getInitializer();
-      if (key === "description" && !(initializer && isStaticStringNode(initializer))) return true;
-      if (
-        key === "unsafeSkipTransitionGuard" &&
-        !(initializer && isBooleanLiteralNode(initializer))
-      ) {
-        return true;
-      }
+      if (hasUnreadableLiteralValue(key, initializer)) return true;
       continue;
     }
     const shorthand = prop.asKind(SyntaxKind.ShorthandPropertyAssignment);

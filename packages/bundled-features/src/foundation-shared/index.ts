@@ -2,6 +2,7 @@
 // Foundation packages (ai-foundation, mail-foundation, file-foundation).
 
 export { requireDefined, requireNonEmpty, requireSecretSet } from "./config-helpers.js";
+export { isHostAllowlisted, readHostAllowlistFromEnv } from "./host-allowlist.js";
 export {
   BlockedHostError,
   HostResolutionError,

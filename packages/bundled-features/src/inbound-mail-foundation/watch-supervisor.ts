@@ -438,14 +438,17 @@ export function createInboundMailSupervisor(
       // peer can acquire the expired key while we still hold an IDLE conn.
       if (state.renewFailures * renewIntervalMs >= leaseTtlSeconds * 1000) {
         await tearDownAfterRenewFailures(account, state, "renew failed across TTL");
+        // skip: connection torn down, no reschedule
         return;
       }
       rescheduleIfStillHeld(account, state, generation);
+      // skip: renew failed but TTL not yet exhausted, retry already scheduled
       return;
     }
     state.renewFailures = 0;
     if (!renewed) {
       await tearDownAfterRenewFailures(account, state, "lost");
+      // skip: lease lost and torn down, nothing to reschedule
       return;
     }
     rescheduleIfStillHeld(account, state, generation);

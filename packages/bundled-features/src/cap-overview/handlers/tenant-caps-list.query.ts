@@ -90,6 +90,28 @@ function assertSupportedTierFilterOp(op: FilterOp): void {
   }
 }
 
+type TierFilterInput = { readonly field: string; readonly op: FilterOp; readonly value: unknown };
+
+function extractTierFilter(filters: readonly TierFilterInput[]): TierFilterInput | undefined {
+  const tierFilters = filters.filter((f) => f.field === "tier");
+  if (tierFilters.length !== filters.length || tierFilters.length > 1) {
+    const unsupportedField = filters.find((f) => f.field !== "tier")?.field ?? "tier";
+    throw new ValidationError({
+      fields: [
+        {
+          path: "filters",
+          code: "unsupported_field",
+          i18nKey: "cap-overview.errors.filterFieldUnsupported",
+          params: { field: unsupportedField },
+        },
+      ],
+    });
+  }
+  const tierFilter = tierFilters[0];
+  if (tierFilter !== undefined) assertSupportedTierFilterOp(tierFilter.op);
+  return tierFilter;
+}
+
 function matchesTierFilter(
   tier: string,
   filter: { readonly op: FilterOp; readonly value: unknown } | undefined,
@@ -154,23 +176,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       // query builder (only `like`, SQL-LIKE case-sensitive) — filtered here
       // in JS, same as tenant/team-list.query.ts's search.
       const search = query.payload.search?.trim().toLowerCase();
-      const filters = query.payload.filters ?? [];
-      const tierFilters = filters.filter((f) => f.field === "tier");
-      if (tierFilters.length !== filters.length || tierFilters.length > 1) {
-        const unsupportedField = filters.find((f) => f.field !== "tier")?.field ?? "tier";
-        throw new ValidationError({
-          fields: [
-            {
-              path: "filters",
-              code: "unsupported_field",
-              i18nKey: "cap-overview.errors.filterFieldUnsupported",
-              params: { field: unsupportedField },
-            },
-          ],
-        });
-      }
-      const tierFilter = tierFilters[0];
-      if (tierFilter !== undefined) assertSupportedTierFilterOp(tierFilter.op);
+      const tierFilter = extractTierFilter(query.payload.filters ?? []);
 
       const merged = tenants
         .filter(
@@ -238,6 +244,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         listedCaps.map(async (cap) => {
           if (cap.usageBatch) {
             usageByCap.set(cap.id, await cap.usageBatch(db, pageTenantIds));
+            // skip: batch result already stored, no per-tenant fallback needed
             return;
           }
           const perTenantEntries = await Promise.all(

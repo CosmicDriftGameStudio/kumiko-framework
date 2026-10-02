@@ -381,6 +381,24 @@ async function isFileRefSharedByOtherRow(
   return false;
 }
 
+// Throws (unsafe key, missing list permission) must fail this row closed,
+// not abort the whole tenant run.
+async function deleteFileFailingClosed(
+  key: string,
+  store: Parameters<typeof deleteStoredFileAndDerivatives>[1],
+  logContext: string,
+): Promise<readonly string[]> {
+  try {
+    return await deleteStoredFileAndDerivatives(key, store, "data-retention:hardDelete");
+  } catch (err) {
+    // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
+    console.warn(
+      `[data-retention:hardDelete] ${logContext} storage cleanup threw: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return [key];
+  }
+}
+
 // hardDelete for ONE row of an entity that has file/image/files/images
 // fields: delete the un-shared fileRefs' bytes (+ derivatives) first, then
 // their fileRef rows, then the entity row itself — bytes before rows so a
@@ -464,18 +482,11 @@ async function purgeHardDeleteRowWithFiles(args: {
   for (const fileRef of toDelete) {
     const key = fileRef["storageKey"];
     if (typeof key !== "string" || key.length === 0) continue;
-    // Throws (unsafe key, missing list permission) must fail this row closed,
-    // not abort the whole tenant run.
-    let failedKeys: readonly string[];
-    try {
-      failedKeys = await deleteStoredFileAndDerivatives(key, store, "data-retention:hardDelete");
-    } catch (err) {
-      failedKeys = [key];
-      // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures
-      console.warn(
-        `[data-retention:hardDelete] tenant=${args.tenantId} entity=${args.entityName} row=${rowId} storage cleanup threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    const failedKeys = await deleteFileFailingClosed(
+      key,
+      store,
+      `tenant=${args.tenantId} entity=${args.entityName} row=${rowId}`,
+    );
     if (failedKeys.length > 0) {
       anyFailed = true;
       // biome-ignore lint/suspicious/noConsole: operator-visibility for storage-cleanup failures

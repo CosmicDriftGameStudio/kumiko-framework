@@ -74,6 +74,7 @@ async function upsertPending(tx: DbRunner, row: PendingRow): Promise<void> {
     workflowRunPendingTable,
     { tenantId: row.tenantId, runId: row.runId, stepIndex: row.stepIndex },
   );
+  // skip: row already carries a trigger event type, keep it on redelivery
   if (existing?.triggerEventType != null) return;
   await upsertOnConflict(
     tx,

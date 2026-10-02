@@ -1,8 +1,27 @@
 {
   "format": 1,
-  "generated": "2026-09-16",
-  "total": 1,
+  "generated": "2026-10-02",
+  "total": 20,
   "perFile": {
+    "packages/bundled-features/src/delivery/index.ts::./testing.js": 1,
+    "packages/bundled-features/src/ledger/web/index.ts::../recurring.js": 1,
+    "packages/bundled-features/src/ledger/web/index.ts::../schemas.js": 1,
+    "packages/bundled-features/src/page-render/web.ts::./branding.js": 1,
+    "packages/bundled-features/src/page-render/web.ts::./css-sanitize.js": 1,
+    "packages/bundled-features/src/page-render/web.ts::./layout.js": 1,
+    "packages/bundled-features/src/page-render/web.ts::./markdown.js": 1,
+    "packages/bundled-features/src/page-render/web.ts::./security-headers.js": 1,
+    "packages/bundled-features/src/template-resolver/constants.ts::@cosmicdrift/kumiko-framework/engine": 1,
+    "packages/framework/src/engine/types/index.ts::../field-helpers.js": 1,
+    "packages/framework/src/engine/types/index.ts::../handler-helpers.js": 1,
+    "packages/framework/src/engine/types/index.ts::../hook-helpers.js": 1,
+    "packages/framework/src/engine/types/index.ts::../screen-helpers.js": 1,
+    "packages/framework/src/ui-types/index.ts::../engine/embedded-derived.js": 1,
+    "packages/framework/src/ui-types/index.ts::../engine/parse-ref-target.js": 1,
+    "packages/framework/src/ui-types/index.ts::../engine/screen-helpers.js": 1,
+    "packages/framework/src/ui-types/index.ts::../i18n/required-surface-keys.js": 1,
+    "samples/apps/use-all-bundled/schema/schema.ts::@cosmicdrift/kumiko-dev-server/schema-tables-auth-mode": 1,
+    "samples/recipes/auth-mfa/src/feature.ts::@cosmicdrift/kumiko-bundled-features/auth-mfa/testing": 1,
     "samples/recipes/embedded-entity-form/src/entities/prospect.ts::@cosmicdrift/kumiko-framework/engine": 1
   }
 }

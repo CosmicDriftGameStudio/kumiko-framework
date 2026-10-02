@@ -189,6 +189,7 @@ export async function resolvePlatformKeks(
   const resolved: Record<string, string | undefined> = {};
   slots.forEach((name, index) => {
     const result = results[index];
+    // skip: slot without a resolved result stays unset
     if (!result) return;
     resolved[name] = result.value;
     if (result.sourceLine) log(`${prefix}${result.sourceLine}`);

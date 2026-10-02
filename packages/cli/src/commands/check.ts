@@ -150,14 +150,24 @@ export async function runCheck(
   let failed = 0;
   for (const step of steps) {
     ctx.out.log(`  ▸ ${step.label}`);
-    try {
-      failed += await runStep(step.id, ctx, repo.absPath, guards, deps);
-    } catch (e) {
-      ctx.out.err(`  ✗ ${step.label}: ${e instanceof Error ? e.message : String(e)}`);
-      failed += 1;
-    }
+    failed += await runStepReportingThrow(step, ctx, repo.absPath, guards, deps);
   }
   return failed > 0 ? 1 : 0;
+}
+
+async function runStepReportingThrow(
+  step: { readonly id: CheckStepId; readonly label: string },
+  ctx: CliCommandContext,
+  repoRoot: string,
+  guards: GuardsCli,
+  deps: CheckDeps,
+): Promise<number> {
+  try {
+    return await runStep(step.id, ctx, repoRoot, guards, deps);
+  } catch (e) {
+    ctx.out.err(`  ✗ ${step.label}: ${e instanceof Error ? e.message : String(e)}`);
+    return 1;
+  }
 }
 
 async function runStep(

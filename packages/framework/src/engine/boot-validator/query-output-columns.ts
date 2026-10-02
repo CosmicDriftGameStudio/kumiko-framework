@@ -1,6 +1,6 @@
 import type { ZodType } from "zod";
 import { isPagedQueryHandler } from "../define-handler.js";
-import { normalizeListColumn } from "../screen-helpers.js";
+import { normalizeListColumn, sectionFieldSpecs } from "../screen-helpers.js";
 import type {
   DashboardScreenDefinition,
   DashboardStatPanel,
@@ -220,8 +220,7 @@ function checkDetailSectionFields(
       );
     }
     if (section.kind !== undefined && section.kind !== "fields") continue;
-    const entries = [...section.fields, ...(section.groups ?? []).flatMap((g) => g.fields)];
-    for (const entry of entries) {
+    for (const entry of sectionFieldSpecs(section)) {
       const field = typeof entry === "string" ? entry : entry.field;
       checkFieldExists(
         recordShape,

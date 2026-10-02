@@ -1415,7 +1415,7 @@ export function createAuthRoutes(
     const body = await c.req.json<{ tenantId?: unknown }>();
     // The id seeds a SYSTEM identity in resolveActiveMembership — reject anything
     // that is not a non-empty string before it gets that far.
-    if (typeof body.tenantId !== "string" || body.tenantId.length === 0) {
+    if (!isNonEmptyString(body.tenantId)) {
       return c.json({ error: "invalid_tenant" }, 400);
     }
     const targetTenantId = body.tenantId as TenantId; // @cast-boundary request-body
@@ -1486,8 +1486,7 @@ export function createAuthRoutes(
       tenantId: targetTenantId,
       roles: mergedRoles,
       // Tenant-independent prefs must survive the switch (fw#2343).
-      ...(user.timezone ? { timezone: user.timezone } : {}),
-      ...(user.locale ? { locale: user.locale } : {}),
+      ...tenantIndependentPrefs(user),
     };
     const claims = await dispatcher.resolveAuthClaims(targetSession);
     const sessionForJwt: SessionUser =
@@ -1521,6 +1520,17 @@ export function createAuthRoutes(
 // validates the token + does the state change → typed failure or 200. Keeping
 // the silent-success invariant in one place means changing how the framework
 // handles "invalid_body" on a public token endpoint is one edit, not three.
+
+function tenantIndependentPrefs(user: SessionUser): Pick<SessionUser, "timezone" | "locale"> {
+  return {
+    ...(user.timezone ? { timezone: user.timezone } : {}),
+    ...(user.locale ? { locale: user.locale } : {}),
+  };
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
 
 function registerTokenRequestRoute(opts: {
   api: Hono;
