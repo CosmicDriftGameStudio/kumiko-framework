@@ -1,10 +1,6 @@
 import { KUMIKO_NAME_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { escapeLikePattern } from "../crypto/ciphertext-pattern.js";
-import {
-  collectPiiSubjectFields,
-  computeBlindIndex,
-  configuredBlindIndexKey,
-} from "../crypto/index.js";
+import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/index.js";
 import { executeRawQueryRead } from "../db/queries/raw-sql.js";
 import { coerceRow, extractTableInfo } from "../db/query.js";
 import {
@@ -21,11 +17,7 @@ import type { SearchAdapter } from "../search/types.js";
 import { LIST_ROW_META_REFERENCES } from "../ui-types/list-row-meta.js";
 import { rehydrateCompoundTypes } from "./compound-types.js";
 import { decodeKeysetCursor, encodeCursor, encodeKeysetCursor } from "./cursor.js";
-import {
-  collectEncryptedFieldNames,
-  hasSearchablePlaintext,
-  isSensitiveLabelField,
-} from "./entity-field-encryption.js";
+import { hasSearchablePlaintext, isSensitiveLabelField } from "./entity-field-encryption.js";
 import type { EventStoreExecutor } from "./event-store-executor.js";
 import {
   buildFilterWhere,
@@ -409,7 +401,7 @@ async function resolveReferenceMatches(
     return undefined;
   }
 
-  const targetTable = buildEntityTable(descriptor.targetEntityName, targetEntity);
+  const targetTable = referenceTargetTable(descriptor.targetEntityName, targetEntity);
   const targetTableName = String(
     (targetTable as unknown as Record<symbol, unknown>)[KUMIKO_NAME_SYMBOL],
   );
@@ -438,6 +430,18 @@ async function resolveReferenceMatches(
     db,
     searchAdapter,
   );
+}
+
+// Building the table is pure but not free, and runs on every search request;
+// keyed by the definition object so a re-registered entity never sees a stale table.
+const referenceTargetTables = new WeakMap<EntityDefinition, { name: string; table: Table }>();
+
+function referenceTargetTable(name: string, entity: EntityDefinition): Table {
+  const cached = referenceTargetTables.get(entity);
+  if (cached?.name === name) return cached.table;
+  const table = buildEntityTable(name, entity);
+  referenceTargetTables.set(entity, { name, table });
+  return table;
 }
 
 // Projected alongside the row when a reference sort is active, so the keyset
@@ -469,10 +473,7 @@ function buildReferenceSortExpr(
     // skip: labelField isn't a real (declared) column on the target entity
     return undefined;
   }
-  if (
-    collectEncryptedFieldNames(targetEntity).has(descriptor.labelField) ||
-    collectPiiSubjectFields(targetEntity).includes(descriptor.labelField)
-  ) {
+  if (isSensitiveLabelField(targetEntity, descriptor.labelField)) {
     // skip: encrypted/PII labelField — ciphertext orders by its bytes, which is
     // arbitrary to the reader and would also rank rows by their stored secret
     return undefined;
@@ -551,10 +552,6 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       }
 
       let filterIds: EntityId[] | undefined;
-      // fw#2660 — true once a searchable-reference or row-meta-reference
-      // clause contributed rows, so the total-count fast-path below knows
-      // `filterIds.length` alone would undercount.
-      let referenceClauseActive = false;
       // Build the WHERE clause as raw SQL — ownership produces a
       // parameterised fragment that we splice in alongside simple WhereObject
       // conditions (cursor, search-filter-IDs, screen-filter, tenant-scope).
@@ -649,18 +646,12 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
             return `$${params.length}`;
           });
           orParts.push(`${colSql(match.ownColumn)} IN (${placeholders.join(", ")})`);
-          referenceClauseActive = true;
         }
         // Parenthesized as one whereSql entry — whereSql is joined with
         // " AND " below, an unparenthesized OR here would leak past the
         // tenant filter that follows.
         whereSql.push(`(${orParts.join(" OR ")})`);
       }
-      // The total-count fast-path below is only valid while this is still
-      // true after every later clause (tenant, soft-delete, cursor,
-      // ownership, parent-ref, filters) — see where it's checked.
-      const whereSqlLenAfterSearch = whereSql.length;
-
       const sortCandidate =
         payload.sort && table[payload.sort] && fieldReadClause(payload.sort).kind === "pass"
           ? payload.sort
@@ -830,24 +821,18 @@ export function createReadVerbs(ctx: ExecutorContext): Pick<EventStoreExecutor, 
       // total: extra COUNT(*) — only when explicitly requested (pager UI).
       // Postgres cost is O(table-scan) without a filter, with a filter as
       // expensive as the corresponding WHERE — cheap enough on indexed columns.
-      // On the search path, `total = filterIds.length` needs no extra query —
-      // unless a reference match contributed additional rows (fw#2660), or the
-      // WHERE grew past the search block (ownership, parent-ref, filters,
-      // soft-delete, cursor all splice in afterwards), in which case the raw
-      // filterIds length alone would undercount.
+      // Always counted over the full WHERE: search ids, reference matches, tenant,
+      // soft-delete, cursor, ownership and filters all narrow the result, so the
+      // search hit count alone is never the total.
       let total: number | undefined;
       if (totalCount) {
-        if (filterIds && !referenceClauseActive && whereSql.length === whereSqlLenAfterSearch) {
-          total = filterIds.length;
-        } else {
-          const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
-          const countRows = await executeRawQueryRead<{ count: number }>(
-            runner,
-            countSql,
-            whereParams,
-          );
-          total = countRows[0]?.count ?? 0;
-        }
+        const countSql = `SELECT COUNT(*)::int AS count FROM "${tableName}"${whereClauseSqlText}`;
+        const countRows = await executeRawQueryRead<{ count: number }>(
+          runner,
+          countSql,
+          whereParams,
+        );
+        total = countRows[0]?.count ?? 0;
       }
 
       return { rows, nextCursor, ...(total !== undefined && { total }) };

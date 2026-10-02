@@ -135,8 +135,8 @@ export async function assertLiveTableHasNoRowLevelSecurity(
     `${context}: live table "${tableName}" has row level security (enabled: ${row.rls_enabled}, ` +
       `forced: ${row.rls_forced}, policies: ${row.policy_count}). The shadow swap rebuilds the table ` +
       "from EntityTableMeta and would silently drop RLS and every policy. Kumiko does not support RLS " +
-      "on rebuildable tables — see kumiko-platform docs/plans/rls-evaluation.md. Rebuild aborted; live " +
-      "table untouched.",
+      "on rebuildable tables: drop the RLS flags/policies on this table or exclude it from online " +
+      "rebuild. Rebuild aborted; live table untouched.",
   );
 }
 
@@ -277,8 +277,9 @@ export async function assertNoBlindIndexLoss(
     `projection-rebuild "${projectionName}": "${tableName}" has ${count} row(s) with a populated ` +
       `blind-index column, but KUMIKO_BLIND_INDEX_KEY is not configured in this process. The rebuild ` +
       `would recompute those columns to NULL, and equality lookups on that field (login, password ` +
-      `reset) would stop matching afterward. Configure the blind-index key before this apply/rebuild ` +
-      `runs. See fw#3091. Rebuild aborted; live table untouched.`,
+      `reset) would stop matching afterward. Configure the complete KMS wiring (PLATFORM_KEK, ` +
+      `SUBJECT_KEYS_DATABASE_URL, KUMIKO_BLIND_INDEX_KEY, all-or-none) in the process running this ` +
+      `apply/rebuild. See fw#3091. Rebuild aborted; live table untouched.`,
   );
 }
 

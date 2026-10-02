@@ -384,11 +384,21 @@ export async function backfillEventPiiEncryptionBatch(
     const catalogFields = eventCatalog.get(row.type);
     if (catalogFields) {
       for (const [field, spec] of Object.entries(catalogFields)) {
-        const subject = resolveEventSubject(field, spec, payload, {
-          tenantId: row.tenant_id as TenantId, // @cast-boundary db-read — tenant_id column is the branded TenantId
-          aggregateType: row.aggregate_type,
-          aggregateId: row.aggregate_id,
-        });
+        let subject: ReturnType<typeof resolveEventSubject>;
+        try {
+          subject = resolveEventSubject(field, spec, payload, {
+            tenantId: row.tenant_id as TenantId, // @cast-boundary db-read — tenant_id column is the branded TenantId
+            aggregateType: row.aggregate_type,
+            aggregateId: row.aggregate_id,
+          });
+        } catch (e) {
+          // Re-thrown as a plain Error: the owner-resolution retry hint added for
+          // SubjectResolutionError only applies to entity events.
+          if (!(e instanceof SubjectResolutionError)) throw e;
+          throw new Error(
+            `catalog event subject unresolvable: ${e.message} (fix aggregate_type/tenant_id or the piiFields declaration)`,
+          );
+        }
         if (subject === null) continue;
         const outcome = await encryptField(payload, field, subject);
         bump(outcome);

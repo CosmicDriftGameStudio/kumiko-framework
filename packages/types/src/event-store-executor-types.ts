@@ -41,8 +41,8 @@ export type EventStoreExecutor = {
       skipOptimisticLock?: boolean;
       skipUnchanged?: boolean;
       preSave?: PreSaveRunner;
-      // Declarative precondition for a "genau einmal"-transition (kumiko-
-      // framework#3024): field/value pairs the row must still hold at write
+      // Declarative precondition for a "genau einmal"-transition:
+      // field/value pairs the row must still hold at write
       // time — a `null` expected value matches a null field. Re-read fresh,
       // atomically with the write's stream version (not the payload's stale
       // `previous`), so a concurrent writer that already moved the row on is

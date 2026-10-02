@@ -216,6 +216,18 @@ describe("event-store-executor write-verbs — restore without softDelete", () =
     if (result.isSuccess) return;
     expect((result.error.details as { reason?: string }).reason).toBe("soft_delete_not_enabled");
   });
+
+  test("restore validation errors win over a missing runner binding", async () => {
+    const unboundDb = {} as TenantDb; // @cast-boundary test-fixture: not built by createTenantDb
+    const result = await crud.restore(
+      { id: "00000000-0000-4000-8000-000000000001" },
+      admin,
+      unboundDb,
+    );
+    expect(result.isSuccess).toBe(false);
+    if (result.isSuccess) return;
+    expect((result.error.details as { reason?: string }).reason).toBe("soft_delete_not_enabled");
+  });
 });
 
 // =============================================================================
