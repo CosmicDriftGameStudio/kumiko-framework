@@ -4465,11 +4465,12 @@ export function DefaultCard({
   dataAttributes,
   children,
 }: CardProps): ReactNode {
-  const padded = options?.padded ?? true;
+  const screenBody = options?.screenBody ?? false;
+  const padded = screenBody ? false : (options?.padded ?? true);
   const radius = options?.radius ?? "xl";
   const footerBordered = options?.footerBordered ?? true;
   const fillHeight = options?.fillHeight ?? false;
-  const framed = options?.framed ?? true;
+  const framed = screenBody ? false : (options?.framed ?? true);
   const s = slots ?? {};
   const defaultHeader =
     s.title !== undefined ||
@@ -4502,7 +4503,7 @@ export function DefaultCard({
     ) : null;
   const header = s.header ?? defaultHeader;
   const hasHeader = header !== null && header !== undefined;
-  return (
+  const card = (
     <div
       data-slot="card"
       {...dataAttributes}
@@ -4524,6 +4525,7 @@ export function DefaultCard({
         <div
           className={cn(
             "grow",
+            screenBody && "flex flex-col gap-6",
             padded &&
               (hasHeader
                 ? "px-[var(--card-padding)] pb-[var(--card-padding)]"
@@ -4546,6 +4548,7 @@ export function DefaultCard({
       )}
     </div>
   );
+  return screenBody ? <FormScreenShell>{card}</FormScreenShell> : card;
 }
 
 // otpauth:// enrollment URI → scannable QR (errorCorrectionLevel "H", ~30%
