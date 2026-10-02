@@ -21,7 +21,11 @@ import {
   type ProjectionDefinition,
 } from "../../engine/index.js";
 import type { JobRunner } from "../../jobs/job-runner.js";
-import { createEventConsumerStateTable, createProjectionStateTable } from "../../pipeline/index.js";
+import {
+  createEventConsumerStateTable,
+  createProjectionStateTable,
+  getConsumerState,
+} from "../../pipeline/index.js";
 import {
   createTestDb,
   type TestDb,
@@ -69,6 +73,8 @@ const orphanProjectionTable = pgTable("read_orphan_projection", {
 
 // Steuerbarer Fail: simuliert einen transienten Rebuild-Fehler.
 let failApply = false;
+let failMspApply = false;
+const MSP_PROJECTION_NAME = "pendingtest:projection:pending-item-names";
 
 const countsProjection: ProjectionDefinition = {
   name: "pending-counts",
@@ -94,6 +100,7 @@ const feature = defineFeature("pendingtest", (r) => {
     table: mspItemNamesTable,
     apply: {
       "pending-item.created": async (event, tx) => {
+        if (failMspApply) throw new Error("msp apply failure (test)");
         const payload = event.payload as { name: string };
         await asRawClient(tx).unsafe(
           `INSERT INTO "read_pending_msp_names" (id, tenant_id, name) VALUES ($1::uuid, $2::uuid, $3)
@@ -134,6 +141,7 @@ afterAll(async () => {
 
 beforeEach(async () => {
   failApply = false;
+  failMspApply = false;
   await asRawClient(testDb.db).unsafe(
     `TRUNCATE kumiko_events, read_pending_items, read_pending_counts, read_orphan_projection, read_pending_msp_names, kumiko_projections RESTART IDENTITY CASCADE`,
   );
@@ -200,6 +208,39 @@ describe("pending-rebuilds queue", () => {
     expect(await listPendingRebuilds(testDb.db)).toEqual([]);
     const rows = await selectMany(testDb.db, mspItemNamesTable);
     expect(rows.map((r) => r.name).sort()).toEqual(["a", "b"]);
+  });
+
+  test("a failing multi-stream rebuild stays queued and leaves the consumer idle with its cursor", async () => {
+    await executor.create({ groupId: GROUP, name: "a" }, admin, tdb);
+    writeRebuildMarker(markerDir, "0004_msp_ok.sql", ["read_pending_msp_names"]);
+    await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0004_msp_ok"],
+    });
+    expect((await runPendingRebuilds(testDb.db, registry)).failed).toEqual([]);
+    const cursorBefore = (await getConsumerState(testDb.db, MSP_PROJECTION_NAME))
+      ?.lastProcessedEventId;
+    expect(cursorBefore).toBeGreaterThan(0n);
+
+    await executor.create({ groupId: GROUP, name: "b" }, admin, tdb);
+    writeRebuildMarker(markerDir, "0005_msp_fail.sql", ["read_pending_msp_names"]);
+    await queueRebuildsFromMarkers(testDb.db, {
+      migrationsDir: markerDir,
+      appliedIds: ["0005_msp_fail"],
+    });
+    failMspApply = true;
+    const run = await runPendingRebuilds(testDb.db, registry);
+
+    expect(run.failed).toEqual([
+      {
+        projection: MSP_PROJECTION_NAME,
+        error: expect.stringContaining("msp apply failure"),
+      },
+    ]);
+    expect(await listPendingRebuilds(testDb.db)).toEqual(["read_pending_msp_names"]);
+    const consumerAfter = await getConsumerState(testDb.db, MSP_PROJECTION_NAME);
+    expect(consumerAfter?.status).toBe("idle");
+    expect(consumerAfter?.lastProcessedEventId).toBe(cursorBefore);
   });
 
   test("tables without a registered projection are drained, not stuck forever", async () => {

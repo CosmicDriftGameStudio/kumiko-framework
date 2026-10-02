@@ -164,6 +164,24 @@ describe("stack.drainJobs() surfaces final job failures", () => {
     expect(tracker.failures.size).toBe(0);
   });
 
+  test("a drain that never goes idle rejects at its deadline and names the pending count", async () => {
+    stack = await setupTestStack({
+      features: [failureFeature],
+      jobs: { consumerLane: "worker" },
+    });
+    const { jobRunner } = stack;
+    if (!jobRunner) throw new Error("expected a job runner");
+    const stuckRunner = Object.assign(Object.create(jobRunner), {
+      countPendingJobs: async () => 3,
+    });
+
+    await expect(
+      drainJobs({ db: stack.db, jobRunner: stuckRunner }, createJobFailureTracker(), {
+        timeoutMs: 100,
+      }),
+    ).rejects.toThrow(/not drained after 100ms.*pending jobs: 3/s);
+  });
+
   test("a perTenant fan-out that cannot resolve tenants rejects drainJobs() instead of passing green", async () => {
     stack = await setupTestStack({
       features: [fanOutFeature],

@@ -440,6 +440,8 @@ function findTargetFiles(rootDir: string): string[] {
 
 export type StanceClass = "direct" | "user-owned" | "user-reference" | "near-miss" | "unclassified";
 
+export type HintCategory = "direct" | "user-owned" | "user-reference";
+
 export type StanceSite = {
   readonly line: number;
   readonly field: string;
@@ -447,13 +449,22 @@ export type StanceSite = {
   readonly callee: string;
   readonly stance: StanceClass;
   readonly hint: string | undefined;
+  readonly nearMissOf: HintCategory | undefined;
 };
 
-const ALL_PII_NAME_HINTS: readonly string[] = [
-  ...PII_DIRECT_NAME_HINTS,
-  ...PII_USER_OWNED_NAME_HINTS,
-  ...PII_USER_REFERENCE_NAME_HINTS,
+type CategorizedHint = readonly [hint: string, category: HintCategory];
+
+const ALL_PII_NAME_HINTS: readonly CategorizedHint[] = [
+  ...[...PII_DIRECT_NAME_HINTS].map((hint): CategorizedHint => [hint, "direct"]),
+  ...[...PII_USER_OWNED_NAME_HINTS].map((hint): CategorizedHint => [hint, "user-owned"]),
+  ...[...PII_USER_REFERENCE_NAME_HINTS].map((hint): CategorizedHint => [hint, "user-reference"]),
 ];
+
+type FieldClassification = {
+  readonly stance: StanceClass;
+  readonly hint: string | undefined;
+  readonly nearMissOf: HintCategory | undefined;
+};
 
 const REPORT_STANCE_CALLEES = new Set(["createTextField", "createLongTextField"]);
 
@@ -539,11 +550,15 @@ function hintOccursAtBoundary(fieldLower: string, fieldOriginal: string, hint: s
   }
 }
 
-function findLongestBoundaryHint(fieldLower: string, fieldOriginal: string): string | undefined {
-  let best: string | undefined;
-  for (const hint of ALL_PII_NAME_HINTS) {
-    if (best && hint.length <= best.length) continue;
-    if (hintOccursAtBoundary(fieldLower, fieldOriginal, hint)) best = hint;
+function findLongestBoundaryHint(
+  fieldLower: string,
+  fieldOriginal: string,
+): CategorizedHint | undefined {
+  let best: CategorizedHint | undefined;
+  for (const entry of ALL_PII_NAME_HINTS) {
+    const [hint] = entry;
+    if (best && hint.length <= best[0].length) continue;
+    if (hintOccursAtBoundary(fieldLower, fieldOriginal, hint)) best = entry;
   }
   return best;
 }
@@ -564,29 +579,36 @@ function segmentAlignedSuffixes(fieldOriginal: string): string[] {
 // (e.g. "...UserId" of "assigneeUserId") otherwise slips through undetected.
 // The suffix must be the tail of the hint: plain `includes` matched "number"
 // inside "phonenumber" for "orderNumber".
-function findShortestHintContainingSuffix(fieldOriginal: string): string | undefined {
-  let best: string | undefined;
+function findShortestHintContainingSuffix(fieldOriginal: string): CategorizedHint | undefined {
+  let best: CategorizedHint | undefined;
   for (const suffix of segmentAlignedSuffixes(fieldOriginal)) {
     if (suffix.length < 5) continue;
-    for (const hint of ALL_PII_NAME_HINTS) {
+    for (const entry of ALL_PII_NAME_HINTS) {
+      const [hint] = entry;
       if (hint === suffix || !hint.endsWith(suffix)) continue;
-      if (!best || hint.length < best.length) best = hint;
+      if (!best || hint.length < best[0].length) best = entry;
     }
   }
   return best;
 }
 
-function classifyFieldStance(field: string): { stance: StanceClass; hint: string | undefined } {
+function classifyFieldStance(field: string): FieldClassification {
   const fieldLower = field.replaceAll("_", "").toLowerCase();
-  if (PII_DIRECT_NAME_HINTS.has(fieldLower)) return { stance: "direct", hint: fieldLower };
-  if (PII_USER_OWNED_NAME_HINTS.has(fieldLower)) return { stance: "user-owned", hint: fieldLower };
-  if (PII_USER_REFERENCE_NAME_HINTS.has(fieldLower))
-    return { stance: "user-reference", hint: fieldLower };
-  const containmentHint = findLongestBoundaryHint(field.toLowerCase(), field);
-  if (containmentHint) return { stance: "near-miss", hint: containmentHint };
-  const suffixHint = findShortestHintContainingSuffix(field);
-  if (suffixHint) return { stance: "near-miss", hint: suffixHint };
-  return { stance: "unclassified", hint: undefined };
+  if (PII_DIRECT_NAME_HINTS.has(fieldLower)) {
+    return { stance: "direct", hint: fieldLower, nearMissOf: undefined };
+  }
+  if (PII_USER_OWNED_NAME_HINTS.has(fieldLower)) {
+    return { stance: "user-owned", hint: fieldLower, nearMissOf: undefined };
+  }
+  if (PII_USER_REFERENCE_NAME_HINTS.has(fieldLower)) {
+    return { stance: "user-reference", hint: fieldLower, nearMissOf: undefined };
+  }
+  const nearMiss =
+    findLongestBoundaryHint(field.toLowerCase(), field) ?? findShortestHintContainingSuffix(field);
+  if (nearMiss) {
+    return { stance: "near-miss", hint: nearMiss[0], nearMissOf: nearMiss[1] };
+  }
+  return { stance: "unclassified", hint: undefined, nearMissOf: undefined };
 }
 
 function createReportStanceProject(): Project {
@@ -627,9 +649,9 @@ function collectStanceSites(sourceFile: SourceFile): StanceSite[] {
     // A call with no enclosing field (e.g. a bare createTextField() at top
     // level) has no real name to classify — `createTextField(...)` would
     // otherwise false-positive as a near-miss on its own "Text".
-    const { stance, hint } = enclosingField
+    const { stance, hint, nearMissOf }: FieldClassification = enclosingField
       ? classifyFieldStance(enclosingField)
-      : { stance: "unclassified" as const, hint: undefined };
+      : { stance: "unclassified", hint: undefined, nearMissOf: undefined };
 
     sites.push({
       line: call.getStartLineNumber(),
@@ -638,6 +660,7 @@ function collectStanceSites(sourceFile: SourceFile): StanceSite[] {
       callee,
       stance,
       hint,
+      nearMissOf,
     });
   }
   return sites;
@@ -654,6 +677,13 @@ function findReportStanceFiles(rootDir: string): string[] {
     files.push(abs);
   }
   return files.sort();
+}
+
+function formatHintSuffix(site: StanceSite): string {
+  if (!site.hint) return "";
+  return site.nearMissOf
+    ? ` (hint: ${site.hint}, near ${site.nearMissOf})`
+    : ` (hint: ${site.hint})`;
 }
 
 function reportStance(rootDir: string): void {
@@ -680,7 +710,7 @@ function reportStance(rootDir: string): void {
       totals[site.stance]++;
       total++;
       const entity = site.entity ?? "<unresolved>";
-      const hintSuffix = site.hint ? ` (hint: ${site.hint})` : "";
+      const hintSuffix = formatHintSuffix(site);
       console.log(
         `  ${site.line}  ${site.field}  entity=${entity}  ${site.callee}  ${site.stance}${hintSuffix}`,
       );

@@ -237,6 +237,42 @@ export function guard(rest: Record<string, unknown>) {
     expect(output).toContain("spread");
   });
 
+  test("does not report a details literal with a spread but no reason key", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard(rest: Record<string, unknown>) {
+  throw new UnprocessableError("x", { details: { ...rest, field: "y" } });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const before = read(fixture.dir, "guard.ts");
+    const output = await runCodemod(fixture.dir);
+
+    expect(read(fixture.dir, "guard.ts")).toBe(before);
+    expect(output).toContain("Skipped 0 site(s)");
+    expect(output).toContain("Unverified 0 site(s)");
+  });
+
+  test("lists a non-analyzable details argument as unverified, apart from manual skips", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard(details: Record<string, unknown>) {
+  return failUnprocessable("x", details);
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const output = await runCodemod(fixture.dir);
+
+    expect(output).toContain("Skipped 0 site(s)");
+    expect(output).toContain("Unverified 1 site(s)");
+  });
+
   test("removes reason from the details literal of failUnprocessable(reason, details)", async () => {
     const fixture = makeFixtureDir({
       "guard.ts": `import { failUnprocessable } from "@cosmicdrift/kumiko-framework/errors";

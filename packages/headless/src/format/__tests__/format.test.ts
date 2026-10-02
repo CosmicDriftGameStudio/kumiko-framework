@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { UnitKey } from "@cosmicdrift/kumiko-framework/engine";
 import { applyFormatSpec, UNIT_FORMAT_KEYS } from "../index.js";
 
 describe("applyFormatSpec — priority", () => {
@@ -270,9 +271,17 @@ describe("applyFormatSpec — boolean labels through translate (fw#2683)", () =>
 });
 
 describe("unit format keys stay in lockstep with UnitKey", () => {
-  // Mirror of packages/types/src/screen.ts UnitKey — keep lists equal without
-  // adding a kumiko-types dependency to headless.
-  const TYPE_UNIT_KEYS = ["m2", "km", "m", "kg", "percent", "mi"] as const;
+  // Record<UnitKey, true> fails typecheck when UnitKey gains or loses a member,
+  // so the runtime key list below can't drift from the type.
+  const UNIT_KEY_PARITY: Record<UnitKey, true> = {
+    m2: true,
+    km: true,
+    m: true,
+    kg: true,
+    percent: true,
+    mi: true,
+  };
+  const TYPE_UNIT_KEYS = Object.keys(UNIT_KEY_PARITY);
   test("every UnitKey formats with a non-bare number", () => {
     for (const k of TYPE_UNIT_KEYS) {
       expect(UNIT_FORMAT_KEYS.includes(k)).toBe(true);

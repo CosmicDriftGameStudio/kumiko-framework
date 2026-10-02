@@ -138,6 +138,19 @@ describe("drainEventConsumers", () => {
     expect(caughtMessage).toContain(`lastError=boom: ${POISON_TARGET_NAME}`);
   });
 
+  test.each([0, -1, 1.5, Number.NaN])(
+    "maxPasses %p is rejected instead of returning without draining",
+    async (maxPasses) => {
+      await expect(
+        drainEventConsumers(
+          { db: stack.db, eventDispatcher: stack.eventDispatcher },
+          [TRACKER_QN],
+          { maxPasses },
+        ),
+      ).rejects.toThrow("maxPasses must be a positive integer");
+    },
+  );
+
   test("an unknown consumer name throws", async () => {
     let caughtMessage: string | undefined;
     try {
