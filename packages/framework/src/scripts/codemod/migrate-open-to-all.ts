@@ -6,7 +6,7 @@
 // Usage:
 //   bun scripts/codemod/migrate-open-to-all.ts [--dry-run] [--test-reason "<text>"] <path...>
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   Node,
@@ -164,11 +164,21 @@ function isMigratableFile(name: string): boolean {
   return /\.(ts|tsx)$/.test(name);
 }
 
+const SKIPPED_DIR_NAMES: ReadonlySet<string> = new Set([
+  "node_modules",
+  "dist",
+  "build",
+  ".next",
+  ".git",
+]);
+
 function walkDir(dir: string, out: string[]): void {
   for (const name of readdirSync(dir)) {
-    if (name === "node_modules") continue;
+    if (SKIPPED_DIR_NAMES.has(name)) continue;
     const full = join(dir, name);
-    const stat = statSync(full);
+    const stat = lstatSync(full);
+    // Symlinks can point back at a parent directory (workspace links) and loop forever.
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) {
       walkDir(full, out);
       continue;
@@ -177,7 +187,7 @@ function walkDir(dir: string, out: string[]): void {
   }
 }
 
-function collectFiles(paths: string[]): string[] {
+export function collectFiles(paths: string[]): string[] {
   const files: string[] = [];
   for (const p of paths) {
     const abs = resolve(p);

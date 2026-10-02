@@ -145,6 +145,43 @@ export function guard() {
     expect(output).toContain("removed 1 redundant");
   });
 
+  test("follows a namespace import (errors.UnprocessableError)", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import * as errors from "@cosmicdrift/kumiko-framework/errors";
+
+export function guard() {
+  throw new errors.UnprocessableError("x", { details: { reason: "y", other: 1 } });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const output = await runCodemod(fixture.dir);
+
+    const out = read(fixture.dir, "guard.ts");
+    expect(out).toContain("details: { other: 1 }");
+    expect(out).not.toContain("reason:");
+    expect(output).toContain("removed 1 redundant");
+  });
+
+  test("reports a member-access callee it cannot resolve instead of skipping silently", async () => {
+    const fixture = makeFixtureDir({
+      "guard.ts": `import * as errors from "some-other-lib";
+
+export function guard() {
+  throw new errors.UnprocessableError("x", { details: { reason: "y" } });
+}
+`,
+    });
+    cleanup = fixture.cleanup;
+
+    const output = await runCodemod(fixture.dir);
+
+    expect(read(fixture.dir, "guard.ts")).toContain('reason: "y"');
+    expect(output).toContain("guard.ts:4");
+    expect(output).toContain("errors.UnprocessableError");
+  });
+
   test("removes a string-literal reason key", async () => {
     const fixture = makeFixtureDir({
       "guard.ts": `import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";

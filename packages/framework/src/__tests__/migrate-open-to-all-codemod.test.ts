@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  collectFiles,
   exitCodeForManualSites,
   migrateOpenToAllSource,
 } from "../scripts/codemod/migrate-open-to-all.js";
@@ -91,5 +93,22 @@ describe("migrateOpenToAllSource", () => {
 
     expect(exitCodeForManualSites(result.manual.length)).toBe(1);
     expect(exitCodeForManualSites(0)).toBe(0);
+  });
+});
+
+describe("collectFiles", () => {
+  it("skips symlinks and build output directories instead of looping or rewriting them", () => {
+    const root = mkdtempSync(join(tmpdir(), "open-to-all-walk-"));
+    try {
+      mkdirSync(join(root, "src"));
+      mkdirSync(join(root, "dist"));
+      writeFileSync(join(root, "src", "a.ts"), "export {};\n");
+      writeFileSync(join(root, "dist", "a.d.ts"), "export {};\n");
+      symlinkSync(root, join(root, "src", "loop"));
+
+      expect(collectFiles([root])).toEqual([join(root, "src", "a.ts")]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

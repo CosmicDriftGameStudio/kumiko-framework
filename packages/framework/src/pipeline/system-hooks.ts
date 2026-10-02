@@ -279,7 +279,12 @@ async function readProjectionRowForSearch(
   }
   const row = await createTenantDb(baseDb, tenantId).fetchOne(table, where);
   if (!row) return undefined;
-  return rehydrateCompoundTypes(row, entity);
+  const state = rehydrateCompoundTypes(row, entity);
+  // The event payload never carries sensitive fields; extensions must not see them via the row either.
+  for (const [name, field] of Object.entries(entity.fields)) {
+    if ("sensitive" in field && field.sensitive === true) delete state[name];
+  }
+  return state;
 }
 
 // #1610 — subject-annotated searchable fields are ciphertext in the event

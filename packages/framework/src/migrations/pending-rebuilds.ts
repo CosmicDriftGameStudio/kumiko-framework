@@ -18,6 +18,7 @@ import { readRebuildMarker } from "../db/rebuild-marker.js";
 import { tableExists } from "../db/schema-inspection.js";
 import type { Registry } from "../engine/types/index.js";
 import type { JobRunner } from "../jobs/index.js";
+import type { Logger } from "../logging/types.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import {
   type RebuildResult,
@@ -132,10 +133,17 @@ export async function rebuildProjectionOrMultiStream(
     readonly signal?: AbortSignal;
     // MSPs take their skip mode from the declaration (msp.errorMode), no override.
     readonly errorPolicy?: { readonly skipApplyErrors?: boolean };
+    readonly logger?: Pick<Logger, "error"> & Partial<Pick<Logger, "warn" | "debug">>;
   },
 ): Promise<RebuildResult> {
   const { db, registry, signal, errorPolicy } = deps;
   if (registry.getAllMultiStreamProjections().has(name)) {
+    if (errorPolicy?.skipApplyErrors === true) {
+      createFallbackLogger("migrations:pending-rebuilds", deps.logger).warn(
+        `skipApplyErrors ignored for multi-stream projection "${name}"; declare msp.errorMode.rebuild instead`,
+        { projection: name },
+      );
+    }
     return rebuildMultiStreamProjection(name, {
       db,
       registry,
