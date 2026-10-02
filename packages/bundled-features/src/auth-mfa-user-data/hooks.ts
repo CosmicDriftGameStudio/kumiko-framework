@@ -14,7 +14,7 @@ import {
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { userMfaEntity, userMfaTable } from "../auth-mfa/index.js";
-import { assertErased } from "../shared/index.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../shared/index.js";
 
 const executor = createEventStoreExecutor(userMfaTable, userMfaEntity, {
   entityName: "user-mfa",
@@ -47,7 +47,14 @@ export const userMfaDeleteHook: UserDataDeleteHook = async (ctx) => {
   // skip: nothing enrolled for this user — no row to erase
   if (rows.length === 0) return;
   const systemUser = createSystemUser(ctx.tenantId);
+  const failures: string[] = [];
   for (const row of rows) {
-    assertErased(await executor.forget({ id: row.id }, systemUser, ctx.db), "user-mfa", row.id);
+    collectErasureFailure(
+      await executor.forget({ id: row.id }, systemUser, ctx.db),
+      "user-mfa",
+      row.id,
+      failures,
+    );
   }
+  throwIfErasureFailed(failures);
 };

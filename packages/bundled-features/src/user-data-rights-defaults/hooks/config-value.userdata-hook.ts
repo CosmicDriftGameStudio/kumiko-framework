@@ -5,7 +5,7 @@ import {
   type UserDataExportHook,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { configValueEntity, configValuesTable } from "../../config/index.js";
-import { assertErased } from "../../shared/index.js";
+import { collectErasureFailure, throwIfErasureFailed } from "../../shared/index.js";
 import { featureMounted } from "./feature-mounted.js";
 
 // userData-Hooks for config's USER-scoped rows (userId set). Tenant-/system-
@@ -42,9 +42,16 @@ export const configValueDeleteHook: UserDataDeleteHook = async (ctx) => {
     tenantId: ctx.tenantId,
     userId: ctx.userId,
   });
+  const failures: string[] = [];
   for (const row of rows) {
     const id = row["id"]; // @cast-boundary db-row
     if (typeof id !== "string") continue;
-    assertErased(await crud.forget({ id }, systemUser, ctx.db), "config-value", id);
+    collectErasureFailure(
+      await crud.forget({ id }, systemUser, ctx.db),
+      "config-value",
+      id,
+      failures,
+    );
   }
+  throwIfErasureFailed(failures);
 };

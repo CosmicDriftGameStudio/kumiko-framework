@@ -1,4 +1,4 @@
-export { assertErased } from "./assert-erased.js";
+export { collectErasureFailure, throwIfErasureFailed } from "./assert-erased.js";
 export {
   type ChunkedMigrationOptions,
   type ChunkedMigrationResult,

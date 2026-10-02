@@ -25,23 +25,39 @@ const ANCHOR = "22222222-2222-4222-8222-222222222222";
 // UPDATE exists for. This holds every redeemer between reading the anchor and
 // spending it until `expected` of them have read it — the interleaving itself,
 // deterministic instead of a sleep. The timeout keeps a serialising stack from
-// hanging the suite: it fails the assertion instead.
+// hanging the suite; `openedByArrival` tells the test whether the gate opened
+// because all redeemers really overlapped or only because the timeout expired
+// (a serialised stack yields [200, 422] anyway, via the already-spent anchor).
 function createRaceGate(expected: number, timeoutMs = 2_000) {
   let arrived = 0;
+  let released = false;
+  let openedByArrival = false;
   let open: () => void = () => {};
   const opened = new Promise<void>((resolve) => {
     open = resolve;
   });
   return {
+    get openedByArrival(): boolean {
+      return openedByArrival;
+    },
     async wait(): Promise<void> {
       arrived += 1;
-      if (arrived >= expected) open();
-      await Promise.race([opened, Bun.sleep(timeoutMs)]);
+      if (arrived >= expected && !released) {
+        released = true;
+        openedByArrival = true;
+        open();
+      }
+      await Promise.race([
+        opened,
+        Bun.sleep(timeoutMs).then(() => {
+          released = true;
+        }),
+      ]);
     },
   };
 }
 
-let raceGate: { wait: () => Promise<void> } | null = null;
+let raceGate: ReturnType<typeof createRaceGate> | null = null;
 
 const RAW_REASON =
   "the grant holder has no session, so the anchor spend is a conditional UPDATE " +
@@ -158,10 +174,12 @@ describe("row-bound grant over anonymous HTTP", () => {
 
   test("two simultaneous redemptions of one grant leave exactly one winner", async () => {
     const token = grantFor(ANCHOR);
-    raceGate = createRaceGate(2);
+    const gate = createRaceGate(2);
+    raceGate = gate;
 
     const results = await Promise.all([enrich(token, "a"), enrich(token, "b")]);
 
+    expect(gate.openedByArrival).toBe(true);
     expect(results.map((r) => r.status).sort()).toEqual([200, 422]);
     const row = await readRow();
     expect(row?.anchor).toBeNull();

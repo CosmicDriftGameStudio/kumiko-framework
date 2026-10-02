@@ -724,6 +724,21 @@ describe("ledger integration — account code uniqueness", () => {
       admin,
     );
     expect(err.code).toBe("unique_violation");
+
+    // A rejected update must leave no event behind: a later rebuild would replay
+    // it into the duplicate the unique index prevents.
+    const [eventCount] = await asRawClient(stack.db).unsafe<{ count: number }>(
+      "SELECT count(*)::int AS count FROM kumiko_events WHERE tenant_id = $1",
+      [admin.tenantId],
+    );
+    expect(eventCount?.count).toBe(2);
+    const afterReject = await stack.http.queryOk<{ code: string; version: number }>(
+      LedgerQueries.accountDetail,
+      { id: other.id },
+      admin,
+    );
+    expect(afterReject.code).toBe("2000");
+    expect(afterReject.version).toBe(otherDetail.version);
   });
 });
 
@@ -786,5 +801,71 @@ describe("ledger integration — subject dimension (filterable business-object r
       filters: [{ field: "subjectId", op: "in", value: ["lease-1", "lease-3"] }],
     });
     expect(rows.map((r) => r["subjectId"]).sort()).toEqual(["lease-1", "lease-3"]);
+  });
+
+  test("a subjectId over 128 characters is rejected on createTransaction and createSchedule", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const tooLong = "x".repeat(129);
+
+    const txErr = await stack.http.writeErr(
+      LedgerHandlers.createTransaction,
+      {
+        date: "2026-01-15",
+        description: "too long",
+        lines: [
+          { accountId: bank, amount: 100 },
+          { accountId: rent, amount: -100 },
+        ],
+        subjectId: tooLong,
+      },
+      admin,
+    );
+    expect(txErr.httpStatus).toBe(400);
+
+    const scheduleErr = await stack.http.writeErr(
+      LedgerHandlers.createSchedule,
+      {
+        description: "too long",
+        startDate: "2026-01-01",
+        interval: "monthly",
+        amount: 100,
+        debitAccountId: bank,
+        creditAccountId: rent,
+        subjectId: tooLong,
+      },
+      admin,
+    );
+    expect(scheduleErr.httpStatus).toBe(400);
+    expect(await listTransactions()).toHaveLength(0);
+  });
+
+  test("the subject filter is tenant-isolated: the same subjectId in another tenant never leaks", async () => {
+    const bank = await createAccount("Bank", "asset");
+    const rent = await createAccount("Mieterträge", "income");
+    const otherBank = await createAccount("Bank", "asset", otherTenant);
+    const otherRent = await createAccount("Mieterträge", "income", otherTenant);
+
+    const mine = await createTransaction(
+      [
+        { accountId: bank, amount: 100 },
+        { accountId: rent, amount: -100 },
+      ],
+      { subjectType: "lease", subjectId: "lease-1" },
+    );
+    const theirs = await createTransaction(
+      [
+        { accountId: otherBank, amount: 200 },
+        { accountId: otherRent, amount: -200 },
+      ],
+      { subjectType: "lease", subjectId: "lease-1" },
+      otherTenant,
+    );
+
+    const filter = { field: "subjectId", op: "eq", value: "lease-1" };
+    const mineRows = await listTransactions(admin, { filter });
+    expect(mineRows.map((r) => r["id"])).toEqual([mine.id]);
+    const theirRows = await listTransactions(otherTenant, { filter });
+    expect(theirRows.map((r) => r["id"])).toEqual([theirs.id]);
   });
 });

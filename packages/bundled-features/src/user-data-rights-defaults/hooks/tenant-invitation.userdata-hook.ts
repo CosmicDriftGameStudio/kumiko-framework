@@ -5,7 +5,12 @@ import {
   type UserDataExportHook,
   type UserDataHookCtx,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { assertErased, decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
+import {
+  collectErasureFailure,
+  decryptStoredPii,
+  mapWithConcurrency,
+  throwIfErasureFailed,
+} from "../../shared/index.js";
 import { tenantInvitationEntity, tenantInvitationsTable } from "../../tenant/index.js";
 import { userTable } from "../../user/index.js";
 import { featureMounted } from "./feature-mounted.js";
@@ -87,6 +92,7 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
   // skip: tenant not mounted — its table doesn't exist, nothing to erase.
   if (!featureMounted(ctx, "tenant")) return;
   const systemUser = createSystemUser(ctx.tenantId);
+  const failures: string[] = [];
 
   const email = await resolveUserEmail(ctx);
   if (email) {
@@ -98,7 +104,12 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
       const id = row["id"]; // @cast-boundary db-row
       if (typeof id !== "string") continue;
       if (strategy === "delete") {
-        assertErased(await crud.forget({ id }, systemUser, ctx.db), "tenant-invitation", id);
+        collectErasureFailure(
+          await crud.forget({ id }, systemUser, ctx.db),
+          "tenant-invitation",
+          id,
+          failures,
+        );
       } else {
         // Row-id in the pseudonym keeps the (tenantId, email) unique index
         // collision-free when a user has invitations in several states.
@@ -129,4 +140,5 @@ export const tenantInvitationDeleteHook: UserDataDeleteHook = async (ctx, strate
       skipOptimisticLock: true,
     });
   }
+  throwIfErasureFailed(failures);
 };
