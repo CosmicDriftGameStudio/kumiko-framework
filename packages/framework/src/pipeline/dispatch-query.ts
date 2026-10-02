@@ -4,12 +4,14 @@ import { filterReadFields } from "../engine/field-access.js";
 import type { QueryHandlerDef, SessionUser } from "../engine/types/index.js";
 import { AccessDeniedError, NotFoundError, validationErrorFromZod } from "../errors/index.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
-import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
 import {
   buildHandlerContext,
+  type DispatchContext,
   enforceRateLimit,
   ensureFeatureEnabled,
+  isMemberResolutionPrincipal,
   runHandlerInstrumented,
+  type WriteOrigin,
 } from "./dispatch-shared.js";
 import { runInMemberReadOnlyTransaction } from "./member-read-only-transaction.js";
 
@@ -83,7 +85,7 @@ async function executeQueryInner(
     (parsed.data as Record<string, unknown>)["includeDeleted"] === true; // @cast-boundary validated-payload
 
   // A resolved member (ctx.queryAsMember) runs in a Postgres READ ONLY transaction, not just the ctx surface below.
-  return user.origin === "member-resolution"
+  return isMemberResolutionPrincipal(user)
     ? runInMemberReadOnlyTransaction(ctx, tx, (readOnlyTx) =>
         runQueryHandler(ctx, type, handler, parsed.data, includeDeleted, user, origin, readOnlyTx),
       )

@@ -20,6 +20,19 @@ describe("extractPgError", () => {
     expect(info?.code).toBe("23505");
   });
 
+  test("unwraps a PG error nested deeper than one cause layer", () => {
+    const info = extractPgError({
+      cause: { cause: { code: "ERR_POSTGRES_SERVER_ERROR", errno: "25006" } },
+    });
+    expect(info?.code).toBe("25006");
+  });
+
+  test("terminates on a cyclic cause chain", () => {
+    const cyclic: { cause?: unknown } = {};
+    cyclic.cause = cyclic;
+    expect(extractPgError(cyclic)).toBeNull();
+  });
+
   test("returns null for non-objects", () => {
     expect(extractPgError("nope")).toBeNull();
   });

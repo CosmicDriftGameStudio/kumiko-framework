@@ -15,6 +15,11 @@ export type SseEvent = {
 // What a publish invalidates. "user" is the broadest (and the historical
 // default — every scope narrower than this is an opt-in from a caller that
 // knows exactly which credential(s) it revoked).
+export function readNonEmptyStringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  return value.every((v): v is string => typeof v === "string") ? value : undefined;
+}
+
 export type AccessInvalidationScope =
   | { readonly kind: "user" }
   | { readonly kind: "all-except-session"; readonly keptSessionId: string }

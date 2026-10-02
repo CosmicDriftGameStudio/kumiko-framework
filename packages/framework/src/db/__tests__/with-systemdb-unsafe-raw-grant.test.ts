@@ -1,7 +1,3 @@
-// fw#3198 — unit coverage for withSystemDbUnsafeRawGrant: passthrough for
-// unknown values, no stacking across repeated rebinds, and the gated runner
-// registered under declaredUnsafeRawRunners (unsafeRawForDeclaredStep).
-
 import { describe, expect, test } from "bun:test";
 import type { UncheckedSystemDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { AccessDeniedError } from "../../errors/index.js";
