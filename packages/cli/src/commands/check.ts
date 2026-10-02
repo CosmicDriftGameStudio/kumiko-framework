@@ -151,7 +151,7 @@ export async function runCheck(
   let failed = 0;
   for (const step of steps) {
     ctx.out.log(`  ▸ ${step.label}`);
-    failed += await runStep(step.id, ctx, guards, deps);
+    failed += await runStep(step.id, ctx, repo.absPath, guards, deps);
   }
   return failed > 0 ? 1 : 0;
 }
@@ -159,13 +159,15 @@ export async function runCheck(
 async function runStep(
   id: CheckStepId,
   ctx: CliCommandContext,
+  repoRoot: string,
   guards: GuardsCli,
   deps: CheckDeps,
 ): Promise<number> {
   switch (id) {
     case "boot": {
       const { runSchemaCli } = await deps.loadSchemaCli();
-      return await runSchemaCli(["validate"], ctx.cwd, ctx.out);
+      // findLocalRepo walks upwards, so ctx.cwd may be a subdirectory without kumiko/schema.ts.
+      return await runSchemaCli(["validate"], repoRoot, ctx.out);
     }
     case "guards":
       return guards.runGuardsCli([]);
