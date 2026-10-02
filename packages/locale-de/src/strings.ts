@@ -379,6 +379,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "config.secrets.delete": "Entfernen",
   "config.secrets.description":
     "Verschlüsselt gespeichert. Gespeicherte Werte werden nicht mehr angezeigt.",
+  "config.secrets.deleteConfirm":
+    "Dieses Secret entfernen? Alles, was es nutzt, funktioniert nicht mehr, und es lässt sich nicht wiederherstellen.",
   "config.secrets.notSet": "Nicht gesetzt",
   "config.secrets.placeholder": "Wert eingeben",
   "config.secrets.replacePlaceholder": "Neuen Wert zum Ersetzen eingeben",

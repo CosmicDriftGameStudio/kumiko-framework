@@ -4,7 +4,11 @@ import type {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { FormValues, SubmitResult } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useMemo } from "react";
-import { buildInitialValues } from "../app/kumiko-screen.js";
+import {
+  buildInitialValues,
+  tenantCurrencyMoneyFieldNames,
+  useMoneyCurrencyOverrides,
+} from "../app/kumiko-screen.js";
 import { toKebab } from "../app/qn.js";
 import { useTranslation } from "../i18n.js";
 import { usePrimitives } from "../primitives.js";
@@ -58,11 +62,28 @@ export function ReferenceCreateDialog({
   screen,
   entity,
 }: ReferenceCreateDialogProps): ReactNode {
-  const { Modal } = usePrimitives();
+  const { Banner, Modal } = usePrimitives();
   const t = useTranslation();
+  const entityDefaultCurrency = entity.defaultCurrency ?? "EUR";
+  const tenantCurrencyFieldNames = useMemo(
+    () => (open ? tenantCurrencyMoneyFieldNames(entity.fields) : []),
+    [open, entity.fields],
+  );
+  // Same tenant-currency resolution as the entityEdit create screen (fw#2933),
+  // so a `currency: { kind: "tenant" }` field seeds identically via this dialog.
+  const { overrides: moneyCurrencyOverrides, loading: currencyLoading } = useMoneyCurrencyOverrides(
+    entity.fields,
+    tenantCurrencyFieldNames,
+    entityDefaultCurrency,
+  );
   const initial = useMemo(
-    () => buildInitialValues(entity.fields, entity.defaultCurrency ?? "EUR") as FormValues,
-    [entity.fields, entity.defaultCurrency],
+    () =>
+      buildInitialValues(
+        entity.fields,
+        entityDefaultCurrency,
+        moneyCurrencyOverrides,
+      ) as FormValues,
+    [entity.fields, entityDefaultCurrency, moneyCurrencyOverrides],
   );
   const writeCommand = entityWriteCommand(featureName, screen.entity);
   const handleSubmitted = (result: SubmitResult<unknown>): void => {
@@ -76,16 +97,22 @@ export function ReferenceCreateDialog({
       onOpenChange={(next) => !next && onClose()}
       title={t("kumiko.actions.create")}
     >
-      <RenderEdit
-        screen={screen}
-        entity={entity}
-        featureName={featureName}
-        initial={initial}
-        writeCommand={writeCommand}
-        onSubmit={handleSubmitted}
-        onCancel={onClose}
-        {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
-      />
+      {currencyLoading ? (
+        <Banner padded variant="loading" testId="reference-create-dialog-loading">
+          Loading…
+        </Banner>
+      ) : (
+        <RenderEdit
+          screen={screen}
+          entity={entity}
+          featureName={featureName}
+          initial={initial}
+          writeCommand={writeCommand}
+          onSubmit={handleSubmitted}
+          onCancel={onClose}
+          {...(screen.submitLabel !== undefined && { submitLabel: screen.submitLabel })}
+        />
+      )}
     </Modal>
   );
 }

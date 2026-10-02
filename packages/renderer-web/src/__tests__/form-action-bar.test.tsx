@@ -49,6 +49,9 @@ describe("DefaultForm Action-Footer", () => {
     const secondary = screen.getByTestId("f-actions-secondary");
     const main = screen.getByTestId("f-actions");
     expect(secondary.textContent).toBe("Delete");
+    // Link-variant secondary buttons are h-auto, so the group enforces the
+    // same mobile touch-target height as the primary group.
+    expect(secondary.className).toContain("max-sm:[&_button]:min-h-11");
     expect(main.textContent).toBe("Save");
     // Same outer footer container wraps both groups.
     expect(secondary.parentElement).toBe(main.parentElement);

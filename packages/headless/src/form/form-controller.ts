@@ -10,7 +10,7 @@ import type {
   FormValues,
   SubmitResult,
 } from "./types.js";
-import { groupIssuesByPath, zodErrorToFieldIssues } from "./zod-bridge.js";
+import { groupIssuesByPath, relevantFieldIssues, zodErrorToFieldIssues } from "./zod-bridge.js";
 
 // Paths without the prefix (hook-level errors, "(root)") pass through unchanged.
 function stripServerFieldPathPrefix(
@@ -233,18 +233,13 @@ export function createFormController<TValues extends FormValues, TCtx = unknown>
     for (const [fieldKey, state] of Object.entries(fieldStates)) {
       if (!state.visible) hiddenFields.add(fieldKey);
     }
-    const allIssues = zodErrorToFieldIssues(parsed.error);
-    const relevantIssues = allIssues.filter((issue) => {
-      const rootField = issue.path.split(".")[0] ?? "";
-      if (hiddenFields.has(rootField)) return false;
-      // Root-level .refine() issues use path "(root)". Wizard step validate()
-      // still drops them (#1885); submit() passes includeRoot so RenderEdit
-      // fields={…} cannot silently skip cross-field rules (#1907).
-      const isRootIssue = issue.path === "(root)";
-      if (isInScope && !(includeRoot && isRootIssue) && !isInScope(issue.path)) {
-        return false;
-      }
-      return true;
+    // Root-level .refine() issues use path "(root)". Wizard step validate()
+    // still drops them (#1885); submit() passes includeRoot so RenderEdit
+    // fields={…} cannot silently skip cross-field rules (#1907).
+    const relevantIssues = relevantFieldIssues(zodErrorToFieldIssues(parsed.error), {
+      hiddenFields,
+      ...(scope !== undefined && { scope }),
+      includeRoot,
     });
     if (relevantIssues.length === 0) {
       if (Object.keys(errors).length > 0) {

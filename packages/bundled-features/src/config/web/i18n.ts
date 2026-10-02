@@ -12,6 +12,8 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 export const defaultTranslations: TranslationsByLocale = {
   en: {
     "config.secrets.delete": "Remove",
+    "config.secrets.deleteConfirm":
+      "Remove this secret? Anything using it stops working, and it cannot be restored.",
     "config.secrets.notSet": "Not set",
     "config.secrets.placeholder": "Enter a value",
     "config.secrets.replacePlaceholder": "Enter a new value to replace it",

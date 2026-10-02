@@ -62,3 +62,25 @@ describe("DefaultGrid — maxRows", () => {
     expect(el.style.maxHeight).toBe("");
   });
 });
+
+describe("DefaultGrid — ariaLabelledBy", () => {
+  test("turns the grid into a labelled group", () => {
+    render(
+      <Grid columns={2} ariaLabelledBy="field-label" testId="grid">
+        <div>a</div>
+      </Grid>,
+    );
+    const el = screen.getByTestId("grid");
+    expect(el.getAttribute("role")).toBe("group");
+    expect(el.getAttribute("aria-labelledby")).toBe("field-label");
+  });
+
+  test("without it the grid carries no group semantics", () => {
+    render(
+      <Grid columns={2} testId="grid">
+        <div>a</div>
+      </Grid>,
+    );
+    expect(screen.getByTestId("grid").getAttribute("role")).toBeNull();
+  });
+});

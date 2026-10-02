@@ -329,9 +329,38 @@ describe("KumikoScreen / secretsEdit", () => {
 
     await waitFor(() => screen.getByTestId("secrets-edit-form"));
     await user.click(screen.getByTestId("secret-delete-stripe-api-key"));
+    expect(writeSpy).not.toHaveBeenCalled();
+    await user.click(await screen.findByTestId("secrets-delete-dialog-confirm"));
 
     await waitFor(() => expect(writeSpy).toHaveBeenCalledTimes(1));
     expect(writeSpy).toHaveBeenCalledWith("secrets:write:delete", { key: "stripe:secret:api-key" });
+  });
+
+  test("cancelling the delete confirmation dispatches nothing", async () => {
+    const writeSpy = mock(async (_type: string, _payload: unknown) => ({
+      isSuccess: true as const,
+      data: {},
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: [{ key: "stripe:secret:api-key", redactedPreview: "sk_***abc", hint: null }],
+      })) as unknown as Dispatcher["query"],
+      write: writeSpy as unknown as Dispatcher["write"],
+    });
+
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="config:screen:secrets" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("secrets-edit-form"));
+    await user.click(screen.getByTestId("secret-delete-stripe-api-key"));
+    await user.click(await screen.findByTestId("secrets-delete-dialog-cancel"));
+
+    expect(writeSpy).not.toHaveBeenCalled();
   });
 
   test("a failed save shows the error and never renders the typed plaintext", async () => {

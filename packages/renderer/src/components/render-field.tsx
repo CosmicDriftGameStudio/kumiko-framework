@@ -952,8 +952,13 @@ function resolveMoneyCurrency(value: unknown, fieldCurrency: string | undefined)
   return fieldCurrency ?? "EUR";
 }
 
+// The suffix span is absolutely positioned inside a fixed right padding sized
+// for short symbols; a free-text sibling value longer than any real unit
+// symbol would overflow the number.
+const MAX_SIBLING_UNIT_LENGTH = 8;
+
 // Static unit → used as-is. Sibling-field reference → read the live row
-// value; missing/empty/non-string sibling means no suffix, never a guess.
+// value; missing/empty/non-string/overlong sibling means no suffix, never a guess.
 function resolveNumberUnit(
   unit: string | { readonly field: string } | undefined,
   row: Readonly<Record<string, unknown>> | undefined,
@@ -961,7 +966,9 @@ function resolveNumberUnit(
   if (unit === undefined) return undefined;
   if (typeof unit === "string") return unit;
   const sibling = row?.[unit.field];
-  return typeof sibling === "string" && sibling.length > 0 ? sibling : undefined;
+  if (typeof sibling !== "string") return undefined;
+  const trimmed = sibling.trim();
+  return trimmed.length > 0 && trimmed.length <= MAX_SIBLING_UNIT_LENGTH ? trimmed : undefined;
 }
 
 function moneyMinorValue(v: unknown, currency: string): number | "" {

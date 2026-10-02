@@ -119,7 +119,8 @@ export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
    *  is the delta against the initial values — same semantics as
    *  `payloadMode: "changes"` — so a caller never overwrites unseen fields.
    *  `valid` is a pure dry-run parse against `schema` (not a
-   *  `controller.validate()` call), so it does not paint field errors into
+   *  `controller.validate()` call) that ignores issues on hidden fields and
+   *  outside the `fields` scope, like submit() does, so it does not paint field errors into
    *  the UI and can diverge from the currently rendered `snapshot.errors` —
    *  always `true` without `schema`. A caller that patches a fresh object
    *  reference on every call must not do so unconditionally: `setValues` is

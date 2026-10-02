@@ -12,4 +12,9 @@ export type {
   SubmitPayloadMode,
   SubmitResult,
 } from "./types.js";
-export { groupIssuesByPath, I18N_KEY_PARAM, zodErrorToFieldIssues } from "./zod-bridge.js";
+export {
+  groupIssuesByPath,
+  I18N_KEY_PARAM,
+  relevantFieldIssues,
+  zodErrorToFieldIssues,
+} from "./zod-bridge.js";

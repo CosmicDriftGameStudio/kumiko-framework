@@ -412,6 +412,53 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeTruthy();
   });
 
+  test("a group-only field hidden by its visible condition does not block submit on its schema rule", async () => {
+    const write = mock(async () => ({ isSuccess: true, data: { id: "42" } }) as never);
+    const groupedScreen: EntityEditScreenDefinition = {
+      id: "orders:screen:order-edit",
+      type: "entityEdit",
+      entity: "order",
+      layout: {
+        sections: [
+          {
+            fields: [],
+            groups: [
+              {
+                title: "Details",
+                fields: [
+                  "title",
+                  "isUrgent",
+                  { field: "notes", visible: { field: "isUrgent", eq: true } },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher(write)}>
+        <RenderEdit<TestValues>
+          screen={groupedScreen}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Order", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          schema={z.object({ title: z.string(), notes: z.string().min(1) })}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("field-notes")).toBeNull();
+    const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
+    fireEvent.change(titleInput, { target: { value: "Changed" } });
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId("render-edit-form"));
+      await Promise.resolve();
+    });
+    expect(write).toHaveBeenCalledTimes(1);
+  });
+
   test("submit fires dispatcher.write with the current values; onSubmit receives the result", async () => {
     const write = mock(async () => ({ isSuccess: true, data: { id: "42" } }) as never);
     const dispatcher = makeDispatcher(write);
@@ -1103,6 +1150,49 @@ describe("RenderEdit — controlled mode (#1887)", () => {
     // no summary banner. Typing alone must not trigger validation display.
     expect(screen.queryByTestId("render-edit-form-error")).toBeNull();
     expect(screen.queryByTestId("field-title-errors")).toBeNull();
+  });
+
+  test("onChange's valid ignores schema issues on hidden fields", () => {
+    // notes is required by the schema but hidden while isUrgent is false.
+    const schema = z.object({ title: z.string(), notes: z.string().min(1) });
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Order", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          schema={schema}
+          onChange={(state) => seen.push(state)}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("field-notes")).toBeNull();
+    expect(seen.at(-1)?.valid).toBe(true);
+  });
+
+  test("onChange's valid ignores schema issues outside the `fields` scope", () => {
+    const schema = z.object({ title: z.string(), count: z.number().min(5) });
+    const seen: RenderEditChangeState<TestValues>[] = [];
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "Order", count: 0, isUrgent: false }}
+          writeCommand="order:create"
+          fields={["title"]}
+          schema={schema}
+          onChange={(state) => seen.push(state)}
+        />
+      </DispatcherProvider>,
+    );
+
+    expect(seen.at(-1)?.valid).toBe(true);
   });
 
   test("a caller whose onChange calls patch() to derive a field settles instead of looping", () => {
