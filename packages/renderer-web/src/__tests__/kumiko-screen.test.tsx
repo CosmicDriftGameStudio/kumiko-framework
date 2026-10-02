@@ -23,10 +23,11 @@ import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import {
   act,
-  createMockDispatcher,
   fireEvent,
+  makeDispatcher,
   render,
   screen,
+  taskEntity,
   waitFor,
   within,
 } from "./test-utils.js";
@@ -35,14 +36,6 @@ function defaultEnText(key: string): string {
   const value = kumikoDefaultTranslations["en"]?.[key];
   return value === undefined ? "" : translationValueOtherText(value);
 }
-
-const taskEntity = {
-  fields: {
-    title: { type: "text", required: true },
-    count: { type: "number" },
-    done: { type: "boolean" },
-  },
-} as unknown as EntityDefinition;
 
 const editScreen: EntityEditScreenDefinition = {
   id: "task-edit",
@@ -88,16 +81,6 @@ async function clickSubmitOnceEnabled(
     fireEvent.click(scope().getByTestId("render-edit-submit"));
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
   });
-}
-
-function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base = createMockDispatcher({
-    query: (async () => ({
-      isSuccess: true,
-      data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
-  });
-  return { ...base, ...overrides };
 }
 
 describe("KumikoScreen", () => {
@@ -959,7 +942,7 @@ describe("KumikoScreen", () => {
     expect(screen.queryByText("raw fallback — must NOT appear")).toBeNull();
   });
 
-  // fw#2752: navigate rowActions may now carry style="danger" — it renders
+  // navigate rowActions may carry style="danger" — it renders
   // red like the writeHandler variant, but does NOT force a confirm dialog
   // (the target form/screen is itself the confirmation).
   test("entityList rowActions kind=navigate mit style=danger: rot, aber navigiert sofort ohne Dialog", async () => {
@@ -1439,7 +1422,7 @@ describe("KumikoScreen", () => {
     expect(navigateCalls).toEqual([{ screenId: "task-edit" }]);
   });
 
-  // fw#2752: same decoupling as the rowAction variant — style="danger" on a
+  // Same decoupling as the rowAction variant — style="danger" on a
   // navigate toolbarAction renders the destructive button variant without
   // forcing a confirm dialog.
   test("entityList toolbarActions navigate-kind mit style=danger: destructive Button, navigiert sofort ohne Dialog", async () => {
@@ -2092,7 +2075,7 @@ describe("KumikoScreen", () => {
     expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
   });
 
-  // fw#2752: actionForm submitStyle reaches the submit button.
+  // actionForm submitStyle reaches the submit button.
   test("actionForm submitStyle='danger': submit button renders destructive variant", async () => {
     const dispatcher = makeDispatcher({
       write: (async () => ({
@@ -2124,7 +2107,6 @@ describe("KumikoScreen", () => {
     );
   });
 
-  // fw#2752: actionForm submitStyle reaches the submit button.
   test("actionForm ohne submitStyle: submit button renders default variant", async () => {
     const dispatcher = makeDispatcher({
       write: (async () => ({

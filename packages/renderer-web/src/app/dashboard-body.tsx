@@ -60,6 +60,7 @@ import {
   EmbeddedScreenProvider,
   extensionSectionName,
   KumikoScreen,
+  type UseQueryResult,
   useEmbeddedScreen,
   useExtensionSectionComponent,
   useLocale,
@@ -69,7 +70,7 @@ import {
   useQuery,
   useTranslation,
 } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useEffect, useState } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { EmbeddedFormProvider } from "../primitives/index.js";
 import { PageSection } from "../primitives/layout.js";
 import { Skeleton } from "../ui/skeleton.js";
@@ -949,6 +950,57 @@ function PanelBody({
   );
 }
 
+type VisibilityQueryResults = ReadonlyMap<
+  string,
+  UseQueryResult<Readonly<Record<string, unknown>>>
+>;
+
+const VisibilityQueryContext = createContext<VisibilityQueryResults>(new Map());
+
+// One live query per distinct `visibleWhen.query`, shared by every panel that
+// gates on it — N panels on the same status query would otherwise each open
+// their own request, SSE subscription and refetch per event.
+function VisibilityQueryScope({
+  query,
+  children,
+}: {
+  readonly query: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  const parent = useContext(VisibilityQueryContext);
+  const result = useQuery<Readonly<Record<string, unknown>>>(query, {}, { live: true });
+  const value = useMemo(() => new Map(parent).set(query, result), [parent, query, result]);
+  return (
+    <VisibilityQueryContext.Provider value={value}>{children}</VisibilityQueryContext.Provider>
+  );
+}
+
+function VisibilityQueryScopes({
+  queries,
+  children,
+}: {
+  readonly queries: readonly string[];
+  readonly children: ReactNode;
+}): ReactNode {
+  const [first, ...rest] = queries;
+  if (first === undefined) return children;
+  return (
+    <VisibilityQueryScope query={first}>
+      <VisibilityQueryScopes queries={rest}>{children}</VisibilityQueryScopes>
+    </VisibilityQueryScope>
+  );
+}
+
+function distinctVisibilityQueries(panels: readonly DashboardPanelDefinition[]): string[] {
+  const queries = new Set<string>();
+  for (const panel of panels) {
+    if (panel.kind === "screen" && panel.visibleWhen !== undefined) {
+      queries.add(panel.visibleWhen.query);
+    }
+  }
+  return [...queries];
+}
+
 function ScreenPanelTile({
   panel,
   featureName,
@@ -959,15 +1011,24 @@ function ScreenPanelTile({
   readonly translate: Translate;
 }): ReactNode {
   const visibleWhen = panel.visibleWhen;
-  const visibility = useQuery<Readonly<Record<string, unknown>>>(
-    visibleWhen?.query ?? "",
-    {},
-    { enabled: visibleWhen !== undefined, live: true },
-  );
+  const visibility = useContext(VisibilityQueryContext).get(visibleWhen?.query ?? "");
   const target = useEmbeddedScreen(featureName, panel.screen);
   if (target === undefined) return null;
-  if (visibleWhen !== undefined && visibility.data?.[visibleWhen.field] !== visibleWhen.eq) {
-    return null;
+  if (visibleWhen !== undefined) {
+    // A failed gate query must not silently drop the panel: on the
+    // account-security page that would hide every MFA enable/disable path.
+    if (visibility?.error) {
+      return (
+        <div className={WIDE_PANEL} data-testid={`dashboard-panel-${panel.id}`}>
+          <PanelError
+            label={panel.label !== undefined ? translate(panel.label) : panel.id}
+            error={visibility.error}
+            onRetry={() => void visibility.refetch()}
+          />
+        </div>
+      );
+    }
+    if (visibility?.data?.[visibleWhen.field] !== visibleWhen.eq) return null;
   }
   const screenBody = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
   const embedded =
@@ -1017,6 +1078,7 @@ export function WebDashboardBody({
   const { params: rangeParams, control: rangeControl } = useTimeRange(screen, effectiveTranslate);
   const screenParams: ScreenParams = { filterParams, rangeParams };
   const loadedAtMs = useLoadedAt(screenParams);
+  const visibilityQueries = distinctVisibilityQueries(screen.panels);
   const scope = screen.scope;
   // A raw description is agent-facing prose; only an i18n key is user-facing copy.
   const translatedDescription =
@@ -1061,35 +1123,37 @@ export function WebDashboardBody({
           {effectiveTranslate(scope.notice)}
         </Banner>
       )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {screen.panels.map((panel) => {
-          if (panel.kind === "screen") {
+      <VisibilityQueryScopes queries={visibilityQueries}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {screen.panels.map((panel) => {
+            if (panel.kind === "screen") {
+              return (
+                <ScreenPanelTile
+                  key={panel.id}
+                  panel={panel}
+                  featureName={featureName}
+                  translate={effectiveTranslate}
+                />
+              );
+            }
+            const label =
+              panel.kind === "custom" || panel.label === undefined
+                ? undefined
+                : effectiveTranslate(panel.label);
             return (
-              <ScreenPanelTile
-                key={panel.id}
-                panel={panel}
-                featureName={featureName}
-                translate={effectiveTranslate}
-              />
+              <div key={panel.id} className={panelSpanClassName(panel)}>
+                <PanelBody
+                  panel={panel}
+                  label={label}
+                  screenId={screen.id}
+                  screenParams={screenParams}
+                  translate={effectiveTranslate}
+                />
+              </div>
             );
-          }
-          const label =
-            panel.kind === "custom" || panel.label === undefined
-              ? undefined
-              : effectiveTranslate(panel.label);
-          return (
-            <div key={panel.id} className={panelSpanClassName(panel)}>
-              <PanelBody
-                panel={panel}
-                label={label}
-                screenId={screen.id}
-                screenParams={screenParams}
-                translate={effectiveTranslate}
-              />
-            </div>
-          );
-        })}
-      </div>
+          })}
+        </div>
+      </VisibilityQueryScopes>
     </PageSection>
   );
 }

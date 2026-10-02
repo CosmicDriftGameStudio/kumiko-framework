@@ -485,20 +485,20 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "folders.section.working": "Speichert…",
   "gdpr.mail.appNameDefault": "Konto",
   "gdpr.mail.deletionExecuted.intro":
-    "dein {app}-Konto und die zugehoerigen personenbezogenen Daten wurden am {when} geloescht. Diese Aktion ist endgueltig.",
-  "gdpr.mail.deletionExecuted.subject": "{app} — Dein Konto wurde geloescht",
+    "dein {app}-Konto und die zugehörigen personenbezogenen Daten wurden am {when} gelöscht. Diese Aktion ist endgültig.",
+  "gdpr.mail.deletionExecuted.subject": "{app} — Dein Konto wurde gelöscht",
   "gdpr.mail.deletionRequested.cancel":
-    "Falls du das nicht angefordert hast, melde dich an und brich die Loeschung in den Kontoeinstellungen ab, bevor die Frist ablaeuft.",
+    "Falls du das nicht angefordert hast, melde dich an und brich die Löschung in den Kontoeinstellungen ab, bevor die Frist abläuft.",
   "gdpr.mail.deletionRequested.intro":
-    "wir haben deinen Antrag zur Loeschung deines {app}-Kontos erhalten. Dein Konto und die zugehoerigen Daten werden am {when} endgueltig geloescht.",
-  "gdpr.mail.deletionRequested.subject": "{app} — Loeschung deines Kontos angefordert",
+    "wir haben deinen Antrag zur Löschung deines {app}-Kontos erhalten. Dein Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
+  "gdpr.mail.deletionRequested.subject": "{app} — Löschung deines Kontos angefordert",
   "gdpr.mail.exportFailed.intro":
-    "dein angeforderter Datenexport fuer {app} konnte leider nicht erstellt werden. Bitte fordere den Export erneut an.",
+    "dein angeforderter Datenexport für {app} konnte leider nicht erstellt werden. Bitte fordere den Export erneut an.",
   "gdpr.mail.exportFailed.subject": "{app} — Dein Datenexport ist fehlgeschlagen",
   "gdpr.mail.exportReady.button": "Datenexport herunterladen",
-  "gdpr.mail.exportReady.expiry": "Der Download-Link laeuft am {when} ab.",
+  "gdpr.mail.exportReady.expiry": "Der Download-Link läuft am {when} ab.",
   "gdpr.mail.exportReady.intro":
-    "dein angeforderter Datenexport fuer {app} ist fertig. Lade ihn ueber den folgenden Link herunter:",
+    "dein angeforderter Datenexport für {app} ist fertig. Lade ihn über den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Dein Datenexport ist bereit",
   "gdpr.mail.fallbackUrl":
     "Falls der Button nicht funktioniert, kopiere diesen Link in den Browser:",

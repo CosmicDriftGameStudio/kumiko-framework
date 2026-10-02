@@ -93,7 +93,7 @@ describe("gdpr email-templates", () => {
       locale: "de",
       appName: "Acme",
     });
-    expect(r.subject).toBe("Acme — Dein Konto wurde geloescht");
+    expect(r.subject).toBe("Acme — Dein Konto wurde gelöscht");
     expect(r.html).toContain("2026-07-30 09:05 UTC");
   });
 

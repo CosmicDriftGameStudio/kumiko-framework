@@ -1,6 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
 import {
-  type EntityDefinition,
   type EntityEditScreenDefinition,
   translationValueOtherText,
 } from "@cosmicdrift/kumiko-framework/ui-types";
@@ -11,7 +10,7 @@ import {
   KumikoScreen,
   kumikoDefaultTranslations,
 } from "@cosmicdrift/kumiko-renderer";
-import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test-utils.js";
+import { fireEvent, makeDispatcher, render, screen, taskEntity, waitFor } from "./test-utils.js";
 
 // Split out of kumiko-screen.test.tsx (#2495): the create->update submit
 // test below fires fireEvent.change immediately followed by fireEvent.click
@@ -23,22 +22,16 @@ import { createMockDispatcher, fireEvent, render, screen, waitFor } from "./test
 // established remedy (bunfig.ci-dom.toml, pathIgnorePatterns in
 // bunfig.dom.toml) for that bug class.
 
-const taskEntity = {
-  fields: {
-    title: { type: "text", required: true },
-    count: { type: "number" },
-    done: { type: "boolean" },
-  },
-} as unknown as EntityDefinition;
-
-function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
-  const base = createMockDispatcher({
-    query: (async () => ({
-      isSuccess: true,
-      data: { rows: [], nextCursor: null },
-    })) as unknown as Dispatcher["query"],
+// Re-queries the button (not a held reference, which a re-render could have
+// detached) and confirms it is clickable first — a disabled native button
+// swallows fireEvent.click silently, which reads identically to "the handler
+// never ran" at the write-count assertions.
+async function clickSubmitWhenEnabled(): Promise<void> {
+  await waitFor(() => {
+    const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
   });
-  return { ...base, ...overrides };
+  fireEvent.click(screen.getByTestId("render-edit-submit"));
 }
 
 describe("KumikoScreen: singleton entityEdit", () => {
@@ -211,15 +204,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
 
     const titleInput = screen.getByTestId("field-title").querySelector("input") as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: "Created title" } });
-    // Re-query (not a held reference, which a re-render could have detached)
-    // and confirm the button is actually clickable before clicking it — a
-    // disabled native button swallows fireEvent.click silently, which reads
-    // identically to "the handler never ran" at the write-count assertion below.
-    await waitFor(() => {
-      const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
-      expect(button.disabled).toBe(false);
-    });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitWhenEnabled();
 
     await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
     // The singleton wrapper refetches its list(limit:1) query after the
@@ -241,11 +226,7 @@ describe("KumikoScreen: singleton entityEdit", () => {
     fireEvent.change(screen.getByTestId("field-title").querySelector("input") as HTMLInputElement, {
       target: { value: "Edited again" },
     });
-    await waitFor(() => {
-      const button = screen.getByTestId("render-edit-submit") as HTMLButtonElement;
-      expect(button.disabled).toBe(false);
-    });
-    fireEvent.click(screen.getByTestId("render-edit-submit"));
+    await clickSubmitWhenEnabled();
     // Exactly one create (the first submit) followed by an update, never a
     // second create — the singleton wrapper must have flipped branches.
     await waitFor(() => expect(write).toHaveBeenCalledTimes(2));

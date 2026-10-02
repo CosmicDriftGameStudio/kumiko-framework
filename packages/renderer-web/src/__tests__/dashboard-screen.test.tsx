@@ -15,7 +15,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { WebDashboardBody } from "../app/dashboard-body.js";
 import { useBrowserNavApi } from "../app/nav.js";
-import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
+import { createMockDispatcher, render, screen, waitFor, within } from "./test-utils.js";
 
 const dashboardScreen: DashboardScreenDefinition = {
   id: "overview",
@@ -646,10 +646,21 @@ function renderAccountSecurity(
   mfaEnabled: boolean,
   schema: FeatureSchema = accountSecuritySchema,
   sessions: FeatureSchema = sessionsSchema,
-): void {
+  options: { readonly statusFails?: boolean } = {},
+): { readonly queryTypes: string[] } {
+  const queryTypes: string[] = [];
   const dispatcher = createMockDispatcher({
     query: (async (type: string) => {
-      if (type === mfaStatus.query) return { isSuccess: true, data: { enabled: mfaEnabled } };
+      queryTypes.push(type);
+      if (type === mfaStatus.query) {
+        if (options.statusFails === true) {
+          return {
+            isSuccess: false,
+            error: { code: "internal", message: "kaputt", i18nKey: "errors.internal" },
+          };
+        }
+        return { isSuccess: true, data: { enabled: mfaEnabled } };
+      }
       if (type === "sessions:query:user-session:mine") {
         return {
           isSuccess: true,
@@ -675,6 +686,7 @@ function renderAccountSecurity(
       </AppFeaturesProvider>
     </DispatcherProvider>,
   );
+  return { queryTypes };
 }
 
 describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
@@ -699,6 +711,21 @@ describe("KumikoScreen dashboard — screen-Panels (fw#2841)", () => {
     renderAccountSecurity(true);
     await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-disable")).toBeTruthy());
     expect(screen.queryByTestId("dashboard-panel-mfa-enable")).toBeNull();
+  });
+
+  test("zwei Panels mit derselben visibleWhen-Query feuern sie nur einmal", async () => {
+    const { queryTypes } = renderAccountSecurity(false);
+    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-enable")).toBeTruthy());
+    expect(queryTypes.filter((type) => type === mfaStatus.query)).toHaveLength(1);
+  });
+
+  test("schlägt die visibleWhen-Query fehl, zeigt das Panel einen Fehler statt zu verschwinden", async () => {
+    renderAccountSecurity(false, accountSecuritySchema, sessionsSchema, { statusFails: true });
+    await waitFor(() => expect(screen.getByTestId("dashboard-panel-mfa-enable")).toBeTruthy());
+    expect(
+      within(screen.getByTestId("dashboard-panel-mfa-enable")).getByRole("alert"),
+    ).toBeTruthy();
+    expect(screen.getByTestId("dashboard-panel-mfa-disable")).toBeTruthy();
   });
 
   test("ohne Zugriff auf den Ziel-Screen fällt die Kachel komplett weg (kein Access-Banner)", async () => {

@@ -104,7 +104,7 @@ describe("RenderEdit", () => {
     expect(screen.queryByTestId("field-notes")).toBeNull();
   });
 
-  // fw#2752: submitVariant carries an actionForm's submitStyle through to the
+  // submitVariant carries an actionForm's submitStyle through to the
   // submit button — "danger" for a destructive handler (terminate, revoke).
   test("submitVariant='danger' renders the destructive submit button; default stays primary", () => {
     const { rerender } = render(

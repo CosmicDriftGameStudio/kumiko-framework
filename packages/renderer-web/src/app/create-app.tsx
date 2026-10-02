@@ -292,7 +292,7 @@ export function resolveRootScreenQn(
       : firstOpenScreenQn(features);
   }
   if (!schemaIsRoleProjected) return explicitScreenQn;
-  if (findOwnerFeatureInFeatures(features, explicitScreenQn) !== undefined) return explicitScreenQn;
+  if (findOwnerFeature(features, explicitScreenQn) !== undefined) return explicitScreenQn;
   return firstLandingScreenQnForProjectedSchema(features);
 }
 
@@ -732,9 +732,10 @@ function BrowserNavBoot({
   );
 }
 
-// Finds the feature that owns a fully qualified ScreenQn among a feature list.
-// Returns undefined if the screen isn't declared in any of them.
-function findOwnerFeatureInFeatures(
+// Finds the feature that owns a fully qualified ScreenQn.
+// Returns undefined if the screen isn't declared in any feature schema —
+// KumikoScreen then renders the "Screen not found" banner.
+function findOwnerFeature(
   features: readonly FeatureSchema[],
   qn: string,
 ): FeatureSchema | undefined {
@@ -746,14 +747,23 @@ function findOwnerFeatureInFeatures(
   return undefined;
 }
 
-// Finds the feature that owns a fully qualified ScreenQn.
-// Returns undefined if the screen isn't declared in any feature schema —
-// KumikoScreen then renders the "Screen not found" banner.
-function findOwnerFeature(app: AppSchema, qn: string): FeatureSchema | undefined {
-  return findOwnerFeatureInFeatures(app.features, qn);
-}
-
 type ScreenDef = FeatureSchema["screens"][number];
+
+// Single source for "which entityEdit screen does a row click land on", shared
+// by the click handler and hasRowClickTarget so a row never looks clickable
+// without a target (or the reverse).
+function findEditScreenForEntity(
+  features: readonly FeatureSchema[],
+  entityName: string,
+): ScreenDef | undefined {
+  for (const feature of features) {
+    const editScreen = feature.screens.find(
+      (s) => s.type === "entityEdit" && s.entity === entityName,
+    );
+    if (editScreen) return editScreen;
+  }
+  return undefined;
+}
 
 // fw#2640: a list screen with no reachable click target (no `detailFor`
 // screen for its entity, no app-wide onRowClick, no entityEdit screen)
@@ -771,9 +781,7 @@ function hasRowClickTarget(
   if (onRowClick !== undefined) return true;
   if (screen.type !== "entityList") return false;
   if (hasDetailScreen(app.features, screen.entity)) return true;
-  return app.features.some((f) =>
-    f.screens.some((s) => s.type === "entityEdit" && s.entity === screen.entity),
-  );
+  return findEditScreenForEntity(app.features, screen.entity) !== undefined;
 }
 
 function RoutedScreen({
@@ -796,7 +804,7 @@ function RoutedScreen({
   // fallback feature (the one from fallbackQn).
   const { feature, qn, entityId, activeScreen } = useMemo(() => {
     if (nav.route === undefined) {
-      const ownerFeature = findOwnerFeature(app, fallbackQn);
+      const ownerFeature = findOwnerFeature(app.features, fallbackQn);
       return {
         feature: ownerFeature,
         qn: fallbackQn,
@@ -815,7 +823,7 @@ function RoutedScreen({
         break;
       }
     }
-    const ownerFeature = matchedFeature ?? findOwnerFeature(app, fallbackQn);
+    const ownerFeature = matchedFeature ?? findOwnerFeature(app.features, fallbackQn);
     const qualifiedQn = ownerFeature ? qualifyScreenId(ownerFeature.featureName, shortId) : shortId;
     return {
       feature: ownerFeature,
@@ -854,20 +862,11 @@ function RoutedScreen({
       // single-feature setup that's the same feature as the active one, in
       // multi-feature the edit could theoretically live in a different
       // feature (one that shares the entity).
-      for (const f of app.features) {
-        const editScreen = f.screens.find(
-          (s) => s.type === "entityEdit" && s.entity === entityName,
-        );
-        if (editScreen) {
-          // editScreen.id is already short form; lastSegment is a no-op
-          // safety net here, kept for symmetry with the other call sites.
-          navigateWithReturnTo(
-            nav,
-            { screenId: lastSegment(editScreen.id), entityId: row.id },
-            host,
-          );
-          return;
-        }
+      const editScreen = findEditScreenForEntity(app.features, entityName);
+      if (editScreen) {
+        // editScreen.id is already short form; lastSegment is a no-op
+        // safety net here, kept for symmetry with the other call sites.
+        navigateWithReturnTo(nav, { screenId: lastSegment(editScreen.id), entityId: row.id }, host);
       }
     };
   }, [app, activeScreen, onRowClick, nav, qn, entityId]);

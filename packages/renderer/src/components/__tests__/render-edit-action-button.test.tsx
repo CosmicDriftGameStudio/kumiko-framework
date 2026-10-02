@@ -137,7 +137,7 @@ describe("RenderEditActionButton", () => {
     await waitFor(() => expect(pressed).toBe(1));
   });
 
-  // fw#2752: schema-driven navigate/drawer actions set confirmRequired: false
+  // schema-driven navigate/drawer actions set confirmRequired: false
   // to opt a danger-styled action out of the forced dialog — the colour still
   // marks it destructive, but the target form is itself the confirmation.
   test("danger style with confirmRequired=false fires onPress directly, no dialog", async () => {
