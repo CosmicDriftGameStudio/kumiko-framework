@@ -40,7 +40,8 @@ export const guard: AstGuard = {
   name: "No-Raw-Hooks Guard (App-Repos)",
   scan: SCAN,
   hint:
-    "Use the framework hook set: useQuery (live: true for SSE), useMutation, useDisclosure. " +
+    "Use the framework hook set: useQuery (live: true for SSE), useMutation, useDisclosure, " +
+    "useReportStepComplete (wizard extension steps). " +
     `Real special case (DOM integration or similar): // ${IGNORE_TAG} <reason>`,
   run(files: readonly SourceFile[]) {
     const violations: GuardViolation[] = [];

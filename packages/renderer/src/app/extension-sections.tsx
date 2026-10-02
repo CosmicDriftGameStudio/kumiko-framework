@@ -77,9 +77,9 @@ export type ExtensionSectionProps = {
   readonly wizardStep?: { readonly index: number; readonly isLast: boolean };
   /** Only set for extension steps of a `layout.mode: "wizard"` entityEdit
    *  editing an existing record (update mode); undefined everywhere else.
-   *  Call it (typically from an effect) with whether the step already holds
-   *  its data, so the step bar shows the step as done. Repeated calls with
-   *  the same value are cheap. */
+   *  Report through `useReportStepComplete(reportStepComplete, complete)`
+   *  (`null` while the step's data loads) with whether the step already holds
+   *  its data, so the step bar shows the step as done. */
   readonly reportStepComplete?: (complete: boolean) => void;
 };
 
