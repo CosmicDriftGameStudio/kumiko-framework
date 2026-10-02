@@ -44,7 +44,11 @@ import { createSessionsFeature, userSessionEntity } from "../../sessions/index.j
 import { tenantMembershipsTable } from "../../tenant/index.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature } from "../feature.js";
-import { EXPORT_CLEANUP_BACKLOG_AGE_METRIC, runExportJobs } from "../run-export-jobs.js";
+import {
+  EXPORT_CLEANUP_BACKLOG_AGE_METRIC,
+  EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC,
+  runExportJobs,
+} from "../run-export-jobs.js";
 import { exportDownloadTokenEntity, exportDownloadTokensTable } from "../schema/download-token.js";
 import { EXPORT_JOB_STATUS, exportJobEntity, exportJobsTable } from "../schema/export-job.js";
 import { hashDownloadToken } from "../token-helpers.js";
@@ -518,17 +522,21 @@ describe("runExportJobs :: export-cleanup backlog metric", () => {
       { id: jobId },
     );
 
+    const passTime = NOW();
     const metrics = createRecordingMetricsHandle();
     const result = await runExportJobs({
       db: stack.db,
       registry: stack.registry,
       buildStorageProvider: buildProvider,
-      now: NOW(),
+      now: passTime,
       metrics,
     });
 
     expect(result.cleanedJobIds).toContain(jobId);
     expect(metrics.values.get(EXPORT_CLEANUP_BACKLOG_AGE_METRIC)).toBe(0);
+    expect(metrics.values.get(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC)).toBe(
+      passTime.epochMilliseconds / 1000,
+    );
   });
 });
 

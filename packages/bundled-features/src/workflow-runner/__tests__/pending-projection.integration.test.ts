@@ -9,7 +9,7 @@
 // real Postgres rows.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/db";
+import { selectMany, updateMany } from "@cosmicdrift/kumiko-framework/db";
 import {
   defineFeature,
   WORKFLOW_AGGREGATE_TYPE,
@@ -127,6 +127,38 @@ describe("workflow-runner pending-projection", () => {
     expect(String(row["wakeAt"])).toBe("2026-06-01T08:30:00Z");
     expect(row["waitEventType"]).toBe("user.replied");
     expect(row["matchExpr"]).toEqual(matchExpr);
+  });
+
+  test("redelivered waitForEvent-suspension keeps an already matched trigger and its wakeAt", async () => {
+    const workflowName = "wr-pending-redelivery";
+    const runId = newRunId(workflowName);
+    const suspension = {
+      workflowName,
+      stepIndex: 1,
+      eventType: "user.replied",
+      timeoutAt: "2026-06-01T08:30:00Z",
+    };
+
+    await emitAndDeliver(runId, WORKFLOW_WAITING_FOR_EVENT_TYPE, suspension);
+    // Simulate the event-subscriber's wakeup write.
+    await updateMany(
+      stack.db,
+      workflowRunPendingTable,
+      {
+        triggerEventType: "user.replied",
+        triggerPayload: { email: "a@b.de" },
+        wakeAt: "2026-05-01T00:00:00Z",
+      },
+      { runId },
+    );
+
+    await emitAndDeliver(runId, WORKFLOW_WAITING_FOR_EVENT_TYPE, suspension);
+
+    const rows = await pendingRowsFor(runId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!["triggerEventType"]).toBe("user.replied");
+    expect(rows[0]!["triggerPayload"]).toEqual({ email: "a@b.de" });
+    expect(String(rows[0]!["wakeAt"])).toBe("2026-05-01T00:00:00Z");
   });
 
   test("retry-scheduled sets retryAttempt from the payload's attempt", async () => {

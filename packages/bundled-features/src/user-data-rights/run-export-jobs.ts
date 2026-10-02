@@ -80,6 +80,11 @@ type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
 // Unit lives in the r.metric() `unit: "seconds"` declaration instead.
 export const EXPORT_CLEANUP_BACKLOG_AGE_METRIC = "export_cleanup_backlog_age";
 
+// Unix seconds of the last storage-cleanup pass that ran to completion. A
+// gauge keeps its last value in-process (no TTL), so a dead cron does not make
+// the backlog gauge disappear — alert on `time() - this > interval + buffer`.
+export const EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC = "export_cleanup_last_run_timestamp";
+
 const crud = createEventStoreExecutor(exportJobsTable, exportJobEntity, {
   entityName: "export-job",
 });
@@ -681,46 +686,57 @@ async function storageCleanupPass(args: {
   // (immediate cleanup, no TTL) so they're out of scope for this signal —
   // see EXPORT_CLEANUP_BACKLOG_AGE_METRIC's r.metric() description.
   const overdueDoneCleanupAfterMs = new Map<string, number>();
-  for (const c of candidates) {
-    if (!c.downloadStorageKey) continue;
+  let passCompleted = false;
+  try {
+    for (const c of candidates) {
+      if (!c.downloadStorageKey) continue;
 
-    // Done-Jobs brauchen expiresAt+grace-Check. Failed-Jobs gehen direkt
-    // durch (kein User-Pfad → sofort cleanup).
-    if (c.status === EXPORT_JOB_STATUS.Done) {
-      if (!c.expiresAt) continue;
-      const profile = await resolveProfileForTenant({
-        db,
-        tenantId: c.requestedFromTenantId,
-      });
-      const cleanupAfter =
-        c.expiresAt.epochMilliseconds +
-        profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
-      if (now.epochMilliseconds < cleanupAfter) continue;
-      overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
-    }
-    // Failed-Job-Branch: kein TTL-Check, sofort cleanup.
+      // Done-Jobs brauchen expiresAt+grace-Check. Failed-Jobs gehen direkt
+      // durch (kein User-Pfad → sofort cleanup).
+      if (c.status === EXPORT_JOB_STATUS.Done) {
+        if (!c.expiresAt) continue;
+        // Count the candidate as overdue (lower bound, grace unknown) before the
+        // throwing profile lookup, so a failing pass still shows a backlog.
+        overdueDoneCleanupAfterMs.set(c.id, c.expiresAt.epochMilliseconds);
+        const profile = await resolveProfileForTenant({
+          db,
+          tenantId: c.requestedFromTenantId,
+        });
+        const cleanupAfter =
+          c.expiresAt.epochMilliseconds +
+          profile.profile.userRights.exportStorageCleanupGraceHours * 60 * 60 * 1000;
+        if (now.epochMilliseconds < cleanupAfter) {
+          overdueDoneCleanupAfterMs.delete(c.id);
+          continue;
+        }
+        overdueDoneCleanupAfterMs.set(c.id, cleanupAfter);
+      }
+      // Failed-Job-Branch: kein TTL-Check, sofort cleanup.
 
-    // Storage-Datei loeschen + DB-Spalte nullen.
-    try {
-      const provider = await buildStorageProvider(c.requestedFromTenantId);
-      await provider.delete(c.downloadStorageKey);
-    } catch {
-      // best-effort; wenn Storage-Delete failed, retry beim naechsten Pass
-      continue;
+      // Storage-Datei loeschen + DB-Spalte nullen.
+      try {
+        const provider = await buildStorageProvider(c.requestedFromTenantId);
+        await provider.delete(c.downloadStorageKey);
+      } catch {
+        // best-effort; wenn Storage-Delete failed, retry beim naechsten Pass
+        continue;
+      }
+      const result = await crud.update(
+        {
+          id: c.id,
+          version: c.version,
+          changes: { downloadStorageKey: null },
+        },
+        createSystemUser(c.requestedFromTenantId),
+        systemTenantDb(db, c.requestedFromTenantId),
+      );
+      if (result.isSuccess) cleaned.push(c.id);
     }
-    const result = await crud.update(
-      {
-        id: c.id,
-        version: c.version,
-        changes: { downloadStorageKey: null },
-      },
-      createSystemUser(c.requestedFromTenantId),
-      systemTenantDb(db, c.requestedFromTenantId),
-    );
-    if (result.isSuccess) cleaned.push(c.id);
+    passCompleted = true;
+  } finally {
+    reportOldestOverdueAge(metrics, overdueDoneCleanupAfterMs, cleaned, now);
+    if (passCompleted) reportCleanupLastRun(metrics, now);
   }
-
-  reportOldestOverdueAge(metrics, overdueDoneCleanupAfterMs, cleaned, now);
 
   return cleaned;
 }
@@ -763,6 +779,19 @@ function reportOldestOverdueAge(
     // biome-ignore lint/suspicious/noConsole: operator-visibility for observability-emit-failure
     console.warn(
       `[user-data-rights:run-export-jobs] metrics.set(${EXPORT_CLEANUP_BACKLOG_AGE_METRIC}) failed err=${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+function reportCleanupLastRun(metrics: MetricsHandle | undefined, now: Instant): void {
+  // skip: no meter configured means there is nothing to report.
+  if (!metrics) return;
+  try {
+    metrics.set(EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC, now.epochMilliseconds / 1000);
+  } catch (err) {
+    // biome-ignore lint/suspicious/noConsole: operator-visibility for observability-emit-failure
+    console.warn(
+      `[user-data-rights:run-export-jobs] metrics.set(${EXPORT_CLEANUP_LAST_RUN_TIMESTAMP_METRIC}) failed err=${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }

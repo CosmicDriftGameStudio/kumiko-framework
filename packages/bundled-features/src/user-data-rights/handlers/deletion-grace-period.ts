@@ -1,6 +1,10 @@
-import { addDurationSpec, type DurationSpec } from "@cosmicdrift/kumiko-framework/compliance";
+import {
+  addDurationSpec,
+  type DurationSpec,
+  type EffectiveComplianceProfile,
+} from "@cosmicdrift/kumiko-framework/compliance";
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import { decryptStoredPii } from "../../shared/index.js";
@@ -8,6 +12,22 @@ import { USER_STATUS, userTable } from "../../user/index.js";
 import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
+
+// Single trust-boundary cast for the compliance-profile lookup: the query
+// handler's declared return type is EffectiveComplianceProfile, but queryAs
+// only hands back unknown. Needs the calling handler's escapeHatch (system
+// queryAs).
+export async function resolveGracePeriod(
+  ctx: HandlerContext,
+  tenantId: string,
+): Promise<DurationSpec> {
+  const profile = (await ctx.queryAs(
+    createSystemUser(tenantId),
+    "compliance-profiles:query:for-tenant",
+    {},
+  )) as EffectiveComplianceProfile; // @cast-boundary engine-payload
+  return profile.profile.userRights.gracePeriod;
+}
 
 export type StartGracePeriodResult =
   | {
