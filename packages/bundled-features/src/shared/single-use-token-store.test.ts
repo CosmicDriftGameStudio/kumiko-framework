@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createRecordingRedisFake } from "./__tests__/recording-redis-fake.js";
 import { createSingleUseTokenStore } from "./single-use-token-store.js";
 
 // Production Redis has active signup/invite tokens under these exact keys —
@@ -6,23 +7,14 @@ import { createSingleUseTokenStore } from "./single-use-token-store.js";
 // mocked client) catches a prefix typo that would silently make existing
 // tokens unreachable.
 function fakeRedis(getResult: string | null = null) {
-  const calls: { method: string; args: unknown[] }[] = [];
-  const redis = {
-    set: async (...args: unknown[]) => {
-      calls.push({ method: "set", args });
-      return "OK";
-    },
-    get: async (...args: unknown[]) => {
-      calls.push({ method: "get", args });
-      return getResult;
-    },
-    del: async (...args: unknown[]) => {
-      calls.push({ method: "del", args });
-      return 1;
-    },
-    // biome-ignore lint/suspicious/noExplicitAny: minimal ioredis stand-in for key-string assertions
-  } as any;
-  return { redis, calls };
+  return createRecordingRedisFake({
+    set: "OK",
+    get: getResult,
+    del: 1,
+    mget: [],
+    incr: 1,
+    expire: 1,
+  });
 }
 
 const TOKEN = "tok-1";

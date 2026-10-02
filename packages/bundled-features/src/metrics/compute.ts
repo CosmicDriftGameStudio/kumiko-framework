@@ -99,20 +99,32 @@ async function fetchAggregates(
   const { groupBy, stackBy } = metric;
   const { current } = wheres;
 
+  const groupsPromise =
+    groupBy === undefined
+      ? Promise.resolve([])
+      : aggregate([{ field: groupBy }], current, { orderByValue: "desc", limit: MAX_GROUP_ROWS });
+  // Stacks/series are only rendered for the top groups. A NULL group key can't be
+  // matched by IN, so a null among the top groups falls back to the unrestricted scan.
+  const groupedWhere = async (): Promise<WhereObject> => {
+    if (groupBy === undefined) return current;
+    const keys = (await groupsPromise).map((row) => row.keys[0]);
+    return keys.length === 0 || keys.includes(null) || keys.includes(undefined)
+      ? current
+      : { ...current, [groupBy]: keys };
+  };
+
   const [total, previous, points, groups, stacks, series] = await Promise.all([
     aggregate([], current),
     wheres.previous === undefined ? Promise.resolve(undefined) : aggregate([], wheres.previous),
     bucketDimension !== undefined && groupBy === undefined
       ? aggregate([bucketDimension], current)
       : Promise.resolve([]),
-    groupBy === undefined
-      ? Promise.resolve([])
-      : aggregate([{ field: groupBy }], current, { orderByValue: "desc", limit: MAX_GROUP_ROWS }),
+    groupsPromise,
     groupBy !== undefined && stackBy !== undefined
-      ? aggregate([{ field: groupBy }, { field: stackBy }], current)
+      ? groupedWhere().then((where) => aggregate([{ field: groupBy }, { field: stackBy }], where))
       : Promise.resolve([]),
     bucketDimension !== undefined && groupBy !== undefined
-      ? aggregate([{ field: groupBy }, bucketDimension], current)
+      ? groupedWhere().then((where) => aggregate([{ field: groupBy }, bucketDimension], where))
       : Promise.resolve([]),
   ]);
   return { total, previous, points, groups, stacks, series };

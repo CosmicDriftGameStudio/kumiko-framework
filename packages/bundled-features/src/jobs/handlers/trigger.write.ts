@@ -11,6 +11,12 @@ import * as z from "zod";
 import { JobErrors } from "../constants.js";
 import { isManualTrigger } from "../is-manual-trigger.js";
 
+function invalidPayloadError(): UnprocessableError {
+  return new UnprocessableError(JobErrors.invalidPayload, {
+    i18nKey: "jobs.errors.invalidPayload",
+  });
+}
+
 export const triggerWrite = defineWriteHandler({
   name: "trigger",
   description:
@@ -48,11 +54,11 @@ export const triggerWrite = defineWriteHandler({
       try {
         const parsed: unknown = JSON.parse(event.payload.payload);
         if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-          return writeFailure(new UnprocessableError(JobErrors.notManual));
+          return writeFailure(invalidPayloadError());
         }
         rawPayload = parsed as DbRow;
       } catch {
-        return writeFailure(new UnprocessableError(JobErrors.notManual));
+        return writeFailure(invalidPayloadError());
       }
     } else if (event.payload.payload !== undefined) {
       rawPayload = event.payload.payload as DbRow;

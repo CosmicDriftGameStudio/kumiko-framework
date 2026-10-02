@@ -77,6 +77,23 @@ describe("jobs:write:trigger hardening", () => {
     expect(err.details).toMatchObject({ reason: JobErrors.notManual });
   });
 
+  test.each([
+    ["broken JSON", "{not json"],
+    ["JSON array", "[1,2]"],
+    ["JSON null", "null"],
+  ])(
+    "rejects non-object payload string (%s) with invalidPayload, not notManual",
+    async (_label, payload) => {
+      const err = await stack.http.writeErr(
+        JobHandlers.trigger,
+        { jobName: "catalog-app:job:manual-echo", payload },
+        systemAdmin,
+      );
+      expect(err.code).toBe("unprocessable");
+      expect(err.details).toMatchObject({ reason: JobErrors.invalidPayload });
+    },
+  );
+
   test("rejects invalid payload against job schema", async () => {
     const err = await stack.http.writeErr(
       JobHandlers.trigger,

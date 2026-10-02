@@ -90,9 +90,10 @@ const NOTE_ROWS: readonly NoteRowFixture[] = [
   },
 ];
 
-function makeDispatcher(): Dispatcher {
+function makeDispatcher(queryPayloads: unknown[] = []): Dispatcher {
   const statusStore = createStore<DispatcherStatus>("online");
-  const query = (async (type: string) => {
+  const query = (async (type: string, payload: unknown) => {
+    queryPayloads.push(payload);
     if (type === NotesHistoryQueries.noteList) {
       return { isSuccess: true, data: { rows: NOTE_ROWS } };
     }
@@ -109,7 +110,7 @@ function makeDispatcher(): Dispatcher {
   } as unknown as Dispatcher; // @cast-boundary test-stub
 }
 
-function renderSection(): ReturnType<typeof render> {
+function renderSection(queryPayloads: unknown[] = []): ReturnType<typeof render> {
   const wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
     <TokensProvider value={stubTokens}>
       <LocaleProvider
@@ -118,7 +119,9 @@ function renderSection(): ReturnType<typeof render> {
       >
         <PrimitivesProvider value={defaultPrimitives}>
           <LiveEventsProvider value={stubLiveEvents}>
-            <DispatcherProvider dispatcher={makeDispatcher()}>{children}</DispatcherProvider>
+            <DispatcherProvider dispatcher={makeDispatcher(queryPayloads)}>
+              {children}
+            </DispatcherProvider>
           </LiveEventsProvider>
         </PrimitivesProvider>
       </LocaleProvider>
@@ -128,6 +131,19 @@ function renderSection(): ReturnType<typeof render> {
 }
 
 describe("NotesSection — two-card layout", () => {
+  test("filters on entityType and entityId server-side", async () => {
+    const queryPayloads: unknown[] = [];
+    const view = renderSection(queryPayloads);
+    await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());
+
+    expect(queryPayloads[0]).toMatchObject({
+      filters: [
+        { field: "entityType", op: "eq", value: "contact" },
+        { field: "entityId", op: "eq", value: "contact-1" },
+      ],
+    });
+  });
+
   test("renders a 'new note' card and a 'history' card as two separate cards", async () => {
     const view = renderSection();
     await waitFor(() => expect(view.getByTestId("notes-section-history")).toBeTruthy());

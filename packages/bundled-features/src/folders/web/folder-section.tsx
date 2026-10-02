@@ -48,7 +48,14 @@ export function FolderSection({
   const catalog = useQuery<FolderListResponse>(FoldersQueries.folderList, {}, { enabled });
   const assignments = useQuery<AssignmentListResponse>(
     FoldersQueries.assignmentList,
-    { filter: { field: "entityId", op: "eq", value: entityId } },
+    {
+      // entityType server-side, not just entityId: it collapses the parent-ref
+      // read gate to this one host entity instead of every registered one.
+      filters: [
+        { field: "entityType", op: "eq", value: entityName },
+        { field: "entityId", op: "eq", value: entityId },
+      ],
+    },
     { enabled },
   );
   const [newName, setNewName] = useState("");

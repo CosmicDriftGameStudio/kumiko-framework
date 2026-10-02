@@ -22,6 +22,7 @@ export const JobErrors = {
   notFound: "not_found",
   onlyFailedCanRetry: "only_failed_jobs_can_be_retried",
   notManual: "job_not_manual",
+  invalidPayload: "job_invalid_payload",
   payloadErased: "job_payload_erased",
 } as const;
 

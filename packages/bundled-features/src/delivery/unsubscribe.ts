@@ -277,7 +277,8 @@ function isResubscribeLimitReached(error: { readonly details?: unknown }): boole
   return (
     typeof details === "object" &&
     details !== null &&
-    (details as { reason?: unknown }).reason === DeliveryErrors.resubscribeLimitReached
+    "reason" in details &&
+    details.reason === DeliveryErrors.resubscribeLimitReached
   );
 }
 

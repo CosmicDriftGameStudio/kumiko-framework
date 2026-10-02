@@ -31,7 +31,6 @@ export {
   signRowBoundGrant,
 } from "./row-bound-grant.js";
 export { runInSubTransaction } from "./run-in-sub-transaction.js";
-export { sessionField } from "./session-field.js";
 export { sessionLocaleField } from "./session-locale-field.js";
 export { sessionTimezoneField } from "./session-timezone-field.js";
 export {

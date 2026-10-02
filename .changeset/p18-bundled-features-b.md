@@ -1,0 +1,11 @@
+---
+"@cosmicdrift/kumiko-bundled-features": patch
+---
+
+A tenant destroy deletes a handed-over binary through the file provider of the tenant that uploaded it, not the destroyed tenant's. `jobs:write:trigger` answers a broken or non-object JSON payload with `job_invalid_payload` instead of `job_not_manual`. Grouped metrics restrict their stack and series queries to the top groups. The notes and folders sections filter by `entityType` on the server. A failed mail dispatch logs the adapter error without email addresses.
+
+<!-- kumiko-changes
+feature: bundled-features
+type: fix
+title: tenant destroy deletes handed-over binaries via the uploader's provider, trigger reports invalid payloads distinctly, mail failure logs redact addresses
+-->

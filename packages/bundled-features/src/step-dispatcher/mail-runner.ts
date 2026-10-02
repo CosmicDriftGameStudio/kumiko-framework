@@ -31,3 +31,9 @@ export function setMailRunner(fn: (spec: MailSpec) => Promise<MailDispatchResult
 export async function performMailDispatch(spec: MailSpec): Promise<MailDispatchResult> {
   return mailRunner(spec);
 }
+
+// Adapter errors usually quote the rejected recipient ("550 <ops@example.com> rejected"); the
+// address must not outlive the crypto-shredded dispatch payload in logs.
+export function redactEmailAddresses(text: string): string {
+  return text.replace(/[^\s<>,;"']+@[^\s<>,;"']+/g, "[redacted-address]");
+}

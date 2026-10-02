@@ -55,7 +55,12 @@ export function NotesSection({
   const notes = useQuery<NoteListResponse>(
     NotesHistoryQueries.noteList,
     {
-      filter: { field: "entityId", op: "eq", value: entityId },
+      // entityType server-side, not just entityId: it collapses the parent-ref
+      // read gate to this one host entity instead of every registered one.
+      filters: [
+        { field: "entityType", op: "eq", value: entityName },
+        { field: "entityId", op: "eq", value: entityId },
+      ],
       sort: "insertedAt",
       sortDirection: "desc",
       // ponytail: fixed page, no "load more" — an entity with a note history
