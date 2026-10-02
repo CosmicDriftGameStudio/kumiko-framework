@@ -43,7 +43,10 @@ export async function resizeImageBeforeUpload(
     const height = Math.round(bitmap.height * scale);
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext("2d");
-    if (ctx === null) return file;
+    if (ctx === null) {
+      bitmap.close();
+      return file;
+    }
     ctx.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
     const blob = await canvas.convertToBlob({ type: pickOutputType(file.type), quality: 0.85 });

@@ -883,6 +883,42 @@ describe("NavTree dynamic provider nodes", () => {
     }
   });
 
+  test("actions[]-Eintrag mit screen und target rendert den Link und warnt, dass target ignoriert wird", async () => {
+    const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const schema: FeatureSchema = {
+        featureName: "cms",
+        entities: {},
+        screens: [],
+        navs: [
+          {
+            id: "hero",
+            label: "Hero",
+            order: 10,
+            actions: [
+              {
+                icon: "edit",
+                label: "Ambiguous action",
+                screen: "cms:screen:hero-edit",
+                target: { featureId: "cms", action: "edit" },
+              },
+            ],
+          },
+        ],
+      } as FeatureSchema;
+      await act(async () => {
+        renderDynamic({ schema, providers: new Map() });
+      });
+
+      expect(screen.getByRole("link", { name: "Ambiguous action" })).toBeTruthy();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0]?.[0]).toContain("Ambiguous action");
+      expect(warnSpy.mock.calls[0]?.[0]).toContain('both "screen" and "target"');
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   test("target-Knoten dispatcht beim Klick (statt Route-Link)", async () => {
     let dispatched: TargetRef | undefined;
     restoreDispatch = setDispatchListener((t) => {

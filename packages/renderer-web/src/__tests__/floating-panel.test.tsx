@@ -174,10 +174,33 @@ describe("FloatingPanel", () => {
         ),
       });
       const item = screen.getByRole("menuitem", { name: "Clear" });
-      fireEvent.pointerDown(item, { pointerId: 1, clientX: 500, clientY: 300 });
+      // fireEvent returns false when a handler called preventDefault(), which would swallow the click in a browser.
+      const notPrevented = fireEvent.pointerDown(item, {
+        pointerId: 1,
+        clientX: 500,
+        clientY: 300,
+      });
+      expect(notPrevented).toBe(true);
       fireEvent.pointerMove(header(), { pointerId: 1, clientX: 400, clientY: 200 });
       fireEvent.click(item);
       expect(onSelect).toHaveBeenCalledTimes(1);
+      expect(geometryOf(panel())).toMatchObject({ x: 856, y: 216 });
+    });
+
+    test("dragging the Move panel grip button moves the panel", () => {
+      renderPanel();
+      const grip = screen.getByRole("button", { name: "Move panel" });
+      fireEvent.pointerDown(grip, { pointerId: 1, clientX: 500, clientY: 300 });
+      fireEvent.pointerMove(grip, { pointerId: 1, clientX: 460, clientY: 270 });
+      fireEvent.pointerUp(grip, { pointerId: 1, clientX: 460, clientY: 270 });
+      expect(geometryOf(panel())).toMatchObject({ x: 816, y: 186 });
+    });
+
+    test("pointer-down on another header button still does not start a drag", () => {
+      renderPanel();
+      const close = screen.getByRole("button", { name: "Close" });
+      fireEvent.pointerDown(close, { pointerId: 1, clientX: 500, clientY: 300 });
+      fireEvent.pointerMove(close, { pointerId: 1, clientX: 460, clientY: 270 });
       expect(geometryOf(panel())).toMatchObject({ x: 856, y: 216 });
     });
 

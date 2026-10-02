@@ -89,6 +89,7 @@ const EDGE_LABEL_KEYS = {
   left: "kumiko.widget.floatingPanel.resizeLeft",
 } as const satisfies Record<Edge, string>;
 
+const DRAG_HANDLE_SELECTOR = "[data-drag-handle]";
 const INTERACTIVE_HEADER_TARGET = "button, a, input, select, textarea, [role=button]";
 
 type Limits = {
@@ -304,7 +305,13 @@ export function FloatingPanel({
   const onHeaderPointerDown = (event: PointerEvent<HTMLElement>): void => {
     // React events from portalled children (menus) bubble through the header although their DOM is elsewhere.
     if (!(event.target instanceof Node) || !event.currentTarget.contains(event.target)) return;
-    if (event.target instanceof Element && event.target.closest(INTERACTIVE_HEADER_TARGET)) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest(INTERACTIVE_HEADER_TARGET) &&
+      !event.target.closest(DRAG_HANDLE_SELECTOR)
+    ) {
+      return;
+    }
     moveDrag.onPointerDown(event);
   };
   const onGripKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
@@ -370,6 +377,7 @@ export function FloatingPanel({
       >
         <button
           type="button"
+          data-drag-handle=""
           aria-label={t("kumiko.widget.floatingPanel.move")}
           onKeyDown={onGripKeyDown}
           className="rounded-xs p-1 text-muted-foreground hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
