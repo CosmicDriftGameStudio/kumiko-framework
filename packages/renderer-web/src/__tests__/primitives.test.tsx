@@ -2205,7 +2205,7 @@ describe("PageSection", () => {
         <span data-testid="child">x</span>
       </PageSection>,
     );
-    expect(screen.getByTestId("p").className).toContain("px-6");
+    expect(screen.getByTestId("p").className).toContain("px-4");
     expect(screen.getByTestId("child")).toBeDefined();
   });
 
@@ -2216,8 +2216,22 @@ describe("PageSection", () => {
         <FormScreenShell testId="shell-pad">x</FormScreenShell>
       </>,
     );
-    expect(paddingOf("page-pad")).toEqual(["pb-12", "pt-6", "px-6"]);
+    expect(paddingOf("page-pad")).toEqual(["pb-6", "pt-5", "px-4"]);
     expect(paddingOf("page-pad")).toEqual(paddingOf("shell-pad"));
+    expect(screen.getByTestId("page-pad").className).toContain("md:px-10");
+  });
+
+  test("the pinned-footer screen form scrolls on the same inset as PageSection", () => {
+    render(
+      <>
+        <PageSection testId="page-pad">x</PageSection>
+        <defaultPrimitives.Form onSubmit={() => {}} screenForm fillHeight testId="sf">
+          <div>body</div>
+        </defaultPrimitives.Form>
+      </>,
+    );
+    expect(paddingOf("sf-scroll")).toEqual(paddingOf("page-pad"));
+    expect(screen.getByTestId("sf-scroll").className).toContain("md:px-10");
   });
 
   test("maxWidth=4xl sets the same width class as FormScreenShell maxWidth=4xl (fw#2640)", () => {

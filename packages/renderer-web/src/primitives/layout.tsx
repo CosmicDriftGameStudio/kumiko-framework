@@ -17,11 +17,12 @@ export const screenWidthClassName: Record<ScreenWidth, string> = {
   full: "max-w-full",
 };
 
-// Shared screen padding for both screen containers (PageSection and
-// FormScreenShell). The wider bottom inset keeps the last field or table row
-// off the viewport edge; applying it everywhere makes footer spacing
-// independent of the screen type (fw#2640).
-export const screenPaddingClassName = "px-6 pt-6 pb-12";
+// Shared screen padding for every screen container (PageSection,
+// FormScreenShell, list screens and the pinned-footer screen form). The inset
+// is the one the settings screens use, so a list, a dashboard and a form start
+// at the same edge. The bottom inset keeps the last field or table row off the
+// viewport edge (fw#2640).
+export const screenPaddingClassName = "px-4 pb-6 pt-5 md:px-10 md:pb-10 md:pt-7";
 
 const STACK_GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6" } as const;
 
