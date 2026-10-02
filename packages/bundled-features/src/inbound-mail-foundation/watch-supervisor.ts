@@ -213,7 +213,11 @@ export function createInboundMailSupervisor(
     }
   }
 
-  async function saveCursor(accountId: string, cursor: SyncCursorPayload): Promise<void> {
+  async function saveCursor(
+    account: Pick<MailAccountRecord, "id" | "tenantId">,
+    cursor: SyncCursorPayload,
+  ): Promise<void> {
+    const accountId = account.id;
     const now = Temporal.Now.instant().toString();
     const serialized = JSON.stringify(cursor);
     const existing = await fetchOne<{ id: string }>(deps.db, syncCursorTable as EntityTableMeta, {
@@ -232,6 +236,8 @@ export function createInboundMailSupervisor(
     }
     await insertOne(deps.db, syncCursorTable as EntityTableMeta, {
       id: crypto.randomUUID(),
+      // Direct-write store: no executor stamps the NOT NULL tenant_id for us.
+      tenantId: account.tenantId,
       accountId,
       scope: CURSOR_SCOPE,
       cursor: serialized,
@@ -353,7 +359,7 @@ export function createInboundMailSupervisor(
           maxMessages: budget,
         });
         await ingestBatch(account, result.messages, JSON.stringify(result.nextCursor));
-        await saveCursor(account.id, result.nextCursor);
+        await saveCursor(account, result.nextCursor);
         cursor = result.nextCursor;
         budget -= result.messages.length;
         if (!result.hasMore || budget <= 0) break;

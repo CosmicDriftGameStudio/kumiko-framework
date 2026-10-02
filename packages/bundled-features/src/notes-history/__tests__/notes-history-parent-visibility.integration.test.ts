@@ -20,6 +20,7 @@ import {
 import {
   createTestUser,
   setupTestStack,
+  testTenantId,
   type TestStack,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
@@ -81,9 +82,25 @@ const contactEntity = createEntity({
   },
 });
 
+// Integer-id host: exercises the `idType: "serial"` branch of the id-shape gate
+// (rejects before any query, so no table is needed).
+const ticketEntity = createEntity({
+  table: "notes_pv_test_tickets",
+  idType: "serial",
+  fields: {
+    name: createTextField({
+      required: true,
+      maxLength: 64,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
 const fixturesFeature = defineFeature("notes-pv-test-fixtures", (r) => {
   r.entity("project", guardedProjectEntity);
   r.entity("contact", contactEntity);
+  r.entity("ticket", ticketEntity);
 });
 
 type TestUser = ReturnType<typeof createTestUser>;
@@ -98,6 +115,13 @@ const userB: TestUser = createTestUser({
   id: 41,
   roles: ["TenantMember"],
   claims: { team: "team-b" },
+});
+
+const userOtherTenant: TestUser = createTestUser({
+  id: 42,
+  tenantId: testTenantId(4242),
+  roles: ["TenantMember"],
+  claims: { team: "team-a" },
 });
 
 const PROJECT_A = "a0000000-0000-4000-8000-000000000001";
@@ -235,6 +259,23 @@ describe("notes-history integration — add-note parent-visibility (parents opti
 
   test("on an unguarded mount, a registered parent from a foreign team is still denied", async () => {
     const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userB);
+    expect(err.code).toBe("not_found");
+    expect(err.httpStatus).toBe(404);
+  });
+
+  test("serial host: non-numeric and int4-overflowing ids are denied cleanly before reaching the executor", async () => {
+    for (const badId of ["abc", "99999999999", "9223372036854775808", "2147483648"]) {
+      const err = await addNoteErr(openStack, "ticket", badId, userA);
+      expect(err.code).toBe("not_found");
+      expect(err.httpStatus).toBe(404);
+    }
+    // Connection stays usable: no 22003 poisoned the transaction.
+    const result = await addNote(openStack, "project", PROJECT_OPEN, userA);
+    expect(result.id).toBeTruthy();
+  });
+
+  test("a user from another tenant cannot note a host row of the first tenant", async () => {
+    const err = await addNoteErr(openStack, "project", PROJECT_OPEN, userOtherTenant);
     expect(err.code).toBe("not_found");
     expect(err.httpStatus).toBe(404);
   });

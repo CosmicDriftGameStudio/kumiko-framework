@@ -6,7 +6,7 @@
 
 import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import type { UserDataDeleteHook, UserDataExportHook } from "@cosmicdrift/kumiko-framework/engine";
-import { resolveRetentionPolicyForTenant } from "../data-retention/index.js";
+import { resolveRetentionPolicyForTenant, resolveTenantRetentionPreset } from "../data-retention/index.js";
 import { noteEntryTable, noteMentionTable } from "../notes-history/index.js";
 import { policyToStrategy } from "../user-data-rights/index.js";
 
@@ -61,6 +61,12 @@ export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
   if (mentions.length === 0) return;
 
   const noteIds = new Set(mentions.map((m) => m.noteId));
+  // Once per hook run: the preset depends on the tenant only, not the note.
+  const tenantPreset = await resolveTenantRetentionPreset({
+    db: ctx.db,
+    registry: ctx.registry,
+    tenantId: ctx.tenantId,
+  });
   for (const noteId of noteIds) {
     const note = await ctx.db.fetchOne<{ entityType: string }>(noteEntryTable, { id: noteId });
     // Defensive: append-only rows are never hard-deleted, so this shouldn't
@@ -72,6 +78,7 @@ export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
       registry: ctx.registry,
       tenantId: ctx.tenantId,
       entityName: note.entityType,
+      preloadedTenantPreset: tenantPreset,
     });
     if (policyToStrategy(hostPolicy.policy?.strategy ?? null) === "anonymize") continue;
 

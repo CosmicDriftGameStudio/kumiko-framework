@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } fr
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import type { DbConnection, EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { createDistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import {
@@ -47,6 +47,7 @@ import {
   type RawInboundMessage,
   seenMessageEntity,
   syncCursorEntity,
+  syncCursorTable,
 } from "../index.js";
 
 let stack: TestStack;
@@ -241,6 +242,18 @@ describe("watch-supervisor — error semantics", () => {
     } finally {
       await supervisor.stop();
     }
+  });
+
+  test("poll persists the sync cursor with the account's tenantId", async () => {
+    const admin = adminFor(4121);
+    const accountId = await connectSharedAccount(admin);
+    await seedInboundMessage(accountId, rawMsg({ providerMessageId: "cursor-persist-1" }));
+
+    await createSupervisor().pollOnce();
+
+    const cursors = await selectMany(db, syncCursorTable as EntityTableMeta, { accountId });
+    expect(cursors).toHaveLength(1);
+    expect(cursors[0]?.["tenantId"]).toBe(admin.tenantId);
   });
 
   test("InboundCursorInvalidError resets the cursor; a later poll still ingests", async () => {

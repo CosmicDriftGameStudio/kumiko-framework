@@ -23,9 +23,8 @@ export interface ResolveForTenantArgs {
   /**
    * Layer 2 — Tenant-Preset. `undefined` (the default) means this resolver
    * derives it itself via resolveTenantRetentionPreset — one compliance-
-   * profile read per call, fine for single-lookup callers (`policy-for`, a
-   * per-hook TenantDb caller like notes-history-user-data). A bulk caller
-   * iterating N entities × M tenants (the forget-cleanup runner, the
+   * profile read per call, fine for single-lookup callers (`policy-for`). A
+   * bulk caller iterating N entities × M tenants (the forget-cleanup runner, the
    * retention-cleanup cron) MUST resolve it ONCE per tenant and pass it in
    * here instead, or it re-derives per entity. `null` means "resolved
    * already, no preset applies" — the resolver falls back to Entity-Default

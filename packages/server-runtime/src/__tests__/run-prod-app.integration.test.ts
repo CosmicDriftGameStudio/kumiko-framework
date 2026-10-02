@@ -90,7 +90,7 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     name: "ping",
     schema: z.object({}),
     access: { roles: ["anonymous"] },
-    rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
+    rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
     handler: async () => ({ pong: true }),
   });
   // Echoes the resolved client IP — the only way to prove a real Bun.serve
@@ -101,14 +101,14 @@ const widgetFeature = defineFeature("prod-probe", (r) => {
     name: "ip-probe",
     schema: z.object({}),
     access: { roles: ["anonymous"] },
-    rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
+    rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
     handler: async () => ({ ip: requestContext.get()?.ip }),
   });
   r.queryHandler({
     name: "kms-probe",
     schema: z.object({}),
     access: { roles: ["anonymous"] },
-    rateLimit: { per: "ip", limit: 60, windowSeconds: 60 },
+    rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
     handler: async (_event, ctx) => ({ hasKms: ctx.kms !== undefined }),
   });
   // SystemAdmin-gated write — Ziel der entry:"signature" / `wire`-Tests:

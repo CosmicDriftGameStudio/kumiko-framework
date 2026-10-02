@@ -11,8 +11,13 @@ import {
 // register different EntityDefinitions under the same entity name.
 const executorsByEntity = new WeakMap<EntityDefinition, EventStoreExecutor>();
 
+// Postgres `serial` is int4; a larger digit string would raise 22003 (numeric
+// out of range) inside the write transaction instead of denying cleanly.
+const SERIAL_ID_MAX = 2_147_483_647;
+
 function idShapeMatchesEntity(entity: EntityDefinition, entityId: string): boolean {
-  return entity.idType === "serial" ? /^\d+$/.test(entityId) : isUuid(entityId);
+  if (entity.idType !== "serial") return isUuid(entityId);
+  return /^\d{1,10}$/.test(entityId) && Number(entityId) <= SERIAL_ID_MAX;
 }
 
 // Checks whether a client-supplied (entityType, entityId) host reference is one
