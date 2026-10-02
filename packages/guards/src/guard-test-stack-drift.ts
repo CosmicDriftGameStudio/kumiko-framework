@@ -94,8 +94,18 @@ function collectCallNames(sf: SourceFile): Map<string, number[]> {
   return calls;
 }
 
+// Only a marker inside a real comment counts: the same text
+// inside a string/template literal is fixture data, not an opt-out.
 function hasOptOutMarker(sf: SourceFile): boolean {
-  return OPT_OUT_MARKER.test(sf.getFullText());
+  const text = sf.getFullText();
+  const marker = new RegExp(OPT_OUT_MARKER.source, "gi");
+  for (const match of text.matchAll(marker)) {
+    const kind = sf.getDescendantAtPos(match.index)?.getKind();
+    if (kind === SyntaxKind.SingleLineCommentTrivia || kind === SyntaxKind.MultiLineCommentTrivia) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function scanFile(sf: SourceFile): Violation | null {

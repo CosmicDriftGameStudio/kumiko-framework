@@ -74,6 +74,16 @@ const RAW_DEFINE_CONFIG_MODULE = "@playwright/test";
 
 const TEMPLATE_OWNED_KEYS: ReadonlySet<string> = new Set(["viewport", "deviceScaleFactor"]);
 
+// Top-level config keys the template owns; spreading defineAppE2eConfig(...)
+// and then setting one of them re-opens the drift the template closes.
+const TEMPLATE_OWNED_CONFIG_KEYS: ReadonlySet<string> = new Set([
+  "fullyParallel",
+  "retries",
+  "timeout",
+  "workers",
+  "expect",
+]);
+
 export interface Finding {
   file: string;
   line: number;
@@ -148,7 +158,11 @@ function isPlaywrightUseObject(node: Node): boolean {
 function templateOwnedKeyFindings(sf: SourceFile): Finding[] {
   const findings: Finding[] = [];
   const isConfigFile = CONFIG_FILENAME.test(sf.getFilePath());
-  for (const prop of sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment)) {
+  const props = [
+    ...sf.getDescendantsOfKind(SyntaxKind.PropertyAssignment),
+    ...sf.getDescendantsOfKind(SyntaxKind.ShorthandPropertyAssignment),
+  ];
+  for (const prop of props) {
     const name = prop.getName();
     if (!TEMPLATE_OWNED_KEYS.has(name)) continue;
     // viewport is only drift in the config's own use/project use — a spec's
@@ -166,6 +180,34 @@ function templateOwnedKeyFindings(sf: SourceFile): Finding[] {
     );
     if (message !== undefined)
       findings.push({ file: "", line: prop.getStartLineNumber(), message });
+  }
+  return findings;
+}
+
+function isDefineAppE2eConfigSpread(node: Node): boolean {
+  if (!Node.isSpreadAssignment(node)) return false;
+  const spread = node.getExpression();
+  return (
+    Node.isCallExpression(spread) && spread.getExpression().getText() === DEFINE_APP_E2E_CONFIG
+  );
+}
+
+function configOverrideFindings(sf: SourceFile): Finding[] {
+  const findings: Finding[] = [];
+  for (const literal of sf.getDescendantsOfKind(SyntaxKind.ObjectLiteralExpression)) {
+    const properties = literal.getProperties();
+    if (!properties.some(isDefineAppE2eConfigSpread)) continue;
+    for (const prop of properties) {
+      if (!Node.isPropertyAssignment(prop) && !Node.isShorthandPropertyAssignment(prop)) continue;
+      const name = prop.getName();
+      if (!TEMPLATE_OWNED_CONFIG_KEYS.has(name)) continue;
+      const message = withExceptionNote(
+        prop,
+        `Config key "${name}" next to a ...defineAppE2eConfig(...) spread — timeouts, retries, workers and expect belong to the template; pass the supported options to defineAppE2eConfig instead.`,
+      );
+      if (message !== undefined)
+        findings.push({ file: "", line: prop.getStartLineNumber(), message });
+    }
   }
   return findings;
 }
@@ -202,7 +244,11 @@ export function scanTemplateDrift(
   const findings: Finding[] = [];
   const own = ownConfigFinding(sf);
   if (own !== undefined) findings.push({ ...own, file });
-  for (const f of [...templateOwnedKeyFindings(sf), ...pageScreenshotFindings(sf)]) {
+  for (const f of [
+    ...templateOwnedKeyFindings(sf),
+    ...configOverrideFindings(sf),
+    ...pageScreenshotFindings(sf),
+  ]) {
     findings.push({ ...f, file });
   }
   return findings.sort((a, b) => a.line - b.line);

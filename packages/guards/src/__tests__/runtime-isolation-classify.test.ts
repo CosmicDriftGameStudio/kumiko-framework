@@ -19,6 +19,7 @@ import {
   findRuntimeIsolationViolations,
   isClientEntryPath,
   isValueImport,
+  parseDeclaredClientEntries,
 } from "../runtime-isolation-classify";
 
 describe("classifyByPath — test-runtime patterns", () => {
@@ -139,6 +140,29 @@ describe("classifyByPath — client-safe carve-outs", () => {
 
   test("does NOT carve out dev-server's other files (e.g. compose-stacks.ts)", () => {
     expect(classifyByPath("packages/dev-server/src/compose-stacks.ts")).toBeNull();
+  });
+});
+
+describe("declared client entries", () => {
+  test("a declared kumiko.clientEntries sourceFile counts as a client entry", () => {
+    const declared = parseDeclaredClientEntries({
+      kumiko: { clientEntries: [{ name: "admin", sourceFile: "./src/admin/index.tsx" }] },
+    });
+    expect(isClientEntryPath("src/admin/index.tsx", declared)).toBe(true);
+    expect(isClientEntryPath("src/admin/other.tsx", declared)).toBe(false);
+  });
+
+  test("kumiko.clientEntry is read too, malformed manifests are ignored", () => {
+    expect(
+      isClientEntryPath(
+        "src/main.tsx",
+        parseDeclaredClientEntries({ kumiko: { clientEntry: "./src/main.tsx" } }),
+      ),
+    ).toBe(true);
+    expect(
+      parseDeclaredClientEntries({ kumiko: { clientEntries: [42, { sourceFile: 1 }] } }).size,
+    ).toBe(0);
+    expect(parseDeclaredClientEntries(null).size).toBe(0);
   });
 });
 

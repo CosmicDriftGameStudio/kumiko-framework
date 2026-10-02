@@ -14,7 +14,12 @@
 
 import { type RepoCheck, reportResults, runRepoChecks } from "./_lib/guard-kit";
 import { type RepoRoot, resolveRepoRoots } from "./_lib/roots";
-import { BLOCKING_SQL_KINDS, scanRepo, sqlScanDirsFor } from "./_lib/sql-inventory";
+import {
+  BLOCKING_SQL_KINDS,
+  isSqlScanExcluded,
+  scanRepo,
+  sqlScanDirsFor,
+} from "./_lib/sql-inventory";
 
 export type RawSqlFinding = {
   readonly repo: string;
@@ -65,8 +70,9 @@ export const check: RepoCheck = {
     "Rule: runtime SQL only in db/queries/*, bun-db/query.ts, testing/*, or with " +
     "// kumiko-lint-ignore raw-sql <reason> on the line or the line above.",
   async run(roots) {
-    // kumiko-platform's deliberate empty scan-dir list must not read as vacuous (infra#610).
-    const applicableRoots = roots.filter((r) => sqlScanDirsFor(r).length > 0);
+    // Only the deliberate exclusion is skipped; a repo whose declared source roots
+    // are all missing stays in the scan so 0 files surfaces as vacuous.
+    const applicableRoots = roots.filter((r) => !isSqlScanExcluded(r));
     if (applicableRoots.length === 0) {
       return { violations: [], matchedFiles: 0, notApplicable: true };
     }

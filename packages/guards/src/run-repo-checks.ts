@@ -49,5 +49,5 @@ export async function runRepoChecksCli(argv: readonly string[]): Promise<number>
 }
 
 if (import.meta.main) {
-  process.exit(await runRepoChecksCli(process.argv.slice(2)));
+  process.exit((await runRepoChecksCli(process.argv.slice(2))) > 0 ? 1 : 0);
 }

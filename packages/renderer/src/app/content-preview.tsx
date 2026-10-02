@@ -4,6 +4,7 @@
 // renders formatted HTML and "plain"/"markdown" render as text through the
 // exact same component, no separate render path per format.
 
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { ContentEditorFormat } from "@cosmicdrift/kumiko-types/nav";
 import { type ReactNode, useId } from "react";
 import { useContentEditor } from "./content-editors.js";
@@ -21,15 +22,6 @@ export function substituteVariables(
   return content.replace(VARIABLE_PATTERN, (match, name: string) =>
     Object.hasOwn(variables, name) ? (variables[name] ?? match) : match,
   );
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 }
 
 export type ContentPreviewProps = {
@@ -52,7 +44,7 @@ export function ContentPreview({
   const safeVariables =
     contentFormat === "rich"
       ? Object.fromEntries(
-          Object.entries(variables).map(([name, value]) => [name, escapeHtml(value)]),
+          Object.entries(variables).map(([name, value]) => [name, escapeHtmlAttr(value)]),
         )
       : variables;
   return (

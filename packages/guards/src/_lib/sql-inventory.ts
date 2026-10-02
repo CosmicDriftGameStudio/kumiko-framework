@@ -108,8 +108,12 @@ export const BLOCKING_SQL_KINDS: ReadonlyArray<SqlInventoryKind> = ["unsafe", "a
 const TS_GLOB = new Bun.Glob("**/*.{ts,tsx}");
 
 // kumiko-platform deliberately returns no scan dirs (0 files) — its docs-samples tree needs its own allowlist review before this guard scans it (follow-up issue).
+export function isSqlScanExcluded(root: RepoRoot): boolean {
+  return root.name === "kumiko-platform";
+}
+
 export function sqlScanDirsFor(root: RepoRoot): readonly string[] {
-  if (root.name === "kumiko-platform") return [];
+  if (isSqlScanExcluded(root)) return [];
   return sourceRootDirs(root).map((dir) => dir.slice(root.absPath.length).replace(/^\/+/, ""));
 }
 

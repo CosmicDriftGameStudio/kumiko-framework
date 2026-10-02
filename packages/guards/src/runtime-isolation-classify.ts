@@ -96,11 +96,54 @@ export function classifyByPath(repoRelativePath: string): Runtime | null {
  * their sources live under `packages/*\/src/`, not a repo-root `src/`. Kept
  * independent of the framework's own regex (cross-package import would be a
  * build-vs-lint layering violation) — if apps stop following this naming
- * convention, this drifts and needs a matching update.
+ * convention, this drifts and needs a matching update. Entries the app
+ * declares itself (`readDeclaredClientEntries`) count in addition, so a
+ * `./src/admin/index.tsx` entry is classified as browser code too.
  */
-export function isClientEntryPath(repoRelativePath: string): boolean {
+export function isClientEntryPath(
+  repoRelativePath: string,
+  declaredEntries: ReadonlySet<string> = new Set(),
+): boolean {
   const rel = repoRelativePath.replace(/\\/g, "/");
-  return /^src\/client(-[a-z][a-z0-9-]*)?\.tsx?$/.test(rel);
+  return declaredEntries.has(rel) || /^src\/client(-[a-z][a-z0-9-]*)?\.tsx?$/.test(rel);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Parses `kumiko.clientEntry` / `kumiko.clientEntries[].sourceFile` out of a
+ * package.json value into repo-relative paths. Parsed locally instead of
+ * importing the build's resolver (layering: lint must not depend on
+ * server-runtime); anything malformed is ignored — `kumiko build` owns
+ * rejecting it.
+ */
+export function parseDeclaredClientEntries(packageJson: unknown): ReadonlySet<string> {
+  const entries = new Set<string>();
+  const kumiko = isRecord(packageJson) ? packageJson["kumiko"] : undefined;
+  if (!isRecord(kumiko)) return entries;
+  const sources: unknown[] = [kumiko["clientEntry"]];
+  const multi = kumiko["clientEntries"];
+  if (Array.isArray(multi)) {
+    for (const entry of multi) sources.push(isRecord(entry) ? entry["sourceFile"] : undefined);
+  }
+  for (const source of sources) {
+    if (typeof source === "string") {
+      entries.add(path.posix.normalize(source.replace(/\\/g, "/")));
+    }
+  }
+  return entries;
+}
+
+export function readDeclaredClientEntries(repoAbsPath: string): ReadonlySet<string> {
+  const file = path.join(repoAbsPath, "package.json");
+  if (!existsSync(file)) return new Set();
+  try {
+    return parseDeclaredClientEntries(JSON.parse(readFileSync(file, "utf8")));
+  } catch {
+    return new Set();
+  }
 }
 
 /**

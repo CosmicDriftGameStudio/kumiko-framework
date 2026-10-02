@@ -47,5 +47,5 @@ export function runUiGuardsCli(argv: readonly string[]): number {
 
 // Same as run-guards.ts: only run on direct invocation.
 if (import.meta.main) {
-  process.exit(runUiGuardsCli(process.argv.slice(2)));
+  process.exit(runUiGuardsCli(process.argv.slice(2)) > 0 ? 1 : 0);
 }

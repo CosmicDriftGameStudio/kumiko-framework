@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { runRepoChecks } from "../_lib/guard-kit";
 import { isRawSqlAllowed, scanRepo } from "../_lib/sql-inventory";
 import { check, collectRawSqlFindings } from "../guard-raw-sql";
 import { fixtureRoot } from "./parent-workspace-fixture";
@@ -195,6 +196,24 @@ describe("check.run — RepoCheck seam", () => {
     const outcome = await check.run([root]);
     expect(outcome.notApplicable).toBe(true);
     expect(outcome.violations).toEqual([]);
+  });
+
+  test("an app repo whose declared source roots are all missing is vacuous, not skipped", async () => {
+    const dir = makeRepo({ "unrelated/readme.txt": "x" });
+    try {
+      const root = fixtureRoot("app-repo", dir, {
+        kind: "app",
+        sourceRoots: ["src", "bin"],
+        testGlobs: ["src/**/*.test.ts"],
+      });
+      const outcome = await check.run([root]);
+      expect(outcome.notApplicable).toBe(false);
+      expect(outcome.matchedFiles).toBe(0);
+      const [result] = await runRepoChecks([check], [root]);
+      expect(result?.ok).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test("an unsafe() call outside the allowlist is a blocking violation", async () => {

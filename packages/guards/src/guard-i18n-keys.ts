@@ -63,7 +63,6 @@ function collectUsedKeys(sf: SourceFile): UsedKey[] {
   for (const call of sf.getDescendantsOfKind(SyntaxKind.CallExpression)) {
     const exprText = call.getExpression().getText();
     if (exprText !== "t" && !/(^|\.)t$/.test(exprText)) continue;
-    if (exprText === "test" || exprText === "expect") continue;
     const args = call.getArguments();
     if (args.length === 0) continue;
     const first = args[0];

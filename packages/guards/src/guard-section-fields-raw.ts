@@ -11,7 +11,9 @@
  * generator in #3042). `sectionFieldSpecs` (engine/screen-helpers.ts) is the
  * one reader that unions both sources.
  *
- * Flagged: for-of, spread and array reads over `<…section…>.fields`.
+ * Flagged: for-of, spread, array reads, indexing, call arguments and
+ * destructuring over the `fields` of a section (by name or by a `groups`
+ * property on its type), also behind `!`, parentheses, `as` and `??`.
  * Known gap: `section.fields.length` is not flagged — the fields-XOR-groups
  * validator itself needs it, and an emptiness check is not the silent-
  * iteration bug.
@@ -35,7 +37,13 @@
  *   bun guards/guard-section-fields-raw.ts --no-baseline    # skip comparison
  */
 import * as path from "node:path";
-import { type Node, type PropertyAccessExpression, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  type Node,
+  type PropertyAccessExpression,
+  type SourceFile,
+  SyntaxKind,
+  type VariableDeclaration,
+} from "ts-morph";
 import {
   type AstGuard,
   baselineRatchet,
@@ -68,9 +76,10 @@ const SCAN: ScanSpec = {
 const EXCLUDE = /(__tests__|\.test\.tsx?$|\.integration\.tsx?$|\.d\.ts$)/;
 
 const IGNORE_TAG = "kumiko-lint-ignore section-fields-raw";
-// hasIgnoreTag() from _lib accepts a bare tag; the issue's premise 2 wants a
-// visible reason, so the trailing `\S` is the whole point of not reusing it.
-const REASONED_TAG = new RegExp(`${IGNORE_TAG}\\s+\\S`);
+// hasIgnoreTag() from _lib accepts a bare tag; a visible reason is required, so
+// the reason must start with a real character: the `*` of a closing `*/` (block
+// and JSX comments) must not count as one.
+const REASONED_TAG = new RegExp(`${IGNORE_TAG}\\s+(?!\\*/)[^\\s*]`);
 
 const SECTION_RECEIVER = /section/i;
 
@@ -83,6 +92,7 @@ const ARRAY_READS = new Set([
   "find",
   "findIndex",
   "findLast",
+  "findLastIndex",
   "flat",
   "flatMap",
   "forEach",
@@ -90,6 +100,7 @@ const ARRAY_READS = new Set([
   "indexOf",
   "join",
   "keys",
+  "lastIndexOf",
   "map",
   "reduce",
   "reduceRight",
@@ -99,7 +110,9 @@ const ARRAY_READS = new Set([
   "sort",
   "toReversed",
   "toSorted",
+  "toSpliced",
   "values",
+  "with",
 ]);
 
 function relFile(sf: SourceFile, roots: readonly RepoRoot[]): string {
@@ -112,17 +125,66 @@ function hasReasonedIgnoreTag(node: Node): boolean {
   return REASONED_TAG.test(lines[line - 1] ?? "") || REASONED_TAG.test(lines[line - 2] ?? "");
 }
 
+// A section is recognised by its name or, when types resolve, by carrying a
+// `groups` property — so `sec.fields` and `layout.sections.map((s) => s.fields)`
+// are caught too. The name regex stays as the fallback for untyped receivers.
+function isSectionReceiver(receiver: Node): boolean {
+  if (SECTION_RECEIVER.test(receiver.getText())) return true;
+  return receiver.getType().getProperty("groups") !== undefined;
+}
+
+// Climbs `x!`, `(x)`, `x as T` and `x ?? y` so a wrapped read is judged by the
+// context it ends up in.
+function unwrapReadContext(access: Node): Node {
+  let current = access;
+  for (;;) {
+    const parent = current.getParent();
+    if (
+      parent !== undefined &&
+      (parent.isKind(SyntaxKind.NonNullExpression) ||
+        parent.isKind(SyntaxKind.ParenthesizedExpression) ||
+        parent.isKind(SyntaxKind.AsExpression) ||
+        (parent.isKind(SyntaxKind.BinaryExpression) &&
+          parent.getOperatorToken().getKind() === SyntaxKind.QuestionQuestionToken &&
+          parent.getLeft() === current))
+    ) {
+      current = parent;
+      continue;
+    }
+    return current;
+  }
+}
+
 function isSequenceRead(access: PropertyAccessExpression): boolean {
-  const parent = access.getParent();
+  const read = unwrapReadContext(access);
+  const parent = read.getParent();
   if (parent === undefined) return false;
-  if (parent.isKind(SyntaxKind.ForOfStatement)) return parent.getExpression() === access;
+  if (parent.isKind(SyntaxKind.ForOfStatement)) return parent.getExpression() === read;
   if (parent.isKind(SyntaxKind.SpreadElement) || parent.isKind(SyntaxKind.SpreadAssignment)) {
     return true;
   }
-  if (parent.isKind(SyntaxKind.PropertyAccessExpression) && ARRAY_READS.has(parent.getName())) {
+  if (parent.isKind(SyntaxKind.ElementAccessExpression)) return parent.getExpression() === read;
+  if (parent.isKind(SyntaxKind.CallExpression)) return parent.getArguments().includes(read);
+  if (
+    parent.isKind(SyntaxKind.PropertyAccessExpression) &&
+    parent.getExpression() === read &&
+    ARRAY_READS.has(parent.getName())
+  ) {
     return parent.getParent()?.isKind(SyntaxKind.CallExpression) === true;
   }
   return false;
+}
+
+function isDestructuredFieldsRead(declaration: VariableDeclaration): boolean {
+  const pattern = declaration.getNameNode();
+  const initializer = declaration.getInitializer();
+  if (!pattern.isKind(SyntaxKind.ObjectBindingPattern) || initializer === undefined) return false;
+  if (!isSectionReceiver(initializer)) return false;
+  return pattern
+    .getElements()
+    .some(
+      (element) => (element.getPropertyNameNode() ?? element.getNameNode()).getText() === "fields",
+    );
 }
 
 export interface Finding {
@@ -138,7 +200,7 @@ export function scanRawSectionFieldReads(
   const findings: Finding[] = [];
   for (const access of sf.getDescendantsOfKind(SyntaxKind.PropertyAccessExpression)) {
     if (access.getName() !== "fields") continue;
-    if (!SECTION_RECEIVER.test(access.getExpression().getText())) continue;
+    if (!isSectionReceiver(access.getExpression())) continue;
     if (!isSequenceRead(access)) continue;
     if (hasReasonedIgnoreTag(access)) continue;
     const line = access.getStartLineNumber();
@@ -146,6 +208,16 @@ export function scanRawSectionFieldReads(
     findings.push({ file, line, snippet: access.getText().slice(0, 80) });
     console.warn(
       `  [section-fields-raw WARN] ${file}:${line}  raw read of ${access.getText().slice(0, 80)} — use sectionFieldSpecs(section)`,
+    );
+  }
+  for (const declaration of sf.getDescendantsOfKind(SyntaxKind.VariableDeclaration)) {
+    if (!isDestructuredFieldsRead(declaration)) continue;
+    if (hasReasonedIgnoreTag(declaration)) continue;
+    const line = declaration.getStartLineNumber();
+    const file = relFile(sf, roots);
+    findings.push({ file, line, snippet: declaration.getText().slice(0, 80) });
+    console.warn(
+      `  [section-fields-raw WARN] ${file}:${line}  destructured fields of ${declaration.getText().slice(0, 80)} — use sectionFieldSpecs(section)`,
     );
   }
   return findings;

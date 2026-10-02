@@ -40,6 +40,72 @@ describe("Raw section.fields Guard", () => {
     expect(findings).toHaveLength(1);
   });
 
+  test("flags a read through an alias whose type carries groups", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(
+        `${SECTION_DECL}declare const sec: typeof section;\nexport const a = sec.fields.map((f) => f.field);\n` +
+          "declare const layout: { items: (typeof section)[] };\n" +
+          "export const b = layout.items.map((s) => s.fields.map((f) => f.field));",
+      ),
+    );
+    expect(findings).toHaveLength(2);
+  });
+
+  test("flags destructuring of fields from a section", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(`${SECTION_DECL}const { fields } = section;\nvoid fields;`),
+    );
+    expect(findings).toHaveLength(1);
+  });
+
+  test("flags section.fields passed as an argument or indexed", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(
+        `${SECTION_DECL}declare function collect(x: unknown): void;\n` +
+          "collect(section.fields);\nexport const first = section.fields[0];\n" +
+          "export const copy = Array.from(section.fields);",
+      ),
+    );
+    expect(findings).toHaveLength(3);
+  });
+
+  test("flags reads behind non-null, parentheses and nullish coalescing", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(
+        `${SECTION_DECL}export const a = (section.fields ?? []).map((f) => f.field);\n` +
+          "export const b = section.fields!.map((f) => f.field);",
+      ),
+    );
+    expect(findings).toHaveLength(2);
+  });
+
+  test("flags the newer array read methods", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(
+        `${SECTION_DECL}export const a = section.fields.findLastIndex(() => true);\n` +
+          "export const b = section.fields.toSpliced(0, 1);",
+      ),
+    );
+    expect(findings).toHaveLength(2);
+  });
+
+  test("a bare tag in a JSX block comment stays a finding", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(
+        `${SECTION_DECL}export const a = [1].map(() => (\n  <div>\n    {/* kumiko-lint-ignore section-fields-raw */}\n    {section.fields.map((f) => f.field)}\n  </div>\n));`,
+        "reader.tsx",
+      ),
+    );
+    expect(findings).toHaveLength(1);
+  });
+
+  test("does not flag section.fields.length", () => {
+    const findings = scanRawSectionFieldReads(
+      sourceFile(`${SECTION_DECL}export const n = section.fields.length;`),
+    );
+    expect(findings).toEqual([]);
+  });
+
   test("does not flag sectionFieldSpecs(section)", () => {
     const findings = scanRawSectionFieldReads(
       sourceFile(
