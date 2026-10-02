@@ -30,6 +30,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
+import { waitFor } from "../../testing/index.js";
 import { generateId as uuid } from "../../utils/index.js";
 import { appendRaw } from "../admin-api.js";
 import { append } from "../event-store.js";
@@ -50,6 +51,7 @@ const PROBED = "attribution:event:probed";
 const PLACE_HANDLER = "attribution:write:order:place";
 const STREAM_HANDLER = "attribution:stream:order:emit-after-yield";
 const STREAMED = "attribution:event:streamed";
+const JOB_NAME = "attribution:job:order-seed";
 const PROBE_HANDLER = "attribution:write:order:probe";
 const CONFIRMER_MSP = "attribution:projection:confirmer";
 const TENANT_ID = "00000000-0000-4000-8000-000000000002" as TenantId;
@@ -126,6 +128,15 @@ const attributionFeature = defineFeature("attribution", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  r.job("order-seed", { trigger: { manual: true }, retries: 0 }, async (payload, ctx) => {
+    const created = await orderExecutor.create(
+      { item: String(payload["item"]) },
+      ctx.systemUser,
+      ctx.db,
+    );
+    if (!created.isSuccess) throw new Error(created.error.message);
+  });
+
   r.multiStreamProjection({
     name: "confirmer",
     apply: {
@@ -150,6 +161,7 @@ beforeAll(async () => {
     features: [attributionFeature],
     systemHooks: [],
     anonymousAccess: { defaultTenantId: TENANT_ID },
+    jobs: { consumerLane: "worker" },
   });
   await unsafeCreateEntityTable(stack.db, orderEntity, "attr-order");
 });
@@ -279,6 +291,21 @@ describe("#3043 — event attribution from the execution scope", () => {
     expect(await originOf(STREAMED)).toMatchObject({
       feature: "attribution",
       handler: STREAM_HANDLER,
+    });
+  });
+
+  test("job: an event the job writes is attributed to the job and its feature", async () => {
+    await stack.jobRunner?.dispatch(JOB_NAME, { item: "bolt" });
+    await waitFor(async () => {
+      const rows = await selectMany(stack.db, eventsTable);
+      expect(rows.some((r: Record<string, unknown>) => r["type"] === "attr-order.created")).toBe(
+        true,
+      );
+    });
+
+    expect(await originOf("attr-order.created")).toMatchObject({
+      feature: "attribution",
+      handler: JOB_NAME,
     });
   });
 });

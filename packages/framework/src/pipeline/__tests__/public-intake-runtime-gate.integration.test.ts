@@ -14,6 +14,7 @@ import {
   createSystemUser,
   createTextField,
   defineFeature,
+  SYSTEM_TENANT_ID,
 } from "../../engine/index.js";
 import { SYSTEM_ROLE } from "../../engine/system-user.js";
 import type { TenantId } from "../../engine/types/index.js";
@@ -23,6 +24,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "../../stack/index.js";
+import { seedRows } from "../../testing/index.js";
 
 const TENANT_ID = "00000000-0000-4000-8000-000000000001" as TenantId;
 const RATE_LIMIT = { per: "ip", limit: 1000, windowSeconds: 60 } as const;
@@ -46,8 +48,19 @@ const leadEntity = createEntity({
 });
 const leadTable = buildEntityTable("intakeLead", leadEntity);
 
+// tenancy "global": rows carry SYSTEM_TENANT_ID and are written through db.global().
+const globalContactEntity = createEntity({
+  table: "intake_global_contacts",
+  tenancy: "global",
+  fields: {
+    email: createTextField({ personal: "self", find: "none", default: "" }),
+  },
+});
+const globalContactTable = buildEntityTable("globalContact", globalContactEntity);
+
 const featureB = defineFeature("intakeb", (r) => {
   r.entity("contact", contactEntity);
+  r.entity("globalContact", globalContactEntity);
   r.entity("intakeLead", leadEntity);
 
   r.writeHandler(
@@ -295,6 +308,64 @@ const featureA = defineFeature("intakea", (r) => {
     );
   }
 
+  const GLOBAL_WRITE_REASON =
+    "test: db.global() write to prove the personal-data gate applies there";
+  for (const declared of [false, true]) {
+    const suffix = declared ? "declare" : "no-declare";
+    const access = declared
+      ? ({ roles: ["anonymous"], personalData: "public-intake" } as const)
+      : ({ roles: ["anonymous"] } as const);
+
+    r.writeHandler(
+      `global-insert-${suffix}`,
+      z.object({ note: z.string() }),
+      async (_event, ctx) => {
+        // @cast-boundary test-fixture — see direct-insert-no-declare above.
+        await ctx.db
+          .global(globalContactTable as unknown as Parameters<typeof ctx.db.global>[0])
+          .insertOne({ tenantId: SYSTEM_TENANT_ID, email: "leak-global@example.com" });
+        return { isSuccess: true as const, data: { ok: true as const } };
+      },
+      { access, rateLimit: RATE_LIMIT, escapeHatch: { reason: GLOBAL_WRITE_REASON } },
+    );
+
+    r.writeHandler(
+      `global-update-many-${suffix}`,
+      z.object({ id: z.uuid() }),
+      async (event, ctx) => {
+        // @cast-boundary test-fixture — see direct-insert-no-declare above.
+        await ctx.db
+          .global(globalContactTable as unknown as Parameters<typeof ctx.db.global>[0])
+          .updateMany({ email: "overwritten-global@example.com" }, { id: event.payload.id });
+        return { isSuccess: true as const, data: { ok: true as const } };
+      },
+      { access, rateLimit: RATE_LIMIT, escapeHatch: { reason: GLOBAL_WRITE_REASON } },
+    );
+  }
+
+  // A stream can never declare public-intake (only write handlers can), so an
+  // anonymous stream root is always gated.
+  r.streamHandler(
+    "writeas-detour",
+    z.object({ note: z.string() }),
+    async function* (query, ctx) {
+      const result = await ctx.writeAs(
+        createSystemUser(query.user.tenantId),
+        "intakeb:write:create",
+        {
+          email: "leak-stream@example.com",
+          note: query.payload.note,
+        },
+      );
+      yield result.isSuccess ? "written" : (result.error.details as { reason?: string })?.reason;
+    },
+    {
+      access: { roles: ["anonymous", "Admin"] },
+      rateLimit: RATE_LIMIT,
+      escapeHatch: { reason: "test: stream detour to prove the gate applies to stream roots" },
+    },
+  );
+
   r.writeHandler(
     "non-pii-insert",
     z.object({ note: z.string() }),
@@ -515,6 +586,7 @@ describe("public-intake runtime gate", () => {
     await unsafeCreateEntityTable(stack.db, contactEntity);
     await unsafeCreateEntityTable(stack.db, probeEntity);
     await unsafeCreateEntityTable(stack.db, leadEntity, "intakeLead");
+    await unsafeCreateEntityTable(stack.db, globalContactEntity, "globalContact");
   });
 
   afterAll(() => stack.cleanup());
@@ -523,6 +595,7 @@ describe("public-intake runtime gate", () => {
     await asRawClient(stack.db).unsafe(`DELETE FROM "${contactTable.tableName}"`);
     await asRawClient(stack.db).unsafe(`DELETE FROM "${probeTable.tableName}"`);
     await asRawClient(stack.db).unsafe(`DELETE FROM "${leadTable.tableName}"`);
+    await asRawClient(stack.db).unsafe(`DELETE FROM "${globalContactTable.tableName}"`);
   });
 
   async function rowCount(): Promise<number> {
@@ -680,6 +753,101 @@ describe("public-intake runtime gate", () => {
         expect(await storedEmail(id)).toBe("overwritten@example.com");
       });
     }
+  });
+
+  describe("db.global() writes", () => {
+    async function globalRows(): Promise<readonly Record<string, unknown>[]> {
+      return selectMany<Record<string, unknown>>(stack.db, globalContactTable);
+    }
+
+    test("global insertOne — blocked without declaration, nothing stored", async () => {
+      const res = await stack.http.raw("POST", "/api/write", {
+        type: "intakea:write:global-insert-no-declare",
+        payload: { note: "x" },
+      });
+      expect(res.status).toBe(403);
+      const body = (await res.json()) as { error: { details: { reason: string } } };
+      expect(body.error.details.reason).toBe("public_intake_required");
+      expect(await globalRows()).toHaveLength(0);
+    });
+
+    test("global insertOne — allowed once declared", async () => {
+      const res = await stack.http.raw("POST", "/api/write", {
+        type: "intakea:write:global-insert-declare",
+        payload: { note: "x" },
+      });
+      expect(res.status).toBe(200);
+      expect(await globalRows()).toHaveLength(1);
+    });
+
+    for (const declared of [false, true]) {
+      test(`global updateMany — ${declared ? "allowed once declared" : "blocked without declaration, row untouched"}`, async () => {
+        const id = crypto.randomUUID();
+        await seedRows(stack.db, globalContactTable, [
+          { id, tenantId: SYSTEM_TENANT_ID, email: "seed-global@example.com" },
+        ]);
+        const res = await stack.http.raw("POST", "/api/write", {
+          type: `intakea:write:global-update-many-${declared ? "declare" : "no-declare"}`,
+          payload: { id },
+        });
+        const rows = await globalRows();
+        if (declared) {
+          expect(res.status).toBe(200);
+          expect(rows[0]?.["email"]).toBe("overwritten-global@example.com");
+        } else {
+          expect(res.status).toBe(403);
+          expect(rows[0]?.["email"]).toBe("seed-global@example.com");
+        }
+      });
+    }
+  });
+
+  describe("dispatcher.batch with mixed declarations", () => {
+    function insertCommand(declared: boolean): { type: string; payload: { note: string } } {
+      return {
+        type: `intakea:write:direct-insert-${declared ? "declare" : "no-declare"}`,
+        payload: { note: "x" },
+      };
+    }
+
+    test("one undeclared command in an anonymous batch fails the batch and rolls the declared one back", async () => {
+      const res = await stack.http.raw("POST", "/api/batch", {
+        commands: [insertCommand(true), insertCommand(false)],
+      });
+      expect(res.status).toBe(403);
+      expect(await rowCount()).toBe(0);
+    });
+
+    test("an anonymous batch whose commands all declare public-intake commits both", async () => {
+      const res = await stack.http.raw("POST", "/api/batch", {
+        commands: [insertCommand(true), insertCommand(true)],
+      });
+      expect(res.status).toBe(200);
+      expect(await rowCount()).toBe(2);
+    });
+  });
+
+  describe("anonymous stream root", () => {
+    test("a stream handler's ctx.writeAs detour onto foreign PII is blocked", async () => {
+      const res = await stack.http.raw("POST", "/api/stream", {
+        type: "intakea:stream:writeas-detour",
+        payload: { note: "x" },
+      });
+      expect(await res.text()).toContain("public_intake_required");
+      expect(await rowCount()).toBe(0);
+    });
+
+    test("the same stream handler for an authenticated caller writes normally", async () => {
+      const headers = { Authorization: `Bearer ${await stack.jwt.sign(TestUsers.admin)}` };
+      const res = await stack.http.raw(
+        "POST",
+        "/api/stream",
+        { type: "intakea:stream:writeas-detour", payload: { note: "x" } },
+        headers,
+      );
+      expect(await res.text()).toContain("written");
+      expect(await rowCount()).toBe(1);
+    });
   });
 
   test("(e) anonymous write of a non-PII field only — allowed without declaration", async () => {
