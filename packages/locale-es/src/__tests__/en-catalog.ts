@@ -948,6 +948,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:roles:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:roles:option:Member": "Member",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Tenant Admin",
+  "tenant:entity:__action-form__:field:roles:option:TenantOwner": "Tenant Owner",
+  "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer":
+    "Data Protection Officer",
   "tenant:entity:__action-form__:field:roles:option:User": "User",
   "tenant:entity:__action-form__:field:userId": "User ID",
   "tenant:entity:tenant:field:isEnabled": "Enabled",

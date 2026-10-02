@@ -3,9 +3,13 @@ import {
   type AssignableAppRoles,
   type AssignableFromRole,
   assignableAppRolesFromUsages,
+  assignableAppRolesOf,
+  canActorAssignRole,
   findForbiddenRoleAssignment,
   isAssignableByRole,
+  mergeAssignedRoles,
 } from "../role-assignment.js";
+import type { Registry } from "../types/feature.js";
 
 // Mirror DEFAULT_INVITE_ROLE_OPTIONS — framework must not import bundled-features
 // (tsc pulls source into framework's rootDir and fails the package build).
@@ -188,5 +192,77 @@ describe("assignableAppRolesFromUsages", () => {
         assignableAppRolesFromUsages([{ entityName: "X", options: { assignableFrom: bad } }]),
       ).toThrow(/assignableFrom/);
     }
+  });
+});
+
+const APP_ROLES = assignableAppRolesFromUsages([
+  { entityName: "PropertyManager" },
+  { entityName: "Auditor", options: { assignableFrom: "TenantAdmin" } },
+]);
+
+describe("canActorAssignRole", () => {
+  test("Admin grants ranked and default-declared app roles, not higher or platform roles", () => {
+    expect(canActorAssignRole(["Admin"], "Editor", APP_ROLES)).toBe(true);
+    expect(canActorAssignRole(["Admin"], "PropertyManager", APP_ROLES)).toBe(true);
+    expect(canActorAssignRole(["Admin"], "TenantAdmin", APP_ROLES)).toBe(false);
+    expect(canActorAssignRole(["Admin"], "DataProtectionOfficer", APP_ROLES)).toBe(false);
+    expect(canActorAssignRole(["Admin"], "Auditor", APP_ROLES)).toBe(false);
+    expect(canActorAssignRole(["TenantAdmin"], "Auditor", APP_ROLES)).toBe(true);
+  });
+});
+
+describe("mergeAssignedRoles", () => {
+  test("keeps platform and undeclared roles the actor cannot grant", () => {
+    expect(
+      mergeAssignedRoles(
+        ["Admin"],
+        ["Editor"],
+        ["Member", "DataProtectionOfficer", "TenantOwner", "Billing"],
+        APP_ROLES,
+      ),
+    ).toEqual(["Editor", "DataProtectionOfficer", "TenantOwner", "Billing"]);
+  });
+
+  test("drops grantable roles that are not passed", () => {
+    expect(mergeAssignedRoles(["Admin"], ["Admin"], ["Member", "Editor"], APP_ROLES)).toEqual([
+      "Admin",
+    ]);
+  });
+
+  test("does not duplicate a preserved role that is also passed", () => {
+    expect(
+      mergeAssignedRoles(
+        ["TenantAdmin"],
+        ["Editor", "DataProtectionOfficer"],
+        ["DataProtectionOfficer"],
+        APP_ROLES,
+      ),
+    ).toEqual(["Editor", "DataProtectionOfficer"]);
+  });
+
+  test("keeps a higher-tier app role for Admin, drops it for TenantAdmin", () => {
+    expect(mergeAssignedRoles(["Admin"], ["Editor"], ["Auditor"], APP_ROLES)).toEqual([
+      "Editor",
+      "Auditor",
+    ]);
+    expect(mergeAssignedRoles(["TenantAdmin"], ["Editor"], ["Auditor"], APP_ROLES)).toEqual([
+      "Editor",
+    ]);
+  });
+});
+
+describe("assignableAppRolesOf", () => {
+  test("builds once per registry object and returns the same map", () => {
+    let calls = 0;
+    const registry: Pick<Registry, "getExtensionUsages"> = {
+      getExtensionUsages: () => {
+        calls += 1;
+        return [{ entityName: "PropertyManager" }] as never;
+      },
+    };
+    const first = assignableAppRolesOf(registry);
+    expect(assignableAppRolesOf(registry)).toBe(first);
+    expect(first.get("PropertyManager")).toBe("Admin");
+    expect(calls).toBe(1);
   });
 });

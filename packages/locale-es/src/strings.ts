@@ -968,6 +968,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "tenant:entity:__action-form__:field:roles:option:Editor": "Editor",
   "tenant:entity:__action-form__:field:roles:option:Member": "Miembro",
   "tenant:entity:__action-form__:field:roles:option:TenantAdmin": "Admin de organización",
+  "tenant:entity:__action-form__:field:roles:option:TenantOwner": "Propietario de la organización",
+  "tenant:entity:__action-form__:field:roles:option:DataProtectionOfficer":
+    "Delegado de protección de datos",
   "tenant:entity:__action-form__:field:roles:option:User": "Usuario",
   "tenant:entity:__action-form__:field:userId": "ID de usuario",
   "tenant:entity:tenant:field:isEnabled": "Activado",

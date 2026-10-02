@@ -291,8 +291,11 @@ export { resolveConfigOrParam } from "./resolve-config-or-param.js";
 export type { AssignableAppRoles, AssignableFromRole } from "./role-assignment.js";
 export {
   assignableAppRolesFromUsages,
+  assignableAppRolesOf,
+  canActorAssignRole,
   findForbiddenRoleAssignment,
   isAssignableByRole,
+  mergeAssignedRoles,
 } from "./role-assignment.js";
 export { runsInLane } from "./run-in.js";
 export type { StepListOutcome } from "./run-pipeline.js";

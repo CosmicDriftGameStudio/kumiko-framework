@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  createSystemUser,
   defineFeature,
   EXT_ASSIGNABLE_ROLE,
   type SessionUser,
@@ -69,7 +70,7 @@ afterAll(async () => {
 });
 
 describe("app-declared assignable roles via updateMemberRoles", () => {
-  async function freshMember() {
+  async function freshMember(startRoles: string[] = ["Member"]) {
     counter += 1;
     const { id } = await seedUser(stack.db, {
       email: `member-${counter}@example.com`,
@@ -78,7 +79,7 @@ describe("app-declared assignable roles via updateMemberRoles", () => {
       emailVerified: true,
     });
     memberId = id;
-    await seedTenantMembership(stack.db, { userId: id, tenantId, roles: ["Member"] });
+    await seedTenantMembership(stack.db, { userId: id, tenantId, roles: startRoles });
   }
 
   test("TenantAdmin grants an app role declared with the default", async () => {
@@ -129,5 +130,74 @@ describe("app-declared assignable roles via updateMemberRoles", () => {
     expect((await setRoles(["User"], "TenantAdmin")).status).toBe(200);
     expect((await setRoles(["Member"], "TenantAdmin")).status).toBe(200);
     expect(await rolesOfMember()).toEqual(["Member"]);
+  });
+});
+
+describe("updateMemberRoles keeps roles the actor cannot grant", () => {
+  async function freshMember(startRoles: string[]) {
+    counter += 1;
+    const { id } = await seedUser(stack.db, {
+      email: `keep-${counter}@example.com`,
+      displayName: `Keep ${counter}`,
+      passwordHash: "x",
+      emailVerified: true,
+    });
+    memberId = id;
+    await seedTenantMembership(stack.db, { userId: id, tenantId, roles: startRoles });
+  }
+
+  test("Admin save keeps DataProtectionOfficer and reports the merged roles", async () => {
+    await freshMember(["Member", "DataProtectionOfficer"]);
+    const data = await stack.http.writeOk<{ roles: string[] }>(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberId, roles: ["Editor"] },
+      actor("Admin"),
+    );
+    expect(await rolesOfMember()).toEqual(["Editor", "DataProtectionOfficer"]);
+    expect(data.roles).toEqual(["Editor", "DataProtectionOfficer"]);
+  });
+
+  test("TenantAdmin save keeps TenantOwner and undeclared Billing", async () => {
+    await freshMember(["Member", "TenantOwner", "Billing"]);
+    expect((await setRoles(["Editor"], "TenantAdmin")).status).toBe(200);
+    expect(await rolesOfMember()).toEqual(["Editor", "TenantOwner", "Billing"]);
+  });
+
+  test("Admin cannot grant DataProtectionOfficer", async () => {
+    await freshMember(["Member"]);
+    expect((await setRoles(["Member", "DataProtectionOfficer"], "Admin")).status).toBe(403);
+    expect(await rolesOfMember()).toEqual(["Member"]);
+  });
+
+  test("higher-tier app role survives an Admin save but not a TenantAdmin save", async () => {
+    await freshMember(["Member", "Auditor"]);
+    expect((await setRoles(["Editor"], "Admin")).status).toBe(200);
+    expect(await rolesOfMember()).toEqual(["Editor", "Auditor"]);
+
+    await freshMember(["Member", "Auditor"]);
+    expect((await setRoles(["Editor"], "TenantAdmin")).status).toBe(200);
+    expect(await rolesOfMember()).toEqual(["Editor"]);
+  });
+
+  test("SystemAdmin save keeps DataProtectionOfficer", async () => {
+    await freshMember(["Member", "DataProtectionOfficer"]);
+    const res = await stack.http.write(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberId, roles: ["Editor"] },
+      { id: "actor-sysadmin", tenantId, roles: ["SystemAdmin"] },
+    );
+    expect(res.status).toBe(200);
+    expect(await rolesOfMember()).toEqual(["Editor", "DataProtectionOfficer"]);
+  });
+
+  test("system user replaces the full list", async () => {
+    await freshMember(["Member", "DataProtectionOfficer"]);
+    const res = await stack.http.write(
+      TenantHandlers.updateMemberRoles,
+      { userId: memberId, roles: ["Editor"] },
+      createSystemUser(tenantId),
+    );
+    expect(res.status).toBe(200);
+    expect(await rolesOfMember()).toEqual(["Editor"]);
   });
 });

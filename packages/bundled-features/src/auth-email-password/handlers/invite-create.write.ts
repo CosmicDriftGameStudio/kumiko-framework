@@ -21,9 +21,8 @@ import { generateToken } from "@cosmicdrift/kumiko-framework/api";
 import { createEventStoreExecutor } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
-  assignableAppRolesFromUsages,
+  assignableAppRolesOf,
   defineWriteHandler,
-  EXT_ASSIGNABLE_ROLE,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
@@ -117,7 +116,7 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
         event.user.roles,
         [event.payload.role],
         [],
-        assignableAppRolesFromUsages(ctx.registry.getExtensionUsages(EXT_ASSIGNABLE_ROLE)),
+        assignableAppRolesOf(ctx.registry),
       );
       if (
         elevationForbidden !== undefined &&
