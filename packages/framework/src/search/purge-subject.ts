@@ -15,7 +15,7 @@ import { collectSearchableSubjectFields } from "../crypto/subject-resolver.js";
 import type { DbRunner } from "../db/connection.js";
 import { resolveTableName } from "../db/entity-table-meta.js";
 import { executeRawQueryRead } from "../db/queries/raw-sql.js";
-import { tableExists } from "../db/schema-inspection.js";
+import { columnNamesOf, tableExists } from "../db/schema-inspection.js";
 import type { EntityDefinition } from "../engine/types/fields.js";
 import type { EntityId, TenantId } from "../engine/types/identifiers.js";
 import type { FeatureDefinition } from "../engine/types/index.js";
@@ -214,13 +214,17 @@ export async function purgeSearchDocumentsForSubject(
 
   for (const feature of features.values()) {
     for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
-      const fields = collectSearchableSubjectFields(entity);
-      if (fields.length === 0) continue;
+      const declaredFields = collectSearchableSubjectFields(entity);
+      if (declaredFields.length === 0) continue;
       const tableName = resolveTableName(entityName, entity, undefined);
       // Same post-eraseKey hazard as nullBlindIndexesForSubject (fw#2550):
       // a mounted feature without its migration must not abort the purge
       // (and the audit event after it).
       if (!(await tableExists(db, tableName))) continue;
+      // A migrated table can still lack a later-added searchable column.
+      const columns = await columnNamesOf(db, tableName);
+      const fields = declaredFields.filter((f) => columns.has(toSnakeCase(f)));
+      if (fields.length === 0) continue;
       const predicate = buildSubjectPredicate(entity, fields, likePattern, entityName, subject);
       const rows = await collectMatchingRowsForEntity(
         db,

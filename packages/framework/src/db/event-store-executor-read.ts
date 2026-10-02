@@ -147,20 +147,31 @@ function applyMultiSelectFilter(
       return;
     }
     const parts = f.value.map((v) => {
-      params.push([v]);
-      return `${colSql(f.field)} @> $${params.length}::jsonb`;
+      params.push(JSON.stringify([v]));
+      return `${colSql(f.field)} @> $${params.length}::text::jsonb`;
     });
     whereSql.push(`(${parts.join(" OR ")})`);
     // skip: containment condition already pushed — don't fall through to the eq/ne branch below
     return;
   }
-  // Bind a JS array, not JSON.stringify(value) — postgres.js double-encodes
-  // a stringified array through an `::jsonb` cast, so `@>` would never match
-  // (see update-roles.ts:67-68). An array value means "contains all of
-  // these" (the natural `@>` reading).
-  params.push(Array.isArray(f.value) ? f.value : [f.value]);
-  const containment = `${colSql(f.field)} @> $${params.length}::jsonb`;
-  whereSql.push(f.op === "ne" ? `NOT (${containment})` : containment);
+  const candidates = Array.isArray(f.value) ? f.value : [f.value];
+  // `@> '[]'` is true for every non-null row, so an empty array would turn
+  // the filter into a silent match-all.
+  if (candidates.length === 0) {
+    whereSql.push("FALSE");
+    // skip: empty candidate list is unsatisfiable
+    return;
+  }
+  // Bound as text then cast: a JS array makes postgres.js infer boolean[]/int4[]
+  // for client-supplied non-string values, and `boolean[]::jsonb` is rejected
+  // (500 on client input). An array value means "contains all of these".
+  params.push(JSON.stringify(candidates));
+  const containment = `${colSql(f.field)} @> $${params.length}::text::jsonb`;
+  // A NULL column must count as "does not contain" — plain NOT(...) yields
+  // NULL and would drop those rows.
+  whereSql.push(
+    f.op === "ne" ? `(${colSql(f.field)} IS NULL OR NOT (${containment}))` : containment,
+  );
 }
 
 // Falls through to the screen-filter WHERE builder shared with
