@@ -234,7 +234,7 @@ function HeaderOverflow({
       panelRef.current?.querySelectorAll<HTMLElement>(MENU_ITEM_SELECTOR) ?? [],
     );
     if (menuItems.length === 0) return;
-    const current = menuItems.findIndex((item) => item === document.activeElement);
+    const current = menuItems.indexOf(document.activeElement as HTMLElement);
     const last = menuItems.length - 1;
     const next =
       event.key === "Home"

@@ -165,7 +165,8 @@ declare global {
 // on window so a later evaluate can put them back (captureScreenshot runs
 // mid-flow, where the spec keeps asserting and submitting forms).
 function replaceIdentitiesInDocument(mappings: readonly PresentIdentity[]): void {
-  const restorers = (window.__kumikoPresentRestore ??= []);
+  window.__kumikoPresentRestore ??= [];
+  const restorers = window.__kumikoPresentRestore;
   const present = (text: string): string =>
     mappings.reduce((current, { from, to }) => current.replaceAll(from, to), text);
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
