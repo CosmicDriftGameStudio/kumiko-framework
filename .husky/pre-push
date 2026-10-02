@@ -11,11 +11,19 @@ if [ -z "$REPO_ROOT" ]; then
   exit 1
 fi
 
-# Walk up to / so a worktree without its own node_modules resolves via the
-# parent install; `[ -x ]` also skips a broken (uninstalled) symlink.
+# This repo ships the hook itself: prefer the checked-out copy so a push from a
+# `.wt/<name>` worktree runs the branch's hook, not the parent install's
+# (main's) version behind node_modules/.bin.
 BIN=""
+IN_REPO_HOOK="$REPO_ROOT/packages/guards/src/pre-push.sh"
+if [ -x "$IN_REPO_HOOK" ]; then
+  BIN="$IN_REPO_HOOK"
+fi
+
+# Otherwise walk up to / so a worktree without its own node_modules resolves
+# via the parent install; `[ -x ]` also skips a broken (uninstalled) symlink.
 DIR="$REPO_ROOT"
-while true; do
+while [ -z "$BIN" ]; do
   CANDIDATE="$DIR/node_modules/.bin/kumiko-pre-push"
   if [ -x "$CANDIDATE" ]; then
     BIN="$CANDIDATE"

@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { CheckWorkContext } from "./check-work-context";
 
 export type CheckLockPaths = {
   readonly lockDir: string;
@@ -37,6 +38,13 @@ export function checkLockPaths(scope: string | undefined, baseDir = ""): CheckLo
     logPath: join(baseDir, `.kumiko-check.log${suffix}`),
     resultPath: join(baseDir, `.kumiko-check.result${suffix}`),
   };
+}
+
+export function checkLockPathsForContext(
+  workCtx: Pick<CheckWorkContext, "cliScope">,
+  baseDir = "",
+): CheckLockPaths {
+  return checkLockPaths(workCtx.cliScope, baseDir);
 }
 
 export function acquireCheckLock(lockDir: string, logPath: string, resultPath: string): boolean {

@@ -127,6 +127,50 @@ describe("printIntegrationSummary", () => {
     }
   });
 
+  test("fails when bun printed no summary at all, even with exit 0", () => {
+    const logs: string[] = [];
+    const origLog = console.log;
+    const origError = console.error;
+    console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+    console.error = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+
+    try {
+      const { exitCode } = printIntegrationSummary(
+        { includedFiles: ["packages/a/__tests__/one.integration.test.ts"] },
+        { totals: null, exitCode: 0, noMatchingFiles: false },
+        "bulk",
+      );
+
+      expect(exitCode).toBe(1);
+      expect(logs.some((line) => line.includes("MISMATCH"))).toBe(true);
+    } finally {
+      console.log = origLog;
+      console.error = origError;
+    }
+  });
+
+  test("fails when bun reports no matching test files, even if the counts line up", () => {
+    const logs: string[] = [];
+    const origLog = console.log;
+    const origError = console.error;
+    console.log = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+    console.error = (...args: unknown[]) => logs.push(args.map(String).join(" "));
+
+    try {
+      const { exitCode } = printIntegrationSummary(
+        { includedFiles: ["packages/a/__tests__/one.integration.test.ts"] },
+        { totals: { pass: 1, fail: 0, tests: 1, files: 1 }, exitCode: 0, noMatchingFiles: true },
+        "bulk",
+      );
+
+      expect(exitCode).toBe(1);
+      expect(logs.some((line) => line.includes("no matching test files"))).toBe(true);
+    } finally {
+      console.log = origLog;
+      console.error = origError;
+    }
+  });
+
   test("stays green on a clean single-file run", () => {
     const logs: string[] = [];
     const origLog = console.log;

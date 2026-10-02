@@ -2,7 +2,14 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
-import { acquireCheckLock, checkLockPaths, followCheck, parseCliScope } from "../check-lock";
+import {
+  acquireCheckLock,
+  checkLockPaths,
+  checkLockPathsForContext,
+  followCheck,
+  parseCliScope,
+} from "../check-lock";
+import { resolveCheckWorkContext } from "../check-work-context";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -85,6 +92,32 @@ describe("acquireCheckLock / followCheck: scope isolation (infra#722)", () => {
     expect(acquireCheckLock(b.lockDir, b.logPath, b.resultPath)).toBe(true);
   });
 
+  test("a second check for the SAME scope is deduplicated while the holder lives", () => {
+    const base = tempDir();
+    const first = checkLockPaths("kumiko-framework", base);
+    const second = checkLockPaths("kumiko-framework", base);
+
+    expect(acquireCheckLock(first.lockDir, first.logPath, first.resultPath)).toBe(true);
+    expect(acquireCheckLock(second.lockDir, second.logPath, second.resultPath)).toBe(false);
+  });
+
+  test("the check command's lock paths follow KUMIKO_CLI_SCOPE from the environment", () => {
+    const base = tempDir();
+    const previous = process.env["KUMIKO_CLI_SCOPE"];
+    cleanups.push(() => {
+      if (previous === undefined) delete process.env["KUMIKO_CLI_SCOPE"];
+      else process.env["KUMIKO_CLI_SCOPE"] = previous;
+    });
+
+    process.env["KUMIKO_CLI_SCOPE"] = "kumiko-enterprise";
+    const scoped = checkLockPathsForContext(resolveCheckWorkContext(base, base), base);
+    expect(scoped.lockDir).toBe(join(base, ".kumiko-check.lock.kumiko-enterprise"));
+
+    delete process.env["KUMIKO_CLI_SCOPE"];
+    const unscoped = checkLockPathsForContext(resolveCheckWorkContext(base, base), base);
+    expect(unscoped.lockDir).toBe(join(base, ".kumiko-check.lock"));
+  });
+
   test("followCheck for one scope never adopts another scope's result", async () => {
     const base = tempDir();
     const a = checkLockPaths("kumiko-framework", base);
@@ -100,12 +133,14 @@ describe("acquireCheckLock / followCheck: scope isolation (infra#722)", () => {
     // repo A's check is STILL running (no result yet, lock still held) — a
     // caller following B's scope must read B's own fail, never entangled
     // with A's still in-flight run.
+    expect(existsSync(b.lockDir)).toBe(false);
     expect(await followCheck(b.lockDir, b.logPath, b.resultPath)).toBe(1);
     expect(existsSync(a.resultPath)).toBe(false);
 
     // repo A finishes clean, independent of B's fail.
     writeFileSync(a.resultPath, "0");
     rmSync(a.lockDir, { recursive: true, force: true });
+    expect(existsSync(a.lockDir)).toBe(false);
     expect(await followCheck(a.lockDir, a.logPath, a.resultPath)).toBe(0);
   });
 });
