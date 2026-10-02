@@ -698,6 +698,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     readonly name: string;
     readonly data: Record<string, unknown>;
     readonly attemptsMade: number;
+    /** False for inline invocations (boot gates): nothing retries a throw. */
+    readonly retryable?: boolean;
   };
 
   async function reportPreRunFailure(
@@ -864,7 +866,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     }
     // BullMQ stops retrying once attemptsMade reaches the configured attempts
     // (`retries + 1`), so this is the attempt whose failure is final.
-    const finalAttempt = attempt >= (jobDef.retries ?? 0) + 1;
+    const finalAttempt = bullJob.retryable === false || attempt >= (jobDef.retries ?? 0) + 1;
     const outcomeMeta = (messageKey: string | null): JobOutcomeMeta => ({
       tenantId,
       finalAttempt,
@@ -1146,7 +1148,13 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       if (laneForJob(jobDef) !== lane) continue;
       if (!jobDef.bootGate) continue;
       try {
-        await handleJob({ id: bootJobIdForJobName(name), name, data: {}, attemptsMade: 0 });
+        await handleJob({
+          id: bootJobIdForJobName(name),
+          name,
+          data: {},
+          attemptsMade: 0,
+          retryable: false,
+        });
       } catch (err) {
         // The worker is already consuming here; leaving its Redis connections
         // open would keep the event loop alive and turn the aborted boot into

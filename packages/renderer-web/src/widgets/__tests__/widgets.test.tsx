@@ -463,6 +463,20 @@ describe("StatusBarChart", () => {
     expect(container.querySelectorAll("title").length).toBe(3); // aria title + 2 entry tooltips
   });
 
+  test("dense: level 0 bleibt als sichtbare Bar mit Tooltip erhalten", () => {
+    const { container } = render(
+      <StatusBarChart
+        dense
+        highlightLast={false}
+        ariaLabel="Zahlungsmonate"
+        entries={[{ key: "m1", level: 0, tone: "bad", label: "Februar: offen" }]}
+      />,
+    );
+    const rect = container.querySelector("rect");
+    expect(Number(rect?.getAttribute("height"))).toBeGreaterThan(0);
+    expect(rect?.querySelector("title")?.textContent).toBe("Februar: offen");
+  });
+
   test("dense: leere Entries reservieren keine 36px-Höhe", () => {
     const { container } = render(<StatusBarChart dense ariaLabel="Leer" entries={[]} />);
     const placeholder = container.querySelector("div[aria-hidden]");

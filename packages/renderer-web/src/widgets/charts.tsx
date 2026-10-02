@@ -75,7 +75,8 @@ export function StatusBarChart({
         {entries.map((entry, idx) => {
           const x = idx * (barWidth + barGap);
           const level = Math.max(0, Math.min(1, entry.level));
-          const barHeight = (chartHeight - tickHeight) * level;
+          // Dense has no tick rect, so level 0 would otherwise render nothing and lose its tooltip.
+          const barHeight = Math.max((chartHeight - tickHeight) * level, dense ? 1 : 0);
           const barY = chartHeight - barHeight;
           const isLast = highlightLast && idx === lastIdx;
           const color = TONE_VAR[entry.tone];

@@ -109,6 +109,7 @@ describe("metrics aggregates", () => {
 
   test("groupBy with bucket yields one gap-filled series per group", async () => {
     const result = await run(byStatusOverTimeMetric, TENANT_A, { range: "7d" });
+    expect(result.points).toEqual([]);
     const failed = result.series.find((series) => series.key === "failed");
     expect(failed?.points).toHaveLength(7);
     const failedAt = (iso: string): number | null =>

@@ -1441,6 +1441,29 @@ describe("boot gates", () => {
     }
   });
 
+  test("a gate with retries still sees finalAttempt on its only run", async () => {
+    const seen: boolean[] = [];
+    const feature = defineFeature("retrygate", (r) => {
+      r.job(
+        "check",
+        { trigger: { manual: true }, bootGate: true, retries: 2 },
+        async (_payload, ctx) => {
+          seen.push(ctx.finalAttempt);
+          throw new Error(GATE_FAILURE);
+        },
+      );
+    });
+    const prefix = uniquePrefix();
+    const runner = createGateRunner(feature, prefix);
+    try {
+      await expect(runner.start()).rejects.toThrow(GATE_FAILURE);
+      expect(seen).toEqual([true]);
+    } finally {
+      await runner.stop();
+      await purge(prefix);
+    }
+  });
+
   test("a gate runs on every start, unlike a deduped runOnBoot job", async () => {
     const feature = defineFeature("everygate", (r) => {
       r.job("check", { trigger: { manual: true }, bootGate: true }, async () => {

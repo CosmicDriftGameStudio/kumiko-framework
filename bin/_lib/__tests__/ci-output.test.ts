@@ -158,6 +158,23 @@ describe("CI output formatting", () => {
     expect(result).toContain("line 49");
   });
 
+  test("does not spend window slots on fails already in the head or in a previous window", () => {
+    const noiseLine = "Warning: act() noise";
+    const failLine = (n: number) => `(fail) probe ${n} fails [1ms]`;
+    const headFails = Array.from({ length: 5 }, (_, i) => failLine(i));
+    const middle = [
+      ...Array.from({ length: 295 }, () => noiseLine),
+      failLine(5),
+      failLine(6),
+      ...Array.from({ length: 295 }, () => noiseLine),
+    ];
+    const output = [...headFails, ...middle].join("\n");
+
+    const result = formatCompactFailure("Head fails", 1, output, { env: {} });
+
+    for (let i = 0; i < 7; i++) expect(result).toContain(failLine(i));
+  });
+
   test("keeps repeated identical lines inside a failure window without deduping", () => {
     const noiseLine = "Warning: act() noise";
     const before = Array.from({ length: 300 }, () => noiseLine);
