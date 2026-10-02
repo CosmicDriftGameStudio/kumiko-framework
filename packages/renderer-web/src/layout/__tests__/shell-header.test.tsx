@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AppSchema, FeatureSchema } from "@cosmicdrift/kumiko-renderer";
-import { NavProvider } from "@cosmicdrift/kumiko-renderer";
+import { NavProvider, PageHeaderCompactProvider } from "@cosmicdrift/kumiko-renderer";
 import { render, renderWithSidebar, screen } from "../../__tests__/test-utils.js";
 import { DefaultPageHeader } from "../../primitives/page-header.js";
 import { PageHeaderSlotProvider } from "../page-header-slot.js";
@@ -132,6 +132,39 @@ describe("ShellHeader", () => {
     expect(container?.className).toContain("sm:max-w-none");
     expect(container?.className).toContain("min-w-0");
     expect(actions?.className).toContain("min-w-0");
+  });
+
+  test("phone: wide actions shrink inside a capped container, the h1 keeps truncating and the overflow trigger never shrinks", () => {
+    // Compact set directly: the shared CI happy-dom does not reliably report
+    // a resized viewport through matchMedia.
+    renderWithSidebar(
+      <NavProvider value={routedNav}>
+        <PageHeaderSlotProvider>
+          <PageHeaderCompactProvider value={true}>
+            <ShellHeader schema={routedSchema} headerActions={<span>app actions</span>} />
+          </PageHeaderCompactProvider>
+          <DefaultPageHeader
+            title="Order 17"
+            actions={
+              <button type="button" data-testid="wide-action">
+                A very long primary action label that would push the title out
+              </button>
+            }
+          />
+        </PageHeaderSlotProvider>
+      </NavProvider>,
+    );
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading.className).toContain("truncate");
+    const actions = document.querySelector("[data-kumiko-layout='page-header-actions']");
+    expect(actions?.contains(screen.getByTestId("wide-action"))).toBe(true);
+    expect(actions?.className).toContain("min-w-0");
+    expect(actions?.className.split(" ")).toContain("overflow-hidden");
+    expect(actions?.className).toContain("[&_button]:whitespace-nowrap");
+    const container = actions?.parentElement;
+    expect(container?.className).toContain("max-w-[60%]");
+    expect(container?.className).toContain("min-w-0");
+    expect(screen.getByTestId("shell-header-overflow-trigger").className).toContain("shrink-0");
   });
 
   test("PageHeader portals status and actions into the header slots", () => {

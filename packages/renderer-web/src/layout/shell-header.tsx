@@ -162,16 +162,15 @@ export function ShellHeader({
       <div
         className={cn(
           "ml-auto flex items-center gap-2",
-          compact ? "shrink-0" : "min-w-0 max-w-[50%] shrink-0 sm:max-w-none",
+          compact ? "min-w-0 max-w-[60%]" : "min-w-0 max-w-[50%] shrink-0 sm:max-w-none",
         )}
       >
         <div
           ref={setActionsElement}
           data-kumiko-layout="page-header-actions"
           className={cn(
-            "flex items-center gap-2 empty:hidden",
-            !compact &&
-              "min-w-0 [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap",
+            "flex min-w-0 items-center gap-2 empty:hidden [&_*]:min-w-0 [&_*]:max-w-full [&_button]:overflow-hidden [&_button]:whitespace-nowrap",
+            compact && "overflow-hidden",
           )}
         />
         {!compact && headerActions !== undefined && (
