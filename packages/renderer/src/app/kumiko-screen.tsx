@@ -135,6 +135,7 @@ import {
 } from "./return-to.js";
 import {
   buildDefaultEditRowAction,
+  buildDrawerRowAction,
   buildProjectionRowActions,
   buildProjectionToolbarActions,
   buildRecordActions,
@@ -2208,27 +2209,7 @@ function EntityListBody({
           };
         }
         if (action.kind === "drawer") {
-          const drawerAction = action;
-          const actionVisible = action.visible;
-          const actionIcon = resolveActionIcon(action.id, action.icon);
-          return {
-            id: action.id,
-            label: effectiveTranslate(action.label),
-            ...(action.style !== undefined && { style: action.style }),
-            ...(action.display !== undefined && { display: action.display }),
-            confirmRequired: false,
-            ...(actionIcon !== undefined && { icon: actionIcon }),
-            onTrigger: (row: ListRowViewModel) => {
-              const initialValues =
-                drawerAction.params !== undefined
-                  ? evalRowExtractor(drawerAction.params, row.values)
-                  : undefined;
-              openDrawer(drawerAction, initialValues);
-            },
-            ...(actionVisible !== undefined && {
-              isVisible: (row: ListRowViewModel) => evalFieldCondition(actionVisible, row.values),
-            }),
-          };
+          return buildDrawerRowAction(action, effectiveTranslate, openDrawer);
         }
         if (dispatcher === undefined) return null;
         if (!isWriteHandlerRowAction(action)) return null;
@@ -3191,7 +3172,7 @@ function ProjectionDetailBody({
   // useQuery call re-runs too (it has no `live` subscription of its own).
   const [reloadNonce, setReloadNonce] = useState(0);
   const reloadDetail = useCallback(async () => {
-    await detailQuery.refetch();
+    await refetchAfterWrite(detailQuery.refetch);
     setReloadNonce((n) => n + 1);
   }, [detailQuery.refetch]);
 

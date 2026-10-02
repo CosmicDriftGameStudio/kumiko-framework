@@ -173,7 +173,7 @@ function warnDrawerActionDropped(
   );
 }
 
-function buildDrawerRowAction(
+export function buildDrawerRowAction(
   action: RowActionDrawer,
   translate: Translate,
   openDrawer: OpenDrawer,

@@ -191,16 +191,9 @@ describe("Drawer", () => {
         </Drawer>,
       );
       const content = screen.getByTestId("drawer");
-      // Inline style (not a class) — className keeps `inset-y-0` since
-      // tailwind-merge doesn't dedupe it against `top-*`/`bottom-*`; style
-      // wins over the class regardless, so this is the reliable assertion.
       expect(content.style.top).toBe("var(--shell-header-height)");
       expect(content.style.bottom).toBe("0px");
       expect(content.className).toContain("inset-y-0");
-      // h-full would force 100% viewport height and push the bottom edge
-      // (and the footer slot) past the viewport once top is also shifted
-      // down — h-auto lets bottom-0 (via the inline style above) determine
-      // the height instead, so the panel's bottom edge stays on-screen.
       expect(content.className).not.toContain("h-full");
       expect(content.className).toContain("h-auto");
     });
