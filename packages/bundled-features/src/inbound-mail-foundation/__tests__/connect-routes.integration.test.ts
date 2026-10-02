@@ -275,3 +275,55 @@ describe("connect-routes — oauth callback", () => {
     expect(body.error.code).toBe("no_refresh_token");
   });
 });
+
+describe("connect-routes — oauth callback without a secrets context", () => {
+  let bareStack: TestStack;
+
+  beforeAll(async () => {
+    bareStack = await setupTestStack({
+      features: [
+        createConfigFeature(),
+        createTenantFeature(),
+        createComplianceProfilesFeature(),
+        createTenantLifecycleFeature(),
+        inboundMailFoundationFeature,
+        inboundProviderInMemoryFeature,
+        oauthTestProviderFeature,
+      ],
+      extraRoutes: createInboundMailConnectRoutes({
+        stateSecret: STATE_SECRET,
+        callbackUrl: CALLBACK_URL,
+      }),
+    });
+    await unsafeCreateEntityTable(bareStack.db, tenantEntity);
+    await unsafeCreateEntityTable(bareStack.db, tenantComplianceProfileEntity);
+    await unsafeCreateEntityTable(bareStack.db, syncCursorEntity);
+    await unsafeCreateEntityTable(bareStack.db, seenMessageEntity);
+  });
+
+  afterAll(async () => {
+    await bareStack.cleanup();
+  });
+
+  test("500 secrets_context_missing and no orphan mail account is created", async () => {
+    const user = adminFor(4308);
+    const token = await bareStack.jwt.sign(user);
+    const connectRes = await bareStack.app.request(
+      `${CONNECT_PATH}?provider=${OAUTH_PROVIDER_KEY}&scope=shared&mailbox=nosecrets@acme.test`,
+      { headers: { Authorization: `Bearer ${token}` }, redirect: "manual" },
+    );
+    const state = new URL(connectRes.headers.get("location")!).searchParams.get("state");
+
+    const res = await bareStack.app.request(
+      `${CALLBACK_PATH}?code=ok&state=${encodeURIComponent(state!)}`,
+    );
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("secrets_context_missing");
+
+    const accounts = await selectMany(bareStack.db, mailAccountsProjectionTable, {
+      tenantId: user.tenantId,
+    });
+    expect(accounts).toHaveLength(0);
+  });
+});

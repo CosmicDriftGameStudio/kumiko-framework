@@ -151,6 +151,17 @@ export function createInboundMailConnectRoutes(
       deps: SignatureExtraRouteDeps,
     ): Promise<Response> => {
       const { code, state } = verified;
+      // Checked before exchangeCode/connectAccount: the code is single-use and
+      // an account created without a persistable refresh token is an orphan.
+      // `deps.secrets` is optional on SignatureExtraRouteDeps.
+      if (!deps.secrets) {
+        return errorJson(
+          c,
+          500,
+          "secrets_context_missing",
+          `${INBOUND_MAIL_FOUNDATION_FEATURE}: no secrets context wired for the oauth callback route — the refresh token cannot be persisted`,
+        );
+      }
       const providerCtx = { registry: deps.registry, secrets: deps.secrets, config: undefined };
 
       let plugin: ReturnType<typeof resolveInboundProviderForKey>;
@@ -218,16 +229,7 @@ export function createInboundMailConnectRoutes(
 
       // Refresh-token into the per-account secret slot (Slot = accountId).
       // Access tokens (~1h) are NEVER persisted — refresh-before-poll in the
-      // sync path. `deps.secrets` is optional on SignatureExtraRouteDeps —
-      // without it the token would be silently lost, so fail loud instead.
-      if (!deps.secrets) {
-        return errorJson(
-          c,
-          500,
-          "secrets_context_missing",
-          `${INBOUND_MAIL_FOUNDATION_FEATURE}: no secrets context wired for the oauth callback route — the refresh token cannot be persisted`,
-        );
-      }
+      // sync path.
       await deps.secrets.set(
         state.tenantId,
         inboundCredentialSecretKey(accountId),

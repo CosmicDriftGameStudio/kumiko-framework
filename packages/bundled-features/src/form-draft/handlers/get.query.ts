@@ -25,6 +25,14 @@ export const getDraftQuery = defineQueryHandler({
     );
     if (!row) return { draft: null };
     const parsed = formDraftBlobSchema.safeParse(row.draft);
-    return { draft: parsed.success ? parsed.data : null };
+    if (!parsed.success) {
+      // Schema evolution or a corrupt jsonb row: surface it to operators
+      // instead of silently making the user's draft vanish.
+      ctx.log?.warn?.(
+        `[form-draft:get] stored blob for draftKey=${query.payload.draftKey} failed schema, treating as absent: ${parsed.error.message}`,
+      );
+      return { draft: null };
+    }
+    return { draft: parsed.data };
   },
 });
