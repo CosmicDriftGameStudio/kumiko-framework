@@ -7,8 +7,10 @@ import type {
 } from "@cosmicdrift/kumiko-headless";
 import {
   filterEditSections,
+  findFirstErroringSectionIndex,
   hasEditableSection,
   hasIssueWithoutRenderedField,
+  isDispatcherRejection,
   resolveExtensionEntityId,
   shouldNotifyCaller,
 } from "../render-edit-logic.js";
@@ -311,4 +313,48 @@ describe("hasIssueWithoutRenderedField", () => {
   test("empty issue list → true (single-section path always shows the banner then)", () => {
     expect(hasIssueWithoutRenderedField([], [namedFieldsSection("title")])).toBe(true);
   });
+});
+
+function fieldVm(name: string, visible: boolean): EditFieldViewModel {
+  return { ...field(false), field: name, visible };
+}
+
+function sectionOf(fields: readonly EditFieldViewModel[], visible = true): EditSectionViewModel {
+  return { kind: "fields", columns: 1, visible, fields };
+}
+
+describe("findFirstErroringSectionIndex", () => {
+  test("skips a tab whose only errored field is hidden and lands on the tab that renders the error", () => {
+    const sections = [sectionOf([fieldVm("b", false)]), sectionOf([fieldVm("count", true)])];
+    expect(findFirstErroringSectionIndex(sections, ["b", "count"])).toBe(1);
+  });
+
+  test("skips a hidden section", () => {
+    const sections = [sectionOf([fieldVm("a", true)], false), sectionOf([fieldVm("a", true)])];
+    expect(findFirstErroringSectionIndex(sections, ["a"])).toBe(1);
+  });
+
+  test("matches dotted embedded-list paths on the first segment", () => {
+    const sections = [sectionOf([fieldVm("tasks", true)])];
+    expect(findFirstErroringSectionIndex(sections, ["tasks.2.title"])).toBe(0);
+  });
+
+  test("undefined when no rendered field carries the error", () => {
+    expect(
+      findFirstErroringSectionIndex([sectionOf([fieldVm("b", false)])], ["b"]),
+    ).toBeUndefined();
+  });
+});
+
+describe("isDispatcherRejection", () => {
+  test("accepts a DispatcherError", () => {
+    expect(isDispatcherRejection(error)).toBe(true);
+  });
+
+  test.each([[true], [{ isSuccess: true }], [null], [undefined], ["x"]])(
+    "rejects non-error return value %p",
+    (value) => {
+      expect(isDispatcherRejection(value)).toBe(false);
+    },
+  );
 });

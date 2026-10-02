@@ -98,4 +98,19 @@ describe("RenderEdit valueDisplay (fw#2245)", () => {
     expect(nameInput).not.toBeNull();
     expect(nameInput?.value).toBe("Ada");
   });
+
+  test("a stored row currency that is not an ISO-4217 code falls back instead of crashing the screen", () => {
+    render(
+      <RenderEdit
+        screen={makeScreen()}
+        entity={accountEntity}
+        featureName="accounts"
+        initial={{ name: "Ada", active: true, balance: { amount: 500, currency: "XX!" } }}
+        customSubmit={noopSubmit}
+        valueDisplay="text"
+      />,
+    );
+
+    expect(screen.getByTestId("field-value-balance").textContent).toContain("500.00");
+  });
 });

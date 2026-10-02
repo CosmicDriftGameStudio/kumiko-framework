@@ -67,8 +67,10 @@ import { GridCellForField } from "./grid-cell-for-field.js";
 import { RelatedListSection } from "./related-list-section.js";
 import {
   filterEditSections,
+  findFirstErroringSectionIndex,
   hasEditableSection,
   hasIssueWithoutRenderedField,
+  isDispatcherRejection,
   resolveExtensionEntityId,
   shouldNotifyCaller,
 } from "./render-edit-logic.js";
@@ -178,27 +180,48 @@ type DryRunSnapshot = {
   readonly fields: Readonly<Record<string, { readonly visible: boolean }>>;
 };
 
+type DryRunParse = {
+  readonly issues: ReturnType<typeof zodErrorToFieldIssues>;
+  readonly hiddenFields: ReadonlySet<string>;
+};
+
 // Dry-run parse against `schema` — NOT controller.validate(), which writes
-// field errors into the snapshot. Issues are filtered exactly like the
-// controller's validate(): hidden fields never count, `scope` narrows.
+// field errors into the snapshot. Undefined when the values parse cleanly.
+// Parse once, then narrow per scope with scopedDryRunIssues: the wizard step
+// check would otherwise re-parse the whole form per section on every keystroke.
+function dryRunParse(schema: z.ZodType, snapshot: DryRunSnapshot): DryRunParse | undefined {
+  const parsed = schema.safeParse(snapshot.values);
+  if (parsed.success) return undefined;
+  const hiddenFields = new Set(
+    Object.entries(snapshot.fields)
+      .filter(([, state]) => !state.visible)
+      .map(([fieldKey]) => fieldKey),
+  );
+  return { issues: zodErrorToFieldIssues(parsed.error), hiddenFields };
+}
+
+// Issues are filtered exactly like the controller's validate(): hidden
+// fields never count, `scope` narrows.
+function scopedDryRunIssues(
+  parse: DryRunParse | undefined,
+  scope: readonly string[] | undefined,
+  includeRoot: boolean,
+): ReturnType<typeof relevantFieldIssues> {
+  if (parse === undefined) return [];
+  return relevantFieldIssues(parse.issues, {
+    hiddenFields: parse.hiddenFields,
+    ...(scope !== undefined && { scope }),
+    includeRoot,
+  });
+}
+
 function dryRunFieldIssues(
   schema: z.ZodType,
   snapshot: DryRunSnapshot,
   scope: readonly string[] | undefined,
   includeRoot: boolean,
 ): ReturnType<typeof relevantFieldIssues> {
-  const parsed = schema.safeParse(snapshot.values);
-  if (parsed.success) return [];
-  const hiddenFields = new Set(
-    Object.entries(snapshot.fields)
-      .filter(([, state]) => !state.visible)
-      .map(([fieldKey]) => fieldKey),
-  );
-  return relevantFieldIssues(zodErrorToFieldIssues(parsed.error), {
-    hiddenFields,
-    ...(scope !== undefined && { scope }),
-    includeRoot,
-  });
+  return scopedDryRunIssues(dryRunParse(schema, snapshot), scope, includeRoot);
 }
 
 // Index-independent: indices shift when a fields section hides.
@@ -226,13 +249,10 @@ function isEmptyFormValue(value: unknown): boolean {
 // whether the step was filled in. They still count through the validation.
 function isFieldsStepFilled(
   section: FieldsSectionViewModel,
-  schema: z.ZodType | undefined,
-  snapshot: DryRunSnapshot,
+  parse: DryRunParse | undefined,
 ): boolean {
   const fieldNames = section.fields.map((f) => f.field);
-  if (schema !== undefined && dryRunFieldIssues(schema, snapshot, fieldNames, false).length > 0) {
-    return false;
-  }
+  if (scopedDryRunIssues(parse, fieldNames, false).length > 0) return false;
   return section.fields.some(
     (f) =>
       f.visible &&
@@ -573,8 +593,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // Both stepped layouts show one section at a time and keep the rest mounted
   // but inert. A tabs layout on a host without the Tabs primitive has no strip
   // to switch with, so it falls back to rendering every section stacked rather
-  // than stranding the user on section 0 (fw#3134).
-  const isStepped = isWizard || (isTabs && Tabs !== undefined);
+  // than stranding the user on section 0 (fw#3134). Same fallback when the
+  // WizardStepGroup wrapper is missing.
+  const isStepped = isWizard || (isTabs && Tabs !== undefined && WizardStepGroup !== undefined);
   const fields = useMemo(() => deriveFormFields<TValues, TCtx>(screen), [screen]);
 
   // Must be computed before submitConfig/useForm bakes it in (the controller
@@ -991,10 +1012,13 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
 
   const wizardDoneSteps = useMemo(() => {
     if (!isWizard || isCreateMode) return undefined;
-    const snapshotForDryRun = { values: snapshot.values, fields: snapshot.fields };
+    const parse =
+      schema === undefined
+        ? undefined
+        : dryRunParse(schema, { values: snapshot.values, fields: snapshot.fields });
     return filteredSections.map((section, index) => {
       if (passedStepKeys.has(wizardStepKey(section, index))) return true;
-      if (section.kind === "fields") return isFieldsStepFilled(section, schema, snapshotForDryRun);
+      if (section.kind === "fields") return isFieldsStepFilled(section, parse);
       return (
         section.kind === "extension" &&
         extensionStepComplete[wizardStepKey(section, index)] === true
@@ -1184,11 +1208,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   // jump targets by design: they validate through the controlled-mode
   // controls.validate() API and own no field specs to match against.
   function findFirstErroringStep(fieldPaths: readonly string[]): number | undefined {
-    const erroredFields = new Set(fieldPaths.map((p) => p.split(".")[0]));
-    const idx = filteredSections.findIndex(
-      (s) => s.kind === "fields" && s.fields.some((f) => erroredFields.has(f.field)),
-    );
-    return idx === -1 ? undefined : idx;
+    return findFirstErroringSectionIndex(filteredSections, fieldPaths);
   }
 
   async function handleSubmit(options?: { readonly saveNow?: boolean }): Promise<void> {
@@ -1855,6 +1875,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             </>
           )}
           {isTabs &&
+            isStepped &&
             (() => {
               // No Tabs primitive registered → every section renders stacked
               // (stepHidden below is gated on the same condition), which is the
@@ -2232,7 +2253,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 const rejection = await onDelete();
                 // A rejected delete (e.g. a preDelete hook) carries its reason in
                 // the field issues; the top-level key is only "validation failed".
-                if (rejection !== undefined) {
+                if (isDispatcherRejection(rejection)) {
                   const [issue, ...otherIssues] = rejection.details?.fields ?? [];
                   setExtraDeleteIssues(otherIssues);
                   setFormError(

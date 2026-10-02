@@ -26,6 +26,7 @@ import {
   createMockDispatcher,
   fireEvent,
   render,
+  renderWithPrimitivesOverride,
   screen,
   waitFor,
   within,
@@ -4559,6 +4560,25 @@ describe("RenderEdit tabs mode (fw#3134)", () => {
     // Mounted (getBy, not queryBy) but inert — that is what lets one submit
     // carry a tab the user never opened.
     expect(screen.getByTestId("field-count").closest("[hidden]")).not.toBeNull();
+  });
+
+  test("a host with Tabs but no WizardStepGroup falls back to a stacked form instead of throwing", () => {
+    renderWithPrimitivesOverride(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <RenderEdit<TestValues>
+          screen={makeTabsScreen()}
+          entity={orderEntity}
+          featureName="orders"
+          initial={{ title: "", count: 0 }}
+          writeCommand="order:create"
+        />
+      </DispatcherProvider>,
+      { WizardStepGroup: undefined },
+    );
+
+    expect(screen.queryByTestId("render-edit-tabs")).toBeNull();
+    expect(screen.getByTestId("field-title").closest("[hidden]")).toBeNull();
+    expect(screen.getByTestId("field-count").closest("[hidden]")).toBeNull();
   });
 
   test("the submit button shows on every tab, and there is no wizard Next", () => {

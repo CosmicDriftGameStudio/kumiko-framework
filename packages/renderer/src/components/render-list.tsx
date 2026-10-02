@@ -12,7 +12,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import { computeListViewModel } from "@cosmicdrift/kumiko-headless";
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { extensionSectionName, useExtensionSectionComponent } from "../app/extension-sections.js";
 import type { ListSort } from "../hooks/use-list-url-state.js";
 import { type ReferenceLookupMap, useReferenceLookup } from "../hooks/use-reference-lookup.js";
@@ -234,14 +234,23 @@ export function RenderList(props: RenderListProps): ReactNode {
   // mount and can flush after a keystroke landing in the same commit,
   // resetting localQ and swallowing the input.
   const [syncedSearchValue, setSyncedSearchValue] = useState(searchValue);
+  // The parent may echo our own debounced emit back late (router/URL round
+  // trip); adopting that stale echo would erase keys typed in between.
+  const lastEmittedRef = useRef<string | undefined>(undefined);
   if (searchValue !== syncedSearchValue) {
     setSyncedSearchValue(searchValue);
-    setLocalQ(searchValue ?? "");
+    if (searchValue !== lastEmittedRef.current) {
+      setLocalQ(searchValue ?? "");
+      lastEmittedRef.current = undefined;
+    }
   }
   useEffect(() => {
     if (onSearchChange === undefined) return;
     if (localQ === (searchValue ?? "")) return;
-    const timer = setTimeout(() => onSearchChange(localQ), SEARCH_DEBOUNCE_MS);
+    const timer = setTimeout(() => {
+      lastEmittedRef.current = localQ;
+      onSearchChange(localQ);
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [localQ, searchValue, onSearchChange]);
 

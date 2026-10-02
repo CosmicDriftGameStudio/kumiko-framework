@@ -926,13 +926,14 @@ function numberValue(v: unknown): number | "" {
 // stored-config coercion) is MAJOR units too — every producer in this repo
 // hands rehydrateMoney's `{amount,…}` shape or a raw major-unit number, never
 // pre-scaled minor units.
+// A stored row can carry a legacy/imported currency that is not an ISO-4217
+// shape; Intl.NumberFormat throws a RangeError on it and would crash the screen.
+const ISO_CURRENCY_CODE = /^[A-Z]{3}$/;
+
 function resolveMoneyCurrency(value: unknown, fieldCurrency: string | undefined): string {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { currency?: unknown }).currency === "string"
-  ) {
-    return (value as { currency: string }).currency;
+  if (typeof value === "object" && value !== null && "currency" in value) {
+    const { currency } = value;
+    if (typeof currency === "string" && ISO_CURRENCY_CODE.test(currency)) return currency;
   }
   return fieldCurrency ?? "EUR";
 }

@@ -473,6 +473,41 @@ describe("EmbeddedListField — reference column populated via useQuery", () => 
   });
 });
 
+describe("EmbeddedListField — reference cell set changing in place", () => {
+  test("dropping the reference cell between renders does not break the hook order", async () => {
+    const withReference = invoiceLinesField({ value: [] });
+    const withoutReference = invoiceLinesField({
+      value: [],
+      embeddedListCells: (withReference.embeddedListCells ?? []).filter(
+        (c) => c.type !== "reference",
+      ),
+    });
+    const tree = (field: EditFieldViewModel) => (
+      <LocaleProvider
+        resolver={createStaticLocaleResolver()}
+        fallbackBundles={[kumikoDefaultTranslations]}
+      >
+        <DispatcherProvider dispatcher={stubDispatcher()}>
+          <PrimitivesProvider value={testPrimitives()}>
+            <EmbeddedListField
+              field={field}
+              id="lines"
+              onChange={() => {}}
+              allIssues={{}}
+              featureName="invoices"
+            />
+          </PrimitivesProvider>
+        </DispatcherProvider>
+      </LocaleProvider>
+    );
+    const { rerender } = render(tree(withReference));
+    await act(async () => {});
+    expect(() => rerender(tree(withoutReference))).not.toThrow();
+    await act(async () => {});
+    expect(captured?.columns.some((c) => c.type === "reference")).toBe(false);
+  });
+});
+
 describe("EmbeddedListField — issue grouping wiring", () => {
   test("a lines.0.amount issue is routed as a cellIssue at 0.amount", async () => {
     const rows = [{ product: "p1", unit: "pcs", quantity: 1, unitPrice: 100, amount: 100 }];
