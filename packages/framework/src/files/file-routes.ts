@@ -201,6 +201,8 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
   async function resolveFileName(fileRef: FileRef): Promise<string> {
     if (!isPiiCiphertext(fileRef.fileName)) return fileRef.fileName;
     const kms = configuredPiiSubjectKms();
+    // skip: the framework has no logger at this route layer and the file bytes are
+    // still served; the "download" fallback only hides the stored ciphertext name.
     if (!kms) {
       return "download";
     }

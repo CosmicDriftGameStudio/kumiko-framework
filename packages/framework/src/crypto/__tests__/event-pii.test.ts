@@ -315,7 +315,7 @@ describe("encryptEventPayloadPii", () => {
   test("null subject field without a whenAbsent stance fails the append closed", async () => {
     catalogWithAttempt();
     configurePiiSubjectKms(new InMemoryKmsAdapter());
-    expect(encryptEventPayloadPii(EVENT_TYPE, systemPayload, ENVELOPE)).rejects.toThrow(
+    await expect(encryptEventPayloadPii(EVENT_TYPE, systemPayload, ENVELOPE)).rejects.toThrow(
       /carries no id and the event declares no whenAbsent fallback/,
     );
   });
@@ -390,7 +390,7 @@ describe("encryptEventPayloadPii", () => {
     catalogWithAttempt();
     configurePiiSubjectKms(new InMemoryKmsAdapter());
     const broken = { recipientId: "u-1", recipientAddress: 42, status: "sent" };
-    expect(encryptEventPayloadPii(EVENT_TYPE, broken, ENVELOPE)).rejects.toThrow(
+    await expect(encryptEventPayloadPii(EVENT_TYPE, broken, ENVELOPE)).rejects.toThrow(
       /must be a string/,
     );
   });

@@ -407,6 +407,23 @@ describe("findChangesetViolations", () => {
       }
     });
 
+    it("falls back to origin/main when GITHUB_BASE_SHA and GITHUB_BASE_REF are empty strings", () => {
+      const { root, repo, git } = makeRepo();
+      try {
+        git(["switch", "-q", "-c", "feature"]);
+        commitPlainChangeset(repo, git);
+
+        const violations = findChangesetViolations(repo, undefined, {
+          GITHUB_BASE_SHA: "",
+          GITHUB_BASE_REF: "",
+          GITHUB_EVENT_NAME: "workflow_dispatch",
+        });
+        expect(violations.map((v) => v.file)).toEqual([".changeset/plain.md"]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
     it("does not pass a non-SHA GITHUB_BASE_SHA to git", () => {
       const { root, repo } = makeRepo();
       try {
