@@ -301,7 +301,12 @@ export {
 export { runsInLane } from "./run-in.js";
 export type { StepListOutcome } from "./run-pipeline.js";
 export { runPipeline, runStepList } from "./run-pipeline.js";
-export { buildInsertSchema, buildUpdateSchema, fieldToZod } from "./schema-builder.js";
+export {
+  buildInsertSchema,
+  buildUpdateSchema,
+  fieldToZod,
+  SYSTEM_ONLY_JSON_SCHEMA_KEY,
+} from "./schema-builder.js";
 export {
   isExtensionEditSection,
   isFieldsEditSection,

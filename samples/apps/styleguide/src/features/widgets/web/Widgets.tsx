@@ -210,8 +210,12 @@ export function Widgets(): ReactNode {
       </Drawer>
 
       <SectionCard
-        title="Drawer (below header)"
-        action={<Button onClick={() => setBelowHeaderDrawerOpen(true)}>Open below header</Button>}
+        title={t("widgets:catalog:drawer-below-header")}
+        action={
+          <Button testId="drawer-below-header-open" onClick={() => setBelowHeaderDrawerOpen(true)}>
+            {t("widgets:catalog:open-below-header")}
+          </Button>
+        }
       >
         <DetailList
           rows={[
@@ -229,7 +233,7 @@ export function Widgets(): ReactNode {
         onOpenChange={setBelowHeaderDrawerOpen}
         variant="flush"
         belowHeader
-        title="Docked below the header"
+        title={t("widgets:catalog:drawer-below-header-title")}
         footer={
           <Button onClick={() => setBelowHeaderDrawerOpen(false)}>
             {t("widgets:catalog:cancel")}

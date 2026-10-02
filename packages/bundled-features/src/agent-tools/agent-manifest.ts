@@ -15,6 +15,7 @@ import {
   hasAccess,
   isAgentVisibleScreen,
   resolveAgentExposure,
+  SYSTEM_ONLY_JSON_SCHEMA_KEY,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { translationValueOtherText } from "@cosmicdrift/kumiko-framework/ui-types";
 import * as z from "zod";
@@ -159,6 +160,29 @@ function buildFeatures(
   return result;
 }
 
+// Agent dispatch never runs as a system identity, so properties the engine only
+// honors for system callers would be silently dropped — hide them from the tool.
+function withoutSystemOnlyProperties(
+  jsonSchema: Record<string, unknown>,
+): Readonly<Record<string, unknown>> {
+  const properties = jsonSchema["properties"];
+  if (typeof properties !== "object" || properties === null) return jsonSchema;
+  const hidden = Object.entries(properties)
+    .filter(
+      ([, property]) => (property as Record<string, unknown>)[SYSTEM_ONLY_JSON_SCHEMA_KEY] === true,
+    )
+    .map(([name]) => name);
+  if (hidden.length === 0) return jsonSchema;
+  const required = jsonSchema["required"];
+  return {
+    ...jsonSchema,
+    properties: Object.fromEntries(
+      Object.entries(properties).filter(([name]) => !hidden.includes(name)),
+    ),
+    ...(Array.isArray(required) && { required: required.filter((name) => !hidden.includes(name)) }),
+  };
+}
+
 function buildHandlerEntry(
   qn: string,
   kind: "query" | "write",
@@ -181,7 +205,9 @@ function buildHandlerEntry(
     // A handler whose schema can't be expressed as JSON Schema (transforms,
     // z.instanceof, ...) is unusable for an agent tool call — leave it out
     // rather than ship a broken tool.
-    inputSchema = z.toJSONSchema(def.schema, { io: "input" }) as Readonly<Record<string, unknown>>;
+    inputSchema = withoutSystemOnlyProperties(
+      z.toJSONSchema(def.schema, { io: "input" }) as Record<string, unknown>,
+    );
   } catch {
     return undefined;
   }

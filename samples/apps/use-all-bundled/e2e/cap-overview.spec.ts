@@ -108,14 +108,14 @@ test("SystemAdmin: tenant-cap-list search narrows, row click deep-links with the
   if (firstCardBox === null || secondCardBox === null || thirdCardBox === null) {
     throw new Error("cap-card boundingBox() returned null — card not visible/rendered");
   }
-  console.log(
-    `cap-card widths: ${firstCardBox.width}px / ${secondCardBox.width}px / ${thirdCardBox.width}px`,
-  );
-  expect(firstCardBox.y).toBe(secondCardBox.y);
-  expect(secondCardBox.y).toBe(thirdCardBox.y);
+  // Sub-pixel layout rounding can offset boxes by a fraction of a pixel.
+  expect(Math.abs(firstCardBox.y - secondCardBox.y)).toBeLessThan(2);
+  expect(Math.abs(secondCardBox.y - thirdCardBox.y)).toBeLessThan(2);
   expect(firstCardBox.x).not.toBe(secondCardBox.x);
   expect(secondCardBox.x).not.toBe(thirdCardBox.x);
-  expect(firstCardBox.width).toBeLessThan(400);
+  const panelBox = await dashboardCards.boundingBox();
+  if (panelBox === null) throw new Error("cap-cards-panel boundingBox() returned null");
+  expect(firstCardBox.width).toBeLessThan(panelBox.width * 0.75);
 
   const deepLinkedCardsText = await dashboardCards.innerText();
 

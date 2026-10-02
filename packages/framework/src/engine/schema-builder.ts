@@ -380,6 +380,8 @@ function notWritableField(): z.ZodTypeAny {
   return z.never().optional();
 }
 
+export const SYSTEM_ONLY_JSON_SCHEMA_KEY = "x-kumiko-system-only";
+
 export function buildInsertSchema(
   entity: EntityDefinition,
   currencies: readonly string[] = [...DEFAULT_CURRENCIES],
@@ -401,7 +403,14 @@ export function buildInsertSchema(
 
   // Opt-in only for the generic create verb, which honors the id for system identities;
   // other schema consumers must keep stripping an unknown `id`.
-  if (options.allowCallerId) shape["id"] = z.uuid().optional();
+  if (options.allowCallerId) {
+    // Marked so agent-facing exports can drop it: agent dispatch never runs as
+    // a system identity, so a caller-chosen id would be silently discarded.
+    shape["id"] = z
+      .uuid()
+      .optional()
+      .meta({ [SYSTEM_ONLY_JSON_SCHEMA_KEY]: true });
+  }
 
   return applyTotalsMatchRefinements(entity, z.object(shape));
 }
