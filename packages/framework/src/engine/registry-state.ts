@@ -37,6 +37,7 @@ import type {
   ScreenDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  SecretNamespaceDefinition,
   StoreTableDef,
   StreamHandlerDef,
   TranslationValue,
@@ -218,6 +219,7 @@ export type RegistryState = {
   mergedTranslations: Record<string, Record<string, TranslationValue>>;
   metricMap: Map<string, FeatureMetricDef & { readonly featureName: string }>;
   secretKeyMap: Map<string, SecretKeyDefinition>;
+  secretNamespaceMap: Map<string, SecretNamespaceDefinition>;
   projectionMap: Map<string, ProjectionDefinition>;
   projectionsBySource: Map<string, ProjectionDefinition[]>;
   multiStreamProjectionMap: Map<string, MultiStreamProjectionDefinition>;
@@ -286,6 +288,7 @@ export function createInitialState(): RegistryState {
     mergedTranslations: {},
     metricMap: new Map(),
     secretKeyMap: new Map(),
+    secretNamespaceMap: new Map(),
     projectionMap: new Map(),
     projectionsBySource: new Map(),
     multiStreamProjectionMap: new Map(),

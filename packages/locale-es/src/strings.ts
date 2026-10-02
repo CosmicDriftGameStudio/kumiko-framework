@@ -838,6 +838,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Solo puedes consultar los buckets de límite de tasa de tu propia organización o usuario.",
   "rateLimiting.errors.resolverUnavailable":
     "La limitación de tasa no está disponible en este servidor.",
+  "secrets.errors.unknownKey": "Clave de secreto desconocida.",
+  "secrets.errors.writeDenied": "No tienes permiso para cambiar este secreto.",
   "screen:api-token-create.title": "Crear un token nuevo",
   "screen:api-tokens.title": "Tokens de acceso personal",
   "screen:audit-log-detail.title": "Evento",

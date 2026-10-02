@@ -3,6 +3,7 @@ import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
 import { requireSecretsContext } from "../feature.js";
+import { checkSecretKeyWrite } from "../write-gate.js";
 
 export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({
@@ -16,6 +17,8 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
     access,
     handler: async (event, ctx) => {
       const secrets = requireSecretsContext(ctx, "secrets:write:delete");
+      const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, event.payload.key);
+      if (!gate.ok) return gate.failure;
       const removed = await secrets.delete(event.user.tenantId, event.payload.key, {
         deletedBy: event.user.id,
       });

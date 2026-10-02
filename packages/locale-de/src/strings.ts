@@ -846,6 +846,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "rateLimiting.errors.bucketOutsideTenant":
     "Du kannst nur Rate-Limit-Buckets deines eigenen Mandanten oder Benutzers einsehen.",
   "rateLimiting.errors.resolverUnavailable": "Rate-Limiting ist auf diesem Server nicht verfügbar.",
+  "secrets.errors.unknownKey": "Unbekannter Geheimnis-Schlüssel.",
+  "secrets.errors.writeDenied": "Dieses Geheimnis darf nicht geändert werden.",
   "screen:api-token-create.title": "Neuen Token erstellen",
   "screen:api-tokens.title": "Personal Access Tokens",
   "screen:audit-log-detail.title": "Ereignis",

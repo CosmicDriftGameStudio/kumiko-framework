@@ -819,6 +819,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "rateLimiting.errors.bucketOutsideTenant":
     "You can only inspect rate-limit buckets that belong to your own tenant or user.",
   "rateLimiting.errors.resolverUnavailable": "Rate limiting is not available on this server.",
+  "secrets.errors.unknownKey": "Unknown secret key.",
+  "secrets.errors.writeDenied": "You are not allowed to change this secret.",
   "screen:api-token-create.title": "Create a new token",
   "screen:api-tokens.title": "Personal Access Tokens",
   "screen:audit-log-detail.title": "Event",

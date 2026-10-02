@@ -29,6 +29,7 @@ import { type MailSpec, mailSpecSchema, performMailDispatch } from "./mail-runne
 import {
   performWebhookDispatch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
+  WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS,
   type WebhookSpec,
   webhookSpecSchema,
 } from "./webhook-runner.js";
@@ -193,6 +194,7 @@ export function createStepDispatcherFeature(): FeatureDefinition {
     r.describe(
       "Internal system feature that drains deferred Tier-2 side-effects (currently `webhook.send` and `mail.send`) after their originating transaction commits. Listens via `r.multiStreamProjection` on the `kumiko:system:step.dispatch-requested` system event, performs the actual HTTP or mail delivery, then appends `kumiko:system:step.dispatched` or `kumiko:system:step.dispatch-failed` back onto the same stream so the outcome is recorded in the event log without a separate status table. Mount this feature explicitly via `createStepDispatcherFeature()` in your app's feature list alongside any features that use `r.step.webhook.send` or `r.step.mail.send`. Requires the `secrets` feature (`createSecretsFeature()`) to be mounted — `webhook.send` auth resolves per-tenant through it, under `step-dispatcher:webhook-auth.<name>`.",
     );
+    r.secretNamespace("webhook-auth", WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS);
     r.uiHints({
       displayLabel: "Step Dispatcher · Deferred Side-Effects",
       category: "infrastructure",

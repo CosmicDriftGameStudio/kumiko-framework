@@ -13,6 +13,7 @@ import { createDeleteHandler } from "./handlers/delete.write.js";
 import { createListHandler } from "./handlers/list.query.js";
 import { rotateJob } from "./handlers/rotate.job.js";
 import { createSetHandler } from "./handlers/set.write.js";
+import { SECRETS_I18N } from "./i18n.js";
 import { secretReadSchema } from "./secrets-context.js";
 import { tenantSecretEntity, tenantSecretsTable } from "./table.js";
 
@@ -143,6 +144,7 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
     // covering both boot-time validation and rendering without a web
     // client-plugin for this feature.
     r.translations({ keys: SETTINGS_HUB_I18N });
+    r.translations({ keys: SECRETS_I18N });
 
     // ES entity: set/delete go through the executor, `tenantSecret.created/
     // .updated/.deleted` events land on the aggregate stream. Reads fire a

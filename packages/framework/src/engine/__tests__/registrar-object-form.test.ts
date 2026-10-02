@@ -72,6 +72,56 @@ describe("registrar Object-Form — runtime parity with positional form", () => 
     expect(objectForm.secretKeys).toEqual(positional.secretKeys);
   });
 
+  test("secret: an empty writeRoles list is rejected at declaration", () => {
+    expect(() =>
+      defineFeature("stripe", (r) => {
+        r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant", writeRoles: [] });
+      }),
+    ).toThrow(/\[Feature stripe\] Secret "apiKey" declares an empty writeRoles list/);
+  });
+
+  test("secret: a non-empty writeRoles list is kept on the key definition", () => {
+    const feature = defineFeature("stripe", (r) => {
+      r.secret("apiKey", {
+        label: { en: "Stripe API Key" },
+        scope: "tenant",
+        writeRoles: ["SystemAdmin"],
+      });
+    });
+    expect(feature.secretKeys["apiKey"]?.writeRoles).toEqual(["SystemAdmin"]);
+  });
+
+  test("secretNamespace: split-name matches (shortName, options) form and derives the prefix", () => {
+    const options = { label: { en: "Hook tokens" }, scope: "tenant" } as const;
+    const positional = defineFeature("step-dispatcher", (r) => {
+      r.secretNamespace("webhook-auth", options);
+    });
+    const objectForm = defineFeature("step-dispatcher", (r) => {
+      r.secretNamespace({ name: "webhook-auth", ...options });
+    });
+    expect(objectForm.secretNamespaces).toEqual(positional.secretNamespaces);
+    expect(positional.secretNamespaces["webhook-auth"]?.qualifiedPrefix).toBe(
+      "step-dispatcher:webhook-auth.",
+    );
+  });
+
+  test("secretNamespace: a duplicate name within a feature throws", () => {
+    expect(() =>
+      defineFeature("stripe", (r) => {
+        r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant" });
+        r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant" });
+      }),
+    ).toThrow(/\[Feature stripe\] Secret namespace "hooks" already registered/);
+  });
+
+  test("secretNamespace: an empty writeRoles list is rejected at declaration", () => {
+    expect(() =>
+      defineFeature("stripe", (r) => {
+        r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant", writeRoles: [] });
+      }),
+    ).toThrow(/\[Feature stripe\] Secret namespace "hooks" declares an empty writeRoles list/);
+  });
+
   test("relation: two-field ({ entity, name, ...def }) matches (entity, name, definition) form", () => {
     const definition = { type: "belongsTo" as const, target: "user", foreignKey: "supplierId" };
     const positional = defineFeature("a", (r) => {

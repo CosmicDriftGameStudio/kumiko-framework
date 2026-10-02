@@ -26,12 +26,15 @@ import {
   TENANT_SECRET_READ_EVENT,
 } from "../secrets-context.js";
 import { tenantSecretsTable } from "../table.js";
+import { createDeclaredKeysFeature } from "./declared-keys-feature.js";
 
 const admin = createTestUser({
   id: "00000000-0000-4000-8000-000000000010",
   tenantId: "00000000-0000-4000-8000-000000000001",
   roles: ["TenantAdmin"],
 });
+
+const declared = createDeclaredKeysFeature();
 
 let stack: TestStack;
 let provider: MasterKeyProvider;
@@ -45,7 +48,7 @@ beforeAll(async () => {
   });
 
   stack = await setupTestStack({
-    features: [createSecretsFeature()],
+    features: [createSecretsFeature(), declared.feature],
     extraContext: ({ db }) => ({
       secrets: createSecretsContext({ db, masterKeyProvider: provider }),
     }),
@@ -66,7 +69,7 @@ describe("tenantSecret lifecycle events", () => {
   test("set-then-list writes one tenantSecret.created event", async () => {
     await stack.http.writeOk(
       "secrets:write:set",
-      { key: "example.api.key", value: "secret-value-xyz" },
+      { key: declared.keys.plain.name, value: "secret-value-xyz" },
       admin,
     );
 
@@ -82,10 +85,10 @@ describe("tenantSecret lifecycle events", () => {
   test("delete writes a tenantSecret.deleted event on the same stream", async () => {
     await stack.http.writeOk(
       "secrets:write:set",
-      { key: "example.to.delete", value: "one-time" },
+      { key: declared.keys.extra.name, value: "one-time" },
       admin,
     );
-    await stack.http.writeOk("secrets:write:delete", { key: "example.to.delete" }, admin);
+    await stack.http.writeOk("secrets:write:delete", { key: declared.keys.extra.name }, admin);
 
     const events = await selectMany(stack.db, eventsTable, { aggregateType: "tenant-secret" });
 

@@ -2,6 +2,7 @@ import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framewo
 import * as z from "zod";
 import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
 import { requireSecretsContext } from "../feature.js";
+import { checkSecretKeyWrite } from "../write-gate.js";
 
 export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({
@@ -29,8 +30,9 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
       // (via r.secret()) > generic default. A feature that declared a
       // domain-aware redact (Stripe keys: "sk_test...2345") wins over the
       // framework default unless the caller sent a specific preview.
-      const keyDef = ctx.registry.getSecretKey(key);
-      const featureRedact = keyDef?.redact;
+      const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, key);
+      if (!gate.ok) return gate.failure;
+      const featureRedact = gate.keyDef?.redact;
       const redactFn: (v: string) => string = redactedPreview
         ? () => redactedPreview
         : (featureRedact ?? defaultRedact);
