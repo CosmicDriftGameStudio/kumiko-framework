@@ -538,11 +538,19 @@ function isJsonSafeArray(value: unknown): value is readonly unknown[] {
   return Array.isArray(value) && isJsonSafeValue(value);
 }
 
-function isJsonSafeValue(value: unknown): boolean {
+// `ancestors` tracks the current path only, so a shared (non-cyclic) sub-object
+// stays valid while a self-reference returns false instead of overflowing the stack.
+function isJsonSafeValue(value: unknown, ancestors: Set<object> = new Set()): boolean {
   if (value === null) return true;
   const t = typeof value;
-  if (t === "string" || t === "number" || t === "boolean") return true;
-  if (Array.isArray(value)) return value.every(isJsonSafeValue);
-  if (isPlainObject(value)) return Object.values(value).every(isJsonSafeValue);
-  return false;
+  if (t === "string" || t === "boolean") return true;
+  // NaN/Infinity serialize to null via JSON.stringify.
+  if (t === "number") return Number.isFinite(value);
+  if (typeof value !== "object" || !(Array.isArray(value) || isPlainObject(value))) return false;
+  if (ancestors.has(value)) return false;
+  ancestors.add(value);
+  const children: readonly unknown[] = Array.isArray(value) ? value : Object.values(value);
+  const safe = children.every((child) => isJsonSafeValue(child, ancestors));
+  ancestors.delete(value);
+  return safe;
 }

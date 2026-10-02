@@ -21,9 +21,17 @@ import {
 } from "../../primitives.js";
 import { RenderList, type ToolbarActionButton } from "../render-list.js";
 
-const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId, ariaLabel, size }) => (
+const TestButton: ComponentType<ButtonProps> = ({
+  children,
+  onClick,
+  testId,
+  ariaLabel,
+  title,
+  size,
+}) => (
   <button
     type="button"
+    title={title}
     data-testid={testId}
     data-size={size ?? "md"}
     aria-label={ariaLabel}
@@ -120,6 +128,7 @@ describe("RenderList toolbar actions collapse to icon-only", () => {
       const button = rtlScreen.getByTestId(`render-list-toolbar-action-${id}`);
       expect(button.getAttribute("data-size")).toBe("icon");
       expect(button.getAttribute("aria-label")).toBe(label);
+      expect(button.getAttribute("title")).toBe(label);
       expect(button.textContent).toBe("");
     }
   });

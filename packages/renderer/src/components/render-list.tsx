@@ -629,7 +629,7 @@ function ToolbarActionView({
         loading={busy}
         {...(action.icon !== undefined && { icon: action.icon })}
         size={showIconOnly ? "icon" : "sm"}
-        {...(showIconOnly && { ariaLabel: action.label })}
+        {...(showIconOnly && { ariaLabel: action.label, title: action.label })}
         onClick={() => {
           if (needsConfirm) {
             setConfirmOpen(true);

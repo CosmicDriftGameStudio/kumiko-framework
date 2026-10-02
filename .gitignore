@@ -14,6 +14,8 @@ dist-server/
 # Im Hauptrepo nur for-eyes sichtbar, nicht versioned. Anchor zu root,
 # damit `samples/apps/platform/` (echter In-Repo-Code) NICHT matched.
 /platform
+# Left behind when the changeset-version runner is killed before its EXIT trap.
+.changeset-status.json
 *.tsbuildinfo
 .env
 .env.*

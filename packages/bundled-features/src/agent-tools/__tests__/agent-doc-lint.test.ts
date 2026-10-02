@@ -20,6 +20,21 @@ async function noopQueryHandler() {
 }
 
 describe("findAgentDocGaps", () => {
+  test("exposed handler with a schema that has no JSON Schema form -> schema gap", () => {
+    const feature = defineFeature("doc-gap-demo", (r) => {
+      r.writeHandler("do-a", z.object({ at: z.instanceof(Date) }), noopWriteHandler, {
+        access: OPEN_ACCESS,
+        description: "Does A.",
+      });
+    });
+
+    const gaps = findAgentDocGaps([feature]);
+
+    expect(gaps.map((g) => [g.qn, g.kind])).toEqual([
+      ["doc-gap-demo:write:do-a", AgentDocGapKinds.handlerSchemaNotExpressible],
+    ]);
+  });
+
   test("R1: exactly three undescribed handlers -> exactly three gaps with the expected QNs", () => {
     const feature = defineFeature("doc-gap-demo", (r) => {
       r.writeHandler("do-a", z.object({}), noopWriteHandler, { access: OPEN_ACCESS });

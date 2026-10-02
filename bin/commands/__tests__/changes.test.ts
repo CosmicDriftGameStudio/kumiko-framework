@@ -395,6 +395,27 @@ describe("changes fold", () => {
     expect(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8")).toBe("[]");
   });
 
+  test("fold skips changesets absent from the status and keeps same-title changes with different detail", async () => {
+    const block = (detail: string) =>
+      `---\n"@cosmicdrift/kumiko-framework": patch\n---\n\nx\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Same title\ndetail: ${detail}\n-->\n`;
+    const cwd = tmp({
+      ...frameworkFixture(),
+      ".changeset/a.md": block("first"),
+      ".changeset/b.md": block("second"),
+      ".changeset/ignored.md": `---\n---\n\nx\n\n<!-- kumiko-changes\nfeature: framework\ntype: fix\ntitle: Not released\n-->\n`,
+      ".changeset-status.json": JSON.stringify({
+        changesets: [{ id: "a" }, { id: "b" }],
+        releases: [{ name: "@cosmicdrift/kumiko-framework", newVersion: "0.277.0", changesets: ["a", "b"] }],
+      }),
+    });
+
+    const result = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")]);
+
+    expect(result.exit).toBe(0);
+    const entries = JSON.parse(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8"));
+    expect(entries.map((entry: { detail?: string }) => entry.detail).sort()).toEqual(["first", "second"]);
+  });
+
   test("--dry-run reports the resolved update without writing it", async () => {
     const cwd = tmp({
       ...frameworkFixture(),

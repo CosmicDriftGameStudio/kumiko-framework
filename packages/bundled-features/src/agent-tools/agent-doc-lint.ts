@@ -10,8 +10,10 @@ import {
   resolveAgentExposure,
   toKebab,
 } from "@cosmicdrift/kumiko-framework/engine";
+import * as z from "zod";
 
 export const AgentDocGapKinds = {
+  handlerSchemaNotExpressible: "handler-schema-not-expressible",
   handlerWithoutDescription: "handler-without-description",
   customScreenWithoutDescription: "custom-screen-without-description",
   exposedEntityWithoutDescription: "exposed-entity-without-description",
@@ -40,6 +42,27 @@ function compareByCodePoint(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
+// agent-manifest.ts silently drops an exposed handler whose schema can't be
+// converted; surface it here so the missing tool doesn't go unnoticed.
+function schemaNotExpressibleGap(
+  feature: FeatureDefinition,
+  handlerQn: string,
+  def: WriteHandlerDef | QueryHandlerDef,
+  handlerNoun: string,
+): AgentDocGap | undefined {
+  try {
+    z.toJSONSchema(def.schema, { io: "input" });
+    return undefined;
+  } catch (error) {
+    return {
+      qn: handlerQn,
+      feature: feature.name,
+      kind: AgentDocGapKinds.handlerSchemaNotExpressible,
+      message: `This ${handlerNoun} is exposed to the AI agent but its input schema can't be converted to JSON Schema (${error instanceof Error ? error.message : String(error)}), so it is left out of the agent manifest.`,
+    };
+  }
+}
+
 function handlerDocGaps(
   feature: FeatureDefinition,
   handlers: Readonly<Record<string, WriteHandlerDef | QueryHandlerDef>>,
@@ -47,10 +70,16 @@ function handlerDocGaps(
   handlerNoun: string,
 ): readonly AgentDocGap[] {
   const gaps: AgentDocGap[] = [];
+  const handlerKind = handlerQnType === QnTypes.write ? "write" : "query";
   for (const [name, def] of Object.entries(handlers)) {
+    const handlerQn = qn(toKebab(feature.name), handlerQnType, toKebab(name));
+    if (resolveAgentExposure(def, handlerKind).expose) {
+      const schemaGap = schemaNotExpressibleGap(feature, handlerQn, def, handlerNoun);
+      if (schemaGap) gaps.push(schemaGap);
+    }
     if (def.description !== undefined || def.agent?.expose === false) continue;
     gaps.push({
-      qn: qn(toKebab(feature.name), handlerQnType, toKebab(name)),
+      qn: handlerQn,
       feature: feature.name,
       kind: AgentDocGapKinds.handlerWithoutDescription,
       message: `This ${handlerNoun} has no description, so it stays invisible to the AI agent — set \`description\` to expose it, or \`agent: { expose: false }\` to opt out deliberately.`,
