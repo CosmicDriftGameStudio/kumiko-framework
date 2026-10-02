@@ -114,7 +114,9 @@ export const capCounterFeature = defineFeature(CAP_COUNTER_FEATURE, (r) => {
     entity: "cap-counter",
     columns: ["tenantId", "capName", "value", "periodStart", "lastSoftWarnedAt"],
     defaultSort: { field: "capName", dir: "asc" },
-    searchable: true,
+    // Search resolves against the caller's own tenant stream, so on this
+    // cross-tenant operator list it would only ever hit the SystemAdmin's tenant.
+    searchable: false,
     access: { roles: ["SystemAdmin"] },
   });
   r.nav({

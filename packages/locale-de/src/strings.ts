@@ -339,6 +339,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "cap-counter:nav.cap-list": "Limits",
   "cap-overview.cards.empty": "Für diesen Mandanten sind keine Caps konfiguriert.",
   "cap-overview.cards.loading": "Lade Nutzungsdaten …",
+  "cap-overview.errors.filterFieldUnsupported":
+    "Filtern nach diesem Feld wird nicht unterstützt, oder Tier wurde mehrfach gefiltert.",
+  "cap-overview.errors.invalidCursor": "Der Paginierungs-Cursor ist ungültig.",
   "cap-overview.errors.progressPrimitiveMissing": "Nutzungsbalken nicht verfügbar.",
   "cap-overview.errors.sortFieldUnsupported": "Sortierung nach diesem Feld wird nicht unterstützt.",
   "cap-overview.errors.tenantOverrideRequiresSystemAdmin":

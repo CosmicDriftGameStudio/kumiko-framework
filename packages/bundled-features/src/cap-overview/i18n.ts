@@ -16,6 +16,10 @@ export const CAP_OVERVIEW_I18N: Readonly<Record<string, LocalizedString>> = {
   "cap-overview.errors.progressPrimitiveMissing": {
     en: "Usage bar unavailable — Progress primitive is not registered.",
   },
+  "cap-overview.errors.invalidCursor": { en: "The pagination cursor is invalid." },
+  "cap-overview.errors.filterFieldUnsupported": {
+    en: "Filtering by this field is not supported, or tier was filtered more than once.",
+  },
   "cap-overview.errors.sortFieldUnsupported": { en: "Sorting by this field is not supported." },
   "cap-overview.errors.tenantOverrideRequiresSystemAdmin": {
     en: "Only SystemAdmin may query another tenant's data.",

@@ -155,7 +155,21 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       // in JS, same as tenant/team-list.query.ts's search.
       const search = query.payload.search?.trim().toLowerCase();
       const filters = query.payload.filters ?? [];
-      const tierFilter = filters.find((f) => f.field === "tier");
+      const tierFilters = filters.filter((f) => f.field === "tier");
+      if (tierFilters.length !== filters.length || tierFilters.length > 1) {
+        const unsupportedField = filters.find((f) => f.field !== "tier")?.field ?? "tier";
+        throw new ValidationError({
+          fields: [
+            {
+              path: "filters",
+              code: "unsupported_field",
+              i18nKey: "cap-overview.errors.filterFieldUnsupported",
+              params: { field: unsupportedField },
+            },
+          ],
+        });
+      }
+      const tierFilter = tierFilters[0];
       if (tierFilter !== undefined) assertSupportedTierFilterOp(tierFilter.op);
 
       const merged = tenants
@@ -201,24 +215,39 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
       // that the fix is a real combined read-projection, not a cursor
       // bolted onto this merge.
       const offset = query.payload.cursor ? Number(decodeCursor(query.payload.cursor)) : 0;
+      if (!Number.isInteger(offset) || offset < 0) {
+        throw new ValidationError({
+          fields: [
+            {
+              path: "cursor",
+              code: "invalid_cursor",
+              i18nKey: "cap-overview.errors.invalidCursor",
+            },
+          ],
+        });
+      }
       const limit = query.payload.limit;
       const page = sorted.slice(offset, offset + limit);
 
-      // N+1 avoidance: usage is computed only for this page's tenant ids,
-      // never for the full tenant set.
+      // Usage is computed only for this page's tenant ids, never for the
+      // full tenant set; caps without usageBatch still cost one query per
+      // tenant of the page, so those run in parallel.
       const pageTenantIds = page.map((row) => row.tenantId);
       const usageByCap = new Map<string, Map<string, number | null>>();
-      for (const cap of listedCaps) {
-        if (cap.usageBatch) {
-          usageByCap.set(cap.id, await cap.usageBatch(db, pageTenantIds));
-        } else {
-          const perTenant = new Map<string, number | null>();
-          for (const tenantId of pageTenantIds) {
-            perTenant.set(tenantId, await cap.usage(db, tenantId));
+      await Promise.all(
+        listedCaps.map(async (cap) => {
+          if (cap.usageBatch) {
+            usageByCap.set(cap.id, await cap.usageBatch(db, pageTenantIds));
+            return;
           }
-          usageByCap.set(cap.id, perTenant);
-        }
-      }
+          const perTenantEntries = await Promise.all(
+            pageTenantIds.map(
+              async (tenantId) => [tenantId, await cap.usage(db, tenantId)] as const,
+            ),
+          );
+          usageByCap.set(cap.id, new Map(perTenantEntries));
+        }),
+      );
 
       const limitByCapAndTier = await resolveLimitsByCapAndTier(
         listedCaps,

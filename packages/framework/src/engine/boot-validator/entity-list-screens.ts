@@ -3,7 +3,7 @@ import { normalizeListColumn } from "../screen-helpers.js";
 import type { EntityListScreenDefinition, FeatureDefinition } from "../types/index.js";
 
 /** Operator lists default searchable; low-cardinality audit trails stay opt-out. */
-export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list"]);
+export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap-list"]);
 
 // Same set computeListViewModel (headless) can actually render — NOT
 // db/table-builder's rowMetaFieldNames(softDelete), which also carries
