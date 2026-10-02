@@ -1,7 +1,7 @@
 // A wizard editing an existing record: steps show done by what the record
 // already holds (not by position), every non-current step is a jump target,
 // and leaving the current step still goes through its validate gate.
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
@@ -212,5 +212,37 @@ describe("entityEdit wizard on an existing record: jumping", () => {
     await userEvent.click(screen.getByTestId("render-edit-wizard-step-label-step-2"));
     expect(currentChipIndex()).toBe(0);
     expect(screen.getByTestId("field-fullName-errors")).toBeTruthy();
+  });
+});
+
+function setViewportWidth(width: number): void {
+  (
+    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+  ).happyDOM.setInnerWidth(width);
+}
+
+describe("entityEdit wizard on an existing record: phone footer", () => {
+  let wideInnerWidth = 0;
+  beforeEach(() => {
+    wideInnerWidth = window.innerWidth;
+  });
+  afterEach(() => {
+    setViewportWidth(wideInnerWidth);
+  });
+
+  test("Back is an icon button, Save and close sits in the overflow, Next drops the step name", async () => {
+    setViewportWidth(390);
+    await renderEditWizard();
+    await userEvent.click(chip(1));
+
+    const bar = screen.getByTestId("render-edit-form-actions");
+    expect(bar.className).toContain("h-14");
+    const back = screen.getByTestId("render-edit-wizard-back");
+    expect(back.getAttribute("aria-label")).toBe("Back");
+    expect(back.textContent).toBe("");
+    const saveClose = screen.getByTestId("render-edit-wizard-save-close");
+    expect(bar.contains(saveClose)).toBe(false);
+    expect(screen.getByTestId("render-edit-form-overflow")).toBeTruthy();
+    expect(screen.getByTestId("render-edit-wizard-next").textContent).toBe("Next");
   });
 });

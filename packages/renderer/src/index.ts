@@ -230,6 +230,8 @@ export type {
   FieldCellWidth,
   FieldProps,
   FillContainerProps,
+  FooterActionMarker,
+  FooterActionRole,
   FormProps,
   FormSectionNavItem,
   FormWidth,
@@ -266,6 +268,8 @@ export type {
   WizardStepGroupProps,
 } from "./primitives.js";
 export {
+  FOOTER_ACTION_ROLE_PROP,
+  NARROW_LABEL_PROP,
   PrimitivesProvider,
   STICKY_PRIMARY_ACTION_PROP,
   shouldRenderActionsIconOnly,

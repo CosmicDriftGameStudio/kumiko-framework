@@ -54,7 +54,9 @@ import { useInsideDrawer } from "../inside-drawer.js";
 import { usePageHeaderCompact, usePageHeaderSlotAvailable } from "../page-header-slot.js";
 import {
   type ActionMenuItemSpec,
+  FOOTER_ACTION_ROLE_PROP,
   type FormSectionNavItem,
+  NARROW_LABEL_PROP,
   STICKY_PRIMARY_ACTION_PROP,
   type StickyPrimaryActionMarker,
   shouldRenderActionsIconOnly,
@@ -1523,6 +1525,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           icon="chevron-left"
           onClick={handleWizardBack}
           testId="render-edit-wizard-back"
+          {...{ [FOOTER_ACTION_ROLE_PROP]: "back" as const }}
         >
           {translate("kumiko.actions.back")}
         </Button>
@@ -1558,6 +1561,10 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           variant="primary"
           iconEnd="chevron-right"
           testId="render-edit-wizard-next"
+          {...{
+            [FOOTER_ACTION_ROLE_PROP]: "primary" as const,
+            [NARROW_LABEL_PROP]: translate("kumiko.actions.next"),
+          }}
         >
           {nextStepTitle !== undefined
             ? translate("kumiko.wizard.next-with-title", { title: nextStepTitle })

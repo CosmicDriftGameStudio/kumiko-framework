@@ -3,14 +3,16 @@
 // als Sticky-Bar im Header. Der Titel ist ein Heading oben. Strukturelle
 // Assertions (Klassen/DOM) — der visuelle Beweis läuft über den Runner.
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityEditScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import { DispatcherProvider, RenderEdit } from "@cosmicdrift/kumiko-renderer";
+import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { BareFormProvider, defaultPrimitives } from "../primitives/index.js";
-import { createMockDispatcher, render, screen } from "./test-utils.js";
+import { createMockDispatcher, render, screen, waitFor } from "./test-utils.js";
 
 const { Form, Section, Button } = defaultPrimitives;
 
@@ -406,29 +408,6 @@ describe("DefaultForm pinned footer (fillHeight + stickyActions, fw#3381)", () =
     expect(footer.querySelector('[aria-hidden="true"].h-20')).toBeNull();
   });
 
-  test("below sm the footer wraps and its button groups dissolve so long labels wrap inside the buttons", () => {
-    render(
-      <Form
-        onSubmit={() => {}}
-        fillHeight
-        stickyActions
-        secondaryActions={<Button>Back</Button>}
-        actions={<Button>Weiter: A very long next step title</Button>}
-        testId="f"
-      >
-        <div>body</div>
-      </Form>,
-    );
-    const actions = screen.getByTestId("f-actions");
-    const footer = actions.parentElement as HTMLElement;
-    expect(footer.className.split(" ")).toContain("max-sm:flex-wrap");
-    for (const group of [actions, screen.getByTestId("f-actions-secondary")]) {
-      expect(group.className.split(" ")).toContain("max-sm:contents");
-    }
-    expect(actions.className.split(" ")).toContain("max-sm:[&>button]:whitespace-normal");
-    expect(actions.className.split(" ")).toContain("max-sm:[&>button]:h-auto");
-  });
-
   test("stickyActions without fillHeight keeps the fixed mobile bar", () => {
     render(
       <Form onSubmit={() => {}} stickyActions actions={<Button>Save</Button>} testId="f">
@@ -436,5 +415,97 @@ describe("DefaultForm pinned footer (fillHeight + stickyActions, fw#3381)", () =
       </Form>,
     );
     expect(screen.getByTestId("f-actions").className).toContain("max-sm:fixed");
+  });
+});
+
+function setViewportWidth(width: number): void {
+  (
+    window as unknown as { happyDOM: { setInnerWidth: (n: number) => void } }
+  ).happyDOM.setInnerWidth(width);
+}
+
+describe("DefaultForm pinned footer below sm", () => {
+  let wideInnerWidth = 0;
+  beforeEach(() => {
+    wideInnerWidth = window.innerWidth;
+  });
+  afterEach(() => {
+    setViewportWidth(wideInnerWidth);
+  });
+
+  function renderNarrow(unsavedCount: number | undefined, withDiscard: boolean) {
+    setViewportWidth(390);
+    render(
+      <Form
+        onSubmit={() => {}}
+        fillHeight
+        stickyActions
+        unsavedCount={unsavedCount}
+        secondaryActions={withDiscard ? <Button>Verwerfen</Button> : undefined}
+        actions={<Button type="submit">Speichern</Button>}
+        testId="f"
+      >
+        <div>body</div>
+      </Form>,
+    );
+  }
+
+  test("a dirty edit form shows one row: badge on the overflow trigger, discard inside, no unsaved text", async () => {
+    renderNarrow(2, true);
+    const bar = screen.getByTestId("f-actions");
+    expect(bar.className).toContain("h-14");
+    expect(screen.getByTestId("f-overflow-badge")).toBeTruthy();
+    expect(screen.queryByTestId("f-unsaved")).toBeNull();
+    expect(bar.textContent).not.toContain("Verwerfen");
+    const popover = screen.getByText("Verwerfen").closest("[data-state]") as HTMLElement;
+    expect(popover.getAttribute("data-state")).toBe("closed");
+    await userEvent.click(screen.getByTestId("f-overflow"));
+    expect(popover.getAttribute("data-state")).toBe("open");
+    expect(screen.getByTestId("f-overflow").getAttribute("aria-label")).toContain("2");
+    expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
+  });
+
+  test("a clean form has no badge", () => {
+    renderNarrow(0, true);
+    expect(screen.queryByTestId("f-overflow-badge")).toBeNull();
+  });
+
+  function narrowForm(secondaryActions: ReactNode) {
+    return (
+      <Form
+        onSubmit={() => {}}
+        fillHeight
+        stickyActions
+        unsavedCount={0}
+        secondaryActions={secondaryActions}
+        actions={<Button type="submit">Speichern</Button>}
+        testId="f"
+      >
+        <div>body</div>
+      </Form>
+    );
+  }
+
+  test("the overflow trigger stays hidden until an overflow action is enabled", async () => {
+    setViewportWidth(390);
+    const { rerender } = render(narrowForm(<Button disabled>Verwerfen</Button>));
+    expect(screen.getByTestId("f-overflow").className).toContain("hidden");
+    rerender(narrowForm(<Button>Verwerfen</Button>));
+    await waitFor(() => expect(screen.getByTestId("f-overflow").className).not.toContain("hidden"));
+  });
+
+  test("an overflow node that renders nothing keeps the trigger hidden", () => {
+    setViewportWidth(390);
+    function RendersNothing(): ReactNode {
+      return null;
+    }
+    render(narrowForm(<RendersNothing />));
+    expect(screen.getByTestId("f-overflow").className).toContain("hidden");
+  });
+
+  test("a lone primary action renders without an overflow trigger", () => {
+    renderNarrow(undefined, false);
+    expect(screen.queryByTestId("f-overflow")).toBeNull();
+    expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
   });
 });

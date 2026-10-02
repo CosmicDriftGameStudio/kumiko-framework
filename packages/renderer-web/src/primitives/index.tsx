@@ -147,6 +147,7 @@ import { LocatedTimestampInput } from "./located-timestamp-input.js";
 import { DefaultMetric, DefaultMetricBand, InsideScreenFormColumnContext } from "./metric.js";
 import { DefaultModal } from "./modal.js";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.js";
+import { NarrowPinnedFooter } from "./narrow-pinned-footer.js";
 import { NumberInput } from "./number-input.js";
 import { groupOptions, hasDescriptionOrGroup } from "./option-groups.js";
 import { DefaultPageHeader } from "./page-header.js";
@@ -162,7 +163,7 @@ import { DefaultTabs } from "./tabs.js";
 import { TimestampInput } from "./timestamp-input.js";
 import { useToast } from "./toast.js";
 import { TzInput } from "./tz-input.js";
-import { useIsNarrowViewport } from "./use-narrow-viewport.js";
+import { useIsBelowSmViewport, useIsNarrowViewport } from "./use-narrow-viewport.js";
 
 // ---- Card-Chrome (eine Definition für Form/Section/Card) ----
 
@@ -3543,11 +3544,11 @@ function flattenActionNodes(node: ReactNode): readonly ReactNode[] {
   return Children.toArray(node);
 }
 
-// Below sm the pinned footer wraps: the groups dissolve so every button is a
-// direct flex item that may grow, shrink below its label and wrap to a new row;
-// a label longer than the row wraps inside its button.
-const PINNED_FOOTER_NARROW_GROUP_CLASS =
-  "max-sm:contents max-sm:[&>button]:h-auto max-sm:[&>button]:min-h-11 max-sm:[&>button]:min-w-0 max-sm:[&>button]:max-w-full max-sm:[&>button]:grow max-sm:[&>button]:whitespace-normal";
+function unsavedStatusText(t: ReturnType<typeof useTranslation>, unsavedCount: number): string {
+  if (unsavedCount === 0) return t("kumiko.form.noUnsavedChanges");
+  if (unsavedCount === 1) return t("kumiko.form.unsaved.one");
+  return t("kumiko.form.unsaved.other", { count: unsavedCount });
+}
 
 // Footer wrapper for DefaultForm's card and chromeless layouts alike — only
 // the card-derived horizontal padding/border differs between them.
@@ -3572,6 +3573,7 @@ function FormFooter({
   readonly railed?: boolean;
 }): ReactNode {
   const t = useTranslation();
+  const isBelowSm = useIsBelowSmViewport();
   if (actions === undefined && secondaryActions === undefined) return null;
   // Only split when sticky: the non-sticky (regular, non-wizard) footer must
   // reproduce the previous DOM exactly (form-action-bar.test.tsx pins
@@ -3601,12 +3603,26 @@ function FormFooter({
       secondaryActions
     );
   const pinned = isPinnedFooter(stickyActions, fillHeight);
+  if (pinned && isBelowSm) {
+    return (
+      <NarrowPinnedFooter
+        nodes={[...flattenActionNodes(secondaryActions), ...flattenActionNodes(actions)]}
+        overflowLabel={
+          unsavedCount !== undefined && unsavedCount > 0
+            ? `${t("kumiko.list.row-actions.more")}, ${unsavedStatusText(t, unsavedCount)}`
+            : t("kumiko.list.row-actions.more")
+        }
+        unsavedCount={unsavedCount}
+        testId={testId}
+      />
+    );
+  }
   return (
     <div
       className={cn(
         pinned
           ? cn(
-              "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6 max-sm:h-auto max-sm:flex-wrap max-sm:py-2",
+              "flex h-14 shrink-0 items-center justify-end gap-2 border-t border-border bg-card px-6",
               !railed && "md:pl-10",
             )
           : "flex flex-col-reverse gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-4",
@@ -3629,13 +3645,7 @@ function FormFooter({
           {unsavedCount > 0 && (
             <span className="size-1.5 shrink-0 rounded-full bg-status-active" aria-hidden="true" />
           )}
-          <span className="truncate">
-            {unsavedCount === 0
-              ? t("kumiko.form.noUnsavedChanges")
-              : unsavedCount === 1
-                ? t("kumiko.form.unsaved.one")
-                : t("kumiko.form.unsaved.other", { count: unsavedCount })}
-          </span>
+          <span className="truncate">{unsavedStatusText(t, unsavedCount)}</span>
         </div>
       )}
       {(secondaryActions !== undefined || hasNonPrimaryOverflow) && (
@@ -3646,7 +3656,6 @@ function FormFooter({
             // below the 24px touch-target minimum on narrow viewports.
             "flex flex-wrap items-center gap-2 max-sm:[&_button]:min-h-11 max-sm:[&_button]:px-2 max-sm:[&_button]:text-xs",
             pinned && hasNonPrimaryOverflow && "mr-auto",
-            pinned && PINNED_FOOTER_NARROW_GROUP_CLASS,
           )}
         >
           {renderedSecondary}
@@ -3658,7 +3667,7 @@ function FormFooter({
           className={cn(
             "flex items-center gap-2",
             pinned
-              ? cn("shrink-0 max-md:[&>button]:min-h-11", PINNED_FOOTER_NARROW_GROUP_CLASS)
+              ? "shrink-0 max-md:[&>button]:min-h-11"
               : "flex-wrap max-sm:w-full max-sm:[&>button]:flex-1 max-sm:[&>button]:min-h-11 sm:ml-auto",
             // Below sm (640px): pin only the primary action to the viewport
             // bottom instead of normal flow, so a virtual keyboard shrinking
