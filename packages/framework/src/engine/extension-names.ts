@@ -5,6 +5,7 @@ import type { PrincipalStatusPlugin, TenantLifecycleStatusPlugin } from "./activ
 import type { TenantDataExtensionHooks } from "./extensions/tenant-data.js";
 import type { TenantResourceExtensionHooks } from "./extensions/tenant-resource.js";
 import type { UserDataExtensionOptions } from "./extensions/user-data.js";
+import type { AssignableFromRole } from "./role-assignment.js";
 import { TENANT_TIER_RESOLVER_EXT, type TierResolverPlugin } from "./tier-resolver-extension.js";
 
 // Standardisierte Extension-Namen fuer Datenschutz-Hook-Achsen.
@@ -192,6 +193,14 @@ export const EXT_PRINCIPAL_STATUS = "principalStatus" as const;
  */
 export const EXT_TENANT_LIFECYCLE_STATUS = "tenantLifecycleStatus" as const;
 
+/**
+ * `assignableRole` — an app declares a membership role as assignable:
+ * `r.useExtension(EXT_ASSIGNABLE_ROLE, "<RoleName>", { assignableFrom? })`
+ * (`assignableFrom` defaults to "Admin").
+ * Provider is the bundled `tenant` feature; consumers are the membership-role guards.
+ */
+export const EXT_ASSIGNABLE_ROLE = "assignableRole" as const;
+
 // Default membership-list query handler name. Accepted coupling, same
 // pattern as FILE_PROVIDER_CONFIG_KEY — the `tenant` feature registers a handler under this literal.
 export const TENANT_MEMBERSHIPS_QUERY = "tenant:query:memberships" as const;
@@ -213,7 +222,8 @@ export type KumikoExtensionName =
   | typeof EXT_DERIVATIVE_PUBLIC_PREDICATE
   | typeof EXT_DERIVATIVE_OVERLAY_RESOLVER
   | typeof EXT_PRINCIPAL_STATUS
-  | typeof EXT_TENANT_LIFECYCLE_STATUS;
+  | typeof EXT_TENANT_LIFECYCLE_STATUS
+  | typeof EXT_ASSIGNABLE_ROLE;
 
 /** The four `destroyTenant(tenantId, ctx)`-only resource-cleanup extension points. */
 export type TenantResourceExtensionName =
@@ -233,6 +243,7 @@ declare module "@cosmicdrift/kumiko-framework/engine" {
     [EXT_DERIVATIVE_OVERLAY_RESOLVER]: OverlayResolverPlugin;
     [EXT_PRINCIPAL_STATUS]: PrincipalStatusPlugin;
     [EXT_TENANT_LIFECYCLE_STATUS]: TenantLifecycleStatusPlugin;
+    [EXT_ASSIGNABLE_ROLE]: { readonly assignableFrom?: AssignableFromRole };
     [EXT_STORAGE_PROVIDER]: TenantResourceExtensionHooks;
     [EXT_SEARCH_ADAPTER]: TenantResourceExtensionHooks;
     [EXT_EXTERNAL_RESOURCE]: TenantResourceExtensionHooks;

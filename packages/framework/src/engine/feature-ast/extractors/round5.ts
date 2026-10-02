@@ -112,3 +112,16 @@ export function extractStoreTable(
     "storeTable meta is a factory/identifier argument, not a static literal",
   );
 }
+
+export function extractBootCheck(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<never> {
+  // The argument is a runtime closure over the composed feature list —
+  // nothing to extract statically, so a clean ParseError like storeTable.
+  return fail(
+    "bootCheck",
+    sourceLocationFromNode(call, sourceFile),
+    "bootCheck takes a runtime closure, not a static literal",
+  );
+}

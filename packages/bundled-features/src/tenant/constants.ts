@@ -29,7 +29,13 @@ export const DEFAULT_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin"] as const;
 // Full assignable rank list, used by memberRolesEditScreen: that screen is
 // prefilled with a member's *current* roles, so it must be able to represent
 // every rank a membership can actually hold, including TenantAdmin (fw#2452).
-export const OWNER_INVITE_ROLE_OPTIONS = ["User", "Editor", "Admin", "TenantAdmin"] as const;
+export const OWNER_INVITE_ROLE_OPTIONS = [
+  "User",
+  "Member",
+  "Editor",
+  "Admin",
+  "TenantAdmin",
+] as const;
 
 // Qualified write handler names (QN format: scope:type:name)
 export const TenantHandlers = {

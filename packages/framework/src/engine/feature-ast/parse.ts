@@ -37,6 +37,7 @@ import {
   extractAiExtract,
   extractAiGenerate,
   extractAuthClaims,
+  extractBootCheck,
   extractClaimKey,
   extractConfig,
   extractDefineEvent,
@@ -586,6 +587,8 @@ function dispatchExtractor(
       return extractExposesApi(call, sourceFile);
     case "storeTable":
       return extractStoreTable(call, sourceFile);
+    case "bootCheck":
+      return extractBootCheck(call, sourceFile);
     // Round 6 — Tree-Actions pattern
     case "treeActions":
       return extractTreeActions(call, sourceFile);

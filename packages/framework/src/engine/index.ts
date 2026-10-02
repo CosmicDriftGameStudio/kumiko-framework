@@ -105,6 +105,7 @@ export type { EmitCtx } from "./event-helpers.js";
 export { emitEvent, typedPayload } from "./event-helpers.js";
 export type { KumikoExtensionName, TenantResourceExtensionName } from "./extension-names.js";
 export {
+  EXT_ASSIGNABLE_ROLE,
   EXT_DERIVATIVE_OVERLAY_RESOLVER,
   EXT_DERIVATIVE_PUBLIC_PREDICATE,
   EXT_DERIVATIVE_RENDERER,
@@ -286,7 +287,12 @@ export { readClaim } from "./read-claim.js";
 export { createRegistry } from "./registry.js";
 export type { ClampInfo, ResolveOptions } from "./resolve-config-or-param.js";
 export { resolveConfigOrParam } from "./resolve-config-or-param.js";
-export { findForbiddenRoleAssignment } from "./role-assignment.js";
+export type { AssignableAppRoles, AssignableFromRole } from "./role-assignment.js";
+export {
+  assignableAppRolesFromUsages,
+  findForbiddenRoleAssignment,
+  isAssignableByRole,
+} from "./role-assignment.js";
 export { runsInLane } from "./run-in.js";
 export type { StepListOutcome } from "./run-pipeline.js";
 export { runPipeline, runStepList } from "./run-pipeline.js";

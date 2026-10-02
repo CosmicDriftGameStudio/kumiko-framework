@@ -2,8 +2,10 @@ import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createEventStoreExecutor, type DbRow } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  assignableAppRolesFromUsages,
   createSystemUser,
   defineWriteHandler,
+  EXT_ASSIGNABLE_ROLE,
   findForbiddenRoleAssignment,
   withResponseData,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -112,6 +114,7 @@ export const updateMemberRolesWrite = defineWriteHandler({
         event.user.roles,
         event.payload.roles,
         currentTargetRoles,
+        assignableAppRolesFromUsages(ctx.registry.getExtensionUsages(EXT_ASSIGNABLE_ROLE)),
       );
       if (forbiddenElevation !== undefined) {
         return writeFailure(unassignableMembershipRoleError(forbiddenElevation));
