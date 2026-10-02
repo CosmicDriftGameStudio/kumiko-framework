@@ -10,7 +10,7 @@ export const SEARCHABLE_FALSE_WHITELIST = new Set(["download-attempt-list", "cap
 // isDeleted/deletedAt/deletedById. Accepting those here would let a
 // softDelete column pass the boot gate and then throw at render-time
 // because the renderer's LIST_ROW_META_COLUMNS doesn't know them.
-const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
+export const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
 
 function hasFilterableFields(feature: FeatureDefinition, entityName: string): boolean {
   const entities = feature.entities;

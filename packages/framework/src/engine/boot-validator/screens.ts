@@ -10,11 +10,12 @@ import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumik
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
-import { LIST_ROW_META_COLUMNS, REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
+import { REFERENCE_LOOKUP_SOURCES } from "../../ui-types/list-row-meta.js";
 import { parseRefTarget } from "../parse-ref-target.js";
 import { isKebabSegment, isValidQn, qualifyEntityName } from "../qualified-name.js";
 import { getAllowedFilterOps, isFieldFilterable } from "../screen-filter-ops.js";
 import {
+  type FieldsOrGroupsSection,
   isExtensionEditSection,
   isWriteFormEditSection,
   normalizeEditField,
@@ -48,15 +49,7 @@ import type {
   SecretMintScreenDefinition,
   ToolbarAction,
 } from "../types/screen.js";
-
-// entityList columns accept exactly the row-meta columns the renderer
-// (computeListViewModel) knows how to type — LIST_ROW_META_COLUMNS, NOT the
-// wider rowMetaFieldNames(softDelete) used below for rowAction payload/visible
-// field refs. Those two checks guard different things: a screen column must
-// be renderable, a payload/visible field reference only needs to exist on the
-// row. Using the wider set here would let a softDelete column like
-// "deletedAt" pass the boot gate and then throw at render-time instead.
-const LIST_ROW_META_COLUMN_NAMES = new Set(Object.keys(LIST_ROW_META_COLUMNS));
+import { LIST_ROW_META_COLUMN_NAMES } from "./entity-list-screens.js";
 
 // entityList and projectionList both allow a rowAction to double as the
 // row-body click target (rowClick: true, fw#1708/#2164) — at most one per
@@ -843,9 +836,7 @@ function validateFormMoneyCurrency(
 // every EditLayout-walking screen type instead of four hand-rolled copies.
 function validateFieldsXorGroups(
   errorPrefix: string,
-  section: { readonly title?: string; readonly fields: readonly EditFieldSpec[] } & {
-    readonly groups?: readonly { readonly fields: readonly EditFieldSpec[] }[];
-  },
+  section: FieldsOrGroupsSection & { readonly title?: string },
 ): void {
   if (section.fields.length > 0 && section.groups !== undefined) {
     throw new Error(

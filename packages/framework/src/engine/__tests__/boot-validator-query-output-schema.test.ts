@@ -77,6 +77,27 @@ describe("validateBoot — query output schema column refs (fw#2493)", () => {
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("projectionList over a loose row schema skips the column check (extra keys are legitimate)", () => {
+    const looseRowPaged = z.object({
+      rows: z.array(z.looseObject({ id: z.string() })),
+      nextCursor: z.string().nullable(),
+    });
+    const feature = defineFeature("catalog", (r) => {
+      r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {
+        access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+        outputSchema: looseRowPaged,
+      });
+      r.screen({
+        id: "items",
+        type: "projectionList",
+        query: "catalog:query:items:list",
+        columns: ["dynamic-key"],
+      });
+      r.translations({ keys: { "screen:items.title": { de: "Artikel", en: "Items" } } });
+    });
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
   test("projectionList without a declared outputSchema skips the column check entirely", () => {
     const feature = defineFeature("catalog", (r) => {
       r.queryHandler("items:list", z.object({}), async () => ({ rows: [], nextCursor: null }), {

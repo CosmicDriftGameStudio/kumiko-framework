@@ -141,6 +141,19 @@ function validatePersonalDataValue(
   );
 }
 
+function handlerInputKeys(
+  feature: FeatureDefinition,
+  handlerName: string,
+  handler: WriteHandlerDef,
+): ReadonlySet<string> {
+  try {
+    return collectZodObjectKeys(handler.schema);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`[Feature ${feature.name}] write handler "${handlerName}": ${reason}`);
+  }
+}
+
 function validateOpenToAllPersonalData(
   feature: FeatureDefinition,
   handlerName: string,
@@ -149,7 +162,7 @@ function validateOpenToAllPersonalData(
   const access = handler.access;
   // skip: no openToAll declared, or the handler declares tenant members may write personal data
   if (!hasOpenToAll(access) || declaresTenantMembersPersonalData(access)) return;
-  const inputKeys = collectZodObjectKeys(handler.schema);
+  const inputKeys = handlerInputKeys(feature, handlerName, handler);
   const personalNames = candidatePersonalFieldNames(feature, handlerName, handler);
   const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input
@@ -175,7 +188,7 @@ function validateAnonymousPersonalData(
   const access = handler.access;
   // skip: not reachable by an anonymous caller, or already declares public-intake
   if (!accessAllowsAnonymous(access) || declaredPersonalData(access) === "public-intake") return;
-  const inputKeys = collectZodObjectKeys(handler.schema);
+  const inputKeys = handlerInputKeys(feature, handlerName, handler);
   const personalNames = candidatePersonalFieldNames(feature, handlerName, handler, false);
   const offending = [...inputKeys].filter((key) => personalNames.has(key));
   // skip: no personal-data fields in the handler's input

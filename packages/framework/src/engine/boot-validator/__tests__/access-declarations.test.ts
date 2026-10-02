@@ -393,7 +393,7 @@ describe("validateAccessDeclarations — personal-data fields beyond a top-level
   test("a lazy getter that builds a new schema on every call fails loudly instead of looping", () => {
     const endless = (): z.ZodType => z.object({ title: z.string(), next: z.lazy(endless) });
     expect(() => validateAccessDeclarations(featureWithWriteHandler(endless()))).toThrow(
-      /more than 10000 nodes/,
+      /\[Feature [^\]]+\] write handler "[^"]+": .*more than 10000 nodes/,
     );
   });
 
