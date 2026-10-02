@@ -44,6 +44,7 @@ import {
   type InputProps,
   InsideDrawerProvider,
   type LinkProps,
+  needsActionConfirm,
   type ProgressProps,
   type SecretRevealProps,
   type SectionProps,
@@ -2398,15 +2399,6 @@ function FirstCellLink({
 // (während async onTrigger läuft) + confirm-pending-Action. Beide Sub-
 // Components hatten denselben State-Block dupliziert + parallel zur
 // Confirm-Dialog-Render-Logic — der Hook konsolidiert das.
-//
-// The rule: an explicit confirm OR style=danger opens the dialog,
-// everything else fires straight through.
-// `confirmRequired` overrides the danger-implies-confirm default (e.g.
-// schema-driven navigate/drawer actions where the target form is itself
-// the confirmation).
-function needsConfirm(action: DataTableRowAction): boolean {
-  return action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
-}
 
 function useRowActionTrigger(row: ListRowViewModel) {
   const [busy, setBusy] = useState(false);
@@ -2480,7 +2472,7 @@ function RowActionButton({
         {...(showIconOnly && { "aria-label": action.label, title: action.label })}
         onClick={(e) => {
           e.stopPropagation();
-          if (needsConfirm(action)) {
+          if (needsActionConfirm(action)) {
             setConfirmOpen(true);
           } else {
             void triggerNow(action);
@@ -2573,7 +2565,7 @@ function RowActionsKebab({
               onSelect={(e) => {
                 e.preventDefault();
                 setMenuOpen(false);
-                if (needsConfirm(action)) {
+                if (needsActionConfirm(action)) {
                   setPendingConfirm(action);
                 } else {
                   void triggerNow(action);

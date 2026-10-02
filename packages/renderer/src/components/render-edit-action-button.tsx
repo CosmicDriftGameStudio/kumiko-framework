@@ -7,7 +7,9 @@ import type { RenderEditAction } from "./render-edit-types.js";
 // without an explicit confirm key — unless `confirmRequired` overrides it
 // (schema-driven navigate/drawer actions, where the target form is itself
 // the confirmation).
-export function needsActionConfirm(action: RenderEditAction): boolean {
+export function needsActionConfirm(
+  action: Pick<RenderEditAction, "confirm" | "confirmRequired" | "style">,
+): boolean {
   return action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
 }
 

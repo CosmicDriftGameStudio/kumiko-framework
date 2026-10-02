@@ -118,6 +118,7 @@ export type {
   RenderEditProps,
 } from "./components/render-edit.js";
 export { RenderEdit } from "./components/render-edit.js";
+export { needsActionConfirm } from "./components/render-edit-action-button.js";
 export type { RenderFieldProps } from "./components/render-field.js";
 export { RenderField } from "./components/render-field.js";
 export type { RenderListProps } from "./components/render-list.js";

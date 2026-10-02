@@ -16,6 +16,7 @@ import type {
   EditFieldViewModel,
   EditSectionViewModel,
   FieldConditions,
+  FieldIssue,
   FormValues,
   SubmitResult,
   Translate,
@@ -399,6 +400,9 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const [linkCopied, setLinkCopied] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<DispatcherError | null>(null);
+  // A rejected delete can carry several blocking reasons; the first one is the
+  // banner's headline (formError), the rest are listed beneath it.
+  const [extraDeleteIssues, setExtraDeleteIssues] = useState<readonly FieldIssue[]>([]);
   // One state for all header actions (actions?), not per-button — only one
   // action can be in flight at a time, and this keeps the error surfaced in
   // the shared formError-adjacent banner region instead of inside the
@@ -1136,6 +1140,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       let extensionsPersisted = true;
       if (result.isSuccess) {
         setFormError(null);
+        setExtraDeleteIssues([]);
         // `isNoOp: true` (payloadMode "changes", pre-filled form submitted
         // untouched) means controller.submit() never called dispatcher.write
         // — nothing to discard, and discarding here would delete a draft the
@@ -1170,6 +1175,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           const step = findFirstErroringStep(issuePaths);
           if (step !== undefined) jumpToStep(step);
         }
+        setExtraDeleteIssues([]);
         setFormError(
           hasIssueWithoutRenderedField(issuePaths, filteredSections) ? result.error : null,
         );
@@ -1348,6 +1354,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const isFieldlessSubmitForm = isFieldless && screen.entity !== PROJECTION_DETAIL_ENTITY;
   const showsSubmit = isFormEditable || hasExtensionRegistrations || isFieldlessSubmitForm;
   const footerSlot = screen.slots?.footer;
+  // An unregistered footer component renders null, so only a resolvable one may
+  // count as an action (else read-only screens get an empty footer strip).
+  const FooterSlotComponent = useExtensionSectionComponent(
+    footerSlot !== undefined ? extensionSectionName(footerSlot) : undefined,
+  );
   // Mirrors every branch inside formActions below — without this guard
   // DefaultForm renders an empty footer strip (border + padding, no content)
   // on read-only detail screens, since `actions` would otherwise always be
@@ -1359,7 +1370,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     showWizardBack ||
     showWizardNext ||
     showSubmit ||
-    footerSlot !== undefined ||
+    FooterSlotComponent !== undefined ||
     writeFormFooterAction !== undefined;
   const nextStepTitle = isWizard ? filteredSections[currentStep + 1]?.title : undefined;
   const isCreate = (() => {
@@ -1401,7 +1412,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
           entityName={vm.entityName}
           entityId={resolveExtensionEntityId(entityIdProp, vm.id)}
           values={snapshot.values}
-          hasUnsavedChanges={snapshot.isDirty || extensionDirty}
+          hasUnsavedChanges={hasUnsavedInput}
           wizardStep={isWizard ? { index: currentStep, isLast: isLastWizardStep } : undefined}
           {...(screen.slots?.footerPrimary === true && { [STICKY_PRIMARY_ACTION_PROP]: true })}
         />
@@ -2032,6 +2043,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                     onClick={() => {
                       onReload();
                       setFormError(null);
+                      setExtraDeleteIssues([]);
                     }}
                     testId="render-edit-form-error-reload"
                   >
@@ -2043,6 +2055,11 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
               <Text testId="render-edit-form-error-key">
                 {translate(formError.i18nKey, formError.i18nParams)}
               </Text>
+              {extraDeleteIssues.map((issue) => (
+                <Text key={`${issue.path}:${issue.i18nKey}`} testId="render-edit-form-error-extra">
+                  {translate(issue.i18nKey, issue.params)}
+                </Text>
+              ))}
             </Banner>
           )}
           {(snapshot.errors["(root)"] ?? []).map((issue) => (
@@ -2072,7 +2089,8 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
                 // A rejected delete (e.g. a preDelete hook) carries its reason in
                 // the field issues; the top-level key is only "validation failed".
                 if (rejection !== undefined) {
-                  const issue = rejection.details?.fields?.[0];
+                  const [issue, ...otherIssues] = rejection.details?.fields ?? [];
+                  setExtraDeleteIssues(otherIssues);
                   setFormError(
                     issue === undefined
                       ? rejection

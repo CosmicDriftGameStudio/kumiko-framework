@@ -503,6 +503,19 @@ describe("KumikoScreen", () => {
     expect(screen.queryByTestId("render-edit-delete")).not.toBeNull();
   });
 
+  test("entityEdit update-mode: abgelehntes Delete mit mehreren Feldfehlern listet alle im Banner", async () => {
+    await deleteRejectedWith({
+      fields: [
+        { path: "id", code: "custom", i18nKey: "tasks.errors.blocked-by-a" },
+        { path: "id", code: "custom", i18nKey: "tasks.errors.blocked-by-b" },
+      ],
+    });
+
+    const banner = await screen.findByTestId("render-edit-form-error");
+    expect(banner.textContent).toContain("tasks.errors.blocked-by-a");
+    expect(banner.textContent).toContain("tasks.errors.blocked-by-b");
+  });
+
   test("entityEdit update-mode: abgelehntes Delete ohne Feldfehler zeigt den Top-Level-Key", async () => {
     await deleteRejectedWith(undefined);
 

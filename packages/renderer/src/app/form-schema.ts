@@ -10,7 +10,7 @@ import { layoutEditFields } from "./layout-fields.js";
 
 // `required` means "has a value", not "is truthy" — `false` and `0` count
 // as present, only the actually-empty representations don't.
-function isPresent(value: unknown): boolean {
+export function isPresent(value: unknown): boolean {
   if (value === undefined || value === null || value === "") return false;
   if (Array.isArray(value) && value.length === 0) return false;
   return true;
