@@ -33,8 +33,8 @@ export const bookEntity = createEntity({
       maxLength: 200,
     }),
     author: createTextField({
-      personal: false,
-      reason: "is_business_data",
+      personal: { of: "id" },
+      find: "none",
       required: true,
       maxLength: 100,
     }),

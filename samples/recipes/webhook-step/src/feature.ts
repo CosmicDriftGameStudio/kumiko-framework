@@ -30,6 +30,8 @@ const incidentExecutor = createEventStoreExecutor(incidentTable, incidentEntity,
   entityName: "incident",
 });
 
+const INCIDENT_HOOK_URL = "https://hooks.example/incident";
+
 export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
   r.entity("incident", incidentEntity);
   r.requires.step("webhook.send");
@@ -71,8 +73,9 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
     }),
   );
 
-  // auth variant — the webhook secret resolves per-tenant via the secrets
-  // feature under `step-dispatcher:webhook-auth.incident-hook`, never a
+  // auth variant — the URL is fixed server-side: a caller-supplied URL would
+  // receive the tenant's bearer secret. The webhook secret resolves per-tenant
+  // via the secrets feature under `step-dispatcher:webhook-auth.incident-hook`, never a
   // process-wide env var. See README for how to set it via
   // `secrets:write:set`.
   r.writeHandler(
@@ -81,11 +84,10 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
       schema: z.object({
         title: z.string().min(1),
         severity: z.enum(["low", "medium", "high"]),
-        webhookUrl: z.string(),
       }),
       access: { roles: ["Admin"] },
       perform: stepsPipeline<
-        { title: string; severity: "low" | "medium" | "high"; webhookUrl: string },
+        { title: string; severity: "low" | "medium" | "high" },
         { id: string }
       >(({ event, r }) => [
         r.step.aggregate.create("incident", {
@@ -93,7 +95,7 @@ export const webhookDemoFeature = defineFeature("webhook-demo", (r) => {
           data: () => ({ title: event.payload.title, severity: event.payload.severity }),
         }),
         r.step.webhook.send({
-          url: () => event.payload.webhookUrl,
+          url: () => INCIDENT_HOOK_URL,
           mode: "deferred",
           auth: { kind: "bearer", secret: "incident-hook" },
           body: ({ steps }: PipelineCtx) => ({

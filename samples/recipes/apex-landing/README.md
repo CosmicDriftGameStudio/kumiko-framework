@@ -24,6 +24,8 @@ requests via `setupTestStack`.
 
 ## Run
 
+Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+
 ```bash
 bun test            # pure-function seams + the seo-mounted integration test
 bun run screenshot  # → screenshots/landing.png + lightbox.png

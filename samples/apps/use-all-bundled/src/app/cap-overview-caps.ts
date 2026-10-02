@@ -4,6 +4,7 @@ import { tagEntity } from "@cosmicdrift/kumiko-bundled-features/tags";
 import { tenantMembershipsTable } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 
 const tagTable = buildEntityTable("tag", tagEntity);
 
@@ -45,6 +46,14 @@ export const CAP_OVERVIEW_CAPS: readonly CapSpec[] = [
     usage: async (db, tenantId) => {
       const rows = await selectMany(db, tenantMembershipsTable, { tenantId: [tenantId] });
       return rows.length;
+    },
+    usageBatch: async (db, tenantIds) => {
+      const rows = await selectMany(db, tenantMembershipsTable, { tenantId: [...tenantIds] });
+      const seatsByTenant = new Map<TenantId, number>();
+      for (const row of rows) {
+        seatsByTenant.set(row.tenantId, (seatsByTenant.get(row.tenantId) ?? 0) + 1);
+      }
+      return seatsByTenant;
     },
     icon: "users",
   },

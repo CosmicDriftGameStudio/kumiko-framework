@@ -29,11 +29,17 @@ stored without the `step-dispatcher:webhook-auth.` prefix) gets a generic
 `webhook auth secret is not available` `step.dispatch-failed` event, never
 another tenant's credential.
 
+Never combine `auth.secret` with a caller-controlled `url`: the caller would
+receive the secret as the `Authorization` header. `incident:open-authenticated`
+therefore posts to a fixed URL.
+
 ## Source
 
 Feature entry point: `src/feature.ts`.
 
 ## Tests
+
+Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
 
 ```bash
 cd samples/recipes/webhook-step

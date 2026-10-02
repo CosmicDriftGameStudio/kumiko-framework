@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "e2e": "bun x playwright test --config=e2e/playwright.config.ts",
-    "screenshot": "bun x playwright test --config=e2e/playwright.config.ts"
+    "screenshot": "bun x playwright test --config=e2e/playwright.config.ts -g \"writeForm section beside the established entityEdit form\""
   },
   "dependencies": {
     "@cosmicdrift/kumiko-framework": "workspace:*",

@@ -39,6 +39,8 @@ const open = openToAllSignedIn(
   "demo app: any signed-in user manages every lease; there is no per-user ownership in this sample",
 );
 
+const roundToCents = (amount: number): number => Math.round(amount * 100) / 100;
+
 // measure and vatRate only exist to give the walkthrough form realistic column
 // types; leasePosition has no fields for them.
 function positionFromItem(
@@ -51,7 +53,7 @@ function positionFromItem(
     art: item.kind,
     ...(unitLabel && { einheit: unitLabel }),
     betrag: {
-      amount: item.unitPrice.amount * item.quantity,
+      amount: roundToCents(item.unitPrice.amount * item.quantity),
       currency: item.unitPrice.currency,
     },
     gueltigVon: item.validFrom,
@@ -164,11 +166,15 @@ export const rentalFeature = defineFeature("rental", (r) => {
     recordPositionsPayloadSchema,
     async (event, ctx) => {
       let created: Awaited<ReturnType<typeof positionExecutor.create>> | undefined;
+      const unitLabels = new Map<string, string | null | undefined>();
+      for (const unitId of new Set(event.payload.items.map((item) => item.unit))) {
+        const unitRow = await leaseExecutor.detail({ id: unitId }, event.user, ctx.db);
+        if (!unitRow) return failNotFound("lease", unitId);
+        unitLabels.set(unitId, parseLeaseRow(unitRow).einheit);
+      }
       for (const item of event.payload.items) {
-        const unitRow = await leaseExecutor.detail({ id: item.unit }, event.user, ctx.db);
-        if (!unitRow) return failNotFound("lease", item.unit);
         created = await positionExecutor.create(
-          positionFromItem(event.payload.lease, parseLeaseRow(unitRow).einheit, item),
+          positionFromItem(event.payload.lease, unitLabels.get(item.unit), item),
           event.user,
           ctx.db,
         );
