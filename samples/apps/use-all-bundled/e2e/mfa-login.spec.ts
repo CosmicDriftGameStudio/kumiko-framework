@@ -22,7 +22,7 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { expect, test } from "@cosmicdrift/kumiko-testing/e2e";
+import { clearSession, expect, test } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 
 const DISPLAY_NAME = "MFA E2E";
@@ -71,7 +71,7 @@ async function ensureSessionForDisable(
     return;
   }
 
-  await page.context().clearCookies();
+  await clearSession(page);
   await page.goto("/");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(password);
@@ -131,7 +131,7 @@ test("MFA enable → logout → login challenges → TOTP → shell", async ({ p
     expect(confirm.ok()).toBe(true);
     enrolled = true;
 
-    await page.context().clearCookies();
+    await clearSession(page);
     await page.goto("/");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Password").fill(password);

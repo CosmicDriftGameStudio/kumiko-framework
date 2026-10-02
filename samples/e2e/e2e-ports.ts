@@ -19,6 +19,7 @@ export const E2E_PORTS = {
   "money-horse/screenshots": 4318,
   "money-horse/e2e": 4319,
   "solon/e2e": 4185,
+  "solon/screenshots": 4186,
   "phronexsis/e2e": 4321,
   "phronexsis/screenshots": 4322,
   "show-pony/e2e": 4181,

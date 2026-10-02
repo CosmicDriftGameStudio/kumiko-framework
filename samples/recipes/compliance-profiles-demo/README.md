@@ -44,6 +44,8 @@ instead of hard-coding region rules.
 
 ## Tests
 
+Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+
 ```bash
 # From kumiko-framework repo root:
 bun test samples/recipes/compliance-profiles-demo/src/__tests__/feature.integration.test.ts

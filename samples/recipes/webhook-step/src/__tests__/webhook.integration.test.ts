@@ -229,7 +229,7 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
 
     const error = await stack.http.writeErr(
       "webhook-demo:write:incident:open-authenticated",
-      { title: "DB outage", severity: "high", webhookUrl: "https://hooks.example/incident" },
+      { title: "DB outage", severity: "high" },
       viewer,
     );
     expect(error.code).toBe("access_denied");
@@ -245,7 +245,7 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
 
     await stack.http.writeOk<{ id: string }>(
       "webhook-demo:write:incident:open-authenticated",
-      { title: "DB outage", severity: "high", webhookUrl: "https://hooks.example/incident" },
+      { title: "DB outage", severity: "high" },
       adminB,
     );
     await stack.eventDispatcher?.runOnce();
@@ -276,7 +276,6 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
       {
         title: "Tenant A incident",
         severity: "high",
-        webhookUrl: "https://hooks.example/incident",
       },
       adminA,
     );
@@ -307,7 +306,6 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
       {
         title: "Tenant C incident",
         severity: "high",
-        webhookUrl: "https://hooks.example/incident",
       },
       adminC,
     );

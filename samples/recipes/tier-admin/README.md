@@ -58,6 +58,8 @@ exactly this reason.
 
 ## Tests
 
+Needs a running Postgres and `TEST_DATABASE_URL` set (e.g. `postgres://postgres:postgres@127.0.0.1:5432/postgres`, see `demo/.env.example`).
+
 ```bash
 bun test src/__tests__/feature.integration.test.ts
 ```

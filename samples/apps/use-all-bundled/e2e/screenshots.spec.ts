@@ -7,7 +7,7 @@
 
 import { base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
-import { runMatrix, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
+import { clearSession, runMatrix, type Scenario } from "@cosmicdrift/kumiko-testing/e2e";
 import type { Page } from "@playwright/test";
 import { ADMIN_EMAIL, ADMIN_PASSWORD, DEMO_NOTE_ID } from "../src/app/auth-constants";
 import { loginAsAdmin } from "./_helpers/login";
@@ -148,7 +148,7 @@ const adminMfaLoginChallenge = () => async (page: Page) => {
     },
   });
 
-  await page.context().clearCookies();
+  await clearSession(page);
   await page.goto("/");
   await page.getByLabel("Email").fill(ADMIN_EMAIL);
   await page.getByLabel("Password").fill(ADMIN_PASSWORD);
@@ -267,11 +267,8 @@ const SCENARIOS: readonly Scenario[] = [
   // /tenant-admin/my-caps screen ("Plans & Caps" in the admin sidebar).
   {
     name: "tenant-cap-list",
-    flow: async (page: Page) => {
-      await loginAsAdmin(page);
-      await page.goto("/tenant-admin/my-caps");
-      await page.getByTestId("cap-cards-panel").waitFor({ timeout: 15_000 });
-    },
+    flow: admin("/tenant-admin/my-caps"),
+    waitFor: '[data-testid="cap-cards-panel"]',
     fullPage: true,
   },
   // auth-mfa — login-time challenge step (MfaVerifyScreen swapped in after
