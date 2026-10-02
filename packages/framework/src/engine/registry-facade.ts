@@ -35,6 +35,7 @@ import type {
   ScreenDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  SecretNamespaceDefinition,
   StoreTableDef,
   StreamHandlerDef,
   TranslationKeys,
@@ -241,6 +242,13 @@ export function buildRegistryFacade(state: RegistryState): Registry {
 
     getSecretKey(qualifiedName: string): SecretKeyDefinition | undefined {
       return state.secretKeyMap.get(qualifiedName);
+    },
+
+    findSecretNamespace(key: string): SecretNamespaceDefinition | undefined {
+      for (const [prefix, def] of state.secretNamespaceMap) {
+        if (key.startsWith(prefix)) return def;
+      }
+      return undefined;
     },
 
     getConfigKey(qualifiedKey: string): ConfigKeyDefinition | undefined {

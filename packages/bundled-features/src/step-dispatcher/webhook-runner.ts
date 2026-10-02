@@ -71,6 +71,16 @@ const webhookAuthSecretNameSchema = z
   .max(WEBHOOK_AUTH_SECRET_NAME_MAX_LENGTH)
   .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
 
+// The same schema validates `auth.secret` in the step spec and the suffix the
+// secrets handlers accept under the namespace, so the two cannot drift. The
+// prefix itself is derived from the feature name by r.secretNamespace; the
+// boot test pins it to WEBHOOK_AUTH_SECRET_KEY_PREFIX.
+export const WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS = {
+  label: { en: "Webhook auth secrets" },
+  scope: "tenant",
+  nameSchema: webhookAuthSecretNameSchema,
+} as const;
+
 export const webhookSpecSchema = z.object({
   url: z.string(),
   method: z.enum(["POST", "PUT", "PATCH"]),

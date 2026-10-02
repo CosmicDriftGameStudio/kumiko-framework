@@ -294,12 +294,13 @@ describe("incident:open-authenticated — tenant-owned webhook auth secret", () 
     expect(errorMessage).not.toContain("b-token-secret");
   });
 
-  test("a secret stored without the tenant namespace prefix does not authenticate", async () => {
-    await stack.http.writeOk(
+  test("a secret outside the webhook-auth namespace cannot be stored and does not authenticate", async () => {
+    const rejected = await stack.http.writeErr(
       "secrets:write:set",
       { key: "incident-hook", value: "c-raw-token" },
       adminC,
     );
+    expect(rejected.i18nKey).toBe("secrets.errors.unknownKey");
 
     await stack.http.writeOk<{ id: string }>(
       "webhook-demo:write:incident:open-authenticated",

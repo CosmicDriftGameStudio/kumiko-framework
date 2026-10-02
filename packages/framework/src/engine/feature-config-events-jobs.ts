@@ -27,6 +27,8 @@ import type {
   NotificationTemplateFn,
   QualifiedEventName,
   SecretKeyHandle,
+  SecretNamespaceHandle,
+  SecretNamespaceOptions,
   SecretOptions,
   TranslationsDef,
 } from "./types/index.js";
@@ -381,6 +383,12 @@ export function buildConfigEventsJobsMethods<TName extends string>(
             `Secret key names must be unique per feature.`,
         );
       }
+      if (secretOptions.writeRoles !== undefined && secretOptions.writeRoles.length === 0) {
+        throw new Error(
+          `[Feature ${name}] Secret "${shortName}" declares an empty writeRoles list, ` +
+            `which nobody could ever satisfy. Omit writeRoles to fall back to the secrets handler access.`,
+        );
+      }
       // Qualified name follows the framework's "<feature>:<type>:<name>"
       // QN convention — same pattern config / jobs / events use. toKebab
       // handles the common input shapes ("stripe.apiKey" → "stripe-api-key")
@@ -393,6 +401,30 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         ...secretOptions,
       };
       return { name: qualifiedName };
+    },
+    secretNamespace(
+      shortNameOrDefinition: string | ({ readonly name: string } & SecretNamespaceOptions),
+      options?: SecretNamespaceOptions,
+    ): SecretNamespaceHandle {
+      const [shortName, namespaceOptions] =
+        typeof shortNameOrDefinition === "string"
+          ? [shortNameOrDefinition, options as SecretNamespaceOptions]
+          : splitNamedDefinition(shortNameOrDefinition);
+      if (state.secretNamespaces[shortName]) {
+        throw new Error(
+          `[Feature ${name}] Secret namespace "${shortName}" already registered. ` +
+            `Secret namespace names must be unique per feature.`,
+        );
+      }
+      if (namespaceOptions.writeRoles !== undefined && namespaceOptions.writeRoles.length === 0) {
+        throw new Error(
+          `[Feature ${name}] Secret namespace "${shortName}" declares an empty writeRoles list, ` +
+            `which nobody could ever satisfy. Omit writeRoles to fall back to the secrets handler access.`,
+        );
+      }
+      const qualifiedPrefix = `${toKebab(name)}:${toKebab(shortName)}.`;
+      state.secretNamespaces[shortName] = { shortName, qualifiedPrefix, ...namespaceOptions };
+      return { prefix: qualifiedPrefix, keyFor: (suffix) => `${qualifiedPrefix}${suffix}` };
     },
     claimKey<T extends ClaimKeyType>(
       shortNameOrDefinition: string | { readonly name: string; readonly type: T },

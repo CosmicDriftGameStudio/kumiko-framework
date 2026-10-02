@@ -22,6 +22,7 @@ import {
 import { createSecretsFeature } from "../feature.js";
 import { createSecretsContext } from "../secrets-context.js";
 import { tenantSecretsTable } from "../table.js";
+import { createDeclaredKeysFeature } from "./declared-keys-feature.js";
 
 function masterKeyProvider(): MasterKeyProvider {
   return createEnvMasterKeyProvider({
@@ -32,10 +33,13 @@ function masterKeyProvider(): MasterKeyProvider {
   });
 }
 
+const declared = createDeclaredKeysFeature();
+const SECRET_KEY = declared.keys.plain.name;
+
 async function buildStack(feature: ReturnType<typeof createSecretsFeature>): Promise<TestStack> {
   const provider = masterKeyProvider();
   const stack = await setupTestStack({
-    features: [feature],
+    features: [feature, declared.feature],
     extraContext: ({ db }) => ({
       secrets: createSecretsContext({ db, masterKeyProvider: provider }),
     }),
@@ -62,7 +66,7 @@ describe("secrets — roles option (#2296)", () => {
   test("a custom-role user can set, list and delete", async () => {
     await stack.http.writeOk(
       "secrets:write:set",
-      { key: "api.key.role-opt", value: "shh" },
+      { key: SECRET_KEY, value: "shh" },
       customRoleUser,
     );
     const list = await stack.http.queryOk<Array<{ key: string }>>(
@@ -70,14 +74,14 @@ describe("secrets — roles option (#2296)", () => {
       {},
       customRoleUser,
     );
-    expect(list.some((r) => r.key === "api.key.role-opt")).toBe(true);
-    await stack.http.writeOk("secrets:write:delete", { key: "api.key.role-opt" }, customRoleUser);
+    expect(list.some((r) => r.key === SECRET_KEY)).toBe(true);
+    await stack.http.writeOk("secrets:write:delete", { key: SECRET_KEY }, customRoleUser);
   });
 
   test("the framework-default TenantAdmin role is denied once `roles` overrides it", async () => {
     const deniedSet = await stack.http.writeErr(
       "secrets:write:set",
-      { key: "api.key.denied", value: "x" },
+      { key: SECRET_KEY, value: "x" },
       admin,
     );
     expect(deniedSet.code).toBe("access_denied");
@@ -87,7 +91,7 @@ describe("secrets — roles option (#2296)", () => {
 
     const deniedDelete = await stack.http.writeErr(
       "secrets:write:delete",
-      { key: "api.key.denied" },
+      { key: SECRET_KEY },
       admin,
     );
     expect(deniedDelete.code).toBe("access_denied");
@@ -110,17 +114,13 @@ describe("secrets — access: { openToAll: { reason } }", () => {
   });
 
   test("any authenticated tenant user can set, list and delete", async () => {
-    await stack.http.writeOk(
-      "secrets:write:set",
-      { key: "api.key.open", value: "shh" },
-      unprivileged,
-    );
+    await stack.http.writeOk("secrets:write:set", { key: SECRET_KEY, value: "shh" }, unprivileged);
     const list = await stack.http.queryOk<Array<{ key: string }>>(
       "secrets:query:list",
       {},
       unprivileged,
     );
-    expect(list.some((r) => r.key === "api.key.open")).toBe(true);
-    await stack.http.writeOk("secrets:write:delete", { key: "api.key.open" }, unprivileged);
+    expect(list.some((r) => r.key === SECRET_KEY)).toBe(true);
+    await stack.http.writeOk("secrets:write:delete", { key: SECRET_KEY }, unprivileged);
   });
 });

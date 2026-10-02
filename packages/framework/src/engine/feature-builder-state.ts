@@ -32,6 +32,7 @@ import type {
   RelationDefinition,
   SearchPayloadContributorFn,
   SecretKeyDefinition,
+  SecretNamespaceDefinition,
   StoreTableEntry,
   StreamHandlerDef,
   TranslationKeys,
@@ -89,6 +90,7 @@ export type FeatureBuilderState = {
   handlerEntityMappings: Record<string, string>;
   metrics: Record<string, FeatureMetricDef>;
   secretKeys: Record<string, SecretKeyDefinition>;
+  secretNamespaces: Record<string, SecretNamespaceDefinition>;
   projections: Record<string, ProjectionDefinition>;
   multiStreamProjections: Record<string, MultiStreamProjectionDefinition>;
   entityProjectionExtensions: Record<string, EntityProjectionExtension[]>;
@@ -151,6 +153,7 @@ export function createInitialFeatureBuilderState(): FeatureBuilderState {
     handlerEntityMappings: {},
     metrics: {},
     secretKeys: {},
+    secretNamespaces: {},
     projections: {},
     multiStreamProjections: {},
     entityProjectionExtensions: {},

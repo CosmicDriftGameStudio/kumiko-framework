@@ -260,6 +260,15 @@ export function populateMetricsAndSecrets(state: RegistryState, feature: Feature
     }
     state.secretKeyMap.set(def.qualifiedName, def);
   }
+  for (const def of Object.values(feature.secretNamespaces ?? {})) {
+    if (state.secretNamespaceMap.has(def.qualifiedPrefix)) {
+      throw new Error(
+        `[Kumiko Secrets] Secret namespace "${def.qualifiedPrefix}" registered multiple times. ` +
+          "Namespace prefixes must be globally unique across features.",
+      );
+    }
+    state.secretNamespaceMap.set(def.qualifiedPrefix, def);
+  }
 }
 
 // Explicit + multi-stream projections (source-entity indexed) + store tables +

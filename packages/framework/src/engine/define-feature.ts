@@ -150,6 +150,7 @@ export function defineFeature<const TName extends string, TExports = undefined>(
     handlerEntityMappings: state.handlerEntityMappings,
     metrics: state.metrics,
     secretKeys: state.secretKeys,
+    secretNamespaces: state.secretNamespaces,
     projections: state.projections,
     entityProjectionExtensions: state.entityProjectionExtensions,
     multiStreamProjections: state.multiStreamProjections,

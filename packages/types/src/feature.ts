@@ -126,9 +126,39 @@ export type SecretKeyDefinition = {
   // by readiness:query:status; keep in sync with the missing-secret throw
   // in the feature's build-fn.
   readonly required?: boolean;
+  // Roles allowed to set/delete this key. Narrows the secrets handler access
+  // (both must pass); absent = the handler access alone decides.
+  readonly writeRoles?: readonly string[];
 };
 
 export type SecretOptions = Omit<SecretKeyDefinition, "shortName" | "qualifiedName">;
+
+// A family of secret keys whose suffix is chosen at runtime (e.g. one webhook
+// auth token per tenant-picked name). The stored key is
+// `<qualifiedPrefix><name>`; the prefix ends in "." and is derived from
+// `<feature>:<shortName>.` at declaration time. Kept out of secretKeys so the
+// generated secrets screen only lists fixed keys.
+export type SecretNamespaceDefinition = {
+  readonly shortName: string;
+  readonly qualifiedPrefix: string;
+  readonly label: { readonly [locale: string]: string };
+  readonly hint?: { readonly [locale: string]: string };
+  readonly scope: "tenant";
+  // Same meaning as SecretKeyDefinition.writeRoles, for every key in the namespace.
+  readonly writeRoles?: readonly string[];
+  // Validates the suffix after the prefix. Absent = any non-empty suffix.
+  readonly nameSchema?: ZodType<string>;
+};
+
+export type SecretNamespaceOptions = Omit<
+  SecretNamespaceDefinition,
+  "shortName" | "qualifiedPrefix"
+>;
+
+export type SecretNamespaceHandle = {
+  readonly prefix: string;
+  keyFor(name: string): string;
+};
 
 // Typed reference returned by r.secret(). Lets feature code pass a
 // strongly-named handle to ctx.secrets.get instead of retyping the
@@ -320,6 +350,8 @@ export type FeatureDefinition = {
   // Secret keys declared via r.secret(). Short names — Framework prefixes to
   // "<feature>:<short>" during registry build.
   readonly secretKeys: Readonly<Record<string, SecretKeyDefinition>>;
+  // Secret namespaces declared via r.secretNamespace(), keyed by short name.
+  readonly secretNamespaces: Readonly<Record<string, SecretNamespaceDefinition>>;
   // Projections declared via r.projection(). Keyed by projection name; executor
   // looks them up by source-entity at write-time.
   readonly projections: Readonly<Record<string, ProjectionDefinition>>;
@@ -770,6 +802,14 @@ export type FeatureRegistrar<TFeature extends string = string> = {
   secret(shortName: string, options: SecretOptions): SecretKeyHandle;
   secret(definition: { readonly name: string } & SecretOptions): SecretKeyHandle;
 
+  // Declare a namespace of runtime-named secret keys. The prefix is
+  // "<feature>:<kebab name>." — secrets:write:set/delete accept any key under
+  // it whose suffix passes options.nameSchema.
+  secretNamespace(shortName: string, options: SecretNamespaceOptions): SecretNamespaceHandle;
+  secretNamespace(
+    definition: { readonly name: string } & SecretNamespaceOptions,
+  ): SecretNamespaceHandle;
+
   // Register a projection driven by events of one or more source entities.
   // The runtime fires projection.apply[event.type] inside the event-store's
   // transaction, so projections stay consistent with the events that feed them.
@@ -1048,6 +1088,8 @@ export type Registry = {
   // job (to iterate "known" secrets) and admin-UIs to list available keys.
   getAllSecretKeys(): ReadonlyMap<string, SecretKeyDefinition>;
   getSecretKey(qualifiedName: string): SecretKeyDefinition | undefined;
+  // The declared namespace whose prefix the key starts with, if any.
+  findSecretNamespace(key: string): SecretNamespaceDefinition | undefined;
   getJob(qualifiedName: string): JobDefinition | undefined;
   getAllJobs(): ReadonlyMap<string, JobDefinition>;
   getEvent(qualifiedName: string): EventDef | undefined;

@@ -324,3 +324,38 @@ describe("extensionSelector boot-validation", () => {
     );
   });
 });
+
+describe("createRegistry secret namespaces", () => {
+  const namespaceFeature = () =>
+    defineFeature("billing", (r) => {
+      r.secretNamespace("hooks", { label: { en: "Hooks" }, scope: "tenant" });
+    });
+
+  test("findSecretNamespace resolves a key under the declared prefix", () => {
+    const registry = createRegistry([namespaceFeature()]);
+    expect(registry.findSecretNamespace("billing:hooks.deploy")?.shortName).toBe("hooks");
+    expect(registry.findSecretNamespace("billing:other.deploy")).toBeUndefined();
+  });
+
+  test("namespaces stay out of the fixed secret key map", () => {
+    const registry = createRegistry([namespaceFeature()]);
+    expect(registry.getAllSecretKeys().size).toBe(0);
+  });
+
+  test("the same prefix registered by two features throws", () => {
+    const sameNamespace = {
+      hooks: {
+        shortName: "hooks",
+        qualifiedPrefix: "billing:hooks.",
+        label: { en: "Hooks" },
+        scope: "tenant",
+      },
+    };
+    expect(() =>
+      createRegistry([
+        bareFeature({ name: "first", secretNamespaces: sameNamespace }),
+        bareFeature({ name: "second", secretNamespaces: sameNamespace }),
+      ]),
+    ).toThrow(/Secret namespace "billing:hooks\." registered multiple times/);
+  });
+});
