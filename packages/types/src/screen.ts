@@ -1213,13 +1213,27 @@ export type RelatedListGroupBy = {
   readonly collapsedWhen?: string | number | boolean | null;
   /** i18n key of the group header. Placeholders: `{count}` rows in the group,
    *  `{value}` the group's field value, `{lastDate}` the group's latest
-   *  `dateField` value as a locale date. */
-  readonly label: string;
+   *  `dateField` value as a locale date. A group with neither `label` nor an
+   *  entry in `labels` renders its rows without a header and never collapses. */
+  readonly label?: string;
   /** Header i18n key per group value (as string), overriding `label`. */
   readonly labels?: Readonly<Record<string, string>>;
   /** Row field (ISO date or timestamp) behind `{lastDate}`. */
   readonly dateField?: string;
 };
+
+/** Group key of a field value; `collapsedWhen` and row values both go through it. */
+export function relatedListGroupKey(value: unknown): string {
+  return value === undefined || value === null ? "" : String(value);
+}
+
+export function relatedListGroupHeaderLabel(
+  groupBy: RelatedListGroupBy,
+  groupKey: string,
+): string | undefined {
+  const labels = groupBy.labels;
+  return labels !== undefined && Object.hasOwn(labels, groupKey) ? labels[groupKey] : groupBy.label;
+}
 
 /** Row tint rule: rows where the `FieldCondition` (`{ field, eq }`, `{ field,
  *  in }` …) holds get the tone. `bad` renders red. */

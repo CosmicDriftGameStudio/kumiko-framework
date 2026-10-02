@@ -133,6 +133,24 @@ describe("RelatedListSection groupBy / rowTone", () => {
     expect(screen.getByTestId("row-p2")).toBeTruthy();
   });
 
+  test("a group without a header label shows its rows directly while the labelled group stays collapsible", async () => {
+    renderSection({
+      ...baseSection,
+      entity: "post",
+      groupBy: {
+        field: "status",
+        collapsedWhen: "gepostet",
+        labels: { gepostet: "campaigns.posts.group" },
+        dateField: "datum",
+      },
+    });
+
+    expect((await screen.findByTestId("row-group-gepostet")).textContent).toContain("2 Beiträge");
+    expect(screen.queryByTestId("row-group-geplant")).toBeNull();
+    expect(screen.getByTestId("row-p3")).toBeTruthy();
+    expect(screen.queryByTestId("row-p1")).toBeNull();
+  });
+
   test("rowTone tints only the rows matching its condition", async () => {
     renderSection({
       ...baseSection,

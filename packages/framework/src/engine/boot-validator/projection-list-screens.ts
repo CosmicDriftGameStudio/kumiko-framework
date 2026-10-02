@@ -1,12 +1,14 @@
 import { ENTITY_CONVENTION_QUERY_BRAND } from "@cosmicdrift/kumiko-types/handlers";
 import { parseQn, QnTypes, qualifyEntityName } from "../qualified-name.js";
 import { isEditLayoutScreen } from "../screen-helpers.js";
-import type {
-  EditRelatedListSection,
-  EntityDefinition,
-  FeatureDefinition,
-  ProjectionListScreenDefinition,
-  QueryHandlerDef,
+import {
+  type EditRelatedListSection,
+  type EntityDefinition,
+  type FeatureDefinition,
+  type ProjectionListScreenDefinition,
+  type QueryHandlerDef,
+  relatedListGroupHeaderLabel,
+  relatedListGroupKey,
 } from "../types/index.js";
 import { SEARCHABLE_FALSE_WHITELIST } from "./entity-list-screens.js";
 import { findEntity } from "./parent-ref.js";
@@ -276,6 +278,23 @@ function validateRelatedListParentFilter(
   }
 }
 
+// A collapsed group without a header has no toggle, so its rows could never be opened.
+function validateRelatedListGroupBy(prefix: string, section: EditRelatedListSection): void {
+  const groupBy = section.groupBy;
+  const collapsedKey =
+    groupBy?.collapsedWhen === undefined ? undefined : relatedListGroupKey(groupBy.collapsedWhen);
+  if (
+    groupBy !== undefined &&
+    collapsedKey !== undefined &&
+    relatedListGroupHeaderLabel(groupBy, collapsedKey) === undefined
+  ) {
+    throw new Error(
+      `${prefix}: groupBy.collapsedWhen "${collapsedKey}" names a group without a header; ` +
+        `set groupBy.label or groupBy.labels["${collapsedKey}"], or drop collapsedWhen.`,
+    );
+  }
+}
+
 // relatedList sections declare search/facets the same way a projectionList
 // screen does, and hit the same 422 footgun: definePagedQueryHandler doesn't
 // auto-merge params into the handler's own Zod schema (fw#2165/#2224), so an
@@ -292,6 +311,7 @@ export function validateRelatedListSectionQueries(features: readonly FeatureDefi
     validateRelatedListSearchable(prefix, section, schema);
     validateRelatedListFacets(prefix, section, schema);
     validateRelatedListParentFilter(prefix, section, schema, handler, featureMap);
+    validateRelatedListGroupBy(prefix, section);
   };
   for (const feature of features) {
     for (const screen of Object.values(feature.screens)) {

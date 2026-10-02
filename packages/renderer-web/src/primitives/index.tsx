@@ -557,42 +557,24 @@ function fieldIconFor(icon: string | undefined): (typeof FIELD_ICONS)[FieldIconK
 // `icon` carries a known FIELD_ICONS key. `pl-8` overrides (via
 // tailwind-merge) only the left padding of the vendored ui/input.tsx —
 // right padding and other defaults stay untouched.
+const FIELD_ICON_CLASS =
+  "pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground";
+
 function withFieldIcon(icon: string | undefined, input: ReactNode): ReactNode {
   const Icon = fieldIconFor(icon);
   if (Icon === undefined) return input;
   return (
     <div className="relative">
-      <Icon
-        aria-hidden="true"
-        className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-      />
+      <Icon aria-hidden="true" className={FIELD_ICON_CLASS} />
       {input}
     </div>
   );
 }
 
-// Mirrors withFieldIcon on the right side: a muted, non-interactive unit
-// suffix rendered inside the input's visual box. Pure decoration — never
-// focusable, never touches the input's value.
 // The unit changes the meaning of the value ("58 mi" vs "58 km"), so it is
 // exposed as the input's description rather than hidden from assistive tech.
 function unitSuffixId(inputId: string): string {
   return `${inputId}-unit`;
-}
-
-function withUnitSuffix(inputId: string, unit: string | undefined, input: ReactNode): ReactNode {
-  if (unit === undefined) return input;
-  return (
-    <div className="relative">
-      {input}
-      <span
-        id={unitSuffixId(inputId)}
-        className="pointer-events-none absolute right-2.5 top-1/2 max-w-[40%] -translate-y-1/2 truncate text-sm text-muted-foreground"
-      >
-        {unit}
-      </span>
-    </div>
-  );
 }
 
 const TRAILING_ACTION_ICONS = { clear: X, undo: Undo2 } as const;
@@ -927,12 +909,16 @@ function DefaultInput(props: InputProps): ReactNode {
         />,
         true,
       );
-    case "number":
-      return withUnitSuffix(
-        props.id,
-        props.unit,
-        withFieldIcon(
-          props.icon,
+    case "number": {
+      const NumberIcon = fieldIconFor(props.icon);
+      // Icon, input and unit share this one box, and the grid cell sizes the
+      // box rather than the bare input: anchored to a wider wrapper, the unit
+      // would sit next to a narrower input instead of inside it.
+      return (
+        <div data-slot="number-field" className="relative">
+          {NumberIcon !== undefined && (
+            <NumberIcon aria-hidden="true" className={FIELD_ICON_CLASS} />
+          )}
           <NumberInput
             id={props.id}
             name={props.name}
@@ -948,12 +934,21 @@ function DefaultInput(props: InputProps): ReactNode {
             {...(props.integer !== undefined && { integer: props.integer })}
             {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
             className={cn(
-              fieldIconFor(props.icon) !== undefined ? "pl-8" : undefined,
+              NumberIcon !== undefined ? "pl-8" : undefined,
               props.unit !== undefined ? "pr-8" : undefined,
             )}
-          />,
-        ),
+          />
+          {props.unit !== undefined && (
+            <span
+              id={unitSuffixId(props.id)}
+              className="pointer-events-none absolute right-2.5 top-1/2 max-w-[40%] -translate-y-1/2 truncate text-sm text-muted-foreground"
+            >
+              {props.unit}
+            </span>
+          )}
+        </div>
       );
+    }
     case "range":
       return (
         <input
@@ -3148,9 +3143,11 @@ function buildTableItems(
     else members.push(row);
   }
   return [...groups].flatMap(([key, members]): TableItem[] => {
+    const label = grouping.headerLabel(key, members);
+    if (label === undefined) return members.map((row): TableItem => ({ kind: "row", row }));
     const collapsed = grouping.startsCollapsed(key) !== toggledGroups.has(key);
     return [
-      { kind: "group", key, label: grouping.headerLabel(key, members), collapsed },
+      { kind: "group", key, label, collapsed },
       ...(collapsed ? [] : members.map((row): TableItem => ({ kind: "row", row }))),
     ];
   });
@@ -4255,7 +4252,7 @@ const DRAWER_FIELD_CELL_WIDTH_CLASS: Partial<Record<FieldCellWidth, string>> = {
 
 const FIELD_CELL_WIDTH_CLASS: Readonly<Record<FieldCellWidth, string>> = {
   text: "w-full sm:w-60",
-  number: "w-fit min-w-24 shrink-0 [&_label]:whitespace-nowrap [&_input]:w-32",
+  number: "w-fit min-w-24 shrink-0 [&_label]:whitespace-nowrap [&_[data-slot=number-field]]:w-32",
   money: "w-40 shrink-0 [&_label]:whitespace-nowrap",
   date: "w-full sm:w-[200px]",
   timestamp: "w-full sm:w-[328px]",

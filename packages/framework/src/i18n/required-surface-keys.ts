@@ -188,6 +188,8 @@ function pushRelatedListSectionKeys(out: Set<string>, section: EntityListExpanda
     if (normalized.label !== undefined) pushKey(out, normalized.label);
   }
   for (const action of section.rowActions ?? []) pushRowActionKeys(out, action);
+  pushKey(out, section.groupBy?.label);
+  for (const label of Object.values(section.groupBy?.labels ?? {})) pushKey(out, label);
 }
 
 function pushExpandableRowKeys(out: Set<string>, section: EntityListExpandableRow): void {
@@ -362,10 +364,6 @@ export function requiredKeysFromScreen(
         }
         if (section.kind === "relatedList") {
           pushRelatedListSectionKeys(out, section);
-          if (section.groupBy !== undefined) {
-            pushKey(out, section.groupBy.label);
-            for (const label of Object.values(section.groupBy.labels ?? {})) pushKey(out, label);
-          }
           continue;
         }
         if (isWriteFormEditSection(section)) {
