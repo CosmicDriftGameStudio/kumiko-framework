@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,8 +17,20 @@ function fixtureGitEnv(ceilingDir: string): Record<string, string> {
   };
 }
 
+const createdRoots: string[] = [];
+
+afterEach(() => {
+  for (const root of createdRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+});
+
+function makeTempRoot(prefix: string): string {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  createdRoots.push(root);
+  return root;
+}
+
 function buildFixtureRoot(features: readonly [relDir: string, entries: unknown][]): string {
-  const root = mkdtempSync(join(tmpdir(), "changes-json-"));
+  const root = makeTempRoot("changes-json-");
   for (const [relDir, entries] of features) {
     const dir = join(root, "packages", relDir, "src");
     mkdirSync(dir, { recursive: true });
@@ -132,7 +144,7 @@ describe("findChangelogViolations", () => {
   });
 
   it("flags invalid JSON", () => {
-    const root = mkdtempSync(join(tmpdir(), "changes-json-"));
+    const root = makeTempRoot("changes-json-");
     const dir = join(root, "packages", "some-feature", "src");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "changes.json"), "{ not json");
@@ -142,7 +154,7 @@ describe("findChangelogViolations", () => {
   });
 
   it("flags a repo with no changes.json at all", () => {
-    const root = mkdtempSync(join(tmpdir(), "changes-json-"));
+    const root = makeTempRoot("changes-json-");
 
     const violations = findChangelogViolations(root, []);
     expect(violations.length).toBe(1);
@@ -156,7 +168,7 @@ describe("findChangelogViolations", () => {
 
 describe("findChangesetViolations", () => {
   it("requires metadata on changed changesets", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
     writeFileSync(join(root, ".changeset", "missing.md"), "---\n\"pkg\": patch\n---\n\nPlain note.\n");
 
@@ -168,7 +180,7 @@ describe("findChangesetViolations", () => {
   });
 
   it("flags a feature that does not resolve and one missing from the frontmatter", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
     mkdirSync(join(root, "packages", "framework"), { recursive: true });
     writeFileSync(
@@ -203,7 +215,7 @@ describe("findChangesetViolations", () => {
   });
 
   it("rejects direct changes.json edits outside the release branch", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
 
     const violations = findChangesetViolations(root, ["packages/framework/src/changes.json"], {});
@@ -217,7 +229,7 @@ describe("findChangesetViolations", () => {
   });
 
   it("allows direct changes.json edits on a release push branch", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
 
     expect(isReleaseBranch({ GITHUB_REF_NAME: "changeset-release/main" })).toBe(true);
@@ -227,14 +239,14 @@ describe("findChangesetViolations", () => {
   });
 
   it("ignores deleted changesets", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
 
     expect(findChangesetViolations(root, [".changeset/deleted.md"], {})).toEqual([]);
   });
 
   it("reports a git diff failure instead of passing silently", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-"));
+    const root = makeTempRoot("changeset-guard-");
     mkdirSync(join(root, ".changeset"), { recursive: true });
 
     const violations = findChangesetViolations(root, undefined, { GITHUB_BASE_SHA: "missing-base" });
@@ -243,7 +255,7 @@ describe("findChangesetViolations", () => {
   });
 
   it("uses main as the push base when GITHUB_BASE_REF is empty", () => {
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-git-"));
+    const root = makeTempRoot("changeset-guard-git-");
     const remote = join(root, "remote.git");
     const repo = join(root, "repo");
 
@@ -292,7 +304,7 @@ describe("findChangesetViolations", () => {
 
   describe("diff base", () => {
     function makeRepo(): { root: string; repo: string; git: (args: string[], cwd?: string) => string } {
-      const root = mkdtempSync(join(tmpdir(), "changeset-guard-base-"));
+      const root = makeTempRoot("changeset-guard-base-");
       const remote = join(root, "remote.git");
       const repo = join(root, "repo");
       const git = (args: string[], cwd: string = repo): string => {
@@ -479,7 +491,7 @@ describe("findChangesetViolations", () => {
     // child `bun` process with GIT_DIR/GIT_WORK_TREE in ITS environment —
     // that process then calls `findChangesetViolations` and every git spawn
     // nested inside it inherits the leak exactly like the real incident did.
-    const root = mkdtempSync(join(tmpdir(), "changeset-guard-leak-"));
+    const root = makeTempRoot("changeset-guard-leak-");
     const remote = join(root, "remote.git");
     const repo = join(root, "repo");
     const parent = join(root, "parent");

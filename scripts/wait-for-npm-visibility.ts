@@ -118,9 +118,17 @@ export async function waitForNpmVisibility(
   }
 }
 
+/** NaN would make the `elapsed >= timeoutMs` check never fire (endless poll) and
+ *  an empty string coerces to 0 (instant timeout) — both fall back to the default. */
+export function parseTimeoutMs(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === "") return DEFAULT_TIMEOUT_MS;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TIMEOUT_MS;
+}
+
 if (import.meta.main) {
   const packages = collectPublishablePackages(PACKAGES_DIR);
-  const timeoutMs = Number(process.env.NPM_VISIBILITY_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  const timeoutMs = parseTimeoutMs(process.env.NPM_VISIBILITY_TIMEOUT_MS);
 
   const { ok, missing } = await waitForNpmVisibility(packages, { timeoutMs });
 

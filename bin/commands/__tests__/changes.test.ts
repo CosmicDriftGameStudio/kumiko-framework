@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, sep } from "node:path";
+import { findPackageChangelogFiles } from "@cosmicdrift/kumiko-framework/upgrade-cli";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
 import { changesCommand } from "../changes";
 
@@ -334,6 +335,33 @@ describe("changes fold", () => {
     const second = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")]);
     expect(second.exit).toBe(0);
     expect(JSON.parse(readFileSync(join(cwd, "packages/framework/src/changes.json"), "utf-8"))).toHaveLength(2);
+  });
+
+  test("folds a standalone framework package (packages/guards) into the file the upgrade CLI reads", async () => {
+    const cwd = tmp({
+      ...frameworkFixture(),
+      "packages/guards/package.json": GUARDS_PACKAGE,
+      ".changeset/guards-fix.md": `---\n"@cosmicdrift/kumiko-guards": patch\n---\n\nGuards fix.\n\n<!-- kumiko-changes\nfeature: guards\ntype: fix\ntitle: Guards fix\n-->\n`,
+      ".changeset-status.json": JSON.stringify({
+        changesets: [{ id: "guards-fix" }],
+        releases: [
+          {
+            name: "@cosmicdrift/kumiko-guards",
+            newVersion: "0.34.2",
+            changesets: ["guards-fix"],
+          },
+        ],
+      }),
+    });
+
+    const result = await run(cwd, ["fold", "--status", join(cwd, ".changeset-status.json")]);
+
+    expect(result.exit).toBe(0);
+    const guardsChangelog = join(cwd, "packages/guards/src/changes.json");
+    expect(JSON.parse(readFileSync(guardsChangelog, "utf-8"))).toEqual([
+      { version: "0.34.2", type: "fix", title: "Guards fix" },
+    ]);
+    expect(findPackageChangelogFiles(cwd)).toContain(guardsChangelog);
   });
 
   test("reads all target changelogs before writing any updates", async () => {

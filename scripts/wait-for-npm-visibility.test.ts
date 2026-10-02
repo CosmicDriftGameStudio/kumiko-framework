@@ -5,8 +5,22 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   collectPublishablePackages,
   isLatestOnRegistry,
+  parseTimeoutMs,
   waitForNpmVisibility,
 } from "./wait-for-npm-visibility";
+
+describe("parseTimeoutMs", () => {
+  test("uses a valid positive override", () => {
+    expect(parseTimeoutMs("120000")).toBe(120_000);
+  });
+
+  test.each([undefined, "", "  ", "abc", "0", "-5", "Infinity"])(
+    "falls back to the 15 minute default for %p",
+    (raw) => {
+      expect(parseTimeoutMs(raw)).toBe(900_000);
+    },
+  );
+});
 
 describe("isLatestOnRegistry", () => {
   test("matches when dist-tags.latest equals the expected version", () => {

@@ -85,6 +85,12 @@ if grep -q '"test:dom"' package.json 2>/dev/null; then
   bun run test:dom || fail=1
 fi
 
+if grep -q '"test:dom:isolated"' package.json 2>/dev/null; then
+  echo
+  echo "→ bun run test:dom:isolated (component tests excluded from the shared DOM run)"
+  bun run test:dom:isolated || fail=1
+fi
+
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
   echo "✓ Worktree check green — tsc + sample typecheck + Biome + comment-lang --touched + unit tests + component tests."

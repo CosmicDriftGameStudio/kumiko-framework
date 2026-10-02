@@ -175,6 +175,22 @@ describe("CI output formatting", () => {
     for (let i = 0; i < 7; i++) expect(result).toContain(failLine(i));
   });
 
+  test("merges overlapping fail windows without duplicating lines or emitting an empty omission marker", () => {
+    const failLine = (n: number) => `(fail) probe ${n} fails [1ms]`;
+    const lines = Array.from({ length: 600 }, (_, i) => `noise ${i}`);
+    lines.splice(300, 0, failLine(0));
+    lines.splice(311, 0, failLine(1));
+
+    const result = formatCompactFailure("Close fails", 1, lines.join("\n"), { env: {} });
+    const resultLines = result.split("\n").map((line) => line.trim());
+
+    for (const fail of [failLine(0), failLine(1)]) {
+      expect(resultLines.filter((line) => line === fail)).toHaveLength(1);
+    }
+    expect(resultLines.filter((line) => line.includes("omitted"))).toHaveLength(2);
+    expect(result).not.toContain("… 0 line(s)");
+  });
+
   test("keeps repeated identical lines inside a failure window without deduping", () => {
     const noiseLine = "Warning: act() noise";
     const before = Array.from({ length: 300 }, () => noiseLine);

@@ -35,7 +35,19 @@ function extractPublishAndTag(): string {
       "Could not extract publish_and_tag() from publish-with-oidc.sh — did the function get renamed or reshaped?",
     );
   }
+  assertParsesAsBash(match[0], "publish_and_tag()");
   return match[0];
+}
+
+// A column-0 `}` inside the function (heredoc terminator, reformatted `case`)
+// would end the lazy match early and hand the runner half a function.
+function assertParsesAsBash(snippet: string, label: string): void {
+  const syntax = Bun.spawnSync(["bash", "-n"], { stdin: new TextEncoder().encode(snippet) });
+  if (syntax.exitCode !== 0) {
+    throw new Error(
+      `Extracted ${label} from publish-with-oidc.sh is not valid bash (${syntax.stderr.toString("utf-8").trim()}) — the extraction regex probably cut the function short.`,
+    );
+  }
 }
 
 const PUBLISH_AND_TAG_FN = extractPublishAndTag();
@@ -79,11 +91,11 @@ function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; 
       "#!/usr/bin/env bash",
       "case \"$1\" in",
       "  publish)",
-      `    printf '%b\\n' ${JSON.stringify(spec.publishOutput)} >&2`,
+      "    printf '%b\\n' \"$STUB_PUBLISH_OUTPUT\" >&2",
       `    exit ${spec.publishExitCode}`,
       "    ;;",
       "  dist-tag)",
-      `    printf '%b\\n' ${JSON.stringify(spec.distTagOutput)} >&2`,
+      "    printf '%b\\n' \"$STUB_DIST_TAG_OUTPUT\" >&2",
       `    exit ${spec.distTagExitCode}`,
       "    ;;",
       "  *)",
@@ -104,8 +116,15 @@ function runWithNpmStub(spec: NpmStubSpec): { exitCode: number; stdout: string; 
     { mode: 0o755 },
   );
 
+  // Passed via env, not interpolated into the stub: npm output containing `$`
+  // or backticks must reach the script verbatim.
   const result = Bun.spawnSync(["bash", runner], {
-    env: { ...process.env, PATH: `${dir}:${process.env.PATH ?? ""}` },
+    env: {
+      ...process.env,
+      PATH: `${dir}:${process.env.PATH ?? ""}`,
+      STUB_PUBLISH_OUTPUT: spec.publishOutput,
+      STUB_DIST_TAG_OUTPUT: spec.distTagOutput,
+    },
   });
 
   return {
