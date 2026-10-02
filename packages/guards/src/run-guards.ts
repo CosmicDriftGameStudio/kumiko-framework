@@ -121,6 +121,10 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
     console.error(flagsError);
     return 1;
   }
+  if (guardNameArg !== undefined && !flags.includes("--write-baseline")) {
+    console.error("--guard=<name> is only valid with --write-baseline");
+    return 1;
+  }
   if (flags.includes("--explain")) {
     for (const line of explainGuards(GUARDS, buildSharedProject(GUARDS))) {
       console.log(line);

@@ -125,6 +125,10 @@ export function relFromRepoRoot(
   return filePath.slice(filePath.indexOf(marker));
 }
 
+export function relativeToCwd(absolutePath: string): string {
+  return pathRelative(process.cwd(), absolutePath);
+}
+
 export function isAllowlisted(relPath: string, allowlist: readonly RegExp[]): boolean {
   return allowlist.some((re) => re.test(relPath));
 }

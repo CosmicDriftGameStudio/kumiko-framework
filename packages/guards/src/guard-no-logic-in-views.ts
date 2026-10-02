@@ -19,7 +19,13 @@ import {
   type SourceFile,
   SyntaxKind,
 } from "ts-morph";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  type AstGuard,
+  type GuardViolation,
+  relativeToCwd,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
 const SCAN: ScanSpec = {
@@ -134,7 +140,7 @@ export const guard: AstGuard = {
         if (name === "" || !isViewLogic(name, fn)) continue;
         if (hasIgnoreTag(fn, IGNORE_TAG)) continue;
         violations.push({
-          file: sf.getFilePath(),
+          file: relativeToCwd(sf.getFilePath()),
           line: fn.getStartLineNumber(),
           message: `View logic "${name}" belongs in lib/ (with a test) — web/ only components/hooks`,
         });

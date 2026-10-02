@@ -52,6 +52,19 @@ describe("runGuardsCli — --write-baseline", () => {
     }
   });
 
+  test("--guard=<name> without --write-baseline is rejected instead of silently running every guard", () => {
+    const errorSpy = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const exitCode = runGuardsCli(["--guard=test-timeouts"]);
+      expect(exitCode).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("--guard=<name> is only valid with --write-baseline"),
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   test("--write-baseline --guard=<unknown> is rejected", () => {
     const errorSpy = spyOn(console, "error").mockImplementation(() => {});
     try {

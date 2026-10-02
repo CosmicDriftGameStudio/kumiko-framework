@@ -34,7 +34,13 @@
 // two; no usage site found at all, or any other mount kind, stays flagged.
 
 import * as path from "node:path";
-import { Node, type ObjectLiteralExpression, type SourceFile, SyntaxKind } from "ts-morph";
+import {
+  Node,
+  type ObjectLiteralExpression,
+  type SourceFile,
+  SyntaxKind,
+  VariableDeclarationKind,
+} from "ts-morph";
 import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
@@ -59,6 +65,34 @@ function isExternalSourceFile(sf: SourceFile): boolean {
   return sf.getFilePath().includes("/node_modules/");
 }
 
+function stringConstantValue(node: Node): string | undefined {
+  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
+    return node.getLiteralText();
+  }
+  if (Node.isAsExpression(node)) return stringConstantValue(node.getExpression());
+  if (!Node.isIdentifier(node)) return undefined;
+  const symbol = node.getSymbol();
+  const resolved = symbol?.isAlias() ? symbol.getAliasedSymbol() : symbol;
+  for (const decl of resolved?.getDeclarations() ?? []) {
+    if (!Node.isVariableDeclaration(decl)) continue;
+    if (decl.getVariableStatement()?.getDeclarationKind() !== VariableDeclarationKind.Const) {
+      continue;
+    }
+    const init = decl.getInitializer();
+    const value = init === undefined ? undefined : stringConstantValue(init);
+    if (value !== undefined) return value;
+  }
+  return undefined;
+}
+
+// Registry keys and `__component` usages meet on the resolved string value, so
+// two features' same-named local consts don't collide and a literal never
+// matches a computed key. An unresolvable identifier keeps a name-based key
+// that no literal can equal, which leaves the component conservatively flagged.
+function registryKeyFor(node: Node): string {
+  return stringConstantValue(node) ?? `unresolved:${node.getText()}`;
+}
+
 function addRegistryMembers(
   sf: SourceFile,
   literal: ObjectLiteralExpression,
@@ -75,7 +109,7 @@ function addRegistryMembers(
       if (valueInit === undefined || valueInit.getKind() !== SyntaxKind.Identifier) continue;
       const nameNode = member.getNameNode();
       const key = Node.isComputedPropertyName(nameNode)
-        ? nameNode.getExpression().getText()
+        ? registryKeyFor(nameNode.getExpression())
         : Node.isStringLiteral(nameNode)
           ? nameNode.getLiteralValue()
           : member.getName();
@@ -292,11 +326,8 @@ function findComponentNameUsages(sf: SourceFile): { name: string; kind: MountKin
     if (prop.getName() !== "__component") continue;
     const init = prop.getInitializer();
     if (init === undefined) continue;
-    const name = Node.isStringLiteral(init)
-      ? init.getLiteralValue()
-      : Node.isIdentifier(init)
-        ? init.getText()
-        : undefined;
+    const name =
+      Node.isStringLiteral(init) || Node.isIdentifier(init) ? registryKeyFor(init) : undefined;
     if (name === undefined) continue;
     usages.push({ name, kind: mountKindFor(prop) });
   }

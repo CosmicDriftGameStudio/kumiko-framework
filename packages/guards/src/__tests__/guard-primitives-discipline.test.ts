@@ -38,6 +38,13 @@ describe("guard-primitives-discipline checkFile()", () => {
     expect(violationsFor(src)).toHaveLength(0);
   });
 
+  test("raw <input> in a spaceless ternary or after = / [ wird gemeldet, Array<input nicht", () => {
+    expect(violationsFor("const a = cond?<input/>:<div/>;\n")).toHaveLength(1);
+    expect(violationsFor("const b = <input/>;\n")).toHaveLength(1);
+    expect(violationsFor("const c = [<input/>];\n")).toHaveLength(1);
+    expect(violationsFor("type D = Array<input>;\n")).toHaveLength(0);
+  });
+
   test("raw <button> wird gemeldet", () => {
     expect(violationsFor("<button onClick={x}>Go</button>\n").length).toBe(1);
   });

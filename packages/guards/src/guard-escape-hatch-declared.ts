@@ -78,6 +78,7 @@ import {
   type PropertyAssignment,
   type SourceFile,
   SyntaxKind,
+  VariableDeclarationKind,
 } from "ts-morph";
 import { isFrameworkImportOf } from "./_lib/framework-import";
 import { isGenericReason, resolveReasonText } from "./_lib/generic-reason";
@@ -421,12 +422,22 @@ function isExplicitlyUnresolvableReason(node: Node): boolean {
     (decl) =>
       decl.isKind(SyntaxKind.ImportSpecifier) ||
       decl.isKind(SyntaxKind.ImportClause) ||
-      decl.isKind(SyntaxKind.NamespaceImport),
+      decl.isKind(SyntaxKind.NamespaceImport) ||
+      isNonConstVariableDeclaration(decl),
+  );
+}
+
+function isNonConstVariableDeclaration(decl: Node): boolean {
+  if (!decl.isKind(SyntaxKind.VariableDeclaration)) return false;
+  const list = decl.getParent();
+  return (
+    list.isKind(SyntaxKind.VariableDeclarationList) &&
+    list.getDeclarationKind() !== VariableDeclarationKind.Const
   );
 }
 
 const UNRESOLVABLE_REASON_HINT =
-  " A declareEscapeHatch({ reason }) call was found here, but its reason is an import, a function call, or a template with substitutions — none of those can be statically judged, so declareEscapeHatch needs a string literal or a module-local const instead.";
+  " A declareEscapeHatch({ reason }) call was found here, but its reason is an import, a function call, or a template with substitutions (or a `let`/non-`const` binding) — none of those can be statically judged, so declareEscapeHatch needs a string literal or a module-local const instead.";
 
 // Walks the same ancestor chain as isInsideEscapeHatchDeclaredFunction, but
 // looks for a declareEscapeHatch statement whose reason is one of the three

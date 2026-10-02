@@ -43,6 +43,13 @@ describe("guard-i18n-locale-terminology", () => {
     expect(findViolations([sf])).toHaveLength(0);
   });
 
+  test("flags a lowercase organisation in German values like the case-insensitive tenant rule", () => {
+    const sf = deBundle(
+      `export const localeDeBundle = { "x.y": "Die organisation wurde gelöscht" };`,
+    );
+    expect(findViolations([sf])).toHaveLength(1);
+  });
+
   test("flags plural Tenants and Organisations- compounds in German values", () => {
     const tenants = deBundle(`export const localeDeBundle = { "x.y": "Alle Tenants anzeigen" };`);
     expect(findViolations([tenants])).toHaveLength(1);

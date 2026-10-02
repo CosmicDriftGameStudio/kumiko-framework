@@ -104,6 +104,25 @@ describe("check.run — RepoCheck seam (warning-only)", () => {
     }
   });
 
+  test("a tooling root is notApplicable, an app root with a source file is not", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "thin-wrapper-guard-kind-"));
+    try {
+      mkdirSync(join(dir, "src"), { recursive: true });
+      writeFileSync(join(dir, "src", "plain.ts"), "export const value = 1;\n");
+      const manifest = { sourceRoots: ["src"], testGlobs: ["src/**/*.test.ts"] };
+      const tooling = await check.run([
+        fixtureRoot("tooling-repo", dir, { ...manifest, kind: "tooling" }),
+      ]);
+      expect(tooling.notApplicable).toBe(true);
+      expect(tooling.violations).toEqual([]);
+
+      const app = await check.run([fixtureRoot("app-repo", dir, { ...manifest, kind: "app" })]);
+      expect(app.notApplicable).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("notApplicable when no root resolves", async () => {
     const outcome = await check.run([]);
     expect(outcome.notApplicable).toBe(true);

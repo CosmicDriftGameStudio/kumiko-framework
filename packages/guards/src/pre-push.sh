@@ -123,7 +123,7 @@ fi
 # canonical sibling path instead of this worktree — checking the wrong
 # code. Run the worktree-local check only when scripts/check-wt.sh is
 # tracked and executable (untracked/symlink stubs must not hijack push).
-if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
+if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && git -C "$REPO_ROOT" ls-files --error-unmatch scripts/check-wt.sh >/dev/null 2>&1 \
    && [ -x "$REPO_ROOT/scripts/check-wt.sh" ]; then
   echo "[pre-push] worktree detected — worktree check (see scripts/check-wt.sh)…"
@@ -153,7 +153,7 @@ run_guard_bin() {
 # worktree's own package.json scripts directly instead (only when nested
 # under the parent workspace; a standalone worktree's own `bun run test`
 # already checks the right code).
-if [ "$(git rev-parse --git-dir)" != "$(git rev-parse --git-common-dir)" ] \
+if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] \
    && [ -n "$PARENT_DIR" ]; then
   cd "$REPO_ROOT"
   echo "[pre-push] worktree without scripts/check-wt.sh — running this worktree's package.json scripts (typecheck, lint, test, test:dom) and guards (guards, checks, comment-lang)…"
