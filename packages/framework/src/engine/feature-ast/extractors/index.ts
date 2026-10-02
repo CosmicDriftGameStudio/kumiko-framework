@@ -67,6 +67,7 @@ export {
   readNamedOptions,
 } from "./round3.js";
 export {
+  extractBootCheck,
   extractEnvSchema,
   extractExposesApi,
   extractExtendsRegistrar,

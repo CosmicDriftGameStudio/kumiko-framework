@@ -3,6 +3,7 @@
 "@cosmicdrift/kumiko-bundled-features": minor
 "@cosmicdrift/kumiko-server-runtime": minor
 "@cosmicdrift/kumiko-locale-de": patch
+"@cosmicdrift/kumiko-locale-es": patch
 "@cosmicdrift/kumiko-types": minor
 ---
 
