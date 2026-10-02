@@ -6,24 +6,13 @@ import type {
 import { I18N_KEY_PARAM } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import * as z from "zod";
-import { REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.js";
+import { isPresent, REQUIRED_FIELD_I18N_KEY } from "../app/form-schema.js";
 import { dispatcherErrorText } from "../app/write-failed-error.js";
 import { useForm } from "../hooks/use-form.js";
 import { useTranslation } from "../i18n.js";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.js";
 import { GridCellForField } from "./grid-cell-for-field.js";
 import { hasIssueWithoutVisibleField } from "./render-edit-logic.js";
-
-// Same "has a value" rule as buildFormSchema's isPresent (app/form-schema.ts)
-// — duplicated because that helper walks raw EditFieldSpec + EntityDefinition,
-// unavailable here: this section only ever sees computeEditViewModel's
-// already-resolved EditFieldViewModel[] (required/readOnly/visible are plain
-// booleans by the time render-edit.tsx hands the section to this component).
-function isPresent(value: unknown): boolean {
-  if (value === undefined || value === null || value === "") return false;
-  if (Array.isArray(value) && value.length === 0) return false;
-  return true;
-}
 
 function buildWriteFormSchema(fields: readonly EditFieldViewModel[]): z.ZodType {
   return z

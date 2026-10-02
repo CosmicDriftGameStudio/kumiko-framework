@@ -4317,6 +4317,32 @@ describe("RenderEdit — slots.footer", () => {
     expect(screen.getByTestId("render-edit-submit")).toBeTruthy();
   });
 
+  test("a declared but unregistered footer slot on a read-only screen draws no empty footer strip", () => {
+    const readOnlyScreen: EntityEditScreenDefinition = {
+      ...makeFooterScreen(),
+      layout: {
+        sections: [{ title: "Basics", columns: 1, fields: [{ field: "title", readOnly: true }] }],
+      },
+    };
+    render(
+      <DispatcherProvider dispatcher={makeDispatcher()}>
+        <ExtensionSectionsProvider value={{}}>
+          <RenderEdit<TestValues>
+            screen={readOnlyScreen}
+            entity={orderEntity}
+            featureName="orders"
+            initial={{ title: "Acme", count: 0, isUrgent: false }}
+            writeCommand="order:update"
+            entityId="order-1"
+          />
+        </ExtensionSectionsProvider>
+      </DispatcherProvider>,
+    );
+
+    expect(screen.queryByTestId("render-edit-submit")).toBeNull();
+    expect(screen.queryByTestId("render-edit-form-actions")).toBeNull();
+  });
+
   test("a screen without slots renders only the pre-existing actions (no extra element)", () => {
     const screenDef: EntityEditScreenDefinition = {
       id: "orders:screen:order-edit-no-footer",

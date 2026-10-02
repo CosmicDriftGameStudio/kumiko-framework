@@ -127,11 +127,8 @@ export function useLocale(): LocaleResolver {
   }
   // Subscribe + current locale-snapshot. Wir brauchen den Rückgabewert
   // selbst nicht — wichtig ist nur der re-render-trigger.
-  useSyncExternalStore(
-    ctx.resolver.subscribe,
-    () => ctx.resolver.locale(),
-    () => ctx.resolver.locale(),
-  );
+  const getLocaleSnapshot = () => ctx.resolver.locale();
+  useSyncExternalStore(ctx.resolver.subscribe, getLocaleSnapshot, getLocaleSnapshot);
   return ctx.resolver;
 }
 
@@ -153,11 +150,8 @@ export function useTranslation(): (
   // Re-Render bei Sprach-Wechsel. `ctx.resolver.subscribe` ist bereits
   // eine stable-reference aus dem Resolver, daher hier keine eigene
   // Memoization der Subscribe-Callback nötig.
-  const locale = useSyncExternalStore(
-    ctx.resolver.subscribe,
-    () => ctx.resolver.locale(),
-    () => ctx.resolver.locale(),
-  );
+  const getLocaleSnapshot = () => ctx.resolver.locale();
+  const locale = useSyncExternalStore(ctx.resolver.subscribe, getLocaleSnapshot, getLocaleSnapshot);
 
   // `t` MUSS referenz-stabil sein solange sich Resolver/Bundles/Locale
   // nicht ändern — Consumer nutzen `t` regelmäßig in useEffect-Deps
@@ -229,10 +223,11 @@ function bundleLocaleTiers(
  *  Used by DataTable FormatCell so plain tables without a provider do not crash. */
 export function useOptionalLocale(): string | undefined {
   const ctx = useContext(LocaleContext);
+  const getLocaleSnapshot = () => (ctx ? ctx.resolver.locale() : "en");
   useSyncExternalStore(
     (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
-    () => (ctx ? ctx.resolver.locale() : "en"),
-    () => (ctx ? ctx.resolver.locale() : "en"),
+    getLocaleSnapshot,
+    getLocaleSnapshot,
   );
   return ctx === undefined ? undefined : ctx.resolver.locale();
 }
@@ -253,10 +248,11 @@ export function useOptionalTranslation():
   | ((key: string, params?: Readonly<Record<string, unknown>>) => string)
   | undefined {
   const ctx = useContext(LocaleContext);
+  const getLocaleSnapshot = () => (ctx ? ctx.resolver.locale() : "en");
   const locale = useSyncExternalStore(
     (onStoreChange) => (ctx ? ctx.resolver.subscribe(onStoreChange) : () => {}),
-    () => (ctx ? ctx.resolver.locale() : "en"),
-    () => (ctx ? ctx.resolver.locale() : "en"),
+    getLocaleSnapshot,
+    getLocaleSnapshot,
   );
   const formality = useContext(FormalityContext);
   const t = useCallback(

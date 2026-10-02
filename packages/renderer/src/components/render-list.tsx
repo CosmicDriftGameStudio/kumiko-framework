@@ -28,6 +28,7 @@ import {
   shouldRenderActionsIconOnly,
   usePrimitives,
 } from "../primitives.js";
+import { needsActionConfirm } from "./render-edit-action-button.js";
 
 // RenderList — präsentationaler View für entityList-Screens.
 //
@@ -169,12 +170,9 @@ export type ToolbarActionButton = {
 
 const SEARCH_DEBOUNCE_MS = 300;
 
-// Fire-and-forget actions (schema navigate/drawer) can leave the toolbar for the
-// page header without losing the confirm dialog or busy/error surfacing.
+// Only actions with a resolved icon can collapse to an icon-only header button.
 function isHeaderPromotableToolbarAction(action: ToolbarActionButton): boolean {
-  return (
-    action.style === "primary" && action.confirm === undefined && action.confirmRequired === false
-  );
+  return action.style === "primary" && !needsActionConfirm(action) && action.icon !== undefined;
 }
 
 export function RenderList(props: RenderListProps): ReactNode {
@@ -402,14 +400,12 @@ export function RenderList(props: RenderListProps): ReactNode {
       : undefined;
   const promotedActionButton =
     promotedToolbarAction !== undefined ? (
-      <Button
-        variant="primary"
-        icon={promotedToolbarAction.icon ?? "plus"}
-        size="icon"
-        ariaLabel={promotedToolbarAction.label}
-        title={promotedToolbarAction.label}
-        onClick={() => void promotedToolbarAction.onTrigger()}
-        testId={`render-list-toolbar-action-${promotedToolbarAction.id}`}
+      <ToolbarActionView
+        action={promotedToolbarAction}
+        iconOnly
+        Button={Button}
+        Dialog={Dialog}
+        Banner={Banner}
       />
     ) : undefined;
   const toolbarActionsInToolbar = toolbarActions?.filter((a) => a !== promotedToolbarAction) ?? [];
@@ -618,8 +614,7 @@ function ToolbarActionView({
   };
 
   const variant: "primary" | "secondary" | "danger" = action.style ?? "secondary";
-  const needsConfirm =
-    action.confirm !== undefined || (action.confirmRequired ?? action.style === "danger");
+  const needsConfirm = needsActionConfirm(action);
   const showIconOnly = iconOnly && action.icon !== undefined;
 
   return (
