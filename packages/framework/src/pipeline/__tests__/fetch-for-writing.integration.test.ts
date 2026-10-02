@@ -136,6 +136,25 @@ const cartFeature = defineFeature("f4w", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // Probes hasEvent before and after an appendOne in the same handler run.
+  r.writeHandler(
+    "cart:checkout-probe",
+    z.object({ id: z.uuid() }),
+    async (event, ctx) => {
+      const stream = await ctx.fetchForWriting({
+        aggregateId: event.payload.id,
+        aggregateType: "f4wCart",
+      });
+      const beforeAppend = stream.hasEvent(checkedOut.name);
+      await stream.appendOne({ type: checkedOut.name, payload: { totalCents: 1 } });
+      return {
+        isSuccess: true as const,
+        data: { beforeAppend, afterAppend: stream.hasEvent(checkedOut.name) },
+      };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // Fetch with expectedVersion — OCC gate for external callers.
   r.writeHandler(
     "cart:add-with-occ",
@@ -358,6 +377,28 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
       { id: created.id, totalCents: 1500 },
       admin,
     );
+
+    const after = await stack.http.writeOk<{ hasProbe: boolean }>(
+      "f4w:write:cart:fetch-info",
+      { id: created.id, probeType: "f4w:event:checked-out" },
+      admin,
+    );
+    expect(after.hasProbe).toBe(true);
+  });
+
+  test("hasEvent stays a fetch-time snapshot: an appendOne in the same handler is not reflected", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "ivan" },
+      admin,
+    );
+
+    const probe = await stack.http.writeOk<{ beforeAppend: boolean; afterAppend: boolean }>(
+      "f4w:write:cart:checkout-probe",
+      { id: created.id },
+      admin,
+    );
+    expect(probe).toEqual({ beforeAppend: false, afterAppend: false });
 
     const after = await stack.http.writeOk<{ hasProbe: boolean }>(
       "f4w:write:cart:fetch-info",

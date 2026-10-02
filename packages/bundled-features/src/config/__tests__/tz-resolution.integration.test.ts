@@ -5,10 +5,12 @@
 // entities/handlers, but exercising the identical runtime path.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { access, createTenantConfig, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createTestUser,
   setupTestStack,
   type TestStack,
+  testTenantId,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import * as z from "zod";
@@ -31,6 +33,18 @@ const tenantFeature = defineFeature("tenant", (r) => {
 
 const probeFeature = defineFeature("probe", (r) => {
   r.requires("tenant");
+  // Sets the tenant timezone, lets a nested write resolve ctx.tz inside the same
+  // still-open transaction, then fails so everything rolls back.
+  r.writeHandler(
+    "set-tz-then-fail",
+    z.object({}),
+    async (_event, ctx) => {
+      await ctx.write("config:write:set", { key: "tenant:config:timezone", value: "Asia/Tokyo" });
+      await ctx.write("probe:write:read-tz", {});
+      return writeFailure(new UnprocessableError("rolled_back_on_purpose"));
+    },
+    { access: { roles: ["Admin"] } },
+  );
   r.writeHandler(
     "read-tz",
     z.object({}),
@@ -41,6 +55,8 @@ const probeFeature = defineFeature("probe", (r) => {
     { access: { openToAll: { reason: "test handler callable by any signed-in test user" } } },
   );
 });
+
+const rolledBackTenantId = testTenantId(77);
 
 describe("buildHandlerContext ctx.tz resolution", () => {
   let stack: TestStack;
@@ -102,5 +118,13 @@ describe("buildHandlerContext ctx.tz resolution", () => {
       user,
     );
     expect(res).toEqual({ tenant: "Europe/Berlin", user: "Asia/Tokyo" });
+  });
+
+  test("a timezone read inside a rolled-back write transaction is never cached", async () => {
+    const admin = createTestUser({ id: 14, roles: ["Admin"], tenantId: rolledBackTenantId });
+    await stack.http.writeErr("probe:write:set-tz-then-fail", {}, admin);
+
+    const res = await stack.http.writeOk<{ tenant: string }>("probe:write:read-tz", {}, admin);
+    expect(res.tenant).toBe("UTC");
   });
 });

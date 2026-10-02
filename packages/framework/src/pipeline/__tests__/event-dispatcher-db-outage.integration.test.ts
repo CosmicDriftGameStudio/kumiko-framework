@@ -180,6 +180,9 @@ describe("E: dispatcher survives a DB outage and logs the recovery", () => {
 
         await appendWidget("after-recovery");
         await waitFor(() => observed.includes("after-recovery"));
+        await waitFor(() => lastListenGauge() === 1, {
+          delays: [250, 1000, 3000, 3000, 3000, 3000],
+        });
         // Measured before proxy2.stop(): a poll tick during teardown would log a second "failed".
         failedCount = logger.lines.filter((line) => line.includes("idle pre-check failed")).length;
         recoveredCount = logger.lines.filter((line) =>
