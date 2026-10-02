@@ -5,7 +5,7 @@ import {
   InternalError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
-import { isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
+import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-framework/i18n";
 import { isValidIanaTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
 import { UserErrors } from "../constants.js";
@@ -32,7 +32,13 @@ export const updateWrite = defineWriteHandler({
     version: z.number(),
     changes: z.object({
       displayName: z.string().min(1).max(100).optional(),
-      locale: z.string().min(2).max(10).refine(isValidLocaleTag, "invalid locale tag").optional(),
+      locale: z
+        .string()
+        .min(2)
+        .max(10)
+        .refine(isValidLocaleTag, "invalid locale tag")
+        .transform(canonicalizeLocaleTag)
+        .optional(),
       timezone: z.string().max(64).refine(isValidIanaTimeZone, "invalid IANA time zone").optional(),
       email: z.email().optional(),
       passwordHash: z.string().optional(),

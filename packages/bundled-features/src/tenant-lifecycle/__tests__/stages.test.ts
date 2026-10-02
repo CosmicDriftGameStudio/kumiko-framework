@@ -7,6 +7,7 @@ import {
   EXT_TENANT_DATA,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { AccessDeniedError } from "@cosmicdrift/kumiko-framework/errors";
 import { DESTRUCTION_STAGES, isDestructionPipelineComplete, pickNextStage } from "../stages.js";
 
 // Minimal declaring feature: real tenant-lifecycle feature drags in "tenant" +
@@ -51,6 +52,46 @@ describe("tenant-lifecycle stages", () => {
     ).rejects.toThrow(
       `${EXT_STORAGE_PROVIDER} registration for "bad-entity" has no destroy function`,
     );
+  });
+
+  test("app-data stage denies unsafeRaw for a destroy hook without a declared escapeHatch", async () => {
+    const undeclared = defineFeature("undeclared-escape-hatch", (r) => {
+      r.useExtension(EXT_TENANT_DATA, "leaky-entity", {
+        destroy: async (hookCtx) => {
+          hookCtx.db.unsafeRaw("not declared on the registration");
+        },
+      });
+    });
+    const registry = createRegistry([declares(EXT_TENANT_DATA), undeclared]);
+    await expect(
+      stageNamed("app-data").run({ db: fakeDb, registry, tenantId: fakeTenantId }),
+    ).rejects.toBeInstanceOf(AccessDeniedError);
+  });
+
+  test("app-data stage audits a declared escapeHatch attributed to the destruction actor", async () => {
+    const reason = "declared on the registration, wipes a cross-tenant table";
+    const declared = defineFeature("declared-escape-hatch", (r) => {
+      r.useExtension(EXT_TENANT_DATA, "wiping-entity", {
+        destroy: async (hookCtx) => {
+          hookCtx.db.unsafeRaw(reason);
+        },
+        escapeHatch: { reason },
+      });
+    });
+    const registry = createRegistry([declares(EXT_TENANT_DATA), declared]);
+    const events: { handler: string; actor: string; reason: string }[] = [];
+    await stageNamed("app-data").run({
+      db: fakeDb,
+      registry,
+      tenantId: fakeTenantId,
+      actor: "operator-user-id",
+      escapeHatchAuditSink: async (event) => {
+        events.push({ handler: event.handler, actor: event.actor, reason: event.reason });
+      },
+    });
+    expect(events).toEqual([
+      { handler: `${EXT_TENANT_DATA}:wiping-entity`, actor: "operator-user-id", reason },
+    ]);
   });
 
   test("pickNextStage halts when any stage was abandoned", () => {

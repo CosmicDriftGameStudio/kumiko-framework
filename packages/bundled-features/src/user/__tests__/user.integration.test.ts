@@ -101,6 +101,23 @@ describe("scenario 1: create + me", () => {
     expect(me["locale"]).toBe("de");
   });
 
+  test("create stores the locale tag in canonical form", async () => {
+    const created = await stack.http.writeOk<{ id: number }>(
+      UserHandlers.create,
+      {
+        email: "locale-canonical@example.com",
+        displayName: "Canonical Locale",
+        passwordHash: "seeded-hash",
+        locale: "DE-AT",
+      },
+      systemAdmin,
+    );
+
+    const signedIn = createTestUser({ id: created.id, roles: ["User"] });
+    const me = await stack.http.queryOk<Record<string, unknown>>(UserQueries.me, {}, signedIn);
+    expect(me["locale"]).toBe("de-AT");
+  });
+
   test("normal user cannot create another user", async () => {
     const normal = createTestUser({ id: 42, roles: ["User"] });
     const error = await stack.http.writeErr(
@@ -243,6 +260,20 @@ describe("scenario 3: self-update + field-level write access", () => {
 
     const me = await stack.http.queryOk<Record<string, unknown>>(UserQueries.me, {}, signedIn);
     expect(me).toMatchObject({ displayName: "After", locale: "en" });
+  });
+
+  test("update stores the locale tag in canonical form", async () => {
+    const created = await seedUser({ email: "canonical-edit@example.com", displayName: "Before" });
+    const signedIn = createTestUser({ id: created.id, roles: ["User"] });
+
+    await stack.http.writeOk(
+      UserHandlers.update,
+      { id: created.id, changes: { locale: "DE-AT" }, version: 1 },
+      signedIn,
+    );
+
+    const me = await stack.http.queryOk<Record<string, unknown>>(UserQueries.me, {}, signedIn);
+    expect(me["locale"]).toBe("de-AT");
   });
 
   test("user cannot change their own email (field-level write-locked to system)", async () => {

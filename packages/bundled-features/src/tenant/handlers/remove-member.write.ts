@@ -123,6 +123,7 @@ export const removeMemberWrite = defineWriteHandler({
         lockRunner,
         event.payload.tenantId,
         event.payload.userId,
+        "remove",
       );
       if (lastAdmin !== undefined) return lastAdmin;
     }

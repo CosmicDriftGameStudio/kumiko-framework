@@ -4,6 +4,7 @@ import {
   createEntity,
   createTextField,
   defineFeature,
+  EXT_STORAGE_PROVIDER,
   EXT_TENANT_DATA,
   EXT_USER_DATA,
   validateBoot,
@@ -232,6 +233,17 @@ describe("GDPR-storage boot guards V2-V4 (via r.bootCheck)", () => {
     const features = minimalTenantLifecycleFeatures().concat(bad);
     expect(features.some((f) => f.name.startsWith("user-data-rights"))).toBe(false);
     expect(() => validateBoot(features)).toThrow(/EXT_TENANT_DATA destroy hook/);
+  });
+
+  test("V4: storageProvider registration without destroyTenant is rejected at boot", () => {
+    const bad = defineFeature("bad-storage", (r) => {
+      r.requires("tenant-lifecycle");
+      // @ts-expect-error destroyTenant is required — simulates a JS plugin or cast slipping past the type check
+      r.useExtension(EXT_STORAGE_PROVIDER, "bad-entity", {});
+    });
+    expect(() => validateBoot([...minimalTenantLifecycleFeatures(), bad])).toThrow(
+      /storageProvider registration for "bad-entity".*no destroyTenant function/,
+    );
   });
 
   test("V4: tenant-lifecycle not mounted → tenantOwned entity does not throw", () => {

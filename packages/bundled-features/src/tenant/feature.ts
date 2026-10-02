@@ -170,8 +170,8 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     r.queryHandler(
       defineEntityListHandler("tenant", tenantEntity, {
         access: { roles: ["SystemAdmin"] },
-        description:
-          "Lists tenants under the entity-convention name the generated SystemAdmin tenant-list screen resolves; tenant:query:list is the hand-written equivalent.",
+        // Duplicate of tenant:query:list for agents.
+        agent: { expose: false },
       }),
     );
     r.queryHandler(
@@ -184,8 +184,8 @@ export function createTenantFeature(options?: TenantFeatureOptions): FeatureDefi
     r.writeHandler(
       defineEntityUpdateHandler("tenant", tenantEntity, {
         access: { roles: ["SystemAdmin"] },
-        description:
-          "Saves edits to a tenant's own fields under the entity-convention name the generated SystemAdmin tenant-edit screen resolves; tenant:write:update is the hand-written equivalent.",
+        // Duplicate of tenant:write:update with weaker logic.
+        agent: { expose: false },
       }),
     );
     r.screen(tenantListScreen);
