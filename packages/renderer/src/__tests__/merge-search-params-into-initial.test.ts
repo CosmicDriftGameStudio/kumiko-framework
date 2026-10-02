@@ -14,7 +14,7 @@ type FieldDef = {
   format?: string;
   options?: readonly string[];
   multiple?: boolean;
-  schema?: Record<string, { type?: string; options?: readonly string[] }>;
+  schema?: Record<string, { type?: string; options?: readonly string[]; scale?: number }>;
   maxItems?: number;
 };
 
@@ -353,6 +353,22 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
     expect(result["price"]).toEqual({ amount: 0, currency: "EUR" });
   });
 
+  test("an empty money param keeps the field default instead of becoming amount 0", () => {
+    const fields: Record<string, FieldDef> = {
+      price: { type: "money", default: { amount: 500, currency: "GBP" } },
+    };
+    for (const raw of ["", "  "]) {
+      const result = mergeWithAllFieldsUrlPrefillable(fields, { price: raw }, undefined, "EUR");
+      expect(result["price"]).toEqual({ amount: 500, currency: "GBP" });
+    }
+  });
+
+  test("a non-finite number param keeps the field default", () => {
+    const fields: Record<string, FieldDef> = { qty: { type: "number", default: 5 } };
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { qty: "1e999" })["qty"]).toBe(5);
+    expect(mergeWithAllFieldsUrlPrefillable(fields, { qty: "Infinity" })["qty"]).toBe(5);
+  });
+
   describe("embeddedList prefill (fw#2764)", () => {
     const linesField = (extra: Partial<FieldDef> = {}): Record<string, FieldDef> => ({
       lines: {
@@ -396,6 +412,43 @@ describe("mergeSearchParamsIntoInitial — coercion (every field URL-prefillable
         expect(result["lines"]).toEqual([]);
         expect(warnSpy).toHaveBeenCalled();
         expect(warnSpy.mock.calls[0]?.[0]).toContain("lines");
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    const typedLines = (): Record<string, FieldDef> => ({
+      lines: {
+        type: "embedded",
+        multiple: true,
+        schema: {
+          rate: { type: "decimal", scale: 2 },
+          due: { type: "date" },
+          seen: { type: "timestamp" },
+        },
+      },
+    });
+
+    test("well-formed decimal, date and timestamp cells arrive complete", () => {
+      const rows = [{ rate: 1.25, due: "2020-06-01", seen: "2020-06-01T10:00:00Z" }];
+      const result = mergeWithAllFieldsUrlPrefillable(typedLines(), {
+        lines: JSON.stringify(rows),
+      });
+      expect(result["lines"]).toEqual(rows);
+    });
+
+    test.each([
+      ["a decimal with more places than its scale", { rate: 1.23456 }],
+      ["a date that is not an ISO date", { due: "foo" }],
+      ["a timestamp that is not an ISO instant", { seen: "yesterday" }],
+    ])("%s rejects the whole prefill and warns", (_label, badRow) => {
+      const warnSpy = spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const result = mergeWithAllFieldsUrlPrefillable(typedLines(), {
+          lines: JSON.stringify([{ rate: 1.25 }, badRow]),
+        });
+        expect(result["lines"]).toEqual([]);
+        expect(warnSpy).toHaveBeenCalled();
       } finally {
         warnSpy.mockRestore();
       }

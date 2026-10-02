@@ -337,6 +337,13 @@ function dayBoundInstant(date: string, bound: DateRangeBound, timeZone: string):
         .toString();
 }
 
+// A shared or hand-built URL can carry from > to; the handler's `from <= to`
+// refine would answer 422, so the bounds are put in order before conversion.
+function swapInvertedRange(range: DateRangeValue): DateRangeValue {
+  const inverted = range.from !== "" && range.to !== "" && range.from > range.to;
+  return inverted ? { from: range.to, to: range.from } : range;
+}
+
 export function buildDateRangePayload(
   specs: readonly ResolvedDateRangeFacet[],
   urlFilters: Readonly<Record<string, readonly string[]>>,
@@ -344,7 +351,7 @@ export function buildDateRangePayload(
 ): Record<string, string> {
   const out: Record<string, string> = {};
   for (const spec of specs) {
-    const range = readDateRange(urlFilters, spec.field);
+    const range = swapInvertedRange(readDateRange(urlFilters, spec.field));
     for (const [bound, param] of [
       ["from", spec.fromParam],
       ["to", spec.toParam],

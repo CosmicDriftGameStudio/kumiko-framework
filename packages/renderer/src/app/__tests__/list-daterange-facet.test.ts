@@ -93,6 +93,13 @@ describe("dateRange facet → query params", () => {
     expect(payload({ "createdAt.from": ["2020-06"], "createdAt.to": ["nonsense"] })).toEqual({});
   });
 
+  test("a hand-built URL with from after to is put in order instead of reaching the handler inverted", () => {
+    expect(payload({ "createdAt.from": ["2020-06-20"], "createdAt.to": ["2020-06-01"] })).toEqual({
+      from: "2020-05-31T22:00:00Z",
+      to: "2020-06-20T21:59:59.999999999Z",
+    });
+  });
+
   test("bounds follow the viewer's zone", () => {
     expect(payload({ "createdAt.from": ["2020-06-10"] }, "UTC")).toEqual({
       from: "2020-06-10T00:00:00Z",

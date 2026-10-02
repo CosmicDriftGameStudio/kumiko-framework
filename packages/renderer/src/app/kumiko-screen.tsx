@@ -39,6 +39,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import {
+  applyFormatSpec,
   buildOptionLabels,
   computeRelatedListSectionViewModel,
   fieldLabelKey,
@@ -48,6 +49,7 @@ import {
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Temporal } from "temporal-polyfill";
 import {
   QueryOptionLabel,
   resolveOptionsQueryPayload,
@@ -648,14 +650,9 @@ function formatSummaryValue(value: unknown, locale: string): string {
       value.amount,
     );
   }
-  if (typeof value === "number") return value.toLocaleString(locale);
+  if (typeof value === "number") return applyFormatSpec({ format: "number", locale }, value);
   if (typeof value === "string" && ISO_DATE_PATTERN.test(value)) {
-    return new Date(`${value}T00:00:00Z`).toLocaleDateString(locale, {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone: "UTC",
-    });
+    return applyFormatSpec({ format: "date", locale }, value);
   }
   return value === null || value === undefined ? "" : String(value);
 }
@@ -713,6 +710,7 @@ function coerceMoneyValue(
     );
     return undefined;
   }
+  if (typeof value === "string" && value.trim() === "") return undefined;
   const amount = Number(typeof value === "number" ? value : raw);
   if (!Number.isFinite(amount)) return undefined;
   if (defaultCurrency !== undefined) return { amount, currency: defaultCurrency };
@@ -722,15 +720,46 @@ function coerceMoneyValue(
   return amount;
 }
 
-type EmbeddedCellShape = { readonly type?: string; readonly options?: readonly string[] };
+type EmbeddedCellShape = {
+  readonly type?: string;
+  readonly options?: readonly string[];
+  readonly scale?: number;
+};
+
+// Mirrors isRepresentableAtScale in the framework's schema-builder, which the
+// renderer cannot import (server engine). Keep the tolerance identical so a
+// prefilled cell never passes here and fails the handler's schema.
+function isRepresentableAtScale(value: number, scale: number): boolean {
+  const scaled = value * 10 ** scale;
+  const tolerance = Math.abs(scaled) * 8 * Number.EPSILON + Number.EPSILON;
+  return Math.abs(scaled - Math.round(scaled)) <= tolerance;
+}
+
+function isIsoInstant(value: string): boolean {
+  try {
+    Temporal.Instant.from(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const EMBEDDED_LIST_PREFILL_ROW_LIMIT = 500;
 
 function coerceEmbeddedCell(value: unknown, cell: EmbeddedCellShape): unknown {
   switch (cell.type) {
     case "number":
-    case "decimal":
       return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+    case "decimal":
+      return typeof value === "number" &&
+        Number.isFinite(value) &&
+        (cell.scale === undefined || isRepresentableAtScale(value, cell.scale))
+        ? value
+        : undefined;
+    case "date":
+      return typeof value === "string" && ISO_DATE_PATTERN.test(value) ? value : undefined;
+    case "timestamp":
+      return typeof value === "string" && isIsoInstant(value) ? value : undefined;
     case "money":
       // Row cells are signed minor units; the currency lives on the head, so a
       // top-level `{amount, currency}` in major units would land 100x off.
@@ -830,7 +859,7 @@ function coercePrefillString(
 ): unknown {
   if (shape.type === "number") {
     const parsed = Number(raw);
-    return Number.isNaN(parsed) ? fallback : parsed;
+    return Number.isFinite(parsed) ? parsed : fallback;
   }
   if (shape.type === "money") {
     const coerced = coerceMoneyValue(raw, name, moneyCurrencyOverrides?.[name] ?? defaultCurrency);
@@ -1340,6 +1369,7 @@ function EntityEditUpdateForm({
       // Never return onto the just-deleted record.
       const target =
         deletedShownRecord && returnTarget?.entityId === entityId ? undefined : returnTarget;
+      if (deletedShownRecord) onDeleted?.();
       if (action.redirect !== undefined) {
         navigateAfterRedirect({
           nav,
@@ -1352,10 +1382,23 @@ function EntityEditUpdateForm({
         });
         return;
       }
-      navigateToReturnOr(nav, target, navigateToList);
-      onDeleted?.();
+      navigateToReturnOr(nav, target, () => {
+        if (findEntityListScreen(schema, screen.entity) !== undefined) navigateToList();
+        else if (onDeleted === undefined) void onReload();
+      });
     },
-    [nav, schema, appFeatures, returnTarget, record, entityId, navigateToList, onDeleted],
+    [
+      nav,
+      schema,
+      appFeatures,
+      returnTarget,
+      record,
+      entityId,
+      navigateToList,
+      onDeleted,
+      onReload,
+      screen.entity,
+    ],
   );
   const buildSectionActions = useCallback(
     (actions: readonly RowAction[]): readonly RenderEditAction[] | undefined =>
@@ -3020,12 +3063,19 @@ function HeaderActionsBar({
 }): ReactNode {
   const t = useTranslation();
   const [pendingAction, setPendingAction] = useState<RenderEditAction | null>(null);
+  // Menu items have no button of their own to carry RenderEditActionButton's
+  // busy state; without it the menu can be reopened mid-write and fire the
+  // same writeHandler twice.
+  const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const trigger = async (action: RenderEditAction): Promise<void> => {
     onError(null);
+    setBusyActionId(action.id);
     try {
       await action.onPress();
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyActionId(null);
     }
   };
   const toMenuItem = (action: RenderEditAction): ActionMenuItemSpec => ({
@@ -3033,6 +3083,7 @@ function HeaderActionsBar({
     label: action.label,
     ...(action.icon !== undefined && { icon: action.icon }),
     variant: action.style === "danger" ? ("danger" as const) : ("default" as const),
+    ...(busyActionId !== null && { disabled: true }),
     onSelect: () => {
       if (needsActionConfirm(action)) {
         setPendingAction(action);
