@@ -23,6 +23,7 @@ export type RedisSseBrokerOptions = {
 };
 
 export type RedisSseBroker = SseBroker & {
+  readonly kind: "redis";
   // Not on SseBroker — the in-memory broker has nothing to release, but
   // this one owns two live ioredis connections (via the shared PubSubSignal).
   // buildServer only calls this when it created the broker itself (an
@@ -30,12 +31,10 @@ export type RedisSseBroker = SseBroker & {
   close(): Promise<void>;
 };
 
-// The one property RedisSseBroker adds over SseBroker — cheap and reliable
-// to narrow on, so callers that only hold an SseBroker (e.g. a test that
-// pulled it back out of a generic ServerOptions.sseBroker slot) can tell
-// which lifecycle they own without an unsound `as` cast.
+// Narrows on the `kind` discriminant, not on `close`: an app-owned SseBroker
+// may have its own close() and must not be mistaken for the Redis one.
 export function isRedisSseBroker(broker: SseBroker): broker is RedisSseBroker {
-  return "close" in broker;
+  return "kind" in broker && broker.kind === "redis";
 }
 
 // Single decision point for "which SseBroker should a caller default to
@@ -153,6 +152,7 @@ export function createRedisSseBroker(opts: RedisSseBrokerOptions): RedisSseBroke
   });
 
   return {
+    kind: "redis",
     addClient: inner.addClient,
     removeClient: inner.removeClient,
     getClientCount: inner.getClientCount,

@@ -13,6 +13,7 @@ import type { AppContext, TenantId } from "../../engine/types/index.js";
 import { createTestRedis, type TestRedis } from "../../stack/index.js";
 import { sleep, waitFor } from "../../testing/index.js";
 import { bootJobIdForJobName, createJobRunner } from "../job-runner.js";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.js";
 
 let testRedis: TestRedis;
 let redisUrl: string;
@@ -31,10 +32,8 @@ function uniquePrefix(tag: string): string {
 }
 
 async function purgeQueueKeys(queueNamePrefix: string): Promise<void> {
-  const workerKeys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-  if (workerKeys.length > 0) await testRedis.redis.del(...workerKeys);
-  const apiKeys = await testRedis.redis.keys(`bull:${queueNamePrefix}-api:*`);
-  if (apiKeys.length > 0) await testRedis.redis.del(...apiKeys);
+  await purgeRawRedisKeys(redisUrl, `bull:${queueNamePrefix}-worker:*`);
+  await purgeRawRedisKeys(redisUrl, `bull:${queueNamePrefix}-api:*`);
 }
 
 function rawWorkerQueue(queueNamePrefix: string): Queue {
@@ -226,6 +225,11 @@ describe("bounded job retention (fw#3199)", () => {
       });
       try {
         await runner2.start();
+        // The sweep removed the job hash, so a re-add on boot would recreate it
+        // immediately; the marker alone is what suppresses it.
+        expect(await rawQueue.getJob(bootJobId)).toBeUndefined();
+        const rawClient = await rawQueue.client;
+        expect(await rawClient.hexists(rawQueue.toKey("kumiko-boot-enqueued"), bootJobId)).toBe(1);
         await sleep(300);
         expect(bootRuns).toBe(1);
       } finally {
@@ -297,7 +301,14 @@ describe("bounded job retention (fw#3199)", () => {
     }
   });
 
-  test.each([0, 1.5])("createJobRunner throws for jobRetention.completedAgeSec = %p", (value) => {
+  test.each([
+    ["completedAgeSec", 0],
+    ["completedAgeSec", 1.5],
+    ["completedAgeSec", Number.NaN],
+    ["failedAgeSec", 0],
+    ["failedAgeSec", 1.5],
+    ["failedAgeSec", Number.NaN],
+  ] as const)("createJobRunner throws for jobRetention.%s = %p", (field, value) => {
     const feature = defineFeature("retentionbadvalue", (r) => {
       r.job("noop", { trigger: { manual: true } }, async () => {});
     });
@@ -309,8 +320,8 @@ describe("bounded job retention (fw#3199)", () => {
         redisUrl,
         consumerLane: "worker",
         queueNamePrefix: uniquePrefix("badvalue"),
-        jobRetention: { completedAgeSec: value },
+        jobRetention: { [field]: value },
       }),
-    ).toThrow();
+    ).toThrow(new RegExp(`jobRetention\\.${field} must be a positive integer`));
   });
 });

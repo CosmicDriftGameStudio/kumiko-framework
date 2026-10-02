@@ -25,6 +25,7 @@ import {
   type JobRunner,
   type JobRunnerOptions,
 } from "../job-runner.js";
+import { purgeRawRedisKeys } from "./purge-raw-redis-keys.js";
 
 // --- Shared state ---
 
@@ -275,8 +276,7 @@ async function withRunner(
     // from a previous test run would otherwise fire into a now-stopped
     // worker. Only the worker lane is queried because these tests run jobs
     // with the default runIn, which resolves to "worker".
-    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-    if (keys.length > 0) await testRedis.redis.del(...keys);
+    await purgeRawRedisKeys(redisUrl, `bull:${queueNamePrefix}-worker:*`);
   }
 }
 
@@ -599,10 +599,8 @@ describe("concurrency: sequential", () => {
       await queueA.close();
       await rawRedis.del(lockKeyA);
       rawRedis.disconnect();
-      const keysA = await testRedis.redis.keys(`bull:${prefixA}-worker:*`);
-      if (keysA.length > 0) await testRedis.redis.del(...keysA);
-      const keysB = await testRedis.redis.keys(`bull:${prefixB}-worker:*`);
-      if (keysB.length > 0) await testRedis.redis.del(...keysB);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefixA}-worker:*`);
+      await purgeRawRedisKeys(redisUrl, `bull:${prefixB}-worker:*`);
     }
   });
 
@@ -1396,8 +1394,7 @@ describe("boot gates", () => {
   }
 
   async function purge(queueNamePrefix: string): Promise<void> {
-    const keys = await testRedis.redis.keys(`bull:${queueNamePrefix}-worker:*`);
-    if (keys.length > 0) await testRedis.redis.del(...keys);
+    await purgeRawRedisKeys(redisUrl, `bull:${queueNamePrefix}-worker:*`);
   }
 
   test("a throwing gate rejects start() and stops the remaining boot wiring", async () => {

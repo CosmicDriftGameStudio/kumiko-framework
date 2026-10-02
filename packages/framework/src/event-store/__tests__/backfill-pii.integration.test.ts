@@ -366,8 +366,10 @@ describe("backfillEventPiiEncryption", () => {
 
     const baseUrl = process.env["TEST_DATABASE_URL"];
     if (!baseUrl) throw new Error("Missing required env var: TEST_DATABASE_URL");
+    const testDbUrl = new URL(baseUrl);
+    testDbUrl.pathname = `/${testDb.dbName}`;
     const pgKms = new PgKmsAdapter({
-      databaseUrl: baseUrl.replace(/\/[^/]+$/, `/${testDb.dbName}`),
+      databaseUrl: testDbUrl.href,
       platformKek: randomBytes(32).toString("base64"),
       maxConnections: 1,
     });
