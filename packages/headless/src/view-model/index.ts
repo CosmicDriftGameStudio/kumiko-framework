@@ -13,6 +13,7 @@ export {
 } from "./embedded-list.js";
 export type { ComputeListViewModelInput } from "./list.js";
 export {
+  buildOptionLabels,
   computeListViewModel,
   embeddedCellLabelKey,
   embeddedCellOptionLabelKey,

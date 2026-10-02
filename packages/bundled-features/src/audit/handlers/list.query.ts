@@ -7,9 +7,10 @@
 // surface any audit UI needs; tenant-isolated at the WHERE level so cross-
 // tenant peeking is structurally impossible for non-SystemAdmin callers.
 //
-// Sensitive field-values are already stripped out of payloads at event-
-// append time (see event-store-executor → stripSensitive), so this query
-// can't surface PII that the entity definition marked as sensitive.
+// Sensitive field-values are ciphertext inside the event payload (the log
+// carries them encrypted); stripSensitive only strips the event echo. This
+// query returns payloads as stored, so a sensitive value surfaces as ciphertext,
+// never as plaintext.
 
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
 import { access, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";

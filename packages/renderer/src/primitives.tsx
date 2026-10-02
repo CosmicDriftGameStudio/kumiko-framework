@@ -208,6 +208,13 @@ export type FieldProps = {
 /** Discriminated union — jede Input-Sorte hat ihre eigene value/onChange
  *  Signatur. Custom-Impls dispatchen intern, rendern anders (Toggle
  *  statt Checkbox), oder nur einzelne kinds unterschiedlich. */
+export type TrailingInputAction = {
+  readonly icon: "clear" | "undo";
+  readonly label: string;
+  readonly onPress: () => void;
+  readonly testId?: string;
+};
+
 export type InputProps =
   | {
       readonly kind: "text";
@@ -268,6 +275,9 @@ export type InputProps =
        *  Browser-Password-Manager nutzen das für die Speicherentscheidung.
        *  Native: textContentType="password" / "newPassword". */
       readonly autoComplete?: "current-password" | "new-password";
+      /** Icon button inside the field's trailing edge (clear a stored value,
+       *  undo a pending removal). `label` is its accessible name + tooltip. */
+      readonly trailingAction?: TrailingInputAction;
       readonly testId?: string;
     }
   | {
@@ -377,8 +387,13 @@ export type InputProps =
         | readonly {
             readonly value: string;
             readonly label: string;
-            /** Second line under the label; shown by `radioVariant="card"`. */
+            /** Muted second line under the label (radio list and dropdown items;
+             *  the dropdown search matches it too). */
             readonly description?: string;
+            /** Group heading. Groups form in order of first occurrence; options
+             *  without a group stay ungrouped and come before all groups. Options
+             *  with description or group never render as a segmented control. */
+            readonly group?: string;
           }[];
       readonly disabled?: boolean;
       readonly required?: boolean;
@@ -1196,6 +1211,9 @@ export type ConfigCascadeViewProps = {
   readonly slot?: "trigger" | "panel";
   readonly expanded?: boolean;
   readonly onToggle?: () => void;
+  /** Display form of a level value (e.g. a select's label instead of its raw
+   *  value). Absent = the raw value; a missing value stays "—". */
+  readonly renderValue?: (value: string | number | boolean) => ReactNode;
 };
 
 /** Card-Slots — benannte Inhalts-Regionen, alle optional. Neue Slots später =

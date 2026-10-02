@@ -6,7 +6,11 @@ import { createTenantDb, hasTenantColumn } from "../db/tenant-db.js";
 import { tenantDbRunner } from "../db/tenant-db-runner.js";
 import { hasAccess } from "../engine/access.js";
 import { ConfigScopes } from "../engine/constants.js";
-import { checkWriteFieldOwnership, checkWriteFieldRoles } from "../engine/field-access.js";
+import {
+  checkWriteFieldOwnership,
+  checkWriteFieldRoles,
+  maskWriteOnlyFields,
+} from "../engine/field-access.js";
 import { defineTransitions, guardTransition } from "../engine/state-machine.js";
 import type { HandlerContext, SessionUser, WriteResult } from "../engine/types/index.js";
 import { HookPhases } from "../engine/types/index.js";
@@ -386,7 +390,10 @@ export async function executeNestedWrite(
       }
       const subWrapper = subResult.data as Record<string, unknown>; // @cast-boundary engine-payload
       const subRow = (subWrapper["data"] ?? subWrapper) as Record<string, unknown>; // @cast-boundary engine-payload
-      subRows.push(subRow);
+      const subEntityName = registry.getHandlerEntity(spec.subType);
+      const subEntity = subEntityName ? registry.getEntity(subEntityName) : undefined;
+      // parentRow is returned to the client; the child's own SaveContext keeps the plaintext.
+      subRows.push(subEntity ? maskWriteOnlyFields(subEntity, subRow) : subRow);
     }
     parentRow[spec.key] = subRows;
   }

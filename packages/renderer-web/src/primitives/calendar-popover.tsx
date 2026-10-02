@@ -26,7 +26,7 @@ export type CalendarPopoverProps = {
   readonly triggerLabel: string;
 };
 
-const triggerClass =
+export const inFieldIconButtonClass =
   "absolute inset-y-0 right-0 inline-flex w-9 items-center justify-center rounded-md " +
   "text-muted-foreground transition-colors hover:text-foreground " +
   "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring " +
@@ -70,7 +70,7 @@ export function CalendarPopover({
           disabled={disabled}
           aria-label={triggerLabel}
           aria-invalid={hasError === true ? true : undefined}
-          className={cn(triggerClass, hasError === true && "text-destructive")}
+          className={cn(inFieldIconButtonClass, hasError === true && "text-destructive")}
         >
           <CalendarIcon className="size-4" aria-hidden="true" />
         </button>

@@ -135,3 +135,270 @@ describe("select optionsQuery on a configEdit screen", () => {
     ]);
   });
 });
+
+describe("select optionsQuery depending on a sibling field", () => {
+  const dependentScreen: ConfigEditScreenDefinition = {
+    id: "dependent-settings",
+    type: "configEdit",
+    scope: "tenant",
+    configKeys: { provider: "demo:config:provider", model: "demo:config:model" },
+    fields: {
+      provider: { type: "select", options: ["anthropic", "openai"], display: "dropdown" },
+      model: {
+        type: "select",
+        options: [],
+        optionsQuery: OPTIONS_QUERY,
+        optionsQueryPayload: { provider: { field: "provider" }, modality: "text" },
+      },
+      // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+    } as ConfigEditScreenDefinition["fields"],
+    layout: { sections: [{ title: "Model", fields: ["provider", "model"] }] },
+  };
+  const dependentSchema: FeatureSchema = {
+    featureName: "demo",
+    entities: {},
+    screens: [dependentScreen],
+  };
+
+  function makeDependentDispatcher(stored: { provider: string; model: string }) {
+    const optionCalls: Record<string, unknown>[] = [];
+    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string, payload: unknown) => {
+        if (qn === OPTIONS_QUERY) {
+          const asked = payload as Record<string, unknown>;
+          optionCalls.push(asked);
+          const rows =
+            asked["provider"] === "openai"
+              ? [
+                  { value: "model-x", label: "Model X" },
+                  { value: "model-a", label: "Model A (fast)" },
+                ]
+              : [
+                  { value: "model-a", label: "Model A (fast)" },
+                  { value: "model-b", label: "Model B (smart)" },
+                ];
+          return { isSuccess: true, data: { rows } };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:provider": { value: stored.provider, scope: "tenant" },
+            "demo:config:model": { value: stored.model, scope: "tenant" },
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+      batch: batchSpy as unknown as Dispatcher["batch"],
+    });
+    return { dispatcher, optionCalls, batchSpy };
+  }
+
+  async function renderDependent(stored: { provider: string; model: string }) {
+    const harness = makeDependentDispatcher(stored);
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={harness.dispatcher}>
+        <KumikoScreen schema={dependentSchema} qn="demo:screen:dependent-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    await waitFor(() => expect(harness.optionCalls.length).toBeGreaterThan(0));
+    return { ...harness, user };
+  }
+
+  async function switchProviderTo(user: ReturnType<typeof userEvent.setup>, label: string) {
+    await user.click(screen.getByTestId("combobox-kumiko-edit-provider"));
+    await user.click(await screen.findByText(label));
+  }
+
+  test("the payload carries the sibling field's current value next to literals", async () => {
+    const { optionCalls } = await renderDependent({ provider: "anthropic", model: "model-a" });
+    expect(optionCalls[0]).toEqual({ provider: "anthropic", modality: "text" });
+  });
+
+  test("an empty sibling value leaves its key out of the payload", async () => {
+    const { optionCalls } = await renderDependent({ provider: "", model: "" });
+    expect(optionCalls[0]).toEqual({ modality: "text" });
+  });
+
+  test("a first load with the stored value missing keeps the value", async () => {
+    await renderDependent({ provider: "anthropic", model: "retired-model" });
+    await waitFor(() =>
+      expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).toContain(
+        "retired-model",
+      ),
+    );
+  });
+
+  test("changing the sibling reloads, and a value missing from the new rows is cleared", async () => {
+    const { user, optionCalls, batchSpy } = await renderDependent({
+      provider: "anthropic",
+      model: "model-b",
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).toContain(
+        "Model B (smart)",
+      ),
+    );
+    await switchProviderTo(user, "openai");
+    await waitFor(() =>
+      expect(optionCalls.at(-1)).toEqual({ provider: "openai", modality: "text" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).not.toContain("model-b"),
+    );
+    expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).not.toContain(
+      "Model B (smart)",
+    );
+    await user.click(screen.getByTestId("render-edit-submit"));
+    await waitFor(() => expect(batchSpy).toHaveBeenCalled());
+    // "" must not be stored as an override: it resets the key to the inherited value.
+    expect(batchSpy.mock.calls[0]?.[0]).toContainEqual({
+      type: "config:write:reset",
+      payload: { key: "demo:config:model", scope: "tenant" },
+    });
+    expect(batchSpy.mock.calls[0]?.[0]).not.toContainEqual(
+      expect.objectContaining({
+        type: "config:write:set",
+        payload: expect.objectContaining({ key: "demo:config:model" }),
+      }),
+    );
+  });
+
+  test("changing the sibling keeps a value that the new rows still contain", async () => {
+    const { user, optionCalls } = await renderDependent({
+      provider: "anthropic",
+      model: "model-a",
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).toContain(
+        "Model A (fast)",
+      ),
+    );
+    await switchProviderTo(user, "openai");
+    await waitFor(() => expect(optionCalls.at(-1)?.["provider"]).toBe("openai"));
+    await waitFor(() =>
+      expect(screen.getByTestId("combobox-kumiko-edit-model").hasAttribute("disabled")).toBe(false),
+    );
+    expect(screen.getByTestId("combobox-kumiko-edit-model").textContent).toContain(
+      "Model A (fast)",
+    );
+  });
+});
+
+describe("config origin badge for a static-options select", () => {
+  test("shows the option label instead of the raw value", async () => {
+    const staticScreen: ConfigEditScreenDefinition = {
+      id: "static-settings",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: { mode: "demo:config:mode" },
+      fields: {
+        mode: { type: "select", options: ["fast-mode", "slow-mode"] },
+        // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+      } as ConfigEditScreenDefinition["fields"],
+      layout: { sections: [{ title: "Mode", fields: ["mode"] }] },
+    };
+    const staticSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: {},
+      screens: [staticScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:mode": {
+                value: "fast-mode",
+                source: "tenant-row",
+                levels: [
+                  {
+                    source: "tenant-row",
+                    label: "tenant-row",
+                    value: "fast-mode",
+                    isActive: true,
+                    hasValue: true,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: { "demo:config:mode": { value: "fast-mode", scope: "tenant" } },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    const translate = (key: string) =>
+      key.endsWith(":field:mode:option:fast-mode") ? "Fast mode" : key;
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen
+          schema={staticSchema}
+          qn="demo:screen:static-settings"
+          translate={translate}
+        />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const cascade = await waitFor(() => screen.getByTestId("config-cascade"));
+    await waitFor(() => expect(cascade.textContent).toContain("Fast mode"));
+    expect(cascade.textContent).not.toContain("fast-mode");
+  });
+});
+
+describe("config origin badge for an optionsQuery select", () => {
+  test("shows the option label instead of the stored id", async () => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === OPTIONS_QUERY) {
+          return {
+            isSuccess: true,
+            data: { rows: [{ value: "0b1c-uuid", label: "Model A (fast)" }] },
+          };
+        }
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:model": {
+                value: "0b1c-uuid",
+                source: "tenant-row",
+                levels: [
+                  {
+                    source: "tenant-row",
+                    label: "tenant-row",
+                    value: "0b1c-uuid",
+                    isActive: true,
+                    hasValue: true,
+                  },
+                ],
+              },
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: { "demo:config:model": { value: "0b1c-uuid", scope: "tenant" } },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={schema} qn="demo:screen:model-settings" />
+      </DispatcherProvider>,
+    );
+
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const cascade = await waitFor(() => screen.getByTestId("config-cascade"));
+    await waitFor(() => expect(cascade.textContent).toContain("Model A (fast)"));
+    expect(cascade.textContent).not.toContain("0b1c-uuid");
+  });
+});

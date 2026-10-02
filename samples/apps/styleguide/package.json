@@ -1,6 +1,7 @@
 {
   "name": "@cosmicdrift/kumiko-sample-styleguide",
   "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
     "@cosmicdrift/kumiko-dev-server": "workspace:*",
     "@cosmicdrift/kumiko-dispatcher-live": "workspace:*",
     "@cosmicdrift/kumiko-framework": "workspace:*",

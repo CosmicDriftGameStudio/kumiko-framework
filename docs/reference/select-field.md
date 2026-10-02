@@ -1,7 +1,7 @@
 ---
 status: reference
-verified: 2026-10-01
-evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606; framework#3381 (Heuristik nach Optionszahl und Labellänge, radioVariant card, optionTones); optionsQuery: packages/renderer-web/src/__tests__/select-options-query.test.tsx, packages/framework/src/engine/__tests__/boot-validator-select-options-query.test.ts"
+verified: 2026-10-02
+evidence: "framework#2711 (SelectFieldDef.display / InputProps display); framework#2494 (display-Projection in build-app-schema); framework#2606; framework#3381 (Heuristik nach Optionszahl und Labellänge, radioVariant card, optionTones); optionsQuery: packages/renderer-web/src/__tests__/select-options-query.test.tsx, packages/framework/src/engine/__tests__/boot-validator-select-options-query.test.ts; description/group: packages/renderer-web/src/__tests__/select-options-description-group.test.tsx"
 ---
 
 # Select-Feld: Segmente, Radio-Liste oder Dropdown
@@ -47,14 +47,14 @@ will, lässt `display` weg.
 
 ## Radio-Karten und Status-Töne
 
-- `radioVariant: "card"` am Primitive (`Input kind="select"`) rendert die Radio-Liste als Karten. Jede Option kann eine `description` mit einer Erklärzeile tragen.
+- `radioVariant: "card"` am Primitive (`Input kind="select"`) rendert die Radio-Liste als Karten. Eine `description` erscheint in beiden Varianten als Erklärzeile unter dem Label.
 - `optionTones` am Feld (`{ [wert]: "ok" | "warn" | "bad" | "neutral" }`) färbt den Wert in Listen und Detail-Bändern als Status-Badge.
 
 ## Optionen aus einer Query
 
 Ein `select`-Feld kann seine Optionen zur Laufzeit aus einer Query laden. Das
 geht an Config-Keys (und damit im Settings-Hub) sowie an Feldern von
-`configEdit`- und `actionForm`-Screens:
+`configEdit`- und `actionForm`-Screens sowie in den `fieldDefs` einer `writeForm`-Section:
 
 ```ts
 model: createTenantConfig("select", {
@@ -64,14 +64,52 @@ model: createTenantConfig("select", {
 }),
 ```
 
-- Die Query liefert `{ rows: { value: string; label: string }[] }`. Die Labels erscheinen unübersetzt so, wie die Query sie liefert.
+- Die Query liefert `{ rows: { value: string; label: string; description?: string; group?: string }[] }`. Labels und Beschreibungen erscheinen unübersetzt so, wie die Query sie liefert.
 - `options` bleibt leer. Statische `options` und `optionsQuery` am selben Feld sind ein Boot-Fehler, ebenso `optionsQueryPayload` ohne `optionsQuery` und eine leere QN.
-- `optionsQueryPayload` ist statisch und wird bei jedem Aufruf mitgeschickt. Eine Abhängigkeit von anderen Formularfeldern gibt es nicht. Hängen die Optionen vom gewählten Provider ab, trennt man das über die vorhandenen Plugin-Panels mit `visibleWhen`, jeder Provider mit eigenem Key und eigenem Payload.
+- `optionsQueryPayload` wird bei jedem Aufruf mitgeschickt. Ein Wert ist entweder fest (`string`, `number`, `boolean`) oder `{ field: "<name>" }`, dann nimmt der Renderer den aktuellen Wert dieses Feldes derselben Form (siehe „Abhängige Optionen“).
 - Ohne `display` rendert das Feld ein Dropdown, damit die Darstellung nach dem Laden nicht umspringt. Ein gespeicherter Wert, der nicht im Ergebnis steht, bleibt mit seinem Rohwert sichtbar.
 - Der Boot prüft, dass die QN einen registrierten Query-Handler trifft, bei Config-Keys und bei Screen-Feldern.
 - Der Server prüft den geschriebenen Wert nicht gegen das Query-Ergebnis. Das Feature, das den Wert verwendet, validiert ihn dort selbst.
 - Auf Entity-Feldern (auch eingebetteten) ist `optionsQuery` ein Boot-Fehler, weil der gespeicherte Wert sonst ungeprüft bliebe. Dort bleibt es bei statischen `options` oder einem `reference`-Feld.
 - Config-Keys mit `optionsQuery` dürfen nicht `allowPerRequest` sein, ein Per-Request-Wert ginge ungeprüft durch.
+
+### Beschreibung und Gruppen
+
+Eine Zeile mit `description` zeigt unter dem Label eine gedämpfte zweite Zeile,
+in der Combobox und in der Radio-Liste. Die Combobox-Suche trifft auch die
+Beschreibung. Zeilen mit `group` stehen unter einer Gruppenüberschrift. Zeilen
+ohne Gruppe kommen zuerst in ihrer Reihenfolge, danach die Gruppen in der
+Reihenfolge, in der sie zum ersten Mal auftreten.
+
+Tragen Optionen `description` oder `group`, rendert das Feld nie Segmente:
+`display: "radio"` und die Heuristik ergeben dann die vertikale Radio-Liste.
+
+```ts
+// Query-Zeile für einen KI-Schritt
+{ value: "reply-draft", label: "Antwort entwerfen", description: "Genutzt in: Tickets › Ticket bearbeiten" }
+```
+
+### Abhängige Optionen
+
+Ein Select kann seine Optionen für den Wert eines anderen Feldes laden, zum
+Beispiel die Modelle der gewählten Verbindung:
+
+```ts
+textModel: createTenantConfig("select", {
+  optionsQuery: "ai-foundation:query:model-options",
+  optionsQueryPayload: { modality: "text", connectionId: { field: "textConnection" } },
+}),
+```
+
+- An Screen-Feldern (`configEdit`, `actionForm`, `writeForm`-`fieldDefs`) nennt `field` ein anderes Feld derselben Form. An Config-Keys nennt es einen anderen Key desselben Features, der auf derselben Settings-Maske liegt. Unbekannte Namen, der eigene Name und ein Key auf einer anderen Maske sind Boot-Fehler.
+- Ist das Bezugsfeld leer, fehlt der Payload-Key ganz.
+- Ändert sich der Wert des Bezugsfeldes, lädt das Select neu. Steht der gewählte Wert nicht in den neuen Zeilen, wird er geleert (`""`). Beim ersten Laden bleibt ein fehlender gespeicherter Wert sichtbar.
+
+### Herkunfts-Badge im Settings-Hub
+
+Das Badge neben dem Label einer `configEdit`-Maske zeigt bei Select-Feldern das
+Label der Option statt des Rohwerts, bei `optionsQuery` also den Namen statt
+einer ID.
 
 ## Imperative Nutzung
 

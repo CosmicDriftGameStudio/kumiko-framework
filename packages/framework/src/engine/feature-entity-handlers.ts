@@ -32,6 +32,32 @@ import type {
 import type { PipelineDef } from "./types/step.js";
 
 const CRUD_VERBS = new Set(["create", "update", "delete"]);
+const CRUD_REGISTERED_VERBS = new Set([...CRUD_VERBS, "restore", "list", "detail"]);
+
+// A silent overwrite would drop framework behaviour that rides on the r.crud
+// handlers (e.g. writeOnly masking), so a same-name registration fails loudly.
+function assertHandlerNameFree(
+  state: FeatureBuilderState,
+  featureName: string,
+  kind: "write" | "query",
+  handlerName: string,
+): void {
+  const registered = kind === "write" ? state.writeHandlers : state.queryHandlers;
+  // skip: a free name is the normal case
+  if (!Object.hasOwn(registered, handlerName)) return;
+  const [entityName, verb] = handlerName.split(":");
+  const crudShaped =
+    entityName !== undefined &&
+    verb !== undefined &&
+    state.entities[entityName] !== undefined &&
+    CRUD_REGISTERED_VERBS.has(verb);
+  throw new Error(
+    `Feature "${featureName}" registers the ${kind} handler "${handlerName}" twice.` +
+      (crudShaped
+        ? ` r.crud("${entityName}", ...) already registers that name; use a distinct name or drop the "${verb}" verb from r.crud.`
+        : " Use a distinct name."),
+  );
+}
 
 // Map handler name to entity via colon convention.
 // "task:create" → entity "task". Bare CRUD verbs (create/update/delete) map
@@ -133,6 +159,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
+        assertHandlerNameFree(state, name, "write", def.name);
         state.writeHandlers[def.name] = {
           name: def.name,
           schema: def.schema,
@@ -164,6 +191,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         return { name: def.name };
       }
       const inline = requireInlineHandlerArgs("writeHandler", schema, handler, options);
+      assertHandlerNameFree(state, name, "write", nameOrDef);
       state.writeHandlers[nameOrDef] = {
         name: nameOrDef,
         schema: inline.schema,
@@ -191,6 +219,7 @@ export function buildEntityHandlerMethods<TName extends string>(
     ): HandlerRef {
       if (typeof nameOrDef === "object") {
         const def = nameOrDef;
+        assertHandlerNameFree(state, name, "query", def.name);
         state.queryHandlers[def.name] = {
           name: def.name,
           schema: def.schema,
@@ -212,6 +241,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         return { name: def.name };
       }
       const inline = requireInlineHandlerArgs("queryHandler", schema, handler, options);
+      assertHandlerNameFree(state, name, "query", nameOrDef);
       state.queryHandlers[nameOrDef] = {
         name: nameOrDef,
         schema: inline.schema,

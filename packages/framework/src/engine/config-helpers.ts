@@ -12,6 +12,7 @@ import type {
   CreateSeedOptions,
   CreateTenantSeedOptions,
   CreateUserSeedOptions,
+  OptionsQueryPayload,
 } from "./types/index.js";
 
 // A key backed by "secrets" is at-rest encrypted by the secrets store itself
@@ -84,9 +85,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   piiEncrypted?: T extends "text" ? boolean : never;
   options?: readonly string[]; // for select type
   optionsQuery?: T extends "select" ? string : never;
-  optionsQueryPayload?: T extends "select"
-    ? Readonly<Record<string, string | number | boolean>>
-    : never;
+  optionsQueryPayload?: T extends "select" ? OptionsQueryPayload : never;
   bounds?: T extends "number" ? ConfigBounds : never;
   // Regex enforced at write (set.write) — only meaningful for text keys
   // (never for the other type-tags). Use anchored + length-bounded patterns:

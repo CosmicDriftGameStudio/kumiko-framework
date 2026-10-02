@@ -606,6 +606,11 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "kumiko.field.time": "Uhrzeit",
   "kumiko.field.timezone": "Zeitzone",
   "kumiko.field.unsupported": "Dieser Feldtyp kann hier noch nicht bearbeitet werden.",
+  "kumiko.field.writeOnly.remove": "Gespeicherten Wert entfernen",
+  "kumiko.field.writeOnly.set": "Gesetzt",
+  "kumiko.field.writeOnly.setPlaceholder": "Gesetzt – leer lassen, um ihn zu behalten",
+  "kumiko.field.writeOnly.undo": "Rückgängig",
+  "kumiko.field.writeOnly.willRemove": "Wird beim Speichern entfernt",
   "kumiko.form.all-required": "Alle Felder sind erforderlich.",
   "kumiko.form.changed": "geändert",
   "kumiko.form.draft.resume-multiple":

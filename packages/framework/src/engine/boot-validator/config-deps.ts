@@ -1,5 +1,6 @@
+import { optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import { isEncryptedAtRest } from "../config-helpers.js";
-import type { FeatureDefinition } from "../types/index.js";
+import type { ConfigKeyDefinition, FeatureDefinition } from "../types/index.js";
 
 // --- Toggleable-dependency warnings ---
 //
@@ -162,6 +163,25 @@ export function validateConfigKeyOptionsQuery(feature: FeatureDefinition): void 
     if (keyDef.allowPerRequest) {
       throw new Error(
         `${prefix} has optionsQuery AND allowPerRequest=true — a per-request value would bypass the option set unchecked`,
+      );
+    }
+    validateOptionsQueryKeyRefs(feature, keyName, keyDef);
+  }
+}
+
+function validateOptionsQueryKeyRefs(
+  feature: FeatureDefinition,
+  keyName: string,
+  keyDef: ConfigKeyDefinition,
+): void {
+  const prefix = `[Feature ${feature.name}] Config key "${keyName}"`;
+  for (const ref of optionsQueryFieldRefs(keyDef.optionsQueryPayload)) {
+    if (ref === keyName) {
+      throw new Error(`${prefix} optionsQueryPayload references itself ({ field: "${ref}" })`);
+    }
+    if (feature.configKeys[ref] === undefined) {
+      throw new Error(
+        `${prefix} optionsQueryPayload references unknown config key "${ref}" of feature "${feature.name}"`,
       );
     }
   }

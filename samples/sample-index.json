@@ -101,6 +101,7 @@
       "samples": [
         "apps-cap-billing-demo",
         "apps-config-demo",
+        "apps-styleguide",
         "recipes-apex-surface-auth",
         "recipes-encrypted-tenant-config",
         "recipes-managed-config",

@@ -5,7 +5,8 @@
 // same-folder require cycle.
 
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
-import { NO_WIDGET_FIELD_TYPES } from "@cosmicdrift/kumiko-types/fields";
+import type { OptionsQueryPayload } from "@cosmicdrift/kumiko-types/fields";
+import { NO_WIDGET_FIELD_TYPES, optionsQueryFieldRefs } from "@cosmicdrift/kumiko-types/fields";
 import type { IconKey } from "@cosmicdrift/kumiko-types/nav-icon";
 import { NAV_ICON_KEYS } from "@cosmicdrift/kumiko-types/nav-icon";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
@@ -717,19 +718,59 @@ function validateFormFieldsMap(
     if (ftype === "money") {
       validateFormMoneyCurrency(featureName, screenId, context, fname, fdef);
     }
-    validateFormSelectOptions(featureName, screenId, context, fname, fdef);
+    validateFormSelectOptions(featureName, screenId, context, fname, fdef, fieldNames);
+    rejectWriteOnlyFormField(featureName, screenId, context, fname, fdef);
   }
   return fieldNames;
 }
 
-// Static options XOR optionsQuery on inline-form select fields. The QN
-// existence check lives in query-refs.ts with the other query refs.
+function validateOptionsQueryFieldRefs(
+  where: string,
+  fieldName: string,
+  payload: OptionsQueryPayload | undefined,
+  siblingFieldNames: ReadonlySet<string>,
+): void {
+  for (const ref of optionsQueryFieldRefs(payload)) {
+    if (ref === fieldName) {
+      throw new Error(`${where} optionsQueryPayload references itself ({ field: "${ref}" })`);
+    }
+    if (!siblingFieldNames.has(ref)) {
+      throw new Error(
+        `${where} optionsQueryPayload references unknown field "${ref}" — it must be another field of the same form`,
+      );
+    }
+  }
+}
+
+// Inline forms have no stored value to hide or keep: writeOnly there would
+// render a "set / keep" affordance with nothing behind it.
+function rejectWriteOnlyFormField(
+  featureName: string,
+  screenId: string,
+  context: string,
+  fieldName: string,
+  fdef: FieldDefinition,
+): void {
+  if ((fdef as { writeOnly?: unknown }).writeOnly === true) {
+    // @cast-boundary schema-walk
+    throw new Error(
+      `[Feature ${featureName}] Screen "${screenId}" (${context}) field "${fieldName}" declares writeOnly — ` +
+        `writeOnly only applies to entity fields (nothing to hide on a form that stores no value). ` +
+        `Use format: "password" for a masked input.`,
+    );
+  }
+}
+
+// Static options XOR optionsQuery on inline-form select fields, and `{ field }`
+// payload refs must name another field of the same form. The QN existence check
+// lives in query-refs.ts with the other query refs.
 function validateFormSelectOptions(
   featureName: string,
   screenId: string,
   context: string,
   fieldName: string,
   fdef: FieldDefinition,
+  siblingFieldNames: ReadonlySet<string>,
 ): void {
   if (fdef.type === "select") {
     const where = `[Feature ${featureName}] Screen "${screenId}" (${context}) select field "${fieldName}"`;
@@ -740,6 +781,7 @@ function validateFormSelectOptions(
       if (fdef.options.length > 0) {
         throw new Error(`${where} declares both options and optionsQuery — pick one`);
       }
+      validateOptionsQueryFieldRefs(where, fieldName, fdef.optionsQueryPayload, siblingFieldNames);
     } else if (fdef.optionsQueryPayload !== undefined) {
       throw new Error(`${where} has optionsQueryPayload without optionsQuery`);
     }
@@ -1693,6 +1735,28 @@ export function validateScreens(
                 `(writeForm) has zero fields — drop the section or add fields to it.`,
             );
           }
+          // A ref to a fieldDef the form never renders would never resolve.
+          const writeFormFieldNames = new Set(
+            // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
+            section.fields.map((f) => normalizeEditField(f).field),
+          );
+          for (const [defName, fdef] of Object.entries(section.fieldDefs)) {
+            validateFormSelectOptions(
+              feature.name,
+              screenId,
+              `projectionDetail section "${section.title}" writeForm`,
+              defName,
+              fdef,
+              writeFormFieldNames,
+            );
+            rejectWriteOnlyFormField(
+              feature.name,
+              screenId,
+              `projectionDetail section "${section.title}" writeForm`,
+              defName,
+              fdef,
+            );
+          }
           // kumiko-lint-ignore section-fields-raw writeForm sections carry no groups (EditWriteFormSection)
           for (const f of section.fields) {
             const fieldName = normalizeEditField(f).field;
@@ -1820,7 +1884,8 @@ export function validateScreens(
               `\`type\` set. Each field must declare a type (e.g. "text", "number", "select").`,
           );
         }
-        validateFormSelectOptions(feature.name, screenId, "configEdit", fname, fdef);
+        validateFormSelectOptions(feature.name, screenId, "configEdit", fname, fdef, fieldNames);
+        rejectWriteOnlyFormField(feature.name, screenId, "configEdit", fname, fdef);
       }
       if (screen.layout.sections.length === 0) {
         throw new Error(

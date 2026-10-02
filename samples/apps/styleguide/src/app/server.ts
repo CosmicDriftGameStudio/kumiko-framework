@@ -4,9 +4,16 @@
 // explizit markiert sein (sonst klassifiziert der Isolation-Guard das
 // Default-Pfad-File als [runtime] und blockt den [dev]-Import).
 
+import {
+  createConfigAccessorFactory,
+  createConfigFeature,
+  createConfigResolver,
+} from "@cosmicdrift/kumiko-bundled-features/config";
 import { runDevApp } from "@cosmicdrift/kumiko-dev-server";
 import { createInMemoryFileProvider } from "@cosmicdrift/kumiko-framework/files";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
+import { aiSettingsFeature } from "../features/ai-settings/feature";
+import { seedAiConnections } from "../features/ai-settings/seed";
 import { contentFeature } from "../features/content/feature";
 import { demoFeature } from "../features/demo/feature";
 import { examplesFeature } from "../features/examples/feature";
@@ -15,15 +22,19 @@ import { aiTextDemoFeature } from "../features/widgets/ai-text-demo";
 import { widgetsFeature } from "../features/widgets/feature";
 import { seedStyleguideItems } from "./seed";
 
+const configResolver = createConfigResolver();
+
 await runDevApp({
   features: [
     localeDe(),
+    createConfigFeature(),
     demoFeature,
     galleryFeature,
     widgetsFeature,
     examplesFeature,
     contentFeature,
     aiTextDemoFeature,
+    aiSettingsFeature,
   ],
   // Aktiviert die Upload-Routes (/api/files) + ctx.files für den Avatar-
   // Stresstest. In-Memory reicht für die Demo (nicht-persistent).
@@ -32,5 +43,9 @@ await runDevApp({
   clientEntry: "./src/app/client.tsx",
   htmlPath: "./public/index.html",
   watchDirs: ["./src", "../../../packages/*/src"],
-  seeds: [seedStyleguideItems],
+  seeds: [seedStyleguideItems, seedAiConnections],
+  extraContext: ({ registry }) => ({
+    configResolver,
+    _configAccessorFactory: createConfigAccessorFactory(registry, configResolver),
+  }),
 });

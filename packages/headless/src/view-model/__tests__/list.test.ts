@@ -437,3 +437,28 @@ describe("computeListViewModel", () => {
     expect(vm.columns[1]?.hideOnNarrow).toBe(true);
   });
 });
+
+describe("computeListViewModel writeOnly columns", () => {
+  const credentialEntity = {
+    fields: {
+      name: { type: "text" },
+      apiKey: { type: "text", sensitive: true, writeOnly: true },
+    },
+  } as unknown as EntityDefinition;
+
+  test("a set writeOnly value (wire: true) shows the Set label, an empty one stays null", () => {
+    const vm = computeListViewModel({
+      screen: listScreen(["name", "apiKey"]),
+      entity: credentialEntity,
+      rows: [
+        { id: "a", name: "A", apiKey: true },
+        { id: "b", name: "B", apiKey: null },
+      ],
+      translate,
+      featureName: "tasks",
+    });
+
+    expect(vm.rows.map((r) => r.values["apiKey"])).toEqual(["kumiko.field.writeOnly.set", null]);
+    expect(vm.rows.map((r) => r.values["name"])).toEqual(["A", "B"]);
+  });
+});

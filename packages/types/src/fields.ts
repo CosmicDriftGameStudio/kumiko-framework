@@ -45,10 +45,12 @@ export type FieldAccess = {
 //
 // Encrypting a field is NOT a reason to make it unfindable. A user table you
 // cannot search by name is a user table with no working search. The line that
-// actually forbids search is `sensitive: true` — nobody may read those values
-// back, and the event-store executor already strips them before the search
-// consumer ever sees a payload. Password hashes, API tokens, bank details:
-// never indexed. Email, username, display name: encrypted at rest, findable.
+// actually forbids search is `sensitive: true` — ciphertext at rest, never
+// searchable, stripped from event echoes before the search consumer ever sees
+// a payload (authorized readers can still read the value back). Password
+// hashes, API tokens, bank details: never indexed. Email, username, display
+// name: encrypted at rest, findable. A value that must never be returned at
+// all takes `writeOnly: true` on top.
 //
 // Why `encrypted: true` erases nothing: it uses the app-wide master key,
 // which is never destroyed per subject. Encryption-at-rest, nothing more.
@@ -259,6 +261,18 @@ export type TextFieldDef = {
   readonly filterable?: boolean;
   readonly encrypted?: boolean;
   readonly sensitive?: boolean;
+  /** Write-only secret (API key): the value is never returned to clients. Reads
+   *  (list/detail/write responses) show `true` = set, `null` = empty. Writes:
+   *  `""` or omitted = unchanged, `null` = clear, string = new value.
+   *  Server-side: executor reads (detail/list in server handlers) and
+   *  postSave/postQuery hooks see the plaintext; ctx.query, dispatcher.query,
+   *  agent tools and `_refs` see true/null; ctx.db sees the ciphertext.
+   *  Known limit: masking runs for entity-bound query handlers with array /
+   *  {rows} / flat results; an unbound custom query handler that returns
+   *  executor rows must call maskWriteOnlyFields itself (same scope limit as
+   *  access.read). Requires `sensitive` (via `find: "secret"`); forbidden with
+   *  default/searchable/sortable/filterable/lookupable and on screen/form fields. */
+  readonly writeOnly?: boolean;
   /** A later run reads this field's value as an instruction — prompt, rule,
    *  template. Every create/update whose payload writes it requires agent.risk
    *  "high" on the directly-dispatched entry handler; a revert doesn't undo a
@@ -328,6 +342,24 @@ export type BooleanFieldDef = {
 
 export type SelectOptionTone = "ok" | "warn" | "bad" | "neutral";
 
+/** One `optionsQueryPayload` entry: a literal, or `{ field }` = the current value of
+ *  a sibling field of the same form (config keys: another key of the owner feature). */
+export type OptionsQueryPayloadValue = string | number | boolean | { readonly field: string };
+
+export type OptionsQueryPayload = Readonly<Record<string, OptionsQueryPayloadValue>>;
+
+export function isOptionsQueryFieldRef(
+  value: OptionsQueryPayloadValue,
+): value is { readonly field: string } {
+  return typeof value === "object" && value !== null;
+}
+
+export function optionsQueryFieldRefs(payload: OptionsQueryPayload | undefined): string[] {
+  return Object.values(payload ?? {})
+    .filter(isOptionsQueryFieldRef)
+    .map((ref) => ref.field);
+}
+
 export type SelectFieldDef<TOptions extends readonly string[] = readonly string[]> = {
   readonly type: "select";
   readonly description?: string;
@@ -348,13 +380,15 @@ export type SelectFieldDef<TOptions extends readonly string[] = readonly string[
    *  detail bands. Options without an entry keep the renderer's own
    *  value-based heuristic. */
   readonly optionTones?: { readonly [K in TOptions[number]]?: SelectOptionTone };
-  /** Loads the options from this query (QN). Contract: `{ rows: { value, label }[] }`,
-   *  labels are shown verbatim (not translated). `options` must be empty when set.
+  /** Loads the options from this query (QN). Contract:
+   *  `{ rows: { value, label, description?, group? }[] }`, labels are shown verbatim
+   *  (not translated); description is a muted second line, group a heading. `options` must be empty when set.
    *  Only valid on configEdit/actionForm screen fields and config keys, not on entity
    *  fields: the stored value would not be checked against the query result. */
   readonly optionsQuery?: string;
-  /** Static payload sent with every `optionsQuery` call. */
-  readonly optionsQueryPayload?: Readonly<Record<string, string | number | boolean>>;
+  /** Payload sent with every `optionsQuery` call. `{ field }` entries re-load the
+   *  options when that sibling field changes. */
+  readonly optionsQueryPayload?: OptionsQueryPayload;
 } & ResolvedPiiFlags;
 
 // Mehrere Werte aus einer festen Options-Liste — UI rendert als

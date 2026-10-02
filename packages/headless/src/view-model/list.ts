@@ -11,6 +11,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { ListColumnViewModel, ListRowViewModel, ListViewModel, Translate } from "./types.js";
 
+const WRITE_ONLY_SET_LABEL_KEY = "kumiko.field.writeOnly.set";
+
 export type ComputeListViewModelInput = {
   readonly screen: EntityListScreenDefinition;
   readonly entity: EntityDefinition;
@@ -183,9 +185,24 @@ export function computeListViewModel(input: ComputeListViewModelInput): ListView
     columns.push(column);
   }
 
+  const writeOnlyFieldNames = screen.columns
+    .map((spec) => normalizeListColumn(spec).field)
+    .filter((name) => {
+      const fieldDef = entity.fields[name];
+      return fieldDef?.type === "text" && fieldDef.writeOnly === true;
+    });
+  // The wire carries `true` (set) / `null` (empty) for writeOnly fields; the cell shows a word, not "true".
+  const showWriteOnlyAsWord = (row: Readonly<Record<string, unknown>>) => {
+    const shown: Record<string, unknown> = { ...row };
+    for (const name of writeOnlyFieldNames) {
+      if (row[name] === true) shown[name] = translate(WRITE_ONLY_SET_LABEL_KEY);
+    }
+    return shown;
+  };
+
   const listRows: ListRowViewModel[] = rows.map((row) => ({
     id: String(row["id"] ?? ""),
-    values: row,
+    values: showWriteOnlyAsWord(row),
   }));
 
   return {

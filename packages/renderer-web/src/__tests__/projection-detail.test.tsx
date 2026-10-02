@@ -903,6 +903,12 @@ describe("KumikoScreen / projectionDetail extension section (solon#264)", () => 
     );
     await waitFor(() => screen.getByTestId("write-form-section-submit"));
     expect(container.querySelectorAll('[data-slot="card"]')).toHaveLength(1);
+    // The tab is the whole page, so its submit sits in the form footer, not the tab's title row.
+    expect(
+      screen
+        .getByTestId("write-form-section-submit")
+        .closest('[data-testid^="render-edit-form-actions"]'),
+    ).not.toBeNull();
   });
 
   test("layout.mode: 'tabs' with countField — tab label carries the record's count, sections without it stay unchanged", async () => {

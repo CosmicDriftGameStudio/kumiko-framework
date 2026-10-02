@@ -992,3 +992,43 @@ describe("validateBoot — lookupable / blind-index (#818)", () => {
     expect(() => validateBoot([feature])).toThrow(/sensitive.*searchable/);
   });
 });
+
+describe("validateBoot — writeOnly fields", () => {
+  const bootWith = (field: TextFieldDef | LongTextFieldDef | Record<string, unknown>) =>
+    validateBoot([
+      defineFeature("test", (r) => {
+        r.entity("conn", createEntity({ fields: { apiKey: field as TextFieldDef } }));
+      }),
+    ]);
+
+  test("writeOnly on a find: secret text field passes", () => {
+    expect(() =>
+      bootWith(createTextField({ personal: "tenant", find: "secret", writeOnly: true })),
+    ).not.toThrow();
+  });
+
+  test("writeOnly without sensitive throws", () => {
+    expect(() =>
+      bootWith(createTextField({ personal: "tenant", find: "none", writeOnly: true })),
+    ).toThrow(/writeOnly: true } without { sensitive: true }/);
+  });
+
+  test("writeOnly on a non-text field throws", () => {
+    expect(() => bootWith({ type: "longText", required: false, writeOnly: true })).toThrow(
+      /only applies to text fields/,
+    );
+  });
+
+  test.each(["default", "searchable", "sortable", "filterable", "lookupable"] as const)(
+    "writeOnly combined with %s throws",
+    (flag) => {
+      const value = flag === "default" ? "x" : true;
+      expect(() =>
+        bootWith({
+          ...createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
+          [flag]: value,
+        }),
+      ).toThrow(new RegExp(`writeOnly: true } with { ${flag} }`));
+    },
+  );
+});

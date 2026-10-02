@@ -2,7 +2,7 @@
 // interface from @cosmicdrift/kumiko-headless without the HTTP layer — no
 // form-draft, no batch state, just the QNs this recipe's two screens need:
 //
-//   - "note-desk:query:note:detail" — the projectionDetail screen's own
+//   - "note-desk:query:note:summary" — the projectionDetail screen's own
 //     query, returns the same fixed row the real server handler returns.
 //   - "note-desk:write:note:comment" — the writeForm section's handler.
 //   - "note-desk:write:note:create" — the entityEdit screen's create submit
@@ -26,12 +26,12 @@ import type {
   WriteResult,
 } from "@cosmicdrift/kumiko-headless";
 
-const QUERY_NOTE_DETAIL = "note-desk:query:note:detail";
+const QUERY_NOTE_DETAIL = "note-desk:query:note:summary";
 const WRITE_NOTE_COMMENT = "note-desk:write:note:comment";
 const WRITE_NOTE_CREATE = "note-desk:write:note:create";
 
 // Same fixed values as the real server handler (src/feature.ts's
-// "note:detail" query handler) — only `id` varies with the request.
+// "note:summary" query handler) — only `id` varies with the request.
 const NOTE_DETAIL_FIELDS = {
   title: "Sample note",
   category: "question",

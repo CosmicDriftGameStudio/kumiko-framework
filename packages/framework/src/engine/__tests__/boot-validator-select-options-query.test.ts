@@ -107,12 +107,18 @@ function featureWithActionForm(fields: Record<string, unknown>) {
 
 function featureWithConfigEdit(fields: Record<string, unknown>) {
   return defineFeature("shop", (r) => {
-    r.config({ keys: { model: createTenantConfig("text", { default: "" }) } });
+    r.config({
+      keys: Object.fromEntries(
+        Object.keys(fields).map((name) => [name, createTenantConfig("text", { default: "" })]),
+      ),
+    });
     r.screen({
       id: "settings",
       type: "configEdit",
       scope: "tenant",
-      configKeys: { model: "shop:config:model" },
+      configKeys: Object.fromEntries(
+        Object.keys(fields).map((name) => [name, `shop:config:${name}`]),
+      ),
       fields: fields as never,
       layout: { sections: [{ title: "Basics", fields: Object.keys(fields) }] } as never,
     });
@@ -189,5 +195,137 @@ describe("validateBoot — select optionsQuery on entity fields", () => {
     expect(() => validateBoot([catalog, shop])).toThrow(
       /Entity select field "item.meta.model" declares optionsQuery/,
     );
+  });
+});
+
+function featureWithWriteForm(fieldDefs: Record<string, unknown>) {
+  return defineFeature("shop", (r) => {
+    r.queryHandler("thing", z.object({}), async () => ({ rows: [] }), { access: OPEN_ACCESS });
+    r.writeHandler({
+      name: "save",
+      schema: { _type: "stub" } as never,
+      handler: async () => ({ isSuccess: true, data: {} }) as never,
+      access: OPEN_ACCESS,
+    });
+    r.screen({
+      id: "detail",
+      type: "projectionDetail",
+      query: "shop:query:thing",
+      layout: {
+        sections: [
+          {
+            kind: "writeForm",
+            title: "Edit",
+            fieldDefs: fieldDefs as never,
+            fields: Object.keys(fieldDefs),
+            handler: "shop:write:save",
+          },
+        ],
+      },
+    });
+  });
+}
+
+describe.each([
+  ["actionForm", featureWithActionForm],
+  ["configEdit", featureWithConfigEdit],
+  ["writeForm", featureWithWriteForm],
+] as const)("validateBoot — optionsQueryPayload { field } on %s fields", (_screenType, build) => {
+  const query = "catalog:query:model-options";
+  const provider = { type: "text" } as const;
+
+  test("a { field } naming a sibling field boots", () => {
+    const shop = build({
+      provider,
+      model: {
+        type: "select",
+        options: [],
+        optionsQuery: query,
+        optionsQueryPayload: { provider: { field: "provider" } },
+      },
+    });
+    expect(() => validateBoot([catalog, shop])).not.toThrow();
+  });
+
+  test("a { field } naming an unknown field throws", () => {
+    const shop = build({
+      provider,
+      model: {
+        type: "select",
+        options: [],
+        optionsQuery: query,
+        optionsQueryPayload: { provider: { field: "ghost" } },
+      },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(/references unknown field "ghost"/);
+  });
+
+  test("a { field } naming the field itself throws", () => {
+    const shop = build({
+      provider,
+      model: {
+        type: "select",
+        options: [],
+        optionsQuery: query,
+        optionsQueryPayload: { provider: { field: "model" } },
+      },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(/references itself/);
+  });
+});
+
+describe("validateBoot — writeForm select fields share the options XOR optionsQuery rule", () => {
+  test("non-empty options together with optionsQuery throws", () => {
+    const shop = featureWithWriteForm({
+      model: { type: "select", options: ["a"], optionsQuery: "catalog:query:model-options" },
+    });
+    expect(() => validateBoot([catalog, shop])).toThrow(/both options and optionsQuery/);
+  });
+});
+
+describe("validateBoot — optionsQueryPayload { field } on config keys", () => {
+  const query = "catalog:query:model-options";
+
+  function featureWithKeys(payload: Record<string, { field: string }>) {
+    return defineFeature("shop", (r) => {
+      r.config({
+        keys: {
+          provider: createTenantConfig("text", { default: "" }),
+          model: createTenantConfig("select", {
+            optionsQuery: query,
+            optionsQueryPayload: payload,
+          }),
+        },
+      });
+    });
+  }
+
+  test("a { field } naming another key of the feature boots", () => {
+    expect(() =>
+      validateBoot([catalog, featureWithKeys({ provider: { field: "provider" } })]),
+    ).not.toThrow();
+  });
+
+  test("a { field } naming an unknown key throws", () => {
+    expect(() =>
+      validateBoot([catalog, featureWithKeys({ provider: { field: "ghost" } })]),
+    ).toThrow(/references unknown config key "ghost"/);
+  });
+
+  test("a { field } naming the key itself throws", () => {
+    expect(() =>
+      validateBoot([catalog, featureWithKeys({ provider: { field: "model" } })]),
+    ).toThrow(/references itself/);
+  });
+});
+
+describe.each([
+  ["actionForm", featureWithActionForm],
+  ["configEdit", featureWithConfigEdit],
+  ["writeForm", featureWithWriteForm],
+] as const)("validateBoot — writeOnly on %s fieldDefs", (_screenType, build) => {
+  test("a writeOnly field in the form fieldDefs throws", () => {
+    const shop = build({ apiKey: { type: "text", writeOnly: true } });
+    expect(() => validateBoot([catalog, shop])).toThrow(/field "apiKey" declares writeOnly/);
   });
 });

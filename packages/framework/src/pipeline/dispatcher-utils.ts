@@ -23,8 +23,11 @@ export function isFailedWriteResult(result: unknown): result is FailedWriteResul
   );
 }
 
+const LIFECYCLE_KINDS = ["save", "delete"] as const satisfies readonly LifecycleResult["kind"][];
+
 export function isLifecycleResult(data: unknown): data is LifecycleResult {
-  return !!data && typeof data === "object" && "kind" in data;
+  if (!data || typeof data !== "object" || !("kind" in data)) return false;
+  return LIFECYCLE_KINDS.some((kind) => kind === data.kind);
 }
 
 export function isWriteResultShape(result: unknown): boolean {

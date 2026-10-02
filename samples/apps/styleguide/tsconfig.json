@@ -5,6 +5,9 @@
       "@cosmicdrift/kumiko-framework/*": [
         "../../../packages/framework/src/*/index.ts"
       ],
+      "@cosmicdrift/kumiko-bundled-features/*": [
+        "../../../packages/bundled-features/src/*/index.ts"
+      ],
       "@cosmicdrift/kumiko-dev-server": [
         "../../../packages/dev-server/src/index.ts"
       ],

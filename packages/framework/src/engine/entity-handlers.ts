@@ -13,6 +13,7 @@ import { acknowledgeConventionCrossTenant, type TenantDb } from "../db/tenant-db
 import { isSystemIdentity } from "../pipeline/system-identity-switch.js";
 import { assertUnreachable } from "../utils/index.js";
 import { PAGED_QUERY_HANDLER_BRAND } from "./define-handler.js";
+import { dropEmptyWriteOnlyValues } from "./field-access.js";
 import { instructionFieldNames } from "./instruction-fields.js";
 import { buildInsertSchema, buildUpdateSchema } from "./schema-builder.js";
 import type {
@@ -366,7 +367,10 @@ export function defineEntityWriteHandler(
         // present that identity, so their payload.id is dropped exactly as
         // before this field became part of the schema.
         const { id: _callerId, ...payloadWithoutId } = event.payload as DbRow;
-        const payload = isSystemIdentity(event.user) ? (event.payload as DbRow) : payloadWithoutId;
+        const payload = dropEmptyWriteOnlyValues(
+          entity,
+          isSystemIdentity(event.user) ? (event.payload as DbRow) : payloadWithoutId,
+        );
         return executor.create(payload, event.user, dbFor(ctx), {
           preSave:
             runPreSave &&
@@ -383,7 +387,11 @@ export function defineEntityWriteHandler(
       handler = async (event, ctx) => {
         const { runPreSave } = ctx;
         const db = dbFor(ctx);
-        const payload = event.payload as UpdatePayload; // @cast-boundary engine-payload
+        const submitted = event.payload as UpdatePayload; // @cast-boundary engine-payload
+        const payload = {
+          ...submitted,
+          changes: dropEmptyWriteOnlyValues(entity, submitted.changes),
+        };
         const user = await actingUserFor(event.user, payload.id, db);
         // skipUnchanged (#464): API-driven updates diff against the stored
         // row so a resubmitted-but-identical field doesn't force a fresh

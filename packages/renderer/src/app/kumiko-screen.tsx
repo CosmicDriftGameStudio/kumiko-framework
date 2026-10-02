@@ -33,6 +33,7 @@ import type {
   Translate,
 } from "@cosmicdrift/kumiko-headless";
 import {
+  buildOptionLabels,
   computeRelatedListSectionViewModel,
   fieldLabelKey,
   fieldOptionLabelKey,
@@ -41,6 +42,10 @@ import {
 import { resolveActionIcon } from "@cosmicdrift/kumiko-types/action-icon";
 import { TENANT_CURRENCY_CONFIG_KEY } from "@cosmicdrift/kumiko-types/fields";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  QueryOptionLabel,
+  resolveOptionsQueryPayload,
+} from "../components/query-options-select.js";
 import { extractCreatedId, extractIdField } from "../components/reference-create-dialog.js";
 import {
   RenderEdit,
@@ -3969,7 +3974,22 @@ function ConfigEditBody({
       for (const [shortName, value] of Object.entries(snapshot.changes)) {
         const qualified = screen.configKeys[shortName];
         if (qualified === undefined) continue;
-        const ftype = (screen.fields[shortName] as { type?: string } | undefined)?.type;
+        const fieldDef = screen.fields[shortName] as // @cast-boundary schema-walk
+          | { type?: string; optionsQuery?: string }
+          | undefined;
+        const ftype = fieldDef?.type;
+        // A query-backed select is cleared to "" when its dependent value became
+        // invalid. config:write:set would store that as an empty override (the
+        // badge shows "Mandant" with no value); reset falls back to the inherited
+        // value. set can't do it: deleting the row is irreversible, reset is
+        // the high-risk handler.
+        if (ftype === "select" && fieldDef?.optionsQuery !== undefined && value === "") {
+          commands.push({
+            type: "config:write:reset",
+            payload: { key: qualified, scope: screen.scope },
+          });
+          continue;
+        }
         commands.push({
           type: "config:write:set",
           payload: {
@@ -4037,6 +4057,26 @@ function ConfigEditBody({
       </Banner>
     );
   }
+  // Cascade values of a select show the option label the select itself shows,
+  // not the stored value (a UUID for optionsQuery selects).
+  const cascadeValueRenderer = (
+    fieldName: string,
+  ): ((value: string | number | boolean) => ReactNode) | undefined => {
+    const fieldDef = screen.fields[fieldName];
+    if (fieldDef?.type !== "select") return undefined;
+    if (fieldDef.optionsQuery !== undefined) {
+      const query = fieldDef.optionsQuery;
+      const payload = resolveOptionsQueryPayload(fieldDef.optionsQueryPayload ?? {}, initial);
+      return (value) => <QueryOptionLabel query={query} payload={payload} value={value} />;
+    }
+    if (fieldDef.options.length === 0) return undefined;
+    return (value) =>
+      buildOptionLabels(
+        effectiveTranslate,
+        (option) => fieldOptionLabelKey(schema.featureName, synthScreen.entity, fieldName, option),
+        [String(value)],
+      )[String(value)];
+  };
   return (
     <RenderEdit
       screen={synthScreen}
@@ -4050,6 +4090,7 @@ function ConfigEditBody({
       labelAppendix={(fieldName: string) => {
         const cascade = cascades[fieldName];
         if (cascade === undefined) return undefined;
+        const renderValue = cascadeValueRenderer(fieldName);
         return (
           <ConfigCascadeView
             slot="trigger"
@@ -4057,6 +4098,7 @@ function ConfigEditBody({
             screenScope={screen.scope}
             expanded={expandedFields.has(fieldName)}
             onToggle={() => toggleExpanded(fieldName)}
+            {...(renderValue !== undefined && { renderValue })}
           />
         );
       }}
@@ -4065,6 +4107,7 @@ function ConfigEditBody({
         // Panel nur rendern wenn aufgeklappt — sonst kein leerer Abstand
         // unter dem Input.
         if (cascade === undefined || !expandedFields.has(fieldName)) return undefined;
+        const renderValue = cascadeValueRenderer(fieldName);
         return (
           <ConfigCascadeView
             slot="panel"
@@ -4072,6 +4115,7 @@ function ConfigEditBody({
             screenScope={screen.scope}
             expanded
             qualifiedKey={screen.configKeys[fieldName]}
+            {...(renderValue !== undefined && { renderValue })}
             onReset={async (key, scope) => {
               await dispatcher.write("config:write:reset", { key, scope });
               await Promise.allSettled([valuesQuery.refetch?.(), cascadeQuery.refetch?.()]);

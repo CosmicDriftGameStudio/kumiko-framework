@@ -54,6 +54,7 @@ import {
   statusToneForOptionTone,
   statusToneForValue,
   type TextProps,
+  type TrailingInputAction,
   useColumnRenderer,
   useInsideDrawer,
   useOptionalLocale,
@@ -85,6 +86,7 @@ import {
   Search,
   SlidersHorizontal,
   Tag,
+  Undo2,
   User,
   X,
 } from "lucide-react";
@@ -119,6 +121,7 @@ import { Textarea } from "../ui/textarea.js";
 import { ProgressBar } from "../widgets/progress-bar.js";
 import { StatusBadge } from "../widgets/status-badge.js";
 import { StepBar } from "../widgets/step-bar.js";
+import { inFieldIconButtonClass } from "./calendar-popover.js";
 import { ComboboxInput } from "./combobox.js";
 import { DateInput } from "./date-input.js";
 import { DefaultDialog } from "./dialog.js";
@@ -140,6 +143,7 @@ import { DefaultMetric, DefaultMetricBand } from "./metric.js";
 import { DefaultModal } from "./modal.js";
 import { currencyDecimals, formatMoney, MoneyInput } from "./money-input.js";
 import { NumberInput } from "./number-input.js";
+import { groupOptions, hasDescriptionOrGroup } from "./option-groups.js";
 import { DefaultPageHeader } from "./page-header.js";
 import { PromoPanel } from "./promo-panel.js";
 import { CopyButton, ShareButton } from "./share-actions.js";
@@ -498,6 +502,30 @@ function withUnitSuffix(unit: string | undefined, input: ReactNode): ReactNode {
   );
 }
 
+const TRAILING_ACTION_ICONS = { clear: X, undo: Undo2 } as const;
+
+// In-field icon button on the right (same look as the date input's calendar
+// trigger). The wrapped input must reserve the room itself (`pr-9`).
+function withTrailingAction(action: TrailingInputAction | undefined, input: ReactNode): ReactNode {
+  if (action === undefined) return input;
+  const ActionIcon = TRAILING_ACTION_ICONS[action.icon];
+  return (
+    <div className="relative">
+      {input}
+      <button
+        type="button"
+        aria-label={action.label}
+        title={action.label}
+        data-testid={action.testId}
+        onClick={action.onPress}
+        className={inFieldIconButtonClass}
+      >
+        <ActionIcon className="size-4" aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
 // Default presentation for `kind: "select"` without a `display` of its own
 // (board rule): up to 3 short options read as a segmented control, up to 3
 // longer ones as a vertical radio list, everything else as a dropdown. Labels
@@ -654,6 +682,7 @@ function RadioListSelect({
     readonly value: string;
     readonly label: string;
     readonly description?: string;
+    readonly group?: string;
   }[];
   readonly variant?: "list" | "card";
   readonly disabled?: boolean;
@@ -661,6 +690,10 @@ function RadioListSelect({
   readonly hasError?: boolean;
 }): ReactNode {
   const card = variant === "card";
+  // One radiogroup over all sections keeps native arrow-key navigation across groups
+  // (radios share `name` in DOM order).
+  const descriptionIdOf = (opt: { readonly value: string }): string =>
+    `${id}-option-${options.findIndex((o) => o.value === opt.value)}-description`;
   return (
     <div
       role="radiogroup"
@@ -671,34 +704,47 @@ function RadioListSelect({
       data-radio-list=""
       className="flex flex-col gap-2"
     >
-      {options.map((opt) => (
-        <label
-          key={opt.value}
-          className={
-            card ? RADIO_CARD_CLASS : "flex items-center gap-2 text-sm font-normal text-foreground"
-          }
-        >
-          <input
-            type="radio"
-            name={name}
-            value={opt.value}
-            checked={opt.value === value}
-            disabled={disabled}
-            data-testid={`radio-list-${id}-${opt.value}`}
-            onChange={() => onChange(opt.value)}
-            className={cn("size-4 accent-primary", card && "mt-0.5 shrink-0")}
-          />
-          {card ? (
-            <span className="flex flex-col gap-0.5">
-              <span className="font-semibold">{opt.label}</span>
-              {opt.description !== undefined && (
-                <span className="text-[13px] text-foreground-secondary">{opt.description}</span>
-              )}
-            </span>
-          ) : (
-            opt.label
+      {groupOptions(options).map((section) => (
+        <Fragment key={section.heading ?? ""}>
+          {section.heading !== undefined && (
+            <div
+              data-testid={`radio-list-${id}-group-${section.heading}`}
+              className="mt-1 text-xs font-medium text-muted-foreground"
+            >
+              {section.heading}
+            </div>
           )}
-        </label>
+          {section.options.map((opt) => (
+            <label
+              key={opt.value}
+              className={
+                card
+                  ? RADIO_CARD_CLASS
+                  : "flex items-start gap-2 text-sm font-normal text-foreground"
+              }
+            >
+              <input
+                type="radio"
+                name={name}
+                value={opt.value}
+                checked={opt.value === value}
+                disabled={disabled}
+                aria-describedby={opt.description !== undefined ? descriptionIdOf(opt) : undefined}
+                data-testid={`radio-list-${id}-${opt.value}`}
+                onChange={() => onChange(opt.value)}
+                className={cn("size-4 accent-primary", card ? "mt-0.5 shrink-0" : "mt-0.5")}
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className={cn(card && "font-semibold")}>{opt.label}</span>
+                {opt.description !== undefined && (
+                  <span id={descriptionIdOf(opt)} className="text-[13px] text-foreground-secondary">
+                    {opt.description}
+                  </span>
+                )}
+              </span>
+            </label>
+          ))}
+        </Fragment>
       ))}
     </div>
   );
@@ -762,7 +808,8 @@ function DefaultInput(props: InputProps): ReactNode {
         />
       );
     case "password":
-      return (
+      return withTrailingAction(
+        props.trailingAction,
         <UiInput
           type="password"
           {...common}
@@ -771,7 +818,8 @@ function DefaultInput(props: InputProps): ReactNode {
           onChange={(e: ChangeEvent<HTMLInputElement>) => props.onChange(e.target.value)}
           {...(props.placeholder !== undefined && { placeholder: props.placeholder })}
           autoComplete={props.autoComplete ?? "current-password"}
-        />
+          className={props.trailingAction !== undefined ? "pr-9" : undefined}
+        />,
       );
     case "number":
       return withUnitSuffix(
@@ -891,7 +939,7 @@ function DefaultInput(props: InputProps): ReactNode {
       // An explicit `display` is an author decision and outranks the
       // heuristic in both directions — a requested radio group renders as
       // one even when the options outnumber the heuristic's threshold (#2711).
-      const presentation =
+      const requestedPresentation =
         props.radioVariant === "card"
           ? "radioList"
           : props.display === "radio"
@@ -899,6 +947,11 @@ function DefaultInput(props: InputProps): ReactNode {
             : props.display === "dropdown"
               ? "dropdown"
               : defaultSelectPresentation(radioGroupOptions);
+      // A segmented control has no room for a description line or group headings.
+      const presentation =
+        requestedPresentation === "segmented" && hasDescriptionOrGroup(radioGroupOptions)
+          ? "radioList"
+          : requestedPresentation;
       if (presentation === "radioList" && radioGroupOptions.length > 0) {
         return (
           <RadioListSelect

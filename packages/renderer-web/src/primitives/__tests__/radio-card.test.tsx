@@ -69,7 +69,7 @@ describe("select radioVariant=card", () => {
     expect(screen.queryByTestId("combobox-many")).toBeNull();
   });
 
-  test("without radioVariant the same options keep the plain radio list without descriptions", () => {
+  test("without radioVariant the same options render a plain (non-card) radio list with their descriptions", () => {
     render(
       <Field id="decision" label="Ist das dieselbe Person?" testId="field-decision">
         <Input
@@ -82,7 +82,9 @@ describe("select radioVariant=card", () => {
         />
       </Field>,
     );
-    expect(screen.queryByText("Für eine andere Person.")).toBeNull();
+    expect(screen.getByText("Für eine andere Person.")).toBeTruthy();
+    expect(screen.getByTestId("radio-list-decision")).toBeTruthy();
+    expect(screen.queryByTestId("segmented-decision")).toBeNull();
   });
 });
 

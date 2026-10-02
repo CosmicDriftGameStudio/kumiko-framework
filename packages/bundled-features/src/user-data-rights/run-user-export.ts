@@ -37,6 +37,7 @@ import {
   type EscapeHatchAuditSink,
   EXT_USER_DATA,
   extensionUsageEscapeHatchReason,
+  maskWriteOnlyFields,
   type Registry,
   type TenantId,
   type UserDataExportHook,
@@ -316,7 +317,11 @@ async function decryptSnippetFields(
   const encryptedFields = entity ? collectEncryptedFieldNames(entity) : new Set<string>();
   const kms = configuredPiiSubjectKms();
 
-  const rows = await decryptRecords(snippet.rows, encryptedFields, kms);
+  const decryptedRows = await decryptRecords(snippet.rows, encryptedFields, kms);
+  // Decrypting would otherwise hand writeOnly secrets out as plaintext.
+  const rows = entity
+    ? decryptedRows.map((row) => maskWriteOnlyFields(entity, row))
+    : decryptedRows;
 
   if (!snippet.fileRefs || snippet.fileRefs.length === 0) {
     return { ...snippet, rows };

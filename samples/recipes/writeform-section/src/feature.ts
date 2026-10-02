@@ -82,7 +82,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
   });
 
   r.queryHandler(
-    "note:detail",
+    "note:summary",
     z.object({ id: z.string() }),
     async (query) => ({
       id: query.payload.id,
@@ -104,7 +104,7 @@ export const noteDeskFeature = defineFeature("note-desk", (r) => {
   r.screen({
     id: "note-detail",
     type: "projectionDetail",
-    query: "note-desk:query:note:detail",
+    query: "note-desk:query:note:summary",
     layout: {
       sections: [
         {

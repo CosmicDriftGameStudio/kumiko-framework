@@ -29,7 +29,9 @@ describe("isWriteResultShape / isLifecycleResult", () => {
   });
 
   test("detects lifecycle results", () => {
-    expect(isLifecycleResult({ kind: "deleted" })).toBe(true);
+    expect(isLifecycleResult({ kind: "save" })).toBe(true);
+    expect(isLifecycleResult({ kind: "delete" })).toBe(true);
+    expect(isLifecycleResult({ kind: "other" })).toBe(false);
     expect(isLifecycleResult(null)).toBe(false);
   });
 });

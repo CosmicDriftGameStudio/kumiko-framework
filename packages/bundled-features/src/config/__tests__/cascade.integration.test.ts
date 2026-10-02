@@ -64,6 +64,12 @@ const cascadeFeature = defineFeature("cascade-test", (r) => {
         read: access.all,
         write: access.all,
       }),
+      querySelectKey: createTenantConfig("select", {
+        optionsQuery: "cascade-test:query:select-options",
+        default: "DEFAULT_SELECT",
+        read: access.all,
+        write: access.all,
+      }),
       booleanKey: createTenantConfig("boolean", {
         default: false,
         read: access.all,
@@ -102,6 +108,7 @@ const USER_INHERIT_KEY = "cascade-test:config:user-inherit-key";
 const SYSTEM_KEY = "cascade-test:config:system-key";
 const NUMBER_KEY = "cascade-test:config:number-key";
 const BOOLEAN_KEY = "cascade-test:config:boolean-key";
+const QUERY_SELECT_KEY = "cascade-test:config:query-select-key";
 const COMPUTED_KEY = "cascade-test:config:computed-key";
 const ENV_KEY = "cascade-test:config:env-key";
 
@@ -482,6 +489,45 @@ describe("reset cycle regression", () => {
     );
     expect(cascade.value).toBe(22);
     expect(cascade.source).toBe("tenant-row");
+  });
+});
+
+describe("clearing a query-backed select key", () => {
+  // The settings form sends config:write:reset (not set "") for a cleared
+  // optionsQuery select; set "" would pin an empty override.
+  test("reset removes the tenant override so the cascade falls back to the default", async () => {
+    await stack.http.writeOk(
+      ConfigHandlers.set,
+      { key: QUERY_SELECT_KEY, value: "picked", scope: "tenant" },
+      tenantAdmin,
+    );
+    const keyDef = stack.registry.getConfigKey(QUERY_SELECT_KEY);
+    expect(keyDef).toBeDefined();
+    const overridden = await resolver.getCascade(
+      QUERY_SELECT_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+    expect(overridden.value).toBe("picked");
+    expect(overridden.source).toBe("tenant-row");
+
+    await stack.http.writeOk(
+      ConfigHandlers.reset,
+      { key: QUERY_SELECT_KEY, scope: "tenant" },
+      tenantAdmin,
+    );
+
+    const cleared = await resolver.getCascade(
+      QUERY_SELECT_KEY,
+      keyDef!,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+    expect(cleared.value).toBe("DEFAULT_SELECT");
+    expect(cleared.source).toBe("default");
   });
 });
 

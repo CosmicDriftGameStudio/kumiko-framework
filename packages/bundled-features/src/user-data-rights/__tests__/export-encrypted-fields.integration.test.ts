@@ -31,6 +31,7 @@ import { runUserExport } from "../run-user-export.js";
 const TENANT = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "cccccccc-cccc-4ccc-8ccc-000000000001";
 const PLAINTEXT_NOTE = "my private vault note";
+const PLAINTEXT_API_KEY = "sk-live-export-secret-0001";
 
 const cipher = createTestEnvelopeCipher();
 
@@ -39,6 +40,7 @@ const vaultNoteEntity = createEntity({
   fields: {
     ownerId: createTextField({ required: true, personal: false, reason: "pseudonymous_fk" }),
     note: createTextField({ encrypted: true, personal: false, reason: "technical_reference" }),
+    apiKey: createTextField({ personal: "tenant", find: "secret", writeOnly: true }),
   },
 });
 
@@ -112,12 +114,14 @@ beforeAll(async () => {
       inserted_by_id TEXT,
       modified_by_id TEXT,
       owner_id TEXT NOT NULL,
-      note TEXT
+      note TEXT,
+      api_key TEXT
     )
   `);
   const storedNote = await cipher.encrypt(PLAINTEXT_NOTE);
+  const storedApiKey = await cipher.encrypt(PLAINTEXT_API_KEY);
   await asRawClient(stack.db).unsafe(
-    `INSERT INTO read_vault_notes (tenant_id, owner_id, note) VALUES ('${TENANT}', '${USER_ID}', '${storedNote.replaceAll("'", "''")}')`,
+    `INSERT INTO read_vault_notes (tenant_id, owner_id, note, api_key) VALUES ('${TENANT}', '${USER_ID}', '${storedNote.replaceAll("'", "''")}', '${storedApiKey.replaceAll("'", "''")}')`,
   );
 });
 
@@ -129,7 +133,7 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-async function exportedNote(): Promise<unknown> {
+async function exportedNote(field = "note"): Promise<unknown> {
   const bundle = await runUserExport({
     db: stack.db,
     registry,
@@ -137,13 +141,18 @@ async function exportedNote(): Promise<unknown> {
     now: getTemporal().Now.instant(),
   });
   const snippet = bundle.tenants.flatMap((t) => t.entities).find((e) => e.entity === "vault-note");
-  return snippet?.rows[0]?.["note"];
+  return snippet?.rows[0]?.[field];
 }
 
 describe("user export with encrypted entity fields", () => {
   test("decrypts encrypted fields when the cipher is configured", async () => {
     configureEntityFieldEncryption(cipher);
     expect(await exportedNote()).toBe(PLAINTEXT_NOTE);
+  });
+
+  test("a writeOnly field exports as true, never the decrypted plaintext", async () => {
+    configureEntityFieldEncryption(cipher);
+    expect(await exportedNote("apiKey")).toBe(true);
   });
 
   test("exports an explicit marker — never ciphertext — without a cipher", async () => {

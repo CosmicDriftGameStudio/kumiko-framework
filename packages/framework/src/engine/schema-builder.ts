@@ -90,7 +90,7 @@ function embeddedSubFieldToZod(subField: EmbeddedSubFieldDef): z.ZodTypeAny {
 export function fieldToZod(
   field: FieldDefinition,
   currencies: readonly string[],
-  opts: { readonly applyDefaults?: boolean } = {},
+  opts: { readonly applyDefaults?: boolean; readonly isUpdate?: boolean } = {},
 ): z.ZodTypeAny {
   // Insert callers want `.default(...)` applied so an omitted field falls
   // back to it; buildUpdateSchema passes applyDefaults: false so an omitted
@@ -102,6 +102,12 @@ export function fieldToZod(
     case "text": {
       let schema = z.string();
       if (field.maxLength) schema = schema.max(field.maxLength);
+      if (field.writeOnly === true) {
+        // Update: "" = unchanged (dropped before the executor), null = clear,
+        // unless required. Create: "" would leave a required field unset.
+        if (opts.isUpdate !== true) return field.required ? schema.min(1) : schema;
+        return field.required ? schema : schema.nullable();
+      }
       if (field.format === "email") schema = schema.email();
       if (field.format === "url") schema = schema.url();
       if (field.required) schema = schema.min(1);
@@ -420,7 +426,10 @@ export function buildUpdateSchema(
     // fieldToZod still knows the default for its "" → default mapping
     // (e.g. select) — applyDefaults: false only suppresses the schema-level
     // `.default(...)` fallback for a genuinely omitted key.
-    shape[name] = fieldToZod(field, currencies, { applyDefaults: false }).optional();
+    shape[name] = fieldToZod(field, currencies, {
+      applyDefaults: false,
+      isUpdate: true,
+    }).optional();
   }
 
   return applyTotalsMatchRefinements(entity, z.object(shape));

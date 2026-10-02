@@ -224,7 +224,7 @@ function deriveSelectFieldHints(
   };
 }
 
-type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format">;
+type TextFieldHints = Pick<EditFieldViewModel, "multiline" | "format" | "writeOnly">;
 
 function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
   const multiline =
@@ -235,9 +235,11 @@ function deriveTextFieldHints(fieldDef: EntityFieldDef): TextFieldHints {
     fieldDef.type === "text"
       ? (fieldDef as unknown as { format?: "email" | "url" | "phone" | "password" }).format
       : undefined;
+  const writeOnly = fieldDef.type === "text" && fieldDef.writeOnly === true;
   return {
     ...(multiline !== undefined && { multiline }),
     ...(format !== undefined && { format }),
+    ...(writeOnly && { writeOnly: true as const }),
   };
 }
 

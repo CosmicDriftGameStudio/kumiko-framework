@@ -53,6 +53,8 @@ export type {
   ImageFieldDef,
   ImagesFieldDef,
   NumberFieldDef,
+  OptionsQueryPayload,
+  OptionsQueryPayloadValue,
   SelectFieldDef,
   SelectOptionTone,
   TextFieldDef,
