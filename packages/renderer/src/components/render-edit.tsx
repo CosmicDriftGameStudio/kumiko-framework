@@ -377,6 +377,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
     headerRegion,
     buildSectionActions,
   } = props;
+  const i18nScreenId = props.i18nScreenId ?? screen.id;
   const { customSubmit } = props;
   // Translate-Fallback: wenn der Caller keine Translate-Fn übergibt,
   // konsumieren wir den i18next-Context direkt. Sonst wären Field-
@@ -1513,15 +1514,15 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
       : undefined;
   const resolveScreenText = (suffix: string): string | undefined => {
     for (const key of [
-      `screen:${screen.id}.${formMode}.${suffix}`,
-      `screen:${screen.id}.${suffix}`,
+      `screen:${i18nScreenId}.${formMode}.${suffix}`,
+      `screen:${i18nScreenId}.${suffix}`,
     ]) {
       const value = translate(key);
       if (value !== key) return value;
     }
     return undefined;
   };
-  const plainFormTitle = resolveScreenText("title") ?? screen.id;
+  const plainFormTitle = resolveScreenText("title") ?? i18nScreenId;
   const formTitle = resolveTitleTemplate(
     screen.titleTemplate,
     snapshot.values,

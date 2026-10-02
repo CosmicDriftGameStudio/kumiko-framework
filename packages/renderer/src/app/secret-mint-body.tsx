@@ -247,6 +247,7 @@ export function SecretMintBody({ schema, screen, translate }: SecretMintBodyProp
         {confirm !== undefined && confirmEntity !== undefined && confirmScreen !== undefined ? (
           <RenderEdit
             screen={confirmScreen}
+            i18nScreenId={screen.id}
             entity={confirmEntity}
             featureName={schema.featureName}
             initial={confirmInitial ?? ({} as FormValues)}

@@ -18,6 +18,10 @@ import type * as z from "zod";
 
 export type RenderEditProps<TValues extends FormValues, TCtx = unknown> = {
   readonly screen: EntityEditScreenDefinition;
+  /** Screen id used for the `screen:<id>.title`/`.subtitle` lookups and as the
+   *  title fallback, when `screen.id` is synthetic (e.g. a secretMint confirm
+   *  form keeps its own id for the draft key). Defaults to `screen.id`. */
+  readonly i18nScreenId?: string;
   readonly entity: EntityDefinition;
   readonly featureName: string;
   readonly initial: TValues;

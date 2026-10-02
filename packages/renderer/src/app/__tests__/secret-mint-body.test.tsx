@@ -14,12 +14,18 @@ import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
 import { fireEvent, render, screen as rtlScreen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
-import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
+import {
+  createStaticLocaleResolver,
+  LocaleProvider,
+  type TranslationsByLocale,
+} from "../../i18n.js";
 import { kumikoDefaultTranslations } from "../../i18n-defaults.js";
+import { PageHeaderSlotAvailableProvider } from "../../page-header-slot.js";
 import {
   type BannerProps,
   type CardProps,
   type CorePrimitives,
+  type PageHeaderProps,
   PrimitivesProvider,
   type SecretRevealProps,
   type SectionProps,
@@ -97,6 +103,10 @@ const testSecretReveal: ComponentType<SecretRevealProps> = ({ values, testId }) 
       </div>
     ))}
   </div>
+);
+
+const testPageHeader: ComponentType<PageHeaderProps> = ({ title }) => (
+  <div data-testid="test-page-header-title">{title}</div>
 );
 
 const testPrimitives: CorePrimitives = {
@@ -194,12 +204,16 @@ function renderMintScreen(
   dispatcher: Dispatcher,
   screen: SecretMintScreenDefinition = mintScreen,
   navigate: (target: NavTarget) => void = () => {},
+  shellHeader?: { readonly translations: TranslationsByLocale },
 ) {
   const qn = `shop:screen:${screen.id}`;
+  const primitives =
+    shellHeader !== undefined ? { ...testPrimitives, PageHeader: testPageHeader } : testPrimitives;
+  const screenBody = <KumikoScreen schema={buildSchema(screen)} qn={qn} />;
   return render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "en-US" })}
-      fallbackBundles={[kumikoDefaultTranslations]}
+      fallbackBundles={[shellHeader?.translations ?? {}, kumikoDefaultTranslations]}
     >
       <DispatcherProvider dispatcher={dispatcher}>
         <NavProvider
@@ -212,8 +226,14 @@ function renderMintScreen(
             setSearchParams: () => {},
           }}
         >
-          <PrimitivesProvider value={testPrimitives}>
-            <KumikoScreen schema={buildSchema(screen)} qn={qn} />
+          <PrimitivesProvider value={primitives}>
+            {shellHeader !== undefined ? (
+              <PageHeaderSlotAvailableProvider value={true}>
+                {screenBody}
+              </PageHeaderSlotAvailableProvider>
+            ) : (
+              screenBody
+            )}
           </PrimitivesProvider>
         </NavProvider>
       </DispatcherProvider>
@@ -418,6 +438,32 @@ describe("SecretMintBody confirm step (fw#2838)", () => {
     );
     const confirmCall = writeCalls.find((c) => c.command === "shop:write:token:confirm");
     expect(confirmCall?.payload).toEqual({ code: "123456", setupToken: "stok_123" });
+  });
+
+  describe("shell title of the confirm form", () => {
+    async function revealWithConfirm(translations: TranslationsByLocale): Promise<void> {
+      const { dispatcher } = stubMultiWriteDispatcher({
+        "shop:write:token:mint": { token: "kpat_secret", setupToken: "stok_123" },
+      });
+      renderMintScreen(dispatcher, mintScreenWithConfirm, () => {}, { translations });
+      fireEvent.change(rtlScreen.getByLabelText(/label/i), { target: { value: "My token" } });
+      fireEvent.click(rtlScreen.getByTestId("render-edit-submit"));
+      await waitFor(() => expect(rtlScreen.queryByText("kpat_secret")).not.toBeNull());
+    }
+
+    test("resolves the parent screen's translated title, not the synthetic confirm id", async () => {
+      await revealWithConfirm({ "en-US": { "screen:mint-token.title": "Mint a token" } });
+
+      expect(rtlScreen.getByTestId("test-page-header-title").textContent).toBe("Mint a token");
+      expect(document.body.textContent).not.toContain(":confirm");
+    });
+
+    test("without a translation it falls back to the parent screen id", async () => {
+      await revealWithConfirm({});
+
+      expect(rtlScreen.getByTestId("test-page-header-title").textContent).toBe("mint-token");
+      expect(document.body.textContent).not.toContain(":confirm");
+    });
   });
 
   test("a carried field that is not in reveal.fields never appears in the DOM", async () => {
