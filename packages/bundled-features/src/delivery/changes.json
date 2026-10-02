@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "Channel plugin guard validates mode and render",
+    "detail": "Stricter input guards. A delivery channel plugin must declare `mode` as `inline` or `queued` and a function `render`, otherwise boot fails instead of silently dispatching inline. The derivatives-sharp overlay rejects a non-finite `marginPct` before it reaches sharp. A document-ingest provider can no longer register under the reserved name `unknown`, which marks upcast legacy ingest events. The unsubscribe POST route also accepts a JSON body.",
+    "migration": "A delivery channel plugin must now declare `mode` as `\"inline\"` or `\"queued\"` and a function `render`; boot fails otherwise instead of dispatching inline."
+  },
+  {
     "version": "0.330.0",
     "type": "improvement",
     "title": "store_delivery_attempts gets an index on (tenant_id, created_at) (fw#3396)",

@@ -1,5 +1,111 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.335.0
+
+### Patch Changes
+
+- 07ddc7e: `InviteAcceptScreen` no longer redirects to a tenant URL when the accept route answers with an MFA challenge or setup requirement (no session cookie was minted); it sends the user to `loginHref` instead. `SessionBootstrapErrorScreen` accepts an optional `onSignOut` and the auth gate wires it, so a permanent bootstrap failure no longer traps the user behind "Try again" (new i18n key `auth.sessionBootstrap.signOut`). Cap bookings back off with a small random delay between version-conflict retries.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Invite accept handles MFA responses, bootstrap error screen offers Sign out
+  -->
+
+- 1e9cc86: `tenant-caps:list` now rejects a malformed pagination cursor and unsupported or repeated filters with a validation error instead of returning a wrong page or silently ignoring the filter, and loads per-tenant usage in parallel. The `cap-counter` operator list is no longer searchable, because search resolved against the caller's own tenant instead of all tenants.
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: tenant-caps:list validates cursor and filters, parallel usage reads; cap-counter list not searchable
+  -->
+
+- 099f406: The cap usage bar labels an unlimited cap as "<used> · unlimited" through the new `cap-overview.unlimited` key instead of a bare number. The German and Spanish catalogs ship the translation.
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: Unlimited caps show a labelled usage count
+  -->
+
+- d7d5bd7: Renderer review fixes. Deleting a secret on a secretsEdit screen now asks for confirmation first (new `config.secrets.deleteConfirm` key) and the delete button is disabled while a save or delete is running. The multiSelect checkbox group is exposed as a labelled group (`GridProps.ariaLabelledBy`). The inline reference-create dialog seeds `currency: { kind: "tenant" }` money fields from the tenant currency. Fields declared only inside a section `groups` entry now get their `visible`/`readOnly`/`required` conditions registered. `onChange`'s `valid` ignores issues on hidden fields and outside the `fields` scope, like submit does (shared `relevantFieldIssues` helper). Copy-link in the form footer keeps a 44px touch target on narrow viewports. A free-text sibling-field number unit longer than 8 characters is no longer rendered as a suffix.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Secret delete confirmation, grouped-field conditions, scoped valid flag, tenant currency in reference-create dialog
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Labelled multiSelect checkbox group, mobile touch target for secondary form actions, bounded number unit suffix
+  -->
+
+- 8a49831: Ended session leads back to the login screen
+
+  When the server ends a session (revoked, expired), the app now shows the login screen with a short hint instead of a raw error banner. After signing in again the user lands on the same screen as before.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Ended session leads back to the login screen
+  -->
+
+- 3d37d50: Saving member roles keeps roles the editor cannot grant
+
+  Admin, TenantAdmin and SystemAdmin saves keep DataProtectionOfficer, TenantOwner, undeclared and higher-tier app roles; the system user still replaces the list. The roles column translates TenantOwner and DataProtectionOfficer. New exports: canActorAssignRole, mergeAssignedRoles, assignableAppRolesOf. Apps translate their roles via tenant:entity:**action-form**:field:roles:option:<Role> (and role:option: for the invite).
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: Saving member roles keeps roles the editor cannot grant
+  -->
+
+- Updated dependencies [ff1dea2]
+- Updated dependencies [d973444]
+- Updated dependencies [a4fa088]
+- Updated dependencies [ed072dc]
+- Updated dependencies [44c5898]
+- Updated dependencies [c97a39a]
+- Updated dependencies [bf12ac5]
+- Updated dependencies [6d4068f]
+- Updated dependencies [1e9cc86]
+- Updated dependencies [a86aa83]
+- Updated dependencies [f86bcd2]
+- Updated dependencies [a8f5305]
+- Updated dependencies [0705037]
+- Updated dependencies [4805c38]
+- Updated dependencies [4f6e8d7]
+- Updated dependencies [099f406]
+- Updated dependencies [70aa253]
+- Updated dependencies [837245e]
+- Updated dependencies [5b6f9da]
+- Updated dependencies [4805c38]
+- Updated dependencies [4805c38]
+- Updated dependencies [c791abd]
+- Updated dependencies [782fdea]
+- Updated dependencies [0191e3e]
+- Updated dependencies [b18daf9]
+- Updated dependencies [ff29a06]
+- Updated dependencies [dae5a21]
+- Updated dependencies [567a4bd]
+- Updated dependencies [f5ff653]
+- Updated dependencies [5bca19c]
+- Updated dependencies [85dead2]
+- Updated dependencies [9acf185]
+- Updated dependencies [d7d5bd7]
+- Updated dependencies [57f0e78]
+- Updated dependencies [5e9cc10]
+- Updated dependencies [a86aa83]
+- Updated dependencies [a39d8a6]
+- Updated dependencies [9061d9e]
+- Updated dependencies [e550021]
+- Updated dependencies [4e617da]
+- Updated dependencies [3d37d50]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-framework@0.335.0
+
 ## 0.334.0
 
 ### Minor Changes

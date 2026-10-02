@@ -1,5 +1,211 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Agent tool manifests no longer offer the caller-chosen id on create tools",
+    "detail": "Agent tool manifests no longer offer the caller-chosen `id` on create tools, since agent dispatch never runs as a system identity and the value was silently dropped. Combobox options now carry a value-based `data-testid`."
+  },
+  {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "Stricter boot checks for list outputSchema envelopes, detail section fields, reference facet list handlers, metric navigate, dashboard screen panels, refEntity columns and checkbox columns",
+    "detail": "Stricter boot checks for screens and handlers; apps that carried a latent typo or misconfiguration now fail at boot instead of rendering an empty cell or doing nothing at runtime.\n- A plain (non-paged) query handler whose `outputSchema` declares the row shape instead of `{ rows, nextCursor }` now fails when a projectionList, relatedList, expandableRow or dashboard list panel uses it.\n- `projectionDetail` layout section `fields` are checked against the query's `outputSchema`.\n- A `reference` list facet requires the target's list query handler (`<feature>:query:<entity>:list`, or its central lookup override) to be registered.\n- `MetricSpec.navigate.screen`/`entity` are validated even without `tab`; `navigate.entity` needs `entityId`.\n- A dashboard `screen` panel must not embed an `actionForm`/`secretMint` with `redirect` or `cancelTarget`.\n- `refEntity` on entityList columns and dashboard list-panel columns must resolve to a registered entity.\n- `multiSelect` `display: \"checkboxes\"` rejects `columns` outside 1-4.\n- Personal-data detection for `openToAll` write handlers now also looks inside `z.map`, `z.set`, `z.promise` and `.catchall()` schemas.\n- Fixes false boot failures for cross-feature rowActions / `listScreenId` written as a fully-qualified screen QN, and for where-rules that use a bare outer column next to a qualified subquery.",
+    "migration": "Boot now fails for configurations that previously rendered empty or did nothing. Fix the named screen or field: wrap a list handler's outputSchema in { rows, nextCursor }, correct detail section field names, register the entity list handler (defineEntityListHandler) behind a reference facet, add entityId to a metric navigate.entity, drop redirect/cancelTarget on forms embedded in a dashboard, and use a registered entity for refEntity."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Encrypted-at-rest text config keys derive writeOnly settings fields; boot validator allows writeOnly on configEdit only for those keys"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "migrate-db-raw codemod lists own-tenant calls with a spread after tenantId for manual review instead of rewriting them",
+    "detail": "The `migrate-db-raw` codemod no longer auto-rewrites own-tenant calls whose filter object has a spread after `tenantId`, since the spread can override it at runtime; such sites are listed for manual review."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "switch-tenant validates tenantId, fault logger tolerates non-string type, PII guard matches full ciphertext shape",
+    "detail": "`POST /api/auth/switch-tenant` answers 400 `invalid_tenant` for a missing or non-string `tenantId` instead of feeding it into the membership lookup. A non-string `type` in a request body no longer turns a 4xx into a 500 inside the fault logger. The PII ciphertext response guard now matches the full ciphertext shape, so user text containing the bare `kumiko-pii:v` marker no longer 500s reads. `kumiko upgrade --apply` records `pendingManual` in the marker when no codemod runs."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "File-storage boot gate reads the injected env, derivative erasure matches lowercase hashes only",
+    "detail": "The `FILE_STORAGE_PROVIDER` boot gate now reads the `env` passed to `validateBoot` (falling back to `process.env`), so an `envSource` handed to `runProdApp` with an empty `process.env` no longer fails the gate. `runDevApp` stops mutating `process.env` for an explicitly wired file provider. The derivative-key recognizer used by forget and tenant-destroy now matches the hash segment case-sensitively."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "Boot rejects multiple principalStatus providers, updateMany rejects unknown columns again",
+    "detail": "Several fail-loud fixes. `buildServer` now also rejects more than one `principalStatus` provider when `auth.membershipQuery` is registered (previously every login 500ed at runtime). `updateMany` throws again on a key that is not a column, and the replay of historical update events skips fields removed from the entity instead. `lt`/`gt`/`lte`/`gte`/`like` on a jsonb column match nothing in the where builder, like the event-store read path.",
+    "migration": "`updateMany` now throws when `set` or `where` contains a key that is not a column of the table; remove such keys from your calls. Replay of historical update events still skips removed fields."
+  },
+  {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "Boot validator rejects overlapping dateRange facet params, unknown subtitleHref/countField fields and whitespace in redirect.idFrom; clearer refEntity, nav and where-probe diagnostics",
+    "detail": "Boot validator follow-ups.\n- A `dateRange` facet param name used by more than one dateRange facet on a projectionList screen now fails boot (the facets overwrote each other's bound).\n- `header.subtitleHref` and a section's `countField` on a projectionDetail screen are checked against the query's `outputSchema`.\n- `redirect.idFrom` with leading or trailing whitespace now fails boot instead of silently navigating without an id.\n- A `refEntity` pointing at a feature that is not mounted now says so and names `r.requires(...)` instead of listing \"(none)\" entities.\n- The nav inversion warning no longer prints `requires roles []` for a leaf with an invalid `openToAll`, and the unreachable-screen warning points workspace apps at `r.workspace({ nav })` instead of a non-existent allowlist.\n- The where-rule boot probe renders `ctx.tableName` with the real table name, matching runtime.",
+    "migration": "Boot now fails for configurations that silently misbehaved. Give each dateRange facet on a screen its own from/to params, point header.subtitleHref and section countField at fields of the query's outputSchema, and remove stray whitespace from redirect.idFrom."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Malformed waitForEvent matchExpr rows are skipped instead of blocking the wakeup projection",
+    "detail": "Review round 2 fixes for waitForEvent matching, read steps, env parsing and agent reasons.\n- A pending workflow row with a malformed or unsupported `matchExpr` is now skipped and logged instead of aborting the wakeup projection for every other run waiting on the same event. `evaluateEventMatch` reports a structurally malformed AST as a readable `Malformed EventMatch` error.\n- `read.findOne` and `read.findMany` reject a non-object `unsafeAllTenants` (for example `true`) with an `InternalError` instead of a raw `TypeError`.\n- `parseEnv` reports a refinement that throws as a `KumikoBootError`, and the ciphertext-only slot caveat for refinements is documented.\n- Removed the unused `AgentReasons.permissionDenied` (`agent.permission_denied`) reason and its error-docs pages; nothing emitted it."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "AgentReasons.permissionDenied removed",
+    "migration": "Drop references to `AgentReasons.permissionDenied` / `\"agent.permission_denied\"`. The framework never emitted this reason."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "ExtraRouteRejection retryAfterSeconds must be a safe integer; token-request routes stop logging rate_limited",
+    "detail": "`ExtraRouteRejection` now rejects a `retryAfterSeconds` beyond the safe-integer range, so the `Retry-After` header is always valid delta-seconds. Password-reset style token-request routes no longer log `rate_limited` handler results as errors."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Feature-AST patcher handles quoted keys, stream-handler escapeHatch and shorthand piiFields",
+    "detail": "The feature-AST patcher now replaces and unsets string-literal keys such as `\"description\": \"old\"` instead of appending a duplicate key or skipping the unset. `addStreamHandler` accepts `escapeHatch`. The defineEvent extractor accepts a shorthand `{ piiFields }` stance and reports a non-literal options argument with its own message."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "File byte routes survive undecryptable fileName; loadAggregate and appendProvenanceEvent reject empty type parts",
+    "detail": "`GET /files/:id` and the download-url route now fall back to the filename \"download\" when the stored fileName cannot be decrypted (malformed ciphertext, erased subject, annotation drift) instead of returning 500 or leaking ciphertext into headers. `loadAggregate` rejects an empty `aggregateType` instead of loading the unfiltered stream, and `appendProvenanceEvent` rejects event types with an empty owner or name."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "FileRef type drops the unreachable isDeleted field",
+    "detail": "The exported `FileRef` type no longer carries `isDeleted`. Soft-deleted rows were already filtered out before the guard sees a file, so the field was never reachable. Custom file access guards that read `fileRef.isDeleted` must drop that check.",
+    "migration": "Remove reads of `fileRef.isDeleted` in custom file access guards; soft-deleted rows never reach the guard."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "File content check covers csv alias, local list scoped to prefix, provider contract checked, locale tags canonicalized",
+    "detail": "File storage and locale hardening. `validateFileContent` now rejects binary bytes for an extension with a declared-MIME alias (a real `.xls` renamed to `.csv`), so custom upload routes using `validateFile` + `validateFileContent` are covered. `tenantExportPrefix` and `tenantStoragePrefixes` throw for a tenant id equal to the reserved `exports` segment. The local provider's `list()` only walks the prefix directory instead of the whole storage root. A file-provider plugin whose built provider lacks a required method now fails loudly at resolve time. `canonicalizeLocaleTag` normalizes region and script subtags (`de-AT`, `zh-Hant-TW`), so `X-Locale: DE-at` finds a `de-AT` mail registration.",
+    "migration": "A file-provider plugin whose built provider lacks a required method now throws at resolve time; make sure custom file providers implement the full provider interface."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "Global-table tenant writes reject loudly, restore maps unique violations, managed unique-index changes recreate",
+    "detail": "Tenant-mode `updateMany`/`deleteMany` on a `tenancy: \"global\"` table now reject with an `AccessDeniedError` pointing at `db.global(table)` instead of silently matching zero rows. `restore` on a soft-deleted row whose unique value was re-used now returns a 409 `unique_violation` instead of a raw 500. The migration generator now recreates a managed projection when an existing index becomes unique, changes columns or widens its WHERE.",
+    "migration": "Tenant-mode `updateMany`/`deleteMany` on a `tenancy: \"global\"` table now throws instead of matching zero rows; switch those calls to `db.global(table)`."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Guard edge cases, extension entityName fallback and dispatcher drain waiting for in-flight passes",
+    "detail": "Guards: the runtime-isolation guard now follows value re-exports (`export * from`, `export { x } from`) and reads the `kumiko.runtime` marker in the repo-root `package.json`. The upgrade-state guard prefers the repo-local `node_modules/.bin/kumiko-upgrade` over a PATH entry. The error-reasons guard no longer flags prose reasons passed to `withUnsafeRawGrant`. Remaining German guard messages are now English. Blank `entityName` overrides on extension sections fall back to the host entity. `EventDispatcher.drain()` now also waits for a pass still in its idle pre-check."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "i18n key guard covers multiSelect option labels and writeForm section descriptions",
+    "detail": "The i18n key guard now requires translations for filterable `multiSelect` option labels and for the `description` of a `projectionDetail` writeForm section. Missing translations used to fall back silently; they now fail the guard.",
+    "migration": "The i18n required-surface-keys check now requires translations for filterable `multiSelect` option labels and `projectionDetail` writeForm section descriptions; add the missing keys to your locale files."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "perTenant fan-out without context.db reports the missing db instead of a missing tenant feature",
+    "detail": "A perTenant job on a job runner built without `context.db` now fails with a message that names the missing `context.db` when the tenant feature is mounted, instead of telling the operator to mount it. A readiness failure during `stop()` is now logged at debug level."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Key Manager boot resolves slots in parallel, validates the previous-KEK version up front and keeps the fetch error as cause",
+    "detail": "The Key Manager boot resolution now resolves all KEK slots in parallel, rejects a previous KEK without `PLATFORM_KEK_PREVIOUS_VERSION` before any Key Manager call, keeps the original network error as `cause`, and names the slot in the partial-wiring error. The boot log line names the source actually taken."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Boot column check skips loose/catchall output schemas; schema-walk error names the handler",
+    "detail": "The query output-schema column check now skips `z.looseObject()` and `.catchall()` row schemas, since they accept keys beyond the declared shape. The schema-size guard for write-handler input schemas now names the feature and handler in its boot error."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Multi-stream projection rebuild honors the shutdown AbortSignal",
+    "detail": "`rebuildMultiStreamProjection` now accepts an `AbortSignal` and checks it per replayed event. The boot backfill's shutdown signal reaches it, so a SIGTERM during a long multi-stream replay rolls the transaction back and releases the consumer lock instead of hanging until the pod is killed."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "multiSelect filters handle empty and non-string values and NULL columns; forget sweeps tolerate missing columns and serial ids",
+    "detail": "multiSelect list filters no longer return every row for an empty array value, no longer fail with a 500 on boolean or numeric client values, and `ne` now keeps rows whose column is NULL. The forget sweeps (blind-index nulling, search purge) skip lookupable or searchable fields whose columns are missing from a migrated table instead of aborting after the key was erased, and the self-PII tenant probe ignores serial-id entities instead of throwing on a uuid subject id."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "App-schema JSON-safety rejects NaN/Infinity and cyclic defaults",
+    "detail": "The app-schema JSON-safety check now rejects `NaN`/`Infinity` defaults and guards against self-referencing values. The agent doc lint reports exposed handlers whose input schema cannot be converted to JSON Schema (they were silently left out of the agent manifest). Icon-only list and edit action buttons now also set `title`, so sighted mouse users get the hover tooltip."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Executor create/restore validate before connection binding; clearer rebuild and backfill errors",
+    "detail": "The event-store executor's `create()` and `restore()` now run their validation (global-tenancy guard, `soft_delete_not_enabled`) before resolving the connection, so callers get the proper 4xx error instead of an internal \"no connection bound\" error. List `totalCount` always counts over the full WHERE, and a PII backfill failure for an unresolvable catalog event subject no longer suggests the entity-only retry options. The shadow-swap RLS and blind-index error messages now state the concrete action (full KMS wiring for the blind-index key)."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "afterCommit hook writes run in their own transaction, plus cache, nested-write, skip-poison and search-consumer fixes",
+    "detail": "Writes from an afterCommit hook now run as their own transaction with their own afterCommit flush, so the nested write's hooks fire and a failing projection rolls it back. The tenant timezone cache no longer stores a value read before a concurrent config write. Nested-write ownership checks complete a partial parent row from the stored row. `skipPoisonEvent` locks the consumer row before computing pending gaps. The search consumer fails an event for retry when its context has no database instead of removing the index entry."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Qualified redirects resolve in their named feature, update forms skip untouched required fields, secretMint confirm can restart",
+    "detail": "A qualified redirect target (`feature:screen:id`) is now resolved inside the named feature, so a same-id screen in the redirecting feature no longer swallows the created record id. An entityEdit update form only presence-checks required fields the user changed, so a legacy row with an empty, newly required field can still be saved. The secretMint confirm step always offers a cancel that restarts at the mint form when no redirect or cancelTarget is set."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "totalsMatch rejects a payload that carries only one side of the pair",
+    "detail": "A `totalsMatch` pair is now validated as a unit. A payload that carries only the embedded list or only its sibling money field is rejected with a validation error, because update payloads only carry `changes` and the sum could otherwise drift away from the total.",
+    "migration": "Send the embedded list and its sibling money field together in every create and update payload. A partial update that changes only `total` or only the list now fails validation."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Transfer-graph boot check rejects a multiple reference only when its target is transferable",
+    "detail": "The transfer-graph boot check now rejects a `multiple` reference on a transferable entity only when the target entity is itself transferable. A multiple reference to a plain lookup entity boots again."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Empty KUMIKO_TRUSTED_PROXY_HOPS is treated as unset, and dist no longer ships compiled codemods",
+    "detail": "`parseTrustedProxyHopsEnv` treats an empty `KUMIKO_TRUSTED_PROXY_HOPS` as unset, so a blank `.env` template line no longer crashes the dev boot while prod ignored it. The published package also no longer ships the unusable compiled `dist/scripts/` codemod copies."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Upgrade marker needs an installed version, Meilisearch drop keeps sibling prefixes, drainJobs sees pre-run job failures",
+    "detail": "`kumiko upgrade --apply` now refuses to write a marker when no installed Kumiko version can be found under the target, instead of recording the `--from` filter value. It also finds `node_modules/@cosmicdrift/*` packages that are workspace symlinks. `MeilisearchAdapter.dropAllIndexes()` only drops tenant indexes of its own prefix and leaves indexes of a longer sibling prefix alone. `drainJobs()` now rejects when a perTenant fan-out or an unknown job fails before the job body runs."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "SSE stream closes when access is revoked",
+    "detail": "The live event stream (GET /sse) now closes as soon as the session behind it is revoked or the user's tenant roles change or the membership is removed. User-addressed frames such as in-app notifications are delivered only to the addressed user instead of the whole tenant."
+  },
+  {
+    "version": "0.335.0",
+    "type": "improvement",
+    "title": "Boot validator checks redirect targets of writeHandler record actions",
+    "detail": "An unknown `redirect` screen on a projectionDetail or entityEdit action or section action fails boot, like entityEdit `redirect`.",
+    "migration": "If a writeHandler record action already carries a `redirect` that does not resolve to a registered screen, fix or remove it."
+  },
+  {
     "version": "0.334.0",
     "type": "improvement",
     "title": "Settings form gaps: writeForm footer submit, option description/group, dependent optionsQueryPayload, config badge label, writeOnly secret fields",

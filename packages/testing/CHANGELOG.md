@@ -1,5 +1,116 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.335.0
+
+### Patch Changes
+
+- 173a581: Screenshot runner fixes: a desktop project whose viewports are all covered by device projects is now skipped with a reason instead of running empty. Locales that already carry a region (`pt-BR`, `en-GB`) keep their tag instead of becoming `pt-BR-BR`. `captureScreenshot` with `presentIdentities` restores the original DOM text and field values after the capture, so later assertions and form submits in the same spec see real data.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Screenshot runner skips empty desktop passes, keeps regional locale tags and restores presented identities
+  -->
+
+- 1e25ae5: `kumiko-testing bunfig` drops ignore patterns the template owns but omits for the variant (such as `**/*.test.tsx` in a DOM bunfig) instead of keeping them as app extras, which silently skipped the whole suite. `@testing-library/dom` is declared as an optional peer dependency, since `@testing-library/react` needs it for `preload/dom`; apps using `--dom` install it alongside `@testing-library/react`.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: bunfig merge drops stale template-owned ignore patterns; @testing-library/dom declared as optional peer
+  -->
+
+- a8c0abd: `captureScreenshot(..., { fit: "content" })` ignores scroll containers whose overflow does not shrink when the viewport grows (textareas, fixed-height panes) instead of failing to converge. `kumiko-testing integration` no longer walks `node_modules` while discovering test files, and the seeded-tenant `apiAs` retries a failed login on the next call instead of replaying the cached error. The privacy-center and profile `cancel-deletion` actions declare the `x` icon instead of resolving to the destructive trash icon.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: captureScreenshot fit content ignores non-shrinking scroll containers, integration discovery skips node_modules, apiAs retries a failed login
+  -->
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: cancel-deletion actions declare the x icon instead of resolving to the destructive trash icon
+  -->
+
+- Updated dependencies [ff1dea2]
+- Updated dependencies [d973444]
+- Updated dependencies [a4fa088]
+- Updated dependencies [ed072dc]
+- Updated dependencies [ddb0101]
+- Updated dependencies [eb04da6]
+- Updated dependencies [44c5898]
+- Updated dependencies [07ddc7e]
+- Updated dependencies [2477f3b]
+- Updated dependencies [c97a39a]
+- Updated dependencies [bf12ac5]
+- Updated dependencies [6d4068f]
+- Updated dependencies [736dade]
+- Updated dependencies [561cec5]
+- Updated dependencies [2477f3b]
+- Updated dependencies [1e9cc86]
+- Updated dependencies [099f406]
+- Updated dependencies [0ae79d4]
+- Updated dependencies [6fee777]
+- Updated dependencies [1da9e2c]
+- Updated dependencies [57f0e78]
+- Updated dependencies [9061d9e]
+- Updated dependencies [f63b179]
+- Updated dependencies [57f0e78]
+- Updated dependencies [099f406]
+- Updated dependencies [a86aa83]
+- Updated dependencies [692718f]
+- Updated dependencies [f86bcd2]
+- Updated dependencies [a8f5305]
+- Updated dependencies [0705037]
+- Updated dependencies [4805c38]
+- Updated dependencies [4f6e8d7]
+- Updated dependencies [099f406]
+- Updated dependencies [70aa253]
+- Updated dependencies [837245e]
+- Updated dependencies [5b6f9da]
+- Updated dependencies [4805c38]
+- Updated dependencies [9222a01]
+- Updated dependencies [4805c38]
+- Updated dependencies [c791abd]
+- Updated dependencies [782fdea]
+- Updated dependencies [0191e3e]
+- Updated dependencies [b18daf9]
+- Updated dependencies [c791abd]
+- Updated dependencies [04d0ae3]
+- Updated dependencies [4b2c300]
+- Updated dependencies [ff29a06]
+- Updated dependencies [dae5a21]
+- Updated dependencies [67703a0]
+- Updated dependencies [e810c7d]
+- Updated dependencies [567a4bd]
+- Updated dependencies [e0e09b0]
+- Updated dependencies [f5ff653]
+- Updated dependencies [5bca19c]
+- Updated dependencies [85dead2]
+- Updated dependencies [9acf185]
+- Updated dependencies [d7d5bd7]
+- Updated dependencies [6990b9b]
+- Updated dependencies [57f0e78]
+- Updated dependencies [4b2c300]
+- Updated dependencies [5e9cc10]
+- Updated dependencies [4b2c300]
+- Updated dependencies [a86aa83]
+- Updated dependencies [a39d8a6]
+- Updated dependencies [9061d9e]
+- Updated dependencies [e550021]
+- Updated dependencies [6fee777]
+- Updated dependencies [a8c0abd]
+- Updated dependencies [8a49831]
+- Updated dependencies [4e617da]
+- Updated dependencies [3d37d50]
+- Updated dependencies [f65697d]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-framework@0.335.0
+  - @cosmicdrift/kumiko-bundled-features@0.335.0
+  - @cosmicdrift/kumiko-dev-server@0.335.0
+
 ## 0.334.0
 
 ### Patch Changes

@@ -1,5 +1,110 @@
 # @cosmicdrift/kumiko-cli
 
+## 0.335.0
+
+### Patch Changes
+
+- 0ae79d4: `kumiko check` now runs the boot validation against the repo root instead of the current directory, so running it from a subdirectory no longer reports a missing `kumiko/schema.ts`.
+
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko check runs boot validation against the repo root when started from a subdirectory
+  -->
+
+- 6fee777: `kumiko check` counts a step that throws as a failure and still runs the remaining steps, and `--explain` now returns the guards' exit code. The `agent`, `consumer` and `project` commands report a readable message when `kumiko.config.ts` has no default export with a `features` array instead of crashing. Invalid-manifest errors name the root as `<root>` instead of an empty path.
+
+  <!-- kumiko-changes
+  feature: cli
+  type: fix
+  title: kumiko check survives throwing steps, config loading validates its shape
+  -->
+
+- Updated dependencies [ff1dea2]
+- Updated dependencies [d973444]
+- Updated dependencies [a4fa088]
+- Updated dependencies [75e8ae1]
+- Updated dependencies [ed072dc]
+- Updated dependencies [ddb0101]
+- Updated dependencies [eb04da6]
+- Updated dependencies [44c5898]
+- Updated dependencies [07ddc7e]
+- Updated dependencies [2477f3b]
+- Updated dependencies [c97a39a]
+- Updated dependencies [bf12ac5]
+- Updated dependencies [6d4068f]
+- Updated dependencies [736dade]
+- Updated dependencies [561cec5]
+- Updated dependencies [2477f3b]
+- Updated dependencies [1e9cc86]
+- Updated dependencies [099f406]
+- Updated dependencies [6fee777]
+- Updated dependencies [0ae79d4]
+- Updated dependencies [6fee777]
+- Updated dependencies [1da9e2c]
+- Updated dependencies [57f0e78]
+- Updated dependencies [9061d9e]
+- Updated dependencies [f63b179]
+- Updated dependencies [57f0e78]
+- Updated dependencies [099f406]
+- Updated dependencies [a86aa83]
+- Updated dependencies [692718f]
+- Updated dependencies [f86bcd2]
+- Updated dependencies [a8f5305]
+- Updated dependencies [0705037]
+- Updated dependencies [4805c38]
+- Updated dependencies [4f6e8d7]
+- Updated dependencies [099f406]
+- Updated dependencies [70aa253]
+- Updated dependencies [837245e]
+- Updated dependencies [70aa253]
+- Updated dependencies [5b6f9da]
+- Updated dependencies [4805c38]
+- Updated dependencies [9222a01]
+- Updated dependencies [4805c38]
+- Updated dependencies [c791abd]
+- Updated dependencies [782fdea]
+- Updated dependencies [0191e3e]
+- Updated dependencies [b18daf9]
+- Updated dependencies [c791abd]
+- Updated dependencies [04d0ae3]
+- Updated dependencies [4b2c300]
+- Updated dependencies [ff29a06]
+- Updated dependencies [dae5a21]
+- Updated dependencies [67703a0]
+- Updated dependencies [e810c7d]
+- Updated dependencies [567a4bd]
+- Updated dependencies [e0e09b0]
+- Updated dependencies [f5ff653]
+- Updated dependencies [5bca19c]
+- Updated dependencies [85dead2]
+- Updated dependencies [9acf185]
+- Updated dependencies [d7d5bd7]
+- Updated dependencies [6990b9b]
+- Updated dependencies [57f0e78]
+- Updated dependencies [4b2c300]
+- Updated dependencies [173a581]
+- Updated dependencies [5e9cc10]
+- Updated dependencies [4b2c300]
+- Updated dependencies [1e25ae5]
+- Updated dependencies [a86aa83]
+- Updated dependencies [a39d8a6]
+- Updated dependencies [9061d9e]
+- Updated dependencies [e550021]
+- Updated dependencies [6fee777]
+- Updated dependencies [a8c0abd]
+- Updated dependencies [8a49831]
+- Updated dependencies [4e617da]
+- Updated dependencies [3d37d50]
+- Updated dependencies [f65697d]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-framework@0.335.0
+  - @cosmicdrift/kumiko-bundled-features@0.335.0
+  - @cosmicdrift/kumiko-guards@0.335.0
+  - @cosmicdrift/kumiko-dev-server@0.335.0
+  - @cosmicdrift/kumiko-repo-manifest@0.335.0
+  - @cosmicdrift/kumiko-testing@0.335.0
+
 ## 0.334.0
 
 ### Patch Changes

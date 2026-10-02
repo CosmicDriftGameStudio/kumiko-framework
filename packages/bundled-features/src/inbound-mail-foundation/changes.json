@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Poll cursor is persisted with the account's tenantId",
+    "detail": "Several bundled-feature fixes. The inbound-mail watch supervisor now stamps `tenantId` when it first saves a poll cursor, so cursors persist instead of failing on the NOT NULL column. The anonymous queries of managed-pages, template-resolver, seo, compliance-profiles and auth-email-password rate-limit per IP and handler, so one handler no longer drains the bucket of the others. The personal-access-token list loads up to the maximum page size without a pager that could not page. Serial host ids beyond int4 are denied as not found, and the notes forget hook resolves the tenant retention preset once."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "OAuth callback fails before creating an account when no secrets context is wired",
+    "detail": "The inbound-mail OAuth callback now checks for a configured secrets context before exchanging the authorization code and creating the mail account. Without secrets the callback answers 500 `secrets_context_missing` and no orphan account is left behind. `form-draft:get` now logs a warning when a stored draft blob fails its schema instead of dropping it silently."
+  },
+  {
     "version": "0.306.0",
     "type": "fix",
     "title": "Tenant destroy no longer fails on mail-account, inbound-message and mail-thread rows",

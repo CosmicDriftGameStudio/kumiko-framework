@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "config:write:set masks the echoed value for encrypted-at-rest keys; validation errors no longer include the value",
+    "migration": "A caller that reads `data.value` from a `config:write:set` result for a key with `encrypted: true` or `backing: \"secrets\"` now gets the mask. Use the value it sent instead. Tests that match the `value` param of a validation error on such a key need to drop that expectation."
+  },
+  {
     "version": "0.326.0",
     "type": "breaking",
     "title": "Extension-selector settings render as one tenant screen",

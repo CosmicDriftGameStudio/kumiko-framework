@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Session list loads one max-size page and renders no pager"
+  },
+  {
     "version": "0.330.0",
     "type": "improvement",
     "title": "store_user_sessions gets an index on (tenant_id, last_seen_at) (fw#3396)",

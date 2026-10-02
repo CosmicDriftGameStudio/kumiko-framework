@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "resume-run no longer appends run-failed to an already settled run",
+    "detail": "The workflow-runner's resume-run handler now checks whether a run is already settled before resolving the workflow definition. A second resume tick racing a finished run no longer appends a `run-failed` event after `run-completed` when the definition changed or was removed meanwhile. The `runId` payload is validated as a UUID, and the due-runs SELECT drops its ineffective `FOR UPDATE SKIP LOCKED`."
+  },
+  {
     "version": "0.327.0",
     "type": "breaking",
     "title": "Workflow run-failed and retry.scheduled events store a generic error text instead of the raw error",

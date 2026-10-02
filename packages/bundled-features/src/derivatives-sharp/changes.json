@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Overlay and blur intermediates are lossless and QR overlays render crisp at their final size",
+    "detail": "The sharp renderer buffers intermediates losslessly before overlays and blur regions, so a JPEG source no longer gains an extra compression generation. QR overlays are generated at their final size and checked against the smaller of output width and height before generation, so a flat output can no longer cache an unscannable QR."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Overlay marginPct must be finite"
+  },
+  {
     "version": "0.287.0",
     "type": "improvement",
     "title": "Render overlay layers (QR codes, badge images) onto image variants",

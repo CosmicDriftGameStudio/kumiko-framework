@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Explicit List-Unsubscribe headers replace the automatic pair case-insensitively",
+    "detail": "The email channel now matches explicit `data.headers` case-insensitively against the automatic unsubscribe headers. Overriding `List-Unsubscribe` or `List-Unsubscribe-Post` in any spelling drops the whole automatic pair, so a mail client no longer sends a one-click POST to a URL that cannot handle it."
+  },
+  {
     "version": "0.321.0",
     "type": "improvement",
     "title": "Automatic List-Unsubscribe / List-Unsubscribe-Post headers for messages that carry a framework unsubscribeUrl",

@@ -1,5 +1,509 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.335.0
+
+### Minor Changes
+
+- 3d37d50: Saving member roles keeps roles the editor cannot grant
+
+  Admin, TenantAdmin and SystemAdmin saves keep DataProtectionOfficer, TenantOwner, undeclared and higher-tier app roles; the system user still replaces the list. The roles column translates TenantOwner and DataProtectionOfficer. New exports: canActorAssignRole, mergeAssignedRoles, assignableAppRolesOf. Apps translate their roles via tenant:entity:**action-form**:field:roles:option:<Role> (and role:option: for the invite).
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: fix
+  title: Saving member roles keeps roles the editor cannot grant
+  -->
+
+- 7cdc623: A wizard that edits an existing record now shows each step as done by what the record already holds, and every step is a jump target. A fields step counts as done when its fields validate and at least one visible, editable field that is not a select or boolean has a value, or when the user passed it with Next. Jumping forward still validates the step you leave. Extension steps report completeness through the new `reportStepComplete` prop of `ExtensionSectionProps`. `StepBar` gets `doneSteps` and `selectableSteps`. Create-mode wizards are unchanged. A `writeHandler` record action on a projectionDetail or entityEdit screen gets an optional `redirect` (same forms as entityEdit `redirect`, a valid `returnTo` wins), and a delete action that removes the shown record now leaves the screen (`returnTo`, else `listScreenId` or the entity's list screen) instead of showing "record not found". The boot validator checks `redirect` targets on these actions.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: Wizard editing an existing record shows data-based done state and allows jumping to any step; delete record actions leave the screen
+  detail: |
+    Update-mode wizards compute done per step from the record (valid, non-empty fields, or passed via Next) and make every non-current step a jump target; forward jumps run the current step's validate gate. `ExtensionSectionProps.reportStepComplete` lets extension steps report completeness. `StepBar` gets `doneSteps` and `selectableSteps`. A writeHandler record action with `redirect`, or a delete of the shown record, navigates away (returnTo, redirect, listScreenId, entity list) instead of refetching.
+  migration: |
+    Extension wizard steps in an entityEdit that edits an existing record should call `reportStepComplete(true)` (usually from an effect) once they hold their data, otherwise the step bar shows them as not done until the user passes them with Next. This also applies to singleton wizards (e.g. a company-setup wizard), whose steps now show done by data and are all jump targets; tests that assumed back-only chips must be updated. A delete writeHandler action on a projectionDetail or entityEdit now navigates away after success (returnTo, else listScreenId or the entity's list) instead of refetching into "record not found"; set `redirect` to choose another target. List row actions are unchanged.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: StepBar supports explicit done state and jumping to any non-current step
+  detail: |
+    The default `StepBar` forwards the new `doneSteps` and `selectableSteps` props: an upcoming chip can be a button that shows its number, and done state no longer has to follow position.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: RowActionWriteHandler gets an optional redirect for record actions
+  detail: |
+    `redirect` takes the same forms as entityEdit `redirect` and is honored on projectionDetail and entityEdit header and section actions, not on list row actions.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validator checks redirect targets of writeHandler record actions
+  detail: |
+    An unknown `redirect` screen on a projectionDetail or entityEdit action or section action fails boot, like entityEdit `redirect`.
+  migration: |
+    If a writeHandler record action already carries a `redirect` that does not resolve to a registered screen, fix or remove it.
+  -->
+
+### Patch Changes
+
+- ff1dea2: Agent tool manifests no longer offer the caller-chosen `id` on create tools, since agent dispatch never runs as a system identity and the value was silently dropped. Combobox options now carry a value-based `data-testid`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Agent tool manifests no longer offer the caller-chosen id on create tools
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Combobox options carry a value-based data-testid
+  -->
+
+- d973444: Stricter boot checks for screens and handlers; apps that carried a latent typo or misconfiguration now fail at boot instead of rendering an empty cell or doing nothing at runtime.
+
+  - A plain (non-paged) query handler whose `outputSchema` declares the row shape instead of `{ rows, nextCursor }` now fails when a projectionList, relatedList, expandableRow or dashboard list panel uses it.
+  - `projectionDetail` layout section `fields` are checked against the query's `outputSchema`.
+  - A `reference` list facet requires the target's list query handler (`<feature>:query:<entity>:list`, or its central lookup override) to be registered.
+  - `MetricSpec.navigate.screen`/`entity` are validated even without `tab`; `navigate.entity` needs `entityId`.
+  - A dashboard `screen` panel must not embed an `actionForm`/`secretMint` with `redirect` or `cancelTarget`.
+  - `refEntity` on entityList columns and dashboard list-panel columns must resolve to a registered entity.
+  - `multiSelect` `display: "checkboxes"` rejects `columns` outside 1-4.
+  - Personal-data detection for `openToAll` write handlers now also looks inside `z.map`, `z.set`, `z.promise` and `.catchall()` schemas.
+  - Fixes false boot failures for cross-feature rowActions / `listScreenId` written as a fully-qualified screen QN, and for where-rules that use a bare outer column next to a qualified subquery.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Stricter boot checks for list outputSchema envelopes, detail section fields, reference facet list handlers, metric navigate, dashboard screen panels, refEntity columns and checkbox columns
+  migration: |
+    Boot now fails for configurations that previously rendered empty or did nothing. Fix the named screen or field: wrap a list handler's outputSchema in { rows, nextCursor }, correct detail section field names, register the entity list handler (defineEntityListHandler) behind a reference facet, add entityId to a metric navigate.entity, drop redirect/cancelTarget on forms embedded in a dashboard, and use a registered entity for refEntity.
+  -->
+
+- a4fa088: A projectionDetail screen with a header card (headerRegion with metrics or header actions) on a full-height screen form without tabs now defaults to a `4xl` column instead of 640px, and the metric band lines up with the form column instead of carrying its own padding. An explicit `layout.width` still wins. Explicit screen form widths (`3xl`, `4xl`, `full`) now left-align with the form column instead of centering, which moves screens such as the showcase item edit. Typing into a password input that shows a clear or undo action no longer remounts the input and drops focus after the first character.
+
+  The secretMint reveal phase with a confirm step renders as one screen form. The reveal block (title, warning, secret) leads the confirm form through the new `RenderEdit` prop `leadContent`, and the confirm form no longer sits in a second card. The `kumiko-screen-secret-mint-card` test id now marks only that reveal block. The confirm step shows the parent screen's translated title (new `RenderEdit` prop `i18nScreenId`) instead of the raw key `<screen>:confirm`.
+
+  Text config keys stored encrypted at rest (`encrypted: true` or `backing: "secrets"`, such as the Stripe API key and webhook secret) are write-only on generated settings screens. The field shows whether this scope stores a value, keeps it unless a new one is typed, and resets it when cleared. Hand-written configEdit text fields over such keys become write-only as well, and form drafts never store write-only fields. `config:write:set` answers with the mask for these keys, and pattern, select option and extension validation errors no longer return the value. A hand-written configEdit screen may declare `writeOnly` only on a field whose key is encrypted at rest; other keys fail at boot.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Header-card detail screens default to a 4xl column; metric band aligns with the form column; explicit screen form widths left-align; password input keeps focus
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: secretMint reveal and confirm render as one screen form with the translated screen title; new RenderEdit props leadContent and i18nScreenId
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Encrypted-at-rest text config keys derive writeOnly settings fields; boot validator allows writeOnly on configEdit only for those keys
+  -->
+
+  <!-- kumiko-changes
+  feature: config
+  type: breaking
+  title: config:write:set masks the echoed value for encrypted-at-rest keys; validation errors no longer include the value
+  migration: |
+    A caller that reads `data.value` from a `config:write:set` result for a key with `encrypted: true` or `backing: "secrets"` now gets the mask. Use the value it sent instead. Tests that match the `value` param of a validation error on such a key need to drop that expectation.
+  -->
+
+- ed072dc: The `migrate-db-raw` codemod no longer auto-rewrites own-tenant calls whose filter object has a spread after `tenantId`, since the spread can override it at runtime; such sites are listed for manual review.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: migrate-db-raw codemod lists own-tenant calls with a spread after tenantId for manual review instead of rewriting them
+  -->
+
+- 44c5898: `POST /api/auth/switch-tenant` answers 400 `invalid_tenant` for a missing or non-string `tenantId` instead of feeding it into the membership lookup. A non-string `type` in a request body no longer turns a 4xx into a 500 inside the fault logger. The PII ciphertext response guard now matches the full ciphertext shape, so user text containing the bare `kumiko-pii:v` marker no longer 500s reads. `kumiko upgrade --apply` records `pendingManual` in the marker when no codemod runs.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: switch-tenant validates tenantId, fault logger tolerates non-string type, PII guard matches full ciphertext shape
+  -->
+
+- c97a39a: The `FILE_STORAGE_PROVIDER` boot gate now reads the `env` passed to `validateBoot` (falling back to `process.env`), so an `envSource` handed to `runProdApp` with an empty `process.env` no longer fails the gate. `runDevApp` stops mutating `process.env` for an explicitly wired file provider. The derivative-key recognizer used by forget and tenant-destroy now matches the hash segment case-sensitively.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: File-storage boot gate reads the injected env, derivative erasure matches lowercase hashes only
+  -->
+
+- bf12ac5: Several fail-loud fixes. `buildServer` now also rejects more than one `principalStatus` provider when `auth.membershipQuery` is registered (previously every login 500ed at runtime). `updateMany` throws again on a key that is not a column, and the replay of historical update events skips fields removed from the entity instead. `lt`/`gt`/`lte`/`gte`/`like` on a jsonb column match nothing in the where builder, like the event-store read path.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Boot rejects multiple principalStatus providers, updateMany rejects unknown columns again
+  migration: |
+    `updateMany` now throws when `set` or `where` contains a key that is not a column of the table; remove such keys from your calls. Replay of historical update events still skips removed fields.
+  -->
+
+- 6d4068f: Boot validator follow-ups.
+
+  - A `dateRange` facet param name used by more than one dateRange facet on a projectionList screen now fails boot (the facets overwrote each other's bound).
+  - `header.subtitleHref` and a section's `countField` on a projectionDetail screen are checked against the query's `outputSchema`.
+  - `redirect.idFrom` with leading or trailing whitespace now fails boot instead of silently navigating without an id.
+  - A `refEntity` pointing at a feature that is not mounted now says so and names `r.requires(...)` instead of listing "(none)" entities.
+  - The nav inversion warning no longer prints `requires roles []` for a leaf with an invalid `openToAll`, and the unreachable-screen warning points workspace apps at `r.workspace({ nav })` instead of a non-existent allowlist.
+  - The where-rule boot probe renders `ctx.tableName` with the real table name, matching runtime.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot validator rejects overlapping dateRange facet params, unknown subtitleHref/countField fields and whitespace in redirect.idFrom; clearer refEntity, nav and where-probe diagnostics
+  migration: |
+    Boot now fails for configurations that silently misbehaved. Give each dateRange facet on a screen its own from/to params, point header.subtitleHref and section countField at fields of the query's outputSchema, and remove stray whitespace from redirect.idFrom.
+  -->
+
+- 1e9cc86: `tenant-caps:list` now rejects a malformed pagination cursor and unsupported or repeated filters with a validation error instead of returning a wrong page or silently ignoring the filter, and loads per-tenant usage in parallel. The `cap-counter` operator list is no longer searchable, because search resolved against the caller's own tenant instead of all tenants.
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: tenant-caps:list validates cursor and filters, parallel usage reads; cap-counter list not searchable
+  -->
+
+- a86aa83: Review round 2 fixes for waitForEvent matching, read steps, env parsing and agent reasons.
+
+  - A pending workflow row with a malformed or unsupported `matchExpr` is now skipped and logged instead of aborting the wakeup projection for every other run waiting on the same event. `evaluateEventMatch` reports a structurally malformed AST as a readable `Malformed EventMatch` error.
+  - `read.findOne` and `read.findMany` reject a non-object `unsafeAllTenants` (for example `true`) with an `InternalError` instead of a raw `TypeError`.
+  - `parseEnv` reports a refinement that throws as a `KumikoBootError`, and the ciphertext-only slot caveat for refinements is documented.
+  - Removed the unused `AgentReasons.permissionDenied` (`agent.permission_denied`) reason and its error-docs pages; nothing emitted it.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Malformed waitForEvent matchExpr rows are skipped instead of blocking the wakeup projection
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: AgentReasons.permissionDenied removed
+  migration: |
+    Drop references to `AgentReasons.permissionDenied` / `"agent.permission_denied"`. The framework never emitted this reason.
+  -->
+
+- f86bcd2: `ExtraRouteRejection` now rejects a `retryAfterSeconds` beyond the safe-integer range, so the `Retry-After` header is always valid delta-seconds. Password-reset style token-request routes no longer log `rate_limited` handler results as errors.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: ExtraRouteRejection retryAfterSeconds must be a safe integer; token-request routes stop logging rate_limited
+  -->
+
+- a8f5305: The feature-AST patcher now replaces and unsets string-literal keys such as `"description": "old"` instead of appending a duplicate key or skipping the unset. `addStreamHandler` accepts `escapeHatch`. The defineEvent extractor accepts a shorthand `{ piiFields }` stance and reports a non-literal options argument with its own message.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Feature-AST patcher handles quoted keys, stream-handler escapeHatch and shorthand piiFields
+  -->
+
+- 0705037: `GET /files/:id` and the download-url route now fall back to the filename "download" when the stored fileName cannot be decrypted (malformed ciphertext, erased subject, annotation drift) instead of returning 500 or leaking ciphertext into headers. `loadAggregate` rejects an empty `aggregateType` instead of loading the unfiltered stream, and `appendProvenanceEvent` rejects event types with an empty owner or name.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: File byte routes survive undecryptable fileName; loadAggregate and appendProvenanceEvent reject empty type parts
+  -->
+
+- 4805c38: The exported `FileRef` type no longer carries `isDeleted`. Soft-deleted rows were already filtered out before the guard sees a file, so the field was never reachable. Custom file access guards that read `fileRef.isDeleted` must drop that check.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: FileRef type drops the unreachable isDeleted field
+  migration: |
+    Remove reads of `fileRef.isDeleted` in custom file access guards; soft-deleted rows never reach the guard.
+  -->
+
+- 4f6e8d7: File storage and locale hardening. `validateFileContent` now rejects binary bytes for an extension with a declared-MIME alias (a real `.xls` renamed to `.csv`), so custom upload routes using `validateFile` + `validateFileContent` are covered. `tenantExportPrefix` and `tenantStoragePrefixes` throw for a tenant id equal to the reserved `exports` segment. The local provider's `list()` only walks the prefix directory instead of the whole storage root. A file-provider plugin whose built provider lacks a required method now fails loudly at resolve time. `canonicalizeLocaleTag` normalizes region and script subtags (`de-AT`, `zh-Hant-TW`), so `X-Locale: DE-at` finds a `de-AT` mail registration.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: File content check covers csv alias, local list scoped to prefix, provider contract checked, locale tags canonicalized
+  migration: |
+    A file-provider plugin whose built provider lacks a required method now throws at resolve time; make sure custom file providers implement the full provider interface.
+  -->
+
+- 099f406: The `forget-denied` audit event now records the specific tenant-gate reason (for example `target_tenant_not_admin_tenant`) instead of the generic `access_denied`. The framework exports `requireEntityTableMeta` from `bun-db`.
+
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-denied audit events record the specific tenant-gate denial reason
+  -->
+
+- 70aa253: Review round 2 fixes across the feature AST, codemods, the template-resolver and the renderer router.
+
+  - feature-ast: handler lookup falls back to the header when the body carries no match, a `zod` namespace import (`import * as z`) is recognised, and patch edits no longer overlap.
+  - Codemods: the PII heuristic matches segment-aligned names, the open-to-all codemod sets its exit code, and `failUnprocessable` calls are migrated.
+  - template-resolver: the row types and the public output now use the real base columns. `by-slug`, `by-tenant`, `list`, `find-by-id` and the `TemplateResource` API return `modifiedAt` (null until the first edit) instead of `updatedAt`, which was always undefined at runtime. The user-content export reads `modifiedAt` too.
+  - renderer: `formatPath` and `parsePath` encode and decode every path segment, so an entity id like `foo/bar` or `ä b` survives a round trip. A malformed percent-escape in the URL resolves to no route.
+
+  <!-- kumiko-changes
+  feature: template-resolver
+  type: breaking
+  title: TemplateResource and text-block/collection query outputs expose modifiedAt instead of updatedAt
+  migration: |
+    Rename reads of `updatedAt` to `modifiedAt` on TemplateResource, the by-slug, by-tenant, list, find-by-id and collection queries, and the template-resolver web BlockSummary. The old field was never populated at runtime; the new one is an ISO timestamp, or null for a row that was never edited.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Router paths encode and decode each segment, so entity ids with slashes or spaces round-trip
+  -->
+
+- 837245e: Tenant-mode `updateMany`/`deleteMany` on a `tenancy: "global"` table now reject with an `AccessDeniedError` pointing at `db.global(table)` instead of silently matching zero rows. `restore` on a soft-deleted row whose unique value was re-used now returns a 409 `unique_violation` instead of a raw 500. The migration generator now recreates a managed projection when an existing index becomes unique, changes columns or widens its WHERE.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: Global-table tenant writes reject loudly, restore maps unique violations, managed unique-index changes recreate
+  migration: |
+    Tenant-mode `updateMany`/`deleteMany` on a `tenancy: "global"` table now throws instead of matching zero rows; switch those calls to `db.global(table)`.
+  -->
+
+- 5b6f9da: Guards: the runtime-isolation guard now follows value re-exports (`export * from`, `export { x } from`) and reads the `kumiko.runtime` marker in the repo-root `package.json`. The upgrade-state guard prefers the repo-local `node_modules/.bin/kumiko-upgrade` over a PATH entry. The error-reasons guard no longer flags prose reasons passed to `withUnsafeRawGrant`. Remaining German guard messages are now English. Blank `entityName` overrides on extension sections fall back to the host entity. `EventDispatcher.drain()` now also waits for a pass still in its idle pre-check.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Guard edge cases, extension entityName fallback and dispatcher drain waiting for in-flight passes
+  -->
+
+- 4805c38: The i18n key guard now requires translations for filterable `multiSelect` option labels and for the `description` of a `projectionDetail` writeForm section. Missing translations used to fall back silently; they now fail the guard.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: i18n key guard covers multiSelect option labels and writeForm section descriptions
+  migration: |
+    The i18n required-surface-keys check now requires translations for filterable `multiSelect` option labels and `projectionDetail` writeForm section descriptions; add the missing keys to your locale files.
+  -->
+
+- 4805c38: A perTenant job on a job runner built without `context.db` now fails with a message that names the missing `context.db` when the tenant feature is mounted, instead of telling the operator to mount it. A readiness failure during `stop()` is now logged at debug level.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: perTenant fan-out without context.db reports the missing db instead of a missing tenant feature
+  -->
+
+- c791abd: The framework `jobs` entry now exports `serializeJobSubject`, the single source of the tenant-visible failure subject string. The job runner and `jobs:query:failures` both use it, so the subject filter cannot drift from what the runner stored.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: fix
+  title: Tenant failure subject filter shares one serializer with the job runner
+  -->
+
+- 782fdea: Job runner hardening. A job run now stamps its event `metadata.feature` with the feature's raw name, the same value write-handlers stamp (previously the kebab-case form for camelCase features). On a runner built without a db, touching `ctx.db` in a job throws a named error instead of a `TypeError`. A non-primitive `tenantVisibleFailure.subjectFields` value now fails the run visibly (run row, `onJobFailed`) and is not retried. A failing last-success metric no longer fails a successful run, and the runner registers the standard metrics on its meter itself. A sequential job whose retry attempt hits a held lock keeps its remaining retry budget instead of getting a fresh one. `stop()` waits at most 1 second for queue readiness. A custom `tenant:query:active-tenant-ids` handler returning anything but `string[]` is rejected. `Registry` gains `getJobFeature`.
+
+  In the jobs feature, a failing tenant-failure record write no longer blocks the run-row update or fails a completed run, `jobs:query:list` honours multi-value status filters and rejects filters on unknown fields, and `jobs:write:retry` answers 422 for a payload that is still ciphertext because no KMS is configured.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: breaking
+  title: Job runner keeps retry budget on sequential lock conflicts, names the error without a db, fails loudly on bad tenantVisibleFailure subjects, stamps the raw feature name; jobs list filters multi-status
+  migration: |
+    Events written by a job of a camelCase feature now carry metadata.feature with the raw feature name (for example "pubSubOrders") instead of the kebab-case form; update any audit or metrics filter that matched the kebab-case value. Custom Registry implementations must add getJobFeature(qualifiedJobName). A jobs:query:list call with filters on a field other than status is now rejected.
+  -->
+
+- 0191e3e: The Key Manager boot resolution now resolves all KEK slots in parallel, rejects a previous KEK without `PLATFORM_KEK_PREVIOUS_VERSION` before any Key Manager call, keeps the original network error as `cause`, and names the slot in the partial-wiring error. The boot log line names the source actually taken.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Key Manager boot resolves slots in parallel, validates the previous-KEK version up front and keeps the fetch error as cause
+  -->
+
+- b18daf9: The query output-schema column check now skips `z.looseObject()` and `.catchall()` row schemas, since they accept keys beyond the declared shape. The schema-size guard for write-handler input schemas now names the feature and handler in its boot error.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Boot column check skips loose/catchall output schemas; schema-walk error names the handler
+  -->
+
+- ff29a06: `rebuildMultiStreamProjection` now accepts an `AbortSignal` and checks it per replayed event. The boot backfill's shutdown signal reaches it, so a SIGTERM during a long multi-stream replay rolls the transaction back and releases the consumer lock instead of hanging until the pod is killed.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Multi-stream projection rebuild honors the shutdown AbortSignal
+  -->
+
+- dae5a21: multiSelect list filters no longer return every row for an empty array value, no longer fail with a 500 on boolean or numeric client values, and `ne` now keeps rows whose column is NULL. The forget sweeps (blind-index nulling, search purge) skip lookupable or searchable fields whose columns are missing from a migrated table instead of aborting after the key was erased, and the self-PII tenant probe ignores serial-id entities instead of throwing on a uuid subject id.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: multiSelect filters handle empty and non-string values and NULL columns; forget sweeps tolerate missing columns and serial ids
+  -->
+
+- 567a4bd: The app-schema JSON-safety check now rejects `NaN`/`Infinity` defaults and guards against self-referencing values. The agent doc lint reports exposed handlers whose input schema cannot be converted to JSON Schema (they were silently left out of the agent manifest). Icon-only list and edit action buttons now also set `title`, so sighted mouse users get the hover tooltip.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: App-schema JSON-safety rejects NaN/Infinity and cyclic defaults
+  -->
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: Agent doc lint reports exposed handlers with a non-convertible input schema
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Icon-only list and edit action buttons set a hover title
+  -->
+
+- f5ff653: `OWNER_INVITE_ROLE_OPTIONS` is now exported from the tenant barrel so apps can compose it into custom invite screens. The privacy-center and profile deletion explainer descriptions are registered as `i18nKey()` labels with server-side English translations. The export storage-cleanup backlog gauge now also covers failed jobs with an orphaned ZIP. Escape-hatch audit events from the forget-cleanup, user-export and tenant-lifecycle runners use the exported `UNATTRIBUTED_ACTOR` constant (value `"system"`, unchanged) when no actor is passed. Deletion requests no longer query the tenant compliance profile for users that are not active.
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Backlog gauge covers failed export orphans, explainer labels translated, unattributed escape-hatch actor constant
+  -->
+
+- 5bca19c: The event-store executor's `create()` and `restore()` now run their validation (global-tenancy guard, `soft_delete_not_enabled`) before resolving the connection, so callers get the proper 4xx error instead of an internal "no connection bound" error. List `totalCount` always counts over the full WHERE, and a PII backfill failure for an unresolvable catalog event subject no longer suggests the entity-only retry options. The shadow-swap RLS and blind-index error messages now state the concrete action (full KMS wiring for the blind-index key).
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Executor create/restore validate before connection binding; clearer rebuild and backfill errors
+  -->
+
+- 85dead2: Writes from an afterCommit hook now run as their own transaction with their own afterCommit flush, so the nested write's hooks fire and a failing projection rolls it back. The tenant timezone cache no longer stores a value read before a concurrent config write. Nested-write ownership checks complete a partial parent row from the stored row. `skipPoisonEvent` locks the consumer row before computing pending gaps. The search consumer fails an event for retry when its context has no database instead of removing the index entry.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: afterCommit hook writes run in their own transaction, plus cache, nested-write, skip-poison and search-consumer fixes
+  -->
+
+- 9acf185: A qualified redirect target (`feature:screen:id`) is now resolved inside the named feature, so a same-id screen in the redirecting feature no longer swallows the created record id. An entityEdit update form only presence-checks required fields the user changed, so a legacy row with an empty, newly required field can still be saved. The secretMint confirm step always offers a cancel that restarts at the mint form when no redirect or cancelTarget is set.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Qualified redirects resolve in their named feature, update forms skip untouched required fields, secretMint confirm can restart
+  -->
+
+- d7d5bd7: Renderer review fixes. Deleting a secret on a secretsEdit screen now asks for confirmation first (new `config.secrets.deleteConfirm` key) and the delete button is disabled while a save or delete is running. The multiSelect checkbox group is exposed as a labelled group (`GridProps.ariaLabelledBy`). The inline reference-create dialog seeds `currency: { kind: "tenant" }` money fields from the tenant currency. Fields declared only inside a section `groups` entry now get their `visible`/`readOnly`/`required` conditions registered. `onChange`'s `valid` ignores issues on hidden fields and outside the `fields` scope, like submit does (shared `relevantFieldIssues` helper). Copy-link in the form footer keeps a 44px touch target on narrow viewports. A free-text sibling-field number unit longer than 8 characters is no longer rendered as a suffix.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Secret delete confirmation, grouped-field conditions, scoped valid flag, tenant currency in reference-create dialog
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Labelled multiSelect checkbox group, mobile touch target for secondary form actions, bounded number unit suffix
+  -->
+
+- 57f0e78: Retention hardDelete on entities with file fields now pages by id, so rows stuck on a storage failure or a missing file storage no longer starve the rows behind them. A `blockDelete` entity with a personal field but no `anonymize` function is reported as `missing_anonymize_fields` again after the hold expires; only entities without any anonymizable subject field stay silent. The framework exports `entityHasAnonymizableSubjectField` for this check.
+
+  <!-- kumiko-changes
+  feature: data-retention
+  type: fix
+  title: Retention hardDelete pages past stuck file rows and blockDelete reports personal fields without anonymize
+  -->
+
+- 5e9cc10: `createSecretsFeature` throws at mount when both `access` and `roles` are passed; `access` used to silently discard `roles`. The personal-access-token mint form builds its i18n keys from the shared key helpers, and `ACTION_FORM_ENTITY` is now exported from `@cosmicdrift/kumiko-framework/ui-types`. The rate-limiting feature registers de/en copy for its error keys.
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: breaking
+  title: createSecretsFeature rejects access and roles together
+  migration: |
+    Remove `roles` from the `createSecretsFeature` options when `access` is set (or drop `access` and keep `roles`). Before, `roles` was silently ignored next to `access`.
+  -->
+
+  <!-- kumiko-changes
+  feature: rate-limiting
+  type: fix
+  title: Rate-limiting error keys have de/en translations
+  -->
+
+- a86aa83: A `totalsMatch` pair is now validated as a unit. A payload that carries only the embedded list or only its sibling money field is rejected with a validation error, because update payloads only carry `changes` and the sum could otherwise drift away from the total.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: totalsMatch rejects a payload that carries only one side of the pair
+  migration: |
+    Send the embedded list and its sibling money field together in every create and update payload. A partial update that changes only `total` or only the list now fails validation.
+  -->
+
+- a39d8a6: The transfer-graph boot check now rejects a `multiple` reference on a transferable entity only when the target entity is itself transferable. A multiple reference to a plain lookup entity boots again.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Transfer-graph boot check rejects a multiple reference only when its target is transferable
+  -->
+
+- 9061d9e: `parseTrustedProxyHopsEnv` treats an empty `KUMIKO_TRUSTED_PROXY_HOPS` as unset, so a blank `.env` template line no longer crashes the dev boot while prod ignored it. The published package also no longer ships the unusable compiled `dist/scripts/` codemod copies.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Empty KUMIKO_TRUSTED_PROXY_HOPS is treated as unset, and dist no longer ships compiled codemods
+  -->
+
+- e550021: `kumiko upgrade --apply` now refuses to write a marker when no installed Kumiko version can be found under the target, instead of recording the `--from` filter value. It also finds `node_modules/@cosmicdrift/*` packages that are workspace symlinks. `MeilisearchAdapter.dropAllIndexes()` only drops tenant indexes of its own prefix and leaves indexes of a longer sibling prefix alone. `drainJobs()` now rejects when a perTenant fan-out or an unknown job fails before the job body runs.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Upgrade marker needs an installed version, Meilisearch drop keeps sibling prefixes, drainJobs sees pre-run job failures
+  -->
+
+- 4e617da: SSE stream closes when access is revoked
+
+  The live event stream (GET /sse) now closes as soon as the session behind it is revoked or the user's tenant roles change or the membership is removed. User-addressed frames such as in-app notifications are delivered only to the addressed user instead of the whole tenant.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: SSE stream closes when access is revoked
+  -->
+
+- Updated dependencies [1da9e2c]
+- Updated dependencies [7cdc623]
+  - @cosmicdrift/kumiko-types@0.335.0
+  - @cosmicdrift/kumiko-http@0.335.0
+
 ## 0.334.0
 
 ### Minor Changes

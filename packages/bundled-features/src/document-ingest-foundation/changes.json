@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Writing a document extract is idempotent per fileRef",
+    "detail": "`writeDocumentExtractForLiveFileRef` now returns `{ kind: \"skipped\", reason: \"already_extracted\" }` when the fileRef already has a documentExtract, so a redelivered `documentIngest.requested` or a delete-restore race no longer creates a second extract. Providers need no existence check of their own; code that switches exhaustively on `reason` must handle the new value."
+  },
+  {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "Provider name \"unknown\" is reserved for upcast legacy events",
+    "migration": "Registering a document-ingest provider under the name `unknown` now throws; rename any provider that uses it."
+  },
+  {
     "version": "0.312.0",
     "type": "breaking",
     "title": "document-ingest-foundation is provider-driven; ALLOWED_MIME_TYPES/MAX_FILE_BYTES are gone",

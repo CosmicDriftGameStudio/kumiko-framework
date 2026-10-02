@@ -1,5 +1,34 @@
 [
   {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "remove-member no longer fails with an internal error when removing a TenantAdmin",
+    "detail": "Several bundled-feature fixes. `tenant:remove-member` no longer fails with an internal error when it removes a TenantAdmin: the last-admin check now runs on the raw runner like `update-member-roles`, and the last admin is refused with a conflict. The `member-directory` query accepts `search` so the `user:user` reference combobox finds members beyond the first page. One-off Stripe payment checkouts without a known customer create one, so the paid payment is no longer ignored by the webhook. A throwing secrets lookup in the webhook step now becomes a `dispatch-failed` event instead of dead-lettering the step-dispatcher consumer. The row-bound grant validates an `unsafeSkip` reason before verifying the token. The session list loads one maximum-size page without a pager that could not page. The public user-data-rights handlers rate-limit per IP and handler."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "member-directory supports search for the user reference combobox"
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Tenant directory search, canonical user locale, last-admin remove message and destroy-hook boot check",
+    "detail": "Several review fixes in bundled features. The tenant reference combobox now searches tenants by name through `tenant:query:tenant-directory`, so tenants beyond the first page can be picked. Removing the last tenant admin reports \"cannot remove\" instead of \"cannot demote\". `user:write:create` and `user:write:update` store the locale tag in canonical form (`DE-AT` becomes `de-AT`). Tenant-lifecycle rejects `tenantData`, `storageProvider`, `searchAdapter`, `externalResource` and `infraResource` registrations without a destroy function at boot instead of during tenant destruction. The convention `tier-assignment:create`/`update` and `tenant:entity:list`/`update` handlers are hidden from the agent in favour of their canonical counterparts."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Saving member roles keeps roles the editor cannot grant",
+    "detail": "Admin, TenantAdmin and SystemAdmin saves keep DataProtectionOfficer, TenantOwner, undeclared and higher-tier app roles; the system user still replaces the list. The roles column translates TenantOwner and DataProtectionOfficer. New exports: canActorAssignRole, mergeAssignedRoles, assignableAppRolesOf. Apps translate their roles via tenant:entity:__action-form__:field:roles:option:<Role> (and role:option: for the invite)."
+  },
+  {
+    "version": "0.335.0",
+    "type": "fix",
+    "title": "Editing your own roles no longer ends your own session",
+    "detail": "Saving your own roles in the members screen keeps the current session and its live streams; the new roles apply on the next request. Your other sessions are still revoked, and editing someone else's roles still revokes all of theirs. The team list now shows the real creation time of members and invitations instead of the query time."
+  },
+  {
     "version": "0.333.0",
     "type": "improvement",
     "title": "Apps declare assignable membership roles via EXT_ASSIGNABLE_ROLE"

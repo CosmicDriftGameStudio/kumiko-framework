@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.335.0",
+    "type": "breaking",
+    "title": "Cap helpers validate periodStartIso and amount, surface failed soft-warn writes; German column labels",
+    "detail": "`bookCapUsage` and `markCapSoftWarned` now reject a `periodStartIso` that is not an ISO instant with a validation error instead of silently forking a counter row or throwing a `RangeError`. `enforceCap` rejects a non-integer or non-positive `amount` instead of letting it bypass the cap. `enforceCapAndMaybeNotify` surfaces a failed soft-warn write instead of re-sending the notification on the next call. The cap-counter list now has German column labels.",
+    "migration": "`bookCapUsage` and `markCapSoftWarned` now reject a `periodStartIso` that is not a full ISO instant, including date-only strings like `2026-10-01`; pass e.g. `2026-10-01T00:00:00.000Z`."
+  },
+  {
     "version": "0.317.0",
     "type": "fix",
     "title": "bookCapUsage/markCapSoftWarned count parallel bookings instead of losing them",
