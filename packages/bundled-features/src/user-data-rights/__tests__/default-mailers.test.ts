@@ -145,7 +145,7 @@ describe("default-mailers dispatch", () => {
     expect(resolved).toEqual([TENANT_A]);
     expect(cap.sent).toHaveLength(1);
     expect(cap.sent[0]?.to).toBe("u1@example.com");
-    expect(cap.sent[0]?.subject).toBe("Konto — Dein Konto wurde geloescht");
+    expect(cap.sent[0]?.subject).toBe("Konto — Dein Konto wurde gelöscht");
   });
 
   test("deletion-executed orphan (0 Memberships): kein Transport aufgeloest, keine Mail", async () => {

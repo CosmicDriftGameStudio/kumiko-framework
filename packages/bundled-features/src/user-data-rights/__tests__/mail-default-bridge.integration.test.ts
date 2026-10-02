@@ -174,8 +174,8 @@ describe("C6 default mail bridge :: forget cron sends deletion-executed without 
     // Der User ist mit locale="de" geseedet → die Default-Mail rendert DEUTSCH
     // (per-recipient locale, KEIN App-Callback). Vorher rendete sie still en —
     // der Advisor-Befund, den dieser Assert jetzt einfaengt.
-    expect(inbox[0]?.subject).toContain("Dein Konto wurde geloescht");
-    expect(inbox[0]?.html).toContain("endgueltig");
+    expect(inbox[0]?.subject).toContain("Dein Konto wurde gelöscht");
+    expect(inbox[0]?.html).toContain("endgültig");
   });
 
   test("no mail transport mounted is NOT this stack — sanity: provider really is inmemory", () => {

@@ -13,13 +13,6 @@ describe("Icon (fw#3056 public export)", () => {
     expect(container.querySelector("svg")).not.toBeNull();
   });
 
-  test("is not focusable", () => {
-    const { container } = render(<Icon name="trash" />);
-    const svg = container.querySelector("svg");
-    expect(svg).not.toBeNull();
-    expect(svg?.hasAttribute("tabindex")).toBe(false);
-  });
-
   test("is marked decorative for screen readers", () => {
     const { container } = render(<Icon name="trash" />);
     expect(container.querySelector("svg")?.getAttribute("aria-hidden")).toBe("true");

@@ -93,18 +93,18 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es in Kürze erneut.",
   "folders.section.createMode": "Speichern Sie zuerst den Eintrag, um einen Ordner zu wählen.",
   "gdpr.mail.deletionExecuted.intro":
-    "Ihr {app}-Konto und die zugehoerigen personenbezogenen Daten wurden am {when} geloescht. Diese Aktion ist endgueltig.",
-  "gdpr.mail.deletionExecuted.subject": "{app} — Ihr Konto wurde geloescht",
+    "Ihr {app}-Konto und die zugehörigen personenbezogenen Daten wurden am {when} gelöscht. Diese Aktion ist endgültig.",
+  "gdpr.mail.deletionExecuted.subject": "{app} — Ihr Konto wurde gelöscht",
   "gdpr.mail.deletionRequested.cancel":
-    "Falls Sie das nicht angefordert haben, melden Sie sich an und brechen Sie die Loeschung in den Kontoeinstellungen ab, bevor die Frist ablaeuft.",
+    "Falls Sie das nicht angefordert haben, melden Sie sich an und brechen Sie die Löschung in den Kontoeinstellungen ab, bevor die Frist abläuft.",
   "gdpr.mail.deletionRequested.intro":
-    "wir haben Ihren Antrag zur Loeschung Ihres {app}-Kontos erhalten. Ihr Konto und die zugehoerigen Daten werden am {when} endgueltig geloescht.",
-  "gdpr.mail.deletionRequested.subject": "{app} — Loeschung Ihres Kontos angefordert",
+    "wir haben Ihren Antrag zur Löschung Ihres {app}-Kontos erhalten. Ihr Konto und die zugehörigen Daten werden am {when} endgültig gelöscht.",
+  "gdpr.mail.deletionRequested.subject": "{app} — Löschung Ihres Kontos angefordert",
   "gdpr.mail.exportFailed.intro":
-    "Ihr angeforderter Datenexport fuer {app} konnte leider nicht erstellt werden. Bitte fordern Sie den Export erneut an.",
+    "Ihr angeforderter Datenexport für {app} konnte leider nicht erstellt werden. Bitte fordern Sie den Export erneut an.",
   "gdpr.mail.exportFailed.subject": "{app} — Ihr Datenexport ist fehlgeschlagen",
   "gdpr.mail.exportReady.intro":
-    "Ihr angeforderter Datenexport fuer {app} ist fertig. Laden Sie ihn ueber den folgenden Link herunter:",
+    "Ihr angeforderter Datenexport für {app} ist fertig. Laden Sie ihn über den folgenden Link herunter:",
   "gdpr.mail.exportReady.subject": "{app} — Ihr Datenexport ist bereit",
   "config.settings.audience.user": "Gilt nur für Sie.",
   "config.settings.extensionSelectorHint":

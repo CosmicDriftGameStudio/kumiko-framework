@@ -13,6 +13,7 @@
 // Tests die ein anderes Setup brauchen (z.B. custom primitives, echte
 // browser-Nav) bauen ihren Wrapper selbst — siehe nav.test.tsx.
 
+import type { EntityDefinition } from "@cosmicdrift/kumiko-framework/ui-types";
 import {
   createStore,
   type Dispatcher,
@@ -184,6 +185,26 @@ export function createMockDispatcher(options: MockDispatcherOptions = {}): Dispa
     pendingWrites: () => [],
     pendingFiles: () => [],
   };
+}
+
+// Shared fixtures for the KumikoScreen test files (kumiko-screen*.test.tsx).
+export const taskEntity = {
+  fields: {
+    title: { type: "text", required: true },
+    count: { type: "number" },
+    done: { type: "boolean" },
+  },
+} as unknown as EntityDefinition;
+
+/** Mock dispatcher whose default `query` returns an empty list page. */
+export function makeDispatcher(overrides: Partial<Dispatcher> = {}): Dispatcher {
+  const base = createMockDispatcher({
+    query: (async () => ({
+      isSuccess: true,
+      data: { rows: [], nextCursor: null },
+    })) as unknown as Dispatcher["query"],
+  });
+  return { ...base, ...overrides };
 }
 
 // ---------------------------------------------------------------------------
