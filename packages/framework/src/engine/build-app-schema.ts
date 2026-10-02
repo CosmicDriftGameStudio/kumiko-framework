@@ -30,6 +30,7 @@
 import { ZodObject, type ZodType } from "zod";
 import type {
   AppSchema,
+  ConfigEditScreenDefinition,
   EntityDefinition,
   FeatureSchema,
   ProjectionListScreenDefinition,
@@ -42,7 +43,8 @@ import {
   type ConfigFeatureSchema,
   SETTINGS_HUB_FEATURE,
 } from "./build-config-feature-schema.js";
-import { qualifyEntityName } from "./qualified-name.js";
+import { isEncryptedAtRest } from "./config-helpers.js";
+import { QnTypes, qualifyEntityName } from "./qualified-name.js";
 import type { Registry } from "./types/feature.js";
 import type { ClientDerivedFieldDef, DerivedFieldDef, FieldDefinition } from "./types/fields.js";
 
@@ -62,6 +64,7 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
   const urlPrefillFieldsByScreenQn = collectUrlPrefillFieldsByScreenQn([
     ...registry.features.values(),
   ]);
+  const encryptedConfigKeyQns = collectEncryptedConfigKeyQns(registry);
   for (const [featureName, feature] of registry.features) {
     const navs = Object.values(feature.navs);
     // The nav entry alone doesn't say which kind a collection lists, so the
@@ -76,7 +79,13 @@ export function buildAppSchema(registry: Registry, options: BuildAppSchemaOption
     const featureSchema: FeatureSchema = {
       featureName,
       entities: projectEntities(feature.entities ?? {}),
-      screens: projectScreens(featureName, feature.screens, registry, urlPrefillFieldsByScreenQn),
+      screens: projectScreens(
+        featureName,
+        feature.screens,
+        registry,
+        urlPrefillFieldsByScreenQn,
+        encryptedConfigKeyQns,
+      ),
       ...(navs.length > 0 && { navs }),
       ...(contentCollections.length > 0 && { contentCollections }),
       // #1059: verbatim r.translations({keys}) — see FeatureSchema.translations
@@ -317,8 +326,10 @@ function projectScreens(
   screens: Readonly<Record<string, ScreenDefinition>>,
   registry: Registry,
   urlPrefillFieldsByScreenQn: ReadonlyMap<string, ReadonlySet<string>>,
+  encryptedConfigKeyQns: ReadonlySet<string>,
 ): ScreenDefinition[] {
   return Object.entries(screens).map(([shortId, screen]) => {
+    if (screen.type === "configEdit") return projectConfigEditScreen(screen, encryptedConfigKeyQns);
     if (screen.type === "projectionList") return projectProjectionListScreen(screen, registry);
     if (
       screen.type === "actionForm" ||
@@ -332,6 +343,35 @@ function projectScreens(
     }
     return screen;
   });
+}
+
+function collectEncryptedConfigKeyQns(registry: Registry): ReadonlySet<string> {
+  const qns = new Set<string>();
+  for (const [featureName, feature] of registry.features) {
+    for (const [key, def] of Object.entries(feature.configKeys)) {
+      if (isEncryptedAtRest(def)) qns.add(qualifyEntityName(featureName, QnTypes.config, key));
+    }
+  }
+  return qns;
+}
+
+// A hand-written configEdit field over an encrypted-at-rest key would load the
+// read mask as editable text and a partial edit would overwrite the secret with
+// it. Forcing writeOnly here matches what deriveField does for generated screens.
+function projectConfigEditScreen(
+  screen: ConfigEditScreenDefinition,
+  encryptedConfigKeyQns: ReadonlySet<string>,
+): ConfigEditScreenDefinition {
+  let fields: Record<string, FieldDefinition> | undefined;
+  for (const [fieldName, field] of Object.entries(screen.fields)) {
+    const qualified = screen.configKeys[fieldName];
+    if (field.type !== "text" || qualified === undefined || !encryptedConfigKeyQns.has(qualified)) {
+      continue;
+    }
+    fields ??= { ...screen.fields };
+    fields[fieldName] = { ...field, writeOnly: true };
+  }
+  return fields === undefined ? screen : { ...screen, fields };
 }
 
 function projectProjectionListScreen(

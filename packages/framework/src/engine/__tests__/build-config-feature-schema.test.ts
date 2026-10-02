@@ -546,3 +546,35 @@ describe("buildConfigFeatureSchema — number bounds and descriptions", () => {
     );
   });
 });
+
+describe("buildConfigFeatureSchema — secret keys are write-only", () => {
+  const vault = defineFeature("vault", (r) => {
+    r.config({
+      keys: {
+        stripeSecret: createSystemConfig("text", {
+          write: access.systemAdmin,
+          backing: "secrets",
+          mask: { title: "vault.stripe-secret" },
+        }),
+        encryptedToken: createSystemConfig("text", {
+          write: access.systemAdmin,
+          encrypted: true,
+          mask: { title: "vault.encrypted-token" },
+        }),
+        displayName: createSystemConfig("text", {
+          write: access.systemAdmin,
+          mask: { title: "vault.display-name" },
+        }),
+      },
+    });
+  });
+  const vaultSchema = buildConfigFeatureSchema(createRegistry([vault]));
+  const vaultScreen = vaultSchema.screens.find((s) => s.type === "configEdit");
+
+  test("secrets-backed and encrypted text keys derive writeOnly fields, a plain text key does not", () => {
+    if (vaultScreen?.type !== "configEdit") throw new Error("no configEdit screen");
+    expect(vaultScreen.fields["stripe-secret"]).toMatchObject({ type: "text", writeOnly: true });
+    expect(vaultScreen.fields["encrypted-token"]).toMatchObject({ type: "text", writeOnly: true });
+    expect(vaultScreen.fields["display-name"]).not.toHaveProperty("writeOnly");
+  });
+});

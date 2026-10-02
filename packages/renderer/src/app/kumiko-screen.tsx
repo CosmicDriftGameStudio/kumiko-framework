@@ -3930,6 +3930,16 @@ const CONFIG_SCOPE_SOURCE = {
   system: "system-row",
 } as const satisfies Record<ConfigScope, ConfigCascadeLevel["source"]>;
 
+function isWriteOnlyTextField(
+  fieldDef: ConfigEditScreenDefinition["fields"][string] | undefined,
+): boolean {
+  return fieldDef?.type === "text" && fieldDef.writeOnly === true;
+}
+
+function hasStoredValue(stored: unknown): boolean {
+  return stored !== undefined && stored !== null && stored !== "";
+}
+
 function ConfigEditBody({
   schema,
   screen,
@@ -3973,6 +3983,16 @@ function ConfigEditBody({
         continue;
       }
       const stored = valuesQuery.data[qualified]?.value;
+      // The read carries a mask (or nothing); only whether a value exists is
+      // meaningful, so the field gets the writeOnly wire shape true / null.
+      // The read is the effective value: an inherited one is not "set" on this
+      // scope, and a reset here would remove nothing.
+      if (isWriteOnlyTextField(fieldDef)) {
+        const ownedByThisScope =
+          valuesQuery.data[qualified]?.source === CONFIG_SCOPE_SOURCE[screen.scope];
+        out[shortName] = ownedByThisScope && hasStoredValue(stored) ? true : null;
+        continue;
+      }
       if (stored === undefined) {
         out[shortName] = defaults[shortName];
         continue;
@@ -3989,7 +4009,7 @@ function ConfigEditBody({
       }
     }
     return out as FormValues;
-  }, [valuesQuery.data, screen.fields, screen.configKeys]);
+  }, [valuesQuery.data, screen.fields, screen.configKeys, screen.scope]);
 
   // Cascade-Lookup: qualifiedKey → ConfigCascade für die
   // Cascade-Anzeige unter jedem Feld. Defensive `levels`-Shape-Check
@@ -4026,6 +4046,21 @@ function ConfigEditBody({
           | { type?: string; optionsQuery?: string }
           | undefined;
         const ftype = fieldDef?.type;
+        if (isWriteOnlyTextField(screen.fields[shortName])) {
+          // true (untouched/undone) and "" mean keep the stored secret; null removes it.
+          if (value === null) {
+            commands.push({
+              type: "config:write:reset",
+              payload: { key: qualified, scope: screen.scope },
+            });
+          } else if (typeof value === "string" && value !== "") {
+            commands.push({
+              type: "config:write:set",
+              payload: { key: qualified, value, scope: screen.scope },
+            });
+          }
+          continue;
+        }
         // A query-backed select is cleared to "" when its dependent value became
         // invalid. config:write:set would store that as an empty override (the
         // badge shows "Mandant" with no value); reset falls back to the inherited

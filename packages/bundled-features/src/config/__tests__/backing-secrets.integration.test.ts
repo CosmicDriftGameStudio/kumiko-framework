@@ -31,6 +31,7 @@ import { configValuesTable } from "../table.js";
 const SYSTEM_TENANT = "00000000-0000-4000-8000-000000000000";
 const API_KEY = "billing:config:api-key";
 const PLAIN_KEY = "billing:config:webhook-path";
+const HOOK_TOKEN_KEY = "billing:config:hook-token";
 
 const systemAdmin = TestUsers.systemAdmin; // roles ["SystemAdmin"]
 
@@ -43,6 +44,12 @@ const billingFeature = defineFeature("billing", (r) => {
         backing: "secrets",
         write: access.systemAdmin,
         read: access.admin,
+      }),
+      hookToken: createSystemConfig("text", {
+        backing: "secrets",
+        write: access.systemAdmin,
+        read: access.admin,
+        pattern: { regex: "^tok_[a-z0-9]{8}$" },
       }),
       // Control: a plain system config key (config_values, no secrets dispatch).
       webhookPath: createSystemConfig("text", {
@@ -121,6 +128,29 @@ describe("config backing=secrets — write dispatch", () => {
     // No column of the stored row may carry the plaintext — the secrets
     // envelope must have encrypted it.
     expect(JSON.stringify(row)).not.toContain("sk-live-abc123");
+  });
+});
+
+describe("config backing=secrets — write responses never echo the secret", () => {
+  test("set answers with the mask instead of the stored value", async () => {
+    const res = await stack.http.writeOk<{ key: string; value: unknown; scope: string }>(
+      ConfigHandlers.set,
+      { key: HOOK_TOKEN_KEY, value: "tok_abcd1234", scope: "system" },
+      systemAdmin,
+    );
+    expect(res).toMatchObject({ key: HOOK_TOKEN_KEY, value: "••••••", scope: "system" });
+    expect(JSON.stringify(res)).not.toContain("tok_abcd1234");
+  });
+
+  test("a pattern violation reports the pattern, not the rejected value", async () => {
+    const err = await stack.http.writeErr(
+      ConfigHandlers.set,
+      { key: HOOK_TOKEN_KEY, value: "sk-live-WRONG-shape", scope: "system" },
+      systemAdmin,
+    );
+    expect(err.code).toBe("validation_error");
+    expect(JSON.stringify(err)).toContain("^tok_[a-z0-9]{8}$");
+    expect(JSON.stringify(err)).not.toContain("sk-live-WRONG-shape");
   });
 });
 

@@ -708,3 +708,108 @@ describe("KumikoScreen / configEdit bounds and row alignment", () => {
     expect(row).not.toBeNull();
   });
 });
+
+describe("KumikoScreen / configEdit write-only secret keys", () => {
+  const MASK = "••••••";
+  const secretScreen: ConfigEditScreenDefinition = {
+    id: "secrets-settings",
+    type: "configEdit",
+    scope: "system",
+    configKeys: { apiKey: "demo:config:api-key" },
+    fields: {
+      apiKey: { type: "text", writeOnly: true },
+      // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+    } as ConfigEditScreenDefinition["fields"],
+    layout: { sections: [{ title: "Secrets", fields: ["apiKey"] }] },
+  };
+  const secretSchema: FeatureSchema = {
+    featureName: "demo",
+    entities: {},
+    screens: [secretScreen],
+  };
+
+  async function renderSecretScreen(stored: boolean, source = "system-row") {
+    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: stored ? { "demo:config:api-key": { value: MASK, scope: "system", source } } : {},
+      })) as unknown as Dispatcher["query"],
+      batch: batchSpy as unknown as Dispatcher["batch"],
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={secretSchema} qn="demo:screen:secrets-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const input = screen.getByTestId("field-apiKey").querySelector("input");
+    if (!input) throw new Error("expected apiKey input");
+    return { batchSpy, user, input };
+  }
+
+  test("a stored secret shows neither the plaintext nor the mask, only the set placeholder", async () => {
+    const { input } = await renderSecretScreen(true);
+
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("Set — leave empty to keep it");
+    expect(document.body.textContent).not.toContain(MASK);
+  });
+
+  test("saving without touching the secret sends nothing", async () => {
+    const { batchSpy, user, input } = await renderSecretScreen(true);
+
+    await user.type(input, "x");
+    await user.clear(input);
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(screen.getByTestId("render-edit-submit")).toBeTruthy());
+    expect(batchSpy).not.toHaveBeenCalled();
+  });
+
+  test("a typed replacement is sent as a set", async () => {
+    const { batchSpy, user, input } = await renderSecretScreen(true);
+
+    await user.type(input, "sk_new_value");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:api-key", value: "sk_new_value", scope: "system" },
+      },
+    ]);
+  });
+
+  test("removing the stored secret is sent as a reset", async () => {
+    const { batchSpy, user } = await renderSecretScreen(true);
+
+    await user.click(screen.getByRole("button", { name: "Remove stored value" }));
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      { type: "config:write:reset", payload: { key: "demo:config:api-key", scope: "system" } },
+    ]);
+  });
+
+  test("a value inherited from another scope does not count as set here", async () => {
+    const { input } = await renderSecretScreen(true, "app-override");
+
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("");
+    expect(screen.queryByRole("button", { name: "Remove stored value" })).toBeNull();
+  });
+
+  test("an unset secret starts empty without the set placeholder", async () => {
+    const { input } = await renderSecretScreen(false);
+
+    expect(input.value).toBe("");
+    expect(input.placeholder).toBe("");
+  });
+});

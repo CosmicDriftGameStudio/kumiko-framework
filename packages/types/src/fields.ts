@@ -271,7 +271,9 @@ export type TextFieldDef = {
    *  {rows} / flat results; an unbound custom query handler that returns
    *  executor rows must call maskWriteOnlyFields itself (same scope limit as
    *  access.read). Requires `sensitive` (via `find: "secret"`); forbidden with
-   *  default/searchable/sortable/filterable/lookupable and on screen/form fields. */
+   *  default/searchable/sortable/filterable/lookupable and on inline form fields
+   *  (actionForm/wizard). Allowed on configEdit text fields only over an
+   *  encrypted-at-rest config key, where it is also set automatically. */
   readonly writeOnly?: boolean;
   /** A later run reads this field's value as an instruction — prompt, rule,
    *  template. Every create/update whose payload writes it requires agent.risk
