@@ -142,7 +142,10 @@ export function navigateWithReturnTo(
  *  with them, so a chain unwinds one level per jump. */
 export function navigateToReturn(nav: NavApi, target: ScreenTarget): void {
   const raw = nav.searchParams[RETURN_TO_PARAM];
-  const state = raw === undefined ? NO_RETURN_STATE : splitReturnTo(raw).state;
+  // The state belongs to the host the raw value names; a caller-supplied
+  // target elsewhere must not inherit it.
+  const returnTo = raw === undefined ? undefined : splitReturnTo(raw);
+  const state = returnTo?.path === formatReturnTo(target) ? returnTo.state : NO_RETURN_STATE;
   nav.navigate(target);
   // The explicit null drops this screen's own returnTo on nav impls whose
   // navigate keeps the query.

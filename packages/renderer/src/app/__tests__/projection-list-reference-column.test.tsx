@@ -6,9 +6,10 @@
 // text back off the reference column's injected runtime renderer.
 
 import { describe, expect, test } from "bun:test";
-import type {
-  ListColumnSpec,
-  ProjectionListScreenDefinition,
+import {
+  type ListColumnSpec,
+  type ProjectionListScreenDefinition,
+  SYSTEM_REFERENCE_LABELS,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher, RuntimeRenderer } from "@cosmicdrift/kumiko-headless";
 import { render, waitFor } from "@testing-library/react";
@@ -22,9 +23,15 @@ import { KumikoScreen } from "../kumiko-screen.js";
 import type { NavApi } from "../nav.js";
 import { NavProvider } from "../nav.js";
 
-const SYSTEM_TENANT_ID = "00000000-0000-4000-8000-000000000000";
+function systemReferenceId(referenceKey: string): string {
+  const label = SYSTEM_REFERENCE_LABELS[referenceKey];
+  if (label === undefined) throw new Error(`no system reference label for ${referenceKey}`);
+  return label.id;
+}
+
+const SYSTEM_TENANT_ID = systemReferenceId("tenant:tenant");
 const REAL_TENANT_ID = "11111111-1111-4111-8111-111111111111";
-const SYSTEM_USER_ID = "00000000-0000-0000-0000-000000000000";
+const SYSTEM_USER_ID = systemReferenceId("user:user");
 const REAL_USER_ID = "22222222-2222-4222-8222-222222222222";
 const DELETED_USER_ID = "33333333-3333-4333-8333-333333333333";
 

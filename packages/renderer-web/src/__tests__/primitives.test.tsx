@@ -2393,6 +2393,15 @@ describe("DataTable screenPadding", () => {
     render(<DataTable columns={cols} rows={oneRow} testId="flush-table" screenPadding={false} />);
     expect(paddingClasses(paddingWrapperOf("flush-table"))).toEqual([]);
   });
+
+  test("scrollBody wins over screenPadding: the wrapper fills its container without the screen inset", () => {
+    const { container } = render(
+      <DataTable columns={cols} rows={oneRow} testId="both-table" scrollBody screenPadding />,
+    );
+    const wrapper = container.firstElementChild;
+    expect(wrapper?.className).toContain("h-full");
+    expect(paddingClasses(wrapper)).toEqual([]);
+  });
 });
 
 describe("JsonView", () => {

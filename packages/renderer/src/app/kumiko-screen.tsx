@@ -3669,6 +3669,7 @@ function ProjectionDetailBody({
           />
           {/* The band owns the horizontal inset; the slot is its unstyled lead
               row so it lines up with the metrics below. */}
+          {MetricBand === undefined && headerSubtitleSlot}
           {MetricBand === undefined && headerSlot}
           {(hasMetrics || headerSubtitleSlot !== undefined || headerSlot !== undefined) &&
             (MetricBand !== undefined || hasMetrics) &&

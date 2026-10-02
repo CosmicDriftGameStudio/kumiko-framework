@@ -9,14 +9,14 @@
 // successful row-action write, but NOT after a failed one (no double-fetch,
 // no silent refetch loop).
 
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import type {
   EntityDefinition,
   EntityListScreenDefinition,
   ProjectionListScreenDefinition,
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type { Dispatcher } from "@cosmicdrift/kumiko-headless";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType, ReactNode } from "react";
 import { DispatcherProvider } from "../../context/dispatcher-context.js";
 import { createStaticLocaleResolver, LocaleProvider } from "../../i18n.js";
@@ -32,20 +32,34 @@ import type { FeatureSchema } from "../feature-schema.js";
 import { KumikoScreen } from "../kumiko-screen.js";
 import { NavProvider } from "../nav.js";
 
-let capturedRowActions: readonly DataTableRowAction[] | undefined;
-const captureDataTable: ComponentType<DataTableProps> = (props) => {
-  capturedRowActions = props.rowActions;
-  return null;
+type StubState = {
+  queryCallCount: number;
+  writeIsSuccess: boolean;
+  capturedRowActions: readonly DataTableRowAction[] | undefined;
 };
+
+function createStubState(writeIsSuccess: boolean): StubState {
+  return { queryCallCount: 0, writeIsSuccess, capturedRowActions: undefined };
+}
+
+afterEach(cleanup);
+
+// Awaiting a full act tick lets any in-flight refetch land, so a following
+// count assertion is a barrier rather than a sleep.
+async function flushPendingWork(): Promise<void> {
+  await act(async () => {});
+  await act(async () => {});
+}
+
 const noop = (): ReactNode => null;
 const passChildren = ({ children }: { readonly children?: ReactNode }): ReactNode => children;
 
-const testPrimitives: CorePrimitives = {
+const baseTestPrimitives: CorePrimitives = {
   Button: noop,
   Banner: passChildren,
   Field: passChildren,
   Input: noop,
-  DataTable: captureDataTable,
+  DataTable: noop,
   Form: passChildren,
   Section: passChildren,
   Card: passChildren,
@@ -61,13 +75,18 @@ const testPrimitives: CorePrimitives = {
   Link: noop,
 };
 
-let queryCallCount = 0;
-let writeIsSuccess = true;
+function capturingPrimitives(state: StubState): CorePrimitives {
+  const captureDataTable: ComponentType<DataTableProps> = (props) => {
+    state.capturedRowActions = props.rowActions;
+    return null;
+  };
+  return { ...baseTestPrimitives, DataTable: captureDataTable };
+}
 
-function stubDispatcher(): Dispatcher {
+function stubDispatcher(state: StubState): Dispatcher {
   return {
     write: (async () => {
-      if (!writeIsSuccess) {
+      if (!state.writeIsSuccess) {
         return {
           isSuccess: false,
           error: {
@@ -81,7 +100,7 @@ function stubDispatcher(): Dispatcher {
       return { isSuccess: true, data: {} };
     }) as unknown as Dispatcher["write"],
     query: (async () => {
-      queryCallCount += 1;
+      state.queryCallCount += 1;
       return {
         isSuccess: true,
         data: { rows: [{ id: "unit-1", status: "active" }], nextCursor: null, total: 1 },
@@ -130,13 +149,13 @@ function buildSchema(): FeatureSchema {
   } as FeatureSchema;
 }
 
-function renderListScreen(): void {
+function renderListScreen(state: StubState): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "de-DE" })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
-      <DispatcherProvider dispatcher={stubDispatcher()}>
+      <DispatcherProvider dispatcher={stubDispatcher(state)}>
         <NavProvider
           value={{
             route: { screenId: "units:unit-list" },
@@ -147,7 +166,7 @@ function renderListScreen(): void {
             setSearchParams: () => {},
           }}
         >
-          <PrimitivesProvider value={testPrimitives}>
+          <PrimitivesProvider value={capturingPrimitives(state)}>
             <KumikoScreen schema={buildSchema()} qn="units:screen:unit-list" />
           </PrimitivesProvider>
         </NavProvider>
@@ -156,63 +175,58 @@ function renderListScreen(): void {
   );
 }
 
-function requireArchiveAction(): DataTableRowAction {
-  const action = capturedRowActions?.find((a) => a.id === "archive");
+function requireArchiveAction(state: StubState): DataTableRowAction {
+  const action = state.capturedRowActions?.find((a) => a.id === "archive");
   if (!action) throw new Error("expected the 'archive' row action to be captured");
   return action;
 }
 
 describe("entityList row-action writeHandler refetches the rows query", () => {
   test("a successful row-action write triggers exactly one refetch", async () => {
-    capturedRowActions = undefined;
-    queryCallCount = 0;
-    writeIsSuccess = true;
+    const state = createStubState(true);
 
-    renderListScreen();
+    renderListScreen(state);
 
     await waitFor(() => {
-      expect(capturedRowActions).toBeDefined();
+      expect(state.capturedRowActions).toBeDefined();
     });
 
-    const countAfterMount = queryCallCount;
+    const countAfterMount = state.queryCallCount;
     expect(countAfterMount).toBeGreaterThan(0);
 
     await act(async () => {
-      await requireArchiveAction().onTrigger({ id: "unit-1", values: { id: "unit-1" } });
+      await requireArchiveAction(state).onTrigger({ id: "unit-1", values: { id: "unit-1" } });
     });
 
     await waitFor(() => {
-      expect(queryCallCount).toBe(countAfterMount + 1);
+      expect(state.queryCallCount).toBe(countAfterMount + 1);
     });
 
-    // Give any accidental extra refetch a chance to land before asserting
-    // there wasn't one (no double-fetch, no refetch loop).
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(queryCallCount).toBe(countAfterMount + 1);
+    // No double-fetch, no refetch loop.
+    await flushPendingWork();
+    expect(state.queryCallCount).toBe(countAfterMount + 1);
   });
 
   test("a failed row-action write does not refetch the rows query", async () => {
-    capturedRowActions = undefined;
-    queryCallCount = 0;
-    writeIsSuccess = false;
+    const state = createStubState(false);
 
-    renderListScreen();
+    renderListScreen(state);
 
     await waitFor(() => {
-      expect(capturedRowActions).toBeDefined();
+      expect(state.capturedRowActions).toBeDefined();
     });
 
-    const countAfterMount = queryCallCount;
+    const countAfterMount = state.queryCallCount;
     expect(countAfterMount).toBeGreaterThan(0);
 
     await act(async () => {
       await expect(
-        requireArchiveAction().onTrigger({ id: "unit-1", values: { id: "unit-1" } }),
+        requireArchiveAction(state).onTrigger({ id: "unit-1", values: { id: "unit-1" } }),
       ).rejects.toThrow();
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(queryCallCount).toBe(countAfterMount);
+    await flushPendingWork();
+    expect(state.queryCallCount).toBe(countAfterMount);
   });
 });
 
@@ -230,7 +244,7 @@ const TestButton: ComponentType<ButtonProps> = ({ children, onClick, testId }) =
 const renderToolbarEnd: ComponentType<DataTableProps> = (props) => <>{props.toolbarEnd}</>;
 
 const toolbarTestPrimitives: CorePrimitives = {
-  ...testPrimitives,
+  ...baseTestPrimitives,
   Button: TestButton,
   DataTable: renderToolbarEnd,
 };
@@ -268,13 +282,13 @@ function buildToolbarSchema(): FeatureSchema {
   } as FeatureSchema;
 }
 
-function renderToolbarListScreen(): void {
+function renderToolbarListScreen(state: StubState): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "de-DE" })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
-      <DispatcherProvider dispatcher={stubDispatcher()}>
+      <DispatcherProvider dispatcher={stubDispatcher(state)}>
         <NavProvider
           value={{
             route: { screenId: "units:unit-list" },
@@ -296,25 +310,22 @@ function renderToolbarListScreen(): void {
 
 describe("entityList toolbarAction writeHandler refetches the rows query", () => {
   test("a successful toolbarAction write triggers exactly one refetch", async () => {
-    queryCallCount = 0;
-    writeIsSuccess = true;
+    const state = createStubState(true);
 
-    renderToolbarListScreen();
+    renderToolbarListScreen(state);
 
     const button = await waitFor(() => screen.getByTestId("render-list-toolbar-action-sync"));
-    const countAfterMount = queryCallCount;
+    const countAfterMount = state.queryCallCount;
     expect(countAfterMount).toBeGreaterThan(0);
 
     fireEvent.click(button);
 
     await waitFor(() => {
-      expect(queryCallCount).toBe(countAfterMount + 1);
+      expect(state.queryCallCount).toBe(countAfterMount + 1);
     });
 
-    // Give any accidental extra refetch a chance to land before asserting
-    // there wasn't one.
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(queryCallCount).toBe(countAfterMount + 1);
+    await flushPendingWork();
+    expect(state.queryCallCount).toBe(countAfterMount + 1);
   });
 });
 
@@ -343,13 +354,13 @@ function buildProjectionListSchema(): FeatureSchema {
   } as FeatureSchema;
 }
 
-function renderProjectionListScreen(): void {
+function renderProjectionListScreen(state: StubState): void {
   render(
     <LocaleProvider
       resolver={createStaticLocaleResolver({ locale: "de-DE" })}
       fallbackBundles={[kumikoDefaultTranslations]}
     >
-      <DispatcherProvider dispatcher={stubDispatcher()}>
+      <DispatcherProvider dispatcher={stubDispatcher(state)}>
         <NavProvider
           value={{
             route: { screenId: "units:unit-projection-list" },
@@ -360,7 +371,7 @@ function renderProjectionListScreen(): void {
             setSearchParams: () => {},
           }}
         >
-          <PrimitivesProvider value={testPrimitives}>
+          <PrimitivesProvider value={capturingPrimitives(state)}>
             <KumikoScreen
               schema={buildProjectionListSchema()}
               qn="units:screen:unit-projection-list"
@@ -374,28 +385,26 @@ function renderProjectionListScreen(): void {
 
 describe("projectionList row-action writeHandler refetches the rows query", () => {
   test("a successful row-action write triggers exactly one refetch", async () => {
-    capturedRowActions = undefined;
-    queryCallCount = 0;
-    writeIsSuccess = true;
+    const state = createStubState(true);
 
-    renderProjectionListScreen();
+    renderProjectionListScreen(state);
 
     await waitFor(() => {
-      expect(capturedRowActions).toBeDefined();
+      expect(state.capturedRowActions).toBeDefined();
     });
 
-    const countAfterMount = queryCallCount;
+    const countAfterMount = state.queryCallCount;
     expect(countAfterMount).toBeGreaterThan(0);
 
     await act(async () => {
-      await requireArchiveAction().onTrigger({ id: "unit-1", values: { id: "unit-1" } });
+      await requireArchiveAction(state).onTrigger({ id: "unit-1", values: { id: "unit-1" } });
     });
 
     await waitFor(() => {
-      expect(queryCallCount).toBe(countAfterMount + 1);
+      expect(state.queryCallCount).toBe(countAfterMount + 1);
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(queryCallCount).toBe(countAfterMount + 1);
+    await flushPendingWork();
+    expect(state.queryCallCount).toBe(countAfterMount + 1);
   });
 });
