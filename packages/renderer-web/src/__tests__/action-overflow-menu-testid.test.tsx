@@ -24,4 +24,12 @@ describe("ActionOverflowMenu item testId", () => {
     await userEvent.click(screen.getByTestId("custom-alpha"));
     expect(onSelect).toHaveBeenCalledTimes(1);
   });
+
+  test("the trigger shares the icon Button sizing, including the phone touch target", () => {
+    if (ActionOverflowMenu === undefined) throw new Error("ActionOverflowMenu primitive missing");
+    render(<ActionOverflowMenu label="More" items={[]} />);
+    const trigger = screen.getByTestId("action-overflow-menu-trigger");
+    expect(trigger.dataset["slot"]).toBe("button");
+    expect(trigger.className).toContain("max-md:size-11");
+  });
 });

@@ -2452,26 +2452,25 @@ function RowActionsKebab({
   );
 }
 
-// Header/row-actions overflow menu (A7) — same three-dots trigger style as
-// RowActionsKebab, generic ActionMenuItemSpec items instead of the
-// DataTableRowAction schema (callers own confirm/danger handling per item).
+// Header/row-actions overflow menu (A7): the trigger carries the classes of a
+// secondary icon Button so it matches neighbouring icon buttons, including
+// the 44 px touch size on phones. Generic ActionMenuItemSpec items instead of
+// the DataTableRowAction schema (callers own confirm/danger handling per item).
 function ActionOverflowMenu({ items, label, testId }: ActionOverflowMenuProps): ReactNode {
   const [open, setOpen] = useState(false);
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <button
+        <UiButton
           type="button"
+          variant="outline"
+          size="icon"
+          className="border-input hover:bg-muted"
           aria-label={label}
           data-testid={testId ?? "action-overflow-menu-trigger"}
-          className={cn(
-            "inline-flex size-9 items-center justify-center rounded-md border border-input bg-background shadow-xs",
-            "hover:bg-accent text-foreground",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-          )}
         >
           <MoreHorizontal className="size-4" aria-hidden="true" />
-        </button>
+        </UiButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {items.map((item: ActionMenuItemSpec) => {
