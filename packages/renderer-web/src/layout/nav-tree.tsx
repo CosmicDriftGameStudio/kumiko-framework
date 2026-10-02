@@ -500,7 +500,7 @@ function ActionGlyph({ icon }: { readonly icon: string }): ReactNode {
 
 // Boot validates screen XOR target for NavDefinition actions, but a
 // provider-emitted TreeNode reaches here without going through boot — warn
-// once per label instead of rendering a dead button (fw#2751 review).
+// once per label instead of rendering a dead button.
 const warnedTreeActionLabels = new Set<string>();
 
 function warnTreeActionDropped(label: string): void {

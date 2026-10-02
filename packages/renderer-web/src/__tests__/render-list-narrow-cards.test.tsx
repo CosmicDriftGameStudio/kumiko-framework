@@ -217,6 +217,28 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
+  test("a false boolean column with a non-boolean format spec still renders in card and table", () => {
+    const columns = [
+      { field: "name", label: "Name", type: "string", sortable: false },
+      {
+        field: "flag",
+        label: "Flag",
+        type: "boolean",
+        sortable: false,
+        renderer: { format: "enumOption", keyPrefix: "x:option:" },
+      },
+    ] as const;
+    const rows = [{ id: "a", values: { name: "A", flag: false } }];
+    withViewportWidth(500, () => {
+      render(<DataTable columns={columns} rows={rows} testId="t" />);
+      expect(screen.getByTestId("cell-a-flag").textContent).toBe("false");
+    });
+    withViewportWidth(1024, () => {
+      render(<DataTable columns={columns} rows={rows} testId="t2" />);
+      expect(screen.getAllByTestId("cell-a-flag").at(-1)?.textContent).toBe("false");
+    });
+  });
+
   test("a boolean column with its own trueLabel keeps it in the card subtitle", () => {
     withViewportWidth(500, () => {
       render(

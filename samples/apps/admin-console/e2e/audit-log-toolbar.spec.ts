@@ -1,4 +1,4 @@
-// fw#3116: the dateRange facet on the audit-log toolbar must not squeeze the
+// The dateRange facet on the audit-log toolbar must not squeeze the
 // search input below a usable width — it should wrap onto its own line once
 // the toolbar runs out of horizontal room.
 

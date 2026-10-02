@@ -225,8 +225,17 @@ function HeaderOverflow({
   }, [open]);
 
   const onPanelKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    // Opaque app headerActions (inputs, plain buttons) keep native Tab/arrow behaviour.
+    if (
+      !(event.target instanceof HTMLElement) ||
+      event.target.getAttribute("role") !== "menuitem"
+    ) {
+      return;
+    }
     if (event.key === "Tab") {
+      event.preventDefault();
       setOpen(false);
+      triggerRef.current?.focus();
       return;
     }
     if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;

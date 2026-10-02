@@ -4,9 +4,9 @@
 // jedem Browser, jede App kann lucide/heroicons/eigene SVG via Props
 // reinreichen.
 
-import { useOptionalTranslation, useTokenController } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useContext } from "react";
 import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header-overflow-menu.js";
+import { useThemeToggleLabel } from "./theme-label.js";
 
 export type ThemeToggleProps = {
   /** Icon für den hellen Modus (wird angezeigt WENN aktuell dark →
@@ -29,14 +29,8 @@ export function ThemeToggle({
   titleInLight,
   testId,
 }: ThemeToggleProps): ReactNode {
-  const { mode, toggleMode } = useTokenController();
   const inOverflowMenu = useContext(HeaderOverflowMenuContext);
-  // Optional: the toggle also renders outside a LocaleProvider (samples, tests).
-  const translate = useOptionalTranslation();
-  const isDark = mode === "dark";
-  const title = isDark
-    ? (titleInDark ?? translate?.("kumiko.theme.light") ?? "Light theme")
-    : (titleInLight ?? translate?.("kumiko.theme.dark") ?? "Dark theme");
+  const { isDark, title, toggleMode } = useThemeToggleLabel({ titleInDark, titleInLight });
   const icon = isDark ? lightIcon : darkIcon;
   if (inOverflowMenu) {
     return (
