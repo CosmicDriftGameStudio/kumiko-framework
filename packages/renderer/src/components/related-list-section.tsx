@@ -323,10 +323,9 @@ export function RelatedListSection({
   );
   const onFilterReset = useCallback(() => setFilters({}), []);
 
-  // Sorted client-side over the already-loaded rows — this section has no
-  // pager (see `payload` above: a one-shot fetch, no cursor/offset), so the
-  // loaded set already IS the full display set and there is no "other page"
-  // a client-side sort could misleadingly hide (fw#2722).
+  // Sorted client-side over the already-loaded rows only. The section has no
+  // pager (one-shot fetch); when that fetch is truncated (`nextCursor` set) the
+  // truncation banner below tells the user the sorted set is partial.
   const [sort, setSort] = useState<ListSort | null>(section.defaultSort ?? null);
   const sortAccessors = useMemo(() => {
     const accessors: Record<

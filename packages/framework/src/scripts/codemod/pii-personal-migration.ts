@@ -21,7 +21,9 @@
 // packages/types/src/fields.ts). Never guesses: anything outside this
 // table is reported (file:line) instead of transformed.
 //
-// Usage: bun scripts/codemod/pii-personal-migration.ts <targetDir> [--dry-run]
+// Usage: bun scripts/codemod/pii-personal-migration.ts <targetDir> [--dry-run | --report-stance]
+// --report-stance is read-only: it writes nothing and classifies fields
+// that carry no personal stance.
 
 import { readFileSync } from "node:fs";
 import { relative, resolve } from "node:path";
@@ -423,14 +425,12 @@ function applyTransform(
   obj.insertPropertyAssignments(insertIndex, newProps);
 }
 
-function findTargetFiles(rootDir: string): string[] {
+function findSourceFiles(rootDir: string, extraExcludes: readonly string[] = []): string[] {
   const glob = new Glob("**/*.{ts,tsx}");
-  // engine/factories.ts constructs raw ResolvedPiiFlags literals as the
-  // *implementation* of expandPersonalAnnotations (personal -> flags) —
-  // not an authored override, so it's not a migration target.
-  const EXCLUDE = ["/node_modules/", "/dist/", "/build/", "/engine/factories.ts"];
+  const EXCLUDE = ["/node_modules/", "/dist/", "/build/", ...extraExcludes];
   const files: string[] = [];
   for (const file of glob.scanSync({ cwd: rootDir, dot: false })) {
+    if (file.endsWith(".d.ts")) continue;
     const abs = resolve(rootDir, file);
     if (EXCLUDE.some((p) => abs.includes(p))) continue;
     files.push(abs);
@@ -666,19 +666,6 @@ function collectStanceSites(sourceFile: SourceFile): StanceSite[] {
   return sites;
 }
 
-function findReportStanceFiles(rootDir: string): string[] {
-  const glob = new Glob("**/*.{ts,tsx}");
-  const EXCLUDE = ["/node_modules/", "/dist/", "/build/"];
-  const files: string[] = [];
-  for (const file of glob.scanSync({ cwd: rootDir, dot: false })) {
-    if (file.endsWith(".d.ts")) continue;
-    const abs = resolve(rootDir, file);
-    if (EXCLUDE.some((p) => abs.includes(p))) continue;
-    files.push(abs);
-  }
-  return files.sort();
-}
-
 function formatHintSuffix(site: StanceSite): string {
   if (!site.hint) return "";
   return site.nearMissOf
@@ -701,7 +688,7 @@ function reportStance(rootDir: string): void {
   let total = 0;
 
   const project = createReportStanceProject();
-  for (const file of findReportStanceFiles(rootDir)) {
+  for (const file of findSourceFiles(rootDir)) {
     const sites = reportStanceForSource(readFileSync(file, "utf8"), file, project);
     if (sites.length === 0) continue;
 
@@ -741,7 +728,10 @@ async function main(): Promise<void> {
   }
 
   const dryRun = process.argv.includes("--dry-run");
-  const files = findTargetFiles(rootDir);
+  // engine/factories.ts constructs raw ResolvedPiiFlags literals as the
+  // *implementation* of expandPersonalAnnotations (personal -> flags) —
+  // not an authored override, so it's not a migration target.
+  const files = findSourceFiles(rootDir, ["/engine/factories.ts"]);
   const project = new Project({
     skipAddingFilesFromTsConfig: true,
     skipFileDependencyResolution: true,

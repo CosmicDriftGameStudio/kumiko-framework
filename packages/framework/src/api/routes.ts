@@ -357,7 +357,7 @@ function clientFaultLoggingEnabled(): boolean {
 }
 
 // A failing request must leave a trace even when it ends in 4xx — a paid
-// external call that 422s was invisible before (offlot#117). Status, error
+// external call that 422s was invisible before. Status, error
 // code and duration only: message/details/stack can carry submitted values.
 function logClientWarn(
   message: string,

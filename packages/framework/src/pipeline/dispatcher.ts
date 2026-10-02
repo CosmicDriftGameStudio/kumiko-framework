@@ -200,7 +200,7 @@ export function createDispatcher(
       context.log?.warn(DEPRECATED_CROSS_TENANT_SIGNAL, {
         handler: def.name,
         migration:
-          'replace crossTenant: true with escapeHatch: { reason: "<why this operator handler reads/writes every tenant>" } (bun scripts/codemod/migrate-cross-tenant.ts)',
+          'replace crossTenant: true with escapeHatch: { reason: "<why this operator handler reads/writes every tenant>" } (bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts)',
       });
     }
   }

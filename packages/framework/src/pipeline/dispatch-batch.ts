@@ -49,8 +49,8 @@ export async function runBatch(
   if (!current?.signal) {
     return runBatchBody(ctx, commands, user, requestId, inheritedOrigin);
   }
-  // Strip the signal: a disconnect would roll back the tx, idempotency would
-  // cache a 500 for the uncommitted write and afterCommit effects would be lost.
+  // Strip the signal: a client disconnect must not roll back a write whose
+  // afterCommit effects would then be lost.
   const { signal: _signal, ...withoutSignal } = current;
   return requestContext.run(withoutSignal, () =>
     runBatchBody(ctx, commands, user, requestId, inheritedOrigin),

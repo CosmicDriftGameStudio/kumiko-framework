@@ -151,7 +151,6 @@ export const NAV_ICONS = {
   download: Download,
   upload: Upload,
   rocket: Rocket,
-  // Was imported but never registered — `icon: "plus"` silently fell back.
   plus: Plus,
   languages: Languages,
   trash: Trash2,

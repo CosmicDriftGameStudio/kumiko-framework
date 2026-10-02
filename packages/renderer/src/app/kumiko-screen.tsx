@@ -1791,9 +1791,10 @@ function DrawerHost({
     else closeAndReset();
   }, [hasUnsavedInput, closeAndReset]);
   // Drawer is an optional Core-Primitive (additive rollout) — same "skip +
-  // warn once" precedent as rowActions without a mounted DispatcherProvider
-  // above, instead of crashing when a web app hasn't upgraded its
-  // createKumikoApp wiring yet.
+  // warn" precedent as rowActions without a mounted DispatcherProvider above,
+  // instead of crashing when a web app hasn't upgraded its createKumikoApp
+  // wiring yet. The warning repeats per mount and whenever the action changes.
+  // Dev-time setup error, so no dedupe.
   useEffect(() => {
     if (drawerAction !== null && Drawer === undefined) {
       // biome-ignore lint/suspicious/noConsole: dev-warning for a setup error

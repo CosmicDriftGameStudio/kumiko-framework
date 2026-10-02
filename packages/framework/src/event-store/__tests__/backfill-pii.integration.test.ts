@@ -666,7 +666,7 @@ describe("backfillEventPiiEncryption: owner-resolution chain (fw#2266)", () => {
   });
 });
 
-// fw#2790 — "Altbestand: Freitext-Klartext in kumiko_events". #2596 added
+// fw#2790 — "Altbestand: Freitext-Klartext in kumiko_events". fw#2786 added
 // the recordOwned ("record") subject kind for row-scoped free text with no
 // user/tenant owner. Nothing in this file's resolution path (subject-
 // resolver.ts / pii-field-encryption.ts) special-cases subject kind, so the

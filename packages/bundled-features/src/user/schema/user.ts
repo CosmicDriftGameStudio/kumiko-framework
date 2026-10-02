@@ -91,12 +91,13 @@ export const userEntity = createEntity({
     // login-critical read stays raw, so verifyPassword would compare a
     // plaintext password against ciphertext and every login would fail once
     // a KMS is active. Already an irreversible one-way hash, access-gated to
-    // privileged read/write — see PR body "Offene Fragen".
+    // privileged read/write. Needs a blind-index lookup before this can be
+    // subject-encrypted.
     passwordHash: createTextField({
       maxLength: 255,
       access: { read: access.privileged, write: access.privileged },
       personal: false,
-      reason: "credential_hash_read_without_decrypt_2809",
+      reason: "credential_hash_read_without_decrypt",
     }),
 
     // Profile — user-editable. Real name in most apps → PII. Searchable via

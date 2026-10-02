@@ -133,6 +133,7 @@ binding that feature code cannot import.
 | Identity-switch `queryAs` / `writeAs` | Call | Runs the call as a different, resolved `SessionUser` — cross-tenant only if that user's own roles allow it | No (gated by the target user's own access, not a reason) | Acting on behalf of a specific other user rather than lifting the tenant filter itself |
 | `escapeHatch: { reason }` on the entity-convention handlers (`defineEntity*Handler` / `registerEntityCrud` write/read) | Handler | One convention handler gets a system-mode `TenantDb`; write verbs address the target row's own tenant stream; does NOT grant `unsafeRaw` / `db.global` writes / identity switch | Yes — reported as `acknowledge-cross-tenant` | An operator (e.g. `SystemAdmin`) write/read on one entity-convention handler that must reach rows in any tenant |
 | `ctx.queryProjection(qn, { unsafeAllTenants: true })` | Call | Lifts the `tenant_id` filter on that one projection query | No — today ungated beyond the caller's own access (tracked as a follow-up issue) | A query handler that must aggregate a projection across every tenant |
+| `r.step.read.findOne` / `r.step.read.findMany` with `unsafeAllTenants: { reason }` | Step | Reads through `ctx.systemDb.unsafeRaw(reason)` in an `r.systemScope()` feature, otherwise `ctx.db.unsafeRaw(reason)`, which needs the handler's own `escapeHatch: { reason }`. Reported as an `"unsafe-raw"` audit event | Yes — a `{ reason }` object, not a boolean | A declarative handler step that must read rows across tenants; without it the step is tenant-filtered like `ctx.db` |
 | Jobs, extension hooks, MSP `apply` | Framework-provided | A `DbRunner`/`TenantDb` handed in by construction — there is no `ctx.db.raw` to reach for | N/A | Framework-internal call sites only; feature code never resolves this itself |
 
 `ctx.systemDb` itself exists whenever the *handler* declares `r.systemScope()`.
@@ -150,7 +151,9 @@ from `unsafeRaw`, even though `ctx.systemDb` is present and
 works, but boot now logs a `deprecation:entity-handler-cross-tenant` warning
 per handler, and its use is audited the same way as `escapeHatch` (also
 `acknowledge-cross-tenant`). It is scheduled for removal in a later breaking
-release. Migrate with `scripts/codemod/migrate-cross-tenant.ts`, which
+release. Migrate with
+`bun node_modules/@cosmicdrift/kumiko-framework/src/scripts/codemod/migrate-cross-tenant.ts`
+(from a consumer repo), which
 rewrites the call shapes it can derive a handler name and verb from and lists
 the rest for manual review.
 

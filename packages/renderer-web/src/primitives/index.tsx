@@ -4031,8 +4031,9 @@ function DefaultForm({
   }
 
   // One card form: title as header (no divider under it), sections divided
-  // between each other, muted action footer. Shell width defaults to full
-  // (same chrome as lists); pass width to narrow (auth-adjacent / dense).
+  // between each other, muted action footer. Shell width comes from
+  // FormScreenShell (layout.width, else the app-wide screenWidth default, else
+  // 4xl).
   return (
     <FormRoot
       onSubmit={onSubmit}

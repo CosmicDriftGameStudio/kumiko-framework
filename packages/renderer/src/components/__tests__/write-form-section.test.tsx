@@ -51,7 +51,7 @@ const testBanner: ComponentType<BannerProps> = ({ children, testId }) => (
 );
 
 // Mirrors DefaultSection's real actions slot closely enough to let tests
-// assert the submit button lands in the footer, not the body (fw#2675).
+// assert the submit button lands in the footer, not the body.
 // Also renders subtitle into the DOM (like DefaultSection's own subtitle
 // slot) so description-passthrough tests prove real render output, not just
 // a captured prop.
