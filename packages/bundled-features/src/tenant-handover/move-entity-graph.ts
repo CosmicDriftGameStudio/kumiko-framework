@@ -269,7 +269,9 @@ export async function moveTransferGraph(args: {
   ];
 
   for (let round = 0; round < MAX_TRANSFER_DEPTH && pending.length > 0; round++) {
-    const discovered: { entityName: string; rowIds: readonly string[] }[] = [];
+    // Merged per type so an edge leaving a type runs once per round, not once
+    // per edge that reached it.
+    const discovered = new Map<string, string[]>();
 
     for (const { entityName, rowIds } of pending) {
       for (const edge of adjacency.get(entityName) ?? []) {
@@ -300,7 +302,12 @@ export async function moveTransferGraph(args: {
         // (`note.vehicleId` and `note.campaignId`), and assigning would drop the
         // earlier count.
         movedCounts[edge.entityName] = (movedCounts[edge.entityName] ?? 0) + childIds.length;
-        discovered.push({ entityName: edge.entityName, rowIds: childIds });
+        const discoveredIds = discovered.get(edge.entityName);
+        if (discoveredIds === undefined) {
+          discovered.set(edge.entityName, [...childIds]);
+        } else {
+          discoveredIds.push(...childIds);
+        }
 
         await transferAggregateStreams(db, {
           aggregateType: edge.entityName,
@@ -323,7 +330,7 @@ export async function moveTransferGraph(args: {
       }
     }
 
-    pending = discovered;
+    pending = [...discovered].map(([entityName, rowIds]) => ({ entityName, rowIds }));
   }
 
   // The depth limit is a safety net, not a licence to move part of a graph: if

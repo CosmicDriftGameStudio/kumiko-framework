@@ -140,6 +140,16 @@ async function backdateFileRef(storageKey: string, daysAgo: number): Promise<voi
   );
 }
 
+async function seedReleaseSentinel(name: string, daysAgo = 31): Promise<string> {
+  const storageKey = `tenant-a/vehicle/${name}-sentinel.jpg`;
+  await providerA.write(storageKey, new Uint8Array([7]), "image/jpeg");
+  await seedFileRef(storageKey);
+  const draftKey = `wizard:stale-${name}-sentinel`;
+  await saveDraft(draftKey, { photo: fileRefPointer(storageKey) });
+  await backdate(draftKey, daysAgo);
+  return storageKey;
+}
+
 async function draftExists(draftKey: string): Promise<boolean> {
   const rows = await asRawClient(stack.db).unsafe(
     "SELECT 1 FROM read_form_drafts WHERE draft_key = $1",
@@ -292,11 +302,7 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     // Release sentinel: backdated less than the forged row, so it is released
     // after it (oldest-first, sequential) — its release proves the forged
     // row's release turn already ran and did nothing.
-    const sentinelKey = "tenant-a/vehicle/forged-sentinel.jpg";
-    await providerA.write(sentinelKey, new Uint8Array([7]), "image/jpeg");
-    await seedFileRef(sentinelKey);
-    await saveDraft("wizard:stale-forged-sentinel", { photo: fileRefPointer(sentinelKey) });
-    await backdate("wizard:stale-forged-sentinel", 31);
+    const sentinelKey = await seedReleaseSentinel("forged");
 
     await dispatchCleanup();
 
@@ -321,11 +327,7 @@ describe("form-draft cleanup job — FileRef release (#1915)", () => {
     await backdate("wizard:stale-with-prefilled-photo", 40);
 
     // Release sentinel — see the forged-draft-value test above.
-    const sentinelKey = "tenant-a/vehicle/prefilled-sentinel.jpg";
-    await providerA.write(sentinelKey, new Uint8Array([7]), "image/jpeg");
-    await seedFileRef(sentinelKey);
-    await saveDraft("wizard:stale-with-prefilled-sentinel", { photo: fileRefPointer(sentinelKey) });
-    await backdate("wizard:stale-with-prefilled-sentinel", 31);
+    const sentinelKey = await seedReleaseSentinel("with-prefilled");
 
     await dispatchCleanup();
 

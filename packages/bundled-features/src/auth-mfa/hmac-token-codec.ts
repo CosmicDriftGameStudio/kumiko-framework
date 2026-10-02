@@ -17,13 +17,15 @@ export function createHmacTokenCodec<
 >(domain: string, isPayload: (value: unknown) => value is TPayload) {
   type EncodedBody = TPayload & { readonly expiresAtMs: number };
 
-  function isEncodedBody(value: unknown): value is EncodedBody {
-    if (typeof value !== "object" || value === null) return false;
+  function splitEncodedBody(
+    value: unknown,
+  ): { readonly payload: TPayload; readonly expiresAtMs: number } | null {
+    if (typeof value !== "object" || value === null) return null;
     const v = value as Record<string, unknown>;
     const expiresAtMs = v["expiresAtMs"];
-    if (typeof expiresAtMs !== "number") return false;
+    if (typeof expiresAtMs !== "number") return null;
     const { expiresAtMs: _drop, ...rest } = v;
-    return isPayload(rest);
+    return isPayload(rest) ? { payload: rest, expiresAtMs } : null;
   }
 
   return {
@@ -62,17 +64,16 @@ export function createHmacTokenCodec<
       } catch {
         return { ok: false, reason: "malformed" };
       }
-      if (!isEncodedBody(parsed)) return { ok: false, reason: "malformed" };
+      const body = splitEncodedBody(parsed);
+      if (!body) return { ok: false, reason: "malformed" };
 
       if (
-        Temporal.Instant.compare(now, Temporal.Instant.fromEpochMilliseconds(parsed.expiresAtMs)) >
-        0
+        Temporal.Instant.compare(now, Temporal.Instant.fromEpochMilliseconds(body.expiresAtMs)) > 0
       ) {
         return { ok: false, reason: "expired" };
       }
 
-      const { expiresAtMs, ...payload } = parsed;
-      return { ok: true, payload: payload as unknown as TPayload, expiresAtMs };
+      return { ok: true, payload: body.payload, expiresAtMs: body.expiresAtMs };
     },
   };
 }
