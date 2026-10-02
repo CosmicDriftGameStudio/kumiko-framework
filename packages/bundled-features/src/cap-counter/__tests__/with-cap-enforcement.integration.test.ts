@@ -25,8 +25,8 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
-import { bookCapUsage, readRollingCapUsage } from "../book-cap-usage.js";
-import { CapCounterQueries } from "../constants.js";
+import { bookCapUsage, markCapSoftWarned, readRollingCapUsage } from "../book-cap-usage.js";
+import { CapCounterHandlers, CapCounterQueries } from "../constants.js";
 import type { SoftHitNotifier } from "../enforce-cap.js";
 import { capCounterEntity } from "../entity.js";
 import { capCounterFeature } from "../feature.js";
@@ -166,7 +166,20 @@ const bookCapUsageOutsideTxHandler: WriteHandlerDef = {
     }),
 };
 
+const PARALLEL_SOFT_WARN_CAP_NAME = "parallel-soft-warn-cap";
+const markCapSoftWarnedHandler: WriteHandlerDef = {
+  name: "mark-cap-soft-warned",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: (_event, ctx) =>
+    markCapSoftWarned(ctx, {
+      capName: PARALLEL_SOFT_WARN_CAP_NAME,
+      periodStartIso: TENANT_ONLY_PERIOD,
+    }),
+};
+
 const BOOK_CAP_USAGE_IN_TX_QN = "newsletter:write:book-cap-usage-in-tx";
+const MARK_CAP_SOFT_WARNED_QN = "newsletter:write:mark-cap-soft-warned";
 const BOOK_CAP_USAGE_OUTSIDE_TX_QN = "newsletter:write:book-cap-usage-outside-tx";
 
 const newsletterFeature = defineFeature("newsletter", (r) => {
@@ -176,6 +189,7 @@ const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(bookOutsideTxThenFailHandler);
   r.writeHandler(bookCapUsageInTxHandler);
   r.writeHandler(bookCapUsageOutsideTxHandler);
+  r.writeHandler(markCapSoftWarnedHandler);
 });
 
 // =============================================================================
@@ -510,5 +524,30 @@ describe("bookCapUsage — parallel bookings for the same period", () => {
       TENANT_ONLY_PERIOD,
     );
     expect(afterUpdateRace!["value"]).toBe(PARALLEL_BOOKINGS * 2);
+  });
+});
+
+describe("markCapSoftWarned - parallel marks on an existing counter", () => {
+  test("N concurrent marks all succeed and lastSoftWarnedAt is set", async () => {
+    const user = tenantAdminOnlyFor(2603);
+    await stack.http.writeOk(
+      CapCounterHandlers.increment,
+      { capName: PARALLEL_SOFT_WARN_CAP_NAME, periodStartIso: TENANT_ONLY_PERIOD },
+      adminFor(2603),
+    );
+    expect(
+      (await readCounter(user, PARALLEL_SOFT_WARN_CAP_NAME, TENANT_ONLY_PERIOD))?.[
+        "lastSoftWarnedAt"
+      ],
+    ).toBeNull();
+
+    await Promise.all(
+      Array.from({ length: PARALLEL_BOOKINGS }, () =>
+        stack.http.writeOk(MARK_CAP_SOFT_WARNED_QN, {}, user),
+      ),
+    );
+
+    const counter = await readCounter(user, PARALLEL_SOFT_WARN_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(counter?.["lastSoftWarnedAt"]).not.toBeNull();
   });
 });
