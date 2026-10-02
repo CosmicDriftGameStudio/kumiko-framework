@@ -682,4 +682,25 @@ describe("multi-instance cache-sync via toggle-cache-sync MSP", () => {
     await stack.eventDispatcher?.runOnce();
     expect(runtime.effectiveFeatures().has("widget")).toBe(false);
   });
+
+  test("a flip signalled while the initial snapshot load is in flight is not overwritten by the older DB read", async () => {
+    let deliver: ((featureName: string, enabled: boolean) => void) | undefined;
+    const capturingSignal = {
+      publish() {},
+      onMessage(listener: (featureName: string, enabled: boolean) => void) {
+        deliver = listener;
+      },
+    };
+    const baseline = new GlobalFeatureToggleRuntime(stack.db, stack.registry);
+    await baseline.initialize();
+    const flipTo = !(baseline.readOverride("widget") ?? true);
+
+    const runtime = new GlobalFeatureToggleRuntime(stack.db, stack.registry, capturingSignal);
+    const loading = runtime.initialize();
+    // The SELECT is already issued but unresolved here: this flip is newer than its rows.
+    deliver?.("widget", flipTo);
+    await loading;
+
+    expect(runtime.readOverride("widget")).toBe(flipTo);
+  });
 });

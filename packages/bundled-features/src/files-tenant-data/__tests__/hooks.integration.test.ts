@@ -15,6 +15,7 @@ import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-fr
 import {
   createSystemUser,
   type EntityId,
+  type JobContext,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { append, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
@@ -34,6 +35,7 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import {
+  bridgeStub,
   createTestEnvelopeCipher,
   resetTestTables,
   updateRows,
@@ -183,14 +185,49 @@ async function driveDestructionToCompletion(
 }
 
 describe("files-tenant-data :: job registration", () => {
-  test("registers sweepOrphanedDerivativesJob as files-tenant-data:job:sweep-orphaned-derivatives — the name jobs:write:trigger dispatches by", () => {
+  test("registers a handler under files-tenant-data:job:sweep-orphaned-derivatives — the name jobs:write:trigger dispatches by — that actually runs the sweep", async () => {
     const job = stack.registry.getJob(SWEEP_JOB);
     expect(job).toBeDefined();
-    expect(typeof job?.handler).toBe("function");
-    expect(job?.escapeHatch?.reason).toBe(
-      "iterates every tenant and checks fileRef owners per tenant",
-    );
     expect(job?.trigger).toEqual({ manual: true });
+
+    await seedTenant(tenantA);
+    const original = buildStorageKey(tenantA.tenantId, "fileRef", 1, "attachment", "a.jpg", "u1");
+    const lastDot = original.lastIndexOf(".");
+    const orphan = `${original.slice(0, lastDot)}.thumb-0123456789abcdef${original.slice(lastDot)}`;
+    await provider.write(orphan, new Uint8Array([1]));
+
+    const infoLines: string[] = [];
+    const log: JobContext["log"] = {
+      info(message: string) {
+        infoLines.push(message);
+      },
+      warn() {},
+      error() {},
+      debug() {},
+      child() {
+        return log;
+      },
+    };
+    const ctx: JobContext = {
+      db: createTenantDb(stack.db, tenantA.tenantId, "tenant", undefined, undefined, undefined, {
+        unsafeRaw: job?.escapeHatch,
+      }),
+      registry: stack.registry,
+      systemUser: tenantA,
+      log,
+      triggeredBy: null,
+      attempt: 1,
+      finalAttempt: true,
+      _fileProviderResolver: async () => provider,
+      ...bridgeStub(),
+    };
+
+    await job?.handler({}, ctx);
+
+    expect(await provider.exists(orphan)).toBe(false);
+    expect(infoLines.some((line) => line.includes("[files-tenant-data:sweep] complete"))).toBe(
+      true,
+    );
   });
 });
 

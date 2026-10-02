@@ -89,6 +89,26 @@ describe("jobs:job:stale-run-sweep", () => {
     expect(row?.error).toBe(STALE_JOB_RUN_ERROR);
   });
 
+  test("several stale rows are all marked failed in one sweep, fresh ones stay running", async () => {
+    stack = await bootStack();
+    const staleIds = [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+    ];
+    const freshId = "44444444-4444-4444-8444-444444444444";
+    for (const id of staleIds) {
+      await seedRun({ id, status: "running", ageHours: DEFAULT_JOB_RUN_STALE_TIMEOUT_HOURS + 1 });
+    }
+    await seedRun({ id: freshId, status: "running", ageHours: 0 });
+
+    await currentStack().jobRunner?.dispatch(SWEEP_JOB);
+    await waitFor(async () => {
+      for (const id of staleIds) expect(await statusOf(id)).toBe("failed");
+    });
+    expect(await statusOf(freshId)).toBe("running");
+  });
+
   test("a running row still within the timeout is left running, untouched", async () => {
     stack = await bootStack();
     const staleId = "22222222-2222-4222-8222-222222222222";

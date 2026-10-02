@@ -278,4 +278,53 @@ describe("sweepOrphanedDerivativesJob", () => {
 
     expect(await provider.exists(original)).toBe(true);
   });
+
+  test("a tenant whose resolver or provider.list() throws is skipped; other tenants are still swept", async () => {
+    await seedTenant(tenantA);
+    await seedTenant(tenantB);
+    const original = (tenantId: TenantId) =>
+      buildStorageKey(tenantId, "fileRef", 1, "attachment", "x.jpg", "u1");
+    const orphanA = derivativeOf(original(tenantA.tenantId));
+    const orphanB = derivativeOf(original(tenantB.tenantId));
+    await provider.write(orphanA, new Uint8Array([1]));
+    await provider.write(orphanB, new Uint8Array([2]));
+
+    const failingList = new Proxy(provider, {
+      get(target, prop) {
+        if (prop === "list") {
+          return async () => {
+            throw new Error("list boom");
+          };
+        }
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+
+    // Resolver throws for A, B is healthy.
+    await expect(
+      sweepOrphanedDerivativesJob(
+        {},
+        makeCtx(async (tenantId) => {
+          if (tenantId === tenantA.tenantId) throw new Error("no provider config");
+          return provider;
+        }),
+        stack.db,
+      ),
+    ).resolves.toBeUndefined();
+    expect(await provider.exists(orphanA)).toBe(true);
+    expect(await provider.exists(orphanB)).toBe(false);
+
+    // provider.list() throws for A, B is healthy again.
+    await provider.write(orphanB, new Uint8Array([2]));
+    await expect(
+      sweepOrphanedDerivativesJob(
+        {},
+        makeCtx(async (tenantId) => (tenantId === tenantA.tenantId ? failingList : provider)),
+        stack.db,
+      ),
+    ).resolves.toBeUndefined();
+    expect(await provider.exists(orphanA)).toBe(true);
+    expect(await provider.exists(orphanB)).toBe(false);
+  });
 });

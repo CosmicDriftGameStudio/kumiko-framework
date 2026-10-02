@@ -39,7 +39,7 @@ describe("file-derivatives :: publicVariant query fileRefId validation", () => {
   });
 
   afterEach(async () => {
-    await stack.cleanup();
+    await stack?.cleanup();
   });
 
   test("non-UUID fileRefId via /api/query → 400 validation_error, never reaches the DB", async () => {

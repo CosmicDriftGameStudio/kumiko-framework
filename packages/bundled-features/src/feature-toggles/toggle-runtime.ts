@@ -30,6 +30,9 @@ export type ToggleSyncSignal = {
 // per-instance behavior for the only process there is.
 export class GlobalFeatureToggleRuntime {
   private snapshot = new Map<string, boolean>();
+  // Flips applied while a snapshot load is in flight. The load's SELECT may have
+  // started before the flip committed, so its rows can be older than these.
+  private appliedDuringLoad: Map<string, boolean> | undefined;
 
   constructor(
     private readonly db: DbConnection,
@@ -47,8 +50,17 @@ export class GlobalFeatureToggleRuntime {
 
   async initialize(): Promise<void> {
     type Row = { featureName: string; enabled: boolean };
-    const rows = await selectMany<Row>(this.db, globalFeatureStateTable);
-    this.snapshot = new Map(rows.map((r) => [r.featureName, r.enabled]));
+    const pendingFlips = new Map<string, boolean>();
+    this.appliedDuringLoad = pendingFlips;
+    try {
+      const rows = await selectMany<Row>(this.db, globalFeatureStateTable);
+      this.snapshot = new Map([
+        ...rows.map((r): [string, boolean] => [r.featureName, r.enabled]),
+        ...pendingFlips,
+      ]);
+    } finally {
+      this.appliedDuringLoad = undefined;
+    }
   }
 
   // Re-read the full snapshot. Called from the set-handler after a
@@ -65,6 +77,7 @@ export class GlobalFeatureToggleRuntime {
   // lock. Kept alongside refresh() so both options are explicit.
   apply(featureName: string, enabled: boolean): void {
     this.snapshot.set(featureName, enabled);
+    this.appliedDuringLoad?.set(featureName, enabled);
   }
 
   // Called by the toggle-cache-sync MSP handler (feature.ts) — the one

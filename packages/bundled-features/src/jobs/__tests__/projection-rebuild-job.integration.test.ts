@@ -227,4 +227,17 @@ describe("projection-rebuild job (jobs feature composed)", () => {
     );
     expect(status).toBe("completed");
   }, 30000);
+
+  test("enqueueProjectionRebuild without a jobRunner rebuilds a multi-stream projection inline", async () => {
+    await executor.create({ groupId: GROUP, name: "msp-inline" }, admin, tdb);
+    await asRawClient(db).unsafe('DELETE FROM "read_rebuild_msp_names"');
+    expect(await selectMany(db, itemNamesTable)).toHaveLength(0);
+
+    const outcome = await enqueueProjectionRebuild(MSP_PROJECTION, { db, registry });
+    if (outcome.mode !== "inline") throw new Error(`expected inline, got ${outcome.mode}`);
+
+    expect(outcome.result.eventsProcessed).toBeGreaterThan(0);
+    const names = (await selectMany<{ name: string }>(db, itemNamesTable)).map((r) => r.name);
+    expect(names).toContain("msp-inline");
+  });
 });
