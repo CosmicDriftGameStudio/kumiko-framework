@@ -686,6 +686,7 @@ async function growViewportToContent(page: Page, name: string, width: number): P
       measurement.documentDeficit,
       ...measurement.containers.filter(([index]) => !ignored.has(index)).map(([, d]) => d),
     );
+    // skip: everything fits, no further growth needed
     if (deficit === 0) return;
     if (round === CONTENT_FIT_MAX_ROUNDS) {
       throw new Error(
