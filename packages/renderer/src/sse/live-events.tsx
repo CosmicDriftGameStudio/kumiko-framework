@@ -12,13 +12,15 @@
 
 import { createContext, type ReactNode, useContext } from "react";
 
+// Signal only: the server sends no field values over /api/sse — consumers
+// refetch via query, which runs its own access check.
 export type LiveEvent = {
   readonly type: string;
   readonly data: {
     readonly id: string;
     readonly aggregateType: string;
+    readonly eventType: string;
     readonly version: number;
-    readonly payload: unknown;
     readonly createdAt: string;
   };
 };

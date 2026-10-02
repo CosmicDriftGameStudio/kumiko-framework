@@ -83,7 +83,7 @@ describe("useQuery live-mode", () => {
         id: "t1",
         aggregateType: "task",
         version: 1,
-        payload: {},
+        eventType: "updated",
         createdAt: "",
       });
     });
@@ -111,7 +111,7 @@ describe("useQuery live-mode", () => {
       id: "t1",
       aggregateType: "task",
       version: 1,
-      payload: {},
+      eventType: "updated",
       createdAt: "",
     });
 
@@ -141,7 +141,7 @@ describe("useQuery live-mode", () => {
       id: "n1",
       aggregateType: "note",
       version: 1,
-      payload: {},
+      eventType: "updated",
       createdAt: "",
     });
 

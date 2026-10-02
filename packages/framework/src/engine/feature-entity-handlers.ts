@@ -212,6 +212,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         access: AccessRule;
         rateLimit?: RateLimitDeclaration;
         outputSchema?: ZodType;
+        liveEntities?: readonly string[];
         description?: string;
         agent?: AgentHandlerHints;
         escapeHatch?: EscapeHatchDeclaration;
@@ -229,6 +230,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...agentSlots(def),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.outputSchema && { outputSchema: def.outputSchema }),
+          ...(def.liveEntities && { liveEntities: def.liveEntities }),
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
           // Carry the definePagedQueryHandler brand through — this rebuild
           // drops any field not explicitly listed.
@@ -250,6 +252,7 @@ export function buildEntityHandlerMethods<TName extends string>(
         ...agentSlots(inline.options),
         ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
         ...(inline.options.outputSchema && { outputSchema: inline.options.outputSchema }),
+        ...(inline.options.liveEntities && { liveEntities: inline.options.liveEntities }),
         ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
       };
       tryMapEntity(state, name, nameOrDef);

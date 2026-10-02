@@ -425,9 +425,11 @@ describe("full stack: lifecycle pipeline — system hooks fire", () => {
 
     const updateEvent = stack.events.sse.find((e) => e.type === "user.updated");
     expect(updateEvent).toBeDefined();
-    // Shape carries the full event.payload (changes + previous) under data.payload.
-    const payload = updateEvent!.data["payload"] as { changes: { firstName: string } };
-    expect(payload.changes).toEqual({ firstName: "SSE" });
+    // Signal only: no field values (payload) travel through the broker.
+    expect(updateEvent!.data).not.toHaveProperty("payload");
+    expect(updateEvent!.data["id"]).toBe(created["id"]);
+    expect(updateEvent!.data["aggregateType"]).toBe("user");
+    expect(updateEvent!.data["version"]).toBe(2);
   });
 
   test("search index updated via async event-dispatcher after create", async () => {

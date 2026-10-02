@@ -483,6 +483,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
       access: AccessRule;
       rateLimit?: RateLimitDeclaration;
       outputSchema?: ZodType;
+      liveEntities?: readonly string[];
       description?: string;
       agent?: AgentHandlerHints;
       escapeHatch?: EscapeHatchDeclaration;

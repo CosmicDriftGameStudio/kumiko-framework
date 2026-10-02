@@ -6,7 +6,11 @@ import { buildAppSchema } from "../engine/build-app-schema.js";
 import { EXT_FILE_PROVIDER, EXT_PRINCIPAL_STATUS } from "../engine/extension-names.js";
 import { projectAppSchemaForRoles } from "../engine/project-app-schema-for-roles.js";
 import { runsInLane } from "../engine/run-in.js";
-import { ANONYMOUS_ROLE, createAnonymousUser, createSystemUser } from "../engine/system-user.js";
+import {
+  createAnonymousUser,
+  createSystemUser,
+  isAnonymousSessionUser,
+} from "../engine/system-user.js";
 import {
   type AppContext,
   type HttpRouteMethod,
@@ -59,6 +63,7 @@ import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-confi
 import type { SearchAdapter } from "../search/types.js";
 import type { AppSchema } from "../ui-types/app-schema.js";
 import { assertUnreachable, generateId } from "../utils/index.js";
+import { collectAnonymousLiveEntities } from "./anonymous-live-entities.js";
 import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants.js";
 import {
   type AnonymousAccessResolved,
@@ -907,7 +912,12 @@ export function buildServer(options: ServerOptions): KumikoServer {
       ...(options.sseHeartbeatMs !== undefined ? { sseHeartbeatMs: options.sseHeartbeatMs } : {}),
     }),
   );
-  app.route("/api", createSseRoute(sseBroker));
+  app.route(
+    "/api",
+    createSseRoute(sseBroker, {
+      anonymousLiveEntities: collectAnonymousLiveEntities(options.registry),
+    }),
+  );
 
   // GET /api/schema — the only way a client obtains the AppSchema. Behind
   // jwtGuard (NON_PUBLIC_API_PATHS), so anonymousAccess's synthesised user
@@ -1261,7 +1271,7 @@ function makeAnonymousWrite(
 // real, signed-in principal and reject the synthesised anonymousAccess user
 // (SessionUser.roles includes ANONYMOUS_ROLE) the same way.
 function isMissingOrAnonymousUser(user: SessionUser | undefined): boolean {
-  return !user || user.roles.includes(ANONYMOUS_ROLE);
+  return !user || isAnonymousSessionUser(user);
 }
 
 function unauthenticatedResponse(c: import("hono").Context): Response {

@@ -53,7 +53,7 @@ function entityEvent(overrides: Partial<LiveEvent["data"]> = {}): LiveEvent["dat
     id: "e1",
     aggregateType: "invoice",
     version: 1,
-    payload: {},
+    eventType: "updated",
     createdAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   };
@@ -71,11 +71,13 @@ describe("createEventSourceLiveEvents", () => {
     // business verb like "archived" or the auto-verb "forgotten" never
     // needed its own listener because no verb-specific listener exists.
     source?.dispatch("invoice", entityEvent({ id: "archived-1" }));
-    source?.dispatch("invoice", entityEvent({ id: "forgotten-1" }));
+    source?.dispatch("invoice", entityEvent({ id: "forgotten-1", eventType: "invoice.forgotten" }));
 
     expect(received).toHaveLength(2);
     expect(received[0]?.type).toBe("invoice");
     expect(received[1]?.data.id).toBe("forgotten-1");
+    expect(received[1]?.data.eventType).toBe("invoice.forgotten");
+    expect(received[1]?.data).not.toHaveProperty("payload");
 
     unsubscribe();
   });

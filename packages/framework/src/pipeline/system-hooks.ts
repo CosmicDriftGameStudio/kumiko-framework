@@ -465,19 +465,17 @@ export async function buildSearchDocument(
 
 // --- SSE Broadcast (async, via event-dispatcher) ---
 //
-// SSE-Broadcast läuft seit D.3 als async EventConsumer über den event-
-// dispatcher, nicht mehr als synchroner postSave/postDelete-hook. Das hat
-// zwei Konsequenzen:
+// The SSE broadcast runs as an async EventConsumer on the event dispatcher,
+// not as a synchronous postSave/postDelete hook. Two consequences:
 //
-// 1. **Event-native Payload-Shape.** Der SSE-event spiegelt den StoredEvent:
-//    `type` ist event.type ("user.created", "unit.updated"), `data` enthält
-//    id, aggregateType, version und die event-payload — keine künstliche
-//    "system:event:<entity>:<verb>" Hülle mehr. Clients haben direkten
-//    Zugriff auf `payload.changes` + `payload.previous` (wie im event-log).
-// 2. **Eventual consistency statt Read-after-Write.** Ein SSE-Event kommt
-//    ~10–100ms nach dem HTTP-200 (abhängig von pollIntervalMs). UI-Clients
-//    die auf optimistic-update setzen merken das nicht; strictly-waiting
-//    Clients müssten poll-after-write.
+// 1. **Signal only.** The frame mirrors the StoredEvent's identity: `type` is
+//    event.type ("user.created"), `data` holds id, aggregateType, version and
+//    createdAt, never the payload. The tenant channel fans out to every member
+//    and to anonymous connections, so field values must not enter the broker
+//    or Redis; the client refetches through a query with its own access check.
+// 2. **Eventual consistency, not read-after-write.** A frame arrives roughly
+//    10 to 100 ms after the HTTP 200 (depends on pollIntervalMs). Clients that
+//    must observe their own write poll after writing.
 //
 // Tests drain deterministically via `await stack.eventDispatcher.runOnce()`,
 // or via `drainEventConsumers` for this consumer name specifically.
@@ -502,7 +500,6 @@ export function createSseBroadcastEventConsumer(sseBroker: SseBroker): EventCons
           id: event.aggregateId,
           aggregateType: event.aggregateType,
           version: event.version,
-          payload: event.payload,
           createdAt: event.createdAt,
         },
       });
