@@ -223,6 +223,12 @@ describe("CI output formatting", () => {
     expect(formatBunTestSummary(output)).toBe("9 pass, 2 fail (11 tests across 3 files, 5ms)");
   });
 
+  test("takes the duration only from the Ran line, never from a later bracket", () => {
+    const output = "2 pass\n0 fail\nRan 2 tests across 1 file.\n[runProdApp] booting";
+
+    expect(formatBunTestSummary(output)).toBe("2 pass, 0 fail (2 tests across 1 files)");
+  });
+
   test("does not classify a routine [runProdApp] boot log as a diagnostic", () => {
     const diagnostics = findOutputDiagnostics("[runProdApp] booting Kumiko stack on port 3000…");
 

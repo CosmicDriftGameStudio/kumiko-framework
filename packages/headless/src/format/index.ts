@@ -145,6 +145,20 @@ export const UNIT_FORMAT_KEYS: readonly string[] = [
 export { escapeHtml, escapeHtmlAttr, escapeXml, isSafeHref, stripControlChars } from "./escape.js";
 export { type HtmlValue, html, RawHtml, raw } from "./html-template.js";
 export { currencyDecimals } from "./money.js";
+
+// JSON.stringify throws on BigInt and circular values; a cell must degrade to text instead of crashing the screen.
+function stringifyJsonOrString(value: unknown, indent: number): string {
+  try {
+    return JSON.stringify(value, null, indent) ?? String(value);
+  } catch {
+    try {
+      return String(value);
+    } catch {
+      return "[unserializable value]";
+    }
+  }
+}
+
 export function applyFormatSpec(
   spec: { format: string } & Record<string, unknown>,
   value: unknown,
@@ -210,7 +224,7 @@ export function applyFormatSpec(
       return translated === key ? raw : translated;
     }
     case "json":
-      return JSON.stringify(value, null, (spec["indent"] as number | undefined) ?? 2);
+      return stringifyJsonOrString(value, typeof spec["indent"] === "number" ? spec["indent"] : 2);
     default:
       if (typeof process !== "undefined" && process.env.NODE_ENV !== "production") {
         // biome-ignore lint/suspicious/noConsole: dev-only warning

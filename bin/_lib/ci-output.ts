@@ -203,7 +203,9 @@ function formatIntegrationSummary(output: string): string | undefined {
 }
 
 export function formatBunTestSummary(output: string): string | undefined {
-  const ranMatches = [...output.matchAll(/Ran (\d+) tests? across (\d+) files?\./g)];
+  const ranMatches = [
+    ...output.matchAll(/Ran (\d+) tests? across (\d+) files?\.[^\S\n]*(?:\[([^\]\n]+)\])?/g),
+  ];
   const lastRan = ranMatches.at(-1);
   if (!lastRan) return undefined;
 
@@ -216,7 +218,7 @@ export function formatBunTestSummary(output: string): string | undefined {
   const skip = lastMatchCount(head, /(\d+) skip/g);
   const tests = Number(lastRan[1]);
   const files = Number(lastRan[2]);
-  const duration = output.slice(idx).match(/\[([^\]\n]+)\]/)?.[1];
+  const duration = lastRan[3];
   const durationSuffix = duration === undefined ? "" : `, ${duration}`;
 
   return `${pass} pass, ${fail} fail${skip === 0 ? "" : `, ${skip} skip`} (${tests} tests across ${files} files${durationSuffix})`;

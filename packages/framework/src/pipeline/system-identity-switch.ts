@@ -44,7 +44,7 @@ function hasSameClaims(caller: SessionUser, asUser: SessionUser): boolean {
   return keys.every(
     (key) =>
       Object.hasOwn(asUserClaims, key) &&
-      JSON.stringify(callerClaims[key]) === JSON.stringify(asUserClaims[key]),
+      Bun.deepEquals(callerClaims[key], asUserClaims[key], true),
   );
 }
 

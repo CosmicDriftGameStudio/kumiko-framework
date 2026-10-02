@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, jest, test } from "bun:test";
 import { injectPageHead, resolveAndInjectPageHead } from "../index.js";
 
 describe("injectPageHead", () => {
@@ -57,7 +57,13 @@ describe("resolveAndInjectPageHead", () => {
   });
 
   test("resolver never resolves → unchanged html after the shared timeout", async () => {
-    const out = await resolveAndInjectPageHead(HTML, () => new Promise(() => {}), input);
-    expect(out).toBe(HTML);
-  }, 2000);
+    jest.useFakeTimers();
+    try {
+      const pending = resolveAndInjectPageHead(HTML, () => new Promise(() => {}), input);
+      jest.advanceTimersByTime(300);
+      expect(await pending).toBe(HTML);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });
