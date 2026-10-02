@@ -74,6 +74,27 @@ describe("Input onKeyDown", () => {
     expect(submitCalls).toBe(1);
   });
 
+  test("kind=textarea: a caller that calls preventDefault suppresses the Ctrl+Enter shortcut", () => {
+    let submitCalls = 0;
+    const { container } = render(
+      <Input
+        kind="textarea"
+        id="notes"
+        name="notes"
+        value=""
+        onChange={noop}
+        onKeyDown={(e) => e.preventDefault()}
+        onSubmitShortcut={() => {
+          submitCalls += 1;
+        }}
+      />,
+    );
+    const textarea = container.querySelector("textarea");
+    if (textarea === null) throw new Error("no textarea rendered");
+    fireEvent.keyDown(textarea, { key: "Enter", ctrlKey: true });
+    expect(submitCalls).toBe(0);
+  });
+
   test("without onKeyDown: unchanged default rendering (no crash, no listener)", () => {
     render(<Input kind="text" id="x" name="x" value="" onChange={noop} testId="tid" />);
     expect(() => fireEvent.keyDown(screen.getByTestId("tid"), { key: "Enter" })).not.toThrow();

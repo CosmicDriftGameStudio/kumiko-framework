@@ -43,3 +43,11 @@ describe("Input dataAttributes forwarding", () => {
     expect(input.getAttribute("data-1p-ignore")).toBeNull();
   });
 });
+
+describe("Card dataAttributes", () => {
+  test("cannot override the internal data-slot marker", () => {
+    const { Card } = defaultPrimitives;
+    const { container } = render(<Card dataAttributes={{ "data-slot": "x" }}>body</Card>);
+    expect(container.querySelector('[data-slot="card"]')).not.toBeNull();
+  });
+});

@@ -1165,6 +1165,10 @@ function DefaultInput(props: InputProps): ReactNode {
             }),
             onKeyDown: (e: KeyboardEvent<HTMLTextAreaElement>) => {
               onKeyDown?.(e);
+              // Lets a caller that already handles Ctrl/Cmd+Enter (e.g. an
+              // "Enter sends" handler that ignores only Shift) opt out of the
+              // shortcut instead of submitting twice.
+              if (e.defaultPrevented) return;
               if (onSubmitShortcut === undefined || e.key !== "Enter" || !(e.metaKey || e.ctrlKey))
                 return;
               e.preventDefault();
@@ -2993,6 +2997,8 @@ function isMoneyValue(value: unknown): value is MoneyCellValue {
 //   - text/else → toString
 
 const ISO_DATETIME_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
+// Deduplicated per column key only (not per screen): a once-per-field-name
+// hint, so a second screen reusing the same field name stays silent.
 const warnedTimestampColumns = new Set<string>();
 
 // A raw ISO string in a "text" column means the author forgot `renderer:
@@ -3317,6 +3323,19 @@ function FormRoot({
   if (useContext(InsideFormContext)) {
     return (
       <div
+        data-kumiko-form-root=""
+        onKeyDownCapture={(e) => {
+          // Implicit submission: the section's inputs belong to the OUTER
+          // <form> in the DOM, so the browser would otherwise route Enter to
+          // that form's default button.
+          if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+          const field = e.target;
+          if (!(field instanceof HTMLInputElement)) return;
+          if (field.closest("[data-kumiko-form-root]") !== e.currentTarget) return;
+          if (["checkbox", "radio", "submit", "button"].includes(field.type)) return;
+          e.preventDefault();
+          onSubmit();
+        }}
         onClickCapture={(e) => {
           // @cast-boundary dom-event-target: closest() needs an Element, and
           // click targets are always one in the browser/happy-dom.
@@ -3324,6 +3343,9 @@ function FormRoot({
             "button[type=submit], button:not([type])",
           );
           if (submitButton === null) return;
+          // React events bubble through portals and nested degraded roots; a
+          // real <form> only reacts to buttons in its own DOM subtree.
+          if (submitButton.closest("[data-kumiko-form-root]") !== e.currentTarget) return;
           e.preventDefault();
           onSubmit();
         }}
@@ -4505,8 +4527,8 @@ export function DefaultCard({
   const hasHeader = header !== null && header !== undefined;
   const card = (
     <div
-      data-slot="card"
       {...dataAttributes}
+      data-slot="card"
       data-testid={testId}
       className={cn(
         framed ? cardSurface({ radius }) : "flex flex-col",
