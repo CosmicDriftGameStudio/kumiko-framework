@@ -74,6 +74,12 @@ const failureFeature = defineFeature("draintestfailure", (r) => {
   );
 });
 
+// No tenant feature mounted, so the fan-out wrapper cannot resolve tenants and
+// throws before the job's own run starts.
+const fanOutFeature = defineFeature("draintestfanout", (r) => {
+  r.job("fan-out", { trigger: { manual: true }, perTenant: true, retries: 0 }, async () => {});
+});
+
 let stack: TestStack | undefined;
 
 afterEach(async () => {
@@ -134,6 +140,17 @@ describe("stack.drainJobs() surfaces final job failures", () => {
     // The tracker is cleared after a rejection — a later drainJobs() call
     // (e.g. the next test's setup) must not still see this failure.
     await expect(stack.drainJobs()).resolves.toBeUndefined();
+  });
+
+  test("a perTenant fan-out that cannot resolve tenants rejects drainJobs() instead of passing green", async () => {
+    stack = await setupTestStack({
+      features: [fanOutFeature],
+      jobs: { consumerLane: "worker" },
+    });
+
+    await stack.jobRunner?.dispatch("draintestfanout:job:fan-out");
+
+    await expect(stack.drainJobs()).rejects.toThrow(/requires either options.getActiveTenantIds/);
   });
 
   test("a job with retries:1 that fails once then succeeds resolves drainJobs()", async () => {

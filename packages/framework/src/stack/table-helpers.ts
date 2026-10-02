@@ -154,12 +154,6 @@ export async function resetEventStore(
   stack: { db: unknown; eventDispatcher?: EventDispatcher },
   extraTables: readonly (unknown | string)[] = [],
 ): Promise<void> {
-  // A pass the dispatcher's own timer/LISTEN already started (from a
-  // preceding test) may still be writing into the tables truncated below —
-  // drain it first so the TRUNCATE never races a write it didn't cause.
-  if (stack.eventDispatcher) {
-    await stack.eventDispatcher.drain();
-  }
   const frameworkTables = [
     "kumiko_events",
     "kumiko_event_consumers",
@@ -168,8 +162,15 @@ export async function resetEventStore(
     "kumiko_projections",
   ];
   const extraNames = extraTables.map((t) => (typeof t === "string" ? t : tableNameOf(t)));
-  await truncateTablesRestartIdentity(stack.db, [...frameworkTables, ...extraNames]);
+  const truncateAndReregister = async (): Promise<void> => {
+    await truncateTablesRestartIdentity(stack.db, [...frameworkTables, ...extraNames]);
+    await stack.eventDispatcher?.ensureRegistered();
+  };
+  // The dispatcher's own timer/LISTEN must not start a pass between the
+  // TRUNCATE and the consumer re-registration, so they are paused for the whole reset.
   if (stack.eventDispatcher) {
-    await stack.eventDispatcher.ensureRegistered();
+    await stack.eventDispatcher.withBackgroundPassesPaused(truncateAndReregister);
+  } else {
+    await truncateAndReregister();
   }
 }

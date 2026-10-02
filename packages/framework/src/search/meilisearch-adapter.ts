@@ -60,6 +60,13 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
   // sits in the map exactly like a lazily-triggered one.
   const configuredTenants = new Map<TenantId, Promise<void>>();
 
+  // Exact inverse of meilisearchTenantIndex. A bare startsWith(prefix) would also
+  // match a longer sibling prefix (`kumiko_` vs `kumiko_staging_`) sharing the
+  // instance; tenant ids never contain `_`, which excludes that sibling.
+  function isOwnTenantIndex(uid: string): boolean {
+    return uid.startsWith(prefix) && /^t[0-9A-Za-z-]+$/.test(uid.slice(prefix.length));
+  }
+
   async function applyConfig(tenantId: TenantId, config: SearchAdapterConfig): Promise<void> {
     const index = client.index(meilisearchTenantIndex(prefix, tenantId));
     const fields = config.rankingFields ?? config.searchableFields;
@@ -154,7 +161,7 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
       for (let offset = 0; ; offset += INDEX_LIST_PAGE_SIZE) {
         const page = await client.getIndexes({ limit: INDEX_LIST_PAGE_SIZE, offset });
         for (const index of page.results) {
-          if (index.uid.startsWith(prefix)) uids.push(index.uid);
+          if (isOwnTenantIndex(index.uid)) uids.push(index.uid);
         }
         if (page.results.length === 0 || offset + page.results.length >= page.total) break;
       }

@@ -159,6 +159,11 @@ export type EventDispatcher = {
   // started (timer tick or NOTIFY wake-up) that is still writing into the
   // tables the reset is about to wipe. No-op when nothing is in flight.
   drain(): Promise<void>;
+  // Runs `fn` with the timer and LISTEN wake-ups suppressed, after waiting out
+  // passes already in flight. drain() alone only narrows the window: a tick or
+  // NOTIFY landing right after it starts a new pass that races a TRUNCATE.
+  // Explicit runOnce() calls are not suppressed. Test-reset surface.
+  withBackgroundPassesPaused<T>(fn: () => Promise<T>): Promise<T>;
   // Read-only view of the consumers this dispatcher is wired with. Exists
   // for lane-filter assertions (Welle 2.6.b split-deploy tests) and for
   // the boot-validator (Welle 2.6.c coverage check: every registered MSP
@@ -398,6 +403,15 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         }),
       ),
     );
+  }
+
+  let backgroundPassPauseDepth = 0;
+
+  function runBackgroundPass(): void {
+    if (backgroundPassPauseDepth > 0) return;
+    void runOnce().catch(() => {
+      // skip: per-consumer errors already recorded in the state row
+    });
   }
 
   async function runOnce(): Promise<DispatcherPassResult> {
@@ -719,11 +733,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
       await preRegisterConsumers(db, consumers, options.instanceId);
       preRegistered = true;
 
-      timer = setInterval(() => {
-        void runOnce().catch(() => {
-          // skip: per-consumer errors already recorded in the state row
-        });
-      }, pollIntervalMs);
+      timer = setInterval(runBackgroundPass, pollIntervalMs);
 
       // NOTIFY-based wake-up: subscribe on the same channel that
       // event-store.append fires on commit. Fires runOnce directly, no
@@ -741,11 +751,7 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
         try {
           const sub = await options.pgClient.listen(
             EVENTS_PUBSUB_CHANNEL,
-            () => {
-              void runOnce().catch(() => {
-                // skip: per-consumer errors already recorded in the state row
-              });
-            },
+            runBackgroundPass,
             () => {
               // Fires on initial connect and again when postgres.js's own
               // re-LISTEN lands after a drop; during an outage that re-LISTEN
@@ -801,6 +807,17 @@ export function createEventDispatcher(options: EventDispatcherOptions): EventDis
     },
 
     drain: drainInFlightTurns,
+
+    async withBackgroundPassesPaused(fn) {
+      backgroundPassPauseDepth++;
+      try {
+        await drainInFlightPasses();
+        await drainInFlightTurns();
+        return await fn();
+      } finally {
+        backgroundPassPauseDepth--;
+      }
+    },
 
     runOnce,
   };
