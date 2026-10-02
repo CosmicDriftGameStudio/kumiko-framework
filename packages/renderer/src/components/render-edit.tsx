@@ -307,7 +307,7 @@ const TITLE_PLACEHOLDER_PATTERN = /\{(\w+)\}/g;
 // so the header never shows "Add  " mid-typing.
 function resolveTitleTemplate(
   template: string | undefined,
-  values: Readonly<Record<string, unknown>>,
+  values: FormValues,
   translate: Translate,
   fallback: string,
 ): string {
@@ -1375,7 +1375,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
             {...(action.icon !== undefined && { icon: action.icon })}
             disabled={isSubmitting || disabled}
             onClick={() => {
-              controller.setValues(action.patch as Partial<TValues>);
+              controller.setValues(action.patch as Partial<TValues>); // @cast-boundary form-values
               void handleSubmit();
             }}
             testId={`render-edit-footer-action-${action.id}`}
@@ -1433,7 +1433,7 @@ export function RenderEdit<TValues extends FormValues, TCtx = unknown>(
   const plainFormTitle = resolveScreenText("title") ?? screen.id;
   const formTitle = resolveTitleTemplate(
     screen.titleTemplate,
-    snapshot.values as Readonly<Record<string, unknown>>,
+    snapshot.values,
     translate,
     plainFormTitle,
   );

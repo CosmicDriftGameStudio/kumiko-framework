@@ -2058,7 +2058,7 @@ function EntityListBody({
         (request) => {
           const filters = buildFilterPayload(
             { ...urlState.filters, [request.field]: request.values },
-            (field) => (entity.fields[field] as { type?: string } | undefined)?.type,
+            (field) => entity.fields[field]?.type,
           );
           return {
             key: request.key,

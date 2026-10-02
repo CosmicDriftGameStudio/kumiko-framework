@@ -284,12 +284,36 @@ export function runScreenshots(scenarios: readonly Scenario[], opts: FlatOptions
 
 const VIEWPORT_IDS = ["desktop", "tablet", "mobile"] as const;
 export type ViewportId = (typeof VIEWPORT_IDS)[number];
-const VIEWPORTS: Record<ViewportId, { readonly width: number; readonly height: number }> = {
-  desktop: DESKTOP_VIEWPORT,
-  // Landscape: portrait tablet shots collapsed two-column layouts into the mobile stack.
-  tablet: { width: 1112, height: 834 },
-  mobile: { width: 390, height: 844 },
-};
+const SCREENSHOT_DESKTOP_WIDTH_ENV = "SCREENSHOT_DESKTOP_WIDTH";
+
+// Design reviews at a narrower desktop (e.g. 1440) set SCREENSHOT_DESKTOP_WIDTH;
+// the height stays DESKTOP_VIEWPORT's. Throws on junk instead of silently
+// falling back to 1920 and producing screenshots at the wrong width.
+export function resolveDesktopViewport(rawWidth: string | undefined): {
+  readonly width: number;
+  readonly height: number;
+} {
+  if (rawWidth === undefined || rawWidth.trim() === "") return DESKTOP_VIEWPORT;
+  const width = Number(rawWidth);
+  if (!Number.isInteger(width) || width <= 0) {
+    throw new Error(
+      `${SCREENSHOT_DESKTOP_WIDTH_ENV}="${rawWidth}" is not a positive integer pixel width.`,
+    );
+  }
+  return { width, height: DESKTOP_VIEWPORT.height };
+}
+
+function resolveViewports(): Record<
+  ViewportId,
+  { readonly width: number; readonly height: number }
+> {
+  return {
+    desktop: resolveDesktopViewport(process.env[SCREENSHOT_DESKTOP_WIDTH_ENV]),
+    // Landscape: portrait tablet shots collapsed two-column layouts into the mobile stack.
+    tablet: { width: 1112, height: 834 },
+    mobile: { width: 390, height: 844 },
+  };
+}
 
 // Narrow the axis from env (CSV) or take the default. Filters instead of
 // casting: a typo in the env var (e.g. SCREENSHOT_VIEWPORTS=typo) would
@@ -452,6 +476,7 @@ export function runMatrix<T extends string>(
   const themes = axis(process.env["SCREENSHOT_THEMES"], opts.themes);
   const viewports = axis(process.env["SCREENSHOT_VIEWPORTS"], VIEWPORT_IDS);
   const only = process.env["SCREENSHOT_ONLY"];
+  const viewportSizes = resolveViewports();
 
   for (const locale of locales) {
     test.describe(locale, () => {
@@ -501,7 +526,7 @@ export function runMatrix<T extends string>(
           for (const theme of themes) {
             await opts.applyTheme(page, theme);
             for (const vp of plan.viewports) {
-              if (plan.mode === "desktop") await page.setViewportSize(VIEWPORTS[vp]);
+              if (plan.mode === "desktop") await page.setViewportSize(viewportSizes[vp]);
               await waitForSettledPage(page, inFlightDataRequests);
               if (s.beforeCapture) await s.beforeCapture(page);
               await presentIdentitiesOnPage(page, identities.mappings);

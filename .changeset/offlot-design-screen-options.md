@@ -6,6 +6,7 @@
 "@cosmicdrift/kumiko-renderer-web": minor
 "@cosmicdrift/kumiko-locale-de": minor
 "@cosmicdrift/kumiko-locale-es": minor
+"@cosmicdrift/kumiko-testing": minor
 ---
 
 Additive screen options for list, drawer, form and wizard screens
@@ -18,3 +19,5 @@ type: improvement
 title: New optional screen options for facet chips, default filters, row action display, drawer titles, footer actions, grouped related lists and wizard side info
 migration: No code change needed.
 -->
+
+- Screenshot runner: `SCREENSHOT_DESKTOP_WIDTH` overrides the desktop viewport width (default 1920).

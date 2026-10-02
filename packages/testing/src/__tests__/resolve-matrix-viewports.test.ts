@@ -9,6 +9,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   type MatrixProjectInfo,
+  resolveDesktopViewport,
   resolveLocaleTag,
   resolveMatrixViewports,
   type ViewportId,
@@ -97,5 +98,21 @@ describe("resolveLocaleTag", () => {
 
   test("throws when neither a default nor a derivable region exists", () => {
     expect(() => resolveLocaleTag("zz", undefined)).toThrow(/no BCP47 tag/);
+  });
+});
+
+describe("resolveDesktopViewport", () => {
+  test("defaults to the 1920 desktop viewport", () => {
+    expect(resolveDesktopViewport(undefined)).toEqual({ width: 1920, height: 1080 });
+    expect(resolveDesktopViewport("")).toEqual({ width: 1920, height: 1080 });
+  });
+
+  test("overrides only the width", () => {
+    expect(resolveDesktopViewport("1440")).toEqual({ width: 1440, height: 1080 });
+  });
+
+  test("rejects a non-numeric or non-positive width", () => {
+    expect(() => resolveDesktopViewport("wide")).toThrow(/SCREENSHOT_DESKTOP_WIDTH/);
+    expect(() => resolveDesktopViewport("0")).toThrow(/SCREENSHOT_DESKTOP_WIDTH/);
   });
 });

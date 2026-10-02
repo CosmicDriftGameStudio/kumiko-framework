@@ -438,18 +438,55 @@ export function buildProjectionToolbarActions(options: {
   return out.length > 0 ? out : undefined;
 }
 
-function buildNavigateRecordAction(
+type NavigateRecordOptions = {
+  readonly record: Readonly<Record<string, unknown>>;
+  readonly translate: Translate;
+  readonly nav: NavApi;
+  readonly host: ReturnHost | undefined;
+  readonly actionIcon: IconKey | undefined;
+  readonly defaultScreenTargetEntityId: string | undefined;
+  readonly sameEntityScreenId: ((targetScreen: string) => string | undefined) | undefined;
+};
+
+function navigateActionBase(
   action: RowActionNavigate,
-  options: {
-    readonly record: Readonly<Record<string, unknown>>;
-    readonly translate: Translate;
-    readonly nav: NavApi;
-    readonly host: ReturnHost | undefined;
-    readonly actionIcon: IconKey | undefined;
-    readonly defaultScreenTargetEntityId: string | undefined;
-    readonly sameEntityScreenId: ((targetScreen: string) => string | undefined) | undefined;
-  },
-): RenderEditAction | undefined {
+  translate: Translate,
+  actionIcon: IconKey | undefined,
+): Omit<RenderEditAction, "onPress"> {
+  return {
+    id: action.id,
+    label: translate(action.label),
+    ...(action.style !== undefined && { style: action.style }),
+    ...(action.display !== undefined && { display: action.display }),
+    confirmRequired: false,
+    ...(actionIcon !== undefined && { icon: actionIcon }),
+  };
+}
+
+function buildNavigateEntityAction(
+  action: RowActionNavigate,
+  targetEntity: string,
+  options: NavigateRecordOptions,
+): RenderEditAction {
+  const { record, translate, nav, host, actionIcon } = options;
+  const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
+  return {
+    ...navigateActionBase(action, translate, actionIcon),
+    onPress: () => {
+      // No entityId on record (id === "") → nothing to navigate to.
+      if (id !== "") {
+        const params = navigateActionSearchParams(action, record);
+        navigateWithReturnTo(nav, { entity: targetEntity, id }, host, params);
+      }
+    },
+  };
+}
+
+function buildNavigateScreenAction(
+  action: RowActionNavigate,
+  targetScreen: string,
+  options: NavigateRecordOptions,
+): RenderEditAction {
   const {
     record,
     translate,
@@ -459,48 +496,29 @@ function buildNavigateRecordAction(
     defaultScreenTargetEntityId,
     sameEntityScreenId,
   } = options;
-  if (action.entity !== undefined) {
-    const targetEntity = action.entity;
-    const id = action.entityId !== undefined ? String(record[action.entityId] ?? "") : "";
-    return {
-      id: action.id,
-      label: translate(action.label),
-      ...(action.style !== undefined && { style: action.style }),
-      ...(action.display !== undefined && { display: action.display }),
-      confirmRequired: false,
-      ...(actionIcon !== undefined && { icon: actionIcon }),
-      onPress: () => {
-        // No entityId on record (id === "") → nothing to navigate to.
-        if (id !== "") {
-          const params = navigateActionSearchParams(action, record);
-          navigateWithReturnTo(nav, { entity: targetEntity, id }, host, params);
-        }
-      },
-    };
-  }
-  if (action.screen !== undefined) {
-    const explicit =
-      action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
-    const fallback = sameEntityScreenId?.(action.screen) ?? defaultScreenTargetEntityId;
-    const navEntityId = explicit ?? fallback;
-    const targetScreen = action.screen;
-    return {
-      id: action.id,
-      label: translate(action.label),
-      ...(action.style !== undefined && { style: action.style }),
-      ...(action.display !== undefined && { display: action.display }),
-      confirmRequired: false,
-      ...(actionIcon !== undefined && { icon: actionIcon }),
-      onPress: () => {
-        const target: ScreenTarget = {
-          screenId: targetScreen,
-          ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
-        };
-        const params = navigateActionSearchParams(action, record);
-        navigateWithReturnTo(nav, target, host, params);
-      },
-    };
-  }
+  const explicit =
+    action.entityId !== undefined ? String(record[action.entityId] ?? "") : undefined;
+  const fallback = sameEntityScreenId?.(targetScreen) ?? defaultScreenTargetEntityId;
+  const navEntityId = explicit ?? fallback;
+  return {
+    ...navigateActionBase(action, translate, actionIcon),
+    onPress: () => {
+      const target: ScreenTarget = {
+        screenId: targetScreen,
+        ...(navEntityId !== undefined && navEntityId !== "" && { entityId: navEntityId }),
+      };
+      const params = navigateActionSearchParams(action, record);
+      navigateWithReturnTo(nav, target, host, params);
+    },
+  };
+}
+
+function buildNavigateRecordAction(
+  action: RowActionNavigate,
+  options: NavigateRecordOptions,
+): RenderEditAction | undefined {
+  if (action.entity !== undefined) return buildNavigateEntityAction(action, action.entity, options);
+  if (action.screen !== undefined) return buildNavigateScreenAction(action, action.screen, options);
   return undefined;
 }
 

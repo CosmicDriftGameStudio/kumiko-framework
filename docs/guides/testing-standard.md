@@ -250,7 +250,9 @@ unless it's set, and the runner writes to `$SCREENSHOT_DIR/<name>.png`
 (`runScreenshots`) or `$SCREENSHOT_DIR/<name>/<locale>/<theme>/<viewport>.png`
 (`runMatrix`) so the images that end up committed into docs are always
 produced the same way, from the same viewport and device-scale-factor
-constants, never from whatever an app's own config happened to set.
+constants, never from whatever an app's own config happened to set. `runMatrix`'s desktop
+viewport is 1920 wide; set `SCREENSHOT_DESKTOP_WIDTH=1440` for a design review at
+another width.
 
 There is no `settleMs`. A fixed sleep before the capture is exactly the
 "wait for time, not a condition" anti-pattern the diagnosis order warns
