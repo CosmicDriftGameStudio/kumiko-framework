@@ -49,9 +49,8 @@ if (typeof globalThis.window === "undefined") {
 // time. A static import would evaluate screen before happy-dom registers, so
 // every screen query would throw TypeError. Hence require() only after the
 // registration above.
-const { cleanup } = require("@testing-library/react/pure") as {
-  cleanup: () => void;
-};
+const { cleanup } =
+  require("@testing-library/react/pure") as typeof import("@testing-library/react/pure");
 
 const HTML_PRINT_LIMIT = 2000;
 

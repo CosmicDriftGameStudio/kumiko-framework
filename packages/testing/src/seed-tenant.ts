@@ -169,24 +169,30 @@ function lightTenantRows(opts: SeedTenantOptions): PersistedTenant {
   return { ...identity, admin: lightCredentials(adminEmail), members };
 }
 
+export type InProcessSeededTenant = SeededTenant & {
+  // Stops this tenant's events from landing in the stack's `events.sse`.
+  readonly unsubscribeSse: () => void;
+};
+
 export async function seedTenant(
   stack: TestStack,
   opts: SeedTenantOptions = {},
-): Promise<SeededTenant> {
+): Promise<InProcessSeededTenant> {
   const write = stackSeedWriter(stack);
   const persist = opts.persist === true;
   const rows = persist ? await persistTenantRows(write, opts) : lightTenantRows(opts);
   const { id } = rows;
 
   // setupTestStack subscribes events.sse only to test tenant 1; a seeded tenant has a fresh random id.
-  stack.sseBroker.addClient(
-    tenantChannel(id),
+  const channel = tenantChannel(id);
+  const sseClientId = stack.sseBroker.addClient(
+    channel,
     (event) => stack.events.sse.push(event),
     () => {},
   );
 
   const admin = withSession(rows.admin, id, [ROLES.TenantAdmin]);
-  const tenant: SeededTenant = {
+  const tenant: InProcessSeededTenant = {
     id,
     key: rows.key,
     name: rows.name,
@@ -202,6 +208,7 @@ export async function seedTenant(
         id,
         roles,
       ),
+    unsubscribeSse: () => stack.sseBroker.removeClient(channel, sseClientId),
     api: bindApi(stack, admin.session),
     apiAs: (user) => bindApi(stack, user.session),
   };

@@ -8,6 +8,7 @@ import {
 import { userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { tenantChannel } from "@cosmicdrift/kumiko-framework/engine";
 import { SSE_BROADCAST_CONSUMER_NAME } from "@cosmicdrift/kumiko-framework/pipeline";
 import { drainEventConsumers, type TestStack } from "@cosmicdrift/kumiko-framework/stack";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
@@ -119,6 +120,22 @@ describe("seedTenant (light)", () => {
 
     const event = stack.events.sse.find((candidate) => candidate.data["id"] === created.id);
     expect(event?.type).toBe("note.created");
+  });
+
+  test("unsubscribeSse stops the seeded tenant's events from reaching events.sse and frees the broker client", async () => {
+    const tenant = await seedTenant(stack);
+    const channel = tenantChannel(tenant.id);
+    expect(stack.sseBroker.getClientCount(channel)).toBe(1);
+
+    tenant.unsubscribeSse();
+    expect(stack.sseBroker.getClientCount(channel)).toBe(0);
+
+    const created = await tenant.api.writeOk<{ id: string }>(NOTE_CREATE, {
+      title: "after unsubscribe",
+    });
+    await drainEventConsumers(stack, [SSE_BROADCAST_CONSUMER_NAME]);
+
+    expect(stack.events.sse.some((candidate) => candidate.data["id"] === created.id)).toBe(false);
   });
 
   test("light seeding writes no tenant, user or membership rows", async () => {

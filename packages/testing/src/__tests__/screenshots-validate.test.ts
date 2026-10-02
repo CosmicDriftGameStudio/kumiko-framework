@@ -9,7 +9,16 @@
 // from bun test (that tree is Playwright .spec.ts territory).
 
 import { describe, expect, test } from "bun:test";
-import { validateScenarios } from "../e2e/screenshots";
+import { scenarioWaitForTimeout, validateScenarios } from "../e2e/screenshots";
+import { E2E_TIMEOUT_MS } from "../e2e/timeouts";
+
+describe("scenarioWaitForTimeout", () => {
+  test("a real-provider run waits longer than navigation but fails before the test timeout", () => {
+    expect(scenarioWaitForTimeout(false)).toBe(E2E_TIMEOUT_MS.navigation);
+    expect(scenarioWaitForTimeout(true)).toBeGreaterThan(E2E_TIMEOUT_MS.navigation);
+    expect(scenarioWaitForTimeout(true)).toBeLessThan(E2E_TIMEOUT_MS.real);
+  });
+});
 
 describe("validateScenarios", () => {
   test("accepts a url scenario with waitFor", () => {

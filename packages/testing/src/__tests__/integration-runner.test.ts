@@ -124,6 +124,26 @@ describe("resolveRequestedIntegrationFiles", () => {
     ).toEqual(["/work/e2e/app/src/a.integration.test.ts"]);
   });
 
+  test("a real directory expands without descending into node_modules, dist or e2e", () => {
+    const root = mkdtempSync(join(tmpdir(), "kumiko-int-dir-"));
+    try {
+      for (const file of [
+        "src/a.integration.test.ts",
+        "src/ui.test.tsx",
+        "src/node_modules/dep/x.integration.test.ts",
+        "src/e2e/y.integration.test.ts",
+      ]) {
+        mkdirSync(dirname(join(root, file)), { recursive: true });
+        writeFileSync(join(root, file), "");
+      }
+      expect(resolveRequestedIntegrationFiles(root, ["src"])).toEqual([
+        join(root, "src", "a.integration.test.ts"),
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("a file positional is passed through as-is", () => {
     expect(
       resolveRequestedIntegrationFiles(

@@ -101,6 +101,13 @@ describe("preload/schema-env-defaults", () => {
     expect(env["JWT_SECRET"]).toBe(SCHEMA_ENV_DEFAULTS.JWT_SECRET);
   });
 
+  test("treats an empty value like an unset one for every default", () => {
+    const emptied = Object.fromEntries(Object.keys(SCHEMA_ENV_DEFAULTS).map((key) => [key, ""]));
+    const env = envOf(runWithPreload("schema-env-defaults", emptied));
+
+    for (const [key, value] of Object.entries(SCHEMA_ENV_DEFAULTS)) expect(env[key]).toBe(value);
+  });
+
   test("sets no service endpoints, unlike preload/env", () => {
     const env = envOf(runWithPreload("schema-env-defaults", {}));
 

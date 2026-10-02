@@ -6,13 +6,11 @@ import { SCHEMA_ENV_DEFAULTS } from "./schema-env-defaults-values";
 const MIN_JWT_SECRET_LENGTH = 32;
 
 function isTooShortJwtSecret(key: string, value: string | undefined): boolean {
-  return key === "JWT_SECRET" && (!value || value.length < MIN_JWT_SECRET_LENGTH);
+  return key === "JWT_SECRET" && value !== undefined && value.length < MIN_JWT_SECRET_LENGTH;
 }
 
+// An empty value counts as unset: `${{ secrets.X }}` in GitHub Actions yields "" for a missing secret.
 for (const [key, value] of Object.entries(SCHEMA_ENV_DEFAULTS)) {
-  if (isTooShortJwtSecret(key, process.env[key])) {
-    process.env[key] = value;
-    continue;
-  }
-  process.env[key] ??= value;
+  const current = process.env[key];
+  if (!current || isTooShortJwtSecret(key, current)) process.env[key] = value;
 }
