@@ -202,7 +202,7 @@ test("wizard-light", async ({ page }) => {
   await page.getByRole("menuitem", { name: "Schritt für Schritt" }).click();
   await page.locator(EDIT_FORM).waitFor();
   for (let step = 1; step < 4; step++) {
-    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await page.getByTestId("render-edit-wizard-next").click();
   }
   await expect(page.getByText("Lass leer, was du noch nicht weißt")).toBeVisible();
   await shot(page, "wizard-light");
@@ -225,7 +225,7 @@ async function openVehicleWizardForExistingRecord(page: Page): Promise<void> {
 test("wizard-edit-desktop-light", async ({ page }) => {
   await openVehicleWizardForExistingRecord(page);
   for (let step = 0; step < 2; step++) {
-    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await page.getByTestId("render-edit-wizard-next").click();
   }
   await shot(page, "wizard-edit-desktop-light");
 });
@@ -357,20 +357,20 @@ test.describe("mobile", () => {
 
   test("wizard-edit-mobile-light", async ({ page }) => {
     await openVehicleWizardForExistingRecord(page);
-    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await page.getByTestId("render-edit-wizard-next").click();
     await shot(page, "wizard-edit-mobile-light");
   });
 
   test("wizard-edit-mobile-open-light", async ({ page }) => {
     await openVehicleWizardForExistingRecord(page);
-    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await page.getByTestId("render-edit-wizard-next").click();
     await page.getByTestId("render-edit-wizard-step-label").click();
     await shot(page, "wizard-edit-mobile-open-light");
   });
 
   test("wizard-footer-mobile-update-light", async ({ page }) => {
     await openVehicleWizardForExistingRecord(page);
-    await page.getByRole("button", { name: /^Weiter:/ }).click();
+    await page.getByTestId("render-edit-wizard-next").click();
     await shot(page, "wizard-footer-mobile-update-light");
   });
 
@@ -378,12 +378,15 @@ test.describe("mobile", () => {
     await login(page);
     await page.goto("/vehicle-wizard");
     await page.locator(EDIT_FORM).waitFor();
-    await page.getByRole("button", { name: /^Weiter/ }).click();
+    await page.getByTestId("render-edit-wizard-next").click();
     await shot(page, "wizard-footer-mobile-create-light");
   });
 
   test("formular-footer-mobile-light", async ({ page }) => {
     await openOctaviaEditForm(page);
+    // Cancel stays enabled on a clean form, so the overflow trigger stays reachable.
+    await expect(page.getByTestId("render-edit-form-overflow")).toBeVisible();
+    await expect(page.getByTestId("render-edit-form-overflow-badge")).toHaveCount(0);
     await shot(page, "formular-footer-mobile-light");
   });
 
@@ -392,8 +395,21 @@ test.describe("mobile", () => {
     const mileage = page.getByLabel("Kilometerstand");
     await mileage.fill("31000");
     await mileage.blur();
-    await expect(page.getByTestId("render-edit-discard")).toBeVisible();
+    await expect(page.getByTestId("render-edit-form-overflow-badge")).toBeVisible();
     await shot(page, "formular-footer-mobile-dirty-light");
+  });
+
+  test("formular-footer-mobile-single-light", async ({ page }) => {
+    await openRecordPositions(page);
+    await shot(page, "formular-footer-mobile-single-light");
+  });
+
+  test("wizard-footer-mobile-menu-light", async ({ page }) => {
+    await openVehicleWizardForExistingRecord(page);
+    await page.getByTestId("render-edit-wizard-next").click();
+    await page.getByTestId("render-edit-form-overflow").click();
+    await expect(page.getByTestId("render-edit-wizard-save-close")).toBeVisible();
+    await shot(page, "wizard-footer-mobile-menu-light");
   });
 
   test("detail-slot-mobile", async ({ page }) => {

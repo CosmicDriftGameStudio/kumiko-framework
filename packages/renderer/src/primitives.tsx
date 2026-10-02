@@ -77,6 +77,20 @@ export const STICKY_PRIMARY_ACTION_PROP = "kumikoStickyPrimaryAction" as const;
 
 export type StickyPrimaryActionMarker = Partial<Record<typeof STICKY_PRIMARY_ACTION_PROP, boolean>>;
 
+export type FooterActionRole = "back" | "primary";
+
+/** Tells the pinned phone footer which node is Back and which is the primary
+ *  action, for buttons that are not `type="submit"` (e.g. the wizard Back). */
+export const FOOTER_ACTION_ROLE_PROP = "kumikoFooterActionRole" as const;
+
+/** Short label a footer action uses instead of its children below `sm`. */
+export const NARROW_LABEL_PROP = "kumikoNarrowLabel" as const;
+
+export type FooterActionMarker = {
+  readonly [FOOTER_ACTION_ROLE_PROP]?: FooterActionRole;
+  readonly [NARROW_LABEL_PROP]?: string;
+};
+
 /** Standard-Button. `loading` zeigt einen Spinner statt der Children
  *  und sollte mit `disabled` kombiniert werden, wenn die Action wirklich
  *  blockiert bis das Loading durch ist (z.B. async submit). Native-

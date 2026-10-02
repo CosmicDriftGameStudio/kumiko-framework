@@ -4,16 +4,29 @@ import { useSyncExternalStore } from "react";
 // because that file is vendored shadcn (regenerated via scripts/sync-shadcn.ts)
 // and cannot be imported from without risking a future overwrite.
 const MOBILE_BREAKPOINT = 768;
+const SM_BREAKPOINT = 640;
 
-function subscribe(callback: () => void): () => void {
-  const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-  mql.addEventListener("change", callback);
-  return () => mql.removeEventListener("change", callback);
+type BelowBreakpointStore = {
+  readonly subscribe: (callback: () => void) => () => void;
+  readonly getSnapshot: () => boolean;
+};
+
+// Module-level stores keep subscribe stable, so useSyncExternalStore does not
+// resubscribe on every render (FormFooter re-renders on each keystroke).
+function createBelowBreakpointStore(breakpoint: number): BelowBreakpointStore {
+  const query = `(max-width: ${breakpoint - 1}px)`;
+  return {
+    subscribe: (callback) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", callback);
+      return () => mql.removeEventListener("change", callback);
+    },
+    getSnapshot: () => window.matchMedia(query).matches,
+  };
 }
 
-function getSnapshot(): boolean {
-  return window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`).matches;
-}
+const belowMobileStore = createBelowBreakpointStore(MOBILE_BREAKPOINT);
+const belowSmStore = createBelowBreakpointStore(SM_BREAKPOINT);
 
 function getServerSnapshot(): boolean {
   return false;
@@ -24,5 +37,14 @@ function getServerSnapshot(): boolean {
 // render regardless of actual viewport, this reads the real value up front
 // via `useSyncExternalStore` — no wrong-then-corrected first render.
 export function useIsNarrowViewport(): boolean {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  return useSyncExternalStore(
+    belowMobileStore.subscribe,
+    belowMobileStore.getSnapshot,
+    getServerSnapshot,
+  );
+}
+
+// Tailwind's `sm` boundary: true below 640px.
+export function useIsBelowSmViewport(): boolean {
+  return useSyncExternalStore(belowSmStore.subscribe, belowSmStore.getSnapshot, getServerSnapshot);
 }

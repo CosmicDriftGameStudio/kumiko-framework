@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-02
-evidence: "kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
+evidence: "kumiko-framework#3449 (step picker, phone footer); packages/renderer-web/src/primitives/narrow-pinned-footer.tsx; kumiko-framework#3421 (phone header overflow); kumiko-framework#3381 (fixed-height screens, board layouts, drawer row actions); kumiko-framework#3414 (expandable rows); packages/types/src/screen.ts; packages/renderer/src/screen-fills-height.ts; packages/renderer/src/components/render-edit.tsx; packages/renderer/src/components/write-form-section.tsx; packages/framework/src/engine/boot-validator/screens.ts"
 ---
 
 # Screen layout: fixed height, dimensions and declarative layout props
@@ -14,6 +14,7 @@ Declarative screens fill the height of the shell content. The body (table, form 
 - `fillHeight: false` restores page scrolling: the table grows with its rows, the pager sits below the last row, the form footer stays in the flow.
 - Custom screens and direct `DataTable` or `Form` usage are unchanged. The default is applied on screen level, not in the primitives.
 - Without a shell (or with `fill={false}` on the shell) the screen falls back to its content height.
+- Below `sm` the pinned form and wizard footer is always one 56px row and never wraps. Back (`FOOTER_ACTION_ROLE_PROP: "back"`) shows as an icon button on the left. The primary action (`FOOTER_ACTION_ROLE_PROP: "primary"`, else the last submit button) fills the rest on one truncated line, with `NARROW_LABEL_PROP` as an optional shorter label (the wizard shows plain "Next"). Every other action moves into a "…" popover. The "…" button shows only while one of those actions is enabled, and a dot on it replaces the unsaved-changes text. From `sm` up the footer is unchanged.
 
 ## Dimensions
 
