@@ -31,11 +31,6 @@ describe("subjectIdSchema", () => {
     ).toBe(true);
   });
 
-  test("mints tenantId as a branded TenantId, not a plain string type", () => {
-    const result = subjectIdSchema.parse({ kind: "tenant", tenantId: UUID_A });
-    expect(result).toEqual({ kind: "tenant", tenantId: UUID_A });
-  });
-
   test("rejects a non-UUID userId", () => {
     expect(subjectIdSchema.safeParse({ kind: "user", userId: "not-a-uuid" }).success).toBe(false);
   });

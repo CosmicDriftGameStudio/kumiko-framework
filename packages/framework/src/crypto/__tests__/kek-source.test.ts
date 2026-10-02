@@ -94,7 +94,7 @@ describe("resolvePlatformKeks", () => {
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
       const message = error instanceof Error ? error.message : "";
-      expect(message).toMatch(/all-or-none/);
+      expect(message).toMatch(/PLATFORM_KEK_CIPHERTEXT is set but/);
       expect(message).not.toContain(TOKEN);
     }
   });
@@ -107,7 +107,9 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: undefined,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/all-or-none/);
+    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
+      /PLATFORM_KEK_CIPHERTEXT is set but/,
+    );
     await expect(resolvePlatformKeks(env, { fetch })).rejects.not.toThrow(new RegExp(TOKEN));
   });
 
@@ -149,7 +151,7 @@ describe("resolvePlatformKeks", () => {
   });
 
   test("rejects a previous ciphertext with no previous version", async () => {
-    const { fetch } = trackedFetch([jsonResponse(200, { plaintext: "previous-plaintext" })]);
+    const { fetch, calls } = trackedFetch([]);
     const env: KekSourceEnv = {
       PLATFORM_KEK_PREVIOUS_CIPHERTEXT: CIPHERTEXT_B,
       PLATFORM_KEK_KMS_KEY_ID: "key-1",
@@ -159,6 +161,42 @@ describe("resolvePlatformKeks", () => {
     await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
       /PLATFORM_KEK_PREVIOUS_VERSION must be set/,
     );
+    expect(calls.length).toBe(0);
+  });
+
+  test("keeps the original fetch failure as the error cause", async () => {
+    const rootCause = new TypeError("getaddrinfo ENOTFOUND api.scaleway.com");
+    const fetch = (async (_url: string | URL): Promise<Response> => {
+      throw rootCause;
+    }) as typeof globalThis.fetch;
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    const error = await resolvePlatformKeks(env, { fetch }).catch((caught: unknown) => caught);
+
+    expect(error instanceof Error ? error.cause : undefined).toBe(rootCause);
+  });
+
+  test("a second pass over the resolved env does not report the used ciphertext as ignored", async () => {
+    const { fetch } = trackedFetch([jsonResponse(200, { plaintext: PLAINTEXT_A })]);
+    const lines: string[] = [];
+    const env: KekSourceEnv = {
+      PLATFORM_KEK_CIPHERTEXT: CIPHERTEXT_A,
+      PLATFORM_KEK_KMS_KEY_ID: "key-1",
+      PLATFORM_KEK_KMS_TOKEN: TOKEN,
+    };
+
+    const first = await resolvePlatformKeks(env, { fetch, slots: ["PLATFORM_KEK"] });
+    await resolvePlatformKeks(first, {
+      fetch,
+      slots: ["PLATFORM_KEK"],
+      log: (line) => lines.push(line),
+    });
+
+    expect(lines).toEqual(["PLATFORM_KEK source=plaintext-env"]);
   });
 
   test("returns env unchanged and calls fetch zero times when nothing is set", async () => {
