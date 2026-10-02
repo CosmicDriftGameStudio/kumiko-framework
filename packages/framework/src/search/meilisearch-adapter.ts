@@ -165,12 +165,16 @@ export function createMeilisearchAdapter(options: MeilisearchAdapterOptions): Se
         }
         if (page.results.length === 0 || offset + page.results.length >= page.total) break;
       }
-      for (const uid of uids) {
-        await awaitSucceededTask(client.deleteIndex(uid), REMOVE_TOLERATED_ERROR_CODES);
+      // Cleared even when a delete throws midway: otherwise ensureConfigured treats the
+      // already-dropped tenants as configured and the next index() recreates an
+      // unconfigured index ("not filterable" on filtered search).
+      try {
+        for (const uid of uids) {
+          await awaitSucceededTask(client.deleteIndex(uid), REMOVE_TOLERATED_ERROR_CODES);
+        }
+      } finally {
+        configuredTenants.clear();
       }
-      // Otherwise ensureConfigured treats the dropped tenants as configured and the
-      // next index() recreates an unconfigured index ("not filterable" on filtered search).
-      configuredTenants.clear();
       return uids.length;
     },
 

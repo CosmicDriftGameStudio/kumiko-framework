@@ -52,9 +52,7 @@ function isNoisyTitle(title: string): boolean {
   return TITLE_NOISE.some((re) => re.test(title));
 }
 
-// Only ever invoked with `gh` (see fetchVersionPrs), never `git` — inherits
-// the full environment on purpose so GH_TOKEN/GITHUB_TOKEN keep working;
-// gitEnv()'s allowlist would strip them. #2951 only covers actual git spawns.
+// gh only, never git: inherits the full env so GH_TOKEN/GITHUB_TOKEN survive gitEnv()'s allowlist.
 function sh(cmd: string, cwd = process.cwd()): string {
   return execSync(cmd, { encoding: "utf-8", cwd, maxBuffer: 16 * 1024 * 1024 }).trim();
 }

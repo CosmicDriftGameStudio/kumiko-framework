@@ -33,6 +33,7 @@ export async function waitFor(
         // skip: condition already true — no further polling
         return;
       }
+      lastError = undefined;
     } catch (err) {
       lastError = err;
     }

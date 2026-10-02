@@ -106,24 +106,35 @@ export async function drainJobs(stack: DrainJobsStack, tracker: JobFailureTracke
     .map((consumer) => consumer.name);
 
   try {
-    let consecutiveIdlePasses = 0;
-    while (consecutiveIdlePasses < REQUIRED_IDLE_PASSES) {
-      await eventDispatcher?.runOnce();
-      const pending = await jobRunner.countPendingJobs();
-      const caughtUp = await sharedConsumersCaughtUp(db, sharedConsumerNames);
-      consecutiveIdlePasses = pending === 0 && caughtUp ? consecutiveIdlePasses + 1 : 0;
-      if (consecutiveIdlePasses < REQUIRED_IDLE_PASSES) {
-        await Promise.race([tracker.waitForActivity(), sleep(DRAIN_IDLE_POLL_MS)]);
+    try {
+      let consecutiveIdlePasses = 0;
+      while (consecutiveIdlePasses < REQUIRED_IDLE_PASSES) {
+        await eventDispatcher?.runOnce();
+        const pending = await jobRunner.countPendingJobs();
+        const caughtUp = await sharedConsumersCaughtUp(db, sharedConsumerNames);
+        consecutiveIdlePasses = pending === 0 && caughtUp ? consecutiveIdlePasses + 1 : 0;
+        if (consecutiveIdlePasses < REQUIRED_IDLE_PASSES) {
+          await Promise.race([tracker.waitForActivity(), sleep(DRAIN_IDLE_POLL_MS)]);
+        }
       }
+    } catch (err) {
+      // A failed job often kills its consumer, so the drain error is only the follow-up symptom.
+      if (tracker.failures.size === 0) throw err;
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`${message}; ${describeJobFailures(tracker)}`, { cause: err });
     }
 
     if (tracker.failures.size > 0) {
-      const details = [...tracker.failures.values()]
-        .map((failure) => `${failure.jobName}: ${failure.error}`)
-        .join("; ");
-      throw new Error(`drainJobs: job(s) failed: ${details}`);
+      throw new Error(`drainJobs: ${describeJobFailures(tracker)}`);
     }
   } finally {
     tracker.clear();
   }
+}
+
+function describeJobFailures(tracker: JobFailureTracker): string {
+  const details = [...tracker.failures.values()]
+    .map((failure) => `${failure.jobName}: ${failure.error}`)
+    .join("; ");
+  return `job(s) failed: ${details}`;
 }

@@ -317,19 +317,24 @@ function writeUpgradeMarker(targetDir: string, marker: UpgradeMarker): void {
   writeFileSync(join(dir, "upgrade-state.json"), `${JSON.stringify(marker, null, 2)}\n`, "utf-8");
 }
 
-// Missing, unreadable, or invalid marker means no baseline was ever recorded
-// — most commonly a bootstrap app that never ran `--apply` (fw#2299) — so
-// this reports "no marker" instead of throwing.
-function readMarkerVersion(targetDir: string): string | null {
+type MarkerRead =
+  | { readonly kind: "missing" }
+  | { readonly kind: "invalid" }
+  | { readonly kind: "ok"; readonly version: string };
+
+// A missing marker is a bootstrap app that never ran `--apply` (fw#2299); an
+// existing but unreadable one must not silently fall back to the installed
+// version, or a bare `--apply` would skip every codemod in between.
+function readMarkerVersion(targetDir: string): MarkerRead {
   const markerPath = join(targetDir, ".kumiko", "upgrade-state.json");
-  if (!existsSync(markerPath)) return null;
+  if (!existsSync(markerPath)) return { kind: "missing" };
   try {
     const parsed = JSON.parse(readFileSync(markerPath, "utf-8")) as { version?: unknown };
     return typeof parsed.version === "string" && SEMVER_RE.test(parsed.version)
-      ? parsed.version
-      : null;
+      ? { kind: "ok", version: parsed.version }
+      : { kind: "invalid" };
   } catch {
-    return null;
+    return { kind: "invalid" };
   }
 }
 
@@ -541,7 +546,16 @@ export async function runUpgradeCli(
   // when the marker says otherwise — a bare `--apply` would then always
   // report "Nothing new" and bootstrap the marker onto the installed
   // version, hiding breaking changes the marker never actually saw.
-  const currentVersion = fromFlag ?? readMarkerVersion(targetDir) ?? installedVersion;
+  const marker =
+    fromFlag === undefined ? readMarkerVersion(targetDir) : { kind: "missing" as const };
+  if (marker.kind === "invalid") {
+    out.err("");
+    out.err("  invalid .kumiko/upgrade-state.json, fix it or pass --from <version>");
+    out.err("");
+    return 1;
+  }
+  const currentVersion =
+    fromFlag ?? (marker.kind === "ok" ? marker.version : undefined) ?? installedVersion;
   if (!currentVersion) {
     out.err("");
     out.err("  Could not detect Kumiko version.");

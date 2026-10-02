@@ -8,7 +8,7 @@ import { findChangelogViolations, findChangesetViolations, isReleaseBranch } fro
 // Fixture git spawns get gitEnv() (never inherited GIT_DIR/GIT_WORK_TREE) plus
 // GIT_CEILING_DIRECTORIES/GIT_CONFIG_GLOBAL pinned to the fixture tree, so a
 // run triggered by this very repo's pre-push hook can never touch the real
-// repo even if a fixture command itself is spawned with a leaked env — see #2951.
+// repo even if a fixture command itself is spawned with a leaked env.
 function fixtureGitEnv(ceilingDir: string): Record<string, string> {
   return {
     ...gitEnv(),
@@ -469,7 +469,7 @@ describe("findChangesetViolations", () => {
     });
   });
 
-  it("does not leak GIT_DIR/GIT_WORK_TREE into a parent repo (regression #2951)", () => {
+  it("does not leak GIT_DIR/GIT_WORK_TREE into a parent repo (regression)", () => {
     // In-process `process.env.GIT_DIR = …` mutation does NOT reach
     // Bun.spawnSync's default (omitted-env) inheritance — verified: Bun
     // snapshots the real OS environ at process start, not the live JS

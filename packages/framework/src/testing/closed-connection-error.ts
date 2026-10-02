@@ -3,13 +3,10 @@
 
 import postgres from "postgres";
 import { isClosedConnectionError } from "../bun-db/query.js";
+import { requireEnv } from "../stack/db.js";
 
 export function testDatabaseUrl(): string {
-  return (
-    process.env["TEST_DATABASE_URL"] ??
-    process.env["DATABASE_URL"] ??
-    "postgresql://kumiko:kumiko@localhost:15432/kumiko_test"
-  );
+  return requireEnv("TEST_DATABASE_URL");
 }
 
 const MAX_WARMUP_ROUNDS = 10;
