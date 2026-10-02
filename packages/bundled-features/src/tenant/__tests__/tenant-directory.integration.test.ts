@@ -136,7 +136,7 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
       { limit: 1 },
     );
 
-    expect(rows.length).toBe(1);
+    expect(rows).toEqual([{ id: foreignTenantId, label: "Foreign Tenant" }]);
   });
 
   test("a SystemAdmin search with limit 1 returns exactly one of several matches", async () => {
@@ -151,8 +151,7 @@ describe("tenant:query:tenant-directory (fw#3142)", () => {
       { limit: 1, search: "tenant" },
     );
 
-    expect(rows.length).toBe(1);
-    expect(String(rows[0]?.["label"]).toLowerCase()).toContain("tenant");
+    expect(rows).toEqual([{ id: foreignTenantId, label: "Foreign Tenant" }]);
   });
 
   test("a TenantAdmin search only matches their own tenant, never a foreign one", async () => {

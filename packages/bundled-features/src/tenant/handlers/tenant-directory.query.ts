@@ -45,7 +45,13 @@ export const tenantDirectoryQuery = definePagedQueryHandler({
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as tenant:query:tenant:list did",
       );
-      tenants = await selectMany(db, tenantTable, undefined, { limit: scanLimit });
+      tenants = await selectMany(db, tenantTable, undefined, {
+        limit: scanLimit,
+        orderBy: [
+          { col: "name", direction: "asc" },
+          { col: "id", direction: "asc" },
+        ],
+      });
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
       const row = await fetchOne(db, tenantTable, { id: query.user.tenantId });

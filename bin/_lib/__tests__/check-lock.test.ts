@@ -5,7 +5,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   acquireCheckLock,
   checkLockPaths,
-  checkLockPathsForContext,
   followCheck,
   parseCliScope,
 } from "../check-lock";
@@ -110,11 +109,11 @@ describe("acquireCheckLock / followCheck: scope isolation (infra#722)", () => {
     });
 
     process.env["KUMIKO_CLI_SCOPE"] = "kumiko-enterprise";
-    const scoped = checkLockPathsForContext(resolveCheckWorkContext(base, base), base);
+    const scoped = checkLockPaths(resolveCheckWorkContext(base, base).cliScope, base);
     expect(scoped.lockDir).toBe(join(base, ".kumiko-check.lock.kumiko-enterprise"));
 
     delete process.env["KUMIKO_CLI_SCOPE"];
-    const unscoped = checkLockPathsForContext(resolveCheckWorkContext(base, base), base);
+    const unscoped = checkLockPaths(resolveCheckWorkContext(base, base).cliScope, base);
     expect(unscoped.lockDir).toBe(join(base, ".kumiko-check.lock"));
   });
 

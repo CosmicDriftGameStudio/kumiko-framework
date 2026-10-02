@@ -126,16 +126,33 @@ describe("tenant:query:member-directory (fw#3107)", () => {
     expect(rows.some((row) => row["id"] === foreignId)).toBe(false);
   });
 
-  test("limit caps the rows without a search and never reaches into a foreign tenant", async () => {
+  test("limit caps the rows without a search, keeps the lowest ids and never reaches into a foreign tenant", async () => {
     const adminId = await seedMember(ownTenantId, "Own Admin", ["TenantAdmin"]);
-    const colleagueId = await seedMember(ownTenantId, "Own Colleague", ["User"]);
+    const memberIds = [adminId];
+    for (const name of ["Member A", "Member B", "Member C", "Member D", "Member E", "Member F"]) {
+      memberIds.push(await seedMember(ownTenantId, name, ["User"]));
+    }
     const foreignId = await seedMember(foreignTenantId, "Foreign Person", ["User"]);
 
-    const rows = await queryDirectory(tenantAdmin(adminId), { limit: 1 });
+    const rows = await queryDirectory(tenantAdmin(adminId), { limit: 3 });
 
-    expect(rows.length).toBe(1);
-    expect([adminId, colleagueId]).toContain(String(rows[0]?.["id"]));
-    expect(rows[0]?.["id"]).not.toBe(foreignId);
+    expect(rows.map((row) => String(row["id"]))).toEqual([...memberIds].sort().slice(0, 3));
+    expect(rows.some((row) => row["id"] === foreignId)).toBe(false);
+  });
+
+  test("a SystemAdmin limit keeps the lowest ids across all tenants", async () => {
+    const operatorId = await seedMember(ownTenantId, "Operator", ["User"]);
+    const allIds = [operatorId];
+    for (const name of ["User A", "User B", "User C", "User D", "User E", "User F"]) {
+      allIds.push(await seedMember(foreignTenantId, name, ["User"]));
+    }
+
+    const rows = await queryDirectory(
+      { id: operatorId, tenantId: ownTenantId, roles: ["SystemAdmin"] },
+      { limit: 3 },
+    );
+
+    expect(rows.map((row) => String(row["id"]))).toEqual([...allIds].sort().slice(0, 3));
   });
 
   test("search with limit 1 returns exactly one of several matches", async () => {
@@ -145,8 +162,7 @@ describe("tenant:query:member-directory (fw#3107)", () => {
 
     const rows = await queryDirectory(tenantAdmin(adminId), { limit: 1, search: "needle" });
 
-    expect(rows.length).toBe(1);
-    expect([firstId, secondId]).toContain(String(rows[0]?.["id"]));
+    expect(rows.map((row) => String(row["id"]))).toEqual([firstId, secondId].sort().slice(0, 1));
   });
 
   test("rows carry only id and label — no email or roles leave the directory", async () => {

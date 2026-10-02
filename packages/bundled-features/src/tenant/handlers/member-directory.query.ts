@@ -21,9 +21,15 @@ const KMS_POOL_CONCURRENCY = 4;
 // search from decrypting every user.
 const SEARCH_SCAN_CAP = 1000;
 
+// Display names are encrypted, so id is the only stable SQL-side key; uuid text
+// order equals the uuid column's byte order.
+function compareIds(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 async function loadMemberUserIds(db: TenantDb, tenantId: string): Promise<readonly string[]> {
   const memberships = await selectMany(db, tenantMembershipsTable, { tenantId });
-  return [...new Set(memberships.map((row) => String(row["userId"])))];
+  return [...new Set(memberships.map((row) => String(row["userId"])))].sort(compareIds);
 }
 
 // Label source behind every `user:user` reference column (fw#3107). The
@@ -65,11 +71,24 @@ export const memberDirectoryQuery = definePagedQueryHandler({
       const db = ctx.systemDb.acknowledgeCrossTenant(
         "SystemAdmin reference labels span every tenant, as user:query:user:list did",
       );
-      users = await selectMany(db, userTable, undefined, { limit: scanLimit });
+      users = await selectMany(db, userTable, undefined, {
+        limit: scanLimit,
+        orderBy: { col: "id", direction: "asc" },
+      });
     } else {
       const db = ctx.systemDb.assertTenantMatch(query.user.tenantId);
       const userIds = (await loadMemberUserIds(db, query.user.tenantId)).slice(0, scanLimit);
-      users = userIds.length > 0 ? await selectMany(db, userTable, { id: [...userIds] }) : [];
+      users =
+        userIds.length > 0
+          ? await selectMany(
+              db,
+              userTable,
+              { id: [...userIds] },
+              {
+                orderBy: { col: "id", direction: "asc" },
+              },
+            )
+          : [];
     }
     const resolved = await mapWithConcurrency(users, KMS_POOL_CONCURRENCY, async (user) => {
       const id = String(user.id);
