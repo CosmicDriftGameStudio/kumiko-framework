@@ -37,10 +37,10 @@ import {
 } from "../../tenant-lifecycle/constants.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
-import { subscriptionAggregateId } from "../aggregate-id.js";
+import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
 import { billingFoundationFeature } from "../feature.js";
-import { subscriptionsProjectionTable } from "../projection.js";
+import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
 
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 
@@ -83,7 +83,9 @@ afterAll(async () => {
 beforeEach(async () => {
   stack.events.reset();
   await resetTestTables(db, [tenantTable, tenantComplianceProfileTable]);
-  await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions RESTART IDENTITY CASCADE`);
+  await stack.db.unsafe?.(
+    `TRUNCATE kumiko_events, read_subscriptions, read_payments RESTART IDENTITY CASCADE`,
+  );
 });
 
 async function seedTenant(user: typeof tenantA, profileKey = "eu-dsgvo"): Promise<void> {
@@ -107,6 +109,20 @@ async function seedSubscription(user: typeof tenantA, eventIdSuffix: string): Pr
       providerCustomerId: `cus_${eventIdSuffix}`,
       providerSubscriptionId: `sub_${eventIdSuffix}`,
       currentPeriodEndIso: "2030-01-01T00:00:00Z",
+      rawPayload: "{}",
+    },
+    user,
+  );
+}
+
+async function seedPayment(user: typeof tenantA, eventIdSuffix: string): Promise<void> {
+  await stack.http.writeOk(
+    SubscriptionFoundationHandlers.processPaymentEvent,
+    {
+      providerEventId: `evt_pay_${eventIdSuffix}`,
+      providerName: "stripe",
+      providerCustomerId: `cus_pay_${eventIdSuffix}`,
+      priceId: "price_one_off",
       rawPayload: "{}",
     },
     user,
@@ -153,6 +169,8 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
 
     await seedSubscription(tenantA, "a");
     await seedSubscription(tenantB, "b");
+    await seedPayment(tenantA, "a");
+    await seedPayment(tenantB, "b");
 
     await seedDestroyingTenant(tenantA.tenantId);
 
@@ -172,6 +190,16 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
     expect(
       await isStreamArchived(db, tenantA.tenantId, subscriptionAggregateId(tenantA.tenantId)),
     ).toBe(true);
+
+    expect(
+      await selectMany(db, paymentsProjectionTable, { tenantId: tenantA.tenantId }),
+    ).toHaveLength(0);
+    expect(
+      await selectMany(db, paymentsProjectionTable, { tenantId: tenantB.tenantId }),
+    ).toHaveLength(1);
+    expect(await isStreamArchived(db, tenantA.tenantId, paymentAggregateId(tenantA.tenantId))).toBe(
+      true,
+    );
   });
 
   test("HGB profile: redacts PII fields but keeps the row and archives its stream", async () => {
@@ -179,6 +207,7 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
     await seedTenant(tenantHgb, "de-hr-dsgvo-hgb");
 
     await seedSubscription(tenantHgb, "c");
+    await seedPayment(tenantHgb, "c");
 
     await seedDestroyingTenant(tenantHgb.tenantId);
 
@@ -194,6 +223,15 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
 
     expect(
       await isStreamArchived(db, tenantHgb.tenantId, subscriptionAggregateId(tenantHgb.tenantId)),
+    ).toBe(true);
+
+    const paymentRows = await selectMany(db, paymentsProjectionTable, {
+      tenantId: tenantHgb.tenantId,
+    });
+    expect(paymentRows).toHaveLength(1);
+    expect(paymentRows[0]?.["providerCustomerId"]).toBe("[erased]");
+    expect(
+      await isStreamArchived(db, tenantHgb.tenantId, paymentAggregateId(tenantHgb.tenantId)),
     ).toBe(true);
   });
 });

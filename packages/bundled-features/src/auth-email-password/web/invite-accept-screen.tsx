@@ -51,6 +51,8 @@ type InviteAcceptResponse = {
   // Present only when the server's auth.postAuthLanding resolver returned a
   // valid path — see auth-routes.ts.
   readonly landingPath?: string;
+  readonly mfaRequired?: boolean;
+  readonly mfaSetupRequired?: boolean;
 };
 
 function grantedRoles(data: InviteAcceptResponse): readonly string[] {
@@ -82,6 +84,22 @@ export function InviteAcceptScreen({
 
   const effectiveTitle = title ?? t("auth.inviteAccept.title");
 
+  // The invitation is already consumed when the server answers with an MFA
+  // challenge / setup requirement, but no session cookie was minted: send the
+  // user to the login screen (now a member) instead of a tenant URL.
+  const finishAccept = (data: InviteAcceptResponse): void => {
+    if (data.mfaRequired === true || data.mfaSetupRequired === true) {
+      window.location.assign(loginHref);
+      return;
+    }
+    window.location.assign(
+      resolvePostAuthHref(data.landingPath, loggedInHref, {
+        tenantId: data.tenantId,
+        roles: grantedRoles(data),
+      }),
+    );
+  };
+
   const acceptLoggedIn = async (): Promise<void> => {
     setSubmitting(true);
     setError(null);
@@ -96,12 +114,7 @@ export function InviteAcceptScreen({
     if (res.ok) {
       // @cast-boundary engine-payload — auth route JSON
       const data = (await res.json()) as InviteAcceptResponse;
-      window.location.assign(
-        resolvePostAuthHref(data.landingPath, loggedInHref, {
-          tenantId: data.tenantId,
-          roles: grantedRoles(data),
-        }),
-      );
+      finishAccept(data);
       return;
     }
     setError(t("auth.errors.invalidInviteToken"));
@@ -121,12 +134,7 @@ export function InviteAcceptScreen({
     if (res.ok) {
       // @cast-boundary engine-payload — auth route JSON
       const data = (await res.json()) as InviteAcceptResponse;
-      window.location.assign(
-        resolvePostAuthHref(data.landingPath, loggedInHref, {
-          tenantId: data.tenantId,
-          roles: grantedRoles(data),
-        }),
-      );
+      finishAccept(data);
       return;
     }
     setError(t("auth.errors.invalidInviteToken"));
@@ -146,12 +154,7 @@ export function InviteAcceptScreen({
     if (res.ok) {
       // @cast-boundary engine-payload — auth route JSON
       const data = (await res.json()) as InviteAcceptResponse;
-      window.location.assign(
-        resolvePostAuthHref(data.landingPath, loggedInHref, {
-          tenantId: data.tenantId,
-          roles: grantedRoles(data),
-        }),
-      );
+      finishAccept(data);
       return;
     }
     setError(t("auth.errors.invalidInviteToken"));

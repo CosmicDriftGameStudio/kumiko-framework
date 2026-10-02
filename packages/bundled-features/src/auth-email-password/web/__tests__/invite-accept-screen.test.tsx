@@ -269,7 +269,7 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     });
   });
 
-  test("MFA-Challenge (200 ohne Rollen) liefert eine leere Rollenliste statt undefined", async () => {
+  test("MFA challenge (200 without session) redirects to the login screen, not a tenant URL", async () => {
     globalThis.fetch = mock(
       async () =>
         new Response(JSON.stringify({ mfaRequired: true, challengeToken: "ch" }), { status: 200 }),
@@ -280,18 +280,12 @@ describe("InviteAcceptScreen — anonymous branches", () => {
       writable: true,
       value: { href: originalLocation.href, search: originalLocation.search, assign },
     });
-    const seen: (readonly string[])[] = [];
+    const loggedInHref = mock(() => "/tenant-url");
 
     render(
       <PrimitivesProvider value={defaultPrimitives}>
         <LocaleProvider resolver={resolver} fallbackBundles={[defaultTranslations]}>
-          <InviteAcceptScreen
-            token="tok-123"
-            loggedInHref={({ roles }) => {
-              seen.push(roles);
-              return "/";
-            }}
-          />
+          <InviteAcceptScreen token="tok-123" loggedInHref={loggedInHref} loginHref="/login" />
         </LocaleProvider>
       </PrimitivesProvider>,
     );
@@ -299,9 +293,9 @@ describe("InviteAcceptScreen — anonymous branches", () => {
     fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: "Accept + sign in" }));
     await waitFor(() => {
-      expect(assign).toHaveBeenCalled();
+      expect(assign).toHaveBeenCalledWith("/login");
     });
-    expect(seen).toEqual([[]]);
+    expect(loggedInHref).not.toHaveBeenCalled();
   });
 
   test("anon failure shows invalidInviteToken banner", async () => {

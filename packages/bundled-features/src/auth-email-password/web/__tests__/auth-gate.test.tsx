@@ -357,4 +357,35 @@ describe("makeSessionAuthGate — session bootstrap failure", () => {
     expect(errorScreen.getAttribute("data-http-status")).toBe("network");
     expect(screen.queryByTestId("protected")).toBeNull();
   });
+
+  test("permanent 500 → Sign out button posts /api/auth/logout", async () => {
+    const logoutCalls: string[] = [];
+    globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url === "/api/auth/logout") {
+        logoutCalls.push(url);
+        return new Response(null, { status: 200 });
+      }
+      if (url === "/api/auth/tenants") {
+        return new Response(JSON.stringify({ tenants: [], activeTenantId: "t1" }), {
+          status: 200,
+        });
+      }
+      if (url === "/api/query") return new Response(null, { status: 500 });
+      return new Response(null, { status: 404 });
+    }) as unknown as typeof fetch;
+
+    const Gate = makeAuthGate();
+    renderRealSession(
+      <Gate>
+        <div data-testid="protected">secret</div>
+      </Gate>,
+    );
+
+    await waitFor(() => screen.getByTestId("session-bootstrap-error"));
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    await waitFor(() => {
+      expect(logoutCalls).toEqual(["/api/auth/logout"]);
+    });
+  });
 });

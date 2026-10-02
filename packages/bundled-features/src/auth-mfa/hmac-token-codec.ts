@@ -9,6 +9,9 @@ export type HmacTokenVerifyResult<TPayload> =
   | { readonly ok: true; readonly payload: TPayload; readonly expiresAtMs: number }
   | { readonly ok: false; readonly reason: "malformed" | "bad_signature" | "expired" };
 
+// `domain` is part of the signed input: it is the only thing that stops a token
+// minted for one MFA step from verifying as another (e.g. a preauth-setup token
+// replayed as a challenge token), since both share the same secret and payload shape.
 export function createHmacTokenCodec<
   TPayload extends { readonly userId: string; readonly tenantId: string },
 >(domain: string, isPayload: (value: unknown) => value is TPayload) {

@@ -229,6 +229,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Too many requests in a short time. Please wait a moment and try again.",
   "auth.sessionBootstrap.retry": "Try again",
   "auth.sessionBootstrap.retrying": "Retrying…",
+  "auth.sessionBootstrap.signOut": "Sign out",
   "auth.signup.email": "Email",
   "auth.signup.haveAccount": "Already have an account? Sign in",
   "auth.signup.intro": "Enter your email. We'll send you an activation link to set your password.",

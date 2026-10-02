@@ -138,6 +138,7 @@ export const defaultTranslations: TranslationsByLocale = {
       "Too many requests in a short time. Please wait a moment and try again.",
     "auth.sessionBootstrap.retry": "Try again",
     "auth.sessionBootstrap.retrying": "Retrying…",
+    "auth.sessionBootstrap.signOut": "Sign out",
     "auth.user.menu.label": "Account",
     "auth.user.menu.logout": "Sign out",
     "auth.tenant.switcher.label": "Tenant",
