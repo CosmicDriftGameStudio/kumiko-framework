@@ -165,7 +165,7 @@ export const teamListQuery = definePagedQueryHandler({
     const memberRows: TeamRow[] = membershipRows.map((row) => {
       const userId = String(row["userId"]);
       const decrypted = decryptedByUserId.get(userId);
-      const createdAt = row["createdAt"];
+      const createdAt = row["insertedAt"];
       return {
         id: String(row["id"]),
         userId,
@@ -197,7 +197,7 @@ export const teamListQuery = definePagedQueryHandler({
           typeof email === "string"
             ? await decryptStoredPii(email, "email", "tenant:team-list")
             : null;
-        const createdAt = row["createdAt"];
+        const createdAt = row["insertedAt"];
         const expiresAt = row["expiresAt"];
         return {
           id: String(row["id"]),
