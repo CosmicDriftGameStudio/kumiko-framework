@@ -13,6 +13,7 @@ import {
   defineFeature,
   defineWorkflow,
   stepsPipeline,
+  WORKFLOW_AGGREGATE_TYPE,
   WORKFLOW_RESUMED_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
   WORKFLOW_RUN_COMPLETED_TYPE,
@@ -32,6 +33,7 @@ import {
 import { workflowRunAggregateId } from "../aggregate-id.js";
 import { registerEventTrigger } from "../event-trigger.js";
 import { workflowRunnerFeature } from "../feature.js";
+import type { WorkflowRunStartedPayload } from "../runner.js";
 
 let stack: TestStack;
 const admin = TestUsers.admin;
@@ -112,12 +114,40 @@ const doubleRetryWorkflow: WorkflowDefinition = defineWorkflow({
   ]),
 });
 
+const filteredWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "wr-integration-filtered",
+  trigger: {
+    kind: "event",
+    eventType: "wr-test.filtered",
+    filter: (event) => (event.payload as { accept: boolean }).accept === true,
+  },
+  idempotencyKey: ({ payload }) => (payload as { runKey: string }).runKey,
+  steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+});
+
+const LITERAL_IDEMPOTENCY_KEY = "wr-integration-literal-key";
+const literalKeyWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "wr-integration-literal-key",
+  trigger: { kind: "event", eventType: "wr-test.literal-key" },
+  idempotencyKey: LITERAL_IDEMPOTENCY_KEY,
+  steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+});
+
+const keylessWorkflow: WorkflowDefinition = defineWorkflow({
+  name: "wr-integration-keyless",
+  trigger: { kind: "event", eventType: "wr-test.keyless" },
+  steps: stepsPipeline(({ r }) => [r.step.return({ isSuccess: true, data: undefined })]),
+});
+
 const testTriggersFeature = defineFeature("workflow-runner-integration-test-triggers", (r) => {
   registerEventTrigger(r, happyWorkflow);
   registerEventTrigger(r, failingWorkflow);
   registerEventTrigger(r, suspendingWorkflow);
   registerEventTrigger(r, doubleResumeWorkflow);
   registerEventTrigger(r, doubleRetryWorkflow);
+  registerEventTrigger(r, filteredWorkflow);
+  registerEventTrigger(r, literalKeyWorkflow);
+  registerEventTrigger(r, keylessWorkflow);
 });
 
 async function fireTrigger(eventType: string, payload: Record<string, unknown>): Promise<void> {
@@ -139,9 +169,26 @@ async function loadRunEvents(runId: string) {
   return selectMany(
     stack.db,
     eventsTable,
-    { aggregateId: runId },
+    { aggregateId: runId, tenantId: admin.tenantId },
     { orderBy: { col: "version", direction: "asc" } },
   );
+}
+
+// Run-started rows of one workflow, found by the trigger payload's marker —
+// for workflows whose runId is not derivable from a key.
+async function loadRunStartedByMarker(workflowName: string, marker: string) {
+  const started = await selectMany(stack.db, eventsTable, {
+    aggregateType: WORKFLOW_AGGREGATE_TYPE,
+    type: WORKFLOW_RUN_STARTED_TYPE,
+    tenantId: admin.tenantId,
+  });
+  return started.filter((row) => {
+    const payload = row["payload"] as WorkflowRunStartedPayload;
+    return (
+      payload.workflowName === workflowName &&
+      (payload.triggerPayload as { marker?: string }).marker === marker
+    );
+  });
 }
 
 // Dispatches resume-run directly (SYSTEM_ROLE-gated) instead of going
@@ -237,6 +284,53 @@ describe("workflow-runner event-trigger", () => {
     expect(secondPass?.byConsumer[consumerName]?.failed).toBe(0);
     expect(await loadRunEvents(runId)).toHaveLength(2);
     expect(await getConsumerState(stack.db, consumerName)).toMatchObject({ status: "idle" });
+  });
+
+  test("trigger.filter: a rejected event starts no run, an accepted one does", async () => {
+    const rejectedKey = crypto.randomUUID();
+    const acceptedKey = crypto.randomUUID();
+
+    await fireTrigger("wr-test.filtered", { runKey: rejectedKey, accept: false });
+    await fireTrigger("wr-test.filtered", { runKey: acceptedKey, accept: true });
+
+    expect(
+      await loadRunEvents(workflowRunAggregateId(filteredWorkflow.name, rejectedKey)),
+    ).toHaveLength(0);
+    expect(
+      (await loadRunEvents(workflowRunAggregateId(filteredWorkflow.name, acceptedKey))).map(
+        (row) => row["type"],
+      ),
+    ).toEqual([WORKFLOW_RUN_STARTED_TYPE, WORKFLOW_RUN_COMPLETED_TYPE]);
+  });
+
+  test("a string-literal idempotencyKey derives the run aggregate id and is recorded on run-started", async () => {
+    await fireTrigger("wr-test.literal-key", {});
+
+    const rows = await loadRunEvents(
+      workflowRunAggregateId(literalKeyWorkflow.name, LITERAL_IDEMPOTENCY_KEY),
+    );
+    expect(rows.map((row) => row["type"])).toEqual([
+      WORKFLOW_RUN_STARTED_TYPE,
+      WORKFLOW_RUN_COMPLETED_TYPE,
+    ]);
+    expect(rows[0]!["payload"]).toMatchObject({ idempotencyKey: LITERAL_IDEMPOTENCY_KEY });
+  });
+
+  test("without an idempotencyKey every trigger event starts its own run under a random id", async () => {
+    const marker = crypto.randomUUID();
+
+    await fireTrigger("wr-test.keyless", { marker });
+    await fireTrigger("wr-test.keyless", { marker });
+
+    const started = await loadRunStartedByMarker(keylessWorkflow.name, marker);
+    expect(started).toHaveLength(2);
+    expect(new Set(started.map((row) => row["aggregateId"])).size).toBe(2);
+    for (const row of started) {
+      expect(row["payload"]).not.toHaveProperty("idempotencyKey");
+      expect(
+        (await loadRunEvents(String(row["aggregateId"]))).map((event) => event["type"]),
+      ).toEqual([WORKFLOW_RUN_STARTED_TYPE, WORKFLOW_RUN_COMPLETED_TYPE]);
+    }
   });
 
   test("suspension: a wait step suspends the run instead of failing it — resumable by framework#2513 Phase 2, no run-completed yet", async () => {

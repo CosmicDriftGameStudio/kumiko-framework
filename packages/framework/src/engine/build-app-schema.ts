@@ -509,7 +509,8 @@ function projectField(fieldDef: FieldDefinition): FieldDefinition {
   if (typeof def["multiple"] === "boolean") out["multiple"] = def["multiple"];
   // MultiSelect: display picks checkboxes vs. combobox in the renderer,
   // columns/maxRows size the checkbox grid — without these the renderer
-  // always falls back to the combobox (fw#2494).
+  // always falls back to the combobox (fw#2494). Select: display picks
+  // "radio" | "dropdown" the same way.
   if (typeof def["display"] === "string") out["display"] = def["display"];
   if (typeof def["columns"] === "number") out["columns"] = def["columns"];
   if (typeof def["maxRows"] === "number") out["maxRows"] = def["maxRows"];

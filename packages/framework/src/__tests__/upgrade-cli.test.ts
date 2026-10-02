@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import {
   findCodemodScriptsRoot,
   findFeatureChangelogFiles,
@@ -274,6 +274,7 @@ describe("upgrade command — enterprise package layout", () => {
 // published @cosmicdrift/kumiko-framework package (fw#2301).
 const REAL_REPO_ROOT = join(import.meta.dir, "../../../..");
 const REAL_FRAMEWORK_SRC = join(import.meta.dir, "..");
+const REAL_FRAMEWORK_PACKAGE_DIR = join(REAL_FRAMEWORK_SRC, "..");
 const REAL_CODEMOD = "scripts/codemod/crypto-shredding-testing-move.ts";
 
 function breakingEntryWithCodemod(codemod: string | undefined): string {
@@ -391,6 +392,33 @@ describe("upgrade command — --apply", () => {
     expect(marker.codemods).toEqual([
       { version: "0.167.0", codemod: REAL_CODEMOD, title: "helper moved" },
     ]);
+  });
+
+  test("--apply --dry-run runs a codemod from a node_modules-installed framework package", async () => {
+    const consumerRoot = tmp({
+      "packages/framework/src/changes.json": breakingEntryWithCodemod(
+        "scripts/codemod/migrate-db-raw.ts",
+      ),
+      "app.ts": "export const x = 1;\n",
+    });
+    const nmPkgDir = join(consumerRoot, "node_modules/@cosmicdrift/kumiko-framework");
+    mkdirSync(join(nmPkgDir, ".."), { recursive: true });
+    symlinkSync(REAL_FRAMEWORK_PACKAGE_DIR, nmPkgDir, "dir");
+    const spy = makeSpyOutput();
+
+    const exit = await runUpgradeCli(
+      ["--from", "0.165.0", "--apply", "--dry-run"],
+      consumerRoot,
+      spy.out,
+      {
+        repoRoot: consumerRoot,
+      },
+    );
+
+    expect(spy.errs).toEqual([]);
+    expect(exit).toBe(0);
+    expect(spy.logs.join("\n")).toContain("running scripts/codemod/migrate-db-raw.ts (dry-run)");
+    expect(existsSync(join(consumerRoot, ".kumiko/upgrade-state.json"))).toBe(false);
   });
 
   test("--dry-run runs the codemod but changes nothing and writes no marker", async () => {
@@ -757,6 +785,12 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
     ];
     expect(changesJsonFiles.length).toBeGreaterThan(0);
 
+    const publishedFileEntries = (
+      JSON.parse(readFileSync(join(REAL_FRAMEWORK_PACKAGE_DIR, "package.json"), "utf-8")) as {
+        readonly files: readonly string[];
+      }
+    ).files;
+
     const offenders: string[] = [];
     for (const file of changesJsonFiles) {
       const entries = JSON.parse(readFileSync(file, "utf-8")) as ReadonlyArray<{
@@ -772,9 +806,22 @@ describe("changes.json codemod fields resolve to real published scripts", () => 
           );
           continue;
         }
-        if (resolveCodemodScript(REAL_REPO_ROOT, entry.codemod) === null) {
+        const resolved = resolveCodemodScript(REAL_REPO_ROOT, entry.codemod);
+        if (resolved === null) {
           offenders.push(
             `${file} · ${entry.version} "${entry.title}": codemod path does not resolve: "${entry.codemod}"`,
+          );
+          continue;
+        }
+        // Resolving inside the git checkout proves nothing about the npm
+        // tarball: the script must also sit under a package.json `files` entry.
+        const relToPackage = relative(REAL_FRAMEWORK_PACKAGE_DIR, resolved);
+        const shipped = publishedFileEntries.some(
+          (entryPath) => relToPackage === entryPath || relToPackage.startsWith(`${entryPath}/`),
+        );
+        if (!shipped) {
+          offenders.push(
+            `${file} · ${entry.version} "${entry.title}": ${relToPackage} is not covered by package.json "files"`,
           );
         }
       }

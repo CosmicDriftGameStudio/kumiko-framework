@@ -261,6 +261,20 @@ describe("isPublicHost", () => {
     await expect(isPublicHost("https://mapped.example", fakeLookup)).resolves.toBe(false);
   });
 
+  test("resolves false (does not throw) when the DNS lookup rejects", async () => {
+    const failingLookup = (async () => {
+      throw new Error("ENOTFOUND");
+    }) as unknown as typeof lookup;
+
+    await expect(isPublicHost("https://nx.example", failingLookup)).resolves.toBe(false);
+  });
+
+  test("resolves false when the DNS lookup returns no addresses", async () => {
+    const emptyLookup = (async () => []) as unknown as typeof lookup;
+
+    await expect(isPublicHost("https://empty.example", emptyLookup)).resolves.toBe(false);
+  });
+
   test("resolves false for a URL with embedded credentials", async () => {
     await expect(isPublicHost("https://user:pass@example.com")).resolves.toBe(false);
   });

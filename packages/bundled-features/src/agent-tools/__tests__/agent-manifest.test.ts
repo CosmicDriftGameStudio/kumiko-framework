@@ -5,6 +5,8 @@ import {
   createSelectField,
   createTextField,
   defineFeature,
+  defineQueryHandler,
+  defineWriteHandler,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { ReferenceFieldDef, TextFieldDef } from "@cosmicdrift/kumiko-framework/engine/types";
 import * as z from "zod";
@@ -111,6 +113,36 @@ describe("buildAgentManifest", () => {
 
     expect(queryHandler?.risk).toBe("low");
     expect(writeHandler?.risk).toBe("mid");
+  });
+
+  test("object-form handlers forward description and agent hints into the manifest", () => {
+    const feature = defineFeature("agent-object-form", (r) => {
+      r.entity("widget", gatedEntity);
+      r.writeHandler(
+        defineWriteHandler({
+          name: "widget:purge",
+          schema: z.object({ id: z.string() }),
+          access: { roles: ["admin"] },
+          description: "Purge a widget.",
+          agent: { risk: "high" },
+          handler: async () => ({ isSuccess: true, data: {} }),
+        }),
+      );
+      r.queryHandler(
+        defineQueryHandler({
+          name: "widget:audit",
+          schema: z.object({ id: z.string() }),
+          access: { roles: ["admin"] },
+          description: "Audit a widget.",
+          agent: { risk: "high" },
+          handler: async () => ({}),
+        }),
+      );
+    });
+    const admin = buildAgentManifest(createRegistry([feature]), { locale: "en", roles: ["admin"] });
+
+    expect(admin.handlers.find((h) => h.qn.endsWith(":purge"))?.risk).toBe("high");
+    expect(admin.handlers.find((h) => h.qn.endsWith(":audit"))?.risk).toBe("high");
   });
 
   test("inputSchema is a real JSON Schema derived from the zod schema's properties", () => {

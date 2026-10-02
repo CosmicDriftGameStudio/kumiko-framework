@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
+  accessSync,
   chmodSync,
+  constants,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -16,6 +18,9 @@ import { dirname, join } from "node:path";
 // These tests exercise the checked-in hook file directly (not a copy) — a
 // missing executable bit on it fails here the same way it would as a hook.
 const HOOK_PATH = join(import.meta.dir, "..", "..", "hooks", "pre-push");
+// The framework repo's own active hook: same shim plus a preference for the
+// checked-out in-repo hook, so it is intentionally not a byte copy of HOOK_PATH.
+const REPO_HUSKY_HOOK_PATH = join(import.meta.dir, "..", "..", "..", "..", ".husky", "pre-push");
 
 const {
   GIT_DIR,
@@ -96,8 +101,9 @@ function runHook(
   args: string[] = [],
   stdin = "",
   extraEnv: Record<string, string> = {},
+  hookPath: string = HOOK_PATH,
 ): { output: string; exitCode: number } {
-  const result = Bun.spawnSync([HOOK_PATH, ...args], {
+  const result = Bun.spawnSync([hookPath, ...args], {
     cwd,
     env: { ...fixtureEnv(ceilingDir), ...extraEnv },
     stdin: Buffer.from(stdin),
@@ -219,5 +225,52 @@ describe("hooks/pre-push shim", () => {
     expect(exitCode).toBe(0);
     expect(output).toContain("BIN_RAN");
     expect(output).toContain(`PWD=${repoDir}`);
+  });
+});
+
+describe("repo .husky/pre-push", () => {
+  let tmp: string;
+
+  beforeEach(() => {
+    tmp = realpathSync(mkdtempSync(join(tmpdir(), "kumiko-pre-push-husky-")));
+  });
+
+  afterEach(() => {
+    rmSync(tmp, { recursive: true, force: true });
+  });
+
+  test("is executable, otherwise git silently skips the active hook", () => {
+    expect(() => accessSync(REPO_HUSKY_HOOK_PATH, constants.X_OK)).not.toThrow();
+  });
+
+  test("prefers the checked-out in-repo hook over a node_modules bin", () => {
+    const repoDir = join(tmp, "repo");
+    initGitRepo(repoDir, tmp);
+    writeStubBin(
+      join(repoDir, "node_modules", ".bin"),
+      ["#!/usr/bin/env sh", "echo NM_BIN", ""].join("\n"),
+    );
+    mkdirSync(join(repoDir, "packages", "guards", "src"), { recursive: true });
+    writeExecutable(
+      join(repoDir, "packages", "guards", "src", "pre-push.sh"),
+      ["#!/usr/bin/env sh", 'echo "IN_REPO_HOOK ARGS=$*"', ""].join("\n"),
+    );
+
+    const { output, exitCode } = runHook(repoDir, tmp, ["origin"], "", {}, REPO_HUSKY_HOOK_PATH);
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("IN_REPO_HOOK ARGS=origin");
+    expect(output).not.toContain("NM_BIN");
+  });
+
+  test("falls back to the node_modules bin when the repo has no in-repo hook", () => {
+    const repoDir = join(tmp, "repo");
+    initGitRepo(repoDir, tmp);
+    writeStubBin(join(repoDir, "node_modules", ".bin"), stubBinScript());
+
+    const { output, exitCode } = runHook(repoDir, tmp, [], "", {}, REPO_HUSKY_HOOK_PATH);
+
+    expect(exitCode).toBe(0);
+    expect(output).toContain("BIN_RAN");
   });
 });
