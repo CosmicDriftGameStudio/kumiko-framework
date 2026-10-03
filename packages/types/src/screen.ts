@@ -1872,6 +1872,10 @@ export type SecretsEditScreenDefinition = {
   readonly fieldHints?: Readonly<Record<string, string>>;
   /** field ids whose declaration set `required: true`. */
   readonly requiredFields?: readonly string[];
+  /** field id -> write access derived from the key's `writeRoles`. The screen
+   *  hides fields the viewer fails; UI only, the secrets write gate stays
+   *  authoritative. */
+  readonly fieldAccess?: Readonly<Record<string, AccessRule>>;
   readonly sections: readonly SecretsEditSection[];
   readonly access?: AccessRule;
 };

@@ -2,10 +2,12 @@ import type { SecretsEditScreenDefinition } from "@cosmicdrift/kumiko-framework/
 import type { Translate } from "@cosmicdrift/kumiko-headless";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import { useDispatcher } from "../context/dispatcher-context.js";
+import { useUserRoles } from "../context/user-roles-context.js";
 import { useQuery } from "../hooks/use-query.js";
 import { useTranslation } from "../i18n.js";
 import { STICKY_PRIMARY_ACTION_PROP, usePrimitives } from "../primitives.js";
 import { QueryErrorBanner, QueryLoadingBanner } from "./query-state-banners.js";
+import { screenAccessAllows } from "./screen-access.js";
 import { dispatcherErrorText } from "./write-failed-error.js";
 
 type SecretListRow = {
@@ -40,6 +42,19 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
   const effectiveTranslate = translate ?? t;
   const dispatcher = useDispatcher();
   const listQuery = useQuery<readonly SecretListRow[]>("secrets:query:list", {});
+  const userRoles = useUserRoles();
+
+  // Hidden fields are excluded from rendering and submit alike; the server
+  // write gate stays authoritative.
+  const visibleFieldIds = useMemo(
+    () =>
+      new Set(
+        Object.keys(screen.secretKeys).filter((fieldId) =>
+          screenAccessAllows(screen.fieldAccess?.[fieldId], userRoles),
+        ),
+      ),
+    [screen.secretKeys, screen.fieldAccess, userRoles],
+  );
 
   const [drafts, setDrafts] = useState<Readonly<Record<string, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -59,6 +74,7 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
 
   const handleSubmit = useCallback(async (): Promise<void> => {
     const commands = Object.entries(screen.secretKeys).flatMap(([fieldId, qualified]) => {
+      if (!visibleFieldIds.has(fieldId)) return [];
       const value = drafts[fieldId]?.trim();
       return value ? [{ type: "secrets:write:set", payload: { key: qualified, value } }] : [];
     });
@@ -80,7 +96,14 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
     } finally {
       setSubmitting(false);
     }
-  }, [dispatcher, drafts, screen.secretKeys, listQuery.refetch, effectiveTranslate]);
+  }, [
+    dispatcher,
+    drafts,
+    screen.secretKeys,
+    visibleFieldIds,
+    listQuery.refetch,
+    effectiveTranslate,
+  ]);
 
   const handleDelete = useCallback(
     async (qualified: string): Promise<void> => {
@@ -115,7 +138,12 @@ export function SecretsEditBody({ screen, translate }: SecretsEditBodyProps): Re
 
   // The generator emits one section per feature; features without a declared
   // title all fall under the generic "Secrets" heading and share one band.
-  const sectionGroups = groupSectionsByTitle(screen.sections);
+  const sectionGroups = groupSectionsByTitle(screen.sections)
+    .map((group) => ({
+      ...group,
+      fields: group.fields.filter((fieldId) => visibleFieldIds.has(fieldId)),
+    }))
+    .filter((group) => group.fields.length > 0);
   const unsavedCount = Object.values(drafts).filter((value) => value.trim() !== "").length;
 
   return (
