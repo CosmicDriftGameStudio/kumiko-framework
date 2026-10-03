@@ -118,6 +118,7 @@ export function applyStoredThemeMode(): void {
   const stored = readStoredPreference();
   if (stored !== undefined) {
     applyPreference(stored);
+    // skip: a stored choice wins over the app default
     return;
   }
   // Without a stored choice only an app-declared default changes the HTML state.
@@ -163,6 +164,7 @@ export function useBrowserTokensApi(): TokensApi {
 
   // kumiko-lint-ignore no-raw-hooks listener lifecycle, no data fetching
   useEffect(() => {
+    // skip: without matchMedia, auto keeps the mode resolved at apply time
     if (typeof window.matchMedia !== "function") return;
     const query = window.matchMedia(DARK_SCHEME_QUERY);
     const followSystem = (): void => {
