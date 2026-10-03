@@ -1054,3 +1054,29 @@ export function validateDerivedFieldCollisions(feature: FeatureDefinition): void
     }
   }
 }
+
+// --- Searchable fields with restricted read access ---
+
+// The search index is tenant-wide, not per-role: `search` matches every
+// searchable field and `filterReadFields` only strips the response afterwards.
+// A role that cannot read the field could still guess its value from match
+// counts, so the combination is rejected until the index can filter per role.
+export function validateSearchableFieldReadAccess(feature: FeatureDefinition): void {
+  for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
+    for (const [fieldName, field] of Object.entries(entity.fields)) {
+      if (field.type !== "text") continue;
+      if (!field.searchable && field.find !== "fuzzy") continue;
+      const readAccess = field.access?.read;
+      if (readAccess === undefined) continue;
+      const isUnrestricted = Array.isArray(readAccess)
+        ? readAccess.length === 0
+        : Object.keys(readAccess).length === 0;
+      if (isUnrestricted) continue;
+      throw new Error(
+        `Field "${fieldName}" on entity "${entityName}" cannot be searchable with a restricted ` +
+          "access.read — the search index is not filtered per role, so search matches would leak " +
+          'the value to roles that cannot read it. Drop `searchable`/`find: "fuzzy"` or `access.read`.',
+      );
+    }
+  }
+}

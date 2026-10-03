@@ -36,6 +36,7 @@ import {
   validateMultiSelectFields,
   validateMultiStreamProjections,
   validateReferenceFields,
+  validateSearchableFieldReadAccess,
   validateTransitions,
 } from "./entity-handler.js";
 import { validateEntityListScreens } from "./entity-list-screens.js";
@@ -208,6 +209,7 @@ export function validateBoot(
   for (const feature of features) {
     validateCircularDeps(feature.name, featureMap);
     if (validateEncryptedFields(feature)) hasEncryptedFields = true;
+    validateSearchableFieldReadAccess(feature);
     if (validateFileFields(feature)) hasFileFields = true;
     validatePiiAndRetention(feature);
     validateRecordOwnedSubjects(feature);
