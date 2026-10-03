@@ -900,6 +900,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "screen:waitlist-list.title": "Lista de espera",
   "secrets.errors.unknownKey": "Clave de secreto desconocida.",
   "secrets.errors.writeDenied": "No tienes permiso para cambiar este secreto.",
+  "secrets.errors.invalidValue": "Este valor no es válido para este secreto.",
   "screen:api-token-create.title": "Crear un token nuevo",
   "screen:api-tokens.title": "Tokens de acceso personal",
   "screen:audit-log-detail.title": "Evento",

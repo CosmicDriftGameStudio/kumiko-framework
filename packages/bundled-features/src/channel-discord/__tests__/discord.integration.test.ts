@@ -61,6 +61,8 @@ describe("channel-discord against a local HTTP stub", () => {
     stub,
     channel: "discord",
     seedConnection,
+    seedConnectionUnvalidated: (connection, urlOrPath) =>
+      harness.setSecretUnvalidated(secretKeyFor(connection), urlOrPath),
     urlFor: (path) => `${stub.origin}${path}`,
   }));
 

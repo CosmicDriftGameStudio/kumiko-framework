@@ -906,6 +906,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "screen:waitlist-list.title": "Warteliste",
   "secrets.errors.unknownKey": "Unbekannter Geheimnis-Schlüssel.",
   "secrets.errors.writeDenied": "Dieses Geheimnis darf nicht geändert werden.",
+  "secrets.errors.invalidValue": "Dieser Wert ist für dieses Geheimnis nicht gültig.",
   "screen:api-token-create.title": "Neuen Token erstellen",
   "screen:api-tokens.title": "Personal Access Tokens",
   "screen:audit-log-detail.title": "Ereignis",

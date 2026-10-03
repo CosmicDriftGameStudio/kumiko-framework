@@ -1,6 +1,7 @@
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import {
   type ChatSendResult,
+  type ChatWebhookTarget,
   chatConnectionNameSchema,
   DEFAULT_CHAT_TIMEOUT_MS,
   postChatWebhook,
@@ -23,6 +24,22 @@ export function toChannelResult(address: string, result: ChatSendResult): Channe
 
 export function chatMessageText(message: ChannelMessage): string {
   return message.body ? `${message.title}\n${message.body}` : message.title;
+}
+
+export function resolveChatWebhookTarget(
+  provider: {
+    readonly defaultAllowedHosts: readonly string[];
+    readonly requiredPathPrefix?: string;
+  },
+  options: ChatWebhookChannelOptions,
+): ChatWebhookTarget {
+  return {
+    allowedHosts: options.allowedHosts ?? provider.defaultAllowedHosts,
+    requireHttps: options.requireHttps ?? true,
+    ...(provider.requiredPathPrefix !== undefined && {
+      requiredPathPrefix: provider.requiredPathPrefix,
+    }),
+  };
 }
 
 export type ChatWebhookChannelSpec = {
@@ -62,11 +79,7 @@ export function createChatWebhookChannel(spec: ChatWebhookChannelSpec): Delivery
 
       const result = await postChatWebhook({
         url,
-        allowedHosts: options.allowedHosts ?? spec.defaultAllowedHosts,
-        requireHttps: options.requireHttps ?? true,
-        ...(spec.requiredPathPrefix !== undefined && {
-          requiredPathPrefix: spec.requiredPathPrefix,
-        }),
+        ...resolveChatWebhookTarget(spec, options),
         timeoutMs: options.timeoutMs ?? DEFAULT_CHAT_TIMEOUT_MS,
         body: spec.buildBody(message),
       });

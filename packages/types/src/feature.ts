@@ -129,6 +129,9 @@ export type SecretKeyDefinition = {
   // Roles allowed to set/delete this key. Narrows the secrets handler access
   // (both must pass); absent = the handler access alone decides.
   readonly writeRoles?: readonly string[];
+  // Checked by the secrets write gate on set; a failure answers generically,
+  // without the value or the schema's issues. Stored secrets are not re-checked.
+  readonly valueSchema?: ZodType<string>;
 };
 
 export type SecretOptions = Omit<SecretKeyDefinition, "shortName" | "qualifiedName">;
@@ -148,6 +151,8 @@ export type SecretNamespaceDefinition = {
   readonly writeRoles?: readonly string[];
   // Validates the suffix after the prefix. Absent = any non-empty suffix.
   readonly nameSchema?: ZodType<string>;
+  // Same meaning as SecretKeyDefinition.valueSchema, for every key in the namespace.
+  readonly valueSchema?: ZodType<string>;
 };
 
 export type SecretNamespaceOptions = Omit<

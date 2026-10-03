@@ -6,6 +6,7 @@ import type {
 import {
   AccessDeniedError,
   NotFoundError,
+  ValidationError,
   type WriteFailure,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -59,4 +60,31 @@ export function checkSecretKeyWrite(
     };
   }
   return { ok: true, keyDef };
+}
+
+// Runs after checkSecretKeyWrite, so a caller without the write role never learns
+// whether a value would have passed. The failure carries neither the value nor
+// the schema's issues.
+export function checkSecretValue(
+  registry: Registry,
+  key: string,
+  value: string,
+): WriteFailure | undefined {
+  const valueSchema =
+    registry.getSecretKey(key)?.valueSchema ?? registry.findSecretNamespace(key)?.valueSchema;
+  if (valueSchema === undefined || valueSchema.safeParse(value).success) return undefined;
+  return writeFailure(
+    new ValidationError(
+      {
+        fields: [
+          {
+            path: "value",
+            code: "invalid_secret_value",
+            i18nKey: "secrets.errors.invalidValue",
+          },
+        ],
+      },
+      { i18nKey: "secrets.errors.invalidValue" },
+    ),
+  );
 }

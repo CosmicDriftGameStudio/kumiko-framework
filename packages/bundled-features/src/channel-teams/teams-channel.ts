@@ -6,6 +6,11 @@ import {
 
 export type TeamsChannelOptions = ChatWebhookChannelOptions;
 
+export const TEAMS_SECRET_KEYS = {
+  webhookPrefix: "channel-teams:webhooks.",
+  webhookKeyFor: (connection: string) => `channel-teams:webhooks.${connection}`,
+} as const;
+
 export const TEAMS_DEFAULT_ALLOWED_HOSTS = [
   ".webhook.office.com",
   ".logic.azure.com",

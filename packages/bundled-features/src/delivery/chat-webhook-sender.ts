@@ -28,12 +28,15 @@ export const chatConnectionNameSchema = z
   .max(64)
   .regex(/^[a-z0-9][a-z0-9-]*$/);
 
-export type ChatWebhookRequest = {
-  readonly url: string;
+export type ChatWebhookTarget = {
   // Exact hostnames, or suffixes with a leading dot (".webhook.office.com").
   readonly allowedHosts: readonly string[];
   readonly requireHttps: boolean;
   readonly requiredPathPrefix?: string;
+};
+
+export type ChatWebhookRequest = ChatWebhookTarget & {
+  readonly url: string;
   readonly timeoutMs: number;
   readonly body: unknown;
   // Test seam; production always uses the policy-bound egress().
@@ -60,28 +63,34 @@ function hostMatches(hostname: string, allowedHost: string): boolean {
 
 // Allowlist runs on the parsed URL, never on the raw string: userinfo
 // (`https://hooks.slack.com@evil.com`) and look-alike suffixes must not pass.
-function checkTarget(request: ChatWebhookRequest): URL | undefined {
+export function checkChatWebhookTarget(target: ChatWebhookTarget, url: string): URL | undefined {
   let parsed: URL;
   try {
-    parsed = new URL(request.url);
+    parsed = new URL(url);
   } catch {
     return undefined;
   }
   const protocolAllowed =
-    parsed.protocol === "https:" || (!request.requireHttps && parsed.protocol === "http:");
+    parsed.protocol === "https:" || (!target.requireHttps && parsed.protocol === "http:");
   if (!protocolAllowed) return undefined;
   // egress() has no port rule; a provider webhook over https never needs a custom port.
-  if (request.requireHttps && parsed.port !== "") return undefined;
+  if (target.requireHttps && parsed.port !== "") return undefined;
   if (parsed.username !== "" || parsed.password !== "") return undefined;
   const hostname = parsed.hostname.toLowerCase();
-  if (!request.allowedHosts.some((allowed) => hostMatches(hostname, allowed))) return undefined;
+  if (!target.allowedHosts.some((allowed) => hostMatches(hostname, allowed))) return undefined;
   if (
-    request.requiredPathPrefix !== undefined &&
-    !parsed.pathname.startsWith(request.requiredPathPrefix)
+    target.requiredPathPrefix !== undefined &&
+    !parsed.pathname.startsWith(target.requiredPathPrefix)
   ) {
     return undefined;
   }
   return parsed;
+}
+
+export function chatWebhookUrlSchema(target: ChatWebhookTarget): z.ZodType<string> {
+  return z
+    .string()
+    .refine((url) => checkChatWebhookTarget(target, url) !== undefined, "invalid webhook url");
 }
 
 function isTimeout(err: unknown): boolean {
@@ -104,7 +113,7 @@ function classifyFailure(err: unknown): ChatSendFailureCode {
 // Never throws and never surfaces the URL: egress/Bun errors can carry it, so
 // every failure is reduced to a code here.
 export async function postChatWebhook(request: ChatWebhookRequest): Promise<ChatSendResult> {
-  const target = checkTarget(request);
+  const target = checkChatWebhookTarget(request, request.url);
   if (!target) return { ok: false, code: "host_not_allowed" };
 
   let response: Response;

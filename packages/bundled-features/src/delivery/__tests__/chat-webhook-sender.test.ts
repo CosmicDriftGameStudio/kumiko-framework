@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import { BlockedHostError } from "@cosmicdrift/kumiko-framework/http";
-import { postChatWebhook } from "../chat-webhook-sender.js";
+import {
+  type ChatWebhookTarget,
+  chatWebhookUrlSchema,
+  checkChatWebhookTarget,
+  postChatWebhook,
+} from "../chat-webhook-sender.js";
 
 const sendSpy = mock(async (_url: string, _init: RequestInit) => new Response("ok"));
 
@@ -109,5 +114,40 @@ describe("postChatWebhook allowlist (checked on the parsed URL)", () => {
     await post("https://hooks.slack.com/services/x", slackHosts);
     const init = sendSpy.mock.calls[0]?.[1];
     expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+});
+
+describe("chatWebhookUrlSchema (write-time check, same rules as postChatWebhook)", () => {
+  const slackTarget: ChatWebhookTarget = { allowedHosts: slackHosts, requireHttps: true };
+  const discordTarget: ChatWebhookTarget = {
+    allowedHosts: ["discord.com", "discordapp.com"],
+    requireHttps: true,
+    requiredPathPrefix: "/api/webhooks/",
+  };
+  const teamsTarget: ChatWebhookTarget = { allowedHosts: teamsHosts, requireHttps: true };
+
+  test.each([
+    ["slack", slackTarget, "https://hooks.slack.com/services/T/B/x"],
+    ["discord", discordTarget, "https://discord.com/api/webhooks/1/abc"],
+    ["teams", teamsTarget, "https://acme.webhook.office.com/webhookb2/x"],
+  ])("%s accepts a provider url", (_label, target, url) => {
+    expect(chatWebhookUrlSchema(target).safeParse(url).success).toBe(true);
+  });
+
+  test.each([
+    ["foreign host", slackTarget, "https://example.com/x"],
+    ["userinfo trick", slackTarget, "https://hooks.slack.com@evil.com/services/x"],
+    ["http while https is required", slackTarget, "http://hooks.slack.com/services/x"],
+    ["custom port", slackTarget, "https://hooks.slack.com:8443/services/x"],
+    ["discord without the webhook path", discordTarget, "https://discord.com/channels/1/2"],
+    ["teams suffix without dot boundary", teamsTarget, "https://evilwebhook.office.com/x"],
+    ["not a url", slackTarget, "hooks.slack.com"],
+  ])("rejects %s", (_label, target, url) => {
+    expect(chatWebhookUrlSchema(target).safeParse(url).success).toBe(false);
+  });
+
+  test("cleartext opt-out accepts http on an allowed host and a port", () => {
+    const target: ChatWebhookTarget = { allowedHosts: ["127.0.0.1"], requireHttps: false };
+    expect(checkChatWebhookTarget(target, "http://127.0.0.1:8080/x")?.port).toBe("8080");
   });
 });

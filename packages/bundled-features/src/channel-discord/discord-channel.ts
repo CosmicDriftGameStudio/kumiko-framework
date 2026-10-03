@@ -8,6 +8,11 @@ import {
 
 export type DiscordChannelOptions = ChatWebhookChannelOptions;
 
+export const DISCORD_SECRET_KEYS = {
+  webhookPrefix: "channel-discord:webhooks.",
+  webhookKeyFor: (connection: string) => `channel-discord:webhooks.${connection}`,
+} as const;
+
 export const DISCORD_DEFAULT_ALLOWED_HOSTS = ["discord.com", "discordapp.com"] as const;
 export const DISCORD_WEBHOOK_PATH_PREFIX = "/api/webhooks/";
 export const DISCORD_CONTENT_MAX_CHARS = 2000;

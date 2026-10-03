@@ -1,6 +1,11 @@
 import { DELIVERY_CHANNEL_EXTENSION } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createTelegramChannel, type TelegramChannelOptions } from "./telegram-channel.js";
+import * as z from "zod";
+import {
+  createTelegramChannel,
+  isTelegramBotToken,
+  type TelegramChannelOptions,
+} from "./telegram-channel.js";
 
 export function createChannelTelegramFeature(
   options: TelegramChannelOptions = {},
@@ -24,6 +29,7 @@ export function createChannelTelegramFeature(
       },
       redact: () => "••••••••",
       scope: "tenant",
+      valueSchema: z.string().refine(isTelegramBotToken, "invalid bot token"),
     });
 
     const channel = createTelegramChannel(options, botToken.name);

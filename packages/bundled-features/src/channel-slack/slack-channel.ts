@@ -7,6 +7,11 @@ import {
 
 export type SlackChannelOptions = ChatWebhookChannelOptions;
 
+export const SLACK_SECRET_KEYS = {
+  webhookPrefix: "channel-slack:webhooks.",
+  webhookKeyFor: (connection: string) => `channel-slack:webhooks.${connection}`,
+} as const;
+
 export const SLACK_DEFAULT_ALLOWED_HOSTS = ["hooks.slack.com"] as const;
 
 // Slack mrkdwn treats & < > as control characters (links, @-mentions via <!channel>).
