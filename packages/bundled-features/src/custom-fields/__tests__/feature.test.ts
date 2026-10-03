@@ -203,10 +203,10 @@ describe("createCustomFieldsFeature access-options", () => {
     expect(writeAccess(feature, "delete-system-field")).toEqual(["SystemAdmin"]);
   });
 
-  test("fieldDefinitionWriteRoles feeds into list roles without keeping default TenantAdmin", () => {
+  test("fieldDefinitionWriteRoles feeds into list roles and keeps the default TenantAdmin", () => {
     const feature = createCustomFieldsFeature({ fieldDefinitionWriteRoles: ["Admin", "Editor"] });
     const roles = listAccess(feature);
-    expect(roles).toEqual(["Admin", "Editor"]);
+    expect(roles).toEqual(["Admin", "Editor", "TenantAdmin"]);
   });
 
   test("fieldDefinitionWriteRoles and valueWriteRoles are independent — setting one leaves the other's default", () => {
@@ -242,18 +242,21 @@ describe("resolveFieldDefinitionListRoles", () => {
     ).toEqual(["Viewer"]);
   });
 
-  test("fieldDefinitionWriteRoles set, list unset → write roles only (no default TenantAdmin)", () => {
+  test("fieldDefinitionWriteRoles set, list unset → union with default (TenantAdmin still saves values)", () => {
     expect(
       resolveFieldDefinitionListRoles({ fieldDefinitionWriteRoles: ["Admin", "Editor"] }),
-    ).toEqual(["Admin", "Editor"]);
+    ).toEqual(["Admin", "Editor", "TenantAdmin"]);
+    expect(resolveFieldDefinitionListRoles({ fieldDefinitionWriteRoles: [] })).toEqual([
+      "TenantAdmin",
+    ]);
   });
 
-  test("valueWriteRoles AND fieldDefinitionWriteRoles → union of both, no default", () => {
+  test("valueWriteRoles AND fieldDefinitionWriteRoles → union of both plus default", () => {
     expect(
       resolveFieldDefinitionListRoles({
         valueWriteRoles: ["Member"],
         fieldDefinitionWriteRoles: ["Admin"],
       }),
-    ).toEqual(["Member", "Admin"]);
+    ).toEqual(["Member", "Admin", "TenantAdmin"]);
   });
 });
