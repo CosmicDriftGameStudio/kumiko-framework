@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.342.0",
+    "type": "improvement",
+    "title": "Banner gets title, titleTestId and variant \"primary\"",
+    "detail": "Banner takes title, titleTestId and variant \"primary\"\n`BannerProps` gets `title` (bold heading above the text), `titleTestId` and the variant `\"primary\"` for call-to-action notices: left accent in the primary color, neutral background, `actions` right of the text on wide screens and below it on narrow ones. Existing variants render unchanged."
+  },
+  {
     "version": "0.341.0",
     "type": "fix",
     "title": "Add errors.rate_limit_unavailable default text"

@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.342.0
+
+### Minor Changes
+
+- e7f2d36: Banner takes title, titleTestId and variant "primary"
+
+  `BannerProps` gets `title` (bold heading above the text), `titleTestId` and the variant `"primary"` for call-to-action notices: left accent in the primary color, neutral background, `actions` right of the text on wide screens and below it on narrow ones. Existing variants render unchanged.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Banner gets title, titleTestId and variant "primary"
+  -->
+
+### Patch Changes
+
+- Updated dependencies [0978e85]
+- Updated dependencies [e7f2d36]
+- Updated dependencies [0978e85]
+- Updated dependencies [0978e85]
+  - @cosmicdrift/kumiko-framework@0.342.0
+  - @cosmicdrift/kumiko-headless@0.342.0
+  - @cosmicdrift/kumiko-types@0.342.0
+
 ## 0.341.0
 
 ### Patch Changes

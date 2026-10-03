@@ -1,5 +1,33 @@
 [
   {
+    "version": "0.342.0",
+    "type": "improvement",
+    "title": "System cron escape hatches are audited once per process, with a use counter and audit retention",
+    "detail": "System crons audit their declared escape hatch once per process; audit events get a retention\nA cron job with a declared `escapeHatch` that uses `unsafeRaw()` or `db.global()` writes one `audit:event:escape-hatch-used` per process, handler and tenant instead of one per run. Manual runs by a user, identity switches, `acknowledge-cross-tenant` and `unsafe-all-tenants` keep the 60-second dedup window. Every use, audited or not, counts in the new metric `kumiko_escape_hatch_uses_total{handler,kind}`; `createEscapeHatchReporter` takes optional `processDedup`, `meter` and `now` for this. The audit feature gains a daily job `audit:job:escape-hatch-retention` that removes `escapeHatchUse` events through `pruneEvents`, with the period in the system config key `audit:config:escape-hatch-retention-days` (default 90). A new runbook, `docs/runbooks/kumiko-events-bloat.md`, shows how to measure `kumiko_events` bloat and reclaim the space.",
+    "migration": "The first run of `audit:job:escape-hatch-retention` deletes `escapeHatchUse` events older than 90 days. To keep them longer, set the system config key `audit:config:escape-hatch-retention-days` (for example through an app override) before the bump rolls out. The audit feature now also requires the `config` feature, which every app with `tenant` already mounts."
+  },
+  {
+    "version": "0.342.0",
+    "type": "breaking",
+    "title": "Key Manager slots are required, LEGACY_SLOTS default removed",
+    "detail": "Key Manager slots are required: no more LEGACY_SLOTS default\n`resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync` no longer fall back to the three platform slots; `slots` is a required option. `runSchemaCli` called with `features` now requires `kmsSlots` and exits 1 with a hint before any DB connect or migration apply when it is missing. `kmsSlots: []` stays valid for apps that wire no Key Manager slots. The scaffolded `bin/kumiko.ts` passes `kmsSlots` derived from the composed env schema.",
+    "migration": "Pass `slots` (for example `kmsSlotsOf(<app>ComposedEnv.schema)`) to `resolvePlatformKeks`, `resolveKmsWiringAsync` and `requireKmsWiringAsync`. In `bin/kumiko.ts`, `runSchemaCli(..., { features })` needs `kmsSlots: kmsSlotsOf(<app>ComposedEnv.schema)` (or `[]` when the app wires no Key Manager slots. With `[]` every `*_CIPHERTEXT` env var is ignored, so an app that ships a ciphertext must pass its slots); without it the CLI exits 1 before applying migrations.\nWorkspace state at release: show-pony `bin/kumiko.ts` and its docs copy `kumiko-platform/apps/docs/_samples/show-pony/bin/kumiko.ts` still call `runSchemaCli` with `features` only. publicstatus, solon, offlot-app, money-horse, phronexsis and kumiko-studio already pass `kmsSlots` / `slots`."
+  },
+  {
+    "version": "0.342.0",
+    "type": "fix",
+    "title": "Retired framework tables (read_job_runs) are dropped by the next schema generate",
+    "detail": "`kumiko schema generate` now writes an executable `DROP TABLE IF EXISTS \"read_job_runs\";` for retired framework tables (new `retiredFrameworkTables` list next to the migration code). Until now the drop stayed a commented `-- DESTRUCTIVE:` marker in every app, so the table lived on forever. A retired table is dropped only if an earlier migration created it or carries the commented drop, no earlier migration dropped it for real, and the schema no longer declares it. App tables stay commented out. `generate` writes a migration even when the retired drop is its only content, and `schema validate` reports it as pending. `kumiko schema status` now lists tables that a migration only drops as a commented marker but that still exist in the database, with a hint per case.",
+    "migration": "Run `kumiko schema generate <name>` in publicstatus, solon, money-horse, phronexsis, show-pony and kumiko-studio, review and commit the drop of read_job_runs (old job run history is not preserved), then apply."
+  },
+  {
+    "version": "0.342.0",
+    "type": "fix",
+    "title": "Soft-delete cleanup works for global tables such as user",
+    "detail": "Soft-delete cleanup no longer aborts on `tenancy: \"global\"` tables\n`soft-delete:job:cleanup` aborted for a tenant as soon as an entity with `tenancy: \"global\"` and a `tenantId` column (such as `user`) had softDelete enabled, so the tenant's other entities were not cleaned either. Both cleanup jobs now decide by the entity's tenancy declaration. The per-tenant job skips global tables; `soft-delete:job:cleanup-system` hard-deletes their expired rows once, system-wide, through `db.global()`. Jobs can now receive the `globalWrites` grant from their `escapeHatch` declaration.\nThe first run of `soft-delete:job:cleanup-system` after the update hard-deletes soft-deleted users older than the fixed 30-day grace period in every app with the user feature. Earlier versions never removed them.",
+    "migration": "None required. The first nightly run of `soft-delete:job:cleanup-system` after the bump hard-deletes soft-deleted users older than 30 days; restore any you still need before it runs."
+  },
+  {
     "version": "0.341.0",
     "type": "improvement",
     "title": "rowIdOf on extendEntityProjection for derived row ids",
