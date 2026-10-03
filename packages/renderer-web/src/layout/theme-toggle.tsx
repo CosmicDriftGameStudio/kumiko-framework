@@ -9,17 +9,17 @@ import { HeaderOverflowMenuContext, headerOverflowMenuItemClass } from "./header
 import { useThemeToggleLabel } from "./theme-label.js";
 
 export type ThemeToggleProps = {
-  /** Icon für den Schritt zum hellen Modus. Default: ☀ */
+  /** Icon for the step to light mode. Default: ☀ */
   readonly lightIcon?: ReactNode;
-  /** Icon für den Schritt zum dunklen Modus. Default: ☾ */
+  /** Icon for the step to dark mode. Default: ☾ */
   readonly darkIcon?: ReactNode;
-  /** Icon für den Schritt zum automatischen Modus. Default: ◐ */
+  /** Icon for the step to auto mode. Default: ◐ */
   readonly autoIcon?: ReactNode;
-  /** Title/aria-label beim Schritt zum hellen Modus. Default: i18n `kumiko.theme.light` */
+  /** Title/aria-label for the step to light mode. Default: i18n `kumiko.theme.light` */
   readonly titleInDark?: string;
-  /** Title/aria-label beim Schritt zum dunklen Modus. Default: i18n `kumiko.theme.dark` */
+  /** Title/aria-label for the step to dark mode. Default: i18n `kumiko.theme.dark` */
   readonly titleInLight?: string;
-  /** Title/aria-label beim Schritt zum automatischen Modus. Default: i18n `kumiko.theme.auto` */
+  /** Title/aria-label for the step to auto mode. Default: i18n `kumiko.theme.auto` */
   readonly titleForAuto?: string;
   readonly testId?: string;
 };
