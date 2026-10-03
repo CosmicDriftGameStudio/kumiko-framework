@@ -1,7 +1,8 @@
-import { createHash } from "node:crypto";
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
 import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import {
+  computeBlindIndex,
+  configuredBlindIndexKey,
   configuredPiiSubjectKms,
   type SubjectId,
   subjectIdSchema,
@@ -66,7 +67,7 @@ export const subjectForgottenSchema = z.object({
 });
 
 export const subjectForgetDeniedSchema = z.object({
-  subjectKeyDigest: z.string().min(1),
+  subjectKeyDigest: z.string().min(1).optional(),
   subjectKind: z.enum(["user", "tenant", "record"]),
   reason: z.string().min(10),
   forgottenBy: z.string().min(1),
@@ -241,15 +242,19 @@ async function appendDenialAuditEvent(
       }),
     );
   }
+  const blindIndexKey = configuredBlindIndexKey();
   const payload = subjectForgetDeniedSchema.parse({
     // The denial lands in the REQUESTING actor's own tenant-scoped stream —
     // it must never materialise the foreign subject's identifiers there. A
     // plaintext subjectKey/aggregateId would survive as a permanent record
     // for the prober and would still be present when the owning tenant
     // later runs its own (legitimate) forget-subject for that subject. The
-    // digest still lets an operator correlate repeated probes of the same
-    // subject without exposing it (fw#2452).
-    subjectKeyDigest: createHash("sha256").update(subjectKey, "utf8").digest("base64url"),
+    // digest is keyed (a bare hash of a guessable id could be recomputed from
+    // a candidate id) and lets an operator correlate repeated probes of the
+    // same subject; without a blind-index key no digest is stored at all.
+    ...(blindIndexKey !== undefined && {
+      subjectKeyDigest: computeBlindIndex(blindIndexKey, subjectKey),
+    }),
     subjectKind,
     reason: event.payload.reason,
     forgottenBy: event.user.id,
