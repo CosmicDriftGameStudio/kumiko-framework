@@ -1,3 +1,4 @@
+import { resolve, sep } from "node:path";
 import {
   buildRequestContextDataFromRequest,
   type CachePolicy,
@@ -11,6 +12,7 @@ import {
 import { createAnonymousUser, type SessionUser } from "@cosmicdrift/kumiko-framework/engine";
 import { resolveAndInjectPageHead } from "@cosmicdrift/kumiko-headless/apex";
 import { ASSETS_DIR } from "./build-prod-bundle.js";
+import { BUNDLED_ASSETS_DIST_DIR } from "./bundled-assets.js";
 import type { HostDispatchFn, PageHeadResolver, PageHeadSystemQuery } from "./run-prod-app.js";
 import { stripNoRouteMatchHeader, tryHonoFirst } from "./try-hono-first.js";
 
@@ -58,6 +60,15 @@ export async function readStaticFile(
     if (code === "ENOENT" || code === "EISDIR" || code === "ENOTDIR") return undefined;
     throw err;
   }
+}
+
+// Bundled assets are server-side inputs (readBundledAsset), never public URLs.
+// Compared on the resolved path, not the URL prefix: "//kumiko-bundled-assets/x"
+// or a case variant on a case-insensitive disk would slip past a prefix check.
+function isInsideBundledAssetsDir(staticDir: string, filePath: string): boolean {
+  const bundledDir = resolve(staticDir, BUNDLED_ASSETS_DIST_DIR).toLowerCase();
+  const target = resolve(filePath).toLowerCase();
+  return target === bundledDir || target.startsWith(bundledDir + sep);
 }
 
 export function serveDiskFile(
@@ -331,7 +342,9 @@ export function buildStaticFallback(
     if (!isIndexRequest) {
       const relPath = url.pathname.slice(1);
       const filePath = `${staticDir}/${relPath}`;
-      const file = await readStaticFile(filePath);
+      const file = isInsideBundledAssetsDir(staticDir, filePath)
+        ? undefined
+        : await readStaticFile(filePath);
       if (file) {
         return serveDiskFile(req, url.pathname, file);
       }

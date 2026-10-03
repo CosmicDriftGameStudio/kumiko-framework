@@ -160,7 +160,10 @@ export function runGuardsCli(argv: readonly string[], deps: RunGuardsCliDeps = {
       return 1;
     }
     const project = buildSharedProject([target], deps.writeBaselineRoots);
-    target.writeBaseline(filesForGuard(project, target, deps.writeBaselineRoots));
+    target.writeBaseline(
+      filesForGuard(project, target, deps.writeBaselineRoots),
+      deps.writeBaselineRoots,
+    );
     return 0;
   }
   const strictSecurityBaseline = flags.includes("--strict-security-baseline");

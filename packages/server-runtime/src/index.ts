@@ -2,6 +2,13 @@
 // runDevApp (kumiko-dev-server), aber ohne Dev-/Scaffold-/Codegen-
 // Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
 // Dev-Tooling mehr in ihre node_modules.
+
+export {
+  type BundledAssetDeclaration,
+  type BundledAssetOptions,
+  readBundledAsset,
+  resolveBundledAsset,
+} from "./bundled-assets.js";
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.js";
 export type { RunBootstrapOptions } from "./run-bootstrap.js";
 export { runBootstrap } from "./run-bootstrap.js";
