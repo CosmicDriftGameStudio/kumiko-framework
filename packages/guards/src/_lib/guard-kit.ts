@@ -12,12 +12,13 @@
  * kumiko.json manifest instead of hardcoded repo-kind globs.
  */
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { relative as pathRelative, resolve } from "node:path";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { relative as pathRelative, resolve, sep } from "node:path";
 import { Project, type SourceFile } from "ts-morph";
 import { compareToBaseline, findRepoRootFor } from "./baseline-compare";
 import {
   explainRepoRoots,
+  findLocalRepo,
   frameworkTsConfigPath,
   type RepoRoot,
   type RootResolution,
@@ -62,6 +63,49 @@ export function isSecurityGuard(guard: Pick<AstGuard, "security">): boolean {
   return guard.security === true;
 }
 
+// Followers call the predicate per import hop; findLocalRepo re-reads
+// package.json and the manifest each time.
+const localRepoRootByCwd = new Map<string, string | undefined>();
+
+function localRepoRoot(): string | undefined {
+  const cwd = process.cwd();
+  if (!localRepoRootByCwd.has(cwd)) localRepoRootByCwd.set(cwd, findLocalRepo(cwd)?.absPath);
+  return localRepoRootByCwd.get(cwd);
+}
+
+function realOrResolved(path: string): string {
+  try {
+    return realpathSync(path);
+  } catch {
+    // In-memory test files and paths not on disk: compare as spelled.
+    return resolve(path);
+  }
+}
+
+/**
+ * True for a file outside the local repo's root — a neighbour repo of the
+ * parent workspace reached through a workspace symlink or a `../..` import. Such
+ * a file is as external as a package under node_modules: a guard may not scan it
+ * or follow imports into it, or a `.wt/<repo>` worktree reports findings that a
+ * fresh CI checkout (no parent workspace) never sees. The root comes from
+ * `findLocalRepo`, not a path heuristic; without a local repo nothing is
+ * decidable and nothing counts as outside.
+ */
+export function isOutsideRepoRoot(
+  filePath: string,
+  repoRoot: string | undefined = localRepoRoot(),
+): boolean {
+  if (repoRoot === undefined) return false;
+  const root = realOrResolved(repoRoot);
+  const file = realOrResolved(filePath);
+  return file !== root && !file.startsWith(root + sep);
+}
+
+/** Import followers stop at these: a package from node_modules or a file outside the repo root. */
+export function isExternalSourcePath(filePath: string): boolean {
+  return filePath.includes("/node_modules/") || isOutsideRepoRoot(filePath);
+}
+
 export function buildSharedProject(
   guards: readonly AstGuard[],
   roots: readonly RepoRoot[] = resolveRepoRoots(),
@@ -88,7 +132,7 @@ export function buildSharedProject(
         }
       }),
     ),
-  ];
+  ].filter((path) => roots.some((root) => !isOutsideRepoRoot(path, root.absPath)));
   // Exact paths, never re-glob: filenames like `[id].tsx` are literal here.
   for (const path of union) project.addSourceFileAtPath(path);
   return project;
