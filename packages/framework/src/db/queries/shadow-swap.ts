@@ -18,6 +18,8 @@
 // expressed in meta (hand-added in a migration) is not reconstructed, and a
 // partial index whose WHERE the renderer can't express is rejected up-front.
 
+import { isUuid, parseTenantId } from "@cosmicdrift/kumiko-types/identifiers";
+import type { ProjectionRowIdOf } from "@cosmicdrift/kumiko-types/projection";
 import { configuredBlindIndexKey } from "../../crypto/index.js";
 import type { DbConnection, DbTx } from "../connection.js";
 import type { EntityTableMeta } from "../entity-table-meta.js";
@@ -213,25 +215,109 @@ const UNREACHABLE_SAMPLE_LIMIT = 20;
 //
 // Implicit projections only (caller-gated). aggregate_id and the entity id are
 // both uuid, so the anti-join probes the events index without a cast.
+//
+// Source streams whose rows are keyed by a DERIVED id (r.extendEntityProjection
+// `rowIdOf`, e.g. tenant-salted) cannot be matched on aggregate_id: their
+// distinct (tenant, aggregate) pairs are mapped through rowIdOf into a temp
+// table, and a live row is backed when its id is in that set. The guard stays
+// strict — a row keyed by the raw aggregate id of a derived stream is a ghost.
+const DERIVED_ROW_ID_BATCH_SIZE = 5000;
+const DERIVED_ROW_ID_TABLE = "pg_temp.kumiko_derived_row_ids";
+
+type EventKeyRow = { tenant_id: string; aggregate_id: string };
+
+async function fillDerivedRowIdTable(
+  raw: ReturnType<typeof asRawClient>,
+  projectionName: string,
+  aggregateType: string,
+  rowIdOf: ProjectionRowIdOf,
+): Promise<void> {
+  let cursor: EventKeyRow | undefined;
+  for (;;) {
+    const page: readonly EventKeyRow[] = await raw.unsafe<EventKeyRow>(
+      `SELECT DISTINCT "tenant_id"::text AS tenant_id, "aggregate_id"::text AS aggregate_id
+         FROM "kumiko_events"
+        WHERE "aggregate_type" = $1
+          ${cursor ? `AND ("tenant_id", "aggregate_id") > ($2::uuid, $3::uuid)` : ""}
+        ORDER BY "tenant_id", "aggregate_id"
+        LIMIT ${DERIVED_ROW_ID_BATCH_SIZE}`,
+      cursor ? [aggregateType, cursor.tenant_id, cursor.aggregate_id] : [aggregateType],
+    );
+    // skip: keyset exhausted — every source event of this type has been mapped
+    if (page.length === 0) return;
+    const derivedIds = page.map((row) => {
+      const tenantId = parseTenantId(row.tenant_id);
+      if (tenantId === null) {
+        throw new Error(
+          `projection-rebuild "${projectionName}": event of aggregate type "${aggregateType}" ` +
+            `carries a non-uuid tenant_id "${row.tenant_id}".`,
+        );
+      }
+      const derived = rowIdOf({ tenantId, aggregateId: row.aggregate_id });
+      if (!isUuid(derived)) {
+        throw new Error(
+          `projection-rebuild "${projectionName}": rowIdOf for aggregate type "${aggregateType}" ` +
+            `returned "${String(derived)}", which is not a uuid (aggregate ${row.aggregate_id}).`,
+        );
+      }
+      return derived;
+    });
+    await raw.unsafe(
+      `INSERT INTO ${DERIVED_ROW_ID_TABLE} ("id") SELECT unnest($1::uuid[]) ON CONFLICT DO NOTHING`,
+      [derivedIds],
+    );
+    // skip: a short page is the last one
+    if (page.length < DERIVED_ROW_ID_BATCH_SIZE) return;
+    cursor = page[page.length - 1];
+  }
+}
+
 export async function assertNoUnreachableLiveRows(
   tx: AnyDb,
   projectionName: string,
   tableName: string,
   aggregateTypes: readonly string[],
+  derivedRowIds: Readonly<Record<string, ProjectionRowIdOf>> = {},
 ): Promise<void> {
   // skip: no source streams → no events could back any row anyway; a rebuild
   // of a subscription-less projection swaps an empty shadow (handled upstream).
   if (aggregateTypes.length === 0) return;
   const raw = asRawClient(tx);
   const t = quoteTableIdent(tableName);
+  const derivedTypes = aggregateTypes.filter((type) => derivedRowIds[type] !== undefined);
+  const directTypes = aggregateTypes.filter((type) => derivedRowIds[type] === undefined);
+  if (derivedTypes.length > 0) {
+    // search_path points at the shadow schema here; pg_temp is addressed explicitly.
+    await raw.unsafe(
+      `CREATE TEMP TABLE IF NOT EXISTS kumiko_derived_row_ids ("id" uuid PRIMARY KEY) ON COMMIT DROP`,
+    );
+    await raw.unsafe(`TRUNCATE ${DERIVED_ROW_ID_TABLE}`);
+    for (const aggregateType of derivedTypes) {
+      const rowIdOf = derivedRowIds[aggregateType];
+      // skip: filtered by derivedTypes above, narrows the Record lookup for the compiler
+      if (rowIdOf === undefined) continue;
+      await fillDerivedRowIdTable(raw, projectionName, aggregateType, rowIdOf);
+    }
+  }
+  const unbackedClauses: string[] = [];
+  if (directTypes.length > 0) {
+    unbackedClauses.push(
+      `NOT EXISTS (
+         SELECT 1 FROM "kumiko_events" e
+          WHERE e."aggregate_id" = l."id" AND e."aggregate_type" = ANY($1::text[])
+       )`,
+    );
+  }
+  if (derivedTypes.length > 0) {
+    unbackedClauses.push(
+      `NOT EXISTS (SELECT 1 FROM ${DERIVED_ROW_ID_TABLE} d WHERE d."id" = l."id")`,
+    );
+  }
   const ghosts = await raw.unsafe<{ id: unknown }>(
     `SELECT l."id" FROM public.${t} l
-     WHERE NOT EXISTS (
-       SELECT 1 FROM "kumiko_events" e
-        WHERE e."aggregate_id" = l."id" AND e."aggregate_type" = ANY($1::text[])
-     )
+     WHERE ${unbackedClauses.join(" AND ")}
      LIMIT ${UNREACHABLE_SAMPLE_LIMIT}`,
-    [aggregateTypes],
+    directTypes.length > 0 ? [directTypes] : [],
   );
   // skip: every live row has a backing event — nothing unreachable, swap is safe
   if (ghosts.length === 0) return;
@@ -243,7 +329,8 @@ export async function assertNoUnreachableLiveRows(
       `event in the projection's source streams and cannot be reconstructed by replay — the swap ` +
       `would silently drop them (ids: ${ids.join(", ")}). A handler direct-inserted these rows ` +
       `without emitting a .created event. Fix: register the table with r.storeTable(meta, ` +
-      `{ reason }) to opt out of rebuild, or emit the missing events. See ` +
+      `{ reason }) to opt out of rebuild, or emit the missing events. Rows keyed by an id ` +
+      `derived from the source event declare \`rowIdOf\` on r.extendEntityProjection. See ` +
       `docs/reference/entity-write-patterns.md. Rebuild aborted; live table untouched.`,
   );
 }

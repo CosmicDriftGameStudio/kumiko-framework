@@ -298,6 +298,7 @@ export type {
   MultiStreamApplyFn,
   MultiStreamProjectionDefinition,
   ProjectionDefinition,
+  ProjectionRowIdOf,
   ProjectionTable,
   SingleStreamApplyFn,
 } from "@cosmicdrift/kumiko-types/projection";

@@ -115,6 +115,31 @@ is left untouched, and the error names the ghost ids plus the fix
 (`r.storeTable` or emit the missing events). Implicit entity projections
 only; explicit projections and `r.storeTable` are out of scope.
 
+**Rows keyed by a derived id (`rowIdOf`).** By default a live row counts as backed
+when its `id` equals the `aggregate_id` of a source event. An
+`r.extendEntityProjection` extension whose applies write a different id for events
+on its `sources` declares that derivation as `rowIdOf`; the guard then matches live
+rows against `rowIdOf` of the source events instead. Typical case: workflow-run
+events, whose aggregate id does not include the tenant, feeding a table with a
+single-column `id` primary key through a tenant-salted id:
+
+```ts
+r.extendEntityProjection("wf-run-view", {
+  sources: [WORKFLOW_AGGREGATE_TYPE],
+  rowIdOf: ({ tenantId, aggregateId }) => uuidv5(`${tenantId}|${aggregateId}`, RUN_VIEW_NS),
+  apply: {
+    [WORKFLOW_RUN_STARTED_TYPE]: async (event, tx) => {
+      // inserts the row with id = the same uuidv5(tenantId|aggregateId)
+    },
+  },
+});
+```
+
+`rowIdOf` needs `sources`, must not name the entity's own stream, and must return a
+uuid. A source declared by several extensions needs the same `rowIdOf` in all of
+them. The guard stays strict: a row keyed by the raw aggregate id of such a source
+is still a ghost.
+
 **Deliberately narrow — event existence, not column values.** The framework
 legitimately makes a live row diverge from a fresh replay in several shipped
 ways, none of which is drift:

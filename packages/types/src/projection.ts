@@ -44,6 +44,10 @@ export type MultiStreamApplyFn<TPayload = Record<string, unknown>> = (
   ctx: MultiStreamApplyContext,
 ) => Promise<void>;
 
+// Row id an extension writes for a source event when it is not the event's
+// aggregateId (e.g. a tenant-salted uuidv5 over tenantId + aggregateId).
+export type ProjectionRowIdOf = (source: Pick<StoredEvent, "tenantId" | "aggregateId">) => string;
+
 export type ProjectionDefinition = {
   readonly name: string;
   // One or more entity names whose events feed this projection. Event-types
@@ -56,6 +60,10 @@ export type ProjectionDefinition = {
   // to events on foreign streams (e.g. "field-definition") while `source`
   // keeps meaning "the owning entity" for consumers like soft-delete-cleanup.
   readonly extraSources?: readonly string[];
+  // Per extra aggregate-type: the row id the projection's applies write for
+  // its events. The rebuild's ghost-row guard counts a live row as backed when
+  // its id is the derived id of a source event of that type.
+  readonly extraSourceRowIds?: Readonly<Record<string, ProjectionRowIdOf>>;
   // Drizzle-table the projection materializes into. User owns the schema —
   // framework just guarantees the TX and event delivery.
   readonly table: ProjectionTable;
@@ -87,6 +95,10 @@ export type EntityProjectionExtension = {
   // must scan (e.g. "field-definition"). Omit when all extension events are
   // appended on the host entity's stream.
   readonly sources?: readonly string[];
+  // The row id this extension's applies write for events on `sources` when it
+  // is not the aggregateId. The rebuild's ghost-row guard counts a live row as
+  // backed when its id is rowIdOf of a source event. Requires `sources`.
+  readonly rowIdOf?: ProjectionRowIdOf;
   // Keyed by fully-qualified event type. Must not collide with the entity's
   // built-in lifecycle applies (<entity>.created/updated/...) or another
   // extension — collisions fail at boot.
