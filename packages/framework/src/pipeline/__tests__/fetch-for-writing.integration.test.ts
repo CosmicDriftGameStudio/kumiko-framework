@@ -24,6 +24,9 @@ import {
 
 // --- Feature ---
 
+// Lets a test land a write between a handler's fetchForWriting and its appendOne.
+let betweenFetchAndAppend: (() => Promise<void>) | undefined;
+
 const cartEntity = createEntity({
   table: "read_f4w_carts",
   fields: {
@@ -155,6 +158,25 @@ const cartFeature = defineFeature("f4w", (r) => {
     { access: { roles: ["Admin"] } },
   );
 
+  // Fetch, let a concurrent writer in, then append through the stale handle.
+  r.writeHandler(
+    "cart:add-after-race",
+    z.object({ id: z.uuid(), sku: z.string() }),
+    async (event, ctx) => {
+      const stream = await ctx.fetchForWriting({
+        aggregateId: event.payload.id,
+        aggregateType: "f4wCart",
+      });
+      await betweenFetchAndAppend?.();
+      await stream.appendOne({
+        type: itemAdded.name,
+        payload: { sku: event.payload.sku, qty: 1 },
+      });
+      return { isSuccess: true as const, data: {} };
+    },
+    { access: { roles: ["Admin"] } },
+  );
+
   // Fetch with expectedVersion — OCC gate for external callers.
   r.writeHandler(
     "cart:add-with-occ",
@@ -194,6 +216,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  betweenFetchAndAppend = undefined;
   await asRawClient(stack.db).unsafe(
     `TRUNCATE kumiko_events, read_f4w_carts, kumiko_event_consumers RESTART IDENTITY CASCADE`,
   );
@@ -406,5 +429,35 @@ describe("Runde 3 / C.2a — ctx.fetchForWriting", () => {
       admin,
     );
     expect(after.hasProbe).toBe(true);
+  });
+
+  test("a write between fetch and appendOne fails the handle's append with version_conflict", async () => {
+    const created = await stack.http.writeOk<{ id: string }>(
+      "f4w:write:cart:create",
+      { customer: "judy" },
+      admin,
+    );
+
+    betweenFetchAndAppend = async () => {
+      await stack.http.writeOk(
+        "f4w:write:cart:add-item",
+        { id: created.id, sku: "winner", qty: 1 },
+        admin,
+      );
+    };
+
+    const res = await stack.http.write(
+      "f4w:write:cart:add-after-race",
+      { id: created.id, sku: "loser" },
+      admin,
+    );
+    const body = (await res.json()) as { error?: { code?: string } };
+    expect(res.status).toBe(409);
+    expect(body.error?.code).toBe("version_conflict");
+
+    // Only the concurrent writer's event landed on top of the create.
+    const events = await loadAggregate(stack.db, created.id, admin.tenantId);
+    expect(events.map((e) => e.version)).toEqual([1, 2]);
+    expect(events[1]?.payload).toEqual({ sku: "winner", qty: 1 });
   });
 });

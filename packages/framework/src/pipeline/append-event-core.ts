@@ -35,7 +35,7 @@ export type AppendDomainEventCoreDeps = {
 
 export async function appendDomainEventCore(
   deps: AppendDomainEventCoreDeps,
-  args: AppendEventArgs,
+  args: AppendEventArgs & { readonly expectedVersion?: number },
 ): Promise<StoredEvent> {
   const isSystemEvent = args.type.startsWith(SYSTEM_EVENT_PREFIX);
   const eventDef = deps.registry.getEvent(args.type);
@@ -83,7 +83,10 @@ export async function appendDomainEventCore(
 
   // Stream-version authoritative. See Block 0 / getStreamVersion doc for
   // why row.version isn't sufficient once ctx.appendEvent enters the picture.
-  const expectedVersion = await getStreamVersion(deps.db, args.aggregateId, deps.tenantId);
+  // A caller-pinned version (fetchForWriting handles) must reach append() so a
+  // write landing between fetch and append conflicts instead of being re-read.
+  const expectedVersion =
+    args.expectedVersion ?? (await getStreamVersion(deps.db, args.aggregateId, deps.tenantId));
 
   const reqCtx = requestContext.get();
   // metadata.requestId is a plain trace marker — no uniqueness constraint,
