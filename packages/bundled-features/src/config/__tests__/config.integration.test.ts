@@ -4,6 +4,7 @@ import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { type DbConnection, seedConfigValues } from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
+  type ConfigValidateContext,
   createSeed,
   createSystemConfig,
   createSystemSeed,
@@ -12,6 +13,7 @@ import {
   defineFeature,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -232,6 +234,41 @@ const patternFeature = defineFeature("patterned", (r) => {
   });
 });
 
+const validatorCalls: Array<{ value: string; ctx: Omit<ConfigValidateContext, "db"> }> = [];
+const validatedFeature = defineFeature("validated", (r) => {
+  r.requires("config");
+  r.config({
+    keys: {
+      endpoint: createTenantConfig("text", {
+        default: "",
+        write: access.roles("Admin"),
+        validate: async (value, { db: _db, ...ctx }) => {
+          await Promise.resolve();
+          validatorCalls.push({ value, ctx });
+          if (value === "boom") throw new Error("validator_crashed");
+          if (new URL(value).hostname === "localhost") {
+            throw new UnprocessableError("test_endpoint_not_public", {
+              i18nKey: "validated.errors.notPublic",
+              details: { key: "endpoint" },
+            });
+          }
+        },
+      }),
+      fresh: createTenantConfig("text", {
+        default: "",
+        write: access.roles("Admin"),
+        validate: async (value) => {
+          if (new URL(value).hostname === "localhost") {
+            throw new UnprocessableError("test_endpoint_not_public", {
+              i18nKey: "validated.errors.notPublic",
+            });
+          }
+        },
+      }),
+    },
+  });
+});
+
 // Scenario 11: Config seeding — feature with deploy-time defaults
 const seedFeature = defineFeature("seeddemo", (r) => {
   r.requires("config");
@@ -297,6 +334,7 @@ beforeAll(async () => {
       seedFeature,
       transportFeature,
       patternFeature,
+      validatedFeature,
     ],
     // Wire `ctx.config()` for real handlers: pass the resolver-bound factory
     // so the dispatcher can mint a per-user accessor inside buildHandlerContext.
@@ -1737,5 +1775,88 @@ describe("pattern validation", () => {
       admin,
     );
     expectErrorIncludes(error, "invalid_format");
+  });
+});
+
+// --- Async per-key validator ---
+
+describe("key validate (async write gate)", () => {
+  const ENDPOINT = "validated:config:endpoint";
+  const FRESH = "validated:config:fresh";
+  const admin = createTestUser({ id: 98, roles: ["Admin"] });
+
+  const storedValue = async (key: string): Promise<unknown> => {
+    const values = await stack.http.queryOk<Record<string, { value: unknown }>>(
+      ConfigQueries.values,
+      {},
+      admin,
+    );
+    return values[key]?.value;
+  };
+
+  test("valid value passes the validator and is stored", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: ENDPOINT, value: "https://example.com/api" },
+      admin,
+    );
+    expect(await storedValue(ENDPOINT)).toBe("https://example.com/api");
+  });
+
+  test("rejected value returns the validator's error and keeps the previous value", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: ENDPOINT, value: "https://kept.example.com" },
+      admin,
+    );
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: ENDPOINT, value: "http://localhost:8080" },
+      admin,
+    );
+    expect(error.httpStatus).toBe(422);
+    expectErrorIncludes(error, "test_endpoint_not_public");
+    expect(await storedValue(ENDPOINT)).toBe("https://kept.example.com");
+  });
+
+  test("rejected value on a key without prior value persists nothing", async () => {
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: FRESH, value: "http://localhost" },
+      admin,
+    );
+    expectErrorIncludes(error, "test_endpoint_not_public");
+    expect(await storedValue(FRESH)).toBe("");
+  });
+
+  test("validator receives qualified key, resolved scope and the caller's tenant", async () => {
+    validatorCalls.length = 0;
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: ENDPOINT, value: "https://ctx.example.com" },
+      admin,
+    );
+    expect(validatorCalls).toEqual([
+      {
+        value: "https://ctx.example.com",
+        ctx: { key: ENDPOINT, scope: "tenant", tenantId: admin.tenantId, userId: null },
+      },
+    ]);
+  });
+
+  test("a non-Kumiko error from the validator fails the write without persisting", async () => {
+    await stack.http.writeOk(
+      "config:write:set",
+      { key: ENDPOINT, value: "https://before-crash.example.com" },
+      admin,
+    );
+    const error = await stack.http.writeErr(
+      "config:write:set",
+      { key: ENDPOINT, value: "boom" },
+      admin,
+    );
+    expect(error.httpStatus).toBeGreaterThanOrEqual(500);
+    expect(error.code).toBe("internal_error");
+    expect(await storedValue(ENDPOINT)).toBe("https://before-crash.example.com");
   });
 });

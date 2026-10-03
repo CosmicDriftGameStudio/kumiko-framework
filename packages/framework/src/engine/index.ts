@@ -394,6 +394,8 @@ export type {
   ConfigSeedDef,
   ConfigStoredRow,
   ConfigStoredRowWithSource,
+  ConfigValidateContext,
+  ConfigValidateFn,
   ConfigValue,
   ConfigValueSource,
   ConfigValueWithSource,
