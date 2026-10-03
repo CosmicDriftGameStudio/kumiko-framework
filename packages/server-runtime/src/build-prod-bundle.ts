@@ -107,9 +107,9 @@ export type BuildResult = {
   readonly buildInfo?: BuildInfo;
 };
 
-/** In index.html gebacken (`<meta name="kumiko-build">`) UND als
- *  dist/build-info.json geschrieben. Der UpdateChecker pollt build-info.json
- *  und vergleicht `id` gegen den geladenen Stand → Reload-Banner bei Drift. */
+/** Baked into index.html (`<meta name="kumiko-build">`) AND written as
+ *  dist/build-info.json. The UpdateChecker polls build-info.json and compares
+ *  `id` with the loaded build, showing a reload banner on drift. */
 export type BuildInfo = {
   /** Hash über die sortierten (content-gehashten) Asset-URLs. Ändert sich
    *  gdw. sich ein Asset ändert — selbsttragend, kein Env-Var/Dockerfile. */
@@ -896,7 +896,7 @@ export function injectAssetTags(
   let result = html;
 
   // Meta tag instead of an inline script: strict CSPs (script-src 'self') block inline scripts.
-  // Ohne </head> (z.B. Fragment) still skip.
+  // Without </head> (e.g. a fragment) skip silently.
   if (buildInfo && result.includes("</head>")) {
     const tag = `<meta name="${BUILD_META_NAME}" content="${escapeHtmlAttr(buildInfo.id)}" data-built-at="${escapeHtmlAttr(buildInfo.builtAt)}" />`;
     result = result.replace("</head>", `    ${tag}\n  </head>`);

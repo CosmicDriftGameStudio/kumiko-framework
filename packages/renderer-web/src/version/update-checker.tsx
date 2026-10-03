@@ -12,10 +12,9 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
 
-// Build-Stand, der beim Page-Load aktiv war. Vom Prod-Build als
-// <meta name="kumiko-build"> in die index.html gebacken (build-prod-bundle
-// injectAssetTags). Fehlt im Dev und in alten Bundles → der Checker macht
-// dann nichts (fail-safe).
+// Build that was active at page load, baked into index.html by the prod build
+// as <meta name="kumiko-build"> (build-prod-bundle injectAssetTags). Missing in
+// dev and in old bundles, and then the checker does nothing (fail-safe).
 export type KumikoBuild = {
   readonly id: string;
   readonly builtAt: string;
