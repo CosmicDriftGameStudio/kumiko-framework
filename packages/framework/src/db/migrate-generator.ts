@@ -20,6 +20,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { compareByCodepoint } from "../utils/index.js";
 import type { ColumnMeta, EntityTableMeta, IndexMeta } from "./entity-table-meta.js";
 import { renderIndex, renderTableDdl } from "./render-ddl.js";
+import { findRetiredTableDrops, type RetiredFrameworkTable } from "./retired-framework-tables.js";
 
 const SNAPSHOT_VERSION = 1 as const;
 
@@ -402,8 +403,13 @@ function describeIndexChange(change: IndexChange): string {
 // for explicit reviewer-action.
 export function renderMigrationSql(
   diff: SchemaDiff,
-  options: { readonly name: string; readonly sequenceNumber: number },
+  options: {
+    readonly name: string;
+    readonly sequenceNumber: number;
+    readonly retiredDrops?: readonly RetiredFrameworkTable[];
+  },
 ): string {
+  const retiredDrops = options.retiredDrops ?? [];
   const lines: string[] = [];
   const seq = options.sequenceNumber.toString().padStart(4, "0");
   lines.push(`-- Migration ${seq}_${options.name}`);
@@ -493,10 +499,22 @@ export function renderMigrationSql(
     lines.push("");
   }
 
+  if (retiredDrops.length > 0) {
+    lines.push("-- === Retired framework tables ===");
+    for (const retired of retiredDrops) {
+      lines.push(
+        `-- ${retired.tableName}: retired since framework ${retired.sinceVersion} — ${retired.explanation}`,
+      );
+      lines.push(`DROP TABLE IF EXISTS ${quoteIdent(retired.tableName)};`);
+    }
+    lines.push("");
+  }
+
   if (
     diff.newTables.length === 0 &&
     diff.changedTables.length === 0 &&
-    diff.droppedTables.length === 0
+    diff.droppedTables.length === 0 &&
+    retiredDrops.length === 0
   ) {
     lines.push("-- No schema changes detected.");
   }
@@ -511,6 +529,9 @@ export type GenerateMigrationInput = {
   readonly prevSnapshot: Snapshot | null;
   readonly name: string;
   readonly sequenceNumber: number;
+  /** Raw SQL of all earlier migrations, in order — lets the generator decide
+   *  whether a retired framework table still needs its executable drop. */
+  readonly priorMigrationsSql?: readonly string[];
 };
 
 export type GenerateMigrationOutput = {
@@ -518,6 +539,7 @@ export type GenerateMigrationOutput = {
   readonly sqlContent: string;
   readonly snapshot: Snapshot;
   readonly diff: SchemaDiff;
+  readonly retiredDrops: readonly RetiredFrameworkTable[];
 };
 
 // Shared allowlist for migration names — used by the CLI and by
@@ -537,9 +559,11 @@ export function generateMigration(input: GenerateMigrationInput): GenerateMigrat
   assertValidMigrationName(input.name);
   const nextSnapshot = snapshotFromMetas(input.metas);
   const diff = diffSnapshots(input.prevSnapshot, nextSnapshot);
+  const retiredDrops = findRetiredTableDrops(input.priorMigrationsSql ?? [], nextSnapshot);
   const sqlContent = renderMigrationSql(diff, {
     name: input.name,
     sequenceNumber: input.sequenceNumber,
+    retiredDrops,
   });
   const seq = input.sequenceNumber.toString().padStart(4, "0");
   return {
@@ -547,5 +571,6 @@ export function generateMigration(input: GenerateMigrationInput): GenerateMigrat
     sqlContent,
     snapshot: nextSnapshot,
     diff,
+    retiredDrops,
   };
 }
