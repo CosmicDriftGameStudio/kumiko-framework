@@ -1,5 +1,83 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.341.0
+
+### Minor Changes
+
+- 9bc1069: buildServerBundle bundles bin/bootstrap.ts to dist-server/bootstrap.js when present
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: buildServerBundle bundles bin/bootstrap.ts to dist-server/bootstrap.js when present
+  -->
+
+- 1feae69: Deploy migrate-step.sh always uses the exact stack network
+
+  The discover variant (docker network ls | head -1) could pick another compose project's network on a shared host. The script now uses COMPOSE_PROJECT_NAME or the directory name plus \_stack.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: breaking
+  title: Deploy migrate-step.sh always uses the exact stack network
+  migration: |
+    Remove package.json kumiko.deploy.stackNetwork (or set it to "directory"), then re-run scaffoldDeploy. If the deploy directory name differs from the compose project, set COMPOSE_PROJECT_NAME for migrate-step.sh.
+  -->
+
+- 610201f: CacheSyncBus keeps tier assignments and file providers in sync across pods
+
+  A Redis-backed CacheSyncBus (one channel, envelope with origin id, echo dropped, malformed messages ignored) now carries typed invalidation topics between pods and fires a debounced resync after a Redis reconnect. Tier assignments are published after commit and reloaded on the other pods with a per-tenant out-of-order guard; the tier cache is swapped atomically on resync. The file provider resolver drops cached providers when tenant config or secrets change on any pod. Prod, worker and dev entrypoints wire one bus per process, and TierResolverPlugin.build accepts an optional cacheSync.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: CacheSyncBus keeps tier assignments and file providers in sync across pods
+  -->
+
+### Patch Changes
+
+- 465e14c: Codegen watcher change filter is a tested pure predicate
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Codegen watcher change filter is a tested pure predicate
+  -->
+
+- Updated dependencies [9bc1069]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [610201f]
+- Updated dependencies [c5a7dc2]
+- Updated dependencies [82309a5]
+- Updated dependencies [fcd9081]
+- Updated dependencies [c2c7862]
+- Updated dependencies [1feae69]
+- Updated dependencies [1feae69]
+- Updated dependencies [610201f]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [1feae69]
+- Updated dependencies [dba5100]
+- Updated dependencies [c5e6814]
+- Updated dependencies [8443f22]
+- Updated dependencies [1f0a63b]
+- Updated dependencies [995c089]
+- Updated dependencies [0600763]
+- Updated dependencies [9bc1069]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [37c0974]
+- Updated dependencies [610201f]
+- Updated dependencies [e0c2320]
+- Updated dependencies [4b01c83]
+- Updated dependencies [37c0974]
+  - @cosmicdrift/kumiko-bundled-features@0.341.0
+  - @cosmicdrift/kumiko-framework@0.341.0
+  - @cosmicdrift/kumiko-server-runtime@0.341.0
+  - @cosmicdrift/kumiko-renderer-web@0.341.0
+  - @cosmicdrift/kumiko-headless@0.341.0
+
 ## 0.340.0
 
 ### Minor Changes

@@ -1,5 +1,81 @@
 # @cosmicdrift/kumiko-types
 
+## 0.341.0
+
+### Minor Changes
+
+- c5a7dc2: `r.secret` and `r.secretNamespace` accept a `valueSchema`. `secrets:write:set` checks the value against it after the key and role checks and answers a failure with a 400 validation error on field `value` (`secrets.errors.invalidValue`); the response never contains the value or the schema's issues. `secrets:write:delete` is unaffected.
+
+  The chat channels use it: Slack, Discord and Teams webhook secrets must be URLs that pass the channel's host allowlist (including the Discord `/api/webhooks/` path), and the Telegram bot token must have the `<bot id>:<secret>` shape. The allowlist comes from the same options as the channel, so `createChannelSlackFeature({ allowedHosts })` also governs what can be stored.
+
+  `channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram` now export their secret keys (`SLACK_SECRET_KEYS`, `DISCORD_SECRET_KEYS`, `TEAMS_SECRET_KEYS`, `TELEGRAM_SECRET_KEYS`), allowlist constants and `isTelegramChatId` / `isTelegramBotToken`. `delivery` exports `checkChatWebhookTarget`, `chatWebhookUrlSchema` and `resolveChatWebhookTarget`, so apps can validate an address or URL when a user creates a channel.
+
+  Existing invalid secrets stay stored; only new writes are checked. Writes through `ctx.secrets.set` in feature code run through the same check.
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: Chat channel secret values are validated on write
+  -->
+
+- 82309a5: Chat channels (slack, discord, teams, telegram) now deliver in production boot. `runProdApp`, `runDevApp` and `runWorkerApp` pass the tenant secrets to the delivery service and hand queued channels to the `delivery.render`/`delivery.send` jobs of the calling context's job runner. `delivery.render` now receives `ctx.secrets` as well. Without a job runner, queued channels still deliver inline, now with secrets. `runBootstrap` is a one-shot process whose queue nobody drains after it exits, so it keeps delivering queued channels inline (the SystemAdmin invitation goes out before the process ends).
+
+  `NotifyFn` returns a `NotifyResult` (`{ deliveries }` with channel, recipientId, status `queued | sent | failed | skipped`, error and `deliveryAttemptId` per delivery) instead of `void`. `NotifyOptions.immediate` delivers queued channels inline for one call and bypasses job retry, for "send test message" handlers. `NotifyFactory` takes an optional job dispatcher as third argument, and `DeliveryService.notify` an optional per-call dispatcher.
+
+  Consumers: `NotifyFn` implementations in tests and mocks must now return a `NotifyResult`, e.g. `async () => ({ deliveries: [] })`. When running the API without a worker (`runSingleInstance: false`), a dedicated worker must process the delivery jobs.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Chat channels deliver in production boot, ctx.notify returns a NotifyResult
+  migration: |
+    NotifyFn implementations in tests and mocks must return a NotifyResult, e.g. async () => ({ deliveries: [] }). Queued channels now run through the delivery jobs in production; an API-only deployment (runSingleInstance: false) needs a worker that mounts delivery and the channel features.
+  -->
+
+- c2c7862: `r.extendEntityProjection` accepts `rowIdOf`, the row id the extension's applies write for events on its `sources` when that id is not the aggregate id (for example a tenant-salted `uuidv5(tenantId|aggregateId)` over workflow events). The ghost-row guard of the projection rebuild now counts a live row as backed when its id is `rowIdOf` of a source event, so such projections can be rebuilt instead of aborting. The guard stays strict: a row keyed by the raw aggregate id of a derived source still aborts the rebuild.
+
+  `rowIdOf` requires `sources`, must not name the entity's own stream, and must return a uuid; a source shared by several extensions needs the same `rowIdOf` in all of them. Violations fail at boot. `ProjectionDefinition` carries the result as `extraSourceRowIds`, and `assertNoUnreachableLiveRows` takes it as an optional fifth parameter. New type `ProjectionRowIdOf`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: rowIdOf on extendEntityProjection for derived row ids
+  -->
+
+- e7dbdb6: r.httpRoute rateLimit option
+
+  Per-IP limit enforced through the rate-limit resolver before the route guards; legal-pages and GET /user-export/by-token declare defaults.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.httpRoute rateLimit option
+  -->
+
+- dba5100: `ctx.notify` accepts `locale`, and the locale now travels through the delivery jobs (`delivery.render`, `delivery.send`) to `NotificationRenderer.render`, where `RendererInput.locale` is available. Jobs queued before this release have no locale and keep working. The email channel and `renderer-simple` pass it on; the auth mails and the consumer-protection mails set it to the language they already translate their content into. This lands in the same release as the `NotifyOptions` change from #3508.
+
+  `MailBranding` for `renderer-simple` can now be localized: `footerText`, `footerLinks[].label` and `footerLinks[].url` take a plain string or a map of locale to string. The renderer picks the exact locale, then the language part (`de-AT` falls back to `de`), then the new optional `MailBranding.defaultLocale`, then the first entry. Every URL in a map must be an absolute http(s) URL, otherwise `createSimpleRenderer` throws at boot. Without a locale and with plain strings the HTML is unchanged.
+
+  `MailBranding` also gets `logoPath` and `baseUrl`, so an app can point at a raster logo on its own origin (`logoPath: "/logo.png"`, `baseUrl` the same base as `auth.mail.baseUrl`). `logoPath` and `logoUrl` exclude each other, `logoPath` needs a valid `baseUrl`, must start with a single `/` and must stay on the base origin; violations throw at boot. Use PNG or JPEG, because mail clients block SVG.
+
+  <!-- kumiko-changes
+  feature: renderer-simple
+  type: improvement
+  title: Localized mail branding, locale through delivery, logoPath
+  -->
+
+- c5e6814: Write handlers can declare `additionalRateLimits: [{ per: { payloadField: "email" }, limit, windowSeconds }]` next to `rateLimit`. The named string field of the validated payload is trimmed, lowercased and HMAC-hashed (key derived from the server's current JWT signing secret) into the bucket key `payload+handler:<handler>:<field>:<digest>`, so one address is limited across all IPs and Redis never holds it in plaintext. The check runs after schema validation and before the handler, answers 429 `rate_limited`, behaves the same for matching and non-matching values, and is skipped for system callers. Rotating the JWT secret only resets these buckets.
+
+  Boot rejects `additionalRateLimits` on an anonymous handler without a real ip-keyed `rateLimit` (the payload bucket only complements the IP bucket), an empty list, a `payloadField` that is not a field of the Zod object schema, and a non-positive `limit` or `windowSeconds`. A handler with `additionalRateLimits` makes `buildServer` wire the rate-limit resolver. The option exists on write handlers only and appears in the feature-ast patterns, render and patch schema.
+
+  Behavior change: `request-contract-termination` and `signup-request` now allow 3 requests per email address per 24 hours, and each token-request endpoint (`request-password-reset`, `request-email-verification`, `request-account-unlock`) allows 5 per address per 24 hours, in addition to the existing per-IP limits. The public `/api/auth` token-request routes still answer `{ isSuccess: true }` when the limit is hit; only the mail is not sent.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Per-recipient rate limits on payload fields (additionalRateLimits)
+  -->
+
 ## 0.340.0
 
 ### Patch Changes

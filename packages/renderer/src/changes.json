@@ -1,5 +1,10 @@
 [
   {
+    "version": "0.341.0",
+    "type": "fix",
+    "title": "Add errors.rate_limit_unavailable default text"
+  },
+  {
     "version": "0.339.0",
     "type": "improvement",
     "title": "Lightbox pages through multiple images",

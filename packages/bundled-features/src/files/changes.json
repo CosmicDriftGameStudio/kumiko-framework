@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "Uploads resolve a generic content type from the file content",
+    "detail": "POST /api/files now resolves application/octet-stream or a missing type from the bytes (PDF, XML, PNG, JPEG, GIF, WebP, ZIP) and falls back to the file extension. A concrete declared type is never overridden. The shared helper resolveContentType is exported from the files module."
+  },
+  {
+    "version": "0.341.0",
+    "type": "fix",
+    "title": "Uploads without entityId no longer produce an empty storage key segment"
+  }
+]

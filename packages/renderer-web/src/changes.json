@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.341.0",
+    "type": "fix",
+    "title": "App shells render a single main landmark",
+    "detail": "`DefaultAppShell` and `WorkspaceShell` render exactly one `main` landmark. `SidebarInset` is now a `div`, so the shell's own `main` around the screen content is the only one, and the `ShellHeader` sits outside it. Screen readers no longer announce two main regions, and `getByRole(\"main\")` in E2E tests matches a single element."
+  },
+  {
     "version": "0.339.0",
     "type": "fix",
     "title": "Columns with format boolean show a check mark with the accessible name Yes, or a dash with No, instead of raw true/false",

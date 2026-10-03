@@ -1,5 +1,22 @@
 [
   {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "buildServerBundle bundles bin/bootstrap.ts to dist-server/bootstrap.js when present"
+  },
+  {
+    "version": "0.341.0",
+    "type": "fix",
+    "title": "Codegen watcher change filter is a tested pure predicate"
+  },
+  {
+    "version": "0.341.0",
+    "type": "breaking",
+    "title": "Deploy migrate-step.sh always uses the exact stack network",
+    "detail": "The discover variant (docker network ls | head -1) could pick another compose project's network on a shared host. The script now uses COMPOSE_PROJECT_NAME or the directory name plus _stack.",
+    "migration": "Remove package.json kumiko.deploy.stackNetwork (or set it to \"directory\"), then re-run scaffoldDeploy. If the deploy directory name differs from the compose project, set COMPOSE_PROJECT_NAME for migrate-step.sh."
+  },
+  {
     "version": "0.340.0",
     "type": "improvement",
     "title": "Server bundle includes an optional worker entry",
