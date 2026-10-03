@@ -10,6 +10,7 @@
 // Screen rein konfigurieren, ohne den Gate selbst ersetzen zu müssen.
 
 import { type ComponentType, type ReactNode, useEffect, useState } from "react";
+import { assertNavigableUrl, buildLoginRedirectUrl } from "./auth-redirect.js";
 import { LoginScreen, type LoginScreenProps } from "./login-screen.js";
 import { SessionProvider, useSession } from "./session.js";
 import { SessionBootstrapErrorScreen } from "./session-bootstrap-error.js";
@@ -149,13 +150,41 @@ export function createLoginRoute(
   return LoginRoute;
 }
 
-export function makeAuthGate(opts: LoginRouteOptions = {}): ComponentType<{
+export type AuthGateOptions = LoginRouteOptions & {
+  /** Login page outside the SPA (root-relative path or http(s) URL). Unauthenticated
+   *  visitors are sent there with `next=<current path>`; the built-in login screen
+   *  is not rendered. */
+  readonly loginUrl?: string;
+};
+
+export type SessionAuthGateOptions = AuthGateOptions & {
+  /** Where logout navigates to (root-relative path or http(s) URL). Without it, logout reloads the page. */
+  readonly postLogoutUrl?: string;
+};
+
+function redirectToLoginUrl(loginUrl: string): void {
+  const { origin, pathname, search, hash, href } = window.location;
+  const target = buildLoginRedirectUrl(loginUrl, `${pathname}${search}${hash}`, origin);
+  // Guards a redirect loop when loginUrl points at the page we are already on.
+  if (new URL(target, origin).href === href) return;
+  window.location.replace(target);
+}
+
+export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
   children: ReactNode;
 }> {
+  const { loginUrl } = opts;
+  if (loginUrl !== undefined) assertNavigableUrl(loginUrl, "loginUrl");
   const LoginRoute = createLoginRoute(opts);
   function AuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     const { status } = useSession();
+    const redirectsToLoginUrl = loginUrl !== undefined && status === "unauthenticated";
+    // kumiko-lint-ignore no-raw-hooks Phase-3 conversion tracked in #2312
+    useEffect(() => {
+      if (redirectsToLoginUrl) redirectToLoginUrl(loginUrl);
+    }, [redirectsToLoginUrl]);
     if (status === "authenticated") return <>{children}</>;
+    if (redirectsToLoginUrl) return null;
     return <LoginRoute />;
   }
   return AuthGate;
@@ -164,13 +193,15 @@ export function makeAuthGate(opts: LoginRouteOptions = {}): ComponentType<{
 // SessionProvider + AuthGate as one gate, so a public gate in front (e.g.
 // /calculator) doesn't mount the session bootstrap — createKumikoApp stacks
 // providers outside all gates, so SessionProvider can't be a provider anymore.
-export function makeSessionAuthGate(opts: LoginRouteOptions = {}): ComponentType<{
+export function makeSessionAuthGate(opts: SessionAuthGateOptions = {}): ComponentType<{
   children: ReactNode;
 }> {
+  const { postLogoutUrl } = opts;
+  if (postLogoutUrl !== undefined) assertNavigableUrl(postLogoutUrl, "postLogoutUrl");
   const AuthGate = makeAuthGate(opts);
   function SessionAuthGate({ children }: { readonly children: ReactNode }): ReactNode {
     return (
-      <SessionProvider>
+      <SessionProvider postLogoutUrl={postLogoutUrl}>
         <AuthGate>{children}</AuthGate>
       </SessionProvider>
     );

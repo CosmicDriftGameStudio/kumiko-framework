@@ -9,6 +9,7 @@ import type { TranslationsByLocale } from "@cosmicdrift/kumiko-renderer";
 import type { ComponentType, ReactNode } from "react";
 import { defaultTranslations, mergeTranslations } from "../i18n.js";
 import {
+  type AuthGateOptions,
   type MfaSetupComponentProps,
   type MfaVerifyComponentProps,
   makeSessionAuthGate,
@@ -32,6 +33,13 @@ export type EmailPasswordClientOptions = {
    *  as mfaVerifyScreen above. Apps not mounting auth-mfa simply don't
    *  pass this. */
   readonly mfaSetupScreen?: ComponentType<MfaSetupComponentProps>;
+  /** Login page outside the SPA (root-relative path or http(s) URL). Unauthenticated
+   *  visitors are redirected there with `next=<current path>` instead of seeing the
+   *  built-in login screen. Read `next` back with readNextFromSearch (same-origin
+   *  paths only). */
+  readonly loginUrl?: AuthGateOptions["loginUrl"];
+  /** Where logout navigates to (root-relative path or http(s) URL). Default: reload. */
+  readonly postLogoutUrl?: string;
   /** Key-Overrides pro Locale. Wird mit den Default-Bundles (de/en)
    *  aus `translations.ts` gemerged — jeder hier gesetzte Key gewinnt.
    *  Für Branding ("Sign in" → "Login to Acme") oder weitere Sprachen
@@ -62,6 +70,8 @@ export function emailPasswordClient(
         loginScreenProps: options.loginScreenProps,
         mfaVerifyScreen: options.mfaVerifyScreen,
         mfaSetupScreen: options.mfaSetupScreen,
+        loginUrl: options.loginUrl,
+        postLogoutUrl: options.postLogoutUrl,
       }),
     ],
     translations,
