@@ -31,6 +31,8 @@ bunx kumiko-guards checks --write-baseline --guard=guard-raw-sql
 ```
 
 Rewording the reason is a new entry: re-run the command and review the diff.
+A removed marker leaves a stale entry that does not fail; the same command
+drops it.
 
 ## `kumiko-pre-push`
 
