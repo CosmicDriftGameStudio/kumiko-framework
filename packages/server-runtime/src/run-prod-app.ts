@@ -433,7 +433,8 @@ export type ExtraContextOption =
  *      itself from the authenticated GET /api/schema, after the
  *      clientFeature gates (auth) let it through.
  *    - "redirect": 301/302 to the given location.
- *    - "not-found": reject outright (e.g. unknown subdomain).
+ *    - "not-found": reject (e.g. unknown subdomain) with a plain 404, or —
+ *      with `file` (+ optional `csp`) — serve that page with status 404.
  *
  *  Only consulted when the path would otherwise fall through to the HTML
  *  fallback — i.e. for "/", "/index.html", or SPA routes that neither Hono
@@ -449,7 +450,7 @@ export type HostDispatchResult =
       readonly csp?: string;
     }
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
-  | { readonly kind: "not-found" };
+  | { readonly kind: "not-found"; readonly file?: string; readonly csp?: string };
 
 export type HostDispatchFn = (
   req: {
