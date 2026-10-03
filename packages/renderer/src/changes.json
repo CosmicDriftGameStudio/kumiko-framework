@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.337.1",
+    "type": "improvement",
+    "title": "Secrets screen hides keys the user cannot write",
+    "detail": "The generated secrets screen now hides fixed secret keys the current user may not write according to the key's `writeRoles`, and drops sections left without visible keys. The generator emits a per-field `fieldAccess` map on the screen for this. It only affects what the UI shows; the server-side write check is unchanged and still decides."
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "configEdit shows server validation errors at the affected field",

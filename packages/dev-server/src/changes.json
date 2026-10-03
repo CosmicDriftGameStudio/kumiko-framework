@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.337.1",
+    "type": "improvement",
+    "title": "createKumikoServer handle exposes the boot's jobQueueNamePrefix",
+    "detail": "dev-server: `createKumikoServer()` returns the boot's `jobQueueNamePrefix` on its handle, so callers sharing a Redis can address exactly that boot's `bull:<prefix>-*` keys.",
+    "migration": "No action needed: purely additive handle field."
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "public/ served via realpath incl. symlinked public/, ephemeral dev queues cleaned on stop, init-deploy --out app name, compose-style migrate-step network name, config preset validates configResolver; guards report correct isolation lines and time out kumiko-upgrade",
