@@ -38,6 +38,7 @@ import type {
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import {
   BillingEventKinds,
+  parseProviderConsentId,
   type SubscriptionEventType,
   SubscriptionEventTypes,
   type SubscriptionStatus,
@@ -164,11 +165,13 @@ export function verifyAndParseStripeWebhook(
       return null;
     }
 
+    const consentId = parseProviderConsentId(sub.metadata?.["consentId"]);
     return {
       providerEventId: event.id,
       providerName: STRIPE_PROVIDER_NAME,
       type: normalizedType,
       tenantId,
+      ...(consentId !== undefined && { consentId }),
       providerCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
       providerSubscriptionId: sub.id,
       ...state,
@@ -419,11 +422,13 @@ async function parsePaymentEvent(
     return dropPaidSession(event, session, "missing_customer");
   }
 
+  const consentId = parseProviderConsentId(paymentIntent.metadata?.["consentId"]);
   return {
     kind: BillingEventKinds.payment,
     providerEventId: event.id,
     providerName: STRIPE_PROVIDER_NAME,
     tenantId,
+    ...(consentId !== undefined && { consentId }),
     providerCustomerId,
     priceId,
     rawPayload: JSON.stringify(event),

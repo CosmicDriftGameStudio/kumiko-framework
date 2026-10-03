@@ -60,6 +60,31 @@ describe("createMollieCheckoutSession", () => {
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ sequenceType: "first" }));
   });
 
+  test("consentId is sent in the payment metadata next to tenantId/priceId", async () => {
+    const client = buildClient();
+    const createMock = spyOn(client.payments, "create").mockResolvedValue({
+      getCheckoutUrl: () => "https://www.mollie.com/checkout/mock",
+    });
+    const checkout = createMollieCheckoutSession(
+      client as unknown as MollieClient,
+      PRICE_CONFIG,
+      WEBHOOK_URL,
+    );
+    await checkout(stubCtx, {
+      priceId: "plan_pro",
+      tenantId: "tenant-001",
+      successUrl: "https://example.com/success",
+      cancelUrl: "https://example.com/cancel",
+      providerCustomerId: "cus_existing",
+      consentId: "consent-1",
+    });
+    expect(createMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: { tenantId: "tenant-001", priceId: "plan_pro", consentId: "consent-1" },
+      }),
+    );
+  });
+
   test("mode='payment': sequenceType wird zu 'oneoff' (One-off-Top-up, kein Mandate-setup)", async () => {
     const client = buildClient();
     const createMock = spyOn(client.payments, "create").mockResolvedValue({

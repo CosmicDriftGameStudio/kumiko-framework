@@ -104,6 +104,7 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
             providerName: parsed.providerName,
             providerCustomerId: parsed.providerCustomerId,
             priceId: parsed.priceId,
+            ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
             rawPayload: parsed.rawPayload,
           },
         });
@@ -129,6 +130,7 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
           tier: parsed.tier,
           currentPeriodEndIso: parsed.currentPeriodEnd,
           ...(parsed.cancelAt !== undefined && { cancelAtIso: parsed.cancelAt }),
+          ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
           rawPayload: parsed.rawPayload,
         },
       });

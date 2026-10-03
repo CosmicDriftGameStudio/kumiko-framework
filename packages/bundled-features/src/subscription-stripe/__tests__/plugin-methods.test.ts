@@ -11,6 +11,7 @@
 
 import { describe, expect, mock, spyOn, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { SubscriptionCancelTimings } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import {
   ConflictError,
@@ -78,6 +79,7 @@ describe("createStripeCheckoutSession", () => {
       line_items: [{ price: "price_pro_monthly", quantity: 1 }],
       success_url: "https://example.com/success",
       cancel_url: "https://example.com/cancel",
+      submit_type: "pay",
       // Drift-Pin: metadata.tenantId LANDET auf der subscription, NICHT
       // auf der checkout-session direkt — sonst kann verifyAndParse-
       // Webhook den tenant beim subsequent webhook nicht resolven.
@@ -85,6 +87,57 @@ describe("createStripeCheckoutSession", () => {
         metadata: { tenantId: "tenant-001" },
       },
     });
+  });
+
+  async function createdParams(
+    options: Partial<Parameters<ReturnType<typeof createStripeCheckoutSession>>[1]>,
+  ) {
+    const stripe = buildStripe();
+    const createMock = spyOn(stripe.checkout.sessions, "create")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ url: "https://x" } as any);
+    await createStripeCheckoutSession(ctxRuntime(stripe))(stubCtx, {
+      priceId: "price_x",
+      tenantId: "tenant-1",
+      successUrl: "https://x/s",
+      cancelUrl: "https://x/c",
+      ...options,
+    });
+    return createMock.mock.calls[0]?.[0] as Stripe.Checkout.SessionCreateParams; // @cast-boundary test-mock
+  }
+
+  test("maps app locale: region falls back to language, unknown → auto, none → omitted", async () => {
+    expect((await createdParams({ locale: "de-AT" })).locale).toBe("de");
+    expect((await createdParams({ locale: "en-GB" })).locale).toBe("en-GB");
+    expect((await createdParams({ locale: "xx" })).locale).toBe("auto");
+    expect(await createdParams({})).not.toHaveProperty("locale");
+  });
+
+  test("submitMessage lands in custom_text.submit.message, capped at 1200 chars", async () => {
+    expect(
+      (await createdParams({ submitMessage: "Zahlungspflichtig bestellen" })).custom_text,
+    ).toEqual({
+      submit: { message: "Zahlungspflichtig bestellen" },
+    });
+    const long = await createdParams({ submitMessage: "a".repeat(1500) });
+    expect(long.custom_text?.submit).toEqual({ message: "a".repeat(1200) });
+    expect(await createdParams({})).not.toHaveProperty("custom_text");
+  });
+
+  test("consentId rides next to tenantId on subscription_data (subscription) / payment_intent_data (payment)", async () => {
+    const subscription = await createdParams({ consentId: "consent-1" });
+    expect(subscription.submit_type).toBe("pay");
+    expect(subscription.subscription_data?.metadata).toEqual({
+      tenantId: "tenant-1",
+      consentId: "consent-1",
+    });
+    const payment = await createdParams({ consentId: "consent-1", mode: "payment" });
+    expect(payment.submit_type).toBe("pay");
+    expect(payment.payment_intent_data?.metadata).toEqual({
+      tenantId: "tenant-1",
+      consentId: "consent-1",
+    });
+    expect(payment).not.toHaveProperty("subscription_data");
   });
 
   test("#104-Gate: throws FeatureDisabledError + ruft Stripe NICHT wenn billing-live aus", async () => {
@@ -147,6 +200,7 @@ describe("createStripeCheckoutSession", () => {
       line_items: [{ price: "price_credits_topup", quantity: 1 }],
       success_url: "https://example.com/success",
       cancel_url: "https://example.com/cancel",
+      submit_type: "pay",
       // Drift-Pin: payment-mode carries tenantId via payment_intent_data,
       // NOT subscription_data — Stripe rejects subscription_data outside
       // subscription-mode.
@@ -373,14 +427,35 @@ describe("createStripePortalSession", () => {
 // =============================================================================
 
 describe("createStripeCancelSubscription", () => {
-  test("ruft stripe.subscriptions.cancel mit subscription-id", async () => {
+  test("when=period-end: stripe.subscriptions.update with cancel_at_period_end, no cancel", async () => {
+    const stripe = buildStripe();
+    const updateMock = spyOn(stripe.subscriptions, "update")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ id: "sub_001" } as any);
+    const cancelMock = spyOn(stripe.subscriptions, "cancel")
+      // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
+      .mockResolvedValue({ id: "sub_001" } as any);
+
+    await createStripeCancelSubscription(ctxRuntime(stripe))(stubCtx, {
+      providerSubscriptionId: "sub_001",
+      when: SubscriptionCancelTimings.periodEnd,
+    });
+
+    expect(updateMock).toHaveBeenCalledWith("sub_001", { cancel_at_period_end: true });
+    expect(cancelMock).not.toHaveBeenCalled();
+  });
+
+  test("when=immediately: ruft stripe.subscriptions.cancel mit subscription-id", async () => {
     const stripe = buildStripe();
     const cancelMock = spyOn(stripe.subscriptions, "cancel")
       // biome-ignore lint/suspicious/noExplicitAny: Stripe-SDK-typed mock-return
       .mockResolvedValue({ id: "sub_001", status: "canceled" } as any);
 
     const cancel = createStripeCancelSubscription(ctxRuntime(stripe));
-    await cancel(stubCtx, "sub_001");
+    await cancel(stubCtx, {
+      providerSubscriptionId: "sub_001",
+      when: SubscriptionCancelTimings.immediately,
+    });
 
     expect(cancelMock).toHaveBeenCalledTimes(1);
     expect(cancelMock).toHaveBeenCalledWith("sub_001");

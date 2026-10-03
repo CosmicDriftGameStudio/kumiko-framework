@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
-import { BillingEventKinds } from "../constants.js";
+import { BillingEventKinds, SubscriptionCancelTimings } from "../constants.js";
 import type { SubscriptionProviderPlugin } from "../types.js";
 
 export type SubscriptionProviderContractFixture = {
@@ -92,7 +92,12 @@ export function describeSubscriptionProviderContract(
             "describeSubscriptionProviderContract: hasCancel:true but the fixture has no cancelSubscription/cancelSubscriptionId",
           );
         }
-        await expect(plugin.cancelSubscription(ctx, cancelSubscriptionId)).resolves.toBeUndefined();
+        await expect(
+          plugin.cancelSubscription(ctx, {
+            providerSubscriptionId: cancelSubscriptionId,
+            when: SubscriptionCancelTimings.periodEnd,
+          }),
+        ).resolves.toBeUndefined();
       },
     );
   });

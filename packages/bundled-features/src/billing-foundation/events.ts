@@ -65,6 +65,7 @@ export const subscriptionEventPayloadSchema = z.object({
   // upcaster. null = the subscription renews; undefined = the provider
   // doesn't report cancelAt at all — projection.ts tells the two apart.
   cancelAtIso: z.string().min(1).nullable().optional(),
+  consentId: z.string().min(1).max(100).optional(),
 });
 export type SubscriptionEventPayload = z.infer<typeof subscriptionEventPayloadSchema>;
 
@@ -102,6 +103,7 @@ export const paymentEventPayloadSchema = z.object({
   // subscriptionEventPayloadSchema's same rationale.
   providerCustomerId: z.string().min(1).max(1000),
   priceId: z.string().min(1).max(200),
+  consentId: z.string().min(1).max(100).optional(),
 });
 export type PaymentEventPayload = z.infer<typeof paymentEventPayloadSchema>;
 

@@ -80,6 +80,7 @@ export function createMollieCheckoutSession(
       metadata: {
         tenantId: options.tenantId,
         priceId: options.priceId,
+        ...(options.consentId && { consentId: options.consentId }),
       },
     }) as Promise<Payment>)) satisfies Payment; // @cast-boundary engine-bridge
 

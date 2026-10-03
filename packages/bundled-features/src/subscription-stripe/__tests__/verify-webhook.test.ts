@@ -64,6 +64,7 @@ function buildSubscriptionEvent(overrides: {
   currentPeriodEndUnix?: number;
   cancelAtUnix?: number | null;
   cancelAtPeriodEnd?: boolean;
+  consentId?: string;
 }) {
   const eventId = overrides.eventId ?? "evt_test_001";
   const eventType = overrides.eventType ?? "customer.subscription.created";
@@ -90,6 +91,7 @@ function buildSubscriptionEvent(overrides: {
         cancel_at_period_end: overrides.cancelAtPeriodEnd ?? false,
         metadata: {
           tenantId: overrides.tenantId ?? "tenant-test-1",
+          ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
         },
         items: {
           object: "list",
@@ -280,6 +282,33 @@ describe("verifyAndParseStripeWebhook — tenant-resolution + price-to-tier", ()
     // 1_780_000_000 sec = 2026-05-28T20:26:40Z (in ms: 1.78e12)
     // Temporal.Instant.toString() droppt Trailing-Zeros — keine .000Z
     expect(event?.currentPeriodEnd).toBe("2026-05-28T20:26:40Z");
+  });
+});
+
+describe("verifyAndParseStripeWebhook — consentId", () => {
+  const verify = asSubscriptionVerifier(
+    verifyAndParseStripeWebhook(webhookRuntime(), {
+      priceToTier: { price_pro_monthly: "pro" },
+    }),
+  );
+
+  async function consentIdFor(consentId: string | undefined) {
+    const payload = JSON.stringify(buildSubscriptionEvent({ consentId }));
+    const event = await verify(payload, { "stripe-signature": await signEvent(payload) });
+    expect(event).not.toBeNull();
+    return event;
+  }
+
+  test("metadata.consentId → event.consentId", async () => {
+    expect((await consentIdFor("3f2b8c1e-aaaa-4bbb-8ccc-123456789abc"))?.consentId).toBe(
+      "3f2b8c1e-aaaa-4bbb-8ccc-123456789abc",
+    );
+  });
+
+  test("missing, empty, oversized or odd-charset consentId → omitted, event still delivered", async () => {
+    for (const bad of [undefined, "", "a".repeat(101), "bad id<script>"]) {
+      expect(await consentIdFor(bad)).not.toHaveProperty("consentId");
+    }
   });
 });
 

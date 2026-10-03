@@ -69,6 +69,7 @@ export const processEventSchema = z.object({
   tier: z.string().min(1).max(50),
   currentPeriodEndIso: z.string().min(1),
   cancelAtIso: z.string().min(1).nullable().optional(),
+  consentId: z.string().min(1).max(100).optional(),
   rawPayload: z.string().min(1),
 });
 export type ProcessEventPayload = z.infer<typeof processEventSchema>;
@@ -173,6 +174,7 @@ export async function appendSubscriptionEvent(
     tier: payload.tier,
     currentPeriodEndIso: payload.currentPeriodEndIso,
     ...(payload.cancelAtIso !== undefined && { cancelAtIso: payload.cancelAtIso }),
+    ...(payload.consentId !== undefined && { consentId: payload.consentId }),
   };
   const headers: SubscriptionEventHeaders = {
     providerEventId: payload.providerEventId,

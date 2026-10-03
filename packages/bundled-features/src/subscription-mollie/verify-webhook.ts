@@ -15,6 +15,7 @@
 // Created-Event mit subscription-id bekommt.
 
 import {
+  parseProviderConsentId,
   type SubscriptionEvent,
   type SubscriptionEventType,
   SubscriptionEventTypes,
@@ -128,11 +129,13 @@ export function verifyAndParseMollieWebhook(
     }
     const currentPeriodEnd = mollieDateStringToInstantIso(periodEndSource);
 
+    const consentId = parseProviderConsentId(metadata["consentId"]);
     return {
       providerEventId: id,
       providerName: MOLLIE_PROVIDER_NAME,
       type,
       tenantId,
+      ...(consentId !== undefined && { consentId }),
       providerCustomerId: subscription.customerId,
       providerSubscriptionId: subscription.id,
       status,
@@ -160,6 +163,7 @@ async function ensureSubscriptionForMandate(
   const paymentMetadata = (payment.metadata as Record<string, string> | null) ?? {}; // @cast-boundary engine-bridge
   const tenantId = paymentMetadata["tenantId"];
   const priceId = paymentMetadata["priceId"];
+  const consentId = parseProviderConsentId(paymentMetadata["consentId"]);
   if (!tenantId || !priceId) return null;
   const priceCfg = options.priceToConfig[priceId];
   if (!priceCfg) return null;
@@ -180,7 +184,7 @@ async function ensureSubscriptionForMandate(
     amount: { currency: priceCfg.amountCurrency, value: priceCfg.amountValue },
     interval: priceCfg.interval,
     description: priceCfg.description,
-    metadata: { tenantId, priceId },
+    metadata: { tenantId, priceId, ...(consentId && { consentId }) },
   });
 }
 
