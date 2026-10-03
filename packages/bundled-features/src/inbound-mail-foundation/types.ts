@@ -135,6 +135,12 @@ export type InboundOAuthFlow = {
     ctx: InboundMailContext,
     account: MailAccountRecord,
     refreshToken: string,
+    /** The foundation aborts `signal` after a hard timeout while holding a
+     *  per-account lock (a pool connection is pinned meanwhile). Providers
+     *  MUST pass it to their token-endpoint fetch; the foundation awaits the
+     *  provider's result and never drops a late one, because that could lose
+     *  a rotated refresh token. */
+    opts?: { readonly signal?: AbortSignal },
   ) => Promise<OAuthTokenSet>;
 };
 
@@ -154,7 +160,14 @@ export type InboundMailProviderPlugin = {
     ctx: InboundMailContext,
     account: MailAccountRecord,
     cursor: SyncCursorPayload | null,
-    opts: { readonly backfillWindowDays: number; readonly maxMessages: number },
+    opts: {
+      readonly backfillWindowDays: number;
+      readonly maxMessages: number;
+      /** Valid OAuth access token, minted by the foundation for accounts
+       *  whose provider declares `oauth` (authMethod oauth/xoauth2). Absent
+       *  for password accounts and providers without an oauth flow. */
+      readonly accessToken?: string;
+    },
   ) => Promise<InboundFetchResult>;
   /** Nur OAuth-Provider. */
   readonly oauth?: InboundOAuthFlow;
@@ -170,6 +183,9 @@ export type InboundMailProviderPlugin = {
       readonly onMessages: (msgs: readonly RawInboundMessage[]) => Promise<void>;
       readonly onError: (err: unknown) => void;
     },
+    /** Same `accessToken` semantics as `fetch` opts; re-minted on every
+     *  supervisor (re)start of the watch. */
+    opts?: { readonly accessToken?: string },
   ) => Promise<() => Promise<void>>;
 };
 

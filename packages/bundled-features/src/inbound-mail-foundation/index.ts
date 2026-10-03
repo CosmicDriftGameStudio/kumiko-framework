@@ -56,6 +56,13 @@ export {
 } from "./events.js";
 export { inboundMailFoundationFeature } from "./feature.js";
 export {
+  createOAuthAccessTokenManager,
+  inboundRefreshTokenSecretOptions,
+  type OAuthAccessTokenManager,
+  type OAuthAccessTokenManagerDeps,
+  usesFoundationManagedOAuth,
+} from "./oauth-access-token.js";
+export {
   type OAuthStatePayload,
   signOAuthState,
   type VerifyOAuthStateResult,

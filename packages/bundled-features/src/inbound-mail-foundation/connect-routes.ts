@@ -24,6 +24,10 @@ import {
   InboundMailFoundationHandlers,
   inboundCredentialSecretKey,
 } from "./constants.js";
+import {
+  inboundRefreshTokenSecretOptions,
+  type OAuthAccessTokenManager,
+} from "./oauth-access-token.js";
 import { type OAuthStatePayload, signOAuthState, verifyOAuthState } from "./oauth-state.js";
 import { resolveInboundProviderForKey } from "./provider-factory.js";
 
@@ -46,6 +50,12 @@ export type InboundMailConnectRoutesOptions = {
   readonly connectPath?: string;
   /** Default "/inbound-mail/oauth/callback". */
   readonly callbackPath?: string;
+  /** Apps wire the supervisor and these routes separately, so build ONE
+   *  manager (`createOAuthAccessTokenManager`) and share it with `createInboundMailSupervisor({ oauthTokens })`:
+   *  the callback then writes the refresh token under the account's refresh
+   *  lock and primes the access-token cache from the code exchange. Omitted
+   *  → plain secret write, no cache priming. */
+  readonly oauthTokens?: OAuthAccessTokenManager;
 };
 
 function errorJson(c: Context, status: 400 | 401 | 404 | 500 | 502, code: string, message: string) {
@@ -185,12 +195,13 @@ export function createInboundMailConnectRoutes(
           code,
           redirectUri: options.callbackUrl,
         });
-      } catch (e) {
+      } catch {
+        // Provider error messages can carry token/response data — code only.
         return errorJson(
           c,
           502,
           "token_exchange_failed",
-          e instanceof Error ? e.message : String(e),
+          "token exchange with the provider failed",
         );
       }
       if (!tokens.refreshToken) {
@@ -228,17 +239,22 @@ export function createInboundMailConnectRoutes(
       }
 
       // Refresh-token into the per-account secret slot (Slot = accountId).
-      // Access tokens (~1h) are NEVER persisted — refresh-before-poll in the
-      // sync path.
-      await deps.secrets.set(
-        state.tenantId,
-        inboundCredentialSecretKey(accountId),
-        tokens.refreshToken,
-        {
-          redact: (plaintext) => `${plaintext.slice(0, 4)}…`,
-          hint: `OAuth refresh token for inbound mail account ${accountId}`,
-        },
-      );
+      // Access tokens (~1h) are never persisted — the supervisor re-mints
+      // them from the refresh token (oauth-access-token.ts).
+      if (options.oauthTokens) {
+        await options.oauthTokens.storeRefreshToken(
+          { id: accountId, tenantId: state.tenantId },
+          tokens.refreshToken,
+        );
+        options.oauthTokens.primeFromExchange({ id: accountId }, tokens);
+      } else {
+        await deps.secrets.set(
+          state.tenantId,
+          inboundCredentialSecretKey(accountId),
+          tokens.refreshToken,
+          inboundRefreshTokenSecretOptions(accountId),
+        );
+      }
 
       if (options.successRedirectUrl) {
         const target = new URL(options.successRedirectUrl);
