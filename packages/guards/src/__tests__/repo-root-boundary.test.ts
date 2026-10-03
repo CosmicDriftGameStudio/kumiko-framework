@@ -108,6 +108,32 @@ describe("UI guards in a repo inside a parent workspace", () => {
     expect(files.filter((file) => file.includes("notes-section"))).toEqual([]);
   });
 
+  test("a workspace-linked package outside the repo root is external, under the link and the real path", () => {
+    write(neighborDir, "package.json", JSON.stringify({ name: "@scope/neighbor" }));
+    mkdirSync(join(appDir, "node_modules", "@scope"), { recursive: true });
+    const linkDir = join(appDir, "node_modules", "@scope", "neighbor");
+    symlinkSync(neighborDir, linkDir);
+    write(appDir, "src/web/client-plugin.tsx", CLIENT_PLUGIN("@scope/neighbor/src/notes-section"));
+
+    expect(isExternalSourcePath(join(linkDir, "src/raw.tsx"))).toBe(true);
+
+    const files = buildSharedProject(UI_GUARDS)
+      .getSourceFiles()
+      .map((sf) => sf.getFilePath());
+    expect(
+      files.filter((file) => file.startsWith(neighborDir) || file.startsWith(linkDir)),
+    ).toEqual([]);
+
+    for (const resolved of [
+      join(linkDir, "src/notes-section.tsx"),
+      join(neighborDir, "src/notes-section.tsx"),
+    ]) {
+      const violationFiles = uiViolationFiles([resolved]);
+      expect(violationFiles.filter((file) => file.includes("neighbor"))).toEqual([]);
+      expect(violationFiles.filter((file) => file.includes("notes-section"))).toEqual([]);
+    }
+  });
+
   test("control: the same framed component inside the repo is still flagged", () => {
     write(appDir, "src/notes-section.tsx", FRAMED_SECTION);
     write(appDir, "src/web/client-plugin.tsx", CLIENT_PLUGIN("../notes-section"));
