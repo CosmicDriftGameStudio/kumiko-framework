@@ -27,6 +27,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "kumiko.actions.back": "Back",
     "kumiko.actions.finish": "Finish",
 
+    "kumiko.boolean.no": "No",
+    "kumiko.boolean.yes": "Yes",
     "kumiko.wizard.step": "Step {current} of {total}",
     "kumiko.wizard.up-next": "Up next",
     "kumiko.wizard.step-with-title": "Step {current} of {total} · {title}",
