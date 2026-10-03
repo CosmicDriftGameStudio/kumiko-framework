@@ -12,7 +12,10 @@ import { type RemoveTagPayload, removeTagPayloadSchema } from "../schemas.js";
 // Host reference: entityType/entityId are client input, so the caller must be
 // able to see the host row before detaching anything from it — see
 // shared/parent-visibility.ts.
-export function createRemoveTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
+export function createRemoveTagHandler(
+  access: AccessRule = DEFAULT_TAG_ACCESS,
+  assignmentExecutor: typeof tagAssignmentExecutor = tagAssignmentExecutor,
+): WriteHandlerDef {
   return {
     name: "remove-tag",
     schema: removeTagPayloadSchema,
@@ -37,12 +40,12 @@ export function createRemoveTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
         payload.entityId,
       );
 
-      const existing = await tagAssignmentExecutor.detail({ id }, event.user, ctx.db);
+      const existing = await assignmentExecutor.detail({ id }, event.user, ctx.db);
       if (!existing) {
         return { isSuccess: true as const, data: { id } };
       }
 
-      return tagAssignmentExecutor.delete({ id }, event.user, ctx.db);
+      return assignmentExecutor.delete({ id }, event.user, ctx.db);
     },
   };
 }

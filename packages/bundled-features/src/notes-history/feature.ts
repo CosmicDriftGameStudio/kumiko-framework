@@ -23,6 +23,7 @@ import {
 import { hasWhereRule } from "../shared/index.js";
 import { DEFAULT_NOTES_HISTORY_ACCESS, NOTES_HISTORY_FEATURE_NAME } from "./constants.js";
 import { createNoteEntryEntity, noteMentionEntity } from "./entity.js";
+import { createNoteEntryExecutor } from "./executor.js";
 import { createAddNoteHandler } from "./handlers/add-note.write.js";
 import { NOTES_HISTORY_FEATURE_I18N } from "./i18n.js";
 
@@ -50,7 +51,7 @@ function registerNotesHistory(
   // registry-wide GDPR boot guards and to executor.ts's table/projection setup.
   r.entity("note-mention", noteMentionEntity);
 
-  r.writeHandler(createAddNoteHandler(access));
+  r.writeHandler(createAddNoteHandler(access, createNoteEntryExecutor(ownership)));
   r.queryHandler(
     defineEntityListHandler("note-entry", entity, {
       access,
@@ -83,9 +84,8 @@ export type NotesHistoryFeatureOptions = {
    *  it is AND-ed with the host-visibility gate, never a replacement for it.
    *
    *  `ownership.write` is separate and does NOT affect list/read. It's
-   *  consulted by the framework's generic delete/forget/restore paths (not
-   *  by this feature's own add-note handler — see createNotesHistoryFeature's
-   *  boot-guard comment). A `from()` rule there also gates GDPR erasure
+   *  consulted on add-note (create) and the framework's generic
+   *  forget/restore paths. A `from()` rule there also gates GDPR erasure
    *  (`forget`): if the rule's role map doesn't cover whatever role the
    *  erasure/retention pipeline runs as, `forget` denies instead of
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
