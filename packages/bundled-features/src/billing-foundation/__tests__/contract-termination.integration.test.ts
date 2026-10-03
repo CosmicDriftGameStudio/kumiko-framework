@@ -6,6 +6,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
+  createSystemUser,
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
@@ -241,7 +242,7 @@ async function addMember(
   await target.http.writeOk(
     TenantHandlers.addMember,
     { userId, tenantId: testTenantId(tenantNumber), roles },
-    TestUsers.systemAdmin,
+    createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
   );
 }
 

@@ -40,7 +40,7 @@ describe("forbidden membership roles", () => {
 
 // globalRoles keeps SystemAdmin/system but loses anonymous/all; membershipRoles
 // strips all forbidden roles (SystemAdmin, system, anonymous, all).
-describe("merge semantics (globalRoles: SystemAdmin/system kept, anonymous/all stripped)", () => {
+describe("merge semantics (globalRoles: SystemAdmin kept, system/anonymous/all stripped)", () => {
   test("global SystemAdmin survives (no regression for real admins)", () => {
     expect(buildSessionRoles(["SystemAdmin"], [])).toContain("SystemAdmin");
   });
@@ -57,6 +57,13 @@ describe("merge semantics (globalRoles: SystemAdmin/system kept, anonymous/all s
 
   test("anonymous/all in globalRoles are stripped, SystemAdmin stays", () => {
     expect([...buildSessionRoles(["anonymous", "all", "SystemAdmin"], [])].sort()).toEqual([
+      "SystemAdmin",
+    ]);
+  });
+
+  test("system in globalRoles is stripped, SystemAdmin stays", () => {
+    expect([...buildSessionRoles(["system", "SystemAdmin"], ["Admin"])].sort()).toEqual([
+      "Admin",
       "SystemAdmin",
     ]);
   });

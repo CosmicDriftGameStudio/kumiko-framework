@@ -43,7 +43,7 @@ async function bootPod(dbName: string, sharedRedisWith?: TestStack): Promise<Tes
     features: [createConfigFeature(), tenantFeature, probeFeature],
     dbName,
     persistentDb: true,
-    tenantTimezoneSync: true,
+    cacheSync: true,
     ...(sharedRedisWith && { sharedRedisWith }),
     extraContext: ({ registry }) => ({
       configResolver: resolver,

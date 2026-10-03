@@ -4,7 +4,12 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { access, type SessionUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createSystemUser,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   setupTestStack,
@@ -13,7 +18,12 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { expectErrorIncludes, rolesOf, seedRow } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  expectErrorIncludes,
+  rolesOf,
+  seedRow,
+  updateRows,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { Temporal } from "temporal-polyfill";
 import { AuthHandlers } from "../../auth-email-password/constants.js";
 import { createAuthEmailPasswordFeature } from "../../auth-email-password/feature.js";
@@ -228,6 +238,52 @@ describe("TenantAdmin can use members-admin HTTP surface", () => {
     );
     expect(invitations).toHaveLength(1);
     expect(invitations[0]?.email).toBe("pending@example.com");
+  });
+
+  test("invitations expose an explicit field allowlist; globalRoles only for a SystemAdmin", async () => {
+    await stack.http.writeOk(
+      AuthHandlers.inviteCreate,
+      { email: "allowlist@example.com", role: "Editor" },
+      tenantAdminA(),
+    );
+    await updateRows(
+      stack.db,
+      tenantInvitationsTable,
+      { globalRoles: ["SystemAdmin"] },
+      { email: "allowlist@example.com" },
+    );
+
+    const [asTenantAdmin] = await stack.http.queryOk<readonly Record<string, unknown>[]>(
+      TenantQueries.invitations,
+      {},
+      tenantAdminA(),
+    );
+    expect(Object.keys(asTenantAdmin ?? {}).sort()).toEqual(
+      [
+        "email",
+        "expiresAt",
+        "id",
+        "insertedAt",
+        "invitedBy",
+        "role",
+        "status",
+        "tenantId",
+        "version",
+      ].sort(),
+    );
+
+    const systemAdminInTenantA: SessionUser = {
+      id: tenantAdminAId,
+      tenantId: TENANT_A_ID,
+      roles: ["SystemAdmin"],
+    };
+    const [asSystemAdmin] = await stack.http.queryOk<readonly Record<string, unknown>[]>(
+      TenantQueries.invitations,
+      {},
+      systemAdminInTenantA,
+    );
+    expect(asSystemAdmin?.["globalRoles"]).toEqual(["SystemAdmin"]);
+    expect(asSystemAdmin?.["email"]).toBe("allowlist@example.com");
   });
 
   test("members email is null when user row is missing", async () => {
@@ -1156,5 +1212,72 @@ describe("invite + accept end-to-end integration against real stack", () => {
       newAdminSession,
     );
     expect(membersList.some((m) => m.userId === newUserId)).toBe(true);
+  });
+});
+
+describe("addMember is system-context only across tenants", () => {
+  const systemAdminInA = (): SessionUser => ({
+    id: crypto.randomUUID(),
+    tenantId: TENANT_A_ID,
+    roles: ["SystemAdmin"],
+  });
+
+  test("a SystemAdmin request user cannot add themselves to a foreign tenant", async () => {
+    const caller = systemAdminInA();
+    const err = await stack.http.writeErr(
+      TenantHandlers.addMember,
+      { userId: caller.id, tenantId: TENANT_B_ID, roles: ["User"] },
+      caller,
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(
+      await selectMany(stack.db, tenantMembershipsTable, {
+        userId: caller.id,
+        tenantId: TENANT_B_ID,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("a SystemAdmin request user cannot add another user to a foreign tenant", async () => {
+    const err = await stack.http.writeErr(
+      TenantHandlers.addMember,
+      { userId: tenantAdminAId, tenantId: TENANT_B_ID, roles: ["User"] },
+      systemAdminInA(),
+    );
+    expect(err.httpStatus).toBe(403);
+    expect(
+      await selectMany(stack.db, tenantMembershipsTable, {
+        userId: tenantAdminAId,
+        tenantId: TENANT_B_ID,
+      }),
+    ).toHaveLength(0);
+  });
+
+  test("a SystemAdmin request user can add a member to their own tenant", async () => {
+    await stack.http.writeOk(
+      TenantHandlers.addMember,
+      { userId: regularUserBId, tenantId: TENANT_A_ID, roles: ["User"] },
+      systemAdminInA(),
+    );
+    expect(
+      await selectMany(stack.db, tenantMembershipsTable, {
+        userId: regularUserBId,
+        tenantId: TENANT_A_ID,
+      }),
+    ).toHaveLength(1);
+  });
+
+  test("the system context can add a member to any tenant", async () => {
+    await stack.http.writeOk(
+      TenantHandlers.addMember,
+      { userId: tenantAdminAId, tenantId: TENANT_B_ID, roles: ["User"] },
+      createSystemUser(TENANT_A_ID, ["SystemAdmin"]),
+    );
+    expect(
+      await selectMany(stack.db, tenantMembershipsTable, {
+        userId: tenantAdminAId,
+        tenantId: TENANT_B_ID,
+      }),
+    ).toHaveLength(1);
   });
 });

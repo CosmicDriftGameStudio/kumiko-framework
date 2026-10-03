@@ -31,6 +31,7 @@ import {
   validationErrorFromZod,
   writeFailure,
 } from "../errors/index.js";
+import { CACHE_SYNC_TOPICS, type TenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import { assertNoSecretLeak } from "../secrets/index.js";
 import type { DispatchContext, WriteOrigin } from "./dispatch-shared.js";
 import {
@@ -56,7 +57,6 @@ import {
 } from "./dispatcher-utils.js";
 import { handlerAccessError } from "./handler-access-error.js";
 import { runProjections } from "./projections-runner.js";
-import type { TenantTimezoneInvalidation } from "./tenant-timezone-sync-signal.js";
 
 function getTable(
   ctx: DispatchContext,
@@ -96,14 +96,10 @@ function getTransitions(
 
 // A successful config:write:set/reset returns { key, scope, ... } — see
 // bundled-features/src/config/handlers/{set,reset}.write.ts. Narrows the
-// otherwise-`unknown` WriteResult.data so invalidateTenantTimezoneCache
-// below can check `key` without an unchecked cast.
-function isConfigWriteResultForKey(
-  data: unknown,
-  key: string,
-): data is { key: string; scope?: string } {
+// otherwise-`unknown` WriteResult.data without an unchecked cast.
+function isConfigWriteResult(data: unknown): data is { key: string; scope?: string } {
   if (typeof data !== "object" || data === null || !("key" in data)) return false;
-  return (data as { key: unknown }).key === key; // @cast-boundary engine-payload
+  return typeof data.key === "string";
 }
 
 // fw#2462: dispatch-shared.ts caches the resolved tenant:config:timezone
@@ -116,21 +112,34 @@ function invalidateTenantTimezoneCache(
   type: string,
   user: SessionUser,
   result: WriteResult,
-  { publishToOtherProcesses }: { publishToOtherProcesses: boolean },
 ): void {
   // skip: failed write, nothing to invalidate
   if (!result.isSuccess) return;
   // skip: not a config:write:set/reset dispatch
   if (type !== CONFIG_WRITE_SET_TYPE && type !== CONFIG_WRITE_RESET_TYPE) return;
   // skip: write was for a different config key
-  if (!isConfigWriteResultForKey(result.data, TENANT_TIMEZONE_CONFIG_KEY)) return;
-  const invalidation: TenantTimezoneInvalidation =
-    result.data.scope === ConfigScopes.system ? { scope: "all" } : { tenantId: user.tenantId };
-  if ("scope" in invalidation) ctx.tenantTimezoneCache.clear();
-  else ctx.tenantTimezoneCache.invalidate(invalidation.tenantId);
-  // Only after commit: a pod receiving this earlier would re-read the
-  // pre-write row and cache the stale value again.
-  if (publishToOtherProcesses) ctx.tenantTimezoneSync?.publish(invalidation);
+  if (!isConfigWriteResult(result.data) || result.data.key !== TENANT_TIMEZONE_CONFIG_KEY) return;
+  if (result.data.scope === ConfigScopes.system) ctx.tenantTimezoneCache.clear();
+  else ctx.tenantTimezoneCache.invalidate(user.tenantId);
+}
+
+// Every committed config write tells the other processes (config-derived
+// caches such as the tenant timezone and the file provider live per process).
+// Only after commit: a pod receiving this earlier would re-read the pre-write
+// row and cache the stale value again.
+function publishConfigWrite(
+  ctx: DispatchContext,
+  type: string,
+  user: SessionUser,
+  result: WriteResult,
+): void {
+  if (!result.isSuccess) return;
+  if (type !== CONFIG_WRITE_SET_TYPE && type !== CONFIG_WRITE_RESET_TYPE) return;
+  if (!isConfigWriteResult(result.data)) return;
+  const { key, scope } = result.data;
+  const message: TenantConfigSyncMessage =
+    scope === ConfigScopes.system ? { scope: "all", key } : { tenantId: user.tenantId, key };
+  ctx.cacheSync?.publish(CACHE_SYNC_TOPICS.tenantConfig, message);
 }
 
 // Runs lifecycle hooks for a handler result. inTransaction hooks fire NOW
@@ -666,12 +675,13 @@ async function executeWriteInner(
       afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
     }
 
-    invalidateTenantTimezoneCache(ctx, type, user, result, { publishToOtherProcesses: false });
+    invalidateTenantTimezoneCache(ctx, type, user, result);
     // Again after commit: a query landing between the drop above and the
     // commit would read the pre-write row (tx not yet visible) and
     // repopulate the cache with the stale value for a full TTL.
     afterCommitHooks.push(async () => {
-      invalidateTenantTimezoneCache(ctx, type, user, result, { publishToOtherProcesses: true });
+      invalidateTenantTimezoneCache(ctx, type, user, result);
+      publishConfigWrite(ctx, type, user, result);
     });
   }
 

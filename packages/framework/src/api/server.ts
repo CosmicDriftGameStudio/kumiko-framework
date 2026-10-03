@@ -1,3 +1,4 @@
+import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { Hono, type MiddlewareHandler } from "hono";
 import { ROLES } from "../auth/roles.js";
 import type { DbConnection, PgClient } from "../db/connection.js";
@@ -53,10 +54,6 @@ import {
   createSseBroadcastEventConsumer,
 } from "../pipeline/system-hooks.js";
 import {
-  createDefaultTenantTimezoneSync,
-  type RedisTenantTimezoneSyncSignal,
-} from "../pipeline/tenant-timezone-sync-signal.js";
-import {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
   createPayloadDigest,
@@ -65,6 +62,7 @@ import {
   globalIpRateLimit,
   httpRouteRateLimit,
 } from "../rate-limit/index.js";
+import { resolveCacheSyncBus } from "../redis/cache-sync-bus.js";
 import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config.js";
 import type { SearchAdapter } from "../search/types.js";
 import type { AppSchema } from "../ui-types/app-schema.js";
@@ -337,7 +335,11 @@ export type KumikoServer = {
 // per-tenant provider cache). Mirrors buildServer's own resolution exactly —
 // including NOT inventing a resolver when no `file-provider-*` plugin is
 // mounted, which is what keeps buildServer's boot-guard below able to fire.
-export function withFileProviderResolver(registry: Registry, context: AppContext): AppContext {
+export function withFileProviderResolver(
+  registry: Registry,
+  context: AppContext,
+  cacheSync?: CacheSyncBus,
+): AppContext {
   if (context._fileProviderResolver !== undefined) return context;
   if (registry.getExtensionUsages(EXT_FILE_PROVIDER).length === 0) return context;
   return {
@@ -347,6 +349,7 @@ export function withFileProviderResolver(registry: Registry, context: AppContext
       _configAccessorFactory: context._configAccessorFactory,
       secrets: context.secrets,
       db: context.db,
+      ...(cacheSync ? { cacheSync } : {}),
     }),
   };
 }
@@ -428,14 +431,11 @@ export function buildServer(options: ServerOptions): KumikoServer {
   }
 
   // Same decision as the SSE broker: an explicit dispatcherOptions value
-  // (incl. null = opt out) wins, otherwise REDIS_URL turns on the
-  // cross-replica tenant-timezone cache invalidation.
-  let tenantTimezoneSync = options.dispatcherOptions?.tenantTimezoneSync;
-  let ownedTenantTimezoneSync: RedisTenantTimezoneSyncSignal | undefined;
-  if (tenantTimezoneSync === undefined) {
-    ownedTenantTimezoneSync = createDefaultTenantTimezoneSync();
-    tenantTimezoneSync = ownedTenantTimezoneSync;
-  }
+  // (incl. null = opt out) wins, otherwise REDIS_URL turns on cross-replica
+  // cache invalidation (no REDIS_URL = process-local bus).
+  const { bus: cacheSync, owned: ownedCacheSync } = resolveCacheSyncBus(
+    options.dispatcherOptions?.cacheSync,
+  );
 
   // Resolve the per-process instance identifier. Prefer explicit
   // ServerOptions.instanceId (tests, deliberate wiring), fall back to the
@@ -504,7 +504,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
   // resolver once (when a provider plugin is mounted) — the dispatcher uses it
   // to materialise `ctx.files`, the upload routes + MSP-applies share it. The
   // resolver reads config + the s3.secretAccessKey secret under SYSTEM identity.
-  const contextWithFiles = withFileProviderResolver(options.registry, options.context);
+  const contextWithFiles = withFileProviderResolver(options.registry, options.context, cacheSync);
   const fileProviderResolver = contextWithFiles._fileProviderResolver;
   // Auto-wire the rate-limit resolver, but ONLY when at least one
   // handler actually declared a rateLimit option. Apps that don't use
@@ -538,6 +538,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
     ...(rateLimitResolver ? { rateLimit: rateLimitResolver } : {}),
     _rateLimitPayloadDigest: payloadDigest,
+    ...(cacheSync ? { cacheSync } : {}),
     // Propagate the feature-toggle resolver to the context so the event-
     // dispatcher (and any future context-reading consumer) sees the same
     // source as the command dispatcher's handler-gate. Options take
@@ -560,7 +561,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...options.dispatcherOptions,
     lifecycle,
     sseBroker,
-    tenantTimezoneSync,
+    cacheSync: cacheSync ?? null,
     ...(options.auth ? { membershipQuery: options.auth.membershipQuery } : {}),
   });
 
@@ -734,10 +735,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
     });
   }
 
-  if (options.lifecycle && ownedTenantTimezoneSync) {
-    const sync = ownedTenantTimezoneSync;
-    options.lifecycle.registerShutdownHook("tenantTimezoneSync", async () => {
-      await sync.close();
+  if (options.lifecycle && ownedCacheSync) {
+    const bus = ownedCacheSync;
+    options.lifecycle.registerShutdownHook("cacheSync", async () => {
+      await bus.close();
     });
   }
 

@@ -26,7 +26,7 @@ import {
   TENANT_DESTRUCTION_STAGE_SUCCEEDED_EVENT_SHORT,
   TENANT_DESTRUCTION_STARTED_EVENT_SHORT,
 } from "./constants.js";
-import { invalidateTenantLifecycleGate } from "./lifecycle-gate.js";
+import { invalidateTenantLifecycleGate, TEARDOWN_GATE_SETTLE_MS } from "./lifecycle-gate.js";
 import {
   type DestructionStageCtx,
   isDestructionPipelineComplete,
@@ -321,7 +321,7 @@ export async function runTenantDestructionSweep(args: {
   const now = args.now ?? T.Now.instant();
   const due = await selectMany<{ id: string }>(args.db, tenantTable, {
     status: "destroyRequested",
-    gracePeriodEnd: { lte: now },
+    gracePeriodEnd: { lte: now.subtract({ milliseconds: TEARDOWN_GATE_SETTLE_MS }) },
   });
 
   let triggered = 0;

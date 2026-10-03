@@ -728,16 +728,14 @@ describe("ctx.queryAsMember — AccessDenied, same generic error for every rejec
     expect(err.details).toEqual(GENERIC_DETAILS);
   });
 
-  test("would-be-SYSTEM principal (global SYSTEM_ROLE) — rejected the same generic way", async () => {
+  test("would-be-SYSTEM principal (global SYSTEM_ROLE) — the role is stripped, never resolved", async () => {
     await createTenant(TENANT_A);
     const userId = await createUser("wouldbesystem@example.com", "pw-long-enough-16");
     await addMembership(userId, TENANT_A);
     await updateRows(stack.db, userTable, { roles: [SYSTEM_ROLE] }, { id: userId });
 
-    const err = await readAsMemberErr(userId, WHOAMI_QN);
-    expect(err.code).toBe("access_denied");
-    expect(err.message).toBe(GENERIC_MESSAGE);
-    expect(err.details).toEqual(GENERIC_DETAILS);
+    const whoami = (await readAsMember(userId, WHOAMI_QN)) as { roles: readonly string[] };
+    expect(whoami.roles).not.toContain(SYSTEM_ROLE);
   });
 });
 

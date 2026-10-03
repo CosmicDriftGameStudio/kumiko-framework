@@ -11,6 +11,7 @@
 // legitimately lives.
 
 import { access } from "./config-helpers.js";
+import { SYSTEM_ROLE } from "./system-user.js";
 
 export const FORBIDDEN_MEMBERSHIP_ROLES: ReadonlySet<string> = new Set<string>([
   ...access.privileged, // system, SystemAdmin
@@ -32,10 +33,13 @@ export function stripForbiddenMembershipRoles(roles: readonly string[]): readonl
   return roles.filter((role) => !isForbiddenMembershipRole(role));
 }
 
-// "anonymous"/"all" are never legitimate global roles; system/SystemAdmin stay.
+// "anonymous"/"all" are never legitimate global roles; SystemAdmin stays.
+// "system" is the in-process identity (system-identity-switch treats any user
+// carrying it as System) and must never end up in a session.
 const NON_MINTABLE_GLOBAL_ROLES: ReadonlySet<string> = new Set<string>([
   ...access.all,
   ...access.anonymous,
+  SYSTEM_ROLE,
 ]);
 
 function stripNonMintableGlobalRoles(roles: readonly string[]): readonly string[] {

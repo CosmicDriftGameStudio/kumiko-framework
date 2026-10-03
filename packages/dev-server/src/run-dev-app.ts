@@ -593,6 +593,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         tierResolverHolder.resolver = await plugin.build({
           db: stack.db,
           registry: stack.registry,
+          cacheSync: stack.cacheSync,
         });
       }
       if (effectiveAuth && stack.registry.getExtensionUsages(EXT_SESSION_STORE).length > 0) {

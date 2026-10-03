@@ -7,6 +7,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createRegistry,
+  createSystemUser,
   defineFeature,
   type SessionUser,
   type TenantId,
@@ -58,6 +59,8 @@ let jwt: JwtHelper;
 let jobRunner: JobRunner;
 
 const systemAdmin = TestUsers.systemAdmin;
+// addMember across tenants is reserved for the framework operator identity.
+const systemContextUser = createSystemUser(systemAdmin.tenantId, ["SystemAdmin"]);
 const JWT_SECRET = "multi-tenant-test-secret-minimum-32-chars!!";
 
 beforeAll(async () => {
@@ -191,14 +194,14 @@ describe("multi-tenant user", () => {
   });
 
   test("add user to both tenants with different roles", async () => {
-    const r1 = await writeApi(systemAdmin, TenantHandlers.addMember, {
+    const r1 = await writeApi(systemContextUser, TenantHandlers.addMember, {
       userId: "11111111-0000-4000-8000-000000000010",
       tenantId: testTenantId(1),
       roles: ["Admin"],
     });
     expect(r1.isSuccess).toBe(true);
 
-    const r2 = await writeApi(systemAdmin, TenantHandlers.addMember, {
+    const r2 = await writeApi(systemContextUser, TenantHandlers.addMember, {
       userId: "11111111-0000-4000-8000-000000000010",
       tenantId: testTenantId(2),
       roles: ["Viewer"],
@@ -374,7 +377,7 @@ describe("memberships batch-load (#324)", () => {
     // tenant 1 (ACME) + tenant 2 (Beta Inc) existieren und sind enabled;
     // driftTenant wurde nie erstellt → keine Projection-Row.
     for (const tenantId of [testTenantId(1), testTenantId(2), driftTenantId]) {
-      const r = await writeApi(systemAdmin, TenantHandlers.addMember, {
+      const r = await writeApi(systemContextUser, TenantHandlers.addMember, {
         userId: batchUserId,
         tenantId,
         roles: ["Viewer"],

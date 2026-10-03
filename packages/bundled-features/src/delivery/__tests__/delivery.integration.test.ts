@@ -10,6 +10,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/db";
 import {
   createEntity,
+  createSystemUser,
   createTextField,
   defineFeature,
   defineWriteHandler,
@@ -436,7 +437,7 @@ beforeAll(async () => {
     await stack.http.writeOk(
       "tenant:write:add-member",
       { userId: user.id, tenantId: "00000000-0000-4000-8000-000000000001", roles: ["User"] },
-      TestUsers.systemAdmin,
+      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
     );
   }
 });
@@ -1671,7 +1672,7 @@ describe("flow 15d: tenantUserIdsQuery handler with r.systemScope()", () => {
     await stack.http.writeOk(
       "tenant:write:add-member",
       { userId: foreignUser.id, tenantId: foreignTenantId, roles: ["User"] },
-      TestUsers.systemAdmin,
+      createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
     );
     const systemService = createDeliveryService({
       db,

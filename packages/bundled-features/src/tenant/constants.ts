@@ -75,4 +75,5 @@ export const TenantErrors = {
   membershipAlreadyExists: "membership_already_exists",
   lastTenantAdmin: "last_tenant_admin",
   invitationSuperseded: "invitation_superseded",
+  crossTenantMembershipDenied: "cross_tenant_membership_denied",
 } as const;

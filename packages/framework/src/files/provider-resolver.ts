@@ -12,6 +12,7 @@
 // file-foundation re-exports `createFileProviderForTenant` + the plugin types
 // (moved here from there) so existing imports keep working.
 
+import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { FileProviderResolver } from "@cosmicdrift/kumiko-types/file-provider-resolver-types";
 import type { DbConnection } from "../db/connection.js";
 import type { TenantDb } from "../db/tenant-db.js";
@@ -22,6 +23,8 @@ import {
 } from "../engine/extension-names.js";
 import { SYSTEM_USER_ID } from "../engine/system-user.js";
 import type { ConfigAccessor, ConfigAccessorFactory, Registry } from "../engine/types/index.js";
+import { SYSTEM_TENANT_ID } from "../engine/types/index.js";
+import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import type { SecretsContext } from "../secrets/index.js";
 import type { FileStorageProvider } from "./types.js";
 
@@ -157,6 +160,8 @@ export type FileProviderResolverDeps = {
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   readonly secrets?: SecretsContext;
   readonly db?: DbConnection | TenantDb;
+  // Config/secret writes on other pods drop the cached provider; subscriptions live as long as the bus.
+  readonly cacheSync?: CacheSyncBus;
 };
 
 // Builds the resolver from the ambient AppContext fields — the framework-side
@@ -171,6 +176,12 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
   // promise is evicted so a transient failure (or a secret genuinely not
   // configured yet) doesn't permanently poison this tenant's entry.
   const cache = new Map<string, Promise<FileStorageProvider>>();
+  deps.cacheSync?.subscribe(CACHE_SYNC_TOPICS.tenantConfig, (message) => {
+    if (!isTenantConfigSyncMessage(message)) return;
+    if ("scope" in message || message.tenantId === SYSTEM_TENANT_ID) cache.clear();
+    else cache.delete(message.tenantId);
+  });
+  deps.cacheSync?.onResync(() => cache.clear());
   return (tenantId) => {
     const cached = cache.get(tenantId);
     if (cached) return cached;
@@ -191,7 +202,9 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
         tenantId,
       );
     })();
-    built.catch(() => cache.delete(tenantId));
+    built.catch(() => {
+      if (cache.get(tenantId) === built) cache.delete(tenantId);
+    });
     cache.set(tenantId, built);
     return built;
   };

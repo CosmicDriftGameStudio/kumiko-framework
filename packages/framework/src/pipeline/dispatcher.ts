@@ -1,3 +1,4 @@
+import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import { runWithWriteOrigin } from "../api/request-context.js";
 import type { SseBroker } from "../api/sse-broker.js";
@@ -27,18 +28,18 @@ import {
   getFallbackTracer,
   registerStandardMetrics,
 } from "../observability/index.js";
+import { CACHE_SYNC_TOPICS, isTenantConfigSyncMessage } from "../redis/cache-sync-topics.js";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
 import { runBatch, unwrapSingle } from "./dispatch-batch.js";
 import { executeQuery } from "./dispatch-query.js";
 import type { BatchCommand, BatchResult, DispatchContext } from "./dispatch-shared.js";
-import { resolveAuthClaimsFn } from "./dispatch-shared.js";
+import { resolveAuthClaimsFn, TENANT_TIMEZONE_CONFIG_KEY } from "./dispatch-shared.js";
 import { executeStream } from "./dispatch-stream.js";
 import { type HandlerType, resolveType } from "./dispatcher-utils.js";
 import type { IdempotencyGuard } from "./idempotency.js";
 import type { LifecycleHooks } from "./lifecycle-pipeline.js";
 import { createMemberReaderFn } from "./member-reader.js";
 import { createTenantTimezoneCache } from "./tenant-timezone-cache.js";
-import type { TenantTimezoneSyncSignal } from "./tenant-timezone-sync-signal.js";
 import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
@@ -78,9 +79,9 @@ export type DispatcherOptions = {
   // user-scoped access-invalidation channel on it. Absent in setups without
   // SSE wired up (dispatch-stream then just skips the subscription).
   sseBroker?: SseBroker;
-  // Cross-process invalidation of the per-dispatcher tenant-timezone cache.
+  // Cross-process cache invalidation (tenant timezone, config-derived caches).
   // Absent/null = invalidation stays local to this process.
-  tenantTimezoneSync?: TenantTimezoneSyncSignal | null;
+  cacheSync?: CacheSyncBus | null;
 };
 
 export type Dispatcher = {
@@ -188,11 +189,14 @@ export function createDispatcher(
   // One per dispatcher instance (not a module-level singleton) so caches
   // never leak across separately-booted apps or test stacks.
   const tenantTimezoneCache = createTenantTimezoneCache();
-  const tenantTimezoneSync = options.tenantTimezoneSync ?? undefined;
-  tenantTimezoneSync?.onMessage((invalidation) => {
-    if ("scope" in invalidation) tenantTimezoneCache.clear();
-    else tenantTimezoneCache.invalidate(invalidation.tenantId);
+  const cacheSync = options.cacheSync ?? undefined;
+  cacheSync?.subscribe(CACHE_SYNC_TOPICS.tenantConfig, (message) => {
+    if (!isTenantConfigSyncMessage(message)) return;
+    if (message.key !== undefined && message.key !== TENANT_TIMEZONE_CONFIG_KEY) return;
+    if ("scope" in message) tenantTimezoneCache.clear();
+    else tenantTimezoneCache.invalidate(message.tenantId);
   });
+  cacheSync?.onResync(() => tenantTimezoneCache.clear());
   const escapeHatchReportWindow = createEscapeHatchReportWindow();
 
   const dispatcherTracer = context.tracer ?? getFallbackTracer();
@@ -225,7 +229,7 @@ export function createDispatcher(
     tableCache,
     transitionCache,
     tenantTimezoneCache,
-    tenantTimezoneSync,
+    cacheSync,
     escapeHatchReportWindow,
     tracer: dispatcherTracer,
     meter: dispatcherMeter,
