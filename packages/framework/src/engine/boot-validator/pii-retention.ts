@@ -101,6 +101,48 @@ function validateWriteOnlyField(
   }
 }
 
+// A personal jsonb field is stored as a ciphertext JSON string scalar, so
+// anything that reads inside the column (index, filter, sort, search, jsonb
+// operators/merges such as the custom-fields column) sees only ciphertext.
+const JSONB_PERSONAL_FORBIDDEN_FLAGS = [
+  "sortable",
+  "filterable",
+  "searchable",
+  "lookupable",
+] as const;
+const CUSTOM_FIELDS_COLUMN = "customFields";
+
+function validatePersonalJsonbField(
+  featureName: string,
+  entityName: string,
+  entity: EntityDefinition,
+  fieldName: string,
+  field: FieldDefinition,
+): void {
+  const where = `[Feature ${featureName}] Field "${fieldName}" on entity "${entityName}"`;
+  const reason =
+    "a personal jsonb field is stored as a ciphertext string, so nothing inside it can be indexed, filtered, sorted, searched or merged";
+  const flags = field as Record<string, unknown>; // @cast-boundary schema-walk
+  for (const flag of JSONB_PERSONAL_FORBIDDEN_FLAGS) {
+    if (flags[flag] !== undefined && flags[flag] !== false) {
+      throw new Error(
+        `${where} combines a personal annotation on a jsonb field with { ${flag} } — ${reason}.`,
+      );
+    }
+  }
+  const index = entity.indexes?.find((def) => def.columns.includes(fieldName));
+  if (index) {
+    throw new Error(
+      `${where} is a personal jsonb field used in an entity index — ${reason}. Drop the index or the personal annotation.`,
+    );
+  }
+  if (fieldName === CUSTOM_FIELDS_COLUMN) {
+    throw new Error(
+      `${where} is the custom-fields jsonb column — its values are merged and searched per key, which ciphertext cannot support. Drop the personal annotation.`,
+    );
+  }
+}
+
 // --- PII / Subject-Key Annotations + Retention validation ---
 //
 // Drei Klassen von Checks:
@@ -211,6 +253,10 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
             `[Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" combines { sensitive: true } with { searchable: true } — sensitive means ciphertext at rest, never searchable, stripped from event echoes — authorized readers can still read it back (passwords, tokens, tax IDs). Subject-annotated identity fields may be searchable (#1610); sensitive fields may not. To never return the value at all, add { writeOnly: true }.`,
           );
         }
+      }
+
+      if (field.type === "jsonb" && annotCount > 0) {
+        validatePersonalJsonbField(feature.name, entityName, entity, fieldName, field);
       }
 
       if (annot.userOwned) {

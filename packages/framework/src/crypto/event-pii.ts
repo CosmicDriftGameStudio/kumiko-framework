@@ -16,7 +16,11 @@
 
 import type { EventPiiFields, EventPiiStance } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext } from "../api/request-context.js";
-import { configuredPiiSubjectKms, encryptPiiValueForSubject } from "./pii-field-encryption.js";
+import {
+  configuredPiiSubjectKms,
+  encryptPiiJsonValueForSubject,
+  encryptPiiValueForSubject,
+} from "./pii-field-encryption.js";
 import { type EventSubjectEnvelope, resolveEventSubject } from "./subject-resolver.js";
 import { SYSTEM_EVENT_PII_STANCES, SYSTEM_EVENT_PREFIX } from "./system-event-pii.js";
 
@@ -52,6 +56,13 @@ function resolvePiiStance(eventType: string): EventPiiStance | undefined {
   return stance;
 }
 
+// The catalog carries no field types: strings keep the plain format, objects
+// and arrays (jsonb payload fields) use the self-describing JSON format.
+// Bare numbers/booleans stay a loud error so a mistyped string field is caught.
+function isStructuredJsonValue(value: unknown): value is object {
+  return typeof value === "object" && value !== null;
+}
+
 // Encrypts catalogued payload fields under the declared subject's DEK
 // (user/tenant/self — resolveEventSubject, fw#2801). No-op when the event
 // type is uncatalogued or no subject KMS is configured (plaintext rollout
@@ -76,20 +87,18 @@ export async function encryptEventPayloadPii(
   for (const [field, spec] of Object.entries(piiFields)) {
     const value = payload[field];
     if (value === null || value === undefined) continue;
-    if (typeof value !== "string") {
+    if (typeof value !== "string" && !isStructuredJsonValue(value)) {
       throw new Error(
-        `Event "${eventType}" piiFields."${field}" must be a string payload field, got ${typeof value}`,
+        `Event "${eventType}" piiFields."${field}" must be a string payload field (or an object/array for jsonb), got ${typeof value}`,
       );
     }
     const subject = resolveEventSubject(field, spec, payload, envelope);
     if (subject === null) continue;
-    const encrypted = await encryptPiiValueForSubject(
-      kms,
-      subject,
-      value,
-      { requestId: requestContext.get()?.requestId ?? "append-event" },
-      field,
-    );
+    const kmsCtx = { requestId: requestContext.get()?.requestId ?? "append-event" };
+    const encrypted =
+      typeof value === "string"
+        ? await encryptPiiValueForSubject(kms, subject, value, kmsCtx, field)
+        : await encryptPiiJsonValueForSubject(kms, subject, value, kmsCtx, field);
     if (encrypted !== value) {
       out ??= { ...payload };
       out[field] = encrypted;

@@ -9,6 +9,11 @@
 // SAME subject (same DEK, so key selection alone can't catch that) from
 // decrypting silently. v1 (no AAD) stays decrypt-only for pre-#1263 rows;
 // every new write emits v2.
+// v3 = v2 for jsonb fields: the plaintext is JSON.stringify(value) and decrypt
+// JSON.parses it back, so a jsonb string/number/object round-trips by type.
+// The version digit (not a suffix) keeps `kumiko-pii:v\d+:` leak guards and
+// the `kumiko-pii:v%:` LIKE sweeps matching. The AAD carries a "json" tag so
+// a v2<->v3 prefix swap fails GCM instead of silently changing the type.
 
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { EntityDefinition } from "../engine/types/fields.js";
@@ -27,25 +32,24 @@ import {
   subjectIdFromKey,
   subjectIdToKey,
 } from "./kms-adapter.js";
+import {
+  isPiiCiphertext,
+  PII_CIPHERTEXT_PREFIX,
+  PII_CIPHERTEXT_PREFIX_JSON,
+  PII_CIPHERTEXT_PREFIX_V1,
+} from "./pii-ciphertext-format.js";
 import { resolveSubjectForField } from "./subject-resolver.js";
 
 // Spec value (crypto-shredding.md) — renderers show it verbatim.
+export { isPiiCiphertext, PII_CIPHERTEXT_PREFIX, PII_CIPHERTEXT_PREFIX_JSON };
+
 export const PII_ERASED_SENTINEL = "[[erased]]";
 
-const PII_CIPHERTEXT_PREFIX_V1 = "kumiko-pii:v1:";
-export const PII_CIPHERTEXT_PREFIX = "kumiko-pii:v2:";
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
-export function isPiiCiphertext(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    (value.startsWith(PII_CIPHERTEXT_PREFIX) || value.startsWith(PII_CIPHERTEXT_PREFIX_V1))
-  );
-}
-
-function buildAad(subject: SubjectId, field: string): Buffer {
-  return Buffer.from(`${subjectIdToKey(subject)}|${field}`, "utf8");
+function buildAad(subject: SubjectId, field: string, isJson: boolean): Buffer {
+  return Buffer.from(`${subjectIdToKey(subject)}|${field}${isJson ? "|json" : ""}`, "utf8");
 }
 
 function encryptValue(
@@ -53,18 +57,32 @@ function encryptValue(
   dek: SubjectDek,
   plaintext: string,
   field: string,
+  isJson = false,
 ): string {
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv("aes-256-gcm", dek, iv);
-  cipher.setAAD(buildAad(subject, field));
+  cipher.setAAD(buildAad(subject, field, isJson));
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   const blob = Buffer.concat([iv, cipher.getAuthTag(), ciphertext]);
-  return `${PII_CIPHERTEXT_PREFIX}${subjectIdToKey(subject)}:${blob.toString("base64")}`;
+  const prefix = isJson ? PII_CIPHERTEXT_PREFIX_JSON : PII_CIPHERTEXT_PREFIX;
+  return `${prefix}${subjectIdToKey(subject)}:${blob.toString("base64")}`;
 }
 
-function parseCiphertext(value: string): { subject: SubjectId; blob: Buffer; hasAad: boolean } {
-  const hasAad = value.startsWith(PII_CIPHERTEXT_PREFIX);
-  const prefix = hasAad ? PII_CIPHERTEXT_PREFIX : PII_CIPHERTEXT_PREFIX_V1;
+interface ParsedCiphertext {
+  readonly subject: SubjectId;
+  readonly blob: Buffer;
+  readonly hasAad: boolean;
+  readonly isJson: boolean;
+}
+
+function parseCiphertext(value: string): ParsedCiphertext {
+  const isJson = value.startsWith(PII_CIPHERTEXT_PREFIX_JSON);
+  const hasAad = isJson || value.startsWith(PII_CIPHERTEXT_PREFIX);
+  const prefix = isJson
+    ? PII_CIPHERTEXT_PREFIX_JSON
+    : hasAad
+      ? PII_CIPHERTEXT_PREFIX
+      : PII_CIPHERTEXT_PREFIX_V1;
   const rest = value.slice(prefix.length);
   // subjectKey itself contains ":" ("user:<id>") — base64 never does, so the
   // last ":" is always the key/blob separator.
@@ -74,6 +92,7 @@ function parseCiphertext(value: string): { subject: SubjectId; blob: Buffer; has
     subject: subjectIdFromKey(rest.slice(0, sep)),
     blob: Buffer.from(rest.slice(sep + 1), "base64"),
     hasAad,
+    isJson,
   };
 }
 
@@ -83,12 +102,13 @@ function decryptValue(
   subject: SubjectId,
   field: string,
   hasAad: boolean,
+  isJson: boolean,
 ): string {
   const iv = blob.subarray(0, IV_LENGTH);
   const tag = blob.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
   const ciphertext = blob.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
   const decipher = createDecipheriv("aes-256-gcm", dek, iv);
-  if (hasAad) decipher.setAAD(buildAad(subject, field));
+  if (hasAad) decipher.setAAD(buildAad(subject, field, isJson));
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
 }
@@ -132,6 +152,19 @@ export async function encryptPiiValueForSubject(
   return encryptValue(subject, dek, value, field);
 }
 
+// Event-payload variant for non-string values (jsonb-typed payload fields):
+// same DEK path, but the self-describing v3 format so decrypt restores the type.
+export async function encryptPiiJsonValueForSubject(
+  kms: LocalKeyKmsAdapter,
+  subject: SubjectId,
+  value: unknown,
+  kmsCtx: KmsContext,
+  field: string,
+): Promise<string> {
+  const dek = await getOrCreateDek(kms, subject, kmsCtx);
+  return encryptValue(subject, dek, serializeJsonbValue(field, value), field, true);
+}
+
 // Single-value decrypt for callers that don't have an entity/field-map to
 // pass through decryptPiiFieldValues (config values). The subject lives
 // inside the ciphertext itself, so no subject/scope resolution is needed
@@ -144,9 +177,14 @@ export async function decryptPiiValueForSubject(
   field: string,
 ): Promise<string> {
   if (!isPiiCiphertext(value)) return value;
-  const { subject, blob, hasAad } = parseCiphertext(value);
+  const { subject, blob, hasAad, isJson } = parseCiphertext(value);
+  if (isJson) {
+    throw new Error(
+      `PII field "${field}" holds a jsonb ciphertext — decrypt it via decryptPiiFieldValues`,
+    );
+  }
   try {
-    return decryptValue(await kms.getKey(subject, kmsCtx), blob, subject, field, hasAad);
+    return decryptValue(await kms.getKey(subject, kmsCtx), blob, subject, field, hasAad, false);
   } catch (e) {
     if (!(e instanceof KeyErasedError)) throw e;
     return PII_ERASED_SENTINEL;
@@ -184,9 +222,11 @@ export async function encryptPiiFieldValues(
     // Re-encrypt paths (update previous, detail cache) may see values that
     // are already ciphertext or the erased sentinel — both stay as-is.
     if (isPiiCiphertext(value) || value === PII_ERASED_SENTINEL) continue;
-    if (typeof value !== "string") {
+    const isJsonbField = entity.fields[name]?.type === "jsonb";
+    if (!isJsonbField && typeof value !== "string") {
       throw new Error(`PII field "${name}" must be a string, got ${typeof value}`);
     }
+    const plaintext = isJsonbField ? serializeJsonbValue(name, value) : String(value);
     const subject = resolveSubjectForField(entity, name, subjectSource, {
       entityName: opts.entityName,
       ...(opts.tenantId !== undefined && { tenantId: opts.tenantId }),
@@ -194,9 +234,16 @@ export async function encryptPiiFieldValues(
     // skip: collectPiiSubjectFields only yields annotated fields — null is unreachable, kept as a type guard
     if (subject === null) continue;
     const dek = await getOrCreateDek(kms, subject, kmsCtx);
-    out[name] = encryptValue(subject, dek, value, name);
+    out[name] = encryptValue(subject, dek, plaintext, name, isJsonbField);
   }
   return out;
+}
+
+export function serializeJsonbValue(field: string, value: unknown): string {
+  const json = JSON.stringify(value);
+  // undefined/function/symbol serialize to undefined — never storable as jsonb
+  if (json === undefined) throw new Error(`PII jsonb field "${field}" is not JSON-serializable`);
+  return json;
 }
 
 export async function decryptPiiFieldValues(
@@ -212,9 +259,12 @@ export async function decryptPiiFieldValues(
     // Pre-engine plaintext rows pass through unchanged (mixed-state reads
     // work during rollout; backfill is tracked in kumiko-framework#799).
     if (!isPiiCiphertext(value)) continue;
-    const { subject, blob, hasAad } = parseCiphertext(value);
+    const { subject, blob, hasAad, isJson } = parseCiphertext(value);
     try {
-      out[name] = decryptValue(await kms.getKey(subject, kmsCtx), blob, subject, name, hasAad);
+      const key = await kms.getKey(subject, kmsCtx);
+      const plain = decryptValue(key, blob, subject, name, hasAad, isJson);
+      // @cast-boundary crypto-decrypt — AEAD-authenticated plaintext that this module serialized
+      out[name] = isJson ? (JSON.parse(plain) as unknown) : plain;
     } catch (e) {
       // KeyNotFound deliberately propagates: ciphertext without a key row
       // means the key store is wrong (not shredded) — fail loud.

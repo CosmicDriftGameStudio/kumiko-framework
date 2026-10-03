@@ -37,6 +37,7 @@ import type {
 import { Temporal } from "temporal-polyfill";
 import { requestContext } from "../api/request-context.js";
 import { computeBlindIndex, configuredBlindIndexKey } from "../crypto/blind-index.js";
+import { isPiiCiphertext } from "../crypto/pii-ciphertext-format.js";
 import { SQL_EXPR_BRAND } from "../db/dialect.js";
 import type { EntityTableMeta } from "../db/entity-table-meta.js";
 import { extractPgError } from "../db/pg-error.js";
@@ -598,6 +599,11 @@ function prepareJsonbValue(value: unknown): PreparedValue | undefined {
 function prepareValue(value: unknown, pgType: string | undefined): PreparedValue {
   if (isSqlExpression(value)) {
     return { kind: "literal", literal: value.text };
+  }
+  // A PII-encrypted jsonb field is a JSON string scalar; a raw string bound to
+  // ::jsonb would be parsed as JSON text (or double-encoded under Bun.SQL).
+  if (pgType === "jsonb" && isPiiCiphertext(value)) {
+    return { kind: "param", sql: "::text::jsonb", bound: JSON.stringify(value) };
   }
   if (pgType === "jsonb" && value !== null) {
     const prepared = prepareJsonbValue(value);
