@@ -12,6 +12,27 @@ if ! [[ "$BASE_REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
   exit 1
 fi
 
+# Branches that never carry a changeset of their own: the release PR itself
+# and dependency bumps. HEAD_REF is CI's PR head (the checkout there is a merge
+# commit, so the current branch name is useless); locally the checked-out branch.
+HEAD_REF="${HEAD_REF:-$(git rev-parse --abbrev-ref HEAD)}"
+if ! [[ "$HEAD_REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+  echo "::error::HEAD_REF has an unexpected shape: $HEAD_REF"
+  exit 1
+fi
+case "$HEAD_REF" in
+  changeset-release/main | renovate/*)
+    echo "changeset-required-check: skipped for branch $HEAD_REF"
+    exit 0
+    ;;
+esac
+
+# Consumer repos have no changesets setup; nothing to require.
+if [ ! -f .changeset/config.json ]; then
+  echo "changeset-required-check: no .changeset/config.json — skipped"
+  exit 0
+fi
+
 # `changeset status` resolves config.baseBranch ("main") as a local ref
 # regardless of --since, same as changeset-fold-check.sh.
 git show-ref --verify --quiet refs/heads/main || git branch main origin/main
