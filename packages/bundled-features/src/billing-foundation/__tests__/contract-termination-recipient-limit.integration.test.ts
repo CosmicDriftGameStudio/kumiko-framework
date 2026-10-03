@@ -3,7 +3,11 @@
 // Real HTTP, real Redis rate limiter; the client IP comes from X-Forwarded-For.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createSystemUser,
+  defineFeature,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -213,7 +217,7 @@ async function seedMatchingContract(email: string): Promise<void> {
   await stack.http.writeOk(
     TenantHandlers.addMember,
     { userId: created.id, tenantId: testTenantId(8301), roles: ["TenantAdmin"] },
-    TestUsers.systemAdmin,
+    createSystemUser(TestUsers.systemAdmin.tenantId, ["SystemAdmin"]),
   );
   const event: SubscriptionEvent = {
     providerEventId: "evt_recipient_limit",
