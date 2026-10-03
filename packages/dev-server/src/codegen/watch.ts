@@ -51,6 +51,18 @@ const SKIP_SUBSTRINGS = ["/node_modules/", "/.kumiko/", "/dist/", "/dist-server/
 
 const DEFAULT_DEBOUNCE_MS = 50;
 
+/** Whether a change to `filename` (relative to `src/`, posix or windows
+ *  separators) can affect codegen output: production .ts/.tsx sources
+ *  outside the skipped dirs, excluding .d.ts (mostly written by codegen
+ *  itself) and test files. */
+export function isCodegenRelevantChange(filename: string): boolean {
+  const normalised = `/${filename.replace(/\\/g, "/")}`;
+  if (SKIP_SUBSTRINGS.some((seg) => normalised.includes(seg))) return false;
+  if (!normalised.endsWith(".ts") && !normalised.endsWith(".tsx")) return false;
+  if (normalised.endsWith(".d.ts")) return false;
+  return !normalised.endsWith(".test.ts") && !normalised.endsWith(".test.tsx");
+}
+
 /**
  * Startet den Watcher. Beim Boot fährt einmalig `runCodegen` (sodass
  * die generated Files sofort frisch sind), dann hängt sich an `fs.watch`
@@ -98,19 +110,8 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
     watcher = watch(srcDir, { recursive: true }, (_eventType, filename) => {
       // skip: watcher closed or no filename reported, nothing to act on
       if (closed || !filename) return;
-      // node liefert filename relativ zu srcDir, kann aber posix oder
-      // windows-style separators haben. Wir prüfen substring-tolerant.
-      const normalised = `/${filename.toString().replace(/\\/g, "/")}`;
-      // skip: path matches an excluded segment (node_modules/dist/etc.)
-      if (SKIP_SUBSTRINGS.some((seg) => normalised.includes(seg))) return;
-      // skip: Nur .ts/.tsx interessieren — alles andere (CSS, MD, JSON) hat
-      // keinen Einfluss auf r.defineEvent-Calls.
-      if (!normalised.endsWith(".ts") && !normalised.endsWith(".tsx")) return;
-      // skip: .d.ts ausgenommen — die kommen meistens vom codegen selbst.
-      if (normalised.endsWith(".d.ts")) return;
-      // skip: .test.ts/.test.tsx ausgenommen — Tests definieren keine
-      // Production-Features.
-      if (normalised.endsWith(".test.ts") || normalised.endsWith(".test.tsx")) return;
+      // skip: change cannot affect r.defineEvent calls
+      if (!isCodegenRelevantChange(filename.toString())) return;
 
       if (timer) clearTimeout(timer);
       timer = setTimeout(fire, debounceMs);
