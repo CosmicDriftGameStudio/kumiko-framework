@@ -1,6 +1,6 @@
 ---
 status: reference
-verified: 2026-09-30
+verified: 2026-10-03
 evidence: "kumiko-framework#3381 (warm-neutral tokens, IBM Plex, sidebar tokens); packages/renderer-web/src/styles.css; packages/renderer-web/src/__tests__/token-contrast.test.ts"
 ---
 
@@ -38,37 +38,26 @@ Dark uses the same roles with its own values (page `#121211`, surface `#1A1A19`,
 - `--radius` is `0.5rem`. Controls use `rounded-md` (6px), pills use `rounded-full`.
 - Numbers, dates and money render with `tabular-nums`.
 - IBM Plex Sans (400, 500, 600) and IBM Plex Mono (400, 500) ship inside `renderer-web` under the SIL Open Font License (`src/fonts/OFL.txt`). They are self-hosted, so `font-src 'self'` is enough. The dev server and the production build of `server-runtime` serve them under `/assets/kumiko/fonts/`.
-- Override the fonts with `--font-sans` and `--font-mono`. Apps that want Inter set `--font-sans` and load the font themselves.
+- Override the fonts with `fonts.sans` and `fonts.mono` in `defineAppTheme` (see App override). Apps that want Inter set `fonts.sans` and load the font themselves.
 
 ## App override
 
-Override tokens in the app's own `styles.css`. Unlayered rules beat the framework's `@layer base` light block and its `@theme` defaults, so plain `:root` and `:root:not(.dark)` selectors are enough. This is the walkthrough sample's brand override (source: `samples/apps/ui-walkthrough/src/styles.css`):
+An app declares its brand once with `defineAppTheme` and loads it through the Tailwind plugin from `@cosmicdrift/kumiko-renderer-web/theme-plugin`. Every framework token above is a valid key under `colors`; a plain string applies to both modes, `{ light, dark }` sets them separately:
 
-```css
-@import "@cosmicdrift/kumiko-renderer-web/styles.css";
+```ts illustration
+import { createThemePlugin, defineAppTheme } from "@cosmicdrift/kumiko-renderer-web/theme-plugin";
 
-@source "./**/*.{ts,tsx}";
-
-/* Solon brand: token overrides only. Unlayered rules beat the framework's
-   `@layer base` light-mode block and its @theme defaults. */
-:root {
-  --color-sidebar: #172430;
-  --color-sidebar-foreground: #dce4e8;
-  --color-sidebar-muted: #a9b8c1;
-  --color-sidebar-input: #22323f;
-  --color-sidebar-primary: #24566a;
-  --color-sidebar-primary-foreground: #ffffff;
-  --color-sidebar-accent: #24566a;
-  --color-sidebar-accent-foreground: #ffffff;
-  --color-sidebar-border: #22323f;
-  --color-sidebar-ring: #205265;
-}
-
-:root:not(.dark) {
-  --color-primary: #205265;
-  --color-primary-foreground: #ffffff;
-  --color-ring: #205265;
-}
+export default createThemePlugin(
+  defineAppTheme({
+    colors: {
+      primary: "#205265",
+      "primary-foreground": "#ffffff",
+      ring: "#205265",
+      sidebar: "#172430",
+      "sidebar-foreground": "#dce4e8",
+    },
+  }),
+);
 ```
 
-The programmatic route is `createThemePlugin(theme)` from `@cosmicdrift/kumiko-renderer-web/theme-plugin`. The walkthrough sample (`samples/apps/ui-walkthrough`) shows all screens on these tokens.
+`radius`, `fonts` (`sans`, `heading`, `mono`), `shadows.card` and `spacing.card` cover the remaining knobs. Overriding `@theme` values plus unlayered `:root`/`:root:not(.dark)` blocks in the app's `styles.css` is the superseded route; `docs/guides/public-pages.md` has the migration steps and the public-page building blocks.
