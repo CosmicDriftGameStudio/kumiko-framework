@@ -131,6 +131,22 @@ describe("DefaultAppShell wires user.roles into children for screen-level access
   });
 });
 
+describe("DefaultAppShell main landmark", () => {
+  test("renders exactly one main holding the content, with the header outside it", () => {
+    render(
+      <DefaultAppShell brand={<span>Brand</span>} schema={makeSchema()}>
+        <div data-testid="screen-content">content</div>
+      </DefaultAppShell>,
+    );
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    const main = screen.getByRole("main");
+    expect(main.contains(screen.getByTestId("screen-content"))).toBe(true);
+    const header = document.querySelector("header");
+    expect(header).toBeTruthy();
+    expect(main.contains(header)).toBe(false);
+  });
+});
+
 describe("DefaultAppShell fill default", () => {
   test("fill defaults to true: applies h-svh on root and min-h-0 on inset/main", () => {
     render(
@@ -142,8 +158,7 @@ describe("DefaultAppShell fill default", () => {
     expect(root?.classList.contains("h-svh")).toBe(true);
     const inset = document.querySelector('[data-slot="sidebar-inset"]');
     expect(inset?.classList.contains("min-h-0")).toBe(true);
-    const mains = screen.getAllByRole("main");
-    const innerMain = mains.find((m) => m !== inset);
+    const innerMain = screen.getByRole("main");
     expect(innerMain?.classList.contains("min-h-0")).toBe(true);
     expect(innerMain?.classList.contains("flex-1")).toBe(true);
     expect(innerMain?.classList.contains("overflow-auto")).toBe(true);

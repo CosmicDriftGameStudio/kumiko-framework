@@ -478,11 +478,28 @@ describe("WorkspaceShell", () => {
     expect(root?.classList.contains("h-svh")).toBe(true);
     const inset = document.querySelector('[data-slot="sidebar-inset"]');
     expect(inset?.classList.contains("min-h-0")).toBe(true);
-    const mains = screen.getAllByRole("main");
-    const innerMain = mains.find((m) => m !== inset);
+    const innerMain = screen.getByRole("main");
     expect(innerMain?.classList.contains("min-h-0")).toBe(true);
     expect(innerMain?.classList.contains("flex-1")).toBe(true);
     expect(innerMain?.classList.contains("overflow-auto")).toBe(true);
+  });
+
+  test("renders exactly one main landmark holding the content, with the header outside it", () => {
+    renderShell(
+      <WorkspaceShell
+        brand={<div>Brand</div>}
+        schema={schema}
+        user={{ id: "u1", roles: ["admin"] }}
+      >
+        <div data-testid="screen-content">content</div>
+      </WorkspaceShell>,
+    );
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    const main = screen.getByRole("main");
+    expect(main.contains(screen.getByTestId("screen-content"))).toBe(true);
+    const header = document.querySelector("header");
+    expect(header).toBeTruthy();
+    expect(main.contains(header)).toBe(false);
   });
 
   // fill={false} is the escape hatch back to page-scroll: must not apply
