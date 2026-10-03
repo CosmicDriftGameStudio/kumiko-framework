@@ -160,6 +160,65 @@ describe("loadRepoManifest", () => {
     }
   });
 
+  test("rejects a wildcard segment that matches a symlink outside the repo root", () => {
+    const outside = mkdtempSync(join(tmpdir(), "kumiko-repo-manifest-outside-"));
+    try {
+      mkdirSync(join(root, "packages", "good", "src"), { recursive: true });
+      symlinkSync(outside, join(root, "packages", "evil"));
+      writeManifest(root, {
+        kind: "library",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      expectErrorIncludes(root, "packages/*/src", "resolves outside the repo root");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects a symlink below a wildcard segment that escapes the repo root", () => {
+    const outside = mkdtempSync(join(tmpdir(), "kumiko-repo-manifest-outside-"));
+    try {
+      mkdirSync(join(root, "packages", "a"), { recursive: true });
+      symlinkSync(outside, join(root, "packages", "a", "src"));
+      writeManifest(root, {
+        kind: "library",
+        sourceRoots: ["packages/*/src"],
+        testGlobs: ["packages/*/src/**/*.test.ts"],
+      });
+      expectErrorIncludes(root, "resolves outside the repo root");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("ignores an escaping symlink that no wildcard segment matches", () => {
+    const outside = mkdtempSync(join(tmpdir(), "kumiko-repo-manifest-outside-"));
+    try {
+      mkdirSync(join(root, "packages", "pkg-a", "src"), { recursive: true });
+      symlinkSync(outside, join(root, "packages", "other"));
+      writeManifest(root, {
+        kind: "library",
+        sourceRoots: ["packages/pkg-*/src"],
+        testGlobs: ["packages/pkg-*/src/**/*.test.ts"],
+      });
+      expect(loadRepoManifest(root).source).toBe("file");
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  test("accepts wildcard patterns over a real packages tree", () => {
+    mkdirSync(join(root, "packages", "a", "src"), { recursive: true });
+    mkdirSync(join(root, "packages", "b", "src"), { recursive: true });
+    writeManifest(root, {
+      kind: "library",
+      sourceRoots: ["packages/*/src"],
+      testGlobs: ["packages/*/src/**/*.test.ts"],
+    });
+    expect(loadRepoManifest(root).source).toBe("file");
+  });
+
   test("rejects a kumiko.json that is a symlink to a file outside the repo root", () => {
     const outside = mkdtempSync(join(tmpdir(), "kumiko-repo-manifest-outside-"));
     try {
