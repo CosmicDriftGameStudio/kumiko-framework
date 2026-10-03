@@ -211,6 +211,7 @@ export type {
   OpenToAllAccessRule,
   OpenToAllDeclaration,
   OpenToAllPersonalData,
+  PayloadRateLimitOption,
   QualifiedEventName,
   QueryEvent,
   QueryHandlerDef,

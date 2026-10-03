@@ -28,6 +28,7 @@ import type {
   JobRunnerRef,
   MemberReader,
   NotifyJobDispatcher,
+  PayloadRateLimitOption,
   RateLimitDeclaration,
   RateLimitOption,
   Registry,
@@ -80,8 +81,13 @@ import {
   getFallbackTracer,
   observabilityContext,
 } from "../observability/index.js";
-import { buildBucketKey } from "../rate-limit/index.js";
+import {
+  buildBucketKey,
+  buildPayloadBucketKey,
+  normalizePayloadBucketValue,
+} from "../rate-limit/index.js";
 import { createTzContext, isValidIanaTimeZone } from "../time/index.js";
+import { isPlainObject } from "../utils/is-plain-object.js";
 import { INTERACTIVE_SIGN_IN_POLICY, resolveActiveMembershipFn } from "./active-membership.js";
 import { appendDomainEventCore } from "./append-event-core.js";
 import { resolveAuthClaims as runAuthClaimsResolver } from "./auth-claims-resolver.js";
@@ -878,8 +884,11 @@ export async function buildHandlerContext(
     user.locale !== undefined && isValidLocaleTag(user.locale) ? user.locale : undefined;
   const locale = reqCtx?.locale ?? safeUserLocale ?? context.defaultLocale ?? DEFAULT_LOCALE;
 
+  // The payload-bucket digest is dispatcher-internal; handlers must not be
+  // able to compute bucket keys.
+  const { _rateLimitPayloadDigest: _omitPayloadDigest, ...contextForHandler } = context;
   const handlerContext = {
-    ...context,
+    ...contextForHandler,
     registry,
     db: exposedDb,
     dbOutsideTransaction,
@@ -1229,6 +1238,51 @@ export async function enforceRateLimit(
     windowSeconds: effective.windowSeconds,
     cost: effective.cost,
   });
+}
+
+// Payload-field rate limits (additionalRateLimits). Runs after schema
+// validation so the field is typed, regardless of what the handler later
+// returns — hit and non-hit callers see the same limit behavior. SYSTEM
+// identities (jobs, internal dispatches) are not the anonymous traffic this
+// protects against.
+export async function enforcePayloadRateLimits(
+  ctx: DispatchContext,
+  limits: readonly PayloadRateLimitOption[] | undefined,
+  handlerName: string,
+  user: SessionUser,
+  data: unknown,
+): Promise<void> {
+  // skip: no payload buckets declared, or a SYSTEM caller
+  if (!limits || isSystemIdentity(user)) return;
+  const { appContext: context } = ctx;
+  const digest = context._rateLimitPayloadDigest;
+  if (!context.rateLimit || !digest) {
+    throw new InternalError({
+      message: `Handler "${handlerName}" declares additionalRateLimits but no RateLimitResolver/payload digest is configured.`,
+    });
+  }
+  // Boot validation guarantees an object schema; anything else must not pass unlimited.
+  if (!isPlainObject(data)) {
+    throw new InternalError({
+      message: `Handler "${handlerName}" declares additionalRateLimits but its payload is not an object.`,
+    });
+  }
+  for (const { per, limit, windowSeconds, cost } of limits) {
+    const value = data[per.payloadField];
+    // skip: optional field not sent — nothing to bucket on
+    if (value === undefined) continue;
+    if (typeof value !== "string") {
+      throw new InternalError({
+        message: `Handler "${handlerName}" additionalRateLimits payloadField "${per.payloadField}" is not a string.`,
+      });
+    }
+    const key = buildPayloadBucketKey(
+      handlerName,
+      per.payloadField,
+      digest(normalizePayloadBucketValue(value)),
+    );
+    await context.rateLimit.enforce(key, { limit, windowSeconds, cost });
+  }
 }
 
 // Build the per-hook context every auth-claims invocation gets. Claims

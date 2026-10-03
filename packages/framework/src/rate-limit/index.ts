@@ -1,4 +1,11 @@
-export { type BucketContext, type BucketResult, buildBucketKey } from "./bucket.js";
+export {
+  type BucketContext,
+  type BucketResult,
+  buildBucketKey,
+  buildPayloadBucketKey,
+  createPayloadDigest,
+  normalizePayloadBucketValue,
+} from "./bucket.js";
 export {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,

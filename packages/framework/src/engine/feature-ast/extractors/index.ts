@@ -19,6 +19,7 @@ export {
   extractHook,
   isHookType,
   readOptionalAccessRule,
+  readOptionalAdditionalRateLimits,
   readOptionalPhase,
   readOptionalRateLimit,
 } from "./hooks.js";

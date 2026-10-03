@@ -45,6 +45,7 @@ import type {
   EventUpcastFn,
   HandlerRef,
   NameOrRef,
+  PayloadRateLimitOption,
   QualifiedEventName,
   QueryHandlerDef,
   QueryHandlerFn,
@@ -503,6 +504,7 @@ export type FeatureRegistrar<TFeature extends string = string> = {
     options: {
       access: AccessRule;
       rateLimit?: RateLimitDeclaration;
+      additionalRateLimits?: readonly PayloadRateLimitOption[];
       description?: string;
       agent?: AgentHandlerHints;
       escapeHatch?: EscapeHatchDeclaration;

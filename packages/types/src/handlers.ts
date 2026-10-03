@@ -465,6 +465,9 @@ type SharedContextFields = {
   // app didn't load the feature: handlers with rateLimit set are
   // rejected at boot to surface the misconfig early.
   readonly rateLimit?: import("./rate-limit-types.js").RateLimitResolver;
+  // Internal: keyed digest for payload-field rate-limit buckets. Set by
+  // buildServer; read only by the dispatcher, never exposed on HandlerContext.
+  readonly _rateLimitPayloadDigest?: (value: string) => string;
   readonly searchAdapter?: SearchAdapter;
   // Binary storage. The dispatcher builds this per-call, bound to the caller's
   // tenant, from `_fileProviderResolver` (below) — so uploads, ctx.files and the
@@ -1247,6 +1250,22 @@ export type RateLimitOption = {
   readonly cost?: number;
 };
 
+// Bucket keyed by a string field of the parsed write payload (e.g. the
+// recipient address of a mail-triggering handler). The value is normalized
+// (trim + lowercase) and HMAC-hashed into the key, so Redis never holds it
+// in plaintext.
+export type RateLimitPayloadBucket = { readonly payloadField: string };
+
+// Extra limit that only complements `rateLimit` (never replaces the IP
+// bucket of an anonymous handler). Enforced after schema validation,
+// before the handler runs.
+export type PayloadRateLimitOption = {
+  readonly per: RateLimitPayloadBucket;
+  readonly limit: number;
+  readonly windowSeconds: number;
+  readonly cost?: number;
+};
+
 export type RateLimitDisabled = { readonly disabled: true; readonly reason: string };
 export type RateLimitDeclaration = RateLimitOption | RateLimitDisabled;
 
@@ -1277,6 +1296,9 @@ export type WriteHandlerDef = {
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
+  /** Per-payload-field limits, e.g. per recipient address. Complements
+   *  `rateLimit`; anonymous handlers still need an ip-keyed `rateLimit`. */
+  readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
   /** Lets an anonymous `POST /api/write` for this handler proceed under
    *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires

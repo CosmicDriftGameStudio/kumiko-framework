@@ -1,5 +1,6 @@
 import type { BlurRegion, VariantSpec } from "@cosmicdrift/kumiko-types/derivatives-types";
 import { isRateLimitDisabled } from "@cosmicdrift/kumiko-types/handlers";
+import { ZodObject } from "zod";
 import { VARIANT_NAME_PATTERN } from "../../derivatives/variant-key.js";
 import { access as accessPresets } from "../config-helpers.js";
 import { parseRefTarget } from "../parse-ref-target.js";
@@ -156,6 +157,75 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
   }
   for (const [name, handler] of Object.entries(feature.writeHandlers)) {
     validateTenantlessAnonymous(feature.name, name, handler);
+    validateAdditionalRateLimits(feature.name, name, handler);
+  }
+}
+
+const IP_BUCKETED_RATE_LIMIT_PER: ReadonlySet<string> = new Set(["ip", "ip+handler"]);
+
+// Payload buckets only complement the per-IP bucket: an anonymous caller
+// who rotates IPs is what they exist for, and without the IP bucket a single
+// IP could still burn through unlimited distinct addresses.
+export function validateAdditionalRateLimits(
+  featureName: string,
+  handlerName: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  const { additionalRateLimits } = handler;
+  // skip: handler declares no payload buckets
+  if (additionalRateLimits === undefined) return;
+  const where = `write handler "${featureName}:write:${handlerName}" declares additionalRateLimits`;
+  if (additionalRateLimits.length === 0) {
+    throw new Error(`${where} as an empty array — declare at least one bucket or drop the option.`);
+  }
+  validateAnonymousHasIpBucket(where, handler);
+  const shape = handler.schema instanceof ZodObject ? handler.schema.shape : undefined;
+  for (const entry of additionalRateLimits) {
+    validatePayloadBucket(where, shape, entry);
+  }
+}
+
+function validateAnonymousHasIpBucket(
+  where: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  const { access, rateLimit } = handler;
+  const allowsAnonymous = "roles" in access && access.roles.includes("anonymous");
+  // skip: only anonymous callers need an ip bucket
+  if (!allowsAnonymous) return;
+  const hasIpBucket =
+    rateLimit !== undefined &&
+    !isRateLimitDisabled(rateLimit) &&
+    IP_BUCKETED_RATE_LIMIT_PER.has(rateLimit.per);
+  if (!hasIpBucket) {
+    throw new Error(
+      `${where} and allows anonymous callers, but has no ip-keyed rateLimit ` +
+        `(per: "ip" or "ip+handler", not disabled). Payload buckets only complement the IP bucket.`,
+    );
+  }
+}
+
+function validatePayloadBucket(
+  where: string,
+  shape: Record<string, unknown> | undefined,
+  entry: NonNullable<FeatureDefinition["writeHandlers"][string]["additionalRateLimits"]>[number],
+): void {
+  const field = entry.per.payloadField;
+  if (shape === undefined || !Object.hasOwn(shape, field)) {
+    throw new Error(
+      `${where} with payloadField "${field}", which is not a field of the handler's schema ` +
+        `(the schema must be a Zod object containing it).`,
+    );
+  }
+  if (!Number.isInteger(entry.limit) || entry.limit <= 0) {
+    throw new Error(
+      `${where} for "${field}" with limit ${entry.limit} — must be a positive integer.`,
+    );
+  }
+  if (!Number.isInteger(entry.windowSeconds) || entry.windowSeconds <= 0) {
+    throw new Error(
+      `${where} for "${field}" with windowSeconds ${entry.windowSeconds} — must be a positive integer.`,
+    );
   }
 }
 

@@ -179,6 +179,7 @@ export function createRequestContractTerminationHandler(
     schema: requestContractTerminationSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 600 },
+    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }],
     ...(consumerProtection.terminationScope === "platform" && { tenantlessAnonymous: true }),
     escapeHatch: {
       reason:

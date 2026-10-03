@@ -426,10 +426,17 @@ describe("public pages", () => {
   test("the sixth confirm from one IP gets a friendly 429 page", async () => {
     const ip = nextClientIp();
     for (let i = 0; i < 5; i += 1) {
-      const ok = await postForm("/legal/cancel", { ...hostileFields, step: "confirm" }, ip);
+      // A distinct address per request: the per-recipient limit (3/day) would
+      // otherwise trip before the per-IP one under test.
+      const email = `ip-limit-${i}@example.com`;
+      const ok = await postForm("/legal/cancel", { ...hostileFields, email, step: "confirm" }, ip);
       expect(ok.status).toBe(200);
     }
-    const limited = await postForm("/legal/cancel", { ...hostileFields, step: "confirm" }, ip);
+    const limited = await postForm(
+      "/legal/cancel",
+      { ...hostileFields, email: "ip-limit-5@example.com", step: "confirm" },
+      ip,
+    );
     expect(limited.status).toBe(429);
     expect(await limited.text()).toContain("Too many requests");
   });
@@ -619,9 +626,10 @@ describe("public declaration through /api/write", () => {
   test("the sixth request from one IP within the window is rejected", async () => {
     const ip = nextClientIp();
     for (let i = 0; i < 5; i += 1) {
-      expect((await postDeclaration({ email: "limit@example.com" }, ip)).status).toBe(200);
+      // Distinct address per request, see the per-recipient limit (3/day).
+      expect((await postDeclaration({ email: `ip-limit-${i}@example.com` }, ip)).status).toBe(200);
     }
-    const sixth = await postDeclaration({ email: "limit@example.com" }, ip);
+    const sixth = await postDeclaration({ email: "ip-limit-5@example.com" }, ip);
     expect(sixth.status).toBe(429);
     expect(((await sixth.json()) as { error: { code: string } }).error.code).toBe("rate_limited");
     expect((await postDeclaration({ email: "limit@example.com" }, nextClientIp())).status).toBe(
@@ -987,7 +995,7 @@ describe("public pages in platform mode on a host that resolves no tenant", () =
       const ok = await postConfirmForm(
         platformStack,
         "/legal/cancel",
-        "limit@example.com",
+        `ip-limit-${i}@example.com`,
         apex,
         ip,
       );
@@ -996,7 +1004,7 @@ describe("public pages in platform mode on a host that resolves no tenant", () =
     const limited = await postConfirmForm(
       platformStack,
       "/legal/cancel",
-      "limit@example.com",
+      "ip-limit-5@example.com",
       apex,
       ip,
     );
