@@ -79,9 +79,9 @@ const applyMailAccountUpsert = defineApply<MailAccountEventPayload>(async (event
       id: event.aggregateId,
       tenantId: event.tenantId,
       ...mutable,
-      // Insert-Pfad = Erst-Connect (bzw. Rebuild: createdAt des ersten
-      // events des Streams — fachlich derselbe Zeitpunkt). Bewusst nicht im
-      // update: der Erst-Connect-Zeitpunkt bleibt bei updated/disconnected stehen.
+      // Only the insert path is the first connect (on rebuild: createdAt of the
+      // stream's first event, the same moment). Left out of `update` so the
+      // first-connect time survives updated/disconnected events.
       connectedAt: event.createdAt,
     },
     { conflictKeys: ["id"], update: mutable },
