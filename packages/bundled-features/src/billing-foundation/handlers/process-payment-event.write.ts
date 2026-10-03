@@ -28,10 +28,10 @@ import {
 export const processPaymentEventSchema = z.object({
   providerEventId: z.string().min(1).max(200),
   providerName: z.string().min(1).max(50),
+  providerCheckoutId: z.string().min(1).max(200).optional(),
   providerCustomerId: z.string().min(1).max(200),
   priceId: z.string().min(1).max(200),
   consentId: z.string().min(1).max(100).optional(),
-  rawPayload: z.string().min(1),
 });
 type ProcessPaymentEventPayload = z.infer<typeof processPaymentEventSchema>;
 
@@ -102,7 +102,9 @@ export const processPaymentEventHandler: WriteHandlerDef = {
     const headers: PaymentEventHeaders = {
       providerEventId: payload.providerEventId,
       providerName: payload.providerName,
-      rawPayload: payload.rawPayload,
+      ...(payload.providerCheckoutId !== undefined && {
+        providerCheckoutId: payload.providerCheckoutId,
+      }),
     };
     await ctx.unsafeAppendEvent({
       aggregateId: aggId,

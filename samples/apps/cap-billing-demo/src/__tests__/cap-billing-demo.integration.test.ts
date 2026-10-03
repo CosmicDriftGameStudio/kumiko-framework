@@ -402,7 +402,6 @@ async function processSubscriptionEvent(
       status: payload.status,
       tier: payload.tier,
       currentPeriodEndIso: "2026-12-31T00:00:00Z",
-      rawPayload: '{"raw":"webhook-test"}',
     },
     admin,
   );

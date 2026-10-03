@@ -47,8 +47,8 @@ const statusEnum = z.enum([
 
 // Common payload — alle 5 events tragen denselben subscription-state-
 // snapshot. Event-type tagged was passiert ist, payload den state-after.
-// Provider-spezifischer rawPayload ist in metadata.rawPayload (nicht in
-// payload — payload ist domain-clean, metadata ist provider-truth).
+// The raw provider event is deliberately not stored: it carries plaintext
+// PII and event headers are not crypto-shreddable.
 export const subscriptionEventPayloadSchema = z.object({
   providerName: z.string().min(1).max(50),
   // 1000, not 200: these two are `tenantOwned: true` on the entity (see
@@ -72,12 +72,10 @@ export type SubscriptionEventPayload = z.infer<typeof subscriptionEventPayloadSc
 // Headers-shape — wird im event-store als event.metadata.headers
 // persistiert (open-shape jsonb-column, primitives only).
 // Idempotency-anchor: providerEventId pro provider, foundation checked
-// vor append ob bereits gesehen. rawPayload ist als string archiviert
-// damit Plugin-bug-fix-replays from-source machbar bleiben.
+// vor append ob bereits gesehen.
 export type SubscriptionEventHeaders = {
   readonly providerEventId: string;
   readonly providerName: string;
-  readonly rawPayload: string;
 };
 
 // =============================================================================
@@ -110,7 +108,7 @@ export type PaymentEventPayload = z.infer<typeof paymentEventPayloadSchema>;
 export type PaymentEventHeaders = {
   readonly providerEventId: string;
   readonly providerName: string;
-  readonly rawPayload: string;
+  readonly providerCheckoutId?: string;
 };
 
 // =============================================================================

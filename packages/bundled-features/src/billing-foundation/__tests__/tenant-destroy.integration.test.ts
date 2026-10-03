@@ -160,7 +160,6 @@ async function seedSubscription(user: typeof tenantA, eventIdSuffix: string): Pr
       providerCustomerId: `cus_${eventIdSuffix}`,
       providerSubscriptionId: `sub_${eventIdSuffix}`,
       currentPeriodEndIso: "2030-01-01T00:00:00Z",
-      rawPayload: "{}",
     },
     user,
   );
@@ -174,7 +173,6 @@ async function seedPayment(user: typeof tenantA, eventIdSuffix: string): Promise
       providerName: "stripe",
       providerCustomerId: `cus_pay_${eventIdSuffix}`,
       priceId: "price_one_off",
-      rawPayload: "{}",
     },
     user,
   );

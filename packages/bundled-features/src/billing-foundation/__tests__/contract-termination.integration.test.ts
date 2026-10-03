@@ -222,7 +222,6 @@ async function seedSubscription(tenantNumber: number, providerSubscriptionId: st
     status: SubscriptionStatuses.active,
     tier: "pro",
     currentPeriodEnd: "2026-11-02T00:00:00Z",
-    rawPayload: '{"raw":"payload"}',
   };
   const res = await stack.app.request(`/api/subscription/webhook/${PROVIDER}`, {
     method: "POST",

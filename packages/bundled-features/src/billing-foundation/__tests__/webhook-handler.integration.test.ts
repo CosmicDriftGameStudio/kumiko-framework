@@ -81,7 +81,6 @@ function buildEvent(overrides: Partial<SubscriptionEvent> = {}): SubscriptionEve
     status: SubscriptionStatuses.active,
     tier: "pro",
     currentPeriodEnd: "2026-06-01T00:00:00Z",
-    rawPayload: '{"raw":"payload"}',
     ...overrides,
   };
 }
