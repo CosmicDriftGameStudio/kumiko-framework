@@ -14,6 +14,7 @@ import {
   resetPiiSubjectKmsForTests,
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { tenantInvitationsTable } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantTable } from "../../tenant/schema/tenant.js";
 import { USER_STATUS, userEntity, userTable } from "../../user/index.js";
@@ -29,6 +30,7 @@ import {
   mailsTo,
   resetWaitlistTestState,
   SYSTEM_ADMIN,
+  tokenFromLastMailTo,
   userRowOf,
 } from "./waitlist-test-stack.js";
 
@@ -189,6 +191,25 @@ describe("waitlist submit", () => {
   });
 });
 
+describe("waitlist control characters", () => {
+  test("CR/LF in name, company or portfolio is rejected with 400 and stores nothing", async () => {
+    for (const field of ["name", "company", "portfolio"]) {
+      const res = await submit(
+        validBody("inject@example.com", { [field]: "Ada\r\nBcc: x@evil.test" }),
+      );
+      expect(res.status).toBe(400);
+    }
+    expect(await entries()).toHaveLength(0);
+  });
+
+  test("message keeps line breaks but rejects other control characters", async () => {
+    const bad = await submit(validBody("ctl@example.com", { message: "a\u0000b" }));
+    expect(bad.status).toBe(400);
+    const ok = await submit(validBody("ctl@example.com", { message: "line1\r\nline2\tx" }));
+    expect(ok.status).toBe(200);
+  });
+});
+
 describe("waitlist admin access", () => {
   test("SystemAdmin lists, TenantAdmin gets 403, anonymous is rejected", async () => {
     await submitAndGetId("list@example.com");
@@ -262,7 +283,81 @@ describe("waitlist invite and reject", () => {
   });
 });
 
+describe("waitlist reject revokes the invitation", () => {
+  test("invite then reject cancels the invitation and kills the mailed token", async () => {
+    const email = "revoked@example.com";
+    const id = await submitAndGetId(email);
+    await stack.http.writeOk(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN);
+    const token = tokenFromLastMailTo(email);
+
+    await stack.http.writeOk(WaitlistHandlers.reject, { id }, SYSTEM_ADMIN);
+
+    const invitations = await selectMany(stack.db, tenantInvitationsTable, {});
+    expect(invitations).toHaveLength(1);
+    expect(invitations[0]?.["status"]).toBe("cancelled");
+    const signup = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token,
+      password: "Sup3r-secret-pw!",
+    });
+    expect(signup.status).not.toBe(200);
+    expect(await selectMany(stack.db, userTable, {})).toHaveLength(0);
+  });
+
+  test("reject after the invitation was accepted answers 422", async () => {
+    const email = "accepted@example.com";
+    const id = await submitAndGetId(email);
+    await stack.http.writeOk(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN);
+    await acceptInviteAsNewUser(stack, email);
+
+    const failure = await stack.http.writeErr(WaitlistHandlers.reject, { id }, SYSTEM_ADMIN);
+    expect(failure.httpStatus).toBe(422);
+    const [entry] = (await entries()).filter((row) => row["id"] === id);
+    expect(entry?.["status"]).toBe("invited");
+  });
+});
+
 describe("waitlist GDPR", () => {
+  test("a user with the same but unverified email gets no export rows and forget keeps the entry", async () => {
+    const email = "unverified@example.com";
+    const entryId = await submitAndGetId(email, { message: "mine" });
+
+    const { id: userId } = await seedUser(stack.db, {
+      email,
+      displayName: "Squatter",
+      passwordHash: "hashed",
+      emailVerified: false,
+    });
+    await seedRow(stack.db, tenantMembershipsTable, {
+      tenantId: crypto.randomUUID(),
+      userId,
+      roles: '["Member"]',
+    });
+
+    const bundle = await runUserExport({
+      db: stack.db,
+      registry: stack.registry,
+      userId,
+      now: Temporal.Now.instant(),
+    });
+    const snippets = bundle.tenants
+      .flatMap((section) => section.entities)
+      .filter((snippet) => snippet.entity === "waitlistEntry");
+    expect(snippets).toHaveLength(0);
+
+    await requestUserDeletion(userId);
+    const result = await runForgetCleanup({
+      db: stack.db,
+      registry: stack.registry,
+      now: Temporal.Now.instant(),
+    });
+    expect(result.errors).toHaveLength(0);
+    expect(result.processedUserIds).toContain(userId);
+
+    const [entry] = (await entries()).filter((row) => row["id"] === entryId);
+    expect(entry?.["email"]).toBe(email);
+    expect(entry?.["name"]).toBe("Ada Lovelace");
+  });
+
   test("export lists the entry and forget erases it for a user with the same email", async () => {
     const email = "gdpr@example.com";
     await submitAndGetId(email, { message: "hello" });

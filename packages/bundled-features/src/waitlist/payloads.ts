@@ -2,13 +2,44 @@ import { canonicalizeLocaleTag, isValidLocaleTag } from "@cosmicdrift/kumiko-fra
 import * as z from "zod";
 import { WAITLIST_FIELD_LIMITS } from "./constants.js";
 
+// Submitted text lands in a mail subject; CR/LF there would allow header injection.
+const NO_CONTROL_CHARS = /^\P{Cc}*$/u;
+const NO_CONTROL_CHARS_EXCEPT_WHITESPACE = /^(?:[^\p{Cc}]|[\n\r\t])*$/u;
+const noControlChars = (value: string) => NO_CONTROL_CHARS.test(value);
+
 export const WaitlistSubmitSchema = z
   .object({
-    name: z.string().trim().min(1).max(WAITLIST_FIELD_LIMITS.name),
+    name: z
+      .string()
+      .trim()
+      .min(1)
+      .max(WAITLIST_FIELD_LIMITS.name)
+      .refine(noControlChars, "control characters not allowed"),
     email: z.email().max(WAITLIST_FIELD_LIMITS.email),
-    company: z.string().trim().min(1).max(WAITLIST_FIELD_LIMITS.company).optional(),
-    portfolio: z.string().trim().min(1).max(WAITLIST_FIELD_LIMITS.portfolio).optional(),
-    message: z.string().trim().min(1).max(WAITLIST_FIELD_LIMITS.message).optional(),
+    company: z
+      .string()
+      .trim()
+      .min(1)
+      .max(WAITLIST_FIELD_LIMITS.company)
+      .refine(noControlChars, "control characters not allowed")
+      .optional(),
+    portfolio: z
+      .string()
+      .trim()
+      .min(1)
+      .max(WAITLIST_FIELD_LIMITS.portfolio)
+      .refine(noControlChars, "control characters not allowed")
+      .optional(),
+    message: z
+      .string()
+      .trim()
+      .min(1)
+      .max(WAITLIST_FIELD_LIMITS.message)
+      .refine(
+        (value) => NO_CONTROL_CHARS_EXCEPT_WHITESPACE.test(value),
+        "control characters not allowed",
+      )
+      .optional(),
     locale: z
       .string()
       .max(WAITLIST_FIELD_LIMITS.locale)

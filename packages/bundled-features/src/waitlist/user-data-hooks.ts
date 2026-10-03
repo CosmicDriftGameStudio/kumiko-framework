@@ -12,12 +12,17 @@ const PII_DECRYPT_REASON = "waitlist:user-data";
 const ERASE_REASON = "waitlist:user-data-forget";
 const ENTRY_LOOKUP_LIMIT = 100;
 
-// A forget run may already have anonymized the user row, so the email captured
-// before the forget transaction wins over a live lookup.
-async function resolveUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
+// Entries are matched by email, so the user must have proven they own it:
+// otherwise registering with someone else's address would expose or erase that
+// person's entries. The forget anonymization leaves emailVerified untouched,
+// so the live row stays a reliable source; only the email needs the pre-tx
+// copy because the user hook has already rewritten it by now.
+async function resolveVerifiedUserEmail(ctx: UserDataHookCtx): Promise<string | null> {
+  const row = await ctx.db.fetchOne<{ email: string; emailVerified: boolean }>(userTable, {
+    id: ctx.userId,
+  });
+  if (row?.emailVerified !== true) return null;
   if (ctx.userEmailBeforeDelete) return normalizeEmail(ctx.userEmailBeforeDelete);
-  const row = await ctx.db.fetchOne<{ email: string }>(userTable, { id: ctx.userId });
-  if (!row) return null;
   return normalizeEmail(await decryptStoredPii(row.email, "email", PII_DECRYPT_REASON));
 }
 
@@ -32,7 +37,8 @@ async function findEntriesByEmail(ctx: UserDataHookCtx, email: string) {
 }
 
 export const waitlistEntryExportHook: UserDataExportHook = async (ctx) => {
-  const email = await resolveUserEmail(ctx);
+  const email = await resolveVerifiedUserEmail(ctx);
+  // skip: unverified or missing email must not be matched against waitlist entries
   if (!email) return null;
   const rows = await findEntriesByEmail(ctx, email);
   if (rows.length === 0) return null;
@@ -55,8 +61,8 @@ export const waitlistEntryExportHook: UserDataExportHook = async (ctx) => {
 // is purged through the executor (replays on rebuild) and its record subject
 // key is shredded so the event log's ciphertext becomes unreadable.
 export const waitlistEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
-  const email = await resolveUserEmail(ctx);
-  // skip: without a resolvable email no waitlist entry can match
+  const email = await resolveVerifiedUserEmail(ctx);
+  // skip: unverified or missing email must not be matched against waitlist entries
   if (!email) return;
   const kms = configuredPiiSubjectKms();
   const failures: string[] = [];
