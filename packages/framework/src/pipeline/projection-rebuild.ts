@@ -370,7 +370,13 @@ export async function rebuildProjection(
       // reconstruct (#498 ghost — direct-inserted without a .created event),
       // which the swap would silently drop. Implicit projections only.
       if (projection.isImplicit === true) {
-        await assertNoUnreachableLiveRows(tx, projectionName, meta.tableName, sourcesList);
+        await assertNoUnreachableLiveRows(
+          tx,
+          projectionName,
+          meta.tableName,
+          sourcesList,
+          projection.extraSourceRowIds,
+        );
         // Non-blocking counterpart: reports column-level drift (bidx excluded)
         // without aborting — see countColumnDrift for why this isn't fail-hard.
         const drift = await countColumnDrift(tx, meta.tableName, meta);

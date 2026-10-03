@@ -29,6 +29,7 @@ import type {
   PreQueryHookFn,
   PreSaveHookFn,
   ProjectionDefinition,
+  ProjectionRowIdOf,
   QueryHandlerDef,
   ReferenceDataDef,
   RegistrarExtensionDef,
@@ -121,7 +122,6 @@ export function buildImplicitProjection(
   // r.extendEntityProjection: merge extension applies into the rebuild
   // replay. Collisions with lifecycle applies (or another extension) are
   // authoring bugs — fail at boot, not by silently overwriting a handler.
-  const extraSources: string[] = [];
   for (const ext of extensions) {
     for (const [eventType, fn] of Object.entries(ext.apply)) {
       if (apply[eventType]) {
@@ -132,18 +132,66 @@ export function buildImplicitProjection(
       }
       apply[eventType] = fn;
     }
-    for (const s of ext.sources ?? []) {
-      if (s !== entityName && !extraSources.includes(s)) extraSources.push(s);
-    }
   }
+  const { extraSources, extraSourceRowIds } = collectExtensionSources(name, entityName, extensions);
   return {
     name,
     source: entityName,
     ...(extraSources.length > 0 && { extraSources }),
+    ...(Object.keys(extraSourceRowIds).length > 0 && { extraSourceRowIds }),
     table: drizzleTable,
     apply,
     isImplicit: true,
   };
+}
+
+function assertRowIdOfSources(
+  projectionName: string,
+  entityName: string,
+  ext: EntityProjectionExtension,
+): void {
+  // skip: extension maps no rowIdOf, nothing to validate
+  if (ext.rowIdOf === undefined) return;
+  const sources = ext.sources ?? [];
+  if (sources.length === 0) {
+    throw new Error(
+      `Implicit projection "${projectionName}": extendEntityProjection declares rowIdOf without ` +
+        `\`sources\` — rowIdOf maps events of the declared sources to row ids.`,
+    );
+  }
+  if (sources.includes(entityName)) {
+    throw new Error(
+      `Implicit projection "${projectionName}": extendEntityProjection rowIdOf cannot apply to the ` +
+        `entity's own stream "${entityName}" — host-stream rows are keyed by the aggregate id.`,
+    );
+  }
+}
+
+function collectExtensionSources(
+  projectionName: string,
+  entityName: string,
+  extensions: readonly EntityProjectionExtension[],
+): { extraSources: string[]; extraSourceRowIds: Record<string, ProjectionRowIdOf> } {
+  const extraSources: string[] = [];
+  const extraSourceRowIds: Record<string, ProjectionRowIdOf> = {};
+  const rowIdDeclaredBy = new Map<string, ProjectionRowIdOf | undefined>();
+  for (const ext of extensions) {
+    for (const s of ext.sources ?? []) {
+      if (s !== entityName && !extraSources.includes(s)) extraSources.push(s);
+    }
+    assertRowIdOfSources(projectionName, entityName, ext);
+    for (const s of ext.sources ?? []) {
+      if (rowIdDeclaredBy.has(s) && rowIdDeclaredBy.get(s) !== ext.rowIdOf) {
+        throw new Error(
+          `Implicit projection "${projectionName}": source "${s}" is declared by several extensions with ` +
+            `different or missing rowIdOf — the row id for its events is ambiguous.`,
+        );
+      }
+      rowIdDeclaredBy.set(s, ext.rowIdOf);
+      if (ext.rowIdOf !== undefined) extraSourceRowIds[s] = ext.rowIdOf;
+    }
+  }
+  return { extraSources, extraSourceRowIds };
 }
 
 // Validates a r.entity backing table is a superset of the entity's field-

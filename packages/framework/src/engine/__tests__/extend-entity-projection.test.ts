@@ -16,6 +16,8 @@ function exampleEntity(name = "unit") {
 }
 
 const noopApply = async (): Promise<void> => {};
+const derivedRowId = (source: { readonly aggregateId: string }): string => source.aggregateId;
+const otherDerivedRowId = (source: { readonly aggregateId: string }): string => source.aggregateId;
 
 describe("r.extendEntityProjection — registration", () => {
   test("merges apply keys + extraSources into the implicit projection", () => {
@@ -52,6 +54,44 @@ describe("r.extendEntityProjection — registration", () => {
     const registry = createRegistry([feature]);
     const projection = registry.getAllProjections().get("test:projection:unit-entity");
     expect(projection?.extraSources).toBeUndefined();
+  });
+
+  test("rowIdOf maps each of the extension's sources into extraSourceRowIds", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["field-definition", "other-stream"],
+        rowIdOf: derivedRowId,
+        apply: { [setEvent.name]: noopApply },
+      });
+    });
+    const projection = createRegistry([feature])
+      .getAllProjections()
+      .get("test:projection:unit-entity");
+    expect(projection?.extraSourceRowIds).toEqual({
+      "field-definition": derivedRowId,
+      "other-stream": derivedRowId,
+    });
+  });
+
+  test("no extraSourceRowIds on the definition when no extension declares rowIdOf", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["field-definition"],
+        apply: { [setEvent.name]: noopApply },
+      });
+    });
+    const projection = createRegistry([feature])
+      .getAllProjections()
+      .get("test:projection:unit-entity");
+    expect(projection?.extraSourceRowIds).toBeUndefined();
   });
 
   test("auto-verb of a registered extraSources entity is a valid apply-key", () => {
@@ -129,5 +169,79 @@ describe("r.extendEntityProjection — registry-build validation", () => {
       r.extendEntityProjection("unit", { apply: { "customField.set": noopApply } });
     });
     expect(() => createRegistry([feature])).toThrow(/no such event/);
+  });
+
+  test("rowIdOf without sources fails at registry build", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      r.extendEntityProjection("unit", {
+        rowIdOf: derivedRowId,
+        apply: { [setEvent.name]: noopApply },
+      });
+    });
+    expect(() => createRegistry([feature])).toThrow(/rowIdOf without `sources`/);
+  });
+
+  test("rowIdOf on the entity's own stream fails at registry build", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      const setEvent = r.defineEvent("custom-field-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["unit"],
+        rowIdOf: derivedRowId,
+        apply: { [setEvent.name]: noopApply },
+      });
+    });
+    expect(() => createRegistry([feature])).toThrow(/own stream "unit"/);
+  });
+
+  test("a source shared with a different rowIdOf fails at registry build", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      const firstEvent = r.defineEvent("first-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      const secondEvent = r.defineEvent("second-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["field-definition"],
+        rowIdOf: derivedRowId,
+        apply: { [firstEvent.name]: noopApply },
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["field-definition"],
+        rowIdOf: otherDerivedRowId,
+        apply: { [secondEvent.name]: noopApply },
+      });
+    });
+    expect(() => createRegistry([feature])).toThrow(/ambiguous/);
+  });
+
+  test("a source shared with an extension lacking rowIdOf fails at registry build", () => {
+    const feature = defineFeature("test", (r) => {
+      r.entity("unit", exampleEntity());
+      const firstEvent = r.defineEvent("first-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      const secondEvent = r.defineEvent("second-set", z.object({ fieldKey: z.string() }), {
+        piiFields: "none",
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["field-definition"],
+        apply: { [firstEvent.name]: noopApply },
+      });
+      r.extendEntityProjection("unit", {
+        sources: ["field-definition"],
+        rowIdOf: derivedRowId,
+        apply: { [secondEvent.name]: noopApply },
+      });
+    });
+    expect(() => createRegistry([feature])).toThrow(/ambiguous/);
   });
 });
