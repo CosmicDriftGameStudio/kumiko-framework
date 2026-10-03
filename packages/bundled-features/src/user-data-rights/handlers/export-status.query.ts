@@ -45,6 +45,7 @@ export const exportStatusQuery = defineQueryHandler({
   description:
     "Returns the calling user's own most recent data-export job with its status, expiry and error, or hasJob false, for polling after a request-export while the job is still running.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: EXPORT_STATUS_REASON,
   },
   handler: async (query, ctx) => {

@@ -25,6 +25,7 @@ export const cancelDestructionWrite = defineWriteHandler({
   description:
     "Returns a tenant whose destruction was requested back to active and clears the grace period; use it to undo a close-account request while the grace period is still running.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: CANCEL_DESTRUCTION_TENANT_ROW_REASON,
   },
   handler: async (event, ctx) => {

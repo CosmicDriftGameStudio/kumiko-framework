@@ -33,6 +33,7 @@ export const clearCustomFieldHandler: WriteHandlerDef = {
   description:
     "Removes the stored value of one custom field from a single host entity row after re-checking that field's per-field write roles; use it to blank a field the user emptied instead of writing a null value.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: CLEAR_CUSTOM_FIELD_REASON,
   },
   handler: async (event, ctx) => {

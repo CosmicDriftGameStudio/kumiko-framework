@@ -32,6 +32,7 @@ export const cancelDeletionWrite = defineWriteHandler({
   description:
     "Withdraws the calling user's own pending account-deletion request and puts the account back to active, accepted only while the grace period is still running.",
   escapeHatch: {
+    grants: ["unsafeRaw", "globalWrites"],
     reason: APPEND_LIFECYCLE_EVENT_REASON,
   },
   handler: async (event, ctx) => {

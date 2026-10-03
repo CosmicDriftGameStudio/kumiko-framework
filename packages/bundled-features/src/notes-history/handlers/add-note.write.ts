@@ -31,6 +31,7 @@ export function createAddNoteHandler(
     description:
       "Appends a note to one host entity's history, stamping the author from the authenticated caller rather than the payload; use it for every remark and correction alike, because entries can never be edited or removed afterwards.",
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason: READ_AUTHOR_DISPLAY_NAME_REASON,
     },
     handler: async (event, ctx) => {

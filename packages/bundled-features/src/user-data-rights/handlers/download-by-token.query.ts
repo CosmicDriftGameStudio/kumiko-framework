@@ -86,6 +86,7 @@ export const downloadByTokenQuery = defineQueryHandler({
   // Memory `feedback_security_default_on`.
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: DOWNLOAD_BY_TOKEN_REASON,
   },
   handler: async (query, ctx) => {

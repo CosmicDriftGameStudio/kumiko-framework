@@ -1,3 +1,4 @@
+import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
 import {
   WEBSOCKET_MAX_CONNECTIONS_PER_USER_LIMIT,
   WEBSOCKET_MAX_PAYLOAD_BYTES,
@@ -192,6 +193,13 @@ export function buildUiExtensionsMethods<TName extends string>(
             "the reason must be a non-empty string explaining why this hook switches identity to SYSTEM.",
         );
       }
+      const hookGrantsProblem =
+        options?.escapeHatch && escapeHatchGrantsProblem(options.escapeHatch);
+      if (hookGrantsProblem) {
+        throw new Error(
+          `[Feature ${name}] r.hook("${type}", ...) declares an invalid escapeHatch — ${hookGrantsProblem}`,
+        );
+      }
 
       // Wrapped once for both branches below; validation hooks stay unwrapped (no context).
       const hookLabel = `${type} hook of feature "${name}"`;
@@ -311,6 +319,12 @@ export function buildUiExtensionsMethods<TName extends string>(
           throw new Error(
             `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ` +
               `must be { reason: "<non-empty string>" } explaining why this usage needs unfiltered db access.`,
+          );
+        }
+        const extGrantsProblem = escapeHatchGrantsProblem(escapeHatch as { grants?: unknown });
+        if (extGrantsProblem) {
+          throw new Error(
+            `[Feature ${name}] r.useExtension("${extensionName}", "${resolvedEntityName}", ...) declares an invalid { escapeHatch } — ${extGrantsProblem}`,
           );
         }
       }

@@ -164,6 +164,7 @@ export const shareByTokenQuery = defineQueryHandler({
   access: { roles: ["anonymous", "Member", "User", "TenantAdmin", "SystemAdmin"] },
   rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: SHARE_BY_TOKEN_REASON,
   },
   handler: async (query, ctx) => {

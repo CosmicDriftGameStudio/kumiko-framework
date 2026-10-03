@@ -20,6 +20,7 @@ export const getTenantTierQuery = defineQueryHandler({
   schema: z.object({ tenantId: z.string().min(1) }),
   access: { roles: ["SystemAdmin"] },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: GET_TENANT_TIER_REASON,
   },
   handler: async (query, ctx) => {

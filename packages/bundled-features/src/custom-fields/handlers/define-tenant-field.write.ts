@@ -59,6 +59,7 @@ export function createDefineTenantFieldHandler(
     description:
       "Creates a custom-field definition owned by the caller's own tenant on the named entity, rejecting the write once the tenant's definition quota is reached; use it when one tenant needs an extra field the other tenants must not see.",
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason: DEFINE_TENANT_FIELD_REASON,
     },
     handler: async (event, ctx) => {

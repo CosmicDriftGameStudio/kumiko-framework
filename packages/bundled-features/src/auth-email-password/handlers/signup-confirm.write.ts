@@ -131,6 +131,7 @@ export function createSignupConfirmHandler() {
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     agent: { expose: false },
     escapeHatch: {
+      grants: ["unsafeRaw", "systemIdentity"],
       reason: SIGNUP_CONFIRM_PROVISION_REASON,
     },
     handler: async (event, ctx) => {

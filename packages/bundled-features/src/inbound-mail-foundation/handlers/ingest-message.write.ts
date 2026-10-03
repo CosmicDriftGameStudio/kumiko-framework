@@ -114,6 +114,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
   access: { roles: ["SystemAdmin"] },
   agent: { expose: false },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: THREAD_ROLLUP_ADVISORY_LOCK_REASON,
   },
   handler: async (event, ctx) => {

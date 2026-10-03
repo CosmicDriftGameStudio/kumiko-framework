@@ -1,5 +1,6 @@
 /// <reference types="temporal-polyfill/global" preserve="true" />
 import type { WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
+import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import { type JobsOptions, Queue, UnrecoverableError, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { requestContext } from "../api/request-context.js";
@@ -951,7 +952,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
         : undefined;
     const jobDb = configDb
       ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
-          unsafeRaw: jobDef.escapeHatch,
+          unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
           report: reportEscapeHatch,
           ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })

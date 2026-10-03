@@ -824,3 +824,39 @@ defineFeature("f", (r) => {
     });
   });
 });
+
+describe("escapeHatch.grants", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("f", (r) => {
+  r.streamHandler({
+    name: "x",
+    schema: z.object({}),
+    handler: async function* () { yield "token"; },
+    access: { roles: ["Admin"] },
+    escapeHatch: { reason: "r", grants: ["unsafeRaw"] },
+  });
+});
+`;
+  const result = parse(source);
+
+  test("grants stay on the structured escapeHatch", () => {
+    expect(result.errors).toEqual([]);
+    const pattern = findPattern(result.patterns, "streamHandler");
+    expect(pattern).toMatchObject({ escapeHatch: { reason: "r", grants: ["unsafeRaw"] } });
+  });
+
+  test("render → parse roundtrip keeps grants", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+    });
+    expect(rendered).toContain('grants: ["unsafeRaw"]');
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    const reparsedPattern = findPattern(reparsed.patterns, "streamHandler");
+    expect(reparsedPattern).toMatchObject({ escapeHatch: { reason: "r", grants: ["unsafeRaw"] } });
+  });
+});

@@ -114,6 +114,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason:
         "Anonymous invite-accept has no session in the invited tenant yet — checks existing " +
         "membership via ctx.queryAs(SYSTEM, tenant:query:memberships) of the invitation's tenant. " +

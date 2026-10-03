@@ -73,6 +73,7 @@ export const downloadByJobQuery = defineQueryHandler({
   description:
     "Returns a short-lived signed download URL for the calling user's own finished data-export job named by job id, backing the download button in the privacy center once export-status reports the job done.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: DOWNLOAD_BY_JOB_REASON,
   },
   handler: async (query, ctx) => {

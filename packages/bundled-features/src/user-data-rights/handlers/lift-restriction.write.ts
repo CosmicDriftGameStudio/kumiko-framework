@@ -39,6 +39,7 @@ export const liftRestrictionWrite = defineWriteHandler({
   description:
     "Lifts a GDPR Art. 18 processing restriction on the named user and returns the account to active; operator-only, because a restricted user's own session is rejected and cannot reach this endpoint.",
   escapeHatch: {
+    grants: ["unsafeRaw", "globalWrites"],
     reason: LIFT_RESTRICTION_ESCAPE_HATCH_REASON,
   },
   handler: async (event, ctx) => {

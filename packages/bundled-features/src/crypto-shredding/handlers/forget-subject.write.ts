@@ -299,6 +299,7 @@ export const forgetSubjectWrite = defineWriteHandler({
   // not be able to reach it at all.
   agent: { expose: false, risk: "high" },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason:
       "denial audit append names the prober's own tenant stream on the outside-transaction db; " +
       "the tenant-scope and retention checks run against the subject's tenant, not necessarily the caller's; " +

@@ -34,6 +34,7 @@ export const discardDraftWrite = defineWriteHandler({
     "Deletes the calling user's draft for one draftKey and, when releaseFiles is set, hard-deletes the file references that draft alone uploaded; use it after a successful submit or when the user abandons the form.",
   agent: { risk: "high" },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: DISCARD_DRAFT_FILE_REFS_REASON,
   },
   handler: async (event, ctx) => {

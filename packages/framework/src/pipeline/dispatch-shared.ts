@@ -1,3 +1,4 @@
+import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext, runWithOrigin } from "../api/request-context.js";
 import type { SseBroker } from "../api/sse-broker.js";
 import type { DbConnection, DbRunner, DbTx } from "../db/connection.js";
@@ -299,7 +300,8 @@ export async function buildHandlerContext(
     writeEscapeHatch ??
     registry.getQueryHandler(type)?.escapeHatch ??
     registry.getStreamHandler(type)?.escapeHatch;
-  const hasIdentitySwitchGrant = isSystem || handlerEscapeHatch !== undefined;
+  const identitySwitchEscapeHatch = escapeHatchFor(handlerEscapeHatch, "systemIdentity");
+  const hasIdentitySwitchGrant = isSystem || identitySwitchEscapeHatch !== undefined;
   const featureName = registry.getHandlerFeature(type);
   const reportEscapeHatch = createEscapeHatchReporter({
     handler: type,
@@ -310,7 +312,7 @@ export async function buildHandlerContext(
     window: ctx.escapeHatchReportWindow,
   });
   const identitySwitchGrantReason =
-    handlerEscapeHatch?.reason ??
+    identitySwitchEscapeHatch?.reason ??
     (isSystem ? `r.systemScope() feature "${featureName ?? "unknown"}"` : undefined);
   const buildTenantScopedDb = (source: DbConnection | DbTx, signal: AbortSignal | undefined) =>
     createTenantDb(
@@ -321,8 +323,8 @@ export async function buildHandlerContext(
       context.meter,
       signal,
       {
-        globalWrites: writeEscapeHatch,
-        unsafeRaw: handlerEscapeHatch,
+        globalWrites: escapeHatchFor(writeEscapeHatch, "globalWrites"),
+        unsafeRaw: escapeHatchFor(handlerEscapeHatch, "unsafeRaw"),
         report: reportEscapeHatch,
         memberReadOnly: isMemberResolutionPrincipal(user),
         personalDataGate: buildPersonalDataGate(registry, origin),

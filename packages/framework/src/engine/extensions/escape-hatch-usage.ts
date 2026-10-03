@@ -11,6 +11,7 @@ export function extensionUsageEscapeHatchReason(
 ): string | undefined {
   const escapeHatch = usage.options?.["escapeHatch"];
   if (typeof escapeHatch !== "object" || escapeHatch === null) return undefined;
-  const reason = (escapeHatch as { reason?: unknown }).reason;
+  const { reason, grants } = escapeHatch as { reason?: unknown; grants?: unknown };
+  if (Array.isArray(grants) && !grants.includes("unsafeRaw")) return undefined;
   return typeof reason === "string" && reason.trim().length > 0 ? reason : undefined;
 }

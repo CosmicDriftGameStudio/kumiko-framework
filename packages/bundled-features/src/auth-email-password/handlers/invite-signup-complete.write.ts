@@ -96,6 +96,7 @@ export function createInviteSignupCompleteHandler() {
     rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
     agent: { expose: false },
     escapeHatch: {
+      grants: ["unsafeRaw", "globalWrites"],
       reason: INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON,
     },
     handler: async (event, ctx) => {

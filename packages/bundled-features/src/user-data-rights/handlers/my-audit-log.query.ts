@@ -39,6 +39,7 @@ export const myAuditLogQuery = defineQueryHandler({
   description:
     "Returns the calling user's own event-store entries across all their tenant memberships, paged and filterable by aggregate type, event type and time range, for the GDPR Art. 15 self-disclosure; it can never read another user's history.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: MY_AUDIT_LOG_REASON,
   },
   handler: async (query, ctx) => {

@@ -45,6 +45,7 @@ export const inviteInfoQuery = defineQueryHandler({
   rateLimit: { per: "ip+handler", limit: 20, windowSeconds: 60 },
   agent: { expose: false },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: READ_PENDING_INVITATION_REASON,
   },
   description:

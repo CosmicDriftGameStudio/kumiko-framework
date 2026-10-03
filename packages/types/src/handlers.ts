@@ -43,7 +43,52 @@ export type RoleAccessRule = {
 //   - { openToAll: { reason: "..." } }      — any authenticated user may call (still requires a valid JWT)
 export type AccessRule = RoleAccessRule | OpenToAllAccessRule;
 
-export type EscapeHatchDeclaration = { readonly reason: string };
+export const ESCAPE_HATCH_GRANTS = ["systemIdentity", "globalWrites", "unsafeRaw"] as const;
+
+export type EscapeHatchGrant = (typeof ESCAPE_HATCH_GRANTS)[number];
+
+// `grants` narrows what the declaration unlocks; absent means all of ESCAPE_HATCH_GRANTS.
+export type EscapeHatchDeclaration = {
+  readonly reason: string;
+  readonly grants?: readonly EscapeHatchGrant[];
+};
+
+export function isEscapeHatchGrant(value: unknown): value is EscapeHatchGrant {
+  return ESCAPE_HATCH_GRANTS.some((grant) => grant === value);
+}
+
+export function escapeHatchAllows(
+  declaration: EscapeHatchDeclaration | undefined,
+  grant: EscapeHatchGrant,
+): boolean {
+  if (declaration === undefined) return false;
+  return declaration.grants === undefined || declaration.grants.includes(grant);
+}
+
+// Returns the declaration only when it unlocks `grant`, so call sites keep passing
+// "a declaration or nothing" into grant-gated code.
+export function escapeHatchFor(
+  declaration: EscapeHatchDeclaration | undefined,
+  grant: EscapeHatchGrant,
+): EscapeHatchDeclaration | undefined {
+  return escapeHatchAllows(declaration, grant) ? declaration : undefined;
+}
+
+// Boot-time check of `grants` (untyped sources can carry anything): must be a non-empty list of known grants.
+export function escapeHatchGrantsProblem(declaration: {
+  readonly grants?: unknown;
+}): string | undefined {
+  const { grants } = declaration;
+  if (grants === undefined) return undefined;
+  if (!Array.isArray(grants) || grants.length === 0) {
+    return `grants must be a non-empty list of: ${ESCAPE_HATCH_GRANTS.join(", ")}`;
+  }
+  const unknownGrant = grants.find((grant) => !isEscapeHatchGrant(grant));
+  if (unknownGrant !== undefined) {
+    return `unknown grant ${JSON.stringify(unknownGrant)} — allowed: ${ESCAPE_HATCH_GRANTS.join(", ")}`;
+  }
+  return undefined;
+}
 
 // AccessRule can arrive from untyped sources (pattern-library JSON, Designer)
 // where `openToAll` doesn't actually match the declared union — narrow via
