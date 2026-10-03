@@ -1,5 +1,46 @@
 [
   {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Write handlers can declare tenantlessAnonymous",
+    "detail": "`r.writeHandler({ ..., tenantlessAnonymous: true })` lets an anonymous `POST /api/write` for exactly that handler run under `SYSTEM_TENANT_ID` where the anonymous middleware would otherwise answer `400 tenant_required` (resolver silent, no client tenant). It never applies to `/api/batch`, to a client-supplied `X-Tenant` or `kumiko_tenant`, to `tenant_mismatch` or when a tenant resolved; `tenantExists` and the lifecycle gate are skipped for the system tenant. Boot rejects the flag unless `access.roles` is exactly `[\"anonymous\"]` and a real `rateLimit` (not `{ disabled: true }`) is declared. `authMiddleware` gets the option `isTenantlessAnonymousWrite`, which `buildServer` builds from the registry.",
+    "migration": "keine"
+  },
+  {
+    "version": "0.339.0",
+    "type": "breaking",
+    "title": "fetchForWriting handles reject appends after a concurrent write",
+    "migration": "Appends through a ctx.fetchForWriting handle now use the version the handle was read at. When two requests write the same aggregate concurrently, the later append no longer stacks on top silently: the request fails with 409 version_conflict (no automatic retry), and its transaction rolls back. Tests that fire concurrent writes on one aggregate and expected both to succeed must expect exactly one success. Clients should treat 409 version_conflict like a stale form: reload and retry."
+  },
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "PII encryption for jsonb fields",
+    "detail": "`createJsonbField({ personal: \"tenant\" })` (or `\"self\"` / `{ of }`) is encrypted per subject like a text field, so crypto-shredding applies: after the key is erased, list and detail return `[[erased]]` for the field. The ciphertext uses the self-describing format `kumiko-pii:v3:` (v2 plus a JSON-typed plaintext, AAD-bound to subject and field), so a string, number or object round-trips by type. Existing plaintext objects, arrays and strings are read as-is and are not re-encrypted; they become ciphertext on the next write of the field, and the backfill skips jsonb fields. There is no search, filter, sort or index inside an encrypted jsonb field: boot rejects `personal` on a jsonb field that is in an entity index, has `sortable`, `filterable`, `searchable` or `lookupable`, or is the custom-fields `customFields` column. Event payload fields declared in `piiFields` may now be objects or arrays; they are encrypted in the same JSON format. Non-jsonb fields still require a string.",
+    "migration": "Runtimes before this release cannot read `kumiko-pii:v3:` ciphertext. Before annotating a jsonb field with `personal`, roll this version out to every instance, so a rolling deploy never has an old instance reading a value a new one wrote."
+  },
+  {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Uncaught route errors and client aborts go through one error handler",
+    "detail": "`buildServer` calls `app.onError(handleUncaughtRouteError)`, which reuses the `/api/query` helpers: a rethrown abort of the request signal maps to 499, everything else is classified with `toKumikoError`, logged with `logServerFault` and serialized with `serializeError`. Sub-apps mounted via `app.route()` inherit it.",
+    "migration": "keine"
+  },
+  {
+    "version": "0.339.0",
+    "type": "breaking",
+    "title": "ctx.db.unsafeRaw() takes no reason; the audit uses the declared escapeHatch reason",
+    "detail": "`TenantDb.unsafeRaw` is now `unsafeRaw(): DbRunner`. The `unsafe-raw` audit entry carries the reason from the `escapeHatch` declaration, as before. Calls without a matching declaration are still rejected with an `AccessDeniedError`.",
+    "migration": "Replace `ctx.db.unsafeRaw(\"...\")` with `ctx.db.unsafeRaw()`. The reason lives only in `escapeHatch: { reason }` on the handler, hook or job; TypeScript flags old calls. `ctx.systemDb.unsafeRaw(reason)` is unchanged."
+  },
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Workflow run-stream events are registered, so projections can apply them",
+    "detail": "`WORKFLOW_SYSTEM_EVENT_DEFS` declares the seven `kumiko:system:workflow.*` events with a payload schema, version 1 and the stance from `SYSTEM_EVENT_PII_STANCES`. `createRegistry` seeds them into the event map next to `r.defineEvent` events, so apply-key validation, the PII catalog and the upcaster chain see them. A typo such as `kumiko:system:workflow.run-faild` still fails boot. `appendDomainEventCore` keeps skipping schema validation for `kumiko:system:*` types. The feature manifest gains an optional top-level `systemEvents` list.",
+    "migration": "A projection whose row ids are not the workflow-run aggregate id (for example uuidv5-derived ids) still cannot pass the ghost-row guard and needs its own change: its row id must equal the workflow-run aggregate id (this applies to kumiko-enterprise's run-state projection). Hand-built `FeatureManifest` objects stay valid because `systemEvents` is optional; regenerate committed manifests with `bun run gen:manifest` in `samples/apps/use-all-bundled` to pick the list up."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "ctx.configFor(tenantId) resolves config for another tenant",

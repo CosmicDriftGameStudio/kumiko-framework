@@ -1,5 +1,40 @@
 [
   {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Columns with format boolean show a check mark with the accessible name Yes, or a dash with No, instead of raw true/false",
+    "detail": "format boolean renders a localized Yes/No instead of raw true/false",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Inline field labels wrap instead of truncating",
+    "detail": "`Field layout=\"inline\"` no longer puts its label in a single truncated line. Long checkbox labels such as the checkout consent texts wrap, so the dialog stays inside the viewport and its buttons stay reachable.",
+    "migration": "keine"
+  },
+  {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "The open LanguageSwitcher no longer hides the app root with aria-hidden and renders its menu inside the surrounding header landmark",
+    "detail": "LanguageSwitcher is axe-clean while open",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Theme preference auto follows the OS color scheme live; ThemeToggle and ThemeMenuItem step through light, dark and auto, a stored choice wins, and defineAppTheme accepts defaultColorScheme",
+    "detail": "Theme mode auto follows prefers-color-scheme",
+    "migration": "Apps with a theme-restore inline script in their host HTML must update it. The toggle can now store \"auto\", which an old script that only checks for \"dark\" treats as light, so dark-mode users see a light flash on load. Use the script from the comment in renderer-web tokens.ts, which also handles \"auto\" via matchMedia. Under a strict CSP, update the script hash or keep the nonce."
+  },
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "TimeseriesChart draws optional reference lines",
+    "detail": "`TimeseriesChart` accepts an optional `referenceLines` prop that draws dashed horizontal threshold lines (for example a p95 or an SLO target) with an accessible label. A line above the data maximum extends the y-scale.",
+    "migration": "No code change needed. Pass `referenceLines={[{ value, label, tone }]}` to draw a dashed threshold such as p95 or an SLO target."
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "A number field's unit stays inside the field when the label is wider than the input",

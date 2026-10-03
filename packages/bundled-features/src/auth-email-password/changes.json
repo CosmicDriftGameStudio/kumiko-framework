@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "emailPasswordClient({ loginUrl, postLogoutUrl }) sends unauthenticated visitors to an external login page with a same-origin next path and navigates there on logout",
+    "detail": "emailPasswordClient accepts loginUrl and postLogoutUrl for external login pages",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Credential-carrying auth handlers are hidden from the agent catalog; additionalAssignableRoles rejects framework-ranked roles",

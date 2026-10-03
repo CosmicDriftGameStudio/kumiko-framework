@@ -1,0 +1,8 @@
+[
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Workspace link of kumiko-samples shows the published layout through checked-in symlinks",
+    "detail": "`scripts/stage-samples-package.ts` declares the shipped layout once. `stage` replaces the symlinks with filtered copies for packing, `clean` removes the copies and restores the symlinks. `verify-samples-package.sh` now expects the symlinks, not an empty folder, after packing."
+  }
+]

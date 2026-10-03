@@ -1,5 +1,78 @@
 # @cosmicdrift/kumiko-locale-es
 
+## 0.339.0
+
+### Minor Changes
+
+- d5b87a1: Both framework lightboxes can now page through several images. The React `Lightbox` primitive accepts `images`, `index` and `onIndexChange` as an alternative to `src`/`alt`, and the Apex marketing lightbox walks all `.shot-frame` screenshots on the page. Both wrap around at the ends and respond to the arrow keys.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Lightbox pages through multiple images
+  detail: |
+    `LightboxProps` is now a union: the existing `src`/`alt` form is unchanged, and the new `images` + `index` + `onIndexChange` form renders previous/next buttons, a position counter and ArrowLeft/ArrowRight navigation with wrap-around when more than one image is given. The Apex lightbox collects every `.shot-frame img` on open and gains previous/next buttons; its CSP script hash changed. New i18n keys: `kumiko.lightbox.previous`, `kumiko.lightbox.next`, `kumiko.lightbox.position`.
+  -->
+
+- b4c15f6: Theme mode auto follows prefers-color-scheme
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Theme preference auto follows the OS color scheme live; ThemeToggle and ThemeMenuItem step through light, dark and auto, a stored choice wins, and defineAppTheme accepts defaultColorScheme
+  migration: |
+    Apps with a theme-restore inline script in their host HTML must update it. The toggle can now store "auto", which an old script that only checks for "dark" treats as light, so dark-mode users see a light flash on load. Use the script from the comment in renderer-web tokens.ts, which also handles "auto" via matchMedia. Under a strict CSP, update the script hash or keep the nonce.
+  -->
+
+### Patch Changes
+
+- 0e065d2: A missing or unchecked checkout consent now fails with `422 consent_required` instead of a schema `400`. `start-plan-checkout` and `create-checkout-session` accept an absent `consent` and `false` flags and reject them in the consent gate, so clients can show the localized `billing-foundation.errors.consentRequired` message.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Missing or unchecked checkout consent returns 422 consent_required
+  detail: |
+    The consent payload is optional in the `start-plan-checkout` and `create-checkout-session` input schemas and its two flags are plain booleans. `prepareConsent` throws `UnprocessableError("consent_required")` with `billing-foundation.errors.consentRequired` when consumer protection is on and the consent is missing or either flag is not true.
+  migration: |
+    Clients that treated the previous `400` validation error for a missing consent as the signal must check for `422` with `reason: "consent_required"`.
+  -->
+
+- 80ecf93: The billing consent and cancel-contract dialogs now address the user informally ("du" in German, "tú" in Spanish), like the rest of `BillingPlansPanel`. The German contract confirmation mail, the receipt mail for a termination or withdrawal and the public cancellation pages use "du" as well.
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: fix
+  title: Billing consent and cancel dialogs use "du"
+  detail: |
+    `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from "Sie" to "du", matching the `billing-foundation.plans.*` keys. The formal bundle (`address: "formal"`) keeps the "Sie" wording through `localeDeFormalOverrides`.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: fix
+  title: Billing consent and cancel dialogs use "tú"
+  detail: |
+    `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from "usted" to "tú", matching the `billing-foundation.plans.*` keys.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Contract confirmation, termination receipt and cancellation pages use "du"
+  detail: |
+    The German contract confirmation mail, the termination and withdrawal receipt mail, the public cancellation pages and the subscription and payment submit messages address the customer with "du". The recorded consent statements are first-person and unchanged, so `consentTextVersion` stays the same.
+  -->
+
+- Updated dependencies [5b6e5f7]
+- Updated dependencies [c1e6186]
+- Updated dependencies [fcbf184]
+- Updated dependencies [e3adda3]
+- Updated dependencies [1954386]
+- Updated dependencies [b040ca7]
+- Updated dependencies [252f749]
+  - @cosmicdrift/kumiko-framework@0.339.0
+
 ## 0.338.0
 
 ### Patch Changes

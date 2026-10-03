@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Lightbox pages through multiple images",
+    "detail": "`LightboxProps` is now a union: the existing `src`/`alt` form is unchanged, and the new `images` + `index` + `onIndexChange` form renders previous/next buttons, a position counter and ArrowLeft/ArrowRight navigation with wrap-around when more than one image is given. The Apex lightbox collects every `.shot-frame img` on open and gains previous/next buttons; its CSP script hash changed. New i18n keys: `kumiko.lightbox.previous`, `kumiko.lightbox.next`, `kumiko.lightbox.position`."
+  },
+  {
     "version": "0.338.0",
     "type": "fix",
     "title": "configEdit number and money fields start empty without a default",
