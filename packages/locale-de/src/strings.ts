@@ -418,6 +418,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "config.errors.systemOnly": "Dieser Wert lässt sich hier nicht ändern.",
   "config.errors.unknownExtensionPlugin": "Dieser Anbieter ist nicht verfügbar.",
   "config.errors.unknownKey": "Unbekannter Konfigurationsschlüssel.",
+  "config.secret.channel-telegram.bot-token.hint":
+    'Token von @BotFather. Gilt für jeden Telegram-Chat, den der Mandant per route: { telegram: "<Chat-ID>" } anspricht.',
+  "config.secret.channel-telegram.bot-token.label": "Telegram-Bot-Token",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Privater Teil des S3-Schlüsselpaars. Hetzner nennt ihn „Secret Key“, AWS „Secret Access Key“.",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "S3 Secret Access Key",

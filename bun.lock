@@ -553,6 +553,13 @@
         "@cosmicdrift/kumiko-framework": "workspace:*",
       },
     },
+    "samples/recipes/chat-channels": {
+      "name": "@cosmicdrift/kumiko-sample-chat-channels",
+      "dependencies": {
+        "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+        "@cosmicdrift/kumiko-framework": "workspace:*",
+      },
+    },
     "samples/recipes/compliance-profiles-demo": {
       "name": "@cosmicdrift/kumiko-sample-compliance-profiles-demo",
       "dependencies": {
@@ -1083,6 +1090,8 @@
     "@cosmicdrift/kumiko-sample-boot-check": ["@cosmicdrift/kumiko-sample-boot-check@workspace:samples/recipes/boot-check"],
 
     "@cosmicdrift/kumiko-sample-cap-billing-demo": ["@cosmicdrift/kumiko-sample-cap-billing-demo@workspace:samples/apps/cap-billing-demo"],
+
+    "@cosmicdrift/kumiko-sample-chat-channels": ["@cosmicdrift/kumiko-sample-chat-channels@workspace:samples/recipes/chat-channels"],
 
     "@cosmicdrift/kumiko-sample-compliance-profiles-demo": ["@cosmicdrift/kumiko-sample-compliance-profiles-demo@workspace:samples/recipes/compliance-profiles-demo"],
 

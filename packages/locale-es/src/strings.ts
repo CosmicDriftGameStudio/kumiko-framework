@@ -415,6 +415,9 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "config.errors.systemOnly": "Este valor solo puede establecerlo el sistema.",
   "config.errors.unknownExtensionPlugin": "Este proveedor no está disponible.",
   "config.errors.unknownKey": "Clave de configuración desconocida.",
+  "config.secret.channel-telegram.bot-token.hint":
+    'Token de @BotFather. Se usa para cada chat de Telegram al que el inquilino envía con route: { telegram: "<id del chat>" }.',
+  "config.secret.channel-telegram.bot-token.label": "Token del bot de Telegram",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Mitad privada del par de claves de S3. Hetzner la llama «Secret Key», AWS «Secret Access Key».",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "Clave de acceso secreta de S3",

@@ -1,4 +1,19 @@
 export { hashUnsubscribeAddress } from "./address-opt-out.js";
+export {
+  type ChatWebhookChannelOptions,
+  chatMessageText,
+  createChatWebhookChannel,
+  toChannelResult,
+} from "./chat-webhook-channel.js";
+export {
+  type ChatSendFailureCode,
+  type ChatSendResult,
+  type ChatWebhookRequest,
+  chatConnectionNameSchema,
+  DEFAULT_CHAT_TIMEOUT_MS,
+  postChatWebhook,
+  truncateChars,
+} from "./chat-webhook-sender.js";
 export type { DeliveryStatusValue } from "./constants.js";
 export {
   DELIVERY_CHANNEL_EXTENSION,

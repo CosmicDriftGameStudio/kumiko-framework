@@ -445,6 +445,26 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/channel-push",
     factory: "createChannelPushFeature",
   },
+  "channel-slack": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/channel-slack",
+    factory: "createChannelSlackFeature",
+  },
+  "channel-discord": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/channel-discord",
+    factory: "createChannelDiscordFeature",
+  },
+  "channel-teams": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/channel-teams",
+    factory: "createChannelTeamsFeature",
+  },
+  "channel-telegram": {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/channel-telegram",
+    factory: "createChannelTelegramFeature",
+  },
   readiness: {
     kind: "named",
     path: "@cosmicdrift/kumiko-bundled-features/readiness",
