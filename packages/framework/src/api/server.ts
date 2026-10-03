@@ -803,7 +803,15 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const normalizedForeignCookieOrigins = options.auth?.allowedOrigins?.length
     ? new Set(options.auth.allowedOrigins.map(normalizeOrigin))
     : undefined;
+  const tenantlessAnonymousQns = new Set<string>(
+    [...options.registry.getAllWriteHandlers()]
+      .filter(([, handler]) => handler.tenantlessAnonymous === true)
+      .map(([qn]) => qn),
+  );
   const jwtGuard = authMiddleware(jwt, {
+    ...(tenantlessAnonymousQns.size > 0
+      ? { isTenantlessAnonymousWrite: (qn: string) => tenantlessAnonymousQns.has(qn) }
+      : {}),
     ...(options.auth?.sessionChecker ? { sessionChecker: options.auth.sessionChecker } : {}),
     ...(options.auth?.tokenVerifier ? { tokenVerifier: options.auth.tokenVerifier } : {}),
     ...(tenantLifecycleResolver ? { resolveTenantLifecycleStatus: tenantLifecycleResolver } : {}),

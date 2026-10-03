@@ -2,7 +2,7 @@ import type { Context, Next } from "hono";
 import { getCookie } from "hono/cookie";
 import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.js";
 import { createAnonymousUser } from "../engine/system-user.js";
-import { parseTenantId } from "../engine/types/identifiers.js";
+import { parseTenantId, SYSTEM_TENANT_ID } from "../engine/types/identifiers.js";
 import type { SessionUser, TenantId } from "../engine/types/index.js";
 import {
   isSessionRequiredApiPath,
@@ -110,6 +110,10 @@ export type AuthMiddlewareOptions = {
   // even though those pages only ever make anonymous queries). Only
   // meaningful together with anonymousAccess.
   readonly foreignCookieOrigins?: ReadonlySet<string>;
+  // True for write-handler QNs declared `tenantlessAnonymous`. Consulted only
+  // where an anonymous `POST /api/write` would otherwise get tenant_required;
+  // a hit lets it run as the anonymous visitor under SYSTEM_TENANT_ID.
+  readonly isTenantlessAnonymousWrite?: (handlerQn: string) => boolean;
 };
 
 // Resolves the tenant for an unauthenticated request. Returns null when no
@@ -147,7 +151,8 @@ export type AnonymousAccessResolved = AnonymousAccessConfig & {
 // Where the candidate tenant came from. Drives the validation policy:
 //   - header / cookie / resolver: untrusted, must pass tenantExists if set.
 //   - default: trusted (configured at boot), no per-request check.
-type TenantSource = "header" | "cookie" | "resolver" | "default";
+//   - tenantless: SYSTEM_TENANT_ID for a flagged handler, no tenant to check.
+type TenantSource = "header" | "cookie" | "resolver" | "default" | "tenantless";
 
 // Error-body shape matches the UnprocessableError/AccessDeniedError on the
 // dispatcher path — clients parse `{error: {code, httpStatus, message,
@@ -251,6 +256,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     tokenVerifier,
     resolveTenantLifecycleStatus,
     foreignCookieOrigins,
+    isTenantlessAnonymousWrite,
   } = options;
 
   // Fail loud at boot, not silently at request time: a tenantResolver
@@ -263,6 +269,8 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
         '"fallback-only" (client wins, resolver is a last resort).',
     );
   }
+
+  const anonymousExtras = { isTenantlessAnonymousWrite };
 
   return async (c: Context, next: Next) => {
     const extracted = extractToken(c);
@@ -294,7 +302,13 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
             i18nKey: "auth.errors.missingToken",
           });
         }
-        return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus);
+        return await handleAnonymous(
+          c,
+          anonymousAccess,
+          next,
+          resolveTenantLifecycleStatus,
+          anonymousExtras,
+        );
       }
       return middlewareReject(c, {
         code: "missing_token",
@@ -316,7 +330,13 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       foreignCookieOrigins &&
       isForeignCookieOrigin(c, foreignCookieOrigins)
     ) {
-      return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus);
+      return await handleAnonymous(
+        c,
+        anonymousAccess,
+        next,
+        resolveTenantLifecycleStatus,
+        anonymousExtras,
+      );
     }
 
     // Generic bearer-verifier path: try the wired tokenVerifier (PAT, future
@@ -337,7 +357,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
     ): Promise<Response | undefined> => {
       if (isStaleCookieDowngradable(c, transport, anonymousAccess)) {
         return await handleAnonymous(c, anonymousAccess, next, resolveTenantLifecycleStatus, {
-          rejectionIfTenantUnresolved: rejection,
+          staleCredential: { rejectionIfTenantUnresolved: rejection },
         });
       }
       return middlewareReject(c, rejection);
@@ -477,8 +497,12 @@ async function handleAnonymous(
   config: AnonymousAccessResolved,
   next: Next,
   resolveTenantLifecycleStatus?: TenantLifecycleStatusResolver,
-  staleCredential?: { readonly rejectionIfTenantUnresolved: RejectArgs },
+  extras: {
+    readonly staleCredential?: { readonly rejectionIfTenantUnresolved: RejectArgs };
+    readonly isTenantlessAnonymousWrite?: (handlerQn: string) => boolean;
+  } = {},
 ): Promise<Response | undefined> {
+  const { staleCredential, isTenantlessAnonymousWrite } = extras;
   // A downgraded stale credential whose anonymous tenant can't be resolved or
   // is torn down answers with the credential's own 401: a tenant error would
   // hide the session end from the client.
@@ -503,11 +527,14 @@ async function handleAnonymous(
         : null;
 
   // Step 3: pick the authoritative tenant.
-  const resolved = await resolveTenant(c, config, clientTenant);
+  const resolved = await resolveTenantOrTenantless(c, config, clientTenant, {
+    allowTenantless: staleCredential === undefined,
+    isTenantlessAnonymousWrite,
+  });
   if ("error" in resolved) return rejectTenant(resolved.error);
 
   // Step 4: existence check for untrusted sources.
-  if (resolved.source !== "default" && config.tenantExists) {
+  if (resolved.source !== "default" && resolved.source !== "tenantless" && config.tenantExists) {
     const exists = await config.tenantExists(resolved.tenantId);
     if (!exists) {
       return rejectTenant({
@@ -520,12 +547,11 @@ async function handleAnonymous(
     }
   }
 
-  // Step 5: synthesise + continue.
-  const lifecycleReject = await rejectIfTenantTeardown(
-    c,
-    resolved.tenantId,
-    resolveTenantLifecycleStatus,
-  );
+  // Step 5: synthesise + continue. SYSTEM_TENANT_ID is no lifecycle-managed tenant.
+  const lifecycleReject =
+    resolved.source === "tenantless"
+      ? undefined
+      : await rejectIfTenantTeardown(c, resolved.tenantId, resolveTenantLifecycleStatus);
   if (lifecycleReject) {
     return staleCredential
       ? middlewareReject(c, staleCredential.rejectionIfTenantUnresolved)
@@ -536,6 +562,58 @@ async function handleAnonymous(
   // skip: anonymous path completed — Hono middleware contract returns void
   // when next() ran; explicit return makes the union return-type honest.
   return;
+}
+
+// The exemption applies only where resolveTenant answers tenant_required:
+// never on tenant_mismatch, never when the client named a tenant via X-Tenant,
+// never for a downgraded stale credential. An ambient tenant cookie does not
+// block it: tenant_required with a client tenant only happens when an
+// authoritative resolver stayed silent, and that path ignores the cookie
+// anyway, so a customer who also uses the app on this host can still cancel.
+async function resolveTenantOrTenantless(
+  c: Context,
+  config: AnonymousAccessResolved,
+  clientTenant: { id: TenantId; source: "header" | "cookie" } | null,
+  tenantless: {
+    readonly allowTenantless: boolean;
+    readonly isTenantlessAnonymousWrite: ((handlerQn: string) => boolean) | undefined;
+  },
+): Promise<ResolvedTenant | ResolveError> {
+  const resolved = await resolveTenant(c, config, clientTenant);
+  const { isTenantlessAnonymousWrite } = tenantless;
+  if (
+    "error" in resolved &&
+    resolved.error.code === "tenant_required" &&
+    clientTenant?.source !== "header" &&
+    tenantless.allowTenantless &&
+    isTenantlessAnonymousWrite !== undefined &&
+    (await isFlaggedTenantlessWrite(c, isTenantlessAnonymousWrite))
+  ) {
+    return { tenantId: SYSTEM_TENANT_ID, source: "tenantless" };
+  }
+  return resolved;
+}
+
+// Body peek for the tenantless exemption: only a single-command POST
+// /api/write qualifies, never /api/batch. Parsing the clone leaves the body
+// intact for the dispatcher; the body-size limit already ran upstream.
+async function isFlaggedTenantlessWrite(
+  c: Context,
+  isTenantlessAnonymousWrite: (handlerQn: string) => boolean,
+): Promise<boolean> {
+  if (c.req.method !== "POST" || c.req.path !== "/api/write") return false;
+  try {
+    const body: unknown = await c.req.raw.clone().json();
+    return (
+      typeof body === "object" &&
+      body !== null &&
+      "type" in body &&
+      typeof body.type === "string" &&
+      isTenantlessAnonymousWrite(body.type)
+    );
+  } catch {
+    return false;
+  }
 }
 
 // Validates an X-Tenant / cookie value against the tenantId format. Returns

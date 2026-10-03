@@ -5,6 +5,7 @@
 
 import {
   access,
+  type HandlerContext,
   type QueryHandlerDef,
   SYSTEM_ROLE,
   type WriteHandlerDef,
@@ -17,17 +18,22 @@ import { isTerminalSubscriptionStatus, SubscriptionCancelTimings } from "../cons
 import {
   CONTRACT_TERMINATION_CHANNELS,
   CONTRACT_TERMINATION_DECLARATION_TYPES,
+  CONTRACT_TERMINATION_DECLARED_EVENT_QN,
   CONTRACT_TERMINATION_KINDS,
   CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
   CONTRACT_TERMINATION_UNMATCHED_AGGREGATE_TYPE,
   CONTRACT_TERMINATION_UNMATCHED_EVENT_QN,
+  type ContractTerminationDeclaredPayload,
   type ContractTerminationRequestedPayload,
   type ContractTerminationUnmatchedPayload,
+  contractTerminationRequestedPayloadSchema,
   type ProviderCancelOutcome,
   SUBSCRIPTION_AGGREGATE_TYPE,
 } from "../events.js";
 import { getSubscriptionForTenant } from "../get-subscription-for-tenant.js";
-import type { ResolvedBillingFoundationOptions } from "../types.js";
+import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
+import { CONSENT_LOCALES, FALLBACK_CONSENT_LOCALE } from "./consent-locale.js";
+import { notifyOperator } from "./termination-notify.js";
 import type { OperatorNoticeReason } from "./termination-texts.js";
 
 const REQUESTED_CANCEL_TIMINGS = [
@@ -43,6 +49,20 @@ export const recordContractTerminationSchema = z
     terminationKind: z.enum(CONTRACT_TERMINATION_KINDS),
     channel: z.enum(CONTRACT_TERMINATION_CHANNELS),
     when: z.enum(REQUESTED_CANCEL_TIMINGS),
+    // The public job passes the time the declaration arrived and the declarant's
+    // locale, so the record and a provider-problem notice do not take the job's.
+    receivedAtIso: z.string().min(1).optional(),
+    locale: z.enum(CONSENT_LOCALES).optional(),
+  })
+  .strict();
+
+export const declareContractTerminationSchema = z
+  .object({
+    requestId: z.string().min(1).max(100),
+    declarationType: z.enum(CONTRACT_TERMINATION_DECLARATION_TYPES),
+    terminationKind: z.enum(CONTRACT_TERMINATION_KINDS),
+    receivedAtIso: z.string().min(1),
+    locale: z.enum(CONSENT_LOCALES),
   })
   .strict();
 
@@ -85,8 +105,71 @@ export function createTerminableSubscriptionQuery(): QueryHandlerDef {
   };
 }
 
+type ProviderCancelResult = Pick<
+  RecordContractTerminationResult,
+  "providerCancel" | "effectiveAtIso" | "noticeReason"
+>;
+
+async function cancelAtProvider(
+  ctx: HandlerContext,
+  tenantId: string,
+  when: (typeof REQUESTED_CANCEL_TIMINGS)[number],
+  receivedAtIso: string,
+): Promise<ProviderCancelResult> {
+  // skip: a withdrawal over the public channel makes no provider call
+  if (when === "none") return { providerCancel: "none", effectiveAtIso: null, noticeReason: null };
+  const subscription = await getSubscriptionForTenant(ctx, tenantId);
+  if (subscription === null || isTerminalSubscriptionStatus(subscription.status)) {
+    return { providerCancel: "none", effectiveAtIso: null, noticeReason: "no_active_subscription" };
+  }
+  const plugin = findPlugin(ctx, subscription.providerName);
+  if (!plugin?.cancelSubscription) {
+    return { providerCancel: "none", effectiveAtIso: null, noticeReason: "provider_cannot_cancel" };
+  }
+  try {
+    await plugin.cancelSubscription(ctx, {
+      providerSubscriptionId: subscription.providerSubscriptionId,
+      when,
+    });
+  } catch (error) {
+    ctx.log?.warn(
+      `[billing-foundation:record-contract-termination] provider cancel failed for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return { providerCancel: "none", effectiveAtIso: null, noticeReason: "provider_error" };
+  }
+  return {
+    providerCancel: when,
+    effectiveAtIso:
+      when === SubscriptionCancelTimings.immediately
+        ? receivedAtIso
+        : subscription.currentPeriodEnd.toString(),
+    noticeReason: null,
+  };
+}
+
+export function createDeclareContractTerminationHandler(): WriteHandlerDef {
+  return {
+    name: "declare-contract-termination",
+    agent: { expose: false },
+    schema: declareContractTerminationSchema,
+    access: { roles: access.system },
+    handler: async (event, ctx) => {
+      // @cast-boundary engine-payload — dispatcher-zod-validated payload
+      const payload = event.payload as z.infer<typeof declareContractTerminationSchema>;
+      const stream = await ctx.fetchForWriting({
+        aggregateId: subscriptionAggregateId(event.user.tenantId),
+        aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
+      });
+      const declared: ContractTerminationDeclaredPayload = payload;
+      await stream.appendOne({ type: CONTRACT_TERMINATION_DECLARED_EVENT_QN, payload: declared });
+      return { isSuccess: true as const, data: { declared: true } };
+    },
+  };
+}
+
 export function createRecordContractTerminationHandler(
   options: ResolvedBillingFoundationOptions,
+  consumerProtection: ConsumerProtectionOptions,
 ): WriteHandlerDef {
   return {
     name: "record-contract-termination",
@@ -104,44 +187,39 @@ export function createRecordContractTerminationHandler(
         });
       }
 
-      const receivedAtIso = options.now().toString();
+      const receivedAtIso = payload.receivedAtIso ?? options.now().toString();
       const stream = await ctx.fetchForWriting({
         aggregateId: subscriptionAggregateId(tenantId),
         aggregateType: SUBSCRIPTION_AGGREGATE_TYPE,
       });
 
-      let providerCancel: ProviderCancelOutcome = "none";
-      let effectiveAtIso: string | null = null;
-      let noticeReason: RecordContractTerminationResult["noticeReason"] = null;
-
-      if (payload.when !== "none") {
-        const subscription = await getSubscriptionForTenant(ctx, tenantId);
-        if (subscription === null || isTerminalSubscriptionStatus(subscription.status)) {
-          noticeReason = "no_active_subscription";
-        } else {
-          const plugin = findPlugin(ctx, subscription.providerName);
-          if (!plugin?.cancelSubscription) {
-            noticeReason = "provider_cannot_cancel";
-          } else {
-            try {
-              await plugin.cancelSubscription(ctx, {
-                providerSubscriptionId: subscription.providerSubscriptionId,
-                when: payload.when,
-              });
-              providerCancel = payload.when;
-              effectiveAtIso =
-                payload.when === SubscriptionCancelTimings.immediately
-                  ? receivedAtIso
-                  : subscription.currentPeriodEnd.toString();
-            } catch (error) {
-              ctx.log?.warn(
-                `[billing-foundation:record-contract-termination] provider cancel failed for tenant ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
-              );
-              noticeReason = "provider_error";
-            }
-          }
-        }
+      // The public job runs at least once: a second run must not call the
+      // provider or append again.
+      const alreadyRecorded = stream.events
+        .map((e) =>
+          e.type === CONTRACT_TERMINATION_REQUESTED_EVENT_QN
+            ? contractTerminationRequestedPayloadSchema.safeParse(e.payload).data
+            : undefined,
+        )
+        .find((recordedPayload) => recordedPayload?.requestId === payload.requestId);
+      if (alreadyRecorded) {
+        return {
+          isSuccess: true as const,
+          data: {
+            receivedAtIso: alreadyRecorded.receivedAtIso,
+            effectiveAtIso: alreadyRecorded.effectiveAtIso,
+            providerCancel: alreadyRecorded.providerCancel,
+            noticeReason: null,
+          } satisfies RecordContractTerminationResult,
+        };
       }
+
+      const { providerCancel, effectiveAtIso, noticeReason } = await cancelAtProvider(
+        ctx,
+        tenantId,
+        payload.when,
+        receivedAtIso,
+      );
 
       const recorded: ContractTerminationRequestedPayload = {
         requestId: payload.requestId,
@@ -156,6 +234,24 @@ export function createRecordContractTerminationHandler(
         type: CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
         payload: recorded,
       });
+
+      // The account path reports the provider outcome to its caller and the
+      // operator in its own mail; the public path has nobody else to tell.
+      if (payload.channel === "public" && noticeReason !== null) {
+        await notifyOperator(ctx, consumerProtection, {
+          locale: payload.locale ?? FALLBACK_CONSENT_LOCALE,
+          requestId: payload.requestId,
+          receivedAtIso,
+          channel: "public",
+          declaration: {
+            declarationType: payload.declarationType,
+            terminationKind: payload.terminationKind,
+          },
+          reasons: [noticeReason],
+          tenantId,
+          providerCancel,
+        });
+      }
 
       return {
         isSuccess: true as const,

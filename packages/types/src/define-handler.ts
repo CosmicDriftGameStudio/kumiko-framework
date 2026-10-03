@@ -42,6 +42,7 @@ export type WriteHandlerDefinition<
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly tenantlessAnonymous?: boolean;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
     context: HandlerContext<TMap>,
@@ -70,6 +71,7 @@ export type WriteHandlerInput<
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly tenantlessAnonymous?: boolean;
 } & (
   | {
       readonly handler: (

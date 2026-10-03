@@ -5,7 +5,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
-import { defineFeature, SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  type FeatureDefinition,
+  SYSTEM_TENANT_ID,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -17,6 +21,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/stack";
 import { seedRow } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import * as z from "zod";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
 import {
   createComplianceProfilesFeature,
@@ -43,10 +48,12 @@ import {
   SubscriptionEventTypes,
   SubscriptionFoundationHandlers,
   SubscriptionStatuses,
+  type TerminationScope,
 } from "../constants.js";
 import { formatReceivedAt } from "../consumer-protection/termination-mail.js";
 import { createContractTerminationRoutes } from "../consumer-protection/termination-pages.js";
 import {
+  CONTRACT_TERMINATION_DECLARED_EVENT_QN,
   CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
   CONTRACT_TERMINATION_UNMATCHED_EVENT_QN,
 } from "../events.js";
@@ -115,7 +122,15 @@ let ipCounter = 0;
 
 type StackAnonymousAccess = NonNullable<Parameters<typeof setupTestStack>[0]["anonymousAccess"]>;
 
-async function createTerminationStack(anonymousAccess: StackAnonymousAccess): Promise<TestStack> {
+type TerminationStackOptions = {
+  readonly terminationScope?: TerminationScope;
+  readonly extraFeatures?: readonly FeatureDefinition[];
+};
+
+async function createTerminationStack(
+  anonymousAccess: StackAnonymousAccess,
+  stackOptions: TerminationStackOptions = {},
+): Promise<TestStack> {
   const terminationStack = await setupTestStack({
     features: [
       createConfigFeature(),
@@ -135,9 +150,15 @@ async function createTerminationStack(anonymousAccess: StackAnonymousAccess): Pr
       createBillingFoundationFeature({
         baseUrl: "https://app.example.com",
         catalog,
-        consumerProtection,
+        consumerProtection: {
+          ...consumerProtection,
+          ...(stackOptions.terminationScope !== undefined && {
+            terminationScope: stackOptions.terminationScope,
+          }),
+        },
       }),
       mockProviderFeature,
+      ...(stackOptions.extraFeatures ?? []),
     ],
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
@@ -163,14 +184,11 @@ afterAll(async () => {
   await stack.cleanup();
 });
 
-beforeEach(async () => {
-  emailTransport.sent.length = 0;
-  cancelCalls.length = 0;
-  providerCancelFails = false;
-  await stack.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await asRawClient(stack.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
-  await seedRow(stack.db, templateResourcesTable, {
+async function resetStack(target: TestStack): Promise<void> {
+  await target.db.unsafe?.(`TRUNCATE kumiko_events, read_subscriptions, read_payments CASCADE`);
+  await asRawClient(target.db).unsafe(`DELETE FROM "${userTable.tableName}"`);
+  await asRawClient(target.db).unsafe(`DELETE FROM "${templateResourcesTable.tableName}"`);
+  await seedRow(target.db, templateResourcesTable, {
     tenantId: SYSTEM_TENANT_ID,
     slug: TERMS_SLUG,
     kind: TEXT_BLOCK_KIND,
@@ -185,6 +203,13 @@ beforeEach(async () => {
     insertedById: "test",
     modifiedById: "test",
   });
+}
+
+beforeEach(async () => {
+  emailTransport.sent.length = 0;
+  cancelCalls.length = 0;
+  providerCancelFails = false;
+  await resetStack(stack);
 });
 
 // A distinct client IP per test keeps the handler's per-IP bucket from
@@ -194,8 +219,8 @@ function nextClientIp(): string {
   return `10.8.${Math.floor(ipCounter / 250)}.${(ipCounter % 250) + 1}`;
 }
 
-async function createUser(email: string): Promise<string> {
-  const created = await stack.http.writeOk<{ id: string }>(
+async function createUser(email: string, target: TestStack = stack): Promise<string> {
+  const created = await target.http.writeOk<{ id: string }>(
     UserHandlers.create,
     { email, passwordHash: "not-a-real-hash", displayName: "Declarant" },
     TestUsers.systemAdmin,
@@ -203,15 +228,24 @@ async function createUser(email: string): Promise<string> {
   return created.id;
 }
 
-async function addMember(userId: string, tenantNumber: number, roles: string[]): Promise<void> {
-  await stack.http.writeOk(
+async function addMember(
+  userId: string,
+  tenantNumber: number,
+  roles: string[],
+  target: TestStack = stack,
+): Promise<void> {
+  await target.http.writeOk(
     TenantHandlers.addMember,
     { userId, tenantId: testTenantId(tenantNumber), roles },
     TestUsers.systemAdmin,
   );
 }
 
-async function seedSubscription(tenantNumber: number, providerSubscriptionId: string) {
+async function seedSubscription(
+  tenantNumber: number,
+  providerSubscriptionId: string,
+  target: TestStack = stack,
+) {
   const event: SubscriptionEvent = {
     providerEventId: `evt_${providerSubscriptionId}`,
     providerName: PROVIDER,
@@ -223,7 +257,7 @@ async function seedSubscription(tenantNumber: number, providerSubscriptionId: st
     tier: "pro",
     currentPeriodEnd: "2026-11-02T00:00:00Z",
   };
-  const res = await stack.app.request(`/api/subscription/webhook/${PROVIDER}`, {
+  const res = await target.app.request(`/api/subscription/webhook/${PROVIDER}`, {
     method: "POST",
     body: JSON.stringify(event),
     headers: { "stripe-signature": "test_sig" },
@@ -249,12 +283,17 @@ function declarationPayload(input: DeclarationInput) {
   };
 }
 
-async function postDeclaration(input: DeclarationInput, clientIp: string): Promise<Response> {
-  return stack.app.request(
+async function postDeclaration(
+  input: DeclarationInput,
+  clientIp: string,
+  target: TestStack = stack,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return target.app.request(
     "/api/write",
     {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify({
         type: SubscriptionFoundationHandlers.requestContractTermination,
         payload: declarationPayload(input),
@@ -266,17 +305,26 @@ async function postDeclaration(input: DeclarationInput, clientIp: string): Promi
 
 type DeclarationReceipt = { readonly requestId: string; readonly receivedAtIso: string };
 
-async function declare(input: DeclarationInput): Promise<DeclarationReceipt> {
-  const res = await postDeclaration(input, nextClientIp());
+async function declare(
+  input: DeclarationInput,
+  target: TestStack = stack,
+  headers: Record<string, string> = {},
+): Promise<DeclarationReceipt> {
+  const res = await postDeclaration(input, nextClientIp(), target, headers);
   expect(res.status).toBe(200);
   const body = (await res.json()) as { isSuccess: boolean; data: DeclarationReceipt };
   expect(body.isSuccess).toBe(true);
-  await stack.drainJobs();
+  await target.drainJobs();
   return body.data;
 }
 
-async function eventsOf(aggregateId: string, tenantId: string, type: string) {
-  const events = await loadAggregate(stack.db, aggregateId, tenantId as never, {
+async function eventsOf(
+  aggregateId: string,
+  tenantId: string,
+  type: string,
+  target: TestStack = stack,
+) {
+  const events = await loadAggregate(target.db, aggregateId, tenantId as never, {
     includeArchived: true,
   });
   return events.filter((e) => e.type === type);
@@ -668,57 +716,335 @@ describe("terminate-contract (account path)", () => {
   });
 });
 
-describe("public pages on a host that resolves no tenant", () => {
-  let noTenantStack: TestStack;
+const TENANT_HOST = "tenant-a.example.com";
+const APEX_HOST = "platform.example.com";
+const HOST_TENANT_NUMBER = 8200;
+
+const unflaggedAnonymousFeature = defineFeature("test-unflagged-anonymous", (r) => {
+  r.writeHandler({
+    name: "ping",
+    schema: z.object({}).strict(),
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip", limit: 5, windowSeconds: 600 },
+    handler: async () => ({ isSuccess: true as const, data: { pong: true } }),
+  });
+});
+const UNFLAGGED_PING_QN = "test-unflagged-anonymous:write:ping";
+
+// Reads the Host header on purpose: the pages re-enter /api/write, which
+// only sees the headers the re-entry forwards.
+function hostTenantResolver(c: { req: { header: (name: string) => string | undefined } }) {
+  return c.req.header("host") === TENANT_HOST ? testTenantId(HOST_TENANT_NUMBER) : null;
+}
+
+function hostAnonymousAccess(): StackAnonymousAccess {
+  return {
+    tenantResolver: hostTenantResolver,
+    resolverTrust: "authoritative",
+    tenantExists: async (id) => id === testTenantId(HOST_TENANT_NUMBER),
+  };
+}
+
+async function postConfirmForm(
+  target: TestStack,
+  path: string,
+  email: string,
+  headers: Record<string, string>,
+  clientIp: string = nextClientIp(),
+): Promise<Response> {
+  return target.app.request(
+    path,
+    {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+      body: new URLSearchParams({
+        declarationType: "termination",
+        terminationKind: "ordinary",
+        name: DECLARANT_NAME,
+        email,
+        step: "confirm",
+      }).toString(),
+    },
+    clientIp,
+  );
+}
+
+async function getPage(target: TestStack, path: string, headers: Record<string, string>) {
+  return target.app.request(path, { headers }, nextClientIp());
+}
+
+async function expectBothPagesServed(target: TestStack, headers: Record<string, string>) {
+  for (const path of ["/legal/kuendigen", "/legal/cancel"]) {
+    const res = await getPage(target, path, headers);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('name="email"');
+  }
+}
+
+describe("public pages on a host-resolved tenant", () => {
+  let hostStack: TestStack;
 
   beforeAll(async () => {
-    noTenantStack = await createTerminationStack({
-      tenantResolver: () => null,
-      resolverTrust: "authoritative",
-      tenantExists: async (id) => id === ANONYMOUS_TENANT,
+    hostStack = await createTerminationStack(hostAnonymousAccess(), {
+      extraFeatures: [unflaggedAnonymousFeature],
     });
   });
 
   afterAll(async () => {
-    await noTenantStack.cleanup();
+    await hostStack.cleanup();
   });
 
-  // An authoritative resolver's silence is final: the anonymous dispatcher
-  // answers tenant_required before the handler runs, so the routes must be
-  // mounted on a host that resolves a tenant.
-  test("the confirm step cannot record a declaration and shows the generic error", async () => {
-    const res = await noTenantStack.app.request(
-      "/legal/kuendigen",
-      {
-        method: "POST",
-        headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          declarationType: "termination",
-          terminationKind: "ordinary",
-          name: DECLARANT_NAME,
-          email: "no-tenant-host@example.com",
-          step: "confirm",
-        }).toString(),
-      },
-      nextClientIp(),
-    );
+  beforeEach(async () => {
+    await resetStack(hostStack);
+  });
 
+  test("the confirm POST on a tenant host records the declaration and cancels via the job", async () => {
+    const email = "host-matched@example.com";
+    const userId = await createUser(email, hostStack);
+    await addMember(userId, HOST_TENANT_NUMBER, ["TenantAdmin"], hostStack);
+    await seedSubscription(HOST_TENANT_NUMBER, "sub_host", hostStack);
+    const headers = { host: TENANT_HOST };
+    await expectBothPagesServed(hostStack, headers);
+
+    const res = await postConfirmForm(hostStack, "/legal/kuendigen", email, headers);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Deine Erklärung ist eingegangen");
+    const requestId = WRITE_REQUEST_ID_PATTERN.exec(html)?.[0] ?? "";
+    await hostStack.drainJobs();
+
+    const aggregateId = subscriptionAggregateId(testTenantId(HOST_TENANT_NUMBER));
+    const declared = await eventsOf(
+      aggregateId,
+      testTenantId(HOST_TENANT_NUMBER),
+      CONTRACT_TERMINATION_DECLARED_EVENT_QN,
+      hostStack,
+    );
+    expect(declared.map((e) => e.payload)).toEqual([
+      {
+        requestId,
+        declarationType: "termination",
+        terminationKind: "ordinary",
+        receivedAtIso: expect.any(String),
+        locale: "de",
+      },
+    ]);
+    const recorded = await eventsOf(
+      aggregateId,
+      testTenantId(HOST_TENANT_NUMBER),
+      CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
+      hostStack,
+    );
+    expect(recorded[0]?.payload).toMatchObject({
+      requestId,
+      channel: "public",
+      providerCancel: "period-end",
+    });
+    expect(cancelCalls).toEqual([{ providerSubscriptionId: "sub_host", when: "period-end" }]);
+    expect(mailsTo(email)).toHaveLength(1);
+  });
+
+  test("a host that resolves no tenant still answers tenant_required, on the page and on /api/write", async () => {
+    const email = "host-unknown@example.com";
+    const page = await postConfirmForm(hostStack, "/legal/kuendigen", email, { host: APEX_HOST });
+    expect(page.status).toBe(400);
+    expect(await page.text()).not.toContain("Deine Erklärung ist eingegangen");
+
+    const direct = await postDeclaration({ email }, nextClientIp(), hostStack, { host: APEX_HOST });
+    expect(direct.status).toBe(400);
+    expect(((await direct.json()) as { error: { code: string } }).error.code).toBe(
+      "tenant_required",
+    );
+  });
+});
+
+describe("public pages in platform mode on a host that resolves no tenant", () => {
+  let platformStack: TestStack;
+  const apex = { host: APEX_HOST };
+
+  beforeAll(async () => {
+    platformStack = await createTerminationStack(hostAnonymousAccess(), {
+      terminationScope: "platform",
+      extraFeatures: [unflaggedAnonymousFeature],
+    });
+  });
+
+  afterAll(async () => {
+    await platformStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await resetStack(platformStack);
+  });
+
+  test("both pages are served on the platform host", async () => {
+    await expectBothPagesServed(platformStack, apex);
+  });
+
+  test("a matched TenantAdmin email is recorded on that tenant and cancelled by the job", async () => {
+    const email = "platform-matched@example.com";
+    const userId = await createUser(email, platformStack);
+    await addMember(userId, 8201, ["TenantAdmin"], platformStack);
+    await seedSubscription(8201, "sub_platform", platformStack);
+
+    const res = await postConfirmForm(platformStack, "/legal/cancel", email, apex);
+    expect(res.status).toBe(200);
+    const requestId = WRITE_REQUEST_ID_PATTERN.exec(await res.text())?.[0] ?? "";
+    await platformStack.drainJobs();
+
+    const recorded = await eventsOf(
+      subscriptionAggregateId(testTenantId(8201)),
+      testTenantId(8201),
+      CONTRACT_TERMINATION_REQUESTED_EVENT_QN,
+      platformStack,
+    );
+    expect(recorded[0]?.payload).toMatchObject({
+      requestId,
+      channel: "public",
+      providerCancel: "period-end",
+    });
+    expect(cancelCalls).toEqual([{ providerSubscriptionId: "sub_platform", when: "period-end" }]);
+    expect(mailsTo(email)).toHaveLength(1);
+    expect(mailsTo(OPERATOR_EMAIL)).toHaveLength(0);
+  });
+
+  test("unknown and ambiguous emails get the same response as a match and are recorded as unmatched", async () => {
+    const matchedEmail = "platform-twin@example.com";
+    const matchedUser = await createUser(matchedEmail, platformStack);
+    await addMember(matchedUser, 8202, ["TenantAdmin"], platformStack);
+    await seedSubscription(8202, "sub_platform_twin", platformStack);
+    const ambiguousEmail = "platform-ambiguous@example.com";
+    const ambiguousUser = await createUser(ambiguousEmail, platformStack);
+    await addMember(ambiguousUser, 8203, ["TenantAdmin"], platformStack);
+    await addMember(ambiguousUser, 8204, ["TenantAdmin"], platformStack);
+    await seedSubscription(8203, "sub_platform_amb_a", platformStack);
+    await seedSubscription(8204, "sub_platform_amb_b", platformStack);
+    const unknownEmail = "platform-nobody@example.com";
+
+    const responses = [];
+    for (const email of [matchedEmail, unknownEmail, ambiguousEmail]) {
+      const res = await postConfirmForm(platformStack, "/legal/kuendigen", email, apex);
+      const html = await res.text();
+      const requestId = WRITE_REQUEST_ID_PATTERN.exec(html)?.[0] ?? "";
+      const receivedAtIso = /Eingegangen am: <strong>([^<]+)<\/strong>/.exec(html)?.[1] ?? "";
+      responses.push({
+        status: res.status,
+        requestId,
+        normalized: html.replaceAll(requestId, "<REQUEST_ID>").replace(receivedAtIso, "<AT>"),
+      });
+    }
+    await platformStack.drainJobs();
+
+    const [matched, unknown, ambiguous] = responses;
+    expect(matched?.status).toBe(200);
+    expect(unknown?.status).toBe(matched?.status);
+    expect(ambiguous?.status).toBe(matched?.status);
+    expect(unknown?.normalized).toBe(matched?.normalized);
+    expect(ambiguous?.normalized).toBe(matched?.normalized);
+
+    for (const [response, matchResult] of [
+      [unknown, "none"],
+      [ambiguous, "ambiguous"],
+    ] as const) {
+      const events = await eventsOf(
+        terminationUnmatchedAggregateId(response?.requestId ?? ""),
+        SYSTEM_TENANT_ID,
+        CONTRACT_TERMINATION_UNMATCHED_EVENT_QN,
+        platformStack,
+      );
+      expect(events[0]?.payload).toMatchObject({ matchResult });
+    }
+    expect(cancelCalls).toEqual([
+      { providerSubscriptionId: "sub_platform_twin", when: "period-end" },
+    ]);
+    expect(mailsTo(unknownEmail)).toHaveLength(1);
+    expect(mailsTo(ambiguousEmail)).toHaveLength(1);
+    expect(mailsTo(OPERATOR_EMAIL)).toHaveLength(2);
+  });
+
+  test("an ambient tenant cookie on the platform host does not block the declaration", async () => {
+    const email = "platform-cookie@example.com";
+    const userId = await createUser(email, platformStack);
+    await addMember(userId, 8205, ["TenantAdmin"], platformStack);
+    await seedSubscription(8205, "sub_platform_cookie", platformStack);
+
+    const res = await postConfirmForm(platformStack, "/legal/kuendigen", email, {
+      ...apex,
+      cookie: `kumiko_tenant=${testTenantId(8299)}`,
+    });
+    expect(res.status).toBe(200);
+    await platformStack.drainJobs();
+
+    expect(cancelCalls).toEqual([
+      { providerSubscriptionId: "sub_platform_cookie", when: "period-end" },
+    ]);
+    expect(mailsTo(email)).toHaveLength(1);
+  });
+
+  test("the sixth confirm from one IP on the platform host gets the friendly 429 page", async () => {
+    const ip = nextClientIp();
+    for (let i = 0; i < 5; i += 1) {
+      const ok = await postConfirmForm(
+        platformStack,
+        "/legal/cancel",
+        "limit@example.com",
+        apex,
+        ip,
+      );
+      expect(ok.status).toBe(200);
+    }
+    const limited = await postConfirmForm(
+      platformStack,
+      "/legal/cancel",
+      "limit@example.com",
+      apex,
+      ip,
+    );
+    expect(limited.status).toBe(429);
+    expect(await limited.text()).toContain("Too many requests");
+  });
+
+  test("a client-supplied tenant on the platform host does not open the exemption", async () => {
+    const res = await postDeclaration({ email: "x@example.com" }, nextClientIp(), platformStack, {
+      ...apex,
+      "x-tenant": testTenantId(8299),
+    });
     expect(res.status).toBe(400);
-    expect(await res.text()).not.toContain("Deine Erklärung ist eingegangen");
-    const direct = await noTenantStack.app.request(
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("tenant_required");
+  });
+
+  test("an unflagged anonymous handler still answers tenant_required there", async () => {
+    const res = await platformStack.app.request(
       "/api/write",
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...apex },
+        body: JSON.stringify({ type: UNFLAGGED_PING_QN, payload: {} }),
+      },
+      nextClientIp(),
+    );
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("tenant_required");
+  });
+
+  test("/api/batch with the flagged command still answers tenant_required", async () => {
+    const res = await platformStack.app.request(
+      "/api/batch",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json", ...apex },
         body: JSON.stringify({
-          type: SubscriptionFoundationHandlers.requestContractTermination,
-          payload: declarationPayload({ email: "no-tenant-host@example.com" }),
+          commands: [
+            {
+              type: SubscriptionFoundationHandlers.requestContractTermination,
+              payload: declarationPayload({ email: "batch@example.com" }),
+            },
+          ],
         }),
       },
       nextClientIp(),
     );
-    expect(direct.status).toBe(400);
-    const body = (await direct.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("tenant_required");
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("tenant_required");
   });
 });

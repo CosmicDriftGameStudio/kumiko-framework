@@ -4,6 +4,7 @@
 import type { AnonymousExtraRoute } from "@cosmicdrift/kumiko-framework/api";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { Context } from "hono";
+import { getCookie } from "hono/cookie";
 import { securePageHeaders, wrapInLayout } from "../../page-render/index.js";
 import { SubscriptionFoundationHandlers } from "../constants.js";
 import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } from "../events.js";
@@ -247,6 +248,33 @@ type WriteResponseBody = {
 
 const RATE_LIMITED_CODE = "rate_limited";
 
+const TENANT_HEADER = "x-tenant";
+const TENANT_COOKIE = "kumiko_tenant";
+// Exactly what the anonymous tenant resolution reads. The resolver and its
+// trust rules still decide; the re-entry only sees what a direct /api/write
+// from this client would see. Never the session cookie or Authorization (the
+// handler is anonymous) and never X-Forwarded-For (the resolved clientIp
+// travels as env).
+const FORWARDED_TENANT_HEADERS = [
+  "host",
+  "x-forwarded-host",
+  "x-forwarded-proto",
+  TENANT_HEADER,
+] as const;
+
+function reentryHeaders(c: Context): Headers {
+  const headers = new Headers({ "content-type": "application/json" });
+  for (const name of FORWARDED_TENANT_HEADERS) {
+    const value = c.req.header(name);
+    if (value !== undefined) headers.set(name, value);
+  }
+  const tenantCookie = getCookie(c, TENANT_COOKIE);
+  if (tenantCookie !== undefined) {
+    headers.set("cookie", `${TENANT_COOKIE}=${encodeURIComponent(tenantCookie)}`);
+  }
+  return headers;
+}
+
 async function submitDeclaration(
   c: Context,
   app: { fetch: (request: Request, env?: unknown) => Response | Promise<Response> },
@@ -261,11 +289,13 @@ async function submitDeclaration(
   // deps.write only resolves a session user under /api/*; this page lives
   // outside it, so it re-enters the dispatcher through the app like the
   // user-export by-token route. The resolved clientIp as env keeps the
-  // handler's per-IP rate limit per visitor instead of one shared bucket.
+  // handler's per-IP rate limit per visitor instead of one shared bucket;
+  // the forwarded host headers let a host-based tenant resolver see this
+  // visitor's host.
   const response = await app.fetch(
     new Request(`${new URL(c.req.url).origin}/api/write`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: reentryHeaders(c),
       body: JSON.stringify({
         type: SubscriptionFoundationHandlers.requestContractTermination,
         payload: payloadOf(values, locale),

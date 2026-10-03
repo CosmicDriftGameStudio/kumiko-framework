@@ -1243,6 +1243,10 @@ export type WriteHandlerDef = {
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
   readonly escapeHatch?: EscapeHatchDeclaration;
+  /** Lets an anonymous `POST /api/write` for this handler proceed under
+   *  SYSTEM_TENANT_ID when the host resolves no tenant. Boot requires
+   *  `access.roles: ["anonymous"]` and a real `rateLimit`. */
+  readonly tenantlessAnonymous?: boolean;
   // Set when the author wrote a `perform: stepsPipeline(...)` block. Boot-
   // validators (projection-allowlist) and Designer/AI tooling read this
   // to inspect the step list. Absent on free-form handlers.
