@@ -58,6 +58,14 @@ echo "→ changeset required (scripts/changeset-required-check.sh — CI script,
 BASE_REF=main bash scripts/changeset-required-check.sh || fail=1
 
 echo
+echo "→ changes-json guard (kumiko-changes blocks, CI parity, base=$MERGE_BASE)"
+GITHUB_BASE_SHA="$MERGE_BASE" bun scripts/guard-changes-json.ts || fail=1
+
+echo
+echo "→ feature-changelog guard (bunx kumiko-guard-feature-changelog)"
+bunx kumiko-guard-feature-changelog || fail=1
+
+echo
 if [ -e node_modules/.bin/kumiko-guard-comment-lang ]; then
   echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
   bun kumiko-guard-comment-lang --touched --base="$MERGE_BASE" || fail=1
@@ -106,9 +114,9 @@ fi
 
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset check + comment-lang --touched + unit tests + component tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + feature-changelog check + comment-lang --touched + unit tests + component tests."
 elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset check + comment-lang --touched + unit tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset + changes-json + feature-changelog check + comment-lang --touched + unit tests."
 else
   echo "✗ Worktree check red — see above. Do not commit until green."
 fi

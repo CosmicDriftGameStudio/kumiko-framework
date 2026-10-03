@@ -156,7 +156,27 @@ async function runIntegrationTests(mode: IntegrationRunMode = "bulk"): Promise<n
   return exitCode !== 0 ? exitCode : summaryCode;
 }
 
+const USAGE = `Usage: bun scripts/run-integration-tests.ts [--perf]
+
+Runs every *.integration.test.ts under packages/ and samples/.
+
+  --perf       run only the wall-clock perf gate files, without --parallel
+  -h, --help   print this help and exit`;
+
+const KNOWN_FLAGS: ReadonlySet<string> = new Set(["--perf", "--help", "-h"]);
+
 if (import.meta.main) {
+  const flags = process.argv.slice(2);
+  if (flags.includes("--help") || flags.includes("-h")) {
+    console.log(USAGE);
+    process.exit(0);
+  }
+  const unknown = flags.filter((flag) => !KNOWN_FLAGS.has(flag));
+  if (unknown.length > 0) {
+    console.error(`Unknown argument(s): ${unknown.join(", ")}\n\n${USAGE}`);
+    process.exit(1);
+  }
+
   const guard = Bun.spawnSync(["bun", INTEGRATION_GUARD], {
     stdio: ["inherit", "inherit", "inherit"],
     cwd: process.cwd(),

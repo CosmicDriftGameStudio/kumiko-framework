@@ -1,10 +1,9 @@
-// Unit-Tests für die Pure-Logic-Helpers von build-prod-bundle.
+// Tests for build-prod-bundle: pure helpers (discovery, HTML injection, build id)
+// plus the kumiko.assets copy step, which runs buildProdBundle itself against a
+// minimal temp app (no client entries, stylesheet: false).
 //
-// Bun.build und Tailwind-CLI brauchen einen Bun-Runtime, deshalb
-// werden die hier nicht aufgerufen — nur Discovery + HTML-Injection
-// die unter Node funktionieren. End-to-End-Tests (mit echtem Bun.build)
-// laufen im CI als `bun run build` auf der Showcase-App; das ist der
-// ehrlichere Smoke-Test.
+// The full Bun.build + Tailwind pipeline is not exercised here; CI covers it
+// with `bun run build` on the showcase app, the more honest smoke test.
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
