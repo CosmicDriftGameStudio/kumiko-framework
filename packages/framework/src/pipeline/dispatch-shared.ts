@@ -176,7 +176,7 @@ export function resolveDbSource(
 // stringifies the SessionUser id for the shared helper.
 async function appendDomainEvent(
   ctx: DispatchContext,
-  args: AppendEventArgs,
+  args: AppendEventArgs & { readonly expectedVersion?: number },
   user: SessionUser,
   tx: DbTx | undefined,
   callerFeature: string | undefined,
@@ -612,8 +612,10 @@ export async function buildHandlerContext(
         });
       }
 
-      // Handle's internal version bumps on every appendOne so multiple
-      // appends in a row stay in order without re-reading the DB.
+      // Pinned into every append: a write landing between fetch and append
+      // fails with VersionConflictError instead of stacking on a state the
+      // caller's business rules never saw. Bumps per appendOne so consecutive
+      // appends stay in order without re-reading the DB.
       let handleVersion = fetchedVersion;
       const appendOne = async (appendArgs: {
         readonly type: string;
@@ -626,6 +628,7 @@ export async function buildHandlerContext(
             aggregateType: args.aggregateType,
             type: appendArgs.type,
             payload: appendArgs.payload,
+            expectedVersion: handleVersion,
           },
           user,
           tx,
