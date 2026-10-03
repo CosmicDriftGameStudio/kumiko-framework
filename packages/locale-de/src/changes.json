@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Billing consent and cancel dialogs use \"du\"",
+    "detail": "`billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from \"Sie\" to \"du\", matching the `billing-foundation.plans.*` keys. The formal bundle (`address: \"formal\"`) keeps the \"Sie\" wording through `localeDeFormalOverrides`."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "German strings for the billing consent and cancel-contract dialogs",

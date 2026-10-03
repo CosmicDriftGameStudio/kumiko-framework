@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "createRendererSimpleFeature({ mailBranding }) brands every notification mail, including the auth mails, with product name or logo, primary color and footer text and links",
+    "detail": "renderer-simple accepts mailBranding for all framework notification mails",
+    "migration": "No code change needed."
+  }
+]

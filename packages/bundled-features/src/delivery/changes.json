@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Slack, Discord, Microsoft Teams and Telegram delivery channels",
+    "detail": "`channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram` register route-only delivery channels. Webhook URLs and the Telegram bot token live in the tenant's secrets; the send job reads them with an audit entry `<feature>:send`. `DeliveryChannel.resolve` is optional and `ChannelContext.secrets` is available on the send job path.",
+    "migration": "keine"
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "tenant broadcast recipient query no longer reads across tenants through ctx.db",

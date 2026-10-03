@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-headless
 
+## 0.339.0
+
+### Minor Changes
+
+- d5b87a1: Both framework lightboxes can now page through several images. The React `Lightbox` primitive accepts `images`, `index` and `onIndexChange` as an alternative to `src`/`alt`, and the Apex marketing lightbox walks all `.shot-frame` screenshots on the page. Both wrap around at the ends and respond to the arrow keys.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Lightbox pages through multiple images
+  detail: |
+    `LightboxProps` is now a union: the existing `src`/`alt` form is unchanged, and the new `images` + `index` + `onIndexChange` form renders previous/next buttons, a position counter and ArrowLeft/ArrowRight navigation with wrap-around when more than one image is given. The Apex lightbox collects every `.shot-frame img` on open and gains previous/next buttons; its CSP script hash changed. New i18n keys: `kumiko.lightbox.previous`, `kumiko.lightbox.next`, `kumiko.lightbox.position`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [5b6e5f7]
+- Updated dependencies [c1e6186]
+- Updated dependencies [fcbf184]
+- Updated dependencies [e3adda3]
+- Updated dependencies [1954386]
+- Updated dependencies [b040ca7]
+- Updated dependencies [252f749]
+  - @cosmicdrift/kumiko-framework@0.339.0
+
 ## 0.338.0
 
 ### Patch Changes

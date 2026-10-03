@@ -10,6 +10,28 @@ verified: 2026-10-03
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.339.0
+
+### framework-core
+
+**fetchForWriting handles reject appends after a concurrent write**
+
+**Migration:** Appends through a ctx.fetchForWriting handle now use the version the handle was read at. When two requests write the same aggregate concurrently, the later append no longer stacks on top silently: the request fails with 409 version_conflict (no automatic retry), and its transaction rolls back. Tests that fire concurrent writes on one aggregate and expected both to succeed must expect exactly one success. Clients should treat 409 version_conflict like a stale form: reload and retry.
+
+**ctx.db.unsafeRaw() takes no reason; the audit uses the declared escapeHatch reason**
+
+`TenantDb.unsafeRaw` is now `unsafeRaw(): DbRunner`. The `unsafe-raw` audit entry carries the reason from the `escapeHatch` declaration, as before. Calls without a matching declaration are still rejected with an `AccessDeniedError`.
+
+**Migration:** Replace `ctx.db.unsafeRaw("...")` with `ctx.db.unsafeRaw()`. The reason lives only in `escapeHatch: { reason }` on the handler, hook or job; TypeScript flags old calls. `ctx.systemDb.unsafeRaw(reason)` is unchanged.
+
+### workflow-runner
+
+**workflow-run stream stores a reference to the trigger event instead of its payload**
+
+`workflow.run-started` now holds `triggerEventRef: { eventId, aggregateId, version }` and no `triggerPayload`; the wait, waitForEvent and retry step events no longer embed it either. `workflow_run_pending` gets a `trigger_event_ref` column and the event-subscriber stops writing `trigger_payload`. `resume-run` loads the trigger and the awaited event through `ctx.loadAggregate` and fails the run with `trigger_event_unavailable` or `awaited_event_unavailable` when one is gone.
+
+**Migration:** Own code that reads `triggerPayload` from `workflow.run-started` must read `triggerEventRef` and load the event with `ctx.loadAggregate(ref.aggregateId)`. Apps generate the migration for the new `workflow_run_pending.trigger_event_ref` column with `kumiko schema generate`. The step events `workflow.step.waiting`, `workflow.step.waiting-for-event` and `workflow.retry.scheduled` no longer carry `triggerPayload`; a custom resume loop that read it must load the trigger event through the `triggerEventRef` on its own run-started event (see `samples/recipes/workflow-engine/src/postgres-resume-loop.ts`). Stored run-started events and pending rows keep their old copy; this release rewrites no events, and runs started before it resume from that copy.
+
 ## 0.338.0
 
 ### billing-foundation

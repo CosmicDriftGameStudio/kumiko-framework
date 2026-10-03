@@ -1,5 +1,39 @@
 [
   {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Missing or unchecked checkout consent returns 422 consent_required",
+    "detail": "The consent payload is optional in the `start-plan-checkout` and `create-checkout-session` input schemas and its two flags are plain booleans. `prepareConsent` throws `UnprocessableError(\"consent_required\")` with `billing-foundation.errors.consentRequired` when consumer protection is on and the consent is missing or either flag is not true.",
+    "migration": "Clients that treated the previous `400` validation error for a missing consent as the signal must check for `422` with `reason: \"consent_required\"`."
+  },
+  {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Contract confirmation, termination receipt and cancellation pages use \"du\"",
+    "detail": "The German contract confirmation mail, the termination and withdrawal receipt mail, the public cancellation pages and the subscription and payment submit messages address the customer with \"du\". The recorded consent statements are first-person and unchanged, so `consentTextVersion` stays the same."
+  },
+  {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "The § 312k confirm POST forwards the visitor's host to /api/write",
+    "detail": "The `/legal/kuendigen` and `/legal/cancel` pages re-enter `/api/write` through the app. The re-entry now carries `Host`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Tenant` and the `kumiko_tenant` cookie as the visitor sent them, so a host-based `tenantResolver` resolves the same tenant as for a direct call; before, it saw no host and every confirm failed with `400 tenant_required`. The session cookie, `Authorization` and `X-Forwarded-For` are not forwarded.",
+    "migration": "keine"
+  },
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "consumerProtection.terminationScope \"platform\" for hosts without a tenant",
+    "detail": "`consumerProtection.terminationScope` is `\"tenant-host\"` (default, unchanged) or `\"platform\"`. With `\"platform\"`, `request-contract-termination` is flagged `tenantlessAnonymous` and also runs on a host whose resolver returns no tenant: it finds the contract by the declarant's email as before, records on the matched tenant's subscription stream, and answers every outcome identically. An unknown option value fails at `createBillingFoundationFeature`.",
+    "migration": "Apps that serve the pages on a platform apex (publicstatus) set `consumerProtection.terminationScope: \"platform\"`. Other apps change nothing."
+  },
+  {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Public termination declarations cancel at the provider in a job",
+    "detail": "For the public channel, `request-contract-termination` no longer calls the provider in the request. A matched request appends the PII-free `contract-termination-declared` event (`requestId`, `declarationType`, `terminationKind`, `receivedAtIso`, `locale`) via the system-only `declare-contract-termination`; the job `cancel-on-public-termination-declared` then runs `record-contract-termination`, which asks the provider for `cancel_at_period_end` and appends `contract-termination-requested` with the outcome. Matched and unmatched requests do the same work in the request, so the response time does not reveal whether the email is a customer. The job is idempotent per `requestId`. A provider without `cancelSubscription`, a provider error or a missing subscription now sends a separate operator notice with request id and tenant id but no name or email. A public withdrawal still makes no provider call. The account path (`terminate-contract`) stays synchronous.",
+    "migration": "Code that expected `contract-termination-requested` right after the public request must wait for the job (in tests: `drainJobs`)."
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "Contract confirmation mail after a recorded checkout consent",

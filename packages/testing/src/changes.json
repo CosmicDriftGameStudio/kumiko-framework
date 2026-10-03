@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Generated integration bunfig ignores *.test.tsx",
+    "detail": "The generated `bunfig.integration.toml` now ignores `**/*.test.tsx`. Calling `bun test --config=bunfig.integration.toml <dir>` directly no longer picks up DOM tests, which failed there without the DOM preload. The runner and `test:dom` collect the same tests as before.",
+    "migration": "Regenerate with `kumiko-testing bunfig` after the bump to pick up the new ignore pattern."
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "bunfig merge reports dotted/quoted keys and keeps array tables, empty schema env defaults are replaced, integration dir expansion prunes node_modules, seedTenant gains unsubscribeSse",

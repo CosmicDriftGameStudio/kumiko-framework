@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.339.0",
+    "type": "improvement",
+    "title": "Inbound mail OAuth accounts refresh their access token",
+    "detail": "`createInboundMailSupervisor` obtains a valid access token via the new `createOAuthAccessTokenManager` before `plugin.fetch`/`plugin.watch` for accounts whose provider declares `oauth` and whose authMethod is `oauth`/`xoauth2`, and passes it as `opts.accessToken` (`fetch`) or `{ accessToken }` (`watch`, 4th argument). `refreshAccessToken` receives an optional 4th argument `{ signal }` (aborted after 30 s); providers must pass it to their token-endpoint fetch, since the foundation awaits the provider and never drops a late result. The foundation has no single construction point for routes and supervisor, so apps that want connect to prime the cache and write under the refresh lock create one manager with `createOAuthAccessTokenManager({ db, secrets })` and pass it to both `createInboundMailSupervisor({ oauthTokens })` and `createInboundMailConnectRoutes({ oauthTokens })`; without it the supervisor builds its own manager and the callback writes the secret without the lock. `InboundAuthError` from `refreshAccessToken` moves the account to `auth_error`; the generic sync-error log and the `token_exchange_failed` response body no longer contain provider error messages.",
+    "migration": "Apps with OAuth inbound accounts create one `createOAuthAccessTokenManager({ db, secrets })` and pass it as `oauthTokens` to both `createInboundMailSupervisor` and `createInboundMailConnectRoutes`. Provider plugins with a `refreshAccessToken` pass the `signal` from its fourth argument to their token-endpoint fetch."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Poll cursor is persisted with the account's tenantId",

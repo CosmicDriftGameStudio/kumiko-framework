@@ -1,5 +1,186 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.339.0
+
+### Minor Changes
+
+- 8b3228a: emailPasswordClient accepts loginUrl and postLogoutUrl for external login pages
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: emailPasswordClient({ loginUrl, postLogoutUrl }) sends unauthenticated visitors to an external login page with a same-origin next path and navigates there on logout
+  migration: |
+    No code change needed.
+  -->
+
+- d4872a8: renderer-simple accepts mailBranding for all framework notification mails
+
+  <!-- kumiko-changes
+  feature: renderer-simple
+  type: improvement
+  title: createRendererSimpleFeature({ mailBranding }) brands every notification mail, including the auth mails, with product name or logo, primary color and footer text and links
+  migration: |
+    No code change needed.
+  -->
+
+- 4495f98: Four new delivery channels post to chat tools: `channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram`. Chat targets belong to the tenant, so they are reached only through `route`, for example `ctx.notify(type, { route: { slack: "ops" } })`. The route address is a connection name for Slack, Discord and Teams (the webhook URL is a tenant secret under `channel-<provider>:webhooks.<connection name>`) and a chat id for Telegram (the bot token is the secret `channel-telegram:secret:bot-token`).
+
+  Sends use https only, a per-provider host allowlist, no redirects and a timeout. `delivery_attempts` records only the connection name and an outcome code such as `http_500`, `timeout`, `redirect_blocked` or `host_not_allowed`, never the URL or the token. `allowedHosts`, `requireHttps`, `apiBaseUrl` and `timeoutMs` are options of `createChannel<Provider>Feature(opts)`; tenants cannot set them.
+
+  `DeliveryChannel.resolve` is now optional. A channel without `resolve` is skipped for user notifications (`to`) without writing a `no_address` row. `ChannelContext` gains an optional `secrets`, which the `delivery.send` job fills from its job context.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Slack, Discord, Microsoft Teams and Telegram delivery channels
+  detail: |
+    `channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram` register route-only delivery channels. Webhook URLs and the Telegram bot token live in the tenant's secrets; the send job reads them with an audit entry `<feature>:send`. `DeliveryChannel.resolve` is optional and `ChannelContext.secrets` is available on the send job path.
+  migration: |
+    keine
+  -->
+
+- 1954386: `ctx.db.unsafeRaw()` no longer takes a reason argument. The reason was never audited anyway: the `unsafe-raw` audit entry always carried the reason declared in `escapeHatch: { reason }` on the handler, hook or job (or the step reason for engine-forwarded steps). Dropping the parameter removes a second, unused reason string from every call site. `ctx.systemDb.unsafeRaw(reason)` is unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: ctx.db.unsafeRaw() takes no reason; the audit uses the declared escapeHatch reason
+  detail: |
+    `TenantDb.unsafeRaw` is now `unsafeRaw(): DbRunner`. The `unsafe-raw` audit entry carries the reason from the `escapeHatch` declaration, as before. Calls without a matching declaration are still rejected with an `AccessDeniedError`.
+  migration: |
+    Replace `ctx.db.unsafeRaw("...")` with `ctx.db.unsafeRaw()`. The reason lives only in `escapeHatch: { reason }` on the handler, hook or job; TypeScript flags old calls. `ctx.systemDb.unsafeRaw(reason)` is unchanged.
+  -->
+
+- 252f749: The `workflow-run` stream no longer stores a copy of the trigger event's payload. `workflow.run-started` carries `triggerEventRef` (`eventId`, `aggregateId`, `version`) instead of `triggerPayload`, and the wait, waitForEvent and retry step events drop their `triggerPayload` too. `resume-run` re-reads the trigger event from the event store, so erasing or shredding the source event also covers the workflow. A trigger event that can no longer be loaded (for example an archived stream) fails the run with `reason: "trigger_event_unavailable"`.
+
+  The `workflow_run_pending` row points at the awaited event through the new `trigger_event_ref` column instead of copying its payload. A matched awaited event that is gone fails the run with `reason: "awaited_event_unavailable"`.
+
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: breaking
+  title: workflow-run stream stores a reference to the trigger event instead of its payload
+  detail: |
+    `workflow.run-started` now holds `triggerEventRef: { eventId, aggregateId, version }` and no `triggerPayload`; the wait, waitForEvent and retry step events no longer embed it either. `workflow_run_pending` gets a `trigger_event_ref` column and the event-subscriber stops writing `trigger_payload`. `resume-run` loads the trigger and the awaited event through `ctx.loadAggregate` and fails the run with `trigger_event_unavailable` or `awaited_event_unavailable` when one is gone.
+  migration: |
+    Own code that reads `triggerPayload` from `workflow.run-started` must read `triggerEventRef` and load the event with `ctx.loadAggregate(ref.aggregateId)`. Apps generate the migration for the new `workflow_run_pending.trigger_event_ref` column with `kumiko schema generate`. The step events `workflow.step.waiting`, `workflow.step.waiting-for-event` and `workflow.retry.scheduled` no longer carry `triggerPayload`; a custom resume loop that read it must load the trigger event through the `triggerEventRef` on its own run-started event (see `samples/recipes/workflow-engine/src/postgres-resume-loop.ts`). Stored run-started events and pending rows keep their old copy; this release rewrites no events, and runs started before it resume from that copy.
+  -->
+
+### Patch Changes
+
+- 0e065d2: A missing or unchecked checkout consent now fails with `422 consent_required` instead of a schema `400`. `start-plan-checkout` and `create-checkout-session` accept an absent `consent` and `false` flags and reject them in the consent gate, so clients can show the localized `billing-foundation.errors.consentRequired` message.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Missing or unchecked checkout consent returns 422 consent_required
+  detail: |
+    The consent payload is optional in the `start-plan-checkout` and `create-checkout-session` input schemas and its two flags are plain booleans. `prepareConsent` throws `UnprocessableError("consent_required")` with `billing-foundation.errors.consentRequired` when consumer protection is on and the consent is missing or either flag is not true.
+  migration: |
+    Clients that treated the previous `400` validation error for a missing consent as the signal must check for `422` with `reason: "consent_required"`.
+  -->
+
+- 80ecf93: The billing consent and cancel-contract dialogs now address the user informally ("du" in German, "tú" in Spanish), like the rest of `BillingPlansPanel`. The German contract confirmation mail, the receipt mail for a termination or withdrawal and the public cancellation pages use "du" as well.
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: fix
+  title: Billing consent and cancel dialogs use "du"
+  detail: |
+    `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from "Sie" to "du", matching the `billing-foundation.plans.*` keys. The formal bundle (`address: "formal"`) keeps the "Sie" wording through `localeDeFormalOverrides`.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: fix
+  title: Billing consent and cancel dialogs use "tú"
+  detail: |
+    `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` switch from "usted" to "tú", matching the `billing-foundation.plans.*` keys.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: Contract confirmation, termination receipt and cancellation pages use "du"
+  detail: |
+    The German contract confirmation mail, the termination and withdrawal receipt mail, the public cancellation pages and the subscription and payment submit messages address the customer with "du". The recorded consent statements are first-person and unchanged, so `consentTextVersion` stays the same.
+  -->
+
+- 5b6e5f7: The public § 312k cancellation pages work again: the confirm POST no longer fails with `400 tenant_required` on any host. New `consumerProtection.terminationScope: "platform"` serves the declaration on a host that resolves no tenant (the platform apex), for example publicstatus. Write handlers can declare `tenantlessAnonymous: true` for this. A public declaration's provider cancel now runs in a job instead of in the request.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: fix
+  title: The § 312k confirm POST forwards the visitor's host to /api/write
+  detail: |
+    The `/legal/kuendigen` and `/legal/cancel` pages re-enter `/api/write` through the app. The re-entry now carries `Host`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `X-Tenant` and the `kumiko_tenant` cookie as the visitor sent them, so a host-based `tenantResolver` resolves the same tenant as for a direct call; before, it saw no host and every confirm failed with `400 tenant_required`. The session cookie, `Authorization` and `X-Forwarded-For` are not forwarded.
+  migration: |
+    keine
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: consumerProtection.terminationScope "platform" for hosts without a tenant
+  detail: |
+    `consumerProtection.terminationScope` is `"tenant-host"` (default, unchanged) or `"platform"`. With `"platform"`, `request-contract-termination` is flagged `tenantlessAnonymous` and also runs on a host whose resolver returns no tenant: it finds the contract by the declarant's email as before, records on the matched tenant's subscription stream, and answers every outcome identically. An unknown option value fails at `createBillingFoundationFeature`.
+  migration: |
+    Apps that serve the pages on a platform apex (publicstatus) set `consumerProtection.terminationScope: "platform"`. Other apps change nothing.
+  -->
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Public termination declarations cancel at the provider in a job
+  detail: |
+    For the public channel, `request-contract-termination` no longer calls the provider in the request. A matched request appends the PII-free `contract-termination-declared` event (`requestId`, `declarationType`, `terminationKind`, `receivedAtIso`, `locale`) via the system-only `declare-contract-termination`; the job `cancel-on-public-termination-declared` then runs `record-contract-termination`, which asks the provider for `cancel_at_period_end` and appends `contract-termination-requested` with the outcome. Matched and unmatched requests do the same work in the request, so the response time does not reveal whether the email is a customer. The job is idempotent per `requestId`. A provider without `cancelSubscription`, a provider error or a missing subscription now sends a separate operator notice with request id and tenant id but no name or email. A public withdrawal still makes no provider call. The account path (`terminate-contract`) stays synchronous.
+  migration: |
+    Code that expected `contract-termination-requested` right after the public request must wait for the job (in tests: `drainJobs`).
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Write handlers can declare tenantlessAnonymous
+  detail: |
+    `r.writeHandler({ ..., tenantlessAnonymous: true })` lets an anonymous `POST /api/write` for exactly that handler run under `SYSTEM_TENANT_ID` where the anonymous middleware would otherwise answer `400 tenant_required` (resolver silent, no client tenant). It never applies to `/api/batch`, to a client-supplied `X-Tenant` or `kumiko_tenant`, to `tenant_mismatch` or when a tenant resolved; `tenantExists` and the lifecycle gate are skipped for the system tenant. Boot rejects the flag unless `access.roles` is exactly `["anonymous"]` and a real `rateLimit` (not `{ disabled: true }`) is declared. `authMiddleware` gets the option `isTenantlessAnonymousWrite`, which `buildServer` builds from the registry.
+  migration: |
+    keine
+  -->
+
+- 58dd1cb: Inbound mail OAuth accounts now refresh their access token. The sync supervisor mints a valid access token from the stored refresh token before each poll or watch start, caches it until shortly before expiry, shares one refresh between concurrent callers, and serializes refreshes and refresh-token writes per account with an advisory lock. A rotated refresh token is stored. An `invalid_grant` refresh failure (`InboundAuthError`) puts the account into `auth_error`. Provider authors receive the token declaratively as `opts.accessToken` in `fetch` (and as the optional fourth argument of `watch`). Supervisor logs and the OAuth callback's `502 token_exchange_failed` body no longer include provider error messages.
+
+  <!-- kumiko-changes
+  feature: inbound-mail-foundation
+  type: improvement
+  title: Inbound mail OAuth accounts refresh their access token
+  detail: |
+    `createInboundMailSupervisor` obtains a valid access token via the new `createOAuthAccessTokenManager` before `plugin.fetch`/`plugin.watch` for accounts whose provider declares `oauth` and whose authMethod is `oauth`/`xoauth2`, and passes it as `opts.accessToken` (`fetch`) or `{ accessToken }` (`watch`, 4th argument). `refreshAccessToken` receives an optional 4th argument `{ signal }` (aborted after 30 s); providers must pass it to their token-endpoint fetch, since the foundation awaits the provider and never drops a late result. The foundation has no single construction point for routes and supervisor, so apps that want connect to prime the cache and write under the refresh lock create one manager with `createOAuthAccessTokenManager({ db, secrets })` and pass it to both `createInboundMailSupervisor({ oauthTokens })` and `createInboundMailConnectRoutes({ oauthTokens })`; without it the supervisor builds its own manager and the callback writes the secret without the lock. `InboundAuthError` from `refreshAccessToken` moves the account to `auth_error`; the generic sync-error log and the `token_exchange_failed` response body no longer contain provider error messages.
+  migration: |
+    Apps with OAuth inbound accounts create one `createOAuthAccessTokenManager({ db, secrets })` and pass it as `oauthTokens` to both `createInboundMailSupervisor` and `createInboundMailConnectRoutes`. Provider plugins with a `refreshAccessToken` pass the `signal` from its fourth argument to their token-endpoint fetch.
+  -->
+
+- Updated dependencies [5b6e5f7]
+- Updated dependencies [c1e6186]
+- Updated dependencies [fcbf184]
+- Updated dependencies [d5b87a1]
+- Updated dependencies [1eef322]
+- Updated dependencies [53efdc7]
+- Updated dependencies [8389938]
+- Updated dependencies [b4c15f6]
+- Updated dependencies [e3adda3]
+- Updated dependencies [10e84fb]
+- Updated dependencies [1a3ec61]
+- Updated dependencies [1954386]
+- Updated dependencies [b040ca7]
+- Updated dependencies [252f749]
+  - @cosmicdrift/kumiko-framework@0.339.0
+  - @cosmicdrift/kumiko-types@0.339.0
+  - @cosmicdrift/kumiko-renderer@0.339.0
+  - @cosmicdrift/kumiko-renderer-web@0.339.0
+  - @cosmicdrift/kumiko-headless@0.339.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.339.0
+
 ## 0.338.0
 
 ### Minor Changes

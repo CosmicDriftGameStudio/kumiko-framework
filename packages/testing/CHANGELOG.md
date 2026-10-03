@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-testing
 
+## 0.339.0
+
+### Patch Changes
+
+- dc3a61e: The generated `bunfig.integration.toml` now ignores `**/*.test.tsx`. Calling `bun test --config=bunfig.integration.toml <dir>` directly no longer picks up DOM tests, which failed there without the DOM preload. The runner and `test:dom` collect the same tests as before.
+
+  <!-- kumiko-changes
+  feature: testing
+  type: fix
+  title: Generated integration bunfig ignores *.test.tsx
+  migration: |
+    Regenerate with `kumiko-testing bunfig` after the bump to pick up the new ignore pattern.
+  -->
+
+- Updated dependencies [8b3228a]
+- Updated dependencies [d4872a8]
+- Updated dependencies [0e065d2]
+- Updated dependencies [80ecf93]
+- Updated dependencies [5b6e5f7]
+- Updated dependencies [4495f98]
+- Updated dependencies [c1e6186]
+- Updated dependencies [58dd1cb]
+- Updated dependencies [fcbf184]
+- Updated dependencies [e3adda3]
+- Updated dependencies [1954386]
+- Updated dependencies [b040ca7]
+- Updated dependencies [252f749]
+  - @cosmicdrift/kumiko-bundled-features@0.339.0
+  - @cosmicdrift/kumiko-framework@0.339.0
+  - @cosmicdrift/kumiko-dev-server@0.339.0
+
 ## 0.338.0
 
 ### Patch Changes

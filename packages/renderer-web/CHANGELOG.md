@@ -1,5 +1,98 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.339.0
+
+### Minor Changes
+
+- d5b87a1: Both framework lightboxes can now page through several images. The React `Lightbox` primitive accepts `images`, `index` and `onIndexChange` as an alternative to `src`/`alt`, and the Apex marketing lightbox walks all `.shot-frame` screenshots on the page. Both wrap around at the ends and respond to the arrow keys.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Lightbox pages through multiple images
+  detail: |
+    `LightboxProps` is now a union: the existing `src`/`alt` form is unchanged, and the new `images` + `index` + `onIndexChange` form renders previous/next buttons, a position counter and ArrowLeft/ArrowRight navigation with wrap-around when more than one image is given. The Apex lightbox collects every `.shot-frame img` on open and gains previous/next buttons; its CSP script hash changed. New i18n keys: `kumiko.lightbox.previous`, `kumiko.lightbox.next`, `kumiko.lightbox.position`.
+  -->
+
+- b4c15f6: Theme mode auto follows prefers-color-scheme
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Theme preference auto follows the OS color scheme live; ThemeToggle and ThemeMenuItem step through light, dark and auto, a stored choice wins, and defineAppTheme accepts defaultColorScheme
+  migration: |
+    Apps with a theme-restore inline script in their host HTML must update it. The toggle can now store "auto", which an old script that only checks for "dark" treats as light, so dark-mode users see a light flash on load. Use the script from the comment in renderer-web tokens.ts, which also handles "auto" via matchMedia. Under a strict CSP, update the script hash or keep the nonce.
+  -->
+
+- 10e84fb: Build info is baked into index.html as a meta tag instead of an inline script
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Prod builds no longer inject an inline script for the build info, so strict CSPs without unsafe-inline work without hashes or nonces
+  migration: |
+    window.__KUMIKO_BUILD__ no longer exists. Code that read it (for example a version footer) now gets undefined and silently renders nothing. Replace the global with readLoadedBuild() from @cosmicdrift/kumiko-renderer-web, which returns { id, builtAt } from the new <meta name="kumiko-build"> tag, and drop the Window augmentation for __KUMIKO_BUILD__. The UpdateChecker needs no change.
+  -->
+
+- 1a3ec61: `TimeseriesChart` accepts an optional `referenceLines` prop that draws dashed horizontal threshold lines (for example a p95 or an SLO target) with an accessible label. A line above the data maximum extends the y-scale.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: TimeseriesChart draws optional reference lines
+  migration: |
+    No code change needed. Pass `referenceLines={[{ value, label, tone }]}` to draw a dashed threshold such as p95 or an SLO target.
+  -->
+
+### Patch Changes
+
+- 1eef322: format boolean renders a localized Yes/No instead of raw true/false
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Columns with format boolean show a check mark with the accessible name Yes, or a dash with No, instead of raw true/false
+  migration: |
+    No code change needed.
+  -->
+
+- 53efdc7: `Field layout="inline"` labels wrap instead of truncating. A long label next to a checkbox (the checkout consent texts) no longer widens its container past the viewport, which pushed the dialog's action buttons out of reach.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: Inline field labels wrap instead of truncating
+  detail: |
+    `Field layout="inline"` no longer puts its label in a single truncated line. Long checkbox labels such as the checkout consent texts wrap, so the dialog stays inside the viewport and its buttons stay reachable.
+  migration: |
+    keine
+  -->
+
+- 8389938: LanguageSwitcher is axe-clean while open
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: The open LanguageSwitcher no longer hides the app root with aria-hidden and renders its menu inside the surrounding header landmark
+  migration: |
+    No code change needed.
+  -->
+
+- Updated dependencies [5b6e5f7]
+- Updated dependencies [c1e6186]
+- Updated dependencies [fcbf184]
+- Updated dependencies [d5b87a1]
+- Updated dependencies [b4c15f6]
+- Updated dependencies [e3adda3]
+- Updated dependencies [1954386]
+- Updated dependencies [b040ca7]
+- Updated dependencies [252f749]
+  - @cosmicdrift/kumiko-framework@0.339.0
+  - @cosmicdrift/kumiko-types@0.339.0
+  - @cosmicdrift/kumiko-renderer@0.339.0
+  - @cosmicdrift/kumiko-headless@0.339.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.339.0
+
 ## 0.338.0
 
 ### Patch Changes

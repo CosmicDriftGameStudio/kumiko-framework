@@ -1,5 +1,46 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.339.0
+
+### Minor Changes
+
+- 10e84fb: Build info is baked into index.html as a meta tag instead of an inline script
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Prod builds no longer inject an inline script for the build info, so strict CSPs without unsafe-inline work without hashes or nonces
+  migration: |
+    window.__KUMIKO_BUILD__ no longer exists. Code that read it (for example a version footer) now gets undefined and silently renders nothing. Replace the global with readLoadedBuild() from @cosmicdrift/kumiko-renderer-web, which returns { id, builtAt } from the new <meta name="kumiko-build"> tag, and drop the Window augmentation for __KUMIKO_BUILD__. The UpdateChecker needs no change.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [8b3228a]
+- Updated dependencies [d4872a8]
+- Updated dependencies [0e065d2]
+- Updated dependencies [80ecf93]
+- Updated dependencies [5b6e5f7]
+- Updated dependencies [4495f98]
+- Updated dependencies [c1e6186]
+- Updated dependencies [58dd1cb]
+- Updated dependencies [fcbf184]
+- Updated dependencies [d5b87a1]
+- Updated dependencies [1eef322]
+- Updated dependencies [53efdc7]
+- Updated dependencies [8389938]
+- Updated dependencies [b4c15f6]
+- Updated dependencies [e3adda3]
+- Updated dependencies [10e84fb]
+- Updated dependencies [1a3ec61]
+- Updated dependencies [1954386]
+- Updated dependencies [b040ca7]
+- Updated dependencies [252f749]
+  - @cosmicdrift/kumiko-bundled-features@0.339.0
+  - @cosmicdrift/kumiko-framework@0.339.0
+  - @cosmicdrift/kumiko-renderer-web@0.339.0
+  - @cosmicdrift/kumiko-headless@0.339.0
+
 ## 0.338.0
 
 ### Minor Changes

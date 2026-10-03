@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.339.0",
+    "type": "fix",
+    "title": "Guards ignore neighbour repos of the parent workspace",
+    "detail": "The root comes from `findLocalRepo`, not a path heuristic. `isOutsideRepoRoot(filePath, repoRoot?)` compares real paths, so symlinks into a neighbour repo count as outside. `buildSharedProject` drops such files and `no-framed-extension-sections` stops following imports into them.",
+    "migration": "keine"
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "i18n-keys guard decodes escaped literals, framed-sections guard skips test usages, renderer-boundaries guard blocks bare fetch and reports all JSX tags per line, pre-push shim no longer execs binaries from shared ancestor dirs",
