@@ -430,6 +430,46 @@ test("extraRoutes: entry:signature wildcard under /api throws at boot", () => {
   ).toThrow(/must not\s+use a wildcard under "\/api\/"/);
 });
 
+test("extraRoutes: entry:signature :param segment matching a framework path throws at boot", () => {
+  const registry = createRegistry([probeFeature]);
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [
+        signatureRoute({
+          method: "POST",
+          path: "/api/:hook",
+          entry: "signature",
+          verify: async () => true,
+          handler: async (c) => c.json({}),
+        }),
+      ],
+    }),
+  ).toThrow(/must not\s+match the framework path "\/api\/[a-z/-]+"/);
+});
+
+test("extraRoutes: entry:signature route with a static prefix before :param still boots", () => {
+  const registry = createRegistry([probeFeature]);
+  expect(() =>
+    buildServer({
+      registry,
+      context: {},
+      jwtSecret: JWT_SECRET,
+      extraRoutes: [
+        signatureRoute({
+          method: "POST",
+          path: "/api/webhooks/:provider",
+          entry: "signature",
+          verify: async () => true,
+          handler: async (c) => c.json({}),
+        }),
+      ],
+    }),
+  ).not.toThrow();
+});
+
 test("extraRoutes: an unknown entry value throws at boot", () => {
   const registry = createRegistry([probeFeature]);
   // A JS caller without the ExtraRouteDefinition type can construct this at
