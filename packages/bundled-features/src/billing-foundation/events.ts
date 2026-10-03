@@ -112,3 +112,32 @@ export type PaymentEventHeaders = {
   readonly providerName: string;
   readonly rawPayload: string;
 };
+
+// =============================================================================
+// checkout-consent-recorded — consumer-protection consent (fw#3468)
+// =============================================================================
+//
+// Appended onto the subscription- or payment-stream (by checkout mode) after
+// the provider handed out the checkout URL. No projection applies it. Carries
+// no email or IP: the consenting user is identified by `actorUserId` only.
+
+export const CHECKOUT_CONSENT_RECORDED_EVENT_SHORT = "checkout-consent-recorded" as const;
+export const CHECKOUT_CONSENT_RECORDED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CHECKOUT_CONSENT_RECORDED_EVENT_SHORT}` as const;
+
+export const checkoutConsentRecordedPayloadSchema = z.object({
+  consentId: z.string().min(1).max(100),
+  mode: z.enum(["subscription", "payment"]),
+  tier: z.string().min(1).max(50).nullable(),
+  priceId: z.string().min(1).max(200),
+  unitAmount: z.number().nullable(),
+  currency: z.string().nullable(),
+  interval: z.string().nullable(),
+  intervalCount: z.number().nullable(),
+  consentTextVersion: z.string().min(1).max(64),
+  termsHash: z.string().length(64),
+  termsTemplateVersion: z.number(),
+  locale: z.string().min(2).max(35),
+  actorUserId: z.string().min(1),
+});
+export type CheckoutConsentRecordedPayload = z.infer<typeof checkoutConsentRecordedPayloadSchema>;

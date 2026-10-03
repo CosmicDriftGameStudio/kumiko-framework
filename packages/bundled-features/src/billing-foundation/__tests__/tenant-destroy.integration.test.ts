@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { defineFeature, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { append, isStreamArchived, loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
@@ -18,6 +18,7 @@ import {
 import {
   resetPiiSubjectKmsForTests,
   resetTestTables,
+  seedRow,
   updateRows,
 } from "@cosmicdrift/kumiko-framework/testing";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
@@ -28,6 +29,12 @@ import {
   tenantComplianceProfileTable,
 } from "../../compliance-profiles/index.js";
 import { createConfigFeature } from "../../config/index.js";
+import { createDeliveryFeature, createDeliveryTestContext } from "../../delivery/index.js";
+import { notificationPreferenceEntity } from "../../delivery/tables.js";
+import { createTemplateResolverApi } from "../../template-resolver/api.js";
+import { SYSTEM_TENANT_ID, TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
+import { createTemplateResolverFeature } from "../../template-resolver/feature.js";
+import { templateResourceEntity, templateResourcesTable } from "../../template-resolver/table.js";
 import { TenantHandlers } from "../../tenant/constants.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipEntity } from "../../tenant/index.js";
@@ -40,8 +47,19 @@ import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
-import { billingFoundationFeature } from "../feature.js";
+import { consentTextVersion } from "../consumer-protection/consent-text.js";
+import { CHECKOUT_CONSENT_RECORDED_EVENT_QN } from "../events.js";
+import { createBillingFoundationFeature } from "../feature.js";
 import { paymentsProjectionTable, subscriptionsProjectionTable } from "../projection.js";
+
+const mockProviderFeature = defineFeature("test-mock-destroy-provider", (r) => {
+  r.requires("billing-foundation");
+  r.useExtension("subscriptionProvider", "mock-destroy-provider", {
+    verifyAndParseWebhook: async () => null,
+    oneOffPriceIds: ["price_topup"],
+    createCheckoutSession: async () => ({ url: "https://mock.example/checkout" }),
+  });
+});
 
 let stack: TestStack;
 let db: DbConnection;
@@ -64,13 +82,45 @@ beforeAll(async () => {
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),
-      billingFoundationFeature,
+      createTemplateResolverFeature(),
+      createDeliveryFeature(),
+      createBillingFoundationFeature({
+        baseUrl: "https://app.example.com",
+        consumerProtection: {
+          termsTextBlock: "billing-terms",
+          vatNote: { de: "inkl. USt.", en: "incl. VAT" },
+          operatorEmail: "billing@example.com",
+          legalLinks: { terms: "/terms", withdrawal: "/withdrawal", privacy: "/privacy" },
+        },
+      }),
+      mockProviderFeature,
     ],
+    extraContext: (deps) => ({
+      ...createDeliveryTestContext(deps),
+      templateResolver: createTemplateResolverApi(deps.db),
+    }),
   });
   db = stack.db;
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, tenantMembershipEntity);
+  await unsafeCreateEntityTable(db, templateResourceEntity);
+  await unsafeCreateEntityTable(db, notificationPreferenceEntity);
+  await seedRow(db, templateResourcesTable, {
+    tenantId: SYSTEM_TENANT_ID,
+    slug: "billing-terms",
+    kind: TEXT_BLOCK_KIND,
+    locale: "de",
+    scope: "system",
+    status: "active",
+    content: "Terms",
+    contentFormat: "markdown",
+    variableSchema: JSON.stringify({}),
+    linkedResources: JSON.stringify({}),
+    parentTemplateId: null,
+    insertedById: "test",
+    modifiedById: "test",
+  });
   configurePiiSubjectKms(new InMemoryKmsAdapter());
 });
 
@@ -232,5 +282,41 @@ describe("billing-foundation :: tenant destroy (#3196)", () => {
     expect(
       await isStreamArchived(db, tenantHgb.tenantId, paymentAggregateId(tenantHgb.tenantId)),
     ).toBe(true);
+  });
+
+  test("archives a recorded checkout consent together with its stream and keeps it readable", async () => {
+    const tenant = adminFor(9004);
+    await seedTenant(tenant);
+    const consent = {
+      earlyPerformanceRequested: true,
+      withdrawalLossAcknowledged: true,
+      consentTextVersion: consentTextVersion("de"),
+      locale: "de",
+    };
+    await stack.http.writeOk(
+      SubscriptionFoundationHandlers.createCheckoutSession,
+      {
+        providerName: "mock-destroy-provider",
+        priceId: "price_topup",
+        successUrl: "https://app.example.com/ok",
+        cancelUrl: "https://app.example.com/cancel",
+        mode: "payment",
+        consent,
+      },
+      tenant,
+    );
+    const paymentStream = paymentAggregateId(tenant.tenantId);
+    const before = await loadAggregate(db, paymentStream, tenant.tenantId);
+    expect(before.filter((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN)).toHaveLength(1);
+
+    await seedDestroyingTenant(tenant.tenantId);
+    expect(await driveDestructionToCompletion(tenant.tenantId)).toBe("destroyed");
+
+    expect(await isStreamArchived(db, tenant.tenantId, paymentStream)).toBe(true);
+    expect(await loadAggregate(db, paymentStream, tenant.tenantId)).toHaveLength(0);
+    const archived = await loadAggregate(db, paymentStream, tenant.tenantId, {
+      includeArchived: true,
+    });
+    expect(archived.filter((e) => e.type === CHECKOUT_CONSENT_RECORDED_EVENT_QN)).toHaveLength(1);
   });
 });

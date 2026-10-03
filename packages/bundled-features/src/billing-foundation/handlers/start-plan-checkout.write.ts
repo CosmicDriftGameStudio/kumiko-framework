@@ -14,6 +14,13 @@ import {
   openCheckout,
   resolveCatalogProvider,
 } from "../checkout-core.js";
+import {
+  type ConsentPayload,
+  consentCheckoutFields,
+  consentPayloadSchema,
+  prepareConsent,
+  recordConsent,
+} from "../consumer-protection/consent-gate.js";
 import { purchaseRolesOf, resolvePlanPrices } from "../plan-catalog.js";
 import type { BillingPlanCatalog, ResolvedBillingFoundationOptions } from "../types.js";
 
@@ -25,7 +32,11 @@ export function createStartPlanCheckoutHandler(
   if (!isNonEmptyStringArray(plans)) {
     throw new Error("start-plan-checkout: catalog.plans must not be empty");
   }
-  const schema = z.object({ tier: z.enum(plans) }).strict();
+  const consumerProtection = options.consumerProtection;
+  const tierSchema = z.object({ tier: z.enum(plans) });
+  const schema = (
+    consumerProtection ? tierSchema.extend({ consent: consentPayloadSchema }) : tierSchema
+  ).strict();
 
   return {
     name: "start-plan-checkout",
@@ -35,7 +46,7 @@ export function createStartPlanCheckoutHandler(
     access: { roles: purchaseRolesOf(catalog) },
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
-      const payload = event.payload as { tier: string };
+      const payload = event.payload as { tier: string; consent?: ConsentPayload };
       const { name: providerName, plugin } = resolveCatalogProvider(
         ctx,
         catalog,
@@ -54,6 +65,11 @@ export function createStartPlanCheckoutHandler(
         });
       }
 
+      const consent =
+        consumerProtection && payload.consent
+          ? await prepareConsent(ctx, consumerProtection, payload.consent, "subscription")
+          : undefined;
+
       const baseUrl = options.baseUrl ?? "";
       const result = await openCheckout(
         ctx,
@@ -64,10 +80,19 @@ export function createStartPlanCheckoutHandler(
           successUrl: joinBaseUrl(baseUrl, catalog.successPath),
           cancelUrl: joinBaseUrl(baseUrl, catalog.cancelPath),
           mode: "subscription",
+          ...(consent && consentCheckoutFields(consent)),
           ...(existing?.providerName === providerName &&
             existing.providerCustomerId && { providerCustomerId: existing.providerCustomerId }),
         },
       );
+
+      if (consent) {
+        await recordConsent(ctx, consent, {
+          tier: payload.tier,
+          priceId: resolved.priceId,
+          price: resolved.price,
+        });
+      }
 
       return { isSuccess: true as const, data: { url: result.url } };
     },

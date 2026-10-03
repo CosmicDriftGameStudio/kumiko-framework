@@ -64,6 +64,7 @@ import {
   SUBSCRIPTION_PROVIDER_EXTENSION,
   SubscriptionFoundationHandlers,
 } from "./constants.js";
+import { registerConsumerProtection } from "./consumer-protection/register-consent.js";
 import { paymentEntity, subscriptionEntity } from "./entities.js";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -235,6 +236,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     // fire from create-checkout-session even without a catalog — register
     // unconditionally rather than splitting the i18n surface by option.
     r.translations({ keys: BILLING_FOUNDATION_I18N });
+    if (widened.consumerProtection) registerConsumerProtection(r);
 
     if (widened.catalog) {
       const { catalog } = widened;
