@@ -54,6 +54,10 @@ export const SubscriptionFoundationHandlers = {
    *  subscription stream and asks the provider to cancel (consumerProtection
    *  only). */
   recordContractTermination: "billing-foundation:write:record-contract-termination",
+  /** System-only: records that a public declaration reached a tenant's
+   *  subscription stream; the event triggers the provider cancel job
+   *  (consumerProtection only). */
+  declareContractTermination: "billing-foundation:write:declare-contract-termination",
   /** System-only: records a public declaration no single tenant could be
    *  matched to, on a system-tenant stream (consumerProtection only). */
   recordUnmatchedContractTermination:
@@ -235,3 +239,10 @@ export const DEFAULT_PURCHASE_ROLES = ["TenantAdmin", "SystemAdmin"] as const;
 // Stripe-priceIds vs PayPal-plan-ids vs Apple-product-ids
 // unterschiedliche IDs sind. Jeder Plugin definiert seinen eigenen
 // `<plugin-name>:config:price-to-tier`-Key.
+
+export const TERMINATION_SCOPES = ["tenant-host", "platform"] as const;
+export type TerminationScope = (typeof TERMINATION_SCOPES)[number];
+
+export function isTerminationScope(value: unknown): value is TerminationScope {
+  return (TERMINATION_SCOPES as readonly unknown[]).includes(value);
+}

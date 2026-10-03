@@ -4,6 +4,7 @@
 // re-exported from index.ts.
 
 import * as z from "zod";
+import { isTerminationScope, TERMINATION_SCOPES } from "./constants.js";
 import type { BillingFoundationOptions, ConsumerProtectionOptions } from "./types.js";
 
 function isRootRelativePath(path: string): boolean {
@@ -33,6 +34,11 @@ function validateConsumerProtection(cp: ConsumerProtectionOptions): void {
   if (!z.email().safeParse(cp.operatorEmail).success) {
     throw new Error(
       `createBillingFoundationFeature: consumerProtection.operatorEmail "${cp.operatorEmail}" is not a valid email address.`,
+    );
+  }
+  if (cp.terminationScope !== undefined && !isTerminationScope(cp.terminationScope)) {
+    throw new Error(
+      `createBillingFoundationFeature: consumerProtection.terminationScope "${String(cp.terminationScope)}" must be one of ${TERMINATION_SCOPES.map((scope) => `"${scope}"`).join(", ")}.`,
     );
   }
   for (const [key, link] of Object.entries(cp.legalLinks)) {

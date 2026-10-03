@@ -87,6 +87,7 @@ export function defineWriteHandler<
     }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+    ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
   };
 
   if ("perform" in def && def.perform !== undefined) {

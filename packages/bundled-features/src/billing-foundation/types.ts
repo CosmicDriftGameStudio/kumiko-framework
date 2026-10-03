@@ -35,6 +35,7 @@ import {
   type SubscriptionCancelTiming,
   type SubscriptionEventType,
   type SubscriptionStatus,
+  type TerminationScope,
 } from "./constants.js";
 
 // =============================================================================
@@ -389,6 +390,11 @@ export type ConsumerProtectionOptions = {
   /** Per-locale VAT note; must carry at least `de` and `en`. */
   readonly vatNote: Readonly<Record<string, string>>;
   readonly operatorEmail: string;
+  /** Where the public § 312k declaration is reachable. `"tenant-host"`
+   *  (default): on a host that resolves a tenant. `"platform"`: also on a
+   *  host that resolves none (the platform apex) — the declaration then runs
+   *  without a request tenant and finds the contract by the declarant's email. */
+  readonly terminationScope?: TerminationScope;
   /** Root-relative paths or absolute https URLs. */
   readonly legalLinks: {
     readonly terms: string;

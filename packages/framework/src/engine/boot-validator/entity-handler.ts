@@ -154,6 +154,34 @@ export function validateHandlerAccess(feature: FeatureDefinition): void {
       validateRateLimitDisabledReason(feature.name, kind, name, handler.rateLimit);
     }
   }
+  for (const [name, handler] of Object.entries(feature.writeHandlers)) {
+    validateTenantlessAnonymous(feature.name, name, handler);
+  }
+}
+
+export function validateTenantlessAnonymous(
+  featureName: string,
+  handlerName: string,
+  handler: FeatureDefinition["writeHandlers"][string],
+): void {
+  // skip: handler does not opt into tenantless anonymous calls
+  if (!handler.tenantlessAnonymous) return;
+  const where = `write handler "${featureName}:write:${handlerName}" declares tenantlessAnonymous`;
+  const { access } = handler;
+  const isAnonymousOnly =
+    "roles" in access && access.roles.length === 1 && access.roles[0] === "anonymous";
+  if (!isAnonymousOnly) {
+    throw new Error(
+      `${where} but its access is not exactly { roles: ["anonymous"] } — a tenantless request ` +
+        `carries no principal beyond the anonymous visitor.`,
+    );
+  }
+  if (!handler.rateLimit || isRateLimitDisabled(handler.rateLimit)) {
+    throw new Error(
+      `${where} without a rateLimit — a handler reachable on hosts that resolve no tenant ` +
+        `needs a real upper bound (rateLimit: { per: "ip", ... }); { disabled: true } does not count.`,
+    );
+  }
 }
 
 export function validateRateLimitDisabledReason(

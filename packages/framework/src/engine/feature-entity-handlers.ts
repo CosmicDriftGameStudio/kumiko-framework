@@ -177,6 +177,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+          ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
           // Forward the pipeline-build closure so boot-validators and
           // Designer/AI tooling can inspect the step list. Absent on
           // free-form handlers — defineWriteHandler only sets `perform`

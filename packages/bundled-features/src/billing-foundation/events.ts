@@ -12,6 +12,7 @@
 
 import * as z from "zod";
 import { BILLING_FOUNDATION_FEATURE, SubscriptionStatuses } from "./constants.js";
+import { CONSENT_LOCALES } from "./consumer-protection/consent-locale.js";
 
 // Aggregate-type für den event-store. Eine subscription pro Tenant ist
 // ein stream; der subscriptionAggregateId-helper liefert die stream-id.
@@ -194,6 +195,23 @@ export const contractTerminationRequestedPayloadSchema = z.object({
 });
 export type ContractTerminationRequestedPayload = z.infer<
   typeof contractTerminationRequestedPayloadSchema
+>;
+
+// A public declaration matched to this tenant. The provider cancel runs in a
+// job triggered by this event, so the request itself only looks up and appends.
+export const CONTRACT_TERMINATION_DECLARED_EVENT_SHORT = "contract-termination-declared" as const;
+export const CONTRACT_TERMINATION_DECLARED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CONTRACT_TERMINATION_DECLARED_EVENT_SHORT}` as const;
+
+export const contractTerminationDeclaredPayloadSchema = z.object({
+  requestId: z.string().min(1).max(100),
+  declarationType: z.enum(CONTRACT_TERMINATION_DECLARATION_TYPES),
+  terminationKind: z.enum(CONTRACT_TERMINATION_KINDS),
+  receivedAtIso: z.string().min(1),
+  locale: z.enum(CONSENT_LOCALES),
+});
+export type ContractTerminationDeclaredPayload = z.infer<
+  typeof contractTerminationDeclaredPayloadSchema
 >;
 
 export const CONTRACT_TERMINATION_UNMATCHED_AGGREGATE_TYPE =

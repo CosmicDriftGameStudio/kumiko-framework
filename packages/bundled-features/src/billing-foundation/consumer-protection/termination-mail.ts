@@ -24,6 +24,13 @@ export type TerminationDeclaration = {
   readonly reason?: string;
 };
 
+/** The operator notice for a provider problem has no declarant data at all. */
+export type OperatorNoticeDeclaration = Pick<
+  TerminationDeclaration,
+  "declarationType" | "terminationKind"
+> &
+  Partial<Omit<TerminationDeclaration, "declarationType" | "terminationKind">>;
+
 const TIME_ZONE_BY_LOCALE: Readonly<Record<ConsentLocale, string>> = {
   de: "Europe/Berlin",
   en: "UTC",
@@ -44,7 +51,7 @@ export function formatReceivedAt(iso: string, locale: ConsentLocale): string {
 }
 
 function declarationLines(
-  declaration: TerminationDeclaration,
+  declaration: OperatorNoticeDeclaration,
   locale: ConsentLocale,
 ): readonly { readonly text: string }[] {
   const texts = TERMINATION_TEXTS[locale];
@@ -52,7 +59,7 @@ function declarationLines(
     `${texts.declarationType}: ${texts.declarationTypeLabel[declaration.declarationType]}`,
     `${texts.terminationKind}: ${texts.terminationKindLabel[declaration.terminationKind]}`,
     ...(declaration.name !== undefined ? [`${texts.name}: ${declaration.name}`] : []),
-    `${texts.email}: ${declaration.email}`,
+    ...(declaration.email !== undefined ? [`${texts.email}: ${declaration.email}`] : []),
     ...(declaration.customerReference
       ? [`${texts.customerReference}: ${declaration.customerReference}`]
       : []),
@@ -96,7 +103,7 @@ export type RenderOperatorNoticeArgs = {
   readonly requestId: string;
   readonly receivedAtIso: string;
   readonly channel: "public" | "account";
-  readonly declaration: TerminationDeclaration;
+  readonly declaration: OperatorNoticeDeclaration;
   readonly reasons: readonly OperatorNoticeReason[];
   readonly tenantId?: string;
   readonly providerCancel?: ProviderCancelOutcome;

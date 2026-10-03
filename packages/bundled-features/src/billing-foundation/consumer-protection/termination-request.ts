@@ -16,7 +16,6 @@ import * as z from "zod";
 import { TenantQueries } from "../../tenant/index.js";
 import { UserQueries } from "../../user/index.js";
 import {
-  CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE,
   CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE,
   SubscriptionCancelTimings,
   SubscriptionFoundationHandlers,
@@ -31,12 +30,9 @@ import {
 } from "../events.js";
 import { purchaseRolesOf } from "../plan-catalog.js";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
-import { type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
-import {
-  renderOperatorNotice,
-  renderTerminationReceipt,
-  type TerminationDeclaration,
-} from "./termination-mail.js";
+import { resolveConsentLocale } from "./consent-text.js";
+import { renderTerminationReceipt, type TerminationDeclaration } from "./termination-mail.js";
+import { notifyOperator, type OperatorNoticePlan, requireNotify } from "./termination-notify.js";
 import type { RecordContractTerminationResult } from "./termination-record.js";
 import type { OperatorNoticeReason } from "./termination-texts.js";
 
@@ -106,29 +102,14 @@ function needsOperatorNotice(declaration: {
   ];
 }
 
-type TerminationMailPlan = {
-  readonly locale: ConsentLocale;
-  readonly requestId: string;
-  readonly receivedAtIso: string;
-  readonly channel: "public" | "account";
-  readonly declaration: TerminationDeclaration;
-  readonly reasons: readonly OperatorNoticeReason[];
-  readonly tenantId?: string;
-  readonly providerCancel?: ProviderCancelOutcome;
-};
+type TerminationMailPlan = OperatorNoticePlan & { readonly declaration: TerminationDeclaration };
 
 async function sendTerminationMails(
   ctx: HandlerContext,
   consumerProtection: ConsumerProtectionOptions,
   plan: TerminationMailPlan,
 ): Promise<void> {
-  if (!ctx.notify) {
-    throw new InternalError({
-      message:
-        "billing-foundation:termination: ctx.notify unavailable — the delivery feature must be mounted",
-    });
-  }
-  await ctx.notify(CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE, {
+  await requireNotify(ctx)(CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE, {
     route: { email: plan.declaration.email },
     data: renderTerminationReceipt({
       locale: plan.locale,
@@ -141,21 +122,7 @@ async function sendTerminationMails(
   });
   // skip: no operator notice needed for this declaration
   if (plan.reasons.length === 0) return;
-  await ctx.notify(CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE, {
-    route: { email: consumerProtection.operatorEmail },
-    data: renderOperatorNotice({
-      locale: plan.locale,
-      requestId: plan.requestId,
-      receivedAtIso: plan.receivedAtIso,
-      channel: plan.channel,
-      declaration: plan.declaration,
-      reasons: plan.reasons,
-      operatorEmail: consumerProtection.operatorEmail,
-      ...(plan.tenantId !== undefined && { tenantId: plan.tenantId }),
-      ...(plan.providerCancel !== undefined && { providerCancel: plan.providerCancel }),
-    }),
-    priority: "critical",
-  });
+  await notifyOperator(ctx, consumerProtection, plan);
 }
 
 // Tenants the entered email can terminate a contract for: tenants where the
@@ -212,6 +179,7 @@ export function createRequestContractTerminationHandler(
     schema: requestContractTerminationSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 600 },
+    ...(consumerProtection.terminationScope === "platform" && { tenantlessAnonymous: true }),
     escapeHatch: {
       reason:
         "Anonymous declarant has no session — finds the contract by email via ctx.queryAs(system, user:find-for-auth) and tenant:memberships; the tenant written to comes only from those lookups.",
@@ -223,32 +191,19 @@ export function createRequestContractTerminationHandler(
       const receivedAtIso = options.now().toString();
       const { declarationType, terminationKind } = payload;
       const reasons: OperatorNoticeReason[] = [];
+      const locale = resolveConsentLocale(payload.locale);
       let matchedTenantId: string | undefined;
-      let providerCancel: ProviderCancelOutcome | undefined;
 
       const candidates = await findTerminableTenantIds(ctx, event.user.tenantId, payload.email);
       const [onlyCandidate] = candidates;
       if (candidates.length === 1 && onlyCandidate !== undefined) {
         matchedTenantId = onlyCandidate;
-        const recorded = await ctx.writeAs(
+        const declared = await ctx.writeAs(
           createSystemUser(onlyCandidate),
-          SubscriptionFoundationHandlers.recordContractTermination,
-          {
-            requestId,
-            declarationType,
-            terminationKind,
-            channel: "public",
-            when: declarationType === "withdrawal" ? "none" : SubscriptionCancelTimings.periodEnd,
-          },
+          SubscriptionFoundationHandlers.declareContractTermination,
+          { requestId, declarationType, terminationKind, receivedAtIso, locale },
         );
-        if (recorded.isSuccess) {
-          // @cast-boundary engine-payload — our own record handler's return shape
-          const data = recorded.data as RecordContractTerminationResult;
-          providerCancel = data.providerCancel;
-          if (data.noticeReason !== null) reasons.push(data.noticeReason);
-        } else {
-          reasons.push("recording_failed");
-        }
+        if (!declared.isSuccess) reasons.push("recording_failed");
       } else {
         reasons.push(candidates.length === 0 ? "unmatched" : "ambiguous");
         const recorded = await ctx.writeAs(
@@ -267,7 +222,7 @@ export function createRequestContractTerminationHandler(
       reasons.push(...needsOperatorNotice(payload));
 
       await sendTerminationMails(ctx, consumerProtection, {
-        locale: resolveConsentLocale(payload.locale),
+        locale,
         requestId,
         receivedAtIso,
         channel: "public",
@@ -283,7 +238,6 @@ export function createRequestContractTerminationHandler(
         },
         reasons,
         ...(matchedTenantId !== undefined && { tenantId: matchedTenantId }),
-        ...(providerCancel !== undefined && { providerCancel }),
       });
 
       return {
