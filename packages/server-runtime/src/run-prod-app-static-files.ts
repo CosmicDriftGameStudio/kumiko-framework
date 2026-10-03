@@ -176,8 +176,18 @@ export function buildStaticFallback(
     pathname: string,
     html: HtmlPayload,
     extraHeaders?: Record<string, string>,
+    status?: number,
   ): Response {
+    // A not-found page carries no validator: a matching If-None-Match must
+    // never turn a 404 into a bodyless 304.
+    if (status === 404) {
+      return new Response(req.method === "HEAD" ? null : html.bytes, {
+        status,
+        headers: { "content-type": html.mime, "cache-control": "no-store", ...extraHeaders },
+      });
+    }
     return cachedResponse(req, {
+      status,
       body: html.bytes,
       etag: html.etag,
       cache: staticCachePolicy(pathname),
@@ -251,29 +261,38 @@ export function buildStaticFallback(
       { host, path: url.pathname, search: url.search },
       { systemQuery },
     );
-    if (result.kind === "not-found") {
-      return new Response("Not Found", { status: 404 });
-    }
     if (result.kind === "redirect") {
       return new Response(null, {
         status: result.status ?? 302,
         headers: { Location: result.to },
       });
     }
-    // result.kind === "html"
-    const filePath = `${staticDir}/${result.file}`;
-    const html = await readHtmlFile(filePath);
+    if (result.kind === "not-found") {
+      if (result.file === undefined) return new Response("Not Found", { status: 404 });
+      return serveHostDispatchFile(req, result.file, result.csp, socketAddress, 404);
+    }
+    return serveHostDispatchFile(req, result.file, result.csp, socketAddress, 200);
+  }
+
+  async function serveHostDispatchFile(
+    req: Request,
+    file: string,
+    csp: string | undefined,
+    socketAddress: string | undefined,
+    status: number,
+  ): Promise<Response> {
+    const html = await readHtmlFile(`${staticDir}/${file}`);
     if (!html) {
       // Author-Fehler: hostDispatch verweist auf nicht-existente Datei.
       // Liefer 500 statt silent-404 damit der Bug schnell auffällt.
-      return new Response(`hostDispatch: file not found: ${result.file}`, { status: 500 });
+      return new Response(`hostDispatch: file not found: ${file}`, { status: 500 });
     }
     // Per-host body (hostDispatch picks the file by host) → Vary: Host,
     // otherwise a shared cache could serve Host A's HTML to Host B.
     const extraHeaders: Record<string, string> = { vary: "Host" };
-    if (result.csp) extraHeaders["content-security-policy"] = result.csp;
+    if (csp) extraHeaders["content-security-policy"] = csp;
     const withHead = await applyPageHead(req, html, socketAddress);
-    return serveHtmlFile(req, "/index.html", withHead, extraHeaders);
+    return serveHtmlFile(req, "/index.html", withHead, extraHeaders, status);
   }
 
   return async (req: Request, socketAddress?: string): Promise<Response> => {

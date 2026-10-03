@@ -29,6 +29,7 @@ import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import {
   createKumikoServer,
+  type DevHostDispatchResult,
   type KumikoServerHandle,
   PROD_BUNDLES_ENV,
   STYLESHEET_WATCH_ENV,
@@ -366,6 +367,55 @@ describe("createKumikoServer (Multi-Entry)", () => {
       new Request("http://apex.test/", { headers: { host: "apex.test" } }),
     );
     expect(res.status).toBe(404);
+  });
+
+  describe("hostDispatch not-found with a custom page", () => {
+    async function bootNotFound(result: () => DevHostDispatchResult) {
+      tmpDir = mkdtempSync(join(tmpdir(), "kumiko-multi-it-"));
+      const publicEntry = join(tmpDir, "client-public.tsx");
+      writeFileSync(publicEntry, "// public");
+      const publicHtml = join(tmpDir, "index.html");
+      writeFileSync(publicHtml, "<!doctype html><html><body>PUBLIC-HTML</body></html>");
+      writeFileSync(join(tmpDir, "gone.html"), "<html><body>unknown tenant</body></html>");
+      return createKumikoServer({
+        features: [probeFeature],
+        port: 0,
+        installSignalHandlers: false,
+        clientEntries: [{ name: "public", sourceFile: publicEntry, htmlPath: publicHtml }],
+        _buildBundle: async () => ({ js: "// PUBLIC-BUNDLE", map: "" }),
+        hostDispatch: result,
+      });
+    }
+
+    test("file → 404 with that page as html", async () => {
+      handle = await bootNotFound(() => ({ kind: "not-found", file: join(tmpDir, "gone.html") }));
+      const res = await handle.fetch(new Request("http://localhost/"));
+      expect(res.status).toBe(404);
+      expect(res.headers.get("content-type")).toContain("text/html");
+      expect(await res.text()).toContain("unknown tenant");
+    });
+
+    test("entryName → 404 with that entry's shell", async () => {
+      handle = await bootNotFound(() => ({ kind: "not-found", entryName: "public" }));
+      const res = await handle.fetch(new Request("http://localhost/"));
+      expect(res.status).toBe(404);
+      expect(res.headers.get("content-type")).toContain("text/html");
+      expect(await res.text()).toContain("PUBLIC-HTML");
+    });
+
+    test("no fields → plain Not Found", async () => {
+      handle = await bootNotFound(() => ({ kind: "not-found" }));
+      const res = await handle.fetch(new Request("http://localhost/"));
+      expect(res.status).toBe(404);
+      expect(await res.text()).toBe("Not Found");
+    });
+
+    test("missing file → 500", async () => {
+      handle = await bootNotFound(() => ({ kind: "not-found", file: "/nonexistent/page.html" }));
+      const res = await handle.fetch(new Request("http://localhost/"));
+      expect(res.status).toBe(500);
+      expect(await res.text()).toContain("hostDispatch: file not found: /nonexistent/page.html");
+    });
   });
 
   test("hostDispatch: async fn erhält deps.systemQuery, 'not-found' → 404 (kumiko-framework#3050 dev-Pendant)", async () => {

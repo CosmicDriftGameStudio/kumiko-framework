@@ -134,7 +134,14 @@ export type DevHostDispatchResult =
       readonly file: string;
     }
   | { readonly kind: "redirect"; readonly to: string; readonly status?: 301 | 302 }
-  | { readonly kind: "not-found" };
+  | {
+      /** Plain 404 by default. `file` serves a static page with status 404
+       *  (like `static-html`), `entryName` serves that bundle's shell with 404;
+       *  `file` wins when both are set. */
+      readonly kind: "not-found";
+      readonly entryName?: string;
+      readonly file?: string;
+    };
 
 /** Picks an entry by inspecting the incoming request. Wird von
  *  Multi-Entry-Apps gesetzt; im Single-Entry-Mode irrelevant. */
@@ -1062,6 +1069,7 @@ export async function createKumikoServer(
     entryName: string,
     req: Request,
     socketAddress?: string,
+    status = 200,
   ): Promise<Response> => {
     const template = htmlTemplates.get(entryName) ?? defaultTemplate;
     const headers = new Headers();
@@ -1083,7 +1091,22 @@ export async function createKumikoServer(
         systemQuery: buildDevSystemQuery(req, socketAddress),
       });
     }
-    return new Response(html, { headers });
+    return new Response(html, { status, headers });
+  };
+
+  // Raw file serve, no bundle injection — mirrors prod's `{ kind: "html", file }`.
+  const staticHtmlResponse = async (file: string, status: number): Promise<Response> => {
+    let content: string;
+    try {
+      content = await readFile(file, "utf-8");
+    } catch (error) {
+      if ((error as { code?: string }).code !== "ENOENT") throw error;
+      return new Response(`hostDispatch: file not found: ${file}`, { status: 500 });
+    }
+    return new Response(content, {
+      status,
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    });
   };
 
   // --- Fetch handler (runtime-neutral) ---
@@ -1241,15 +1264,14 @@ export async function createKumikoServer(
           });
         }
         if (dispatch.kind === "not-found") {
+          if (dispatch.file !== undefined) return staticHtmlResponse(dispatch.file, 404);
+          if (dispatch.entryName !== undefined) {
+            return htmlResponse(dispatch.entryName, req, socketAddress, 404);
+          }
           return new Response("Not Found", { status: 404 });
         }
         if (dispatch.kind === "static-html") {
-          // Raw file serve, no bundle injection — mirrors prod's
-          // `{ kind: "html", file: ... }` static-html branch.
-          const file = await readFile(dispatch.file, "utf-8");
-          return new Response(file, {
-            headers: { "Content-Type": "text/html; charset=utf-8" },
-          });
+          return staticHtmlResponse(dispatch.file, 200);
         }
         return htmlResponse(dispatch.entryName, req, socketAddress);
       }

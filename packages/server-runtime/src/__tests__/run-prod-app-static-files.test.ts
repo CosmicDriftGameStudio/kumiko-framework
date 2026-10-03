@@ -180,6 +180,68 @@ describe("buildStaticFallback hostDispatch", () => {
     expect(await res.text()).toContain("ok");
   });
 
+  test("hostDispatch not-found with file → 404 with that page, Vary: Host and CSP", async () => {
+    await writeFile(join(tmp, "unknown.html"), "<!doctype html><html><body>unknown</body></html>");
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      () => ({ kind: "not-found", file: "unknown.html", csp: "default-src 'self'" }),
+    );
+    const res = await handler(new Request("http://t/", { headers: { host: "x.example" } }));
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(res.headers.get("vary")).toBe("Host");
+    expect(res.headers.get("content-security-policy")).toBe("default-src 'self'");
+    expect(await res.text()).toContain("unknown");
+  });
+
+  test("hostDispatch not-found page ignores If-None-Match and carries no ETag", async () => {
+    await writeFile(join(tmp, "unknown.html"), "<!doctype html><html><body>unknown</body></html>");
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      ({ host }) =>
+        host === "known.example"
+          ? { kind: "html", file: "unknown.html" }
+          : { kind: "not-found", file: "unknown.html" },
+    );
+    const ok = await handler(new Request("http://t/", { headers: { host: "known.example" } }));
+    const etag = ok.headers.get("etag");
+    expect(ok.status).toBe(200);
+    expect(etag).not.toBeNull();
+
+    const res = await handler(
+      new Request("http://t/", {
+        headers: { host: "x.example", "if-none-match": etag ?? "" },
+      }),
+    );
+    expect(res.status).toBe(404);
+    expect(res.headers.get("etag")).toBeNull();
+    expect(await res.text()).toContain("unknown");
+  });
+
+  test("hostDispatch not-found without file stays plain Not Found", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      () => ({ kind: "not-found" }),
+    );
+    const res = await handler(new Request("http://t/"));
+    expect(res.status).toBe(404);
+    expect(await res.text()).toBe("Not Found");
+  });
+
+  test("hostDispatch not-found pointing at a missing file → 500", async () => {
+    const handler = buildStaticFallback(
+      () => noRouteMatchedResponse(),
+      tmp,
+      () => ({ kind: "not-found", file: "gone.html" }),
+    );
+    const res = await handler(new Request("http://t/"));
+    expect(res.status).toBe(500);
+    expect(await res.text()).toContain("hostDispatch: file not found: gone.html");
+  });
+
   test("a matched route's own deliberate 404 stays 404, not masked as the SPA shell (#2435)", async () => {
     // An index.html exists on disk, so the OLD status-only heuristic would
     // have served it with status 200 for ANY 404 — including one from a
