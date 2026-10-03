@@ -9,6 +9,7 @@ import { type ScaffoldTestSetup, scaffoldApp } from "../scaffold-app.js";
 const SCAFFOLD_FILES = [
   "package.json",
   "tsconfig.json",
+  "kumiko.json",
   "biome.json",
   "bunfig.toml",
   "bunfig.ci.toml",
@@ -219,6 +220,16 @@ describe("scaffoldApp", () => {
       "kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema)",
     );
     expect(kumikoBin).toContain("{ features, kmsSlots }");
+  });
+
+  test("kumiko.json declares kind app with uiRoots so `kumiko check` accepts a fresh app", async () => {
+    const dest = join(tmp, "my-shop");
+    const result = await scaffoldApp({ name: "my-shop", destination: dest });
+
+    expect(result.files).toContain("kumiko.json");
+    const manifest = JSON.parse(readFileSync(join(dest, "kumiko.json"), "utf-8"));
+    expect(manifest.kind).toBe("app");
+    expect(manifest.uiRoots).toEqual(["src/features/*/web"]);
   });
 
   test("bin/dev.ts contains runDevApp + welcomeBanner + admin login + clientEntry", async () => {

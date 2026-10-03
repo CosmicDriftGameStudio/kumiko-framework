@@ -112,6 +112,9 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "tsconfig.json"), renderTsconfig());
   files.push("tsconfig.json");
 
+  write(join(destination, "kumiko.json"), renderKumikoManifest());
+  files.push("kumiko.json");
+
   write(join(destination, "biome.json"), renderBiomeJson());
   files.push("biome.json");
 
@@ -918,6 +921,21 @@ function renderKumikoSchema(): string {
     "export const ENTITY_METAS: readonly EntityTableMeta[] = collectTableMetas(FEATURES);",
     "",
   ].join("\n");
+}
+
+// `kumiko check` fails a kind "app" without uiRoots, so a fresh app must declare them.
+function renderKumikoManifest(): string {
+  return `${JSON.stringify(
+    {
+      kind: "app",
+      sourceRoots: ["src", "bin"],
+      testGlobs: ["src/**/*.{test,integration}.{ts,tsx}"],
+      uiRoots: ["src/features/*/web"],
+      excludes: ["**/node_modules/**", "**/dist/**"],
+    },
+    null,
+    2,
+  )}\n`;
 }
 
 function renderBinKumiko(): string {

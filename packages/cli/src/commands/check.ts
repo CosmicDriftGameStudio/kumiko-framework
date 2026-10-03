@@ -20,10 +20,31 @@ export type RepoFacts = {
   /** A `kind: "app"` repo without one is an app by role only (an Astro site, a
    *  docs repo) — there is no composed feature set for validateBoot to check. */
   readonly hasAppSchema: boolean;
+  readonly manifestSource: "file" | "derived";
 };
 
-export function resolveCheckSteps(manifest: RepoManifest, facts: RepoFacts): readonly CheckStep[] {
-  if (manifest.kind === "tooling") return [];
+export type CheckPlan =
+  | {
+      readonly kind: "steps";
+      readonly steps: readonly CheckStep[];
+      readonly waivers: readonly string[];
+    }
+  | { readonly kind: "error"; readonly message: string };
+
+export function resolveCheckSteps(manifest: RepoManifest, facts: RepoFacts): CheckPlan {
+  if (manifest.kind === "tooling") return { kind: "steps", steps: [], waivers: [] };
+  if (manifest.kind === "app" && manifest.uiRoots === undefined) {
+    // A silent skip would let an app with UI pass without the UI guards ever running.
+    const derivedHint = facts.manifestSource === "derived" ? ` Add a ${REPO_MANIFEST_FILE}.` : "";
+    return {
+      kind: "error",
+      message:
+        `kind "app" must declare uiRoots in ${REPO_MANIFEST_FILE}: list the UI directories ` +
+        '(e.g. ["src/app", "src/features/*/web"]) or set uiRoots: [] for an app without UI.' +
+        derivedHint,
+    };
+  }
+  const waivers: string[] = [];
   const steps: CheckStep[] = [];
   if (manifest.kind === "app" && facts.hasAppSchema) {
     steps.push({
@@ -44,12 +65,15 @@ export function resolveCheckSteps(manifest: RepoManifest, facts: RepoFacts): rea
       why: `uiRoots ${manifest.uiRoots.join(", ")}`,
     });
   }
+  if (manifest.kind === "app" && manifest.uiRoots?.length === 0) {
+    waivers.push("UI guards skipped on purpose: uiRoots is [] (app without UI)");
+  }
   steps.push({
     id: "checks",
     label: "Repo checks",
     why: `kind "${manifest.kind}" — testGlobs ${manifest.testGlobs.join(", ")}`,
   });
-  return steps;
+  return { kind: "steps", steps, waivers };
 }
 
 export type GuardsCli = Pick<
@@ -124,17 +148,8 @@ export async function runCheck(
     return 1;
   }
 
-  const steps = resolveCheckSteps(repo.manifest, {
-    hasAppSchema: existsSync(join(repo.absPath, APP_SCHEMA_FILE)),
-  });
-  ctx.out.log("");
-  ctx.out.log(
-    `  ${repo.name} — kind "${repo.manifest.kind}", ${steps.length} step(s) from ${REPO_MANIFEST_FILE}`,
-  );
-  for (const step of steps) {
-    ctx.out.log(`    ${step.id.padEnd(8)}${step.label} — ${step.why}`);
-  }
-  ctx.out.log("");
+  const steps = printCheckPlan(ctx, repo);
+  if (steps === undefined) return 1;
 
   if (steps.length === 0) {
     ctx.out.log(`  Nothing to check: kind "${repo.manifest.kind}" declares no product code.`);
@@ -153,6 +168,32 @@ export async function runCheck(
     failed += await runStepReportingThrow(step, ctx, repo.absPath, guards, deps);
   }
   return failed > 0 ? 1 : 0;
+}
+
+type LocalRepo = NonNullable<ReturnType<GuardsCli["findLocalRepo"]>>;
+
+/** Returns undefined when the manifest cannot be checked; the reason is already printed. */
+function printCheckPlan(ctx: CliCommandContext, repo: LocalRepo): readonly CheckStep[] | undefined {
+  const plan = resolveCheckSteps(repo.manifest, {
+    hasAppSchema: existsSync(join(repo.absPath, APP_SCHEMA_FILE)),
+    manifestSource: repo.manifestSource,
+  });
+  if (plan.kind === "error") {
+    ctx.out.err("");
+    ctx.out.err(`  ✗ ${repo.name}: ${plan.message}`);
+    ctx.out.err("");
+    return undefined;
+  }
+  ctx.out.log("");
+  ctx.out.log(
+    `  ${repo.name} — kind "${repo.manifest.kind}", ${plan.steps.length} step(s) from ${REPO_MANIFEST_FILE}`,
+  );
+  for (const step of plan.steps) {
+    ctx.out.log(`    ${step.id.padEnd(8)}${step.label} — ${step.why}`);
+  }
+  for (const waiver of plan.waivers) ctx.out.log(`    ${"ui".padEnd(8)}${waiver}`);
+  ctx.out.log("");
+  return plan.steps;
 }
 
 async function runStepReportingThrow(
@@ -201,6 +242,7 @@ export const checkCommand: CliCommand = {
     `  boot     kind "app" + ${APP_SCHEMA_FILE}   validateBoot over its composed FEATURES`,
     '  guards   kind != "tooling"     AST guards over sourceRoots',
     "  ui       uiRoots declared      UI guards (App-Mounting 2.0)",
+    '           kind "app" must declare uiRoots; uiRoots: [] skips the UI guards on purpose',
     '  checks   kind != "tooling"     repo checks over sourceRoots + testGlobs',
     "",
     "Flags:",
