@@ -375,6 +375,9 @@ export type NotifyOptions = {
   // result carries sent/failed instead of queued. Deliberately bypasses the
   // job pipeline and with it its retry — meant for "send test message" handlers.
   readonly immediate?: boolean;
+  // BCP-47 tag of the language the notification content is written in. Reaches
+  // the renderer so frame text around the content (footer, links) can match.
+  readonly locale?: string;
 };
 
 export type NotifyDeliveryStatus = "queued" | "sent" | "failed" | "skipped";

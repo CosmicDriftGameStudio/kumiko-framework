@@ -188,6 +188,7 @@ export function createIssueContractConfirmationHandler(
       await ctx.notify(CONTRACT_CONFIRMATION_NOTIFICATION_TYPE, {
         route: { email: recipient.data.email },
         data: content,
+        locale,
         priority: "critical",
       });
 

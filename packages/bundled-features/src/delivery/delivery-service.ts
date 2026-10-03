@@ -219,6 +219,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   type NotifyRun = {
     readonly deliveries: NotifyDelivery[];
     readonly jobDispatcher: NotifyJobDispatcher | undefined;
+    readonly locale: string | undefined;
   };
 
   function recordDelivery(
@@ -323,6 +324,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     notificationType: string,
     data: Readonly<Record<string, unknown>> | undefined,
     channelName: string,
+    locale: string | undefined,
   ): ChannelMessage {
     // Look up per-channel template from notification definition
     const notifDef = registry.getAllNotifications().get(notificationType);
@@ -336,6 +338,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         title: (channelData["title"] as string) ?? (data["title"] as string) ?? notificationType,
         body: channelData["body"] as string | undefined,
         data: channelData,
+        locale,
       };
     }
 
@@ -345,6 +348,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       title: (data?.["title"] as string) ?? notificationType,
       body: data?.["body"] as string | undefined,
       data,
+      locale,
     };
   }
 
@@ -412,7 +416,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       // Route-only channel (no per-user address): not a user-notification target.
       if (!channel.resolve) continue;
 
-      const message = buildMessage(notificationType, data, channel.name);
+      const message = buildMessage(notificationType, data, channel.name, run.locale);
 
       // Kill switch: tenant admin disabled this channel entirely
       if (isChannelKilled) {
@@ -542,7 +546,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     // — direct sends can still be abused (webhook replays, test harnesses).
     for (const channel of channels) {
       const address = route[channel.name];
-      const message = buildMessage(notificationType, data, channel.name);
+      const message = buildMessage(notificationType, data, channel.name, run.locale);
       if (!address) continue;
 
       // Address opt-out (critical priority skips it, same rule as user
@@ -616,6 +620,7 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       const run: NotifyRun = {
         deliveries: [],
         jobDispatcher: options.immediate ? undefined : (jobDispatcher ?? jobRunner),
+        locale: options.locale,
       };
 
       if (idempotencyKey) {

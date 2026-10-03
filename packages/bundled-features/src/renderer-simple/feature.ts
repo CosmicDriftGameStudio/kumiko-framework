@@ -34,6 +34,7 @@ export async function adaptToFoundation(
   const html = await renderer.render({
     template: req.payload.template ?? "",
     variables,
+    locale: req.payload.locale,
   });
   return { kind: "notification", html };
 }

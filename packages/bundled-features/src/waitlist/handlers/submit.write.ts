@@ -9,7 +9,11 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import { WAITLIST_NOTIFICATION_TYPES, WAITLIST_STATUS } from "../constants.js";
 import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../lib.js";
-import { renderWaitlistAdminNoticeEmail, renderWaitlistConfirmationEmail } from "../mail.js";
+import {
+  renderWaitlistAdminNoticeEmail,
+  renderWaitlistConfirmationEmail,
+  resolveWaitlistMailLocale,
+} from "../mail.js";
 import { DEFAULT_SUBMIT_RATE_LIMIT, type WaitlistOptions } from "../options.js";
 import { type WaitlistSubmitInput, WaitlistSubmitSchema } from "../payloads.js";
 
@@ -125,6 +129,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
             appName: opts.appName,
           }),
           priority: "normal",
+          locale: resolveWaitlistMailLocale(payload.locale),
         }),
       );
 

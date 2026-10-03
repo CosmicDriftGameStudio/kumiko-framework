@@ -31,6 +31,7 @@ const channelMessageSchema = z.object({
   title: z.string(),
   body: z.string().optional(),
   data: z.record(z.string(), z.unknown()).optional(),
+  locale: z.string().optional(),
 });
 
 const renderJobPayloadSchema = z.object({
@@ -82,6 +83,7 @@ function toMessage(p: RenderJobPayload): ChannelMessage {
     title: p.message.title,
     body: p.message.body,
     data: p.message.data,
+    locale: p.message.locale,
   };
 }
 

@@ -30,6 +30,7 @@ export type ChannelMessage = {
   readonly title: string;
   readonly body: string | undefined;
   readonly data: Readonly<Record<string, unknown>> | undefined;
+  readonly locale?: string | undefined;
 };
 
 export type ChannelResult = {
@@ -73,6 +74,7 @@ export type DeliveryChannel = {
 export type RendererInput = {
   readonly template: string;
   readonly variables: Readonly<Record<string, unknown>>;
+  readonly locale?: string | undefined;
 };
 
 export type NotificationRenderer = {

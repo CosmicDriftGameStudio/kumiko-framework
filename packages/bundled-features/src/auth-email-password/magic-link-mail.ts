@@ -82,6 +82,7 @@ export async function dispatchMagicLinkMail(
   await notify(spec.notificationType, {
     route: { email: params.email },
     data: content,
+    locale,
     priority: "critical",
   });
 }
