@@ -52,7 +52,7 @@ describe("GET /api/schema", () => {
     const res = await stack.app.request(SCHEMA_PATH);
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("unauthenticated");
+    expect(body.error.code).toBe("missing_token");
   });
 
   test("signed-in user via Bearer token → 200 with the registry's schema, strong ETag, private/no-cache", async () => {

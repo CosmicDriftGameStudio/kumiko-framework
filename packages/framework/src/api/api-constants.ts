@@ -91,6 +91,19 @@ export const NON_PUBLIC_API_PATHS: ReadonlySet<string> = new Set([
   `/api${Routes.schema}`,
 ]);
 
+// Paths that need a session but no tenant: without a token they answer 401
+// before any tenant resolution, so an unresolvable tenant can never turn
+// "not logged in" into a 400 tenant_required.
+const SESSION_REQUIRED_API_PREFIXES: readonly string[] = [`/api${Routes.auth}/`];
+const SESSION_REQUIRED_API_EXACT_PATHS: ReadonlySet<string> = new Set([`/api${Routes.schema}`]);
+
+export function isSessionRequiredApiPath(path: string): boolean {
+  return (
+    SESSION_REQUIRED_API_EXACT_PATHS.has(path) ||
+    SESSION_REQUIRED_API_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
+}
+
 // Opt-out from the default request-body-size cap (registerBodyLimit applies
 // it to all of /api/* by construction — a new route needs no entry here to
 // be covered). Only routes with their own, deliberately different size
