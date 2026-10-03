@@ -126,10 +126,10 @@ afterAll(async () => {
 
 describe("caps:usage's own escapeHatch grants a cap provider raw SQL", () => {
   test("a cap provider's db.unsafeRaw() SUM aggregate runs successfully through caps:usage", async () => {
-    const memberA = createTestUser({ id: 91012, tenantId: TENANT_A, roles: ["User"] });
+    const adminA = createTestUser({ id: 91012, tenantId: TENANT_A, roles: ["TenantAdmin"] });
     const result = await stack.http.queryOk<{
       rows: readonly { id: string; used: number | null }[];
-    }>(CapOverviewQueries.capsUsage, {}, memberA);
+    }>(CapOverviewQueries.capsUsage, {}, adminA);
     const row = result.rows.find((r) => r.id === rawSqlSumCap.id);
     expect(row?.used).toBe(42);
   });

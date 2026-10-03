@@ -8,7 +8,6 @@ import {
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { tierAssignmentEntity } from "../../tier-engine/index.js";
-import { MY_CAPS_ACCESS_ROLES } from "../access.js";
 import type { CapSpec, CapUsageWithMeta } from "../types.js";
 import { computeFraction, computeTone, computeUnclampedFraction } from "../usage-math.js";
 
@@ -16,13 +15,16 @@ type TierAssignmentRow = { readonly tenantId: string; readonly tier: string };
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 
-export function createCapsUsageQuery(caps: readonly CapSpec[]): QueryHandlerDefinition {
+export function createCapsUsageQuery(
+  caps: readonly CapSpec[],
+  usageRoles: readonly string[],
+): QueryHandlerDefinition {
   return defineQueryHandler({
     name: "caps:usage",
     description:
       "Returns the calling user's own tenant's configured caps with used amount, tier limit and utilisation fraction; use it to answer how close a tenant is to its quota (only SystemAdmin may target another tenant via tenantId).",
     schema: z.object({ tenantId: z.string().min(1).optional() }),
-    access: { roles: MY_CAPS_ACCESS_ROLES },
+    access: { roles: usageRoles },
     // COUNT/SUM/AVG are covered by TenantDb.count/TenantDb.aggregate; the grant
     // stays for app-owned CapSpec.usage() providers that still use unsafeRaw.
     escapeHatch: {

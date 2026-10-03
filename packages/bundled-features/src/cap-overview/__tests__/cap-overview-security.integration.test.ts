@@ -77,7 +77,10 @@ beforeAll(async () => {
       createTenantLifecycleFeature(),
       billingFoundationFeature,
       tierEngineFeature,
-      createCapOverviewFeature({ caps: [testCap, unmeasuredCap, batchCap] }),
+      createCapOverviewFeature({
+        caps: [testCap, unmeasuredCap, batchCap],
+        usageVisibleTo: ["User", "Editor", "Admin", "TenantAdmin", "SystemAdmin"],
+      }),
     ],
   });
   db = stack.db;

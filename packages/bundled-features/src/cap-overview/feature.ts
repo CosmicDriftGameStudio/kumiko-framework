@@ -5,8 +5,8 @@
 //      platform-wide table of every tenant's tier, billing status, and
 //      usage against a configurable set of caps.
 //   2. caps:usage query + my-caps / platform-tenant-caps dashboards —
-//      per-tenant usage cards. Every member of a tenant sees their own
-//      tenant; SystemAdmin can additionally view any tenant via `tenantId`.
+//      per-tenant usage cards. Tenant admins see their own
+//      tenant (`usageVisibleTo` widens it); SystemAdmin can additionally view any tenant via `tenantId`.
 //
 // **What this feature does NOT do:**
 //   - No writes. Reads tier-engine's read_tier_assignments, billing-
@@ -16,12 +16,17 @@
 //
 // **Boot-Dependencies:** tenant, tier-engine, billing-foundation.
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import { resolveCapUsageRoles } from "./access.js";
 import { CAP_OVERVIEW_FEATURE } from "./constants.js";
 import { createCapsUsageQuery } from "./handlers/caps-usage.query.js";
 import { createTenantCapsListQuery } from "./handlers/tenant-caps-list.query.js";
 import { tenantOptionsQuery } from "./handlers/tenant-options.query.js";
 import { CAP_OVERVIEW_I18N } from "./i18n.js";
-import { createTenantCapListScreen, myCapsScreen, platformTenantCapsScreen } from "./screens.js";
+import {
+  createMyCapsScreen,
+  createTenantCapListScreen,
+  platformTenantCapsScreen,
+} from "./screens.js";
 import type { CapSpec } from "./types.js";
 
 export type CreateCapOverviewOptions = {
@@ -34,12 +39,17 @@ export type CreateCapOverviewOptions = {
    *  from (see screens.ts doc). "Filter by tier" was explicitly requested;
    *  omitting `tiers` silently drops that filter, not a supported default. */
   readonly tiers?: readonly string[];
+  /** Roles that may read their own tenant's usage (`caps:usage` + the my-caps
+   *  screen). Defaults to the admin roles (TenantAdmin, Admin, SystemAdmin);
+   *  list "User"/"Editor" to show usage to regular members. Built-in roles only. */
+  readonly usageVisibleTo?: readonly string[];
 };
 
 export function createCapOverviewFeature(opts: CreateCapOverviewOptions): FeatureDefinition {
   if (opts.caps.length === 0) {
     throw new Error("createCapOverviewFeature: `caps` must not be empty.");
   }
+  const usageRoles = resolveCapUsageRoles(opts.usageVisibleTo);
   const capIds = new Set(opts.caps.map((cap) => cap.id));
   const listCaps = opts.listCaps ?? opts.caps.slice(0, 3).map((cap) => cap.id);
   for (const id of listCaps) {
@@ -52,7 +62,7 @@ export function createCapOverviewFeature(opts: CreateCapOverviewOptions): Featur
 
   return defineFeature(CAP_OVERVIEW_FEATURE, (r) => {
     r.describe(
-      "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; every member of a tenant gets their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
+      "Read-only visibility into per-tenant tier assignment and cap usage. SystemAdmin gets a platform-wide tenant list with usage bars; tenant admins (or the roles in `usageVisibleTo`) get their own tenant's usage as dashboard cards. Reads tier-engine, billing-foundation, and tenant data plus app-owned usage tables via caller-supplied CapSpec callbacks — never writes.",
     );
     r.uiHints({
       displayLabel: "Cap Overview · Tier & Usage Visibility",
@@ -65,11 +75,11 @@ export function createCapOverviewFeature(opts: CreateCapOverviewOptions): Featur
     r.requires("billing-foundation");
 
     r.queryHandler(createTenantCapsListQuery(opts.caps, listCaps));
-    r.queryHandler(createCapsUsageQuery(opts.caps));
+    r.queryHandler(createCapsUsageQuery(opts.caps, usageRoles));
     r.queryHandler(tenantOptionsQuery);
 
     r.screen(createTenantCapListScreen(opts.caps, listCaps, opts.tiers));
-    r.screen(myCapsScreen);
+    r.screen(createMyCapsScreen(usageRoles));
     r.screen(platformTenantCapsScreen);
 
     r.translations({ keys: CAP_OVERVIEW_I18N });
