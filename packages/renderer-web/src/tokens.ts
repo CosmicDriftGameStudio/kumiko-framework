@@ -2,10 +2,12 @@ import { createStore } from "@cosmicdrift/kumiko-headless";
 import {
   cssVarTokens,
   type ThemeMode,
+  type ThemePreference,
   type Tokens,
   type TokensApi,
 } from "@cosmicdrift/kumiko-renderer";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.js";
 
 // Web-spezifische TokensApi-Impl. Theme-Toggle via `.dark`-Class auf
 // <html>. Die echten Farben leben in styles.css; hier ist nur die
@@ -20,19 +22,69 @@ import { useState, useSyncExternalStore } from "react";
 // Persistenz: die Wahl landet in localStorage (THEME_STORAGE_KEY) und
 // wird beim ersten Hook-Mount restored — ohne das war der Toggle nach
 // jedem Reload weg ("dark/light geht nicht", Prod-Bug 2026-06-07).
-// Gegen FOUC gehört zusätzlich ein synchrones Inline-Script in die
-// Host-HTML, VOR dem Stylesheet-Link:
+// Preference: "auto" folgt prefers-color-scheme live (matchMedia-Listener),
+// "light"/"dark" sind explizite Wahlen und haben Vorrang. Ohne gespeicherte
+// Wahl gilt AppTheme.defaultColorScheme (CSS-Variable), sonst der HTML-Stand.
 //
-//   <script>try{if(localStorage.getItem("kumiko:theme")==="dark")
+// Gegen FOUC gehört zusätzlich ein synchrones Inline-Script in die
+// Host-HTML, VOR dem Stylesheet-Link (nonce/hash bei strenger CSP):
+//
+//   <script>try{var s=localStorage.getItem("kumiko:theme");
+//     if(s==="dark"||(s==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))
 //     document.documentElement.classList.add("dark")}catch(e){}</script>
 
 const themeTick = createStore(0);
 
 export const THEME_STORAGE_KEY = "kumiko:theme";
 
+const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)";
+
+function isThemePreference(value: unknown): value is ThemePreference {
+  return value === "auto" || value === "light" || value === "dark";
+}
+
 function readCurrentMode(): ThemeMode {
   if (typeof document === "undefined") return "dark";
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+function systemPrefersDark(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia(DARK_SCHEME_QUERY).matches;
+}
+
+function resolveMode(preference: ThemePreference): ThemeMode {
+  if (preference === "auto") return systemPrefersDark() ? "dark" : "light";
+  return preference;
+}
+
+function readDefaultPreference(): ThemePreference {
+  const declared = getComputedStyle(document.documentElement)
+    .getPropertyValue(DEFAULT_COLOR_SCHEME_VARIABLE)
+    .trim();
+  return isThemePreference(declared) ? declared : readCurrentMode();
+}
+
+function readStoredPreference(): ThemePreference | undefined {
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return isThemePreference(stored) ? stored : undefined;
+  } catch {
+    // skip: localStorage kann werfen (Private-Mode) — ohne gespeicherte
+    // Wahl bleibt der Default stehen.
+    return undefined;
+  }
+}
+
+// Module singleton like storedModeApplied: null until the first read, so the
+// import stays safe without a DOM (SSR/tests).
+let currentPreference: ThemePreference | null = null;
+
+function readCurrentPreference(): ThemePreference {
+  if (currentPreference === null) {
+    if (typeof document === "undefined") return "dark";
+    currentPreference = readStoredPreference() ?? readDefaultPreference();
+  }
+  return currentPreference;
 }
 
 // @wrapper-known semantic-alias
@@ -41,33 +93,38 @@ function notifyThemeChange(): void {
 }
 
 // @wrapper-known semantic-alias
-function persistMode(mode: ThemeMode): void {
+function persistPreference(preference: ThemePreference): void {
   try {
-    window.localStorage.setItem(THEME_STORAGE_KEY, mode);
+    window.localStorage.setItem(THEME_STORAGE_KEY, preference);
   } catch {
     // skip: localStorage kann werfen (Private-Mode/Quota) — Theme bleibt
     // dann sessionbasiert, der Class-Toggle hat trotzdem funktioniert.
   }
 }
 
-/** Liest die persistierte Theme-Wahl und setzt die `.dark`-Class. Wird
- *  beim ersten useBrowserTokensApi-Mount aufgerufen; das Inline-Script
- *  in der Host-HTML (siehe Header-Kommentar) macht dasselbe synchron
- *  vor dem ersten Paint. */
+function applyPreference(preference: ThemePreference): void {
+  currentPreference = preference;
+  document.documentElement.classList.toggle("dark", resolveMode(preference) === "dark");
+  notifyThemeChange();
+}
+
+/** Liest die persistierte Theme-Wahl (oder den App-Default) und setzt die
+ *  `.dark`-Class. Wird beim ersten useBrowserTokensApi-Mount aufgerufen; das
+ *  Inline-Script in der Host-HTML (siehe Header-Kommentar) macht dasselbe
+ *  synchron vor dem ersten Paint. */
 export function applyStoredThemeMode(): void {
   // skip: no document (SSR/non-DOM context), nothing to apply
   if (typeof document === "undefined") return;
-  let stored: string | null = null;
-  try {
-    stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-  } catch {
-    // skip: localStorage kann werfen (Private-Mode) — ohne gespeicherte
-    // Wahl bleibt der Server-/HTML-Default stehen.
+  const stored = readStoredPreference();
+  if (stored !== undefined) {
+    applyPreference(stored);
+    return;
   }
-  // skip: no valid persisted mode stored, keep server/HTML default
-  if (stored !== "dark" && stored !== "light") return;
-  document.documentElement.classList.toggle("dark", stored === "dark");
-  notifyThemeChange();
+  // Without a stored choice only an app-declared default changes the HTML state.
+  const declared = getComputedStyle(document.documentElement)
+    .getPropertyValue(DEFAULT_COLOR_SCHEME_VARIABLE)
+    .trim();
+  if (isThemePreference(declared)) applyPreference(declared);
 }
 
 let storedModeApplied = false;
@@ -77,6 +134,7 @@ let storedModeApplied = false;
  *  Testfile strukturell unerreichbar. */
 export function __resetStoredModeAppliedForTests(): void {
   storedModeApplied = false;
+  currentPreference = null;
 }
 
 /** Hook der eine TokensApi für den Browser baut. Wird von
@@ -97,22 +155,47 @@ export function useBrowserTokensApi(): TokensApi {
     return null;
   });
   const mode = useSyncExternalStore(themeTick.subscribe, readCurrentMode, () => "dark" as const);
+  const preference = useSyncExternalStore(
+    themeTick.subscribe,
+    readCurrentPreference,
+    () => "dark" as const,
+  );
+
+  // kumiko-lint-ignore no-raw-hooks listener lifecycle, no data fetching
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(DARK_SCHEME_QUERY);
+    const followSystem = (): void => {
+      if (readCurrentPreference() === "auto") applyPreference("auto");
+    };
+    // The OS scheme may have changed between the first apply and this mount.
+    followSystem();
+    query.addEventListener("change", followSystem);
+    return () => query.removeEventListener("change", followSystem);
+  }, []);
+
   return {
     tokens: cssVarTokens,
     mode,
+    preference,
+    setPreference: (next) => {
+      // skip: no document (SSR/non-DOM context), nothing to apply
+      if (typeof document === "undefined") return;
+      persistPreference(next);
+      applyPreference(next);
+    },
     setMode: (next) => {
       // skip: no document (SSR/non-DOM context), nothing to toggle
       if (typeof document === "undefined") return;
-      document.documentElement.classList.toggle("dark", next === "dark");
-      persistMode(next);
-      notifyThemeChange();
+      persistPreference(next);
+      applyPreference(next);
     },
     toggleMode: () => {
       // skip: no document (SSR/non-DOM context), nothing to toggle
       if (typeof document === "undefined") return;
-      const nowDark = document.documentElement.classList.toggle("dark");
-      persistMode(nowDark ? "dark" : "light");
-      notifyThemeChange();
+      const next: ThemeMode = readCurrentMode() === "dark" ? "light" : "dark";
+      persistPreference(next);
+      applyPreference(next);
     },
   };
 }

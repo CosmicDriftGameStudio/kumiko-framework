@@ -85,10 +85,20 @@ export type Tokens = CoreTokens & AppTokens;
 
 export type ThemeMode = "light" | "dark";
 
+/** "auto" follows the OS color scheme live; light/dark are explicit choices. */
+export type ThemePreference = ThemeMode | "auto";
+
 export type TokensApi = {
   readonly tokens: Tokens;
+  /** The scheme currently applied (resolved from the preference when it is "auto"). */
   readonly mode: ThemeMode;
+  /** Optional so hand-built TokensApi values (tests, custom providers) stay valid:
+   *  absent means a plain light/dark implementation, read as `mode`. */
+  readonly preference?: ThemePreference;
+  readonly setPreference?: (preference: ThemePreference) => void;
+  /** Explicit choice: leaves "auto". */
   readonly setMode: (mode: ThemeMode) => void;
+  /** Explicit flip of the resolved mode: leaves "auto". */
   readonly toggleMode: () => void;
 };
 

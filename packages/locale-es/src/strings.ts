@@ -720,6 +720,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Mostrando las primeras {count} entradas. Hay más disponibles pero no se cargaron — esta lista no pagina.",
   "kumiko.list.row-actions.more": "Más acciones",
   "kumiko.page-header.actions": "Acciones de la página",
+  "kumiko.theme.auto": "Tema automático",
   "kumiko.theme.dark": "Tema oscuro",
   "kumiko.theme.light": "Tema claro",
   "kumiko.list.row.collapse": "Contraer {title}",

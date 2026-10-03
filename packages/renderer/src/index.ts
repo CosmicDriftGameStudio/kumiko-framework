@@ -302,6 +302,7 @@ export type {
   ShadowTokens,
   SpacingTokens,
   ThemeMode,
+  ThemePreference,
   Tokens,
   TokensApi,
   TokensProviderProps,

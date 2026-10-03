@@ -64,6 +64,13 @@ describe("buildThemeCss", () => {
     expect(css.bodyFontFamily).toBe("var(--font-sans)");
   });
 
+  test("defaultColorScheme becomes a mode-invariant variable the runtime reads", () => {
+    expect(buildThemeCss({ defaultColorScheme: "auto" }).modeInvariant).toEqual({
+      "--kumiko-default-color-scheme": "auto",
+    });
+    expect(buildThemeCss({}).modeInvariant).toEqual({});
+  });
+
   test("a non-kebab color name fails at definition instead of emitting a broken variable", () => {
     expect(() => buildThemeCss({ colors: { brandSoft: "#e0f5ee" } })).toThrow(/kebab-case/);
   });

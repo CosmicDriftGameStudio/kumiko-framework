@@ -1,4 +1,5 @@
 import plugin from "tailwindcss/plugin";
+import { DEFAULT_COLOR_SCHEME_VARIABLE, type DefaultColorScheme } from "./default-color-scheme.js";
 
 export const FRAMEWORK_COLOR_NAMES = [
   "background",
@@ -62,6 +63,8 @@ export type FrameworkColorName = (typeof FRAMEWORK_COLOR_NAMES)[number];
 export type ThemeColorValue = string | { readonly light: string; readonly dark?: string };
 
 export type AppTheme = {
+  /** Scheme for visitors without a stored choice. "auto" follows the OS setting. */
+  readonly defaultColorScheme?: DefaultColorScheme;
   readonly colors?: Readonly<Partial<Record<FrameworkColorName | (string & {}), ThemeColorValue>>>;
   /** Base radius; the sm/md/lg/xl scale derives from it. */
   readonly radius?: string;
@@ -121,6 +124,9 @@ function buildColorDeclarations(
 
 function buildModeInvariantDeclarations(theme: AppTheme): CssDeclarations {
   const modeInvariant: CssDeclarations = {};
+  if (theme.defaultColorScheme !== undefined) {
+    modeInvariant[DEFAULT_COLOR_SCHEME_VARIABLE] = theme.defaultColorScheme;
+  }
   if (theme.radius !== undefined) modeInvariant["--radius"] = theme.radius;
   if (theme.fonts?.sans !== undefined) modeInvariant["--font-sans"] = theme.fonts.sans;
   if (theme.fonts?.heading !== undefined) modeInvariant["--font-heading"] = theme.fonts.heading;
