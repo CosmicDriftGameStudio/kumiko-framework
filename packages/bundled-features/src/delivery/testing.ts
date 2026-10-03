@@ -5,6 +5,7 @@ import type {
   Registry,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
 import type { Redis } from "ioredis";
 import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.js";
@@ -17,6 +18,7 @@ export type CreateDeliveryTestContextOptions = {
   readonly isChannelKilled?: KillSwitchResolver;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly log?: Logger;
+  readonly jobRunner?: JobRunner;
 };
 
 /**

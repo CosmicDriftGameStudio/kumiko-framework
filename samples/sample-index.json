@@ -139,6 +139,7 @@
     "delivery": {
       "samples": [
         "apps-admin-console",
+        "recipes-chat-channels",
         "recipes-delivery-notifications"
       ],
       "hasVisualOutput": true,

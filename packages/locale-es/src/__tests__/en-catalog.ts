@@ -399,6 +399,9 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "config.errors.systemOnly": "This value can only be set by the system.",
   "config.errors.unknownExtensionPlugin": "This provider is not available.",
   "config.errors.unknownKey": "Unknown configuration key.",
+  "config.secret.channel-telegram.bot-token.hint":
+    'Token from @BotFather. Used for every Telegram chat the tenant addresses via route: { telegram: "<chat id>" }.',
+  "config.secret.channel-telegram.bot-token.label": "Telegram bot token",
   "config.secret.file-provider-s3.s3-secret-access-key.hint":
     "Private half of the S3 key pair. Hetzner calls it 'Secret Key', AWS calls it 'Secret Access Key'.",
   "config.secret.file-provider-s3.s3-secret-access-key.label": "S3 secret access key",

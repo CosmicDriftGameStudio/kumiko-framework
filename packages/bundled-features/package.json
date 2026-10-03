@@ -107,6 +107,10 @@
     "./channel-in-app": "./src/channel-in-app/index.ts",
     "./channel-email": "./src/channel-email/index.ts",
     "./channel-push": "./src/channel-push/index.ts",
+    "./channel-slack": "./src/channel-slack/index.ts",
+    "./channel-discord": "./src/channel-discord/index.ts",
+    "./channel-teams": "./src/channel-teams/index.ts",
+    "./channel-telegram": "./src/channel-telegram/index.ts",
     "./renderer-simple": "./src/renderer-simple/index.ts",
     "./files-provider-s3": "./src/files-provider-s3/index.ts",
     "./rate-limiting": "./src/rate-limiting/index.ts",
@@ -513,6 +517,22 @@
       "./channel-push": {
         "types": "./dist/channel-push/index.d.ts",
         "default": "./dist/channel-push/index.js"
+      },
+      "./channel-slack": {
+        "types": "./dist/channel-slack/index.d.ts",
+        "default": "./dist/channel-slack/index.js"
+      },
+      "./channel-discord": {
+        "types": "./dist/channel-discord/index.d.ts",
+        "default": "./dist/channel-discord/index.js"
+      },
+      "./channel-teams": {
+        "types": "./dist/channel-teams/index.d.ts",
+        "default": "./dist/channel-teams/index.js"
+      },
+      "./channel-telegram": {
+        "types": "./dist/channel-telegram/index.d.ts",
+        "default": "./dist/channel-telegram/index.js"
       },
       "./renderer-simple": {
         "types": "./dist/renderer-simple/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "source": "samples/apps/use-all-bundled APP_FEATURES (composeFeatures includeBundled + signup)",
-  "featureCount": 76,
+  "featureCount": 80,
   "features": [
     {
       "name": "admin-shell",
@@ -353,6 +353,33 @@
       "writeHandlers": []
     },
     {
+      "name": "channel-discord",
+      "description": "Posts delivery notifications to a Discord webhook, registered as the `discord` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { discord: \"<connection name>\" } })`. The webhook URL is a tenant secret under `channel-discord:webhooks.<connection name>`; only the connection name is logged. Mentions are disabled and content is cut to 2000 characters. Requires `delivery` and `secrets`. Host allowlist (discord.com, discordapp.com, path /api/webhooks/), https-only and the request timeout are app options of `createChannelDiscordFeature(opts)`, never tenant config.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "discord"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Discord Channel",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
       "name": "channel-email",
       "description": "Wires an `EmailTransport` (typically `mail-transport-smtp` in production, `createInMemoryTransport()` in tests) into the delivery system as the `email` channel. Requires `delivery`; pass an `EmailChannelOptions` with a `transport`, a `renderer: NotificationRenderer` (e.g. backed by `renderer-simple`), and a `resolveEmail` function that maps a user ID to their email address.",
       "toggleableDefault": null,
@@ -429,6 +456,94 @@
       "writeHandlers": [],
       "uiHints": {
         "displayLabel": "Push Channel",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "channel-slack",
+      "description": "Posts delivery notifications to a Slack incoming webhook, registered as the `slack` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { slack: \"<connection name>\" } })`. The webhook URL is a tenant secret under `channel-slack:webhooks.<connection name>`; only the connection name is logged. Requires `delivery` and `secrets`. Host allowlist (hooks.slack.com), https-only and the request timeout are app options of `createChannelSlackFeature(opts)`, never tenant config.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "slack"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Slack Channel",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "channel-teams",
+      "description": "Posts delivery notifications to a Microsoft Teams webhook (Workflows or connector) as an Adaptive Card, registered as the `teams` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { teams: \"<connection name>\" } })`. The webhook URL is a tenant secret under `channel-teams:webhooks.<connection name>`; only the connection name is logged. Requires `delivery` and `secrets`. Host allowlist (.webhook.office.com, .logic.azure.com, .powerplatform.com), https-only and the request timeout are app options of `createChannelTeamsFeature(opts)`, never tenant config.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "teams"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Microsoft Teams Channel",
+        "category": "notifications",
+        "recommended": false
+      }
+    },
+    {
+      "name": "channel-telegram",
+      "description": "Sends delivery notifications through the Telegram Bot API (`sendMessage`, plain text), registered as the `telegram` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { telegram: \"<chat id or @channel>\" } })`. The bot token is the tenant secret `channel-telegram:secret:bot-token`; the token never reaches logs or delivery attempts. Requires `delivery` and `secrets`. The API base URL and request timeout are app options of `createChannelTelegramFeature(opts)`, never tenant config.",
+      "toggleableDefault": null,
+      "requires": [
+        "delivery",
+        "secrets"
+      ],
+      "optionalRequires": [],
+      "configReads": [],
+      "exposesApis": [],
+      "usesApis": [],
+      "extensionsUsed": [
+        {
+          "extensionName": "deliveryChannel",
+          "entityName": "telegram"
+        }
+      ],
+      "configKeys": [],
+      "secrets": [
+        {
+          "qualifiedName": "channel-telegram:secret:bot-token",
+          "scope": "tenant",
+          "label": "Telegram bot token",
+          "hint": "Token from @BotFather. Used for every Telegram chat the tenant addresses via route: { telegram: \"<chat id>\" }."
+        }
+      ],
+      "writeHandlers": [],
+      "uiHints": {
+        "displayLabel": "Telegram Channel",
         "category": "notifications",
         "recommended": false
       }

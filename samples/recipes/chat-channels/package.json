@@ -1,0 +1,9 @@
+{
+  "name": "@cosmicdrift/kumiko-sample-chat-channels",
+  "description": "Chat channels. Delivery notifications to Slack, minus the browser tab.",
+  "private": true,
+  "dependencies": {
+    "@cosmicdrift/kumiko-bundled-features": "workspace:*",
+    "@cosmicdrift/kumiko-framework": "workspace:*"
+  }
+}

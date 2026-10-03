@@ -7,6 +7,7 @@ import type {
   SessionUser,
   TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { DELIVERY_CHANNEL_EXTENSION } from "./constants.js";
 
 // --- Channel Interface ---
@@ -16,6 +17,9 @@ export type ChannelContext = {
   readonly registry: Registry;
   readonly sseBroker: SseBroker | undefined;
   readonly tenantId: TenantId;
+  // Only wired on the delivery.send job path. Chat channels read their
+  // per-tenant webhook URL / bot token from it; inline sends have none.
+  readonly secrets?: SecretsContext | undefined;
 };
 
 export type ChannelMessage = {
@@ -49,7 +53,9 @@ export type DeliveryChannelMode = (typeof DELIVERY_CHANNEL_MODES)[number];
 export type DeliveryChannel = {
   readonly name: string;
   readonly mode: DeliveryChannelMode;
-  resolve(userId: string, ctx: ChannelContext): Promise<string | null>;
+  // Absent for channels addressed only through `route` (tenant-owned chat
+  // targets): deliverToUser skips them without writing a no_address row.
+  resolve?(userId: string, ctx: ChannelContext): Promise<string | null>;
   render?(message: ChannelMessage, ctx: ChannelContext): Promise<RenderedMessage>;
   send(
     address: string,
@@ -106,8 +112,7 @@ export function isDeliveryChannelPlugin(o: unknown): o is DeliveryChannelPlugin 
     "mode" in o &&
     DELIVERY_CHANNEL_MODES.some((mode) => mode === o.mode) &&
     (!("render" in o) || o.render === undefined || typeof o.render === "function") &&
-    "resolve" in o &&
-    typeof o.resolve === "function" &&
+    (!("resolve" in o) || o.resolve === undefined || typeof o.resolve === "function") &&
     "send" in o &&
     typeof o.send === "function"
   );

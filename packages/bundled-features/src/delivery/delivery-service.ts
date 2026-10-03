@@ -375,6 +375,9 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     const channelCtx = buildChannelContext(db, registry, sseBroker, tenantId);
 
     for (const channel of channels) {
+      // Route-only channel (no per-user address): not a user-notification target.
+      if (!channel.resolve) continue;
+
       const message = buildMessage(notificationType, data, channel.name);
 
       // Kill switch: tenant admin disabled this channel entirely

@@ -22,6 +22,7 @@ import { authMfaUserDataFeature } from "@cosmicdrift/kumiko-bundled-features/aut
 import { billingFoundationFeature } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-counter";
 import { createCapOverviewFeature } from "@cosmicdrift/kumiko-bundled-features/cap-overview";
+import { createChannelDiscordFeature } from "@cosmicdrift/kumiko-bundled-features/channel-discord";
 import {
   createChannelEmailFeature,
   type EmailTransport,
@@ -31,6 +32,9 @@ import {
   createChannelPushFeature,
   type PushTransport,
 } from "@cosmicdrift/kumiko-bundled-features/channel-push";
+import { createChannelSlackFeature } from "@cosmicdrift/kumiko-bundled-features/channel-slack";
+import { createChannelTeamsFeature } from "@cosmicdrift/kumiko-bundled-features/channel-teams";
+import { createChannelTelegramFeature } from "@cosmicdrift/kumiko-bundled-features/channel-telegram";
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { complianceProfilesOpsFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles-ops";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
@@ -171,6 +175,12 @@ export const APP_FEATURES = [
     transport: stubPushTransport,
     resolveToken: async () => "smoke-push-token",
   }),
+  // Chat channels are route-only and read their webhook URL / bot token from the
+  // tenant's secrets at send time, so the smoke app needs no credentials here.
+  createChannelSlackFeature(),
+  createChannelDiscordFeature(),
+  createChannelTeamsFeature(),
+  createChannelTelegramFeature(),
 
   // mail (foundation before transport)
   mailFoundationFeature,
