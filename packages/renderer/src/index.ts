@@ -240,6 +240,7 @@ export type {
   HeadingProps,
   InputProps,
   JsonViewProps,
+  LightboxImage,
   LightboxProps,
   LinkProps,
   MetricBandProps,
