@@ -434,6 +434,9 @@ export async function backfillEventPiiEncryptionBatch(
         for (const field of target.piiFields) {
           const value = section[field];
           if (value === null || value === undefined) continue;
+          // jsonb PII is not retro-encrypted (consumer wave); a legacy string
+          // value here would otherwise get the v2 text format into a jsonb column.
+          if (target.entity.fields[field]?.type === "jsonb") continue;
           if (typeof value !== "string") continue;
           // Already-ciphertext/sentinel fields must never enter owner
           // resolution — an unresolvable owner on an already-handled field

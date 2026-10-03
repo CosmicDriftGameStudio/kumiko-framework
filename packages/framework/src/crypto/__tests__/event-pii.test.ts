@@ -424,4 +424,20 @@ describe("encryptEventPayloadPii", () => {
       `record:${ENVELOPE.aggregateType}:${ENVELOPE.aggregateId}`,
     );
   });
+
+  test("an object payload field is encrypted as JSON ciphertext and decrypts to the object", async () => {
+    configureEventPiiCatalog(new Map([[EVENT_TYPE, { recipientAddress: { personal: "tenant" } }]]));
+    const kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+
+    const structured = { street: "Main 1", tags: ["a", "b"] };
+    const out = await encryptEventPayloadPii(
+      EVENT_TYPE,
+      { ...payload, recipientAddress: structured },
+      ENVELOPE,
+    );
+    expect(isPiiCiphertext(out["recipientAddress"])).toBe(true);
+    const read = await decryptPiiFieldValues(out, ["recipientAddress"], kms, { requestId: "t" });
+    expect(read["recipientAddress"]).toEqual(structured);
+  });
 });

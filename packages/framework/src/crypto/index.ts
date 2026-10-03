@@ -66,9 +66,11 @@ export {
   decryptPiiValueForSubject,
   type EncryptPiiOptions,
   encryptPiiFieldValues,
+  encryptPiiJsonValueForSubject,
   encryptPiiValueForSubject,
   isPiiCiphertext,
   PII_CIPHERTEXT_PREFIX,
+  PII_CIPHERTEXT_PREFIX_JSON,
   PII_ERASED_SENTINEL,
 } from "./pii-field-encryption.js";
 export {
