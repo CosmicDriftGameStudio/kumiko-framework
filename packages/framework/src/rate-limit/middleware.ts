@@ -8,6 +8,7 @@ import {
 import { requestContext } from "../api/request-context.js";
 import type { HttpRouteRateLimit } from "../engine/types/http-route.js";
 import { RateLimitError, serializeError } from "../errors/index.js";
+import { toPublicBucketName } from "./bucket.js";
 import type { RateLimitDecision, RateLimitResolver } from "./resolver.js";
 
 // Hono middleware factories for L1 (Global-IP) and L2 (Auth-Endpoints).
@@ -186,7 +187,11 @@ function defaultOnFailClosed(label: string): (err: unknown) => void {
     // override this with a structured logger; the default keeps the
     // noise visible if no logger is wired.
     // biome-ignore lint/suspicious/noConsole: ops-visible fallback when no logger is wired
-    console.error(`[rate-limit ${label}] fail-closed (refusing request):`, err);
+    console.error(
+      `[rate-limit ${label}] fail-closed (refusing request):`,
+      // ioredis errors can carry the command args, i.e. the bucket key with IP/target.
+      err instanceof Error ? err.message : String(err),
+    );
   };
 }
 
@@ -205,7 +210,7 @@ function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: str
   // dispatcher path. serializeError adds i18nKey, requestId, timestamp —
   // fields a hand-rolled body would silently miss.
   const err = new RateLimitError({
-    bucket,
+    bucket: toPublicBucketName(bucket),
     limit: decision.limit,
     windowSeconds: decision.windowSeconds,
     remaining: decision.remaining,

@@ -58,7 +58,7 @@ describe("globalIpRateLimit (L1)", () => {
 
     const body = (await blocked.json()) as { error: { code: string; details: { bucket: string } } };
     expect(body.error.code).toBe("rate_limited");
-    expect(body.error.details.bucket).toBe("l1:10.0.0.1");
+    expect(body.error.details.bucket).toBe("l1");
   });
 
   test("isolates per IP — different x-forwarded-for has its own bucket", async () => {

@@ -202,7 +202,7 @@ describe("createRateLimitResolver — enforce", () => {
     const err = thrown as RateLimitError;
     expect(err.httpStatus).toBe(429);
     expect(err.code).toBe("rate_limited");
-    expect(err.details.bucket).toBe("enf:user");
+    expect(err.details.bucket).toBe("enf");
     expect(err.details.limit).toBe(1);
     expect(err.details.windowSeconds).toBe(60);
     expect(err.details.retryAfterSeconds).toBeGreaterThan(0);
