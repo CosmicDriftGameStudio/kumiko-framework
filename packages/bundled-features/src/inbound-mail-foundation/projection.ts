@@ -17,12 +17,13 @@
 // write-handler. Die applies kopieren nur durch; decrypted wird erst
 // in den list-queries.
 
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
-import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import {
-  insertIgnoreProjectionRow,
-  upsertProjectionRow,
-} from "./db/queries/inbound-projections.js";
+  insertOnConflictDoNothing,
+  requireEntityTableMeta,
+  upsertOnConflict,
+} from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
+import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import { inboundMessageEntity, mailAccountEntity, mailThreadEntity } from "./entities.js";
 import type {
   InboundMessageEventPayload,
@@ -39,9 +40,20 @@ export const inboundMessagesProjectionTable = buildEntityTable(
 );
 export const mailThreadsProjectionTable = buildEntityTable("mail-thread", mailThreadEntity);
 
-function tableNameOf(table: unknown): string {
-  return (table as { tableName: string }).tableName;
-}
+// Unbranded metas: the apply functions below ARE the executor of these
+// projections, so they may write through the typed helpers.
+const mailAccountsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+  mailAccountsProjectionTable,
+  "mail-account",
+);
+const inboundMessagesProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+  inboundMessagesProjectionTable,
+  "inbound-message",
+);
+const mailThreadsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+  mailThreadsProjectionTable,
+  "mail-thread",
+);
 
 // =============================================================================
 // mail-account — connected/updated/disconnected teilen den payload-shape,
@@ -49,40 +61,30 @@ function tableNameOf(table: unknown): string {
 // defensive consistency (rebuild-aus-dem-Nichts, out-of-order).
 // =============================================================================
 
-const ACCOUNT_SET_CLAUSES = [
-  `"provider" = EXCLUDED."provider"`,
-  `"auth_method" = EXCLUDED."auth_method"`,
-  `"owner_user_id" = EXCLUDED."owner_user_id"`,
-  `"display_name" = EXCLUDED."display_name"`,
-  `"address" = EXCLUDED."address"`,
-  `"status" = EXCLUDED."status"`,
-  `"watch_state" = EXCLUDED."watch_state"`,
-  // connected_at bewusst NICHT im SET: der Erst-Connect-Zeitpunkt
-  // bleibt stehen, updated/disconnected überschreiben ihn nicht.
-];
-
 const applyMailAccountUpsert = defineApply<MailAccountEventPayload>(async (event, tx) => {
   const p = event.payload;
-  const insertCols = {
-    id: event.aggregateId,
-    tenant_id: event.tenantId,
+  const mutable = {
     provider: p.provider,
-    auth_method: p.authMethod,
-    owner_user_id: p.ownerUserId,
-    display_name: p.displayName,
+    authMethod: p.authMethod,
+    ownerUserId: p.ownerUserId,
+    displayName: p.displayName,
     address: p.address,
     status: p.status,
-    watch_state: p.watchState,
-    // Insert-Pfad = Erst-Connect (bzw. Rebuild: createdAt des ersten
-    // events des Streams — fachlich derselbe Zeitpunkt).
-    connected_at: event.createdAt.toString(),
+    watchState: p.watchState,
   };
-  await upsertProjectionRow(
+  await upsertOnConflict(
     tx,
-    tableNameOf(mailAccountsProjectionTable),
-    insertCols,
-    ACCOUNT_SET_CLAUSES,
-    Object.values(insertCols),
+    mailAccountsProjectionMeta,
+    {
+      id: event.aggregateId,
+      tenantId: event.tenantId,
+      ...mutable,
+      // Insert-Pfad = Erst-Connect (bzw. Rebuild: createdAt des ersten
+      // events des Streams — fachlich derselbe Zeitpunkt). Bewusst nicht im
+      // update: der Erst-Connect-Zeitpunkt bleibt bei updated/disconnected stehen.
+      connectedAt: event.createdAt,
+    },
+    { conflictKeys: ["id"], update: mutable },
   );
 });
 
@@ -104,20 +106,20 @@ export const applyMailAccountDisconnected = applyMailAccountUpsert;
 export const applyInboundMessageReceived = defineApply<InboundMessageEventPayload>(
   async (event, tx) => {
     const p = event.payload;
-    await insertIgnoreProjectionRow(tx, tableNameOf(inboundMessagesProjectionTable), {
+    await insertOnConflictDoNothing(tx, inboundMessagesProjectionMeta, {
       id: event.aggregateId,
-      tenant_id: event.tenantId,
-      account_id: p.accountId,
-      owner_user_id: p.ownerUserId,
-      message_id_header: p.messageIdHeader,
-      thread_key: p.threadKey,
+      tenantId: event.tenantId,
+      accountId: p.accountId,
+      ownerUserId: p.ownerUserId,
+      messageIdHeader: p.messageIdHeader,
+      threadKey: p.threadKey,
       from: p.from,
       to: p.to,
       cc: p.cc,
       subject: p.subject,
       snippet: p.snippet,
-      received_at: p.receivedAtIso,
-      body_ref: p.bodyRef,
+      receivedAt: p.receivedAtIso,
+      bodyRef: p.bodyRef,
       scope: p.scope,
     });
   },
@@ -133,23 +135,20 @@ export const applyInboundMessageReceived = defineApply<InboundMessageEventPayloa
 /** mail-thread-updated → UPSERT full mit dem Payload-Snapshot. */
 export const applyMailThreadUpdated = defineApply<MailThreadEventPayload>(async (event, tx) => {
   const p = event.payload;
-  const insertCols = {
-    id: event.aggregateId,
-    tenant_id: event.tenantId,
-    thread_key: p.threadKey,
+  const mutable = {
     subject: p.subject,
-    last_message_at: p.lastMessageAtIso,
-    message_count: p.messageCount,
+    lastMessageAt: p.lastMessageAtIso,
+    messageCount: p.messageCount,
   };
-  await upsertProjectionRow(
+  await upsertOnConflict(
     tx,
-    tableNameOf(mailThreadsProjectionTable),
-    insertCols,
-    [
-      `"subject" = EXCLUDED."subject"`,
-      `"last_message_at" = EXCLUDED."last_message_at"`,
-      `"message_count" = EXCLUDED."message_count"`,
-    ],
-    Object.values(insertCols),
+    mailThreadsProjectionMeta,
+    {
+      id: event.aggregateId,
+      tenantId: event.tenantId,
+      threadKey: p.threadKey,
+      ...mutable,
+    },
+    { conflictKeys: ["id"], update: mutable },
   );
 });

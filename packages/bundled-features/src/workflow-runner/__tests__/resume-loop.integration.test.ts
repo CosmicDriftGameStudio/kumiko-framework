@@ -290,11 +290,11 @@ describe("workflow-runner resume loop", () => {
       [otherTenantId, total],
     );
     try {
-      const due = await selectDueWorkflowRunPending(stack.db, otherTenantId);
+      const due = await selectDueWorkflowRunPending(createTenantDb(stack.db, otherTenantId));
 
       expect(due).toHaveLength(DUE_RUNS_BATCH_SIZE);
       // step_index n has wake_at now - n minutes, so the oldest are the highest n.
-      expect(due.map((row) => row.step_index)).toEqual(
+      expect(due.map((row) => row.stepIndex)).toEqual(
         Array.from({ length: DUE_RUNS_BATCH_SIZE }, (_, i) => total - i),
       );
     } finally {

@@ -24,7 +24,6 @@
 //
 // wait/retry/waitForEvent suspensions all resume automatically now.
 
-import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import { selectDueWorkflowRunPending } from "./db/queries/due-runs.js";
 import { resumeRunHandler } from "./handlers/resume-run.write.js";
@@ -68,26 +67,20 @@ export const workflowRunnerFeature = defineFeature(FEATURE_NAME, (r) => {
         return;
       }
 
-      ctx.systemDb.assertTenantMatch(tenantId);
-      const dueRows = await selectDueWorkflowRunPending(
-        ctx.systemDb.unsafeRaw(
-          "due-row pickup needs FOR UPDATE SKIP LOCKED raw SQL; the query filters by this job's tenantId",
-        ) as DbConnection, // @cast-boundary db-operator — DbRunner narrows to DbConnection, jobs never run inside a DbTx
-        tenantId,
-      );
+      const dueRows = await selectDueWorkflowRunPending(ctx.systemDb.assertTenantMatch(tenantId));
 
       for (const row of dueRows) {
         try {
           await ctx.write("workflow-runner:write:resume-run", {
-            runId: row.run_id,
-            stepIndex: row.step_index,
+            runId: row.runId,
+            stepIndex: row.stepIndex,
           });
         } catch (error) {
           // skip: one row's dispatch failing (infra hiccup, not a business
           // outcome — resume-run itself never throws for expected cases)
           // must not stop the rest of this tenant's due rows from resuming.
           ctx.log.warn(
-            `[workflow-runner:resume-due-runs] runId=${row.run_id} stepIndex=${row.step_index} dispatch failed: ${String(error)}`,
+            `[workflow-runner:resume-due-runs] runId=${row.runId} stepIndex=${row.stepIndex} dispatch failed: ${String(error)}`,
           );
         }
       }

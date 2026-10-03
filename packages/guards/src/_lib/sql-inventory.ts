@@ -62,7 +62,6 @@ export const RAW_SQL_ALLOWLIST: ReadonlyArray<RegExp> = [
   /(^|\/)(packages\/[^/]+\/)?src\/bun-db\/query\.ts$/,
   /(^|\/)(packages\/[^/]+\/)?src\/testing\//,
   // ponytail: explicit enumeration — a blanket regex would auto-allow any new .unsafe()
-  /\/bundled-features\/src\/billing-foundation\/db\/queries\/subscription-projection\.ts$/,
   /\/bundled-features\/src\/config\/db\/queries\/resolver\.ts$/,
   /\/bundled-features\/src\/custom-fields\/db\/queries\/field-access\.ts$/,
   /\/bundled-features\/src\/custom-fields\/db\/queries\/projection\.ts$/,
@@ -73,7 +72,6 @@ export const RAW_SQL_ALLOWLIST: ReadonlyArray<RegExp> = [
   /\/bundled-features\/src\/form-draft\/db\/queries\/cleanup\.ts$/,
   /\/bundled-features\/src\/form-draft\/db\/queries\/draft-count\.ts$/,
   /\/bundled-features\/src\/form-draft\/db\/queries\/owned-file-refs\.ts$/,
-  /\/bundled-features\/src\/inbound-mail-foundation\/db\/queries\/inbound-projections\.ts$/,
   /\/bundled-features\/src\/secrets\/db\/queries\/read\.ts$/,
   /\/bundled-features\/src\/sessions\/db\/queries\/cleanup\.ts$/,
   /\/bundled-features\/src\/user\/db\/queries\/stream-tenant-backfill\.ts$/,
