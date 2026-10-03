@@ -7,6 +7,8 @@ import type {
   TenantId,
 } from "../engine/types/index.js";
 import type { Logger } from "../logging/types.js";
+import { emitEscapeHatchUse } from "./standard-metrics.js";
+import type { Meter } from "./types/index.js";
 
 export const ESCAPE_HATCH_USED_SIGNAL = "security:escape-hatch-used";
 
@@ -41,6 +43,20 @@ export function createEscapeHatchReportWindow(opts?: {
       return true;
     },
   };
+}
+
+// Declared escape hatches of system crons are audited once per process and
+// (handler, kind, tenant), never again: the declaration, the system actor and the
+// reason are identical on every run, so repeats carry no information.
+export type EscapeHatchProcessDedup = {
+  readonly kinds: ReadonlySet<EscapeHatchKind>;
+  readonly seen: Set<string>;
+};
+
+export function createEscapeHatchProcessDedup(
+  kinds: readonly EscapeHatchKind[],
+): EscapeHatchProcessDedup {
+  return { kinds: new Set(kinds), seen: new Set() };
 }
 
 // Default window for createEscapeHatchReporter callers that don't pass their own.
@@ -98,10 +114,28 @@ export function createEscapeHatchReporter(opts: {
   readonly sink?: EscapeHatchAuditSink;
   readonly log?: Logger;
   readonly window?: EscapeHatchReportWindow;
+  readonly processDedup?: EscapeHatchProcessDedup;
+  readonly meter?: Meter;
+  readonly now?: () => number;
 }): EscapeHatchReporter {
   const window = opts.window ?? fallbackReportWindow;
+  const now = opts.now ?? Date.now;
 
   return (kind: EscapeHatchKind, reason: string, target?: EscapeHatchTarget) => {
+    if (opts.meter) emitEscapeHatchUse(opts.meter, opts.handler, kind);
+    const { processDedup } = opts;
+    if (processDedup?.kinds.has(kind)) {
+      const processKey = JSON.stringify([opts.handler, kind, opts.tenantId]);
+      // skip: this (handler, kind, tenant) was already audited by this process
+      if (processDedup.seen.has(processKey)) return;
+      processDedup.seen.add(processKey);
+      reportEscapeHatchUse(
+        { handler: opts.handler, kind, reason, tenantId: opts.tenantId, actor: opts.actor, target },
+        { sink: opts.sink, log: opts.log },
+      );
+      // skip: audited above, the window dedup below only serves the other kinds
+      return;
+    }
     const key = JSON.stringify([
       opts.handler,
       kind,
@@ -112,7 +146,7 @@ export function createEscapeHatchReporter(opts: {
       target?.tenantId ?? null,
     ]);
     // skip: same (handler, kind, reason, target) already reported within the window — dedup
-    if (!window.shouldReport(key, Date.now())) return;
+    if (!window.shouldReport(key, now())) return;
     reportEscapeHatchUse(
       { handler: opts.handler, kind, reason, tenantId: opts.tenantId, actor: opts.actor, target },
       { sink: opts.sink, log: opts.log },

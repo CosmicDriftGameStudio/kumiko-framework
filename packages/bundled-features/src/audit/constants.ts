@@ -24,3 +24,8 @@ export const AUDIT_LOG_SCREEN_ID = "audit-log" as const;
 
 /** Single-event detail screen, breadcrumb-linked to the audit-log list. */
 export const AUDIT_LOG_DETAIL_SCREEN_ID = "audit-log-detail" as const;
+
+/** Config key (system scope) for how long `escapeHatchUse` audit events are kept. */
+export const ESCAPE_HATCH_RETENTION_DAYS_KEY = "audit:config:escape-hatch-retention-days" as const;
+
+export const DEFAULT_ESCAPE_HATCH_RETENTION_DAYS = 90;
