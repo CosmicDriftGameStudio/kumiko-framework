@@ -120,7 +120,7 @@ import {
   registerMetricsRoute,
   registerVersionRoute,
 } from "./route-registrars.js";
-import { createApiRoutes } from "./routes.js";
+import { createApiRoutes, handleUncaughtRouteError } from "./routes.js";
 import type { SseBroker } from "./sse-broker.js";
 import { createSseRoute } from "./sse-route.js";
 import {
@@ -706,6 +706,8 @@ export function buildServer(options: ServerOptions): KumikoServer {
   }
 
   const app = new Hono();
+  // Sub-apps mounted via app.route() without their own handler inherit this one.
+  app.onError(handleUncaughtRouteError);
 
   // Only entry:"signature" bypasses jwtGuard (verify() authenticates
   // itself); entry:"anonymous" still needs the anonymousAccess fallthrough

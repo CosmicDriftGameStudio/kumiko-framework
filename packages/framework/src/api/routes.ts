@@ -1,4 +1,5 @@
 import { type Context, Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { streamSSE } from "hono/streaming";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { SessionUser } from "../engine/types/handlers.js";
@@ -422,17 +423,42 @@ function writeErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   return c.json({ isSuccess: false, error }, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
 }
 
+function clientAbortResponse(c: Context, requestId: string | undefined, type?: unknown) {
+  logClientWarn("request aborted by client", requestId, type, {
+    status: CLIENT_CLOSED_REQUEST_STATUS,
+  });
+  return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
+}
+
 // For /query + /command: no isSuccess on success (just { data } / {ok}), so we
 // keep the same lean shape on failure — only the `error` key.
 function queryErrorResponse(c: Context, err: KumikoError, type?: unknown) {
   const requestId = requestContext.get()?.requestId;
-  if (isClientAbort(err)) {
-    logClientWarn("request aborted by client", requestId, type, {
-      status: CLIENT_CLOSED_REQUEST_STATUS,
-    });
-    return c.body(null, CLIENT_CLOSED_REQUEST_STATUS as ContentfulStatusCode); // @cast-boundary non-standard client-closed-request status, Hono's union doesn't include it
-  }
+  if (isClientAbort(err)) return clientAbortResponse(c, requestId, type);
   logServerFault(err, requestId, type);
   const body = serializeError(err, requestId);
   return c.json(body, err.httpStatus as ContentfulStatusCode); // @cast-boundary engine-payload
+}
+
+// A raw throw under the request signal (signal.throwIfAborted(), an aborted
+// fetch) is the signal's own reason or wraps it as `cause`.
+function isRequestAbortError(err: Error, signal: AbortSignal): boolean {
+  return signal.aborted && (err === signal.reason || err.cause === signal.reason);
+}
+
+// Root `app.onError`: whatever a route rethrows instead of shaping itself.
+// Without it Hono's default handler console.error()s the bare error and
+// answers an unclassified 500 — including for a client that simply hung up.
+// requestContext only exists under /api/*, so the abort check reads the raw
+// request signal.
+export function handleUncaughtRouteError(err: Error, c: Context): Response | Promise<Response> {
+  if (err instanceof HTTPException) return err.getResponse();
+  const requestId = requestContext.get()?.requestId;
+  if (isRequestAbortError(err, c.req.raw.signal)) return clientAbortResponse(c, requestId);
+  const kumikoError = toKumiko(err);
+  logServerFault(kumikoError, requestId);
+  return c.json(
+    serializeError(kumikoError, requestId),
+    kumikoError.httpStatus as ContentfulStatusCode,
+  ); // @cast-boundary engine-payload
 }
