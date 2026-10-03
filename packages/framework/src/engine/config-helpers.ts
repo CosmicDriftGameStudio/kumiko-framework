@@ -146,7 +146,7 @@ function createConfigKey<T extends ConfigKeyType>(
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,
-    ...(opts.validate ? { validate: opts.validate } : {}),
+    validate: opts.validate,
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
     ...(opts.required === true ? { required: true } : {}),
     ...(opts.env ? { env: opts.env } : {}),

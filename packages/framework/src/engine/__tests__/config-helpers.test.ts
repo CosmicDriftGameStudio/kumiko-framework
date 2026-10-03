@@ -293,8 +293,8 @@ describe("config helpers — validate (async write gate)", () => {
     expect(seen).toEqual(["https://example.com"]);
   });
 
-  test("no validate → field absent on the definition", () => {
-    expect("validate" in createTenantConfig("text", { default: "" })).toBe(false);
+  test("no validate → undefined on the definition", () => {
+    expect(createTenantConfig("text", { default: "" }).validate).toBeUndefined();
   });
 });
 
