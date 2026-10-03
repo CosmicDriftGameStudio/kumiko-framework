@@ -1,4 +1,5 @@
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { NotificationRenderer } from "../delivery/index.js";
 import {
   RENDERER_EXTENSION,
   type RendererContext,
@@ -7,7 +8,7 @@ import {
   type RenderResponse,
 } from "../renderer-foundation/index.js";
 import { resolveNotificationVariables } from "./resolve-variables.js";
-import { simpleRenderer } from "./simple-renderer.js";
+import { createSimpleRenderer, type MailBranding, simpleRenderer } from "./simple-renderer.js";
 
 // Adapter: simpleRenderer.render hat `Promise<string>`-Signatur (Legacy
 // NotificationRenderer-Contract), renderer-foundation erwartet
@@ -19,6 +20,7 @@ import { simpleRenderer } from "./simple-renderer.js";
 export async function adaptToFoundation(
   req: RenderRequest,
   ctx: RendererContext,
+  renderer: NotificationRenderer = simpleRenderer,
 ): Promise<RenderResponse> {
   if (req.kind !== "notification") {
     // Defensiver Guard — Foundation wählt Plugins nur für matching kinds,
@@ -29,14 +31,22 @@ export async function adaptToFoundation(
     );
   }
   const variables = await resolveNotificationVariables(req, ctx);
-  const html = await simpleRenderer.render({
+  const html = await renderer.render({
     template: req.payload.template ?? "",
     variables,
   });
   return { kind: "notification", html };
 }
 
-export function createRendererSimpleFeature(): FeatureDefinition {
+export type RendererSimpleOptions = {
+  /** Branding applied to every notification mail, including the framework auth mails. */
+  readonly mailBranding?: MailBranding;
+};
+
+export function createRendererSimpleFeature(options?: RendererSimpleOptions): FeatureDefinition {
+  const renderer = options?.mailBranding
+    ? createSimpleRenderer(options.mailBranding)
+    : simpleRenderer;
   return defineFeature("renderer-simple", (r) => {
     r.describe(
       'Default renderer plugin for `kind="notification"`: takes a structured `EmailTemplateData` variable map (with `header`, `sections[]` of text/button objects, and optional `footer`; falls back to `title`/`body` if no structured fields are present) and returns rendered HTML with inline CSS. Requires `renderer-foundation`; sufficient for plain notification emails \u2014 swap it for `renderer-mail-html` if you need MJML/Markdown layouts.',
@@ -51,7 +61,7 @@ export function createRendererSimpleFeature(): FeatureDefinition {
 
     r.useExtension(RENDERER_EXTENSION, "simple", {
       kinds: ["notification"] as const,
-      render: adaptToFoundation,
+      render: (req, ctx) => adaptToFoundation(req, ctx, renderer),
     });
   });
 }
