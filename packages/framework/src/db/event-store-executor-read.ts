@@ -319,8 +319,20 @@ async function resolveReferenceMatchesViaIlike(
   targetEntity: EntityDefinition,
   targetTable: Table,
   targetTableName: string,
+  user: SessionUser,
   db: TenantDb,
 ): Promise<{ readonly ownColumn: string; readonly ids: readonly string[] } | undefined> {
+  // The label must not leak through match counts: a viewer who cannot read the
+  // target row or its label field would otherwise probe names by searching.
+  const labelAccess = buildOwnershipClause(
+    user,
+    normalizeAccessEntry(targetEntity.fields[descriptor.labelField]?.access?.read),
+    targetTable,
+  );
+  if (labelAccess.kind !== "pass") return undefined;
+  const ownership = buildOwnershipClause(user, targetEntity.access?.read, targetTable);
+  if (ownership.kind === "empty") return undefined;
+
   const labelCol = physicalColumnName(targetTable, descriptor.labelField);
   const subParams: unknown[] = [`%${escapeLikePattern(searchTerm)}%`];
   let tenantClause = "";
@@ -328,13 +340,22 @@ async function resolveReferenceMatchesViaIlike(
     subParams.push(db.tenantId, SYSTEM_TENANT_ID);
     tenantClause = ` AND "${physicalColumnName(targetTable, "tenantId")}" IN ($2, $3)`;
   }
+  let ownershipClause = "";
+  if (ownership.kind === "sql") {
+    const shifted = shiftParams(
+      { sqlText: ownership.sqlText, params: ownership.params },
+      subParams.length,
+    );
+    ownershipClause = ` AND ${shifted.sqlText}`;
+    for (const p of shifted.params) subParams.push(p);
+  }
   const deletedClause = isSoftDeletedTargetHidden(targetEntity, targetTable)
     ? ` AND "${physicalColumnName(targetTable, "isDeleted")}" = FALSE`
     : "";
   // ::text cast covers a non-text labelField (e.g. a number/select column
   // used as label) — Postgres has no ILIKE for those types otherwise.
   const sql =
-    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause}${deletedClause} ` +
+    `SELECT "id" FROM "${targetTableName}" WHERE ("${labelCol}")::text ILIKE $1${tenantClause}${ownershipClause}${deletedClause} ` +
     `LIMIT ${MAX_REFERENCE_SEARCH_IDS + 1}`;
   const rows = await executeRawQueryRead<{ id: string }>(tenantDbRunner(db), sql, subParams);
   if (rows.length === 0 || rows.length > MAX_REFERENCE_SEARCH_IDS) {
@@ -423,6 +444,7 @@ async function resolveReferenceMatches(
       targetEntity,
       targetTable,
       targetTableName,
+      user,
       db,
     );
   }
