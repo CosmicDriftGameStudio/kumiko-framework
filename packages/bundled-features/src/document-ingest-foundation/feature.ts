@@ -166,8 +166,9 @@ export const documentIngestFoundationFeature = defineFeature(FEATURE_NAME, (r) =
     }),
   );
 
-  // "fileName" can carry a real person's name; the payload has no user-subject
-  // field to encrypt it under, so piiFields stays "none" for now.
+  // "fileName" can carry a real person's name, but it reaches both events already as the
+  // fileRef's own self-subject ciphertext (copied from fileRef.created/restored), which
+  // append() passes through; shredding the fileRef's key shreds it here too.
   r.defineEvent(DOCUMENT_INGEST_REQUESTED_EVENT_SHORT, documentIngestRequestedPayloadSchema, {
     piiFields: "none",
     version: 2,

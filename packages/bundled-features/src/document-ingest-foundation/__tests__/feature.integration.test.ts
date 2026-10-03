@@ -5,7 +5,7 @@
 // cap. Mounts small test provider features instead of relying on any
 // hardcoded allowlist/cap — there is none anymore.
 
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildAgentManifest,
   buildToolCatalog,
@@ -13,6 +13,13 @@ import {
   toolNameForQn,
 } from "@cosmicdrift/kumiko-bundled-features/agent-tools";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import {
+  configurePiiSubjectKms,
+  decryptPiiValueForSubject,
+  InMemoryKmsAdapter,
+  isPiiCiphertext,
+  PII_ERASED_SENTINEL,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import {
   createSystemUser,
@@ -31,7 +38,7 @@ import {
   TestUsers,
   unsafeCreateEntityTable,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { resetPiiSubjectKmsForTests, waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
 import { createComplianceProfilesFeature } from "../../compliance-profiles/index.js";
@@ -362,6 +369,59 @@ describe("fileRef.created → documentIngest.requested", () => {
       size: oversizedPdfBytes.length,
       reason: "file-too-large",
     });
+  });
+});
+
+describe("fileName in the ingest events is shredded with the fileRef", () => {
+  let kms: InMemoryKmsAdapter;
+
+  beforeEach(() => {
+    kms = new InMemoryKmsAdapter();
+    configurePiiSubjectKms(kms);
+  });
+
+  afterEach(() => {
+    resetPiiSubjectKmsForTests();
+  });
+
+  async function expectShreddableFileName(
+    fileRefId: string,
+    payload: Record<string, unknown> | undefined,
+    plainFileName: string,
+  ): Promise<void> {
+    const stored = payload?.["fileName"];
+    expect(isPiiCiphertext(stored)).toBe(true);
+    expect(String(stored)).not.toContain(plainFileName);
+    expect(String(stored).startsWith(`kumiko-pii:v2:user:${fileRefId}:`)).toBe(true);
+    expect(
+      await decryptPiiValueForSubject(kms, String(stored), { requestId: "t" }, "fileName"),
+    ).toBe(plainFileName);
+
+    await kms.eraseKey({ kind: "user", userId: fileRefId });
+
+    expect(
+      await decryptPiiValueForSubject(kms, String(stored), { requestId: "t" }, "fileName"),
+    ).toBe(PII_ERASED_SENTINEL);
+  }
+
+  test("documentIngest.requested stores the fileName encrypted and unreadable after the fileRef key is shredded", async () => {
+    const { id } = await uploadFile("Mustermann-Erika-Lohn.pdf", pdfBytes, "application/pdf");
+
+    await stack.eventDispatcher?.runOnce();
+
+    const rows = await loadIngestRequestedEvents();
+    expect(rows).toHaveLength(1);
+    await expectShreddableFileName(id, rows[0]?.payload, "Mustermann-Erika-Lohn.pdf");
+  });
+
+  test("documentIngest.skipped stores the fileName encrypted and unreadable after the fileRef key is shredded", async () => {
+    const { id } = await uploadFile("Mustermann-Erika-Notiz.txt", textBytes, "text/plain");
+
+    await stack.eventDispatcher?.runOnce();
+
+    const rows = await loadIngestSkippedEvents();
+    expect(rows).toHaveLength(1);
+    await expectShreddableFileName(id, rows[0]?.payload, "Mustermann-Erika-Notiz.txt");
   });
 });
 
