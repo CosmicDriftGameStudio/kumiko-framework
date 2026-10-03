@@ -136,6 +136,48 @@ describe("createLiveDispatcher", () => {
     }
   });
 
+  test("write: fills httpStatus from the response when the error body omits it", async () => {
+    const { fetch } = makeFetch({
+      status: 401,
+      body: {
+        isSuccess: false,
+        error: {
+          code: "unauthenticated",
+          i18nKey: "errors.unauthenticated",
+          message: "no session",
+        },
+      },
+    });
+    const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+    const result = await disp.write("x", {});
+
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) expect(result.error.httpStatus).toBe(401);
+  });
+
+  test("batch: fills httpStatus from the response when the error body omits it", async () => {
+    const { fetch } = makeFetch({
+      status: 401,
+      body: {
+        isSuccess: false,
+        error: {
+          code: "unauthenticated",
+          i18nKey: "errors.unauthenticated",
+          message: "no session",
+        },
+        failedIndex: 0,
+        results: [],
+      },
+    });
+    const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });
+
+    const result = await disp.batch([{ type: "x", payload: {} }]);
+
+    expect(result.isSuccess).toBe(false);
+    if (!result.isSuccess) expect(result.error.httpStatus).toBe(401);
+  });
+
   test("query: POSTs to /api/query", async () => {
     const { fetch, calls } = makeFetch({ body: { isSuccess: true, data: [] } });
     const disp = createLiveDispatcher({ fetch, readCsrf: () => "t" });

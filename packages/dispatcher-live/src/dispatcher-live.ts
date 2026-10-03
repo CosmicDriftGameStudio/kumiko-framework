@@ -243,10 +243,7 @@ export function createLiveDispatcher(options: LiveDispatcherOptions = {}): Dispa
         }
         const body = parsed as { error?: ServerErrorLike };
         if (body?.error) {
-          throw mapServerError({
-            ...body.error,
-            httpStatus: body.error.httpStatus ?? response.status,
-          });
+          throw mapServerErrorWithStatus(body.error, response.status);
         }
         throw buildNetworkError(`unexpected non-SSE stream response (${response.status})`);
       }
@@ -303,7 +300,7 @@ function normalizeWriteResult<TData>(call: CallOutcome): WriteResult<TData> {
     | { isSuccess: true; data: TData }
     | { isSuccess: false; error: Parameters<typeof mapServerError>[0] };
   if (body.isSuccess) return body;
-  return { isSuccess: false, error: mapServerError(body.error) };
+  return { isSuccess: false, error: mapServerErrorWithStatus(body.error, call.status) };
 }
 
 function normalizeBatchResponse(call: CallOutcome): BatchResult {
@@ -321,7 +318,7 @@ function normalizeBatchResponse(call: CallOutcome): BatchResult {
   if (body.isSuccess) return body;
   return {
     isSuccess: false,
-    error: mapServerError(body.error),
+    error: mapServerErrorWithStatus(body.error, call.status),
     failedIndex: body.failedIndex,
     results: body.results,
   };
@@ -331,21 +328,21 @@ function normalizeBatchResponse(call: CallOutcome): BatchResult {
 // (no isSuccess flag) and `{ error: { code, i18nKey, message, ... } }`
 // on failure. Source of truth: packages/framework/src/api/routes.ts:85
 // (the query route handler that emits `c.json({ data: result })`).
-// The HTTP status carries the failure-status; the error body itself
-// doesn't repeat it (serializeError drops httpStatus to keep the wire
-// payload lean). We have to reinject httpStatus from the Response.status
-// here.
 function normalizeQueryResponse<TData>(call: CallOutcome): QueryResult<TData> {
   if (!call.ok) return { isSuccess: false, error: call.networkFailure };
   const body = call.body as { data?: unknown; error?: ServerErrorLike };
   if (body && "error" in body && body.error) {
-    const errorWithStatus: Parameters<typeof mapServerError>[0] = {
-      ...body.error,
-      httpStatus: body.error.httpStatus ?? call.status,
-    };
-    return { isSuccess: false, error: mapServerError(errorWithStatus) };
+    return { isSuccess: false, error: mapServerErrorWithStatus(body.error, call.status) };
   }
   return { isSuccess: true, data: body?.data as TData };
+}
+
+// The HTTP status carries the failure-status; the error body itself
+// doesn't repeat it (serializeError drops httpStatus to keep the wire
+// payload lean). Every envelope has to reinject it from Response.status,
+// otherwise status-based checks like isSessionEndedError never match.
+function mapServerErrorWithStatus(error: ServerErrorLike, responseStatus: number): DispatcherError {
+  return mapServerError({ ...error, httpStatus: error.httpStatus ?? responseStatus });
 }
 
 // Minimal shape check — server's serialized error has code + i18nKey +
