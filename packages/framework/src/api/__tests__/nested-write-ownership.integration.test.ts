@@ -144,9 +144,7 @@ const nestedOwnershipFeature = defineFeature("nested-own", (r) => {
     "project3:create",
     z.object({ name: z.string().min(1), omitTenantId: z.boolean().optional() }),
     async (event, ctx) => {
-      const runner = ctx.db.unsafeRaw(
-        "fw#2861 test fixture — simulate cross-tenant find-or-create bug",
-      );
+      const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{
         id: string;
         name: string;

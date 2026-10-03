@@ -230,7 +230,7 @@ export const inboundMailFoundationFeature = defineFeature(INBOUND_MAIL_FOUNDATIO
         return;
       }
       const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-      const retentionDb = ctx.db.unsafeRaw(INBOUND_MAIL_RETENTION_REASON) as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+      const retentionDb = ctx.db.unsafeRaw() as DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
 
       // Body-Objekte liegen in file-foundation. Provider lazy + memoized —
       // heute schreibt der Ingest kein bodyRef (storeBody-Hook ungebunden),

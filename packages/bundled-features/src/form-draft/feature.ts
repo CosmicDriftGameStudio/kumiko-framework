@@ -51,7 +51,7 @@ function registerFormDraft(r: FeatureRegistrar<typeof FORM_DRAFT_FEATURE_NAME>):
       cleanupDraftsJob(
         payload,
         ctx,
-        ctx.db.unsafeRaw(CLEANUP_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+        ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
       ),
   });
 }

@@ -61,7 +61,7 @@ export const cancelDeletionWrite = defineWriteHandler({
       return writeFailure(new UnprocessableError("grace_period_expired"));
     }
 
-    await updateUserLifecycle(ctx.db.unsafeRaw(APPEND_LIFECYCLE_EVENT_REASON), event.user.id, {
+    await updateUserLifecycle(ctx.db.unsafeRaw(), event.user.id, {
       status: USER_STATUS.Active,
       gracePeriodEnd: null,
       // #354/1: closes the replay-after-cancel window — a still-TTL-valid email

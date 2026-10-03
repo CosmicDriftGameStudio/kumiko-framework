@@ -73,7 +73,7 @@ export function wireCustomFieldsUserDataRightsFor<TReg extends FeatureRegistrar<
   // biome-ignore lint/correctness/useHookAtTopLevel: r.useExtension is a registrar API, not a React hook.
   r.useExtension(EXT_USER_DATA, opts.entityName, {
     export: async (ctx: UserDataHookCtx) =>
-      exportCustomFields(ctx.db.unsafeRaw(CUSTOM_FIELDS_EXPORT_REASON), ctx, tableName, opts),
+      exportCustomFields(ctx.db.unsafeRaw(), ctx, tableName, opts),
     escapeHatch: { reason: CUSTOM_FIELDS_EXPORT_REASON },
   });
 }

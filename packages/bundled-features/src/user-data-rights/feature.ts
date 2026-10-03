@@ -588,9 +588,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         // Discriminator wird via handlerName="user-data-rights:run-export-
         // jobs" im Secret-Read-Audit erfasst.
         const exportUserId = ctx._userId ?? SYSTEM_USER_ID;
-        const exportDb = ctx.db.unsafeRaw(
-          RUN_EXPORT_JOBS_REASON,
-        ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+        const exportDb =
+          ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const exportRegistry = ctx.registry;
         // JobContext carries ctx.meter (raw), not ctx.metrics — that bound
         // handle only exists on HandlerContext (built per write/query call
@@ -684,9 +683,8 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         const forgetUserId = ctx._userId ?? SYSTEM_USER_ID;
-        const forgetDb = ctx.db.unsafeRaw(
-          RUN_FORGET_CLEANUP_REASON,
-        ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+        const forgetDb =
+          ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const forgetRegistry = ctx.registry;
         const tenantModel = await resolveAppTenantModel({
           registry: forgetRegistry,

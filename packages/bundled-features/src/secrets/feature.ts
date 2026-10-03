@@ -183,7 +183,7 @@ export function createSecretsFeature(opts: SecretsFeatureOptions = {}): FeatureD
         rotateJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(ROTATE_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
         ),
     });
 

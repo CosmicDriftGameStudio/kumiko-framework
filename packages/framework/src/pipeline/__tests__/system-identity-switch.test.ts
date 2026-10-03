@@ -514,12 +514,12 @@ describe("withHookEscapeHatchGrant", () => {
     const hookCtxWithoutEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", undefined) as {
       db: TenantDb;
     };
-    expect(() => hookCtxWithoutEscapeHatch.db.unsafeRaw("test reason")).toThrow(AccessDeniedError);
+    expect(() => hookCtxWithoutEscapeHatch.db.unsafeRaw()).toThrow(AccessDeniedError);
 
     const hookCtxWithEscapeHatch = withHookEscapeHatchGrant(handlerCtx, "hook", {
       reason: "hook's own grant",
     }) as { db: TenantDb };
-    expect(hookCtxWithEscapeHatch.db.unsafeRaw("test reason")).toBe(rawDb);
+    expect(hookCtxWithEscapeHatch.db.unsafeRaw()).toBe(rawDb);
   });
 
   test("handler-granted queryProjection reader: hook without escapeHatch loses the grant for unsafeAllTenants", async () => {

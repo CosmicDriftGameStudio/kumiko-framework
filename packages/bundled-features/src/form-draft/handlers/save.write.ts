@@ -62,11 +62,7 @@ export const saveDraftWrite = defineWriteHandler({
     // Cap check only on the create path — an update never grows the number
     // of drafts this owner has, so a user already at the limit can still
     // keep saving their existing drafts.
-    const draftCount = await countDraftsByOwner(
-      ctx.db.unsafeRaw(SAVE_DRAFT_COUNT_REASON),
-      event.user.tenantId,
-      ownerId,
-    );
+    const draftCount = await countDraftsByOwner(ctx.db.unsafeRaw(), event.user.tenantId, ownerId);
     if (draftCount >= FORM_DRAFT_MAX_PER_OWNER) {
       return failUnprocessable("draft_limit_reached", { limit: FORM_DRAFT_MAX_PER_OWNER });
     }

@@ -3,7 +3,7 @@
 // runForgetCleanup called directly, not a hand-fed sink) forwards its
 // JobContext's `_escapeHatchAuditSink` + `systemUser.id` down through
 // runForgetCleanup → the per-entity `createEscapeHatchReporter` →
-// ctx.db.unsafeRaw(reason) inside a declared-escapeHatch hook, so a
+// ctx.db.unsafeRaw() inside a declared-escapeHatch hook, so a
 // declared raw-SQL use is actually attributed and audited instead of
 // landing on the anonymous "<unattributed>" fallback.
 
@@ -41,7 +41,7 @@ const AUDITED_REASON =
   "fw#2914 test: declared escapeHatch on the real run-forget-cleanup job path — must be audited, not <unattributed>";
 
 const auditedHook: UserDataDeleteHook = async (ctx) => {
-  await asRawClient(ctx.db.unsafeRaw(AUDITED_REASON)).unsafe(
+  await asRawClient(ctx.db.unsafeRaw()).unsafe(
     `DELETE FROM test_audited_entity WHERE tenant_id = $1`,
     [ctx.tenantId],
   );

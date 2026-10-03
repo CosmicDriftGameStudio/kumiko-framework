@@ -399,7 +399,7 @@ export function createTierEngineFeature<
           const rawDb = ctx.systemDb
             ? ctx.systemDb.unsafeRaw(autoDefaultTierHookReason)
             : ctx.db && "unsafeRaw" in ctx.db
-              ? ctx.db.unsafeRaw(autoDefaultTierHookReason)
+              ? ctx.db.unsafeRaw()
               : undefined;
           // skip: defensive — inTransaction phase always sets db, but AppContext's
           // type makes it optional. Throwing would be overreach (lifecycle

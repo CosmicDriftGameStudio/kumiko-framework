@@ -28,7 +28,7 @@ const probeFeature = defineFeature("escape-hatch-audit-sink-probe", (r) => {
     "unsafe-raw-write",
     z.object({}),
     async (_event, ctx) => {
-      ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      ctx.db.unsafeRaw();
       return { isSuccess: true as const, data: { ok: true } };
     },
     { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },

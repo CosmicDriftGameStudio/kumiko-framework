@@ -446,7 +446,7 @@ export type JobDefinition = {
   // don't justify a separate worker container — long/CPU-heavy jobs on the
   // API lane will starve request handlers.
   readonly runIn?: JobRunIn | undefined;
-  // Grants `ctx.db.unsafeRaw(reason)` for this job, audited as `unsafe-raw`.
+  // Grants `ctx.db.unsafeRaw()` for this job, audited as `unsafe-raw`.
   readonly escapeHatch?: EscapeHatchDeclaration | undefined;
   // Opt in to a tenant-visible failure record (`jobs:query:failures`). Only a
   // translation key ever reaches the tenant: a thrown KumikoError's `i18nKey`

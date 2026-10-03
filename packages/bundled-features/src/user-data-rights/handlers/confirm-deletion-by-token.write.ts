@@ -83,9 +83,7 @@ export function createConfirmDeletionByTokenHandler(opts: ConfirmDeletionByToken
             ctx,
             userId,
             () => resolveGracePeriod(ctx, event.user.tenantId),
-            ctx.db.unsafeRaw(
-              "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream",
-            ),
+            ctx.db.unsafeRaw(),
             { pendingDeletionRequestId: requestId },
           );
           if (!res.ok) return false;

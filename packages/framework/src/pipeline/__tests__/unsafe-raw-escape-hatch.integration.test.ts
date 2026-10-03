@@ -1,4 +1,4 @@
-// fw#2858 — a write/query handler's `escapeHatch` also gates ctx.db.unsafeRaw(reason):
+// fw#2858 — a write/query handler's `escapeHatch` also gates ctx.db.unsafeRaw():
 // WITH it the raw query succeeds, WITHOUT it the same handler rejects with access_denied.
 // Real HTTP calls + setupTestStack — never createTestDispatcher. Modelled exactly on
 // escape-hatch.integration.test.ts (fw#2855).
@@ -16,7 +16,7 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     access: { roles: ["User"] },
     escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw write" },
     handler: async (_event, ctx) => {
-      const runner = ctx.db.unsafeRaw("fw#2858 integration test — declared unsafeRaw write");
+      const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
@@ -27,7 +27,7 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["User"] },
     handler: async (_event, ctx) => {
-      const runner = ctx.db.unsafeRaw("no escapeHatch declared — must throw before this runs");
+      const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
@@ -39,7 +39,7 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     access: { roles: ["User"] },
     escapeHatch: { reason: "fw#2858 integration test — declared unsafeRaw query" },
     handler: async (_query, ctx) => {
-      const runner = ctx.db.unsafeRaw("fw#2858 integration test — declared unsafeRaw query");
+      const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { one: rows[0]?.one };
     },
@@ -50,7 +50,7 @@ const unsafeRawFeature = defineFeature("unsafe-raw-probe", (r) => {
     schema: z.object({}),
     access: { roles: ["User"] },
     handler: async (_query, ctx) => {
-      const runner = ctx.db.unsafeRaw("no escapeHatch declared — must throw before this runs");
+      const runner = ctx.db.unsafeRaw();
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { one: rows[0]?.one };
     },

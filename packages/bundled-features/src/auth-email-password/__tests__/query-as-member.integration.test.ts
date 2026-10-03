@@ -205,9 +205,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "tries-unsafe-raw-write",
     z.object({}),
     async (_query, ctx) => {
-      await asRawClient(ctx.db.unsafeRaw("test: raw write probe")).unsafe(
-        "UPDATE qam_notes SET body = 'tampered'",
-      );
+      await asRawClient(ctx.db.unsafeRaw()).unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
     },
     {
@@ -219,7 +217,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "tries-read-write-reset",
     z.object({}),
     async (_query, ctx) => {
-      const raw = asRawClient(ctx.db.unsafeRaw("test: raw write probe"));
+      const raw = asRawClient(ctx.db.unsafeRaw());
       await raw.unsafe("SET TRANSACTION READ WRITE");
       await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
@@ -239,7 +237,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "tries-select-for-update",
     z.object({}),
     async (_query, ctx) => {
-      const rows = await asRawClient(ctx.db.unsafeRaw("test: select-for-update probe")).unsafe(
+      const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe(
         "SELECT id FROM qam_notes FOR UPDATE",
       );
       return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
@@ -255,7 +253,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "tries-commit-then-write",
     z.object({}),
     async (_query, ctx) => {
-      const raw = asRawClient(ctx.db.unsafeRaw("test: commit-then-write probe"));
+      const raw = asRawClient(ctx.db.unsafeRaw());
       await raw.unsafe("COMMIT");
       await raw.unsafe("UPDATE qam_notes SET body = 'tampered'");
       return { ok: true };
@@ -269,9 +267,7 @@ const probeFeature = defineFeature("queryasmemberprobe", (r) => {
     "tries-raw-select",
     z.object({}),
     async (_query, ctx) => {
-      const rows = await asRawClient(ctx.db.unsafeRaw("test: raw select probe")).unsafe(
-        "SELECT 1 AS one",
-      );
+      const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe("SELECT 1 AS one");
       return { ok: true, count: Array.isArray(rows) ? rows.length : 0 };
     },
     {

@@ -334,9 +334,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     const subjectKey = subjectIdToKey(subject);
 
     const tenantScopeDenial = await resolveTenantScopeDenial(
-      ctx.db.unsafeRaw(
-        "tenant-scope check runs against the subject's tenant, not necessarily the caller's",
-      ),
+      ctx.db.unsafeRaw(),
       ctx.registry.features,
       event.user,
       raw,
@@ -348,9 +346,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         denialReasonOf(tenantScopeDenial),
-        ctx.dbOutsideTransaction?.unsafeRaw(
-          "denial audit append: names the prober's own tenant stream on the outside-transaction db",
-        ),
+        ctx.dbOutsideTransaction?.unsafeRaw(),
       );
       return auditFailure ?? tenantScopeDenial;
     }
@@ -358,9 +354,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     // Runs after the tenant gate but before any key is touched: a retention
     // check ahead of the tenant gate would leak a foreign entity's retention
     // posture to a cross-tenant prober.
-    const retentionDenial = await resolveRetentionDenial(ctx, raw, () =>
-      ctx.db.unsafeRaw("retention check reads the record row's owning tenant, not the caller's"),
-    );
+    const retentionDenial = await resolveRetentionDenial(ctx, raw, () => ctx.db.unsafeRaw());
     if (retentionDenial) {
       const auditFailure = await appendDenialAuditEvent(
         ctx,
@@ -368,9 +362,7 @@ export const forgetSubjectWrite = defineWriteHandler({
         subjectKey,
         raw.kind,
         TARGET_RECORD_RETENTION_BLOCK_DELETE,
-        ctx.dbOutsideTransaction?.unsafeRaw(
-          "denial audit append: names the prober's own tenant stream on the outside-transaction db",
-        ),
+        ctx.dbOutsideTransaction?.unsafeRaw(),
       );
       return auditFailure ?? retentionDenial;
     }
@@ -387,9 +379,7 @@ export const forgetSubjectWrite = defineWriteHandler({
 
     // Blind-index sweep (#818): nulls bidx columns now so the deterministic
     // HMAC doesn't stay equality-matchable; raw because the ciphertext prefix addresses the subject across tenants.
-    const crossTenantSubjectRunner = ctx.db.unsafeRaw(
-      "blind-index sweep and search purge address the subject across tenants",
-    );
+    const crossTenantSubjectRunner = ctx.db.unsafeRaw();
     await nullBlindIndexesForSubject(crossTenantSubjectRunner, ctx.registry.features, subjectKey);
 
     // Derived search index still holds plaintext (#1610) — purge next to the
@@ -425,9 +415,7 @@ export const forgetSubjectWrite = defineWriteHandler({
     // update is best-effort for real users.
     if (raw.kind === "user" && ctx.registry.features.has("user")) {
       try {
-        const userLifecycleRunner = ctx.db.unsafeRaw(
-          "user lifecycle update and PAT revoke run on the SYSTEM user stream",
-        );
+        const userLifecycleRunner = ctx.db.unsafeRaw();
         await updateUserLifecycle(userLifecycleRunner, raw.userId, { status: USER_STATUS.Deleted });
         if (ctx.registry.features.has("personal-access-tokens")) {
           await revokeAllPatTokensForUser(userLifecycleRunner, raw.userId);

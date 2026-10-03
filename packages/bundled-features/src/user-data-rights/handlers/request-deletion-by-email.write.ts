@@ -92,7 +92,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
       // user-Row landet und in die Token-HMAC-Purpose gefaltet wird. cancel
       // nullt sie → ein nach Cancel nachgespieltes Token verifiziert nicht mehr.
       const requestId = crypto.randomUUID();
-      await updateUserLifecycle(ctx.db.unsafeRaw(APPEND_LIFECYCLE_EVENT_REASON), userRow["id"], {
+      await updateUserLifecycle(ctx.db.unsafeRaw(), userRow["id"], {
         pendingDeletionRequestId: requestId,
       });
 

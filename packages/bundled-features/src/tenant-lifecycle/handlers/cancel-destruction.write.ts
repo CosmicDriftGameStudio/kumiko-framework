@@ -30,11 +30,9 @@ export const cancelDestructionWrite = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const row = await fetchOne<TenantLifecycleRow>(
-      ctx.db.unsafeRaw(CANCEL_DESTRUCTION_TENANT_ROW_REASON),
-      tenantTable,
-      { id: tenantId },
-    );
+    const row = await fetchOne<TenantLifecycleRow>(ctx.db.unsafeRaw(), tenantTable, {
+      id: tenantId,
+    });
     if (!row) {
       return writeFailure(new UnprocessableError("tenant_not_found", { details: { tenantId } }));
     }

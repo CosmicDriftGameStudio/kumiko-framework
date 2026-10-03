@@ -95,9 +95,8 @@ export function createDataRetentionFeature(): FeatureDefinition {
           return;
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
-        const cleanupDb = ctx.db.unsafeRaw(
-          "retention cleanup runs raw deletes and preset lookups; every statement filters by this run's tenantId",
-        ) as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
+        const cleanupDb =
+          ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection; // @cast-boundary db-operator — jobs never run inside a DbTx
         const tenantPreset = await resolveTenantRetentionPreset({
           db: cleanupDb,
           registry: ctx.registry,

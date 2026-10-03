@@ -160,7 +160,7 @@ export function createSignupConfirmHandler() {
         // Fallback bei Kollision (siehe generateUniqueName).
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
-        const dbConn = ctx.db.unsafeRaw(SIGNUP_CONFIRM_PROVISION_REASON) as DbConnection;
+        const dbConn = ctx.db.unsafeRaw() as DbConnection;
 
         const tenantKey = await generateUniqueName({
           isAvailable: async (slug) => {

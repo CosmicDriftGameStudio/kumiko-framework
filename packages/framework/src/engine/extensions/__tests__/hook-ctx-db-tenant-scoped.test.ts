@@ -60,7 +60,7 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
     expect(asRunner).toBeDefined();
   });
 
-  test("declared escape hatch: ctx.db.unsafeRaw(reason) returns a real DbRunner", () => {
+  test("declared escape hatch: ctx.db.unsafeRaw() returns a real DbRunner", () => {
     const runner = fakeRunner();
     const tenantCtx: TenantDataHookCtx = {
       db: createTenantDb(runner, tenantId, "tenant", undefined, undefined, undefined, {
@@ -70,7 +70,7 @@ describe("TenantDataHookCtx.db / UserDataHookCtx.db are TenantDb, not DbRunner",
       tenantId,
     };
 
-    const raw: DbRunner = tenantCtx.db.unsafeRaw("test: declared escape hatch");
+    const raw: DbRunner = tenantCtx.db.unsafeRaw();
     expect(raw).toBe(runner);
   });
 });

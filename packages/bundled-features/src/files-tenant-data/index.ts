@@ -55,7 +55,7 @@ export function createFilesTenantDataFeature(): FeatureDefinition {
         sweepOrphanedDerivativesJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(SWEEP_ORPHANED_DERIVATIVES_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
         ),
     });
   });

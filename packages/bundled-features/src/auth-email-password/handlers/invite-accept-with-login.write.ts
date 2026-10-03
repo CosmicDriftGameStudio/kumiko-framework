@@ -159,9 +159,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
       let committed = false;
       try {
         const invitation = await fetchOne<InvitationRow>(
-          ctx.db.unsafeRaw(
-            "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant",
-          ),
+          ctx.db.unsafeRaw(),
           tenantInvitationsTable,
           { id: invitationId },
         );
@@ -214,9 +212,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
         const userId = userRow.id;
 
-        const dbConn = ctx.db.unsafeRaw(
-          "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant",
-        );
+        const dbConn = ctx.db.unsafeRaw();
 
         const grant = await grantInvitedMembershipRole(dbConn, {
           userId,

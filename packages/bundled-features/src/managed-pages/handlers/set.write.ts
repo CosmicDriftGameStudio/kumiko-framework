@@ -72,7 +72,7 @@ export const setWrite = defineWriteHandler({
     const scopedDb =
       override !== undefined
         ? createTenantDb(
-            db.unsafeRaw(SET_PAGE_TENANT_OVERRIDE_REASON),
+            db.unsafeRaw(),
             override as TenantId, // @cast-boundary engine-bridge
             "tenant",
           )

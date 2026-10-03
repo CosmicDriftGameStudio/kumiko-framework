@@ -155,7 +155,7 @@ export interface RunForgetCleanupArgs {
 
   // fw#2914 — sourced from the owning job's ctx (_escapeHatchAuditSink,
   // systemUser.id); attributes+audits any EXT_USER_DATA usage's declared
-  // escapeHatch when its delete hook calls ctx.db.unsafeRaw(reason).
+  // escapeHatch when its delete hook calls ctx.db.unsafeRaw().
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly actor?: string;
 }

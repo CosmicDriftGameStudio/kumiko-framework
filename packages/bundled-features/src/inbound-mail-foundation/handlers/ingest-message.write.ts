@@ -273,7 +273,7 @@ export const ingestMessageHandler: WriteHandlerDef = {
         )
       : threadPlainPii;
 
-    const threadRollupRunner = ctx.db.unsafeRaw(THREAD_ROLLUP_ADVISORY_LOCK_REASON);
+    const threadRollupRunner = ctx.db.unsafeRaw();
     await acquireNamespacedAdvisoryLock(
       threadRollupRunner,
       THREAD_ROLLUP_LOCK_NAMESPACE,

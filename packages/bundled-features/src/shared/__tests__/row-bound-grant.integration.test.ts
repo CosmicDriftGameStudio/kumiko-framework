@@ -59,16 +59,12 @@ function createRaceGate(expected: number, timeoutMs = 2_000) {
 
 let raceGate: ReturnType<typeof createRaceGate> | null = null;
 
-const RAW_REASON =
-  "the grant holder has no session, so the anchor spend is a conditional UPDATE " +
-  "outside the entity write map";
-
 const grantDemoFeature = defineFeature("grantdemo", (r) => {
   r.writeHandler(
     "enrich",
     z.object({ token: z.string().min(1), note: z.string().min(1) }),
     async (event, ctx) => {
-      const db = ctx.db.unsafeRaw(RAW_REASON);
+      const db = ctx.db.unsafeRaw();
       const redeemed = await redeemRowBoundGrant({
         token: event.payload.token,
         purpose: PURPOSE,

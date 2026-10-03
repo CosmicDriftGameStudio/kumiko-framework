@@ -67,9 +67,7 @@ const billingFeature = defineFeature("billing", (r) => {
     },
     async (_payload, ctx) => {
       const systemUser = ctx["systemUser"] as SessionUser;
-      const jobDb = ctx.db.unsafeRaw(
-        "test job builds a system-mode handler context for config:write:set",
-      ) as DbConnection;
+      const jobDb = ctx.db.unsafeRaw() as DbConnection;
       const reg = ctx["registry"] as Registry;
 
       ctx.log?.info("Calculating monthly total...");

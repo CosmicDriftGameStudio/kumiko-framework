@@ -87,7 +87,7 @@ export const downloadByJobQuery = defineQueryHandler({
     // Wert (603/2).
     const auditIp = requestContext.get()?.ip ?? null;
     const auditUa = requestContext.get()?.userAgent ?? null;
-    const runner = ctx.db.unsafeRaw(DOWNLOAD_BY_JOB_REASON);
+    const runner = ctx.db.unsafeRaw();
 
     // Step 1-2: job-lookup + cross-user-isolation
     const jobRow = await fetchOne<JobRow>(runner, exportJobsTable, { id: jobId });

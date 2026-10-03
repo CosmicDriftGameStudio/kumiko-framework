@@ -49,7 +49,7 @@ export type TenantUserModel = "single-user" | "multi-user";
  * fw#2914 — `db` is a tenant-filtered `TenantDb`, bound to `tenantId`
  * (or the per-user sub-tx in the forget path). Unfiltered access needs
  * `escapeHatch: { reason }` on the `r.useExtension(...)` registration,
- * then `ctx.db.unsafeRaw(reason)`.
+ * then `ctx.db.unsafeRaw()`.
  */
 /**
  * Minimal storage surface a file-aware forget hook needs to erase binaries.

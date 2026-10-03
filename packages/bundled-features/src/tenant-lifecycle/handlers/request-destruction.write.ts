@@ -34,7 +34,7 @@ export const requestDestructionWrite = defineWriteHandler({
   },
   handler: async (event, ctx) => {
     const tenantId = event.user.tenantId;
-    const runner = ctx.db.unsafeRaw(REQUEST_DESTRUCTION_TENANT_ROW_REASON);
+    const runner = ctx.db.unsafeRaw();
     const row = await fetchOne<TenantLifecycleRow>(runner, tenantTable, { id: tenantId });
     if (!row) {
       return writeFailure(new UnprocessableError("tenant_not_found", { details: { tenantId } }));

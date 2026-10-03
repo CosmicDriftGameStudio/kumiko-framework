@@ -69,7 +69,7 @@ export const discardDraftWrite = defineWriteHandler({
       // predates the draft row, so the insertedAt filter must not apply.
       const isCreateMode = event.payload.draftKey.includes(":new:");
       const ownedRefs = await filterOwnedFileRefs(
-        ctx.db.unsafeRaw(DISCARD_DRAFT_FILE_REFS_REASON),
+        ctx.db.unsafeRaw(),
         event.user.tenantId,
         ownerId,
         candidateKeys,

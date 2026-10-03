@@ -64,7 +64,7 @@ const HARD_DELETE_NOTE_REASON =
 
 const hardDeleteNoteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy !== "delete") return;
-  await asRawClient(ctx.db.unsafeRaw(HARD_DELETE_NOTE_REASON)).unsafe(
+  await asRawClient(ctx.db.unsafeRaw()).unsafe(
     `DELETE FROM read_forget_purge_notes WHERE author_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );

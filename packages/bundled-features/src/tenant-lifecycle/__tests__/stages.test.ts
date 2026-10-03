@@ -58,7 +58,7 @@ describe("tenant-lifecycle stages", () => {
     const undeclared = defineFeature("undeclared-escape-hatch", (r) => {
       r.useExtension(EXT_TENANT_DATA, "leaky-entity", {
         destroy: async (hookCtx) => {
-          hookCtx.db.unsafeRaw("not declared on the registration");
+          hookCtx.db.unsafeRaw();
         },
       });
     });
@@ -73,7 +73,7 @@ describe("tenant-lifecycle stages", () => {
     const declared = defineFeature("declared-escape-hatch", (r) => {
       r.useExtension(EXT_TENANT_DATA, "wiping-entity", {
         destroy: async (hookCtx) => {
-          hookCtx.db.unsafeRaw(reason);
+          hookCtx.db.unsafeRaw();
         },
         escapeHatch: { reason },
       });

@@ -79,10 +79,6 @@ const invitationExecutor = createEventStoreExecutor(
 
 const INVITE_SIGNUP_COMPLETE_ESCAPE_HATCH_REASON =
   "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists.";
-const READ_PENDING_INVITATION_REASON =
-  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant";
-const CREATE_USER_AND_MEMBERSHIP_INVITATION_TENANT_REASON =
-  "creates the user and adds the membership and accepts the invitation in the invitation's tenant, before any caller tenant context exists";
 
 export function createInviteSignupCompleteHandler() {
   return defineWriteHandler<
@@ -123,7 +119,7 @@ export function createInviteSignupCompleteHandler() {
       let committed = false;
       try {
         const invitation = await fetchOne<InvitationRow>(
-          ctx.db.unsafeRaw(READ_PENDING_INVITATION_REASON),
+          ctx.db.unsafeRaw(),
           tenantInvitationsTable,
           { id: invitationId },
         );
@@ -155,9 +151,7 @@ export function createInviteSignupCompleteHandler() {
         // signup-confirm), emailVerified=true wegen Magic-Link.
         // @cast-boundary db-runner — helpers use only the query API that
         // DbConnection and DbTx share.
-        const dbConn = ctx.db.unsafeRaw(
-          CREATE_USER_AND_MEMBERSHIP_INVITATION_TENANT_REASON,
-        ) as DbConnection;
+        const dbConn = ctx.db.unsafeRaw() as DbConnection;
         const { id: userId } = await seedUserWithPassword(dbConn, {
           email: invitationEmail,
           password: event.payload.password,

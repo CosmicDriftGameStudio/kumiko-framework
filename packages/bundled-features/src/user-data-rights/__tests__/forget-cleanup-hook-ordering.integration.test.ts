@@ -63,13 +63,13 @@ const REDACT_REASON =
 function makeHostDeleteHook(tableName: string): UserDataDeleteHook {
   return async (ctx, strategy) => {
     if (strategy === "delete") {
-      await asRawClient(ctx.db.unsafeRaw(HOST_DELETE_REASON)).unsafe(
+      await asRawClient(ctx.db.unsafeRaw()).unsafe(
         `DELETE FROM ${tableName} WHERE inserted_by_id = $1 AND tenant_id = $2`,
         [ctx.userId, ctx.tenantId],
       );
       return;
     }
-    await asRawClient(ctx.db.unsafeRaw(HOST_DELETE_REASON)).unsafe(
+    await asRawClient(ctx.db.unsafeRaw()).unsafe(
       `UPDATE ${tableName} SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
@@ -82,7 +82,7 @@ function makeRedactHook(tableName: string): UserDataDeleteHook {
   return async (ctx, strategy) => {
     // skip: delete strategy removes rows wholesale — redaction N/A.
     if (strategy === "delete") return;
-    await asRawClient(ctx.db.unsafeRaw(REDACT_REASON)).unsafe(
+    await asRawClient(ctx.db.unsafeRaw()).unsafe(
       `UPDATE ${tableName} SET custom_fields = custom_fields - 'ssn'
        WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],

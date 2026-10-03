@@ -74,10 +74,7 @@ export function createDefineTenantFieldHandler(
       }
 
       if (limit !== undefined) {
-        const current = await countTenantFieldDefinitions(
-          ctx.db.unsafeRaw(DEFINE_TENANT_FIELD_REASON),
-          tenantId,
-        );
+        const current = await countTenantFieldDefinitions(ctx.db.unsafeRaw(), tenantId);
         if (current >= limit) {
           return failUnprocessable("cap_exceeded", {
             capName: "customFields.fieldDefinition.count",

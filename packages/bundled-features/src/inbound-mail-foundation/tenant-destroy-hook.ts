@@ -47,7 +47,7 @@ async function archiveAndDeleteRows(
   declareEscapeHatch({ reason: INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON });
   const rows = await ctx.db.selectMany<{ id: string }>(table, { tenantId: ctx.tenantId });
   for (const row of rows) {
-    await archiveStream(ctx.db.unsafeRaw(INBOUND_MAIL_TENANT_DESTROY_ARCHIVE_REASON), {
+    await archiveStream(ctx.db.unsafeRaw(), {
       tenantId: ctx.tenantId,
       aggregateId: row.id,
       aggregateType,
