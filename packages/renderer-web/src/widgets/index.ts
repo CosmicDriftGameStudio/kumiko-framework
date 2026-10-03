@@ -22,6 +22,7 @@ export {
   smoothPath,
   TimeseriesChart,
   type TimeseriesPoint,
+  type TimeseriesReferenceLine,
 } from "./charts.js";
 export { CollapsibleSection } from "./collapsible-section.js";
 export { type DashboardListColumn, DashboardListTable } from "./dashboard-list.js";
