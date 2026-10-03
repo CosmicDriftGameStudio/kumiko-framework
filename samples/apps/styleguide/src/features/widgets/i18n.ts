@@ -55,6 +55,11 @@ export const WIDGETS_I18N = {
     de: "Antwortzeit-Verlauf",
     en: "Response time history",
   },
+  "widgets:catalog:response-time-p95": { de: "p95: 180 ms", en: "p95: 180 ms" },
+  "widgets:catalog:response-time-p95-aria": {
+    de: "p95-Schwelle der letzten 24 Stunden",
+    en: "p95 threshold over the last 24 hours",
+  },
   "widgets:catalog:24h-ago": { de: "vor 24h", en: "24h ago" },
   "widgets:catalog:12h-ago": { de: "vor 12h", en: "12h ago" },
   "widgets:catalog:now": { de: "jetzt", en: "now" },

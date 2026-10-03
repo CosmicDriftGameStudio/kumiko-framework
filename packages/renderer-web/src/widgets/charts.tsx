@@ -160,6 +160,14 @@ export type TimeseriesPoint = {
   readonly value: number | null;
 };
 
+export type TimeseriesReferenceLine = {
+  /** Same unit as the point values (e.g. a p95 or SLO threshold in ms). */
+  readonly value: number;
+  /** Translated by the caller. */
+  readonly label: string;
+  readonly tone?: StatusTone;
+};
+
 /** Zeitreihen-Linien-Chart (geglättete Linie + Flächen-Verlauf). x-Achse =
  *  ZEIT im Fenster windowStartMs..windowEndMs, nicht Index — 5 Min Daten in
  *  einem 30-Tage-Fenster ergeben ehrlich einen schmalen Streifen rechts. */
@@ -172,6 +180,7 @@ export function TimeseriesChart({
   axisLabels,
   markers,
   formatMarkerTime,
+  referenceLines,
   emptyContent,
   testId,
 }: {
@@ -185,11 +194,15 @@ export function TimeseriesChart({
   /** Numbered pins on the x-axis plus a numbered list below the chart. */
   readonly markers?: readonly ChartMarker[];
   readonly formatMarkerTime?: (atMs: number) => string;
+  /** Dashed horizontal threshold lines (e.g. p95); they extend the y-scale
+   *  when above the data maximum. Non-finite and negative values are dropped. */
+  readonly referenceLines?: readonly TimeseriesReferenceLine[];
   /** Rendert statt des Charts wenn <2 Messwerte vorliegen. */
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
   const gradientId = useId();
+  const descId = useId();
   const chartWidth = 300;
   const chartHeight = 64;
 
@@ -202,13 +215,17 @@ export function TimeseriesChart({
     );
   }
 
-  const maxValue = Math.max(...values, 1);
+  const drawableLines = (referenceLines ?? []).filter(
+    (line) => Number.isFinite(line.value) && line.value >= 0,
+  );
+  const maxValue = Math.max(...values, ...drawableLines.map((line) => line.value), 1);
+  const yOf = (value: number) => chartHeight - (value / maxValue) * chartHeight;
   const span = Math.max(1, windowEndMs - windowStartMs);
   const xOf = (atMs: number) =>
     Math.max(0, Math.min(1, (atMs - windowStartMs) / span)) * chartWidth;
   const chartPoints = points.map((p) => ({
     x: xOf(p.atMs),
-    y: p.value === null ? chartHeight : chartHeight - (p.value / maxValue) * chartHeight,
+    y: p.value === null ? chartHeight : yOf(p.value),
   }));
   const linePath = smoothPath(chartPoints);
   const firstPoint = chartPoints[0];
@@ -218,33 +235,75 @@ export function TimeseriesChart({
       ? `${linePath} L ${lastPoint.x.toFixed(1)} ${chartHeight} L ${firstPoint.x.toFixed(1)} ${chartHeight} Z`
       : "";
   const color = TONE_VAR[tone];
+  const hasReferenceLines = drawableLines.length > 0;
+
+  const svg = (
+    <svg
+      viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+      preserveAspectRatio="none"
+      className="block h-16 w-full"
+      role="img"
+      aria-label={ariaLabel}
+      aria-describedby={hasReferenceLines ? descId : undefined}
+    >
+      <title>{ariaLabel}</title>
+      {hasReferenceLines && <desc id={descId}>{drawableLines.map((l) => l.label).join(", ")}</desc>}
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+          <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+      <path
+        d={linePath}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+      {drawableLines.map((line) => (
+        <line
+          key={`${line.value}:${line.label}`}
+          data-reference-line=""
+          x1={0}
+          x2={chartWidth}
+          y1={yOf(line.value)}
+          y2={yOf(line.value)}
+          stroke={TONE_VAR[line.tone ?? "muted"]}
+          strokeWidth={1}
+          strokeDasharray="4 3"
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </svg>
+  );
 
   return (
     <div data-testid={testId} className={STATUS_TONE_TEXT[tone]}>
-      <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-        preserveAspectRatio="none"
-        className="block h-16 w-full"
-        role="img"
-        aria-label={ariaLabel}
-      >
-        <title>{ariaLabel}</title>
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
-            <stop offset="100%" stopColor={color} stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={color}
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
+      {hasReferenceLines ? (
+        <div className="relative">
+          {svg}
+          {drawableLines.map((line) => (
+            <span
+              key={`${line.value}:${line.label}`}
+              aria-hidden="true"
+              className={cn(
+                "absolute right-0 rounded bg-background/80 px-1 text-[11px]",
+                // A line near the top would push its label above the chart box.
+                yOf(line.value) >= chartHeight / 4 && "-translate-y-full",
+                STATUS_TONE_TEXT[line.tone ?? "muted"],
+              )}
+              style={{ top: `${(yOf(line.value) / chartHeight) * 100}%` }}
+            >
+              {line.label}
+            </span>
+          ))}
+        </div>
+      ) : (
+        svg
+      )}
       {axisLabels !== undefined && (
         <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
           <span>{axisLabels.start}</span>

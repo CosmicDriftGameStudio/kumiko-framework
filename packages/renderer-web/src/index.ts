@@ -223,6 +223,7 @@ export type {
   TextareaFieldProps,
   TextFieldProps,
   TimeseriesPoint,
+  TimeseriesReferenceLine,
   UploadZoneProps,
 } from "./widgets/index.js";
 export {

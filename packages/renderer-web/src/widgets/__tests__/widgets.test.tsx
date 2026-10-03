@@ -641,4 +641,96 @@ describe("TimeseriesChart", () => {
     expect(container.querySelectorAll("path").length).toBe(2);
     expect(screen.getByText("jetzt")).toBeTruthy();
   });
+
+  const flatSeries = (max: number) => [
+    { atMs: 0, value: max / 2 },
+    { atMs: 1000, value: max },
+  ];
+
+  test("Referenzlinie liegt auf der y-Skala der Datenreihe", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={flatSeries(200)}
+        windowStartMs={0}
+        windowEndMs={1000}
+        ariaLabel="Antwortzeit"
+        referenceLines={[{ value: 100, label: "p95" }]}
+      />,
+    );
+    const line = container.querySelector("line[data-reference-line]");
+    expect(line?.getAttribute("y1")).toBe("32");
+    expect(line?.getAttribute("y2")).toBe("32");
+  });
+
+  test("Referenzlinie über dem Datenmaximum erweitert die Skala", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={flatSeries(100)}
+        windowStartMs={0}
+        windowEndMs={1000}
+        ariaLabel="Antwortzeit"
+        referenceLines={[{ value: 200, label: "SLO" }]}
+      />,
+    );
+    expect(container.querySelector("line[data-reference-line]")?.getAttribute("y1")).toBe("0");
+    expect(container.querySelector("path[fill='none']")?.getAttribute("d")).toContain(
+      "L 300.0 32.0",
+    );
+  });
+
+  test("aria-describedby verweist auf desc mit den Linien-Labels", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={flatSeries(200)}
+        windowStartMs={0}
+        windowEndMs={1000}
+        ariaLabel="Antwortzeit"
+        referenceLines={[
+          { value: 100, label: "p95: 100 ms" },
+          { value: 150, label: "SLO" },
+        ]}
+      />,
+    );
+    const describedBy = screen
+      .getByRole("img", { name: "Antwortzeit" })
+      .getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(container.querySelector(`desc[id="${describedBy}"]`)?.textContent).toBe(
+      "p95: 100 ms, SLO",
+    );
+  });
+
+  test("ungültige Referenzwerte werden nicht gerendert", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={flatSeries(200)}
+        windowStartMs={0}
+        windowEndMs={1000}
+        ariaLabel="Antwortzeit"
+        referenceLines={[
+          { value: Number.NaN, label: "a" },
+          { value: Number.POSITIVE_INFINITY, label: "b" },
+          { value: -5, label: "c" },
+        ]}
+      />,
+    );
+    expect(container.querySelector("line")).toBeNull();
+    expect(container.querySelector("desc")).toBeNull();
+  });
+
+  test("ohne Referenzlinien bleibt das Markup unverändert", () => {
+    const props = {
+      points: flatSeries(200),
+      windowStartMs: 0,
+      windowEndMs: 1000,
+      ariaLabel: "Antwortzeit",
+    };
+    const plain = render(<TimeseriesChart {...props} />).container;
+    const empty = render(<TimeseriesChart {...props} referenceLines={[]} />).container;
+    const withoutGeneratedIds = (html: string) => html.replace(/_r_\w+_/g, "_id_");
+    expect(withoutGeneratedIds(empty.innerHTML)).toBe(withoutGeneratedIds(plain.innerHTML));
+    expect(plain.querySelector("desc")).toBeNull();
+    expect(plain.querySelector("[aria-describedby]")).toBeNull();
+    expect(plain.querySelector(".relative")).toBeNull();
+  });
 });

@@ -120,6 +120,17 @@ export function Widgets(): ReactNode {
             end: t("widgets:catalog:now"),
           }}
         />
+        <div className="mt-4">
+          <TimeseriesChart
+            points={RESPONSE_TIMES}
+            windowStartMs={0}
+            windowEndMs={24 * 60 * 60 * 1000}
+            ariaLabel={t("widgets:catalog:response-time-p95-aria")}
+            referenceLines={[
+              { value: 180, label: t("widgets:catalog:response-time-p95"), tone: "warn" },
+            ]}
+          />
+        </div>
       </SectionCard>
 
       <SectionCard
