@@ -215,6 +215,10 @@ describe("scaffoldApp", () => {
     expect(kumikoBin).toContain("runSchemaCli");
     expect(kumikoBin).toContain("runConsumerCli");
     expect(kumikoBin).toContain("includeBundled: HAS_AUTH");
+    expect(kumikoBin).toContain(
+      "kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema)",
+    );
+    expect(kumikoBin).toContain("{ features, kmsSlots }");
   });
 
   test("bin/dev.ts contains runDevApp + welcomeBanner + admin login + clientEntry", async () => {

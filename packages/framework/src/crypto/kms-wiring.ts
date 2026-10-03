@@ -198,7 +198,7 @@ export function requireKmsWiring(
  *  adds the KEK-fetching step in front of it. */
 export async function resolveKmsWiringAsync(
   env: KmsWiringEnv,
-  options: KmsWiringOptions & KekSourceOptions = {},
+  options: KmsWiringOptions & KekSourceOptions,
 ): Promise<KmsWiring> {
   return resolveKmsWiring(await resolvePlatformKeks(env, options), options);
 }
@@ -206,7 +206,7 @@ export async function resolveKmsWiringAsync(
 /** Async counterpart to `requireKmsWiring`, KEK-resolving like `resolveKmsWiringAsync`. */
 export async function requireKmsWiringAsync(
   env: KmsWiringEnv,
-  options: KmsWiringOptions & KekSourceOptions = {},
+  options: KmsWiringOptions & KekSourceOptions,
 ): Promise<ActiveKmsWiring> {
   return requireKmsWiring(await resolvePlatformKeks(env, options), options);
 }

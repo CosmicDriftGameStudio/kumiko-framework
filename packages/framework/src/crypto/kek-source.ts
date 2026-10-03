@@ -8,9 +8,6 @@ const SCALEWAY_KEY_MANAGER_API_VERSION = "v1alpha1";
 const DEFAULT_REGION = "fr-par";
 const DECRYPT_TIMEOUT_MS = 5_000;
 const RETRY_DELAYS_MS = [200, 800];
-// Used when the caller names no slots. Apps that predate `kms` schema meta
-// rely on it; drop once every consumer declares its slots in the env schema.
-const LEGACY_SLOTS = ["PLATFORM_KEK", "PLATFORM_KEK_PREVIOUS", "KUMIKO_BLIND_INDEX_KEY"] as const;
 
 export type KekSourceEnv = {
   readonly PLATFORM_KEK?: string | undefined;
@@ -31,9 +28,8 @@ export type KekSourceOptions = {
   readonly logPrefix?: string;
   /** Where the boot line naming the KEK source goes. Defaults to `console.info`. */
   readonly log?: (message: string) => void;
-  /** Env names to resolve, e.g. `kmsSlotsOf(schema)`. Defaults to the three
-   *  platform slots. */
-  readonly slots?: readonly string[];
+  /** Env names to resolve, e.g. `kmsSlotsOf(schema)`. */
+  readonly slots: readonly string[];
 };
 
 function isRetryableStatus(status: number): boolean {
@@ -164,12 +160,12 @@ async function resolveSlot(
 // ~16 s per slot (3 x 5 s timeout + backoff) and could trip startup probes.
 export async function resolvePlatformKeks(
   env: KekSourceEnv,
-  options: KekSourceOptions = {},
+  options: KekSourceOptions,
 ): Promise<KekSourceEnv> {
   const fetchImpl = options.fetch ?? globalThis.fetch;
   const prefix = options.logPrefix ? `${options.logPrefix} ` : "";
 
-  const slots = options.slots ?? LEGACY_SLOTS;
+  const { slots } = options;
   // Misconfiguration must not cost a Key Manager round trip.
   if (
     slots.includes("PLATFORM_KEK_PREVIOUS") &&
