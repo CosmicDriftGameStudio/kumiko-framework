@@ -72,6 +72,33 @@ describe("buildConfigFeatureSchema — secrets derivation", () => {
     });
   });
 
+  test("fieldAccess carries writeRoles for exactly the keys that declare them", () => {
+    const stripe = defineFeature("stripe", (r) => {
+      r.secret("apiKey", {
+        label: { en: "Stripe API Key" },
+        scope: "tenant",
+        writeRoles: ["SystemAdmin"],
+      });
+      r.secret("webhookSecret", { label: { en: "Stripe Webhook Secret" }, scope: "tenant" });
+    });
+    const screen = secretsScreen(
+      buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe])),
+    );
+
+    expect(screen.fieldAccess).toEqual({ "stripe-api-key": { roles: ["SystemAdmin"] } });
+  });
+
+  test("no key with writeRoles leaves fieldAccess off the screen entirely", () => {
+    const stripe = defineFeature("stripe", (r) => {
+      r.secret("apiKey", { label: { en: "Stripe API Key" }, scope: "tenant" });
+    });
+    const screen = secretsScreen(
+      buildConfigFeatureSchema(createRegistry([secretsFeature(), stripe])),
+    );
+
+    expect("fieldAccess" in screen).toBe(false);
+  });
+
   test("sections group by declaring feature; title only when '<feature>.settings' is a declared translation", () => {
     const stripe = defineFeature("stripe", (r) => {
       r.translations({ keys: { "stripe.settings": { en: "Stripe" } } });

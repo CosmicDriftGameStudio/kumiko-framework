@@ -637,6 +637,7 @@ function buildSecretsEditScreen(
   const fieldLabels: Record<string, string> = {};
   const fieldHints: Record<string, string> = {};
   const requiredFields: string[] = [];
+  const fieldAccess: Record<string, AccessRule> = {};
   // Mutable outer record — TranslationKeys' Readonly<Record<...>> index
   // signature only permits reading, so the top-level assignments below
   // need a writable local type; each entry is still a fresh, never-mutated object.
@@ -658,6 +659,7 @@ function buildSecretsEditScreen(
         translations[hintKey] = { ...s.def.hint };
       }
       if (s.def.required === true) requiredFields.push(fieldId);
+      if (s.def.writeRoles !== undefined) fieldAccess[fieldId] = { roles: [...s.def.writeRoles] };
     }
     const titleKey = `${feature}.settings`;
     sections.push({
@@ -673,6 +675,7 @@ function buildSecretsEditScreen(
     fieldLabels,
     ...(Object.keys(fieldHints).length > 0 && { fieldHints }),
     ...(requiredFields.length > 0 && { requiredFields }),
+    ...(Object.keys(fieldAccess).length > 0 && { fieldAccess }),
     sections,
     ...(access !== undefined && { access }),
   };
