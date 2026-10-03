@@ -3,10 +3,45 @@
 // concerns (app-feature-structure guard's 300-line budget). Internal — not
 // re-exported from index.ts.
 
-import type { BillingFoundationOptions } from "./types.js";
+import * as z from "zod";
+import type { BillingFoundationOptions, ConsumerProtectionOptions } from "./types.js";
 
 function isRootRelativePath(path: string): boolean {
   return path.startsWith("/") && !path.startsWith("//");
+}
+
+function isRootRelativeOrHttpsUrl(link: string): boolean {
+  if (isRootRelativePath(link)) return true;
+  try {
+    return new URL(link).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function validateConsumerProtection(cp: ConsumerProtectionOptions): void {
+  if (cp.termsTextBlock.trim() === "") {
+    throw new Error("createBillingFoundationFeature: consumerProtection.termsTextBlock is empty.");
+  }
+  for (const locale of ["de", "en"] as const) {
+    if (!cp.vatNote[locale]?.trim()) {
+      throw new Error(
+        `createBillingFoundationFeature: consumerProtection.vatNote needs a non-empty "${locale}" entry.`,
+      );
+    }
+  }
+  if (!z.email().safeParse(cp.operatorEmail).success) {
+    throw new Error(
+      `createBillingFoundationFeature: consumerProtection.operatorEmail "${cp.operatorEmail}" is not a valid email address.`,
+    );
+  }
+  for (const [key, link] of Object.entries(cp.legalLinks)) {
+    if (!isRootRelativeOrHttpsUrl(link)) {
+      throw new Error(
+        `createBillingFoundationFeature: consumerProtection.legalLinks.${key} "${link}" must be a root-relative path ("/..." not "//") or an absolute https URL.`,
+      );
+    }
+  }
 }
 
 /** Validates `options` and throws a plain `Error` with a clear message at
@@ -28,6 +63,14 @@ export function validateOptions(options: BillingFoundationOptions): void {
         `createBillingFoundationFeature: baseUrl "${options.baseUrl}" must use http or https (parsed protocol "${parsed.protocol}").`,
       );
     }
+  }
+  if (options.consumerProtection) {
+    if (options.baseUrl === undefined) {
+      throw new Error(
+        "createBillingFoundationFeature: consumerProtection requires baseUrl (checkout redirect URLs are built from it).",
+      );
+    }
+    validateConsumerProtection(options.consumerProtection);
   }
   const { catalog } = options;
   // skip: no catalog configured, nothing more to validate.

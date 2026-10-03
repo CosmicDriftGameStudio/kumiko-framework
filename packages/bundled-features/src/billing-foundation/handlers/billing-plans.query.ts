@@ -5,6 +5,11 @@
 import type { QueryHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { findCatalogProvider } from "../checkout-core.js";
+import {
+  type CONSENT_LOCALES,
+  CONSENT_TEXTS,
+  consentTextVersion,
+} from "../consumer-protection/consent-text.js";
 import { buildBillingPlans } from "../plan-catalog.js";
 import type {
   BillingPlanCatalog,
@@ -26,7 +31,24 @@ export function createBillingPlansQuery(
     access: { roles: catalog.viewRoles },
     handler: async (_query, ctx): Promise<BillingPlansResult> => {
       const found = findCatalogProvider(ctx, catalog);
-      return buildBillingPlans(ctx, found?.plugin ?? null, catalog, options.now);
+      const result = await buildBillingPlans(ctx, found?.plugin ?? null, catalog, options.now);
+      const { consumerProtection } = options;
+      if (!consumerProtection) return result;
+      return {
+        ...result,
+        consumerProtection: {
+          consentTexts: {
+            de: consentTextView("de"),
+            en: consentTextView("en"),
+          },
+          legalLinks: consumerProtection.legalLinks,
+        },
+      };
     },
   };
+}
+
+function consentTextView(locale: (typeof CONSENT_LOCALES)[number]) {
+  const { earlyPerformance, withdrawalLoss } = CONSENT_TEXTS[locale];
+  return { earlyPerformance, withdrawalLoss, consentTextVersion: consentTextVersion(locale) };
 }

@@ -73,6 +73,7 @@ export {
   type BillingPlanPrice,
   type BillingPlansResult,
   type BillingPlanView,
+  type ConsumerProtectionOptions,
   KNOWN_RECURRING_INTERVALS,
   type PaymentEvent,
   type ProviderPrice,

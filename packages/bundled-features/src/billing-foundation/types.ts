@@ -383,6 +383,24 @@ export type BillingPlanCatalog<TTier extends string = string> = {
   readonly providerName?: string;
 };
 
+/** Consumer-protection consent gate (§ 312j / § 356 BGB style). When set,
+ *  `start-plan-checkout` and `create-checkout-session` require a `consent`
+ *  payload and record it as an event before the buyer reaches the provider. */
+export type ConsumerProtectionOptions = {
+  /** Slug of the template-resolver `text-block` holding the terms text; its
+   *  content hash is stored with every recorded consent. */
+  readonly termsTextBlock: string;
+  /** Per-locale VAT note; must carry at least `de` and `en`. */
+  readonly vatNote: Readonly<Record<string, string>>;
+  readonly operatorEmail: string;
+  /** Root-relative paths or absolute https URLs. */
+  readonly legalLinks: {
+    readonly terms: string;
+    readonly withdrawal: string;
+    readonly privacy: string;
+  };
+};
+
 export type BillingFoundationOptions<TTier extends string = string> = {
   /** Absolute http(s) URL. Its origin is the only redirect origin
    *  create-checkout-session/create-portal-session (when set) and the plan
@@ -392,6 +410,8 @@ export type BillingFoundationOptions<TTier extends string = string> = {
    *  NOT via `new URL(path, baseUrl)` (which would drop the prefix). */
   readonly baseUrl?: string;
   readonly catalog?: BillingPlanCatalog<TTier>;
+  /** Enables the consent gate on checkout; requires `baseUrl`. */
+  readonly consumerProtection?: ConsumerProtectionOptions;
   /** Injectable clock for the stale-incomplete-subscription check
    *  (constants.ts's `isSubscriptionBlockingCheckout`) — same always-
    *  optional, real-time-default shape as `createDekCache`'s `now` option.
@@ -438,6 +458,20 @@ export type BillingPlansResult = {
   } | null;
   readonly canPurchase: boolean;
   readonly plans: readonly BillingPlanView[];
+  /** Present only when `consumerProtection` is configured. */
+  readonly consumerProtection?: {
+    readonly consentTexts: Readonly<
+      Record<
+        "de" | "en",
+        {
+          readonly earlyPerformance: string;
+          readonly withdrawalLoss: string;
+          readonly consentTextVersion: string;
+        }
+      >
+    >;
+    readonly legalLinks: ConsumerProtectionOptions["legalLinks"];
+  };
 };
 
 // r.useExtension options-shape, co-located since the framework never imports upward.

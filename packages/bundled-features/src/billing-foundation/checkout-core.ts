@@ -283,6 +283,9 @@ export type OpenCheckoutInput = {
   readonly cancelUrl: string;
   readonly providerCustomerId?: string;
   readonly mode?: "subscription" | "payment";
+  readonly consentId?: string;
+  readonly locale?: string;
+  readonly submitMessage?: string;
 };
 
 function assertSubscriptionPriceAllowed(
@@ -384,6 +387,9 @@ export async function openCheckout(
     // pre-hardening wire-contract for callers that never sent `mode`
     // (create-checkout-session's own regression pin).
     ...(input.mode && { mode: input.mode }),
+    ...(input.consentId && { consentId: input.consentId }),
+    ...(input.locale && { locale: input.locale }),
+    ...(input.submitMessage && { submitMessage: input.submitMessage }),
   });
   return { url: result.url, providerName: input.providerName };
 }
