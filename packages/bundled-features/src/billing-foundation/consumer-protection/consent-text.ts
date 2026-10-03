@@ -24,9 +24,9 @@ export const CONSENT_TEXTS: Readonly<Record<ConsentLocale, ConsentTexts>> = {
     withdrawalLoss:
       "Ich nehme zur Kenntnis, dass ich mein Widerrufsrecht verliere, sobald der Vertrag von dem Anbieter vollständig erfüllt ist, bei digitalen Inhalten sobald die Ausführung begonnen hat, nachdem ich ausdrücklich zugestimmt habe und bestätigt habe, dass ich dadurch mein Widerrufsrecht verliere.",
     subscriptionSubmitMessage:
-      "Kostenpflichtiges Abonnement: Es verlängert sich zum Ende jedes Abrechnungszeitraums automatisch, bis Sie es kündigen. Sie können jederzeit zum Ende des laufenden Zeitraums kündigen.",
+      "Kostenpflichtiges Abonnement: Es verlängert sich zum Ende jedes Abrechnungszeitraums automatisch, bis du es kündigst. Du kannst jederzeit zum Ende des laufenden Zeitraums kündigen.",
     paymentSubmitMessage:
-      "Kostenpflichtige Einmalzahlung: Mit Klick auf den Button verpflichten Sie sich zur Zahlung.",
+      "Kostenpflichtige Einmalzahlung: Mit Klick auf den Button verpflichtest du dich zur Zahlung.",
   },
   en: {
     earlyPerformance:

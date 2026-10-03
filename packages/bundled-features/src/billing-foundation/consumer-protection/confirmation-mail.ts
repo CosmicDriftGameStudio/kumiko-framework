@@ -25,17 +25,17 @@ const LABELS: Readonly<Record<ConsentLocale, ConfirmationLabels>> = {
   de: {
     subject: "Vertragsbestätigung",
     intro:
-      "vielen Dank für Ihre Bestellung. Hiermit bestätigen wir den Vertragsschluss mit folgendem Inhalt.",
+      "vielen Dank für deine Bestellung. Hiermit bestätigen wir den Vertragsschluss mit folgendem Inhalt.",
     plan: "Tarif",
     oneOffPayment: "Einmalzahlung",
     price: "Preis",
     oneOff: "einmalig",
     contractStart: "Vertragsbeginn",
     currentPeriodEnd: "Aktueller Abrechnungszeitraum bis",
-    consentHeading: "Ihre Zustimmungen",
+    consentHeading: "Deine Zustimmungen",
     consentGivenAt: "Erteilt am",
     termsHeading: "Allgemeine Geschäftsbedingungen",
-    contact: "Fragen zu Ihrem Vertrag richten Sie bitte an",
+    contact: "Fragen zu deinem Vertrag richtest du bitte an",
     every: "alle",
     intervals: {
       day: { one: "Tag", many: "Tage" },

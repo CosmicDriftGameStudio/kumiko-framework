@@ -81,6 +81,30 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "auth.verifyEmail.errorBody":
     "Der Link ist ungültig oder abgelaufen. Bitte fordern Sie eine neue Bestätigungs-Mail an.",
   "auth.verifyEmail.successBody": "Danke! Sie können sich jetzt anmelden.",
+  "billing-foundation.cancel.confirmQuestion":
+    "Möchten Sie diese Erklärung jetzt abgeben? Erklärung: {declaration}, Art: {kind}.",
+  "billing-foundation.cancel.effectiveUnknown":
+    "Den Wirksamkeitszeitpunkt bestätigen wir Ihnen per E-Mail.",
+  "billing-foundation.cancel.emailConfirmation": "Sie erhalten eine Bestätigung per E-Mail.",
+  "billing-foundation.cancel.receivedAt": "Ihre Erklärung ist am {date} bei uns eingegangen.",
+  "billing-foundation.consent.cancelAnytime":
+    "Sie können jederzeit zum Ende des laufenden Zeitraums kündigen.",
+  "billing-foundation.consent.renews.day": "Verlängert sich täglich, bis Sie kündigen.",
+  "billing-foundation.consent.renews.month": "Verlängert sich monatlich, bis Sie kündigen.",
+  "billing-foundation.consent.renews.week": "Verlängert sich wöchentlich, bis Sie kündigen.",
+  "billing-foundation.consent.renews.year": "Verlängert sich jährlich, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.day":
+    "Verlängert sich alle {count} Tage, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.month":
+    "Verlängert sich alle {count} Monate, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.week":
+    "Verlängert sich alle {count} Wochen, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.year":
+    "Verlängert sich alle {count} Jahre, bis Sie kündigen.",
+  "billing-foundation.errors.consentTextOutdated":
+    "Der Zustimmungstext hat sich geändert. Laden Sie die Seite neu und bestätigen Sie erneut.",
+  "billing-foundation.errors.termsUnavailable":
+    "Die AGB sind vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
   "billing-foundation.plans.billingDisabled":
     "Die Abrechnung ist noch nicht aktiv. Ihr aktueller Tarif bleibt bestehen.",
   "billing-foundation.plans.cancelScheduled": "Ihr Abo endet am {date}.",
