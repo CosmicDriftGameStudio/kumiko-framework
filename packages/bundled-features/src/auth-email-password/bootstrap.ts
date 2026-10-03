@@ -5,13 +5,17 @@
 // invitation row holds membership role + global roles until the invitee
 // accepts through the regular invite-accept routes.
 
-import { makeDispatchSystemWrite } from "@cosmicdrift/kumiko-framework/api";
+import {
+  makeDispatchSystemWrite,
+  type SystemDispatchArgs,
+} from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
   ConfigScopes,
   createSystemUser,
   type TenantId,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
@@ -48,6 +52,12 @@ export type BootstrapSeedDeps = {
   readonly tenantId: TenantId;
   readonly db: DbConnection;
   readonly dispatchSystemWrite: ReturnType<typeof makeDispatchSystemWrite>;
+  /** Writes as the system user with the given tenant roles in the seeded
+   *  tenant; use it when the app gates tenant data on its own roles rather
+   *  than SystemAdmin. */
+  readonly dispatchWriteAs: (
+    args: Pick<SystemDispatchArgs, "handlerQn" | "payload"> & { readonly roles: readonly string[] },
+  ) => Promise<WriteResult>;
 };
 
 export type BootstrapConfigValue = string | number | boolean;
@@ -276,7 +286,13 @@ export async function bootstrapTenants(
     const outcome = await ensureTenant(deps, tenant);
     const shouldSeed = outcome === "created" && plan.seed !== undefined;
     if (shouldSeed) {
-      await plan.seed?.({ tenantId: tenant.id, db: deps.db, dispatchSystemWrite });
+      await plan.seed?.({
+        tenantId: tenant.id,
+        db: deps.db,
+        dispatchSystemWrite,
+        dispatchWriteAs: ({ handlerQn, payload, roles }) =>
+          deps.dispatcher.write(handlerQn, payload, createSystemUser(tenant.id, roles)),
+      });
     }
     const configApplied = await applyTenantConfig(deps, tenant);
     tenants.push({ id: tenant.id, outcome, seeded: shouldSeed, configApplied });
