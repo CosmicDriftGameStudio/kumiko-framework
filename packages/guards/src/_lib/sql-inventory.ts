@@ -6,7 +6,9 @@
  * Escape hatch for a justified raw-SQL call:
  *   // kumiko-lint-ignore raw-sql <reason>
  * on the call's own line or the line directly above. A bare tag with no
- * reason text after it does NOT suppress the finding.
+ * reason text after it does NOT suppress the finding. guard-raw-sql additionally
+ * requires each (file, reason) to be frozen in `.kumiko-raw-sql-baseline.json`;
+ * the hit carries `markerReason`/`markerLine` for that comparison.
  *
  * I/O: Bun.Glob + Bun.file; directoryExists uses node:fs (same as roots.ts).
  */
@@ -30,6 +32,10 @@ export type SqlInventoryHit = {
   readonly allowed: boolean;
   /** True when a `kumiko-lint-ignore raw-sql <reason>` marker suppresses this hit. */
   readonly markerSuppressed: boolean;
+  /** Trimmed reason text of the suppressing marker; set iff markerSuppressed. */
+  readonly markerReason?: string;
+  /** 1-based line of the suppressing marker; set iff markerSuppressed. */
+  readonly markerLine?: number;
   readonly snippet: string;
 };
 
@@ -86,7 +92,7 @@ export const RAW_SQL_ALLOWLIST: ReadonlyArray<RegExp> = [
 /** Escape-hatch tag. Must be followed by whitespace + a non-empty reason to suppress. */
 const MARKER_TAG = "kumiko-lint-ignore raw-sql";
 // Marker must appear in a // comment — string literals describing the hatch must not suppress.
-const MARKER_WITH_REASON_RE = /(^|\s)\/\/\s*kumiko-lint-ignore raw-sql\s+\S/;
+const MARKER_WITH_REASON_RE = /(^|\s)\/\/\s*kumiko-lint-ignore raw-sql\s+(\S.*)$/;
 
 const SKIP_PATH_PARTS = ["/node_modules/", "/dist/", "/.kumiko/"] as const;
 
@@ -183,13 +189,18 @@ function scanFileText(relPath: string, text: string, hits: SqlInventoryHit[]): v
     // Documented hatch: marker on the call line or the line directly above.
     // Each marker line suppresses at most one subsequent hit (consumed), so a
     // second `.unsafe()` under the same comment is not silently covered.
-    let suppressed = false;
-    if (MARKER_WITH_REASON_RE.test(line)) {
-      suppressed = true;
-    } else if (i > 0 && MARKER_WITH_REASON_RE.test(lines[i - 1] ?? "")) {
+    let markerReason: string | undefined;
+    let markerLine: number | undefined;
+    const sameLineReason = MARKER_WITH_REASON_RE.exec(line)?.[2];
+    if (sameLineReason !== undefined) {
+      markerReason = sameLineReason.trim();
+      markerLine = i + 1;
+    } else if (i > 0) {
+      const aboveReason = MARKER_WITH_REASON_RE.exec(lines[i - 1] ?? "")?.[2];
       const markerIdx = i - 1;
-      if (!consumedMarkers.has(markerIdx)) {
-        suppressed = true;
+      if (aboveReason !== undefined && !consumedMarkers.has(markerIdx)) {
+        markerReason = aboveReason.trim();
+        markerLine = i;
         consumedMarkers.add(markerIdx);
       }
     }
@@ -209,7 +220,10 @@ function scanFileText(relPath: string, text: string, hits: SqlInventoryHit[]): v
         line: i + 1,
         kind,
         allowed: isRawSqlAllowed(relPath),
-        markerSuppressed: suppressed,
+        markerSuppressed: markerReason !== undefined,
+        ...(markerReason !== undefined && markerLine !== undefined
+          ? { markerReason, markerLine }
+          : {}),
         snippet: stripMarker(trimmed).slice(0, 120),
       });
     }

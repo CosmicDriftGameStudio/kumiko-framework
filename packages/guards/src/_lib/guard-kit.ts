@@ -428,6 +428,8 @@ export type RepoCheck = {
   readonly name: string;
   readonly hint?: string;
   run(roots: readonly RepoRoot[]): RepoCheckOutcome | Promise<RepoCheckOutcome>;
+  /** Freezes the check's ratchet baseline(s); reachable via `checks --write-baseline --guard=<name>`. */
+  writeBaseline?(roots: readonly RepoRoot[]): void | Promise<void>;
 };
 
 const VACUOUS_MESSAGE =
