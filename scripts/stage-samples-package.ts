@@ -7,7 +7,7 @@
 // ships nested node_modules/ and .env files unfiltered and ignores `files`
 // in nested package.json files.
 
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 
 const repoRoot = resolve(import.meta.dir, "..");
@@ -83,9 +83,15 @@ function stage(): void {
   clean();
   const shipped = listTrackedSources().filter(isShippedSamplePath);
   for (const path of shipped) {
+    const source = join(repoRoot, path);
+    // A tracked symlink passes the path whitelist but could point outside the repo.
+    if (lstatSync(source).isSymbolicLink()) {
+      clean();
+      throw new Error(`stage-samples-package: refusing tracked symlink ${path}`);
+    }
     const target = join(packageDir, path);
     mkdirSync(dirname(target), { recursive: true });
-    cpSync(join(repoRoot, path), target);
+    cpSync(source, target);
   }
   const missing: string[] = REQUIRED_SUBTREES.filter(
     (subtree) => countFiles(join(packageDir, subtree)) < 1,
