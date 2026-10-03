@@ -329,6 +329,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "billing-foundation.errors.alreadyOnPlan": "Este cliente ya tiene ese plan.",
   "billing-foundation.errors.cancellationScheduled":
     "Esta suscripción está programada para finalizar. Reactívala antes de cambiar de plan.",
+  "billing-foundation.errors.consentRequired":
+    "Confirma ambas casillas de consentimiento antes de continuar.",
   "billing-foundation.errors.consentTextOutdated":
     "El texto de consentimiento ha cambiado. Recarga la página y confirma de nuevo.",
   "billing-foundation.errors.foreignProviderCustomer":

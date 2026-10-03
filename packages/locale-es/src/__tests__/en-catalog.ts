@@ -313,6 +313,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "billing-foundation.errors.alreadyOnPlan": "This tenant is already on that plan.",
   "billing-foundation.errors.cancellationScheduled":
     "This subscription is scheduled to end. Reactivate it before switching plans.",
+  "billing-foundation.errors.consentRequired": "Confirm both consent boxes before you continue.",
   "billing-foundation.errors.consentTextOutdated":
     "The consent text has changed. Reload the page and confirm again.",
   "billing-foundation.errors.foreignProviderCustomer":

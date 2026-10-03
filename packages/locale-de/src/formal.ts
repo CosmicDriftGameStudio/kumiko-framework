@@ -101,6 +101,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
     "Verlängert sich alle {count} Wochen, bis Sie kündigen.",
   "billing-foundation.consent.renewsEvery.year":
     "Verlängert sich alle {count} Jahre, bis Sie kündigen.",
+  "billing-foundation.errors.consentRequired":
+    "Bestätigen Sie beide Zustimmungen, bevor Sie fortfahren.",
   "billing-foundation.errors.consentTextOutdated":
     "Der Zustimmungstext hat sich geändert. Laden Sie die Seite neu und bestätigen Sie erneut.",
   "billing-foundation.errors.termsUnavailable":

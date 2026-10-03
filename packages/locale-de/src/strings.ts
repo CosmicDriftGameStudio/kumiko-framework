@@ -331,6 +331,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "billing-foundation.errors.alreadyOnPlan": "Dieser Mandant ist bereits auf diesem Tarif.",
   "billing-foundation.errors.cancellationScheduled":
     "Dieses Abo endet planmäßig. Es muss vor einem Tarifwechsel reaktiviert werden.",
+  "billing-foundation.errors.consentRequired": "Bestätige beide Zustimmungen, bevor du fortfährst.",
   "billing-foundation.errors.consentTextOutdated":
     "Der Zustimmungstext hat sich geändert. Lade die Seite neu und bestätige erneut.",
   "billing-foundation.errors.foreignProviderCustomer":
