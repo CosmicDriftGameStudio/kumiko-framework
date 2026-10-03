@@ -49,8 +49,8 @@ beforeAll(async () => {
 
   stack = await setupTestStack({
     features: [createSecretsFeature(), declared.feature],
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider: provider }),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider: provider, registry: registry }),
     }),
   });
   await unsafePushTables(stack.db, { tenantSecretsTable });

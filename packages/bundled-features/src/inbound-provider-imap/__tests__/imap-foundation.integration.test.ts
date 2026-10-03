@@ -122,12 +122,16 @@ beforeAll(async () => {
       inboundProviderImapFeature,
     ],
     masterKeyProvider: providerRef,
-    extraContext: ({ db: stackDb }) => ({
-      secrets: createSecretsContext({ db: stackDb, masterKeyProvider: providerRef }),
+    extraContext: ({ db: stackDb, registry }) => ({
+      secrets: createSecretsContext({
+        db: stackDb,
+        masterKeyProvider: providerRef,
+        registry: registry,
+      }),
     }),
   });
   db = stack.db;
-  secrets = createSecretsContext({ db, masterKeyProvider: providerRef });
+  secrets = createSecretsContext({ db, masterKeyProvider: providerRef, registry: stack.registry });
 
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);
   await unsafeCreateEntityTable(db, syncCursorEntity);

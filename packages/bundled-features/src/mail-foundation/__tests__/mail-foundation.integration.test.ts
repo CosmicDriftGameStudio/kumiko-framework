@@ -152,7 +152,7 @@ beforeAll(async () => {
       // dispatched handler. Without it createTransportForTenant fails
       // with "ctx.config is missing".
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-      secrets: createSecretsContext({ db, masterKeyProvider: providerRef }),
+      secrets: createSecretsContext({ db, masterKeyProvider: providerRef, registry: registry }),
     }),
   });
   db = stack.db;

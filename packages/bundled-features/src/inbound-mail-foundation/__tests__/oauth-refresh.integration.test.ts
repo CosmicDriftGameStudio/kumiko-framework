@@ -171,8 +171,8 @@ beforeAll(async () => {
       fakeProviderFeature,
     ],
     masterKeyProvider,
-    extraContext: ({ db: stackDb }) => ({
-      secrets: createSecretsContext({ db: stackDb, masterKeyProvider }),
+    extraContext: ({ db: stackDb, registry }) => ({
+      secrets: createSecretsContext({ db: stackDb, masterKeyProvider, registry: registry }),
     }),
     extraRoutes: createInboundMailConnectRoutes({
       stateSecret: STATE_SECRET,
@@ -181,7 +181,7 @@ beforeAll(async () => {
     }),
   });
   db = stack.db;
-  secrets = createSecretsContext({ db, masterKeyProvider });
+  secrets = createSecretsContext({ db, masterKeyProvider, registry: stack.registry });
   tokens = newManager();
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);

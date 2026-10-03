@@ -89,7 +89,7 @@ beforeAll(async () => {
       return {
         configResolver: resolver,
         _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-        secrets: createSecretsContext({ db, masterKeyProvider }),
+        secrets: createSecretsContext({ db, masterKeyProvider, registry: registry }),
       };
     },
   });

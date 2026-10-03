@@ -76,7 +76,7 @@ export function requireSecretsContext(
     throw new InternalError({
       message:
         `[${handlerName}] ctx.secrets missing — pass ` +
-        "createSecretsContext({db, masterKeyProvider}) via extraContext.secrets at boot.",
+        "createSecretsContext({db, masterKeyProvider, registry}) via extraContext.secrets at boot.",
     });
   }
   const raw = ctx.secrets;

@@ -12,7 +12,7 @@ export function createChannelTelegramFeature(
 ): FeatureDefinition {
   return defineFeature("channel-telegram", (r) => {
     r.describe(
-      'Sends delivery notifications through the Telegram Bot API (`sendMessage`, plain text), registered as the `telegram` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { telegram: "<chat id or @channel>" } })`. The bot token is the tenant secret `channel-telegram:secret:bot-token`; the token never reaches logs or delivery attempts. Requires `delivery` and `secrets`. The API base URL and request timeout are app options of `createChannelTelegramFeature(opts)`, never tenant config.',
+      'Sends delivery notifications through the Telegram Bot API (`sendMessage`, plain text), registered as the `telegram` channel in the delivery system. Tenant-owned chat target: reach it only via `ctx.notify(type, { route: { telegram: "<chat id or @channel>" } })`. The bot token is the tenant secret `channel-telegram:secret:bot-token`; the token never reaches logs or delivery attempts. Requires `delivery` and `secrets`. The API base URL, its host allowlist (`allowedHosts`, default `api.telegram.org`), `requireHttps` (default true; boot fails on a mismatch) and the request timeout are app options of `createChannelTelegramFeature(opts)`, never tenant config.',
     );
     r.uiHints({
       displayLabel: "Telegram Channel",

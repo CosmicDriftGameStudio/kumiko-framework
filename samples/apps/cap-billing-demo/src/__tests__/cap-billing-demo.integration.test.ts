@@ -85,7 +85,7 @@ beforeAll(async () => {
       configResolver: resolver,
       configEncryption: encryption,
       _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-      secrets: createSecretsContext({ db, masterKeyProvider: providerRef }),
+      secrets: createSecretsContext({ db, masterKeyProvider: providerRef, registry }),
     }),
   });
   db = stack.db;

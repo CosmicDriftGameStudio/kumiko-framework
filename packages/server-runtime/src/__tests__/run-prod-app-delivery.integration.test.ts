@@ -177,7 +177,11 @@ async function bootWithChatChannels(): Promise<ProdAppHandle> {
       createTenantFeature(),
       createDeliveryFeature(),
       createChannelSlackFeature({ allowedHosts: ["127.0.0.1"], requireHttps: false }),
-      createChannelTelegramFeature({ apiBaseUrl: stub.origin }),
+      createChannelTelegramFeature({
+        apiBaseUrl: stub.origin,
+        allowedHosts: ["127.0.0.1"],
+        requireHttps: false,
+      }),
       opsFeature,
     ],
     autoListen: false,

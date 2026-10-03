@@ -9,7 +9,7 @@ The chat channels use it: Slack, Discord and Teams webhook secrets must be URLs 
 
 `channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram` now export their secret keys (`SLACK_SECRET_KEYS`, `DISCORD_SECRET_KEYS`, `TEAMS_SECRET_KEYS`, `TELEGRAM_SECRET_KEYS`), allowlist constants and `isTelegramChatId` / `isTelegramBotToken`. `delivery` exports `checkChatWebhookTarget`, `chatWebhookUrlSchema` and `resolveChatWebhookTarget`, so apps can validate an address or URL when a user creates a channel.
 
-Existing invalid secrets stay stored; only new writes are checked. Writes through `ctx.secrets.set` in feature code are not checked.
+Existing invalid secrets stay stored; only new writes are checked. Writes through `ctx.secrets.set` in feature code run through the same check.
 
 <!-- kumiko-changes
 feature: secrets

@@ -40,8 +40,8 @@ async function buildStack(feature: ReturnType<typeof createSecretsFeature>): Pro
   const provider = masterKeyProvider();
   const stack = await setupTestStack({
     features: [feature, declared.feature],
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider: provider }),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider: provider, registry: registry }),
     }),
   });
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });

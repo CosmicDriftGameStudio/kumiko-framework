@@ -83,8 +83,8 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createSecretsFeature()],
     masterKeyProvider: seedProvider,
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider: seedProvider }),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider: seedProvider, registry: registry }),
     }),
   });
   await unsafePushTables(stack.db, {
@@ -94,7 +94,11 @@ beforeAll(async () => {
   // Seed 20 V1 rows through the real write path (executor.create) instead
   // of a raw insertOne — the rotate job's executor.update needs an actual
   // event stream to update against, which a headless projection row lacks.
-  const seedSecrets = createSecretsContext({ db: stack.db, masterKeyProvider: seedProvider });
+  const seedSecrets = createSecretsContext({
+    db: stack.db,
+    masterKeyProvider: seedProvider,
+    registry: stack.registry,
+  });
   for (let i = 0; i < 20; i++) {
     await seedSecrets.set(admin.tenantId, `test:secret:k-${i}`, `secret-${i}`);
   }

@@ -50,8 +50,8 @@ beforeAll(async () => {
 
   stack = await setupTestStack({
     features: [createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] }), declared.feature],
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider: provider }),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider: provider, registry: registry }),
     }),
   });
   // Post-ES: the pre-ES audit table is gone — read-audit rides on the

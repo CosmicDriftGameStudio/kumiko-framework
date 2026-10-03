@@ -25,6 +25,7 @@ import { configValuesTable } from "../../config/table.js";
 import { createSecretsFeature } from "../../secrets/feature.js";
 import { createSecretsContext } from "../../secrets/secrets-context.js";
 import { tenantSecretsTable } from "../../secrets/table.js";
+import type { SecretValueSchemaSource } from "../../secrets/write-gate.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
@@ -117,6 +118,11 @@ export const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 
 let notificationCounter = 0;
 
+const NO_VALUE_SCHEMAS: SecretValueSchemaSource = {
+  getSecretKey: () => undefined,
+  findSecretNamespace: () => undefined,
+};
+
 export async function setupChatHarness(
   ...channelFeatures: FeatureDefinition[]
 ): Promise<ChatHarness> {
@@ -139,8 +145,8 @@ export async function setupChatHarness(
       ...channelFeatures,
     ],
     masterKeyProvider,
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider }),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider, registry: registry }),
     }),
   });
   const { db } = stack;
@@ -150,7 +156,14 @@ export async function setupChatHarness(
     tenant_secrets: tenantSecretsTable,
   });
   await unsafeCreateEntityTable(db, tenantEntity, "tenant");
-  const secrets = createSecretsContext({ db, masterKeyProvider });
+  const secrets = createSecretsContext({ db, masterKeyProvider, registry: stack.registry });
+  // Explicit test-only path to seed values the declared valueSchema would reject
+  // (e.g. a non-allowlisted webhook URL), to exercise the send-time re-validation.
+  const unvalidatedSecrets = createSecretsContext({
+    db,
+    masterKeyProvider,
+    registry: NO_VALUE_SCHEMAS,
+  });
   const attemptRows: AttemptRow[] = [];
 
   // Mirrors what job-runner.ts builds for a systemScope()'d job.
@@ -177,7 +190,7 @@ export async function setupChatHarness(
       await stack.http.writeOk("secrets:write:set", { key, value }, tenantAdmin);
     },
     async setSecretUnvalidated(key, value) {
-      await secrets.set(tenantAdmin.tenantId, key, value, {
+      await unvalidatedSecrets.set(tenantAdmin.tenantId, key, value, {
         redact: () => "••••",
         updatedBy: tenantAdmin.id,
       });
