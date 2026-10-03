@@ -19,7 +19,11 @@ import {
 import type { HandlerContext, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { subscriptionAggregateId } from "../aggregate-id.js";
-import { SubscriptionEventTypes, SubscriptionStatuses } from "../constants.js";
+import {
+  isSubscriptionBlockingCheckout,
+  SubscriptionEventTypes,
+  SubscriptionStatuses,
+} from "../constants.js";
 import { SUBSCRIPTION_PII_FIELDS, subscriptionEntity } from "../entities.js";
 import {
   INVOICE_PAID_EVENT_QN,
@@ -31,6 +35,7 @@ import {
   type SubscriptionEventHeaders,
   type SubscriptionEventPayload,
 } from "../events.js";
+import { getSubscriptionForTenant, type SubscriptionView } from "../get-subscription-for-tenant.js";
 
 // =============================================================================
 // Input-Schema = der normalisierte SubscriptionEvent (ohne tenantId, der
@@ -192,15 +197,48 @@ export async function appendSubscriptionEvent(
 // SystemAdmin-only: dieser handler wird ausschließlich vom programmatic
 // webhook-handler aufgerufen (mit einem internal SystemUser), nie vom
 // Tenant-Admin direkt.
-export const processEventHandler: WriteHandlerDef = {
-  name: "process-event",
-  agent: { expose: false },
-  schema: processEventSchema,
-  access: { roles: ["SystemAdmin"] },
-  handler: async (event, ctx) => {
-    // @cast-boundary engine-payload — dispatcher-zod-validated payload
-    const payload = event.payload as ProcessEventPayload;
-    const result = await appendSubscriptionEvent(ctx, event.user.tenantId, payload);
-    return { isSuccess: true as const, data: result };
-  },
-};
+// One subscription aggregate exists per tenant, but a tenant can legitimately hold two provider
+// subscriptions over time (a stale `incomplete` one superseded by a fresh checkout). A late or
+// retried event of the old subscription must not overwrite the row of the live one, so only a
+// `created` event may replace a blocking row that belongs to a different provider subscription.
+function isStaleSubscriptionEvent(
+  current: SubscriptionView | null,
+  payload: ProcessEventPayload,
+  now: Temporal.Instant,
+): boolean {
+  if (current === null) return false;
+  if (payload.type === SubscriptionEventTypes.created) return false;
+  const sameSubscription =
+    current.providerName === payload.providerName &&
+    current.providerSubscriptionId === payload.providerSubscriptionId;
+  return !sameSubscription && isSubscriptionBlockingCheckout(current, now);
+}
+
+export function createProcessEventHandler(now: () => Temporal.Instant): WriteHandlerDef {
+  return {
+    name: "process-event",
+    agent: { expose: false },
+    schema: processEventSchema,
+    access: { roles: ["SystemAdmin"] },
+    handler: async (event, ctx) => {
+      // @cast-boundary engine-payload — dispatcher-zod-validated payload
+      const payload = event.payload as ProcessEventPayload;
+      const current = await getSubscriptionForTenant(ctx, event.user.tenantId);
+      if (isStaleSubscriptionEvent(current, payload, now())) {
+        ctx.log?.warn(
+          `[billing-foundation:process-event] dropped stale ${payload.type} ${payload.providerEventId}: tenant already tracks another subscription`,
+        );
+        return {
+          isSuccess: true as const,
+          data: {
+            duplicate: false,
+            stale: true,
+            subscriptionAggregateId: subscriptionAggregateId(event.user.tenantId),
+          },
+        };
+      }
+      const result = await appendSubscriptionEvent(ctx, event.user.tenantId, payload);
+      return { isSuccess: true as const, data: result };
+    },
+  };
+}

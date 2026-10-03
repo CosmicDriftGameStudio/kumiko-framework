@@ -453,6 +453,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       type: SubscriptionEventTypes.created,
       status: SubscriptionStatuses.active,
       tier: "pro",
+      providerSubscriptionId: "sub_2402",
     });
 
     // 15 sends bei pro: counter=15, weit unter pro-soft@110.
@@ -468,6 +469,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       type: SubscriptionEventTypes.canceled,
       status: SubscriptionStatuses.canceled,
       tier: "free",
+      providerSubscriptionId: "sub_2402",
     });
 
     // Resolver: subscription.status=canceled → fallback auf config (kein
@@ -529,6 +531,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       type: SubscriptionEventTypes.created,
       status: SubscriptionStatuses.active,
       tier: "pro",
+      providerSubscriptionId: "sub_2405",
     });
     await processSubscriptionEvent(tenant, {
       providerEventId: "evt_2405_cancel",
@@ -536,6 +539,7 @@ describe("cap-billing-demo: subscription-driven tier (live-Webhook-Story)", () =
       type: SubscriptionEventTypes.canceled,
       status: SubscriptionStatuses.canceled,
       tier: "free",
+      providerSubscriptionId: "sub_2405",
     });
 
     // 13. send würde bei pro durchgehen, bei free hard-blockt (counter=0,
