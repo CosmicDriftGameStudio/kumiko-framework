@@ -146,6 +146,16 @@ export const STANDARD_METRIC_DEFS: readonly MetricDefinition[] = [
     description: "Unix timestamp of the last successful run, per registered job.",
     labels: ["job"],
   },
+  // Every escape-hatch use counts here, including the ones the audit sink
+  // dedups away: a system cron firing every minute writes one audit event per
+  // process, so this counter is the only record of how often it ran.
+  {
+    name: "kumiko_escape_hatch_uses_total",
+    type: "counter",
+    description:
+      "Escape-hatch uses by handler and kind, whether or not an audit event was written.",
+    labels: ["handler", "kind"],
+  },
 ] as const;
 
 export function registerStandardMetrics(meter: Meter): void {
@@ -314,4 +324,10 @@ export function emitJobQueueDepth(
 // registrations and carries no tenant or user input.
 export function emitJobLastSuccess(meter: Meter, job: string): void {
   meter.gauge("kumiko_job_last_success_timestamp_seconds").set(Date.now() / 1000, { job });
+}
+
+// `handler` is a registry-declared handler/job name, `kind` a closed union —
+// no tenant or user input reaches the label set.
+export function emitEscapeHatchUse(meter: Meter, handler: string, kind: string): void {
+  meter.counter("kumiko_escape_hatch_uses_total").inc(1, { handler, kind });
 }

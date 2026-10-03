@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import { defineFeature } from "../define-feature.js";
 import { createRegistry } from "../registry.js";
 import {
   DEFAULT_GRACE_DAYS,
+  isSystemScopedSoftDeleteTable,
   SOFT_DELETE_CLEANUP_JOB,
   SOFT_DELETE_CLEANUP_SYSTEM_JOB,
   SOFT_DELETE_GRACE_DAYS_KEY,
@@ -10,6 +12,14 @@ import {
   softDeleteCleanupSystemJob,
 } from "../soft-delete-cleanup.js";
 import type { JobContext } from "../types/handlers.js";
+
+const globalTableMeta = {
+  tableName: "glob_things",
+  columns: [],
+  indexes: [],
+  source: "managed",
+  tenancy: "global",
+};
 
 function featureWith(softDelete: boolean | undefined) {
   return defineFeature("probe-sd", (r) => {
@@ -53,7 +63,11 @@ describe("registry soft-delete auto-wiring", () => {
 
 type DeleteCall = { table: unknown; where: Record<string, unknown> };
 
-function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): JobContext {
+function makeCtx(opts: {
+  graceDays?: number;
+  calls: DeleteCall[];
+  globalCalls?: DeleteCall[];
+}): JobContext {
   // Shaped to satisfy bun-db's tenantDbDelegate() probe so deleteMany() routes
   // to this recorder instead of trying to extract real table metadata.
   const fakeDb = {
@@ -65,12 +79,26 @@ function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): JobContext 
     deleteMany: async (table: unknown, where: Record<string, unknown>) => {
       opts.calls.push({ table, where });
     },
+    global: (table: unknown) => ({
+      deleteMany: async (where: Record<string, unknown>) => {
+        opts.globalCalls?.push({ table, where });
+      },
+    }),
   };
   const projections = new Map<string, unknown>([
     // softDelete entity WITH a tenantId column → tenant-scoped delete
     ["thing~impl", { isImplicit: true, source: "thing", table: { tenantId: {}, isDeleted: {} } }],
     // softDelete entity WITHOUT a tenantId column → system-global delete
     ["sys~impl", { isImplicit: true, source: "sysThing", table: { isDeleted: {} } }],
+    // tenancy "global" entity that still carries a tenantId column (e.g. user)
+    [
+      "glob~impl",
+      {
+        isImplicit: true,
+        source: "globThing",
+        table: { tenantId: {}, isDeleted: {}, [KUMIKO_META_SYMBOL]: globalTableMeta },
+      },
+    ],
     // softDelete:false entity → skipped
     [
       "audit~impl",
@@ -85,6 +113,7 @@ function makeCtx(opts: { graceDays?: number; calls: DeleteCall[] }): JobContext 
       ({
         thing: { softDelete: true },
         sysThing: { softDelete: true },
+        globThing: { softDelete: true, tenancy: "global" },
         auditEntry: { softDelete: false },
       })[name],
   };
@@ -108,7 +137,7 @@ describe("softDeleteCleanupJob handler", () => {
     const calls: DeleteCall[] = [];
     await softDeleteCleanupJob({}, makeCtx({ calls }));
 
-    // thing deleted; sysThing (no tenantId), auditEntry (softDelete:false)
+    // thing deleted; globThing (tenancy global), sysThing (no tenantId), auditEntry (softDelete:false)
     // and custom (explicit) all skipped.
     expect(calls).toHaveLength(1);
     expect(calls[0]?.where["tenantId"]).toBe("t1");
@@ -140,6 +169,17 @@ describe("softDeleteCleanupJob handler", () => {
 });
 
 describe("softDeleteCleanupSystemJob handler", () => {
+  test("sweeps tenancy-global tables via db.global() and column-less tables via deleteMany", async () => {
+    const calls: DeleteCall[] = [];
+    const globalCalls: DeleteCall[] = [];
+    await softDeleteCleanupSystemJob({}, makeCtx({ calls, globalCalls }));
+
+    expect(globalCalls).toHaveLength(1);
+    expect(globalCalls[0]?.where["tenantId"]).toBeUndefined();
+    expect(globalCalls[0]?.where["isDeleted"]).toBe(true);
+    expect(calls).toHaveLength(1);
+  });
+
   test("hard-deletes only system-global (no tenantId) softDelete implicit projections", async () => {
     const calls: DeleteCall[] = [];
     await softDeleteCleanupSystemJob({}, makeCtx({ calls }));
@@ -163,5 +203,17 @@ describe("softDeleteCleanupSystemJob handler", () => {
     await expect(softDeleteCleanupSystemJob({}, {} as JobContext)).rejects.toThrow(
       /ctx.db \+ ctx.registry/,
     );
+  });
+});
+
+describe("isSystemScopedSoftDeleteTable", () => {
+  test("true for tenancy global, even with a tenantId column", () => {
+    expect(isSystemScopedSoftDeleteTable({ tenantId: {} }, { tenancy: "global" })).toBe(true);
+  });
+  test("true for a table without a tenantId column", () => {
+    expect(isSystemScopedSoftDeleteTable({ isDeleted: {} }, {})).toBe(true);
+  });
+  test("false for a tenant-scoped table with a tenantId column", () => {
+    expect(isSystemScopedSoftDeleteTable({ tenantId: {} }, {})).toBe(false);
   });
 });

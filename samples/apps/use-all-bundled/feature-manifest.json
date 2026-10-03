@@ -55,14 +55,39 @@
       "toggleableDefault": null,
       "requires": [
         "tenant",
-        "user"
+        "user",
+        "config"
       ],
       "optionalRequires": [],
       "configReads": [],
       "exposesApis": [],
       "usesApis": [],
       "extensionsUsed": [],
-      "configKeys": [],
+      "configKeys": [
+        {
+          "key": "escape-hatch-retention-days",
+          "qualifiedName": "audit:config:escape-hatch-retention-days",
+          "type": "number",
+          "scope": "system",
+          "default": 90,
+          "encrypted": false,
+          "computed": false,
+          "validated": false,
+          "options": null,
+          "bounds": {
+            "min": 1
+          },
+          "pattern": null,
+          "writeRoles": [
+            "system"
+          ],
+          "readRoles": [
+            "TenantAdmin",
+            "Admin",
+            "SystemAdmin"
+          ]
+        }
+      ],
       "secrets": [],
       "writeHandlers": [],
       "uiHints": {

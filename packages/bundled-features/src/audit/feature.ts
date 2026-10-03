@@ -1,14 +1,22 @@
 import {
   access,
+  createSystemConfig,
   defineFeature,
   type FeatureDefinition,
   i18nKey,
+  SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { AUDIT_LOG_DETAIL_SCREEN_ID, AUDIT_LOG_SCREEN_ID, AuditQueries } from "./constants.js";
+import {
+  AUDIT_LOG_DETAIL_SCREEN_ID,
+  AUDIT_LOG_SCREEN_ID,
+  AuditQueries,
+  DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
+} from "./constants.js";
 import { escapeHatchUsedSchema } from "./escape-hatch-audit-sink.js";
 import { detailsQuery } from "./handlers/details.query.js";
 import { listQuery } from "./handlers/list.query.js";
 import { AUDIT_I18N } from "./i18n.js";
+import { runEscapeHatchRetention } from "./run-escape-hatch-retention.js";
 
 // Audit feature — exposes a filtered read over the framework's event log.
 //
@@ -18,10 +26,11 @@ import { AUDIT_I18N } from "./i18n.js";
 // the existing `events` table. See handlers/list.query.ts for the filter
 // surface.
 //
-// Retention lives elsewhere. Events are kept indefinitely as the source of
-// truth for state; archive or compress policies are a separate concern
-// (tracked with the snapshot/archive infrastructure that already exists in
-// the framework).
+// Retention: only `escapeHatchUse` events are pruned (daily job, config key
+// `escapeHatchRetentionDays`). All other events stay as the source of truth
+// for state; archive or compress policies are a separate concern (tracked
+// with the snapshot/archive infrastructure that already exists in the
+// framework).
 export function createAuditFeature(): FeatureDefinition {
   return defineFeature(
     "audit",
@@ -35,10 +44,42 @@ export function createAuditFeature(): FeatureDefinition {
         recommended: false,
       });
       r.translations({ keys: AUDIT_I18N });
-      r.requires("tenant", "user");
+      r.requires("tenant", "user", "config");
 
       // Registered so ops tools/MSPs can discover the type — escape-hatch-audit-sink.ts appends it via the low-level event-store API.
       r.defineEvent("escape-hatch-used", escapeHatchUsedSchema, { piiFields: "none" });
+
+      r.config(
+        "escapeHatchRetentionDays",
+        createSystemConfig("number", {
+          default: DEFAULT_ESCAPE_HATCH_RETENTION_DAYS,
+          bounds: { min: 1 },
+        }),
+      );
+
+      r.job({
+        name: "escape-hatch-retention",
+        trigger: { cron: "30 3 * * *" },
+        concurrency: "skip",
+        // pruneEvents needs a transaction-capable connection, which only unsafeRaw() hands a job.
+        escapeHatch: {
+          reason: "prunes expired escapeHatchUse audit events through pruneEvents",
+          grants: ["unsafeRaw"],
+        },
+        handler: async (_payload, ctx) => {
+          if (!ctx.registry) {
+            throw new Error(
+              "escape-hatch-retention: ctx.registry required (JobContext incomplete)",
+            );
+          }
+          await runEscapeHatchRetention({
+            db: ctx.db.unsafeRaw(),
+            registry: ctx.registry,
+            configResolver: ctx.configResolver,
+            userId: ctx._userId ?? SYSTEM_USER_ID,
+          });
+        },
+      });
 
       const queries = {
         list: r.queryHandler(listQuery),

@@ -4,9 +4,11 @@ export { type ConsoleProviderOptions, createConsoleProvider } from "./console-pr
 
 export { observabilityContext } from "./context.js";
 export {
+  createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   createEscapeHatchReportWindow,
   ESCAPE_HATCH_USED_SIGNAL,
+  type EscapeHatchProcessDedup,
   type EscapeHatchReportWindow,
   fallbackEscapeHatchReporter,
   reportEscapeHatchUse,
@@ -63,6 +65,7 @@ export {
   emitDbQuery,
   emitDispatcherError,
   emitDispatcherHandler,
+  emitEscapeHatchUse,
   emitEventConsumerLag,
   emitEventConsumerPassOutcome,
   emitEventConsumerPassSkipped,

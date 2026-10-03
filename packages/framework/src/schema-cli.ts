@@ -20,11 +20,15 @@ import {
   assertValidMigrationName,
   baselineMigrations,
   createDbConnection,
+  type DbConnection,
   diffReplayAgainstSnapshot,
   fetchAppliedMigrations,
+  findCommentedDropTables,
   generateMigration,
+  isRetiredFrameworkTable,
   loadMigrationsFromDir,
   loadSnapshotJson,
+  readMigrationSqlTexts,
   rebuildTablesFromDiff,
   type renderTablesDdl,
   replayMigrationsDir,
@@ -102,6 +106,32 @@ export type RunSchemaCliOptions =
        *  rebuild's KMS wiring cannot derive them itself. */
       readonly kmsSlots: readonly string[];
     };
+
+// A table that a migration only drops as a commented DESTRUCTIVE marker and
+// that the snapshot no longer has is gone on paper but still in the live DB.
+async function reportLeftoverDroppedTables(
+  db: DbConnection,
+  migrationsDir: string,
+  out: SchemaCliOut,
+): Promise<void> {
+  const snapshotPath = join(migrationsDir, SNAPSHOT_FILENAME);
+  const snapshot = existsSync(snapshotPath) ? loadSnapshotJson(snapshotPath) : null;
+  const leftovers: string[] = [];
+  for (const tableName of findCommentedDropTables(readMigrationSqlTexts(migrationsDir), snapshot)) {
+    if (await tableExists(db, tableName)) leftovers.push(tableName);
+  }
+  // skip: nothing left over, nothing to report
+  if (leftovers.length === 0) return;
+  out.log("  Tables dropped only as a commented DESTRUCTIVE marker but still in the database:");
+  for (const tableName of leftovers) {
+    out.log(
+      isRetiredFrameworkTable(tableName)
+        ? `    ! ${tableName} — retired framework table: the next \`schema generate <name>\` creates the drop`
+        : `    ! ${tableName} — app table: after a backup, write a new migration with the drop`,
+    );
+  }
+  out.log("");
+}
 
 const SCHEMA_SUBCOMMANDS = ["generate", "validate", "apply", "baseline", "status"] as const;
 
@@ -183,12 +213,14 @@ export async function runSchemaCli(
         prevSnapshot,
         name,
         sequenceNumber: nextSequenceNumber(migrationsDir),
+        priorMigrationsSql: readMigrationSqlTexts(migrationsDir),
       });
 
       const isEmpty =
         result.diff.newTables.length === 0 &&
         result.diff.changedTables.length === 0 &&
-        result.diff.droppedTables.length === 0;
+        result.diff.droppedTables.length === 0 &&
+        result.retiredDrops.length === 0;
       if (isEmpty) {
         out.log("  No schema changes detected — kein neues Migration-File geschrieben.");
         return 0;
@@ -207,7 +239,7 @@ export async function runSchemaCli(
       out.log("");
       out.log(`  ✓ ${result.filename}`);
       out.log(
-        `    new tables: ${result.diff.newTables.length}, changed: ${result.diff.changedTables.length}, dropped: ${result.diff.droppedTables.length}`,
+        `    new tables: ${result.diff.newTables.length}, changed: ${result.diff.changedTables.length}, dropped: ${result.diff.droppedTables.length}, retired framework tables dropped: ${result.retiredDrops.length}`,
       );
       if (rebuildTables.length > 0) {
         out.log(
@@ -260,11 +292,13 @@ export async function runSchemaCli(
         prevSnapshot,
         name: "validate",
         sequenceNumber: nextSequenceNumber(migrationsDir),
+        priorMigrationsSql: readMigrationSqlTexts(migrationsDir),
       });
       const pendingTables = [
         ...drift.diff.newTables.map((t) => t.tableName),
         ...drift.diff.changedTables.map((t) => t.tableName),
         ...drift.diff.droppedTables,
+        ...drift.retiredDrops.map((t) => t.tableName),
       ];
       if (pendingTables.length === 0) {
         out.log("  ✓ schema: migrations match the entity definitions");
@@ -481,6 +515,7 @@ export async function runSchemaCli(
         out.log("");
         out.log(`  ${applied.size} applied, ${pending} pending.`);
         out.log("");
+        await reportLeftoverDroppedTables(db, migrationsDir, out);
         return pending === 0 ? 0 : 1;
       } finally {
         await close();

@@ -3,10 +3,14 @@ import type { EscapeHatchUseEvent } from "../../engine/types/index.js";
 import type { Logger } from "../../logging/types.js";
 import { testTenantId } from "../../stack/index.js";
 import {
+  createEscapeHatchProcessDedup,
+  createEscapeHatchReporter,
   createEscapeHatchReportWindow,
   ESCAPE_HATCH_USED_SIGNAL,
   reportEscapeHatchUse,
 } from "../escape-hatch-report.js";
+import { type MetricEvent, RecordingMeter } from "../recording-meter.js";
+import { registerStandardMetrics } from "../standard-metrics.js";
 
 const tenantId = testTenantId(1);
 
@@ -145,5 +149,92 @@ describe("reportEscapeHatchUse", () => {
       error: "sink boom",
     });
     expect(log.warnCalls).toEqual([]);
+  });
+});
+
+describe("createEscapeHatchReporter with a process dedup (system cron hatches)", () => {
+  const MINUTE_MS = 60_000;
+
+  function setup(opts: { processDedup?: ReturnType<typeof createEscapeHatchProcessDedup> }) {
+    const events: EscapeHatchUseEvent[] = [];
+    const metricEvents: MetricEvent[] = [];
+    const meter = new RecordingMeter((e) => metricEvents.push(e));
+    registerStandardMetrics(meter);
+    let nowMs = 0;
+    const report = createEscapeHatchReporter({
+      handler: "tenant-lifecycle:job:run-tenant-destruction",
+      tenantId,
+      actor: "system",
+      sink: async (event) => {
+        events.push(event);
+      },
+      window: createEscapeHatchReportWindow(),
+      meter,
+      now: () => nowMs,
+      ...opts,
+    });
+    return {
+      report,
+      events,
+      useMetrics: () =>
+        metricEvents.filter((e) => e.name === "kumiko_escape_hatch_uses_total").length,
+      advance: (ms: number) => {
+        nowMs += ms;
+      },
+    };
+  }
+
+  test("audits a declared unsafe-raw once, however far apart the runs are, and counts every use", () => {
+    const t = setup({
+      processDedup: createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]),
+    });
+    for (let run = 0; run < 3; run++) {
+      t.report("unsafe-raw", "sweep");
+      t.advance(2 * MINUTE_MS);
+    }
+    expect(t.events).toHaveLength(1);
+    expect(t.useMetrics()).toBe(3);
+  });
+
+  test("dedups per (handler, kind): another kind is audited on its own", () => {
+    const t = setup({
+      processDedup: createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]),
+    });
+    t.report("unsafe-raw", "sweep");
+    t.report("global-write", "sweep");
+    t.report("global-write", "sweep");
+    expect(t.events.map((e) => e.kind)).toEqual(["unsafe-raw", "global-write"]);
+  });
+
+  test("kinds outside the process dedup stay on the 60 s window", () => {
+    const t = setup({
+      processDedup: createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]),
+    });
+    t.report("identity-switch", "act as", { id: "u1", tenantId });
+    t.report("identity-switch", "act as", { id: "u1", tenantId });
+    expect(t.events).toHaveLength(1);
+    t.advance(MINUTE_MS);
+    t.report("identity-switch", "act as", { id: "u1", tenantId });
+    expect(t.events).toHaveLength(2);
+  });
+
+  test("without a process dedup (user-triggered run) unsafe-raw is audited once per window", () => {
+    const t = setup({});
+    t.report("unsafe-raw", "manual");
+    t.report("unsafe-raw", "manual");
+    expect(t.events).toHaveLength(1);
+    t.advance(MINUTE_MS);
+    t.report("unsafe-raw", "manual");
+    expect(t.events).toHaveLength(2);
+    expect(t.useMetrics()).toBe(3);
+  });
+
+  test("each reporter set owns its own dedup state", () => {
+    const first = setup({ processDedup: createEscapeHatchProcessDedup(["unsafe-raw"]) });
+    const second = setup({ processDedup: createEscapeHatchProcessDedup(["unsafe-raw"]) });
+    first.report("unsafe-raw", "sweep");
+    second.report("unsafe-raw", "sweep");
+    expect(first.events).toHaveLength(1);
+    expect(second.events).toHaveLength(1);
   });
 });

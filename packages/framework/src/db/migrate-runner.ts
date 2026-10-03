@@ -15,7 +15,7 @@
 // edit nachträglich = production-state inkonsistent mit committed-state).
 
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { DbConnection, DbRunner } from "./connection.js";
@@ -212,6 +212,16 @@ export function loadMigrationsFromDir(
       statements: splitSqlStatements(content),
     };
   });
+}
+
+// Raw file texts in migration order, comments intact (loadMigrationsFromDir
+// strips them) — the retired-table scan reads them for DESTRUCTIVE markers.
+export function readMigrationSqlTexts(dir: string): readonly string[] {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((file) => readFileSync(join(dir, file), "utf8"));
 }
 
 // Raw-SQL via postgres-js or Bun.sql .unsafe() — same shape for both.

@@ -103,6 +103,7 @@ export {
   loadMigrationsFromDir,
   type Migration,
   MigrationChecksumMismatchError,
+  readMigrationSqlTexts,
   runMigrations,
   runMigrationsFromDir,
   splitSqlStatements,
@@ -145,6 +146,12 @@ export {
   type ReplayMismatch,
   replayMigrationsDir,
 } from "./replay-migration-sql.js";
+export {
+  findCommentedDropTables,
+  isRetiredFrameworkTable,
+  type RetiredFrameworkTable,
+  retiredFrameworkTables,
+} from "./retired-framework-tables.js";
 export { tableExists } from "./schema-inspection.js";
 export {
   buildBaseColumns,

@@ -28,6 +28,7 @@ import { createFileContext } from "../files/file-handle.js";
 import { createFallbackLogger } from "../logging/index.js";
 import type { Logger } from "../logging/types.js";
 import {
+  createEscapeHatchProcessDedup,
   createEscapeHatchReporter,
   emitJobLastSuccess,
   emitJobQueueDepth,
@@ -486,6 +487,8 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // The last-success gauge throws if its metric was never registered; the runner
   // must not depend on buildServer having done it first. Idempotent.
   if (context.meter) registerStandardMetrics(context.meter);
+  // Instance-scoped, not module-level: each runner (and each test) audits a system cron's declared hatch once.
+  const systemCronEscapeHatchDedup = createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]);
   // Set at the top of stop() — a graceful shutdown closes the redis/BullMQ
   // clients itself, which fires the exact same 'error' listeners below with
   // an expected "Connection is closed." Downgrading to debug once stopping
@@ -939,12 +942,16 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
     // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
+    const isSystemCronRun =
+      triggeredById === null && jobDef.escapeHatch !== undefined && "cron" in jobDef.trigger;
     const reportEscapeHatch = createEscapeHatchReporter({
       handler: jobName,
       tenantId,
       actor: jobSystemUser.id,
       sink: context._escapeHatchAuditSink,
       log: context.log,
+      ...(isSystemCronRun && { processDedup: systemCronEscapeHatchDedup }),
+      ...(context.meter && { meter: context.meter }),
     });
     const systemDb =
       isSystemJob && tenantScopedDb
@@ -953,6 +960,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const jobDb = configDb
       ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
           unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
+          globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
           report: reportEscapeHatch,
           ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })

@@ -11,9 +11,12 @@
 // table growth; irreversible event-log purging is data-retention's job
 // (pruneEvents), a separate, consumer-lag-guarded path.
 
-import { deleteMany, type WhereObject } from "../db/query.js";
+import type { SchemaTable } from "@cosmicdrift/kumiko-types/schema-table-types";
+import type { TenancyBrand } from "@cosmicdrift/kumiko-types/tenancy-brand";
+import { asEntityTableMeta, deleteMany, type WhereObject } from "../db/query.js";
 import { SYSTEM_USER_ID } from "./system-user.js";
 import type { ConfigKeyDefinition, JobDefinition, JobHandlerFn } from "./types/config.js";
+import type { EntityDefinition } from "./types/index.js";
 
 // qualifyEntityName convention (feature:type:kebab-name) with a reserved
 // "soft-delete" owner — no real feature owns these; the framework synthesizes
@@ -35,6 +38,24 @@ export const softDeleteGraceDaysConfig: ConfigKeyDefinition = {
   // existing silent-below-bound / audited-crossing behavior.
   bounds: { min: 1 },
 };
+
+function hasTenantIdColumn(table: unknown): boolean {
+  return (table as Record<string, unknown>)["tenantId"] !== undefined;
+}
+
+// The entity declaration decides, not the column: a `tenancy: "global"` table
+// (e.g. user) still carries a tenantId column (SYSTEM_TENANT_ID), yet no
+// tenant-mode delete can ever match its rows.
+export function isSystemScopedSoftDeleteTable(
+  table: unknown,
+  entity: Pick<EntityDefinition, "tenancy">,
+): boolean {
+  return entity.tenancy === "global" || !hasTenantIdColumn(table);
+}
+
+function isGlobalTenancyTable(table: unknown): table is SchemaTable & TenancyBrand<"global"> {
+  return asEntityTableMeta(table)?.tenancy === "global";
+}
 
 export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
   const { db, registry } = ctx;
@@ -68,21 +89,18 @@ export const softDeleteCleanupJob: JobHandlerFn = async (_payload, ctx) => {
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
     const entity = registry.getEntity(proj.source);
     if (!entity?.softDelete) continue;
-    // @cast-boundary column-presence probe — identical access the executor's
-    // list() does on table["tenantId"] to decide tenant-scoping.
-    const hasTenantColumn = (proj.table as Record<string, unknown>)["tenantId"] !== undefined;
-    // System-global entities (no tenantId column, e.g. `user`) are NOT swept
+    // System-global entities (tenancy "global" or no tenantId column, e.g. `user`) are NOT swept
     // here: this handler runs once PER TENANT, so a tenant-scoped grace value
     // would purge every OTHER tenant's still-within-grace rows too (effective
     // grace = min() across all tenants). softDeleteCleanupSystemJob handles
     // these separately, once, with a fixed grace period.
-    if (!hasTenantColumn) continue;
+    if (isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
     const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff }, tenantId };
     await deleteMany(db, proj.table, where);
   }
 };
 
-// System-global soft-deleted entities (no tenantId column) can't take a
+// System-global soft-deleted entities (tenancy "global" or no tenantId column) can't take a
 // per-tenant grace period — there's no "this tenant's view" of a row that
 // isn't scoped to any tenant. Runs once (not perTenant) with a fixed grace
 // period; a future system-scope config key could make this configurable
@@ -99,8 +117,13 @@ export const softDeleteCleanupSystemJob: JobHandlerFn = async (_payload, ctx) =>
     if (proj.isImplicit !== true || typeof proj.source !== "string" || !proj.table) continue;
     const entity = registry.getEntity(proj.source);
     if (!entity?.softDelete) continue;
-    if ((proj.table as Record<string, unknown>)["tenantId"] !== undefined) continue;
-    await deleteMany(db, proj.table, { isDeleted: true, deletedAt: { lt: cutoff } });
+    if (!isSystemScopedSoftDeleteTable(proj.table, entity)) continue;
+    const where: WhereObject = { isDeleted: true, deletedAt: { lt: cutoff } };
+    if (isGlobalTenancyTable(proj.table)) {
+      await db.global(proj.table).deleteMany(where);
+    } else {
+      await deleteMany(db, proj.table, where);
+    }
   }
 };
 
@@ -122,5 +145,10 @@ export function buildSoftDeleteCleanupSystemJob(): JobDefinition {
     trigger: { cron: "15 3 * * *" },
     concurrency: "skip",
     runIn: "worker",
+    escapeHatch: {
+      reason:
+        "hard-deletes expired soft-deleted rows of global entities (e.g. user) once, system-wide",
+      grants: ["globalWrites"],
+    },
   };
 }
