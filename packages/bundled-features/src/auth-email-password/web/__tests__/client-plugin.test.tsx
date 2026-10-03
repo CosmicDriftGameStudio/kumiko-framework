@@ -7,11 +7,15 @@ import { describe, expect, mock, test } from "bun:test";
 // makeAuthGate, which auth-gate.test.tsx exercises directly), so the
 // cheapest live check is spying on the call args instead of rendering
 // through a real session fetch.
+// mock.module is process-wide in bun, so a stub would replace the gate for every
+// DOM test file in the same run; the spy records and delegates to the real module.
+const realAuthGate = { ...(await import("../auth-gate.js")) };
 const makeSessionAuthGateCalls: unknown[][] = [];
 mock.module("../auth-gate", () => ({
-  makeSessionAuthGate: (...args: unknown[]) => {
+  ...realAuthGate,
+  makeSessionAuthGate: (...args: Parameters<typeof realAuthGate.makeSessionAuthGate>) => {
     makeSessionAuthGateCalls.push(args);
-    return () => null;
+    return realAuthGate.makeSessionAuthGate(...args);
   },
 }));
 
