@@ -29,6 +29,7 @@ import { templateResourceEntity, templateResourcesTable } from "../../template-r
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { createUserFeature } from "../../user/feature.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { SubscriptionFoundationHandlers } from "../constants.js";
 import { consentTextVersion } from "../consumer-protection/consent-text.js";
@@ -132,6 +133,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
+      createUserFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),

@@ -15,6 +15,10 @@ export const BILLING_FOUNDATION_FEATURE = "billing-foundation" as const;
 // subscription-mollie, ...).
 export const SUBSCRIPTION_PROVIDER_EXTENSION = "subscriptionProvider" as const;
 
+/** delivery notification type of the § 312f contract confirmation mail. */
+export const CONTRACT_CONFIRMATION_NOTIFICATION_TYPE =
+  "billing-foundation:contract-confirmation" as const;
+
 // Qualified write handler names (QN format: scope:type:name).
 export const SubscriptionFoundationHandlers = {
   /** Programmatic entry-point für den webhook-handler. Receives the
@@ -36,6 +40,9 @@ export const SubscriptionFoundationHandlers = {
    *  (payment-aggregate), separate from the subscription-aggregate — a
    *  payment is not a subscription-state transition. */
   processPaymentEvent: "billing-foundation:write:process-payment-event",
+  /** System-only: sends the § 312f contract confirmation mail for a recorded
+   *  checkout consent (consumerProtection only). */
+  issueContractConfirmation: "billing-foundation:write:issue-contract-confirmation",
   /** Tenant-Admin/purchase-role picks a plan tier from the catalog with no
    *  existing non-terminal subscription — starts a hosted checkout for the
    *  matching price. Only registered when `createBillingFoundationFeature`

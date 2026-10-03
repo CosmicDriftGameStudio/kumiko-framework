@@ -236,7 +236,9 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     // fire from create-checkout-session even without a catalog — register
     // unconditionally rather than splitting the i18n surface by option.
     r.translations({ keys: BILLING_FOUNDATION_I18N });
-    if (widened.consumerProtection) registerConsumerProtection(r);
+    if (widened.consumerProtection) {
+      registerConsumerProtection(r, widened, widened.consumerProtection);
+    }
 
     if (widened.catalog) {
       const { catalog } = widened;
