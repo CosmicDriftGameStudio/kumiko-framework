@@ -71,6 +71,7 @@ import {
   ArrowUpDown,
   Building,
   CalendarDays,
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -2362,6 +2363,41 @@ function isUnlabeledFalse(type: string, value: unknown, renderer: unknown): bool
   );
 }
 
+function isUnlabeledBooleanFormat(renderer: unknown): boolean {
+  return (
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "format" in renderer &&
+    renderer.format === "boolean" &&
+    !("trueLabel" in renderer) &&
+    !("falseLabel" in renderer)
+  );
+}
+
+function BooleanCell({
+  value,
+  translate,
+}: {
+  readonly value: boolean;
+  readonly translate: DataTableCellProps["translate"];
+}): ReactNode {
+  const label = value
+    ? (translate?.("kumiko.boolean.yes") ?? "Yes")
+    : (translate?.("kumiko.boolean.no") ?? "No");
+  return (
+    <span data-boolean-cell={value ? "true" : "false"}>
+      {value ? (
+        <Check aria-hidden="true" className="h-4 w-4" />
+      ) : (
+        <span aria-hidden="true" className="text-muted-foreground">
+          {EMPTY_CELL_PLACEHOLDER}
+        </span>
+      )}
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
+
 // True when the cell would render the default "✓": no renderer, or a boolean
 // format spec that names no trueLabel of its own.
 function showsBareCheckMark(type: string, value: unknown, renderer: unknown): boolean {
@@ -3110,11 +3146,11 @@ function humanizeSlug(slug: string): string {
 
 // Tooltip-Text für truncated Cells — bei Hover zeigt der Browser den
 // vollen Text. Skipping für Object/Array (das ist nicht user-readable);
-// Number/Boolean stringifyt der Browser ohnehin korrekt.
+// Number stringifyt der Browser ohnehin korrekt; Boolean bekommt keinen rohen true/false-Tooltip.
 function cellTitle(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value === "string") return value.length > 0 ? value : undefined;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number") return String(value);
   return undefined;
 }
 
@@ -3217,6 +3253,9 @@ function DataTableCell({
         {EMPTY_CELL_PLACEHOLDER}
       </span>
     );
+  }
+  if (typeof value === "boolean" && isUnlabeledBooleanFormat(renderer)) {
+    return <BooleanCell value={value} translate={translate} />;
   }
   if (isUnlabeledFalse(type, value, renderer)) {
     return (

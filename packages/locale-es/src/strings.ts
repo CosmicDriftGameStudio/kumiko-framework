@@ -486,6 +486,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.validation.not_multiple_of": "Debe ser un múltiplo de {divisor}.",
   "errors.validation.out_of_bounds": "Valor fuera del rango permitido.",
   "errors.validation.too_big": "Demasiado grande o demasiado largo (máximo: {maximum}).",
+  "kumiko.boolean.no": "No",
+  "kumiko.boolean.yes": "Sí",
   "kumiko.validation.number.min": "Debe ser al menos {minimum}.",
   "kumiko.validation.number.max": "Debe ser como máximo {maximum}.",
   "errors.validation.too_small": "Demasiado pequeño o demasiado corto (mínimo: {minimum}).",

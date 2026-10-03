@@ -466,6 +466,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.validation.not_multiple_of": "Must be a multiple of {divisor}.",
   "errors.validation.out_of_bounds": "Value out of allowed range.",
   "errors.validation.too_big": "Too big or too long (maximum: {maximum}).",
+  "kumiko.boolean.no": "No",
+  "kumiko.boolean.yes": "Yes",
   "kumiko.validation.number.min": "Must be at least {minimum}.",
   "kumiko.validation.number.max": "Must be {maximum} or less.",
   "errors.validation.too_small": "Too small or too short (minimum: {minimum}).",
