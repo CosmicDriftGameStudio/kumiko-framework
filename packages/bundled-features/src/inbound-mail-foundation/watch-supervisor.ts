@@ -54,6 +54,11 @@ import type { DistributedLock } from "@cosmicdrift/kumiko-framework/pipeline";
 import { Temporal } from "temporal-polyfill";
 import { InboundMailAccountStatuses, InboundMailFoundationHandlers } from "./constants.js";
 import { MAIL_ACCOUNT_PII_FIELDS, syncCursorTable } from "./entities.js";
+import {
+  createOAuthAccessTokenManager,
+  type OAuthAccessTokenManager,
+  usesFoundationManagedOAuth,
+} from "./oauth-access-token.js";
 import { mailAccountsProjectionTable } from "./projection.js";
 import { resolveInboundProviderForAccount } from "./provider-factory.js";
 import {
@@ -66,6 +71,12 @@ import {
   type RawInboundMessage,
   type SyncCursorPayload,
 } from "./types.js";
+
+// Provider errors can embed token or response data in `message`; logs carry
+// only the error class.
+function describeError(err: unknown): string {
+  return err instanceof Error ? err.name : typeof err;
+}
 
 const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_BACKFILL_WINDOW_DAYS = 30;
@@ -110,6 +121,10 @@ export type InboundMailSupervisorDeps = {
    *  watcher lives. Omit for single-process deployments — every active
    *  account is watched locally, same as before #1719. */
   readonly lock?: DistributedLock;
+  /** Access-token lifecycle for OAuth accounts. Defaults to a manager built
+   *  from `db` + `providerCtx.secrets`; pass the instance shared with
+   *  `createInboundMailConnectRoutes` so a fresh connect primes this cache. */
+  readonly oauthTokens?: OAuthAccessTokenManager;
   /** TTL (seconds) for the per-account watch lease. Default 90s, renewed
    *  every ttl/3. Only used when `lock` is set. */
   readonly watchLeaseTtlSeconds?: number;
@@ -157,6 +172,29 @@ export function createInboundMailSupervisor(
   // configured TTL — real deployments (default 90s) never hit it.
   const renewIntervalMs = Math.max(50, Math.floor((leaseTtlSeconds * 1000) / 3));
   const log = deps.log ?? (() => {});
+  const oauthTokens =
+    deps.oauthTokens ??
+    (deps.providerCtx.secrets
+      ? createOAuthAccessTokenManager({
+          db: deps.db,
+          secrets: deps.providerCtx.secrets,
+          providerCtx: deps.providerCtx,
+        })
+      : undefined);
+
+  // Undefined for non-OAuth accounts. A refresh failure propagates into the
+  // caller's handleSyncError: InboundAuthError → auth_error, anything else
+  // → transient retry.
+  async function resolveAccessToken(
+    account: MailAccountRecord,
+    plugin: InboundMailProviderPlugin,
+  ): Promise<string | undefined> {
+    if (!usesFoundationManagedOAuth(account, plugin)) return undefined;
+    if (!oauthTokens) {
+      throw new Error("oauth account needs a secrets context for token refresh");
+    }
+    return oauthTokens.getAccessToken(account, plugin);
+  }
 
   let running = false;
   let pollTimer: ReturnType<typeof setTimeout> | null = null;
@@ -336,9 +374,7 @@ export function createInboundMailSupervisor(
       return true;
     }
     // Transient/unbekannt: loggen, nächster Tick retried.
-    log(
-      `inbound-mail: account ${account.id} sync error: ${err instanceof Error ? err.message : String(err)}`,
-    );
+    log(`inbound-mail: account ${account.id} sync error: ${describeError(err)}`);
     return true;
   }
 
@@ -354,9 +390,11 @@ export function createInboundMailSupervisor(
     try {
       // hasMore-Schleife: Pagination innerhalb eines Ticks bis Budget.
       for (;;) {
+        const accessToken = await resolveAccessToken(account, plugin);
         const result = await plugin.fetch(deps.providerCtx, account, cursor, {
           backfillWindowDays,
           maxMessages: budget,
+          ...(accessToken !== undefined && { accessToken }),
         });
         await ingestBatch(account, result.messages, JSON.stringify(result.nextCursor));
         await saveCursor(account, result.nextCursor);
@@ -376,7 +414,7 @@ export function createInboundMailSupervisor(
       try {
         plugin = resolveInboundProviderForAccount(deps.providerCtx, account);
       } catch (err) {
-        log(`inbound-mail: ${err instanceof Error ? err.message : String(err)}`);
+        log(`inbound-mail: ${describeError(err)}`);
         continue;
       }
       await pollAccount(account, plugin);
@@ -431,7 +469,7 @@ export function createInboundMailSupervisor(
       renewed = await deps.lock.renew(account.id, state.lockToken, leaseTtlSeconds);
     } catch (err) {
       log(
-        `inbound-mail: watch lease renew for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+        `inbound-mail: watch lease renew for account ${account.id} failed: ${describeError(err)}`,
       );
       state.renewFailures += 1;
       // After failures spanning a full lease TTL, tear down — otherwise a
@@ -533,7 +571,7 @@ export function createInboundMailSupervisor(
       const delay = state.backoffMs;
       state.backoffMs = Math.min(state.backoffMs * 2, backoffMaxMs);
       log(
-        `inbound-mail: watch for account ${account.id} died (${err instanceof Error ? err.message : String(err)}) — restart in ${delay}ms`,
+        `inbound-mail: watch for account ${account.id} died (${describeError(err)}) — restart in ${delay}ms`,
       );
       void markAccount(account, { watchState: `backoff:${delay}ms` }, "watch_supervisor");
       state.restartTimer = setTimeout(() => {
@@ -544,27 +582,33 @@ export function createInboundMailSupervisor(
 
     state.starting = true;
     try {
-      const stop = await plugin.watch(deps.providerCtx, account, {
-        onMessages: async (msgs) => {
-          try {
-            await ingestBatch(account, msgs, "watch");
-          } catch (err) {
-            // Ingest-Fehler killt den Watcher nicht — der Poll holt die
-            // Messages beim nächsten Tick (Dedup macht's idempotent).
-            log(
-              `inbound-mail: watch-ingest for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          }
+      const accessToken = await resolveAccessToken(account, plugin);
+      const stop = await plugin.watch(
+        deps.providerCtx,
+        account,
+        {
+          onMessages: async (msgs) => {
+            try {
+              await ingestBatch(account, msgs, "watch");
+            } catch (err) {
+              // An ingest failure must not kill the watcher: the next poll
+              // tick fetches the messages again and dedup keeps it idempotent.
+              log(
+                `inbound-mail: watch-ingest for account ${account.id} failed: ${describeError(err)}`,
+              );
+            }
+          },
+          onError: (err) => {
+            void (async () => {
+              const keepRunning = await handleSyncError(account, err);
+              // On auth_error stopWatcher already bumped the generation, so
+              // scheduleRestart is a no-op; every other error restarts with backoff.
+              if (keepRunning) scheduleRestart(err);
+            })();
+          },
         },
-        onError: (err) => {
-          void (async () => {
-            const keepRunning = await handleSyncError(account, err);
-            // auth_error → stopWatcher hat die generation gebumpt,
-            // scheduleRestart no-op't; für alle anderen: Backoff-Restart.
-            if (keepRunning) scheduleRestart(err);
-          })();
-        },
-      });
+        accessToken !== undefined ? { accessToken } : undefined,
+      );
       if (state.generation !== generation || !running) {
         await stop();
         // skip: stop() kam während des Connects — Watcher wurde sofort wieder abgebaut.
@@ -581,7 +625,7 @@ export function createInboundMailSupervisor(
         await markAccount(account, { watchState: "watching" }, "watch_supervisor");
       } catch (err) {
         log(
-          `inbound-mail: markAccount(watching) for account ${account.id} failed: ${err instanceof Error ? err.message : String(err)}`,
+          `inbound-mail: markAccount(watching) for account ${account.id} failed: ${describeError(err)}`,
         );
       }
     } catch (err) {
@@ -617,9 +661,7 @@ export function createInboundMailSupervisor(
       try {
         await stop();
       } catch (err) {
-        log(
-          `inbound-mail: stop watcher ${accountId} failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
+        log(`inbound-mail: stop watcher ${accountId} failed: ${describeError(err)}`);
       }
     }
     if (deps.lock && lockToken) {
@@ -627,7 +669,7 @@ export function createInboundMailSupervisor(
         await deps.lock.release(accountId, lockToken);
       } catch (err) {
         log(
-          `inbound-mail: watch lease release for account ${accountId} failed: ${err instanceof Error ? err.message : String(err)}`,
+          `inbound-mail: watch lease release for account ${accountId} failed: ${describeError(err)}`,
         );
       }
     }
@@ -642,11 +684,7 @@ export function createInboundMailSupervisor(
     pollTimer = setTimeout(() => {
       pollTimer = null;
       pollInFlight = pollOnce()
-        .catch((err) =>
-          log(
-            `inbound-mail: poll tick failed: ${err instanceof Error ? err.message : String(err)}`,
-          ),
-        )
+        .catch((err) => log(`inbound-mail: poll tick failed: ${describeError(err)}`))
         .finally(() => {
           pollInFlight = null;
           scheduleNextPoll();

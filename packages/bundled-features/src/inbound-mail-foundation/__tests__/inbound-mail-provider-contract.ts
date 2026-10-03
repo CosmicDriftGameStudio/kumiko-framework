@@ -71,6 +71,21 @@ export function describeInboundMailProviderContract(
       timeout,
     );
 
+    t(
+      "fetch: tolerates opts.accessToken (ignored by non-OAuth providers)",
+      async () => {
+        const { plugin, ctx, account } = await factory();
+        await expect(
+          plugin.fetch(ctx, account, null, {
+            backfillWindowDays: 1,
+            maxMessages: 50,
+            accessToken: "contract-access-token",
+          }),
+        ).resolves.toHaveProperty("messages");
+      },
+      timeout,
+    );
+
     const watchTest = opts?.hasWatch === false ? test.skip : t;
     watchTest(
       "watch: pushes a seeded message via onMessages",
