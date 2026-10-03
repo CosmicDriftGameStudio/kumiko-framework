@@ -1,5 +1,118 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.337.0
+
+### Minor Changes
+
+- a7fcca9: A number field's unit now always sits inside the field. Before, a label wider than the input (for example once the "changed" marker appeared) widened the form cell, and the unit moved to the right edge of the cell, next to the field. relatedList `groupBy.label` is optional: a group with neither `label` nor a `labels` entry shows its rows without a header and stays open, so a list can keep a header for one group only, such as the done posts. Boot rejects a `collapsedWhen` group that has no header. `DataTableRowGrouping.headerLabel` may return `undefined` for such a group. The required i18n keys now include the `groupBy` header keys of an entityList `expandableRow`, not only those of projectionDetail sections.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: A number field's unit stays inside the field when the label is wider than the input
+  detail: |
+    Icon, input and unit of a `kind: "number"` input share one box (`data-slot="number-field"`), and the form grid's number cell sizes that box to 8rem instead of the bare input. Before, a label wider than the input (a long label, or the "changed" marker appearing while editing) widened the cell, and the unit was anchored to the cell's right edge, next to the field.
+  migration: |
+    No code change needed. Custom CSS that sized number inputs through `[&_input]` inside the number cell targets `[data-slot=number-field]` now.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: relatedList groupBy.label is optional; groups without a header show their rows directly
+  detail: |
+    `RelatedListGroupBy.label` is optional. The header key of a group is `labels[value] ?? label`; a group without one renders its rows without a header row and never collapses. `relatedListGroupKey` and `relatedListGroupHeaderLabel` resolve the group key and its header key; `collapsedWhen: null` now matches rows whose field is empty.
+  migration: |
+    No code change needed. To hide a header, drop `label` and name only the groups that keep one in `labels`, for example `{ field: "status", collapsedWhen: "done", labels: { done: "<key>" } }`.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Boot rejects a collapsed relatedList group without a header; expandableRow groupBy keys are required i18n keys
+  detail: |
+    Boot fails when `groupBy.collapsedWhen` names a group that has neither `label` nor a `labels` entry, because its rows could never be opened. The required surface keys now include `groupBy.label` and `groupBy.labels` of an entityList `expandableRow`, as they already did for projectionDetail relatedList sections.
+  migration: |
+    Add translations for expandableRow `groupBy` header keys if the i18n check reports them missing.
+  -->
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: breaking
+  title: DataTableRowGrouping.headerLabel may return undefined
+  detail: |
+    `DataTableRowGrouping.headerLabel` returns `string | undefined`. `undefined` means the group has no header: the default web DataTable renders its rows without a header row and never collapses them.
+  migration: |
+    Custom DataTable primitives that render `rowGrouping` handle `undefined` from `headerLabel` by rendering the group's rows without a header.
+  -->
+
+### Patch Changes
+
+- 9237bbc: A configEdit screen shows a server validation error at the field whose value was rejected, for example the pattern message of a Stripe webhook secret. Before, it showed only the generic "Invalid input." banner. `groupIssuesByPath` is exported from `@cosmicdrift/kumiko-headless`.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: configEdit shows server validation errors at the affected field
+  detail: |
+    `config:write:set` reports its issues at path `value`. The configEdit submit maps the issues of the failed batch command (`failedIndex`) to that command's field, and RenderEdit puts server field issues from a `customSubmit` into the form controller, the same way `controller.submit()` does. The banner stays for issues no rendered field can show and for network failures.
+  migration: |
+    No code change needed.
+  -->
+
+- 3ad5398: Anonymous SSE signals no longer carry row id or version
+
+  An anonymous /api/sse connection gets every row signal of a declared liveEntities entity, including rows the anonymous query hides. The frame now carries only aggregateType, eventType and createdAt, so a public viewer can no longer see which hidden rows exist or change; signed-in connections keep id and version. LiveEvent.data.id and version are optional in kumiko-renderer accordingly.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: Anonymous SSE signals no longer carry row id or version
+  -->
+
+- f813603: A tabs layout on a host with `Tabs` but no `WizardStepGroup` now falls back to a stacked form instead of throwing. After a server validation error the form jumps to the first tab that actually shows the errored field, skipping tabs where it is hidden. A delete handler that returns a non-error value no longer shows an empty error banner. The list search box keeps keystrokes typed while the parent echoes the previous search value late. A money value whose stored currency is not a three-letter code falls back to the field currency instead of crashing the screen. Embedded-list reference columns remount instead of breaking hook order when the column set changes. The wizard step check parses the form once per change instead of once per step.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Tabs fallback, error-tab jump, list search echo and money currency no longer misbehave
+  -->
+
+- b79a8a3: A projectionDetail header subtitle stays visible on a host with `PageHeader` but no `MetricBand`. `navigateToReturn` applies the restored host state only when the return target is the host the `returnTo` value names, so a caller-supplied target no longer inherits a foreign host's tab, filters and nested `returnTo`. The `screenPadding` and `scrollBody` docs now state that `scrollBody` wins, and the number input docs match the web behavior.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Header subtitle without MetricBand and navigateToReturn state no longer misbehave
+  -->
+
+- 7d00ea9: An entityEdit delete action with a `redirect` now still reports the deletion to its host, and a delete with no entity list screen reloads the record instead of leaving the form on the deleted record. Overflow-menu actions are disabled while one is running, so a second click can no longer fire the write twice. URL prefill ignores an empty money param, non-finite number params, embedded-list cells with too many decimals or invalid dates, and a dateRange filter with `from` after `to` is put in order before it reaches the handler.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Screen actions and URL prefill no longer leave stale, doubled or invalid state
+  -->
+
+- Updated dependencies [9237bbc]
+- Updated dependencies [c68ebb6]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [8b6daed]
+- Updated dependencies [c2da99c]
+- Updated dependencies [7949847]
+- Updated dependencies [a5023de]
+- Updated dependencies [edc2b80]
+- Updated dependencies [acde687]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-headless@0.337.0
+  - @cosmicdrift/kumiko-framework@0.337.0
+  - @cosmicdrift/kumiko-types@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

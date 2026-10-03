@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "Spanish copy for the jobs invalid-payload error",
+    "detail": "Adds the Spanish copy for `jobs.errors.invalidPayload`, shown when a manual job trigger gets a broken or non-object JSON payload."
+  },
+  {
     "version": "0.330.0",
     "type": "improvement",
     "title": "Spanish strings cover every registered key",

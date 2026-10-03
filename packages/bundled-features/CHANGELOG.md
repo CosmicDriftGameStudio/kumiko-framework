@@ -1,5 +1,111 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.337.0
+
+### Minor Changes
+
+- e889f3f: `secrets:write:set` and `secrets:write:delete` now accept only keys declared via `r.secret`, and `r.secret` takes an optional `writeRoles` list. Before, any tenant admin could store a secret under an arbitrary key name.
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: breaking
+  title: secrets:set and secrets:delete accept only keys declared via r.secret; r.secret takes writeRoles
+  detail: |
+    Both handlers reject a key that no feature declared with `r.secret` (404, i18n key `secrets.errors.unknownKey`). `r.secret` takes `writeRoles`: when set, only users holding one of those roles may set or delete that key (403, i18n key `secrets.errors.writeDenied`). The roles narrow the handler access, so both checks must pass. An empty `writeRoles` array throws at declaration.
+  migration: |
+    Declare every key you set through `secrets:write:set` via `r.secret`. Rows stored under undeclared keys stay in the table but can no longer be set or deleted through the API. A key that only SystemAdmin may write declares `writeRoles: ["SystemAdmin"]`, and the secrets feature must then grant SystemAdmin handler access via `createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] })`. Tests that set a key no feature declares need the same fix: the kumiko-studio test `bundled-stack.integration.test.ts` sets `ai-foundation:secret:anthropic-api-key`, which no feature declares; kumiko-ai-foundation 0.39.1 and 0.40.1 declare the Anthropic key as `ai-provider-anthropic:secret:anthropic-api-key`.
+  -->
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.secretNamespace declares a family of runtime-named secret keys
+  detail: |
+    `r.secretNamespace(name, { label, scope: "tenant", writeRoles?, nameSchema? })` declares the prefix `<feature>:<name>.` (kebab-cased) and returns `{ prefix, keyFor(name) }`. `secrets:write:set` and `secrets:write:delete` accept a key under that prefix when the suffix is non-empty and passes `nameSchema`; `writeRoles` applies to every key in the namespace. Namespaces are kept out of `getAllSecretKeys` and the generated secrets screen. `Registry.findSecretNamespace(key)` resolves the namespace of a key. step-dispatcher declares `webhook-auth`, so webhook auth secrets (`step-dispatcher:webhook-auth.<name>`) stay settable through the API.
+  migration: |
+    No code change needed. A feature that stores secrets under a runtime-chosen suffix declares a namespace instead of one `r.secret` per key.
+  -->
+
+### Patch Changes
+
+- c68ebb6: `derivatives.variant()` now discards a caller-supplied `resolvedOverlays`, so a literal overlay payload can no longer bypass the overlay resolver. The guarded admin seed throws instead of silently picking by id when a user row's `insertedAt` is not an instant.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: variant() ignores caller-supplied resolvedOverlays
+  -->
+
+- 7949847: `isRedisSseBroker` now narrows on a `kind: "redis"` discriminant that `createRedisSseBroker` sets, so an app-owned broker that happens to expose `close()` is no longer mistaken for the Redis one. The tenant-lifecycle gate cache is capped at 5000 entries, so anonymous requests with random `X-Tenant` ids can no longer grow it without bound.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: isRedisSseBroker narrows on a kind discriminant, tenant-lifecycle gate cache is bounded
+  -->
+
+- b402850: The agent manifest reports a detail screen's configured `idParam` and builds its label index once per manifest. Handler tools whose names collide after sanitizing or truncation are no longer dropped; the later one gets a QN-hash suffix. The audit log search matches event types by substring instead of exact equality. Config bounds errors no longer echo an encrypted value. The MFA account label never falls back to the internal user id. The tenant caps list resolves limits in parallel.
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: agent tool name collisions are disambiguated, audit search is substring, encrypted config bounds errors do not echo the value
+  -->
+
+- 7735806: A tenant destroy deletes a handed-over binary through the file provider of the tenant that uploaded it, not the destroyed tenant's. `jobs:write:trigger` answers a broken or non-object JSON payload with `job_invalid_payload` instead of `job_not_manual`. Grouped metrics restrict their stack and series queries to the top groups. The notes and folders sections filter by `entityType` on the server. A failed mail dispatch logs the adapter error without email addresses.
+
+  <!-- kumiko-changes
+  feature: tenant-lifecycle
+  type: fix
+  title: tenant destroy deletes handed-over binaries via the uploader's provider, trigger reports invalid payloads distinctly, mail failure logs redact addresses
+  -->
+
+- 615109d: The Stripe plan switch now fails with `price_unavailable` when an allowed price cannot be retrieved, instead of creating an incomplete Stripe portal configuration under a different price-set hash. A concurrent losing `request-deletion` now reports the user's current status in `user_not_in_active_state` instead of the stale `active`.
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: plan switch rejects unretrievable prices, concurrent request-deletion loser reports the fresh user status
+  -->
+
+- 8a4feff: The workflow resume job now picks up at most 100 due runs per tick, oldest first, so a backlog drains over several ticks. Tenant handover merges rows discovered per entity type so each outgoing edge runs once per round.
+
+  <!-- kumiko-changes
+  feature: workflow-runner
+  type: fix
+  title: workflow resume batches due runs, tenant handover merges discovered rows per type
+  -->
+
+- Updated dependencies [9237bbc]
+- Updated dependencies [c68ebb6]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [3ad5398]
+- Updated dependencies [a7fcca9]
+- Updated dependencies [469df86]
+- Updated dependencies [8b6daed]
+- Updated dependencies [c2da99c]
+- Updated dependencies [7949847]
+- Updated dependencies [a5023de]
+- Updated dependencies [edc2b80]
+- Updated dependencies [acde687]
+- Updated dependencies [f813603]
+- Updated dependencies [b79a8a3]
+- Updated dependencies [7d00ea9]
+- Updated dependencies [3ad5398]
+- Updated dependencies [4224359]
+- Updated dependencies [c55370a]
+- Updated dependencies [2bd9f3d]
+- Updated dependencies [dbf6a5f]
+- Updated dependencies [e889f3f]
+  - @cosmicdrift/kumiko-headless@0.337.0
+  - @cosmicdrift/kumiko-renderer@0.337.0
+  - @cosmicdrift/kumiko-framework@0.337.0
+  - @cosmicdrift/kumiko-renderer-web@0.337.0
+  - @cosmicdrift/kumiko-types@0.337.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

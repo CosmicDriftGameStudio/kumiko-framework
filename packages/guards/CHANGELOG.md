@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.337.0
+
+### Patch Changes
+
+- d25d363: The dev server serves `public/` files from the symlink-resolved path (realpath check before the read) and works when `public/` itself is a symlink. Ephemeral dev boots delete their per-boot BullMQ keys from the shared Redis on `stop()`. `kumiko-init-deploy --out <dir>` defaults the app name from that directory's `package.json`. The generated `migrate-step.sh` with `stackNetwork: "directory"` derives the network name like Docker Compose (lowercased, sanitised, `COMPOSE_PROJECT_NAME` wins). `setupTestStackFromFeatures` with the `config` preset throws a clear error when `extraContext.configResolver` is not a resolver. The runtime-isolation guard reports each regression at its own import line, and the upgrade-state guard no longer hangs on a stuck `kumiko-upgrade` (stdin ignored, timeout).
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: public/ served via realpath incl. symlinked public/, ephemeral dev queues cleaned on stop, init-deploy --out app name, compose-style migrate-step network name, config preset validates configResolver; guards report correct isolation lines and time out kumiko-upgrade
+  -->
+
+- d2737f9: The i18n-keys guard reads string literals with `getLiteralText()` so escaped keys match their definitions. The no-framed-extension-sections guard ignores test files when collecting component usages. The renderer-boundaries guard now also rejects a bare `fetch(` call in `packages/renderer/src`, and reports every JSX tag on a line. The `.husky/pre-push` shim only resolves `kumiko-pre-push` from the repo's own `node_modules` or the parent-workspace root, never from arbitrary ancestor directories.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: fix
+  title: i18n-keys guard decodes escaped literals, framed-sections guard skips test usages, renderer-boundaries guard blocks bare fetch and reports all JSX tags per line, pre-push shim no longer execs binaries from shared ancestor dirs
+  -->
+
+  - @cosmicdrift/kumiko-repo-manifest@0.337.0
+
 ## 0.336.1
 
 ### Patch Changes

@@ -10,6 +10,34 @@ verified: 2026-10-02
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.337.0
+
+### enterprise:renderer
+
+**DataTableRowGrouping.headerLabel may return undefined**
+
+`DataTableRowGrouping.headerLabel` returns `string | undefined`. `undefined` means the group has no header: the default web DataTable renders its rows without a header row and never collapses them.
+
+**Migration:** Custom DataTable primitives that render `rowGrouping` handle `undefined` from `headerLabel` by rendering the group's rows without a header.
+
+### framework-core
+
+**Anonymous callers on protected handlers get 401 unauthenticated, and a stale auth cookie no longer blocks public handlers**
+
+**Migration:** Tests or clients that expect 403 / access_denied for an anonymous caller (no session, the anonymousAccess user, or a JWT carrying only the anonymous role) on a role-gated or openToAll handler now get 401 / unauthenticated; update those assertions. Signed-in callers without the role still get 403 access_denied. With anonymousAccess wired, a request whose auth cookie fails verification or whose session is no longer live continues as anonymous outside /api/auth/* (public handlers answer 200, protected ones 401 unauthenticated) instead of failing with 401 invalid_token / session_invalid; bearer tokens and /api/auth/* keep the explicit 401.
+
+**buildServer refuses partially wired session callbacks**
+
+**Migration:** If you call buildServer with auth.sessionCreator or auth.sessionRevoker, also wire the other two of sessionCreator, sessionRevoker and sessionChecker (the sessions feature's sessionStore provides all three; runProdApp and runDevApp already do this). Without a sessionChecker a logout never invalidated the JWT. A sessionChecker alone stays allowed.
+
+### secrets
+
+**secrets:set and secrets:delete accept only keys declared via r.secret; r.secret takes writeRoles**
+
+Both handlers reject a key that no feature declared with `r.secret` (404, i18n key `secrets.errors.unknownKey`). `r.secret` takes `writeRoles`: when set, only users holding one of those roles may set or delete that key (403, i18n key `secrets.errors.writeDenied`). The roles narrow the handler access, so both checks must pass. An empty `writeRoles` array throws at declaration.
+
+**Migration:** Declare every key you set through `secrets:write:set` via `r.secret`. Rows stored under undeclared keys stay in the table but can no longer be set or deleted through the API. A key that only SystemAdmin may write declares `writeRoles: ["SystemAdmin"]`, and the secrets feature must then grant SystemAdmin handler access via `createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] })`. Tests that set a key no feature declares need the same fix: the kumiko-studio test `bundled-stack.integration.test.ts` sets `ai-foundation:secret:anthropic-api-key`, which no feature declares; kumiko-ai-foundation 0.39.1 and 0.40.1 declare the Anthropic key as `ai-provider-anthropic:secret:anthropic-api-key`.
+
 ## 0.336.0
 
 ### enterprise:renderer

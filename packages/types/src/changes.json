@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.337.0",
+    "type": "improvement",
+    "title": "relatedList groupBy.label is optional; groups without a header show their rows directly",
+    "detail": "`RelatedListGroupBy.label` is optional. The header key of a group is `labels[value] ?? label`; a group without one renders its rows without a header row and never collapses. `relatedListGroupKey` and `relatedListGroupHeaderLabel` resolve the group key and its header key; `collapsedWhen: null` now matches rows whose field is empty.",
+    "migration": "No code change needed. To hide a header, drop `label` and name only the groups that keep one in `labels`, for example `{ field: \"status\", collapsedWhen: \"done\", labels: { done: \"<key>\" } }`."
+  },
+  {
     "version": "0.336.0",
     "type": "improvement",
     "title": "Query handlers can declare liveEntities",

@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.337.0",
+    "type": "fix",
+    "title": "German copy for the jobs invalid-payload error",
+    "detail": "Adds the German copy for `jobs.errors.invalidPayload`, shown when a manual job trigger gets a broken or non-object JSON payload."
+  },
+  {
     "version": "0.330.0",
     "type": "improvement",
     "title": "German strings cover every registered key and call the audit log \"Ereignisprotokoll\" everywhere",
