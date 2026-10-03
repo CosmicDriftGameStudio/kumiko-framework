@@ -48,7 +48,9 @@ describe("buildProdBundle in-process (Bun.build)", () => {
 
     const html = await readFile(join(tmp, "dist/index.html"), "utf8");
     expect(html).toContain(`src="${result.manifest["client.js"]}"`);
-    expect(html).toContain("__KUMIKO_BUILD__");
+    expect(html).toContain(`<meta name="kumiko-build" content="${result.buildInfo?.id}"`);
+    // Strict CSP (script-src 'self') blocks inline scripts: every script tag must carry src.
+    expect(html).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
 
     const assetPath = join(tmp, "dist", result.manifest["client.js"] ?? "");
     expect(existsSync(assetPath)).toBe(true);

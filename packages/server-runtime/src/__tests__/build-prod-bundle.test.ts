@@ -614,7 +614,7 @@ describe("build-prod-bundle/computeBuildId", () => {
 });
 
 describe("build-prod-bundle/injectAssetTags build-info", () => {
-  test("bäckt window.__KUMIKO_BUILD__ vor </head> wenn buildInfo gesetzt", () => {
+  test("bäckt kumiko-build meta vor </head> wenn buildInfo gesetzt, ohne Inline-Script", () => {
     const html = `<html><head><title>x</title></head><body><script type="module" src="/client.js"></script></body></html>`;
     const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry(), {
       id: "deadbeef0000",
@@ -622,16 +622,29 @@ describe("build-prod-bundle/injectAssetTags build-info", () => {
     });
 
     expect(result).toContain(
-      'window.__KUMIKO_BUILD__={"id":"deadbeef0000","builtAt":"2026-06-18T12:00:00.000Z"}',
+      '<meta name="kumiko-build" content="deadbeef0000" data-built-at="2026-06-18T12:00:00.000Z" />',
     );
-    expect(result.indexOf("__KUMIKO_BUILD__")).toBeLessThan(result.indexOf("</head>"));
+    expect(result.indexOf("kumiko-build")).toBeLessThan(result.indexOf("</head>"));
+    expect(result).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/);
   });
 
-  test("ohne buildInfo kein __KUMIKO_BUILD__-Script", () => {
+  test("escaped build-info values in the meta attributes", () => {
+    const html = `<html><head></head><body><script type="module" src="/client.js"></script></body></html>`;
+    const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry(), {
+      id: 'x"><script>alert(1)</script>',
+      builtAt: "a&b",
+    });
+
+    expect(result).not.toContain("<script>alert");
+    expect(result).toContain('content="x&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"');
+    expect(result).toContain('data-built-at="a&amp;b"');
+  });
+
+  test("ohne buildInfo kein kumiko-build meta", () => {
     const html = `<html><head></head><body><script type="module" src="/client.js"></script></body></html>`;
     const result = injectAssetTags(html, { "client.js": "/assets/client-abc.js" }, clientEntry());
 
-    expect(result).not.toContain("__KUMIKO_BUILD__");
+    expect(result).not.toContain("kumiko-build");
   });
 });
 
