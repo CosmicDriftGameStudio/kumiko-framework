@@ -63,11 +63,6 @@ export type ScaffoldDeployDetected = {
    *  `package.json#kumiko.deploy.dbUser`, default = appName. The db name
    *  always stays appName regardless of this value. */
   readonly dbUser: string;
-  /** How migrate-step.sh locates the compose `_stack` network — from
-   *  `package.json#kumiko.deploy.stackNetwork`. "discover" (default):
-   *  today's `docker network ls` heuristic. "directory": the exact name
-   *  `$(basename "$PWD")_stack`, checked via `docker network inspect`. */
-  readonly stackNetwork: "discover" | "directory";
 };
 
 export type ScaffoldedFile = {
@@ -161,8 +156,6 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     hasPrivateGhPackages: detected.hasPrivateGhPackages,
     installFromFullTree: detected.installFromFullTree,
     installFromManifests: !detected.installFromFullTree,
-    stackNetworkDiscover: detected.stackNetwork === "discover",
-    stackNetworkDirectory: detected.stackNetwork === "directory",
     customDbUser: detected.dbUser !== options.appName,
   };
 
@@ -251,7 +244,15 @@ const DB_USER_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$/;
 const kumikoDeployConfigSchema = z
   .object({
     dbUser: z.string().regex(DB_USER_RE).optional(),
-    stackNetwork: z.enum(["discover", "directory"]).optional(),
+    // "directory" is the only behaviour left; the key stays valid so existing
+    // package.json files keep scaffolding.
+    stackNetwork: z
+      .string()
+      .refine((value) => value === "directory", {
+        message:
+          'the stackNetwork option was removed: migrate-step.sh always uses the exact "<dirname>_stack" network (COMPOSE_PROJECT_NAME or directory name). Delete the option or set it to "directory"',
+      })
+      .optional(),
   })
   .strict();
 
@@ -281,7 +282,7 @@ function parseDeployConfig(raw: unknown): KumikoDeployConfig {
 function resolveDeployConfig(
   deployConfigRaw: unknown,
   appName: string,
-): Pick<ScaffoldDeployDetected, "dbUser" | "stackNetwork"> {
+): Pick<ScaffoldDeployDetected, "dbUser"> {
   const config = parseDeployConfig(deployConfigRaw);
   const dbUser = config.dbUser ?? appName;
   // The default (appName) already passed isKebabSegment's charset check but
@@ -298,7 +299,7 @@ function resolveDeployConfig(
       `scaffoldDeploy: invalid package.json#kumiko.deploy.dbUser — effective value "${dbUser}" (defaulted from appName) does not match ${DB_USER_RE}`,
     );
   }
-  return { dbUser, stackNetwork: config.stackNetwork ?? "discover" };
+  return { dbUser };
 }
 
 function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDeployDetected {

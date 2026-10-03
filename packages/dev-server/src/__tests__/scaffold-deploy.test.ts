@@ -46,12 +46,7 @@ describe("scaffoldDeploy", () => {
     expect(migrate).toContain("export DATABASE_URL=");
     expect(migrate).toMatch(/-e DATABASE_URL\b(?!=)/);
     expect(migrate).not.toContain('-e DATABASE_URL="postgresql://myapp:');
-    // grep's no-match exit must not abort the script before the friendly
-    // "No _stack network found" branch runs.
-    expect(migrate).toContain("| head -1 || true)");
-    // Docker template syntax {{.Name}} must pass through verbatim — our
-    // placeholder regex only matches lowercase-leading identifiers.
-    expect(migrate).toContain('"{{.Name}}"');
+    expect(migrate).toMatch(/STACK_NETWORK="\$\{COMPOSE_PROJECT\}_stack"/);
   });
 
   it("uses defaults when port + githubOrg are omitted", () => {
@@ -294,14 +289,15 @@ describe("scaffoldDeploy", () => {
   });
 
   describe("kumiko.deploy config", () => {
-    it("no kumiko.deploy → migrate-step uses appName as db user and the discover block", () => {
+    it("no kumiko.deploy → migrate-step uses appName as db user and the exact-name network", () => {
       scaffoldDeploy({ appName: "plainapp", destination: tmp });
       const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
       expect(migrate).toContain(
         'postgresql://plainapp:$(urlencode "$DB_PASSWORD")@db:5432/plainapp',
       );
-      expect(migrate).toContain("docker network ls");
-      expect(migrate).not.toContain("basename");
+      expect(migrate).toContain("basename");
+      expect(migrate).toContain("docker network inspect");
+      expect(migrate).not.toContain("docker network ls");
     });
 
     it('dbUser "kumiko" substitutes only the DB-URL user, db name stays appName', () => {
@@ -316,7 +312,7 @@ describe("scaffoldDeploy", () => {
       );
     });
 
-    it('stackNetwork "directory" renders the exact-name block, not the discover block', () => {
+    it('stackNetwork "directory" still scaffolds the same exact-name network lookup', () => {
       writeFileSync(
         join(tmp, "package.json"),
         JSON.stringify({ name: "dirapp", kumiko: { deploy: { stackNetwork: "directory" } } }),
@@ -459,6 +455,16 @@ describe("scaffoldDeploy", () => {
       );
     });
 
+    it('rejects the removed stackNetwork "discover" and says the option was removed', () => {
+      writeFileSync(
+        join(tmp, "package.json"),
+        JSON.stringify({ name: "discoverapp", kumiko: { deploy: { stackNetwork: "discover" } } }),
+      );
+      expect(() => scaffoldDeploy({ appName: "discoverapp", destination: tmp })).toThrow(
+        /stackNetwork option was removed/,
+      );
+    });
+
     it("rejects an unknown key under kumiko.deploy (strict)", () => {
       writeFileSync(
         join(tmp, "package.json"),
@@ -516,7 +522,7 @@ describe("scaffoldDeploy", () => {
       ]);
     });
 
-    it("reports differs when the file on disk uses defaults but package.json now says directory", () => {
+    it("reports no drift when package.json adds the now-default stackNetwork directory", () => {
       scaffoldDeploy({ appName: "driftconfigapp", destination: tmp });
       writeFileSync(
         join(tmp, "package.json"),
@@ -526,9 +532,7 @@ describe("scaffoldDeploy", () => {
         }),
       );
       const result = checkDeployDrift({ appName: "driftconfigapp", destination: tmp });
-      expect(result.drifted).toEqual([
-        { path: join(tmp, "deploy", "migrate-step.sh"), reason: "differs" },
-      ]);
+      expect(result.drifted).toEqual([]);
     });
   });
 

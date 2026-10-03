@@ -25,13 +25,19 @@ export function queueNamePrefixForTestRedis(keyPrefix: string): string {
   return keyPrefix.split(":").filter(Boolean).join("-");
 }
 
-export async function createTestRedis(): Promise<TestRedis> {
+export type CreateTestRedisOptions = {
+  /** Reuse another stack's keyPrefix on a fresh connection. cleanup() then only
+   *  disconnects — the owning stack flushes the namespace and its queues. */
+  readonly borrowKeyPrefix?: string;
+};
+
+export async function createTestRedis(opts: CreateTestRedisOptions = {}): Promise<TestRedis> {
   const Redis = (await import("ioredis")).Redis;
   const redisUrl = requireEnv("REDIS_URL");
   // Every test gets a per-file key prefix on a shared DB (no DB-pool-of-15
   // round-robin). Collisions at birthday-paradox rates are gone — the
   // prefix space is unbounded. See Track B.3 in docs/plans/tests-refactor.
-  const prefix = `kt:${generateId().slice(-8)}:`;
+  const prefix = opts.borrowKeyPrefix ?? `kt:${generateId().slice(-8)}:`;
   const redis = new Redis(redisUrl, { keyPrefix: prefix });
 
   async function deleteKeysMatching(pattern: string): Promise<void> {
@@ -57,6 +63,10 @@ export async function createTestRedis(): Promise<TestRedis> {
     keyPrefix: prefix,
     flushNamespace,
     cleanup: async () => {
+      if (opts.borrowKeyPrefix !== undefined) {
+        redis.disconnect();
+        return;
+      }
       await flushNamespace();
       // The derived per-stack JobRunner queues sit outside the keyPrefix.
       await deleteKeysMatching(`bull:${queueNamePrefixForTestRedis(prefix)}-*`);
