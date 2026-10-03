@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 import {
   mkdirSync,
   mkdtempSync,
@@ -879,20 +879,32 @@ async function listDevQueueKeys(): Promise<Set<string>> {
 
 describe("createKumikoServer — ephemeral job queues", () => {
   test("stop() removes the per-boot BullMQ keys from the shared Redis", async () => {
-    const before = await listDevQueueKeys();
-    handle = await createKumikoServer({
-      features: [probeFeature, probeJobFeature],
-      port: 0,
-      installSignalHandlers: false,
+    // Parallel integration processes share this Redis: only keys with a UUID minted by this boot are ours.
+    const uuidsMintedDuringBoot: string[] = [];
+    const mintUuid = crypto.randomUUID.bind(crypto);
+    const randomUuidSpy = spyOn(crypto, "randomUUID").mockImplementation(() => {
+      const uuid = mintUuid();
+      uuidsMintedDuringBoot.push(uuid);
+      return uuid;
     });
-    const duringBoot = await listDevQueueKeys();
-    expect([...duringBoot].filter((key) => !before.has(key)).length).toBeGreaterThan(0);
+    try {
+      handle = await createKumikoServer({
+        features: [probeFeature, probeJobFeature],
+        port: 0,
+        installSignalHandlers: false,
+      });
+    } finally {
+      randomUuidSpy.mockRestore();
+    }
+    const ownBootKeys = (keys: Set<string>): string[] =>
+      [...keys].filter((key) => uuidsMintedDuringBoot.some((uuid) => key.includes(uuid)));
+
+    expect(ownBootKeys(await listDevQueueKeys()).length).toBeGreaterThan(0);
 
     await handle.stop();
     handle = undefined;
 
-    const afterStop = await listDevQueueKeys();
-    expect([...afterStop].filter((key) => !before.has(key))).toEqual([]);
+    expect(ownBootKeys(await listDevQueueKeys())).toEqual([]);
   });
 });
 
