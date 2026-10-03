@@ -132,6 +132,7 @@
     "./renderer-foundation": "./src/renderer-foundation/index.ts",
     "./legal-pages": "./src/legal-pages/index.ts",
     "./legal-pages/web": "./src/legal-pages/web/index.ts",
+    "./waitlist": "./src/waitlist/index.ts",
     "./page-render": "./src/page-render/index.ts",
     "./page-render/web": "./src/page-render/web.ts",
     "./managed-pages": "./src/managed-pages/index.ts",
@@ -617,6 +618,10 @@
       "./legal-pages/web": {
         "types": "./dist/legal-pages/web/index.d.ts",
         "default": "./dist/legal-pages/web/index.js"
+      },
+      "./waitlist": {
+        "types": "./dist/waitlist/index.d.ts",
+        "default": "./dist/waitlist/index.js"
       },
       "./page-render": {
         "types": "./dist/page-render/index.d.ts",

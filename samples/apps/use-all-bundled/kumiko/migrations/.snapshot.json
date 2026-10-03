@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-03T16:50:21.684Z",
+  "generatedAt": "2026-10-03T17:22:11.769Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -3233,6 +3233,133 @@
       ],
       "source": "managed",
       "piiSubjectFields": ["email", "displayName"],
+      "tenancy": "global"
+    },
+    {
+      "tableName": "read_waitlist_entries",
+      "columns": [
+        {
+          "name": "id",
+          "pgType": "uuid",
+          "notNull": true,
+          "defaultSql": "gen_random_uuid()",
+          "primaryKey": true
+        },
+        {
+          "name": "tenant_id",
+          "pgType": "uuid",
+          "notNull": true
+        },
+        {
+          "name": "version",
+          "pgType": "integer",
+          "notNull": true,
+          "defaultSql": "1"
+        },
+        {
+          "name": "inserted_at",
+          "pgType": "timestamptz",
+          "notNull": true,
+          "defaultSql": "now()"
+        },
+        {
+          "name": "modified_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "inserted_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "modified_by_id",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "name",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "name_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "email",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "email_bidx",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "company",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "portfolio",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "message",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "locale",
+          "pgType": "text",
+          "notNull": true
+        },
+        {
+          "name": "status",
+          "pgType": "text",
+          "notNull": true,
+          "defaultSql": "'pending'"
+        },
+        {
+          "name": "submitted_at",
+          "pgType": "timestamptz",
+          "notNull": true
+        },
+        {
+          "name": "invited_at",
+          "pgType": "timestamptz",
+          "notNull": false
+        },
+        {
+          "name": "invited_by",
+          "pgType": "text",
+          "notNull": false
+        },
+        {
+          "name": "linked_tenant_id",
+          "pgType": "text",
+          "notNull": false
+        }
+      ],
+      "indexes": [
+        {
+          "name": "read_waitlist_entries_tenant_id_idx",
+          "columns": ["tenant_id"]
+        },
+        {
+          "name": "read_waitlist_entries_name_bidx_idx",
+          "columns": ["name_bidx"]
+        },
+        {
+          "name": "read_waitlist_entries_email_bidx_idx",
+          "columns": ["email_bidx"]
+        }
+      ],
+      "source": "managed",
+      "piiSubjectFields": ["name", "email", "message"],
       "tenancy": "global"
     },
     {

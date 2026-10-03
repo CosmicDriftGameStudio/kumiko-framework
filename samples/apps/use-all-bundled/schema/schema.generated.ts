@@ -17,6 +17,7 @@ import { capCounterFeature } from "@cosmicdrift/kumiko-bundled-features/cap-coun
 import { createComplianceProfilesFeature } from "@cosmicdrift/kumiko-bundled-features/compliance-profiles";
 import { createDataRetentionFeature } from "@cosmicdrift/kumiko-bundled-features/data-retention";
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
+import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import { createTemplateResolverFeature } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { createManagedPagesFeature } from "@cosmicdrift/kumiko-bundled-features/managed-pages";
 import { customFieldsFeature } from "@cosmicdrift/kumiko-bundled-features/custom-fields";
@@ -39,6 +40,7 @@ const _capCounter = capCounterFeature;
 const _complianceProfiles = createComplianceProfilesFeature();
 const _dataRetention = createDataRetentionFeature();
 const _userDataRights = createUserDataRightsFeature();
+const _waitlist = createWaitlistFeature();
 const _templateResolver = createTemplateResolverFeature();
 const _managedPages = createManagedPagesFeature({ resolveApexTenant: () => null, allowCustomCss: true });
 const _customFields = customFieldsFeature;
@@ -66,6 +68,7 @@ export const tenantRetentionOverrideTable = buildEntityTable("tenant-retention-o
 export const exportJobTable = buildEntityTable("export-job", _userDataRights.entities["export-job"]!);
 export const exportDownloadTokenTable = buildEntityTable("export-download-token", _userDataRights.entities["export-download-token"]!);
 export const downloadAttemptTable = buildEntityTable("download-attempt", _userDataRights.entities["download-attempt"]!);
+export const waitlistEntryTable = buildEntityTable("waitlistEntry", _waitlist.entities["waitlistEntry"]!);
 export const templateResourceTable = buildEntityTable("template-resource", _templateResolver.entities["template-resource"]!);
 export const userContentEntryTable = buildEntityTable("user-content-entry", _templateResolver.entities["user-content-entry"]!);
 export const pageTable = buildEntityTable("page", _managedPages.entities["page"]!);

@@ -897,6 +897,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Solo puedes consultar los buckets de límite de tasa de tu propia organización o usuario.",
   "rateLimiting.errors.resolverUnavailable":
     "La limitación de tasa no está disponible en este servidor.",
+  "screen:waitlist-list.title": "Lista de espera",
   "secrets.errors.unknownKey": "Clave de secreto desconocida.",
   "secrets.errors.writeDenied": "No tienes permiso para cambiar este secreto.",
   "screen:api-token-create.title": "Crear un token nuevo",
@@ -1186,4 +1187,20 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Cambia tu contraseña o correo electrónico, o solicita la eliminación de la cuenta.",
   "tier-admin.screen.subtitle":
     "Asigna un tier a una organización como concesión manual, sin compra.",
+  "waitlist.action.invite": "Invitar",
+  "waitlist.action.reInvite": "Invitar de nuevo",
+  "waitlist.action.reject": "Rechazar",
+  "waitlist.action.reject.confirm": "¿Rechazar esta entrada? Los datos se conservan.",
+  "waitlist.nav.waitlist": "Lista de espera",
+  "waitlist:entity:waitlistEntry:field:company": "Empresa",
+  "waitlist:entity:waitlistEntry:field:email": "Correo electrónico",
+  "waitlist:entity:waitlistEntry:field:locale": "Idioma",
+  "waitlist:entity:waitlistEntry:field:message": "Mensaje",
+  "waitlist:entity:waitlistEntry:field:name": "Nombre",
+  "waitlist:entity:waitlistEntry:field:portfolio": "Portafolio",
+  "waitlist:entity:waitlistEntry:field:status": "Estado",
+  "waitlist:entity:waitlistEntry:field:status:option:invited": "Invitado",
+  "waitlist:entity:waitlistEntry:field:status:option:pending": "Pendiente",
+  "waitlist:entity:waitlistEntry:field:status:option:rejected": "Rechazado",
+  "waitlist:entity:waitlistEntry:field:submittedAt": "Creado",
 };

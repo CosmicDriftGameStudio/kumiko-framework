@@ -1,3 +1,4 @@
+export { cancelPendingInvitation } from "./cancel-pending-invitation.js";
 export { TenantCommandSchemas } from "./command-schemas.js";
 export {
   OWNER_INVITE_ROLE_OPTIONS,

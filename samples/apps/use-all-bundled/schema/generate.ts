@@ -284,6 +284,11 @@ const FEATURE_IMPORT_REGISTRY: Record<string, FeatureImport> = {
     path: "@cosmicdrift/kumiko-bundled-features/legal-pages",
     factory: "createLegalPagesFeature",
   },
+  waitlist: {
+    kind: "factory",
+    path: "@cosmicdrift/kumiko-bundled-features/waitlist",
+    factory: "createWaitlistFeature",
+  },
   "managed-pages": {
     kind: "factory",
     path: "@cosmicdrift/kumiko-bundled-features/managed-pages",
