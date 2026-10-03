@@ -11,7 +11,7 @@ pkg_dir="$repo_root/packages/samples"
 scratch="$(mktemp -d)"
 cleanup() {
   rm -rf "${scratch:?}"
-  rm -rf "${pkg_dir:?}/samples" "${pkg_dir:?}/packages"
+  bun scripts/stage-samples-package.ts clean
   rm -f "${pkg_dir:?}"/*.tgz
 }
 trap cleanup EXIT
@@ -24,6 +24,11 @@ listing="$scratch/listing.txt"
 tar -tzf "$scratch/samples.tgz" >"$listing"
 
 fail=0
+if links="$(tar -tvzf "$scratch/samples.tgz" | grep -E '^[lh]')"; then
+  echo "samples tarball contains links instead of real files:" >&2
+  echo "$links" | head -10 >&2
+  fail=1
+fi
 if bad="$(grep -E '(^|/)(node_modules|__tests__|test-results|coverage)(/|$)|/\.|\.test\.ts' "$listing")"; then
   echo "samples tarball contains forbidden paths:" >&2
   echo "$bad" | head -20 >&2
@@ -36,8 +41,18 @@ grep -Eq '^package/packages/bundled-features/src/[^/]+/feature\.ts$' "$listing" 
 
 bun scripts/verify-samples-package-corpus.ts "$scratch/package"
 
-if [ -e "$pkg_dir/samples" ] || [ -e "$pkg_dir/packages" ] || ls "$pkg_dir"/*.tgz >/dev/null 2>&1; then
-  echo "staging leftovers in packages/samples" >&2
-  exit 1
+# postpack must restore the checked-in layout: the four symlinks, no real copies.
+for link in samples/recipes samples/apps packages/bundled-features/src packages/bundled-features/package.json; do
+  [ -L "$pkg_dir/$link" ] || { echo "packages/samples/$link is not the checked-in symlink after pack" >&2; fail=1; }
+done
+if leftovers="$(find "$pkg_dir/samples" "$pkg_dir/packages" -type f 2>/dev/null)" && [ -n "$leftovers" ]; then
+  echo "staging leftovers in packages/samples:" >&2
+  echo "$leftovers" | head -10 >&2
+  fail=1
 fi
+if ls "$pkg_dir"/*.tgz >/dev/null 2>&1; then
+  echo "tarball left in packages/samples" >&2
+  fail=1
+fi
+[ "$fail" -eq 0 ] || exit 1
 echo "samples package OK"
