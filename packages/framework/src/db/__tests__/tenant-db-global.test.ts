@@ -273,7 +273,7 @@ describe("TenantDb.unsafeRaw()", () => {
     expect(tdb.unsafeRaw("some reason")).toBe(rawDb);
   });
 
-  test("with a valid grant reports unsafe-raw once with the reason", () => {
+  test("with a valid grant reports unsafe-raw once with the declared reason", () => {
     const { report, calls } = recordingReporter();
     const tdb = createTenantDb(
       unreachableRunner(),
@@ -288,7 +288,7 @@ describe("TenantDb.unsafeRaw()", () => {
       },
     );
     tdb.unsafeRaw("cleanup read");
-    expect(calls).toEqual([{ kind: "unsafe-raw", reason: "cleanup read", target: undefined }]);
+    expect(calls).toEqual([{ kind: "unsafe-raw", reason: "granted", target: undefined }]);
   });
 
   test("without a grant reports nothing", () => {

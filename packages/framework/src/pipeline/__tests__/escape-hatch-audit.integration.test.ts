@@ -29,6 +29,7 @@ const globalStoreTable = defineUnmanagedTable({
 });
 
 const UNSAFE_RAW_REASON = "fw#2861 integration test — declared unsafeRaw write";
+const MISMATCHED_CALLER_REASON = "fw#2954 caller-supplied reason that was never declared";
 const GLOBAL_WRITE_REASON = "fw#2861 integration test — declared cross-tenant write";
 const IDENTITY_SWITCH_REASON = "fw#2861 integration test — needs SYSTEM to look itself up";
 const ACKNOWLEDGE_REASON = "fw#2861 integration test — system-wide scan";
@@ -50,6 +51,17 @@ const probeFeature = defineFeature("escape-hatch-audit-probe", (r) => {
     z.object({}),
     async (_event, ctx) => {
       const runner = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
+      return { isSuccess: true as const, data: { one: rows[0]?.one } };
+    },
+    { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },
+  );
+
+  r.writeHandler(
+    "unsafe-raw-mismatched-reason-write",
+    z.object({}),
+    async (_event, ctx) => {
+      const runner = ctx.db.unsafeRaw(MISMATCHED_CALLER_REASON);
       const rows = await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
       return { isSuccess: true as const, data: { one: rows[0]?.one } };
     },
@@ -129,6 +141,18 @@ describe("escape-hatch uses report through AppContext._escapeHatchAuditSink", ()
 
   afterAll(async () => {
     await stack.cleanup();
+  });
+
+  test("unsafeRaw audits the declared escapeHatch reason, not the reason passed at the call", async () => {
+    events.length = 0;
+    await stack.http.writeOk(
+      "escape-hatch-audit-probe:write:unsafe-raw-mismatched-reason-write",
+      {},
+      user,
+    );
+
+    const reasons = events.filter((e) => e.kind === "unsafe-raw").map((e) => e.reason);
+    expect(reasons).toEqual([UNSAFE_RAW_REASON]);
   });
 
   test("unsafeRaw reports exactly one unsafe-raw event with handler/kind/reason/tenantId/actor, deduped on a repeat call within the window", async () => {

@@ -65,7 +65,7 @@ describe("createSystemDbView(...).unsafeRaw", () => {
     );
 
     expect(view.unsafeRaw("x")).toBe(runner);
-    expect(sourceReports).toEqual([{ kind: "unsafe-raw", reason: "x" }]);
+    expect(sourceReports).toEqual([{ kind: "unsafe-raw", reason: "handler declared unsafeRaw" }]);
     expect(viewReports).toEqual([]);
   });
 
