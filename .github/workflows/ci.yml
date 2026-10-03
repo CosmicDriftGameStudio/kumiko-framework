@@ -193,7 +193,7 @@ jobs:
     # validators laufen, kein DB/Redis-Connect. Fängt feature-wiring-
     # Bugs (Object.entries(undefined), self-extension, missing-requires,
     # …) bevor sie publish + downstream-apps treffen.
-    # Plan: kumiko-platform/docs/plans/features/use-all-features-smoke.md
+    # Plan: kumiko-platform/docs/archive/plans/features/use-all-features-smoke.md
     runs-on: ubuntu-latest
     needs: test
     timeout-minutes: 10

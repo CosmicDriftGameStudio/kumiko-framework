@@ -1,4 +1,4 @@
-// Step-Vocabulary Types — see docs/plans/architecture/intern/step-vocabulary.md
+// Step-Vocabulary Types — see kumiko-platform/docs/archive/plans/architecture/intern/step-vocabulary.md
 //
 // M.1 minimal scope:
 //   - Steps execute against the existing HandlerContext (no per-step subset).
