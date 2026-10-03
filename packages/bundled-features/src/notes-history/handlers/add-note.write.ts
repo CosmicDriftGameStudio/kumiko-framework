@@ -1,6 +1,8 @@
 import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
+import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.js";
+import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { userTable } from "../../user/index.js";
 import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.js";
 import { noteEntryExecutor, noteMentionExecutor } from "../executor.js";
@@ -46,6 +48,23 @@ export function createAddNoteHandler(
       );
       if (denied) return denied;
 
+      // A mention of a non-member would leave a note body about that person out of reach of
+      // their forget run, which only visits the tenants they are a member of.
+      const mentionedUserIds = [...new Set(payload.mentions ?? [])];
+      if (mentionedUserIds.length > 0) {
+        const memberRows = await ctx.db.selectMany<{ userId: string }>(tenantMembershipsTable, {
+          userId: { in: mentionedUserIds },
+        });
+        const memberIds = new Set(memberRows.map((row) => row.userId));
+        if (mentionedUserIds.some((userId) => !memberIds.has(userId))) {
+          return writeFailure(
+            new ValidationError({
+              fields: [{ path: "mentions", code: "custom", i18nKey: "errors.validation.custom" }],
+            }),
+          );
+        }
+      }
+
       let authorName: string | null = null;
       try {
         // read_users is tenant-agnostic → ctx.db.unsafeRaw, not the tenant-scoped ctx.db.
@@ -81,7 +100,7 @@ export function createAddNoteHandler(
       // Same tx as the note create above (ctx.db) — a mention-row failure
       // rolls the note back with it, same as the framework's own nested-write
       // parent+child pattern (dispatch-write.ts).
-      for (const subjectId of new Set(mentions ?? [])) {
+      for (const subjectId of mentionedUserIds) {
         const mentionResult = await noteMentionExecutor.create(
           { noteId: created.data.id, subjectId },
           event.user,
