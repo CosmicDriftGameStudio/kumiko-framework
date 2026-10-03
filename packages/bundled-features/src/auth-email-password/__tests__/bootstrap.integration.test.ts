@@ -8,10 +8,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   access,
+  ConfigScopes,
   createTenantConfig,
   defineFeature,
   type SessionUser,
   type TenantId,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -22,6 +24,7 @@ import {
 import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import { createChannelEmailFeature, createInMemoryTransport } from "../../channel-email/index.js";
+import { ConfigHandlers } from "../../config/constants.js";
 import { createConfigFeature } from "../../config/index.js";
 import { createConfigResolver } from "../../config/resolver.js";
 import { configValuesTable } from "../../config/table.js";
@@ -59,6 +62,8 @@ const emailTransport = createInMemoryTransport();
 
 const GREETING_KEY = "bootstrap-probe:config:greeting";
 const LOCKED_KEY = "bootstrap-probe:config:locked";
+const TENANT_ROLE_KEY = "bootstrap-probe:config:tenant-role-only";
+const TENANT_ROLE = "TenantAdmin";
 
 // One key with the default tenant write access (admin roles), one that only
 // the system may write — bootstrap config has to reach both.
@@ -71,6 +76,12 @@ const configProbeFeature = defineFeature("bootstrap-probe", (r) => {
       options: ["optional", "admins", "all"],
       write: access.system,
     }),
+  );
+  // Gated on a tenant role without SystemAdmin, like an app that keeps
+  // SystemAdmin out of tenant data.
+  r.config(
+    "tenant-role-only",
+    createTenantConfig("text", { default: "", write: access.roles(TENANT_ROLE) }),
   );
 });
 
@@ -341,6 +352,32 @@ describe("bootstrapTenants", () => {
     expect(emailTransport.sent).toHaveLength(3);
     await acceptAsNewUser(ROOT_EMAIL, ROOT_PASSWORD);
     expect(await globalRolesOf(ROOT_EMAIL)).toEqual(["SystemAdmin"]);
+  });
+
+  test("seed writes with app tenant roles via dispatchWriteAs; dispatchSystemWrite (SystemAdmin) is denied", async () => {
+    const writeArgs = {
+      handlerQn: ConfigHandlers.set,
+      payload: { key: TENANT_ROLE_KEY, value: "seeded", scope: ConfigScopes.tenant },
+    };
+    const results: { viaRoles: WriteResult; viaSystemAdmin: WriteResult }[] = [];
+    await runBootstrapPlan({
+      tenants: [{ id: tenantAId, key: `acme-${tenantAId.slice(0, 8)}`, name: "Acme" }],
+      seed: async ({ tenantId, dispatchWriteAs, dispatchSystemWrite }) => {
+        results.push({
+          viaSystemAdmin: await dispatchSystemWrite({ ...writeArgs, tenantId }),
+          viaRoles: await dispatchWriteAs({ ...writeArgs, roles: [TENANT_ROLE] }),
+        });
+      },
+    });
+
+    const [result] = results;
+    expect(result?.viaSystemAdmin.isSuccess).toBe(false);
+    if (result?.viaSystemAdmin.isSuccess === false) {
+      expect(result.viaSystemAdmin.error.code).toBe("access_denied");
+    }
+    expect(result?.viaRoles.isSuccess).toBe(true);
+    const rows = await selectMany(stack.db, configValuesTable, { tenantId: tenantAId });
+    expect(rows.map((r) => r.value)).toEqual([JSON.stringify("seeded")]);
   });
 
   test("an existing tenant is left alone and never seeded", async () => {
