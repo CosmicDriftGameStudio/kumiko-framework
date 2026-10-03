@@ -1,5 +1,27 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.337.1
+
+### Patch Changes
+
+- 9074b71: dev-server: `createKumikoServer()` returns the boot's `jobQueueNamePrefix` on its handle, so callers sharing a Redis can address exactly that boot's `bull:<prefix>-*` keys.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: createKumikoServer handle exposes the boot's jobQueueNamePrefix
+  migration: |
+    No action needed: purely additive handle field.
+  -->
+
+- Updated dependencies [b1b01b8]
+- Updated dependencies [6c1c1d4]
+  - @cosmicdrift/kumiko-framework@0.337.1
+  - @cosmicdrift/kumiko-bundled-features@0.337.1
+  - @cosmicdrift/kumiko-headless@0.337.1
+  - @cosmicdrift/kumiko-renderer-web@0.337.1
+  - @cosmicdrift/kumiko-server-runtime@0.337.1
+
 ## 0.337.0
 
 ### Patch Changes
