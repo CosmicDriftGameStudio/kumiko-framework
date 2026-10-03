@@ -7,6 +7,7 @@ export const E2E_PORTS = {
   "framework/renderer-web": 4176,
   "framework/marketing-demo": 4179,
   "framework/use-all-bundled": 4194,
+  "framework/use-all-bundled-billing-gallery": 4196,
   "framework/styleguide": 4187,
   "framework/workspaces": 4182,
   "framework/admin-console": 4183,
