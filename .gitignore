@@ -66,3 +66,7 @@ playwright-report/
 # check-app-tsc: composite emit + generated solution (one tsc -b over all samples)
 .check-app-tsc-out/
 .check-app-tsc-solution.json
+
+# Staged by scripts/stage-samples-package.ts during pack (prepack/postpack).
+packages/samples/samples/
+packages/samples/packages/
