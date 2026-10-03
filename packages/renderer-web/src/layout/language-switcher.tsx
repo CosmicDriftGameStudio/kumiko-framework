@@ -12,7 +12,7 @@
 // unicode glyph (🌐) as default.
 
 import { useLocale, useTranslation } from "@cosmicdrift/kumiko-renderer";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { cn } from "../lib/cn.js";
 import {
   DropdownMenu,
@@ -49,6 +49,11 @@ export function LanguageSwitcher({
   const t = useTranslation();
   const resolvedLabel = label ?? t("kumiko.nav.language");
 
+  // Portal into the surrounding landmark: content under document.body would sit outside every
+  // landmark and fail axe's "region" rule.
+  const [trigger, setTrigger] = useState<HTMLButtonElement | null>(null);
+  const landmark = trigger?.closest("header, nav, main, aside, [role='banner']");
+
   const activeLocale = resolver.locale();
   // Matches either exact ("de-DE") or the language root ("de") against
   // the available options. So the switcher shows "German" active when
@@ -68,9 +73,11 @@ export function LanguageSwitcher({
   const setLocale = resolver.setLocale;
 
   return (
-    <DropdownMenu>
+    // Non-modal: a modal menu marks the whole app root aria-hidden while open.
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <button
+          ref={setTrigger}
           type="button"
           aria-label={resolvedLabel}
           title={resolvedLabel}
@@ -87,7 +94,12 @@ export function LanguageSwitcher({
           </span>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-[10rem]" aria-label={resolvedLabel}>
+      <DropdownMenuContent
+        align="end"
+        className="min-w-[10rem]"
+        aria-label={resolvedLabel}
+        portalContainer={landmark instanceof HTMLElement ? landmark : undefined}
+      >
         {locales.map((opt) => (
           <DropdownMenuCheckboxItem
             key={opt.code}

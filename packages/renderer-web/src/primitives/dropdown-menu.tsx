@@ -31,10 +31,14 @@ const contentClass =
 export function DropdownMenuContent({
   className,
   sideOffset = 4,
+  portalContainer,
   ...props
-}: ComponentPropsWithoutRef<typeof Primitive.Content>): ReactNode {
+}: ComponentPropsWithoutRef<typeof Primitive.Content> & {
+  /** Mount point of the portal. Default: document.body, which sits outside every landmark. */
+  readonly portalContainer?: HTMLElement | null;
+}): ReactNode {
   return (
-    <Primitive.Portal>
+    <Primitive.Portal container={portalContainer}>
       <Primitive.Content
         sideOffset={sideOffset}
         className={cn(contentClass, className)}

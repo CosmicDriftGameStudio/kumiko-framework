@@ -113,4 +113,41 @@ describe("LanguageSwitcher", () => {
       expect(enItem?.getAttribute("aria-checked")).toBe("false");
     });
   });
+
+  // axe-core is not a dependency here; these assert the two DOM facts behind its
+  // "aria-hidden-focus" and "region" violations for an open menu.
+  describe("open menu accessibility", () => {
+    async function openInsideLandmarks() {
+      const user = userEvent.setup();
+      renderWithResolver(
+        makeStatefulResolver("de"),
+        <div data-testid="app-root">
+          <header>
+            <LanguageSwitcher locales={locales} testId="lang" />
+          </header>
+          <main>content</main>
+        </div>,
+      );
+      await user.click(screen.getByRole("button", { name: "Sprache" }));
+      return { user, menu: await screen.findByRole("menu") };
+    }
+
+    test("the app root is not aria-hidden while the menu is open", async () => {
+      await openInsideLandmarks();
+      expect(screen.getByTestId("app-root").getAttribute("aria-hidden")).toBeNull();
+      expect(screen.getByRole("button", { name: "Sprache" })).toBeTruthy();
+    });
+
+    test("the menu is rendered inside the header landmark", async () => {
+      const { menu } = await openInsideLandmarks();
+      expect(menu.closest("header")).not.toBeNull();
+    });
+
+    test("Escape closes the menu and returns focus to the trigger", async () => {
+      const { user } = await openInsideLandmarks();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Sprache" }));
+    });
+  });
 });
