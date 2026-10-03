@@ -104,14 +104,14 @@ export type MetricOptions = Omit<FeatureMetricDef, "shortName">;
 // --- Secret Keys (declared by features via r.secret()) ---
 
 // A feature-declared secret. The fully-qualified name is
-// `<featureName>:<shortName>` — the Framework prefixes. Ops see the
+// `<kebab-feature>:secret:<kebab-shortName>`, set by r.secret(). Ops see the
 // qualified name in list / audit; feature code reads it via
 // ctx.secrets.get(tenantId, SecretKeys.stripeKey) with the typed handle.
+// Reference: docs/reference/secret-keys.md.
 export type SecretKeyDefinition = {
-  // Short name inside the feature (e.g. "stripe.apiKey"). Qualified to
-  // `<feature>:<shortName>` at registry-build time.
+  // Short name inside the feature (e.g. "stripe.apiKey").
   readonly shortName: string;
-  // Qualified name — `<feature>:<shortName>`. Set during registry build.
+  // `<kebab-feature>:secret:<kebab-shortName>`.
   readonly qualifiedName: string;
   // i18n label for TenantAdmin UI.
   readonly label: { readonly [locale: string]: string };
