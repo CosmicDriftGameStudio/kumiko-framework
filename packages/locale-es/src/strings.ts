@@ -286,51 +286,51 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "billing-foundation.cancel.back": "Volver",
   "billing-foundation.cancel.close": "Cerrar",
   "billing-foundation.cancel.confirmQuestion":
-    "¿Desea enviar esta declaración ahora? Declaración: {declaration}, tipo: {kind}.",
+    "¿Quieres enviar esta declaración ahora? Declaración: {declaration}, tipo: {kind}.",
   "billing-foundation.cancel.continue": "Continuar",
   "billing-foundation.cancel.declaration": "Declaración",
   "billing-foundation.cancel.declaration.termination": "Cancelación",
   "billing-foundation.cancel.declaration.withdrawal": "Desistimiento",
   "billing-foundation.cancel.effectiveAt": "Surte efecto el {date}.",
   "billing-foundation.cancel.effectiveUnknown":
-    "Le confirmaremos la fecha de efecto por correo electrónico.",
+    "Te confirmaremos la fecha de efecto por correo electrónico.",
   "billing-foundation.cancel.emailConfirmation":
-    "Recibirá una confirmación por correo electrónico.",
+    "Recibirás una confirmación por correo electrónico.",
   "billing-foundation.cancel.kind": "Tipo de cancelación",
   "billing-foundation.cancel.kind.extraordinary": "Extraordinaria (por causa justificada)",
   "billing-foundation.cancel.kind.ordinary": "Ordinaria",
   "billing-foundation.cancel.open": "Cancelar el contrato aquí",
   "billing-foundation.cancel.reason": "Motivo",
-  "billing-foundation.cancel.receivedAt": "Recibimos su declaración el {date}.",
+  "billing-foundation.cancel.receivedAt": "Recibimos tu declaración el {date}.",
   "billing-foundation.cancel.submit": "Cancelar ahora",
   "billing-foundation.cancel.title": "Cancelar el contrato",
   "billing-foundation.cancel.withdrawalHint":
     "El desistimiento solo es posible dentro del plazo legal.",
   "billing-foundation.consent.back": "Volver",
   "billing-foundation.consent.cancelAnytime":
-    "Puede cancelar en cualquier momento, con efecto al final del período actual.",
+    "Puedes cancelar en cualquier momento, con efecto al final del período actual.",
   "billing-foundation.consent.link.privacy": "Política de privacidad",
   "billing-foundation.consent.link.terms": "Condiciones",
   "billing-foundation.consent.link.withdrawal": "Información sobre el desistimiento",
   "billing-foundation.consent.order": "Pedido con obligación de pago",
-  "billing-foundation.consent.renews.day": "Se renueva cada día hasta que usted lo cancele.",
-  "billing-foundation.consent.renews.month": "Se renueva cada mes hasta que usted lo cancele.",
-  "billing-foundation.consent.renews.week": "Se renueva cada semana hasta que usted lo cancele.",
-  "billing-foundation.consent.renews.year": "Se renueva cada año hasta que usted lo cancele.",
+  "billing-foundation.consent.renews.day": "Se renueva cada día hasta que lo canceles.",
+  "billing-foundation.consent.renews.month": "Se renueva cada mes hasta que lo canceles.",
+  "billing-foundation.consent.renews.week": "Se renueva cada semana hasta que lo canceles.",
+  "billing-foundation.consent.renews.year": "Se renueva cada año hasta que lo canceles.",
   "billing-foundation.consent.renewsEvery.day":
-    "Se renueva cada {count} días hasta que usted lo cancele.",
+    "Se renueva cada {count} días hasta que lo canceles.",
   "billing-foundation.consent.renewsEvery.month":
-    "Se renueva cada {count} meses hasta que usted lo cancele.",
+    "Se renueva cada {count} meses hasta que lo canceles.",
   "billing-foundation.consent.renewsEvery.week":
-    "Se renueva cada {count} semanas hasta que usted lo cancele.",
+    "Se renueva cada {count} semanas hasta que lo canceles.",
   "billing-foundation.consent.renewsEvery.year":
-    "Se renueva cada {count} años hasta que usted lo cancele.",
-  "billing-foundation.consent.title": "Revise su pedido",
+    "Se renueva cada {count} años hasta que lo canceles.",
+  "billing-foundation.consent.title": "Revisa tu pedido",
   "billing-foundation.errors.alreadyOnPlan": "Este cliente ya tiene ese plan.",
   "billing-foundation.errors.cancellationScheduled":
     "Esta suscripción está programada para finalizar. Reactívala antes de cambiar de plan.",
   "billing-foundation.errors.consentTextOutdated":
-    "El texto de consentimiento ha cambiado. Recargue la página y confirme de nuevo.",
+    "El texto de consentimiento ha cambiado. Recarga la página y confirma de nuevo.",
   "billing-foundation.errors.foreignProviderCustomer":
     "Esta cuenta de cliente no pertenece a esta organización.",
   "billing-foundation.errors.noActiveSubscription":
@@ -349,7 +349,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "billing-foundation.errors.subscriptionExists":
     "Este cliente ya tiene una suscripción activa. Cambia de plan en su lugar.",
   "billing-foundation.errors.termsUnavailable":
-    "Las condiciones no están disponibles temporalmente. Inténtelo de nuevo más tarde.",
+    "Las condiciones no están disponibles temporalmente. Inténtalo de nuevo más tarde.",
   "billing-foundation.errors.unknownPrice": "Este precio no es reconocido.",
   "billing-foundation.plans.billingDisabled":
     "La facturación aún no está activa. Tu plan actual se mantiene.",

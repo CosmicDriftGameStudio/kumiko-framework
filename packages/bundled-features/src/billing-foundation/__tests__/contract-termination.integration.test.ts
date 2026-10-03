@@ -354,7 +354,7 @@ describe("public pages", () => {
     );
     expect(res.status).toBe(400);
     const html = await res.text();
-    expect(html).toContain("Bitte geben Sie eine gültige E-Mail-Adresse an.");
+    expect(html).toContain("Bitte gib eine gültige E-Mail-Adresse an.");
     expect(html).toContain("außerordentlichen Kündigung ist eine Begründung nötig");
     expect(html).not.toContain("<script>alert");
   });
@@ -366,7 +366,7 @@ describe("public pages", () => {
     const html = await res.text();
     const requestId = WRITE_REQUEST_ID_PATTERN.exec(html)?.[0];
     expect(requestId).toBeDefined();
-    expect(html).toContain("Ihre Erklärung ist eingegangen");
+    expect(html).toContain("Deine Erklärung ist eingegangen");
     expect(html).toMatch(/Eingegangen am: <strong>[^<]+\d{2}:\d{2}:\d{2}/);
     await stack.drainJobs();
     expect(mailsTo("page@example.com")).toHaveLength(1);
@@ -704,7 +704,7 @@ describe("public pages on a host that resolves no tenant", () => {
     );
 
     expect(res.status).toBe(400);
-    expect(await res.text()).not.toContain("Ihre Erklärung ist eingegangen");
+    expect(await res.text()).not.toContain("Deine Erklärung ist eingegangen");
     const direct = await noTenantStack.app.request(
       "/api/write",
       {
