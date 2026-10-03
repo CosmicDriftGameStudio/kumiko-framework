@@ -23,10 +23,12 @@ import { consentTextVersion, resolveConsentLocale, submitMessageFor } from "./co
 
 export type CheckoutMode = "subscription" | "payment";
 
+// Optional at the schema level so a missing/unchecked consent reaches
+// prepareConsent and fails as 422 consent_required, not as a zod 400.
 export const consentPayloadSchema = z
   .object({
-    earlyPerformanceRequested: z.literal(true),
-    withdrawalLossAcknowledged: z.literal(true),
+    earlyPerformanceRequested: z.boolean(),
+    withdrawalLossAcknowledged: z.boolean(),
     consentTextVersion: z.string().min(1).max(64),
     locale: z.string().min(2).max(35),
   })
@@ -55,9 +57,15 @@ export type ConsentPriceDetails = {
 export async function prepareConsent(
   ctx: HandlerContext,
   options: ConsumerProtectionOptions,
-  consent: ConsentPayload,
+  consent: ConsentPayload | undefined,
   mode: CheckoutMode,
 ): Promise<PreparedConsent> {
+  if (!consent?.earlyPerformanceRequested || !consent.withdrawalLossAcknowledged) {
+    throw new UnprocessableError("consent_required", {
+      i18nKey: "billing-foundation.errors.consentRequired",
+      message: "billing-foundation: both consent flags must be true to start a checkout",
+    });
+  }
   const locale = resolveConsentLocale(consent.locale);
   if (consent.consentTextVersion !== consentTextVersion(locale)) {
     throw new UnprocessableError("consent_text_outdated", {

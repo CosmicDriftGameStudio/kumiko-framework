@@ -35,7 +35,9 @@ export function createStartPlanCheckoutHandler(
   const consumerProtection = options.consumerProtection;
   const tierSchema = z.object({ tier: z.enum(plans) });
   const schema = (
-    consumerProtection ? tierSchema.extend({ consent: consentPayloadSchema }) : tierSchema
+    consumerProtection
+      ? tierSchema.extend({ consent: consentPayloadSchema.optional() })
+      : tierSchema
   ).strict();
 
   return {
@@ -65,10 +67,9 @@ export function createStartPlanCheckoutHandler(
         });
       }
 
-      const consent =
-        consumerProtection && payload.consent
-          ? await prepareConsent(ctx, consumerProtection, payload.consent, "subscription")
-          : undefined;
+      const consent = consumerProtection
+        ? await prepareConsent(ctx, consumerProtection, payload.consent, "subscription")
+        : undefined;
 
       const baseUrl = options.baseUrl ?? "";
       const result = await openCheckout(

@@ -234,9 +234,10 @@ describe("consumerProtection on — start-plan-checkout", () => {
       { tier: "pro", consent: { ...consentFor("de"), withdrawalLossAcknowledged: false } },
       admin,
     );
-    // The dispatcher's zod validation failure is a 400 in this stack, not a 422.
-    expect(missing.httpStatus).toBe(400);
-    expect(unchecked.httpStatus).toBe(400);
+    expect(missing.httpStatus).toBe(422);
+    expect(JSON.stringify(missing)).toContain("consent_required");
+    expect(unchecked.httpStatus).toBe(422);
+    expect(JSON.stringify(unchecked)).toContain("consent_required");
     expect(checkoutCalls).toHaveLength(0);
     expect(await consentEvents(subscriptionAggregateId(admin.tenantId), admin.tenantId)).toEqual(
       [],
@@ -356,7 +357,8 @@ describe("consumerProtection on — create-checkout-session", () => {
       PAYMENT_BODY,
       admin,
     );
-    expect(error.httpStatus).toBe(400);
+    expect(error.httpStatus).toBe(422);
+    expect(JSON.stringify(error)).toContain("consent_required");
     expect(checkoutCalls).toHaveLength(0);
   });
 });

@@ -64,7 +64,7 @@ export function createCheckoutSessionHandler(
 ): WriteHandlerDef {
   const consumerProtection = options.consumerProtection;
   const schema = consumerProtection
-    ? createCheckoutSessionSchema.extend({ consent: consentPayloadSchema })
+    ? createCheckoutSessionSchema.extend({ consent: consentPayloadSchema.optional() })
     : createCheckoutSessionSchema;
   return {
     name: "create-checkout-session",
@@ -79,10 +79,9 @@ export function createCheckoutSessionHandler(
       const payload = event.payload as CreateCheckoutSessionPayload;
 
       const mode = payload.mode ?? "subscription";
-      const consent =
-        consumerProtection && payload.consent
-          ? await prepareConsent(ctx, consumerProtection, payload.consent, mode)
-          : undefined;
+      const consent = consumerProtection
+        ? await prepareConsent(ctx, consumerProtection, payload.consent, mode)
+        : undefined;
 
       const result = await openCheckout(
         ctx,

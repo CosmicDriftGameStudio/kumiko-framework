@@ -124,6 +124,9 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.errors.priceUnavailable": {
     en: "This plan's price is temporarily unavailable.",
   },
+  "billing-foundation.errors.consentRequired": {
+    en: "Confirm both consent boxes before you continue.",
+  },
   "billing-foundation.errors.consentTextOutdated": {
     en: "The consent text has changed. Reload the page and confirm again.",
   },
