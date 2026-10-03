@@ -41,6 +41,7 @@ export const saveDraftWrite = defineWriteHandler({
   description:
     "Upserts the calling user's draft for one draftKey with the given form values and step index, stamping savedAt server-side and refusing a brand-new draft once the per-owner draft cap is reached; use it to persist an in-progress form before the real entity exists.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: SAVE_DRAFT_COUNT_REASON,
   },
   handler: async (event, ctx) => {

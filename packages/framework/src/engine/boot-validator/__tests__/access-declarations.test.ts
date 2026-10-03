@@ -124,6 +124,40 @@ describe("validateAccessDeclarations", () => {
     expect(() => validateAccessDeclarations(feature)).not.toThrow();
   });
 
+  test("escapeHatch with an empty grants list throws, naming the handler", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "cross-tenant note lookup", grants: [] },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list".*grants/);
+  });
+
+  test("escapeHatch with an unknown grant throws, naming the handler", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["Admin"] },
+        // @ts-expect-error deliberately outside EscapeHatchGrant
+        escapeHatch: { reason: "cross-tenant note lookup", grants: ["everything"] },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).toThrow(/"note:list".*"everything"/);
+  });
+
+  test("escapeHatch with a valid grants subset boots fine", () => {
+    const feature = defineFeature("notes", (r) => {
+      r.entity("note", noteEntity);
+      r.queryHandler("note:list", z.object({}), async () => [], {
+        access: { roles: ["Admin"] },
+        escapeHatch: { reason: "cross-tenant note lookup", grants: ["unsafeRaw"] },
+      });
+    });
+    expect(() => validateAccessDeclarations(feature)).not.toThrow();
+  });
+
   // 2b. escapeHatch reason must be non-empty on a query handler too (fw#2859:
   // query handlers can't reach db.global(), but they can still declare
   // escapeHatch to switch identity to SYSTEM via ctx.queryAs).

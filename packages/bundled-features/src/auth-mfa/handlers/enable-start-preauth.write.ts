@@ -45,6 +45,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
     // Same secret-bearing result as enable-start.
     agent: { expose: false },
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason: ENABLE_START_PREAUTH_TENANT_REASON,
     },
     handler: async (event, ctx) => {

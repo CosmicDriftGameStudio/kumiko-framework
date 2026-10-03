@@ -49,6 +49,7 @@ export const setWrite = defineWriteHandler({
   description:
     "Creates or overwrites one managed page addressed by slug and language, keeping the existing published flag, description and OG image when the payload omits them; use it for content edits and publish toggles, and as SystemAdmin to write another tenant's pages.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: SET_PAGE_TENANT_OVERRIDE_REASON,
   },
   handler: async (event, ctx) => {

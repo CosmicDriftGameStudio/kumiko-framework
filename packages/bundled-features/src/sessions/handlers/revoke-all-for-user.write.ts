@@ -45,6 +45,7 @@ export const revokeAllForUserWrite = defineWriteHandler({
     "Irreversibly signs a named user out of all their live sessions, across every tenant unless a tenantId narrows it, optionally sparing one session (exceptSessionId); use it for operator actions such as freezing or banning an account, or a role change that must not end the editor's own session.",
   agent: { risk: "high" },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: REVOKE_ALL_SESSIONS_REASON,
   },
   handler: async (event, ctx) => {

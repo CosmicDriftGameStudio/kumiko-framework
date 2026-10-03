@@ -1,4 +1,7 @@
-import { normalizeEventPiiSubject } from "@cosmicdrift/kumiko-types/handlers";
+import {
+  escapeHatchGrantsProblem,
+  normalizeEventPiiSubject,
+} from "@cosmicdrift/kumiko-types/handlers";
 import type * as z from "zod";
 import { ZodObject, type ZodType } from "zod";
 import type { FeatureBuilderState } from "./feature-builder-state.js";
@@ -213,6 +216,13 @@ export function buildConfigEventsJobsMethods<TName extends string>(
         throw new Error(
           `[Feature ${name}] r.job("${jobName}") declares { escapeHatch: { reason: "" } } — ` +
             "the reason must be a non-empty string explaining why this job needs unfiltered database access.",
+        );
+      }
+      const jobGrantsProblem =
+        jobOptions.escapeHatch && escapeHatchGrantsProblem(jobOptions.escapeHatch);
+      if (jobGrantsProblem) {
+        throw new Error(
+          `[Feature ${name}] r.job("${jobName}") declares an invalid escapeHatch — ${jobGrantsProblem}`,
         );
       }
       // Resolve NameOrRef(s) in trigger.on. Multi-Trigger-Form: Array

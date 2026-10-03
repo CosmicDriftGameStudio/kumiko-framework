@@ -69,6 +69,7 @@ export function createRequestDeletionByEmailHandler(opts: RequestDeletionByEmail
     // Defense-in-depth gegen Email-Probing auf dem anonymen Endpoint.
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
     escapeHatch: {
+      grants: ["unsafeRaw", "globalWrites"],
       reason: APPEND_LIFECYCLE_EVENT_REASON,
     },
     handler: async (event, ctx) => {

@@ -1,3 +1,4 @@
+import { escapeHatchGrantsProblem } from "@cosmicdrift/kumiko-types/handlers";
 import {
   accessAllowsAnonymous,
   declaredPersonalData,
@@ -84,8 +85,14 @@ function validateEscapeHatchReason(
     | QueryHandlerDef["escapeHatch"]
     | StreamHandlerDef["escapeHatch"],
 ): void {
-  // skip: no escapeHatch declared, or its reason is already non-empty
-  if (!escapeHatch || escapeHatch.reason.trim().length > 0) return;
+  if (!escapeHatch) return;
+  const grantsProblem = escapeHatchGrantsProblem(escapeHatch);
+  if (grantsProblem !== undefined) {
+    throw new Error(
+      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${grantsProblem}`,
+    );
+  }
+  if (escapeHatch.reason.trim().length > 0) return;
   throw new Error(
     `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
       `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +

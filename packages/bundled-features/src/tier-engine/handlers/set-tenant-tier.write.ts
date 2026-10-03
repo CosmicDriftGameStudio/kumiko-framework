@@ -68,6 +68,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
     }),
     access: { roles: ["SystemAdmin"] },
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason: SET_TENANT_TIER_REASON,
     },
     handler: async (event, ctx) => {

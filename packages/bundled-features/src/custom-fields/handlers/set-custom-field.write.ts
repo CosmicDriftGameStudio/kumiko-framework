@@ -56,6 +56,7 @@ export const setCustomFieldHandler: WriteHandlerDef = {
   description:
     "Stores one custom-field value on a single host entity row after validating it against the field definition's declared type and per-field write roles; use it to save what a user entered into a custom field.",
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: SET_CUSTOM_FIELD_REASON,
   },
   handler: async (event, ctx) => {

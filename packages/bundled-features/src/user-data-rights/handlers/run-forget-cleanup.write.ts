@@ -35,6 +35,7 @@ export function createRunForgetCleanupHandler(opts: RunForgetCleanupOptions = {}
     // records without softDelete — an agent must never be able to trigger it.
     agent: { expose: false, risk: "high" },
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason: RUN_FORGET_CLEANUP_REASON,
     },
     handler: async (_event, ctx) => {

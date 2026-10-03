@@ -1,3 +1,4 @@
+import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import {
   type TenantDb,
   type UncheckedSystemDb,
@@ -349,6 +350,8 @@ export function withHookEscapeHatchGrant<TContext extends object>(
   const ctxDb = readDbLikeValue(context, "db");
   const ctxDbOutsideTransaction = readDbLikeValue(context, "dbOutsideTransaction");
   const ctxSystemDb = readDbLikeValue(context, "systemDb");
+  const identityHatch = escapeHatchFor(escapeHatch, "systemIdentity");
+  const rawHatch = escapeHatchFor(escapeHatch, "unsafeRaw");
   if (
     !ctxQueryAs &&
     !ctxWriteAs &&
@@ -364,25 +367,21 @@ export function withHookEscapeHatchGrant<TContext extends object>(
 
   return {
     ...context,
-    ...gatedIdentitySwitchFields(callerLabel, escapeHatch, ctxQueryAs, ctxWriteAs),
+    ...gatedIdentitySwitchFields(callerLabel, identityHatch, ctxQueryAs, ctxWriteAs),
     ...(ctxResolveActiveMembership &&
-      escapeHatch === undefined && {
+      identityHatch === undefined && {
         resolveActiveMembership: deniedResolveActiveMembership(callerLabel),
       }),
-    ...gatedMemberReaderField(callerLabel, escapeHatch, ctxQueryAsMember),
-    ...gatedProjectionReaderField(callerLabel, escapeHatch, ctxQueryProjection),
+    ...gatedMemberReaderField(callerLabel, identityHatch, ctxQueryAsMember),
+    ...gatedProjectionReaderField(callerLabel, identityHatch, ctxQueryProjection),
     // @cast-boundary engine-bridge — withUnsafeRawGrant passes non-TenantDb values (e.g. a guard Proxy) through unchanged.
-    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, escapeHatch) }),
+    ...(ctxDb && { db: withUnsafeRawGrant(ctxDb as TenantDb, rawHatch) }),
     ...(ctxDbOutsideTransaction && {
-      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction as TenantDb, escapeHatch),
+      dbOutsideTransaction: withUnsafeRawGrant(ctxDbOutsideTransaction as TenantDb, rawHatch),
     }),
     // @cast-boundary engine-bridge — withSystemDbUnsafeRawGrant passes non-UncheckedSystemDb values through unchanged.
     ...(ctxSystemDb && {
-      systemDb: withSystemDbUnsafeRawGrant(
-        ctxSystemDb as UncheckedSystemDb,
-        escapeHatch,
-        callerLabel,
-      ),
+      systemDb: withSystemDbUnsafeRawGrant(ctxSystemDb as UncheckedSystemDb, rawHatch, callerLabel),
     }),
   };
 }

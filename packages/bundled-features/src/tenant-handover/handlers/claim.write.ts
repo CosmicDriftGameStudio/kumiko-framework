@@ -42,6 +42,7 @@ export function createClaimTenantHandoverHandler(opts: ClaimTenantHandoverOption
     schema: z.object({ token: z.string().min(1), entityType: z.string().min(1) }),
     access: { roles: ["Member", "User", "TenantAdmin", "SystemAdmin"] },
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason:
         "the ownership change moves rows OUT of a source tenant this caller has no membership " +
         "in — the framework's declared cross-tenant operation for try-before-signup, not a " +

@@ -29,6 +29,7 @@ export const requestDestructionWrite = defineWriteHandler({
     "Puts the caller's own tenant into destroyRequested, starts the compliance-profile grace period after which its data is erased, and revokes every session in the tenant; use it when an account owner asks to close their account.",
   agent: { risk: "high" },
   escapeHatch: {
+    grants: ["unsafeRaw"],
     reason: REQUEST_DESTRUCTION_TENANT_ROW_REASON,
   },
   handler: async (event, ctx) => {

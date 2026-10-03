@@ -1,3 +1,4 @@
+import { isEscapeHatchGrant } from "@cosmicdrift/kumiko-types/handlers";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { LifecycleHookType } from "../../constants.js";
@@ -102,7 +103,10 @@ export function readOptionalRateLimit(value: unknown): RateLimitDeclaration | un
 export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration | undefined {
   if (!isPlainObject(value)) return undefined;
   if (typeof value["reason"] !== "string") return undefined;
-  return { reason: value["reason"] };
+  const grants = value["grants"];
+  if (grants === undefined) return { reason: value["reason"] };
+  if (!Array.isArray(grants) || !grants.every(isEscapeHatchGrant)) return undefined;
+  return { reason: value["reason"], grants };
 }
 
 // Reads the `escapeHatch` sub-property node first, not via readDataLiteralNode

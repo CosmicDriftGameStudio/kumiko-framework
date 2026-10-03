@@ -22,6 +22,7 @@
 // additionally checked for field-type membership via the shared
 // `findUnknownEntityFieldTypes` helper (kept in sync with `extractEntity`).
 
+import { ESCAPE_HATCH_GRANTS } from "@cosmicdrift/kumiko-types/handlers";
 import * as z from "zod";
 import { type LifecycleHookType, LifecycleHookTypes } from "../constants.js";
 import type {
@@ -200,6 +201,7 @@ const escapeHatchSchema = z
     reason: z.string().refine((s) => s.trim().length > 0, {
       message: "reason must be non-empty",
     }),
+    grants: z.array(z.enum(ESCAPE_HATCH_GRANTS)).min(1).optional(),
   })
   .strict();
 

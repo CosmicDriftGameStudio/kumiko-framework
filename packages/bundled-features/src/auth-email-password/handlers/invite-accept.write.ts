@@ -85,6 +85,7 @@ export function createInviteAcceptHandler() {
     },
     agent: { expose: false },
     escapeHatch: {
+      grants: ["unsafeRaw"],
       reason: INVITE_ACCEPT_ESCAPE_HATCH_REASON,
     },
     // kumiko-lint-ignore complexity-budget invite branches (auth/anon/burn) stay in one handler

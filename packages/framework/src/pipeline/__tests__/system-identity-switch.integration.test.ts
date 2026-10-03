@@ -176,6 +176,40 @@ const probeFeature = defineFeature("idswitch-probe", (r) => {
     },
   );
 
+  // --- escapeHatch.grants narrows what the declaration unlocks ---
+  r.writeHandler(
+    "write-as-system-raw-only-hatch",
+    z.object({}),
+    async (event, ctx) =>
+      ctx.writeAs(createSystemUser(event.user.tenantId), "idswitch-probe:write:whoami-write", {}),
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: raw reads only", grants: ["unsafeRaw"] },
+    },
+  );
+
+  r.queryHandler(
+    "query-as-system-raw-only-hatch",
+    z.object({}),
+    async (query, ctx) =>
+      ctx.queryAs(createSystemUser(query.user.tenantId), "idswitch-probe:query:whoami", {}),
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: raw reads only", grants: ["unsafeRaw"] },
+    },
+  );
+
+  r.queryHandler(
+    "query-as-system-identity-grant-hatch",
+    z.object({}),
+    async (query, ctx) =>
+      ctx.queryAs(createSystemUser(query.user.tenantId), "idswitch-probe:query:whoami", {}),
+    {
+      access: { roles: ["User"] },
+      escapeHatch: { reason: "test: needs SYSTEM", grants: ["systemIdentity"] },
+    },
+  );
+
   // --- Direct SYSTEM switch: gated by the CALLING handler's own escapeHatch ---
   r.writeHandler(
     "write-as-system-no-hatch",
@@ -462,6 +496,44 @@ describe("ctx.queryAs(SYSTEM, ...) — gated by the calling handler's escapeHatc
   });
 
   test("WITH escapeHatch: succeeds", async () => {
+    const result = await stack.http.queryOk<{ roles: readonly string[] }>(
+      "idswitch-probe:query:query-as-system-with-hatch",
+      {},
+      user,
+    );
+    expect(result.roles).toContain("system");
+  });
+});
+
+describe("escapeHatch.grants", () => {
+  test("grants: [unsafeRaw] does not unlock writeAs(SYSTEM)", async () => {
+    const err = await stack.http.writeErr(
+      "idswitch-probe:write:write-as-system-raw-only-hatch",
+      {},
+      user,
+    );
+    expect(err.code).toBe("access_denied");
+  });
+
+  test("grants: [unsafeRaw] does not unlock queryAs(SYSTEM)", async () => {
+    const err = await stack.http.queryErr(
+      "idswitch-probe:query:query-as-system-raw-only-hatch",
+      {},
+      user,
+    );
+    expect(err.code).toBe("access_denied");
+  });
+
+  test("grants: [systemIdentity] unlocks queryAs(SYSTEM)", async () => {
+    const result = await stack.http.queryOk<{ roles: readonly string[] }>(
+      "idswitch-probe:query:query-as-system-identity-grant-hatch",
+      {},
+      user,
+    );
+    expect(result.roles).toContain("system");
+  });
+
+  test("an escapeHatch without grants keeps unlocking everything", async () => {
     const result = await stack.http.queryOk<{ roles: readonly string[] }>(
       "idswitch-probe:query:query-as-system-with-hatch",
       {},
