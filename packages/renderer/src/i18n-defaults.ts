@@ -276,6 +276,8 @@ export const kumikoDefaultTranslations: TranslationsByLocale = {
     "errors.unconfigured": "This feature isn't configured yet.",
     "errors.internal": "Something went wrong. Please try again later.",
     "errors.rate_limited": "Too many requests. Please try again shortly.",
+    "errors.rate_limit_unavailable":
+      "Rate limiting is temporarily unavailable. Please try again shortly.",
     "errors.cap.exceeded": "Limit reached. Upgrade your plan or wait for the next period.",
     "errors.download.urlMissing": "Download unavailable — please try again.",
     "auth.errors.originNotAllowed": "Requests from this origin are not allowed.",

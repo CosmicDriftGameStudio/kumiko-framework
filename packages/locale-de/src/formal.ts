@@ -118,6 +118,8 @@ export const localeDeFormalOverrides: Readonly<Record<string, string>> = {
   "errors.download.urlMissing": "Download nicht verfügbar. Bitte versuchen Sie es erneut.",
   "errors.internal": "Etwas ist schiefgegangen. Bitte versuchen Sie es später erneut.",
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuchen Sie es in Kürze erneut.",
+  "errors.rate_limit_unavailable":
+    "Die Anfragenbegrenzung ist vorübergehend nicht verfügbar. Bitte versuchen Sie es in Kürze erneut.",
   "folders.section.createMode": "Speichern Sie zuerst den Eintrag, um einen Ordner zu wählen.",
   "gdpr.mail.deletionExecuted.intro":
     "Ihr {app}-Konto und die zugehörigen personenbezogenen Daten wurden am {when} gelöscht. Diese Aktion ist endgültig.",

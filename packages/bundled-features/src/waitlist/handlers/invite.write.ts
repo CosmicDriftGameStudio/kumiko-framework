@@ -14,7 +14,7 @@ import {
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
-import { AuthHandlers } from "../../auth-email-password/index.js";
+import { AuthErrors, AuthHandlers } from "../../auth-email-password/index.js";
 import { TenantHandlers, tenantTable } from "../../tenant/index.js";
 import { DEFAULT_OWN_TENANT_INVITE_ROLE, WAITLIST_STATUS, WaitlistErrors } from "../constants.js";
 import { isOpenWaitlistStatus } from "../entity.js";
@@ -69,6 +69,15 @@ function readEntryRow(row: Record<string, unknown>): EntryRow {
     company: typeof company === "string" && company !== "" ? company : null,
     linkedTenantId: typeof linkedTenantId === "string" ? linkedTenantId : null,
   };
+}
+
+function isInviteAlreadyAccepted(details: unknown): boolean {
+  return (
+    typeof details === "object" &&
+    details !== null &&
+    "reason" in details &&
+    details.reason === AuthErrors.inviteAlreadyAccepted
+  );
 }
 
 async function ensureOwnTenant(
@@ -133,7 +142,13 @@ export function createInviteHandler(invite: WaitlistInviteOptions = DEFAULT_INVI
         AuthHandlers.systemInviteCreate,
         { email: entry.email.toLowerCase(), role: target.role, globalRoles: [] },
       );
-      if (!invited.isSuccess) return invited;
+      if (!invited.isSuccess) {
+        // Re-inviting a person who already accepted would reset their live invitation.
+        if (isInviteAlreadyAccepted(invited.error.details)) {
+          return writeFailure(new UnprocessableError(WaitlistErrors.notInvitable));
+        }
+        return invited;
+      }
 
       const updated = await waitlistExecutor.update(
         {

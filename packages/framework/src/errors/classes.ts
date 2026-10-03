@@ -326,3 +326,18 @@ export class RateLimitError extends KumikoError {
     this.details = details;
   }
 }
+
+// The rate-limit backend (Redis) failed, so no decision could be made. The
+// request is refused (fail-closed) with 503 instead of leaking a generic 500.
+export class RateLimitUnavailableError extends KumikoError {
+  readonly code = "rate_limit_unavailable";
+  readonly httpStatus = 503;
+
+  constructor(opts?: Pick<ErrorOpts, "cause">) {
+    super({
+      message: "rate limiter unavailable",
+      i18nKey: "errors.rate_limit_unavailable",
+      ...(opts?.cause && { cause: opts.cause }),
+    });
+  }
+}

@@ -14,6 +14,7 @@ import {
   resetPiiSubjectKmsForTests,
   seedRow,
 } from "@cosmicdrift/kumiko-framework/testing";
+import { AuthHandlers } from "../../auth-email-password/index.js";
 import { tenantInvitationsTable } from "../../tenant/index.js";
 import { tenantMembershipsTable } from "../../tenant/membership-table.js";
 import { tenantTable } from "../../tenant/schema/tenant.js";
@@ -26,6 +27,7 @@ import { waitlistEntryTable } from "../entity.js";
 import {
   acceptInviteAsNewUser,
   createWaitlistTestStack,
+  INVITE_PASSWORD,
   loginCookies,
   mailsTo,
   resetWaitlistTestState,
@@ -256,10 +258,7 @@ describe("waitlist invite and reject", () => {
     expect(entry?.["linkedTenantId"]).toBe(invited.tenantId);
     expect(entry?.["invitedBy"]).toBe(SYSTEM_ADMIN.id);
 
-    await acceptInviteAsNewUser(stack, email);
-    await loginCookies(stack, email);
-    expect((await userRowOf(stack, email)).globalRoles).toEqual([]);
-
+    const firstToken = tokenFromLastMailTo(email);
     const reInvited = await stack.http.writeOk<{ tenantId: string }>(
       WaitlistHandlers.invite,
       { id },
@@ -267,6 +266,20 @@ describe("waitlist invite and reject", () => {
     );
     expect(reInvited.tenantId).toBe(invited.tenantId);
     expect(await selectMany(stack.db, tenantTable, {})).toHaveLength(1);
+    const [invitation] = await selectMany(stack.db, tenantInvitationsTable, {});
+    expect(invitation?.["status"]).toBe("pending");
+
+    const secondToken = tokenFromLastMailTo(email);
+    expect(secondToken).not.toBe(firstToken);
+    const staleSignup = await stack.http.raw("POST", "/api/auth/invite-signup-complete", {
+      token: firstToken,
+      password: INVITE_PASSWORD,
+    });
+    expect(staleSignup.status).not.toBe(200);
+
+    await acceptInviteAsNewUser(stack, email);
+    await loginCookies(stack, email);
+    expect((await userRowOf(stack, email)).globalRoles).toEqual([]);
   });
 
   test("reject marks the entry, then invite on it fails and a new submit is treated as new", async () => {
@@ -311,6 +324,94 @@ describe("waitlist reject revokes the invitation", () => {
 
     const failure = await stack.http.writeErr(WaitlistHandlers.reject, { id }, SYSTEM_ADMIN);
     expect(failure.httpStatus).toBe(422);
+    const [entry] = (await entries()).filter((row) => row["id"] === id);
+    expect(entry?.["status"]).toBe("invited");
+  });
+});
+
+describe("waitlist submit while the rate-limit backend is down", () => {
+  test("answers 503 rate_limit_unavailable and stores nothing", async () => {
+    const outage = async () => {
+      throw new Error("ECONNREFUSED redis");
+    };
+    const outageStack = await createWaitlistTestStack(
+      { appName: "Acme" },
+      { rateLimit: { enforce: outage, check: outage, peek: outage } },
+    );
+    try {
+      const res = await outageStack.http.raw(
+        "POST",
+        "/api/write",
+        { type: WaitlistHandlers.submit, payload: validBody("outage@example.com") },
+        { "x-forwarded-for": "198.51.100.77" },
+      );
+
+      expect(res.status).toBe(503);
+      const body = (await res.json()) as { error: { code: string } };
+      expect(body.error.code).toBe("rate_limit_unavailable");
+      expect(await selectMany(outageStack.db, waitlistEntryTable, {})).toHaveLength(0);
+      expect(mailsTo("outage@example.com")).toHaveLength(0);
+    } finally {
+      await outageStack.cleanup();
+    }
+  });
+});
+
+describe("waitlist keeps an accepted invitation intact", () => {
+  async function invitationStatuses(): Promise<unknown[]> {
+    return (await selectMany(stack.db, tenantInvitationsTable, {})).map((row) => row["status"]);
+  }
+
+  async function inviteAndAccept(email: string): Promise<{ id: string; tenantId: string }> {
+    const id = await submitAndGetId(email);
+    const { tenantId } = await stack.http.writeOk<{ tenantId: string }>(
+      WaitlistHandlers.invite,
+      { id },
+      SYSTEM_ADMIN,
+    );
+    await acceptInviteAsNewUser(stack, email);
+    return { id, tenantId };
+  }
+
+  test("re-invite after accept answers 422 and leaves the invitation accepted", async () => {
+    const { id } = await inviteAndAccept("reinvite-accepted@example.com");
+    const mailsBefore = mailsTo("reinvite-accepted@example.com").length;
+
+    const failure = await stack.http.writeErr(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN);
+
+    expect(failure.httpStatus).toBe(422);
+    expect(failure.details).toMatchObject({ reason: "waitlist_not_invitable" });
+    expect(await invitationStatuses()).toEqual(["accepted"]);
+    expect(mailsTo("reinvite-accepted@example.com")).toHaveLength(mailsBefore);
+  });
+
+  test("re-invite then reject after accept stays 422 and the entry stays invited", async () => {
+    const { id } = await inviteAndAccept("reinvite-reject@example.com");
+    await stack.http.writeErr(WaitlistHandlers.invite, { id }, SYSTEM_ADMIN);
+
+    const failure = await stack.http.writeErr(WaitlistHandlers.reject, { id }, SYSTEM_ADMIN);
+
+    expect(failure.httpStatus).toBe(422);
+    expect(await invitationStatuses()).toEqual(["accepted"]);
+    const [entry] = (await entries()).filter((row) => row["id"] === id);
+    expect(entry?.["status"]).toBe("invited");
+  });
+
+  test("reject is refused for a member whose invitation a tenant admin reset to pending", async () => {
+    const email = "admin-reinvite@example.com";
+    const { id, tenantId } = await inviteAndAccept(email);
+    const tenantAdmin: SessionUser = { id: SYSTEM_ADMIN.id, tenantId, roles: ["TenantAdmin"] };
+    await stack.http.writeOk(AuthHandlers.inviteCreate, { email, role: "Editor" }, tenantAdmin);
+    expect(await invitationStatuses()).toEqual(["pending"]);
+
+    const failure = await stack.http.writeErr(WaitlistHandlers.reject, { id }, SYSTEM_ADMIN);
+
+    expect(failure.httpStatus).toBe(422);
+    expect(failure.details).toMatchObject({ reason: "waitlist_not_rejectable" });
+    const { id: userId } = await userRowOf(stack, email);
+    expect(await selectMany(stack.db, tenantMembershipsTable, { userId, tenantId })).toHaveLength(
+      1,
+    );
     const [entry] = (await entries()).filter((row) => row["id"] === id);
     expect(entry?.["status"]).toBe("invited");
   });

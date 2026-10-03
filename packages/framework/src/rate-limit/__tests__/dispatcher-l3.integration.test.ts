@@ -1,5 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { defineFeature, defineQueryHandler } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  defineFeature,
+  defineQueryHandler,
+  defineWriteHandler,
+} from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { createTestUser, setupTestStack, type TestStack, TestUsers } from "../../stack/index.js";
 
@@ -107,5 +111,60 @@ describe("dispatcher L3 — handler rateLimit opt-in", () => {
       const ok = await stack.http.queryOk("rl-test:query:open", {}, admin);
       expect(ok).toEqual({ ok: true });
     }
+  });
+});
+
+// Resolver whose backend (Redis) is down: enforce throws a plain Error.
+const redisDownResolver = {
+  enforce: async () => {
+    throw new Error("ECONNREFUSED redis");
+  },
+  check: async () => {
+    throw new Error("ECONNREFUSED redis");
+  },
+};
+
+const outageWrite = defineWriteHandler({
+  name: "limited-write",
+  schema: z.object({}),
+  access: { roles: ["Admin"] },
+  rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
+  handler: async () => ({ isSuccess: true as const, data: {} }),
+});
+
+const outageFeature = defineFeature("rl-outage", (r) => {
+  r.queryHandler("ping", z.object({}), async () => ({ ok: true }), {
+    access: { roles: ["Admin"] },
+    rateLimit: { per: "user", limit: 3, windowSeconds: 60 },
+  });
+  r.writeHandler(outageWrite);
+});
+
+describe("dispatcher L3 — rate-limit backend outage", () => {
+  let outageStack: TestStack;
+
+  beforeAll(async () => {
+    outageStack = await setupTestStack({
+      features: [outageFeature],
+      extraContext: () => ({ rateLimit: redisDownResolver }),
+    });
+  });
+
+  afterAll(async () => {
+    await outageStack.cleanup();
+  });
+
+  test("write answers 503 rate_limit_unavailable, not 500", async () => {
+    const res = await outageStack.http.write("rl-outage:write:limited-write", {}, admin);
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("rate_limit_unavailable");
+  });
+
+  test("query answers 503 rate_limit_unavailable, not 500", async () => {
+    const res = await outageStack.http.query("rl-outage:query:ping", {}, admin);
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("rate_limit_unavailable");
   });
 });

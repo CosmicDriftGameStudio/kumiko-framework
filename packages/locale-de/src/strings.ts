@@ -480,6 +480,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "errors.preconditionFailed":
     "Der Eintrag hat sich inzwischen geändert. Bitte neu laden und erneut versuchen.",
   "errors.rate_limited": "Zu viele Anfragen. Bitte versuche es in Kürze erneut.",
+  "errors.rate_limit_unavailable":
+    "Die Anfragenbegrenzung ist vorübergehend nicht verfügbar. Bitte versuche es in Kürze erneut.",
   "errors.unconfigured": "Diese Funktion ist noch nicht konfiguriert.",
   "errors.uniqueViolation": "Dieser Eintrag existiert bereits.",
   "errors.unprocessable": "Die Anfrage konnte nicht verarbeitet werden.",

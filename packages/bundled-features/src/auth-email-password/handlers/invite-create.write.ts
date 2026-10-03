@@ -52,6 +52,7 @@ import { GLOBAL_ROLE_OPTIONS } from "../../user/constants.js";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
 import type { AuthMailLocale } from "../email-templates.js";
 import { renderInviteEmail } from "../email-templates.js";
+import { inviteAlreadyAccepted } from "../errors.js";
 import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token-store.js";
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 
@@ -149,6 +150,7 @@ async function issueInvitation(
   request: InviteIssueRequest,
   inviter: SessionUser,
   ctx: HandlerContext,
+  refuseAccepted = false,
 ): Promise<WriteResult<InviteCreateData>> {
   if (!ctx.redis) {
     return writeFailure(
@@ -166,6 +168,13 @@ async function issueInvitation(
 
   let invitationId: string;
   if (existing) {
+    // Provisioning callers (waitlist) must not flip an accepted invite back to
+    // pending: that would let them cancel a live membership's invitation.
+    // The tenant-admin path keeps resetting because re-inviting a member is
+    // how roles get re-assigned.
+    if (refuseAccepted && existing["status"] === INVITATION_STATUS.accepted) {
+      return inviteAlreadyAccepted();
+    }
     invitationId = existing["id"] as string; // @cast-boundary db-row
     const existingVersion = existing["version"] as number; // @cast-boundary db-row
     // At most one live invite token per invitation: invalidate
@@ -314,7 +323,7 @@ export function createSystemInviteCreateHandler(opts: InviteCreateOptions) {
         ctx,
       );
       if (roleRejection) return roleRejection;
-      return issueInvitation(opts, ttlSeconds, event.payload, event.user, ctx);
+      return issueInvitation(opts, ttlSeconds, event.payload, event.user, ctx, true);
     },
   });
 }

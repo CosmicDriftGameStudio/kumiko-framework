@@ -99,6 +99,8 @@ export const AuthErrors = {
   invalidInviteToken: "invalid_invite_token",
   inviteEmailMismatch: "invite_email_mismatch",
   inviteAlreadyMember: "invite_already_member",
+  // System invite (waitlist) refuses to reset an invitation the invitee already accepted.
+  inviteAlreadyAccepted: "invite_already_accepted",
   // Account-lockout: login refuses with this code when the user's streak of
   // failed attempts has crossed the configured threshold. The error detail
   // carries `retryAfterSeconds` so the UI can show a countdown. Returning a

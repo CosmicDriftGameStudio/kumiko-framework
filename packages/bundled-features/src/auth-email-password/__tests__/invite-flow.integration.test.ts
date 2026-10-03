@@ -440,6 +440,20 @@ describe("invite-accept (Branch 1: logged-in)", () => {
 
     expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "User"]);
   });
+
+  // The tenant-admin path deliberately resets even an accepted invitation:
+  // re-inviting a member is how an admin hands out further roles. Only the
+  // system path (waitlist provisioning) refuses accepted invitations.
+  test("tenant admin re-inviting a member with an accepted invitation still grants the new role", async () => {
+    const firstToken = await inviteEmail(BOB_EMAIL, "Editor");
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token: firstToken }, bobSession());
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Editor"]);
+
+    const reissuedToken = await inviteEmail(BOB_EMAIL, "Admin");
+    await stack.http.writeOk(AuthHandlers.inviteAccept, { token: reissuedToken }, bobSession());
+
+    expect(await membershipRolesOf(bobId, TENANT_A_ID)).toEqual(["Admin", "Editor"]);
+  });
 });
 
 describe("invite-accept-with-login (Branch 2: anon + existing email)", () => {

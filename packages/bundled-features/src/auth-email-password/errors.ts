@@ -29,6 +29,15 @@ export function inviteEmailMismatch() {
 }
 
 // @wrapper-known error-helper
+export function inviteAlreadyAccepted() {
+  return writeFailure(
+    new UnprocessableError(AuthErrors.inviteAlreadyAccepted, {
+      i18nKey: "auth.errors.inviteAlreadyAccepted",
+    }),
+  );
+}
+
+// @wrapper-known error-helper
 export function invalidResetToken() {
   return writeFailure(
     new UnprocessableError(AuthErrors.invalidResetToken, {
