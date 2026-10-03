@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.340.0",
+    "type": "improvement",
+    "title": "Server bundle includes an optional worker entry",
+    "detail": "When `bin/worker.ts` sits next to `bin/main.ts`, `buildServerBundle` builds it in the same split build as `dist-server/worker.js`. Start a separate worker process from the same image with `exec bun run worker.js`."
+  },
+  {
     "version": "0.338.0",
     "type": "fix",
     "title": "Scaffolded migrate step percent-encodes DB_PASSWORD",

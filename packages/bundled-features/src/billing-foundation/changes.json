@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.340.0",
+    "type": "improvement",
+    "title": "Payment and subscription projections use typed bun-db helpers",
+    "detail": "`payment-received` inserts through `insertOnConflictDoNothing`, subscription events upsert through `upsertOnConflict`. The raw `db/queries/payment-projection.ts` and `subscription-projection.ts` modules are gone.",
+    "migration": "keine"
+  },
+  {
     "version": "0.339.0",
     "type": "improvement",
     "title": "Missing or unchecked checkout consent returns 422 consent_required",

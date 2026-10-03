@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.340.0
+
+### Minor Changes
+
+- b71234a: `buildServerBundle` bundles an optional `bin/worker.ts` (next to `bin/main.ts`) as `dist-server/worker.js`, sharing chunks with the server entry.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: Server bundle includes an optional worker entry
+  detail: |
+    When `bin/worker.ts` sits next to `bin/main.ts`, `buildServerBundle` builds it in the same split build as `dist-server/worker.js`. Start a separate worker process from the same image with `exec bun run worker.js`.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [483bb16]
+- Updated dependencies [483bb16]
+  - @cosmicdrift/kumiko-framework@0.340.0
+  - @cosmicdrift/kumiko-bundled-features@0.340.0
+  - @cosmicdrift/kumiko-headless@0.340.0
+  - @cosmicdrift/kumiko-renderer-web@0.340.0
+  - @cosmicdrift/kumiko-server-runtime@0.340.0
+
 ## 0.339.0
 
 ### Patch Changes

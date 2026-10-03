@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.340.0",
+    "type": "improvement",
+    "title": "The resume job reads due runs through the job's TenantDb",
+    "detail": "`selectDueWorkflowRunPending` takes a `TenantDb` and returns `{ runId, stepIndex }` rows, so the tenant filter comes from the TenantDb instead of a hand-written `WHERE tenant_id`.",
+    "migration": "keine"
+  },
+  {
     "version": "0.339.0",
     "type": "breaking",
     "title": "workflow-run stream stores a reference to the trigger event instead of its payload",

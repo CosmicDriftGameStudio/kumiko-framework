@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.340.0",
+    "type": "improvement",
+    "title": "Raw-sql markers must be listed in a baseline",
+    "detail": "`guard-raw-sql` counts the markers that suppress a blocking hit per file and reason and compares them with `.kumiko-raw-sql-baseline.json` in the repo root. A marker without a baseline entry, or with a changed reason, fails the check. Without a baseline file the guard only warns. `kumiko-guards checks --write-baseline --guard=guard-raw-sql` writes the file.",
+    "migration": "Consumer: `--write-baseline` einmal laufen lassen (`bunx kumiko-guards checks --write-baseline --guard=guard-raw-sql`) und die erzeugte `.kumiko-raw-sql-baseline.json` committen."
+  },
+  {
     "version": "0.339.0",
     "type": "fix",
     "title": "Guards ignore neighbour repos of the parent workspace",
