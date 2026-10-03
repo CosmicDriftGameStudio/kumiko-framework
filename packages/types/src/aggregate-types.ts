@@ -16,6 +16,8 @@ export type AggregateSpec = {
   readonly measure: AggregateMeasure;
   readonly groupBy?: readonly AggregateDimension[];
   readonly orderByValue?: "asc" | "desc";
+  /** Direction of the group-key ordering (default asc). orderByValue stays the primary key when set. */
+  readonly orderByKeys?: "asc" | "desc";
   readonly limit?: number;
 };
 

@@ -5,6 +5,7 @@
 // bun-db-Import migrieren.
 
 export type {
+  JsonTextMatch,
   SelectOptions,
   WhereObject,
   WhereOperator,

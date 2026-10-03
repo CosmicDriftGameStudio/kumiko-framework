@@ -28,6 +28,7 @@ import type {
 } from "@cosmicdrift/kumiko-types/aggregate-types";
 import { KUMIKO_META_SYMBOL } from "@cosmicdrift/kumiko-types/schema-table-types";
 import type {
+  JsonTextMatch,
   SelectOptions,
   WhereObject,
   WhereOperator,
@@ -261,6 +262,7 @@ function assertNotTenantScoped(db: unknown, fnName: string): void {
 export type AnyDb = BunDbRunner | unknown;
 
 export type {
+  JsonTextMatch,
   OrderByClause,
   SelectOptions,
   WhereObject,
@@ -268,7 +270,7 @@ export type {
   WhereValue,
 } from "@cosmicdrift/kumiko-types/where-clause-types";
 
-const WHERE_OPERATOR_KEYS = ["gt", "gte", "lt", "lte", "ne", "in", "like"] as const;
+const WHERE_OPERATOR_KEYS = ["gt", "gte", "lt", "lte", "ne", "in", "like", "jsonText"] as const;
 // Forces a tsc error here (not just a silent runtime miss) the moment
 // WhereOperator in @cosmicdrift/kumiko-types gains a key this array doesn't
 // know about — the two live in different packages and can't share a value
@@ -623,10 +625,15 @@ function buildWhereClause(
   info: TableInfo,
   where: WhereObject,
   startIndex: number,
+  qualifier?: string,
 ): { sqlText: string; values: unknown[] } {
   const conditions: string[] = [];
   const values: unknown[] = [];
   let idx = startIndex;
+  // Single place that renders a column reference, so a join qualifier reaches
+  // every arm (blind index, jsonb containment, IS NULL, jsonText) alike.
+  const ref = (column: string): string =>
+    qualifier === undefined ? quoteIdent(column) : `${quoteIdent(qualifier)}.${quoteIdent(column)}`;
   // multiSelect (and any other jsonb-array-of-scalars column) stores an
   // array — a filter value is one option, not the whole array, so eq/ne/in
   // must check array containment (`@>`) instead of scalar `=`/`<>`/`IN`
@@ -640,7 +647,7 @@ function buildWhereClause(
       // prepareJsonbValue never returns kind:"literal" (only prepareValue's
       // isSqlExpression branch does) — narrow anyway, PreparedValue is a union.
       if (p && p.kind === "param") {
-        parts.push(`${quoteIdent(col)} @> $${idx++}${p.sql}`);
+        parts.push(`${ref(col)} @> $${idx++}${p.sql}`);
         values.push(p.bound);
       }
     }
@@ -653,7 +660,7 @@ function buildWhereClause(
     const col = info.columnOf(field);
     const pgType = info.pgTypeOf(col);
     if (value === null) {
-      conditions.push(`${quoteIdent(col)} IS NULL`);
+      conditions.push(`${ref(col)} IS NULL`);
     } else if (Array.isArray(value)) {
       if (value.length === 0) {
         conditions.push("FALSE");
@@ -670,11 +677,42 @@ function buildWhereClause(
             values.push(p.bound);
           }
         }
-        conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
+        conditions.push(`${ref(col)} IN (${parts.join(", ")})`);
       }
     } else if (isWhereOperator(value)) {
+      if (value.jsonText !== undefined) {
+        if (Object.keys(value).length > 1) {
+          throw new Error(
+            `where: jsonText on column "${col}" cannot be combined with other operators`,
+          );
+        }
+        if (pgType !== "jsonb") {
+          throw new Error(`where: jsonText requires a jsonb column, "${col}" is ${pgType}`);
+        }
+        const matches = Array.isArray(value.jsonText) ? value.jsonText : [value.jsonText];
+        for (const match of matches as readonly JsonTextMatch[]) {
+          if (
+            !Array.isArray(match.keys) ||
+            match.keys.length === 0 ||
+            !match.keys.every((k) => typeof k === "string") ||
+            typeof match.eq !== "string"
+          ) {
+            throw new Error(
+              `where: jsonText on column "${col}" needs non-empty string keys and a string eq`,
+            );
+          }
+          const lookups = match.keys.map((key) => {
+            values.push(key);
+            return `${ref(col)}->>$${idx++}::text`;
+          });
+          const lhs = lookups.length === 1 ? lookups[0] : `COALESCE(${lookups.join(", ")})`;
+          values.push(match.eq);
+          conditions.push(`(${lhs} = $${idx++})`);
+        }
+        continue;
+      }
       if (value.ne === null && Object.keys(value).length === 1) {
-        conditions.push(`${quoteIdent(col)} IS NOT NULL`);
+        conditions.push(`${ref(col)} IS NOT NULL`);
         continue;
       }
       const opMap: Record<string, string> = {
@@ -697,18 +735,16 @@ function buildWhereClause(
         if (opKey === "ne" && pgType === "jsonb" && isJsonbScalar(opVal)) {
           const p = prepareJsonbValue([opVal]);
           if (p && p.kind === "param") {
-            conditions.push(
-              `(${quoteIdent(col)} IS NULL OR NOT (${quoteIdent(col)} @> $${idx++}${p.sql}))`,
-            );
+            conditions.push(`(${ref(col)} IS NULL OR NOT (${ref(col)} @> $${idx++}${p.sql}))`);
             values.push(p.bound);
             continue;
           }
         }
         const p = prepareValue(opVal, pgType);
         if (p.kind === "literal") {
-          conditions.push(`${quoteIdent(col)} ${opSym} ${p.literal}`);
+          conditions.push(`${ref(col)} ${opSym} ${p.literal}`);
         } else {
-          conditions.push(`${quoteIdent(col)} ${opSym} $${idx++}${p.sql}`);
+          conditions.push(`${ref(col)} ${opSym} $${idx++}${p.sql}`);
           values.push(p.bound);
         }
       }
@@ -729,7 +765,7 @@ function buildWhereClause(
               values.push(p.bound);
             }
           }
-          conditions.push(`${quoteIdent(col)} IN (${parts.join(", ")})`);
+          conditions.push(`${ref(col)} IN (${parts.join(", ")})`);
         }
       }
     } else if (pgType === "jsonb" && isJsonbScalar(value)) {
@@ -737,7 +773,7 @@ function buildWhereClause(
     } else {
       const p = prepareValue(value, pgType);
       if (p.kind === "literal") {
-        conditions.push(`${quoteIdent(col)} = ${p.literal}`);
+        conditions.push(`${ref(col)} = ${p.literal}`);
       } else {
         // Blind-index OR rewrite (#818): if the column has a bidx
         // counterpart (suffix convention `<col>_bidx`, framework-reserved)
@@ -753,10 +789,10 @@ function buildWhereClause(
           !col.endsWith("_bidx") &&
           info.hasColumn(bidxCol)
         ) {
-          conditions.push(`(${quoteIdent(col)} = $${idx++} OR ${quoteIdent(bidxCol)} = $${idx++})`);
+          conditions.push(`(${ref(col)} = $${idx++} OR ${ref(bidxCol)} = $${idx++})`);
           values.push(p.bound, computeBlindIndex(bidxKey, value));
         } else {
-          conditions.push(`${quoteIdent(col)} = $${idx++}${p.sql}`);
+          conditions.push(`${ref(col)} = $${idx++}${p.sql}`);
           values.push(p.bound);
         }
       }
@@ -997,6 +1033,110 @@ export async function fetchOne<TRow = any>(
 ): Promise<TRow | undefined> {
   const rows = await selectMany<TRow>(db, table, where, { limit: 1 });
   return rows[0];
+}
+
+export type JoinColumnPair = { readonly left: string; readonly right: string };
+
+export type InnerJoinSpec = {
+  readonly left: TableLike;
+  readonly right: TableLike;
+  readonly on: readonly [JoinColumnPair, ...JoinColumnPair[]];
+  readonly leftWhere?: WhereObject;
+  readonly rightWhere?: WhereObject;
+  /** Fields to return per side; default: all columns of `left`, none of `right`. */
+  readonly leftFields?: readonly string[];
+  readonly rightFields?: readonly string[];
+  readonly limit?: number;
+};
+
+export type InnerJoinRow<TLeft, TRight> = { readonly left: TLeft; readonly right: TRight };
+
+const JOIN_LEFT_ALIAS = "l";
+const JOIN_RIGHT_ALIAS = "r";
+
+function requireJoinColumn(info: TableInfo, field: string, role: string): string {
+  if (!info.hasColumn(field)) {
+    throw new Error(`selectInnerJoin: ${role} "${field}" is not a column of "${info.name}"`);
+  }
+  return info.columnOf(field);
+}
+
+export async function selectInnerJoin<
+  TLeft = Record<string, unknown>,
+  TRight = Record<string, unknown>,
+>(db: AnyDb, spec: InnerJoinSpec): Promise<readonly InnerJoinRow<TLeft, TRight>[]> {
+  assertNotTenantScoped(db, "selectInnerJoin");
+  const leftInfo = extractTableInfo(spec.left);
+  const rightInfo = extractTableInfo(spec.right);
+  if (spec.limit !== undefined && (!Number.isInteger(spec.limit) || spec.limit < 0)) {
+    throw new Error(`selectInnerJoin: limit must be a non-negative integer, got ${spec.limit}`);
+  }
+
+  const leftColumns = (
+    spec.leftFields ??
+    requireEntityTableMeta(spec.left, "selectInnerJoin").columns.map((c) => c.name)
+  ).map((field) => requireJoinColumn(leftInfo, field, "leftFields entry"));
+  const rightColumns = (spec.rightFields ?? []).map((field) =>
+    requireJoinColumn(rightInfo, field, "rightFields entry"),
+  );
+
+  // Positional aliases: a `<side>__<column>` scheme would hit Postgres' 63-byte
+  // identifier truncation for long column names.
+  const projected = [
+    ...leftColumns.map((column) => ({ side: "left" as const, column })),
+    ...rightColumns.map((column) => ({ side: "right" as const, column })),
+  ];
+  if (projected.length === 0) {
+    throw new Error("selectInnerJoin: no columns selected");
+  }
+  const selectList = projected
+    .map(
+      ({ side, column }, index) =>
+        `${quoteIdent(side === "left" ? JOIN_LEFT_ALIAS : JOIN_RIGHT_ALIAS)}.${quoteIdent(column)} AS "c${index}"`,
+    )
+    .join(", ");
+
+  const onPairs = spec.on.map((pair) => {
+    const leftColumn = requireJoinColumn(leftInfo, pair.left, "on.left");
+    const rightColumn = requireJoinColumn(rightInfo, pair.right, "on.right");
+    const leftRef = `${quoteIdent(JOIN_LEFT_ALIAS)}.${quoteIdent(leftColumn)}`;
+    const rightRef = `${quoteIdent(JOIN_RIGHT_ALIAS)}.${quoteIdent(rightColumn)}`;
+    return leftInfo.pgTypeOf(leftColumn) === rightInfo.pgTypeOf(rightColumn)
+      ? `${leftRef} = ${rightRef}`
+      : `${leftRef}::text = ${rightRef}::text`;
+  });
+
+  let sqlText =
+    `SELECT ${selectList} FROM ${quoteIdent(leftInfo.name)} AS ${quoteIdent(JOIN_LEFT_ALIAS)} ` +
+    `INNER JOIN ${quoteIdent(rightInfo.name)} AS ${quoteIdent(JOIN_RIGHT_ALIAS)} ON ${onPairs.join(" AND ")}`;
+
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  if (spec.leftWhere && Object.keys(spec.leftWhere).length > 0) {
+    const w = buildWhereClause(leftInfo, spec.leftWhere, values.length + 1, JOIN_LEFT_ALIAS);
+    conditions.push(w.sqlText);
+    values.push(...w.values);
+  }
+  if (spec.rightWhere && Object.keys(spec.rightWhere).length > 0) {
+    const w = buildWhereClause(rightInfo, spec.rightWhere, values.length + 1, JOIN_RIGHT_ALIAS);
+    conditions.push(w.sqlText);
+    values.push(...w.values);
+  }
+  if (conditions.length > 0) sqlText += ` WHERE ${conditions.join(" AND ")}`;
+  if (spec.limit !== undefined) sqlText += ` LIMIT ${spec.limit}`;
+
+  const raw = (await unsafeReadRetrying(db, sqlText, values)) as readonly Record<string, unknown>[];
+  return raw.map((row) => {
+    const leftRow: Record<string, unknown> = {};
+    const rightRow: Record<string, unknown> = {};
+    projected.forEach(({ side, column }, index) => {
+      (side === "left" ? leftRow : rightRow)[column] = row[`c${index}`];
+    });
+    return {
+      left: coerceRow(leftRow, leftInfo) as TLeft,
+      right: coerceRow(rightRow, rightInfo) as TRight,
+    };
+  });
 }
 
 // Bulk INSERT — same shape as insertOne but takes an array of rows and
@@ -1296,6 +1436,9 @@ function assertValidAggregateLimits(spec: AggregateSpec): void {
   if (spec.orderByValue !== undefined && !AGGREGATE_ORDER_DIRECTIONS.includes(spec.orderByValue)) {
     throw new Error(`aggregateWhere: unknown orderByValue "${String(spec.orderByValue)}"`);
   }
+  if (spec.orderByKeys !== undefined && !AGGREGATE_ORDER_DIRECTIONS.includes(spec.orderByKeys)) {
+    throw new Error(`aggregateWhere: unknown orderByKeys "${String(spec.orderByKeys)}"`);
+  }
 }
 
 function aggregateGroupOrderLimitSql(spec: AggregateSpec, dimensionCount: number): string {
@@ -1303,10 +1446,12 @@ function aggregateGroupOrderLimitSql(spec: AggregateSpec, dimensionCount: number
   if (dimensionCount > 0) {
     const positions = Array.from({ length: dimensionCount }, (_, index) => String(index + 1));
     sqlText += ` GROUP BY ${positions.join(", ")}`;
+    const keyDirection = spec.orderByKeys === "desc" ? "DESC" : "ASC";
+    const keyParts = positions.map((position) => `${position} ${keyDirection}`);
     const orderParts =
       spec.orderByValue === undefined
-        ? positions
-        : [`${dimensionCount + 1} ${spec.orderByValue === "desc" ? "DESC" : "ASC"}`, ...positions];
+        ? keyParts
+        : [`${dimensionCount + 1} ${spec.orderByValue === "desc" ? "DESC" : "ASC"}`, ...keyParts];
     sqlText += ` ORDER BY ${orderParts.join(", ")}`;
   }
   if (spec.limit !== undefined) sqlText += ` LIMIT ${spec.limit}`;
@@ -1415,6 +1560,31 @@ export async function upsertByPk<TRow = any>(
     conflictKeys: fieldKeys,
     ...(updateOnConflict !== undefined ? { update: updateOnConflict } : {}),
   });
+}
+
+export type InsertOnConflictDoNothingOptions = { readonly conflictKeys?: readonly string[] };
+
+// biome-ignore lint/suspicious/noExplicitAny: see selectMany default
+export async function insertOnConflictDoNothing<TRow = any>(
+  db: AnyDb,
+  table: WritableTable,
+  values: Record<string, unknown>,
+  options?: InsertOnConflictDoNothingOptions,
+): Promise<TRow | undefined> {
+  assertNotTenantScoped(db, "insertOnConflictDoNothing");
+  const info = extractTableInfo(table);
+  const entries = insertEntries(info, values);
+  const conflictCols = resolveConflictColumns(table, info, options?.conflictKeys);
+  const { sqlPrefix, params } = buildInsertSql(info, entries);
+  const conflictList = conflictCols.map((c) => quoteIdent(c)).join(", ");
+  const sqlText = `${sqlPrefix} ON CONFLICT (${conflictList}) DO NOTHING RETURNING *`;
+  const rows = (await unsafeLoggingClosedConnection(db, sqlText, params, {
+    operation: "insertOnConflictDoNothing",
+    table: info.name,
+  })) as readonly Record<string, unknown>[];
+  const first = rows[0];
+  if (!first) return undefined;
+  return coerceRow(first, info) as TRow;
 }
 
 export type IncrementCounterOptions = {

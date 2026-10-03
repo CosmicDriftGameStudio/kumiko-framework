@@ -9,7 +9,18 @@ export type {
   PgListenClient,
 } from "./connection.js";
 export { bunDbConnectionOptionsFromEnv, createBunDbConnection } from "./connection.js";
-export type { SelectOptions, TableInfo, WhereObject, WhereOperator, WhereValue } from "./query.js";
+export type {
+  InnerJoinRow,
+  InnerJoinSpec,
+  InsertOnConflictDoNothingOptions,
+  JoinColumnPair,
+  JsonTextMatch,
+  SelectOptions,
+  TableInfo,
+  WhereObject,
+  WhereOperator,
+  WhereValue,
+} from "./query.js";
 export {
   aggregateWhere,
   asEntityTableMeta,
@@ -24,11 +35,13 @@ export {
   type IncrementCounterOptions,
   incrementCounter,
   insertMany,
+  insertOnConflictDoNothing,
   insertOne,
   isTimestamptzType,
   requireEntityTableMeta,
   runInSavepoint,
   runInSavepointIfSupported,
+  selectInnerJoin,
   selectMany,
   transaction,
   type UpsertOnConflictOptions,

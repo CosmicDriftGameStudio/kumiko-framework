@@ -3,6 +3,11 @@
 // WhereOperator` — that union collapses to `unknown` and erases the
 // operator form at every call site (a typo like `{ gtee: x }` would
 // type-check, then bind as eq at runtime).
+export type JsonTextMatch = {
+  /** Top-level keys, tried in order; the first non-null text value is compared (COALESCE). */
+  readonly keys: readonly [string, ...string[]];
+  readonly eq: string;
+};
 export type WhereOperator = {
   readonly gt?: unknown;
   readonly gte?: unknown;
@@ -11,6 +16,8 @@ export type WhereOperator = {
   readonly ne?: unknown;
   readonly in?: readonly unknown[];
   readonly like?: string;
+  /** jsonb columns only; cannot be combined with other operators in the same object. */
+  readonly jsonText?: JsonTextMatch | readonly JsonTextMatch[];
 };
 export type WherePrimitive = string | number | boolean | bigint | Date | null | undefined;
 export type WhereValue = WherePrimitive | readonly WherePrimitive[] | WhereOperator;
