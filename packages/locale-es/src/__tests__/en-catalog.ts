@@ -455,6 +455,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "errors.notFound": "Not found.",
   "errors.preconditionFailed": "The record changed in the meantime. Reload and try again.",
   "errors.rate_limited": "Too many requests. Please try again shortly.",
+  "errors.rate_limit_unavailable":
+    "Rate limiting is temporarily unavailable. Please try again shortly.",
   "errors.unconfigured": "This feature isn't configured yet.",
   "errors.uniqueViolation": "This entry already exists.",
   "errors.unprocessable": "The request could not be processed.",

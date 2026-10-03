@@ -41,6 +41,8 @@ import {
   FeatureDisabledError,
   InternalError,
   memberResolutionReadOnlyDenied,
+  RateLimitError,
+  RateLimitUnavailableError,
   VersionConflictError,
   type WriteErrorInfo,
 } from "../errors/index.js";
@@ -1233,11 +1235,19 @@ export async function enforceRateLimit(
       message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rate-limiting feature or remove the option.`,
     });
   }
-  await context.rateLimit.enforce(bucket.key, {
-    limit: effective.limit,
-    windowSeconds: effective.windowSeconds,
-    cost: effective.cost,
-  });
+  try {
+    await context.rateLimit.enforce(bucket.key, {
+      limit: effective.limit,
+      windowSeconds: effective.windowSeconds,
+      cost: effective.cost,
+    });
+  } catch (error) {
+    // Backend failure (Redis down): fail closed as 503, same as L1/L2.
+    if (error instanceof RateLimitError) throw error;
+    throw new RateLimitUnavailableError({
+      cause: error instanceof Error ? error : new Error(String(error)),
+    });
+  }
 }
 
 // Payload-field rate limits (additionalRateLimits). Runs after schema

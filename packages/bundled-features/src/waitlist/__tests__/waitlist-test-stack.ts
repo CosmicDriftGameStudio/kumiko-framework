@@ -52,6 +52,7 @@ export const INVITE_PASSWORD = "waitlist-new-pw-1234";
 
 export async function createWaitlistTestStack(
   waitlistOptions: WaitlistOptions,
+  extraContext: Record<string, unknown> = {},
 ): Promise<TestStack> {
   const stack = await setupTestStack({
     features: [
@@ -80,6 +81,7 @@ export async function createWaitlistTestStack(
     extraContext: (deps) => ({
       ...createDeliveryTestContext(deps),
       configResolver: createConfigResolver(),
+      ...extraContext,
     }),
     authConfig: {
       membershipQuery: "tenant:query:memberships",

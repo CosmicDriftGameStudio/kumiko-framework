@@ -156,10 +156,21 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   if (boot.kind === "dry-run") return makeBootModeHandle();
   const { db, redis, registry, entrypoint } = boot;
 
-  await entrypoint.start();
-  const metricsServer = options.metrics
-    ? startWorkerMetricsServer(options.metrics, entrypoint)
-    : undefined;
+  // Metrics first: a port clash must fail the boot before start() begins
+  // consuming jobs/events. boot.close() runs the "metrics-server" shutdown
+  // hook, so a failing start() does not leak the listener.
+  let metricsServer: ReturnType<typeof startWorkerMetricsServer> | undefined;
+  try {
+    metricsServer = options.metrics
+      ? startWorkerMetricsServer(options.metrics, entrypoint)
+      : undefined;
+    await entrypoint.start();
+  } catch (error) {
+    // The boot failure is the actionable error; a close failure on a
+    // half-started worker must not replace it.
+    await boot.close().catch(() => {});
+    throw error;
+  }
   const handle: WorkerAppHandle = {
     entrypoint,
     stop: boot.close,

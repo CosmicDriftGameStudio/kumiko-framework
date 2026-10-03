@@ -21,8 +21,8 @@ import type { RateLimitDecision, RateLimitResolver } from "./resolver.js";
 //   L1/L2 — **fail-closed** when Redis is down. The caller is most
 //           likely an attacker; refusing service is safer than letting
 //           an unbounded flood through.
-//   L3   — fail-open (handled in dispatcher path). App availability
-//           wins for known heavy handlers when Redis blips.
+//   L3   — fail-closed too (dispatcher path, enforceRateLimit): a Redis
+//           failure answers 503 rate_limit_unavailable.
 
 export type GlobalIpRateLimitOptions = {
   readonly resolver: RateLimitResolver;

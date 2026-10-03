@@ -476,6 +476,8 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "errors.notFound": "No encontrado.",
   "errors.preconditionFailed": "El registro cambió mientras tanto. Recarga e inténtalo de nuevo.",
   "errors.rate_limited": "Demasiadas solicitudes. Inténtalo de nuevo en breve.",
+  "errors.rate_limit_unavailable":
+    "La limitación de solicitudes no está disponible temporalmente. Inténtalo de nuevo en breve.",
   "errors.unconfigured": "Esta función todavía no está configurada.",
   "errors.uniqueViolation": "Esta entrada ya existe.",
   "errors.unprocessable": "No se pudo procesar la solicitud.",

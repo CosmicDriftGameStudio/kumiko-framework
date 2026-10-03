@@ -44,10 +44,13 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { Redis } from "ioredis";
 import postgres from "postgres";
 import * as z from "zod";
 import { makeDispatchSystemWrite } from "../extra-routes-deps.js";
 import { runWorkerApp, type WorkerAppHandle } from "../run-worker-app.js";
+
+const bootJobQueuePrefix = `test-worker-boot-${Date.now().toString(36)}`;
 
 const jobRuns: Array<{ note: string; temporalWasDefined: boolean }> = [];
 
@@ -71,6 +74,11 @@ const workerProbeFeature = defineFeature("worker-probe", (r) => {
   // the handler runs. Before fw#1725 there was no framework-side boot
   // path for this — apps had to rebuild the polyfill call by hand
   // (solon#42) and forgot it.
+  r.job(
+    "boot-probe",
+    { trigger: { manual: true }, runIn: "worker", runOnBoot: true },
+    async () => {},
+  );
   r.job(
     "record-ping",
     { trigger: { on: "worker-probe:write:ping" }, runIn: "worker" },
@@ -295,6 +303,26 @@ describe("runWorkerApp", () => {
     await expect(
       fetch(url, { headers: { Authorization: "Bearer scrape-token" } }),
     ).rejects.toThrow();
+  });
+
+  test("metrics port already in use: the boot rejects before entrypoint.start() consumes anything", async () => {
+    const occupier = Bun.serve({ port: 0, fetch: () => new Response("busy") });
+    const redis = new Redis(process.env["REDIS_URL"] ?? "redis://localhost:16379");
+    try {
+      await expect(
+        boot({
+          jobs: { queueNamePrefix: bootJobQueuePrefix },
+          observability: { ...createNoopProvider(), meter: createPrometheusMeter() },
+          metrics: { port: occupier.port ?? 0 },
+        }),
+      ).rejects.toThrow(/in use|EADDRINUSE/i);
+      // The queues exist after boot (":meta"), but only start() enqueues the runOnBoot job.
+      const keys = await redis.keys(`bull:${bootJobQueuePrefix}*`);
+      expect(keys.filter((key) => !key.endsWith(":meta"))).toEqual([]);
+    } finally {
+      await occupier.stop(true);
+      redis.disconnect();
+    }
   });
 
   test("Schema-Drift-Gate: pending migration aborts the boot before anything else initializes", async () => {
