@@ -9,6 +9,14 @@ import { UpdateChecker } from "../update-checker.js";
 const LOADED_BUILD = { id: "build-loaded", builtAt: "2026-01-01T00:00:00Z" };
 const originalFetch = globalThis.fetch;
 
+function setLoadedBuildMeta(build: { id: string; builtAt: string }): void {
+  const meta = document.createElement("meta");
+  meta.name = "kumiko-build";
+  meta.content = build.id;
+  meta.dataset["builtAt"] = build.builtAt;
+  document.head.append(meta);
+}
+
 function mockBuildInfoFetch(handler: (url: string) => Promise<Response> | Response): void {
   globalThis.fetch = mock(async (input: RequestInfo | URL) => {
     const url = typeof input === "string" ? input : input.toString();
@@ -18,12 +26,12 @@ function mockBuildInfoFetch(handler: (url: string) => Promise<Response> | Respon
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  delete window.__KUMIKO_BUILD__;
+  document.querySelector('meta[name="kumiko-build"]')?.remove();
 });
 
 describe("UpdateChecker", () => {
   test("build-info drift → status banner + reload button", async () => {
-    window.__KUMIKO_BUILD__ = LOADED_BUILD;
+    setLoadedBuildMeta(LOADED_BUILD);
     mockBuildInfoFetch(async (url) => {
       if (url.endsWith("/build-info.json")) {
         return {
@@ -44,7 +52,7 @@ describe("UpdateChecker", () => {
   });
 
   test("build-info !ok → no banner", async () => {
-    window.__KUMIKO_BUILD__ = LOADED_BUILD;
+    setLoadedBuildMeta(LOADED_BUILD);
     mockBuildInfoFetch(async (url) => {
       if (url.endsWith("/build-info.json")) {
         return { ok: false, json: async () => ({}) } as Response;
@@ -61,7 +69,7 @@ describe("UpdateChecker", () => {
   });
 
   test("invalid build-info JSON shape → no banner", async () => {
-    window.__KUMIKO_BUILD__ = LOADED_BUILD;
+    setLoadedBuildMeta(LOADED_BUILD);
     mockBuildInfoFetch(async (url) => {
       if (url.endsWith("/build-info.json")) {
         return { ok: true, json: async () => ({ id: "" }) } as Response;
@@ -78,7 +86,7 @@ describe("UpdateChecker", () => {
   });
 
   test("broken JSON (parse error) → no banner", async () => {
-    window.__KUMIKO_BUILD__ = LOADED_BUILD;
+    setLoadedBuildMeta(LOADED_BUILD);
     mockBuildInfoFetch(async (url) => {
       if (url.endsWith("/build-info.json")) {
         return {
@@ -99,7 +107,7 @@ describe("UpdateChecker", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  test("no __KUMIKO_BUILD__ → no fetch, no banner", async () => {
+  test("no kumiko-build meta → no fetch, no banner", async () => {
     const fetchSpy = mock(async () => ({
       ok: true,
       json: async () => ({ id: "other", builtAt: "" }),

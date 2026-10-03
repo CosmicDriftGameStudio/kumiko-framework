@@ -52,6 +52,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
+import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
 import {
   RENDERER_WEB_FONT_FILE_PATTERN,
@@ -106,7 +107,7 @@ export type BuildResult = {
   readonly buildInfo?: BuildInfo;
 };
 
-/** In index.html gebacken (`window.__KUMIKO_BUILD__`) UND als
+/** In index.html gebacken (`<meta name="kumiko-build">`) UND als
  *  dist/build-info.json geschrieben. Der UpdateChecker pollt build-info.json
  *  und vergleicht `id` gegen den geladenen Stand → Reload-Banner bei Drift. */
 export type BuildInfo = {
@@ -872,6 +873,8 @@ export function buildMissingTemplateError(manifest: BuildManifest, entry: Client
   );
 }
 
+const BUILD_META_NAME = "kumiko-build";
+
 // @internal — exported nur für Unit-Tests.
 //
 // Convention: das HTML-Template MUSS Placeholder-Tags für jedes Asset
@@ -892,10 +895,10 @@ export function injectAssetTags(
 ): string {
   let result = html;
 
-  // Build-Stand vor </head> backen. Ohne </head> (z.B. Fragment) still skip.
+  // Meta tag instead of an inline script: strict CSPs (script-src 'self') block inline scripts.
+  // Ohne </head> (z.B. Fragment) still skip.
   if (buildInfo && result.includes("</head>")) {
-    // html-ok: id/builtAt sind Hex bzw. ISO — kein `<` möglich, kein Breakout.
-    const tag = `<script>window.__KUMIKO_BUILD__=${JSON.stringify(buildInfo)};</script>`;
+    const tag = `<meta name="${BUILD_META_NAME}" content="${escapeHtmlAttr(buildInfo.id)}" data-built-at="${escapeHtmlAttr(buildInfo.builtAt)}" />`;
     result = result.replace("</head>", `    ${tag}\n  </head>`);
   }
 

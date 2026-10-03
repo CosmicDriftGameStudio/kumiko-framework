@@ -12,18 +12,21 @@ import { useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/cn.js";
 
-// Build-Stand, der beim Page-Load aktiv war. Vom Prod-Build in die index.html
-// gebacken (build-prod-bundle injectAssetTags). Fehlt im Dev und in alten
-// Bundles → der Checker macht dann nichts (fail-safe).
+// Build-Stand, der beim Page-Load aktiv war. Vom Prod-Build als
+// <meta name="kumiko-build"> in die index.html gebacken (build-prod-bundle
+// injectAssetTags). Fehlt im Dev und in alten Bundles → der Checker macht
+// dann nichts (fail-safe).
 type KumikoBuild = {
   readonly id: string;
   readonly builtAt: string;
 };
 
-declare global {
-  interface Window {
-    __KUMIKO_BUILD__?: KumikoBuild;
-  }
+function readLoadedBuild(): KumikoBuild | undefined {
+  if (typeof document === "undefined") return undefined;
+  const meta = document.querySelector('meta[name="kumiko-build"]');
+  const id = meta?.getAttribute("content");
+  if (!id) return undefined;
+  return { id, builtAt: meta?.getAttribute("data-built-at") ?? "" };
 }
 
 // Korrektheitsgrenze der Update-Erkennung: ein Banner NUR bei echtem
@@ -62,7 +65,7 @@ async function fetchServerBuild(): Promise<KumikoBuild | null> {
 
 export function UpdateChecker(): ReactNode {
   const t = useTranslation();
-  const loaded = typeof window !== "undefined" ? window.__KUMIKO_BUILD__ : undefined;
+  const loaded = readLoadedBuild();
   const [hasUpdate, setHasUpdate] = useState(false);
 
   useEffect(() => {
