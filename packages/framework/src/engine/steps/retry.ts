@@ -74,7 +74,6 @@ defineStep<RetryStepArgs, undefined | typeof SUSPEND_SENTINEL>({
           workflowName: ctx.workflow.workflowName,
           error: describeWorkflowStepError(error),
           triggerEventType: ctx.event.type,
-          triggerPayload: ctx.event.payload,
           ...(ctx.workflow.definitionFingerprint && {
             definitionFingerprint: ctx.workflow.definitionFingerprint,
           }),

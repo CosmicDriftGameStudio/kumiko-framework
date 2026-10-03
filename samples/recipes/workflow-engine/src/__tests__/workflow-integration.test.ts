@@ -160,15 +160,17 @@ describe("workflow-runner", () => {
 describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
   it("suspends on the first wait, then resume-loop runs it through to completion", async () => {
     const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const trigger = {
+      aggregateId: "agg_user_42",
+      type: "user.signed-up",
+      payload: { email: "x@example.com", userId: "active-42" },
+    };
 
     const result = await startAndRunWorkflow({
       runId: "wf-onboarding-active-42",
       workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
-      triggerEvent: {
-        aggregateId: "agg_user_42",
-        type: "user.signed-up",
-        payload: { email: "x@example.com", userId: "active-42" },
-      } as never,
+      triggerEvent: trigger as never,
+      triggerEventRef: { eventId: "1", aggregateId: trigger.aggregateId, version: 1 },
       idempotencyKey: "onboarding:active-42",
       handlerCtx: ctx as never,
     });
@@ -176,7 +178,10 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
     expect(result.outcome).toBe("suspended");
     // Calls: run.started, mail.send dispatch-requested, workflow.step.waiting
     expect(ctx.unsafeAppendEvent).toHaveBeenCalledTimes(3);
-    const startedCall = ctx.unsafeAppendEvent.mock.calls[0]![0] as { type: string };
+    const startedCall = ctx.unsafeAppendEvent.mock.calls[0]![0] as {
+      type: string;
+      payload: Record<string, unknown>;
+    };
     const mailCall = ctx.unsafeAppendEvent.mock.calls[1]![0] as {
       type: string;
       payload: Record<string, unknown>;
@@ -193,13 +198,19 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       computeDefinitionFingerprint(userOnboardingWorkflow as unknown as WorkflowDefinition),
     );
 
+    // The run stream holds a reference, never a copy of the trigger payload.
+    expect(startedCall.payload["triggerEventRef"]).toEqual({
+      eventId: "1",
+      aggregateId: "agg_user_42",
+      version: 1,
+    });
+    expect(startedCall.payload).not.toHaveProperty("triggerPayload");
+    expect(waitingCall.payload).not.toHaveProperty("triggerPayload");
+
     // Re-feed the run through the resume-loop using the fingerprint the
-    // waiting event carries — the loop runs the rest of the pipeline.
-    const triggerSnapshot = {
-      aggregateId: waitingCall.payload["triggerAggregateId"] as string,
-      type: waitingCall.payload["triggerEventType"] as string,
-      payload: waitingCall.payload["triggerPayload"],
-    };
+    // waiting event carries — the loop runs the rest of the pipeline. The
+    // trigger event is what the event store returns for the reference.
+    const triggerSnapshot = trigger;
     const suspendedRun: SuspendableRun = {
       runId: "wf-onboarding-active-42",
       workflowName: "user-onboarding",
@@ -238,14 +249,16 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
 
   it("not-engaged path picks the reminder branch", async () => {
     const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+    const trigger = {
+      aggregateId: "agg_user_cold",
+      type: "user.signed-up",
+      payload: { email: "cold@example.com", userId: "cold-1" },
+    };
     await startAndRunWorkflow({
       runId: "wf-onboarding-cold-1",
       workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
-      triggerEvent: {
-        aggregateId: "agg_user_cold",
-        type: "user.signed-up",
-        payload: { email: "cold@example.com", userId: "cold-1" },
-      } as never,
+      triggerEvent: trigger as never,
+      triggerEventRef: { eventId: "2", aggregateId: trigger.aggregateId, version: 1 },
       handlerCtx: ctx as never,
     });
     const waiting = ctx.unsafeAppendEvent.mock.calls[2]![0] as { payload: Record<string, unknown> };
@@ -256,11 +269,7 @@ describe("userOnboardingWorkflow (end-to-end, in-memory)", () => {
       wakeAt: Temporal.Now.instant().subtract({ seconds: 1 }).toString(),
       suspensionEventType: "kumiko:system:workflow.step.waiting",
       workflow: userOnboardingWorkflow as unknown as WorkflowDefinition,
-      triggerEvent: {
-        aggregateId: waiting.payload["triggerAggregateId"] as string,
-        type: waiting.payload["triggerEventType"] as string,
-        payload: waiting.payload["triggerPayload"],
-      } as never,
+      triggerEvent: trigger as never,
       definitionFingerprint: waiting.payload["definitionFingerprint"] as string,
     };
     const resumeCtx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };

@@ -23,7 +23,7 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
+import { append, eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { setupTestStack, type TestStack, TestUsers } from "@cosmicdrift/kumiko-framework/stack";
 import { createSuspendedRunFetcher } from "../postgres-resume-loop";
 
@@ -100,24 +100,43 @@ describe("workflow-engine event-store roundtrip", () => {
     const workflow = buildTestWorkflow("test-workflow-hydration");
     const fingerprint = computeDefinitionFingerprint(workflow);
 
-    await insertOne(stack.db, eventsTable, {
+    const sourceAggregateId = crypto.randomUUID();
+    const source = await append(stack.db, {
+      aggregateId: sourceAggregateId,
+      aggregateType: "demo-source",
+      tenantId: admin.tenantId,
+      expectedVersion: 0,
+      type: "demo.fired",
+      payload: { signal: "abc" },
+      metadata: { userId: admin.id },
+    });
+    await append(stack.db, {
       aggregateId: runId,
       aggregateType: WORKFLOW_AGGREGATE_TYPE,
       tenantId: admin.tenantId,
-      version: 1,
+      expectedVersion: 0,
+      type: WORKFLOW_RUN_STARTED_TYPE,
+      payload: {
+        workflowName: "test-workflow-hydration",
+        triggerEventType: "demo.fired",
+        triggerEventRef: { eventId: source.id, aggregateId: sourceAggregateId, version: 1 },
+        definitionFingerprint: fingerprint,
+      },
+      metadata: { userId: admin.id },
+    });
+    await append(stack.db, {
+      aggregateId: runId,
+      aggregateType: WORKFLOW_AGGREGATE_TYPE,
+      tenantId: admin.tenantId,
+      expectedVersion: 1,
       type: WORKFLOW_WAITING_TYPE,
-      eventVersion: 1,
       payload: {
         workflowName: "test-workflow-hydration",
         stepIndex: 1,
         wakeAt: new Date(Date.now() - 5000).toISOString(),
-        triggerEventType: "demo.fired",
-        triggerAggregateId: "agg_orig",
-        triggerPayload: { signal: "abc" },
         definitionFingerprint: fingerprint,
       },
       metadata: { userId: admin.id },
-      createdBy: admin.id,
     });
 
     const registry = new Map([["test-workflow-hydration", workflow]]);
@@ -132,7 +151,7 @@ describe("workflow-engine event-store roundtrip", () => {
     expect(match!.definitionFingerprint).toBe(fingerprint);
     expect(match!.triggerEvent).toMatchObject({
       type: "demo.fired",
-      aggregateId: "agg_orig",
+      aggregateId: sourceAggregateId,
       payload: { signal: "abc" },
     });
   });

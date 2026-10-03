@@ -20,7 +20,7 @@
 // This subscriber never resumes a run itself (D3, workflow-resume-loop.md):
 // the MultiStreamApplyContext it runs in has no callFeature/runStepList
 // access, only unsafeAppendEvent/loadAggregate. It writes triggerEventType
-// + triggerPayload + wakeAt=now() onto the matching pending row(s); the
+// + triggerEventRef + wakeAt=now() onto the matching pending row(s); the
 // existing resume-due-runs job (Phase 2) picks the row up on its next
 // cron tick — the one resume path stays exactly the one Phase 2 built.
 
@@ -34,6 +34,7 @@ import type {
 import { evaluateEventMatch } from "@cosmicdrift/kumiko-framework/engine";
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
+import type { TriggerEventRef } from "./runner.js";
 import { workflowRunPendingTable } from "./tables.js";
 
 type CandidateRow = {
@@ -87,7 +88,11 @@ const wakeupApply: MultiStreamApplyFn = async (event, tx) => {
       workflowRunPendingTable,
       {
         triggerEventType: event.type,
-        triggerPayload: event.payload,
+        triggerEventRef: {
+          eventId: event.id,
+          aggregateId: event.aggregateId,
+          version: event.version,
+        } satisfies TriggerEventRef,
         wakeAt: getTemporal().Now.instant().toString(),
       },
       { tenantId: row.tenantId, runId: row.runId, stepIndex: row.stepIndex },

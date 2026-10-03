@@ -52,8 +52,14 @@ export const workflowRunPendingTable = pgTable(
     waitEventType: text("wait_event_type"),
     matchExpr: jsonb("match_expr"),
     // Written by the Phase 3 event-subscriber when the awaited event
-    // arrives — always NULL in Phase 1/2.
+    // arrives — always NULL in Phase 1/2. The row points at the awaited event
+    // ({ eventId, aggregateId, version }); resume-run re-reads it from the
+    // event store, so erasing the event also covers the workflow.
     triggerEventType: text("trigger_event_type"),
+    triggerEventRef: jsonb("trigger_event_ref"),
+    // Legacy copy of the awaited payload. No longer written; only rows
+    // matched before the reference existed still carry it, and resume-run
+    // falls back to it for those.
     triggerPayload: jsonb("trigger_payload"),
   },
   (t) => [
@@ -82,6 +88,7 @@ export const workflowRunPendingTableMeta: EntityTableMeta = defineUnmanagedTable
     { name: "wait_event_type", pgType: "text", notNull: false },
     { name: "match_expr", pgType: "jsonb", notNull: false },
     { name: "trigger_event_type", pgType: "text", notNull: false },
+    { name: "trigger_event_ref", pgType: "jsonb", notNull: false },
     { name: "trigger_payload", pgType: "jsonb", notNull: false },
   ],
   indexes: [

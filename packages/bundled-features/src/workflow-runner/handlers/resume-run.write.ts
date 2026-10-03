@@ -16,16 +16,19 @@
 //      otherwise (wait already wrote its effect; resume past it).
 //
 // The run's ORIGINAL trigger event (the one that started the whole run) is
-// always recovered from the run's own WORKFLOW_RUN_STARTED_TYPE event,
-// never from the pending row — that event always carries it (see
-// WorkflowRunStartedPayload in ./runner). The pending row's own
-// triggerEventType/triggerPayload columns are a DIFFERENT thing: for a
-// waitForEvent suspension they hold the AWAITED event the Phase 3b
+// always re-read from the event store via the triggerEventRef on the run's
+// own WORKFLOW_RUN_STARTED_TYPE event, never from the pending row (see
+// WorkflowRunStartedPayload in ./runner). Neither the run stream nor the
+// pending row holds a copy of a foreign payload, so an erased source event
+// shows up here in its shredded form, and an unloadable one (archived
+// stream) fails the run. The pending row's own
+// triggerEventType/triggerEventRef columns are a DIFFERENT thing: for a
+// waitForEvent suspension they point at the AWAITED event the Phase 3b
 // event-subscriber matched (NULL until then, and NULL forever on a
-// timeout-without-a-match). That payload becomes the resumed pipeline's
-// result for the skipped waitForEvent step itself (see resultKey on
-// steps/wait-for-event.ts) — pre-seeded into stepsAcc below so a
-// subsequent step's resolver can read `ctx.steps[awaits.someKey]`.
+// timeout-without-a-match). That event's payload becomes the resumed
+// pipeline's result for the skipped waitForEvent step itself (see
+// resultKey on steps/wait-for-event.ts) — pre-seeded into stepsAcc below so
+// a subsequent step's resolver can read `ctx.steps[awaits.someKey]`.
 
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
@@ -53,9 +56,9 @@ import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import * as z from "zod";
 import {
   isResumableSuspension,
+  type TriggerEventRef,
   type WorkflowRunCompletedPayload,
   type WorkflowRunFailedPayload,
-  type WorkflowRunStartedPayload,
   WorkflowSuspensionUnsupportedError,
 } from "../runner.js";
 import { workflowRunPendingTable } from "../tables.js";
@@ -182,48 +185,216 @@ function isRunAlreadySettled(
   });
 }
 
-function recoverTriggerEvent(
-  runEvents: Awaited<ReturnType<HandlerContext["loadAggregate"]>>,
+type LoadedEvents = Awaited<ReturnType<HandlerContext["loadAggregate"]>>;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isTriggerEventRef(value: unknown): value is TriggerEventRef {
+  return (
+    isRecord(value) &&
+    typeof value["eventId"] === "string" &&
+    typeof value["aggregateId"] === "string" &&
+    typeof value["version"] === "number"
+  );
+}
+
+// run-started events written before the reference existed carry a copy of the
+// trigger payload instead; they stay readable for runs still in flight.
+type TriggerSource =
+  | { readonly kind: "ref"; readonly eventType: string; readonly ref: TriggerEventRef }
+  | { readonly kind: "legacy-copy"; readonly eventType: string; readonly payload: unknown };
+
+function readTriggerSource(startedPayload: unknown): TriggerSource | null {
+  if (!isRecord(startedPayload) || typeof startedPayload["triggerEventType"] !== "string") {
+    return null;
+  }
+  const eventType = startedPayload["triggerEventType"];
+  const ref = startedPayload["triggerEventRef"];
+  if (isTriggerEventRef(ref)) {
+    return { kind: "ref", eventType, ref };
+  }
+  if ("triggerPayload" in startedPayload) {
+    return { kind: "legacy-copy", eventType, payload: startedPayload["triggerPayload"] };
+  }
+  return null;
+}
+
+async function loadReferencedEvent(ctx: HandlerContext, ref: TriggerEventRef) {
+  const events = await ctx.loadAggregate(ref.aggregateId);
+  return events.find((e) => e.id === ref.eventId);
+}
+
+type RecoveredTrigger =
+  | { readonly event: WriteEvent; readonly unavailable: false }
+  | { readonly event: null; readonly unavailable: true };
+
+async function recoverTriggerEvent(
+  ctx: HandlerContext,
+  runEvents: LoadedEvents,
   runId: string,
   user: WriteEvent["user"],
-): WriteEvent {
+): Promise<RecoveredTrigger> {
   const started = runEvents.find((e) => e.type === WORKFLOW_RUN_STARTED_TYPE);
   if (!started) {
     throw new InternalError({
       message: `workflow-runner:write:resume-run: run ${runId} has no ${WORKFLOW_RUN_STARTED_TYPE} event — cannot recover its trigger event.`,
     });
   }
-  const startedPayload = started.payload as WorkflowRunStartedPayload; // @cast-boundary event-store-payload
-  const triggerEvent: WriteEvent = {
-    type: startedPayload.triggerEventType,
-    payload: startedPayload.triggerPayload,
-    user,
+  const source = readTriggerSource(started.payload);
+  if (!source) {
+    throw new InternalError({
+      message: `workflow-runner:write:resume-run: run ${runId} has a malformed ${WORKFLOW_RUN_STARTED_TYPE} event — neither triggerEventRef nor a legacy triggerPayload.`,
+    });
+  }
+  if (source.kind === "legacy-copy") {
+    return {
+      event: { type: source.eventType, payload: source.payload, user },
+      unavailable: false,
+    };
+  }
+  const triggerEvent = await loadReferencedEvent(ctx, source.ref);
+  if (!triggerEvent) {
+    return { event: null, unavailable: true };
+  }
+  return {
+    event: { type: source.eventType, payload: triggerEvent.payload, user },
+    unavailable: false,
   };
-  return triggerEvent;
+}
+
+type PendingTriggerColumns = {
+  readonly triggerEventRef: unknown | null;
+  readonly triggerPayload: unknown | null;
+};
+
+type AwaitedPayload =
+  | { readonly unavailable: false; readonly payload: unknown }
+  | { readonly unavailable: true };
+
+// NULL ref + NULL payload = timeout without a match: the step result stays
+// undefined, same as before. A matched row whose event can no longer be loaded
+// is NOT folded into that case: a later step could not tell "nothing arrived"
+// from "arrived but gone" and would run on missing data, so the run fails
+// instead. Rows matched before the reference existed still carry the copy.
+async function loadAwaitedPayload(
+  ctx: HandlerContext,
+  pending: PendingTriggerColumns,
+): Promise<AwaitedPayload> {
+  if (!isTriggerEventRef(pending.triggerEventRef)) {
+    return { unavailable: false, payload: pending.triggerPayload ?? undefined };
+  }
+  const awaited = await loadReferencedEvent(ctx, pending.triggerEventRef);
+  return awaited ? { unavailable: false, payload: awaited.payload } : { unavailable: true };
 }
 
 // The suspended waitForEvent step itself is skipped on resume
 // (resumeFrom = stepIndex + 1) — its run() never re-executes, so its
 // resultKey (args.event, see steps/wait-for-event.ts) never gets
-// populated by the normal runStepList loop. Seed it here from the
-// pending row's own triggerPayload so a subsequent step's resolver
-// sees the matched event via `ctx.steps[awaits.someKey]`, same as any
-// other step result. NULL on a timeout-without-a-match — a later
-// resolver reading it just sees `undefined`, no special-casing needed.
+// populated by the normal runStepList loop. Seed it here from the awaited
+// event's payload so a subsequent step's resolver sees the matched event via
+// `ctx.steps[awaits.someKey]`, same as any other step result.
 function seedResumedStepResults(
-  pending: { suspensionEventType: string; triggerPayload: unknown | null },
+  suspensionEventType: string,
+  awaitedPayload: unknown,
   steps: readonly StepInstance[],
   stepIndex: number,
 ): Record<string, unknown> {
   const stepsAcc: Record<string, unknown> = {};
-  if (pending.suspensionEventType === WORKFLOW_WAITING_FOR_EVENT_TYPE) {
+  if (suspensionEventType === WORKFLOW_WAITING_FOR_EVENT_TYPE) {
     const suspendedStep = steps[stepIndex];
     const key = suspendedStep && getStep(suspendedStep.kind)?.resultKey?.(suspendedStep.args);
     if (key !== undefined) {
-      stepsAcc[key] = pending.triggerPayload;
+      stepsAcc[key] = awaitedPayload;
     }
   }
   return stepsAcc;
+}
+
+type ResumedPipelineInput = {
+  readonly workflow: WorkflowDefinition;
+  readonly workflowName: string;
+  readonly runId: string;
+  readonly stepIndex: number;
+  readonly resumeFrom: number;
+  readonly triggerEvent: WriteEvent;
+  readonly awaitedPayload: unknown;
+  readonly pending: {
+    readonly suspensionEventType: string;
+    readonly retryAttempt: number | null;
+    readonly definitionFingerprint: string | null;
+  };
+};
+
+async function runResumedPipeline(ctx: HandlerContext, input: ResumedPipelineInput) {
+  const {
+    workflow,
+    workflowName,
+    runId,
+    stepIndex,
+    resumeFrom,
+    triggerEvent,
+    awaitedPayload,
+    pending,
+  } = input;
+  try {
+    const steps = buildPipelineSteps(workflow.pipelineDef, triggerEvent);
+    const workflowCtx = {
+      runId,
+      workflowName,
+      stepIndex,
+      definitionFingerprint: pending.definitionFingerprint ?? undefined,
+      ...(pending.retryAttempt !== null && { retryAttempt: pending.retryAttempt + 1 }),
+    };
+
+    const stepsAcc = seedResumedStepResults(
+      pending.suspensionEventType,
+      awaitedPayload,
+      steps,
+      stepIndex,
+    );
+
+    const outcome = await runStepList(
+      steps,
+      triggerEvent,
+      ctx,
+      stepsAcc,
+      {},
+      workflowCtx,
+      resumeFrom,
+    );
+
+    if (outcome.kind === "suspended") {
+      if (!isResumableSuspension(steps, outcome.stepIndex)) {
+        throw new WorkflowSuspensionUnsupportedError(workflowName, outcome.stepIndex);
+      }
+      // Another suspension further down the pipeline — pending-projection.ts
+      // already materialised the new row; nothing more to do this pass.
+      return { isSuccess: true as const, data: { outcome: "suspended" as const } };
+    }
+
+    const completedPayload: WorkflowRunCompletedPayload = {
+      workflowName,
+      stepIndex: steps.length,
+    };
+    await ctx.unsafeAppendEvent({
+      aggregateId: runId,
+      aggregateType: WORKFLOW_AGGREGATE_TYPE,
+      type: WORKFLOW_RUN_COMPLETED_TYPE,
+      payload: completedPayload,
+    });
+    return { isSuccess: true as const, data: { outcome: "completed" as const } };
+  } catch (error) {
+    log.warn("workflow run failed", { runId, workflowName, stepIndex, error: String(error) });
+    const failedPayload: WorkflowRunFailedPayload = {
+      workflowName,
+      stepIndex,
+      error: describeWorkflowStepError(error),
+    };
+    await appendRunFailed(ctx, runId, failedPayload);
+    return { isSuccess: true as const, data: { outcome: "failed" as const } };
+  }
 }
 
 export const resumeRunHandler: WriteHandlerDef = {
@@ -248,6 +419,7 @@ export const resumeRunHandler: WriteHandlerDef = {
       suspensionEventType: string;
       retryAttempt: number | null;
       definitionFingerprint: string | null;
+      triggerEventRef: unknown | null;
       triggerPayload: unknown | null;
     }>(db, workflowRunPendingTable, { runId, stepIndex, tenantId });
 
@@ -297,62 +469,44 @@ export const resumeRunHandler: WriteHandlerDef = {
       return { isSuccess: true, data: { outcome: "already-resumed" as const } };
     }
 
-    const triggerEvent = recoverTriggerEvent(runEvents, runId, event.user);
+    const recovered = await recoverTriggerEvent(ctx, runEvents, runId, event.user);
+    if (recovered.unavailable) {
+      await appendRunFailed(ctx, runId, {
+        workflowName,
+        stepIndex,
+        error: `Trigger event of run ${runId} is no longer available — cannot resume.`,
+        reason: "trigger_event_unavailable",
+      });
+      return { isSuccess: true, data: { outcome: "failed" as const } };
+    }
+    const triggerEvent = recovered.event;
+
+    const awaited =
+      pending.suspensionEventType === WORKFLOW_WAITING_FOR_EVENT_TYPE
+        ? await loadAwaitedPayload(ctx, pending)
+        : ({ unavailable: false, payload: undefined } as const);
+    if (awaited.unavailable) {
+      await appendRunFailed(ctx, runId, {
+        workflowName,
+        stepIndex,
+        error: `Awaited event of run ${runId} is no longer available — cannot resume.`,
+        reason: "awaited_event_unavailable",
+      });
+      return { isSuccess: true, data: { outcome: "failed" as const } };
+    }
 
     const resumeFrom =
       pending.suspensionEventType === WORKFLOW_RETRY_SCHEDULED_TYPE ? stepIndex : stepIndex + 1;
 
-    try {
-      const steps = buildPipelineSteps(workflow.pipelineDef, triggerEvent);
-      const workflowCtx = {
-        runId,
-        workflowName,
-        stepIndex,
-        definitionFingerprint: pending.definitionFingerprint ?? undefined,
-        ...(pending.retryAttempt !== null && { retryAttempt: pending.retryAttempt + 1 }),
-      };
-
-      const stepsAcc = seedResumedStepResults(pending, steps, stepIndex);
-
-      const outcome = await runStepList(
-        steps,
-        triggerEvent,
-        ctx,
-        stepsAcc,
-        {},
-        workflowCtx,
-        resumeFrom,
-      );
-
-      if (outcome.kind === "suspended") {
-        if (!isResumableSuspension(steps, outcome.stepIndex)) {
-          throw new WorkflowSuspensionUnsupportedError(workflowName, outcome.stepIndex);
-        }
-        // Another suspension further down the pipeline — pending-projection.ts
-        // already materialised the new row; nothing more to do this pass.
-        return { isSuccess: true, data: { outcome: "suspended" as const } };
-      }
-
-      const completedPayload: WorkflowRunCompletedPayload = {
-        workflowName,
-        stepIndex: steps.length,
-      };
-      await ctx.unsafeAppendEvent({
-        aggregateId: runId,
-        aggregateType: WORKFLOW_AGGREGATE_TYPE,
-        type: WORKFLOW_RUN_COMPLETED_TYPE,
-        payload: completedPayload,
-      });
-      return { isSuccess: true, data: { outcome: "completed" as const } };
-    } catch (error) {
-      log.warn("workflow run failed", { runId, workflowName, stepIndex, error: String(error) });
-      const failedPayload: WorkflowRunFailedPayload = {
-        workflowName,
-        stepIndex,
-        error: describeWorkflowStepError(error),
-      };
-      await appendRunFailed(ctx, runId, failedPayload);
-      return { isSuccess: true, data: { outcome: "failed" as const } };
-    }
+    return runResumedPipeline(ctx, {
+      workflow,
+      workflowName,
+      runId,
+      stepIndex,
+      resumeFrom,
+      triggerEvent,
+      awaitedPayload: awaited.payload,
+      pending,
+    });
   },
 };
