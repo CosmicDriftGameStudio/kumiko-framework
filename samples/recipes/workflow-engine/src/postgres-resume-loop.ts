@@ -4,19 +4,23 @@
 //   1. createSuspendedRunFetcher(db, workflowRegistry) — Postgres-backed
 //   2. createInMemorySuspendedRunFetcher(runs) — for unit tests
 //
-// The fetcher extracts the trigger-event snapshot + Q7 fingerprint directly
-// from the suspension event payload (the wait/waitForEvent/retry steps
-// stamp them there), avoiding a per-run lookup against run.started.
+// The fetcher reads the Q7 fingerprint from the suspension event payload and
+// re-loads the trigger event from the event store through the
+// triggerEventRef on the run's own run.started event (no payload copy lives
+// on the run stream).
 
 import type { DbRunner } from "@cosmicdrift/kumiko-framework/db";
-import type { WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
+import type { TenantId, WorkflowDefinition } from "@cosmicdrift/kumiko-framework/engine";
 import {
   WORKFLOW_RETRY_SCHEDULED_TYPE,
+  WORKFLOW_RUN_STARTED_TYPE,
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_WAITING_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { loadAggregate } from "@cosmicdrift/kumiko-framework/event-store";
 import { selectExpiredSuspensionEvents } from "./db/queries/suspended-runs";
 import type { SuspendableRun } from "./resume-loop";
+import type { TriggerEventRef } from "./workflow-runner";
 
 export type WorkflowRegistry = ReadonlyMap<string, WorkflowDefinition>;
 
@@ -25,6 +29,42 @@ const SUSPEND_EVENT_TYPES = [
   WORKFLOW_WAITING_FOR_EVENT_TYPE,
   WORKFLOW_RETRY_SCHEDULED_TYPE,
 ] as const;
+
+function isTriggerEventRef(value: unknown): value is TriggerEventRef {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "eventId" in value &&
+    typeof value.eventId === "string" &&
+    "aggregateId" in value &&
+    typeof value.aggregateId === "string" &&
+    "version" in value &&
+    typeof value.version === "number"
+  );
+}
+
+// undefined when the run has no usable reference or the trigger event can no
+// longer be loaded (archived stream): the run is skipped, never resumed on
+// made-up data.
+async function loadTriggerEvent(
+  db: DbRunner,
+  tenantId: TenantId,
+  runId: string,
+): Promise<{ aggregateId: string; type: string; payload: unknown } | undefined> {
+  const runEvents = await loadAggregate(db, runId, tenantId);
+  const started = runEvents.find((e) => e.type === WORKFLOW_RUN_STARTED_TYPE);
+  if (!started) return undefined;
+  const ref = started.payload["triggerEventRef"];
+  if (ref === undefined) {
+    // Cron run: the synthetic trigger event was never stored.
+    return { aggregateId: runId, type: String(started.payload["triggerEventType"]), payload: {} };
+  }
+  if (!isTriggerEventRef(ref)) return undefined;
+  const source = (await loadAggregate(db, ref.aggregateId, tenantId)).find(
+    (e) => e.id === ref.eventId,
+  );
+  return source && { aggregateId: source.aggregateId, type: source.type, payload: source.payload };
+}
 
 /**
  * Postgres-backed fetcher. Queries kumiko_events for suspension events with
@@ -64,11 +104,12 @@ export function createSuspendedRunFetcher(
       const wakeAt = (payload["wakeAt"] ?? payload["timeoutAt"]) as string | undefined;
       if (!wakeAt) continue;
 
-      const triggerEvent = {
-        aggregateId: (payload["triggerAggregateId"] as string | undefined) ?? aggregateId,
-        type: (payload["triggerEventType"] as string | undefined) ?? "kumiko:system:resume",
-        payload: payload["triggerPayload"] ?? {},
-      };
+      const triggerEvent = await loadTriggerEvent(
+        db,
+        (row["tenantId"] ?? row["tenant_id"]) as TenantId, // @cast-boundary raw-sql-row
+        aggregateId,
+      );
+      if (!triggerEvent) continue;
 
       results.push({
         runId: aggregateId,

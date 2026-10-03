@@ -68,13 +68,28 @@ der App abhinge.
 Trifft ein passendes Event ein, lädt der Subscriber die pending Zeilen des
 Tenants mit demselben `waitEventType`, wertet ein gesetztes `matchExpr` per
 `evaluateEventMatch` aus und setzt bei Treffer `triggerEventType` +
-`triggerPayload` + `wakeAt = now()` auf die Zeile — der bestehende
+`triggerEventRef` (eventId, aggregateId, version des awaited Events, keine
+Payload-Kopie) + `wakeAt = now()` auf die Zeile — der bestehende
 `resume-due-runs`-Job holt sie beim nächsten Tick ab, genau wie beim
 Timeout-Pfad. Der Subscriber resumt nie selbst (D3: sein Apply-Context hat
-kein `callFeature`/`runStepList`). `resume-run` seedet den `triggerPayload`
-als Ergebnis des übersprungenen `waitForEvent`-Steps
-(`ctx.steps[awaits.foo]`), damit ein nachfolgender Step per Resolver darauf
-zugreifen kann.
+kein `callFeature`/`runStepList`). `resume-run` lädt das awaited Event per
+`ctx.loadAggregate` und seedet dessen Payload als Ergebnis des übersprungenen
+`waitForEvent`-Steps (`ctx.steps[awaits.foo]`), damit ein nachfolgender Step per
+Resolver darauf zugreifen kann. Ist das Event nicht mehr ladbar, endet der Run
+mit `workflow.run-failed` und `reason: "awaited_event_unavailable"`; bei einem
+Timeout ohne Treffer bleibt das Ergebnis `undefined`.
+
+## Trigger-Event als Referenz
+
+Der `workflow-run`-Stream speichert keine Kopie fremder Event-Payloads.
+`workflow.run-started` trägt `triggerEventType` und
+`triggerEventRef: { eventId, aggregateId, version }`; `resume-run` lädt das
+Trigger-Event beim Resume aus dem Event-Store. Wurde das Quell-Event
+geschreddert (Crypto-Shredding), sieht der Step die geschredderte Fassung. Ist
+es nicht mehr ladbar (z. B. archivierter Stream), endet der Run mit
+`workflow.run-failed` und `reason: "trigger_event_unavailable"`. Vor dieser
+Änderung gestartete Runs behalten ihre alte Payload-Kopie und werden daraus
+weiter resumed.
 
 ## Aggregat-Instanz (`aggregate-id.ts`)
 

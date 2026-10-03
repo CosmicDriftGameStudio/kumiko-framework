@@ -150,9 +150,10 @@ const testTriggersFeature = defineFeature("workflow-runner-integration-test-trig
   registerEventTrigger(r, keylessWorkflow);
 });
 
-async function fireTrigger(eventType: string, payload: Record<string, unknown>): Promise<void> {
+async function fireTrigger(eventType: string, payload: Record<string, unknown>): Promise<string> {
+  const sourceAggregateId = crypto.randomUUID();
   await insertOne(stack.db, eventsTable, {
-    aggregateId: crypto.randomUUID(),
+    aggregateId: sourceAggregateId,
     aggregateType: "wr-test-source",
     tenantId: admin.tenantId,
     version: 1,
@@ -163,6 +164,7 @@ async function fireTrigger(eventType: string, payload: Record<string, unknown>):
     createdBy: admin.id,
   });
   await stack.eventDispatcher?.runOnce();
+  return sourceAggregateId;
 }
 
 async function loadRunEvents(runId: string) {
@@ -174,9 +176,9 @@ async function loadRunEvents(runId: string) {
   );
 }
 
-// Run-started rows of one workflow, found by the trigger payload's marker —
-// for workflows whose runId is not derivable from a key.
-async function loadRunStartedByMarker(workflowName: string, marker: string) {
+// Run-started rows of one workflow, found by the source stream of the trigger
+// event they reference — for workflows whose runId is not derivable from a key.
+async function loadRunStartedBySources(workflowName: string, sourceAggregateIds: string[]) {
   const started = await selectMany(stack.db, eventsTable, {
     aggregateType: WORKFLOW_AGGREGATE_TYPE,
     type: WORKFLOW_RUN_STARTED_TYPE,
@@ -186,7 +188,7 @@ async function loadRunStartedByMarker(workflowName: string, marker: string) {
     const payload = row["payload"] as WorkflowRunStartedPayload;
     return (
       payload.workflowName === workflowName &&
-      (payload.triggerPayload as { marker?: string }).marker === marker
+      sourceAggregateIds.includes(payload.triggerEventRef.aggregateId)
     );
   });
 }
@@ -215,7 +217,7 @@ describe("workflow-runner event-trigger", () => {
     const runKey = crypto.randomUUID();
     const runId = workflowRunAggregateId(happyWorkflow.name, runKey);
 
-    await fireTrigger("wr-test.happy", { runKey, n: 21 });
+    const sourceAggregateId = await fireTrigger("wr-test.happy", { runKey, n: 21 });
 
     const rows = await loadRunEvents(runId);
     expect(rows).toHaveLength(2);
@@ -223,7 +225,7 @@ describe("workflow-runner event-trigger", () => {
     expect(rows[0]!["payload"]).toMatchObject({
       workflowName: happyWorkflow.name,
       triggerEventType: "wr-test.happy",
-      triggerPayload: { runKey, n: 21 },
+      triggerEventRef: { aggregateId: sourceAggregateId, version: 1 },
       definitionFingerprint: computeDefinitionFingerprint(happyWorkflow),
     });
     expect(rows[1]!["type"]).toBe(WORKFLOW_RUN_COMPLETED_TYPE);
@@ -317,12 +319,12 @@ describe("workflow-runner event-trigger", () => {
   });
 
   test("without an idempotencyKey every trigger event starts its own run under a random id", async () => {
-    const marker = crypto.randomUUID();
+    const sourceAggregateIds = [
+      await fireTrigger("wr-test.keyless", {}),
+      await fireTrigger("wr-test.keyless", {}),
+    ];
 
-    await fireTrigger("wr-test.keyless", { marker });
-    await fireTrigger("wr-test.keyless", { marker });
-
-    const started = await loadRunStartedByMarker(keylessWorkflow.name, marker);
+    const started = await loadRunStartedBySources(keylessWorkflow.name, sourceAggregateIds);
     expect(started).toHaveLength(2);
     expect(new Set(started.map((row) => row["aggregateId"])).size).toBe(2);
     for (const row of started) {

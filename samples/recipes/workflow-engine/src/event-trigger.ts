@@ -60,6 +60,11 @@ export function registerEventTrigger(r: FeatureRegistrar, workflow: WorkflowDefi
             runId,
             workflow,
             triggerEvent,
+            triggerEventRef: {
+              eventId: event.id,
+              aggregateId: event.aggregateId,
+              version: event.version,
+            },
             ...(idempotencyKey && { idempotencyKey }),
             handlerCtx: ctx as never,
           });

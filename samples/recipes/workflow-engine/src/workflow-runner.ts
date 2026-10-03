@@ -26,10 +26,19 @@ import {
   WORKFLOW_RUN_STARTED_TYPE,
 } from "@cosmicdrift/kumiko-framework/engine";
 
+// Reference into the event store; the run stream never copies a foreign
+// payload, so erasing the source event also covers the workflow.
+export type TriggerEventRef = {
+  readonly eventId: string;
+  readonly aggregateId: string;
+  readonly version: number;
+};
+
 export type WorkflowRunStartedPayload = {
   readonly workflowName: string;
   readonly triggerEventType: string;
-  readonly triggerPayload: unknown;
+  // Absent for cron runs: their synthetic trigger event has no stored source.
+  readonly triggerEventRef?: TriggerEventRef;
   readonly definitionFingerprint: string;
   readonly idempotencyKey?: string;
 };
@@ -47,6 +56,7 @@ export async function startAndRunWorkflow(args: {
   readonly runId: string;
   readonly workflow: WorkflowDefinition;
   readonly triggerEvent: WriteEvent;
+  readonly triggerEventRef?: TriggerEventRef;
   readonly idempotencyKey?: string;
   readonly handlerCtx: HandlerContext;
 }): Promise<{ readonly outcome: "completed" | "suspended" }> {
@@ -55,7 +65,7 @@ export async function startAndRunWorkflow(args: {
   const startedPayload: WorkflowRunStartedPayload = {
     workflowName: args.workflow.name,
     triggerEventType: args.triggerEvent.type,
-    triggerPayload: args.triggerEvent.payload,
+    ...(args.triggerEventRef && { triggerEventRef: args.triggerEventRef }),
     definitionFingerprint: fingerprint,
     ...(args.idempotencyKey && { idempotencyKey: args.idempotencyKey }),
   };

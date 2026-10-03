@@ -49,11 +49,7 @@ defineStep<WaitStepArgs, undefined | typeof SUSPEND_SENTINEL>({
         wakeAt,
         stepIndex: ctx.workflow.stepIndex,
         workflowName: ctx.workflow.workflowName,
-        // Trigger snapshot: pinned so the resume-loop re-feeds the
-        // pipeline with what the original run saw. event-sourcing across
-        // suspensions hinges on this being stable.
         triggerEventType: ctx.event.type,
-        triggerPayload: ctx.event.payload,
         ...(ctx.workflow.definitionFingerprint && {
           definitionFingerprint: ctx.workflow.definitionFingerprint,
         }),

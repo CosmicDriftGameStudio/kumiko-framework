@@ -146,7 +146,7 @@ describe("workflow-runner pending-projection", () => {
       workflowRunPendingTable,
       {
         triggerEventType: "user.replied",
-        triggerPayload: { email: "a@b.de" },
+        triggerEventRef: { eventId: "42", aggregateId: "agg-1", version: 3 },
         wakeAt: "2026-05-01T00:00:00Z",
       },
       { runId },
@@ -157,7 +157,11 @@ describe("workflow-runner pending-projection", () => {
     const rows = await pendingRowsFor(runId);
     expect(rows).toHaveLength(1);
     expect(rows[0]!["triggerEventType"]).toBe("user.replied");
-    expect(rows[0]!["triggerPayload"]).toEqual({ email: "a@b.de" });
+    expect(rows[0]!["triggerEventRef"]).toEqual({
+      eventId: "42",
+      aggregateId: "agg-1",
+      version: 3,
+    });
     expect(String(rows[0]!["wakeAt"])).toBe("2026-05-01T00:00:00Z");
   });
 

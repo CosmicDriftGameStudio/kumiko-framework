@@ -35,10 +35,19 @@ export function isResumableSuspension(steps: readonly StepInstance[], stepIndex:
   return RESUMABLE_STEP_KINDS.has(steps[stepIndex]?.kind ?? "");
 }
 
+// Points at the trigger event in the event store. The run stream never holds a
+// copy of a foreign payload: erasing or archiving the source event must also
+// cover the workflow, so a resume re-reads the event through this reference.
+export type TriggerEventRef = {
+  readonly eventId: string;
+  readonly aggregateId: string;
+  readonly version: number;
+};
+
 export type WorkflowRunStartedPayload = {
   readonly workflowName: string;
   readonly triggerEventType: string;
-  readonly triggerPayload: unknown;
+  readonly triggerEventRef: TriggerEventRef;
   readonly definitionFingerprint: string;
   readonly idempotencyKey?: string;
 };
@@ -91,6 +100,7 @@ export async function startAndRunWorkflow(args: {
   readonly runId: string;
   readonly workflow: WorkflowDefinition;
   readonly triggerEvent: WriteEvent;
+  readonly triggerEventRef: TriggerEventRef;
   readonly idempotencyKey?: string;
   readonly handlerCtx: HandlerContext;
 }): Promise<{ readonly outcome: "completed" | "suspended" }> {
@@ -99,7 +109,7 @@ export async function startAndRunWorkflow(args: {
   const startedPayload: WorkflowRunStartedPayload = {
     workflowName: args.workflow.name,
     triggerEventType: args.triggerEvent.type,
-    triggerPayload: args.triggerEvent.payload,
+    triggerEventRef: args.triggerEventRef,
     definitionFingerprint: fingerprint,
     ...(args.idempotencyKey && { idempotencyKey: args.idempotencyKey }),
   };

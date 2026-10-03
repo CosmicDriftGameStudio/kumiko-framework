@@ -100,8 +100,7 @@ const timeoutWorkflow = defineWorkflow({
       }),
       r.step.compute("seen", (ctx) => {
         const payload = ctx.steps[awaits.replied];
-        // pending.triggerPayload round-trips through jsonb as null, not
-        // undefined, when the row was never matched (timeout path).
+        // an unmatched row (timeout path) seeds no step result.
         if (payload != null) {
           throw new Error(
             `expected no triggerPayload on a timeout, got ${JSON.stringify(payload)}`,
@@ -188,12 +187,16 @@ async function pendingRow(
   runId: string,
   stepIndex: number,
 ): Promise<
-  { triggerEventType: string | null; triggerPayload: unknown; wakeAt: string } | undefined
+  { triggerEventType: string | null; triggerEventRef: unknown; wakeAt: string } | undefined
 > {
   const rows = (await asRawClient(stack.db).unsafe(
-    `SELECT trigger_event_type AS "triggerEventType", trigger_payload AS "triggerPayload", wake_at AS "wakeAt" FROM workflow_run_pending WHERE run_id = $1 AND step_index = $2`,
+    `SELECT trigger_event_type AS "triggerEventType", trigger_event_ref AS "triggerEventRef", wake_at AS "wakeAt" FROM workflow_run_pending WHERE run_id = $1 AND step_index = $2`,
     [runId, stepIndex],
-  )) as ReadonlyArray<{ triggerEventType: string | null; triggerPayload: unknown; wakeAt: string }>;
+  )) as ReadonlyArray<{
+    triggerEventType: string | null;
+    triggerEventRef: unknown;
+    wakeAt: string;
+  }>;
   return rows[0];
 }
 
@@ -240,7 +243,7 @@ describe("workflow-runner event-wakeup", () => {
 
     const marked = await pendingRow(runId, 0);
     expect(marked?.triggerEventType).toBe("wk-test.replied");
-    expect(marked?.triggerPayload).toEqual({ from: "match@example.com", body: "hi" });
+    expect(marked?.triggerEventRef).toMatchObject({ aggregateId: expect.any(String), version: 1 });
 
     await runResumeDueRunsJob(admin.tenantId);
 
@@ -344,8 +347,8 @@ describe("workflow-runner event-wakeup", () => {
 
     // The "seen" compute step throws if ctx.steps[awaits.replied] is
     // anything other than undefined on a timeout resume — reaching
-    // run-completed proves resume-run left it unset (pending.triggerPayload
-    // stayed NULL, never matched).
+    // run-completed proves resume-run left it unset (the pending row
+    // stayed unmatched).
     const rows = await loadRunEvents(runId);
     expect(rows.map((row) => row["type"])).toEqual([
       WORKFLOW_RUN_STARTED_TYPE,

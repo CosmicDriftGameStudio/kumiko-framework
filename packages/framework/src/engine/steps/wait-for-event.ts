@@ -74,7 +74,6 @@ defineStep<WaitForEventArgs, undefined | typeof SUSPEND_SENTINEL>({
         stepIndex: ctx.workflow.stepIndex,
         workflowName: ctx.workflow.workflowName,
         triggerEventType: ctx.event.type,
-        triggerPayload: ctx.event.payload,
         ...(ctx.workflow.definitionFingerprint && {
           definitionFingerprint: ctx.workflow.definitionFingerprint,
         }),

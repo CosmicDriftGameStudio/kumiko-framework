@@ -26,8 +26,8 @@ export const AGGREGATE_TRANSFERRED_EVENT_TYPE = `${SYSTEM_EVENT_PREFIX}aggregate
 
 const SELF = { personal: "self" } as const;
 
-// Workflow payloads carry `triggerPayload`, the stored payload of the trigger
-// event: catalogued fields there are already ciphertext, so "none" leaks nothing.
+// Workflow run-stream payloads carry references and step bookkeeping only,
+// never a copy of a foreign event payload, so "none" leaves nothing to shred.
 export const SYSTEM_EVENT_PII_STANCES: ReadonlyMap<string, EventPiiStance> = new Map<
   string,
   EventPiiStance

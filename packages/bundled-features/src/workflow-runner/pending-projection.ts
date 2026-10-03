@@ -84,6 +84,7 @@ async function upsertPending(tx: DbRunner, row: PendingRow): Promise<void> {
       // Phase 3's event-subscriber writes these when the awaited event
       // arrives — Phase 1 never touches them, insert or update.
       triggerEventType: null,
+      triggerEventRef: null,
       triggerPayload: null,
     },
     { conflictKeys: ["tenantId", "runId", "stepIndex"] },
