@@ -36,6 +36,7 @@ export type {
   ManifestExtension,
   ManifestFeature,
   ManifestSecret,
+  ManifestSystemEvent,
 } from "@cosmicdrift/kumiko-framework/engine";
 export { serializeManifest };
 

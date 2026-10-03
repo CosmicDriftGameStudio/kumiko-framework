@@ -63,10 +63,12 @@ export async function appendDomainEventCore(
       });
     }
   }
-  // System events skip schema validation — payload shape is owned by the
-  // framework step that emits + the bundled MSP that consumes.
+  // System events skip schema validation even when registered (workflow
+  // events are, so projections can apply them): payload shape is owned by the
+  // framework step that emits + the bundled MSP that consumes, and stored
+  // streams keep legacy shapes. Parsing would also strip unknown keys.
   let validatedPayload: Record<string, unknown>;
-  if (eventDef) {
+  if (eventDef && !isSystemEvent) {
     const parsed = eventDef.schema.safeParse(args.payload ?? {});
     if (!parsed.success) throw validationErrorFromZod(parsed.error);
     validatedPayload = parsed.data as Record<string, unknown>;
