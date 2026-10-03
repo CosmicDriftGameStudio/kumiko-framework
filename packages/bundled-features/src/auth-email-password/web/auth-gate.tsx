@@ -163,11 +163,12 @@ export type SessionAuthGateOptions = AuthGateOptions & {
 };
 
 function redirectToLoginUrl(loginUrl: string): void {
-  const { origin, pathname, search, hash, href } = window.location;
-  const target = buildLoginRedirectUrl(loginUrl, `${pathname}${search}${hash}`, origin);
-  // Guards a redirect loop when loginUrl points at the page we are already on.
-  if (new URL(target, origin).href === href) return;
-  window.location.replace(target);
+  const { origin, pathname, search, hash } = window.location;
+  // Compared before `next` is appended: the target always differs from the current
+  // URL once it carries next, so a gate mounted on the login page itself would loop.
+  const loginLocation = new URL(loginUrl, origin);
+  if (loginLocation.origin === origin && loginLocation.pathname === pathname) return;
+  window.location.replace(buildLoginRedirectUrl(loginUrl, `${pathname}${search}${hash}`, origin));
 }
 
 export function makeAuthGate(opts: AuthGateOptions = {}): ComponentType<{
