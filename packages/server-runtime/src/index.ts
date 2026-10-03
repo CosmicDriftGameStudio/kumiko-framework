@@ -3,6 +3,8 @@
 // Tooling (ts-morph) als Dependency — Prod-Apps ziehen so kein
 // Dev-Tooling mehr in ihre node_modules.
 export { type ComposeFeaturesOptions, composeFeatures } from "./compose-features.js";
+export type { RunBootstrapOptions } from "./run-bootstrap.js";
+export { runBootstrap } from "./run-bootstrap.js";
 export type {
   AccountUnlockSetup,
   EmailVerificationSetup,

@@ -8,6 +8,7 @@ import { createInviteAcceptHandler } from "./handlers/invite-accept.write.js";
 import { createInviteAcceptWithLoginHandler } from "./handlers/invite-accept-with-login.write.js";
 import {
   createInviteCreateHandler,
+  createSystemInviteCreateHandler,
   type InviteCreateOptions,
 } from "./handlers/invite-create.write.js";
 import { inviteInfoQuery } from "./handlers/invite-info.query.js";
@@ -246,6 +247,7 @@ export function createAuthEmailPasswordFeature(
 
     if (opts.invite) {
       r.writeHandler(createInviteCreateHandler(opts.invite));
+      r.writeHandler(createSystemInviteCreateHandler(opts.invite));
       r.writeHandler(createInviteAcceptHandler());
       // Same gates as the `login` handler above (lockout, password,
       // email-verified, account-status, MFA) — see invite-accept-with-login.write.ts.

@@ -102,6 +102,7 @@
         "auth-email-password:write:reset-password",
         "auth-email-password:write:signup-confirm",
         "auth-email-password:write:signup-request",
+        "auth-email-password:write:system-invite-create",
         "auth-email-password:write:verify-email"
       ],
       "uiHints": {

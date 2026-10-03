@@ -76,3 +76,9 @@ export async function deleteInviteToken(
 /** Burn release for failed-accept paths (DB error etc.) so a legitimate
  *  retry isn't blocked by a stale burn marker. */
 export const unburnInviteToken = store.unburn;
+
+/** Whether the invitation still has an unexpired, unconsumed token — Redis TTL
+ *  is the single truth for invite expiry (see the module comment). */
+export async function hasLiveInviteToken(redis: Redis, invitationId: string): Promise<boolean> {
+  return (await store.getTokenHashForSubject(redis, invitationId)) !== null;
+}

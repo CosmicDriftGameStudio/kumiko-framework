@@ -46,6 +46,8 @@ import {
 } from "../../tenant/membership-roles.js";
 // kumiko-lint-ignore cross-feature-import membership-seed-helper für privilegierten cross-tenant-add
 import { seedTenantMembership } from "../../tenant/seeding.js";
+// kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
+import { parseInvitedGlobalRoles } from "../../user/invited-global-roles.js";
 // kumiko-lint-ignore cross-feature-import existence-check
 import { userTable } from "../../user/schema/user.js";
 import { invalidInviteToken } from "../errors.js";
@@ -113,6 +115,7 @@ export function createInviteSignupCompleteHandler() {
         readonly tenantId: TenantId;
         readonly email: string;
         readonly role: string;
+        readonly globalRoles: unknown;
         readonly version: number;
       };
 
@@ -133,6 +136,7 @@ export function createInviteSignupCompleteHandler() {
           "auth:invite-signup-complete",
         );
         const invitationRole = invitation.role;
+        const invitationGlobalRoles = parseInvitedGlobalRoles(invitation.globalRoles);
         const invitationVersion = invitation.version;
 
         // User-Not-Exists-Check: wenn die Email schon registriert ist,
@@ -157,6 +161,7 @@ export function createInviteSignupCompleteHandler() {
           password: event.payload.password,
           displayName: invitationEmail.split("@")[0] ?? invitationEmail,
           emailVerified: true,
+          ...(invitationGlobalRoles.length > 0 && { roles: invitationGlobalRoles }),
         });
 
         // Membership-Add via seed-helper (gleiches Pattern wie
@@ -192,7 +197,7 @@ export function createInviteSignupCompleteHandler() {
           tenantId: invitationTenantId,
           // buildSessionRoles calls stripForbiddenMembershipRoles internally —
           // a reserved role on the invitation itself must never reach the session.
-          roles: buildSessionRoles([], [invitationRole]),
+          roles: buildSessionRoles(invitationGlobalRoles, [invitationRole]),
         };
 
         committed = true;

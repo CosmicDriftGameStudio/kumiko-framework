@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-01T07:17:06.583Z",
+  "generatedAt": "2026-10-03T16:50:21.991Z",
   "tables": [
     {
       "tableName": "file_refs",
@@ -844,6 +844,12 @@
           "name": "role",
           "pgType": "text",
           "notNull": true
+        },
+        {
+          "name": "global_roles",
+          "pgType": "jsonb",
+          "notNull": true,
+          "defaultSql": "'[]'::jsonb"
         },
         {
           "name": "status",

@@ -100,6 +100,38 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
     }
   });
 
+  test("bundles bin/bootstrap.ts as bootstrap.js sharing the chunk; absent bootstrap.ts → no bootstrap.js", async () => {
+    const withoutBootstrap = makeFixture();
+    const withBootstrap = makeFixture();
+    try {
+      writeFileSync(
+        join(withBootstrap, "bin/bootstrap.ts"),
+        `import { shared } from "../src/shared";\nconsole.log("bootstrap", shared());\n`,
+      );
+      const plain = await buildServerBundle({
+        cwd: withoutBootstrap,
+        outDir: join(withoutBootstrap, "dist-server"),
+      });
+      expect(existsSync(join(plain.outDir, "bootstrap.js"))).toBe(false);
+
+      const result = await buildServerBundle({
+        cwd: withBootstrap,
+        outDir: join(withBootstrap, "dist-server"),
+      });
+      expect(result.entries.map((e) => e.file).sort()).toEqual([
+        "bootstrap.js",
+        "kumiko.js",
+        "server.js",
+      ]);
+      expect(readFileSync(join(result.outDir, "bootstrap.js"), "utf8")).toContain("chunk-");
+      const run = Bun.spawnSync(["bun", join(result.outDir, "bootstrap.js")]);
+      expect(run.stdout.toString().trim()).toBe("bootstrap 42");
+    } finally {
+      rmSync(withoutBootstrap, { recursive: true, force: true });
+      rmSync(withBootstrap, { recursive: true, force: true });
+    }
+  });
+
   test("pins runtime-deps from node_modules/@cosmicdrift/* for consumer apps without a packages/ dir", async () => {
     // Reproduziert #1217: findRepoRoot liefert für eine Consumer-App die
     // App-Wurzel selbst (kein packages/-Ordner) — die Version muss aus den
