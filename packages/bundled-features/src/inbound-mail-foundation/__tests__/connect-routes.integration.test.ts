@@ -117,8 +117,12 @@ beforeAll(async () => {
       oauthTestProviderFeature,
     ],
     masterKeyProvider: providerRef,
-    extraContext: ({ db: stackDb }) => ({
-      secrets: createSecretsContext({ db: stackDb, masterKeyProvider: providerRef }),
+    extraContext: ({ db: stackDb, registry }) => ({
+      secrets: createSecretsContext({
+        db: stackDb,
+        masterKeyProvider: providerRef,
+        registry: registry,
+      }),
     }),
     extraRoutes: createInboundMailConnectRoutes({
       stateSecret: STATE_SECRET,
@@ -126,7 +130,7 @@ beforeAll(async () => {
     }),
   });
   db = stack.db;
-  secrets = createSecretsContext({ db, masterKeyProvider: providerRef });
+  secrets = createSecretsContext({ db, masterKeyProvider: providerRef, registry: stack.registry });
 
   await unsafeCreateEntityTable(db, tenantEntity);
   await unsafeCreateEntityTable(db, tenantComplianceProfileEntity);

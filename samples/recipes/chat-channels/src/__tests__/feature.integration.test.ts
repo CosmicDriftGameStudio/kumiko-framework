@@ -78,7 +78,11 @@ beforeAll(async () => {
     ],
     masterKeyProvider,
     extraContext: (deps) => {
-      const secrets = createSecretsContext({ db: deps.db, masterKeyProvider });
+      const secrets = createSecretsContext({
+        db: deps.db,
+        masterKeyProvider,
+        registry: deps.registry,
+      });
       jobRunner = createJobRunner({
         registry: deps.registry,
         context: { db: deps.db, secrets },

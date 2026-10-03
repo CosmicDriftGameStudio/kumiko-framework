@@ -10,11 +10,17 @@ import {
 
 export type TelegramChannelOptions = {
   // App-level override (tests, self-hosted Bot API server); never tenant config.
+  // Its host must be listed in `allowedHosts`, otherwise boot fails.
   readonly apiBaseUrl?: string;
+  // Replaces the default allowlist (`api.telegram.org`); required for a self-hosted Bot API server.
+  readonly allowedHosts?: readonly string[];
+  // Default true; `false` only for local http test servers.
+  readonly requireHttps?: boolean;
   readonly timeoutMs?: number;
 };
 
 export const TELEGRAM_DEFAULT_API_BASE_URL = "https://api.telegram.org";
+export const TELEGRAM_DEFAULT_ALLOWED_HOSTS: readonly string[] = ["api.telegram.org"];
 export const TELEGRAM_TEXT_MAX_CHARS = 4096;
 export const TELEGRAM_SECRET_KEYS = { botToken: "channel-telegram:secret:bot-token" } as const;
 
@@ -36,6 +42,26 @@ export function createTelegramChannel(
   botTokenKey: string,
 ): DeliveryChannel {
   const apiBaseUrl = options.apiBaseUrl ?? TELEGRAM_DEFAULT_API_BASE_URL;
+  const allowedHosts = options.allowedHosts ?? TELEGRAM_DEFAULT_ALLOWED_HOSTS;
+  const requireHttps = options.requireHttps ?? true;
+
+  // Fail at boot: a misconfigured base URL must not surface as per-send failures.
+  let parsedBase: URL;
+  try {
+    parsedBase = new URL(apiBaseUrl);
+  } catch {
+    throw new Error("channel-telegram: apiBaseUrl is not a valid URL");
+  }
+  if (!allowedHosts.includes(parsedBase.hostname)) {
+    throw new Error(
+      `channel-telegram: apiBaseUrl host "${parsedBase.hostname}" is not in allowedHosts`,
+    );
+  }
+  if (requireHttps && parsedBase.protocol !== "https:") {
+    throw new Error(
+      "channel-telegram: apiBaseUrl must use https (set requireHttps: false to opt out)",
+    );
+  }
 
   return {
     name: "telegram",
@@ -59,17 +85,10 @@ export function createTelegramChannel(
         return toChannelResult(address, { ok: false, code: "missing_credentials" });
       }
 
-      // The base URL is the allowlist: only its own host is reachable.
-      let baseHost: string;
-      try {
-        baseHost = new URL(apiBaseUrl).hostname;
-      } catch {
-        return toChannelResult(address, { ok: false, code: "host_not_allowed" });
-      }
       const result = await postChatWebhook({
         url: `${apiBaseUrl.replace(/\/+$/, "")}/bot${token}/sendMessage`,
-        allowedHosts: [baseHost],
-        requireHttps: apiBaseUrl.startsWith("https:"),
+        allowedHosts,
+        requireHttps,
         timeoutMs: options.timeoutMs ?? DEFAULT_CHAT_TIMEOUT_MS,
         // No parse_mode: Telegram renders the text literally.
         body: {

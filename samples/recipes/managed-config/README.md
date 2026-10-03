@@ -74,7 +74,7 @@ await runProdApp({
     _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
     // Required whenever a key declares backing:"secrets" — without it the set
     // and read paths fail loud, never silently miss.
-    secrets: createSecretsContext({ db, masterKeyProvider }),
+    secrets: createSecretsContext({ db, masterKeyProvider, registry }),
   }),
   // ...
 });

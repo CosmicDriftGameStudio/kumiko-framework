@@ -5,7 +5,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
 import { defineFeature, type SecretKeyHandle } from "@cosmicdrift/kumiko-framework/engine";
-import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import { ValidationError } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  createEnvMasterKeyProvider,
+  type SecretsContext,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   setupTestStack,
@@ -33,6 +37,7 @@ const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 const systemAdmin = createTestUser({ roles: ["SystemAdmin"] });
 
 let stack: TestStack;
+let programmaticSecrets: SecretsContext;
 
 beforeAll(async () => {
   const provider = createEnvMasterKeyProvider({
@@ -43,9 +48,10 @@ beforeAll(async () => {
   });
   stack = await setupTestStack({
     features: [createSecretsFeature({ roles: ["TenantAdmin", "SystemAdmin"] }), urlKeyFeature],
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider: provider }),
-    }),
+    extraContext: ({ db, registry }) => {
+      programmaticSecrets = createSecretsContext({ db, masterKeyProvider: provider, registry });
+      return { secrets: programmaticSecrets };
+    },
   });
   await unsafePushTables(stack.db, { tenant_secrets: tenantSecretsTable });
 });
@@ -73,5 +79,27 @@ describe("secrets:write:set with an invalid value", () => {
     );
     expect(err.code).toBe("validation_error");
     expect(err.i18nKey).toBe("secrets.errors.invalidValue");
+  });
+});
+
+describe("ctx.secrets.set (programmatic)", () => {
+  const secrets = () => programmaticSecrets;
+
+  test("rejects a value the declared valueSchema refuses, without echoing it", async () => {
+    const err = await secrets()
+      .set(systemAdmin.tenantId, urlKey?.name ?? "", INVALID_VALUE)
+      .then(
+        () => undefined,
+        (e: unknown) => e,
+      );
+    expect(err).toBeInstanceOf(ValidationError);
+    expect((err as ValidationError).i18nKey).toBe("secrets.errors.invalidValue");
+    expect(JSON.stringify(err)).not.toContain(INVALID_VALUE);
+    expect(await secrets().has(systemAdmin.tenantId, urlKey?.name ?? "")).toBe(false);
+  });
+
+  test("stores a valid value", async () => {
+    await secrets().set(systemAdmin.tenantId, urlKey?.name ?? "", "https://example.com/hook");
+    expect(await secrets().has(systemAdmin.tenantId, urlKey?.name ?? "")).toBe(true);
   });
 });

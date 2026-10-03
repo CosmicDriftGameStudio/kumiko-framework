@@ -22,7 +22,12 @@ const sendMessagePath = `/bot${BOT_TOKEN}/sendMessage`;
 beforeAll(async () => {
   stub = startProviderStub();
   harness = await setupChatHarness(
-    createChannelTelegramFeature({ apiBaseUrl: stub.origin, timeoutMs: 200 }),
+    createChannelTelegramFeature({
+      apiBaseUrl: stub.origin,
+      allowedHosts: ["127.0.0.1"],
+      requireHttps: false,
+      timeoutMs: 200,
+    }),
   );
 });
 

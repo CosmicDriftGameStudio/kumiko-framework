@@ -132,12 +132,14 @@ function resolveBootSecrets(
   db: DbConnection,
   features: readonly FeatureDefinition[],
   crypto: BootCrypto,
+  registry: Registry,
 ): SecretsContext | undefined {
   const hasSecretsFeature = features.some((f) => f.name === SECRETS_FEATURE_NAME);
   if (!hasSecretsFeature || !crypto.masterKeyProvider) return undefined;
   return createSecretsContext({
     db,
     masterKeyProvider: crypto.masterKeyProvider,
+    registry,
     dekCache: crypto.dekCache,
   });
 }
@@ -162,7 +164,7 @@ export function buildBootExtraContext(opts: {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
-  const secrets = resolveBootSecrets(opts.db, opts.features, crypto);
+  const secrets = resolveBootSecrets(opts.db, opts.features, crypto, opts.registry);
   return {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),

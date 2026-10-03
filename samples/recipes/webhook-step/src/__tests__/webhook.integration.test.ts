@@ -72,8 +72,8 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [createStepDispatcherFeature(), createSecretsFeature(), webhookDemoFeature],
     systemHooks: [],
-    extraContext: ({ db }) => ({
-      secrets: createSecretsContext({ db, masterKeyProvider }),
+    extraContext: ({ db, registry }) => ({
+      secrets: createSecretsContext({ db, masterKeyProvider, registry }),
     }),
   });
   await unsafeCreateEntityTable(stack.db, incidentEntity, "incident");

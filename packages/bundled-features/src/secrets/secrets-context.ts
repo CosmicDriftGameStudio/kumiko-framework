@@ -42,6 +42,11 @@ import {
   tenantSecretEntity,
   tenantSecretsTable,
 } from "./table.js";
+import {
+  invalidSecretValueError,
+  isSecretValueValid,
+  type SecretValueSchemaSource,
+} from "./write-gate.js";
 
 // Re-export the framework interface so consumers of bundled-features/secrets
 // don't need to reach into @cosmicdrift/kumiko-framework/secrets separately.
@@ -50,6 +55,9 @@ export type { Secret, SecretsContext } from "@cosmicdrift/kumiko-framework/secre
 export type SecretsContextOptions = {
   readonly db: DbConnection;
   readonly masterKeyProvider: MasterKeyProvider;
+  // Source of the declared `valueSchema`s: programmatic `set` enforces the same
+  // check as the write handler. Required so a context can't silently skip it.
+  readonly registry: SecretValueSchemaSource;
   // Shared DEK cache. Default: a fresh 5-min TTL cache. Pass in a shared
   // instance if several features decrypt overlapping secret sets — lowers
   // provider-call count across the app.
@@ -164,6 +172,7 @@ export function createSecretsContext(opts: SecretsContextOptions): SecretsContex
 
     async set(tenantId, keyOrHandle, value, setOpts = {}) {
       const key = resolveKey(keyOrHandle);
+      if (!isSecretValueValid(opts.registry, key, value)) throw invalidSecretValueError();
       const envelope = await encryptValue(value, masterKeyProvider);
       const stored: StoredEnvelope = encodeStoredEnvelope(envelope);
       const metadata: StoredMetadata = {

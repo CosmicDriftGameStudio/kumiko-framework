@@ -62,29 +62,42 @@ export function checkSecretKeyWrite(
   return { ok: true, keyDef };
 }
 
+// The registry surface the value check needs; lets ctx.secrets validate without a full Registry.
+export type SecretValueSchemaSource = Pick<Registry, "getSecretKey" | "findSecretNamespace">;
+
+// Carries neither the value nor the schema's issues.
+export function invalidSecretValueError(): ValidationError {
+  return new ValidationError(
+    {
+      fields: [
+        {
+          path: "value",
+          code: "invalid_secret_value",
+          i18nKey: "secrets.errors.invalidValue",
+        },
+      ],
+    },
+    { i18nKey: "secrets.errors.invalidValue" },
+  );
+}
+
+export function isSecretValueValid(
+  schemas: SecretValueSchemaSource,
+  key: string,
+  value: string,
+): boolean {
+  const valueSchema =
+    schemas.getSecretKey(key)?.valueSchema ?? schemas.findSecretNamespace(key)?.valueSchema;
+  return valueSchema === undefined || valueSchema.safeParse(value).success;
+}
+
 // Runs after checkSecretKeyWrite, so a caller without the write role never learns
-// whether a value would have passed. The failure carries neither the value nor
-// the schema's issues.
+// whether a value would have passed.
 export function checkSecretValue(
-  registry: Registry,
+  registry: SecretValueSchemaSource,
   key: string,
   value: string,
 ): WriteFailure | undefined {
-  const valueSchema =
-    registry.getSecretKey(key)?.valueSchema ?? registry.findSecretNamespace(key)?.valueSchema;
-  if (valueSchema === undefined || valueSchema.safeParse(value).success) return undefined;
-  return writeFailure(
-    new ValidationError(
-      {
-        fields: [
-          {
-            path: "value",
-            code: "invalid_secret_value",
-            i18nKey: "secrets.errors.invalidValue",
-          },
-        ],
-      },
-      { i18nKey: "secrets.errors.invalidValue" },
-    ),
-  );
+  if (isSecretValueValid(registry, key, value)) return undefined;
+  return writeFailure(invalidSecretValueError());
 }

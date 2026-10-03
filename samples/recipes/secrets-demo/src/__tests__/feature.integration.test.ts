@@ -94,10 +94,10 @@ beforeAll(async () => {
     // no Record<string, unknown>-via-extraContext. The rotation job reads
     // it from ctx.masterKeyProvider directly.
     masterKeyProvider: providerRef,
-    extraContext: ({ db }) => ({
+    extraContext: ({ db, registry }) => ({
       // SecretsContext sees the mutable ref — any replace() flips what
       // set/get/rotate use on the NEXT call.
-      secrets: createSecretsContext({ db, masterKeyProvider: providerRef }),
+      secrets: createSecretsContext({ db, masterKeyProvider: providerRef, registry }),
     }),
   });
 

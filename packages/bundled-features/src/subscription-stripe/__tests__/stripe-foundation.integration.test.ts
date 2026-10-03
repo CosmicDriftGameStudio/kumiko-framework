@@ -108,7 +108,7 @@ beforeAll(async () => {
       // scenario (5, seeded via config:write:set) since runtime.ts's
       // resolver already falls back to the factory options when the store
       // is empty.
-      secrets: createSecretsContext({ db: ctxDb, masterKeyProvider }),
+      secrets: createSecretsContext({ db: ctxDb, masterKeyProvider, registry: registry }),
     }),
     extraRoutes: [createSubscriptionWebhookRoute()],
   });
@@ -612,7 +612,7 @@ describe("scenario 6: billing-live gate end-to-end (#104)", () => {
         configResolver: resolver,
         configEncryption: encryption,
         _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-        secrets: createSecretsContext({ db: ctxDb, masterKeyProvider }),
+        secrets: createSecretsContext({ db: ctxDb, masterKeyProvider, registry: registry }),
       }),
     });
     await unsafeCreateEntityTable(gateStack.db, tenantEntity);
