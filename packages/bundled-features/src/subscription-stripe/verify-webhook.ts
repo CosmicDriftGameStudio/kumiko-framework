@@ -358,6 +358,7 @@ function dropPaidSession(
 
 /** Parses a checkout.session.completed / .async_payment_succeeded event into
  *  a PaymentEvent, or null if it isn't a paid one-off-payment session. */
+// kumiko-lint-ignore complexity-budget optional-field spreads over the session, one branch per optional provider field
 async function parsePaymentEvent(
   event: Stripe.Event,
   stripe: Stripe,

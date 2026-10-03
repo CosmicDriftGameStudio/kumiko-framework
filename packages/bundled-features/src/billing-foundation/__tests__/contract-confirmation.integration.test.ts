@@ -1,4 +1,4 @@
-// § 312f contract confirmation (fw#3468): consent recorded through real HTTP,
+// § 312f contract confirmation: consent recorded through real HTTP,
 // provider webhooks through the real signature extraRoute, the mail captured by
 // the in-memory email transport after the job cascade drained.
 

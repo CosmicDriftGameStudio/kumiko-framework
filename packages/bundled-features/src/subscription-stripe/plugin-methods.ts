@@ -230,9 +230,9 @@ export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
       await stripe.subscriptions.update(options.providerSubscriptionId, {
         cancel_at_period_end: true,
       });
-      return;
+    } else {
+      await stripe.subscriptions.cancel(options.providerSubscriptionId);
     }
-    await stripe.subscriptions.cancel(options.providerSubscriptionId);
   };
 }
 

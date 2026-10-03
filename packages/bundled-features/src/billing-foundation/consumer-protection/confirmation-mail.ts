@@ -1,3 +1,4 @@
+import { Temporal } from "temporal-polyfill";
 import type { CheckoutConsentRecordedPayload } from "../events.js";
 import { CONSENT_TEXTS, type ConsentLocale, resolveConsentLocale } from "./consent-text.js";
 
@@ -109,13 +110,17 @@ function formatPrice(consent: CheckoutConsentRecordedPayload, locale: ConsentLoc
 }
 
 function formatDate(iso: string, locale: ConsentLocale): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
+  let epochMilliseconds: number;
+  try {
+    epochMilliseconds = Temporal.Instant.from(iso).epochMilliseconds;
+  } catch {
+    return iso;
+  }
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "long",
     timeStyle: "short",
     timeZone: "UTC",
-  }).format(date);
+  }).format(epochMilliseconds);
 }
 
 function paragraphs(text: string): readonly { readonly text: string }[] {

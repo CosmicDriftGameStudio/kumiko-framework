@@ -114,7 +114,7 @@ export type PaymentEventHeaders = {
 };
 
 // =============================================================================
-// checkout-consent-recorded — consumer-protection consent (fw#3468)
+// checkout-consent-recorded — consumer-protection consent
 // =============================================================================
 //
 // Appended onto the subscription- or payment-stream (by checkout mode) after
@@ -143,7 +143,7 @@ export const checkoutConsentRecordedPayloadSchema = z.object({
 export type CheckoutConsentRecordedPayload = z.infer<typeof checkoutConsentRecordedPayloadSchema>;
 
 // =============================================================================
-// contract-confirmation-issued — § 312f confirmation mail sent (fw#3468)
+// contract-confirmation-issued — § 312f confirmation mail sent
 // =============================================================================
 //
 // Appended onto the stream that carries the consent, BEFORE the mail is
@@ -165,7 +165,7 @@ export type ContractConfirmationIssuedPayload = z.infer<
 >;
 
 // =============================================================================
-// contract-termination-requested / -unmatched — § 312k cancellation (fw#3468)
+// contract-termination-requested / -unmatched — § 312k cancellation
 // =============================================================================
 //
 // Payloads carry no name, email or reason: those only travel in the mails.

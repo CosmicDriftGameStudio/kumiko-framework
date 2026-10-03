@@ -273,9 +273,48 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successBody": "Thanks! You can sign in now.",
   "auth.verifyEmail.successTitle": "Email verified",
   "auth.verifyEmail.verifying": "Verifying email …",
+  "billing-foundation.cancel.back": "Back",
+  "billing-foundation.cancel.close": "Close",
+  "billing-foundation.cancel.confirmQuestion":
+    "Do you want to submit this declaration now? Declaration: {declaration}, type: {kind}.",
+  "billing-foundation.cancel.continue": "Continue",
+  "billing-foundation.cancel.declaration": "Declaration",
+  "billing-foundation.cancel.declaration.termination": "Termination",
+  "billing-foundation.cancel.declaration.withdrawal": "Withdrawal",
+  "billing-foundation.cancel.effectiveAt": "It takes effect on {date}.",
+  "billing-foundation.cancel.effectiveUnknown": "We will confirm the effective date by email.",
+  "billing-foundation.cancel.emailConfirmation": "You will receive a confirmation by email.",
+  "billing-foundation.cancel.kind": "Type of termination",
+  "billing-foundation.cancel.kind.extraordinary": "Extraordinary (for cause)",
+  "billing-foundation.cancel.kind.ordinary": "Ordinary",
+  "billing-foundation.cancel.open": "Cancel contract here",
+  "billing-foundation.cancel.reason": "Reason",
+  "billing-foundation.cancel.receivedAt": "We received your declaration on {date}.",
+  "billing-foundation.cancel.submit": "Cancel now",
+  "billing-foundation.cancel.title": "Cancel contract",
+  "billing-foundation.cancel.withdrawalHint":
+    "A withdrawal is only possible within the statutory withdrawal period.",
+  "billing-foundation.consent.back": "Back",
+  "billing-foundation.consent.cancelAnytime":
+    "You can cancel at any time, effective at the end of the current period.",
+  "billing-foundation.consent.link.privacy": "Privacy policy",
+  "billing-foundation.consent.link.terms": "Terms",
+  "billing-foundation.consent.link.withdrawal": "Withdrawal policy",
+  "billing-foundation.consent.order": "Order with obligation to pay",
+  "billing-foundation.consent.renews.day": "Renews every day until cancelled.",
+  "billing-foundation.consent.renews.month": "Renews every month until cancelled.",
+  "billing-foundation.consent.renews.week": "Renews every week until cancelled.",
+  "billing-foundation.consent.renews.year": "Renews every year until cancelled.",
+  "billing-foundation.consent.renewsEvery.day": "Renews every {count} days until cancelled.",
+  "billing-foundation.consent.renewsEvery.month": "Renews every {count} months until cancelled.",
+  "billing-foundation.consent.renewsEvery.week": "Renews every {count} weeks until cancelled.",
+  "billing-foundation.consent.renewsEvery.year": "Renews every {count} years until cancelled.",
+  "billing-foundation.consent.title": "Review your order",
   "billing-foundation.errors.alreadyOnPlan": "This tenant is already on that plan.",
   "billing-foundation.errors.cancellationScheduled":
     "This subscription is scheduled to end. Reactivate it before switching plans.",
+  "billing-foundation.errors.consentTextOutdated":
+    "The consent text has changed. Reload the page and confirm again.",
   "billing-foundation.errors.foreignProviderCustomer":
     "This customer account does not belong to your tenant.",
   "billing-foundation.errors.noActiveSubscription":
@@ -293,6 +332,8 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "This redirect URL is not allowed for this app.",
   "billing-foundation.errors.subscriptionExists":
     "This tenant already has an active subscription. Switch plans instead.",
+  "billing-foundation.errors.termsUnavailable":
+    "The terms are temporarily unavailable. Please try again later.",
   "billing-foundation.errors.unknownPrice": "This price is not recognized.",
   "billing-foundation.plans.billingDisabled":
     "Billing is not active yet. Your current plan stays in place.",

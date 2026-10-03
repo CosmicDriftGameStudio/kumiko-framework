@@ -4,8 +4,7 @@
 import type { AnonymousExtraRoute } from "@cosmicdrift/kumiko-framework/api";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { Context } from "hono";
-import { wrapInLayout } from "../../page-render/layout.js";
-import { securePageHeaders } from "../../page-render/security-headers.js";
+import { securePageHeaders, wrapInLayout } from "../../page-render/index.js";
 import { SubscriptionFoundationHandlers } from "../constants.js";
 import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } from "../events.js";
 import type { ConsentLocale } from "./consent-text.js";
@@ -33,13 +32,15 @@ const FORM_FIELDS = [
 type FormField = (typeof FORM_FIELDS)[number];
 type FormValues = Readonly<Record<FormField, string>>;
 
+const EMPTY_TEXT = "";
+
 const EMPTY_FORM: FormValues = {
   declarationType: "termination",
   terminationKind: "ordinary",
   name: "",
   email: "",
   customerReference: "",
-  reason: "",
+  reason: EMPTY_TEXT,
 };
 
 // The shared security headers leave framing to SAMEORIGIN; this form must
@@ -150,7 +151,7 @@ function textField(
   value: string,
   attributes: { readonly type?: string; readonly required?: boolean; readonly maxlength: number },
 ): string {
-  return `<p><label>${escapeHtml(label)}<br><input type="${attributes.type ?? "text"}" name="${name}" value="${escapeHtmlAttr(value)}" maxlength="${attributes.maxlength}"${
+  return `<p><label>${escapeHtml(label)}<br><input type="${escapeHtmlAttr(attributes.type ?? "text")}" name="${name}" value="${escapeHtmlAttr(value)}" maxlength="${attributes.maxlength}"${
     attributes.required ? " required" : ""
   }></label></p>`;
 }
@@ -218,7 +219,7 @@ ${row(texts.terminationKind, texts.terminationKindLabel[terminationKind])}
 ${row(texts.name, values.name)}
 ${row(texts.email, values.email)}
 ${row(texts.customerReference, values.customerReference)}
-${row(texts.reason, values.reason)}
+${row(texts.reasonFieldLabel, values.reason)}
 </table>
 <form method="post" action="${escapeHtmlAttr(path)}">
 ${hiddenInputs(values)}

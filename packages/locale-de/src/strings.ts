@@ -286,9 +286,53 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.verifyEmail.successBody": "Danke! Du kannst dich jetzt anmelden.",
   "auth.verifyEmail.successTitle": "E-Mail bestätigt",
   "auth.verifyEmail.verifying": "E-Mail wird bestätigt …",
+  "billing-foundation.cancel.back": "Zurück",
+  "billing-foundation.cancel.close": "Schließen",
+  "billing-foundation.cancel.confirmQuestion":
+    "Möchten Sie diese Erklärung jetzt abgeben? Erklärung: {declaration}, Art: {kind}.",
+  "billing-foundation.cancel.continue": "Weiter",
+  "billing-foundation.cancel.declaration": "Erklärung",
+  "billing-foundation.cancel.declaration.termination": "Kündigung",
+  "billing-foundation.cancel.declaration.withdrawal": "Widerruf",
+  "billing-foundation.cancel.effectiveAt": "Sie wird zum {date} wirksam.",
+  "billing-foundation.cancel.effectiveUnknown":
+    "Den Wirksamkeitszeitpunkt bestätigen wir Ihnen per E-Mail.",
+  "billing-foundation.cancel.emailConfirmation": "Sie erhalten eine Bestätigung per E-Mail.",
+  "billing-foundation.cancel.kind": "Art der Kündigung",
+  "billing-foundation.cancel.kind.extraordinary": "Außerordentlich (aus wichtigem Grund)",
+  "billing-foundation.cancel.kind.ordinary": "Ordentlich",
+  "billing-foundation.cancel.open": "Vertrag hier kündigen",
+  "billing-foundation.cancel.reason": "Begründung",
+  "billing-foundation.cancel.receivedAt": "Ihre Erklärung ist am {date} bei uns eingegangen.",
+  "billing-foundation.cancel.submit": "Jetzt kündigen",
+  "billing-foundation.cancel.title": "Vertrag kündigen",
+  "billing-foundation.cancel.withdrawalHint":
+    "Ein Widerruf ist nur innerhalb der gesetzlichen Widerrufsfrist möglich.",
+  "billing-foundation.consent.back": "Zurück",
+  "billing-foundation.consent.cancelAnytime":
+    "Sie können jederzeit zum Ende des laufenden Zeitraums kündigen.",
+  "billing-foundation.consent.link.privacy": "Datenschutzerklärung",
+  "billing-foundation.consent.link.terms": "AGB",
+  "billing-foundation.consent.link.withdrawal": "Widerrufsbelehrung",
+  "billing-foundation.consent.order": "Zahlungspflichtig bestellen",
+  "billing-foundation.consent.renews.day": "Verlängert sich täglich, bis Sie kündigen.",
+  "billing-foundation.consent.renews.month": "Verlängert sich monatlich, bis Sie kündigen.",
+  "billing-foundation.consent.renews.week": "Verlängert sich wöchentlich, bis Sie kündigen.",
+  "billing-foundation.consent.renews.year": "Verlängert sich jährlich, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.day":
+    "Verlängert sich alle {count} Tage, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.month":
+    "Verlängert sich alle {count} Monate, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.week":
+    "Verlängert sich alle {count} Wochen, bis Sie kündigen.",
+  "billing-foundation.consent.renewsEvery.year":
+    "Verlängert sich alle {count} Jahre, bis Sie kündigen.",
+  "billing-foundation.consent.title": "Bestellung prüfen",
   "billing-foundation.errors.alreadyOnPlan": "Dieser Mandant ist bereits auf diesem Tarif.",
   "billing-foundation.errors.cancellationScheduled":
     "Dieses Abo endet planmäßig. Es muss vor einem Tarifwechsel reaktiviert werden.",
+  "billing-foundation.errors.consentTextOutdated":
+    "Der Zustimmungstext hat sich geändert. Laden Sie die Seite neu und bestätigen Sie erneut.",
   "billing-foundation.errors.foreignProviderCustomer":
     "Dieses Kundenkonto gehört nicht zu diesem Mandanten.",
   "billing-foundation.errors.noActiveSubscription":
@@ -307,6 +351,8 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "Diese Weiterleitungs-URL ist für diese App nicht erlaubt.",
   "billing-foundation.errors.subscriptionExists":
     "Dieser Mandant hat bereits ein aktives Abo. Wechsle stattdessen den Tarif.",
+  "billing-foundation.errors.termsUnavailable":
+    "Die AGB sind vorübergehend nicht verfügbar. Bitte versuchen Sie es später erneut.",
   "billing-foundation.errors.unknownPrice": "Dieser Preis ist nicht bekannt.",
   "billing-foundation.plans.billingDisabled":
     "Die Abrechnung ist noch nicht aktiv. Dein aktueller Tarif bleibt bestehen.",

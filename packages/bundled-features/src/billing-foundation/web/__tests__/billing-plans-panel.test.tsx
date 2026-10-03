@@ -29,19 +29,35 @@ let switchResult: WriteResult<{ readonly url: string }> = {
   isSuccess: true,
   data: { url: "https://portal.example.com/session" },
 };
+type TerminateReceipt = {
+  readonly requestId: string;
+  readonly receivedAtIso: string;
+  readonly effectiveAtIso: string | null;
+};
+let terminateResult: WriteResult<TerminateReceipt> = {
+  isSuccess: true,
+  data: {
+    requestId: "req-1",
+    receivedAtIso: "2024-01-15T10:30:00Z",
+    effectiveAtIso: "2024-02-01T00:00:00Z",
+  },
+};
+let uiLocale = "en";
 let portalResult: WriteResult<{ readonly url: string }> = {
   isSuccess: true,
   data: { url: "https://billing-portal.example.com/session" },
 };
 
+const refetchPlans = mock(async () => {});
 const useQuerySpy = mock((_type: string, _params: unknown) => ({
   ...queryState,
-  refetch: mock(async () => {}),
+  refetch: refetchPlans,
 }));
 
 const checkoutMutate = mock(async (_payload: unknown) => checkoutResult);
 const switchMutate = mock(async (_payload: unknown) => switchResult);
 const portalMutate = mock(async (_payload: unknown) => portalResult);
+const terminateMutate = mock(async (_payload: unknown) => terminateResult);
 
 const useMutationSpy = mock((type: string) => {
   const mutate =
@@ -49,7 +65,9 @@ const useMutationSpy = mock((type: string) => {
       ? checkoutMutate
       : type === SubscriptionFoundationHandlers.switchPlan
         ? switchMutate
-        : portalMutate;
+        : type === SubscriptionFoundationHandlers.terminateContract
+          ? terminateMutate
+          : portalMutate;
   return { mutate, pending: false, error: null, data: null, reset: mock(() => {}) };
 });
 
@@ -60,12 +78,20 @@ mock.module("@cosmicdrift/kumiko-renderer", () => ({
   useMutation: useMutationSpy,
 }));
 
+// Shows interpolation params for the cancel keys so the formatted dates are assertable.
+function testResolver(): ReturnType<typeof createStaticLocaleResolver> {
+  return {
+    ...createStaticLocaleResolver({ locale: uiLocale }),
+    translate: (key, params) =>
+      key.startsWith("billing-foundation.cancel.") && params !== undefined
+        ? `${key}|${Object.values(params).join("|")}`
+        : key,
+  };
+}
+
 function Wrapper({ children }: { readonly children: ReactNode }): ReactNode {
   return (
-    <LocaleProvider
-      resolver={createStaticLocaleResolver()}
-      fallbackBundles={[kumikoDefaultTranslations]}
-    >
+    <LocaleProvider resolver={testResolver()} fallbackBundles={[kumikoDefaultTranslations]}>
       <PrimitivesProvider value={defaultPrimitives}>{children}</PrimitivesProvider>
     </LocaleProvider>
   );
@@ -122,6 +148,17 @@ beforeEach(() => {
   checkoutResult = { isSuccess: true, data: { url: "https://checkout.example.com/session" } };
   switchResult = { isSuccess: true, data: { url: "https://portal.example.com/session" } };
   portalResult = { isSuccess: true, data: { url: "https://billing-portal.example.com/session" } };
+  uiLocale = "en";
+  terminateResult = {
+    isSuccess: true,
+    data: {
+      requestId: "req-1",
+      receivedAtIso: "2024-01-15T10:30:00Z",
+      effectiveAtIso: "2024-02-01T00:00:00Z",
+    },
+  };
+  terminateMutate.mockClear();
+  refetchPlans.mockClear();
   checkoutMutate.mockClear();
   switchMutate.mockClear();
   portalMutate.mockClear();
@@ -389,5 +426,182 @@ describe("BillingPlansPanel", () => {
     expect(screen.getByText("Price not available")).toBeTruthy();
     const cta = screen.getByRole("button") as HTMLButtonElement;
     expect(cta.disabled).toBe(true);
+  });
+
+  describe("with consumerProtection", () => {
+    const consumerProtection: NonNullable<BillingPlansResult["consumerProtection"]> = {
+      consentTexts: {
+        de: {
+          earlyPerformance: "DE early performance",
+          withdrawalLoss: "DE withdrawal loss",
+          consentTextVersion: "version-de",
+        },
+        en: {
+          earlyPerformance: "EN early performance",
+          withdrawalLoss: "EN withdrawal loss",
+          consentTextVersion: "version-en",
+        },
+      },
+      legalLinks: { terms: "/legal/terms", withdrawal: "/legal/withdrawal", privacy: "/privacy" },
+    };
+
+    function openConsentDialog(): void {
+      queryState = { data: result({ consumerProtection }), loading: false, error: null };
+      renderPanel();
+      fireEvent.click(screen.getByRole("button", { name: "billing-foundation.plans.choose" }));
+    }
+
+    function orderButton(): HTMLButtonElement {
+      return screen.getByTestId("checkout-consent-order") as HTMLButtonElement;
+    }
+
+    function tickBothConsents(): void {
+      fireEvent.click(screen.getByLabelText("EN early performance"));
+      fireEvent.click(screen.getByLabelText("EN withdrawal loss"));
+    }
+
+    test("the checkout CTA opens the consent dialog with summary and links instead of calling the mutation", () => {
+      openConsentDialog();
+      expect(screen.getByTestId("checkout-consent-dialog")).toBeTruthy();
+      expect(checkoutMutate).not.toHaveBeenCalled();
+      expect(screen.getByTestId("checkout-consent-summary").textContent).toContain("$9.99");
+      expect(
+        screen
+          .getByText("billing-foundation.consent.link.terms")
+          .closest("a")
+          ?.getAttribute("href"),
+      ).toBe("/legal/terms");
+      expect(
+        screen
+          .getByText("billing-foundation.consent.link.withdrawal")
+          .closest("a")
+          ?.getAttribute("href"),
+      ).toBe("/legal/withdrawal");
+      expect(
+        screen
+          .getByText("billing-foundation.consent.link.privacy")
+          .closest("a")
+          ?.getAttribute("href"),
+      ).toBe("/privacy");
+    });
+
+    test("the order button stays disabled until both consents are ticked", () => {
+      openConsentDialog();
+      expect(orderButton().disabled).toBe(true);
+      fireEvent.click(screen.getByLabelText("EN early performance"));
+      expect(orderButton().disabled).toBe(true);
+      fireEvent.click(screen.getByLabelText("EN withdrawal loss"));
+      expect(orderButton().disabled).toBe(false);
+    });
+
+    test("ordering sends the consent with the server's text version and the resolved locale, then redirects", async () => {
+      openConsentDialog();
+      tickBothConsents();
+      fireEvent.click(orderButton());
+      await waitFor(() => {
+        expect(window.location.assign).toHaveBeenCalledWith("https://checkout.example.com/session");
+      });
+      expect(checkoutMutate).toHaveBeenCalledWith({
+        tier: "pro",
+        consent: {
+          earlyPerformanceRequested: true,
+          withdrawalLossAcknowledged: true,
+          consentTextVersion: "version-en",
+          locale: "en",
+        },
+      });
+    });
+
+    test("a UI locale outside de/en falls back to the german consent texts", async () => {
+      uiLocale = "fr-FR";
+      queryState = { data: result({ consumerProtection }), loading: false, error: null };
+      renderPanel();
+      fireEvent.click(screen.getByRole("button", { name: "billing-foundation.plans.choose" }));
+      fireEvent.click(screen.getByLabelText("DE early performance"));
+      fireEvent.click(screen.getByLabelText("DE withdrawal loss"));
+      fireEvent.click(orderButton());
+      await waitFor(() => expect(checkoutMutate).toHaveBeenCalled());
+      expect(checkoutMutate).toHaveBeenCalledWith({
+        tier: "pro",
+        consent: expect.objectContaining({ consentTextVersion: "version-de", locale: "de" }),
+      });
+    });
+
+    test("consent_text_outdated shows the error in the dialog, clears the boxes and refetches the plans", async () => {
+      checkoutResult = {
+        isSuccess: false,
+        error: {
+          code: "consent_text_outdated",
+          httpStatus: 422,
+          i18nKey: "billing-foundation.errors.consentTextOutdated",
+          message: "outdated",
+        } as DispatcherError,
+      };
+      openConsentDialog();
+      tickBothConsents();
+      fireEvent.click(orderButton());
+      await waitFor(() => {
+        expect(screen.getByTestId("checkout-consent-error").textContent).toContain(
+          "billing-foundation.errors.consentTextOutdated",
+        );
+      });
+      expect(refetchPlans).toHaveBeenCalledTimes(1);
+      expect(orderButton().disabled).toBe(true);
+      expect(window.location.assign).not.toHaveBeenCalled();
+    });
+
+    test("without consumerProtection the checkout CTA calls the mutation directly without consent", async () => {
+      queryState = { data: result(), loading: false, error: null };
+      renderPanel();
+      fireEvent.click(screen.getByRole("button"));
+      await waitFor(() => expect(checkoutMutate).toHaveBeenCalledWith({ tier: "pro" }));
+      expect(screen.queryByTestId("checkout-consent-dialog")).toBeNull();
+      expect(screen.queryByTestId("billing-plans-cancel-contract")).toBeNull();
+    });
+
+    function openCancelDialog(): void {
+      queryState = {
+        data: result({
+          consumerProtection,
+          subscription: subscription(),
+          plans: [plan({ isCurrent: true, action: BillingPlanActions.current })],
+        }),
+        loading: false,
+        error: null,
+      };
+      renderPanel();
+      fireEvent.click(screen.getByTestId("billing-plans-cancel-contract"));
+    }
+
+    test("an extraordinary termination cannot continue without a reason", () => {
+      openCancelDialog();
+      const continueButton = screen.getByTestId("cancel-contract-continue") as HTMLButtonElement;
+      fireEvent.click(
+        screen.getByRole("button", { name: "billing-foundation.cancel.kind.extraordinary" }),
+      );
+      expect(continueButton.disabled).toBe(true);
+      fireEvent.change(screen.getByRole("textbox"), {
+        target: { value: "Provider changed the terms" },
+      });
+      expect(continueButton.disabled).toBe(false);
+      expect(terminateMutate).not.toHaveBeenCalled();
+    });
+
+    test("a termination is sent after confirmation and shows receipt and effective date", async () => {
+      openCancelDialog();
+      fireEvent.click(screen.getByTestId("cancel-contract-continue"));
+      expect(terminateMutate).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId("cancel-contract-submit"));
+      await waitFor(() => expect(screen.getByTestId("cancel-contract-receipt")).toBeTruthy());
+      expect(terminateMutate).toHaveBeenCalledWith({
+        declarationType: "termination",
+        terminationKind: "ordinary",
+      });
+      const receiptText = screen.getByTestId("cancel-contract-receipt").textContent ?? "";
+      expect(receiptText).toContain("Jan 15, 2024");
+      expect(receiptText).toContain("Feb 1, 2024");
+      expect(receiptText).toContain("billing-foundation.cancel.emailConfirmation");
+      expect(refetchPlans).toHaveBeenCalledTimes(1);
+    });
   });
 });

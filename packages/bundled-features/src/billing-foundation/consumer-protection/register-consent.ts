@@ -65,8 +65,10 @@ export function registerConsumerProtection(
       { trigger: { on: trigger.eventQn }, runIn: "worker" },
       async (payload, ctx) => {
         const consentId = payload["consentId"];
+        // skip: trigger event carries no consent to confirm
         if (typeof consentId !== "string" || consentId.length === 0) return;
         const isSubscriptionEvent = trigger.stream === "subscription";
+        // skip: subscription not live yet, a later event confirms
         if (isSubscriptionEvent && !isConfirmableSubscriptionStatus(payload["status"])) return;
 
         // The tenant comes from the stored trigger event (the job's system

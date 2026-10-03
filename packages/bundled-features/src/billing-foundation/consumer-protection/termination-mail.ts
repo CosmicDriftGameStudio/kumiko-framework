@@ -1,3 +1,4 @@
+import { Temporal } from "temporal-polyfill";
 import type {
   ContractTerminationDeclarationType,
   ContractTerminationKind,
@@ -29,13 +30,17 @@ const TIME_ZONE_BY_LOCALE: Readonly<Record<ConsentLocale, string>> = {
 };
 
 export function formatReceivedAt(iso: string, locale: ConsentLocale): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return iso;
+  let epochMilliseconds: number;
+  try {
+    epochMilliseconds = Temporal.Instant.from(iso).epochMilliseconds;
+  } catch {
+    return iso;
+  }
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "long",
     timeStyle: "long",
     timeZone: TIME_ZONE_BY_LOCALE[locale],
-  }).format(date);
+  }).format(epochMilliseconds);
 }
 
 function declarationLines(
@@ -51,7 +56,7 @@ function declarationLines(
     ...(declaration.customerReference
       ? [`${texts.customerReference}: ${declaration.customerReference}`]
       : []),
-    ...(declaration.reason ? [`${texts.reason}: ${declaration.reason}`] : []),
+    ...(declaration.reason ? [`${texts.reasonFieldLabel}: ${declaration.reason}`] : []),
   ];
   return lines.map((text) => ({ text }));
 }

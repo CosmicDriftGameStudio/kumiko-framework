@@ -9,8 +9,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
-import { requireTemplateResolver } from "../../template-resolver/api.js";
-import { TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
+import { requireTemplateResolver, TEXT_BLOCK_KIND } from "../../template-resolver/index.js";
 import { UserQueries } from "../../user/index.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { CONTRACT_CONFIRMATION_NOTIFICATION_TYPE } from "../constants.js";
@@ -62,6 +61,7 @@ export function createIssueContractConfirmationHandler(
       reason:
         "reads the consenting buyer's email via UserQueries.findForAuth as a tenant system user; the mail goes only to the user recorded in the consent event",
     },
+    // kumiko-lint-ignore complexity-budget one linear pass: stream lookup, consent match, idempotency check, recipient lookup, mail, marker append
     handler: async (event, ctx) => {
       // @cast-boundary engine-payload — dispatcher-zod-validated payload
       const payload = event.payload as z.infer<typeof issueContractConfirmationSchema>;

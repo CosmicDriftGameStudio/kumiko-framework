@@ -44,26 +44,28 @@ function validateConsumerProtection(cp: ConsumerProtectionOptions): void {
   }
 }
 
+function validateBaseUrl(baseUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new Error(
+      `createBillingFoundationFeature: baseUrl "${baseUrl}" is not a parseable absolute URL.`,
+    );
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error(
+      `createBillingFoundationFeature: baseUrl "${baseUrl}" must use http or https (parsed protocol "${parsed.protocol}").`,
+    );
+  }
+}
+
 /** Validates `options` and throws a plain `Error` with a clear message at
  *  feature-definition time — same pattern as `createCapOverviewFeature`.
  *  `createBillingFoundationFeature()` (no options) always succeeds; the
  *  extra checks only fire once a caller opts into `baseUrl`/`catalog`. */
 export function validateOptions(options: BillingFoundationOptions): void {
-  if (options.baseUrl !== undefined) {
-    let parsed: URL;
-    try {
-      parsed = new URL(options.baseUrl);
-    } catch {
-      throw new Error(
-        `createBillingFoundationFeature: baseUrl "${options.baseUrl}" is not a parseable absolute URL.`,
-      );
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new Error(
-        `createBillingFoundationFeature: baseUrl "${options.baseUrl}" must use http or https (parsed protocol "${parsed.protocol}").`,
-      );
-    }
-  }
+  if (options.baseUrl !== undefined) validateBaseUrl(options.baseUrl);
   if (options.consumerProtection) {
     if (options.baseUrl === undefined) {
       throw new Error(

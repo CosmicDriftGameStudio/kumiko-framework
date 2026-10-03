@@ -5,6 +5,7 @@
 
 import {
   createSystemUser,
+  declareEscapeHatch,
   type HandlerContext,
   SYSTEM_TENANT_ID,
   type WriteHandlerDef,
@@ -138,6 +139,7 @@ async function sendTerminationMails(
     }),
     priority: "critical",
   });
+  // skip: no operator notice needed for this declaration
   if (plan.reasons.length === 0) return;
   await ctx.notify(CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE, {
     route: { email: consumerProtection.operatorEmail },
@@ -164,6 +166,10 @@ async function findTerminableTenantIds(
   requestTenantId: string,
   email: string,
 ): Promise<readonly string[]> {
+  declareEscapeHatch({
+    reason:
+      "anonymous declarant has no session — finds the contract by email via user:find-for-auth and tenant:memberships as a system user; the calling handler declares its own escapeHatch",
+  });
   const user = authUserRowSchema.safeParse(
     await ctx.queryAs(createSystemUser(requestTenantId), UserQueries.findForAuth, { email }),
   );
