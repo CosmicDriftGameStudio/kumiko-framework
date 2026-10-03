@@ -14,6 +14,7 @@ import {
 } from "../events.js";
 import type { ConsumerProtectionOptions, ResolvedBillingFoundationOptions } from "../types.js";
 import { createIssueContractConfirmationHandler } from "./issue-confirmation.js";
+import { registerContractTermination } from "./register-termination.js";
 
 type ConfirmationTrigger = {
   readonly eventQn: string;
@@ -45,7 +46,8 @@ export function registerConsumerProtection(
   options: ResolvedBillingFoundationOptions,
   consumerProtection: ConsumerProtectionOptions,
 ): void {
-  r.requires("template-resolver", "delivery", "user");
+  r.requires("template-resolver", "delivery", "user", "tenant");
+  registerContractTermination(r, options, consumerProtection);
   r.defineEvent(CHECKOUT_CONSENT_RECORDED_EVENT_SHORT, checkoutConsentRecordedPayloadSchema, {
     piiFields: "none",
   });
