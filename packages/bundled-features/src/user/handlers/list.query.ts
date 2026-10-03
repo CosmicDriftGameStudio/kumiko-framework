@@ -13,6 +13,7 @@ import { userEntity } from "../schema/user.js";
 
 const baseList = defineEntityListHandler("user", userEntity, {
   access: { roles: access.systemAdmin },
+  agent: { risk: "high" },
   description:
     "Lists identity records across every tenant for a SystemAdmin roster, each row carrying a derived `tenants` label naming the tenants the user belongs to and their roles there.",
 });

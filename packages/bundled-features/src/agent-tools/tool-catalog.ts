@@ -1,9 +1,10 @@
 import type {
+  AgentRisk,
   EntityDefinition,
   FieldDefinition,
   QueryHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { hasAccess } from "@cosmicdrift/kumiko-framework/engine";
+import { hasAccess, normalizeAccessEntry } from "@cosmicdrift/kumiko-framework/engine";
 import { FILTER_OPS, isRecord } from "./filter-ops.js";
 import type {
   AgentManifest,
@@ -106,11 +107,27 @@ function isExplicitlyAgentHidden(def: QueryHandlerDef): boolean {
   return def.agent?.expose === false;
 }
 
+/** The model's filters feed the WHERE clause, and only the output is field-filtered — a field
+ *  whose read access is role- or row-restricted would leak through `totalCount` and hit/miss
+ *  probing. Only fields every one of these roles may read without a row condition are offered. */
+function isReadableWithoutRowCondition(field: FieldDefinition, roles: readonly string[]): boolean {
+  const accessMap = normalizeAccessEntry(field.access?.read);
+  if (!accessMap || Object.keys(accessMap).length === 0) return true;
+  return roles.every((role) => accessMap[role] === "all");
+}
+
+/** Entity CRUD tools are registry-derived, so an explicit `agent.risk` on the handler is read
+ *  here; without a hint the read tools stay "low". */
+function entityHandlerRisk(registry: RegistrySearchView, qn: string): AgentRisk {
+  return registry.getAllQueryHandlers().get(qn)?.agent?.risk ?? "low";
+}
+
 function addToolsForListHandler(
   registry: RegistrySearchView,
   qn: string,
   entityName: string,
   entity: EntityDefinition,
+  roles: readonly string[],
   sink: CatalogSink,
 ): void {
   const searchableFields = registry.getSearchableFields(entityName);
@@ -122,7 +139,7 @@ function addToolsForListHandler(
   for (const [fieldName, field] of Object.entries(
     entity.fields as Record<string, FieldDefinition>,
   )) {
-    if (!isFilterable(field)) continue;
+    if (!isFilterable(field) || !isReadableWithoutRowCondition(field, roles)) continue;
     const fieldSchema = jsonSchemaTypeForField(field);
     if (!fieldSchema) continue;
     const tool = buildFindByTool(entityName, fieldName, fieldSchema);
@@ -145,6 +162,7 @@ function buildGetTool(
   entityName: string,
   qn: string,
   label: string,
+  risk: AgentRisk,
 ): { tool: ToolDefinition; descriptor: ToolDispatchDescriptor } {
   return {
     tool: {
@@ -157,7 +175,7 @@ function buildGetTool(
         additionalProperties: false,
       },
     },
-    descriptor: { kind: "server", op: "query", qn, risk: "low", entity: entityName, detail: true },
+    descriptor: { kind: "server", op: "query", qn, risk, entity: entityName, detail: true },
   };
 }
 
@@ -198,6 +216,7 @@ function buildListTool(
   label: string,
   searchableFields: readonly string[],
   filterableFields: readonly string[],
+  risk: AgentRisk,
 ): { tool: ToolDefinition; descriptor: ToolDispatchDescriptor } {
   const descriptionParts = [`List ${label} records.`];
   if (searchableFields.length > 0) {
@@ -218,16 +237,26 @@ function buildListTool(
       kind: "server",
       op: "query",
       qn,
-      risk: "low",
+      risk,
       entity: entityName,
       list: { searchableFields, filterableFields },
     },
   };
 }
 
-function filterableFieldsOf(entity: AgentManifestEntity | undefined): readonly string[] {
+function filterableFieldsOf(
+  entity: AgentManifestEntity | undefined,
+  definition: EntityDefinition | undefined,
+  roles: readonly string[],
+): readonly string[] {
   if (!entity) return [];
-  return entity.fields.filter((field) => field.filterable === true).map((field) => field.name);
+  return entity.fields
+    .filter((field) => field.filterable === true)
+    .map((field) => field.name)
+    .filter((name) => {
+      const fieldDefinition = definition?.fields[name];
+      return fieldDefinition !== undefined && isReadableWithoutRowCondition(fieldDefinition, roles);
+    });
 }
 
 function compareByCodePoint(a: string, b: string): number {
@@ -415,7 +444,7 @@ function addRegistrySearchTools(
     const entity = registry.getEntity(entityName);
     if (!entity) continue;
 
-    addToolsForListHandler(registry, qn, entityName, entity, sink);
+    addToolsForListHandler(registry, qn, entityName, entity, roleFilter.roles, sink);
   }
 }
 
@@ -452,6 +481,7 @@ function collectEntityHandlerQns(
 }
 
 function addGetTools(
+  registry: RegistrySearchView,
   detailQnByEntity: ReadonlyMap<string, string>,
   entityByName: ReadonlyMap<string, AgentManifestEntity>,
   locale: string,
@@ -460,7 +490,12 @@ function addGetTools(
   const getEntries = [...detailQnByEntity.entries()].sort((a, b) => compareByCodePoint(a[0], b[0]));
   for (const [entityName, qn] of getEntries) {
     const label = entityDisplayLabel(entityByName.get(entityName), entityName, locale);
-    const { tool, descriptor } = buildGetTool(entityName, qn, label);
+    const { tool, descriptor } = buildGetTool(
+      entityName,
+      qn,
+      label,
+      entityHandlerRisk(registry, qn),
+    );
     addTool(sink, tool, descriptor);
   }
 }
@@ -469,6 +504,7 @@ function addListTools(
   registry: RegistrySearchView,
   listQnByEntity: ReadonlyMap<string, string>,
   entityByName: ReadonlyMap<string, AgentManifestEntity>,
+  roles: readonly string[],
   locale: string,
   sink: CatalogSink,
 ): void {
@@ -476,13 +512,18 @@ function addListTools(
   for (const [entityName, qn] of listEntries) {
     const label = entityDisplayLabel(entityByName.get(entityName), entityName, locale);
     const searchableFields = registry.getSearchableFields(entityName);
-    const filterableFields = filterableFieldsOf(entityByName.get(entityName));
+    const filterableFields = filterableFieldsOf(
+      entityByName.get(entityName),
+      registry.getEntity(entityName),
+      roles,
+    );
     const { tool, descriptor } = buildListTool(
       entityName,
       qn,
       label,
       searchableFields,
       filterableFields,
+      entityHandlerRisk(registry, qn),
     );
     addTool(sink, tool, descriptor);
   }
@@ -605,8 +646,8 @@ export function buildToolCatalog(
     roleFilter,
     denyQns,
   );
-  addGetTools(detailQnByEntity, entityByName, locale, sink);
-  addListTools(registry, listQnByEntity, entityByName, locale, sink);
+  addGetTools(registry, detailQnByEntity, entityByName, locale, sink);
+  addListTools(registry, listQnByEntity, entityByName, roleFilter.roles, locale, sink);
   addQueryHandlerTools(manifest, entityListDetailQns, denyQns, sink);
   if (options.mode !== "read-only") {
     addWriteHandlerTools(manifest, detailQnByEntity, denyQns, sink);
