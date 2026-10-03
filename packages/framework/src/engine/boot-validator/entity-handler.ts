@@ -1065,7 +1065,7 @@ export function validateSearchableFieldReadAccess(feature: FeatureDefinition): v
   for (const [entityName, entity] of Object.entries(feature.entities ?? {})) {
     for (const [fieldName, field] of Object.entries(entity.fields)) {
       if (field.type !== "text") continue;
-      if (!field.searchable && field.find !== "fuzzy") continue;
+      if (!field.searchable) continue;
       const readAccess = field.access?.read;
       if (readAccess === undefined) continue;
       const isUnrestricted = Array.isArray(readAccess)
