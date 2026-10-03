@@ -246,6 +246,7 @@ export {
   type ManifestExtension,
   type ManifestFeature,
   type ManifestSecret,
+  type ManifestSystemEvent,
   serializeManifest,
 } from "./feature-manifest.js";
 export {
@@ -334,6 +335,7 @@ export {
   WORKFLOW_WAITING_TYPE,
 } from "./steps/_step-dispatch-constants.js";
 export { describeWorkflowStepError } from "./steps/describe-workflow-step-error.js";
+export { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.js";
 export {
   ANONYMOUS_ROLE,
   ANONYMOUS_USER_ID,

@@ -2,6 +2,7 @@ import { resolveTableName } from "../db/entity-table-meta.js";
 import { buildMetricName, validateMetricName } from "../observability/index.js";
 import type { RegistryState } from "./registry-state.js";
 import { mergeHookList, mergeHookListQualified, qualify } from "./registry-state.js";
+import { WORKFLOW_SYSTEM_EVENT_DEFS } from "./steps/workflow-system-events.js";
 import type { FeatureDefinition } from "./types/index.js";
 
 // Feature registration + entities (globally-unique, physical-table-checked) + relations
@@ -153,6 +154,15 @@ export function populateEvents(state: RegistryState, feature: FeatureDefinition)
   for (const [eventName, eventDef] of Object.entries(feature.events ?? {})) {
     const qualified = qualify(feature.name, "event", eventName);
     state.eventMap.set(qualified, { ...eventDef, name: qualified });
+  }
+}
+
+// Framework-owned events outside any feature namespace (kumiko:system:workflow.*).
+// Seeded into the same eventMap as r.defineEvent so apply-key validation, the
+// PII catalog and the upcaster chain see them through one path.
+export function populateSystemEvents(state: RegistryState): void {
+  for (const [name, eventDef] of WORKFLOW_SYSTEM_EVENT_DEFS) {
+    state.eventMap.set(name, eventDef);
   }
 }
 

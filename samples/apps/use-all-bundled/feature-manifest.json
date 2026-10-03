@@ -3074,5 +3074,35 @@
         "recommended": false
       }
     }
+  ],
+  "systemEvents": [
+    {
+      "name": "kumiko:system:workflow.retry.scheduled",
+      "version": 1
+    },
+    {
+      "name": "kumiko:system:workflow.run-completed",
+      "version": 1
+    },
+    {
+      "name": "kumiko:system:workflow.run-failed",
+      "version": 1
+    },
+    {
+      "name": "kumiko:system:workflow.run-started",
+      "version": 1
+    },
+    {
+      "name": "kumiko:system:workflow.step.resumed",
+      "version": 1
+    },
+    {
+      "name": "kumiko:system:workflow.step.waiting",
+      "version": 1
+    },
+    {
+      "name": "kumiko:system:workflow.step.waiting-for-event",
+      "version": 1
+    }
   ]
 }

@@ -6,6 +6,7 @@
 // AST-Parser kann die imperativen Factory-Helper der bundled features nicht
 // lesen.
 
+import { SYSTEM_EVENT_PREFIX } from "../crypto/system-event-pii.js";
 import { compareByCodepoint } from "../utils/index.js";
 import { isEncryptedAtRest } from "./config-helpers.js";
 import { qualifyEntityName } from "./qualified-name.js";
@@ -42,6 +43,13 @@ export type ManifestExtension = {
   readonly entityName: string;
 };
 
+/** Framework-owned registered event (`kumiko:system:*`), e.g. the workflow
+ *  run-stream events a projection can apply. Not owned by any feature. */
+export type ManifestSystemEvent = {
+  readonly name: string;
+  readonly version: number;
+};
+
 export type ManifestFeature = {
   readonly name: string;
   readonly description: string | null;
@@ -71,6 +79,8 @@ export type FeatureManifest = {
   readonly source: string;
   readonly featureCount: number;
   readonly features: readonly ManifestFeature[];
+  // Optional so hand-built manifests from before this field stay valid.
+  readonly systemEvents?: readonly ManifestSystemEvent[];
   readonly tier?: string;
 };
 
@@ -162,10 +172,18 @@ export function buildManifestFromRegistry(
 
   manifestFeatures.sort((a, b) => compareByCodepoint(a.name, b.name));
 
+  const systemEvents: ManifestSystemEvent[] = [];
+  for (const [name, info] of registry.getEventUpcasters()) {
+    if (name.startsWith(SYSTEM_EVENT_PREFIX))
+      systemEvents.push({ name, version: info.currentVersion });
+  }
+  systemEvents.sort((a, b) => compareByCodepoint(a.name, b.name));
+
   return {
     source: options.source,
     featureCount: manifestFeatures.length,
     features: manifestFeatures,
+    systemEvents,
     ...(options.tier !== undefined && { tier: options.tier }),
   };
 }

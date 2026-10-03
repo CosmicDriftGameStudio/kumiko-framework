@@ -13,6 +13,7 @@ import {
   populateMetricsAndSecrets,
   populateProjectionsAndTables,
   populateScreensNavWorkspaces,
+  populateSystemEvents,
   populateTranslations,
 } from "./registry-ingest.js";
 import { createInitialState } from "./registry-state.js";
@@ -66,6 +67,7 @@ export function createRegistry(rawFeatures: readonly FeatureDefinition[]): Regis
     populateScreensNavWorkspaces(state, feature);
   }
 
+  populateSystemEvents(state);
   finalizeWorkspaceNavMembership(state);
   populateHandlerEntityMappings(state, features);
   validateExtensionSelectors(state);
