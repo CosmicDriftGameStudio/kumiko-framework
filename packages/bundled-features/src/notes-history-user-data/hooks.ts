@@ -103,12 +103,29 @@ export const noteEntryDeleteHook: UserDataDeleteHook = async (ctx) => {
   }
 };
 
-// note-mention rows are a plain (noteId, subjectId) pointer — like authorId
-// on note-entry, `subjectId`'s `personal: "ref"` annotation exists for the
-// GDPR-hook-coverage boot guard, not because the row itself holds separately
-// exportable content or needs its own physical erasure: forgetting the
-// mentioned user's data is already handled by noteEntryDeleteHook shredding
-// the mentioned NOTE's row-subject key above. Registered here only so the V3
-// boot guard (validateGdprPiiHookCoverage) sees a hook for "note-mention".
-export const noteMentionExportHook: UserDataExportHook = async () => null;
+// Erasure reaches every note that structurally mentions the user (see
+// noteEntryDeleteHook), so the Art. 15/20 export must list those notes too.
+export const noteMentionExportHook: UserDataExportHook = async (ctx) => {
+  const mentions = await ctx.db.selectMany<{ noteId: string }>(noteMentionTable, {
+    subjectId: ctx.userId,
+  });
+  if (mentions.length === 0) return null;
+  const noteIds = [...new Set(mentions.map((m) => m.noteId))];
+  const notes = await ctx.db.selectMany(noteEntryTable, { id: { in: noteIds } });
+  if (notes.length === 0) return null;
+  return {
+    entity: "note-mention",
+    rows: notes.map((note) => ({
+      noteId: note["id"],
+      entityType: note["entityType"],
+      entityId: note["entityId"],
+      body: note["body"],
+      insertedAt: note["insertedAt"],
+    })),
+  };
+};
+
+// note-mention rows are a plain (noteId, subjectId) pointer: forgetting the mentioned
+// user's data is already handled by noteEntryDeleteHook shredding the mentioned NOTE's
+// row-subject key, so this delete hook has nothing of its own to erase.
 export const noteMentionDeleteHook: UserDataDeleteHook = async () => {};

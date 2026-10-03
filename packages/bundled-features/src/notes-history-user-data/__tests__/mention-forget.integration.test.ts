@@ -57,6 +57,7 @@ import { createSessionsFeature, userSessionEntity } from "../../sessions/index.j
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
+import { noteMentionExportHook } from "../hooks.js";
 import { notesHistoryUserDataFeature } from "../index.js";
 
 type Instant = InstanceType<ReturnType<typeof getTemporal>["Instant"]>;
@@ -479,5 +480,71 @@ describe("notes-history mention-forget cascade", () => {
 
     const shredded = await noteEntryExecutor.detail({ id: mentioning.id }, author, tenantDb);
     expect(shredded?.["body"]).toBe(PII_ERASED_SENTINEL);
+  });
+});
+
+describe("notes-history mention scoping and export", () => {
+  beforeEach(async () => {
+    await resetTestTables(stack.db, ["read_note_entries", "read_note_mentions"]);
+  });
+
+  test("add-note rejects a mention of a user who is not a member of the tenant and stores nothing", async () => {
+    const error = await stack.http.writeErr(
+      NotesHistoryHandlers.addNote,
+      {
+        entityType: "contact",
+        entityId: CONTACT_1,
+        body: "about a stranger",
+        mentions: [SUBJECT_S],
+      },
+      author,
+    );
+
+    expect(error.code).toBe("validation_error");
+    const raw = asRawClient(stack.db);
+    const notes = await raw.unsafe("SELECT count(*)::int AS count FROM read_note_entries");
+    const mentions = await raw.unsafe("SELECT count(*)::int AS count FROM read_note_mentions");
+    expect((notes as ReadonlyArray<{ count: number }>)[0]?.count).toBe(0);
+    expect((mentions as ReadonlyArray<{ count: number }>)[0]?.count).toBe(0);
+  });
+
+  test("the mentioned user's export lists the notes that mention them, and nothing else", async () => {
+    await seedForgottenSubject();
+    const mentioning = await stack.http.writeOk<{ id: string }>(
+      NotesHistoryHandlers.addNote,
+      { entityType: "contact", entityId: CONTACT_1, body: "about S", mentions: [SUBJECT_S] },
+      author,
+    );
+    await stack.http.writeOk(
+      NotesHistoryHandlers.addNote,
+      { entityType: "contact", entityId: CONTACT_1, body: "unrelated note" },
+      author,
+    );
+
+    const snippet = await noteMentionExportHook({
+      db: createTenantDb(stack.db, author.tenantId, "tenant"),
+      registry: stack.registry,
+      tenantId: author.tenantId,
+      userId: SUBJECT_S,
+    });
+
+    expect(snippet?.entity).toBe("note-mention");
+    expect(snippet?.rows).toEqual([
+      expect.objectContaining({
+        noteId: mentioning.id,
+        entityType: "contact",
+        entityId: CONTACT_1,
+      }),
+    ]);
+  });
+
+  test("the export is null for a user no note mentions", async () => {
+    const snippet = await noteMentionExportHook({
+      db: createTenantDb(stack.db, author.tenantId, "tenant"),
+      registry: stack.registry,
+      tenantId: author.tenantId,
+      userId: SUBJECT_S,
+    });
+    expect(snippet).toBeNull();
   });
 });
