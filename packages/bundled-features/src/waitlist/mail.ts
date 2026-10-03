@@ -88,6 +88,10 @@ export function renderWaitlistConfirmationEmail(args: {
 }
 
 // Operator-facing, so the entrant's locale does not apply: en/de, en default.
+export function resolveWaitlistAdminMailLocale(adminLocale: string | undefined): "en" | "de" {
+  return languageOf(adminLocale) === "de" ? "de" : "en";
+}
+
 export function renderWaitlistAdminNoticeEmail(args: {
   readonly name: string;
   readonly email: string;
@@ -95,7 +99,7 @@ export function renderWaitlistAdminNoticeEmail(args: {
   readonly message: string | undefined;
   readonly adminLocale: string | undefined;
 }): AuthMailContent {
-  const t = ADMIN_NOTICE_STRINGS[languageOf(args.adminLocale) === "de" ? "de" : "en"];
+  const t = ADMIN_NOTICE_STRINGS[resolveWaitlistAdminMailLocale(args.adminLocale)];
   const details = [
     `${args.name} <${args.email}>`,
     ...(args.company ? [args.company] : []),
