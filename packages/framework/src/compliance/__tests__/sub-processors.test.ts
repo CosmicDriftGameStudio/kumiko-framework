@@ -123,6 +123,16 @@ describe("KUMIKO_SUB_PROCESSORS", () => {
           "sccRequired": false,
           "status": "active",
         },
+        {
+          "appliesTo": [
+            "all-tiers",
+          ],
+          "name": "Scaleway SAS",
+          "optInOnly": false,
+          "region": "EU (France)",
+          "sccRequired": false,
+          "status": "planned",
+        },
       ]
     `);
   });
@@ -145,5 +155,14 @@ describe("getActiveSubProcessors / getPlannedSubProcessors", () => {
     for (const sp of getPlannedSubProcessors()) {
       expect(sp.status).toBe("planned");
     }
+  });
+
+  test("Scaleway: Backup-Mirror ist aktiv, Key Manager und Transactional Email sind geplant", () => {
+    const active = getActiveSubProcessors().filter((sp) => sp.name === "Scaleway SAS");
+    const planned = getPlannedSubProcessors().filter((sp) => sp.name === "Scaleway SAS");
+    expect(active.map((sp) => sp.purpose)).toEqual(["Offsite Backup Mirror (Object Storage)"]);
+    expect(planned).toHaveLength(1);
+    expect(planned[0]?.purpose).toContain("Key Manager");
+    expect(planned[0]?.purpose).toContain("Transactional Email");
   });
 });
