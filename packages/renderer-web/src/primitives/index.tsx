@@ -381,7 +381,12 @@ function DefaultField({
         hideLabel === true && "sr-only",
       )}
     >
-      <span className="truncate" title={typeof label === "string" ? label : undefined}>
+      {/* An inline label sits beside a checkbox and may carry legal text that
+          must stay readable in full, so it wraps instead of truncating. */}
+      <span
+        className={layout === "inline" ? undefined : "truncate"}
+        title={typeof label === "string" ? label : undefined}
+      >
         {label}
       </span>
       {required === true && (
