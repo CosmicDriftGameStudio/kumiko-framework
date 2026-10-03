@@ -68,6 +68,38 @@ describe("buildServerBundle (multi-entry + splitting)", () => {
     }
   });
 
+  test("bundles bin/worker.ts as worker.js sharing the chunk; absent worker.ts → no worker.js", async () => {
+    const withoutWorker = makeFixture();
+    const withWorker = makeFixture();
+    try {
+      writeFileSync(
+        join(withWorker, "bin/worker.ts"),
+        `import { shared } from "../src/shared";\nconsole.log("worker", shared());\n`,
+      );
+      const plain = await buildServerBundle({
+        cwd: withoutWorker,
+        outDir: join(withoutWorker, "dist-server"),
+      });
+      expect(existsSync(join(plain.outDir, "worker.js"))).toBe(false);
+
+      const result = await buildServerBundle({
+        cwd: withWorker,
+        outDir: join(withWorker, "dist-server"),
+      });
+      expect(result.entries.map((e) => e.file).sort()).toEqual([
+        "kumiko.js",
+        "server.js",
+        "worker.js",
+      ]);
+      expect(readFileSync(join(result.outDir, "worker.js"), "utf8")).toContain("chunk-");
+      const run = Bun.spawnSync(["bun", join(result.outDir, "worker.js")]);
+      expect(run.stdout.toString().trim()).toBe("worker 42");
+    } finally {
+      rmSync(withoutWorker, { recursive: true, force: true });
+      rmSync(withWorker, { recursive: true, force: true });
+    }
+  });
+
   test("pins runtime-deps from node_modules/@cosmicdrift/* for consumer apps without a packages/ dir", async () => {
     // Reproduziert #1217: findRepoRoot liefert für eine Consumer-App die
     // App-Wurzel selbst (kein packages/-Ordner) — die Version muss aus den
