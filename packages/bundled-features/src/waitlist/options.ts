@@ -17,8 +17,9 @@ export type WaitlistInviteOptions =
 
 export type WaitlistOptions = {
   /** Address for an admin notification mail on each new entry. Null, an empty
-   *  string or an absent option sends none. Best effort, never fails the submit. */
-  readonly notifyRecipient?: (ctx: HandlerContext) => string | null;
+   *  string or an absent option sends none. Best effort, never fails the submit,
+   *  also when the resolver throws or rejects. */
+  readonly notifyRecipient?: (ctx: HandlerContext) => string | null | Promise<string | null>;
   /** Default `{ mode: "own-tenant", role: "TenantAdmin" }`. */
   readonly invite?: WaitlistInviteOptions;
   /** Default: 5 submits per IP per 10 minutes. */
