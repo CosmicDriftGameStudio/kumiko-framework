@@ -152,7 +152,14 @@ function toBootstrapFailure(err: unknown): SessionBootstrapFailure {
   return { httpStatus: null, retryAfterSeconds: null, failedAtEpochMs: Date.now() };
 }
 
-export function SessionProvider({ children }: { readonly children: ReactNode }): ReactNode {
+export function SessionProvider({
+  children,
+  postLogoutUrl,
+}: {
+  readonly children: ReactNode;
+  /** Logout navigates here instead of reloading. Validated by makeSessionAuthGate. */
+  readonly postLogoutUrl?: string;
+}): ReactNode {
   const [state, setState] = useState<SessionState>(INITIAL);
 
   // Never rejects, so bootstrap can't strand the UI on "loading" forever.
@@ -197,6 +204,12 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
 
   const logout = useCallback<SessionApi["logout"]>(async () => {
     await logoutApi();
+    if (postLogoutUrl !== undefined && typeof window !== "undefined") {
+      // State stays untouched: flipping to unauthenticated would let an AuthGate
+      // with loginUrl race this navigation to its own redirect.
+      window.location.assign(postLogoutUrl);
+      return;
+    }
     setState(UNAUTHENTICATED);
     // Hard-Reload: React-Tree, dispatcher-live-Caches, EventSource —
     // alles fliegt auf Null. Nach Logout ist das der billigste Weg zu
@@ -205,7 +218,7 @@ export function SessionProvider({ children }: { readonly children: ReactNode }):
     if (typeof window !== "undefined") {
       window.location.reload();
     }
-  }, []);
+  }, [postLogoutUrl]);
 
   const switchTenant = useCallback<SessionApi["switchTenant"]>(async (tenantId) => {
     await switchTenantApi(tenantId);

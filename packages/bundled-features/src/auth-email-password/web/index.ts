@@ -32,11 +32,19 @@ export {
 export type { AuthCardProps, AuthShellRenderer } from "./auth-form-primitives.js";
 export { AuthCard, AuthShellProvider, useAuthShell } from "./auth-form-primitives.js";
 export type {
+  AuthGateOptions,
   LoginRouteOptions,
   MfaSetupComponentProps,
   MfaVerifyComponentProps,
+  SessionAuthGateOptions,
 } from "./auth-gate.js";
 export { createLoginRoute, makeAuthGate, makeSessionAuthGate } from "./auth-gate.js";
+export {
+  buildLoginRedirectUrl,
+  isSafeNextPath,
+  NEXT_QUERY_PARAM,
+  readNextFromSearch,
+} from "./auth-redirect.js";
 export type {
   EmailPasswordClientFeature,
   EmailPasswordClientOptions,
