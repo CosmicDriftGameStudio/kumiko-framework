@@ -13,6 +13,7 @@ export {
 } from "./cached-page-response.js";
 export { sanitizeTenantCss } from "./css-sanitize.js";
 export {
+  type PublicPageWrapLayout,
   type SeoHeadInput,
   TENANT_CONTENT_ATTR,
   tenantStyleBlock,
@@ -20,3 +21,4 @@ export {
 } from "./layout.js";
 export { renderSafeMarkdown } from "./markdown.js";
 export { securePageHeaders } from "./security-headers.js";
+export { redirectToCanonicalPath, slashVariantOf } from "./trailing-slash.js";

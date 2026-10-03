@@ -15,6 +15,7 @@ export type TerminationTexts = {
   readonly customerReference: string;
   readonly reasonFieldLabel: string;
   readonly receiptSubject: Readonly<Record<ContractTerminationDeclarationType, string>>;
+  readonly receiptGreeting: string;
   readonly receiptIntro: string;
   readonly receiptNextSteps: string;
   readonly receiptRevoke: (operatorEmail: string) => string;
@@ -93,6 +94,7 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       termination: "Eingangsbestätigung deiner Kündigung",
       withdrawal: "Eingangsbestätigung deines Widerrufs",
     },
+    receiptGreeting: "Hallo,",
     receiptIntro:
       "wir bestätigen den Eingang deiner Erklärung mit folgendem Inhalt. Diese E-Mail ist eine Eingangsbestätigung, keine Bestätigung der Wirksamkeit.",
     receiptNextSteps:
@@ -175,8 +177,9 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
       termination: "Receipt for your termination",
       withdrawal: "Receipt for your withdrawal",
     },
+    receiptGreeting: "Hello,",
     receiptIntro:
-      "we confirm receipt of your declaration with the following content. This email is a receipt, not a confirmation that the declaration is effective.",
+      "We confirm receipt of your declaration with the following content. This email is a receipt, not a confirmation that the declaration is effective.",
     receiptNextSteps:
       "We will review your declaration and get back to you once it is processed or if we have questions.",
     receiptRevoke: (operatorEmail) =>

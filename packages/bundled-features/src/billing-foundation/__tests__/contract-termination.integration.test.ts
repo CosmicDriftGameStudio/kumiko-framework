@@ -125,6 +125,7 @@ type StackAnonymousAccess = NonNullable<Parameters<typeof setupTestStack>[0]["an
 type TerminationStackOptions = {
   readonly terminationScope?: TerminationScope;
   readonly extraFeatures?: readonly FeatureDefinition[];
+  readonly terminationRoutes?: ReturnType<typeof createContractTerminationRoutes>;
 };
 
 async function createTerminationStack(
@@ -164,7 +165,10 @@ async function createTerminationStack(
       ...createDeliveryTestContext(deps),
       templateResolver: createTemplateResolverApi(deps.db),
     }),
-    extraRoutes: [createSubscriptionWebhookRoute(), ...createContractTerminationRoutes()],
+    extraRoutes: [
+      createSubscriptionWebhookRoute(),
+      ...(stackOptions.terminationRoutes ?? createContractTerminationRoutes()),
+    ],
     anonymousAccess,
     jobs: { consumerLane: "worker", queueNamePrefix: `contract-termination-${generateId()}` },
   });
@@ -423,6 +427,38 @@ describe("public pages", () => {
     expect(mailHtml).not.toContain("<script>alert");
   });
 
+  test.each([
+    ["/legal/kuendigen/", "/legal/kuendigen"],
+    ["/legal/cancel/", "/legal/cancel"],
+    ["/legal/kuendigen/?utm=1", "/legal/kuendigen?utm=1"],
+  ])(
+    "GET and HEAD %s redirect with 301 to %s, POST stays on the configured path",
+    async (from, to) => {
+      for (const method of ["GET", "HEAD"]) {
+        const res = await stack.app.request(from, { method }, nextClientIp());
+        expect(res.status).toBe(301);
+        expect(res.headers.get("location")).toBe(to);
+      }
+      const post = await stack.app.request(
+        "/legal/kuendigen/",
+        {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: "",
+        },
+        nextClientIp(),
+      );
+      expect(post.status).not.toBe(200);
+      expect(post.status).not.toBe(301);
+      const configured = await postForm(
+        to.split("?")[0] ?? to,
+        { ...hostileFields, step: "review" },
+        nextClientIp(),
+      );
+      expect(configured.status).toBe(200);
+    },
+  );
+
   test("the sixth confirm from one IP gets a friendly 429 page", async () => {
     const ip = nextClientIp();
     for (let i = 0; i < 5; i += 1) {
@@ -471,6 +507,9 @@ describe("public declaration through /api/write", () => {
     expect(mails).toHaveLength(1);
     expect(mails[0]?.html).toContain(DECLARANT_NAME);
     expect(mails[0]?.html).toContain(receipt.requestId);
+    const receiptHtml = mails[0]?.html ?? "";
+    expect(receiptHtml.indexOf("Hallo,")).toBeGreaterThan(-1);
+    expect(receiptHtml.indexOf("Hallo,")).toBeLessThan(receiptHtml.indexOf("wir bestätigen"));
     expect(mailsTo(OPERATOR_EMAIL)).toHaveLength(0);
   });
 
@@ -1054,5 +1093,186 @@ describe("public pages in platform mode on a host that resolves no tenant", () =
     );
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: { code: string } }).error.code).toBe("tenant_required");
+  });
+});
+
+const LAYOUT_MARKER = "<!--test-layout-->";
+const CUSTOM_PATHS = { de: "/legal/kuendigen/", en: "/termination" } as const;
+
+function echoLayout(opts: {
+  readonly title: string;
+  readonly bodyHtml: string;
+  readonly lang: string;
+  readonly slug?: string;
+  readonly alternates?: Readonly<Record<string, string>>;
+}): string {
+  return `${LAYOUT_MARKER}<html data-lang="${opts.lang}" data-slug="${opts.slug}" data-alternates='${JSON.stringify(opts.alternates)}'><body>${opts.bodyHtml}</body></html>`;
+}
+
+describe("wrapLayout and slash redirects with custom paths", () => {
+  let layoutStack: TestStack;
+  let defaultLayoutStack: TestStack;
+  const tenantHost = { host: TENANT_HOST };
+
+  beforeAll(async () => {
+    layoutStack = await createTerminationStack(hostAnonymousAccess(), {
+      extraFeatures: [unflaggedAnonymousFeature],
+      terminationRoutes: createContractTerminationRoutes({
+        paths: CUSTOM_PATHS,
+        wrapLayout: echoLayout,
+      }),
+    });
+    defaultLayoutStack = await createTerminationStack(hostAnonymousAccess(), {
+      extraFeatures: [unflaggedAnonymousFeature],
+      terminationRoutes: createContractTerminationRoutes({ paths: CUSTOM_PATHS }),
+    });
+  });
+
+  afterAll(async () => {
+    await layoutStack.cleanup();
+    await defaultLayoutStack.cleanup();
+  });
+
+  beforeEach(async () => {
+    await resetStack(layoutStack);
+    await resetStack(defaultLayoutStack);
+  });
+
+  async function postStep(
+    target: TestStack,
+    path: string,
+    step: string,
+    email: string,
+    headers: Record<string, string>,
+    clientIp: string = nextClientIp(),
+  ): Promise<Response> {
+    return await target.app.request(
+      path,
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+        body: new URLSearchParams({
+          declarationType: "termination",
+          terminationKind: "ordinary",
+          name: DECLARANT_NAME,
+          email,
+          step,
+        }).toString(),
+      },
+      clientIp,
+    );
+  }
+
+  function expectInLayout(html: string, lang: string): void {
+    expect(html).toStartWith(LAYOUT_MARKER);
+    expect(html).toContain(`data-lang="${lang}"`);
+    expect(html).toContain('data-slug="contract-termination"');
+    expect(html).toContain(`data-alternates='${JSON.stringify(CUSTOM_PATHS)}'`);
+    expect(html).toContain('<div data-kumiko-page="contract-termination">');
+  }
+
+  test("form, review, result, 429 and error pages render inside the layout", async () => {
+    const form = await getPage(layoutStack, "/legal/kuendigen/", tenantHost);
+    expect(form.status).toBe(200);
+    const formHtml = await form.text();
+    expectInLayout(formHtml, "de");
+    expect(formHtml).toContain('data-kumiko-form="contract-termination"');
+    expect(formHtml).toContain('data-kumiko-field-group="email"');
+
+    const review = await postStep(
+      layoutStack,
+      "/termination",
+      "review",
+      "layout@example.com",
+      tenantHost,
+    );
+    expect(review.status).toBe(200);
+    const reviewHtml = await review.text();
+    expectInLayout(reviewHtml, "en");
+    expect(reviewHtml).toContain("data-kumiko-review-table");
+    expect(reviewHtml).toContain('data-kumiko-button="confirm"');
+
+    const result = await postStep(
+      layoutStack,
+      "/legal/kuendigen/",
+      "confirm",
+      "layout@example.com",
+      tenantHost,
+    );
+    expect(result.status).toBe(200);
+    expectInLayout(await result.text(), "de");
+
+    const ip = nextClientIp();
+    for (let i = 0; i < 5; i += 1) {
+      const ok = await postStep(
+        layoutStack,
+        "/termination",
+        "confirm",
+        `layout-limit-${i}@example.com`,
+        tenantHost,
+        ip,
+      );
+      expect(ok.status).toBe(200);
+    }
+    const limited = await postStep(
+      layoutStack,
+      "/termination",
+      "confirm",
+      "layout-limit-5@example.com",
+      tenantHost,
+      ip,
+    );
+    expect(limited.status).toBe(429);
+    expectInLayout(await limited.text(), "en");
+
+    const failed = await postStep(
+      layoutStack,
+      "/legal/kuendigen/",
+      "confirm",
+      "layout-error@example.com",
+      { host: APEX_HOST },
+    );
+    expect(failed.status).toBe(400);
+    expectInLayout(await failed.text(), "de");
+  });
+
+  test("the page headers are identical with and without wrapLayout", async () => {
+    const withLayout = await getPage(layoutStack, "/termination", tenantHost);
+    const withoutLayout = await getPage(defaultLayoutStack, "/termination", tenantHost);
+    expect(withLayout.status).toBe(200);
+    expect(withoutLayout.status).toBe(200);
+    expect(withoutLayout.headers.get("content-security-policy")).toContain(
+      "frame-ancestors 'none'",
+    );
+    expect(withLayout.headers.get("x-frame-options")).toBe("DENY");
+    expect(withLayout.headers.get("cache-control")).toBe("no-store");
+    for (const name of [
+      "content-security-policy",
+      "x-frame-options",
+      "cache-control",
+      "content-type",
+    ]) {
+      expect(withLayout.headers.get(name)).toBe(withoutLayout.headers.get(name));
+    }
+    expect(await withoutLayout.text()).not.toContain(LAYOUT_MARKER);
+  });
+
+  test("the slash form is derived from custom paths in both directions", async () => {
+    for (const method of ["GET", "HEAD"]) {
+      const noSlash = await layoutStack.app.request(
+        "/legal/kuendigen",
+        { method, headers: tenantHost },
+        nextClientIp(),
+      );
+      expect(noSlash.status).toBe(301);
+      expect(noSlash.headers.get("location")).toBe("/legal/kuendigen/");
+      const withSlash = await layoutStack.app.request(
+        "/termination/?x=1",
+        { method, headers: tenantHost },
+        nextClientIp(),
+      );
+      expect(withSlash.status).toBe(301);
+      expect(withSlash.headers.get("location")).toBe("/termination?x=1");
+    }
   });
 });

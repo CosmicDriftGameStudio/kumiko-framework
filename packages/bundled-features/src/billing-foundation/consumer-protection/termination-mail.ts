@@ -87,6 +87,7 @@ export function renderTerminationReceipt(
     subject,
     header: subject,
     sections: [
+      { text: texts.receiptGreeting },
       { text: texts.receiptIntro },
       { text: `${texts.receivedAt}: ${formatReceivedAt(args.receivedAtIso, args.locale)}` },
       { text: `${texts.requestId}: ${args.requestId}` },

@@ -8,6 +8,18 @@ import { sanitizeTenantCss } from "./css-sanitize.js";
 // wrapInLayout's own opts, so callers don't repeat them).
 export type SeoHeadInput = Omit<ApexHead, "title" | "description" | "lang">;
 
+// Signature a public FW page (legal-pages, contract termination) accepts for
+// an app-supplied layout. `alternates` maps a locale to the path of the same
+// page in that locale, so the layout can render a language switch from plain
+// links (the page CSP has script-src 'none').
+export type PublicPageWrapLayout = (opts: {
+  readonly title: string;
+  readonly bodyHtml: string;
+  readonly lang: string;
+  readonly slug?: string;
+  readonly alternates?: Readonly<Record<string, string>>;
+}) => string;
+
 // Attribute marking the content container. The page body lives in
 // `<main data-tenant-content>`; tenant custom CSS is scoped to its descendants
 // and host containment clips its paint to this box. A custom wrapLayout that
@@ -98,6 +110,11 @@ ${headHtml}
   a { color: var(--accent); }
   code { background: #f4f4f4; padding: 0.1rem 0.3rem; border-radius: 3px; }
   hr { border: 0; border-top: 1px solid #ddd; margin: 2rem 0; }
+  input, select, textarea, button { font: inherit; color: inherit; padding: 0.4rem 0.6rem;
+         border: 1px solid #bbb; border-radius: 4px; box-sizing: border-box; }
+  input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"]), select, textarea {
+         width: 100%; max-width: 100%; }
+  button { cursor: pointer; background: #f4f4f4; }
   .brand-header { position: relative; z-index: 1; display: flex; align-items: center;
                   gap: 0.6rem; margin-bottom: 1.5rem; }
   .brand-header a { display: flex; align-items: center; gap: 0.6rem; color: inherit; text-decoration: none; }
