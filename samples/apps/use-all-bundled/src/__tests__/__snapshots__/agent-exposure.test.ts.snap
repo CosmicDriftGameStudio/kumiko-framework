@@ -247,6 +247,10 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "user:query:user:me expose=true risk=low",
   "user:write:user:create expose=true risk=mid",
   "user:write:user:update expose=true risk=mid",
+  "waitlist:query:waitlistEntry:list expose=true risk=high",
+  "waitlist:write:invite expose=true risk=high",
+  "waitlist:write:reject expose=true risk=mid",
+  "waitlist:write:submit expose=true risk=mid",
   "workflow-runner:write:resume-run expose=false risk=mid",
 ]
 `;

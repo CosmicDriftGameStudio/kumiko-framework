@@ -92,6 +92,7 @@ import { tierEngineFeature } from "@cosmicdrift/kumiko-bundled-features/tier-eng
 import { createUserDataRightsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights";
 import { createUserDataRightsDefaultsFeature } from "@cosmicdrift/kumiko-bundled-features/user-data-rights-defaults";
 import { createUserProfileFeature } from "@cosmicdrift/kumiko-bundled-features/user-profile";
+import { createWaitlistFeature } from "@cosmicdrift/kumiko-bundled-features/waitlist";
 import { workflowRunnerFeature } from "@cosmicdrift/kumiko-bundled-features/workflow-runner";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import { localeDe } from "@cosmicdrift/kumiko-locale-de";
@@ -288,6 +289,7 @@ export const APP_FEATURES = [
 
   // CMS / content
   createLegalPagesFeature(),
+  createWaitlistFeature(),
   createTemplateResolverFeature({
     // One collection per ownership mode so the smoke app exercises both paths:
     // a shared set an admin curates, and a per-user set every agent keeps.

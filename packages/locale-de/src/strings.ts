@@ -903,6 +903,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "rateLimiting.errors.bucketOutsideTenant":
     "Du kannst nur Rate-Limit-Buckets deines eigenen Mandanten oder Benutzers einsehen.",
   "rateLimiting.errors.resolverUnavailable": "Rate-Limiting ist auf diesem Server nicht verfügbar.",
+  "screen:waitlist-list.title": "Warteliste",
   "secrets.errors.unknownKey": "Unbekannter Geheimnis-Schlüssel.",
   "secrets.errors.writeDenied": "Dieses Geheimnis darf nicht geändert werden.",
   "screen:api-token-create.title": "Neuen Token erstellen",
@@ -1191,4 +1192,20 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "profile.screen.profile.subtitle":
     "Passwort oder E-Mail-Adresse ändern oder die Löschung des Kontos beantragen.",
   "tier-admin.screen.subtitle": "Einem Mandanten manuell ein Tier zuweisen, ohne Kauf.",
+  "waitlist.action.invite": "Einladen",
+  "waitlist.action.reInvite": "Erneut einladen",
+  "waitlist.action.reject": "Ablehnen",
+  "waitlist.action.reject.confirm": "Eintrag ablehnen? Die Daten bleiben gespeichert.",
+  "waitlist.nav.waitlist": "Warteliste",
+  "waitlist:entity:waitlistEntry:field:company": "Firma",
+  "waitlist:entity:waitlistEntry:field:email": "E-Mail",
+  "waitlist:entity:waitlistEntry:field:locale": "Sprache",
+  "waitlist:entity:waitlistEntry:field:message": "Nachricht",
+  "waitlist:entity:waitlistEntry:field:name": "Name",
+  "waitlist:entity:waitlistEntry:field:portfolio": "Portfolio",
+  "waitlist:entity:waitlistEntry:field:status": "Status",
+  "waitlist:entity:waitlistEntry:field:status:option:invited": "Eingeladen",
+  "waitlist:entity:waitlistEntry:field:status:option:pending": "Ausstehend",
+  "waitlist:entity:waitlistEntry:field:status:option:rejected": "Abgelehnt",
+  "waitlist:entity:waitlistEntry:field:submittedAt": "Erstellt",
 };
