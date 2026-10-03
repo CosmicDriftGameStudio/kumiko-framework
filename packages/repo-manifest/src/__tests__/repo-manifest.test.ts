@@ -208,6 +208,16 @@ describe("loadRepoManifest", () => {
     }
   });
 
+  test("accepts a wildcard pattern whose static prefix segment is a file", () => {
+    writeFileSync(join(root, "packages"), "not a directory", "utf8");
+    writeManifest(root, {
+      kind: "library",
+      sourceRoots: ["packages/*/src"],
+      testGlobs: ["packages/*/src/**/*.test.ts"],
+    });
+    expect(loadRepoManifest(root).source).toBe("file");
+  });
+
   test("accepts wildcard patterns over a real packages tree", () => {
     mkdirSync(join(root, "packages", "a", "src"), { recursive: true });
     mkdirSync(join(root, "packages", "b", "src"), { recursive: true });

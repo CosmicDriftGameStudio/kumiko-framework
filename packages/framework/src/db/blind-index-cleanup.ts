@@ -175,10 +175,10 @@ export async function recordRowExistsInTenant(
 
 // Provenance fallback for record subjects whose projection row is gone (hard
 // delete) or that have no registered entity at all (custom aggregates): the
-// event stream still names the owning tenant. Sound because the unique index on
-// (aggregate_id, version) stops another tenant from opening a stream under an
-// existing aggregate id.
-export async function recordEventExistsInTenant(
+// event stream still names the owning tenant. The unique index is per tenant
+// and the subject key is global, so another tenant could open a stream under
+// the same aggregate id; any foreign event voids the proof.
+export async function recordEventsOwnedExclusivelyByTenant(
   db: DbRunner,
   aggregateType: string,
   aggregateId: string,
@@ -186,7 +186,9 @@ export async function recordEventExistsInTenant(
 ): Promise<boolean> {
   const rows = await executeRawQueryRead(
     db,
-    `SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id = $3::uuid LIMIT 1`,
+    `SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id = $3::uuid
+       AND NOT EXISTS (SELECT 1 FROM "kumiko_events" WHERE aggregate_type = $1 AND aggregate_id = $2::uuid AND tenant_id <> $3::uuid)
+     LIMIT 1`,
     [aggregateType, aggregateId, tenantId],
   );
   return rows.length > 0;

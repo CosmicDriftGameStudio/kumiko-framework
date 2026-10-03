@@ -3,7 +3,7 @@
 "@cosmicdrift/kumiko-framework": patch
 ---
 
-forget-subject now accepts a record subject for a DPO when the owning tenant is proven by the event stream, not only by a projection row. A record whose row was already deleted, or a custom aggregate without a registered entity, can be shredded by the DPO of the tenant that owns it. A DPO of another tenant is still denied.
+forget-subject now accepts a record subject for a DPO when the owning tenant is proven by the event stream, not only by a projection row. A record whose row was already deleted, or a custom aggregate without a registered entity, can be shredded by the DPO of the tenant that owns it. A DPO of another tenant is still denied, and so is any DPO when events for the same aggregate id exist in more than one tenant.
 
 <!-- kumiko-changes
 feature: crypto-shredding

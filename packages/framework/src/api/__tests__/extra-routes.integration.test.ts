@@ -450,6 +450,29 @@ test("extraRoutes: entry:signature :param segment matching a framework path thro
   ).toThrow(/must not\s+match the framework path "\/api\/[a-z/-]+"/);
 });
 
+test.each(["/:seg/write", "/*"])(
+  "extraRoutes: entry:signature route %s matching a framework path outside the /api prefix throws at boot",
+  (path) => {
+    const registry = createRegistry([probeFeature]);
+    expect(() =>
+      buildServer({
+        registry,
+        context: {},
+        jwtSecret: JWT_SECRET,
+        extraRoutes: [
+          signatureRoute({
+            method: "POST",
+            path,
+            entry: "signature",
+            verify: async () => true,
+            handler: async (c) => c.json({}),
+          }),
+        ],
+      }),
+    ).toThrow(/must not\s+match the framework path "\/api\/[a-z/-]+"/);
+  },
+);
+
 test("extraRoutes: entry:signature route with a static prefix before :param still boots", () => {
   const registry = createRegistry([probeFeature]);
   expect(() =>
