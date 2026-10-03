@@ -2351,8 +2351,20 @@ function isEmptyCellValue(value: unknown): boolean {
 }
 
 // A boolean false renders as an empty string unless the column's format spec names a falseLabel.
+// Projection lists synthesize every column as type "text", so a boolean format spec
+// marks a boolean column on its own.
+function isBooleanColumn(type: string, renderer: unknown): boolean {
+  if (type === "boolean") return true;
+  return (
+    typeof renderer === "object" &&
+    renderer !== null &&
+    "format" in renderer &&
+    renderer.format === "boolean"
+  );
+}
+
 function isUnlabeledFalse(type: string, value: unknown, renderer: unknown): boolean {
-  if (type !== "boolean" || value !== false) return false;
+  if (value !== false || !isBooleanColumn(type, renderer)) return false;
   if (renderer === undefined) return true;
   return (
     typeof renderer === "object" &&
@@ -2401,7 +2413,7 @@ function BooleanCell({
 // True when the cell would render the default "✓": no renderer, or a boolean
 // format spec that names no trueLabel of its own.
 function showsBareCheckMark(type: string, value: unknown, renderer: unknown): boolean {
-  if (type !== "boolean" || value !== true) return false;
+  if (value !== true || !isBooleanColumn(type, renderer)) return false;
   if (renderer === undefined) return true;
   return (
     typeof renderer === "object" &&
@@ -3146,7 +3158,7 @@ function humanizeSlug(slug: string): string {
 
 // Tooltip-Text für truncated Cells — bei Hover zeigt der Browser den
 // vollen Text. Skipping für Object/Array (das ist nicht user-readable);
-// Number stringifyt der Browser ohnehin korrekt; Boolean bekommt keinen rohen true/false-Tooltip.
+// Number stringifyt der Browser ohnehin korrekt; booleans get no raw true/false tooltip.
 function cellTitle(value: unknown): string | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value === "string") return value.length > 0 ? value : undefined;
