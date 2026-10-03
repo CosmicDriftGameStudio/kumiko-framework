@@ -151,7 +151,6 @@ export const syncSubscriptionHandler: WriteHandlerDef = {
       tier: snapshot.tier,
       currentPeriodEndIso: snapshot.currentPeriodEnd,
       cancelAtIso: snapshot.cancelAt,
-      rawPayload: snapshot.rawPayload,
     });
 
     return {

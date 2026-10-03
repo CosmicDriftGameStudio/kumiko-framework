@@ -86,9 +86,6 @@ export type SubscriptionEvent = {
    *  Mollie), so projection.ts leaves the column unchanged instead of
    *  nulling it. */
   readonly cancelAt?: string | null;
-  /** Raw provider-payload — wird 1:1 in subscription-event.rawPayload
-   *  archiviert. Plugin liefert das als JSON-stringified-string. */
-  readonly rawPayload: string;
 };
 
 // =============================================================================
@@ -119,13 +116,13 @@ export type PaymentEvent = {
   /** Consent id echoed back from checkout metadata; omitted when absent or
    *  malformed. */
   readonly consentId?: string;
+  /** Provider's checkout/payment object id (Stripe checkout session id) —
+   *  lets consumers key their own grants without the raw provider payload. */
+  readonly providerCheckoutId?: string;
   /** Provider's own customer-id. */
   readonly providerCustomerId: string;
   /** Provider's own price/plan-ID of the purchased item. */
   readonly priceId: string;
-  /** Raw provider-payload — archived 1:1 into payment-event.rawPayload.
-   *  Plugin delivers this as a JSON-stringified string. */
-  readonly rawPayload: string;
 };
 
 // =============================================================================
@@ -325,7 +322,6 @@ export type ProviderSubscriptionSnapshot = {
   /** ISO instant string, same shape as `SubscriptionEventPayload.currentPeriodEndIso`. */
   readonly currentPeriodEnd: string;
   readonly cancelAt: string | null;
-  readonly rawPayload: string;
 };
 
 // =============================================================================

@@ -175,7 +175,6 @@ export function verifyAndParseStripeWebhook(
       providerCustomerId: typeof sub.customer === "string" ? sub.customer : sub.customer.id,
       providerSubscriptionId: sub.id,
       ...state,
-      rawPayload: JSON.stringify(event),
     };
   };
 }
@@ -430,8 +429,8 @@ async function parsePaymentEvent(
     providerName: STRIPE_PROVIDER_NAME,
     tenantId,
     ...(consentId !== undefined && { consentId }),
+    providerCheckoutId: session.id,
     providerCustomerId,
     priceId,
-    rawPayload: JSON.stringify(event),
   };
 }

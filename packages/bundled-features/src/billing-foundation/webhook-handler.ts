@@ -105,7 +105,9 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
             providerCustomerId: parsed.providerCustomerId,
             priceId: parsed.priceId,
             ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
-            rawPayload: parsed.rawPayload,
+            ...(parsed.providerCheckoutId !== undefined && {
+              providerCheckoutId: parsed.providerCheckoutId,
+            }),
           },
         });
         return respondFromDispatch(
@@ -131,7 +133,6 @@ export function createSubscriptionWebhookRoute(options: SubscriptionWebhookRoute
           currentPeriodEndIso: parsed.currentPeriodEnd,
           ...(parsed.cancelAt !== undefined && { cancelAtIso: parsed.cancelAt }),
           ...(parsed.consentId !== undefined && { consentId: parsed.consentId }),
-          rawPayload: parsed.rawPayload,
         },
       });
       return respondFromDispatch(

@@ -276,7 +276,6 @@ export function createStripeRetrieveSubscription(
           : subscription.customer.id,
       providerSubscriptionId: subscription.id,
       ...state,
-      rawPayload: JSON.stringify(subscription),
     };
   };
 }

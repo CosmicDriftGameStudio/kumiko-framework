@@ -70,7 +70,6 @@ export const processEventSchema = z.object({
   currentPeriodEndIso: z.string().min(1),
   cancelAtIso: z.string().min(1).nullable().optional(),
   consentId: z.string().min(1).max(100).optional(),
-  rawPayload: z.string().min(1),
 });
 export type ProcessEventPayload = z.infer<typeof processEventSchema>;
 
@@ -179,7 +178,6 @@ export async function appendSubscriptionEvent(
   const headers: SubscriptionEventHeaders = {
     providerEventId: payload.providerEventId,
     providerName: payload.providerName,
-    rawPayload: payload.rawPayload,
   };
   await ctx.unsafeAppendEvent({
     aggregateId: aggId,

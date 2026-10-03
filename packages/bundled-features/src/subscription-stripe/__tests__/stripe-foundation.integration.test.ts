@@ -241,10 +241,67 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
     expect(esEvents[0]?.type).toBe("billing-foundation:event:subscription-created");
     expect(esEvents[0]?.metadata.headers?.["providerName"]).toBe("stripe");
     expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_4001_create");
-    // rawPayload wurde 1:1 in headers archiviert
-    const rawHeader = esEvents[0]?.metadata.headers?.["rawPayload"] as string;
-    const archivedRaw = JSON.parse(rawHeader) as { id: string };
-    expect(archivedRaw.id).toBe("evt_4001_create");
+    expect(Object.keys(esEvents[0]?.metadata.headers ?? {}).sort()).toEqual([
+      "providerEventId",
+      "providerName",
+    ]);
+  });
+});
+
+describe("scenario 1a: provider PII never reaches the event store", () => {
+  const customerPii = {
+    email: "pii.person@example.test",
+    name: "Pia Personenbezug",
+    phone: "+49 170 5550199",
+    address: { line1: "Datenschutzweg 7", city: "Privatstadt", postal_code: "99999" },
+  };
+
+  test("event carrying customer_details + custom_fields is stored without rawPayload or those values", async () => {
+    const tenantStringId = testTenantId(4150);
+    const base = buildStripeSubscriptionEvent({
+      eventId: "evt_4150_pii",
+      tenantId: tenantStringId,
+      subscriptionId: "sub_4150",
+      customerId: "cus_4150",
+    });
+    const stripeEvent = {
+      ...base,
+      data: {
+        object: {
+          ...base.data.object,
+          customer_details: customerPii,
+          custom_fields: [{ key: "vat", text: { value: "DE123456789" } }],
+        },
+      },
+    };
+    const payload = JSON.stringify(stripeEvent);
+
+    const res = await postStripeWebhook(payload, await signEvent(payload));
+    expect(res.status).toBe(200);
+
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    expect(esEvents).toHaveLength(1);
+    expect(esEvents[0]?.metadata.headers?.["providerEventId"]).toBe("evt_4150_pii");
+    expect(esEvents[0]?.metadata.headers).not.toHaveProperty("rawPayload");
+    expect(esEvents[0]?.payload).not.toHaveProperty("rawPayload");
+
+    const stored = JSON.stringify({
+      headers: esEvents[0]?.metadata.headers,
+      payload: esEvents[0]?.payload,
+    });
+    for (const secret of [
+      customerPii.email,
+      customerPii.name,
+      customerPii.phone,
+      customerPii.address.line1,
+      "DE123456789",
+    ]) {
+      expect(stored).not.toContain(secret);
+    }
   });
 });
 

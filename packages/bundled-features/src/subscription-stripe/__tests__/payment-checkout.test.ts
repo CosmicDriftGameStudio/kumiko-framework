@@ -146,6 +146,7 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
     expect(event.tenantId).toBe("tenant-test-1");
     expect(event.priceId).toBe("price_topup_test");
     expect(event.providerCustomerId).toBe("cus_test_checkout");
+    expect(event.providerCheckoutId).toBe("cs_test_001");
   });
 
   test("PaymentIntent metadata.consentId → PaymentEvent.consentId; invalid → omitted", async () => {
@@ -241,5 +242,45 @@ describe("verifyAndParseStripeWebhook — one-off payment (checkout.session.*)",
     const sig = await signEvent(payload);
 
     expect(await verify(payload, { "stripe-signature": sig })).toBeNull();
+  });
+
+  test("PaymentEvent carries no raw provider payload and none of the customer PII", async () => {
+    const pii = {
+      email: "pii.person@example.test",
+      name: "Pia Personenbezug",
+      phone: "+49 170 5550199",
+      line1: "Datenschutzweg 7",
+    };
+    const verify = verifyAndParseStripeWebhook(
+      webhookRuntimeWithRetrieve(async () => ({
+        ...buildExpandedSession({ sessionId: "cs_test_pii", tenantId: "tenant-pii" }),
+        customer_details: {
+          email: pii.email,
+          name: pii.name,
+          phone: pii.phone,
+          address: { line1: pii.line1 },
+        },
+      })),
+      { priceToTier: {} },
+    );
+    const base = buildCheckoutSessionEvent({ sessionId: "cs_test_pii", eventId: "evt_pii" });
+    const payload = JSON.stringify({
+      ...base,
+      data: {
+        object: {
+          ...base.data.object,
+          customer_details: { email: pii.email, name: pii.name, phone: pii.phone },
+        },
+      },
+    });
+
+    const event = await verify(payload, { "stripe-signature": await signEvent(payload) });
+
+    expect(event).toMatchObject({ providerEventId: "evt_pii", tenantId: "tenant-pii" });
+    expect(event).not.toHaveProperty("rawPayload");
+    const serialized = JSON.stringify(event);
+    for (const value of Object.values(pii)) {
+      expect(serialized).not.toContain(value);
+    }
   });
 });

@@ -249,7 +249,6 @@ async function createSubscription(
       tier: overrides.tier ?? "starter",
       currentPeriodEndIso: "2026-06-01T00:00:00Z",
       ...(overrides.cancelAtIso !== undefined && { cancelAtIso: overrides.cancelAtIso }),
-      rawPayload: '{"raw":"payload"}',
     },
     admin,
   );

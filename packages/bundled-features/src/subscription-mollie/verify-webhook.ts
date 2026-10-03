@@ -141,7 +141,6 @@ export function verifyAndParseMollieWebhook(
       status,
       tier,
       currentPeriodEnd,
-      rawPayload: JSON.stringify({ webhookId: id, subscription, triggerPayment }),
     };
   };
 }

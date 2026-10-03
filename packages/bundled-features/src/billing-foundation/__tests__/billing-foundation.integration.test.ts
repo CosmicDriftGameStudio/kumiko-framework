@@ -115,7 +115,6 @@ const mockPaymentProviderFeature = defineFeature("test-mock-payment-provider", (
         tenantId: parsed["tenantId"] ?? "tenant-mock",
         providerCustomerId: parsed["providerCustomerId"] ?? "cus_mock",
         priceId: parsed["priceId"] ?? "price_mock",
-        rawPayload: rawBody,
       };
     },
   };
@@ -180,7 +179,6 @@ function buildEvent(
     providerSubscriptionId: string;
     currentPeriodEndIso: string;
     cancelAtIso: string | null;
-    rawPayload: string;
   }> = {},
 ) {
   return {
@@ -198,7 +196,6 @@ function buildEvent(
     // default here would collapse "omitted" into "explicit null" and hide a
     // regression where a later event without the field wipes a prior value.
     ...(overrides.cancelAtIso !== undefined && { cancelAtIso: overrides.cancelAtIso }),
-    rawPayload: overrides.rawPayload ?? '{"raw":"payload"}',
   };
 }
 
@@ -937,15 +934,17 @@ function buildPaymentEventPayload(
     providerEventId: string;
     providerCustomerId: string;
     priceId: string;
-    rawPayload: string;
+    providerCheckoutId: string;
   }> = {},
 ) {
   return {
     providerEventId: overrides.providerEventId ?? "evt_payment_default",
     providerName: "stripe",
+    ...(overrides.providerCheckoutId !== undefined && {
+      providerCheckoutId: overrides.providerCheckoutId,
+    }),
     providerCustomerId: overrides.providerCustomerId ?? "cus_payment_default",
     priceId: overrides.priceId ?? "price_topup_test",
-    rawPayload: overrides.rawPayload ?? '{"raw":"payment-payload"}',
   };
 }
 
@@ -958,6 +957,7 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
         providerEventId: "evt_4001_payment",
         providerCustomerId: "cus_4001",
         priceId: "price_topup_test",
+        providerCheckoutId: "cs_test_4001",
       }),
       admin,
     )) as Record<string, unknown>;
@@ -973,6 +973,9 @@ describe("scenario 11: one-off payment — own aggregate, own read_payments-row"
     expect(rows).toHaveLength(1);
     expect(rows[0]?.priceId).toBe("price_topup_test");
     expect(rows[0]?.providerName).toBe("stripe");
+
+    const esEvents = await loadAggregate(db, paymentAggregateId(admin.tenantId), admin.tenantId);
+    expect(esEvents[0]?.metadata.headers?.["providerCheckoutId"]).toBe("cs_test_4001");
   });
 
   test("idempotency: second call with same providerEventId → duplicate=true, no second row", async () => {

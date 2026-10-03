@@ -94,7 +94,6 @@ function buildEvent(
     status: SubscriptionStatuses.active,
     tier: "pro",
     currentPeriodEnd: "2026-06-01T00:00:00Z",
-    rawPayload: "{}",
     ...overrides,
   };
 }

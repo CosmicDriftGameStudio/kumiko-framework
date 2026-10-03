@@ -1083,7 +1083,6 @@ describe("createStripeRetrieveSubscription", () => {
       tier: "pro",
       currentPeriodEnd: "2027-01-15T08:00:00Z",
       cancelAt: null,
-      rawPayload: JSON.stringify(stripeSubscriptionForRetrieve()),
     });
   });
 

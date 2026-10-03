@@ -136,7 +136,6 @@ async function createSubscription(
       tier: overrides.tier ?? "pro",
       currentPeriodEndIso: overrides.currentPeriodEndIso ?? "2026-06-01T00:00:00Z",
       ...(overrides.cancelAtIso !== undefined && { cancelAtIso: overrides.cancelAtIso }),
-      rawPayload: '{"raw":"payload"}',
     },
     admin,
   );
@@ -169,7 +168,6 @@ describe("sync-subscription", () => {
       tier: "pro",
       currentPeriodEnd: "2026-06-01T00:00:00Z",
       cancelAt: "2026-05-01T00:00:00Z",
-      rawPayload: '{"raw":"provider-drift"}',
     };
 
     const result = (await stack.http.writeOk(
@@ -232,7 +230,6 @@ describe("sync-subscription", () => {
       tier: "pro",
       currentPeriodEnd: "2026-06-01T00:00:00Z",
       cancelAt: "2026-05-01T00:00:00Z",
-      rawPayload: '{"raw":"cancel"}',
     };
     const reactivatedSnapshot: ProviderSubscriptionSnapshot = { ...cancelSnapshot, cancelAt: null };
 
@@ -281,7 +278,6 @@ describe("sync-subscription", () => {
       tier: "pro",
       currentPeriodEnd: "2026-06-01T00:00:00Z",
       cancelAt: "2026-05-01T00:00:00Z",
-      rawPayload: '{"raw":"system-actor"}',
     };
 
     // Mirrors createSystemUser(tenantId) exactly — no extraRoles — matching
@@ -344,7 +340,6 @@ describe("sync-subscription", () => {
       tier: "pro",
       currentPeriodEnd: "2026-06-01T00:00:00Z",
       cancelAt: "2026-05-01T00:00:00Z",
-      rawPayload: '{"raw":"provider-canceled"}',
     };
 
     const result = (await stack.http.writeOk(
@@ -431,7 +426,6 @@ describe("sync-subscriptions job (perTenant fan-out)", () => {
       tier: "pro",
       currentPeriodEnd: "2026-06-01T00:00:00Z",
       cancelAt: "2026-05-01T00:00:00Z",
-      rawPayload: '{"raw":"job-fanout-a"}',
     });
     retrieveSnapshotsById.set("sub_6021", {
       providerCustomerId: "cus_6021",
@@ -440,7 +434,6 @@ describe("sync-subscriptions job (perTenant fan-out)", () => {
       tier: "pro",
       currentPeriodEnd: "2026-06-01T00:00:00Z",
       cancelAt: "2026-04-15T00:00:00Z",
-      rawPayload: '{"raw":"job-fanout-b"}',
     });
 
     await stack.jobRunner.dispatch("billing-foundation:job:sync-subscriptions", {});

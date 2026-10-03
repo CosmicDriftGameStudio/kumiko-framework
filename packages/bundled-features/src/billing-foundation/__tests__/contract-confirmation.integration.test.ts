@@ -249,7 +249,6 @@ function subscriptionEvent(
     status: overrides.status ?? SubscriptionStatuses.active,
     tier: "pro",
     currentPeriodEnd: "2026-11-02T00:00:00Z",
-    rawPayload: '{"raw":"payload"}',
     ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
   };
 }
@@ -437,7 +436,6 @@ describe("contract confirmation mail on a one-off payment", () => {
       providerCustomerId: "cus_confirm",
       priceId: "price_topup",
       consentId,
-      rawPayload: '{"raw":"payment"}',
     };
     await postWebhook(payment);
     await stack.drainJobs();
