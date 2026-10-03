@@ -326,3 +326,99 @@ describe("#2700 — explicit agent.expose:false on an entity handler, both direc
     expect(names).toContain("get_cloaked-item");
   });
 });
+
+const riskyItemEntity = createEntity({
+  fields: {
+    label: createTextField({
+      searchable: true,
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+  },
+});
+
+const salaryItemEntity = createEntity({
+  fields: {
+    label: createTextField({
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+    }),
+    salary: createTextField({
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+      access: { read: ["SystemAdmin"] },
+    }),
+    ownNote: createTextField({
+      filterable: true,
+      personal: false,
+      reason: "technical_reference",
+      access: { read: { Admin: "all" } },
+    }),
+  },
+});
+
+function buildRiskAndFieldAccessFeature() {
+  return defineFeature("risk-test", (r) => {
+    r.entity("risky-item", riskyItemEntity);
+    r.queryHandler(
+      defineEntityListHandler("risky-item", riskyItemEntity, {
+        access: { roles: ["Admin"] },
+        agent: { risk: "high" },
+      }),
+    );
+    r.queryHandler(
+      defineEntityDetailHandler("risky-item", riskyItemEntity, {
+        access: { roles: ["Admin"] },
+        agent: { risk: "mid" },
+      }),
+    );
+
+    r.crud("plain-item", plainItemEntity, {
+      read: { access: { roles: ["Admin"] } },
+      write: { access: { roles: ["Admin"] } },
+    });
+
+    r.crud("salary-item", salaryItemEntity, {
+      read: { access: { roles: ["Admin"] } },
+      write: { access: { roles: ["Admin"] } },
+    });
+  });
+}
+
+describe("entity CRUD tools honour handler agent.risk and field read access", () => {
+  function buildCatalog() {
+    const registry = createRegistry([buildRiskAndFieldAccessFeature()]);
+    const manifest = buildAgentManifest(registry, { locale: "en", roles: ["Admin"] });
+    return buildToolCatalog(registry, manifest, { mode: "edit" });
+  }
+
+  test("an explicit agent.risk on the list and detail handler reaches the get_/list_ descriptors", () => {
+    const { dispatchTable } = buildCatalog();
+    expect(dispatchTable.get("list_risky-item")).toMatchObject({ risk: "high" });
+    expect(dispatchTable.get("get_risky-item")).toMatchObject({ risk: "mid" });
+  });
+
+  test("without an agent hint the entity read tools stay low risk", () => {
+    const { dispatchTable } = buildCatalog();
+    expect(dispatchTable.get("list_plain-item")).toMatchObject({ risk: "low" });
+    expect(dispatchTable.get("get_plain-item")).toMatchObject({ risk: "low" });
+  });
+
+  test("a filterable field the caller roles cannot read unconditionally is neither filterable nor a find_ tool", () => {
+    const { tools, dispatchTable } = buildCatalog();
+    const names = tools.map((t) => t.name);
+    expect(names).toContain("find_salary-item_by_label");
+    expect(names).toContain("find_salary-item_by_ownNote");
+    expect(names).not.toContain("find_salary-item_by_salary");
+    const list = dispatchTable.get("list_salary-item");
+    expect(list).toMatchObject({ kind: "server", op: "query" });
+    const filterable =
+      list?.kind === "server" && list.op === "query" ? list.list?.filterableFields : [];
+    expect(filterable).toContain("label");
+    expect(filterable).toContain("ownNote");
+    expect(filterable).not.toContain("salary");
+  });
+});
