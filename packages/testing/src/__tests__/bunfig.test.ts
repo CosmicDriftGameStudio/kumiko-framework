@@ -38,6 +38,7 @@ pathIgnorePatterns = [
 ]
 pathIgnorePatterns = [
   "**/*.real.test.ts",
+  "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",
@@ -94,6 +95,7 @@ coveragePathIgnorePatterns = [
 ]
 pathIgnorePatterns = [
   "**/*.real.test.ts",
+  "**/*.test.tsx",
   "**/e2e/**",
   "**/*.spec.ts",
   "**/*.spec.tsx",

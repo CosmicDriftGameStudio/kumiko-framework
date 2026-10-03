@@ -51,7 +51,7 @@ function ignoredPaths(variant: BunfigVariant, dom: boolean): readonly string[] {
         ...ALWAYS_IGNORED,
       ];
     case "integration":
-      return ["**/*.real.test.ts", ...ALWAYS_IGNORED];
+      return ["**/*.real.test.ts", "**/*.test.tsx", ...ALWAYS_IGNORED];
     case "real":
       return ["**/*.integration.test.ts", ...ALWAYS_IGNORED];
   }
