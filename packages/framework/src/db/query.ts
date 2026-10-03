@@ -17,6 +17,7 @@ export {
   incrementCounter,
   insertMany,
   insertOne,
+  type JsonTextMatch,
   type OrderByClause,
   runInNewTransaction,
   runInSavepoint,

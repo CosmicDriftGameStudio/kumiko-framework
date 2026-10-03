@@ -14,11 +14,14 @@
 // `drizzle/generate.ts` ergänzen (= via subscriptionsProjectionTable-
 // import). setupTestStack pusht sie automatisch via r.projection.table.
 
-import { buildEntityTable } from "@cosmicdrift/kumiko-framework/db";
+import {
+  insertOnConflictDoNothing,
+  requireEntityTableMeta,
+  upsertOnConflict,
+} from "@cosmicdrift/kumiko-framework/bun-db";
+import { buildEntityTable, type EntityTableMeta } from "@cosmicdrift/kumiko-framework/db";
 import { defineApply } from "@cosmicdrift/kumiko-framework/engine";
 import { paymentRowId } from "./aggregate-id.js";
-import { insertPaymentProjectionRow } from "./db/queries/payment-projection.js";
-import { upsertSubscriptionProjectionRow } from "./db/queries/subscription-projection.js";
 import { paymentEntity, subscriptionEntity } from "./entities.js";
 import type { PaymentEventPayload, SubscriptionEventPayload } from "./events.js";
 
@@ -31,6 +34,17 @@ export const subscriptionsProjectionTable = buildEntityTable("subscription", sub
 // raw drizzle-pgTable, not an r.entity — apps mounting billing-foundation in
 // production must add read_payments to their own drizzle/generate.ts too.
 export const paymentsProjectionTable = buildEntityTable("payment", paymentEntity);
+
+// Unbranded metas: the apply functions below ARE the executor of these
+// projections, so they may write through the typed helpers.
+const subscriptionsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+  subscriptionsProjectionTable,
+  "subscription",
+);
+const paymentsProjectionMeta: EntityTableMeta = requireEntityTableMeta(
+  paymentsProjectionTable,
+  "payment",
+);
 
 // =============================================================================
 // Shared helpers
@@ -69,9 +83,7 @@ function cancelAtSetFromPayload(p: SubscriptionEventPayload): {
  *  on every apply including the initial create — a projection rebuild at a
  *  different wall-clock time must materialize the exact same row, and
  *  `getSubscriptionForTenant`'s `lastChangedAt` (staleness check for
- *  incomplete subscriptions) depends on that determinism. Raw `.unsafe()`
- *  bypasses the typed query-builder's Temporal.Instant-to-string coercion,
- *  hence the explicit `.toString()`. */
+ *  incomplete subscriptions) depends on that determinism. */
 async function upsert(
   tx: Parameters<Parameters<typeof defineApply<SubscriptionEventPayload>>[0]>[1],
   event: { aggregateId: string; tenantId: string; createdAt: Temporal.Instant },
@@ -92,38 +104,21 @@ async function upsert(
   // INSERT-Pfad und nur den teil-`set` für ON CONFLICT.
   const insertCols = {
     id: event.aggregateId,
-    tenant_id: event.tenantId,
-    provider_name: fullPayload.providerName,
-    provider_customer_id: fullPayload.providerCustomerId,
-    provider_subscription_id: fullPayload.providerSubscriptionId,
+    tenantId: event.tenantId,
+    providerName: fullPayload.providerName,
+    providerCustomerId: fullPayload.providerCustomerId,
+    providerSubscriptionId: fullPayload.providerSubscriptionId,
     status: fullPayload.status,
     tier: fullPayload.tier,
-    current_period_end: fullPayload.currentPeriodEndIso,
-    cancel_at: fullPayload.cancelAtIso ?? null,
-    modified_at: event.createdAt.toString(),
+    currentPeriodEnd: fullPayload.currentPeriodEndIso,
+    cancelAt: fullPayload.cancelAtIso ?? null,
+    modifiedAt: event.createdAt,
   };
-  // Map camelCase set-keys to snake_case DB columns.
-  const setMap: Record<keyof typeof set, string> = {
-    providerName: "provider_name",
-    providerCustomerId: "provider_customer_id",
-    providerSubscriptionId: "provider_subscription_id",
-    status: "status",
-    tier: "tier",
-    currentPeriodEnd: "current_period_end",
-    cancelAt: "cancel_at",
-  };
-  const insertParams = Object.values(insertCols);
-  const setEntries = Object.entries(set).filter(([, v]) => v !== undefined);
-  // modified_at is already bound as the last insertParams placeholder —
-  // reused (not re-pushed) for the ON CONFLICT SET clause below.
-  const setClauses: string[] = [`"modified_at" = $${insertParams.length}`];
-  const allParams: unknown[] = [...insertParams];
-  for (const [k, v] of setEntries) {
-    allParams.push(v);
-    setClauses.push(`"${setMap[k as keyof typeof set]}" = $${allParams.length}`);
-  }
-  const tableName = (subscriptionsProjectionTable as { tableName: string }).tableName;
-  await upsertSubscriptionProjectionRow(tx, tableName, insertCols, setClauses, allParams);
+  const definedSet = Object.fromEntries(Object.entries(set).filter(([, v]) => v !== undefined));
+  await upsertOnConflict(tx, subscriptionsProjectionMeta, insertCols, {
+    conflictKeys: ["id"],
+    update: { modifiedAt: event.createdAt, ...definedSet },
+  });
 }
 
 // =============================================================================
@@ -209,7 +204,6 @@ export const applyInvoicePaymentFailed = defineApply<SubscriptionEventPayload>(
  *  the second tenant's row. ON CONFLICT DO NOTHING also makes a projection
  *  rebuild idempotent without mutating an existing row. */
 export const applyPaymentReceived = defineApply<PaymentEventPayload>(async (event, tx) => {
-  const tableName = (paymentsProjectionTable as { tableName: string }).tableName;
   const providerEventId = event.metadata.headers?.["providerEventId"];
   const providerName = event.metadata.headers?.["providerName"];
   if (typeof providerEventId !== "string" || typeof providerName !== "string") {
@@ -217,11 +211,11 @@ export const applyPaymentReceived = defineApply<PaymentEventPayload>(async (even
       "applyPaymentReceived: event.metadata.headers is missing providerEventId/providerName — process-payment-event.write.ts always sets both",
     );
   }
-  await insertPaymentProjectionRow(tx, tableName, {
+  await insertOnConflictDoNothing(tx, paymentsProjectionMeta, {
     id: paymentRowId(event.tenantId, providerName, providerEventId),
-    tenant_id: event.tenantId,
-    provider_name: event.payload.providerName,
-    provider_customer_id: event.payload.providerCustomerId,
-    price_id: event.payload.priceId,
+    tenantId: event.tenantId,
+    providerName: event.payload.providerName,
+    providerCustomerId: event.payload.providerCustomerId,
+    priceId: event.payload.priceId,
   });
 });

@@ -1,4 +1,4 @@
-import { asEntityTableMeta, asRawClient, fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
+import { fetchOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   acquireNamespacedAdvisoryLock,
   createEventStoreExecutor,
@@ -40,10 +40,6 @@ type UserRolesRow = {
   isDeleted?: boolean;
 };
 
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
-}
-
 function isActiveUserRow(row: UserRolesRow): boolean {
   if (row.isDeleted === true) return false;
   return row.status === USER_STATUS.Active || !row.status;
@@ -54,21 +50,11 @@ function isActiveSystemAdminRow(row: UserRolesRow): boolean {
 }
 
 async function countOtherActiveSystemAdmins(db: DbRunner, excludeUserId: string): Promise<number> {
-  const tableName = asEntityTableMeta(userTable)?.tableName;
-  if (!tableName) {
-    throw new InternalError({ message: "user read table meta missing" });
-  }
-  // kumiko-lint-ignore raw-sql jsonb @> prefilter for SystemAdmin roster under advisory lock
-  const rows = (await asRawClient(db).unsafe(
-    `SELECT id, roles, status, is_deleted AS "isDeleted"
-     FROM ${quoteIdent(tableName)}
-     WHERE is_deleted = false
-       AND (status = $1 OR status IS NULL)
-       AND roles @> $2::jsonb`,
-    // Pass a JS array — JSON.stringify + $n::jsonb double-encodes to a jsonb string
-    // (postgres.js), so `@>` never matches a roles array.
-    [USER_STATUS.Active, ["SystemAdmin"]],
-  )) as UserRolesRow[];
+  // `roles` is a jsonb multiSelect column: a scalar filter value means `@>` containment.
+  const rows = await selectMany<UserRolesRow>(db, userTable, {
+    isDeleted: false,
+    roles: "SystemAdmin",
+  });
   return rows.filter((u) => u.id !== excludeUserId && isActiveSystemAdminRow(u)).length;
 }
 
@@ -138,9 +124,7 @@ export async function applyUserRolesUpdate(
     // observe otherActiveSystemAdmins >= 1 and leave zero active SystemAdmins.
     await acquireNamespacedAdvisoryLock(lockRunner, LAST_SYSTEM_ADMIN_LOCK_NAMESPACE, "global");
     const otherActiveSystemAdmins = await countOtherActiveSystemAdmins(
-      ctx.systemDb.unsafeRaw(
-        "jsonb @> prefilter over the global users table to count remaining active SystemAdmins",
-      ),
+      ctx.systemDb.unsafeRaw("count remaining active SystemAdmins across the global users table"),
       event.payload.id,
     );
     if (otherActiveSystemAdmins === 0) {

@@ -4,7 +4,7 @@
 // natural key + tenantId). Skips lifecycle hooks, field-access,
 // crypto-shredding, schema-versioning, audit-trail, read-access-log.
 // See "Was unsafeProjection.* überspringt" in
-// docs/plans/architecture/intern/step-vocabulary.md.
+// kumiko-platform/docs/archive/plans/architecture/intern/step-vocabulary.md.
 //
 // Use only on tables explicitly declared via r.requires.projection in
 // the owning feature. Aggregate-tables (registered via r.entity) are

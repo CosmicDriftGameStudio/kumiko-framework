@@ -15,6 +15,25 @@ repo's root. `--explain` prints the resolved repo and per-guard scan scope
 without running any guard; `--write-security-baseline` freezes current
 findings into the baseline file.
 
+## Raw-SQL markers
+
+`guard-raw-sql` blocks `.unsafe()` / `asRawClient()` outside `db/queries/*`,
+`bun-db/query.ts` and testing code. A `// kumiko-lint-ignore raw-sql <reason>`
+marker on the call's line or the line above only suppresses while its
+(file, reason) pair is frozen in `.kumiko-raw-sql-baseline.json` at the repo
+root. A new or reworded marker without a baseline entry fails the check, so
+every exception shows up as a baseline diff in review. Without a baseline file
+the guard only warns, so consumers do not break on bump. Prefer a typed
+`bun-db` helper; freeze a deliberate exception with:
+
+```
+bunx kumiko-guards checks --write-baseline --guard=guard-raw-sql
+```
+
+Rewording the reason is a new entry: re-run the command and review the diff.
+A removed marker leaves a stale entry that does not fail; the same command
+drops it.
+
 ## `kumiko-pre-push`
 
 A POSIX-sh pre-push hook, wired by copying the package's `hooks/pre-push`

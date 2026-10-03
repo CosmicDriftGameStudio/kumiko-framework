@@ -1,5 +1,5 @@
-import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { describe, expect, spyOn, test } from "bun:test";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runRepoChecks } from "../_lib/guard-kit";
@@ -290,6 +290,133 @@ describe("collectRawSqlFindings", () => {
       expect(findings.every((f) => f.repo === "app-repo")).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("raw-sql marker baseline", () => {
+  const BASELINE = ".kumiko-raw-sql-baseline.json";
+  const MARKED =
+    '// kumiko-lint-ignore raw-sql needs FOR UPDATE\nawait client.unsafe("SELECT 1");\n';
+
+  function withRepo(
+    files: Record<string, string>,
+    baseline: Record<string, number> | undefined,
+    body: (root: ReturnType<typeof fixtureRoot>, dir: string) => Promise<void>,
+  ): Promise<void> {
+    const dir = makeRepo(files);
+    if (baseline !== undefined) {
+      writeFileSync(
+        join(dir, BASELINE),
+        JSON.stringify({ format: 1, generated: "2026-01-01", total: 0, perFile: baseline }),
+      );
+    }
+    const root = fixtureRoot("app-repo", dir, {
+      kind: "app",
+      sourceRoots: ["src"],
+      testGlobs: ["src/**/*.test.ts"],
+    });
+    return body(root, dir).finally(() => rmSync(dir, { recursive: true, force: true }));
+  }
+
+  test("no baseline file → no violation, a warning is printed", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": MARKED }, undefined, async (root) => {
+        const outcome = await check.run([root]);
+        expect(outcome.violations).toEqual([]);
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("No baseline found"));
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("baseline present but marker missing from it → violation at the marker line", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": MARKED }, {}, async (root) => {
+        const outcome = await check.run([root]);
+        expect(outcome.violations).toHaveLength(1);
+        expect(outcome.violations[0]?.line).toBe(1);
+        expect(outcome.violations[0]?.message).toContain("raw-sql marker(s) over baseline");
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("matching (file, reason) in the baseline → ok", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": MARKED }, { "src/x.ts::needs FOR UPDATE": 1 }, async (root) => {
+        expect((await check.run([root])).violations).toEqual([]);
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("same file with a reworded reason → violation", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": MARKED }, { "src/x.ts::other reason": 1 }, async (root) => {
+        expect((await check.run([root])).violations).toHaveLength(1);
+      });
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("a line with asRawClient(db).unsafe( plus marker counts once", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo(
+        {
+          "src/x.ts":
+            '// kumiko-lint-ignore raw-sql needs FOR UPDATE\nawait asRawClient(db).unsafe("SELECT 1");\n',
+        },
+        { "src/x.ts::needs FOR UPDATE": 1 },
+        async (root) => {
+          expect((await check.run([root])).violations).toEqual([]);
+        },
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("markers in allowlisted paths and __tests__ are not counted", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo(
+        {
+          "src/db/queries/q.ts": MARKED,
+          "src/__tests__/t.ts": MARKED,
+          "src/ok.ts": "export const a = 1;\n",
+        },
+        {},
+        async (root) => {
+          expect((await check.run([root])).violations).toEqual([]);
+        },
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
+
+  test("writeBaseline freezes the current markers", async () => {
+    const logSpy = spyOn(console, "log").mockImplementation(() => {});
+    try {
+      await withRepo({ "src/x.ts": MARKED }, undefined, async (root, dir) => {
+        await check.writeBaseline?.([root]);
+        expect(existsSync(join(dir, BASELINE))).toBe(true);
+        const written = JSON.parse(readFileSync(join(dir, BASELINE), "utf-8"));
+        expect(written.perFile).toEqual({ "src/x.ts::needs FOR UPDATE": 1 });
+        expect((await check.run([root])).violations).toEqual([]);
+      });
+    } finally {
+      logSpy.mockRestore();
     }
   });
 });

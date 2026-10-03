@@ -29,6 +29,9 @@ function printHelp(): void {
   for (const sub of SUBCOMMANDS) {
     const flags = SUBCOMMAND_FLAGS[sub];
     console.log(`  ${sub}${flags.length > 0 ? ` [${flags.join("|")}]` : ""}`);
+    if (flags.includes("--write-baseline")) {
+      console.log(`    --write-baseline needs --guard=<name> (freezes one guard's baseline)`);
+    }
   }
 }
 
