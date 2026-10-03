@@ -38,6 +38,7 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { Redis } from "ioredis";
 import { composeFeatures } from "../compose-features.js";
@@ -47,6 +48,7 @@ import { addConfigAccessorFactory, buildBootExtraContext } from "../run-prod-app
 import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.js";
 import { resolveBootCrypto } from "./boot-crypto.js";
 import { jobRunLoggerCallbacks } from "./job-run-logger.js";
+import { assertWorkerMetricsOptions } from "./worker-metrics-server.js";
 
 export type WorkerBootCoreOptions = Omit<RunWorkerAppOptions, "wireComponents">;
 
@@ -65,12 +67,22 @@ export type BootedWorkerProcess = {
   readonly features: readonly FeatureDefinition[];
   readonly envSource: Record<string, string | undefined>;
   readonly entrypoint: WorkerEntrypoint;
+  /** ctx.secrets as wired into the entrypoint (auto-wired when the secrets
+   *  feature is mounted and a master key exists, or from `extraContext`). */
+  readonly secrets?: SecretsContext;
   readonly close: () => Promise<void>;
 };
 
 export type WorkerBootResult =
   | { readonly kind: "dry-run"; readonly envSource: Record<string, string | undefined> }
   | BootedWorkerProcess;
+
+function isSecretsContext(value: unknown): value is SecretsContext {
+  if (typeof value !== "object" || value === null) return false;
+  return ["get", "has", "set", "delete"].every(
+    (method) => typeof (value as Record<string, unknown>)[method] === "function", // @cast-boundary extraContext is untyped by design
+  );
+}
 
 export async function resolveWorkerEnvSource(
   options: Pick<WorkerBootCoreOptions, "envSource" | "kmsSlots">,
@@ -139,6 +151,7 @@ export async function bootWorkerProcess(
   });
   validateBoot(features, { env: envSource, ...options.validateBootOptions });
   warnIfNonUtcServerTimeZone();
+  assertWorkerMetricsOptions(options.metrics, options.observability, processName);
   assertPiiBootInvariants(features, {
     kms: options.kms,
     blindIndexKey: options.blindIndexKey,
@@ -245,6 +258,7 @@ export async function bootWorkerProcess(
     features,
     envSource,
     entrypoint,
+    ...(isSecretsContext(extraContext["secrets"]) && { secrets: extraContext["secrets"] }),
     close: async () => {
       await entrypoint.stop();
       await closeDb();

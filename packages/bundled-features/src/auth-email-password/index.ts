@@ -8,6 +8,7 @@
 export { hashPassword, verifyPassword } from "../shared/password-hashing.js";
 export { type AuthPath, type AuthPaths, DEFAULT_AUTH_PATHS, makeAuthPaths } from "./auth-paths.js";
 export type {
+  BootstrapConfigValue,
   BootstrapDeps,
   BootstrapInvite,
   BootstrapInviteOutcome,

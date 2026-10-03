@@ -33,7 +33,7 @@ import { tenantEntity, tenantMembershipsTable } from "@cosmicdrift/kumiko-bundle
 import { seedTenantMembership } from "@cosmicdrift/kumiko-bundled-features/tenant/testing";
 import { UserHandlers, userEntity, userTable } from "@cosmicdrift/kumiko-bundled-features/user";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -196,7 +196,7 @@ async function setPolicy(stack: TestStack, policy: "optional" | "admins" | "all"
   await stack.http.writeOk(
     "config:write:set",
     { key: mfaRequiredConfigHandle.name, value: policy },
-    { id: systemAdmin.id, tenantId: TEST_TENANT_ID, roles: ["SystemAdmin"] },
+    createSystemUser(TEST_TENANT_ID),
   );
 }
 

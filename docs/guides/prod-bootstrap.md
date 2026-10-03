@@ -33,6 +33,8 @@ await runBootstrap({
       key: "acme",
       name: "Acme GmbH",
       invites: [{ email: "office@acme.example", role: "TenantAdmin" }],
+      // per-tenant config, set as system writes on every run
+      config: { "auth-mfa:config:required": "admins" },
     },
   ],
   systemAdmins: [{ email: "ops@example.com", tenantId: "8c0e…" as TenantId, role: "TenantAdmin" }],
@@ -67,11 +69,19 @@ The same plan can run again safely:
 | State | What happens |
 |---|---|
 | tenant exists | nothing; the `seed` hook does not run |
+| `config` value differs from the stored one (also on an existing tenant) | written, listed as `config: <key>` in the log |
+| `config` value already matches | nothing is written |
 | invitation pending (link still valid) | `pending`, no mail |
 | invitation expired unused | `resent`, a new link goes out |
 | invitation accepted, or the user already has access | `active`, no mail |
 | invitation cancelled by an admin | `cancelled`, nothing is re-sent |
 | a tenant admin re-invited the address without the planned SystemAdmin role | `role-mismatch`, nothing is sent; decide by hand |
+
+`config` is declarative and converges on every run, so a later run also changes
+a value you edited in the plan. Keys that only the system may write (for example
+`auth-mfa:config:required`) can be set this way and nowhere else. Encrypted keys
+are re-encrypted and rewritten on each run, because their stored value cannot be
+compared.
 
 A seed that fails after the tenant was created is not retried by a second run.
 Fix the data through the app or a migration instead.

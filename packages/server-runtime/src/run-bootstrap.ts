@@ -25,7 +25,7 @@ const PROCESS_NAME = "runBootstrap";
 
 export type RunBootstrapOptions = Omit<
   RunWorkerAppOptions,
-  "wireComponents" | "includeBundled" | "jobs" | "eventDispatcher"
+  "wireComponents" | "includeBundled" | "jobs" | "eventDispatcher" | "metrics"
 > &
   BootstrapPlan & {
     /** The same auth block the app passes to runProdApp (`admin` is ignored).
@@ -43,7 +43,7 @@ function logBootstrapReport(report: BootstrapReport): void {
   for (const tenant of report.tenants) {
     // biome-ignore lint/suspicious/noConsole: the report IS the deliverable of a one-shot process
     console.log(
-      `[${PROCESS_NAME}] tenant ${tenant.id}: ${tenant.outcome}${tenant.seeded ? " (seeded)" : ""}`,
+      `[${PROCESS_NAME}] tenant ${tenant.id}: ${tenant.outcome}${tenant.seeded ? " (seeded)" : ""}${tenant.configApplied.length > 0 ? ` (config: ${tenant.configApplied.join(", ")})` : ""}`,
     );
   }
   for (const invite of report.invites) {
