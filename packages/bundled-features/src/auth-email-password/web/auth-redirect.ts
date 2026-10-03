@@ -35,6 +35,7 @@ export function readNextFromSearch(search: string): string | null {
 // loginUrl/postLogoutUrl come from app code (trusted), but a typo like
 // "javascript:" must fail at startup instead of becoming a navigation target.
 export function assertNavigableUrl(url: string, optionName: string): void {
+  // skip: a safe root-relative path needs no protocol check
   if (url.startsWith("/") && isSafeNextPath(url)) return;
   let protocol: string;
   try {
