@@ -179,6 +179,10 @@ async function buildStripeContractFixture() {
     // Return value isn't read by createStripeCancelSubscription (fire-and-
     // forget) — double-cast at the test/SDK boundary instead of `as any`.
   } as unknown as Stripe.Response<Stripe.Subscription>);
+  spyOn(stripe.subscriptions, "update").mockResolvedValue({
+    id: "sub_contract",
+    status: "active",
+  } as unknown as Stripe.Response<Stripe.Subscription>);
   const runtime = contractCtxRuntime(stripe);
 
   const stripeForWebhookFixture = new Stripe(CONTRACT_API_KEY);

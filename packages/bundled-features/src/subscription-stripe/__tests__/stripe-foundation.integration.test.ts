@@ -136,6 +136,7 @@ function buildStripeSubscriptionEvent(overrides: {
   customerId?: string;
   subscriptionId?: string;
   eventType?: string;
+  consentId?: string;
 }) {
   const eventId = overrides.eventId ?? "evt_integration_001";
   return {
@@ -153,7 +154,10 @@ function buildStripeSubscriptionEvent(overrides: {
         object: "subscription",
         customer: overrides.customerId ?? "cus_integration_001",
         status: overrides.status ?? "active",
-        metadata: { tenantId: overrides.tenantId ?? "tenant-int-1" },
+        metadata: {
+          tenantId: overrides.tenantId ?? "tenant-int-1",
+          ...(overrides.consentId !== undefined && { consentId: overrides.consentId }),
+        },
         items: {
           object: "list",
           data: [
@@ -241,6 +245,32 @@ describe("scenario 1: Stripe-event → DB happy path", () => {
     const rawHeader = esEvents[0]?.metadata.headers?.["rawPayload"] as string;
     const archivedRaw = JSON.parse(rawHeader) as { id: string };
     expect(archivedRaw.id).toBe("evt_4001_create");
+  });
+});
+
+describe("scenario 1b: consentId from webhook metadata is persisted", () => {
+  test("metadata.consentId lands in the appended subscription event payload", async () => {
+    const tenantStringId = testTenantId(4101);
+    const payload = JSON.stringify(
+      buildStripeSubscriptionEvent({
+        eventId: "evt_4101_consent",
+        tenantId: tenantStringId,
+        subscriptionId: "sub_4101",
+        customerId: "cus_4101",
+        consentId: "consent-4101",
+      }),
+    );
+
+    const res = await postStripeWebhook(payload, await signEvent(payload));
+    expect(res.status).toBe(200);
+
+    const esEvents = await loadAggregate(
+      db,
+      subscriptionAggregateId(tenantStringId),
+      tenantStringId,
+    );
+    expect(esEvents).toHaveLength(1);
+    expect(esEvents[0]?.payload).toMatchObject({ consentId: "consent-4101" });
   });
 });
 

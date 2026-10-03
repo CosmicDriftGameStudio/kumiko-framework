@@ -21,6 +21,7 @@ import {
   type ProviderPrice,
   type ProviderSubscriptionSnapshot,
   type RecurringInterval,
+  SubscriptionCancelTimings,
   type SubscriptionProviderPlugin,
 } from "@cosmicdrift/kumiko-bundled-features/billing-foundation";
 import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
@@ -49,6 +50,65 @@ export type StripeCheckoutSessionRuntimeOptions = {
   readonly paymentInvoiceCreation?: boolean;
 };
 
+// Stripe's own Locale union also accepts arbitrary strings, so the known set
+// is spelled out here to pick a value Stripe actually renders.
+const STRIPE_CHECKOUT_LOCALES = [
+  "bg",
+  "cs",
+  "da",
+  "de",
+  "el",
+  "en",
+  "en-GB",
+  "es",
+  "es-419",
+  "et",
+  "fi",
+  "fil",
+  "fr",
+  "fr-CA",
+  "hr",
+  "hu",
+  "id",
+  "it",
+  "ja",
+  "ko",
+  "lt",
+  "lv",
+  "ms",
+  "mt",
+  "nb",
+  "nl",
+  "pl",
+  "pt",
+  "pt-BR",
+  "ro",
+  "ru",
+  "sk",
+  "sl",
+  "sv",
+  "th",
+  "tr",
+  "vi",
+  "zh",
+  "zh-HK",
+  "zh-TW",
+] as const satisfies readonly Stripe.Checkout.SessionCreateParams.Locale[];
+
+// Stripe rejects custom_text.submit.message above 1200 characters.
+const STRIPE_CUSTOM_TEXT_MAX_LENGTH = 1200;
+
+export function mapAppLocaleToStripeLocale(
+  locale: string,
+): Stripe.Checkout.SessionCreateParams.Locale {
+  const normalized = locale.replace("_", "-");
+  const knownLocales: readonly string[] = STRIPE_CHECKOUT_LOCALES;
+  const exact = knownLocales.find((known) => known.toLowerCase() === normalized.toLowerCase());
+  if (exact) return exact;
+  const language = normalized.split("-")[0]?.toLowerCase();
+  return knownLocales.find((known) => known === language) ?? "auto";
+}
+
 function isUnknownCustomerStripeError(error: unknown): boolean {
   return (
     isResourceMissingStripeError(error) &&
@@ -70,6 +130,10 @@ export function createStripeCheckoutSession(
     await runtime.assertBillingLive(ctx);
     const stripe = await runtime.clientForCtx(ctx);
     const mode = options.mode ?? "subscription";
+    const metadata = {
+      tenantId: options.tenantId,
+      ...(options.consentId && { consentId: options.consentId }),
+    };
 
     const sessionParams = (
       providerCustomerId: string | undefined,
@@ -78,6 +142,13 @@ export function createStripeCheckoutSession(
       line_items: [{ price: options.priceId, quantity: 1 }],
       success_url: options.successUrl,
       cancel_url: options.cancelUrl,
+      submit_type: "pay",
+      ...(options.locale && { locale: mapAppLocaleToStripeLocale(options.locale) }),
+      ...(options.submitMessage && {
+        custom_text: {
+          submit: { message: options.submitMessage.slice(0, STRIPE_CUSTOM_TEXT_MAX_LENGTH) },
+        },
+      }),
       // subscription_data is subscription-mode-only (Stripe rejects it in
       // payment-mode) — the subsequent webhook reads metadata.tenantId off
       // the subscription it creates. payment-mode has no subscription, so
@@ -86,9 +157,9 @@ export function createStripeCheckoutSession(
       // rejects it in subscription-mode, which invoices via the subscription
       // itself.
       ...(mode === "subscription"
-        ? { subscription_data: { metadata: { tenantId: options.tenantId } } }
+        ? { subscription_data: { metadata } }
         : {
-            payment_intent_data: { metadata: { tenantId: options.tenantId } },
+            payment_intent_data: { metadata },
             invoice_creation: { enabled: paymentInvoiceCreation },
             // Without a customer, Stripe's default "if_required" makes a guest
             // checkout when invoice_creation is off; the webhook then has no
@@ -144,14 +215,24 @@ export function createStripePortalSession(runtime: StripeCtxRuntime) {
 // cancelSubscription
 // =============================================================================
 //
-// Stripe sendet danach `customer.subscription.deleted`-webhook → der
-// state-update läuft über den normalen webhook-pfad. Diese function
-// triggert nur die API-Cancellation.
+// Stripe sends `customer.subscription.updated` (period-end) or
+// `customer.subscription.deleted` (immediately) afterwards — the state
+// update runs through the normal webhook path. This only triggers the API call.
+
+export type StripeCancelOptions = Parameters<
+  NonNullable<SubscriptionProviderPlugin["cancelSubscription"]>
+>[1];
 
 export function createStripeCancelSubscription(runtime: StripeCtxRuntime) {
-  return async (ctx: HandlerContext, providerSubscriptionId: string): Promise<void> => {
+  return async (ctx: HandlerContext, options: StripeCancelOptions): Promise<void> => {
     const stripe = await runtime.clientForCtx(ctx);
-    await stripe.subscriptions.cancel(providerSubscriptionId);
+    if (options.when === SubscriptionCancelTimings.periodEnd) {
+      await stripe.subscriptions.update(options.providerSubscriptionId, {
+        cancel_at_period_end: true,
+      });
+      return;
+    }
+    await stripe.subscriptions.cancel(options.providerSubscriptionId);
   };
 }
 

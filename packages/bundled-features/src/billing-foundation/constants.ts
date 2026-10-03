@@ -102,6 +102,21 @@ export const BillingEventKinds = {
 } as const;
 export type BillingEventKind = (typeof BillingEventKinds)[keyof typeof BillingEventKinds];
 
+export const SubscriptionCancelTimings = {
+  periodEnd: "period-end",
+  immediately: "immediately",
+} as const;
+export type SubscriptionCancelTiming =
+  (typeof SubscriptionCancelTimings)[keyof typeof SubscriptionCancelTimings];
+
+// consentId is echoed back by the provider (checkout metadata), so it is
+// untrusted input: bounded length, id-ish charset only.
+const CONSENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,100}$/;
+
+export function parseProviderConsentId(raw: unknown): string | undefined {
+  return typeof raw === "string" && CONSENT_ID_PATTERN.test(raw) ? raw : undefined;
+}
+
 // Billing-plans screen/panel identifiers — the dormant dashboard app-builders
 // mount their own catalog-derived nav entry onto.
 export const BILLING_PLANS_SCREEN_ID = "billing-plans" as const;

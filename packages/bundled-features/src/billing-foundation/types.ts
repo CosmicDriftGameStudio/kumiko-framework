@@ -32,6 +32,7 @@ import {
   type BillingEventKinds,
   type BillingPlanAction,
   SUBSCRIPTION_PROVIDER_EXTENSION,
+  type SubscriptionCancelTiming,
   type SubscriptionEventType,
   type SubscriptionStatus,
 } from "./constants.js";
@@ -62,6 +63,9 @@ export type SubscriptionEvent = {
   /** Plattform-Tenant-ID (provider-customer-metadata oder lookup
    *  via providerCustomerId). Plugin macht die resolution. */
   readonly tenantId: string;
+  /** Consent id echoed back from checkout metadata; omitted when absent or
+   *  malformed. */
+  readonly consentId?: string;
   /** Provider-eigene customer-id für späteren Lookup bei events
    *  ohne metadata. */
   readonly providerCustomerId: string;
@@ -112,6 +116,9 @@ export type PaymentEvent = {
    *  create time) — never from a freely-choosable payload field, or an
    *  attacker could attribute payments to someone else's tenant. */
   readonly tenantId: string;
+  /** Consent id echoed back from checkout metadata; omitted when absent or
+   *  malformed. */
+  readonly consentId?: string;
   /** Provider's own customer-id. */
   readonly providerCustomerId: string;
   /** Provider's own price/plan-ID of the purchased item. */
@@ -193,6 +200,13 @@ export type SubscriptionProviderPlugin = {
        *  credit top-ups). Optional with default `"subscription"` — existing
        *  callers are unaffected. */
       readonly mode?: "subscription" | "payment";
+      /** Id of the consumer-protection consent recorded for this checkout.
+       *  Travels as provider metadata and comes back on the webhook event. */
+      readonly consentId?: string;
+      /** App locale (BCP-47-ish, e.g. "de", "de-DE") for the hosted page. */
+      readonly locale?: string;
+      /** Text shown next to the submit button on the hosted page. */
+      readonly submitMessage?: string;
     },
   ) => Promise<{ readonly url: string }>;
 
@@ -225,7 +239,10 @@ export type SubscriptionProviderPlugin = {
    */
   readonly cancelSubscription?: (
     ctx: HandlerContext,
-    providerSubscriptionId: string,
+    options: {
+      readonly providerSubscriptionId: string;
+      readonly when: SubscriptionCancelTiming;
+    },
   ) => Promise<void>;
 
   /**
