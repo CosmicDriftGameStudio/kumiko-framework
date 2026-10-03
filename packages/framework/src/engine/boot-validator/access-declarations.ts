@@ -85,20 +85,22 @@ function validateEscapeHatchReason(
     | QueryHandlerDef["escapeHatch"]
     | StreamHandlerDef["escapeHatch"],
 ): void {
-  if (!escapeHatch) return;
-  const grantsProblem = escapeHatchGrantsProblem(escapeHatch);
-  if (grantsProblem !== undefined) {
-    throw new Error(
-      `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${grantsProblem}`,
-    );
+  if (escapeHatch) {
+    const grantsProblem = escapeHatchGrantsProblem(escapeHatch);
+    if (grantsProblem !== undefined) {
+      throw new Error(
+        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares an invalid escapeHatch — ${grantsProblem}`,
+      );
+    }
+    if (escapeHatch.reason.trim().length === 0) {
+      throw new Error(
+        `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
+          `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +
+          "explaining why this handler needs db.global() write access, a SYSTEM identity switch " +
+          "or a cross-tenant ctx.queryProjection({ unsafeAllTenants: true }) read.",
+      );
+    }
   }
-  if (escapeHatch.reason.trim().length > 0) return;
-  throw new Error(
-    `[Feature ${feature.name}] ${kind} handler "${handlerName}" declares ` +
-      `{ escapeHatch: { reason: "" } } — the reason must be a non-empty string ` +
-      "explaining why this handler needs db.global() write access, a SYSTEM identity switch " +
-      "or a cross-tenant ctx.queryProjection({ unsafeAllTenants: true }) read.",
-  );
 }
 
 function validatePersonalDataOnlyOnWrite(

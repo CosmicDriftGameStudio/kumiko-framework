@@ -6,7 +6,7 @@ agent-tools: `list_<entity>` filters and `find_<entity>_by_<field>` tools only o
 
 <!-- kumiko-changes
 feature: agent-tools
-type: security
+type: fix
 title: agent entity tools no longer filter on read-restricted fields
 migration: |
   No action needed: fields whose access.read is not unconditionally open to the agent's roles drop out of list filters and find-by tools.

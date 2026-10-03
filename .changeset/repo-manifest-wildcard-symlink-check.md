@@ -6,8 +6,8 @@ repo-manifest: the root-containment check also resolves wildcard segments. A sym
 
 <!-- kumiko-changes
 feature: repo-manifest
-type: security
+type: breaking
 title: manifest patterns reject symlinks escaping the repo root behind wildcard segments
 migration: |
-  No action needed. A kumiko.json whose wildcard pattern matches a symlink that leaves the repo root now fails to load.
+  A kumiko.json whose wildcard pattern matches a symlink that leaves the repo root now fails to load. Point the pattern at paths inside the repo or remove the symlink.
 -->
