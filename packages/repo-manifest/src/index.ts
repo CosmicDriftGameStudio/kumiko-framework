@@ -74,16 +74,57 @@ function isWithinRoot(candidateReal: string, rootReal: string): boolean {
   return candidateReal === rootReal || candidateReal.startsWith(rootReal + sep);
 }
 
-// Static prefix (pre-glob segments) is what a symlink escape must hide behind — the glob tail never resolves to a real path.
 const GLOB_METACHARACTER_RE = /[*?[\]{}]/;
+const GLOBSTAR_SEGMENT = "**";
 
-function staticPatternBase(value: string): string {
-  const staticSegments: string[] = [];
-  for (const segment of value.split("/")) {
-    if (GLOB_METACHARACTER_RE.test(segment)) break;
-    staticSegments.push(segment);
+// Only `*` and `?` are matched exactly; any other metacharacter matches every entry, which can over-reject but never lets a symlink slip through.
+const UNSUPPORTED_GLOB_CHARACTER_RE = /[[\]{}]/;
+
+function segmentMatcher(segment: string): RegExp {
+  if (UNSUPPORTED_GLOB_CHARACTER_RE.test(segment)) return /^.*$/;
+  const source = [...segment]
+    .map((char) => {
+      if (char === "*") return "[^/]*";
+      if (char === "?") return "[^/]";
+      return char.replace(/[.+^$()|\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${source}$`);
+}
+
+// Walks the pattern segment by segment: a symlink can escape before the full path exists on disk (e.g. "linked/src" whose target has no "src"), and a wildcard segment ("packages/*/src") can match a symlinked directory. Segments below a "**" are not walked, so a symlink inside such a tree is the glob consumer's responsibility.
+function assertSegmentsWithinRoot(
+  manifestPath: string,
+  rootReal: string,
+  pattern: string,
+  dirAbs: string,
+  segments: readonly string[],
+): void {
+  for (const [index, segment] of segments.entries()) {
+    if (segment === GLOBSTAR_SEGMENT) return;
+    if (!GLOB_METACHARACTER_RE.test(segment)) {
+      dirAbs = join(dirAbs, segment);
+      if (!existsSync(dirAbs)) return;
+      if (!isWithinRoot(realpathSync(dirAbs), rootReal)) {
+        throw new RepoManifestError(manifestPath, `"${pattern}" resolves outside the repo root`);
+      }
+      continue;
+    }
+    const matcher = segmentMatcher(segment);
+    const rest = segments.slice(index + 1);
+    for (const entry of readdirSync(dirAbs)) {
+      if (!matcher.test(entry)) continue;
+      const entryAbs = join(dirAbs, entry);
+      if (!existsSync(entryAbs)) continue;
+      if (!isWithinRoot(realpathSync(entryAbs), rootReal)) {
+        throw new RepoManifestError(manifestPath, `"${pattern}" resolves outside the repo root`);
+      }
+      if (rest.length > 0 && isDirectory(entryAbs)) {
+        assertSegmentsWithinRoot(manifestPath, rootReal, pattern, entryAbs, rest);
+      }
+    }
+    return;
   }
-  return staticSegments.join("/");
 }
 
 function assertPatternsResolveWithinRoot(
@@ -99,19 +140,7 @@ function assertPatternsResolveWithinRoot(
     ...(manifest.excludes ?? []),
   ];
   for (const value of patterns) {
-    const base = staticPatternBase(value);
-    if (base.length === 0) continue;
-    // Walk segment by segment — a symlink can escape before the full base path exists on disk (e.g. "linked/src" whose target has no "src").
-    let relSoFar = "";
-    for (const segment of base.split("/")) {
-      relSoFar = relSoFar.length === 0 ? segment : `${relSoFar}/${segment}`;
-      const segmentAbs = join(rootAbs, relSoFar);
-      if (!existsSync(segmentAbs)) break;
-      const segmentReal = realpathSync(segmentAbs);
-      if (!isWithinRoot(segmentReal, rootReal)) {
-        throw new RepoManifestError(manifestPath, `"${value}" resolves outside the repo root`);
-      }
-    }
+    assertSegmentsWithinRoot(manifestPath, rootReal, value, rootAbs, value.split("/"));
   }
 }
 
