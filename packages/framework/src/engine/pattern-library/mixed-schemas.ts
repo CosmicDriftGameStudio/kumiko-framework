@@ -90,6 +90,11 @@ export const writeHandlerSchema: PatternFormSchema = {
       input: "json-readonly",
     },
     {
+      path: "additionalRateLimits",
+      label: { en: "Per-payload rate limits", de: "Payload-Rate-Limits" },
+      input: "json-readonly",
+    },
+    {
       path: "unsafeSkipTransitionGuard",
       label: { en: "Skip transition guard", de: "Übergangs-Guard überspringen" },
       input: "boolean",

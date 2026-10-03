@@ -822,6 +822,92 @@ describe("boot-validator", () => {
     expect(() => validateBoot(features)).not.toThrow();
   });
 
+  describe("additionalRateLimits", () => {
+    const emailBucket = [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }];
+    const mailSchema = z.object({ email: z.string() });
+    const handlerResult = async () => ({ isSuccess: true as const, data: {} });
+
+    test("throws for an anonymous handler without rateLimit", () => {
+      const features = [
+        defineFeature("a", (r) => {
+          r.writeHandler("request", mailSchema, handlerResult, {
+            access: { roles: ["anonymous"] },
+            additionalRateLimits: emailBucket,
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/write handler "a:write:request"/);
+    });
+
+    test("throws for an anonymous handler with a disabled rateLimit", () => {
+      const features = [
+        defineFeature("a", (r) => {
+          r.writeHandler("request", mailSchema, handlerResult, {
+            access: { roles: ["anonymous"] },
+            rateLimit: { disabled: true, reason: "test" },
+            additionalRateLimits: emailBucket,
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/no ip-keyed rateLimit/);
+    });
+
+    test("throws for an anonymous handler with a user-bucketed rateLimit", () => {
+      const features = [
+        defineFeature("a", (r) => {
+          r.writeHandler("request", mailSchema, handlerResult, {
+            access: { roles: ["anonymous"] },
+            rateLimit: { per: "tenant", limit: 10, windowSeconds: 60 },
+            additionalRateLimits: emailBucket,
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/no ip-keyed rateLimit/);
+    });
+
+    test("throws when payloadField is not in the schema", () => {
+      const features = [
+        defineFeature("a", (r) => {
+          r.writeHandler("request", mailSchema, handlerResult, {
+            access: { roles: ["anonymous"] },
+            rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+            additionalRateLimits: [{ per: { payloadField: "emial" }, limit: 3, windowSeconds: 60 }],
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).toThrow(/payloadField "emial"/);
+    });
+
+    test("throws for an empty array and for non-positive limits", () => {
+      const withLimits = (additionalRateLimits: typeof emailBucket) => [
+        defineFeature("a", (r) => {
+          r.writeHandler("request", mailSchema, handlerResult, {
+            access: { roles: ["anonymous"] },
+            rateLimit: { per: "ip", limit: 10, windowSeconds: 60 },
+            additionalRateLimits,
+          });
+        }),
+      ];
+      expect(() => validateBoot(withLimits([]))).toThrow(/empty array/);
+      expect(() =>
+        validateBoot(withLimits([{ per: { payloadField: "email" }, limit: 0, windowSeconds: 60 }])),
+      ).toThrow(/positive integer/);
+    });
+
+    test("accepts an anonymous handler with an ip-keyed rateLimit and a schema field", () => {
+      const features = [
+        defineFeature("a", (r) => {
+          r.writeHandler("request", mailSchema, handlerResult, {
+            access: { roles: ["anonymous"] },
+            rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+            additionalRateLimits: emailBucket,
+          });
+        }),
+      ];
+      expect(() => validateBoot(features)).not.toThrow();
+    });
+  });
+
   describe("config key bounds consistency", () => {
     test("accepts number key with consistent bounds + default", () => {
       const features = [

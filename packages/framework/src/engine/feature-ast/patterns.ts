@@ -71,6 +71,7 @@ import type {
   AgentHandlerHints,
   ClaimKeyType,
   EscapeHatchDeclaration,
+  PayloadRateLimitOption,
   RateLimitDeclaration,
 } from "../types/handlers.js";
 import type { HookPhase } from "../types/hooks.js";
@@ -404,6 +405,7 @@ export type WriteHandlerPattern = {
   readonly description?: string;
   readonly agent?: AgentHandlerHints | RawRefSentinel;
   readonly rateLimit?: RateLimitDeclaration | RawRefSentinel;
+  readonly additionalRateLimits?: readonly PayloadRateLimitOption[] | RawRefSentinel;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };

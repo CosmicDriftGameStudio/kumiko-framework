@@ -100,6 +100,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
     schema: RequestTokenSchema,
     access: { roles: ["anonymous"] },
     rateLimit: { per: "ip+handler", limit: 10, windowSeconds: 60 },
+    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 5, windowSeconds: 86400 }],
     escapeHatch: {
       reason:
         "Anonymous requester has no session — looks up the target user by email via " +

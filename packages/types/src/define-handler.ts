@@ -6,6 +6,7 @@ import type {
   AgentHandlerHints,
   EscapeHatchDeclaration,
   HandlerContext,
+  PayloadRateLimitOption,
   QueryEvent,
   RateLimitDeclaration,
   WriteEvent,
@@ -41,6 +42,7 @@ export type WriteHandlerDefinition<
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
+  readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly tenantlessAnonymous?: boolean;
   readonly handler: (
@@ -70,6 +72,7 @@ export type WriteHandlerInput<
   readonly agent?: AgentHandlerHints;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly rateLimit?: RateLimitDeclaration;
+  readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
   readonly tenantlessAnonymous?: boolean;
 } & (

@@ -813,6 +813,7 @@ export function computeHasRateLimitedHandler(state: RegistryState): void {
   state.hasRateLimitedHandlerCached = (() => {
     for (const h of state.writeHandlerMap.values()) {
       if (h.rateLimit !== undefined && !isRateLimitDisabled(h.rateLimit)) return true;
+      if (h.additionalRateLimits !== undefined) return true;
     }
     for (const h of state.queryHandlerMap.values()) {
       if (h.rateLimit !== undefined && !isRateLimitDisabled(h.rateLimit)) return true;

@@ -183,6 +183,45 @@ defineFeature("f", (r) => {
   });
 });
 
+describe("additionalRateLimits on a write handler", () => {
+  const source = `
+import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import { z } from "zod";
+
+defineFeature("f", (r) => {
+  r.writeHandler({
+    name: "x",
+    schema: z.object({ email: z.string() }),
+    handler: async () => {},
+    access: { roles: ["anonymous"] },
+    rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 600 },
+    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }],
+  });
+});
+`;
+  const expected = {
+    rateLimit: { per: "ip+handler", limit: 5, windowSeconds: 600 },
+    additionalRateLimits: [{ per: { payloadField: "email" }, limit: 3, windowSeconds: 86400 }],
+  };
+  const result = parse(source);
+
+  test("parses both limits into the pattern", () => {
+    expect(result.errors).toEqual([]);
+    expect(findPattern(result.patterns, "writeHandler")).toMatchObject(expected);
+  });
+
+  test("render → parse roundtrip keeps both limits", () => {
+    const rendered = renderFeatureFile({
+      featureName: result.featureName ?? "",
+      patterns: result.patterns,
+    });
+    expect(rendered).toContain("additionalRateLimits:");
+    const reparsed = parse(rendered);
+    expect(reparsed.errors).toEqual([]);
+    expect(findPattern(reparsed.patterns, "writeHandler")).toMatchObject(expected);
+  });
+});
+
 describe('access: { roles: ["anonymous"], personalData: PD }, non-literal sub-value', () => {
   const source = `
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";

@@ -59,6 +59,7 @@ import {
 import {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
+  createPayloadDigest,
   createRateLimitResolver,
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
@@ -521,6 +522,14 @@ export function buildServer(options: ServerOptions): KumikoServer {
     Object.values(feature.httpRoutes).some((route) => route.rateLimit !== undefined),
   );
   const wantsResolver = wantsL3 || wantsL1L2 || wantsHttpRouteLimit;
+  // Master for the payload-bucket HMAC: the current signing secret (the
+  // keyring's signKid for rotation setups). buildServer always has one, so
+  // the digest is available whenever a handler declares additionalRateLimits.
+  const payloadDigest = createPayloadDigest(
+    typeof options.jwtSecret === "string"
+      ? options.jwtSecret
+      : (options.jwtSecret.keys[options.jwtSecret.signKid] ?? ""),
+  );
   const rateLimitResolver =
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
@@ -528,6 +537,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...contextWithFiles,
     ...(wrappedRedis ? { redis: wrappedRedis } : {}),
     ...(rateLimitResolver ? { rateLimit: rateLimitResolver } : {}),
+    _rateLimitPayloadDigest: payloadDigest,
     // Propagate the feature-toggle resolver to the context so the event-
     // dispatcher (and any future context-reading consumer) sees the same
     // source as the command dispatcher's handler-gate. Options take

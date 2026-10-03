@@ -231,6 +231,17 @@ const rateLimitOptionSchema = z
   })
   .strict();
 
+const additionalRateLimitsSchema = z.array(
+  z
+    .object({
+      per: z.object({ payloadField: z.string() }).strict(),
+      limit: z.number(),
+      windowSeconds: z.number(),
+      cost: z.number().optional(),
+    })
+    .strict(),
+);
+
 const agentHandlerHintsSchema = z
   .object({
     expose: z.boolean().optional(),
@@ -270,6 +281,7 @@ const WRITE_HANDLER_HEADER_SHAPE = {
   description: z.string(),
   agent: agentHandlerHintsSchema,
   rateLimit: rateLimitOptionSchema,
+  additionalRateLimits: additionalRateLimitsSchema,
   unsafeSkipTransitionGuard: z.boolean(),
   escapeHatch: escapeHatchSchema,
 } satisfies Record<WriteHandlerHeaderKey, z.ZodTypeAny>;
@@ -320,6 +332,7 @@ const WRITE_HANDLER_PATTERN_HEADER_SHAPE = {
   access: orRawRef(accessRuleSchema),
   agent: orRawRef(agentHandlerHintsSchema),
   rateLimit: orRawRef(z.union([rateLimitOptionSchema, rateLimitDisabledSchema])),
+  additionalRateLimits: orRawRef(additionalRateLimitsSchema),
   escapeHatch: orRawRef(escapeHatchSchema),
 };
 const QUERY_HANDLER_PATTERN_HEADER_SHAPE = {

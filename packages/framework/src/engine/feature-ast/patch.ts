@@ -321,6 +321,7 @@ const WRITE_HANDLER_HEADER_KEY_FLAGS: Readonly<Record<WriteHandlerHeaderKey, tru
   description: true,
   agent: true,
   rateLimit: true,
+  additionalRateLimits: true,
   unsafeSkipTransitionGuard: true,
   escapeHatch: true,
 };

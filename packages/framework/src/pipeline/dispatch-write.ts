@@ -38,6 +38,7 @@ import {
   CONFIG_WRITE_RESET_TYPE,
   CONFIG_WRITE_SET_TYPE,
   checkFeatureEnabled,
+  enforcePayloadRateLimits,
   enforceRateLimit,
   isMemberResolutionPrincipal,
   resolveDbSource,
@@ -500,6 +501,13 @@ async function executeWriteInner(
   const parsed = handler.schema.safeParse(payload);
   if (!parsed.success) {
     return writeFailure(validationErrorFromZod(parsed.error));
+  }
+
+  try {
+    await enforcePayloadRateLimits(ctx, handler.additionalRateLimits, type, user, parsed.data);
+  } catch (e) {
+    if (isKumikoError(e)) return writeFailure(e);
+    throw e;
   }
 
   const hookErrors = runValidation(registry, type, parsed.data as DbRow); // @cast-boundary engine-payload

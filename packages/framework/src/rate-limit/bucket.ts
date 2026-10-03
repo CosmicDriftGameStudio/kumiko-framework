@@ -1,4 +1,6 @@
+import { createHmac } from "node:crypto";
 import type { RateLimitOption, SessionUser } from "../engine/types/index.js";
+import { derivePurposeSecret } from "../secrets/derive-purpose-secret.js";
 
 // Build the Redis bucket key for a handler-level rate limit. Format:
 //   <handler>:<dimension-tag>:<dimension-value>
@@ -33,4 +35,23 @@ export function buildBucketKey(option: RateLimitOption, ctx: BucketContext): Buc
       if (!ctx.ip) return { kind: "skip", reason: "no_ip" };
       return { kind: "key", key: `ip+handler:${ctx.ip}:${ctx.handlerName}` };
   }
+}
+
+// Payload-field buckets: the value (e.g. a recipient address) is normalized
+// and HMAC-hashed so Redis never holds it in plaintext.
+const PAYLOAD_BUCKET_PURPOSE = "kumiko:rate-limit:payload-bucket";
+
+export function normalizePayloadBucketValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+export function buildPayloadBucketKey(handlerName: string, field: string, digest: string): string {
+  return `payload+handler:${handlerName}:${field}:${digest}`;
+}
+
+// Rotating the JWT secret only resets these buckets (new digests); they are
+// ephemeral (TTL 2x window), so no migration is needed.
+export function createPayloadDigest(masterSecret: string): (value: string) => string {
+  const key = derivePurposeSecret(masterSecret, PAYLOAD_BUCKET_PURPOSE);
+  return (value) => createHmac("sha256", key).update(value).digest("hex");
 }

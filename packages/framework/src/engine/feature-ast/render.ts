@@ -418,6 +418,9 @@ function renderWriteHandler(p: WriteHandlerPattern): string {
   if (p.description !== undefined) lines.push(`  description: ${JSON.stringify(p.description)},`);
   if (p.agent !== undefined) lines.push(`  agent: ${renderValue(p.agent)},`);
   if (p.rateLimit !== undefined) lines.push(`  rateLimit: ${renderValue(p.rateLimit)},`);
+  if (p.additionalRateLimits !== undefined) {
+    lines.push(`  additionalRateLimits: ${renderValue(p.additionalRateLimits)},`);
+  }
   if (p.unsafeSkipTransitionGuard === true) lines.push("  unsafeSkipTransitionGuard: true,");
   if (p.escapeHatch !== undefined) lines.push(`  escapeHatch: ${renderValue(p.escapeHatch)},`);
   lines.push("});");

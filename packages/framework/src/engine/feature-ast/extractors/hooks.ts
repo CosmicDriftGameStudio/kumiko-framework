@@ -5,6 +5,7 @@ import type { LifecycleHookType } from "../../constants.js";
 import type {
   AccessRule,
   EscapeHatchDeclaration,
+  PayloadRateLimitOption,
   RateLimitDeclaration,
 } from "../../types/handlers.js";
 import type { HookPhase } from "../../types/hooks.js";
@@ -98,6 +99,24 @@ export function readOptionalRateLimit(value: unknown): RateLimitDeclaration | un
   if (typeof value["limit"] !== "number") return undefined;
   if (typeof value["windowSeconds"] !== "number") return undefined;
   return value as unknown as RateLimitDeclaration;
+}
+
+function isPayloadRateLimitOption(value: unknown): value is PayloadRateLimitOption {
+  if (!isPlainObject(value)) return false;
+  const per = value["per"];
+  return (
+    isPlainObject(per) &&
+    typeof per["payloadField"] === "string" &&
+    typeof value["limit"] === "number" &&
+    typeof value["windowSeconds"] === "number"
+  );
+}
+
+export function readOptionalAdditionalRateLimits(
+  value: unknown,
+): readonly PayloadRateLimitOption[] | undefined {
+  if (!Array.isArray(value) || !value.every(isPayloadRateLimitOption)) return undefined;
+  return value;
 }
 
 export function readOptionalEscapeHatch(value: unknown): EscapeHatchDeclaration | undefined {

@@ -6,6 +6,7 @@ import type {
   AgentHandlerHints,
   AgentRisk,
   EscapeHatchDeclaration,
+  PayloadRateLimitOption,
   QueryHandlerDef,
   RateLimitDeclaration,
   StreamHandlerDef,
@@ -21,6 +22,7 @@ import { sourceLocationFromNode } from "../source-location.js";
 import {
   readHeaderValueOrRaw,
   readOptionalAccessRule,
+  readOptionalAdditionalRateLimits,
   readOptionalEscapeHatch,
   readOptionalRateLimit,
 } from "./hooks.js";
@@ -48,6 +50,7 @@ export type ParsedHandlerCall = {
   readonly description?: string;
   readonly agent?: AgentHandlerHints | RawRefSentinel;
   readonly rateLimit?: RateLimitDeclaration | RawRefSentinel;
+  readonly additionalRateLimits?: readonly PayloadRateLimitOption[] | RawRefSentinel;
   readonly unsafeSkipTransitionGuard?: boolean;
   readonly escapeHatch?: EscapeHatchDeclaration | RawRefSentinel;
 };
@@ -83,6 +86,7 @@ const WRITE_HANDLER_KEY_KINDS: Record<keyof WriteHandlerDef, KeyClassification> 
   agent: "modeled",
   unsafeSkipTransitionGuard: "modeled",
   rateLimit: "modeled",
+  additionalRateLimits: "modeled",
   escapeHatch: "modeled",
   tenantlessAnonymous: "opaque",
   perform: "opaque",
@@ -232,7 +236,7 @@ function readHeaderField<T>(
 
 type HandlerHeaderFields = Pick<
   ParsedHandlerCall,
-  "access" | "rateLimit" | "escapeHatch" | "agent"
+  "access" | "rateLimit" | "additionalRateLimits" | "escapeHatch" | "agent"
 >;
 
 // Shared by the object-form call body and the positional options object,
@@ -260,6 +264,15 @@ function readHandlerHeaderFields(
   );
   if (rateLimitResult.kind === "error") return rateLimitResult;
 
+  const additionalRateLimitsResult = readHeaderField(
+    readObjectPropertyInitializer(obj, "additionalRateLimits"),
+    readOptionalAdditionalRateLimits,
+    methodName,
+    sourceFile,
+    "additionalRateLimits must be an array of { per: { payloadField }, limit, windowSeconds }, or a reference to one",
+  );
+  if (additionalRateLimitsResult.kind === "error") return additionalRateLimitsResult;
+
   const escapeHatchResult = readHeaderField(
     readObjectPropertyInitializer(obj, "escapeHatch"),
     readOptionalEscapeHatch,
@@ -281,6 +294,9 @@ function readHandlerHeaderFields(
   return ok({
     ...(accessResult.pattern !== undefined && { access: accessResult.pattern }),
     ...(rateLimitResult.pattern !== undefined && { rateLimit: rateLimitResult.pattern }),
+    ...(additionalRateLimitsResult.pattern !== undefined && {
+      additionalRateLimits: additionalRateLimitsResult.pattern,
+    }),
     ...(escapeHatchResult.pattern !== undefined && { escapeHatch: escapeHatchResult.pattern }),
     ...(agentResult.pattern !== undefined && { agent: agentResult.pattern }),
   });
@@ -447,6 +463,9 @@ export function extractWriteHandler(
     ...(parsed.pattern.description !== undefined && { description: parsed.pattern.description }),
     ...(parsed.pattern.agent !== undefined && { agent: parsed.pattern.agent }),
     ...(parsed.pattern.rateLimit !== undefined && { rateLimit: parsed.pattern.rateLimit }),
+    ...(parsed.pattern.additionalRateLimits !== undefined && {
+      additionalRateLimits: parsed.pattern.additionalRateLimits,
+    }),
     ...(parsed.pattern.unsafeSkipTransitionGuard === true && { unsafeSkipTransitionGuard: true }),
     ...(parsed.pattern.escapeHatch !== undefined && { escapeHatch: parsed.pattern.escapeHatch }),
   });

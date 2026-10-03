@@ -86,6 +86,7 @@ export function defineWriteHandler<
       unsafeSkipTransitionGuard: def.unsafeSkipTransitionGuard,
     }),
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
+    ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
     ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
   };

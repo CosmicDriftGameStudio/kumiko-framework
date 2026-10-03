@@ -23,6 +23,7 @@ import type {
   EscapeHatchDeclaration,
   HandlerRef,
   NameOrRef,
+  PayloadRateLimitOption,
   QueryHandlerFn,
   RateLimitDeclaration,
   RelationDefinition,
@@ -152,6 +153,7 @@ export function buildEntityHandlerMethods<TName extends string>(
       options?: {
         access: AccessRule;
         rateLimit?: RateLimitDeclaration;
+        additionalRateLimits?: readonly PayloadRateLimitOption[];
         description?: string;
         agent?: AgentHandlerHints;
         escapeHatch?: EscapeHatchDeclaration;
@@ -176,6 +178,7 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...agentSlots(def),
           ...(def.unsafeSkipTransitionGuard && { unsafeSkipTransitionGuard: true }),
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
+          ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
           ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
           // Forward the pipeline-build closure so boot-validators and
@@ -200,6 +203,9 @@ export function buildEntityHandlerMethods<TName extends string>(
         access: inline.options.access,
         ...agentSlots(inline.options),
         ...(inline.options.rateLimit && { rateLimit: inline.options.rateLimit }),
+        ...(inline.options.additionalRateLimits && {
+          additionalRateLimits: inline.options.additionalRateLimits,
+        }),
         ...(inline.options.escapeHatch && { escapeHatch: inline.options.escapeHatch }),
       };
       tryMapEntity(state, name, nameOrDef);
