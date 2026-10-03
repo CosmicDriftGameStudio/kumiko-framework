@@ -19,6 +19,13 @@ export const SUBSCRIPTION_PROVIDER_EXTENSION = "subscriptionProvider" as const;
 export const CONTRACT_CONFIRMATION_NOTIFICATION_TYPE =
   "billing-foundation:contract-confirmation" as const;
 
+/** delivery notification types of the § 312k termination receipt and the
+ *  operator notice. */
+export const CONTRACT_TERMINATION_RECEIPT_NOTIFICATION_TYPE =
+  "billing-foundation:contract-termination-receipt" as const;
+export const CONTRACT_TERMINATION_OPERATOR_NOTIFICATION_TYPE =
+  "billing-foundation:contract-termination-operator-notice" as const;
+
 // Qualified write handler names (QN format: scope:type:name).
 export const SubscriptionFoundationHandlers = {
   /** Programmatic entry-point für den webhook-handler. Receives the
@@ -43,6 +50,20 @@ export const SubscriptionFoundationHandlers = {
   /** System-only: sends the § 312f contract confirmation mail for a recorded
    *  checkout consent (consumerProtection only). */
   issueContractConfirmation: "billing-foundation:write:issue-contract-confirmation",
+  /** System-only: records a termination/withdrawal on the tenant's
+   *  subscription stream and asks the provider to cancel (consumerProtection
+   *  only). */
+  recordContractTermination: "billing-foundation:write:record-contract-termination",
+  /** System-only: records a public declaration no single tenant could be
+   *  matched to, on a system-tenant stream (consumerProtection only). */
+  recordUnmatchedContractTermination:
+    "billing-foundation:write:record-unmatched-contract-termination",
+  /** Anonymous § 312k cancellation/withdrawal declaration (consumerProtection
+   *  only). */
+  requestContractTermination: "billing-foundation:write:request-contract-termination",
+  /** Tenant-Admin terminates or withdraws from the contract of their own
+   *  tenant (consumerProtection only). */
+  terminateContract: "billing-foundation:write:terminate-contract",
   /** Tenant-Admin/purchase-role picks a plan tier from the catalog with no
    *  existing non-terminal subscription — starts a hosted checkout for the
    *  matching price. Only registered when `createBillingFoundationFeature`
@@ -70,6 +91,9 @@ export const SubscriptionFoundationQueries = {
    *  current tier and per-plan action. Only registered when a `catalog` is
    *  configured. */
   billingPlans: "billing-foundation:query:billing-plans",
+  /** System-only probe: does the caller tenant hold a non-terminal
+   *  subscription (consumerProtection only). */
+  terminableSubscription: "billing-foundation:query:terminable-subscription",
 } as const;
 
 // Normalized subscription-event types — provider-agnostic.

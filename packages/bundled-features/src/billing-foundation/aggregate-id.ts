@@ -21,6 +21,10 @@ const PAYMENT_NAMESPACE = "dec0b897-646d-4da3-be3c-e9a35a83f4e0";
  *  stone (same rationale as the two namespaces above). */
 const PAYMENT_ROW_NAMESPACE = "3a1c9f4e-6b2d-4c8a-9e5f-7d4b1a2c8e6f";
 
+/** Namespace for the system-tenant stream of an unmatched termination
+ *  declaration (one stream per request). Generated 2026-10-03, set in stone. */
+const TERMINATION_UNMATCHED_NAMESPACE = "7e2f4b9a-3c1d-4a68-8d05-b6c9e1f27a34";
+
 /**
  * Deterministic aggregate-id für die subscription eines Plattform-
  * Tenants. EINE Subscription pro Tenant (Add-Ons sind line-items in
@@ -61,4 +65,10 @@ export function paymentRowId(
   // no-op (ON CONFLICT DO NOTHING) against the first tenant's row, losing
   // the payment with no error anywhere.
   return uuidv5(`${tenantId}:${providerName}:${providerEventId}`, PAYMENT_ROW_NAMESPACE);
+}
+
+/** Stream id of one unmatched termination declaration, derived from its request id. */
+// @wrapper-known uuid-domain
+export function terminationUnmatchedAggregateId(requestId: string): string {
+  return uuidv5(requestId, TERMINATION_UNMATCHED_NAMESPACE);
 }

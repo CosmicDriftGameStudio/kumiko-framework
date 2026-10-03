@@ -33,6 +33,10 @@ export {
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "./constants.js";
+export {
+  type ContractTerminationRoutesOptions,
+  createContractTerminationRoutes,
+} from "./consumer-protection/termination-pages.js";
 export { paymentEntity, subscriptionEntity } from "./entities.js";
 export {
   INVOICE_PAID_EVENT_QN,

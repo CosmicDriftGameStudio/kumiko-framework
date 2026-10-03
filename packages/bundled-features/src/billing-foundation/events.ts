@@ -163,3 +163,55 @@ export const contractConfirmationIssuedPayloadSchema = z.object({
 export type ContractConfirmationIssuedPayload = z.infer<
   typeof contractConfirmationIssuedPayloadSchema
 >;
+
+// =============================================================================
+// contract-termination-requested / -unmatched — § 312k cancellation (fw#3468)
+// =============================================================================
+//
+// Payloads carry no name, email or reason: those only travel in the mails.
+// `requested` goes onto the tenant's subscription stream; `unmatched` onto a
+// system-tenant stream of its own, keyed by the request id.
+
+export const CONTRACT_TERMINATION_DECLARATION_TYPES = ["termination", "withdrawal"] as const;
+export type ContractTerminationDeclarationType =
+  (typeof CONTRACT_TERMINATION_DECLARATION_TYPES)[number];
+export const CONTRACT_TERMINATION_KINDS = ["ordinary", "extraordinary"] as const;
+export type ContractTerminationKind = (typeof CONTRACT_TERMINATION_KINDS)[number];
+export const CONTRACT_TERMINATION_CHANNELS = ["public", "account"] as const;
+export const PROVIDER_CANCEL_OUTCOMES = ["period-end", "immediately", "none"] as const;
+export type ProviderCancelOutcome = (typeof PROVIDER_CANCEL_OUTCOMES)[number];
+
+export const CONTRACT_TERMINATION_REQUESTED_EVENT_SHORT = "contract-termination-requested" as const;
+export const CONTRACT_TERMINATION_REQUESTED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CONTRACT_TERMINATION_REQUESTED_EVENT_SHORT}` as const;
+
+export const contractTerminationRequestedPayloadSchema = z.object({
+  requestId: z.string().min(1).max(100),
+  declarationType: z.enum(CONTRACT_TERMINATION_DECLARATION_TYPES),
+  terminationKind: z.enum(CONTRACT_TERMINATION_KINDS),
+  channel: z.enum(CONTRACT_TERMINATION_CHANNELS),
+  receivedAtIso: z.string().min(1),
+  effectiveAtIso: z.string().min(1).nullable(),
+  providerCancel: z.enum(PROVIDER_CANCEL_OUTCOMES),
+});
+export type ContractTerminationRequestedPayload = z.infer<
+  typeof contractTerminationRequestedPayloadSchema
+>;
+
+export const CONTRACT_TERMINATION_UNMATCHED_AGGREGATE_TYPE =
+  "contract-termination-unmatched" as const;
+export const CONTRACT_TERMINATION_UNMATCHED_EVENT_SHORT = "contract-termination-unmatched" as const;
+export const CONTRACT_TERMINATION_UNMATCHED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CONTRACT_TERMINATION_UNMATCHED_EVENT_SHORT}` as const;
+
+export const contractTerminationUnmatchedPayloadSchema = z.object({
+  requestId: z.string().min(1).max(100),
+  declarationType: z.enum(CONTRACT_TERMINATION_DECLARATION_TYPES),
+  terminationKind: z.enum(CONTRACT_TERMINATION_KINDS),
+  channel: z.literal("public"),
+  receivedAtIso: z.string().min(1),
+  matchResult: z.enum(["none", "ambiguous"]),
+});
+export type ContractTerminationUnmatchedPayload = z.infer<
+  typeof contractTerminationUnmatchedPayloadSchema
+>;
