@@ -10,6 +10,8 @@ Shows how a feature posts to a tenant's Slack channel without ever handling the 
 
 **App-level hardening:** Each channel only talks to its provider's hosts, over https, without following redirects. `allowedHosts`, `requireHttps` and `timeoutMs` are options of `createChannelSlackFeature(opts)`. Tenants cannot change them; the test uses them to point at a local stub.
 
+**Production boot:** `runProdApp`, `runDevApp` and `runWorkerApp` wire `ctx.notify` and the tenant secrets for you, so no app wiring is needed. Queued channels run through the `delivery.render`/`delivery.send` jobs on the worker lane (all-in-one by default); a "send test message" handler can pass `immediate: true` to `ctx.notify` to deliver inline and read `sent`/`failed` from the returned `deliveries`.
+
 The same shape works for `channel-discord`, `channel-teams` (connection name + webhook secret) and `channel-telegram` (one `botToken` secret, the address is the chat id).
 
 ## Run

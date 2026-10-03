@@ -1,8 +1,11 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  NotifyDeliveryStatus,
+  NotifyJobDispatcher,
   NotifyOptions,
   NotifyPriority,
+  NotifyResult,
   Registry,
   SessionUser,
   TenantId,
@@ -17,8 +20,8 @@ export type ChannelContext = {
   readonly registry: Registry;
   readonly sseBroker: SseBroker | undefined;
   readonly tenantId: TenantId;
-  // Only wired on the delivery.send job path. Chat channels read their
-  // per-tenant webhook URL / bot token from it; inline sends have none.
+  // Chat channels read their per-tenant webhook URL / bot token from it.
+  // Absent when no secrets feature/KEK is wired.
   readonly secrets?: SecretsContext | undefined;
 };
 
@@ -85,7 +88,7 @@ export type DeliveryLogEntry = {
   readonly channel: string;
   readonly recipientId: string | null;
   readonly recipientAddress: string | null;
-  readonly status: "queued" | "sent" | "failed" | "skipped";
+  readonly status: NotifyDeliveryStatus;
   readonly error: string | null;
   readonly priority: NotifyPriority;
 };
@@ -98,7 +101,8 @@ export type DeliveryService = {
     options: NotifyOptions,
     user: SessionUser,
     tenantId: TenantId,
-  ): Promise<void>;
+    jobDispatcher?: NotifyJobDispatcher,
+  ): Promise<NotifyResult>;
 };
 
 // r.useExtension options-shape: `name` is NOT part of the registration

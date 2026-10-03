@@ -10,7 +10,7 @@ describe("dispatchMagicLinkMail appUrl locale negotiation", () => {
   test("negotiates de-AT down to de for language-in-path appUrl", async () => {
     const seen: string[] = [];
     await dispatchMagicLinkMail(
-      async () => {},
+      async () => ({ deliveries: [] }),
       {
         handlerName: "test",
         notificationType: "test.mail",

@@ -373,6 +373,7 @@ describe("scenario 3c: ctx.notify resolves through the notify factory (#1532)", 
       [];
     const notifyFactory: NotifyFactory = (_user, tenantId) => async (notificationType) => {
       calls.push({ notifierTenantId: tenantId, notificationType });
+      return { deliveries: [] };
     };
 
     await withRunner(

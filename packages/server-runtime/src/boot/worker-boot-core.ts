@@ -57,6 +57,9 @@ export type WorkerBootProfile = {
   readonly processName: string;
   /** Resolved auth block for composeFeatures; implies includeBundled. */
   readonly authOptions?: AuthEmailPasswordOptions;
+  /** One-shot process: its job queue is not drained after exit, so ctx.notify
+   *  sends queued channels inline. */
+  readonly deliverQueuedInline?: boolean;
 };
 
 export type BootedWorkerProcess = {
@@ -221,6 +224,7 @@ export async function bootWorkerProcess(
     hasAuth: includeBundled,
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
+    ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),
   });
   const extraContext = addConfigAccessorFactory(
     { ...autoExtraContext, ...resolvedExtraContext },

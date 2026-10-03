@@ -27,6 +27,7 @@ import type {
   HandlerContext,
   JobRunnerRef,
   MemberReader,
+  NotifyJobDispatcher,
   RateLimitDeclaration,
   RateLimitOption,
   Registry,
@@ -234,6 +235,17 @@ export function isMemberResolutionPrincipal(user: SessionUser): boolean {
   return user.origin === "member-resolution";
 }
 
+// DispatchContext.jobRunner is typed as the handleEvent-only JobRunnerRef but
+// holds the concrete runner at boot; narrow instead of casting.
+function isNotifyJobDispatcher(runner: unknown): runner is NotifyJobDispatcher {
+  return (
+    typeof runner === "object" &&
+    runner !== null &&
+    "dispatch" in runner &&
+    typeof runner.dispatch === "function"
+  );
+}
+
 async function denyMemberResolutionWrite(): Promise<never> {
   throw memberResolutionReadOnlyDenied();
 }
@@ -382,7 +394,13 @@ export async function buildHandlerContext(
     userId: user.id,
     ...(reqCtx && { requestId: reqCtx.requestId }),
   });
-  const notify = context._notifyFactory ? context._notifyFactory(user, user.tenantId) : undefined;
+  const notify = context._notifyFactory
+    ? context._notifyFactory(
+        user,
+        user.tenantId,
+        isNotifyJobDispatcher(jobRunner) ? jobRunner : undefined,
+      )
+    : undefined;
   // Mirror notify: only built when the config feature wired its factory.
   const config =
     context._configAccessorFactory && db

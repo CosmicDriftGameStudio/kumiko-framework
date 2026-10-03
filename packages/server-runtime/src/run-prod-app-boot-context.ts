@@ -31,6 +31,7 @@ import {
 import {
   createSecretsContext,
   SECRETS_FEATURE_NAME,
+  type SecretsContext,
 } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { bindAutoRevokeFromFeature } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { createTemplateResolverApi } from "@cosmicdrift/kumiko-bundled-features/template-resolver";
@@ -90,22 +91,33 @@ export function addConfigAccessorFactory<T extends { readonly configResolver?: C
 // Prod/dev parity for ctx.notify: without this `_notifyFactory` is only wired
 // in tests (createDeliveryTestContext), so ctx.notify is undefined at runtime
 // and every notification silently skips. sseBroker optional (email/push don't
-// need it, in-app SSE does); no jobRunner → queued channels send inline.
+// need it, in-app SSE does). Queued channels go through the delivery jobs of
+// the calling context's job runner (3rd factory arg); without one they send
+// inline, with `secrets` for chat-channel credentials.
 function buildDeliveryNotifyFactory(opts: {
   readonly db: DbConnection;
   readonly registry: Registry;
+  readonly secrets?: SecretsContext;
   readonly sseBroker?: SseBroker;
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
+  readonly deliverQueuedInline: boolean | undefined;
 }): NotifyFactory {
   const deliveryService = createDeliveryService({
     db: opts.db,
     registry: opts.registry,
     channels: collectChannels(opts.registry),
+    ...(opts.secrets && { secrets: opts.secrets }),
     ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
     ...(opts.escapeHatchAuditSink && { escapeHatchAuditSink: opts.escapeHatchAuditSink }),
   });
-  return (user, tenantId) => (notificationType, options) =>
-    deliveryService.notify(notificationType, options, user, tenantId);
+  return (user, tenantId, jobDispatcher) => (notificationType, options) =>
+    deliveryService.notify(
+      notificationType,
+      options,
+      user,
+      tenantId,
+      opts.deliverQueuedInline === true ? undefined : jobDispatcher,
+    );
 }
 
 function resolveEscapeHatchAuditSink(
@@ -114,6 +126,20 @@ function resolveEscapeHatchAuditSink(
 ): EscapeHatchAuditSink | undefined {
   const hasAuditFeature = features.some((f) => f.name === AUDIT_FEATURE);
   return hasAuditFeature ? createEscapeHatchAuditSink({ db }) : undefined;
+}
+
+function resolveBootSecrets(
+  db: DbConnection,
+  features: readonly FeatureDefinition[],
+  crypto: BootCrypto,
+): SecretsContext | undefined {
+  const hasSecretsFeature = features.some((f) => f.name === SECRETS_FEATURE_NAME);
+  if (!hasSecretsFeature || !crypto.masterKeyProvider) return undefined;
+  return createSecretsContext({
+    db,
+    masterKeyProvider: crypto.masterKeyProvider,
+    dekCache: crypto.dekCache,
+  });
 }
 
 export function buildBootExtraContext(opts: {
@@ -129,12 +155,14 @@ export function buildBootExtraContext(opts: {
   readonly masterKey?: MasterKeyProvider;
   readonly sseBroker?: SseBroker;
   readonly kms?: KmsAdapter;
+  /** One-shot process (runBootstrap): nothing drains its job queue once it
+   *  exits, so queued channels must send inline instead of enqueueing. */
+  readonly deliverQueuedInline?: boolean;
 }): Record<string, unknown> {
   const crypto = opts.crypto ?? resolveBootCrypto(opts.envSource, opts.masterKey);
-  const hasSecretsFeature = opts.features.some((f) => f.name === SECRETS_FEATURE_NAME);
-  const wireSecrets = hasSecretsFeature && crypto.masterKeyProvider !== undefined;
   const hasDeliveryFeature = opts.features.some((f) => f.name === DELIVERY_FEATURE);
   const escapeHatchAuditSink = resolveEscapeHatchAuditSink(opts.features, opts.db);
+  const secrets = resolveBootSecrets(opts.db, opts.features, crypto);
   return {
     templateResolver: createTemplateResolverApi(opts.db),
     ...(opts.kms && { kms: opts.kms }),
@@ -143,8 +171,10 @@ export function buildBootExtraContext(opts: {
       _notifyFactory: buildDeliveryNotifyFactory({
         db: opts.db,
         registry: opts.registry,
+        ...(secrets && { secrets }),
         ...(opts.sseBroker && { sseBroker: opts.sseBroker }),
         ...(escapeHatchAuditSink && { escapeHatchAuditSink }),
+        deliverQueuedInline: opts.deliverQueuedInline,
       }),
     }),
     // Top-level provider so feature jobs (secrets rotate, config reencrypt)
@@ -154,14 +184,7 @@ export function buildBootExtraContext(opts: {
     // whenever a master key exists — NOT gated on the secrets feature,
     // config encryption must work without mounting ctx.secrets.
     ...(crypto.configCipher && { configEncryption: crypto.configCipher }),
-    ...(wireSecrets &&
-      crypto.masterKeyProvider && {
-        secrets: createSecretsContext({
-          db: opts.db,
-          masterKeyProvider: crypto.masterKeyProvider,
-          dekCache: crypto.dekCache,
-        }),
-      }),
+    ...(secrets && { secrets }),
     ...(opts.hasAuth && {
       configResolver: createConfigResolver({
         appOverrides: buildEnvConfigOverrides(opts.registry, opts.envSource),

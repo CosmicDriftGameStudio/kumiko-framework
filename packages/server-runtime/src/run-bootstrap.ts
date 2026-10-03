@@ -76,6 +76,7 @@ export async function runBootstrap(
   const boot = await bootWorkerProcess(options, envSource, {
     processName: PROCESS_NAME,
     authOptions,
+    deliverQueuedInline: true,
   });
   if (boot.kind === "dry-run") return undefined;
 
