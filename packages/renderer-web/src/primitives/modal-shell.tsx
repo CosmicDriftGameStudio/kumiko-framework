@@ -3,7 +3,7 @@
 
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
-import type { ReactNode } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { cn } from "../lib/cn.js";
 
 export type ModalShellProps = {
@@ -19,6 +19,7 @@ export type ModalShellProps = {
   /** Lets the caller take over Radix's initial-focus target — call
    *  `event.preventDefault()` and focus the desired element yourself. */
   readonly onOpenAutoFocus?: (event: Event) => void;
+  readonly onContentKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void;
 };
 
 export function ModalShell({
@@ -31,6 +32,7 @@ export function ModalShell({
   closeLabel,
   showCloseButton = true,
   onOpenAutoFocus,
+  onContentKeyDown,
 }: ModalShellProps): ReactNode {
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
@@ -40,6 +42,7 @@ export function ModalShell({
           data-testid={testId}
           {...(noAriaDescription && { "aria-describedby": undefined })}
           {...(onOpenAutoFocus !== undefined && { onOpenAutoFocus })}
+          {...(onContentKeyDown !== undefined && { onKeyDown: onContentKeyDown })}
           className={cn(
             "fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%]",
             "data-[state=open]:animate-in data-[state=closed]:animate-out",

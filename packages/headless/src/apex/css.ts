@@ -72,6 +72,14 @@ const HERO = `
     border: 1px solid var(--border); border-radius: 0.5rem; background: var(--bg-card); color: var(--fg);
     font-size: 1.5rem; line-height: 1; cursor: pointer; }
   .apex-lightbox__close:hover { background: var(--bg-muted); }
+  .apex-lightbox__prev, .apex-lightbox__next { position: fixed; top: 50%; transform: translateY(-50%); z-index: 1;
+    width: 2.5rem; height: 2.5rem; border: 1px solid var(--border); border-radius: 0.5rem;
+    background: var(--bg-card); color: var(--fg); font-size: 1.75rem; line-height: 1; cursor: pointer; }
+  .apex-lightbox__prev { left: 1rem; }
+  .apex-lightbox__next { right: 1rem; }
+  .apex-lightbox__prev:hover, .apex-lightbox__next:hover { background: var(--bg-muted); }
+  .apex-lightbox__prev[hidden], .apex-lightbox__next[hidden] { display: none; }
+  .apex-dark .apex-lightbox__prev, .apex-dark .apex-lightbox__next { background: var(--on-dark); color: var(--primary); border-color: var(--on-dark-border); }
   .apex-dark .apex-lightbox__close { background: var(--on-dark); color: var(--primary); border-color: var(--on-dark-border); }
 `;
 

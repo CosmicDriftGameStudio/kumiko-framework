@@ -1219,15 +1219,27 @@ export type DrawerProps = {
   readonly testId?: string;
 };
 
-/** Image lightbox — full-size preview on click. Web renders Radix overlay;
- *  trigger (thumbnail) and open state live in the app. */
-export type LightboxProps = {
+export type LightboxImage = { readonly src: string; readonly alt: string };
+
+type LightboxBaseProps = {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
-  readonly src: string;
-  readonly alt: string;
   readonly testId?: string;
 };
+
+/** Image lightbox — full-size preview on click. Web renders Radix overlay;
+ *  trigger (thumbnail) and open state live in the app. Takes either one image
+ *  (`src`/`alt`) or a browsable set (`images` + controlled `index`);
+ *  navigation wraps around at both ends. */
+export type LightboxProps = LightboxBaseProps &
+  (
+    | { readonly src: string; readonly alt: string }
+    | {
+        readonly images: readonly LightboxImage[];
+        readonly index: number;
+        readonly onIndexChange: (index: number) => void;
+      }
+  );
 
 /** Source-badge for one cascade step (User / Tenant / System / …).
  *  Used inline next to a config value to indicate where it came from.
