@@ -55,7 +55,7 @@ export {
 
 const declaredUnsafeRawRunners = new WeakMap<
   TenantDb | UncheckedSystemDb,
-  (reason: string) => DbRunner
+  (reason: string, forwardedDeclaredStep: boolean) => DbRunner
 >();
 
 // The CRUD executor writes through tenantDbRunner, not insertOne, so it asks the
@@ -124,7 +124,7 @@ export function unsafeRawForDeclaredStep(
         "createUncheckedSystemDb, or createSystemDbView — no declared unsafeRaw runner bound.",
     });
   }
-  return runner(reason);
+  return runner(reason, true);
 }
 
 const systemDbRebinders = new WeakMap<
@@ -183,9 +183,16 @@ function buildUncheckedSystemDb(
     return dbOutsideTransaction;
   }
 
-  function grantedUnsafeRawRunner(reason: string): DbRunner {
+  function grantedUnsafeRawRunner(reason: string, forwardedDeclaredStep: boolean): DbRunner {
     if (gate?.kind === "source-tenant-db") {
-      return unsafeRawForDeclaredStep(db, reason);
+      const sourceRunner = declaredUnsafeRawRunners.get(db);
+      if (!sourceRunner) {
+        throw new InternalError({
+          message:
+            "createSystemDbView received a TenantDb with no declared unsafeRaw runner bound.",
+        });
+      }
+      return sourceRunner(reason, forwardedDeclaredStep);
     }
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
@@ -197,7 +204,8 @@ function buildUncheckedSystemDb(
           `${gate.deniedCallerLabel} to allow unsafeRaw.`,
       });
     }
-    report("unsafe-raw", reason);
+    // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
+    report("unsafe-raw", forwardedDeclaredStep ? reason : (gate?.grant?.reason ?? reason));
     const runner = tenantDbRunner(db);
     const personalDataGate = personalDataGates.get(db);
     return personalDataGate ? gatedRunner(runner, personalDataGate) : runner;
@@ -238,7 +246,7 @@ function buildUncheckedSystemDb(
       return db;
     },
 
-    unsafeRaw: grantedUnsafeRawRunner,
+    unsafeRaw: (reason) => grantedUnsafeRawRunner(reason, false),
 
     outsideTransaction: {
       assertTenantMatch(tenantId) {
@@ -620,7 +628,7 @@ export function createTenantDb(
     } as GlobalTableDb<TTable>;
   }
 
-  function grantedUnsafeRawRunner(reason: string): DbRunner {
+  function grantedUnsafeRawRunner(reason: string, forwardedDeclaredStep: boolean): DbRunner {
     if (reason.trim().length === 0) {
       throw new Error("unsafeRaw requires a non-empty reason");
     }
@@ -635,7 +643,8 @@ export function createTenantDb(
           "the handler or hook to allow unsafeRaw.",
       });
     }
-    report("unsafe-raw", reason);
+    // Engine-forwarded steps carry their own declared reason; a caller-supplied one never reaches the audit trail.
+    report("unsafe-raw", forwardedDeclaredStep ? reason : (grants?.unsafeRaw?.reason ?? reason));
     return personalDataGate ? gatedRunner(db, personalDataGate) : db;
   }
 
@@ -644,7 +653,7 @@ export function createTenantDb(
     mode,
     global: globalTable,
 
-    unsafeRaw: grantedUnsafeRawRunner,
+    unsafeRaw: (reason) => grantedUnsafeRawRunner(reason, false),
 
     selectMany<T = Record<string, unknown>>(
       table: Table | EntityTableMeta,
