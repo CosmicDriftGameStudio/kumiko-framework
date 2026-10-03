@@ -41,7 +41,13 @@ import {
   SyntaxKind,
   VariableDeclarationKind,
 } from "ts-morph";
-import { type AstGuard, type GuardViolation, runStandalone, type ScanSpec } from "./_lib/guard-kit";
+import {
+  type AstGuard,
+  type GuardViolation,
+  isExternalSourcePath,
+  runStandalone,
+  type ScanSpec,
+} from "./_lib/guard-kit";
 import { hasIgnoreTag } from "./_lib/ignore-tag";
 
 const ROOT = process.cwd();
@@ -58,11 +64,12 @@ const MAX_HOPS = 4;
 const FRAMED_TAG = /^(Card|SectionCard|CollapsibleSection)$/;
 
 // A vendored package's shipped .tsx source is still resolvable through
-// node_modules — treat it the same as a truly unresolvable specifier
+// node_modules, and in a parent workspace a workspace link resolves into a
+// neighbour repo — treat both the same as a truly unresolvable specifier
 // ("package component, checked inside the package itself"), not as a hop
 // into the App-Repo's own extension code.
 function isExternalSourceFile(sf: SourceFile): boolean {
-  return sf.getFilePath().includes("/node_modules/");
+  return isExternalSourcePath(sf.getFilePath());
 }
 
 function stringConstantValue(node: Node): string | undefined {
