@@ -64,7 +64,12 @@ import type { SearchAdapter } from "../search/types.js";
 import type { AppSchema } from "../ui-types/app-schema.js";
 import { assertUnreachable, generateId } from "../utils/index.js";
 import { collectAnonymousLiveEntities } from "./anonymous-live-entities.js";
-import { NO_ROUTE_MATCH_HEADER_NAME, PUBLIC_API_PATHS, Routes } from "./api-constants.js";
+import {
+  NO_ROUTE_MATCH_HEADER_NAME,
+  NON_PUBLIC_API_PATHS,
+  PUBLIC_API_PATHS,
+  Routes,
+} from "./api-constants.js";
 import {
   type AnonymousAccessResolved,
   type AuthSessionChecker,
@@ -1096,6 +1101,19 @@ export function buildServer(options: ServerOptions): KumikoServer {
           `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
             'use a wildcard under "/api/" — it would bypass the auth chain for every matching path.',
         );
+      }
+      // A `:param` segment is as broad as a wildcard: "/api/:hook" matches /api/write.
+      if (route.entry === ExtraRouteEntries.signature && route.path.startsWith("/api/")) {
+        const routePattern = honoPathToRegex(route.path);
+        const shadowedFrameworkPath = [...PUBLIC_API_PATHS, ...NON_PUBLIC_API_PATHS].find((path) =>
+          routePattern.test(path),
+        );
+        if (shadowedFrameworkPath !== undefined) {
+          throw new Error(
+            `[kumiko] extraRoutes: entry:"signature" route "${route.method} ${route.path}" must not ` +
+              `match the framework path "${shadowedFrameworkPath}" — it would bypass the auth chain for it.`,
+          );
+        }
       }
     }
     const dispatchSystemWrite = makeDispatchSystemWrite(dispatcher);
