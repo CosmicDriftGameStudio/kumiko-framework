@@ -19,6 +19,7 @@ export function announceSecretChange(
   key: string,
 ): void {
   const bus = ctx.cacheSync;
+  // skip: no bus wired (single-process setup), nothing to announce
   if (!bus) return;
   const message: TenantConfigSyncMessage = { tenantId, key };
   const publish = async (): Promise<void> => {

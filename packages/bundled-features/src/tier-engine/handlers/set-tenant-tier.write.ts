@@ -24,13 +24,13 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 // `source: "manual"` markiert den Grant, damit ein späterer Stripe→Tier-Sync ihn
 // nicht plättet. Upsert: ein Aggregat pro Tenant (deterministische aggregate-id).
 //
-// **Effective-Set-Invalidation (kritisch):** der Executor-Write feuert NICHT
-// den `tier-assignment:postSave`-entityHook, und ein per-Handler-postSave
-// scheitert ebenfalls: der Handler liefert kein Lifecycle-Ergebnis (kind
-// "save"). Ohne Cache-Update bliebe das Feature-Gate auf dem alten Tier
-// hängen. Daher läuft `opts.onAssigned(tenantId, tier)` nach dem Commit
-// (ctx.scheduleAfterCommit); feature.ts aktualisiert damit den Cache und
-// benachrichtigt die anderen Prozesse (storage-only ohne tierMap = no-op).
+// Effective-set invalidation: the executor write does not fire the
+// `tier-assignment:postSave` entity hook, and a per-handler postSave would not
+// fire either because this handler returns no lifecycle result (kind "save").
+// Without an explicit update the feature gate would stay on the old tier, so
+// `opts.onAssigned(tenantId, tier)` runs after commit (ctx.scheduleAfterCommit).
+// feature.ts uses it to update its cache and notify the other processes; in
+// storage-only mode without a tierMap it is a no-op.
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
@@ -40,9 +40,9 @@ const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEnt
 const SET_TENANT_TIER_REASON = "SystemAdmin assigns the tier of the tenant named in the payload";
 
 export type SetTenantTierOptions = {
-  /** Nach dem Commit des Writes aufgerufen, damit feature.ts den Resolver-
-   *  Cache aktualisieren und die Replikas benachrichtigen kann. Ohne tierMap
-   *  kein Resolver → no-op. */
+  /** Runs after the write commits so feature.ts can update the resolver cache
+   *  and notify the other processes. Without a tierMap there is no resolver
+   *  and this is a no-op. */
   readonly onAssigned?: (tenantId: TenantId, tier: string) => void;
   /** Tier-Namen aus der tierMap-Closure — ohne sie (storage-only-Mode) bleibt
    *  `tier` unvalidiert außer Length/Non-Empty. Mit ihr rejected der Handler

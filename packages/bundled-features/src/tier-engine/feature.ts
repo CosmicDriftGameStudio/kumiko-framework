@@ -536,6 +536,7 @@ export function createTierEngineFeature<
 
         busHolder.bus = deps.cacheSync;
         deps.cacheSync?.subscribe(CACHE_SYNC_TOPICS.tierAssignment, (message) => {
+          // skip: malformed message from another process
           if (!isTierAssignmentSyncMessage(message)) return;
           reloadTenant(message.tenantId).catch((err: unknown) => {
             log.error("tier reload failed, keeping cached set", {

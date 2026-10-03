@@ -98,10 +98,12 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
   subscriber.on("ready", () => {
     if (!hasBeenReady) {
       hasBeenReady = true;
+      // skip: the first ready is the initial connect, not a reconnect
       return;
     }
     subscriber.psubscribe(opts.channelPattern).then(
       () => {
+        // skip: close() ran while the resubscribe was in flight
         if (closed) return;
         for (const listener of reconnectListeners) listener();
       },

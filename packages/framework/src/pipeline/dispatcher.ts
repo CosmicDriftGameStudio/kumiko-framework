@@ -191,7 +191,9 @@ export function createDispatcher(
   const tenantTimezoneCache = createTenantTimezoneCache();
   const cacheSync = options.cacheSync ?? undefined;
   cacheSync?.subscribe(CACHE_SYNC_TOPICS.tenantConfig, (message) => {
+    // skip: malformed message from another process
     if (!isTenantConfigSyncMessage(message)) return;
+    // skip: a different config key, the timezone cache is unaffected
     if (message.key !== undefined && message.key !== TENANT_TIMEZONE_CONFIG_KEY) return;
     if ("scope" in message) tenantTimezoneCache.clear();
     else tenantTimezoneCache.invalidate(message.tenantId);

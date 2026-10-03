@@ -43,6 +43,7 @@ function createLocalFanout(): LocalFanout {
   return {
     deliver(topic, message) {
       const listeners = subscribers.get(topic);
+      // skip: nobody in this process listens on the topic
       if (!listeners) return;
       for (const listener of [...listeners]) {
         // A failing listener must not starve the others nor the publishing write or the redis event loop.
@@ -127,14 +128,15 @@ export function createCacheSyncBusOverSignal(
     fanout.fireResync();
   };
   signal.onReconnect(() => {
+    // skip: bus closed, or a resync is already scheduled
     if (closed || pendingResync !== undefined) return;
     const wait = lastResyncAt + resyncMinIntervalMs - now();
     if (wait <= 0) {
       runResync();
-      return;
+    } else {
+      pendingResync = setTimeout(runResync, wait);
+      pendingResync.unref();
     }
-    pendingResync = setTimeout(runResync, wait);
-    pendingResync.unref();
   });
 
   return {

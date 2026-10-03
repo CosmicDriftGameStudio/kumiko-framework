@@ -133,8 +133,11 @@ function publishConfigWrite(
   user: SessionUser,
   result: WriteResult,
 ): void {
+  // skip: failed write, nothing changed
   if (!result.isSuccess) return;
+  // skip: not a config:write:set/reset dispatch
   if (type !== CONFIG_WRITE_SET_TYPE && type !== CONFIG_WRITE_RESET_TYPE) return;
+  // skip: result carries no config key to announce
   if (!isConfigWriteResult(result.data)) return;
   const { key, scope } = result.data;
   const message: TenantConfigSyncMessage =

@@ -177,6 +177,7 @@ export function makeFileProviderResolver(deps: FileProviderResolverDeps): FilePr
   // configured yet) doesn't permanently poison this tenant's entry.
   const cache = new Map<string, Promise<FileStorageProvider>>();
   deps.cacheSync?.subscribe(CACHE_SYNC_TOPICS.tenantConfig, (message) => {
+    // skip: malformed message from another process
     if (!isTenantConfigSyncMessage(message)) return;
     if ("scope" in message || message.tenantId === SYSTEM_TENANT_ID) cache.clear();
     else cache.delete(message.tenantId);
