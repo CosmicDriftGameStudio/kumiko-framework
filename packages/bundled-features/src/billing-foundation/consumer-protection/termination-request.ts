@@ -118,6 +118,7 @@ async function sendTerminationMails(
       declaration: plan.declaration,
       operatorEmail: consumerProtection.operatorEmail,
     }),
+    locale: plan.locale,
     priority: "critical",
   });
   // skip: no operator notice needed for this declaration

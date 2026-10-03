@@ -39,6 +39,7 @@ export async function notifyOperator(
       ...plan,
       operatorEmail: consumerProtection.operatorEmail,
     }),
+    locale: plan.locale,
     priority: "critical",
   });
 }

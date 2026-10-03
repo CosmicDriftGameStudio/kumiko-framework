@@ -100,6 +100,7 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     const html = await renderer.render({
       template: message.notificationType,
       variables,
+      locale: message.locale,
     });
     const subject = (variables["subject"] as string) ?? message.title; // @cast-boundary dynamic-key
     return { html, subject };
