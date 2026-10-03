@@ -217,6 +217,34 @@ describe("DataTable — cards below 768px", () => {
     });
   });
 
+  test("a text-typed column with format boolean behaves like a boolean column in the card", () => {
+    withViewportWidth(500, () => {
+      render(
+        <DataTable
+          columns={[
+            { field: "name", label: "Name", type: "string", sortable: false },
+            {
+              field: "current",
+              label: "This device",
+              type: "text",
+              sortable: false,
+              renderer: { format: "boolean" },
+            },
+          ]}
+          rows={[
+            { id: "a", values: { name: "A", current: true } },
+            { id: "b", values: { name: "B", current: false } },
+          ]}
+          testId="t"
+        />,
+      );
+      expect(within(screen.getByTestId("row-a")).getByTestId("cell-a-current").textContent).toBe(
+        "This device",
+      );
+      expect(within(screen.getByTestId("row-b")).queryByTestId("cell-b-current")).toBeNull();
+    });
+  });
+
   test("a false boolean column with a non-boolean format spec still renders in card and table", () => {
     const columns = [
       { field: "name", label: "Name", type: "string", sortable: false },
