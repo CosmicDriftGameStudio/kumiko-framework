@@ -1,7 +1,7 @@
 {
   "format": 1,
-  "generated": "2026-08-19",
-  "total": 104,
+  "generated": "2026-10-03",
+  "total": 103,
   "perFile": {
     "packages/bundled-features/src/auth-mfa/handlers/enable-confirm-preauth.write.ts": 1,
     "packages/bundled-features/src/auth-mfa/handlers/verify.write.ts": 1,
@@ -9,7 +9,6 @@
     "packages/bundled-features/src/config/resolver.ts": 3,
     "packages/bundled-features/src/custom-fields/lib/value-schema.ts": 1,
     "packages/bundled-features/src/data-retention/run-retention-cleanup.ts": 1,
-    "packages/bundled-features/src/inbound-mail-foundation/connect-routes.ts": 1,
     "packages/bundled-features/src/subscription-mollie/verify-webhook.ts": 1,
     "packages/bundled-features/src/tenant/handlers/team-list.query.ts": 1,
     "packages/bundled-features/src/user-data-rights/feature.ts": 1,
@@ -82,9 +81,9 @@
     "packages/headless/src/format/index.ts": 1,
     "packages/headless/src/view-model/edit.ts": 1,
     "packages/headless/src/view-model/list.ts": 1,
+    "packages/server-runtime/src/boot/worker-boot-core.ts": 1,
     "packages/server-runtime/src/build-prod-bundle.ts": 1,
     "packages/server-runtime/src/run-prod-app-static-files.ts": 1,
-    "packages/server-runtime/src/run-prod-app.ts": 1,
-    "packages/server-runtime/src/run-worker-app.ts": 1
+    "packages/server-runtime/src/run-prod-app.ts": 1
   }
 }

@@ -85,6 +85,36 @@ export async function resolveWorkerEnvSource(
     : rawEnvSource;
 }
 
+async function buildTierEffectiveFeatures(
+  features: readonly FeatureDefinition[],
+  db: DbConnection,
+  registry: Registry,
+): Promise<EffectiveFeaturesResolver | undefined> {
+  const tierResolverUsage = findTierResolverUsage(features);
+  if (!tierResolverUsage) return undefined;
+  const plugin = tierResolverUsage.options as TierResolverPlugin;
+  return plugin.build({ db, registry });
+}
+
+async function assertWorkerSchemaCurrent(
+  db: DbConnection,
+  migrationsDir: string | undefined,
+  processName: string,
+): Promise<void> {
+  const dir = migrationsDir ?? "./kumiko/migrations";
+  // biome-ignore lint/suspicious/noConsole: boot-time progress hint
+  console.log(`[${processName}] checking schema drift (${dir})…`);
+  try {
+    await assertKumikoSchemaCurrent(db, dir);
+  } catch (err) {
+    if (err instanceof SchemaDriftError) {
+      // biome-ignore lint/suspicious/noConsole: terminal error message
+      console.error(`\n[${processName}] BOOT ABORTED — ${err.message}\n`);
+    }
+    throw err;
+  }
+}
+
 export async function bootWorkerProcess(
   options: WorkerBootCoreOptions,
   envSource: Record<string, string | undefined>,
@@ -141,26 +171,13 @@ export async function bootWorkerProcess(
   const { db, close: closeDb } = createDbConnection(databaseUrl);
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
-  let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined = options.effectiveFeatures;
-  if (resolvedEffectiveFeatures === undefined) {
-    const tierResolverUsage = findTierResolverUsage(features);
-    if (tierResolverUsage) {
-      const plugin = tierResolverUsage.options as TierResolverPlugin;
-      resolvedEffectiveFeatures = await plugin.build({ db, registry });
-    }
-  }
+  const resolvedEffectiveFeatures =
+    options.effectiveFeatures ?? (await buildTierEffectiveFeatures(features, db, registry));
 
   if (options.migrations !== false) {
-    const migrationsDir = options.migrations?.dir ?? "./kumiko/migrations";
-    // biome-ignore lint/suspicious/noConsole: boot-time progress hint
-    console.log(`[${processName}] checking schema drift (${migrationsDir})…`);
     try {
-      await assertKumikoSchemaCurrent(db, migrationsDir);
+      await assertWorkerSchemaCurrent(db, options.migrations?.dir, processName);
     } catch (err) {
-      if (err instanceof SchemaDriftError) {
-        // biome-ignore lint/suspicious/noConsole: terminal error message
-        console.error(`\n[${processName}] BOOT ABORTED — ${err.message}\n`);
-      }
       await closeDb();
       redis.disconnect();
       throw err;

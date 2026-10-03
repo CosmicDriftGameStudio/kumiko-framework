@@ -20,6 +20,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "auth-email-password:write:reset-password expose=false risk=mid",
   "auth-email-password:write:signup-confirm expose=false risk=mid",
   "auth-email-password:write:signup-request expose=true risk=mid",
+  "auth-email-password:write:system-invite-create expose=false risk=mid",
   "auth-email-password:write:verify-email expose=false risk=mid",
   "auth-mfa:query:user-mfa:status expose=true risk=low",
   "auth-mfa:write:disable expose=true risk=high",
