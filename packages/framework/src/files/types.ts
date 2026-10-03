@@ -312,10 +312,14 @@ export function assertSafeStorageKey(key: string): void {
   }
 }
 
+// Object stores (S3/MinIO) reject keys with an empty path segment, so an
+// upload without an owning entity needs a placeholder id segment.
+const NO_ENTITY_ID_SEGMENT = "none";
+
 export function buildStorageKey(
   tenantId: TenantId,
   entityType: string,
-  entityId: number | string,
+  entityId: number | string | undefined,
   fieldName: string,
   fileName: string,
   uniqueId: string,
@@ -326,7 +330,8 @@ export function buildStorageKey(
 ): string {
   const rawExt = extensionOverride ?? fileName.split(".").pop() ?? "";
   const ext = /^[A-Za-z0-9]+$/.test(rawExt) ? rawExt.toLowerCase() : "bin";
-  return `${tenantId}/${entityType}/${entityId}/${fieldName}/${uniqueId}.${ext}`;
+  const entitySegment = entityId === undefined || entityId === "" ? NO_ENTITY_ID_SEGMENT : entityId;
+  return `${tenantId}/${entityType}/${entitySegment}/${fieldName}/${uniqueId}.${ext}`;
 }
 
 const EXPORTS_PREFIX_SEGMENT = "exports";

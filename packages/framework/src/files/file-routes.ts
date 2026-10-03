@@ -325,7 +325,7 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
     const storageKey = buildStorageKey(
       user.tenantId,
       entityType ?? "unattached",
-      entityId ?? "",
+      entityId,
       fieldName ?? "file",
       file.name,
       generateId(),
