@@ -87,7 +87,7 @@ import { createBillingPlansQuery } from "./handlers/billing-plans.query.js";
 import { createCheckoutSessionHandler } from "./handlers/create-checkout-session.write.js";
 import { createPortalSessionHandler } from "./handlers/create-portal-session.write.js";
 import { listSubscriptionsQuery } from "./handlers/list-subscriptions.query.js";
-import { processEventHandler } from "./handlers/process-event.write.js";
+import { createProcessEventHandler } from "./handlers/process-event.write.js";
 import { processPaymentEventHandler } from "./handlers/process-payment-event.write.js";
 import { createStartPlanCheckoutHandler } from "./handlers/start-plan-checkout.write.js";
 import { createSwitchPlanHandler } from "./handlers/switch-plan.write.js";
@@ -214,7 +214,7 @@ export function createBillingFoundationFeature<TTier extends string = string>(
     //   - create-checkout-session: bare priceId-driven checkout (hardened,
     //     see checkout-core)
     //   - create-portal-session: Tenant-Admin "Manage Subscription"-flow
-    r.writeHandler(processEventHandler);
+    r.writeHandler(createProcessEventHandler(widened.now));
     r.writeHandler(createCheckoutSessionHandler(widened));
     r.writeHandler(createPortalSessionHandler(widened));
     //   - process-payment-event: programmatic entry-point from the webhook-

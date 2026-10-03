@@ -9,9 +9,13 @@
 // Wrapper macht das Pattern explizit + co-located.
 //
 // **Atomicity caveat:** calendar booking runs in-process via bookCapUsage
-// (see book-cap-usage.ts). Rolling booking still dispatches the
-// SystemAdmin-only increment-rolling handler (event ownership), so rolling
-// callers need a SystemAdmin identity.
+// (see book-cap-usage.ts).
+// Rolling booking still dispatches the SystemAdmin-only increment-rolling
+// handler. In-process booking would work today only because the entity
+// executor appends without the event-ownership check (that check runs in
+// appendDomainEventCore alone); relying on that gap would break once the
+// executor path enforces ownership, so rolling callers need a SystemAdmin
+// identity until cap-counter declares an explicit foreign-booking opt-in.
 //
 // No automatic markSoftWarned here — that's inside enforceCapAndMaybeNotify
 // (enforce-cap.ts).

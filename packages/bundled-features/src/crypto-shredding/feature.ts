@@ -18,8 +18,9 @@ export function createCryptoShreddingFeature(): FeatureDefinition {
         category: "compliance",
       });
 
-      // `reason` is operator free text and may name the subject; encrypting it under
-      // the subject key is pointless (that key is being erased) — see #2776.
+      // `reason` is operator free text and may name the subject, yet stays plaintext: the forget
+      // erases the subject key before the audit append, so a forget of the actor's own tenant
+      // would fail to seal the reason under that tenant's key.
       r.defineEvent("subject-forgotten", subjectForgottenSchema, { piiFields: "none" });
       r.defineEvent("forget-denied", subjectForgetDeniedSchema, { piiFields: "none" });
       r.writeHandler(forgetSubjectWrite);

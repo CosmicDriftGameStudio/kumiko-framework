@@ -213,6 +213,7 @@ describe("createSubscriptionTierSync — tier-sync effect", () => {
         type: SubscriptionEventTypes.canceled,
         status: SubscriptionStatuses.canceled,
         tier: "pro",
+        providerSubscriptionId: "sub_evt_create_2",
       }),
     );
     expect(res.status).toBe(200);

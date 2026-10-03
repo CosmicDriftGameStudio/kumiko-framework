@@ -5,6 +5,7 @@
 // registry (never createTestDispatcher, per project rule).
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { defineFeature } from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
@@ -20,12 +21,14 @@ import { createConfigFeature } from "../../config/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
 import { tenantEntity } from "../../tenant/schema/tenant.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
+import { subscriptionAggregateId } from "../aggregate-id.js";
 import {
   SubscriptionEventTypes,
   type SubscriptionStatus,
   SubscriptionStatuses,
 } from "../constants.js";
 import { billingFoundationFeature } from "../feature.js";
+import { subscriptionsProjectionTable } from "../projection.js";
 import type { SubscriptionEvent, SubscriptionProviderPlugin } from "../types.js";
 import { createSubscriptionWebhookRoute } from "../webhook-handler.js";
 
@@ -170,5 +173,91 @@ describe("webhook-handler — multi-provider mounting", () => {
 
     expect(stripeRes.status).toBe(200);
     expect(paypalRes.status).toBe(200);
+  });
+});
+
+describe("webhook-handler — late events of a superseded subscription", () => {
+  const tenantId = testTenantId(5100);
+
+  async function currentRow() {
+    const rows = await selectMany(stack.db, subscriptionsProjectionTable, {
+      id: subscriptionAggregateId(tenantId),
+    });
+    return rows[0] as { status: string; providerSubscriptionId: string } | undefined;
+  }
+
+  async function post(overrides: Partial<SubscriptionEvent>) {
+    const res = await postWebhook("stripe", buildEvent({ tenantId, ...overrides }));
+    expect(res.status).toBe(200);
+    return (await res.json()) as { processed: boolean; duplicate: boolean; stale?: boolean };
+  }
+
+  test("a late canceled event of the old subscription leaves the new subscription's row active", async () => {
+    await post({
+      providerEventId: "evt_old_created",
+      type: SubscriptionEventTypes.created,
+      providerSubscriptionId: "sub_old",
+      status: SubscriptionStatuses.incomplete,
+    });
+    await post({
+      providerEventId: "evt_new_created",
+      type: SubscriptionEventTypes.created,
+      providerSubscriptionId: "sub_new",
+      status: SubscriptionStatuses.active,
+    });
+
+    const late = await post({
+      providerEventId: "evt_old_late_cancel",
+      type: SubscriptionEventTypes.updated,
+      providerSubscriptionId: "sub_old",
+      status: SubscriptionStatuses.canceled,
+    });
+
+    expect(late.stale).toBe(true);
+    expect(await currentRow()).toMatchObject({
+      status: SubscriptionStatuses.active,
+      providerSubscriptionId: "sub_new",
+    });
+  });
+
+  test("events of the tracked subscription keep applying", async () => {
+    const update = await post({
+      providerEventId: "evt_new_update",
+      type: SubscriptionEventTypes.updated,
+      providerSubscriptionId: "sub_new",
+      status: SubscriptionStatuses.pastDue,
+    });
+
+    expect(update.stale).toBeUndefined();
+    expect(await currentRow()).toMatchObject({ status: SubscriptionStatuses.pastDue });
+  });
+
+  test("a created event of another subscription still replaces the tracked row", async () => {
+    await post({
+      providerEventId: "evt_third_created",
+      type: SubscriptionEventTypes.created,
+      providerSubscriptionId: "sub_third",
+      status: SubscriptionStatuses.active,
+    });
+
+    expect(await currentRow()).toMatchObject({ providerSubscriptionId: "sub_third" });
+  });
+
+  test("once the tracked subscription is canceled, an event of another subscription applies", async () => {
+    await post({
+      providerEventId: "evt_third_cancel",
+      type: SubscriptionEventTypes.canceled,
+      providerSubscriptionId: "sub_third",
+      status: SubscriptionStatuses.canceled,
+    });
+    const next = await post({
+      providerEventId: "evt_fourth_update",
+      type: SubscriptionEventTypes.updated,
+      providerSubscriptionId: "sub_fourth",
+      status: SubscriptionStatuses.active,
+    });
+
+    expect(next.stale).toBeUndefined();
+    expect(await currentRow()).toMatchObject({ providerSubscriptionId: "sub_fourth" });
   });
 });
