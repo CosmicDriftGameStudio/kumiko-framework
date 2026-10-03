@@ -77,6 +77,7 @@ defineFeature("todoList", (r) => {
 
   r.metric("requests", { type: "counter" });
   r.secret("apiKey", { description: "Stripe API key" });
+  r.secretNamespace("webhook-auth", { label: { en: "Webhook auth" }, scope: "tenant" });
   r.claimKey("teamId", { type: "string" });
 
   r.referenceData(
@@ -138,6 +139,7 @@ describe("parseSourceFile against a complete inline-form feature", () => {
       "hook",
       "metric",
       "secret",
+      "secretNamespace",
       "claimKey",
       "referenceData",
       "nav",

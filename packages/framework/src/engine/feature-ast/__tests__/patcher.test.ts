@@ -89,6 +89,21 @@ describe("FeaturePatcher — typed add helpers for static patterns", () => {
     expect(result.patterns[2]).toMatchObject({ kind: "claimKey", shortName: "teamId" });
   });
 
+  test("addSecretNamespace appends a parseable r.secretNamespace call", () => {
+    const sf = makeSourceFile(STARTER);
+    createFeaturePatcher(sf).addSecretNamespace({
+      name: "webhook-auth",
+      options: { label: { en: "Webhook auth" }, scope: "tenant", writeRoles: ["TenantAdmin"] },
+    });
+    const result = parseSourceFile(sf);
+    expect(result.patterns).toHaveLength(1);
+    expect(result.patterns[0]).toMatchObject({
+      kind: "secretNamespace",
+      shortName: "webhook-auth",
+      options: { writeRoles: ["TenantAdmin"] },
+    });
+  });
+
   test("addReferenceData with optional upsertKey", () => {
     const sf = makeSourceFile(STARTER);
     createFeaturePatcher(sf).addReferenceData({

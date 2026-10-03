@@ -369,10 +369,54 @@ export const secretSchema: PatternFormSchema = {
       path: "options.scope",
       label: { en: "Scope", de: "Geltungsbereich" },
       input: "select",
-      options: [
-        { value: "tenant", label: { en: "Tenant" } },
-        { value: "system", label: { en: "System" } },
-      ],
+      options: [{ value: "tenant", label: { en: "Tenant" } }],
+    },
+    {
+      path: "options.writeRoles",
+      label: { en: "Write roles", de: "Schreibrollen" },
+      hint: {
+        en: "Roles allowed to set or delete. Leave empty to rely on the secrets handler access alone.",
+        de: "Rollen, die setzen oder löschen dürfen. Leer lassen, dann entscheidet allein der Handler-Zugriff.",
+      },
+      input: "string-list",
+    },
+  ],
+};
+
+export const secretNamespaceSchema: PatternFormSchema = {
+  kind: "secretNamespace",
+  label: { en: "Secret namespace", de: "Secret-Namespace" },
+  summary: { en: "Family of tenant-scoped secrets with a runtime-chosen name." },
+  category: "meta",
+  editability: "static",
+  fields: [
+    {
+      path: "shortName",
+      label: { en: "Short name", de: "Kurzname" },
+      input: "text",
+      required: true,
+    },
+    {
+      path: "options.label",
+      label: { en: "UI label (i18n)", de: "UI-Label (i18n)" },
+      hint: { en: "{ en: 'Webhook token', de: 'Webhook-Token' }" },
+      input: "json-readonly",
+      required: true,
+    },
+    {
+      path: "options.scope",
+      label: { en: "Scope", de: "Geltungsbereich" },
+      input: "select",
+      options: [{ value: "tenant", label: { en: "Tenant" } }],
+    },
+    {
+      path: "options.writeRoles",
+      label: { en: "Write roles", de: "Schreibrollen" },
+      hint: {
+        en: "Roles allowed to set or delete. Leave empty to rely on the secrets handler access alone.",
+        de: "Rollen, die setzen oder löschen dürfen. Leer lassen, dann entscheidet allein der Handler-Zugriff.",
+      },
+      input: "string-list",
     },
   ],
 };

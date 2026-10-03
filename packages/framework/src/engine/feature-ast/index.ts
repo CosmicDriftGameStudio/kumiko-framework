@@ -89,6 +89,7 @@ export type {
   RequiresPattern,
   // Mixed patterns
   ScreenPattern,
+  SecretNamespacePattern,
   SecretPattern,
   StreamHandlerPattern,
   SystemScopePattern,

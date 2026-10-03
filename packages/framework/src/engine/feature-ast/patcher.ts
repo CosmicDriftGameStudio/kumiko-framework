@@ -29,7 +29,7 @@ import type {
   RunIn,
   TranslationKeys,
 } from "../types/config.js";
-import type { MetricOptions, SecretOptions } from "../types/feature.js";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.js";
 import type { EntityDefinition } from "../types/fields.js";
 import type {
   AccessRule,
@@ -190,6 +190,10 @@ export type AddReferenceDataArgs = {
 
 export type AddMetricArgs = { readonly name: string; readonly options: MetricOptions };
 export type AddSecretArgs = { readonly name: string; readonly options: SecretOptions };
+export type AddSecretNamespaceArgs = {
+  readonly name: string;
+  readonly options: SecretNamespaceOptions;
+};
 export type AddClaimKeyArgs = { readonly name: string; readonly type: ClaimKeyType };
 export type AddUseExtensionArgs = {
   readonly extension: string;
@@ -247,6 +251,7 @@ export type FeaturePatcher = {
   readonly addTranslations: (args: AddTranslationsArgs) => void;
   readonly addMetric: (args: AddMetricArgs) => void;
   readonly addSecret: (args: AddSecretArgs) => void;
+  readonly addSecretNamespace: (args: AddSecretNamespaceArgs) => void;
   readonly addClaimKey: (args: AddClaimKeyArgs) => void;
   readonly addReferenceData: (args: AddReferenceDataArgs) => void;
   readonly addUseExtension: (args: AddUseExtensionArgs) => void;
@@ -352,6 +357,9 @@ export function createFeaturePatcher(sourceFile: SourceFile): FeaturePatcher {
     },
     addSecret({ name, options }) {
       add({ kind: "secret", source: SYNTHETIC_LOC, shortName: name, options });
+    },
+    addSecretNamespace({ name, options }) {
+      add({ kind: "secretNamespace", source: SYNTHETIC_LOC, shortName: name, options });
     },
     addClaimKey({ name, type }) {
       add({ kind: "claimKey", source: SYNTHETIC_LOC, shortName: name, claimType: type });

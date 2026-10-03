@@ -82,6 +82,7 @@ export type PatternId =
     }
   | { readonly kind: "metric"; readonly shortName: string }
   | { readonly kind: "secret"; readonly shortName: string }
+  | { readonly kind: "secretNamespace"; readonly shortName: string }
   | { readonly kind: "claimKey"; readonly shortName: string }
   | { readonly kind: "referenceData"; readonly entityName: string }
   | { readonly kind: "useExtension"; readonly extensionName: string; readonly entityName: string }
@@ -831,6 +832,7 @@ function callMatchesId(call: CallExpression, id: PatternId): boolean {
       );
     case "metric":
     case "secret":
+    case "secretNamespace":
     case "claimKey":
       return (
         matchFirstArgString(call, id.shortName) || matchObjectProperty(call, "name", id.shortName)

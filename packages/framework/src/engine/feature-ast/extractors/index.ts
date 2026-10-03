@@ -60,6 +60,7 @@ export {
   extractMetric,
   extractReferenceData,
   extractSecret,
+  extractSecretNamespace,
   extractTranslations,
   extractUseExtension,
   isClaimKeyType,

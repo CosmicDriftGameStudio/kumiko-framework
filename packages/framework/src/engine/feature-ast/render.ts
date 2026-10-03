@@ -53,6 +53,7 @@ import type {
   RelationPattern,
   RequiresPattern,
   ScreenPattern,
+  SecretNamespacePattern,
   SecretPattern,
   StreamHandlerPattern,
   SystemScopePattern,
@@ -108,6 +109,8 @@ export function renderPattern(pattern: FeaturePattern): string {
       return renderMetric(pattern);
     case "secret":
       return renderSecret(pattern);
+    case "secretNamespace":
+      return renderSecretNamespace(pattern);
     case "claimKey":
       return renderClaimKey(pattern);
     case "referenceData":
@@ -306,6 +309,14 @@ function renderSecret(p: SecretPattern): string {
   }
   const merged = { name: p.shortName, ...p.options };
   return `r.secret(${renderValue(merged)});`;
+}
+
+function renderSecretNamespace(p: SecretNamespacePattern): string {
+  if (isRawRefSentinel(p.options)) {
+    return `r.secretNamespace(${JSON.stringify(p.shortName)}, ${p.options.__raw});`;
+  }
+  const merged = { name: p.shortName, ...p.options };
+  return `r.secretNamespace(${renderValue(merged)});`;
 }
 
 function renderClaimKey(p: ClaimKeyPattern): string {

@@ -32,7 +32,7 @@ import type {
   RunIn,
   TranslationKeys,
 } from "../types/config.js";
-import type { MetricOptions, SecretOptions } from "../types/feature.js";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.js";
 import type { EntityDefinition } from "../types/fields.js";
 import type { AgentRisk, ClaimKeyType, RateLimitPer } from "../types/handlers.js";
 import type { HookPhase } from "../types/hooks.js";
@@ -527,6 +527,15 @@ const secretSchema = z
   })
   .strict();
 
+const secretNamespaceSchema = z
+  .object({
+    kind: z.literal("secretNamespace"),
+    source: sourceFieldSchema,
+    shortName: z.string(),
+    options: passthroughSchema<SecretNamespaceOptions>(),
+  })
+  .strict();
+
 const claimKeySchema = z
   .object({
     kind: z.literal("claimKey"),
@@ -857,6 +866,7 @@ export const PATTERN_SCHEMAS_BY_KIND = {
   uiHints: uiHintsSchema,
   metric: metricSchema,
   secret: secretSchema,
+  secretNamespace: secretNamespaceSchema,
   claimKey: claimKeySchema,
   referenceData: referenceDataSchema,
   readsConfig: readsConfigSchema,
@@ -899,6 +909,7 @@ export const patternSchema = z.discriminatedUnion("kind", [
   uiHintsSchema,
   metricSchema,
   secretSchema,
+  secretNamespaceSchema,
   claimKeySchema,
   referenceDataSchema,
   readsConfigSchema,
@@ -963,6 +974,9 @@ const patternIdMetricSchema = z
 const patternIdSecretSchema = z
   .object({ kind: z.literal("secret"), shortName: z.string() })
   .strict();
+const patternIdSecretNamespaceSchema = z
+  .object({ kind: z.literal("secretNamespace"), shortName: z.string() })
+  .strict();
 const patternIdClaimKeySchema = z
   .object({ kind: z.literal("claimKey"), shortName: z.string() })
   .strict();
@@ -1024,6 +1038,7 @@ export const PATTERN_ID_SCHEMAS_BY_KIND = {
   hook: patternIdHookSchema,
   metric: patternIdMetricSchema,
   secret: patternIdSecretSchema,
+  secretNamespace: patternIdSecretNamespaceSchema,
   claimKey: patternIdClaimKeySchema,
   referenceData: patternIdReferenceDataSchema,
   useExtension: patternIdUseExtensionSchema,
@@ -1062,6 +1077,7 @@ export const patternIdSchema = z.discriminatedUnion("kind", [
   patternIdHookSchema,
   patternIdMetricSchema,
   patternIdSecretSchema,
+  patternIdSecretNamespaceSchema,
   patternIdClaimKeySchema,
   patternIdReferenceDataSchema,
   patternIdUseExtensionSchema,
