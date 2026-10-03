@@ -1,2 +1,2 @@
-export { createRendererSimpleFeature } from "./feature.js";
-export { simpleRenderer } from "./simple-renderer.js";
+export { createRendererSimpleFeature, type RendererSimpleOptions } from "./feature.js";
+export { createSimpleRenderer, type MailBranding, simpleRenderer } from "./simple-renderer.js";
