@@ -99,7 +99,7 @@
     "react-dom": "19.2.6",
     "brace-expansion": "^5.0.12",
     "undici": "^7.30.0",
-    "ip-address": "^10.5.0",
+    "ip-address": "^10.7.3",
     "js-yaml": "^4.3.2",
     "html-to-text": "^10.0.1",
     "nodemailer": "^10.0.13"
@@ -108,7 +108,8 @@
     "html-to-text": "10.0.1",
     "nodemailer": "10.0.13",
     "brace-expansion": "5.0.12",
-    "undici": "7.30.0"
+    "undici": "7.30.0",
+    "ip-address": "10.7.3"
   },
   "dependencies": {
     "@cosmicdrift/kumiko-cli": "workspace:*",

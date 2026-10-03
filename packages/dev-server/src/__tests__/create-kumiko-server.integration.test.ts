@@ -861,17 +861,22 @@ const probeJobFeature = defineFeature("dev-server-probe-job", (r) => {
   r.job("probe-job", { trigger: { manual: true }, runIn: "worker" }, async () => {});
 });
 
-async function listDevQueueKeys(): Promise<Set<string>> {
+// Scoped to one boot's prefix: parallel test files boot their own dev servers
+// on the same Redis, so a global `bull:kumiko-dev-*` diff sees their live keys.
+async function listQueueKeysOfBoot(jobQueueNamePrefix: string): Promise<string[]> {
   const { Redis } = await import("ioredis");
   const redisUrl = process.env["REDIS_URL"];
   if (redisUrl === undefined) throw new Error("REDIS_URL must be set for integration tests");
   const raw = new Redis(redisUrl);
   try {
     const keys = new Set<string>();
-    for await (const batch of raw.scanStream({ match: "bull:kumiko-dev-*", count: 500 })) {
+    for await (const batch of raw.scanStream({
+      match: `bull:${jobQueueNamePrefix}-*`,
+      count: 500,
+    })) {
       for (const key of batch) keys.add(key);
     }
-    return keys;
+    return [...keys];
   } finally {
     raw.disconnect();
   }
@@ -879,20 +884,19 @@ async function listDevQueueKeys(): Promise<Set<string>> {
 
 describe("createKumikoServer — ephemeral job queues", () => {
   test("stop() removes the per-boot BullMQ keys from the shared Redis", async () => {
-    const before = await listDevQueueKeys();
     handle = await createKumikoServer({
       features: [probeFeature, probeJobFeature],
       port: 0,
       installSignalHandlers: false,
     });
-    const duringBoot = await listDevQueueKeys();
-    expect([...duringBoot].filter((key) => !before.has(key)).length).toBeGreaterThan(0);
+    const { jobQueueNamePrefix } = handle;
+    expect(jobQueueNamePrefix).toStartWith("kumiko-dev-");
+    expect((await listQueueKeysOfBoot(jobQueueNamePrefix)).length).toBeGreaterThan(0);
 
     await handle.stop();
     handle = undefined;
 
-    const afterStop = await listDevQueueKeys();
-    expect([...afterStop].filter((key) => !before.has(key))).toEqual([]);
+    expect(await listQueueKeysOfBoot(jobQueueNamePrefix)).toEqual([]);
   });
 });
 

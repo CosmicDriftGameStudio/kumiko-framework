@@ -274,6 +274,9 @@ export type KumikoServerHandle = {
   readonly stack: TestStack;
   /** Stops the server and tears down the stack (DB + redis). */
   readonly stop: () => Promise<void>;
+  /** BullMQ queue-name prefix of this boot: per-boot in ephemeral mode, so
+   *  its `bull:<prefix>-*` keys belong to this server alone on a shared Redis. */
+  readonly jobQueueNamePrefix: string;
 };
 
 const CSRF_COOKIE = "kumiko_csrf";
@@ -1429,5 +1432,5 @@ export async function createKumikoServer(
     );
   }
 
-  return { fetch: handleFetch, server, stack, stop };
+  return { fetch: handleFetch, server, stack, stop, jobQueueNamePrefix };
 }
