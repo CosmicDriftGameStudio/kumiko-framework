@@ -12,9 +12,14 @@ import { normalizeEmail, platformActor, waitlistDb, waitlistExecutor } from "../
 import {
   renderWaitlistAdminNoticeEmail,
   renderWaitlistConfirmationEmail,
+  resolveWaitlistAdminMailLocale,
   resolveWaitlistMailLocale,
 } from "../mail.js";
-import { DEFAULT_SUBMIT_RATE_LIMIT, type WaitlistOptions } from "../options.js";
+import {
+  DEFAULT_SUBMIT_EMAIL_RATE_LIMITS,
+  DEFAULT_SUBMIT_RATE_LIMIT,
+  type WaitlistOptions,
+} from "../options.js";
 import { type WaitlistSubmitInput, WaitlistSubmitSchema } from "../payloads.js";
 
 // pg_advisory_xact_lock namespace (int4): 'wlst' as ASCII, disjoint from the
@@ -87,6 +92,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
     schema: WaitlistSubmitSchema,
     access: { roles: SUBMIT_ROLES, personalData: "public-intake" },
     rateLimit: opts.rateLimit ?? DEFAULT_SUBMIT_RATE_LIMIT,
+    additionalRateLimits: opts.emailRateLimits ?? DEFAULT_SUBMIT_EMAIL_RATE_LIMITS,
     description:
       "Public waitlist sign-up: registers an interest entry and sends the submitter a confirmation mail. Always reports success, whether the address is new or already on the list.",
     escapeHatch: { grants: ["unsafeRaw"], reason: SUBMIT_LOCK_REASON },
@@ -147,6 +153,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
             adminLocale: ctx.locale,
           }),
           priority: "normal",
+          locale: resolveWaitlistAdminMailLocale(ctx.locale),
         });
       });
 

@@ -10,6 +10,7 @@ import type { Redis } from "ioredis";
 import { Temporal as TemporalPolyfill } from "temporal-polyfill";
 import { RateLimitError } from "../errors/index.js";
 import { RedisKeys } from "../pipeline/redis-keys.js";
+import { toPublicBucketName } from "./bucket.js";
 
 // Token-Bucket rate limiter, atomic via Redis Lua. One round-trip per
 // check — the script computes the bucket state inline and either deducts
@@ -209,7 +210,7 @@ export function createRateLimitResolver(opts: RateLimitResolverOptions): RateLim
     const decision = await check(bucket, config);
     if (decision.allowed) return decision;
     throw new RateLimitError({
-      bucket,
+      bucket: toPublicBucketName(bucket),
       limit: decision.limit,
       windowSeconds: decision.windowSeconds,
       remaining: decision.remaining,

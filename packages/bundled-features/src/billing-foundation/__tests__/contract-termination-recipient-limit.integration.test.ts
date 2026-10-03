@@ -242,8 +242,7 @@ type LimitedBody = {
   };
 };
 
-// The bucket name (it carries the address digest), request id and timestamps
-// legitimately differ per request; everything a caller could use to tell a
+// Request id and timestamps legitimately differ per request; everything a caller could use to tell a
 // matched address from an unmatched one must not.
 function distinguishingParts(body: LimitedBody) {
   const { code, i18nKey, details } = body.error;
@@ -264,7 +263,14 @@ describe("per-recipient limit on request-contract-termination", () => {
     }
     const fourth = await declare(email);
     expect(fourth.status).toBe(429);
-    expect(((await fourth.json()) as LimitedBody).error.code).toBe("rate_limited");
+    const bodyText = await fourth.text();
+    expect((JSON.parse(bodyText) as LimitedBody).error.code).toBe("rate_limited");
+    expect(bodyText).not.toContain(email);
+    // The Redis key ends in the address digest; the 429 body must not leak it.
+    const [bucketKey] = await scanKeys(RATE_LIMIT_KEY_PATTERN);
+    const digest = bucketKey?.slice(bucketKey.lastIndexOf(":") + 1) ?? "";
+    expect(digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(bodyText).not.toContain(digest);
     await stack.drainJobs();
     expect(emailTransport.sent.filter((mail) => mail.to === email)).toHaveLength(3);
   });

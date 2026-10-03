@@ -181,6 +181,19 @@ describe("waitlist submit", () => {
     expect(statuses[5]).toBe(429);
   });
 
+  test("a fourth submit for one address (case variant) is 429 even from a fresh IP", async () => {
+    const statuses: number[] = [];
+    for (const email of [
+      "Cap@example.com",
+      "cap@example.com",
+      "CAP@example.com",
+      "cap@Example.com",
+    ]) {
+      statuses.push((await submit(validBody(email))).status);
+    }
+    expect(statuses).toEqual([200, 200, 200, 429]);
+  });
+
   test("admin notice goes to the notifyRecipient address, and is skipped for null", async () => {
     adminNoticeRecipient = "ops@example.com";
     await submit(validBody("notice1@example.com"));
