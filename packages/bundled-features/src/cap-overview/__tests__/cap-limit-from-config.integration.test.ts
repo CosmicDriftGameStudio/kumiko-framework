@@ -112,8 +112,8 @@ async function limitsSeenByBothQueries(): Promise<{
   readonly capsUsage: number | null | undefined;
   readonly tenantCapsList: unknown;
 }> {
-  const member = createTestUser({ id: 92012, tenantId: TENANT_A, roles: ["User"] });
-  const usage = await stack.http.queryOk<CapsUsageResult>(CapOverviewQueries.capsUsage, {}, member);
+  const admin = createTestUser({ id: 92012, tenantId: TENANT_A, roles: ["TenantAdmin"] });
+  const usage = await stack.http.queryOk<CapsUsageResult>(CapOverviewQueries.capsUsage, {}, admin);
   const list = await stack.http.queryOk<TenantCapsListResult>(
     CapOverviewQueries.tenantCapsList,
     { limit: 50 },

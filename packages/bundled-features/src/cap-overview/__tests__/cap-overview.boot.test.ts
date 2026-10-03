@@ -7,7 +7,7 @@ import { createConfigFeature } from "../../config/feature.js";
 import { createTenantFeature } from "../../tenant/index.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { tierEngineFeature } from "../../tier-engine/index.js";
-import { MY_CAPS_ACCESS_ROLES } from "../access.js";
+import { DEFAULT_CAP_USAGE_ROLES } from "../access.js";
 import {
   MY_CAPS_SCREEN_ID,
   PLATFORM_TENANT_CAPS_SCREEN_ID,
@@ -60,17 +60,33 @@ describe("cap-overview boot", () => {
     expect(feature.screens[PLATFORM_TENANT_CAPS_SCREEN_ID]?.type).toBe("dashboard");
   });
 
-  test("my-caps screen and the query filling its cards carry the SAME rule", () => {
-    const feature = createCapOverviewFeature({ caps: [testCap] });
-    expect(rolesOf(feature.screens[MY_CAPS_SCREEN_ID]?.access)).toEqual([...MY_CAPS_ACCESS_ROLES]);
-    expect(rolesOf(feature.queryHandlers["caps:usage"]?.access)).toEqual([...MY_CAPS_ACCESS_ROLES]);
+  test("default usage visibility is exactly the admin roles", () => {
+    expect([...DEFAULT_CAP_USAGE_ROLES]).toEqual([...access.admin]);
+    expect(DEFAULT_CAP_USAGE_ROLES).not.toContain("User");
   });
 
-  test("my-caps stays reachable for every role that reached it before", () => {
-    for (const role of access.admin) {
-      expect(MY_CAPS_ACCESS_ROLES).toContain(role);
-    }
-    expect(MY_CAPS_ACCESS_ROLES).toContain("User");
+  test("my-caps screen and the query filling its cards carry the SAME rule, default and opted-in", () => {
+    const byDefault = createCapOverviewFeature({ caps: [testCap] });
+    expect(rolesOf(byDefault.screens[MY_CAPS_SCREEN_ID]?.access)).toEqual([
+      ...DEFAULT_CAP_USAGE_ROLES,
+    ]);
+    expect(rolesOf(byDefault.queryHandlers["caps:usage"]?.access)).toEqual([
+      ...DEFAULT_CAP_USAGE_ROLES,
+    ]);
+
+    const usageVisibleTo = ["User", "Editor", ...access.admin];
+    const widened = createCapOverviewFeature({ caps: [testCap], usageVisibleTo });
+    expect(rolesOf(widened.screens[MY_CAPS_SCREEN_ID]?.access)).toEqual(usageVisibleTo);
+    expect(rolesOf(widened.queryHandlers["caps:usage"]?.access)).toEqual(usageVisibleTo);
+  });
+
+  test("usageVisibleTo rejects unknown and empty role lists", () => {
+    expect(() => createCapOverviewFeature({ caps: [testCap], usageVisibleTo: ["Admn"] })).toThrow(
+      /unknown role\(s\) "Admn"/,
+    );
+    expect(() => createCapOverviewFeature({ caps: [testCap], usageVisibleTo: [] })).toThrow(
+      /must not be empty/,
+    );
   });
 
   test("the platform-wide screens and their queries stay SystemAdmin-only", () => {

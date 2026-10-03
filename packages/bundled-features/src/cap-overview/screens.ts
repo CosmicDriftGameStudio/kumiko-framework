@@ -1,5 +1,4 @@
 import type { ScreenDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { MY_CAPS_ACCESS_ROLES } from "./access.js";
 import {
   CAP_CARDS_PANEL_COMPONENT,
   CAP_USAGE_CELL_COMPONENT,
@@ -72,21 +71,23 @@ export function createTenantCapListScreen(
   };
 }
 
-export const myCapsScreen: ScreenDefinition = {
-  id: MY_CAPS_SCREEN_ID,
-  type: "dashboard",
-  panels: [
-    {
-      kind: "custom",
-      id: "cap-cards",
-      component: { react: { __component: CAP_CARDS_PANEL_COMPONENT } },
-    },
-  ],
-  access: { roles: MY_CAPS_ACCESS_ROLES },
-  // No nav wiring yet (see feature.ts header) — no nav area to resolve in
-  // isolation.
-  dormant: true,
-};
+export function createMyCapsScreen(usageRoles: readonly string[]): ScreenDefinition {
+  return {
+    id: MY_CAPS_SCREEN_ID,
+    type: "dashboard",
+    panels: [
+      {
+        kind: "custom",
+        id: "cap-cards",
+        component: { react: { __component: CAP_CARDS_PANEL_COMPONENT } },
+      },
+    ],
+    access: { roles: usageRoles },
+    // No nav wiring yet (see feature.ts header) — no nav area to resolve in
+    // isolation.
+    dormant: true,
+  };
+}
 
 export const platformTenantCapsScreen: ScreenDefinition = {
   id: PLATFORM_TENANT_CAPS_SCREEN_ID,
