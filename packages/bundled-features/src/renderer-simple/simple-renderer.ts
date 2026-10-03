@@ -36,8 +36,8 @@ function renderBrandingHeader(branding: MailBranding | undefined, primaryColor: 
   if (!logoUrl && !branding.productName) return "";
   const logo = logoUrl
     ? `<img src="${escapeHtmlAttr(logoUrl)}" alt="${escapeHtmlAttr(branding.productName ?? "")}" style="display:block;max-height:40px;max-width:200px;border:0" />`
-    : `<span style="font-size:18px;font-weight:700;color:${primaryColor}">${escapeHtml(branding.productName ?? "")}</span>`;
-  return `<div style="margin:0 0 24px;padding:0 0 16px;border-bottom:3px solid ${primaryColor}">${logo}</div>`;
+    : `<span style="font-size:18px;font-weight:700;color:${escapeHtmlAttr(primaryColor)}">${escapeHtml(branding.productName ?? "")}</span>`;
+  return `<div style="margin:0 0 24px;padding:0 0 16px;border-bottom:3px solid ${escapeHtmlAttr(primaryColor)}">${logo}</div>`;
 }
 
 function renderBrandingFooter(branding: MailBranding | undefined): string {
@@ -48,12 +48,13 @@ function renderBrandingFooter(branding: MailBranding | undefined): string {
       (link) =>
         `<a href="${escapeHtmlAttr(link.url)}" style="color:#999">${escapeHtml(link.label)}</a>`,
     );
-  const parts = [
+  const footerPartsHtml = [
     branding.footerText ? escapeHtml(branding.footerText) : "",
     links.join(" · "),
   ].filter((part) => part !== "");
-  if (parts.length === 0) return "";
-  return `<p style="margin:16px 0 0;color:#999;font-size:12px">${parts.join("<br />")}</p>`;
+  if (footerPartsHtml.length === 0) return "";
+  const footerHtml = footerPartsHtml.join("<br />");
+  return `<p style="margin:16px 0 0;color:#999;font-size:12px">${footerHtml}</p>`;
 }
 
 type Section =
@@ -75,7 +76,7 @@ function renderSection(section: Section, primaryColor: string): string {
     return `<p style="margin:0 0 16px;color:#333;font-size:14px;line-height:1.5">${escapeHtml(section.text)}</p>`;
   }
   if ("button" in section) {
-    return `<p style="margin:0 0 16px"><a href="${escapeHtml(section.button.url)}" style="display:inline-block;padding:10px 24px;background:${primaryColor};color:#fff;text-decoration:none;border-radius:4px;font-size:14px">${escapeHtml(section.button.label)}</a></p>`;
+    return `<p style="margin:0 0 16px"><a href="${escapeHtml(section.button.url)}" style="display:inline-block;padding:10px 24px;background:${escapeHtmlAttr(primaryColor)};color:#fff;text-decoration:none;border-radius:4px;font-size:14px">${escapeHtml(section.button.label)}</a></p>`;
   }
   return "";
 }
