@@ -140,7 +140,7 @@ export function createSubmitHandler(opts: WaitlistOptions) {
       );
 
       await sendBestEffort(ctx, "admin notice", async (notify) => {
-        const adminRecipient = opts.notifyRecipient?.(ctx);
+        const adminRecipient = await opts.notifyRecipient?.(ctx);
         // skip: no admin recipient configured
         if (!adminRecipient) return;
         await notify(WAITLIST_NOTIFICATION_TYPES.adminNotice, {

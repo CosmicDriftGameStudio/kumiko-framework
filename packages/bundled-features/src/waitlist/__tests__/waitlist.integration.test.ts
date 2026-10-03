@@ -67,7 +67,8 @@ const TENANT_ADMIN: SessionUser = {
 beforeAll(async () => {
   stack = await createWaitlistTestStack({
     appName: "Acme",
-    notifyRecipient: () => adminNoticeRecipient,
+    // Async on purpose: apps read the recipient from config, which only resolves async.
+    notifyRecipient: async () => adminNoticeRecipient,
   });
 });
 
