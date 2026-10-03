@@ -1,5 +1,7 @@
 # @cosmicdrift/kumiko-samples
 
+## 0.340.0
+
 ## 0.339.0
 
 ### Patch Changes

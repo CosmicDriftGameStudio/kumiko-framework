@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.340.0",
+    "type": "improvement",
+    "title": "Where clauses and aggregate options describe jsonb text matches and key ordering",
+    "detail": "`WhereOperator` gains `jsonText?: JsonTextMatch | readonly JsonTextMatch[]` with `JsonTextMatch = { keys: readonly [string, ...string[]]; eq: string }`, and the aggregate options gain `orderByKeys?: \"asc\" | \"desc\"`.",
+    "migration": "keine"
+  },
+  {
     "version": "0.338.0",
     "type": "improvement",
     "title": "ctx.configFor on the handler context types",

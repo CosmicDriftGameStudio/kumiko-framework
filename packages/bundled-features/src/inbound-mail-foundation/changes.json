@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.340.0",
+    "type": "improvement",
+    "title": "Inbound mail projections use typed bun-db helpers",
+    "detail": "Mail-account and mail-thread events upsert through `upsertOnConflict` (`connectedAt` is only written on insert), inbound messages insert through `insertOnConflictDoNothing`. The raw `db/queries/inbound-projections.ts` module is gone.",
+    "migration": "keine"
+  },
+  {
     "version": "0.339.0",
     "type": "improvement",
     "title": "Inbound mail OAuth accounts refresh their access token",
