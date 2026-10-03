@@ -36,6 +36,9 @@ export type LanguageSwitcherProps = {
   readonly icon?: ReactNode;
   /** aria-label + title of the trigger. Default: translated "kumiko.nav.language". */
   readonly label?: string;
+  /** What the trigger shows next to the icon: the uppercase code (default), the active
+   *  locale's label, or the icon only. aria-label/title are unaffected. */
+  readonly triggerContent?: "code" | "label" | "icon-only";
   readonly testId?: string;
 };
 
@@ -43,6 +46,7 @@ export function LanguageSwitcher({
   locales,
   icon = "🌐",
   label,
+  triggerContent = "code",
   testId,
 }: LanguageSwitcherProps): ReactNode {
   const resolver = useLocale();
@@ -89,9 +93,16 @@ export function LanguageSwitcher({
           )}
         >
           <span aria-hidden="true">{icon}</span>
-          <span className="uppercase text-xs text-muted-foreground">
-            {activeOption?.code ?? activeLocale.slice(0, 2)}
-          </span>
+          {triggerContent === "label" && (
+            <span className="text-xs text-muted-foreground">
+              {activeOption?.label ?? activeLocale.slice(0, 2)}
+            </span>
+          )}
+          {triggerContent === "code" && (
+            <span className="uppercase text-xs text-muted-foreground">
+              {activeOption?.code ?? activeLocale.slice(0, 2)}
+            </span>
+          )}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

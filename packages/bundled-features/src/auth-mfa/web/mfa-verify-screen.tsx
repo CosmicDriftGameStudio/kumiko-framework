@@ -85,33 +85,31 @@ export function MfaVerifyScreen({
       title={title ?? t("auth.mfa.verify.title")}
       subtitle={subtitle ?? t("auth.mfa.verify.subtitle")}
     >
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        <Form onSubmit={onSubmit}>
-          <Field id="mfa-verify-code" label={t("auth.mfa.verify.code")} required>
-            <Input
-              kind="text"
-              id="mfa-verify-code"
-              name="mfa-verify-code"
-              value={code}
-              onChange={setCode}
-              disabled={submitting}
-              required
-              autoComplete="one-time-code"
-            />
-          </Field>
-          {error !== null ? <Banner variant="error">{t(reasonToKey(error))}</Banner> : null}
-          <Button type="submit" loading={submitting} disabled={submitting}>
-            {submitting
-              ? t("auth.mfa.verify.submitting")
-              : (submitLabel ?? t("auth.mfa.verify.submit"))}
+      <Form onSubmit={onSubmit}>
+        <Field id="mfa-verify-code" label={t("auth.mfa.verify.code")} required>
+          <Input
+            kind="text"
+            id="mfa-verify-code"
+            name="mfa-verify-code"
+            value={code}
+            onChange={setCode}
+            disabled={submitting}
+            required
+            autoComplete="one-time-code"
+          />
+        </Field>
+        {error !== null ? <Banner variant="error">{t(reasonToKey(error))}</Banner> : null}
+        <Button type="submit" loading={submitting} disabled={submitting}>
+          {submitting
+            ? t("auth.mfa.verify.submitting")
+            : (submitLabel ?? t("auth.mfa.verify.submit"))}
+        </Button>
+        {onCancel ? (
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
+            {t("auth.mfa.verify.backToLogin")}
           </Button>
-          {onCancel ? (
-            <Button type="button" variant="secondary" onClick={onCancel} disabled={submitting}>
-              {t("auth.mfa.verify.backToLogin")}
-            </Button>
-          ) : null}
-        </Form>
-      </div>
+        ) : null}
+      </Form>
     </AuthCard>
   );
 }

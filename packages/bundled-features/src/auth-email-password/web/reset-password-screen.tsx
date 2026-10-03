@@ -83,12 +83,10 @@ export function ResetPasswordScreen({
   if (token === "") {
     return (
       <AuthCard title={effectiveTitle}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.resetPassword.missingToken")}</p>
-          <Link href={loginHref} variant="muted">
-            {t("auth.resetPassword.goToLogin")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.resetPassword.missingToken")}</p>
+        <Link href={loginHref} variant="muted">
+          {t("auth.resetPassword.goToLogin")}
+        </Link>
       </AuthCard>
     );
   }
@@ -96,7 +94,7 @@ export function ResetPasswordScreen({
   return (
     <AuthCard title={effectiveTitle}>
       {done ? (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <Banner variant="info">
             <p className="font-medium text-foreground">{t("auth.resetPassword.successTitle")}</p>
             <p className="mt-1">{t("auth.resetPassword.successBody")}</p>
@@ -104,9 +102,9 @@ export function ResetPasswordScreen({
           <Link href={loginHref} variant="button">
             {t("auth.resetPassword.goToLogin")}
           </Link>
-        </div>
+        </>
       ) : (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <p className="text-sm text-muted-foreground">{t("auth.resetPassword.intro")}</p>
           <Form onSubmit={onSubmit}>
             <Field id="reset-new-password" label={t("auth.resetPassword.newPassword")} required>
@@ -142,7 +140,7 @@ export function ResetPasswordScreen({
               {submitting ? t("auth.resetPassword.submitting") : t("auth.resetPassword.submit")}
             </Button>
           </Form>
-        </div>
+        </>
       )}
     </AuthCard>
   );

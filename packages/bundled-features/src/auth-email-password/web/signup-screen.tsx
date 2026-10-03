@@ -85,7 +85,7 @@ export function SignupScreen({
   return (
     <AuthCard title={effectiveTitle} subtitle={subtitle}>
       {done ? (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <Banner variant="info">
             <p className="font-medium text-foreground">{t("auth.signup.successTitle")}</p>
             <p className="mt-1">{t("auth.signup.successBody")}</p>
@@ -96,9 +96,9 @@ export function SignupScreen({
           <Link href={loginHref} variant="muted">
             {t("auth.signup.haveAccount")}
           </Link>
-        </div>
+        </>
       ) : (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <p className="text-sm text-muted-foreground">{t("auth.signup.intro")}</p>
           <Form onSubmit={onSubmit}>
             <Field id="signup-email" label={t("auth.signup.email")} required>
@@ -121,7 +121,7 @@ export function SignupScreen({
           <Link href={loginHref} variant="muted" className="self-center">
             {t("auth.signup.haveAccount")}
           </Link>
-        </div>
+        </>
       )}
     </AuthCard>
   );

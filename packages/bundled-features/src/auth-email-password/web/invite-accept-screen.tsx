@@ -186,87 +186,83 @@ export function InviteAcceptScreen({
   if (token === "") {
     return (
       <AuthCard title={effectiveTitle}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.missingToken")}</p>
-          <Link href={loginHref} variant="muted">
-            {t("auth.inviteAccept.goToLogin")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.missingToken")}</p>
+        <Link href={loginHref} variant="muted">
+          {t("auth.inviteAccept.goToLogin")}
+        </Link>
       </AuthCard>
     );
   }
 
   return (
     <AuthCard title={effectiveTitle}>
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.intro")}</p>
+      <p className="text-sm text-muted-foreground">{t("auth.inviteAccept.intro")}</p>
 
-        {mode === "loggedin" ? (
-          <Form onSubmit={onSubmit}>
-            <p className="text-sm">
-              {t("auth.inviteAccept.loggedInAs", { email: session.user?.email ?? "" })}
-            </p>
-            {error !== null && <Banner variant="error">{error}</Banner>}
-            <Button type="submit" loading={submitting} disabled={submitting}>
-              {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.acceptButton")}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setMode("anon-existing");
-              }}
-            >
-              {t("auth.inviteAccept.useOtherAccount")}
-            </Button>
-          </Form>
-        ) : (
-          <Form onSubmit={onSubmit}>
-            {mode === "anon-existing" && (
-              <Field id="invite-email" label={t("auth.inviteAccept.email")} required>
-                <Input
-                  kind="email"
-                  id="invite-email"
-                  name="invite-email"
-                  value={email}
-                  onChange={setEmail}
-                  disabled={submitting}
-                  required
-                  autoComplete="email"
-                />
-              </Field>
-            )}
-            <Field id="invite-password" label={t("auth.inviteAccept.password")} required>
+      {mode === "loggedin" ? (
+        <Form onSubmit={onSubmit}>
+          <p className="text-sm">
+            {t("auth.inviteAccept.loggedInAs", { email: session.user?.email ?? "" })}
+          </p>
+          {error !== null && <Banner variant="error">{error}</Banner>}
+          <Button type="submit" loading={submitting} disabled={submitting}>
+            {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.acceptButton")}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setMode("anon-existing");
+            }}
+          >
+            {t("auth.inviteAccept.useOtherAccount")}
+          </Button>
+        </Form>
+      ) : (
+        <Form onSubmit={onSubmit}>
+          {mode === "anon-existing" && (
+            <Field id="invite-email" label={t("auth.inviteAccept.email")} required>
               <Input
-                kind="password"
-                id="invite-password"
-                name="invite-password"
-                value={password}
-                onChange={setPassword}
+                kind="email"
+                id="invite-email"
+                name="invite-email"
+                value={email}
+                onChange={setEmail}
                 disabled={submitting}
                 required
-                autoComplete={mode === "anon-existing" ? "current-password" : "new-password"}
+                autoComplete="email"
               />
             </Field>
-            {error !== null && <Banner variant="error">{error}</Banner>}
-            <Button type="submit" loading={submitting} disabled={submitting}>
-              {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.submit")}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setMode(mode === "anon-existing" ? "anon-new" : "anon-existing");
-                setError(null);
-              }}
-            >
-              {mode === "anon-existing"
-                ? t("auth.inviteAccept.toggleNew")
-                : t("auth.inviteAccept.toggleExisting")}
-            </Button>
-          </Form>
-        )}
-      </div>
+          )}
+          <Field id="invite-password" label={t("auth.inviteAccept.password")} required>
+            <Input
+              kind="password"
+              id="invite-password"
+              name="invite-password"
+              value={password}
+              onChange={setPassword}
+              disabled={submitting}
+              required
+              autoComplete={mode === "anon-existing" ? "current-password" : "new-password"}
+            />
+          </Field>
+          {error !== null && <Banner variant="error">{error}</Banner>}
+          <Button type="submit" loading={submitting} disabled={submitting}>
+            {submitting ? t("auth.inviteAccept.submitting") : t("auth.inviteAccept.submit")}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              setMode(mode === "anon-existing" ? "anon-new" : "anon-existing");
+              setError(null);
+            }}
+          >
+            {mode === "anon-existing"
+              ? t("auth.inviteAccept.toggleNew")
+              : t("auth.inviteAccept.toggleExisting")}
+          </Button>
+        </Form>
+      )}
     </AuthCard>
   );
 }

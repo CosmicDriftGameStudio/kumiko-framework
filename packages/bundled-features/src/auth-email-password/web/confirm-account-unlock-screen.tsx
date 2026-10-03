@@ -47,12 +47,10 @@ export function ConfirmAccountUnlockScreen({
   if (status === "missing-token") {
     return (
       <AuthCard title={title ?? t("auth.unlockAccount.errorTitle")}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.missingToken")}</p>
-          <Link href={loginHref} variant="muted">
-            {t("auth.unlockAccount.goToLogin")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.missingToken")}</p>
+        <Link href={loginHref} variant="muted">
+          {t("auth.unlockAccount.goToLogin")}
+        </Link>
       </AuthCard>
     );
   }
@@ -72,12 +70,10 @@ export function ConfirmAccountUnlockScreen({
   if (status === "success") {
     return (
       <AuthCard title={title ?? t("auth.unlockAccount.successTitle")}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.successBody")}</p>
-          <Link href={loginHref} variant="button">
-            {t("auth.unlockAccount.goToLogin")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.successBody")}</p>
+        <Link href={loginHref} variant="button">
+          {t("auth.unlockAccount.goToLogin")}
+        </Link>
       </AuthCard>
     );
   }
@@ -85,12 +81,10 @@ export function ConfirmAccountUnlockScreen({
   // status === "error"
   return (
     <AuthCard title={title ?? t("auth.unlockAccount.errorTitle")}>
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.errorBody")}</p>
-        <Link href={loginHref} variant="muted">
-          {t("auth.unlockAccount.goToLogin")}
-        </Link>
-      </div>
+      <p className="text-sm text-muted-foreground">{t("auth.unlockAccount.errorBody")}</p>
+      <Link href={loginHref} variant="muted">
+        {t("auth.unlockAccount.goToLogin")}
+      </Link>
     </AuthCard>
   );
 }

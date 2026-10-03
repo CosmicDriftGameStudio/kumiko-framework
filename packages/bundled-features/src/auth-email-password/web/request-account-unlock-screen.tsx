@@ -73,7 +73,7 @@ export function RequestAccountUnlockScreen({
   return (
     <AuthCard title={effectiveTitle} subtitle={subtitle}>
       {done ? (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <Banner variant="info">
             <p className="font-medium text-foreground">{t("auth.requestUnlock.successTitle")}</p>
             <p className="mt-1">{t("auth.requestUnlock.successBody")}</p>
@@ -81,9 +81,9 @@ export function RequestAccountUnlockScreen({
           <Link href={loginHref} variant="muted">
             {t("auth.requestUnlock.backToLogin")}
           </Link>
-        </div>
+        </>
       ) : (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <p className="text-sm text-muted-foreground">{t("auth.requestUnlock.intro")}</p>
           <Form onSubmit={onSubmit}>
             <Field id="unlock-email" label={t("auth.requestUnlock.email")} required>
@@ -105,7 +105,7 @@ export function RequestAccountUnlockScreen({
           <Link href={loginHref} variant="muted" className="self-center">
             {t("auth.requestUnlock.backToLogin")}
           </Link>
-        </div>
+        </>
       )}
     </AuthCard>
   );

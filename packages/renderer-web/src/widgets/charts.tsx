@@ -135,6 +135,12 @@ export function StatusBarChart({
   );
 }
 
+const SINGLE_POINT_RADIUS = 3;
+
+function clampDotY(y: number, height: number): number {
+  return Math.max(SINGLE_POINT_RADIUS, Math.min(height - SINGLE_POINT_RADIUS, y));
+}
+
 /** Quadratic-durch-Mittelpunkte-Trick: glättet die Zick-Zack-Linie ohne
  *  Overshoot (~5 Zeilen statt Catmull-Rom/Bezier-Fit). */
 export function smoothPath(pts: ReadonlyArray<{ readonly x: number; readonly y: number }>): string {
@@ -197,7 +203,8 @@ export function TimeseriesChart({
   /** Dashed horizontal threshold lines (e.g. p95); they extend the y-scale
    *  when above the data maximum. Non-finite and negative values are dropped. */
   readonly referenceLines?: readonly TimeseriesReferenceLine[];
-  /** Rendert statt des Charts wenn <2 Messwerte vorliegen. */
+  /** Rendered instead of the chart when there is no value; a single value
+   *  is drawn as a point. */
   readonly emptyContent?: ReactNode;
   readonly testId?: string;
 }): ReactNode {
@@ -207,7 +214,7 @@ export function TimeseriesChart({
   const chartHeight = 64;
 
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
-  if (values.length < 2) {
+  if (values.length === 0) {
     return (
       <div className="flex h-16 items-center justify-center text-[13px] text-muted-foreground">
         {emptyContent}
@@ -218,7 +225,14 @@ export function TimeseriesChart({
   const drawableLines = (referenceLines ?? []).filter(
     (line) => Number.isFinite(line.value) && line.value >= 0,
   );
-  const maxValue = Math.max(...values, ...drawableLines.map((line) => line.value), 1);
+  const singleValue = values.length === 1 ? values[0] : undefined;
+  // A lone value at the top edge would sit on the clip boundary; doubling the
+  // scale centres it.
+  const maxValue = Math.max(
+    ...values.map((value) => (singleValue === undefined ? value : value * 2)),
+    ...drawableLines.map((line) => line.value),
+    1,
+  );
   const yOf = (value: number) => chartHeight - (value / maxValue) * chartHeight;
   const span = Math.max(1, windowEndMs - windowStartMs);
   const xOf = (atMs: number) =>
@@ -254,15 +268,27 @@ export function TimeseriesChart({
           <stop offset="100%" stopColor={color} stopOpacity={0.02} />
         </linearGradient>
       </defs>
-      <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
-      <path
-        d={linePath}
-        fill="none"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
+      {singleValue === undefined ? (
+        <>
+          <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
+          <path
+            d={linePath}
+            fill="none"
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            vectorEffect="non-scaling-stroke"
+          />
+        </>
+      ) : (
+        <circle
+          data-testid="timeseries-single-point"
+          cx={chartWidth / 2}
+          cy={clampDotY(yOf(singleValue), chartHeight)}
+          r={SINGLE_POINT_RADIUS}
+          fill={color}
+        />
+      )}
       {drawableLines.map((line) => (
         <line
           key={`${line.value}:${line.label}`}
@@ -705,7 +731,7 @@ export function StackedAreaChart({
 }): ReactNode {
   const clipId = useId();
   const times = bucketTimes(series);
-  if (times.length < 2) return <div data-testid={testId}>{emptyContent}</div>;
+  if (times.length === 0) return <div data-testid={testId}>{emptyContent}</div>;
 
   const width = 300;
   const height = 120;
@@ -713,7 +739,9 @@ export function StackedAreaChart({
   const fractionOf = (atMs: number): number =>
     Math.max(0, Math.min(1, (atMs - windowStartMs) / span));
   const totals = times.map((atMs) => series.reduce((sum, s) => sum + valueAt(s, atMs), 0));
-  const max = niceCeil(Math.max(...totals));
+  const isSingleBucket = times.length === 1;
+  // Doubling keeps a lone bucket away from the top edge of the y-scale.
+  const max = niceCeil(Math.max(...totals) * (isSingleBucket ? 2 : 1));
   const yOf = (value: number): number => height - (value / max) * height;
 
   const lower = times.map(() => 0);
@@ -727,20 +755,35 @@ export function StackedAreaChart({
         (atMs, ti) => `${(fractionOf(atMs) * width).toFixed(1)} ${yOf(lower[ti] ?? 0).toFixed(1)}`,
       )
       .reverse();
+    const bucketTop = upper[0] ?? 0;
+    const bucketHeight = bucketTop - (lower[0] ?? 0);
     for (let ti = 0; ti < times.length; ti++) lower[ti] = upper[ti] ?? 0;
     return {
       key: s.key,
       color: chartColor(s.key, si, tones),
       d: `M ${top.join(" L ")} L ${bottom.join(" L ")} Z`,
+      dot: isSingleBucket && bucketHeight > 0 ? clampDotY(yOf(bucketTop), height) : undefined,
     };
   });
 
   const todayFraction = todayMs !== undefined ? fractionOf(todayMs) : undefined;
   const todayX = (todayFraction ?? 1) * width;
   const renderBands = (fillOpacity: number): ReactNode =>
-    bands.map((band) => (
-      <path key={band.key} d={band.d} fill={band.color} fillOpacity={fillOpacity} stroke="none" />
-    ));
+    bands.map((band) =>
+      band.dot === undefined ? (
+        <path key={band.key} d={band.d} fill={band.color} fillOpacity={fillOpacity} stroke="none" />
+      ) : (
+        <circle
+          key={band.key}
+          data-testid="stacked-area-single-point"
+          cx={width / 2}
+          cy={band.dot}
+          r={SINGLE_POINT_RADIUS}
+          fill={band.color}
+          fillOpacity={fillOpacity}
+        />
+      ),
+    );
 
   return (
     <div data-testid={testId} className="flex flex-col gap-3">

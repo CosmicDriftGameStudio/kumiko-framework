@@ -112,12 +112,10 @@ export function SignupCompleteScreen({
   if (token === "") {
     return (
       <AuthCard title={effectiveTitle}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.signupComplete.missingToken")}</p>
-          <Link href={loginHref} variant="muted">
-            {t("auth.signup.haveAccount")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.signupComplete.missingToken")}</p>
+        <Link href={loginHref} variant="muted">
+          {t("auth.signup.haveAccount")}
+        </Link>
       </AuthCard>
     );
   }
@@ -125,57 +123,53 @@ export function SignupCompleteScreen({
   if (continueHref !== null) {
     return (
       <AuthCard title={effectiveTitle}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground" role="status">
-            {t("auth.signupComplete.activated")}
-          </p>
-          <Link href={continueHref} variant="button">
-            {t("auth.signupComplete.continue")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground" role="status">
+          {t("auth.signupComplete.activated")}
+        </p>
+        <Link href={continueHref} variant="button">
+          {t("auth.signupComplete.continue")}
+        </Link>
       </AuthCard>
     );
   }
 
   return (
     <AuthCard title={effectiveTitle}>
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">{t("auth.signupComplete.intro")}</p>
-        <Form onSubmit={onSubmit}>
-          <Field id="signup-password" label={t("auth.signupComplete.password")} required>
-            <Input
-              kind="password"
-              id="signup-password"
-              name="signup-password"
-              value={password}
-              onChange={setPassword}
-              disabled={submitting}
-              required
-              autoComplete="new-password"
-            />
-          </Field>
-          <Field
-            id="signup-confirm-password"
-            label={t("auth.signupComplete.confirmPassword")}
+      <p className="text-sm text-muted-foreground">{t("auth.signupComplete.intro")}</p>
+      <Form onSubmit={onSubmit}>
+        <Field id="signup-password" label={t("auth.signupComplete.password")} required>
+          <Input
+            kind="password"
+            id="signup-password"
+            name="signup-password"
+            value={password}
+            onChange={setPassword}
+            disabled={submitting}
             required
-          >
-            <Input
-              kind="password"
-              id="signup-confirm-password"
-              name="signup-confirm-password"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              disabled={submitting}
-              required
-              autoComplete="new-password"
-            />
-          </Field>
-          {error !== null && <Banner variant="error">{error}</Banner>}
-          <Button type="submit" loading={submitting} disabled={submitting}>
-            {submitting ? t("auth.signupComplete.submitting") : t("auth.signupComplete.submit")}
-          </Button>
-        </Form>
-      </div>
+            autoComplete="new-password"
+          />
+        </Field>
+        <Field
+          id="signup-confirm-password"
+          label={t("auth.signupComplete.confirmPassword")}
+          required
+        >
+          <Input
+            kind="password"
+            id="signup-confirm-password"
+            name="signup-confirm-password"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            disabled={submitting}
+            required
+            autoComplete="new-password"
+          />
+        </Field>
+        {error !== null && <Banner variant="error">{error}</Banner>}
+        <Button type="submit" loading={submitting} disabled={submitting}>
+          {submitting ? t("auth.signupComplete.submitting") : t("auth.signupComplete.submit")}
+        </Button>
+      </Form>
     </AuthCard>
   );
 }

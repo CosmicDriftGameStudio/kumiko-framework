@@ -164,106 +164,104 @@ export function MfaSetupPreauthScreen({
       title={title ?? t("auth.mfa.setup.title")}
       subtitle={subtitle ?? t("auth.mfa.setup.subtitle")}
     >
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        {error !== null ? (
-          <Banner variant="error">
-            {error === "too_many_attempts" && retryAfterSeconds !== null
-              ? t("auth.mfa.errors.tooManyAttemptsWithSeconds", { seconds: retryAfterSeconds })
-              : t(reasonToKey(error))}
-          </Banner>
-        ) : null}
+      {error !== null ? (
+        <Banner variant="error">
+          {error === "too_many_attempts" && retryAfterSeconds !== null
+            ? t("auth.mfa.errors.tooManyAttemptsWithSeconds", { seconds: retryAfterSeconds })
+            : t(reasonToKey(error))}
+        </Banner>
+      ) : null}
 
-        {!setup && (
+      {!setup && (
+        <Section
+          testId="mfa-setup-preauth-intro"
+          actions={
+            <Button
+              variant="primary"
+              onClick={() => void startSetup()}
+              loading={busy}
+              disabled={busy}
+            >
+              {t("auth.mfa.setup.start")}
+            </Button>
+          }
+        >
+          <span className="text-sm text-muted-foreground">{t("auth.mfa.setup.intro")}</span>
+        </Section>
+      )}
+
+      {setup && (
+        <Form onSubmit={onSubmit}>
           <Section
-            testId="mfa-setup-preauth-intro"
+            testId="mfa-setup-preauth-setup"
             actions={
               <Button
+                type="submit"
                 variant="primary"
-                onClick={() => void startSetup()}
                 loading={busy}
-                disabled={busy}
+                disabled={busy || !acknowledged || code.length !== 6}
               >
-                {t("auth.mfa.setup.start")}
+                {t("auth.mfa.setup.confirm")}
               </Button>
             }
           >
-            <span className="text-sm text-muted-foreground">{t("auth.mfa.setup.intro")}</span>
-          </Section>
-        )}
+            <div className="flex flex-col items-center gap-2 text-center">
+              <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
+              {/* qrcode's own SVG string output, not user input — safe to inline */}
+              <div
+                className="h-40 w-40"
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: qrcode-generated SVG, no user input
+                dangerouslySetInnerHTML={{ __html: setup.qrSvg }}
+              />
+              <span className="text-xs text-muted-foreground">
+                {t("auth.mfa.enable.manualEntry")}
+              </span>
+              <code className="inline-block break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+                {setup.secretParam}
+              </code>
+            </div>
 
-        {setup && (
-          <Form onSubmit={onSubmit}>
-            <Section
-              testId="mfa-setup-preauth-setup"
-              actions={
-                <Button
-                  type="submit"
-                  variant="primary"
-                  loading={busy}
-                  disabled={busy || !acknowledged || code.length !== 6}
-                >
-                  {t("auth.mfa.setup.confirm")}
-                </Button>
-              }
-            >
-              <div className="flex flex-col items-center gap-2 text-center">
-                <span className="text-sm font-semibold">{t("auth.mfa.enable.scanTitle")}</span>
-                {/* qrcode's own SVG string output, not user input — safe to inline */}
-                <div
-                  className="h-40 w-40"
-                  // biome-ignore lint/security/noDangerouslySetInnerHtml: qrcode-generated SVG, no user input
-                  dangerouslySetInnerHTML={{ __html: setup.qrSvg }}
-                />
-                <span className="text-xs text-muted-foreground">
-                  {t("auth.mfa.enable.manualEntry")}
-                </span>
-                <code className="inline-block break-all rounded bg-muted px-3 py-2 font-mono text-sm">
-                  {setup.secretParam}
-                </code>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-semibold">{t("auth.mfa.enable.recoveryTitle")}</span>
-                <span className="text-xs text-muted-foreground">
-                  {t("auth.mfa.enable.recoveryHint")}
-                </span>
-                <code className="block whitespace-pre-wrap break-all rounded bg-muted px-3 py-2 font-mono text-sm">
-                  {setup.recoveryCodes.join("\n")}
-                </code>
-                <Field id="mfa-setup-preauth-ack" label={t("auth.mfa.enable.acknowledge")}>
-                  <Input
-                    kind="boolean"
-                    id="mfa-setup-preauth-ack"
-                    name="mfa-setup-preauth-ack"
-                    value={acknowledged}
-                    onChange={setAcknowledged}
-                  />
-                </Field>
-              </div>
-
-              <Field id="mfa-setup-preauth-code" label={t("auth.mfa.enable.code")} required>
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold">{t("auth.mfa.enable.recoveryTitle")}</span>
+              <span className="text-xs text-muted-foreground">
+                {t("auth.mfa.enable.recoveryHint")}
+              </span>
+              <code className="block whitespace-pre-wrap break-all rounded bg-muted px-3 py-2 font-mono text-sm">
+                {setup.recoveryCodes.join("\n")}
+              </code>
+              <Field id="mfa-setup-preauth-ack" label={t("auth.mfa.enable.acknowledge")}>
                 <Input
-                  kind="text"
-                  id="mfa-setup-preauth-code"
-                  name="mfa-setup-preauth-code"
-                  value={code}
-                  onChange={setCode}
-                  disabled={busy || !acknowledged}
-                  autoComplete="one-time-code"
+                  kind="boolean"
+                  id="mfa-setup-preauth-ack"
+                  name="mfa-setup-preauth-ack"
+                  value={acknowledged}
+                  onChange={setAcknowledged}
                 />
               </Field>
-            </Section>
-          </Form>
-        )}
+            </div>
 
-        {onCancel ? (
-          <div className="flex justify-center">
-            <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
-              {t("auth.mfa.verify.backToLogin")}
-            </Button>
-          </div>
-        ) : null}
-      </div>
+            <Field id="mfa-setup-preauth-code" label={t("auth.mfa.enable.code")} required>
+              <Input
+                kind="text"
+                id="mfa-setup-preauth-code"
+                name="mfa-setup-preauth-code"
+                value={code}
+                onChange={setCode}
+                disabled={busy || !acknowledged}
+                autoComplete="one-time-code"
+              />
+            </Field>
+          </Section>
+        </Form>
+      )}
+
+      {onCancel ? (
+        <div className="flex justify-center">
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={busy}>
+            {t("auth.mfa.verify.backToLogin")}
+          </Button>
+        </div>
+      ) : null}
     </AuthCard>
   );
 }
