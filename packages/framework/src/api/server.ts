@@ -58,6 +58,7 @@ import {
   createRateLimitResolver,
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
+  httpRouteRateLimit,
 } from "../rate-limit/index.js";
 import { deriveSearchAdapterConfig } from "../search/derive-search-adapter-config.js";
 import type { SearchAdapter } from "../search/types.js";
@@ -502,7 +503,10 @@ export function buildServer(options: ServerOptions): KumikoServer {
   const wantsL3 = options.registry.hasRateLimitedHandler();
   const wantsL1L2 =
     options.rateLimit?.global !== undefined || options.rateLimit?.auth !== undefined;
-  const wantsResolver = wantsL3 || wantsL1L2;
+  const wantsHttpRouteLimit = [...options.registry.features.values()].some((feature) =>
+    Object.values(feature.httpRoutes).some((route) => route.rateLimit !== undefined),
+  );
+  const wantsResolver = wantsL3 || wantsL1L2 || wantsHttpRouteLimit;
   const rateLimitResolver =
     options.context.rateLimit ??
     (wrappedRedis && wantsResolver ? createRateLimitResolver({ redis: wrappedRedis }) : undefined);
@@ -1032,13 +1036,24 @@ export function buildServer(options: ServerOptions): KumikoServer {
           systemQuery: makeSystemQuery(c, dispatcher, clientIpResolver),
           clientIp: clientIpResolver.resolve(clientIpSourceFromHonoContext(c)),
         });
-      mountHonoRoute(
-        app,
-        route.method,
-        route.path,
-        honoHandler,
-        route.anonymous ? [] : sessionOnlyHttpRouteGuards,
-      );
+      // Without a resolver (no Redis in the context — dev/test stacks) the
+      // declared limit is skipped rather than failing the boot of every app
+      // that mounts a bundled feature whose routes carry a default limit.
+      const routeLimit =
+        route.rateLimit && rateLimitResolver
+          ? [
+              httpRouteRateLimit({
+                resolver: rateLimitResolver,
+                rateLimit: route.rateLimit,
+                routeKey: `${route.method} ${route.path}`,
+                clientIpResolver,
+              }),
+            ]
+          : [];
+      mountHonoRoute(app, route.method, route.path, honoHandler, [
+        ...routeLimit,
+        ...(route.anonymous ? [] : sessionOnlyHttpRouteGuards),
+      ]);
     }
   }
 

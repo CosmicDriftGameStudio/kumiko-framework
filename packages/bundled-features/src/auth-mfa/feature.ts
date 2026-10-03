@@ -1,6 +1,6 @@
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { mfaRequiredConfigKey } from "./config.js";
+import { type MfaRequiredPolicy, mfaRequiredConfigKey } from "./config.js";
 import { createDisableHandler } from "./handlers/disable.write.js";
 import { createEnableConfirmHandler } from "./handlers/enable-confirm.write.js";
 import { createEnableConfirmPreauthHandler } from "./handlers/enable-confirm-preauth.write.js";
@@ -33,6 +33,10 @@ export type AuthMfaFeatureOptions = {
   // secret from setupTokenSecret — a compromised setup-token secret must
   // not also forge login challenges.
   readonly challengeTokenSecret: string;
+  // App-wide MFA enforcement default when no tenant row overrides it.
+  // Tenant admins cannot change the policy (system-only write), so this plus
+  // system writes is the only way to set it. Defaults to "optional".
+  readonly requiredPolicy?: MfaRequiredPolicy;
 };
 
 export type BindMfaRevokeAllOtherSessions = (
@@ -127,7 +131,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // the app boots clean and the first MFA login dies at runtime on an
     // unknown handler instead of failing at mount time.
     r.requires("tenant");
-    r.config("required", mfaRequiredConfigKey());
+    r.config("required", mfaRequiredConfigKey(opts.requiredPolicy));
 
     // Declarative secretMint screen — mint (no input) -> reveal QR/secret/
     // recovery-codes -> confirm with a code. App places it via r.nav in its
@@ -225,6 +229,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
     // at app-boot time.
     const checkMfaStatus = createMfaStatusChecker({
       challengeTokenSecret: opts.challengeTokenSecret,
+      ...(opts.requiredPolicy && { requiredPolicy: opts.requiredPolicy }),
     });
 
     // No late-bind needed — same reasoning as checkMfaStatus: only needs the

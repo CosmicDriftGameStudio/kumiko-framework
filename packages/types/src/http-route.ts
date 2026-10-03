@@ -12,6 +12,7 @@
 // feature (e.g. platform-specific static-serving logic).
 
 import type { Context } from "hono";
+import type { RateLimitOption } from "./handlers.js";
 
 /** Subset von HTTP-Methoden den wir aktiv unterstützen. Hono spricht
  *  alle, aber das hier sind die einzigen die ein Feature-Author
@@ -62,6 +63,14 @@ export type HttpRouteHandler = (
   deps: HttpRouteHandlerDeps,
 ) => Response | Promise<Response>;
 
+/** Same shape as a handler's `rateLimit`, restricted to the IP-keyed
+ *  buckets: a route has no dispatcher identity to key on. `"ip+handler"`
+ *  keeps one bucket per route ("METHOD path"), `"ip"` shares one across
+ *  every route that declares it. */
+export type HttpRouteRateLimit = Omit<RateLimitOption, "per"> & {
+  readonly per: "ip" | "ip+handler";
+};
+
 export type HttpRouteDefinition = {
   /** HTTP-Methode — bei Hono-Mount via app.{get,post,...}(path). */
   readonly method: HttpRouteMethod;
@@ -75,4 +84,8 @@ export type HttpRouteDefinition = {
   /** Hono-Handler. Bekommt Hono-Context + Framework-Deps; returnt
    *  Response (sync oder async). */
   readonly handler: HttpRouteHandler;
+  /** Enforced before the route's guards through the server's rate-limit
+   *  resolver (fail-closed like the global L1 limiter: a limiter outage
+   *  answers 503 instead of letting the request through). */
+  readonly rateLimit?: HttpRouteRateLimit;
 };

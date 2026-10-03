@@ -138,6 +138,8 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
         method: "GET",
         path: route.path,
         anonymous: true,
+        // Public pages backed by a DB query: bound the per-IP read rate.
+        rateLimit: { per: "ip+handler", limit: 60, windowSeconds: 60 },
         handler: async (c, { systemQuery }) => {
           // Architektur: 1 App = X Tenants = 1 Impressum. Egal welche
           // Subdomain der Visitor besucht (apex, admin.*, tenant-x.*) —

@@ -8,7 +8,11 @@
 // UI). Flipping this away from "optional" before PR3 locks out every
 // unenrolled matching user with no recovery path. Fine for a tenant that
 // enrolls its admins out-of-band first; a footgun otherwise.
-import { type ConfigKeyHandle, createTenantConfig } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  type ConfigKeyHandle,
+  createTenantConfig,
+} from "@cosmicdrift/kumiko-framework/engine";
 
 export const MFA_REQUIRED_POLICIES = ["optional", "admins", "all"] as const;
 export type MfaRequiredPolicy = (typeof MFA_REQUIRED_POLICIES)[number];
@@ -18,9 +22,14 @@ export const mfaRequiredConfigHandle: ConfigKeyHandle<"select"> = {
   type: "select",
 };
 
-export function mfaRequiredConfigKey() {
+// Write access is machine-only: a TenantAdmin must not be able to relax the
+// policy back to "optional". The app-wide default comes from
+// `createAuthMfaFeature({ requiredPolicy })`, per-tenant overrides are set by
+// system writes (runBootstrap `tenants[].config`, jobs, SystemAdmin tooling).
+export function mfaRequiredConfigKey(defaultPolicy: MfaRequiredPolicy = "optional") {
   return createTenantConfig("select", {
-    default: "optional" satisfies MfaRequiredPolicy,
+    default: defaultPolicy,
     options: [...MFA_REQUIRED_POLICIES],
+    write: access.system,
   });
 }

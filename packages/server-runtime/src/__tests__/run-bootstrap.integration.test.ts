@@ -79,7 +79,9 @@ function bootstrapOnce() {
 describe("runBootstrap", () => {
   test("creates the tenant and mails the SystemAdmin invitation; a second run sends nothing", async () => {
     const first = await bootstrapOnce();
-    expect(first?.tenants).toEqual([{ id: TENANT_ID, outcome: "created", seeded: false }]);
+    expect(first?.tenants).toEqual([
+      { id: TENANT_ID, outcome: "created", seeded: false, configApplied: [] },
+    ]);
     expect(first?.invites.map((i) => i.outcome)).toEqual(["invited"]);
     expect(emailTransport.sent.map((m) => m.to)).toEqual([ROOT_EMAIL]);
     expect(emailTransport.sent[0]?.html).toContain("https://app.example.com/invite/accept?token=");
@@ -91,7 +93,9 @@ describe("runBootstrap", () => {
     expect(parseRoles(invitation?.["globalRoles"])).toEqual(["SystemAdmin"]);
 
     const second = await bootstrapOnce();
-    expect(second?.tenants).toEqual([{ id: TENANT_ID, outcome: "exists", seeded: false }]);
+    expect(second?.tenants).toEqual([
+      { id: TENANT_ID, outcome: "exists", seeded: false, configApplied: [] },
+    ]);
     expect(second?.invites.map((i) => i.outcome)).toEqual(["pending"]);
     expect(emailTransport.sent).toHaveLength(1);
   });

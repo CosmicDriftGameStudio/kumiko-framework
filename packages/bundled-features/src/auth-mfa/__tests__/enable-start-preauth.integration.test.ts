@@ -9,7 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:tes
 import { randomBytes } from "node:crypto";
 import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
-import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
   createTestUser,
   setupTestStack,
@@ -116,7 +116,7 @@ async function loginBlockedByEnforcement(): Promise<{
   await stack.http.writeOk(
     ConfigHandlers.set,
     { key: mfaRequiredConfigHandle.name, value: "all" },
-    createTestUser({ id: 412, tenantId: TENANT_ID, roles: ["Admin"] }),
+    createSystemUser(TENANT_ID),
   );
 
   const loginRes = await stack.http.raw("POST", "/api/auth/login", {

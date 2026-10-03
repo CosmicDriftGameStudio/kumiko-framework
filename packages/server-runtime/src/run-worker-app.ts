@@ -30,10 +30,15 @@ import type {
   ObservabilityOptions,
   ObservabilityProvider,
 } from "@cosmicdrift/kumiko-framework/observability";
-import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
 import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.js";
+import {
+  startWorkerMetricsServer,
+  type WorkerMetricsOptions,
+  type WorkerMetricsServer,
+} from "./boot/worker-metrics-server.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
 
 export type WorkerContextOption =
@@ -53,6 +58,11 @@ export type WorkerDeps = {
  *  `lifecycle` for `registerShutdownHook`. */
 export type WorkerWireDeps = SystemWireDeps & {
   readonly lifecycle: WorkerEntrypoint["lifecycle"];
+  /** The worker's ctx.secrets — what `createInboundMailSupervisor` needs as
+   *  `providerCtx.secrets` (the IMAP provider reads credentials through it,
+   *  with `_userId` set to a system identity for the audit trail). Undefined
+   *  when the secrets feature is not mounted or no master key is available. */
+  readonly secrets?: SecretsContext;
 };
 
 export type RunWorkerAppOptions = {
@@ -113,6 +123,10 @@ export type RunWorkerAppOptions = {
   readonly kmsSlots?: readonly string[];
   readonly observability?: ObservabilityProvider;
   readonly observabilityOptions?: ObservabilityOptions;
+  /** Serves `/metrics` on its own port (the worker has no HTTP app). Needs a
+   *  PrometheusMeter-based `observability`; both are validated at boot,
+   *  including KUMIKO_DRY_RUN_ENV=boot. Same `token`/`path` as runProdApp. */
+  readonly metrics?: WorkerMetricsOptions;
 };
 
 export type WorkerAppHandle = {
@@ -120,6 +134,8 @@ export type WorkerAppHandle = {
    *  path), no boot ran — this slot is an undefined-cast, do not access. */
   readonly entrypoint: WorkerEntrypoint;
   readonly stop: () => Promise<void>;
+  /** Set when `metrics` was configured. */
+  readonly metricsServer?: WorkerMetricsServer;
 };
 
 function makeBootModeHandle(): WorkerAppHandle {
@@ -140,9 +156,15 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
   if (boot.kind === "dry-run") return makeBootModeHandle();
   const { db, redis, registry, entrypoint } = boot;
 
-  const handle: WorkerAppHandle = { entrypoint, stop: boot.close };
-
   await entrypoint.start();
+  const metricsServer = options.metrics
+    ? startWorkerMetricsServer(options.metrics, entrypoint)
+    : undefined;
+  const handle: WorkerAppHandle = {
+    entrypoint,
+    stop: boot.close,
+    ...(metricsServer && { metricsServer }),
+  };
   startPiiEventBackfillOnBoot({
     db,
     registry,
@@ -157,6 +179,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
       registry,
       dispatchSystemWrite: makeDispatchSystemWrite(entrypoint.dispatcher),
       lifecycle: entrypoint.lifecycle,
+      ...(boot.secrets && { secrets: boot.secrets }),
     });
   }
 

@@ -95,7 +95,12 @@ export {
   buildRequestContextDataFromRequest,
   requestIdMiddleware,
 } from "./request-id-middleware.js";
-export { DEFAULT_MAX_REQUEST_BYTES } from "./route-registrars.js";
+export type { MetricsRouteOptions } from "./route-registrars.js";
+export {
+  createMetricsApp,
+  DEFAULT_MAX_REQUEST_BYTES,
+  isPrometheusMeter,
+} from "./route-registrars.js";
 export { createApiRoutes } from "./routes.js";
 export type { KumikoServer, ServerOptions } from "./server.js";
 export { buildServer, makeDispatchSystemQuery, makeDispatchSystemWrite } from "./server.js";

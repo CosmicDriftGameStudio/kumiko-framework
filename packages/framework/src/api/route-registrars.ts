@@ -4,7 +4,7 @@
 // actually reads — no monolithic `options` parameter, because these
 // helpers exist to make each step's dependencies visible at the call-site.
 
-import type { Hono } from "hono";
+import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { DbConnection } from "../db/connection.js";
 import type { Lifecycle } from "../lifecycle/index.js";
@@ -66,7 +66,7 @@ function constantTimeEqual(a: string, b: string): boolean {
 // Type-guard: duck-types the meter on `snapshot()`. An alternative
 // Prometheus-compatible meter (future OTLP bridge) works without an
 // explicit union — if it exposes `snapshot()` it's serialisable.
-function isPrometheusMeter(m: Meter): m is PrometheusMeter {
+export function isPrometheusMeter(m: Meter): m is PrometheusMeter {
   return typeof (m as { snapshot?: unknown }).snapshot === "function"; // @cast-boundary schema-walk
 }
 
@@ -95,6 +95,14 @@ export function registerMetricsRoute(app: Hono, meter: Meter, options: MetricsRo
     c.header("Content-Type", "application/openmetrics-text; version=1.0.0; charset=utf-8");
     return c.body(body);
   });
+}
+
+// Standalone fetch-handler serving only the scrape route — for HTTP-less
+// processes (worker pods) that expose /metrics on their own port.
+export function createMetricsApp(meter: Meter, options: MetricsRouteOptions): Hono {
+  const app = new Hono();
+  registerMetricsRoute(app, meter, options);
+  return app;
 }
 
 // --- /version ---------------------------------------------------------------
