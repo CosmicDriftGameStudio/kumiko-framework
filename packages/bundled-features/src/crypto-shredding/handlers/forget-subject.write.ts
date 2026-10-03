@@ -11,7 +11,7 @@ import {
 import {
   type DbRunner,
   nullBlindIndexesForSubject,
-  recordEventExistsInTenant,
+  recordEventsOwnedExclusivelyByTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
   subjectRowExistsInTenant,
@@ -139,7 +139,9 @@ async function resolveTenantScopeDenial(
     if (rowInTenant) return undefined;
     // A deleted row or a custom aggregate without an entity has no projection
     // row to check; its event stream still proves which tenant owns it.
-    if (await recordEventExistsInTenant(db, raw.entity, raw.id, user.tenantId)) return undefined;
+    if (await recordEventsOwnedExclusivelyByTenant(db, raw.entity, raw.id, user.tenantId)) {
+      return undefined;
+    }
     return writeFailure(
       new AccessDeniedError({
         details: {

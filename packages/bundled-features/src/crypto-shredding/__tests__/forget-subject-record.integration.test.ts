@@ -371,6 +371,42 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
     );
     expect(result.subjectKey).toBe(`record:${unregisteredAggregate}:${subject.id}`);
   });
+
+  test("an aggregate id with events in two tenants is not provably owned: even the original owner's DPO is denied", async () => {
+    const sharedAggregate = "unregisteredSharedId";
+    const executor = createEventStoreExecutor(recordProbeTable, recordProbeEntity, {
+      entityName: sharedAggregate,
+    });
+    const tenantADb = createTenantDb(gateStack.db, GATE_TENANT_A, "system");
+    const created = await executor.create({ body: "tenant A note" }, dpoTenantA, tenantADb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const subject = {
+      kind: "record",
+      entity: sharedAggregate,
+      id: String(created.data.id),
+    } as const;
+
+    // Tenant B opens its own stream under the same aggregate id (the unique
+    // index is per tenant, so nothing stops it).
+    await asRawClient(gateStack.db).unsafe(
+      `INSERT INTO kumiko_events (aggregate_id, aggregate_type, tenant_id, version, type, event_version, payload, metadata, created_by)
+       SELECT aggregate_id, aggregate_type, $2::uuid, version, type, event_version, payload, metadata, created_by
+       FROM kumiko_events WHERE aggregate_id = $1::uuid AND tenant_id = $3::uuid AND version = 1`,
+      [subject.id, GATE_TENANT_B, GATE_TENANT_A],
+    );
+
+    for (const dpo of [dpoTenantB, dpoTenantA]) {
+      const denied = await gateStack.http.writeErr(FORGET, { subject, reason: REASON }, dpo);
+      expect(denied.httpStatus).toBe(403);
+      expect((denied.details as { reason?: string } | undefined)?.reason).toBe(
+        RECORD_ENTITY_NOT_REGISTERED,
+      );
+    }
+    const forgotten = await selectMany(gateStack.db, eventsTable, {
+      type: SUBJECT_FORGOTTEN_EVENT_NAME,
+    });
+    expect(forgotten).toHaveLength(0);
+  });
 });
 
 // fw#2789: retention.strategy="blockDelete" on the host entity must win over

@@ -111,6 +111,7 @@ function assertSegmentsWithinRoot(
       continue;
     }
     const matcher = segmentMatcher(segment);
+    if (!isDirectory(dirAbs)) return;
     const rest = segments.slice(index + 1);
     for (const entry of readdirSync(dirAbs)) {
       if (!matcher.test(entry)) continue;

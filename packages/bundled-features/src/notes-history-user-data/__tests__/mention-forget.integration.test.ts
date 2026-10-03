@@ -15,6 +15,7 @@ import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configurePiiSubjectKms,
   InMemoryKmsAdapter,
+  isPiiCiphertext,
   PII_ERASED_SENTINEL,
 } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEventStoreExecutor, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
@@ -54,6 +55,7 @@ import {
   noteMentionEntity,
 } from "../../notes-history/index.js";
 import { createSessionsFeature, userSessionEntity } from "../../sessions/index.js";
+import { decryptStoredPii } from "../../shared/index.js";
 import { createUserFeature, USER_STATUS, userEntity, userTable } from "../../user/index.js";
 import { createUserDataRightsFeature, runForgetCleanup } from "../../user-data-rights/index.js";
 import { createUserDataRightsDefaultsFeature } from "../../user-data-rights-defaults/index.js";
@@ -536,6 +538,11 @@ describe("notes-history mention scoping and export", () => {
         entityId: CONTACT_1,
       }),
     ]);
+    // The hook hands out the stored ciphertext; the export pipeline decrypts
+    // self-describing kumiko-pii values centrally.
+    const exportedBody = String(snippet?.rows[0]?.["body"]);
+    expect(isPiiCiphertext(exportedBody)).toBe(true);
+    expect(await decryptStoredPii(exportedBody, "body", "notes-history-test")).toBe("about S");
   });
 
   test("the export is null for a user no note mentions", async () => {

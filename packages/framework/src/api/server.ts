@@ -1102,8 +1102,9 @@ export function buildServer(options: ServerOptions): KumikoServer {
             'use a wildcard under "/api/" — it would bypass the auth chain for every matching path.',
         );
       }
-      // A `:param` segment is as broad as a wildcard: "/api/:hook" matches /api/write.
-      if (route.entry === ExtraRouteEntries.signature && route.path.startsWith("/api/")) {
+      // A `:param` segment is as broad as a wildcard, and the public matchers test
+      // the bare request path: "/:seg/write" and "/api/:hook" both match /api/write.
+      if (route.entry === ExtraRouteEntries.signature) {
         const routePattern = honoPathToRegex(route.path);
         const shadowedFrameworkPath = [...PUBLIC_API_PATHS, ...NON_PUBLIC_API_PATHS].find((path) =>
           routePattern.test(path),
