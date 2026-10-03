@@ -65,6 +65,7 @@ export async function createTestRedis(opts: CreateTestRedisOptions = {}): Promis
     cleanup: async () => {
       if (opts.borrowKeyPrefix !== undefined) {
         redis.disconnect();
+        // skip: the owning stack flushes the shared namespace and its queues
         return;
       }
       await flushNamespace();
