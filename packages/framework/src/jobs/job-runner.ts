@@ -953,6 +953,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     const jobDb = configDb
       ? createTenantDb(configDb, tenantId, "tenant", context.tracer, context.meter, undefined, {
           unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
+          globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
           report: reportEscapeHatch,
           ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })
