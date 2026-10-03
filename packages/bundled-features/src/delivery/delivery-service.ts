@@ -172,24 +172,18 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
       sink: escapeHatchAuditSink,
       log,
     });
-    // Mirrors buildHandlerContext (pipeline/dispatch-shared.ts): a non-systemScope
-    // tenantUserIdsQuery must get the same tenant-filtered db/no-systemDb context
-    // the real dispatcher would give it — handing it "system" mode + a systemDb
-    // view regardless would grant cross-tenant reach the dispatcher never would.
+    // ctx.db/dbOutsideTransaction are tenant-filtered even for a systemScope handler:
+    // the dispatcher closes them off entirely there, so "system" mode would hand this
+    // path a cross-tenant read the dispatcher never allows. Cross-tenant reach only
+    // exists through the grant-carrying systemDb view below.
     const isSystem = registry.isHandlerSystemScoped(tenantUserIdsQuery);
-    const tenantDb = createTenantDb(
-      db,
-      tenantId,
-      isSystem ? "system" : "tenant",
-      undefined,
-      undefined,
-      undefined,
-      { report },
-    );
+    const tenantDb = createTenantDb(db, tenantId, "tenant", undefined, undefined, undefined, {
+      report,
+    });
     // The dispatcher grants a systemScope handler's ctx.systemDb.unsafeRaw() ungated —
     // the grant comes from the handler's own r.systemScope() registration, not from this
-    // caller. ctx.db/dbOutsideTransaction stay on the grant-less tenantDb above; only the
-    // systemDb view's own source TenantDb carries the grant, so it can't leak onto ctx.db.
+    // caller. Only the systemDb view's own source TenantDb carries the grant, so it
+    // can't leak onto ctx.db.
     const systemDbSourceTenantDb = isSystem
       ? createTenantDb(db, tenantId, "system", undefined, undefined, undefined, {
           report,

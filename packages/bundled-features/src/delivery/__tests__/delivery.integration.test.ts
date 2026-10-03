@@ -318,7 +318,11 @@ const nonSystemBroadcastFeature = defineFeature("test-non-system-broadcast", (r)
 // the grant comes from this feature's own r.systemScope() declaration, not from
 // the delivery service caller. ctx.db stays ungated even here.
 let capturedSystemQueryCtx:
-  | { systemDbUnsafeRawWorked: boolean; dbUnsafeRawThrew: boolean }
+  | {
+      systemDbUnsafeRawWorked: boolean;
+      dbUnsafeRawThrew: boolean;
+      dbReadTenantIds: readonly string[];
+    }
   | undefined;
 
 const systemUserIdsQueryName = "test-system-broadcast:query:system-user-ids";
@@ -344,9 +348,11 @@ const systemBroadcastFeature = defineFeature("test-system-broadcast", (r) => {
             tenantId: _query.payload.tenantId,
           })
         : undefined;
+      const ctxDbRows = await selectMany<{ tenantId: string }>(ctx.db, tenantMembershipsTable, {});
       capturedSystemQueryCtx = {
         systemDbUnsafeRawWorked: rows !== undefined,
         dbUnsafeRawThrew,
+        dbReadTenantIds: [...new Set(ctxDbRows.map((r2) => r2.tenantId))],
       };
       return (rows ?? []).map((r2) => r2.userId);
     },
@@ -1660,6 +1666,13 @@ describe("flow 15c: tenantUserIdsQuery handler without r.systemScope()", () => {
 
 describe("flow 15d: tenantUserIdsQuery handler with r.systemScope()", () => {
   test("ctx.systemDb.unsafeRaw works, ctx.db.unsafeRaw is denied, broadcast still resolves recipients", async () => {
+    const foreignTenantId = "00000000-0000-4000-8000-0000000d15d0";
+    const foreignUser = createTestUser({ id: 915, roles: ["User"] });
+    await stack.http.writeOk(
+      "tenant:write:add-member",
+      { userId: foreignUser.id, tenantId: foreignTenantId, roles: ["User"] },
+      TestUsers.systemAdmin,
+    );
     const systemService = createDeliveryService({
       db,
       registry: stack.registry,
@@ -1678,6 +1691,7 @@ describe("flow 15d: tenantUserIdsQuery handler with r.systemScope()", () => {
     expect(capturedSystemQueryCtx).toEqual({
       systemDbUnsafeRawWorked: true,
       dbUnsafeRawThrew: true,
+      dbReadTenantIds: [admin.tenantId],
     });
 
     const messages = await selectMany(db, inAppMessagesTable, {
@@ -1688,6 +1702,7 @@ describe("flow 15d: tenantUserIdsQuery handler with r.systemScope()", () => {
     expect(recipientIds).toContain(admin.id);
     expect(recipientIds).toContain(user1.id);
     expect(recipientIds).toContain(user2.id);
+    expect(recipientIds).not.toContain(foreignUser.id);
   });
 });
 
