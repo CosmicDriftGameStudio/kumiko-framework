@@ -1,5 +1,128 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.341.0
+
+### Minor Changes
+
+- 610201f: Harden system role, invitations query, tenant teardown and addMember
+
+  The system role can no longer be minted into a session through a user's global roles. invitations.query returns an explicit field allowlist and exposes globalRoles only to a SystemAdmin. The tenant destruction sweep waits 60 seconds after the grace period ends so the teardown gate can settle. Behaviour change: tenant:write:addMember now adds members to a foreign tenant only from the framework system context; a SystemAdmin request user is limited to their own tenant and gets 403 otherwise.
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Harden system role, invitations query, tenant teardown and addMember
+  -->
+
+- 82309a5: Chat channels (slack, discord, teams, telegram) now deliver in production boot. `runProdApp`, `runDevApp` and `runWorkerApp` pass the tenant secrets to the delivery service and hand queued channels to the `delivery.render`/`delivery.send` jobs of the calling context's job runner. `delivery.render` now receives `ctx.secrets` as well. Without a job runner, queued channels still deliver inline, now with secrets. `runBootstrap` is a one-shot process whose queue nobody drains after it exits, so it keeps delivering queued channels inline (the SystemAdmin invitation goes out before the process ends).
+
+  `NotifyFn` returns a `NotifyResult` (`{ deliveries }` with channel, recipientId, status `queued | sent | failed | skipped`, error and `deliveryAttemptId` per delivery) instead of `void`. `NotifyOptions.immediate` delivers queued channels inline for one call and bypasses job retry, for "send test message" handlers. `NotifyFactory` takes an optional job dispatcher as third argument, and `DeliveryService.notify` an optional per-call dispatcher.
+
+  Consumers: `NotifyFn` implementations in tests and mocks must now return a `NotifyResult`, e.g. `async () => ({ deliveries: [] })`. When running the API without a worker (`runSingleInstance: false`), a dedicated worker must process the delivery jobs.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Chat channels deliver in production boot, ctx.notify returns a NotifyResult
+  migration: |
+    NotifyFn implementations in tests and mocks must return a NotifyResult, e.g. async () => ({ deliveries: [] }). Queued channels now run through the delivery jobs in production; an API-only deployment (runSingleInstance: false) needs a worker that mounts delivery and the channel features.
+  -->
+
+- c2c7862: `r.extendEntityProjection` accepts `rowIdOf`, the row id the extension's applies write for events on its `sources` when that id is not the aggregate id (for example a tenant-salted `uuidv5(tenantId|aggregateId)` over workflow events). The ghost-row guard of the projection rebuild now counts a live row as backed when its id is `rowIdOf` of a source event, so such projections can be rebuilt instead of aborting. The guard stays strict: a row keyed by the raw aggregate id of a derived source still aborts the rebuild.
+
+  `rowIdOf` requires `sources`, must not name the entity's own stream, and must return a uuid; a source shared by several extensions needs the same `rowIdOf` in all of them. Violations fail at boot. `ProjectionDefinition` carries the result as `extraSourceRowIds`, and `assertNoUnreachableLiveRows` takes it as an optional fifth parameter. New type `ProjectionRowIdOf`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: rowIdOf on extendEntityProjection for derived row ids
+  -->
+
+- 610201f: CacheSyncBus keeps tier assignments and file providers in sync across pods
+
+  A Redis-backed CacheSyncBus (one channel, envelope with origin id, echo dropped, malformed messages ignored) now carries typed invalidation topics between pods and fires a debounced resync after a Redis reconnect. Tier assignments are published after commit and reloaded on the other pods with a per-tenant out-of-order guard; the tier cache is swapped atomically on resync. The file provider resolver drops cached providers when tenant config or secrets change on any pod. Prod, worker and dev entrypoints wire one bus per process, and TierResolverPlugin.build accepts an optional cacheSync.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: CacheSyncBus keeps tier assignments and file providers in sync across pods
+  -->
+
+- e7dbdb6: r.httpRoute rateLimit option
+
+  Per-IP limit enforced through the rate-limit resolver before the route guards; legal-pages and GET /user-export/by-token declare defaults.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: r.httpRoute rateLimit option
+  -->
+
+- 1feae69: Tenant timezone cache is invalidated across processes
+
+  A config write to tenant:config:timezone now invalidates the cached value on every API and worker pod after commit, instead of letting it live until the 5 minute TTL. The signal travels over the new CacheSyncBus (Redis when REDIS_URL is set, process-local otherwise); DispatcherOptions.cacheSync overrides it and null opts out. setupTestStack gains cacheSync, implied by sharedRedisWith, to test two instances on one Redis. This replaces the earlier tenantTimezoneSync option.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Tenant timezone cache is invalidated across processes
+  -->
+
+- c5e6814: Write handlers can declare `additionalRateLimits: [{ per: { payloadField: "email" }, limit, windowSeconds }]` next to `rateLimit`. The named string field of the validated payload is trimmed, lowercased and HMAC-hashed (key derived from the server's current JWT signing secret) into the bucket key `payload+handler:<handler>:<field>:<digest>`, so one address is limited across all IPs and Redis never holds it in plaintext. The check runs after schema validation and before the handler, answers 429 `rate_limited`, behaves the same for matching and non-matching values, and is skipped for system callers. Rotating the JWT secret only resets these buckets.
+
+  Boot rejects `additionalRateLimits` on an anonymous handler without a real ip-keyed `rateLimit` (the payload bucket only complements the IP bucket), an empty list, a `payloadField` that is not a field of the Zod object schema, and a non-positive `limit` or `windowSeconds`. A handler with `additionalRateLimits` makes `buildServer` wire the rate-limit resolver. The option exists on write handlers only and appears in the feature-ast patterns, render and patch schema.
+
+  Behavior change: `request-contract-termination` and `signup-request` now allow 3 requests per email address per 24 hours, and each token-request endpoint (`request-password-reset`, `request-email-verification`, `request-account-unlock`) allows 5 per address per 24 hours, in addition to the existing per-IP limits. The public `/api/auth` token-request routes still answer `{ isSuccess: true }` when the limit is hit; only the mail is not sent.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Per-recipient rate limits on payload fields (additionalRateLimits)
+  -->
+
+- 8443f22: A 429 caused by a payload bucket (`additionalRateLimits`) no longer carries the HMAC digest of the bucketed value in `details.bucket` or the error message: it reads `payload+handler`. The digest is a stable pseudonym of the address, so anyone who could guess an address could confirm it from the response. Redis keys are unchanged.
+
+  `waitlist:write:submit` additionally limits each email address (case-insensitive) to 3 submits per day, across all IPs, so a botnet cannot flood one address with confirmation mails. `createWaitlistFeature({ emailRateLimits })` overrides it (`[]` disables). The admin notice mail now carries its `locale` (`en` or `de`) in the notify call.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: 429 bodies omit the payload bucket digest
+  -->
+
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Waitlist submit is limited per email address
+  -->
+
+### Patch Changes
+
+- 37c0974: L3 rate-limit backend failure answers 503 rate_limit_unavailable instead of 500
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: L3 rate-limit backend failure answers 503 rate_limit_unavailable instead of 500
+  -->
+
+- 1f0a63b: 429 bodies (`details.bucket` and the message) now carry only the bucket scope tag (`l1`, `http`, `l2`, `user`, `ip+handler`, `payload+handler`, ...) instead of IP, user/tenant id, auth target or payload digest. Fail-closed logging prints only the error message, since Redis errors can carry the bucket key. Redis keys are unchanged.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: 429 bodies carry only the rate-limit scope
+  -->
+
+- Updated dependencies [c5a7dc2]
+- Updated dependencies [82309a5]
+- Updated dependencies [c2c7862]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [dba5100]
+- Updated dependencies [c5e6814]
+  - @cosmicdrift/kumiko-types@0.341.0
+  - @cosmicdrift/kumiko-http@0.341.0
+
 ## 0.340.0
 
 ### Patch Changes

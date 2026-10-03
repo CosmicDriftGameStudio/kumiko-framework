@@ -1,5 +1,115 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.341.0
+
+### Minor Changes
+
+- 82309a5: Chat channels (slack, discord, teams, telegram) now deliver in production boot. `runProdApp`, `runDevApp` and `runWorkerApp` pass the tenant secrets to the delivery service and hand queued channels to the `delivery.render`/`delivery.send` jobs of the calling context's job runner. `delivery.render` now receives `ctx.secrets` as well. Without a job runner, queued channels still deliver inline, now with secrets. `runBootstrap` is a one-shot process whose queue nobody drains after it exits, so it keeps delivering queued channels inline (the SystemAdmin invitation goes out before the process ends).
+
+  `NotifyFn` returns a `NotifyResult` (`{ deliveries }` with channel, recipientId, status `queued | sent | failed | skipped`, error and `deliveryAttemptId` per delivery) instead of `void`. `NotifyOptions.immediate` delivers queued channels inline for one call and bypasses job retry, for "send test message" handlers. `NotifyFactory` takes an optional job dispatcher as third argument, and `DeliveryService.notify` an optional per-call dispatcher.
+
+  Consumers: `NotifyFn` implementations in tests and mocks must now return a `NotifyResult`, e.g. `async () => ({ deliveries: [] })`. When running the API without a worker (`runSingleInstance: false`), a dedicated worker must process the delivery jobs.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Chat channels deliver in production boot, ctx.notify returns a NotifyResult
+  migration: |
+    NotifyFn implementations in tests and mocks must return a NotifyResult, e.g. async () => ({ deliveries: [] }). Queued channels now run through the delivery jobs in production; an API-only deployment (runSingleInstance: false) needs a worker that mounts delivery and the channel features.
+  -->
+
+- fcd9081: `guard-no-direct-fs` has a repo-local exception: `// kumiko-lint-ignore direct-fs <reason>` on the `node:fs` import (or the line above) suppresses the finding only while the `<file>::<reason>` pair is frozen in `.kumiko-direct-fs-baseline.json` at the repo root. It fails closed: without a baseline file, with an unreadable file, with a changed reason, or with more markers than frozen, the finding stays. A bare tag without a reason does not count. Freeze with `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"`. The guard hint now points to the marker, `FileStorageProvider` and `readBundledAsset`. `AstGuard.writeBaseline` receives the scanned roots as an optional second argument, and `baselineRatchet` takes an opt-in `failClosed` that treats a missing baseline file as empty.
+
+  **Migration (breaking-ish):** the framework allowlist no longer contains `src/marketing/render-landing.ts` and `src/marketing/rebuild-pages-job.ts` for every repo. Apps that have these files (today money-horse, phronexsis, show-pony, publicstatus) put `// kumiko-lint-ignore direct-fs <reason>` above the `node:fs` import in each file and run `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"` once in the app repo. Commit the generated `.kumiko-direct-fs-baseline.json`.
+
+  `@cosmicdrift/kumiko-server-runtime` can ship read-only files from an app's own build. Declare them in `package.json` under `kumiko.assets` (`[{ "name": "inter-bold.ttf", "source": "packages/site-kit/fonts/inter-bold.ttf" }]`, `source` relative to the app's `package.json`). `buildProdBundle` copies them to `dist/kumiko-bundled-assets/`, which the static file server does not serve, and fails the build on an invalid name, a duplicate, a source outside the package or a missing file. `readBundledAsset(name)` and `resolveBundledAsset(name)` read the dist copy in prod and the declared source in dev, so apps need no `node:fs` for it.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: breaking
+  title: Repo-local direct-fs exceptions with a frozen reason, bundled read-only assets
+  migration: |
+    The allowlist no longer frees src/marketing/render-landing.ts and src/marketing/rebuild-pages-job.ts in every repo. Put // kumiko-lint-ignore direct-fs <reason> above the node:fs import in each such file, run kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard" once and commit .kumiko-direct-fs-baseline.json.
+  -->
+
+- 610201f: CacheSyncBus keeps tier assignments and file providers in sync across pods
+
+  A Redis-backed CacheSyncBus (one channel, envelope with origin id, echo dropped, malformed messages ignored) now carries typed invalidation topics between pods and fires a debounced resync after a Redis reconnect. Tier assignments are published after commit and reloaded on the other pods with a per-tenant out-of-order guard; the tier cache is swapped atomically on resync. The file provider resolver drops cached providers when tenant config or secrets change on any pod. Prod, worker and dev entrypoints wire one bus per process, and TierResolverPlugin.build accepts an optional cacheSync.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: CacheSyncBus keeps tier assignments and file providers in sync across pods
+  -->
+
+- 9bc1069: runBootstrap() for one-shot passwordless prod provisioning; runProdApp auth.admin is optional
+
+  Creates tenants (seed hook only on creation) and mails invitations; reruns send nothing, expired unused invitations are re-sent. Convention bin/bootstrap.ts -> dist-server/bootstrap.js.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runBootstrap() for one-shot passwordless prod provisioning; runProdApp auth.admin is optional
+  -->
+
+- e7dbdb6: runWorkerApp: secrets in wireComponents and a metrics port
+
+  WorkerWireDeps carries ctx.secrets (for createInboundMailSupervisor), and the new metrics option serves /metrics on its own port; KUMIKO_DRY_RUN_ENV=boot validates it.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: runWorkerApp: secrets in wireComponents and a metrics port
+  -->
+
+- 610201f: Worker picks up tenant timezone changes made on API pods
+
+  The worker boot now joins the cache sync bus, so a timezone write on an API pod invalidates the worker's cached tenant timezone instead of leaving jobs on the old value until the TTL expires.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: Worker picks up tenant timezone changes made on API pods
+  -->
+
+### Patch Changes
+
+- 37c0974: Worker metrics server starts before entrypoint.start() and is closed if boot fails
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: Worker metrics server starts before entrypoint.start() and is closed if boot fails
+  -->
+
+- Updated dependencies [9bc1069]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [610201f]
+- Updated dependencies [c5a7dc2]
+- Updated dependencies [82309a5]
+- Updated dependencies [c2c7862]
+- Updated dependencies [1feae69]
+- Updated dependencies [1feae69]
+- Updated dependencies [610201f]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [1feae69]
+- Updated dependencies [dba5100]
+- Updated dependencies [c5e6814]
+- Updated dependencies [8443f22]
+- Updated dependencies [1f0a63b]
+- Updated dependencies [995c089]
+- Updated dependencies [0600763]
+- Updated dependencies [e0c2320]
+- Updated dependencies [4b01c83]
+- Updated dependencies [37c0974]
+  - @cosmicdrift/kumiko-bundled-features@0.341.0
+  - @cosmicdrift/kumiko-framework@0.341.0
+  - @cosmicdrift/kumiko-renderer-web@0.341.0
+  - @cosmicdrift/kumiko-headless@0.341.0
+
 ## 0.340.0
 
 ### Patch Changes

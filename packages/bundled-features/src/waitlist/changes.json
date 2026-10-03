@@ -1,0 +1,17 @@
+[
+  {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "Waitlist submit is limited per email address"
+  },
+  {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "Add waitlist bundled feature: public signup intake with admin invite and reject, GDPR export and erasure"
+  },
+  {
+    "version": "0.341.0",
+    "type": "fix",
+    "title": "Waitlist re-invite and reject no longer touch an invitee who already accepted"
+  }
+]

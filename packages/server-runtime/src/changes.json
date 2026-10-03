@@ -1,5 +1,28 @@
 [
   {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "runBootstrap() for one-shot passwordless prod provisioning; runProdApp auth.admin is optional",
+    "detail": "Creates tenants (seed hook only on creation) and mails invitations; reruns send nothing, expired unused invitations are re-sent. Convention bin/bootstrap.ts -> dist-server/bootstrap.js."
+  },
+  {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "runWorkerApp: secrets in wireComponents and a metrics port",
+    "detail": "WorkerWireDeps carries ctx.secrets (for createInboundMailSupervisor), and the new metrics option serves /metrics on its own port; KUMIKO_DRY_RUN_ENV=boot validates it."
+  },
+  {
+    "version": "0.341.0",
+    "type": "fix",
+    "title": "Worker metrics server starts before entrypoint.start() and is closed if boot fails"
+  },
+  {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "Worker picks up tenant timezone changes made on API pods",
+    "detail": "The worker boot now joins the cache sync bus, so a timezone write on an API pod invalidates the worker's cached tenant timezone instead of leaving jobs on the old value until the TTL expires."
+  },
+  {
     "version": "0.339.0",
     "type": "fix",
     "title": "Prod builds no longer inject an inline script for the build info, so strict CSPs without unsafe-inline work without hashes or nonces",

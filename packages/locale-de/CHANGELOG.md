@@ -1,5 +1,39 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.341.0
+
+### Minor Changes
+
+- 4b01c83: Add waitlist bundled feature: public signup intake with admin invite and reject, GDPR export and erasure
+
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Add waitlist bundled feature: public signup intake with admin invite and reject, GDPR export and erasure
+  -->
+
+### Patch Changes
+
+- 37c0974: Add errors.rate_limit_unavailable (de, formal)
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: fix
+  title: Add errors.rate_limit_unavailable (de, formal)
+  -->
+
+- Updated dependencies [610201f]
+- Updated dependencies [82309a5]
+- Updated dependencies [c2c7862]
+- Updated dependencies [610201f]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [1feae69]
+- Updated dependencies [c5e6814]
+- Updated dependencies [8443f22]
+- Updated dependencies [1f0a63b]
+  - @cosmicdrift/kumiko-framework@0.341.0
+
 ## 0.340.0
 
 ### Patch Changes

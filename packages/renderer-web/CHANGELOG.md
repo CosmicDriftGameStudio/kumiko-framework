@@ -1,5 +1,36 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.341.0
+
+### Patch Changes
+
+- 995c089: `DefaultAppShell` and `WorkspaceShell` render exactly one `main` landmark. `SidebarInset` is now a `div`, so the shell's own `main` around the screen content is the only one, and the `ShellHeader` sits outside it. Screen readers no longer announce two main regions, and `getByRole("main")` in E2E tests matches a single element.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: fix
+  title: App shells render a single main landmark
+  -->
+
+- Updated dependencies [610201f]
+- Updated dependencies [c5a7dc2]
+- Updated dependencies [82309a5]
+- Updated dependencies [c2c7862]
+- Updated dependencies [610201f]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [1feae69]
+- Updated dependencies [dba5100]
+- Updated dependencies [c5e6814]
+- Updated dependencies [8443f22]
+- Updated dependencies [1f0a63b]
+- Updated dependencies [37c0974]
+  - @cosmicdrift/kumiko-framework@0.341.0
+  - @cosmicdrift/kumiko-types@0.341.0
+  - @cosmicdrift/kumiko-renderer@0.341.0
+  - @cosmicdrift/kumiko-headless@0.341.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.341.0
+
 ## 0.340.0
 
 ### Patch Changes

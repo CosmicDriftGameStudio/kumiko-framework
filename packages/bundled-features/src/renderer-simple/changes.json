@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.341.0",
+    "type": "improvement",
+    "title": "Localized mail branding, locale through delivery, logoPath",
+    "detail": "`ctx.notify` accepts `locale`, and the locale now travels through the delivery jobs (`delivery.render`, `delivery.send`) to `NotificationRenderer.render`, where `RendererInput.locale` is available. Jobs queued before this release have no locale and keep working. The email channel and `renderer-simple` pass it on; the auth mails and the consumer-protection mails set it to the language they already translate their content into. This lands in the same release as the `NotifyOptions` change from #3508.\n`MailBranding` for `renderer-simple` can now be localized: `footerText`, `footerLinks[].label` and `footerLinks[].url` take a plain string or a map of locale to string. The renderer picks the exact locale, then the language part (`de-AT` falls back to `de`), then the new optional `MailBranding.defaultLocale`, then the first entry. Every URL in a map must be an absolute http(s) URL, otherwise `createSimpleRenderer` throws at boot. Without a locale and with plain strings the HTML is unchanged.\n`MailBranding` also gets `logoPath` and `baseUrl`, so an app can point at a raster logo on its own origin (`logoPath: \"/logo.png\"`, `baseUrl` the same base as `auth.mail.baseUrl`). `logoPath` and `logoUrl` exclude each other, `logoPath` needs a valid `baseUrl`, must start with a single `/` and must stay on the base origin; violations throw at boot. Use PNG or JPEG, because mail clients block SVG."
+  },
+  {
     "version": "0.339.0",
     "type": "improvement",
     "title": "createRendererSimpleFeature({ mailBranding }) brands every notification mail, including the auth mails, with product name or logo, primary color and footer text and links",

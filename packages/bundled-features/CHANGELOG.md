@@ -1,5 +1,228 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.341.0
+
+### Minor Changes
+
+- 9bc1069: Invitations can carry a global role (SystemAdmin), granted only on accept
+
+  New system-only handler auth-email-password:write:system-invite-create and bootstrapTenants() for idempotent passwordless provisioning. Tenant admins cannot set global roles; a re-invite clears a pending one.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: breaking
+  title: Invitations can carry a global role (SystemAdmin), granted only on accept
+  migration: |
+    New column read_tenant_invitations.global_roles: run `kumiko schema generate` and apply the migration before deploying.
+  -->
+
+- e7dbdb6: runBootstrap applies per-tenant config
+
+  BootstrapTenant.config sets tenant-scope config keys as system writes on every run; a value that already matches is not rewritten.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: runBootstrap applies per-tenant config
+  -->
+
+- e7dbdb6: MFA required policy is writable by the system only
+
+  <!-- kumiko-changes
+  feature: auth-mfa
+  type: breaking
+  title: MFA required policy is writable by the system only
+  migration: |
+    Tenant admins can no longer write auth-mfa:config:required (write access is now system-only). Set the app-wide default with createAuthMfaFeature({ requiredPolicy }) / the mfa options and per-tenant overrides with runBootstrap tenants[].config or a system write (createSystemUser). Code that wrote the key as TenantAdmin/Admin/SystemAdmin over HTTP must switch to one of these.
+  -->
+
+- 610201f: Harden system role, invitations query, tenant teardown and addMember
+
+  The system role can no longer be minted into a session through a user's global roles. invitations.query returns an explicit field allowlist and exposes globalRoles only to a SystemAdmin. The tenant destruction sweep waits 60 seconds after the grace period ends so the teardown gate can settle. Behaviour change: tenant:write:addMember now adds members to a foreign tenant only from the framework system context; a SystemAdmin request user is limited to their own tenant and gets 403 otherwise.
+
+  <!-- kumiko-changes
+  feature: tenant
+  type: improvement
+  title: Harden system role, invitations query, tenant teardown and addMember
+  -->
+
+- c5a7dc2: `r.secret` and `r.secretNamespace` accept a `valueSchema`. `secrets:write:set` checks the value against it after the key and role checks and answers a failure with a 400 validation error on field `value` (`secrets.errors.invalidValue`); the response never contains the value or the schema's issues. `secrets:write:delete` is unaffected.
+
+  The chat channels use it: Slack, Discord and Teams webhook secrets must be URLs that pass the channel's host allowlist (including the Discord `/api/webhooks/` path), and the Telegram bot token must have the `<bot id>:<secret>` shape. The allowlist comes from the same options as the channel, so `createChannelSlackFeature({ allowedHosts })` also governs what can be stored.
+
+  `channel-slack`, `channel-discord`, `channel-teams` and `channel-telegram` now export their secret keys (`SLACK_SECRET_KEYS`, `DISCORD_SECRET_KEYS`, `TEAMS_SECRET_KEYS`, `TELEGRAM_SECRET_KEYS`), allowlist constants and `isTelegramChatId` / `isTelegramBotToken`. `delivery` exports `checkChatWebhookTarget`, `chatWebhookUrlSchema` and `resolveChatWebhookTarget`, so apps can validate an address or URL when a user creates a channel.
+
+  Existing invalid secrets stay stored; only new writes are checked. Writes through `ctx.secrets.set` in feature code run through the same check.
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: Chat channel secret values are validated on write
+  -->
+
+- 82309a5: Chat channels (slack, discord, teams, telegram) now deliver in production boot. `runProdApp`, `runDevApp` and `runWorkerApp` pass the tenant secrets to the delivery service and hand queued channels to the `delivery.render`/`delivery.send` jobs of the calling context's job runner. `delivery.render` now receives `ctx.secrets` as well. Without a job runner, queued channels still deliver inline, now with secrets. `runBootstrap` is a one-shot process whose queue nobody drains after it exits, so it keeps delivering queued channels inline (the SystemAdmin invitation goes out before the process ends).
+
+  `NotifyFn` returns a `NotifyResult` (`{ deliveries }` with channel, recipientId, status `queued | sent | failed | skipped`, error and `deliveryAttemptId` per delivery) instead of `void`. `NotifyOptions.immediate` delivers queued channels inline for one call and bypasses job retry, for "send test message" handlers. `NotifyFactory` takes an optional job dispatcher as third argument, and `DeliveryService.notify` an optional per-call dispatcher.
+
+  Consumers: `NotifyFn` implementations in tests and mocks must now return a `NotifyResult`, e.g. `async () => ({ deliveries: [] })`. When running the API without a worker (`runSingleInstance: false`), a dedicated worker must process the delivery jobs.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Chat channels deliver in production boot, ctx.notify returns a NotifyResult
+  migration: |
+    NotifyFn implementations in tests and mocks must return a NotifyResult, e.g. async () => ({ deliveries: [] }). Queued channels now run through the delivery jobs in production; an API-only deployment (runSingleInstance: false) needs a worker that mounts delivery and the channel features.
+  -->
+
+- 1feae69: Uploads resolve a generic content type from the file content
+
+  POST /api/files now resolves application/octet-stream or a missing type from the bytes (PDF, XML, PNG, JPEG, GIF, WebP, ZIP) and falls back to the file extension. A concrete declared type is never overridden. The shared helper resolveContentType is exported from the files module.
+
+  <!-- kumiko-changes
+  feature: files
+  type: improvement
+  title: Uploads resolve a generic content type from the file content
+  -->
+
+- 610201f: CacheSyncBus keeps tier assignments and file providers in sync across pods
+
+  A Redis-backed CacheSyncBus (one channel, envelope with origin id, echo dropped, malformed messages ignored) now carries typed invalidation topics between pods and fires a debounced resync after a Redis reconnect. Tier assignments are published after commit and reloaded on the other pods with a per-tenant out-of-order guard; the tier cache is swapped atomically on resync. The file provider resolver drops cached providers when tenant config or secrets change on any pod. Prod, worker and dev entrypoints wire one bus per process, and TierResolverPlugin.build accepts an optional cacheSync.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: CacheSyncBus keeps tier assignments and file providers in sync across pods
+  -->
+
+- dba5100: `ctx.notify` accepts `locale`, and the locale now travels through the delivery jobs (`delivery.render`, `delivery.send`) to `NotificationRenderer.render`, where `RendererInput.locale` is available. Jobs queued before this release have no locale and keep working. The email channel and `renderer-simple` pass it on; the auth mails and the consumer-protection mails set it to the language they already translate their content into. This lands in the same release as the `NotifyOptions` change from #3508.
+
+  `MailBranding` for `renderer-simple` can now be localized: `footerText`, `footerLinks[].label` and `footerLinks[].url` take a plain string or a map of locale to string. The renderer picks the exact locale, then the language part (`de-AT` falls back to `de`), then the new optional `MailBranding.defaultLocale`, then the first entry. Every URL in a map must be an absolute http(s) URL, otherwise `createSimpleRenderer` throws at boot. Without a locale and with plain strings the HTML is unchanged.
+
+  `MailBranding` also gets `logoPath` and `baseUrl`, so an app can point at a raster logo on its own origin (`logoPath: "/logo.png"`, `baseUrl` the same base as `auth.mail.baseUrl`). `logoPath` and `logoUrl` exclude each other, `logoPath` needs a valid `baseUrl`, must start with a single `/` and must stay on the base origin; violations throw at boot. Use PNG or JPEG, because mail clients block SVG.
+
+  <!-- kumiko-changes
+  feature: renderer-simple
+  type: improvement
+  title: Localized mail branding, locale through delivery, logoPath
+  -->
+
+- c5e6814: Write handlers can declare `additionalRateLimits: [{ per: { payloadField: "email" }, limit, windowSeconds }]` next to `rateLimit`. The named string field of the validated payload is trimmed, lowercased and HMAC-hashed (key derived from the server's current JWT signing secret) into the bucket key `payload+handler:<handler>:<field>:<digest>`, so one address is limited across all IPs and Redis never holds it in plaintext. The check runs after schema validation and before the handler, answers 429 `rate_limited`, behaves the same for matching and non-matching values, and is skipped for system callers. Rotating the JWT secret only resets these buckets.
+
+  Boot rejects `additionalRateLimits` on an anonymous handler without a real ip-keyed `rateLimit` (the payload bucket only complements the IP bucket), an empty list, a `payloadField` that is not a field of the Zod object schema, and a non-positive `limit` or `windowSeconds`. A handler with `additionalRateLimits` makes `buildServer` wire the rate-limit resolver. The option exists on write handlers only and appears in the feature-ast patterns, render and patch schema.
+
+  Behavior change: `request-contract-termination` and `signup-request` now allow 3 requests per email address per 24 hours, and each token-request endpoint (`request-password-reset`, `request-email-verification`, `request-account-unlock`) allows 5 per address per 24 hours, in addition to the existing per-IP limits. The public `/api/auth` token-request routes still answer `{ isSuccess: true }` when the limit is hit; only the mail is not sent.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: Per-recipient rate limits on payload fields (additionalRateLimits)
+  -->
+
+- 8443f22: A 429 caused by a payload bucket (`additionalRateLimits`) no longer carries the HMAC digest of the bucketed value in `details.bucket` or the error message: it reads `payload+handler`. The digest is a stable pseudonym of the address, so anyone who could guess an address could confirm it from the response. Redis keys are unchanged.
+
+  `waitlist:write:submit` additionally limits each email address (case-insensitive) to 3 submits per day, across all IPs, so a botnet cannot flood one address with confirmation mails. `createWaitlistFeature({ emailRateLimits })` overrides it (`[]` disables). The admin notice mail now carries its `locale` (`en` or `de`) in the notify call.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: 429 bodies omit the payload bucket digest
+  -->
+
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Waitlist submit is limited per email address
+  -->
+
+- 0600763: `ctx.secrets.set` now runs the same `valueSchema` check as `secrets:write:set` and throws the same validation error (`secrets.errors.invalidValue`, never carrying the value) before anything is encrypted or stored. `createSecretsContext` takes a required `registry` option that supplies the declared schemas; `runProdApp`, `runDevApp` and `setupTestStack` setups pass the booted registry.
+
+  `createChannelTelegramFeature` takes `allowedHosts` (default `["api.telegram.org"]`) and `requireHttps` (default `true`), like the other chat channels. Boot fails when the host of `apiBaseUrl` is not in `allowedHosts` or the URL is not https while `requireHttps` is on. Before, the host of `apiBaseUrl` was its own allowlist and https was only required when the URL already started with `https:`.
+
+  <!-- kumiko-changes
+  feature: channel-telegram
+  type: breaking
+  title: Telegram apiBaseUrl must match allowedHosts and use https
+  migration: |
+    An app that sets a custom apiBaseUrl (self-hosted Bot API server, local test server) must also pass allowedHosts: ["<host>"], plus requireHttps: false for plain http. Without it the app fails at boot.
+  -->
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: breaking
+  title: ctx.secrets.set validates against the declared valueSchema
+  migration: |
+    Code that calls createSecretsContext({ db, masterKeyProvider }) must also pass registry (the booted Registry). Programmatic ctx.secrets.set calls with a value that fails the key's valueSchema now throw a ValidationError instead of storing it.
+  -->
+
+- e0c2320: `createContractTerminationRoutes` accepts a `wrapLayout`, the same function `createLegalPagesFeature` takes. It wraps every termination page (form, review, result, 429, error); the security headers stay with the framework. The layout also receives `alternates`, a map from locale to the path of the same page, so it can render a language switch from plain links. `page-render` exports the shared type `PublicPageWrapLayout`; `LegalPagesWrapLayout` is now an alias of it. The page body sits in `<div data-kumiko-page="contract-termination">` with `data-kumiko-*` hooks on the form, field groups, buttons and review table. The page CSP keeps `script-src 'none'`, so a layout must not rely on JavaScript.
+
+  The default `wrapInLayout` stylesheet gains base rules for input, select, textarea and button, so unstyled forms stay readable.
+
+  The termination pages and every legal page now answer the other trailing-slash form of their path (`/legal/kuendigen/`, `/legal/impressum/`) with a 301 to the configured path for GET and HEAD, query string kept. POST has no alias.
+
+  The termination receipt mail text changed: it now starts with a greeting line ("Hallo," / "Hello,") and the English sentence starts capitalized ("We confirm receipt ..."). The receipt content still depends only on the declarant's input.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: App layout around termination pages, trailing-slash redirects, receipt greeting
+  -->
+
+- 4b01c83: Add waitlist bundled feature: public signup intake with admin invite and reject, GDPR export and erasure
+
+  <!-- kumiko-changes
+  feature: waitlist
+  type: improvement
+  title: Add waitlist bundled feature: public signup intake with admin invite and reject, GDPR export and erasure
+  -->
+
+### Patch Changes
+
+- 37c0974: System invite refuses to reset an accepted invitation (invite_already_accepted)
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: System invite refuses to reset an accepted invitation (invite_already_accepted)
+  -->
+
+- 1feae69: Uploads without entityId no longer produce an empty storage key segment
+
+  <!-- kumiko-changes
+  feature: files
+  type: fix
+  title: Uploads without entityId no longer produce an empty storage key segment
+  -->
+
+- 37c0974: Waitlist re-invite and reject no longer touch an invitee who already accepted
+
+  <!-- kumiko-changes
+  feature: waitlist
+  type: fix
+  title: Waitlist re-invite and reject no longer touch an invitee who already accepted
+  -->
+
+- Updated dependencies [610201f]
+- Updated dependencies [c5a7dc2]
+- Updated dependencies [82309a5]
+- Updated dependencies [c2c7862]
+- Updated dependencies [610201f]
+- Updated dependencies [37c0974]
+- Updated dependencies [e7dbdb6]
+- Updated dependencies [1feae69]
+- Updated dependencies [dba5100]
+- Updated dependencies [c5e6814]
+- Updated dependencies [8443f22]
+- Updated dependencies [1f0a63b]
+- Updated dependencies [37c0974]
+- Updated dependencies [995c089]
+  - @cosmicdrift/kumiko-framework@0.341.0
+  - @cosmicdrift/kumiko-types@0.341.0
+  - @cosmicdrift/kumiko-renderer@0.341.0
+  - @cosmicdrift/kumiko-renderer-web@0.341.0
+  - @cosmicdrift/kumiko-headless@0.341.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.341.0
+
 ## 0.340.0
 
 ### Patch Changes

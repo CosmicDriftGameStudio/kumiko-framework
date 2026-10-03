@@ -10,6 +10,65 @@ verified: 2026-10-03
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
 
+## 0.341.0
+
+### auth-email-password
+
+**Invitations can carry a global role (SystemAdmin), granted only on accept**
+
+New system-only handler auth-email-password:write:system-invite-create and bootstrapTenants() for idempotent passwordless provisioning. Tenant admins cannot set global roles; a re-invite clears a pending one.
+
+**Migration:** New column read_tenant_invitations.global_roles: run `kumiko schema generate` and apply the migration before deploying.
+
+### auth-mfa
+
+**MFA required policy is writable by the system only**
+
+**Migration:** Tenant admins can no longer write auth-mfa:config:required (write access is now system-only). Set the app-wide default with createAuthMfaFeature({ requiredPolicy }) / the mfa options and per-tenant overrides with runBootstrap tenants[].config or a system write (createSystemUser). Code that wrote the key as TenantAdmin/Admin/SystemAdmin over HTTP must switch to one of these.
+
+### channel-telegram
+
+**Telegram apiBaseUrl must match allowedHosts and use https**
+
+`ctx.secrets.set` now runs the same `valueSchema` check as `secrets:write:set` and throws the same validation error (`secrets.errors.invalidValue`, never carrying the value) before anything is encrypted or stored. `createSecretsContext` takes a required `registry` option that supplies the declared schemas; `runProdApp`, `runDevApp` and `setupTestStack` setups pass the booted registry.
+`createChannelTelegramFeature` takes `allowedHosts` (default `["api.telegram.org"]`) and `requireHttps` (default `true`), like the other chat channels. Boot fails when the host of `apiBaseUrl` is not in `allowedHosts` or the URL is not https while `requireHttps` is on. Before, the host of `apiBaseUrl` was its own allowlist and https was only required when the URL already started with `https:`.
+
+**Migration:** An app that sets a custom apiBaseUrl (self-hosted Bot API server, local test server) must also pass allowedHosts: ["<host>"], plus requireHttps: false for plain http. Without it the app fails at boot.
+
+### delivery
+
+**Chat channels deliver in production boot, ctx.notify returns a NotifyResult**
+
+Chat channels (slack, discord, teams, telegram) now deliver in production boot. `runProdApp`, `runDevApp` and `runWorkerApp` pass the tenant secrets to the delivery service and hand queued channels to the `delivery.render`/`delivery.send` jobs of the calling context's job runner. `delivery.render` now receives `ctx.secrets` as well. Without a job runner, queued channels still deliver inline, now with secrets. `runBootstrap` is a one-shot process whose queue nobody drains after it exits, so it keeps delivering queued channels inline (the SystemAdmin invitation goes out before the process ends).
+`NotifyFn` returns a `NotifyResult` (`{ deliveries }` with channel, recipientId, status `queued | sent | failed | skipped`, error and `deliveryAttemptId` per delivery) instead of `void`. `NotifyOptions.immediate` delivers queued channels inline for one call and bypasses job retry, for "send test message" handlers. `NotifyFactory` takes an optional job dispatcher as third argument, and `DeliveryService.notify` an optional per-call dispatcher.
+Consumers: `NotifyFn` implementations in tests and mocks must now return a `NotifyResult`, e.g. `async () => ({ deliveries: [] })`. When running the API without a worker (`runSingleInstance: false`), a dedicated worker must process the delivery jobs.
+
+**Migration:** NotifyFn implementations in tests and mocks must return a NotifyResult, e.g. async () => ({ deliveries: [] }). Queued channels now run through the delivery jobs in production; an API-only deployment (runSingleInstance: false) needs a worker that mounts delivery and the channel features.
+
+### enterprise:dev-server
+
+**Deploy migrate-step.sh always uses the exact stack network**
+
+The discover variant (docker network ls | head -1) could pick another compose project's network on a shared host. The script now uses COMPOSE_PROJECT_NAME or the directory name plus _stack.
+
+**Migration:** Remove package.json kumiko.deploy.stackNetwork (or set it to "directory"), then re-run scaffoldDeploy. If the deploy directory name differs from the compose project, set COMPOSE_PROJECT_NAME for migrate-step.sh.
+
+### enterprise:guards
+
+**Repo-local direct-fs exceptions with a frozen reason, bundled read-only assets**
+
+`guard-no-direct-fs` has a repo-local exception: `// kumiko-lint-ignore direct-fs <reason>` on the `node:fs` import (or the line above) suppresses the finding only while the `<file>::<reason>` pair is frozen in `.kumiko-direct-fs-baseline.json` at the repo root. It fails closed: without a baseline file, with an unreadable file, with a changed reason, or with more markers than frozen, the finding stays. A bare tag without a reason does not count. Freeze with `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"`. The guard hint now points to the marker, `FileStorageProvider` and `readBundledAsset`. `AstGuard.writeBaseline` receives the scanned roots as an optional second argument, and `baselineRatchet` takes an opt-in `failClosed` that treats a missing baseline file as empty.
+**Migration (breaking-ish):** the framework allowlist no longer contains `src/marketing/render-landing.ts` and `src/marketing/rebuild-pages-job.ts` for every repo. Apps that have these files (today money-horse, phronexsis, show-pony, publicstatus) put `// kumiko-lint-ignore direct-fs <reason>` above the `node:fs` import in each file and run `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"` once in the app repo. Commit the generated `.kumiko-direct-fs-baseline.json`.
+`@cosmicdrift/kumiko-server-runtime` can ship read-only files from an app's own build. Declare them in `package.json` under `kumiko.assets` (`[{ "name": "inter-bold.ttf", "source": "packages/site-kit/fonts/inter-bold.ttf" }]`, `source` relative to the app's `package.json`). `buildProdBundle` copies them to `dist/kumiko-bundled-assets/`, which the static file server does not serve, and fails the build on an invalid name, a duplicate, a source outside the package or a missing file. `readBundledAsset(name)` and `resolveBundledAsset(name)` read the dist copy in prod and the declared source in dev, so apps need no `node:fs` for it.
+
+**Migration:** The allowlist no longer frees src/marketing/render-landing.ts and src/marketing/rebuild-pages-job.ts in every repo. Put // kumiko-lint-ignore direct-fs <reason> above the node:fs import in each such file, run kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard" once and commit .kumiko-direct-fs-baseline.json.
+
+### secrets
+
+**ctx.secrets.set validates against the declared valueSchema**
+
+**Migration:** Code that calls createSecretsContext({ db, masterKeyProvider }) must also pass registry (the booted Registry). Programmatic ctx.secrets.set calls with a value that fails the key's valueSchema now throw a ValidationError instead of storing it.
+
 ## 0.339.0
 
 ### framework-core
