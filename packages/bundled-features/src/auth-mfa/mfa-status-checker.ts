@@ -40,6 +40,7 @@ export type MfaStatusChecker = (
 
 export function createMfaStatusChecker(opts: {
   readonly challengeTokenSecret: string;
+  readonly requiredPolicy?: MfaRequiredPolicy;
 }): MfaStatusChecker {
   return async (ctx, userId, tenantId, roles) => {
     declareEscapeHatch({
@@ -70,7 +71,7 @@ export function createMfaStatusChecker(opts: {
     // against the declared `options` at write-time by the config feature.
     const policy = ((await ctx.configResolver?.get(
       mfaRequiredConfigHandle.name,
-      mfaRequiredConfigKey(),
+      mfaRequiredConfigKey(opts.requiredPolicy),
       tenantId,
       userId,
       scopedDb,

@@ -6,7 +6,13 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  access,
+  createTenantConfig,
+  defineFeature,
+  type SessionUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   setupTestStack,
   type TestStack,
@@ -35,6 +41,7 @@ import {
   type BootstrapPlan,
   BootstrapPlanError,
   type BootstrapReport,
+  BootstrapWriteError,
   bootstrapTenants,
 } from "../bootstrap.js";
 import { AuthHandlers, AuthQueries } from "../constants.js";
@@ -50,6 +57,23 @@ const MALLORY_EMAIL = "mallory@example.com";
 
 const emailTransport = createInMemoryTransport();
 
+const GREETING_KEY = "bootstrap-probe:config:greeting";
+const LOCKED_KEY = "bootstrap-probe:config:locked";
+
+// One key with the default tenant write access (admin roles), one that only
+// the system may write — bootstrap config has to reach both.
+const configProbeFeature = defineFeature("bootstrap-probe", (r) => {
+  r.config("greeting", createTenantConfig("text", { default: "hello" }));
+  r.config(
+    "locked",
+    createTenantConfig("select", {
+      default: "optional",
+      options: ["optional", "admins", "all"],
+      write: access.system,
+    }),
+  );
+});
+
 let stack: TestStack;
 let tenantAId: TenantId;
 let tenantBId: TenantId;
@@ -61,6 +85,7 @@ beforeAll(async () => {
       createConfigFeature(),
       createUserFeature(),
       createTenantFeature(),
+      configProbeFeature,
       createTemplateResolverFeature(),
       createRendererFoundationFeature(),
       createDeliveryFeature(),
@@ -181,13 +206,64 @@ function tenantAdminOfA(): SessionUser {
   return { id: crypto.randomUUID(), tenantId: tenantAId, roles: ["TenantAdmin"] };
 }
 
+async function storedConfig(tenantId: TenantId, key: string): Promise<string | undefined> {
+  const [row] = await selectMany(stack.db, configValuesTable, { key, tenantId });
+  return row?.value ?? undefined;
+}
+
 describe("bootstrapTenants", () => {
+  test("tenant config is applied on every run, reaches system-only keys, and a matching rerun writes nothing", async () => {
+    const plan = (greeting: string): BootstrapPlan => ({
+      tenants: [
+        {
+          id: tenantAId,
+          key: `acme-${tenantAId.slice(0, 8)}`,
+          name: "Acme",
+          config: { [GREETING_KEY]: greeting, [LOCKED_KEY]: "admins" },
+        },
+      ],
+    });
+
+    const first = await runBootstrapPlan(plan("hi"));
+    expect(first.tenants[0]?.configApplied).toEqual([GREETING_KEY, LOCKED_KEY]);
+    expect(await storedConfig(tenantAId, GREETING_KEY)).toBe(JSON.stringify("hi"));
+    expect(await storedConfig(tenantAId, LOCKED_KEY)).toBe(JSON.stringify("admins"));
+
+    const rerun = await runBootstrapPlan(plan("hi"));
+    expect(rerun.tenants[0]).toEqual({
+      id: tenantAId,
+      outcome: "exists",
+      seeded: false,
+      configApplied: [],
+    });
+
+    // Declarative: an edited plan converges an existing tenant, only the changed key is written.
+    const changed = await runBootstrapPlan(plan("servus"));
+    expect(changed.tenants[0]?.configApplied).toEqual([GREETING_KEY]);
+    expect(await storedConfig(tenantAId, GREETING_KEY)).toBe(JSON.stringify("servus"));
+  });
+
+  test("a config value the key rejects fails the run with a BootstrapWriteError", async () => {
+    await expect(
+      runBootstrapPlan({
+        tenants: [
+          {
+            id: tenantAId,
+            key: `acme-${tenantAId.slice(0, 8)}`,
+            name: "Acme",
+            config: { [LOCKED_KEY]: "nonsense" },
+          },
+        ],
+      }),
+    ).rejects.toThrow(BootstrapWriteError);
+  });
+
   test("bootstrap → mail → accept → login; SystemAdmin only after accept and only in its own tenant; second run is a no-op", async () => {
     const first = await runBootstrapPlan(launchPlan());
 
     expect(first.tenants).toEqual([
-      { id: tenantAId, outcome: "created", seeded: true },
-      { id: tenantBId, outcome: "created", seeded: true },
+      { id: tenantAId, outcome: "created", seeded: true, configApplied: [] },
+      { id: tenantBId, outcome: "created", seeded: true, configApplied: [] },
     ]);
     expect(seededTenantIds).toEqual([tenantAId, tenantBId]);
     expect(inviteOutcomes(first)).toEqual({ [ROOT_EMAIL]: "invited", [CAROL_EMAIL]: "invited" });
@@ -231,8 +307,8 @@ describe("bootstrapTenants", () => {
     const mailsBeforeRerun = emailTransport.sent.length;
     const second = await runBootstrapPlan(launchPlan());
     expect(second.tenants).toEqual([
-      { id: tenantAId, outcome: "exists", seeded: false },
-      { id: tenantBId, outcome: "exists", seeded: false },
+      { id: tenantAId, outcome: "exists", seeded: false, configApplied: [] },
+      { id: tenantBId, outcome: "exists", seeded: false, configApplied: [] },
     ]);
     expect(seededTenantIds).toEqual([tenantAId, tenantBId]);
     expect(inviteOutcomes(second)).toEqual({ [ROOT_EMAIL]: "active", [CAROL_EMAIL]: "active" });
@@ -270,7 +346,12 @@ describe("bootstrapTenants", () => {
   test("an existing tenant is left alone and never seeded", async () => {
     await seedTenant(stack.db, { id: tenantAId, key: `acme-${tenantAId.slice(0, 8)}`, name: "A" });
     const report = await runBootstrapPlan(launchPlan());
-    expect(report.tenants[0]).toEqual({ id: tenantAId, outcome: "exists", seeded: false });
+    expect(report.tenants[0]).toEqual({
+      id: tenantAId,
+      outcome: "exists",
+      seeded: false,
+      configApplied: [],
+    });
     expect(seededTenantIds).toEqual([tenantBId]);
   });
 

@@ -476,6 +476,9 @@ export function createUserDataRightsFeature(opts: UserDataRightsOptions = {}): F
       method: "GET",
       path: "/user-export/by-token",
       anonymous: true,
+      // Entry point of the emailed download link; cheap static page, but
+      // anonymous and token-bearing, so bound per-IP probing.
+      rateLimit: { per: "ip+handler", limit: 30, windowSeconds: 60 },
       handler: async (c) => {
         return c.body(TOKEN_EXCHANGE_PAGE_HTML, 200, {
           "content-type": "text/html; charset=utf-8",

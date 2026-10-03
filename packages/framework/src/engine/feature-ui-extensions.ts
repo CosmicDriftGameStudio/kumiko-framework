@@ -575,6 +575,19 @@ export function buildUiExtensionsMethods<TName extends string>(
             `anonymous: true | false — true mounts it public, false behind the session auth chain.`,
         );
       }
+      const routeLimit = definition.rateLimit;
+      if (
+        routeLimit !== undefined &&
+        (!Number.isInteger(routeLimit.limit) ||
+          routeLimit.limit < 1 ||
+          !Number.isInteger(routeLimit.windowSeconds) ||
+          routeLimit.windowSeconds < 1)
+      ) {
+        throw new Error(
+          `[Feature ${name}] httpRoute "${definition.method} ${definition.path}" rateLimit needs ` +
+            `positive integer limit and windowSeconds.`,
+        );
+      }
       const key = `${definition.method} ${definition.path}`;
       if (state.httpRoutes[key]) {
         throw new Error(

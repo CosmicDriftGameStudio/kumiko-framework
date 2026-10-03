@@ -4,6 +4,8 @@ export {
   authEndpointRateLimit,
   type GlobalIpRateLimitOptions,
   globalIpRateLimit,
+  type HttpRouteRateLimitOptions,
+  httpRouteRateLimit,
 } from "./middleware.js";
 export {
   createRateLimitResolver,

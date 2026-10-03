@@ -6,6 +6,7 @@ import {
   createClientIpResolver,
 } from "../api/client-ip.js";
 import { requestContext } from "../api/request-context.js";
+import type { HttpRouteRateLimit } from "../engine/types/http-route.js";
 import { RateLimitError, serializeError } from "../errors/index.js";
 import type { RateLimitDecision, RateLimitResolver } from "./resolver.js";
 
@@ -72,6 +73,45 @@ export function globalIpRateLimit(opts: GlobalIpRateLimitOptions): MiddlewareHan
       // Fail-closed: refuse rather than let a flood through with no cap.
       // resolver.check never throws RateLimitError (only enforce does),
       // so any throw here is an infrastructure failure (Redis down).
+      onFailClosed(e);
+      return c.json(
+        { error: { code: "rate_limit_unavailable", message: "Rate limiter unavailable" } },
+        503,
+      );
+    }
+    await next();
+  };
+}
+
+export type HttpRouteRateLimitOptions = {
+  readonly resolver: RateLimitResolver;
+  readonly rateLimit: HttpRouteRateLimit;
+  // "METHOD path" — the bucket scope for per: "ip+handler".
+  readonly routeKey: string;
+  readonly clientIpResolver: ClientIpResolver;
+  readonly onFailClosed?: (err: unknown) => void;
+};
+
+// Per-route limit for r.httpRoute({ rateLimit }). Fail-closed like L1: these
+// routes are anonymous, so an outage must not turn into an unbounded flood.
+export function httpRouteRateLimit(opts: HttpRouteRateLimitOptions): MiddlewareHandler {
+  const { rateLimit, routeKey } = opts;
+  const onFailClosed = opts.onFailClosed ?? defaultOnFailClosed("http-route");
+  const config = {
+    limit: rateLimit.limit,
+    windowSeconds: rateLimit.windowSeconds,
+    ...(rateLimit.cost !== undefined && { cost: rateLimit.cost }),
+  };
+
+  return async (c, next) => {
+    const ip = opts.clientIpResolver.resolve(clientIpSourceFromHonoContext(c));
+    if (!ip) return next();
+    const bucket = rateLimit.per === "ip" ? `http:${ip}` : `http:${ip}:${routeKey}`;
+    try {
+      const decision = await opts.resolver.check(bucket, config);
+      if (!decision.allowed) return respondRateLimited(c, decision, bucket);
+      setRateLimitHeaders(c, decision);
+    } catch (e) {
       onFailClosed(e);
       return c.json(
         { error: { code: "rate_limit_unavailable", message: "Rate limiter unavailable" } },

@@ -9,20 +9,40 @@
 //     and can register its own shutdown hooks
 
 import { afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { randomBytes } from "node:crypto";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  createInboundMailSupervisor,
+  mailAccountsProjectionTable,
+} from "@cosmicdrift/kumiko-bundled-features/inbound-mail-foundation";
+import {
+  createSecretsFeature,
+  requireSecretsContext,
+  tenantSecretsTable,
+} from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { createDbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createEntity,
+  createTextField,
+  defineFeature,
+  SYSTEM_USER_ID,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import {
   createArchivedStreamsTable,
   createEventsTable,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import {
+  createNoopProvider,
+  createPrometheusMeter,
+} from "@cosmicdrift/kumiko-framework/observability";
+import {
   createEventConsumerStateTable,
   createProjectionStateTable,
 } from "@cosmicdrift/kumiko-framework/pipeline";
-import { unsafeEnsureEntityTable } from "@cosmicdrift/kumiko-framework/stack";
+import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
 import postgres from "postgres";
 import * as z from "zod";
@@ -91,6 +111,10 @@ beforeAll(async () => {
     await createProjectionStateTable(db);
     await createEventConsumerStateTable(db);
     await unsafeEnsureEntityTable(db, workerProbeEntity, "probe");
+    await unsafePushTables(db, {
+      tenant_secrets: tenantSecretsTable,
+      read_mail_accounts: mailAccountsProjectionTable,
+    });
   } finally {
     await close();
   }
@@ -196,6 +220,81 @@ describe("runWorkerApp", () => {
     await handle.stop();
     handles = handles.filter((h) => h !== handle);
     expect(shutdownHookRan).toBe(true);
+  });
+
+  test("wireComponents gets ctx.secrets, so createInboundMailSupervisor can be mounted and stops cleanly", async () => {
+    const originalMasterKey = process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
+    process.env["KUMIKO_SECRETS_MASTER_KEY_V1"] = randomBytes(32).toString("base64");
+    let supervisorStopped = false;
+    let revealedSecret: string | undefined;
+    try {
+      const handle = await boot({
+        features: [workerProbeFeature, createSecretsFeature()],
+        wireComponents: async (deps) => {
+          if (!deps.secrets) throw new Error("worker wire deps carry no secrets");
+          const providerCtx = {
+            registry: deps.registry,
+            secrets: deps.secrets,
+            _userId: SYSTEM_USER_ID,
+          };
+          // The path the IMAP provider takes to read an account credential.
+          const secrets = requireSecretsContext(providerCtx, "run-worker-app-test");
+          await secrets.set(TENANT_ID as TenantId, "worker-test:credential", "imap-password");
+          revealedSecret = (
+            await secrets.get(TENANT_ID as TenantId, "worker-test:credential")
+          )?.reveal();
+
+          const supervisor = createInboundMailSupervisor({
+            providerCtx,
+            db: deps.db,
+            dispatchWrite: ({ handlerQn, payload, tenantId }) =>
+              deps.dispatchSystemWrite({ handlerQn, payload, tenantId: tenantId as TenantId }),
+          });
+          await supervisor.start();
+          deps.lifecycle.registerShutdownHook("inbound-mail-supervisor", async () => {
+            await supervisor.stop();
+            supervisorStopped = true;
+          });
+        },
+      });
+      expect(revealedSecret).toBe("imap-password");
+
+      await handle.stop();
+      handles = handles.filter((h) => h !== handle);
+      expect(supervisorStopped).toBe(true);
+    } finally {
+      if (originalMasterKey !== undefined) {
+        process.env["KUMIKO_SECRETS_MASTER_KEY_V1"] = originalMasterKey;
+      } else {
+        delete process.env["KUMIKO_SECRETS_MASTER_KEY_V1"];
+      }
+    }
+  });
+
+  test("metrics: the worker serves /metrics on its own port, token-protected, and stops with the worker", async () => {
+    const meter = createPrometheusMeter();
+    meter.registerMetric({ name: "kumiko_worker_probe_total", type: "counter" });
+    meter.counter("kumiko_worker_probe_total").inc(3);
+
+    const handle = await boot({
+      observability: { ...createNoopProvider(), meter },
+      metrics: { port: 0, token: "scrape-token" },
+    });
+    const port = handle.metricsServer?.port;
+    if (port === undefined) throw new Error("no metrics server started");
+    const url = `http://127.0.0.1:${port}/metrics`;
+
+    const ok = await fetch(url, { headers: { Authorization: "Bearer scrape-token" } });
+    expect(ok.status).toBe(200);
+    expect(ok.headers.get("Content-Type")).toMatch(/openmetrics-text/);
+    expect(await ok.text()).toContain("kumiko_worker_probe_total 3");
+    expect((await fetch(url)).status).toBe(401);
+
+    await handle.stop();
+    handles = handles.filter((h) => h !== handle);
+    await expect(
+      fetch(url, { headers: { Authorization: "Bearer scrape-token" } }),
+    ).rejects.toThrow();
   });
 
   test("Schema-Drift-Gate: pending migration aborts the boot before anything else initializes", async () => {

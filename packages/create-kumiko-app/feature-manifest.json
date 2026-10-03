@@ -194,9 +194,7 @@
           "bounds": null,
           "pattern": null,
           "writeRoles": [
-            "TenantAdmin",
-            "Admin",
-            "SystemAdmin"
+            "system"
           ],
           "readRoles": [
             "all"

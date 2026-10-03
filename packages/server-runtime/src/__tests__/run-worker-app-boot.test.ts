@@ -6,6 +6,10 @@
 import { describe, expect, spyOn, test } from "bun:test";
 import type { KmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
 import { createEntity, createTextField, defineFeature } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  createNoopProvider,
+  createPrometheusMeter,
+} from "@cosmicdrift/kumiko-framework/observability";
 import { runWorkerApp } from "../run-worker-app.js";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
 
@@ -65,6 +69,45 @@ describe("runWorkerApp boot-mode", () => {
       console.log = originalLog;
     }
     expect(typeof (globalThis as { Temporal?: unknown }).Temporal).toBe("object");
+  });
+
+  describe("metrics option", () => {
+    const dryRunWith = (extra: Partial<Parameters<typeof runWorkerApp>[0]>) =>
+      runWorkerApp({
+        features: [probeFeature],
+        migrations: false,
+        envSource: { ...DUMMY_ENV, KUMIKO_DRY_RUN_ENV: "boot" },
+        ...extra,
+      });
+
+    test("KUMIKO_DRY_RUN_ENV=boot accepts metrics with a PrometheusMeter-based observability", async () => {
+      const originalLog = console.log;
+      console.log = () => {};
+      try {
+        const handle = await dryRunWith({
+          observability: { ...createNoopProvider(), meter: createPrometheusMeter() },
+          metrics: { port: 9464 },
+        });
+        // The dry run validates only; it must not bind the scrape port.
+        expect(handle.metricsServer).toBeUndefined();
+        await handle.stop();
+      } finally {
+        console.log = originalLog;
+      }
+    });
+
+    test("KUMIKO_DRY_RUN_ENV=boot rejects metrics without a PrometheusMeter instead of a 503 at the first scrape", async () => {
+      await expect(dryRunWith({ metrics: { port: 9464 } })).rejects.toThrow(/no PrometheusMeter/);
+    });
+
+    test("KUMIKO_DRY_RUN_ENV=boot rejects an invalid metrics port", async () => {
+      await expect(
+        dryRunWith({
+          observability: { ...createNoopProvider(), meter: createPrometheusMeter() },
+          metrics: { port: 70000 },
+        }),
+      ).rejects.toThrow(/metrics\.port/);
+    });
   });
 
   test("unhealthy KMS aborts boot before any DB/Redis connection is opened", async () => {

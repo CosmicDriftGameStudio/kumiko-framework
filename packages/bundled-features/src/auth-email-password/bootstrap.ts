@@ -8,10 +8,18 @@
 import { makeDispatchSystemWrite } from "@cosmicdrift/kumiko-framework/api";
 import { fetchOne } from "@cosmicdrift/kumiko-framework/bun-db";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import { createSystemUser, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  ConfigScopes,
+  createSystemUser,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import type { Dispatcher } from "@cosmicdrift/kumiko-framework/pipeline";
 import { parseRoles } from "@cosmicdrift/kumiko-framework/utils";
 import type { Redis } from "ioredis";
+// kumiko-lint-ignore cross-feature-import bootstrap sets per-tenant config through the config feature's write handler
+import { ConfigHandlers } from "../config/constants.js";
+// kumiko-lint-ignore cross-feature-import bootstrap compares against the stored config row to stay idempotent
+import { findConfigRow } from "../config/write-helpers.js";
 // kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
 import { TenantHandlers } from "../tenant/constants.js";
 // kumiko-lint-ignore cross-feature-import bootstrap provisions tenant + invitation rows owned by the tenant feature
@@ -42,10 +50,18 @@ export type BootstrapSeedDeps = {
   readonly dispatchSystemWrite: ReturnType<typeof makeDispatchSystemWrite>;
 };
 
+export type BootstrapConfigValue = string | number | boolean;
+
 export type BootstrapTenant = {
   readonly id: TenantId;
   readonly key: string;
   readonly name: string;
+  /** Tenant-scope config values by qualified key (e.g.
+   *  `"auth-mfa:config:required": "admins"`), written as system writes on
+   *  EVERY run: config is declarative, so a rerun converges to the plan and
+   *  a value that already matches is not rewritten. Unlike `seed` it also
+   *  applies to tenants that already exist. */
+  readonly config?: Readonly<Record<string, BootstrapConfigValue>>;
   readonly invites?: readonly BootstrapInvite[];
 };
 
@@ -94,6 +110,8 @@ export type BootstrapReport = {
     readonly id: TenantId;
     readonly outcome: BootstrapTenantOutcome;
     readonly seeded: boolean;
+    /** Qualified keys this run wrote (new or changed); empty on a no-op rerun. */
+    readonly configApplied: readonly string[];
   }>;
   readonly invites: ReadonlyArray<{
     readonly tenantId: TenantId;
@@ -181,6 +199,32 @@ async function ensureTenant(
   return "created";
 }
 
+async function applyTenantConfig(
+  deps: BootstrapDeps,
+  tenant: BootstrapTenant,
+): Promise<readonly string[]> {
+  const applied: string[] = [];
+  for (const [key, value] of Object.entries(tenant.config ?? {})) {
+    const existing = await findConfigRow(deps.db, key, tenant.id, null);
+    if (existing?.value === JSON.stringify(value)) continue;
+    const result = await deps.dispatcher.write(
+      ConfigHandlers.set,
+      { key, value, scope: ConfigScopes.tenant },
+      // SystemAdmin on top of the system role: keys with the default tenant
+      // write access (admin roles) reject a bare system user, system-only keys
+      // accept it.
+      createSystemUser(tenant.id, ["SystemAdmin"]),
+    );
+    if (!result.isSuccess) {
+      throw new BootstrapWriteError(
+        `setting config ${key} for tenant ${tenant.id} failed: ${result.error.code} — ${result.error.message}`,
+      );
+    }
+    applied.push(key);
+  }
+  return applied;
+}
+
 async function holdsInvitedAccess(deps: BootstrapDeps, invite: PlannedInvite): Promise<boolean> {
   const user = await fetchOne<UserRow>(deps.db, userTable, {
     email: invite.email,
@@ -234,7 +278,8 @@ export async function bootstrapTenants(
     if (shouldSeed) {
       await plan.seed?.({ tenantId: tenant.id, db: deps.db, dispatchSystemWrite });
     }
-    tenants.push({ id: tenant.id, outcome, seeded: shouldSeed });
+    const configApplied = await applyTenantConfig(deps, tenant);
+    tenants.push({ id: tenant.id, outcome, seeded: shouldSeed, configApplied });
   }
 
   const invites: Array<BootstrapReport["invites"][number]> = [];
