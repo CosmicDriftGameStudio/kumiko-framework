@@ -609,6 +609,71 @@ describe("anonymous access — resolverTrust: authoritative, resolver returns nu
   });
 });
 
+describe("anonymous access — /api/schema without a session, authoritative resolver finds no tenant", () => {
+  let stack: TestStack;
+  const revokedSessionIds = new Set<string>();
+  const LIVE_SID = "schema-session";
+
+  beforeAll(async () => {
+    stack = await setupTestStack({
+      features: [shopFeature],
+      anonymousAccess: {
+        tenantResolver: () => null,
+        resolverTrust: "authoritative",
+        tenantExists: async (id: TenantId) => id === TENANT_ID,
+      },
+      authConfig: {
+        membershipQuery: "anonshop:query:memberships",
+        sessionCreator: async () => LIVE_SID,
+        sessionChecker: async (sid) => (revokedSessionIds.has(sid) ? "revoked" : "live"),
+        sessionRevoker: async (sid) => {
+          revokedSessionIds.add(sid);
+        },
+      },
+    });
+    await unsafeCreateEntityTable(stack.db, productEntity);
+    await unsafeCreateEntityTable(stack.db, orderEntity);
+  });
+
+  afterAll(() => stack.cleanup());
+
+  async function sessionCookie(): Promise<string> {
+    const token = await stack.jwt.sign({ ...TestUsers.admin, sid: LIVE_SID });
+    return `${AUTH_COOKIE_NAME}=${token}`;
+  }
+
+  test("after logout the cookie is gone → 401, not 400 tenant_required", async () => {
+    const token = await stack.jwt.sign({ ...TestUsers.admin, sid: LIVE_SID });
+    const logout = await stack.http.raw("POST", "/api/auth/logout", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+    expect(logout.status).toBe(200);
+
+    const res = await stack.http.raw("GET", "/api/schema");
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("missing_token");
+  });
+
+  test("revoked cookie still present → 401", async () => {
+    revokedSessionIds.add(LIVE_SID);
+    const res = await stack.http.raw("GET", "/api/schema", undefined, {
+      Cookie: await sessionCookie(),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  test("public anonymous handler without a tenant still answers 400 tenant_required", async () => {
+    const res = await stack.http.raw("POST", "/api/query", {
+      type: "anonshop:query:product:list",
+      payload: {},
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_required");
+  });
+});
+
 describe("anonymous access — resolverTrust: fallback-only", () => {
   let stack: TestStack;
 

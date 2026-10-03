@@ -4,7 +4,11 @@ import { TENANT_TEARDOWN_STATUSES } from "../engine/active-membership.js";
 import { createAnonymousUser } from "../engine/system-user.js";
 import { parseTenantId } from "../engine/types/identifiers.js";
 import type { SessionUser, TenantId } from "../engine/types/index.js";
-import { TENANT_COOKIE_NAME, TENANT_HEADER_NAME } from "./api-constants.js";
+import {
+  isSessionRequiredApiPath,
+  TENANT_COOKIE_NAME,
+  TENANT_HEADER_NAME,
+} from "./api-constants.js";
 import type { JwtHelper } from "./jwt.js";
 import { isForeignCookieOrigin } from "./origin-middleware.js";
 
@@ -282,7 +286,7 @@ export function authMiddleware(jwt: JwtHelper, options: AuthMiddlewareOptions = 
       // missing authentication, nicht missing tenant. Daher hier direkt
       // 401, ohne den anonymous-Tenant-Flow zu durchlaufen.
       if (anonymousAccess) {
-        if (c.req.path.startsWith("/api/auth/")) {
+        if (isSessionRequiredApiPath(c.req.path)) {
           return middlewareReject(c, {
             code: "missing_token",
             status: 401,
