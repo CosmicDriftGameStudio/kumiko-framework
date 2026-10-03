@@ -39,15 +39,13 @@ describe("scaffoldDeploy", () => {
     const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
     expect(migrate).toContain("myapp pre-deploy migrate step");
     expect(migrate).toContain("ghcr.io/acme/myapp:latest");
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
-    expect(migrate).toContain("postgresql://myapp:${DB_PASSWORD}@db:5432/myapp");
+    expect(migrate).toContain('postgresql://myapp:$(urlencode "$DB_PASSWORD")@db:5432/myapp');
     // The password-bearing URL is composed into the shell env and passed by
     // NAME (`-e DATABASE_URL`, no `=`), so the expanded value never lands in
     // `docker run`'s argv (would be visible in `ps auxe`).
     expect(migrate).toContain("export DATABASE_URL=");
     expect(migrate).toMatch(/-e DATABASE_URL\b(?!=)/);
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
-    expect(migrate).not.toContain('-e DATABASE_URL="postgresql://myapp:${DB_PASSWORD}');
+    expect(migrate).not.toContain('-e DATABASE_URL="postgresql://myapp:');
     // grep's no-match exit must not abort the script before the friendly
     // "No _stack network found" branch runs.
     expect(migrate).toContain("| head -1 || true)");
@@ -299,8 +297,9 @@ describe("scaffoldDeploy", () => {
     it("no kumiko.deploy → migrate-step uses appName as db user and the discover block", () => {
       scaffoldDeploy({ appName: "plainapp", destination: tmp });
       const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
-      expect(migrate).toContain("postgresql://plainapp:${DB_PASSWORD}@db:5432/plainapp");
+      expect(migrate).toContain(
+        'postgresql://plainapp:$(urlencode "$DB_PASSWORD")@db:5432/plainapp',
+      );
       expect(migrate).toContain("docker network ls");
       expect(migrate).not.toContain("basename");
     });
@@ -312,8 +311,9 @@ describe("scaffoldDeploy", () => {
       );
       scaffoldDeploy({ appName: "dbuserapp", destination: tmp });
       const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
-      expect(migrate).toContain("postgresql://kumiko:${DB_PASSWORD}@db:5432/dbuserapp");
+      expect(migrate).toContain(
+        'postgresql://kumiko:$(urlencode "$DB_PASSWORD")@db:5432/dbuserapp',
+      );
     });
 
     it('stackNetwork "directory" renders the exact-name block, not the discover block', () => {
@@ -391,6 +391,41 @@ describe("scaffoldDeploy", () => {
         expect(inspected).toBe("custom_stack");
         expect(status).toBe(0);
       });
+    });
+
+    it("percent-encodes URL-reserved characters of DB_PASSWORD in DATABASE_URL", () => {
+      const projectDir = join(tmp, "pwapp");
+      mkdirSync(projectDir, { recursive: true });
+      writeFileSync(
+        join(projectDir, "package.json"),
+        JSON.stringify({ name: "pwapp", kumiko: { deploy: { stackNetwork: "directory" } } }),
+      );
+      scaffoldDeploy({ appName: "pwapp", destination: projectDir });
+      const binDir = join(tmp, "bin-pw");
+      mkdirSync(binDir, { recursive: true });
+      const urlLog = join(tmp, "database-url.log");
+      writeFileSync(
+        join(binDir, "docker"),
+        [
+          "#!/bin/sh",
+          `[ "$1" = "run" ] && printf '%s' "$DATABASE_URL" > "${urlLog}"`,
+          "exit 0",
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+      writeFileSync(join(projectDir, ".env"), "DB_PASSWORD='p@ss:w/rd#%ä'\n");
+
+      const proc = Bun.spawnSync(["bash", join(projectDir, "deploy", "migrate-step.sh")], {
+        cwd: projectDir,
+        env: { PATH: `${binDir}:${process.env["PATH"] ?? ""}` },
+        stderr: "pipe",
+      });
+
+      expect(proc.exitCode).toBe(0);
+      expect(readFileSync(urlLog, "utf-8")).toBe(
+        "postgresql://pwapp:p%40ss%3Aw%2Frd%23%25%C3%A4@db:5432/pwapp",
+      );
     });
 
     it.each(["a;rm -rf /", "$(id)", "a b", ""])(
@@ -527,8 +562,9 @@ describe("scaffoldDeploy", () => {
         expect(result.detected.hasPrivateGhPackages).toBe(false);
         expect(warn).toHaveBeenCalledTimes(1);
         const migrate = readFileSync(join(tmp, "deploy", "migrate-step.sh"), "utf-8");
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: shell-substitution literal, not a JS template
-        expect(migrate).toContain("postgresql://kumiko:${DB_PASSWORD}@db:5432/shapeissue");
+        expect(migrate).toContain(
+          'postgresql://kumiko:$(urlencode "$DB_PASSWORD")@db:5432/shapeissue',
+        );
       } finally {
         warn.mockRestore();
       }

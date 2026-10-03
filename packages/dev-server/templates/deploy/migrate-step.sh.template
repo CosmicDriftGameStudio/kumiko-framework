@@ -49,6 +49,21 @@ set -a
 . ./.env
 set +a
 
+# Percent-encode so '@', ':', '/', '#', '%' in the password cannot change how
+# the URL is parsed. LC_ALL=C makes the loop walk bytes, not characters;
+# bash sign-extends bytes >= 0x80 in "'$c", hence the & 255.
+urlencode() {
+  local LC_ALL=C s="$1" out="" c i byte
+  for ((i = 0; i < ${#s}; i++)); do
+    c="${s:i:1}"
+    case "$c" in
+      [A-Za-z0-9._~-]) out+="$c" ;;
+      *) printf -v byte '%d' "'$c"; printf -v c '%%%02X' $((byte & 255)); out+="$c" ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
 # DATABASE_URL assumes: db user = appName, db name = appName, host "db"
 # (compose-service-name), port 5432. Adjust to your stack if different.
 {{#customDbUser}}
@@ -60,7 +75,7 @@ set +a
 # NAME (`-e DATABASE_URL`, no value) so the expanded password never appears
 # in `docker run`'s argv — otherwise it would be visible in `ps auxe` for
 # the duration of the migrate run.
-export DATABASE_URL="postgresql://{{dbUser}}:${DB_PASSWORD}@db:5432/{{appName}}"
+export DATABASE_URL="postgresql://{{dbUser}}:$(urlencode "$DB_PASSWORD")@db:5432/{{appName}}"
 docker run --rm \
   --network "$STACK_NETWORK" \
   -e DATABASE_URL \
