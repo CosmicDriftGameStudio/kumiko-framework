@@ -20,7 +20,8 @@
       "create-kumiko-app",
       "@cosmicdrift/kumiko-guards",
       "@cosmicdrift/kumiko-repo-manifest",
-      "@cosmicdrift/kumiko-testing"
+      "@cosmicdrift/kumiko-testing",
+      "@cosmicdrift/kumiko-samples"
     ]
   ],
   "linked": [],

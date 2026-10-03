@@ -1,0 +1,34 @@
+{
+  "name": "@cosmicdrift/kumiko-samples",
+  "version": "0.337.1",
+  "description": "Source trees of the Kumiko sample recipes, sample apps and bundled features in repo layout, for tooling such as few-shot corpus builds.",
+  "license": "BUSL-1.1",
+  "author": "Marc Frost <marc@cosmicdriftgamestudio.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CosmicDriftGameStudio/kumiko-framework.git",
+    "directory": "packages/samples"
+  },
+  "bugs": {
+    "url": "https://github.com/CosmicDriftGameStudio/kumiko-framework/issues"
+  },
+  "homepage": "https://kumiko.rocks",
+  "type": "module",
+  "kumiko": {
+    "runtime": "tooling"
+  },
+  "scripts": {
+    "prepack": "bun ../../scripts/stage-samples-package.ts stage",
+    "postpack": "bun ../../scripts/stage-samples-package.ts clean"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org",
+    "access": "public"
+  },
+  "files": [
+    "samples",
+    "packages",
+    "README.md",
+    "LICENSE"
+  ]
+}
