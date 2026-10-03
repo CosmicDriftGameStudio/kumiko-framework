@@ -9,7 +9,7 @@
 //     happens to share the same uuid
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   configurePiiSubjectKms,
   decryptPiiFieldValues,
@@ -315,6 +315,61 @@ describe("crypto-shredding :: forget-subject (record subject) tenant gate, #2786
     expect((err.details as { reason?: string } | undefined)?.reason).toBe(
       RECORD_ENTITY_NOT_REGISTERED,
     );
+  });
+
+  test("DPO of the owning tenant may forget a record whose projection row was hard-deleted; a foreign DPO may not", async () => {
+    const tenantADb = createTenantDb(gateStack.db, GATE_TENANT_A, "system");
+    const created = await recordProbeExecutor().create(
+      { body: "deleted soon" },
+      dpoTenantA,
+      tenantADb,
+    );
+    if (!created.isSuccess) throw new Error("create failed");
+    const rowId = String(created.data.id);
+    await asRawClient(gateStack.db).unsafe(
+      "DELETE FROM read_forget_subject_record_probe WHERE id = $1",
+      [rowId],
+    );
+    const subject = { kind: "record", entity: RECORD_PROBE_ENTITY_NAME, id: rowId } as const;
+
+    const denied = await gateStack.http.writeErr(FORGET, { subject, reason: REASON }, dpoTenantB);
+    expect((denied.details as { reason?: string } | undefined)?.reason).toBe(
+      TARGET_RECORD_NOT_ADMIN_TENANT,
+    );
+
+    const result = await gateStack.http.writeOk<{ subjectKey: string }>(
+      FORGET,
+      { subject, reason: REASON },
+      dpoTenantA,
+    );
+    expect(result.subjectKey).toBe(`record:${RECORD_PROBE_ENTITY_NAME}:${rowId}`);
+  });
+
+  test("a custom aggregate without a registered entity is forgettable by the owning tenant's DPO only", async () => {
+    const unregisteredAggregate = "unregisteredSignal";
+    const executor = createEventStoreExecutor(recordProbeTable, recordProbeEntity, {
+      entityName: unregisteredAggregate,
+    });
+    const tenantADb = createTenantDb(gateStack.db, GATE_TENANT_A, "system");
+    const created = await executor.create({ body: "custom aggregate note" }, dpoTenantA, tenantADb);
+    if (!created.isSuccess) throw new Error("create failed");
+    const subject = {
+      kind: "record",
+      entity: unregisteredAggregate,
+      id: String(created.data.id),
+    } as const;
+
+    const denied = await gateStack.http.writeErr(FORGET, { subject, reason: REASON }, dpoTenantB);
+    expect((denied.details as { reason?: string } | undefined)?.reason).toBe(
+      RECORD_ENTITY_NOT_REGISTERED,
+    );
+
+    const result = await gateStack.http.writeOk<{ subjectKey: string }>(
+      FORGET,
+      { subject, reason: REASON },
+      dpoTenantA,
+    );
+    expect(result.subjectKey).toBe(`record:${unregisteredAggregate}:${subject.id}`);
   });
 });
 

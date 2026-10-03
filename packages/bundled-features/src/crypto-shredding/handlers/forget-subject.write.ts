@@ -11,6 +11,7 @@ import {
 import {
   type DbRunner,
   nullBlindIndexesForSubject,
+  recordEventExistsInTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
   subjectRowExistsInTenant,
@@ -132,23 +133,20 @@ async function resolveTenantScopeDenial(
     // feature there is no tenant concept to enforce.
     if (!features.has("tenant")) return undefined;
     const entity = findRegisteredEntity(features, raw.entity);
-    if (!entity) {
-      return writeFailure(
-        new AccessDeniedError({ details: { reason: RECORD_ENTITY_NOT_REGISTERED } }),
-      );
-    }
-    const ownedInTenant = await recordRowExistsInTenant(
-      db,
-      features,
-      raw.entity,
-      raw.id,
-      user.tenantId,
+    const rowInTenant =
+      entity !== undefined &&
+      (await recordRowExistsInTenant(db, features, raw.entity, raw.id, user.tenantId));
+    if (rowInTenant) return undefined;
+    // A deleted row or a custom aggregate without an entity has no projection
+    // row to check; its event stream still proves which tenant owns it.
+    if (await recordEventExistsInTenant(db, raw.entity, raw.id, user.tenantId)) return undefined;
+    return writeFailure(
+      new AccessDeniedError({
+        details: {
+          reason: entity ? TARGET_RECORD_NOT_ADMIN_TENANT : RECORD_ENTITY_NOT_REGISTERED,
+        },
+      }),
     );
-    return ownedInTenant
-      ? undefined
-      : writeFailure(
-          new AccessDeniedError({ details: { reason: TARGET_RECORD_NOT_ADMIN_TENANT } }),
-        );
   }
 
   // Without the tenant feature there's no membership table to check against —
