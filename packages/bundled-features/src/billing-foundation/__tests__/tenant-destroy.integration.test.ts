@@ -45,6 +45,7 @@ import {
 } from "../../tenant-lifecycle/constants.js";
 import { createTenantLifecycleFeature } from "../../tenant-lifecycle/index.js";
 import { runTenantDestructionSweep } from "../../tenant-lifecycle/run-tenant-destroy.js";
+import { createUserFeature } from "../../user/feature.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import { SubscriptionEventTypes, SubscriptionFoundationHandlers } from "../constants.js";
 import { consentTextVersion } from "../consumer-protection/consent-text.js";
@@ -79,6 +80,7 @@ beforeAll(async () => {
   stack = await setupTestStack({
     features: [
       createConfigFeature(),
+      createUserFeature(),
       createTenantFeature(),
       createComplianceProfilesFeature(),
       createTenantLifecycleFeature(),

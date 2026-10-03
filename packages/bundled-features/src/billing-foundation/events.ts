@@ -141,3 +141,25 @@ export const checkoutConsentRecordedPayloadSchema = z.object({
   actorUserId: z.string().min(1),
 });
 export type CheckoutConsentRecordedPayload = z.infer<typeof checkoutConsentRecordedPayloadSchema>;
+
+// =============================================================================
+// contract-confirmation-issued — § 312f confirmation mail sent (fw#3468)
+// =============================================================================
+//
+// Appended onto the stream that carries the consent, BEFORE the mail is
+// handed to delivery: the append is the optimistic-concurrency guard that
+// keeps a concurrent or replayed run from sending a second mail.
+
+export const CONTRACT_CONFIRMATION_ISSUED_EVENT_SHORT = "contract-confirmation-issued" as const;
+export const CONTRACT_CONFIRMATION_ISSUED_EVENT_QN =
+  `${BILLING_FOUNDATION_FEATURE}:event:${CONTRACT_CONFIRMATION_ISSUED_EVENT_SHORT}` as const;
+
+export const contractConfirmationIssuedPayloadSchema = z.object({
+  consentId: z.string().min(1).max(100),
+  issuedAtIso: z.string().min(1),
+  locale: z.string().min(2).max(35),
+  termsTemplateVersion: z.number(),
+});
+export type ContractConfirmationIssuedPayload = z.infer<
+  typeof contractConfirmationIssuedPayloadSchema
+>;
