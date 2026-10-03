@@ -48,6 +48,19 @@ describe("email channel envelope", () => {
     expect(sent.headers).toEqual({ "In-Reply-To": "<abc@mail>", References: "<abc@mail>" });
   });
 
+  test("fromName from channel data reaches the transport", async () => {
+    const transport = createInMemoryTransport();
+    const message: ChannelMessage = {
+      notificationType: "x",
+      title: "t",
+      body: "b",
+      data: { subject: "t", body: "b", fromName: "Tenant via veridom" },
+    };
+    await channelWith(transport).send("mieter@example.com", message, ctx, rendered);
+    expect(transport.sent[0]?.fromName).toBe("Tenant via veridom");
+    expect(transport.sent[0]?.from).toBeUndefined();
+  });
+
   test("no envelope keys → transport gets none and falls back to its default From", async () => {
     const transport = createInMemoryTransport();
     const message: ChannelMessage = {

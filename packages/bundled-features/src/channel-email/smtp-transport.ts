@@ -17,6 +17,7 @@
 // dedizierter Queue (BullMQ + retry) drüberlegen.
 
 import { createTransport, type Transporter } from "nodemailer";
+import addressparser from "nodemailer/lib/addressparser";
 import type { EmailMessage, EmailTransport } from "./types.js";
 
 export type SmtpTransportOptions = {
@@ -48,6 +49,31 @@ export type SmtpTransportOptions = {
   readonly servername?: string;
 };
 
+function isControlCharacter(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return code <= 0x1f || code === 0x7f;
+}
+
+// Control characters in a display name would let a caller inject headers.
+function sanitizedDisplayName(name: string | undefined): string | undefined {
+  const cleaned = name
+    ?.split("")
+    .map((char) => (isControlCharacter(char) ? " " : char))
+    .join("")
+    .trim();
+  return cleaned === undefined || cleaned === "" ? undefined : cleaned;
+}
+
+function fromHeader(
+  address: string,
+  fromName: string | undefined,
+): string | { readonly name: string; readonly address: string } {
+  const name = sanitizedDisplayName(fromName);
+  if (name === undefined) return address;
+  const [parsed] = addressparser(address, { flatten: true });
+  return parsed?.address ? { name, address: parsed.address } : address;
+}
+
 export function createSmtpTransport(options: SmtpTransportOptions): EmailTransport {
   const transporter: Transporter = createTransport({
     host: options.host,
@@ -62,7 +88,7 @@ export function createSmtpTransport(options: SmtpTransportOptions): EmailTranspo
   return {
     async send(message: EmailMessage): Promise<void> {
       await transporter.sendMail({
-        from: message.from ?? options.from,
+        from: fromHeader(message.from ?? options.from, message.fromName),
         to: message.to,
         subject: message.subject,
         html: message.html,

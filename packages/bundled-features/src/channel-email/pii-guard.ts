@@ -12,16 +12,17 @@ const CIPHERTEXT_RE = /kumiko-pii:v\d+:[^"\s<>\\]*/g;
 // blob); ciphertext in subject/body fails loud in dev and is redacted+logged
 // in prod.
 export function guardEmailMessage(message: EmailMessage): EmailMessage {
-  // Every envelope address, not just `to`: a ciphertext From or Reply-To is
+  // Every envelope address, not just `to`: a ciphertext From, From-Name or Reply-To is
   // the same garbage as a ciphertext recipient — refuse rather than mail it.
   for (const [label, address] of [
-    ["recipient", message.to],
-    ["from", message.from],
-    ["reply-to", message.replyTo],
+    ["recipient address", message.to],
+    ["from address", message.from],
+    ["from name", message.fromName],
+    ["reply-to address", message.replyTo],
   ] as const) {
     if (address?.includes(CIPHERTEXT_MARKER)) {
       throw new Error(
-        `[channel-email] refusing to send: ${label} address is a PII ciphertext ` +
+        `[channel-email] refusing to send: ${label} is a PII ciphertext ` +
           `("${PII_CIPHERTEXT_PREFIX}…") — decrypt the stored value before mailing (decryptStoredPii).`,
       );
     }
