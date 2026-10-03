@@ -8,8 +8,14 @@
 //   - Member role → 403 (DPO/SystemAdmin only)
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import { fetchOne, insertOne, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { configurePiiSubjectKms, InMemoryKmsAdapter } from "@cosmicdrift/kumiko-framework/crypto";
+import {
+  computeBlindIndex,
+  configureBlindIndexKey,
+  configurePiiSubjectKms,
+  InMemoryKmsAdapter,
+} from "@cosmicdrift/kumiko-framework/crypto";
 import {
   buildEntityTable,
   createEventStoreExecutor,
@@ -32,7 +38,11 @@ import {
   unsafeCreateEntityTable,
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
-import { resetPiiSubjectKmsForTests, resetTestTables } from "@cosmicdrift/kumiko-framework/testing";
+import {
+  resetBlindIndexKeyForTests,
+  resetPiiSubjectKmsForTests,
+  resetTestTables,
+} from "@cosmicdrift/kumiko-framework/testing";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import { Temporal } from "temporal-polyfill";
 import { authFoundationFeature } from "../../auth-foundation/index.js";
@@ -91,6 +101,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   resetPiiSubjectKmsForTests();
+  resetBlindIndexKeyForTests();
 });
 
 async function forgottenEvents(): Promise<Array<{ payload: Record<string, unknown> }>> {
@@ -548,10 +559,11 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     expect(denied[0]?.aggregateId).not.toBe(dpoUser.id);
   });
 
-  // fw#2591 payload-hardening coverage (previously untested): the denial
-  // event must carry only a digest, never the foreign user id or a
+  // The denial event must carry only a keyed digest, never the foreign user id or a
   // plaintext subject key.
-  test("denial payload carries only the digest, never the foreign subject id or a plaintext key", async () => {
+  test("denial payload carries only the keyed digest, never the foreign subject id or a plaintext key", async () => {
+    const blindIndexKey = new Uint8Array(32).fill(7);
+    configureBlindIndexKey(Buffer.from(blindIndexKey).toString("base64"));
     const { id: userId } = await seedUser(stack.db, {
       email: "foreign-tenant-user-2591@example.com",
       displayName: "Foreign Tenant User 2591",
@@ -568,7 +580,10 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const denied = await deniedEvents(stack.db);
     expect(denied).toHaveLength(1);
     const payload = denied[0]?.payload ?? {};
-    expect(payload["subjectKeyDigest"]).toBeTruthy();
+    expect(payload["subjectKeyDigest"]).toBe(computeBlindIndex(blindIndexKey, `user:${userId}`));
+    expect(payload["subjectKeyDigest"]).not.toBe(
+      createHash("sha256").update(`user:${userId}`, "utf8").digest("base64url"),
+    );
     expect(payload["subjectKind"]).toBe("user");
     expect(payload).not.toHaveProperty("subjectKey");
     expect(payload["actorTenantId"]).toBe(dpoUser.tenantId);
@@ -576,6 +591,25 @@ describe("crypto-shredding :: forget-subject closes the login door (user feature
     const serialized = JSON.stringify(payload);
     expect(serialized).not.toContain(userId);
     expect(serialized).not.toContain(TENANT_B);
+  });
+
+  test("denial payload stores no digest at all when no blind-index key is configured", async () => {
+    const { id: userId } = await seedUser(stack.db, {
+      email: "foreign-tenant-user-nokey@example.com",
+      displayName: "Foreign Tenant User NoKey",
+      emailVerified: true,
+    });
+    await seedTenantMembership(stack.db, { userId, tenantId: TENANT_B, roles: ["Member"] });
+
+    await stack.http.writeErr(
+      FORGET,
+      { subject: { kind: "user", userId }, reason: REASON },
+      dpoUser,
+    );
+
+    const denied = await deniedEvents(stack.db);
+    expect(denied).toHaveLength(1);
+    expect(denied[0]?.payload).not.toHaveProperty("subjectKeyDigest");
   });
 
   test("SystemAdmin can forget a user with no membership in any tenant", async () => {
