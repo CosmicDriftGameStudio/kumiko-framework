@@ -25,6 +25,7 @@ const READ_AUTHOR_DISPLAY_NAME_REASON =
 // see shared/parent-visibility.ts.
 export function createAddNoteHandler(
   access: AccessRule = DEFAULT_NOTES_HISTORY_ACCESS,
+  entryExecutor: typeof noteEntryExecutor = noteEntryExecutor,
 ): WriteHandlerDef {
   return {
     name: "add-note",
@@ -90,7 +91,7 @@ export function createAddNoteHandler(
       }
 
       const { mentions, ...notePayload } = payload;
-      const created = await noteEntryExecutor.create(
+      const created = await entryExecutor.create(
         { ...notePayload, authorId: event.user.id, authorName },
         event.user,
         ctx.db,

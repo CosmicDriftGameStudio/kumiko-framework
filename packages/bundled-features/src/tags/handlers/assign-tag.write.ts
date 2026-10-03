@@ -27,7 +27,10 @@ import { type AssignTagPayload, assignTagPayloadSchema } from "../schemas.js";
 // the aggregate-id is tenant-scoped, so this is not a cross-tenant hole, but
 // without the check any dispatch-eligible tenant user could tag an object they
 // are not allowed to read. See shared/parent-visibility.ts.
-export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS): WriteHandlerDef {
+export function createAssignTagHandler(
+  access: AccessRule = DEFAULT_TAG_ACCESS,
+  assignmentExecutor: typeof tagAssignmentExecutor = tagAssignmentExecutor,
+): WriteHandlerDef {
   return {
     name: "assign-tag",
     schema: assignTagPayloadSchema,
@@ -52,12 +55,12 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
         payload.entityId,
       );
 
-      const existing = await tagAssignmentExecutor.detail({ id }, event.user, ctx.db);
+      const existing = await assignmentExecutor.detail({ id }, event.user, ctx.db);
       if (existing) {
         return { isSuccess: true as const, data: { id } };
       }
 
-      const restored = await tagAssignmentExecutor.restore({ id }, event.user, ctx.db);
+      const restored = await assignmentExecutor.restore({ id }, event.user, ctx.db);
       if (restored.isSuccess) return { isSuccess: true as const, data: { id } };
       // A concurrent first-time assign can also land here: the other caller's
       // create() already wrote an active row between our `existing` read
@@ -72,7 +75,7 @@ export function createAssignTagHandler(access: AccessRule = DEFAULT_TAG_ACCESS):
       const tag = await tagExecutor.detail({ id: payload.tagId }, event.user, ctx.db);
       if (!tag) return writeFailure(new NotFoundError("tag", payload.tagId));
 
-      const created = await tagAssignmentExecutor.create(
+      const created = await assignmentExecutor.create(
         {
           id,
           tagId: payload.tagId,

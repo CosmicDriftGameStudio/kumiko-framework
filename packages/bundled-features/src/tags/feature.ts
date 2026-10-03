@@ -30,6 +30,7 @@ import {
 import { hasWhereRule } from "../shared/index.js";
 import { DEFAULT_TAG_ACCESS, TAGS_FEATURE_NAME } from "./constants.js";
 import { createTagAssignmentEntity, tagEntity } from "./entity.js";
+import { createTagAssignmentExecutor } from "./executor.js";
 import { createAssignTagHandler } from "./handlers/assign-tag.write.js";
 import { createCreateTagHandler } from "./handlers/create-tag.write.js";
 import { createDeleteTagHandler } from "./handlers/delete-tag.write.js";
@@ -73,8 +74,9 @@ function registerTags(
   r.writeHandler(createCreateTagHandler(access));
   r.writeHandler(createUpdateTagHandler(access));
   r.writeHandler(createDeleteTagHandler(access));
-  r.writeHandler(createAssignTagHandler(access));
-  r.writeHandler(createRemoveTagHandler(access));
+  const assignmentExecutor = createTagAssignmentExecutor(ownership);
+  r.writeHandler(createAssignTagHandler(access, assignmentExecutor));
+  r.writeHandler(createRemoveTagHandler(access, assignmentExecutor));
 
   // Convention aliases for entityList/entityEdit — create stays flat-payload
   // (payloadMode=values); update must accept the {id,version,changes} envelope
@@ -155,9 +157,10 @@ export type TagsFeatureOptions = {
    *  `tag-assignment`; the `tag` catalog stays tenant-wide by design.
    *
    *  `ownership.write` is separate and does NOT affect list/read. It's
-   *  consulted by the framework's generic delete/forget/restore paths (not by
-   *  this feature's own assign-tag handler — see createTagsFeature's
-   *  boot-guard comment). A `from()` rule there also gates GDPR erasure
+   *  consulted on every assignment write: assign-tag (create/restore),
+   *  remove-tag (delete) and the framework's generic forget path. The
+   *  delete-tag cascade stays ungated, since deleting a catalog tag detaches
+   *  it everywhere. A `from()` rule there also gates GDPR erasure
    *  (`forget`): if the rule's role map doesn't cover whatever role the
    *  erasure/retention pipeline runs as, `forget` denies instead of
    *  crypto-shredding — a silent Art.17 failure, not a thrown error. Make
