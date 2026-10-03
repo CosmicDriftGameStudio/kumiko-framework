@@ -70,9 +70,7 @@ export const restrictAccountWrite = defineWriteHandler({
         );
       }
       const outside = await denyIfTargetOutsideAdminTenant(
-        ctx.db.unsafeRaw(
-          "checks the target user's membership in the admin's tenant via the DbRunner helper",
-        ),
+        ctx.db.unsafeRaw(),
         event.user,
         targetUserId,
       );
@@ -107,11 +105,7 @@ export const restrictAccountWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(
-      ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
-      targetUserId,
-      { status: USER_STATUS.Restricted },
-    );
+    await updateUserLifecycle(ctx.db.unsafeRaw(), targetUserId, { status: USER_STATUS.Restricted });
 
     // Cross-Feature: alle live sessions revoken — sonst koennte der User
     // mit existierendem JWT bis zur Token-Expiry weiter schreiben.

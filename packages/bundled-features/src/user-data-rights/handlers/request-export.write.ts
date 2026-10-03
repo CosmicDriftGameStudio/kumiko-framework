@@ -77,7 +77,7 @@ export const requestExportWrite = defineWriteHandler({
     const userId = event.user.id;
     const T = getTemporal();
     const now = T.Now.instant();
-    const exportJobRunner = ctx.db.unsafeRaw(REQUEST_EXPORT_REASON);
+    const exportJobRunner = ctx.db.unsafeRaw();
 
     // Pre-Check: exportJobRunner bypasses the TenantDb-Filter — the
     // TenantDb-Wrapper would hide cross-tenant jobs.

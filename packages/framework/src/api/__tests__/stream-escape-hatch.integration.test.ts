@@ -74,7 +74,7 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     "unsafe-raw-no-hatch",
     z.object({}),
     async function* (_query, ctx) {
-      const runner = ctx.db.unsafeRaw("no escapeHatch declared — must throw before this runs");
+      const runner = ctx.db.unsafeRaw();
       yield await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
     },
     { access: { roles: ["User"] } },
@@ -84,7 +84,7 @@ const streamProbeFeature = defineFeature("stream-idswitch-probe", (r) => {
     "unsafe-raw-with-hatch",
     z.object({}),
     async function* (_query, ctx) {
-      const runner = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const runner = ctx.db.unsafeRaw();
       yield await executeRawQuery<{ one: number }>(runner, "SELECT 1 AS one");
     },
     { access: { roles: ["User"] }, escapeHatch: { reason: UNSAFE_RAW_REASON } },

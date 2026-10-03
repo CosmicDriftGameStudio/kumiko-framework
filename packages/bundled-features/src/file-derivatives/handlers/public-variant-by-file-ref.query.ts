@@ -38,7 +38,7 @@ export const publicVariantByFileRefQuery = defineQueryHandler({
     reason: BY_FILE_REF_ESCAPE_HATCH_REASON,
   },
   handler: async (query, ctx) => {
-    const db = ctx.db.unsafeRaw(BY_FILE_REF_ESCAPE_HATCH_REASON);
+    const db = ctx.db.unsafeRaw();
     const row = await fetchOne<FileRefTenantRow>(db, fileRefsTable, {
       id: query.payload.fileRefId,
       isDeleted: false,

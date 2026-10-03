@@ -7,10 +7,6 @@ import { updateUserLifecycle } from "../lib/update-user-lifecycle.js";
 
 const LIFT_RESTRICTION_ESCAPE_HATCH_REASON =
   "checks the target user's membership in the admin's tenant and appends the user lifecycle status change on the SYSTEM_TENANT_ID user stream, both via DbRunner helpers outside the admin's own tenant scope.";
-const CHECK_TARGET_MEMBERSHIP_REASON =
-  "checks the target user's membership in the admin's tenant via the DbRunner helper";
-const APPEND_LIFECYCLE_EVENT_REASON =
-  "appends the user lifecycle event on the SYSTEM_TENANT_ID user stream";
 
 // POST /api/user/lift-restriction (S2.U6) — DSGVO Art. 18 Reverse.
 //
@@ -46,7 +42,7 @@ export const liftRestrictionWrite = defineWriteHandler({
     const targetUserId = event.payload.userId;
 
     const outside = await denyIfTargetOutsideAdminTenant(
-      ctx.db.unsafeRaw(CHECK_TARGET_MEMBERSHIP_REASON),
+      ctx.db.unsafeRaw(),
       event.user,
       targetUserId,
     );
@@ -73,7 +69,7 @@ export const liftRestrictionWrite = defineWriteHandler({
       );
     }
 
-    await updateUserLifecycle(ctx.db.unsafeRaw(APPEND_LIFECYCLE_EVENT_REASON), targetUserId, {
+    await updateUserLifecycle(ctx.db.unsafeRaw(), targetUserId, {
       status: USER_STATUS.Active,
     });
 

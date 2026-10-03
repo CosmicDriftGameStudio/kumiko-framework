@@ -151,7 +151,7 @@ export function createAuthMfaFeature(opts: AuthMfaFeatureOptions): FeatureDefini
         mfaReencryptJob(
           payload,
           ctx,
-          ctx.db.unsafeRaw(REENCRYPT_ESCAPE_HATCH_REASON) as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          ctx.db.unsafeRaw() as DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
         ),
     });
 

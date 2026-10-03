@@ -62,11 +62,7 @@ export function createEnableStartPreauthHandler(opts: EnableStartPreauthOptions)
       // "system" mode: the guest dispatch identity's own tenantId is
       // meaningless here — the preauthSetupToken is the source of truth
       // for which tenant's row to read, mirroring verify.write.ts.
-      const scopedDb = createTenantDb(
-        ctx.db.unsafeRaw(ENABLE_START_PREAUTH_TENANT_REASON),
-        tenantId,
-        "system",
-      );
+      const scopedDb = createTenantDb(ctx.db.unsafeRaw(), tenantId, "system");
       const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
       const existing = await findUserMfaRow(scopedDb, scopedUser);
       if (existing) return mfaAlreadyEnabled();

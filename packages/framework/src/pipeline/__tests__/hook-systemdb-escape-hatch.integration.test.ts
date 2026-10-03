@@ -93,9 +93,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
       const rawDb =
         mode === "escapeHatch-unsafe-raw"
           ? ctx.systemDb.unsafeRaw(HOOK_ESCAPE_HATCH_REASON)
-          : ctx.systemDb
-              .acknowledgeCrossTenant(HOOK_ESCAPE_HATCH_REASON)
-              .unsafeRaw(HOOK_ESCAPE_HATCH_REASON);
+          : ctx.systemDb.acknowledgeCrossTenant(HOOK_ESCAPE_HATCH_REASON).unsafeRaw();
       const otherTenantDb = createTenantDb(rawDb, OTHER_TENANT_ID, "system");
       await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
     },
@@ -114,9 +112,7 @@ const featureB = defineFeature("hooksys3198-b", (r) => {
         const otherTenantDb = createTenantDb(rawDb, OTHER_TENANT_ID, "system");
         await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
       } else if (mode === "no-escapeHatch-ack-unsafe-raw") {
-        const rawDb = ctx.systemDb
-          .acknowledgeCrossTenant(NO_HOOK_ESCAPE_HATCH_REASON)
-          .unsafeRaw(NO_HOOK_ESCAPE_HATCH_REASON);
+        const rawDb = ctx.systemDb.acknowledgeCrossTenant(NO_HOOK_ESCAPE_HATCH_REASON).unsafeRaw();
         const otherTenantDb = createTenantDb(rawDb, OTHER_TENANT_ID, "system");
         await otherTenantDb.insertOne(auditTable, { note: `${mode}:${labelOf(result)}` });
       } else if (mode === "no-escapeHatch-ack-crud") {

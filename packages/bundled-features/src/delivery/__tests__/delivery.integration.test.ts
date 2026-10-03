@@ -336,7 +336,7 @@ const systemBroadcastFeature = defineFeature("test-system-broadcast", (r) => {
     handler: async (_query, ctx) => {
       let dbUnsafeRawThrew = false;
       try {
-        ctx.db.unsafeRaw("x");
+        ctx.db.unsafeRaw();
       } catch {
         dbUnsafeRawThrew = true;
       }

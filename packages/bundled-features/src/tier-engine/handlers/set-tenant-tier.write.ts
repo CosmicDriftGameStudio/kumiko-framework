@@ -73,7 +73,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
     },
     handler: async (event, ctx) => {
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
-      const rawDb = ctx.db.unsafeRaw(SET_TENANT_TIER_REASON);
+      const rawDb = ctx.db.unsafeRaw();
       const tdb = createTenantDb(rawDb, tenantId, "system");
       const systemUser = { ...event.user, tenantId };
       const tier = event.payload.tier;

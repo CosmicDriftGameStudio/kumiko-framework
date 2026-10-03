@@ -126,9 +126,7 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
         await runTenantDestructionSweep({
-          db: ctx.db.unsafeRaw(
-            RUN_TENANT_DESTRUCTION_REASON,
-          ) as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
+          db: ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
           registry: ctx.registry,
           now: T.Now.instant(),
           log: (message) => ctx.log?.warn(message),

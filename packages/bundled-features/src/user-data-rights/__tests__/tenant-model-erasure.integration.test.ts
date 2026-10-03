@@ -82,10 +82,9 @@ const TENANT_SCOPED_DELETE_REASON =
 
 const tenantScopedDeleteHook: UserDataDeleteHook = async (ctx) => {
   if (ctx.tenantModel !== "single-user") return; // shared tenant: erasing would hit co-members
-  await asRawClient(ctx.db.unsafeRaw(TENANT_SCOPED_DELETE_REASON)).unsafe(
-    `DELETE FROM ${TABLE} WHERE tenant_id = $1`,
-    [ctx.tenantId],
-  );
+  await asRawClient(ctx.db.unsafeRaw()).unsafe(`DELETE FROM ${TABLE} WHERE tenant_id = $1`, [
+    ctx.tenantId,
+  ]);
 };
 
 const contributorFeature = defineFeature("dsgvo-tenant-scoped", (r) => {

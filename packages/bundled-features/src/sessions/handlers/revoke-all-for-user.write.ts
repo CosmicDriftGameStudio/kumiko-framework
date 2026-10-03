@@ -49,7 +49,7 @@ export const revokeAllForUserWrite = defineWriteHandler({
     reason: REVOKE_ALL_SESSIONS_REASON,
   },
   handler: async (event, ctx) => {
-    const runner = ctx.db.unsafeRaw(REVOKE_ALL_SESSIONS_REASON);
+    const runner = ctx.db.unsafeRaw();
     const updated = await updateMany<{ id: string }>(
       runner,
       userSessionTable,

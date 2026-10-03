@@ -65,7 +65,7 @@ export function createRequestDeletionHandler(opts: RequestDeletionOptions = {}) 
         ctx,
         event.user.id,
         () => resolveGracePeriod(ctx, event.user.tenantId),
-        ctx.db.unsafeRaw("appends the user lifecycle event on the SYSTEM_TENANT_ID user stream"),
+        ctx.db.unsafeRaw(),
       );
       if (!res.ok) return writeFailure(res.error);
       const { gracePeriodEnd, userEmail, userLocale } = res;

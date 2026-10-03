@@ -63,7 +63,7 @@ export const setCustomFieldHandler: WriteHandlerDef = {
     const payload = event.payload as SetCustomFieldPayload; // @cast-boundary engine-payload
 
     const loaded = await loadFieldDefinition(
-      ctx.db.unsafeRaw(SET_CUSTOM_FIELD_REASON),
+      ctx.db.unsafeRaw(),
       event.user.tenantId,
       payload.entityName,
       payload.fieldKey,

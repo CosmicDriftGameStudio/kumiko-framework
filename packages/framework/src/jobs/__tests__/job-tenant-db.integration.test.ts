@@ -51,7 +51,7 @@ const jobsFeature = defineFeature("jobtenantdb", (r) => {
     });
     let unsafeRawDenied = false;
     try {
-      ctx.db.unsafeRaw("fw#2914 integration test — undeclared job reaching for raw");
+      ctx.db.unsafeRaw();
     } catch (err) {
       unsafeRawDenied = err instanceof AccessDeniedError;
     }
@@ -70,7 +70,7 @@ const jobsFeature = defineFeature("jobtenantdb", (r) => {
     trigger: { manual: true },
     escapeHatch: { reason: DECLARED_REASON },
     handler: async (_payload, ctx) => {
-      const raw = ctx.db.unsafeRaw(DECLARED_REASON);
+      const raw = ctx.db.unsafeRaw();
       const rows = await selectMany<{ label: string }>(raw, itemsTable);
       outcomes.push({ job: "declared", rawLabels: labelsOf(rows) });
     },

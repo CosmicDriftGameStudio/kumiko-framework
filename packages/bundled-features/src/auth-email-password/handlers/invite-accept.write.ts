@@ -63,10 +63,6 @@ const invitationExecutor = createEventStoreExecutor(
 
 const INVITE_ACCEPT_ESCAPE_HATCH_REASON =
   "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant. Adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant.";
-const READ_PENDING_INVITATION_REASON =
-  "reads the pending invitation by id; the invitee is not yet a member of the invitation's tenant";
-const ADD_MEMBERSHIP_INVITATION_TENANT_REASON =
-  "adds the membership and accepts the invitation in the invitation's tenant, which differs from the caller's tenant";
 
 export function createInviteAcceptHandler() {
   return defineWriteHandler<"invite-accept", typeof InviteAcceptSchema, InviteAcceptData>({
@@ -116,7 +112,7 @@ export function createInviteAcceptHandler() {
       let committed = false;
       try {
         const invitation = await fetchOne<InvitationRow>(
-          ctx.db.unsafeRaw(READ_PENDING_INVITATION_REASON),
+          ctx.db.unsafeRaw(),
           tenantInvitationsTable,
           { id: invitationId },
         );
@@ -147,7 +143,7 @@ export function createInviteAcceptHandler() {
 
         // Executor instead of dispatcher.writeAs(addMember): addMember only
         // accepts SystemAdmin, createSystemUser carries "system".
-        const dbConn = ctx.db.unsafeRaw(ADD_MEMBERSHIP_INVITATION_TENANT_REASON);
+        const dbConn = ctx.db.unsafeRaw();
         const grant = await grantInvitedMembershipRole(dbConn, {
           userId: event.user.id,
           tenantId: invitationTenantId,

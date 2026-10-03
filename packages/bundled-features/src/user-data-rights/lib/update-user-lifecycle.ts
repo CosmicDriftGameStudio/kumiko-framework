@@ -29,7 +29,7 @@ export type UpdateUserLifecycleOptions = {
   readonly expect?: Readonly<Record<string, string | number | boolean | null>>;
 };
 
-// `conn` is ctx.db.unsafeRaw(reason) (regular handlers) or the open tx
+// `conn` is ctx.db.unsafeRaw() (regular handlers) or the open tx
 // (forget-cleanup sub-tx) — keeps the event append atomic with the write.
 //
 // Returns `{ applied: false }` instead of throwing only when `options.expect`

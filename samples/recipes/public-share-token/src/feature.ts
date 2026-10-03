@@ -169,7 +169,7 @@ export const shareByTokenQuery = defineQueryHandler({
   },
   handler: async (query, ctx) => {
     const hash = await hashToken(query.payload.token);
-    const row = await fetchOne<ShareLinkRow>(ctx.db.unsafeRaw(SHARE_BY_TOKEN_REASON), table, {
+    const row = await fetchOne<ShareLinkRow>(ctx.db.unsafeRaw(), table, {
       tokenHash: hash,
     });
 

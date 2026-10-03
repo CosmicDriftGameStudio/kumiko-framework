@@ -80,7 +80,7 @@ const HOST_HOOK_REASON =
   "fw#2914 test fixture: host export/delete against a managed entity table needs raw SQL (TenantDb's typed write API rejects EXECUTOR_ONLY tables); filtered by inserted_by_id + tenant_id";
 
 const hostExportHook: UserDataExportHook = async (ctx) => {
-  const rows = await asRawClient(ctx.db.unsafeRaw(HOST_HOOK_REASON)).unsafe(
+  const rows = await asRawClient(ctx.db.unsafeRaw()).unsafe(
     `SELECT id, name FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
     [ctx.userId, ctx.tenantId],
   );
@@ -94,13 +94,13 @@ const hostExportHook: UserDataExportHook = async (ctx) => {
 
 const hostDeleteHook: UserDataDeleteHook = async (ctx, strategy) => {
   if (strategy === "delete") {
-    await asRawClient(ctx.db.unsafeRaw(HOST_HOOK_REASON)).unsafe(
+    await asRawClient(ctx.db.unsafeRaw()).unsafe(
       `DELETE FROM read_t15c_properties WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );
   } else {
     // anonymize: clear owner, keep row + customFields.
-    await asRawClient(ctx.db.unsafeRaw(HOST_HOOK_REASON)).unsafe(
+    await asRawClient(ctx.db.unsafeRaw()).unsafe(
       `UPDATE read_t15c_properties SET inserted_by_id = NULL WHERE inserted_by_id = $1 AND tenant_id = $2`,
       [ctx.userId, ctx.tenantId],
     );

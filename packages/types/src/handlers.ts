@@ -813,7 +813,7 @@ export type HandlerContext<TMap extends object = KumikoEventTypeMap> = SharedCon
 // derive it from a trusted lookup instead.
 export type JobContext = SharedContextFields & {
   // Tenant-filtered to the job's own tenant. Cross-tenant raw access needs
-  // `escapeHatch` on the job (`ctx.db.unsafeRaw(reason)`) or `r.systemScope()`
+  // `escapeHatch` on the job (`ctx.db.unsafeRaw()`) or `r.systemScope()`
   // (`ctx.systemDb`).
   readonly db: TenantDb;
   readonly registry: Registry;

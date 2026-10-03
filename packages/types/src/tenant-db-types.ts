@@ -56,9 +56,9 @@ export type TenantDb = {
   readonly mode: TenantDbMode;
   /**
    * Unfiltered DbRunner escape hatch for handlers/hooks that declare `escapeHatch: { reason }`.
-   * Throws `AccessDeniedError` when ungranted, or `Error` when `reason` is empty.
+   * Throws `AccessDeniedError` when ungranted. The audit entry carries the declared escapeHatch reason.
    */
-  unsafeRaw(reason: string): DbRunner;
+  unsafeRaw(): DbRunner;
   /**
    * Reach a "global" table with the tenant filter lifted — reads always work; writes
    * reject unless the write handler declared `escapeHatch: { reason }`. "tenant"-tenancy is a compile error here.

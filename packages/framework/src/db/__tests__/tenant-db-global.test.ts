@@ -246,23 +246,7 @@ describe("TenantDb.global()", () => {
 describe("TenantDb.unsafeRaw()", () => {
   test("without a grant throws AccessDeniedError without touching the runner", () => {
     const tdb = createTenantDb(unreachableRunner(), own);
-    expect(() => tdb.unsafeRaw("some reason")).toThrow(AccessDeniedError);
-  });
-
-  test("an empty reason throws regardless of grant", () => {
-    const tdb = createTenantDb(
-      unreachableRunner(),
-      own,
-      "tenant",
-      undefined,
-      undefined,
-      undefined,
-      {
-        unsafeRaw: { reason: "granted" },
-      },
-    );
-    expect(() => tdb.unsafeRaw("")).toThrow();
-    expect(() => tdb.unsafeRaw("   ")).toThrow();
+    expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
   });
 
   test("with a valid grant returns the underlying DbRunner", () => {
@@ -270,7 +254,7 @@ describe("TenantDb.unsafeRaw()", () => {
     const tdb = createTenantDb(rawDb, own, "tenant", undefined, undefined, undefined, {
       unsafeRaw: { reason: "granted" },
     });
-    expect(tdb.unsafeRaw("some reason")).toBe(rawDb);
+    expect(tdb.unsafeRaw()).toBe(rawDb);
   });
 
   test("with a valid grant reports unsafe-raw once with the declared reason", () => {
@@ -287,7 +271,7 @@ describe("TenantDb.unsafeRaw()", () => {
         report,
       },
     );
-    tdb.unsafeRaw("cleanup read");
+    tdb.unsafeRaw();
     expect(calls).toEqual([{ kind: "unsafe-raw", reason: "granted", target: undefined }]);
   });
 
@@ -304,7 +288,7 @@ describe("TenantDb.unsafeRaw()", () => {
         report,
       },
     );
-    expect(() => tdb.unsafeRaw("some reason")).toThrow(AccessDeniedError);
+    expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
     expect(calls).toEqual([]);
   });
 });
@@ -313,10 +297,10 @@ describe("withUnsafeRawGrant", () => {
   test("rebinding to a grant makes unsafeRaw work", () => {
     const rawDb = unreachableRunner();
     const tdb = createTenantDb(rawDb, own);
-    expect(() => tdb.unsafeRaw("x")).toThrow(AccessDeniedError);
+    expect(() => tdb.unsafeRaw()).toThrow(AccessDeniedError);
 
     const rebound = withUnsafeRawGrant(tdb, { reason: "narrower hook grant" });
-    expect(rebound.unsafeRaw("x")).toBe(rawDb);
+    expect(rebound.unsafeRaw()).toBe(rawDb);
   });
 
   test("rebinding to undefined makes unsafeRaw throw, even if the original had a grant", () => {
@@ -324,10 +308,10 @@ describe("withUnsafeRawGrant", () => {
     const tdb = createTenantDb(rawDb, own, "tenant", undefined, undefined, undefined, {
       unsafeRaw: { reason: "handler grant" },
     });
-    expect(tdb.unsafeRaw("x")).toBe(rawDb);
+    expect(tdb.unsafeRaw()).toBe(rawDb);
 
     const rebound = withUnsafeRawGrant(tdb, undefined);
-    expect(() => rebound.unsafeRaw("x")).toThrow(AccessDeniedError);
+    expect(() => rebound.unsafeRaw()).toThrow(AccessDeniedError);
   });
 
   test("passes an object not built by createTenantDb through unchanged", () => {

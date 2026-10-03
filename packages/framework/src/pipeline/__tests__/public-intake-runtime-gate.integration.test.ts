@@ -395,7 +395,7 @@ const featureA = defineFeature("intakea", (r) => {
     { access: { roles: ["anonymous", "Admin"] }, rateLimit: RATE_LIMIT },
   );
 
-  // (g) createTenantDb() built by the HANDLER ITSELF from ctx.db.unsafeRaw(reason) — the
+  // (g) createTenantDb() built by the HANDLER ITSELF from ctx.db.unsafeRaw() — the
   // returned runner carries no TenantDb of its own, so without gate inheritance on the
   // runner (tenant-db.ts's runnerPersonalDataGates) this fresh TenantDb would have no gate.
   const UNSAFE_RAW_REASON =
@@ -405,7 +405,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-tenant-db-no-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const raw = ctx.db.unsafeRaw();
       await createTenantDb(raw, event.user.tenantId, "system").insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw@example.com", note: event.payload.note },
@@ -423,7 +423,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-tenant-db-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const raw = ctx.db.unsafeRaw();
       await createTenantDb(raw, event.user.tenantId, "system").insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw-declared@example.com", note: event.payload.note },
@@ -445,7 +445,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-savepoint-tenant-db-no-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const raw = ctx.db.unsafeRaw();
       await runInSavepoint(raw, async (sp) => {
         await createTenantDb(sp as DbRunner, event.user.tenantId, "system").insertOne(
           contactTable as unknown as SchemaTable,
@@ -465,7 +465,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-savepoint-tenant-db-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const raw = ctx.db.unsafeRaw();
       await runInSavepoint(raw, async (sp) => {
         await createTenantDb(sp as DbRunner, event.user.tenantId, "system").insertOne(
           contactTable as unknown as SchemaTable,
@@ -488,7 +488,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-tagged-query-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const raw = ctx.db.unsafeRaw();
       // @cast-boundary test-fixture — DbRunner's RawClient arm has no tagged-template call
       // signature; the underlying driver instance (postgres-js/Bun.SQL) does.
       const tagged = raw as unknown as (
@@ -516,7 +516,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-tenant-db-authenticated",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const raw = ctx.db.unsafeRaw(UNSAFE_RAW_REASON);
+      const raw = ctx.db.unsafeRaw();
       await createTenantDb(raw, event.user.tenantId, "system").insertOne(
         contactTable as unknown as SchemaTable,
         { email: "leak-unsafe-raw-authenticated@example.com", note: event.payload.note },
@@ -533,11 +533,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-executor-no-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const scopedDb = createTenantDb(
-        ctx.db.unsafeRaw(UNSAFE_RAW_REASON),
-        event.user.tenantId,
-        "system",
-      );
+      const scopedDb = createTenantDb(ctx.db.unsafeRaw(), event.user.tenantId, "system");
       const crud = createEventStoreExecutor(contactTable, contactEntity, { entityName: "contact" });
       return crud.create(
         { email: "leak-unsafe-raw-executor@example.com", note: event.payload.note },
@@ -559,11 +555,7 @@ const featureA = defineFeature("intakea", (r) => {
     "unsafe-raw-executor-non-pii-no-declare",
     z.object({ note: z.string() }),
     async (event, ctx) => {
-      const scopedDb = createTenantDb(
-        ctx.db.unsafeRaw(UNSAFE_RAW_REASON),
-        event.user.tenantId,
-        "system",
-      );
+      const scopedDb = createTenantDb(ctx.db.unsafeRaw(), event.user.tenantId, "system");
       const crud = createEventStoreExecutor(probeTable, probeEntity, { entityName: "probe" });
       return crud.create({ note: event.payload.note }, event.user, scopedDb);
     },
@@ -869,7 +861,7 @@ describe("public-intake runtime gate", () => {
     expect(await rowCount()).toBe(1);
   });
 
-  test("(g) createTenantDb(ctx.db.unsafeRaw(reason), ...) — blocked without declaration", async () => {
+  test("(g) createTenantDb(ctx.db.unsafeRaw(), ...) — blocked without declaration", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: "intakea:write:unsafe-raw-tenant-db-no-declare",
       payload: { note: "x" },
@@ -880,7 +872,7 @@ describe("public-intake runtime gate", () => {
     expect(await rowCount()).toBe(0);
   });
 
-  test("(g) createTenantDb(ctx.db.unsafeRaw(reason), ...) — allowed once declared", async () => {
+  test("(g) createTenantDb(ctx.db.unsafeRaw(), ...) — allowed once declared", async () => {
     const res = await stack.http.raw("POST", "/api/write", {
       type: "intakea:write:unsafe-raw-tenant-db-declare",
       payload: { note: "x" },

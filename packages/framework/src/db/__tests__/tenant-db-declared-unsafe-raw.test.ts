@@ -132,9 +132,7 @@ describe("memberReadOnly grant", () => {
       reports.push({ kind, reason });
     });
 
-    expect(deniedReason(() => tdb.unsafeRaw(REASON))).toBe(
-      FrameworkReasons.memberResolutionReadOnly,
-    );
+    expect(deniedReason(() => tdb.unsafeRaw())).toBe(FrameworkReasons.memberResolutionReadOnly);
     expect(reports).toEqual([]);
   });
 
@@ -145,7 +143,7 @@ describe("memberReadOnly grant", () => {
     expect(deniedReason(() => unsafeRawForDeclaredStep(tdb, REASON))).toBe(
       FrameworkReasons.memberResolutionReadOnly,
     );
-    expect(deniedReason(() => regranted.unsafeRaw(REASON))).toBe(
+    expect(deniedReason(() => regranted.unsafeRaw())).toBe(
       FrameworkReasons.memberResolutionReadOnly,
     );
     expect(deniedReason(() => unsafeRawForDeclaredStep(regranted, REASON))).toBe(
@@ -156,7 +154,7 @@ describe("memberReadOnly grant", () => {
   test("survives the acknowledgeConventionCrossTenant rebind", () => {
     const crossTenant = acknowledgeConventionCrossTenant(memberReadOnlyDb(), "test: cross-tenant");
 
-    expect(deniedReason(() => crossTenant.unsafeRaw(REASON))).toBe(
+    expect(deniedReason(() => crossTenant.unsafeRaw())).toBe(
       FrameworkReasons.memberResolutionReadOnly,
     );
   });

@@ -148,9 +148,9 @@ describe("runInOwnTransaction", () => {
       undefined,
       { personalDataGate: denyEmail, unsafeRaw: { reason: "test: derive runner-bound gate" } },
     );
-    // Mirrors createTenantDb(ctx.db.unsafeRaw(reason), ...): the gate now lives on the
+    // Mirrors createTenantDb(ctx.db.unsafeRaw(), ...): the gate now lives on the
     // runner, not in this new TenantDb's own (unset) grants.
-    const gatedRunner = tdb.unsafeRaw("test: derive runner-bound gate");
+    const gatedRunner = tdb.unsafeRaw();
     const runnerBoundTdb = createTenantDb(gatedRunner, tenant1.tenantId);
 
     expect(() =>

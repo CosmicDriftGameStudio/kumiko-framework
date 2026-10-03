@@ -133,13 +133,7 @@ export function createEnableConfirmPreauthHandler(opts: EnableConfirmPreauthOpti
 
       // "system" mode: no session exists yet, tenantId comes from the
       // verified token, mirroring enable-start-preauth.write.ts.
-      const scopedDb = createTenantDb(
-        ctx.db.unsafeRaw(
-          "reads the MFA enrollment of the tenant named in the signed login/setup token, not the guest dispatch tenant",
-        ),
-        tenantId,
-        "system",
-      );
+      const scopedDb = createTenantDb(ctx.db.unsafeRaw(), tenantId, "system");
       const scopedUser: SessionUser = { id: userId, tenantId, roles: ["User"] };
       const existing = await findUserMfaRow(scopedDb, scopedUser);
       if (existing) return mfaAlreadyEnabled();

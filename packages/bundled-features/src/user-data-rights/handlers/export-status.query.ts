@@ -50,7 +50,7 @@ export const exportStatusQuery = defineQueryHandler({
   },
   handler: async (query, ctx) => {
     const rows = await selectMany<ExportJobRow>(
-      ctx.db.unsafeRaw(EXPORT_STATUS_REASON),
+      ctx.db.unsafeRaw(),
       exportJobsTable,
       { userId: query.user.id },
       { limit: 1, orderBy: { col: "requestedAt", direction: "desc" } },
