@@ -23,8 +23,15 @@ import {
   access,
   assignableAppRolesOf,
   defineWriteHandler,
+  type HandlerContext,
+  type SessionUser,
+  type WriteResult,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { InternalError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
+import {
+  InternalError,
+  type WriteFailure,
+  writeFailure,
+} from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 // kumiko-lint-ignore cross-feature-import invite-flow lebt in auth-email-password (Magic-Link-Pattern), DB-row-owner ist tenant-feature
@@ -40,6 +47,8 @@ import {
   reservedMembershipRoleError,
   unassignableMembershipRoleError,
 } from "../../tenant/membership-roles.js";
+// kumiko-lint-ignore cross-feature-import global-role options are owned by the user feature
+import { GLOBAL_ROLE_OPTIONS } from "../../user/constants.js";
 import { AUTH_INVITE_DEFAULT_TTL_MINUTES } from "../constants.js";
 import type { AuthMailLocale } from "../email-templates.js";
 import { renderInviteEmail } from "../email-templates.js";
@@ -47,6 +56,8 @@ import { invalidateExistingInviteToken, storeInviteToken } from "../invite-token
 import { dispatchMagicLinkMail, resolveHandlerMailLocale } from "../magic-link-mail.js";
 
 const INVITE_NOTIFICATION_TYPE = "auth-email-password:invite";
+
+type GlobalRole = (typeof GLOBAL_ROLE_OPTIONS)[number];
 
 const InviteCreateSchema = z.object({
   email: z.email(),
@@ -59,6 +70,7 @@ export type InviteCreateData = {
   readonly tenantId: string;
   readonly email: string;
   readonly role: string;
+  readonly globalRoles: readonly GlobalRole[];
   readonly expiresAt: string;
 };
 
@@ -97,15 +109,152 @@ function findRankedRole(roles: readonly string[]): string | undefined {
   return roles.find((role) => findForbiddenRoleAssignment(["system"], [role], []) === undefined);
 }
 
-export function createInviteCreateHandler(opts: InviteCreateOptions) {
+type InviteIssueRequest = {
+  readonly email: string;
+  readonly role: string;
+  readonly globalRoles: readonly GlobalRole[];
+};
+
+function checkAssignableInviteRole(
+  opts: InviteCreateOptions,
+  inviterRoles: readonly string[],
+  role: string,
+  ctx: HandlerContext,
+): WriteFailure | undefined {
+  const forbiddenRole = findForbiddenMembershipRole([role]);
+  if (forbiddenRole !== undefined) return writeFailure(reservedMembershipRoleError(forbiddenRole));
+
+  const elevationForbidden = findForbiddenRoleAssignment(
+    inviterRoles,
+    [role],
+    [],
+    assignableAppRolesOf(ctx.registry),
+  );
+  if (
+    elevationForbidden !== undefined &&
+    !opts.additionalAssignableRoles?.includes(elevationForbidden)
+  ) {
+    return writeFailure(unassignableMembershipRoleError(elevationForbidden));
+  }
+
+  if (opts.canAssignRole && !opts.canAssignRole(inviterRoles, role)) {
+    return writeFailure(unassignableMembershipRoleError(role));
+  }
+  return undefined;
+}
+
+async function issueInvitation(
+  opts: InviteCreateOptions,
+  ttlSeconds: number,
+  request: InviteIssueRequest,
+  inviter: SessionUser,
+  ctx: HandlerContext,
+): Promise<WriteResult<InviteCreateData>> {
+  if (!ctx.redis) {
+    return writeFailure(
+      new InternalError({ message: "invite-create requires ctx.redis for token store" }),
+    );
+  }
+
+  const email = request.email.toLowerCase();
+  const tenantId = inviter.tenantId;
+  const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
+
+  // The unique index allows one row per (tenantId, email). Whatever its
+  // status, a re-invite resets it to pending with a fresh token.
+  const existing = await ctx.db.fetchOne(tenantInvitationsTable, { tenantId, email });
+
+  let invitationId: string;
+  if (existing) {
+    invitationId = existing["id"] as string; // @cast-boundary db-row
+    const existingVersion = existing["version"] as number; // @cast-boundary db-row
+    // At most one live invite token per invitation: invalidate
+    // whatever's there before minting the new one.
+    await invalidateExistingInviteToken(ctx.redis, invitationId);
+
+    const updateResult = await executor.update(
+      {
+        id: invitationId,
+        version: existingVersion,
+        changes: {
+          role: request.role,
+          // Always written, also as []: a tenant-admin resend must drop
+          // global roles a previous system invite put on this row.
+          globalRoles: [...request.globalRoles],
+          status: INVITATION_STATUS.pending,
+          invitedBy: inviter.id,
+          expiresAt,
+        },
+      },
+      inviter,
+      ctx.db,
+    );
+    if (!updateResult.isSuccess) return updateResult;
+  } else {
+    const createResult = await executor.create(
+      {
+        email,
+        role: request.role,
+        globalRoles: [...request.globalRoles],
+        status: INVITATION_STATUS.pending,
+        invitedBy: inviter.id,
+        expiresAt,
+      },
+      inviter,
+      ctx.db,
+    );
+    if (!createResult.isSuccess) return createResult;
+    invitationId = (createResult.data as { id: string }).id; // @cast-boundary engine-payload
+  }
+
+  const token = generateToken();
+  await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
+
+  const locale = resolveHandlerMailLocale(ctx, opts.locale);
+
+  await dispatchMagicLinkMail(
+    ctx.notify,
+    {
+      handlerName: "invite-create",
+      notificationType: INVITE_NOTIFICATION_TYPE,
+      renderContent: (renderArgs) => renderInviteEmail({ ...renderArgs, role: request.role }),
+    },
+    {
+      email,
+      appUrl: opts.appUrl,
+      token,
+      expiresAt: expiresAt.toString(),
+      ...(opts.appName !== undefined && { appName: opts.appName }),
+      locale,
+    },
+  );
+
+  return {
+    isSuccess: true,
+    data: {
+      kind: "invite-created",
+      invitationId,
+      tenantId,
+      email,
+      role: request.role,
+      globalRoles: request.globalRoles,
+      expiresAt: expiresAt.toString(),
+    },
+  };
+}
+
+function assertAppDefinedAdditionalRoles(opts: InviteCreateOptions): void {
   const rankedRole = findRankedRole(opts.additionalAssignableRoles ?? []);
   if (rankedRole !== undefined) {
     throw new Error(
       `[auth-email-password] invite.additionalAssignableRoles must list app-defined roles only; "${rankedRole}" is a framework-ranked role`,
     );
   }
-  const ttlMinutes = opts.tokenTtlMinutes ?? AUTH_INVITE_DEFAULT_TTL_MINUTES;
-  const ttlSeconds = ttlMinutes * 60;
+}
+
+export function createInviteCreateHandler(opts: InviteCreateOptions) {
+  assertAppDefinedAdditionalRoles(opts);
+  const ttlSeconds = (opts.tokenTtlMinutes ?? AUTH_INVITE_DEFAULT_TTL_MINUTES) * 60;
 
   return defineWriteHandler<"invite-create", typeof InviteCreateSchema, InviteCreateData>({
     name: "invite-create",
@@ -114,119 +263,58 @@ export function createInviteCreateHandler(opts: InviteCreateOptions) {
     description:
       "Invites an email address into the caller's tenant with a chosen membership role, creating or reusing the invitation and mailing the invitee a fresh accept link; re-inviting the same address invalidates the previous link.",
     handler: async (event, ctx) => {
-      if (!ctx.redis) {
-        return writeFailure(
-          new InternalError({ message: "invite-create requires ctx.redis for token store" }),
-        );
-      }
-
-      const forbiddenRole = findForbiddenMembershipRole([event.payload.role]);
-      if (forbiddenRole !== undefined) {
-        return writeFailure(reservedMembershipRoleError(forbiddenRole));
-      }
-
-      const elevationForbidden = findForbiddenRoleAssignment(
+      const roleRejection = checkAssignableInviteRole(
+        opts,
         event.user.roles,
-        [event.payload.role],
-        [],
-        assignableAppRolesOf(ctx.registry),
+        event.payload.role,
+        ctx,
       );
-      if (
-        elevationForbidden !== undefined &&
-        !opts.additionalAssignableRoles?.includes(elevationForbidden)
-      ) {
-        return writeFailure(unassignableMembershipRoleError(elevationForbidden));
-      }
-
-      if (opts.canAssignRole && !opts.canAssignRole(event.user.roles, event.payload.role)) {
-        return writeFailure(unassignableMembershipRoleError(event.payload.role));
-      }
-
-      const email = event.payload.email.toLowerCase();
-      const tenantId = event.user.tenantId;
-      const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
-
-      // Existing row für (tenantId, email) — unique-index garantiert
-      // max. eine Row. Status egal (cancelled/accepted/expired/pending);
-      // wir setzen sie auf pending zurück und vergeben einen frischen
-      // Token wenn der bisherige nicht mehr lebt.
-      const existing = await ctx.db.fetchOne(tenantInvitationsTable, { tenantId, email });
-
-      let invitationId: string;
-      let token: string;
-      if (existing) {
-        invitationId = existing["id"] as string; // @cast-boundary db-row
-        const existingVersion = existing["version"] as number; // @cast-boundary db-row
-        // At most one live invite token per invitation: invalidate
-        // whatever's there before minting the new one.
-        await invalidateExistingInviteToken(ctx.redis, invitationId);
-        token = generateToken();
-
-        const updateResult = await executor.update(
-          {
-            id: invitationId,
-            version: existingVersion,
-            changes: {
-              role: event.payload.role,
-              status: INVITATION_STATUS.pending,
-              invitedBy: event.user.id,
-              expiresAt,
-            },
-          },
-          event.user,
-          ctx.db,
-        );
-        if (!updateResult.isSuccess) return updateResult;
-      } else {
-        const createResult = await executor.create(
-          {
-            email,
-            role: event.payload.role,
-            status: INVITATION_STATUS.pending,
-            invitedBy: event.user.id,
-            expiresAt,
-          },
-          event.user,
-          ctx.db,
-        );
-        if (!createResult.isSuccess) return createResult;
-        invitationId = (createResult.data as { id: string }).id; // @cast-boundary engine-payload
-        token = generateToken();
-      }
-
-      await storeInviteToken(ctx.redis, { invitationId, token, ttlSeconds });
-
-      const locale = resolveHandlerMailLocale(ctx, opts.locale);
-
-      await dispatchMagicLinkMail(
-        ctx.notify,
-        {
-          handlerName: "invite-create",
-          notificationType: INVITE_NOTIFICATION_TYPE,
-          renderContent: (renderArgs) =>
-            renderInviteEmail({ ...renderArgs, role: event.payload.role }),
-        },
-        {
-          email,
-          appUrl: opts.appUrl,
-          token,
-          expiresAt: expiresAt.toString(),
-          ...(opts.appName !== undefined && { appName: opts.appName }),
-          locale,
-        },
+      if (roleRejection) return roleRejection;
+      return issueInvitation(
+        opts,
+        ttlSeconds,
+        { email: event.payload.email, role: event.payload.role, globalRoles: [] },
+        event.user,
+        ctx,
       );
+    },
+  });
+}
 
-      return {
-        isSuccess: true,
-        data: {
-          kind: "invite-created",
-          invitationId,
-          tenantId,
-          email,
-          role: event.payload.role,
-          expiresAt: expiresAt.toString(),
-        },
-      };
+const SystemInviteCreateSchema = z.object({
+  email: z.email(),
+  role: z.string().min(1).max(50),
+  globalRoles: z.array(z.enum(GLOBAL_ROLE_OPTIONS)).max(GLOBAL_ROLE_OPTIONS.length).default([]),
+});
+
+// System-only sibling of invite-create: the only path that can put global
+// roles (SystemAdmin) on an invitation. No session mint path yields the
+// "system" role (users.roles only accepts GLOBAL_ROLE_OPTIONS), so only
+// in-process callers dispatching as createSystemUser (runBootstrap) get here.
+export function createSystemInviteCreateHandler(opts: InviteCreateOptions) {
+  assertAppDefinedAdditionalRoles(opts);
+  const ttlSeconds = (opts.tokenTtlMinutes ?? AUTH_INVITE_DEFAULT_TTL_MINUTES) * 60;
+
+  return defineWriteHandler<
+    "system-invite-create",
+    typeof SystemInviteCreateSchema,
+    InviteCreateData
+  >({
+    name: "system-invite-create",
+    schema: SystemInviteCreateSchema,
+    access: { roles: access.system },
+    agent: { expose: false },
+    description:
+      "System-only invite into the dispatching tenant that may additionally carry global roles, which the invitee receives only when accepting; used by provisioning such as runBootstrap.",
+    handler: async (event, ctx) => {
+      const roleRejection = checkAssignableInviteRole(
+        opts,
+        event.user.roles,
+        event.payload.role,
+        ctx,
+      );
+      if (roleRejection) return roleRejection;
+      return issueInvitation(opts, ttlSeconds, event.payload, event.user, ctx);
     },
   });
 }

@@ -10,11 +10,13 @@
 //                             gefunden via walk-up bis bin/kumiko.ts)
 //   bin/worker.ts          →  dist-server/worker.js   (optional, next to bin/main.ts:
 //                             background worker as its own process from the same image)
+//   bin/bootstrap.ts       →  dist-server/bootstrap.js (optional, next to bin/main.ts:
+//                             one-shot runBootstrap provisioning, run as a k8s Job)
 //   dist-server/package.json → runtime-deps mit gepinnten Versionen
 //
 // All entries are built in ONE Bun.build call with `splitting`: the framework
-// lands once as shared chunk-*.js and server.js, kumiko.js and worker.js are
-// thin entries importing it. Separate bundles would inline ~14 MB per entry.
+// lands once as shared chunk-*.js and server.js, kumiko.js, worker.js and
+// bootstrap.js are thin entries importing it. Separate bundles would inline ~14 MB per entry.
 //
 // Output:
 //
@@ -22,6 +24,7 @@
 //     server.js            ← App-Boot-Entry
 //     kumiko.js            ← Migrate-CLI-Entry (wenn bin/kumiko.ts gefunden)
 //     worker.js            ← worker entry (if bin/worker.ts sits next to main.ts)
+//     bootstrap.js         ← provisioning entry (if bin/bootstrap.ts sits next to main.ts)
 //     chunk-*.js           ← geteilte Framework-Chunks
 //     package.json         ← runtime-deps mit gepinnten Versionen
 //
@@ -102,7 +105,7 @@ export type BuildServerBundleEntry = {
 
 export type BuildServerBundleResult = {
   readonly outDir: string;
-  /** Named entry files (server.js, plus kumiko.js and worker.js when present). */
+  /** Named entry files (server.js, plus kumiko.js, worker.js and bootstrap.js when present). */
   readonly entries: readonly BuildServerBundleEntry[];
   /** Geteilte Framework-Chunks (von splitting). */
   readonly chunks: readonly BuildServerBundleEntry[];
@@ -153,12 +156,10 @@ export async function buildServerBundle(
 
   // Ein Bun.build-Call mit allen Entries + splitting → das Framework wird
   // einmal als shared chunk abgelegt statt pro Entry inlined.
-  const workerEntry = join(dirname(serverEntry), "worker.ts");
-  const entrypoints = [
-    serverEntry,
-    ...(kumikoCli ? [kumikoCli] : []),
-    ...(existsSync(workerEntry) ? [workerEntry] : []),
-  ];
+  const optionalSiblingEntries = ["worker.ts", "bootstrap.ts"]
+    .map((file) => join(dirname(serverEntry), file))
+    .filter((path) => existsSync(path));
+  const entrypoints = [serverEntry, ...(kumikoCli ? [kumikoCli] : []), ...optionalSiblingEntries];
   const result = await Bun.build({
     entrypoints,
     outdir: outDir,

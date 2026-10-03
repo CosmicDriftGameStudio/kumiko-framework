@@ -40,6 +40,9 @@ export const AuthHandlers = {
   //   inviteSignupComplete: anon user with new email → POST token + password
   //   inviteCancel: admin cancels a pending invite
   inviteCreate: "auth-email-password:write:invite-create",
+  // System-only variant (access.system) that may carry global roles — see
+  // invite-create.write.ts. Dispatched in-process by runBootstrap.
+  systemInviteCreate: "auth-email-password:write:system-invite-create",
   inviteAccept: "auth-email-password:write:invite-accept",
   inviteAcceptWithLogin: "auth-email-password:write:invite-accept-with-login",
   inviteSignupComplete: "auth-email-password:write:invite-signup-complete",

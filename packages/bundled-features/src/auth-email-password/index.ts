@@ -7,6 +7,18 @@
 // its own changeset + deliberate deprecation window, not a silent drop.
 export { hashPassword, verifyPassword } from "../shared/password-hashing.js";
 export { type AuthPath, type AuthPaths, DEFAULT_AUTH_PATHS, makeAuthPaths } from "./auth-paths.js";
+export type {
+  BootstrapDeps,
+  BootstrapInvite,
+  BootstrapInviteOutcome,
+  BootstrapPlan,
+  BootstrapReport,
+  BootstrapSeedDeps,
+  BootstrapSystemAdmin,
+  BootstrapTenant,
+  BootstrapTenantOutcome,
+} from "./bootstrap.js";
+export { BootstrapPlanError, BootstrapWriteError, bootstrapTenants } from "./bootstrap.js";
 export { AUTH_EMAIL_PASSWORD_FEATURE, AuthErrors, AuthHandlers, AuthQueries } from "./constants.js";
 // Renderers for the auth mails. All four magic-link flows (reset, verify,
 // signup-activation, invite) emit structured AuthMailContent through delivery

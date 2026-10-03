@@ -34,6 +34,11 @@ import {
 } from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add (like provisionSignupAccount)
 import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership.js";
+// kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
+import {
+  grantInvitedGlobalRoles,
+  parseInvitedGlobalRoles,
+} from "../../user/invited-global-roles.js";
 // kumiko-lint-ignore cross-feature-import auth handler reads user-row für email-match
 import { userTable } from "../../user/schema/user.js";
 import { invalidInviteToken, inviteEmailMismatch } from "../errors.js";
@@ -103,6 +108,7 @@ export function createInviteAcceptHandler() {
         readonly tenantId: TenantId;
         readonly email: string;
         readonly role: string;
+        readonly globalRoles: unknown;
         readonly version: number;
         readonly insertedAt: Temporal.Instant;
         readonly modifiedAt: Temporal.Instant | null;
@@ -152,6 +158,12 @@ export function createInviteAcceptHandler() {
         });
         if (!grant.isSuccess) return grant;
         const { alreadyMember } = grant.data;
+
+        const globalGrant = await grantInvitedGlobalRoles(dbConn, {
+          userId: event.user.id,
+          globalRoles: parseInvitedGlobalRoles(invitation.globalRoles),
+        });
+        if (!globalGrant.isSuccess) return globalGrant;
 
         // Invitation-Status → accepted via event-store-executor.
         // Tenant-scoping: ctx.db ist auf event.user.tenantId gescopt

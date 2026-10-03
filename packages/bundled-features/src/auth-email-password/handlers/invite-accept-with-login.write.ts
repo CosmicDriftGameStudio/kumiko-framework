@@ -42,6 +42,11 @@ import {
 } from "../../tenant/invitation-table.js";
 // kumiko-lint-ignore cross-feature-import membership grant for a privileged cross-tenant add
 import { grantInvitedMembershipRole, invitationIssuedAt } from "../../tenant/invited-membership.js";
+// kumiko-lint-ignore cross-feature-import global roles granted on invite accept live on the user row
+import {
+  grantInvitedGlobalRoles,
+  parseInvitedGlobalRoles,
+} from "../../user/invited-global-roles.js";
 // kumiko-lint-ignore cross-feature-import login-style password-check
 import { userTable } from "../../user/schema/user.js";
 import {
@@ -143,6 +148,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         readonly tenantId: TenantId;
         readonly email: string;
         readonly role: string;
+        readonly globalRoles: unknown;
         readonly version: number;
         readonly insertedAt: Temporal.Instant;
         readonly modifiedAt: Temporal.Instant | null;
@@ -222,6 +228,12 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
         });
         if (!grant.isSuccess) return grant;
 
+        const globalGrant = await grantInvitedGlobalRoles(dbConn, {
+          userId,
+          globalRoles: parseInvitedGlobalRoles(invitation.globalRoles),
+        });
+        if (!globalGrant.isSuccess) return globalGrant;
+
         // Invitation → accepted: TenantDb for the invitation's tenant.
         const invitationTdb = createTenantDb(dbConn, invitationTenantId, "system");
         const updateResult = await invitationExecutor.update(
@@ -239,7 +251,7 @@ export function createInviteAcceptWithLoginHandler(opts: InviteAcceptWithLoginOp
 
         // buildSessionRoles calls stripForbiddenMembershipRoles internally —
         // a reserved role on an existing membership must never reach the session.
-        const mergedRoles = buildSessionRoles([], grant.data.roles);
+        const mergedRoles = buildSessionRoles(globalGrant.data.roles, grant.data.roles);
 
         // MFA gate runs after membership is granted (mirrors login.write.ts's
         // own order: membership resolution before MFA) — a challenge halts

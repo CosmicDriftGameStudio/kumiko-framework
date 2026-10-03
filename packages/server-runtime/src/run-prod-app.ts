@@ -323,9 +323,11 @@ export type AuthMailOptions = {
 };
 
 export type RunProdAppAuthOptions = {
-  /** Initial admin user. Seeded once (idempotent — re-boots check first
-   *  whether the email is already in the users table). */
-  readonly admin: SeedAdminOptions;
+  /** Initial admin user with a password, seeded once (idempotent — re-boots
+   *  check first whether the email is already in the users table). Optional:
+   *  passwordless setups provision their first admins via `runBootstrap`
+   *  (invitation, global role granted on accept) instead. */
+  readonly admin?: SeedAdminOptions;
   /** Optional override of the login error → HTTP status map. */
   readonly loginErrorStatusMap?: Readonly<Record<string, number>>;
   /** Auth-Mail-Convenience: verdrahtet alle 4 Mail-Flows (passwordReset,
@@ -1275,7 +1277,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   //    "first boot" via flag, every seed-step checks its own
   //    preconditions. Config-seeds rely on a deterministic
   //    aggregate-id so re-boot becomes a version_conflict skip.
-  if (effectiveAuth) {
+  if (effectiveAuth?.admin) {
     await seedAdminGuarded(db, effectiveAuth.admin);
   }
   await applyBootSeeds({
