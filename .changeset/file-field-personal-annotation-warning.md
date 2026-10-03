@@ -5,7 +5,7 @@
 Boot validation warns for every `file`, `image`, `files` and `images` field without a `personal` annotation. A forget with strategy `delete` keeps the binary of such a field and only severs the uploader link, so the stance has to be declared.
 
 <!-- kumiko-changes
-feature: file-fields
+feature: framework
 type: improvement
 title: boot warning for file and image fields without a personal annotation
 migration: |

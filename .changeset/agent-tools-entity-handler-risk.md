@@ -6,7 +6,7 @@ agent-tools: `get_<entity>` and `list_<entity>` take their risk from the entity 
 
 <!-- kumiko-changes
 feature: agent-tools
-type: security
+type: improvement
 title: entity get/list tools honour agent.risk, PII-bearing system lists are high risk
 migration: |
   No action needed: handlers without an agent.risk hint stay low risk.

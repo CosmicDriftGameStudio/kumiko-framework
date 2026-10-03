@@ -6,7 +6,7 @@ tags and notes-history: `ownership.write` is now enforced by `assign-tag`, `remo
 
 <!-- kumiko-changes
 feature: tags
-type: security
+type: breaking
 title: ownership.write applies to assign-tag, remove-tag and add-note
 migration: |
   Mounts that set `ownership.write` now see ownership_denied for callers the rule does not cover. Make sure the rule covers every role that tags or notes, or leave it unset.

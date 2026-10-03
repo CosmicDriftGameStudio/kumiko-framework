@@ -2,7 +2,7 @@ import { fetchOne, runInSavepointIfSupported } from "@cosmicdrift/kumiko-framewo
 import type { AccessRule, WriteHandlerDef } from "@cosmicdrift/kumiko-framework/engine";
 import { ValidationError, writeFailure } from "@cosmicdrift/kumiko-framework/errors";
 import { decryptStoredPii, denyUnlessJoinRowParentVisible } from "../../shared/index.js";
-import { tenantMembershipsTable } from "../../tenant/membership-table.js";
+import { tenantMembershipsTable } from "../../tenant/index.js";
 import { userTable } from "../../user/index.js";
 import { DEFAULT_NOTES_HISTORY_ACCESS } from "../constants.js";
 import { noteEntryExecutor, noteMentionExecutor } from "../executor.js";
