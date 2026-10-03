@@ -71,9 +71,32 @@ Response:
 - `404 text/plain` — block missing. Hint: "Tenant admin must set this text block".
 - `503 text/plain` — `app.fetch` to `/api/query` failed (anonymousAccess missing?).
 
-Layout: a minimal HTML5 skeleton with inline CSS — apps that want to
-integrate into their own layout use `template-resolver:query:by-slug`
-directly and render themselves.
+Layout: a minimal HTML5 skeleton with inline CSS. Apps that want their own
+header, footer and theme pass `createLegalPagesFeature({ wrapLayout })`, a
+`PublicPageWrapLayout` (`@cosmicdrift/kumiko-bundled-features/page-render`):
+`({ title, bodyHtml, lang, slug?, alternates? }) => string`. The framework
+keeps setting the security headers; the layout only returns the HTML.
+
+The page CSP is `script-src 'none'`, so the layout must not need JavaScript
+(a language switch has to be plain links).
+
+Trailing slash: every route also answers its other slash form
+(`/legal/impressum/`) with a `301` to the configured path, for `GET` and `HEAD`,
+query string kept. A path configured with a trailing slash redirects the form
+without it.
+
+### Contract termination pages
+
+`createContractTerminationRoutes({ paths?, wrapLayout? })` (billing-foundation,
+consumer protection) serves `/legal/kuendigen` and `/legal/cancel`. It takes the
+same `wrapLayout` and wraps every page with it: form, review, result, 429 and
+error. `alternates` maps `de`/`en` to the configured paths (custom `paths`
+included), so the layout can link to the other language. The body sits in
+`<div data-kumiko-page="contract-termination">` with `data-kumiko-*` hooks on
+the forms, field groups, buttons and review table for app CSS. The headers (CSP
+with `script-src 'none'`, `frame-ancestors 'none'`, `X-Frame-Options: DENY`,
+`no-store`) are the same with and without `wrapLayout`, so a layout that loads
+scripts fails. The slash redirect applies here too; `POST` has no alias.
 
 ---
 

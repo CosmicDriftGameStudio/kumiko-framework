@@ -660,3 +660,34 @@ describe("legal-pages :: runLegalPagesBootCheck (direct unit-tests)", () => {
     }
   });
 });
+
+describe("legal-pages :: trailing-slash redirect", () => {
+  test("the slash form of a route redirects GET and HEAD with 301, query string kept", async () => {
+    for (const method of ["GET", "HEAD"]) {
+      const res = await stack.app.request("/legal/impressum/?utm=1", { method });
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe("/legal/impressum?utm=1");
+    }
+  });
+
+  test("a path configured with a trailing slash is the target for the form without it", async () => {
+    const slashStack = await setupTestStack({
+      features: [
+        createTemplateResolverFeature(),
+        createLegalPagesFeature({
+          routes: [{ path: "/legal/terms/", slug: "imprint", lang: "de", titleFallback: "Terms" }],
+        }),
+      ],
+      anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID },
+      extraContext: ({ db }) => ({ templateResolver: createTemplateResolverApi(db) }),
+    });
+    try {
+      await unsafeCreateEntityTable(slashStack.db, templateResourceEntity);
+      const res = await slashStack.app.request("/legal/terms?a=b");
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe("/legal/terms/?a=b");
+    } finally {
+      await slashStack.cleanup();
+    }
+  });
+});

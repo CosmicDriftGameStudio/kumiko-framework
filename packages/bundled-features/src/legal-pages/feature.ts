@@ -1,22 +1,26 @@
-import {
-  requireTemplateResolver,
-  TEXT_BLOCK_KIND,
-  type TemplateResolverApi,
-} from "@cosmicdrift/kumiko-bundled-features/template-resolver";
 import { computeRevisionEtag, etagMatches } from "@cosmicdrift/kumiko-framework/api";
 import {
   defineFeature,
   type FeatureDefinition,
   SYSTEM_TENANT_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
-import { cachedSecurePageResponse } from "../page-render/index.js";
+import {
+  cachedSecurePageResponse,
+  type PublicPageWrapLayout,
+  redirectToCanonicalPath,
+  slashVariantOf,
+} from "../page-render/index.js";
 import {
   LEGAL_REQUIRED_BLOCKS,
   LEGAL_ROUTES,
   type LegalPageRoute,
   type LegalRequiredBlock,
 } from "./constants.js";
+import { runLegalPagesBootCheck } from "./lib/boot-check.js";
+import { validateRoutes } from "./lib/validate-routes.js";
 import { renderMarkdownToHtml, wrapInLayout } from "./markdown.js";
+
+export { type LegalPagesBootCheckCtx, runLegalPagesBootCheck } from "./lib/boot-check.js";
 
 // QN-Konstante als dokumentierter Public-Contract des template-resolver-
 // Features. Ein magic-string statt eines Code-Imports ist hier explizit
@@ -59,12 +63,7 @@ const PUBLIC_PAGE_CACHE = { kind: "revalidate", maxAgeSeconds: 60 } as const;
 //     setzen — sonst wirft Boot-Check beim Start
 //   • anonymousAccess: { defaultTenantId: SYSTEM_TENANT_ID } — sonst
 //     antworten die Routes mit 503
-export type LegalPagesWrapLayout = (opts: {
-  readonly title: string;
-  readonly bodyHtml: string;
-  readonly lang: string;
-  readonly slug?: string;
-}) => string;
+export type LegalPagesWrapLayout = PublicPageWrapLayout;
 
 export type LegalPagesOptions = {
   /** Custom Layout-Wrapper für die /legal/*-Routes. Default: minimaler
@@ -85,26 +84,6 @@ export type LegalPagesOptions = {
    *  (e.g. Spanish-default) pass their own list here. */
   readonly requiredBlocks?: readonly LegalRequiredBlock[];
 };
-
-// Validated once at feature-build time (not per-request) so a config typo
-// fails app startup instead of surfacing as a confusing 404 later.
-function validateRoutes(routes: readonly LegalPageRoute[]): void {
-  const seenPaths = new Set<string>();
-  for (const route of routes) {
-    if (!route.path || !route.slug || !route.lang) {
-      throw new Error(
-        `legal-pages: route is missing a required field (path/slug/lang): ${JSON.stringify(route)}`,
-      );
-    }
-    if (!route.path.startsWith("/")) {
-      throw new Error(`legal-pages: route path must start with "/", got "${route.path}"`);
-    }
-    if (seenPaths.has(route.path)) {
-      throw new Error(`legal-pages: duplicate route path "${route.path}"`);
-    }
-    seenPaths.add(route.path);
-  }
-}
 
 export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDefinition {
   const wrapLayout = opts.wrapLayout ?? wrapInLayout;
@@ -210,6 +189,20 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
       });
     }
 
+    // Hono matches strictly, so "/legal/x/" would 404 for sites that link with
+    // a trailing slash. GET also serves HEAD.
+    const configuredPaths = new Set(routes.map((route) => route.path));
+    for (const route of routes) {
+      const variant = slashVariantOf(route.path);
+      if (variant === null || configuredPaths.has(variant)) continue;
+      r.httpRoute({
+        method: "GET",
+        path: variant,
+        anonymous: true,
+        handler: (c) => redirectToCanonicalPath(c.req.url, route.path),
+      });
+    }
+
     // Boot-Check via ctx.templateResolver (extraContext-Pattern, symmetrisch
     // zu requireConfigResolver in config). App-Bootstrap muss templateResolver
     // wired haben — der Helper gibt einen klaren Wiring-Hinweis wenn nicht.
@@ -233,57 +226,4 @@ export function createLegalPagesFeature(opts: LegalPagesOptions = {}): FeatureDe
 
     return {};
   });
-}
-
-// Minimal-shape für die Boot-Check-Logik — nur die Felder die der Check
-// braucht. Akzeptiert HandlerContext + AppContext + jeden anderen
-// Container der templateResolver + log mitbringt. Macht den Check direkt
-// unit-testbar mit constructed ctx-Objects.
-export type LegalPagesBootCheckCtx = {
-  readonly templateResolver?: TemplateResolverApi;
-  readonly log?: {
-    readonly info?: (msg: string) => void;
-    readonly warn?: (msg: string) => void;
-  };
-};
-
-// Exportiert für direkte Tests. Wirft InternalError wenn ctx.templateResolver
-// nicht gewired ist (Hinweis auf fehlenden extraContext). Wirft Error
-// in NODE_ENV=production wenn Pflicht-Blocks fehlen, sonst log.warn.
-// Logged log.info wenn alles vorhanden ist (kein silent-skip).
-export async function runLegalPagesBootCheck(
-  ctx: LegalPagesBootCheckCtx,
-  requiredBlocks: readonly LegalRequiredBlock[] = LEGAL_REQUIRED_BLOCKS,
-): Promise<void> {
-  const templateResolver: TemplateResolverApi = requireTemplateResolver(
-    ctx,
-    "legal-pages-boot-check",
-  );
-  const missing: { slug: string; lang: string }[] = [];
-
-  for (const required of requiredBlocks) {
-    const block = await templateResolver.findExact({
-      tenantId: SYSTEM_TENANT_ID,
-      slug: required.slug,
-      kind: TEXT_BLOCK_KIND,
-      locale: required.lang,
-    });
-    if (!block?.content) {
-      missing.push({ slug: required.slug, lang: required.lang });
-    }
-  }
-
-  if (missing.length === 0) {
-    ctx.log?.info?.("legal-pages boot-check: alle Pflicht-Blocks vorhanden");
-  } else {
-    const message =
-      `legal-pages: missing ${missing.length} required text-block(s) in SYSTEM_TENANT: ` +
-      missing.map((m) => `${m.slug}/${m.lang}`).join(", ") +
-      ". Seed via template-resolver:write:set or the seedTextBlock helper.";
-
-    if (process.env["NODE_ENV"] === "production") {
-      throw new Error(`Boot-Validation failed: ${message}`);
-    }
-    ctx.log?.warn?.(message);
-  }
 }

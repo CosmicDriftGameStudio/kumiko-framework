@@ -61,3 +61,10 @@ describe("wrapInLayout :: seo (opt-in OG/JSON-LD extension)", () => {
     expect(html).toContain("&lt;script&gt;");
   });
 });
+
+describe("wrapInLayout :: form base styles", () => {
+  test("styles input, select, textarea and button", () => {
+    const html = wrapInLayout({ title: "T", bodyHtml: "<p>x</p>", lang: "en" });
+    expect(html).toContain("input, select, textarea, button { font: inherit;");
+  });
+});

@@ -5,7 +5,13 @@ import type { AnonymousExtraRoute } from "@cosmicdrift/kumiko-framework/api";
 import { escapeHtml, escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import type { Context } from "hono";
 import { getCookie } from "hono/cookie";
-import { securePageHeaders, wrapInLayout } from "../../page-render/index.js";
+import {
+  type PublicPageWrapLayout,
+  redirectToCanonicalPath,
+  securePageHeaders,
+  slashVariantOf,
+  wrapInLayout,
+} from "../../page-render/index.js";
 import { SubscriptionFoundationHandlers } from "../constants.js";
 import { CONTRACT_TERMINATION_DECLARATION_TYPES, CONTRACT_TERMINATION_KINDS } from "../events.js";
 import type { ConsentLocale } from "./consent-text.js";
@@ -15,6 +21,21 @@ import { type PageTexts, TERMINATION_TEXTS } from "./termination-texts.js";
 
 export type ContractTerminationRoutesOptions = {
   readonly paths?: Readonly<Partial<Record<ConsentLocale, string>>>;
+  /** Layout around every page (form, review, result, 429, error). Default:
+   *  the minimal `wrapInLayout` skeleton. The page headers (CSP with
+   *  `script-src 'none'`, framing, no-store) stay with the framework, so the
+   *  layout must work without JavaScript and only returns the HTML string. */
+  readonly wrapLayout?: PublicPageWrapLayout;
+};
+
+const PAGE_SLUG = "contract-termination";
+
+// Everything a page render needs besides its own content.
+type PageContext = {
+  readonly locale: ConsentLocale;
+  readonly path: string;
+  readonly wrapLayout: PublicPageWrapLayout;
+  readonly alternates: Readonly<Record<ConsentLocale, string>>;
 };
 
 const DEFAULT_PATHS: Readonly<Record<ConsentLocale, string>> = {
@@ -59,15 +80,22 @@ function pageHeaders(): Record<string, string> {
 }
 
 function htmlResponse(
-  locale: ConsentLocale,
+  ctx: PageContext,
   title: string,
   bodyHtml: string,
-  status: 200 | 400 | 429 | 500,
+  status: 200 | 400 | 429,
 ): Response {
-  return new Response(wrapInLayout({ title, bodyHtml, lang: locale }), {
-    status,
-    headers: pageHeaders(),
-  });
+  const root = `<div data-kumiko-page="${PAGE_SLUG}">\n${bodyHtml}\n</div>`;
+  return new Response(
+    ctx.wrapLayout({
+      title,
+      bodyHtml: root,
+      lang: ctx.locale,
+      slug: PAGE_SLUG,
+      alternates: ctx.alternates,
+    }),
+    { status, headers: pageHeaders() },
+  );
 }
 
 function isOneOf<T extends string>(options: readonly T[], value: string): value is T {
@@ -152,32 +180,32 @@ function textField(
   value: string,
   attributes: { readonly type?: string; readonly required?: boolean; readonly maxlength: number },
 ): string {
-  return `<p><label>${escapeHtml(label)}<br><input type="${escapeHtmlAttr(attributes.type ?? "text")}" name="${name}" value="${escapeHtmlAttr(value)}" maxlength="${attributes.maxlength}"${
+  return `<p data-kumiko-field-group="${name}"><label>${escapeHtml(label)}<br><input type="${escapeHtmlAttr(attributes.type ?? "text")}" name="${name}" value="${escapeHtmlAttr(value)}" maxlength="${attributes.maxlength}"${
     attributes.required ? " required" : ""
   }></label></p>`;
 }
 
 function formPage(
-  locale: ConsentLocale,
-  path: string,
+  ctx: PageContext,
   values: FormValues,
   messages: readonly string[],
   status: 200 | 400,
 ): Response {
+  const { locale, path } = ctx;
   const texts = TERMINATION_TEXTS[locale];
   const { page } = texts;
   const body = `<h1>${escapeHtml(page.title)}</h1>
 <p>${escapeHtml(page.lead)}</p>
 ${errorsHtml(messages, page)}
-<form method="post" action="${escapeHtmlAttr(path)}">
+<form method="post" action="${escapeHtmlAttr(path)}" data-kumiko-form="contract-termination">
 <input type="hidden" name="step" value="review">
-<fieldset><legend>${escapeHtml(page.declarationTypeHeading)}</legend>${radioGroup(
+<fieldset data-kumiko-field-group="declarationType"><legend>${escapeHtml(page.declarationTypeHeading)}</legend>${radioGroup(
     "declarationType",
     CONTRACT_TERMINATION_DECLARATION_TYPES,
     texts.declarationTypeLabel,
     values.declarationType,
   )}</fieldset>
-<fieldset><legend>${escapeHtml(page.kindHeading)}</legend>${radioGroup(
+<fieldset data-kumiko-field-group="terminationKind"><legend>${escapeHtml(page.kindHeading)}</legend>${radioGroup(
     "terminationKind",
     CONTRACT_TERMINATION_KINDS,
     texts.terminationKindLabel,
@@ -186,10 +214,10 @@ ${errorsHtml(messages, page)}
 ${textField("name", page.nameLabel, values.name, { required: true, maxlength: 200 })}
 ${textField("email", page.emailLabel, values.email, { type: "email", required: true, maxlength: 254 })}
 ${textField("customerReference", page.customerReferenceLabel, values.customerReference, { maxlength: 200 })}
-<p><label>${escapeHtml(page.reasonLabel)} (${escapeHtml(page.reasonHint)})<br><textarea name="reason" rows="5" maxlength="2000">${escapeHtml(values.reason)}</textarea></label></p>
-<p><button type="submit">${escapeHtml(page.reviewButton)}</button></p>
+<p data-kumiko-field-group="reason"><label>${escapeHtml(page.reasonLabel)} (${escapeHtml(page.reasonHint)})<br><textarea name="reason" rows="5" maxlength="2000">${escapeHtml(values.reason)}</textarea></label></p>
+<p><button type="submit" data-kumiko-button="review">${escapeHtml(page.reviewButton)}</button></p>
 </form>`;
-  return htmlResponse(locale, page.title, body, status);
+  return htmlResponse(ctx, page.title, body, status);
 }
 
 function hiddenInputs(values: FormValues): string {
@@ -198,7 +226,8 @@ function hiddenInputs(values: FormValues): string {
   ).join("\n");
 }
 
-function reviewPage(locale: ConsentLocale, path: string, values: FormValues): Response {
+function reviewPage(ctx: PageContext, values: FormValues): Response {
+  const { locale, path } = ctx;
   const texts = TERMINATION_TEXTS[locale];
   const { page } = texts;
   // validationMessages already proved the enum values.
@@ -214,7 +243,7 @@ function reviewPage(locale: ConsentLocale, path: string, values: FormValues): Re
       : `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`;
   const body = `<h1>${escapeHtml(page.reviewTitle)}</h1>
 <p>${escapeHtml(page.reviewLead)}</p>
-<table>
+<table data-kumiko-review-table>
 ${row(texts.declarationType, texts.declarationTypeLabel[declarationType])}
 ${row(texts.terminationKind, texts.terminationKindLabel[terminationKind])}
 ${row(texts.name, values.name)}
@@ -222,22 +251,23 @@ ${row(texts.email, values.email)}
 ${row(texts.customerReference, values.customerReference)}
 ${row(texts.reasonFieldLabel, values.reason)}
 </table>
-<form method="post" action="${escapeHtmlAttr(path)}">
+<form method="post" action="${escapeHtmlAttr(path)}" data-kumiko-form="contract-termination-review">
 ${hiddenInputs(values)}
-<button type="submit" name="step" value="confirm">${escapeHtml(page.confirmButton[declarationType])}</button>
-<button type="submit" name="step" value="edit">${escapeHtml(page.backButton)}</button>
+<button type="submit" name="step" value="confirm" data-kumiko-button="confirm">${escapeHtml(page.confirmButton[declarationType])}</button>
+<button type="submit" name="step" value="edit" data-kumiko-button="back">${escapeHtml(page.backButton)}</button>
 </form>`;
-  return htmlResponse(locale, page.reviewTitle, body, 200);
+  return htmlResponse(ctx, page.reviewTitle, body, 200);
 }
 
-function resultPage(locale: ConsentLocale, receivedAtIso: string, requestId: string): Response {
+function resultPage(ctx: PageContext, receivedAtIso: string, requestId: string): Response {
+  const { locale } = ctx;
   const { page } = TERMINATION_TEXTS[locale];
   const body = `<h1>${escapeHtml(page.resultTitle)}</h1>
 <p>${escapeHtml(page.resultLead)}</p>
 <p>${escapeHtml(page.resultReceivedAt)}: <strong>${escapeHtml(formatReceivedAt(receivedAtIso, locale))}</strong></p>
 <p>${escapeHtml(page.resultRequestId)}: <code>${escapeHtml(requestId)}</code></p>
 <p>${escapeHtml(page.resultMailNote)}</p>`;
-  return htmlResponse(locale, page.resultTitle, body, 200);
+  return htmlResponse(ctx, page.resultTitle, body, 200);
 }
 
 type WriteResponseBody = {
@@ -320,50 +350,69 @@ async function submitDeclaration(
   return { kind: "failed" };
 }
 
-function routesFor(locale: ConsentLocale, path: string): AnonymousExtraRoute[] {
+function routesFor(ctx: PageContext): AnonymousExtraRoute[] {
+  const { locale, path } = ctx;
+  const slashVariant = slashVariantOf(path);
   return [
     {
       method: "GET",
       path,
       entry: "anonymous",
-      handler: () => formPage(locale, path, EMPTY_FORM, [], 200),
+      handler: () => formPage(ctx, EMPTY_FORM, [], 200),
     },
+    // GET also serves HEAD; POST gets no alias (a redirect would drop the body).
+    ...(slashVariant === null
+      ? []
+      : [
+          {
+            method: "GET" as const,
+            path: slashVariant,
+            entry: "anonymous" as const,
+            handler: (c: Context) => redirectToCanonicalPath(c.req.url, path),
+          },
+        ]),
     {
       method: "POST",
       path,
       entry: "anonymous",
       handler: async (c, deps) => {
         const { step, values } = await readForm(c);
-        if (step === "edit") return formPage(locale, path, values, [], 200);
+        if (step === "edit") return formPage(ctx, values, [], 200);
         const messages = validationMessages(values, locale);
-        if (messages.length > 0) return formPage(locale, path, values, messages, 400);
-        if (step !== "confirm") return reviewPage(locale, path, values);
+        if (messages.length > 0) return formPage(ctx, values, messages, 400);
+        if (step !== "confirm") return reviewPage(ctx, values);
 
         const outcome = await submitDeclaration(c, deps.app, deps.clientIp, values, locale);
         const { page } = TERMINATION_TEXTS[locale];
         if (outcome.kind === "received") {
-          return resultPage(locale, outcome.receivedAtIso, outcome.requestId);
+          return resultPage(ctx, outcome.receivedAtIso, outcome.requestId);
         }
         if (outcome.kind === "rate-limited") {
           return htmlResponse(
-            locale,
+            ctx,
             page.rateLimitedTitle,
             `<h1>${escapeHtml(page.rateLimitedTitle)}</h1><p>${escapeHtml(page.rateLimitedBody)}</p>`,
             429,
           );
         }
-        return formPage(locale, path, values, [page.errorGeneric], 400);
+        return formPage(ctx, values, [page.errorGeneric], 400);
       },
     },
   ];
 }
 
 /** GET + POST pages for de (`/legal/kuendigen`) and en (`/legal/cancel`);
- *  mount via the app's `extraRoutes`. */
+ *  mount via the app's `extraRoutes`. The other trailing-slash form of each
+ *  path 301-redirects (GET/HEAD) to the configured path. */
 export function createContractTerminationRoutes(
   options: ContractTerminationRoutesOptions = {},
 ): AnonymousExtraRoute[] {
+  const alternates: Readonly<Record<ConsentLocale, string>> = {
+    de: options.paths?.de ?? DEFAULT_PATHS.de,
+    en: options.paths?.en ?? DEFAULT_PATHS.en,
+  };
+  const wrapLayout = options.wrapLayout ?? wrapInLayout;
   return (["de", "en"] as const).flatMap((locale) =>
-    routesFor(locale, options.paths?.[locale] ?? DEFAULT_PATHS[locale]),
+    routesFor({ locale, path: alternates[locale], wrapLayout, alternates }),
   );
 }
