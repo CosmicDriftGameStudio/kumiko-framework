@@ -104,6 +104,7 @@ import {
   systemIdentitySwitchDenied,
 } from "./system-identity-switch.js";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache.js";
+import type { TenantTimezoneSyncSignal } from "./tenant-timezone-sync-signal.js";
 import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.js";
 
 export type { WriteOrigin } from "./write-origin.js";
@@ -151,6 +152,7 @@ export type DispatchContext = {
   tableCache: Map<string, ReturnType<typeof buildEntityTable>>;
   transitionCache: Map<string, ReturnType<typeof defineTransitions>>;
   tenantTimezoneCache: TenantTimezoneCache;
+  tenantTimezoneSync: TenantTimezoneSyncSignal | undefined;
   escapeHatchReportWindow: EscapeHatchReportWindow;
   tracer: ReturnType<typeof getFallbackTracer>;
   meter: ReturnType<typeof getFallbackMeter>;

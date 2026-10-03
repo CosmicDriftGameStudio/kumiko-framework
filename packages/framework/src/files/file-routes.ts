@@ -33,6 +33,7 @@ import { createFileContext } from "./file-handle.js";
 import { fileRefEntity } from "./file-ref-entity.js";
 import { fileRefsTable } from "./file-ref-table.js";
 import type { FileProviderResolver } from "./provider-resolver.js";
+import { resolveContentType } from "./resolve-content-type.js";
 import {
   buildStorageKey,
   parseMaxSize,
@@ -313,14 +314,18 @@ export function createFileRoutes(options: FileRoutesOptions): Hono {
       if (mimeTypeResolution.kind === "rejected") {
         return c.json({ error: mimeTypeResolution.error }, 400);
       }
-      mimeType = mimeTypeResolution.mimeType;
+      mimeType = resolveContentType({
+        declared: mimeTypeResolution.mimeType,
+        bytes: data,
+        filename: file.name,
+      });
     }
 
     const fileRefId = generateId();
     const storageKey = buildStorageKey(
       user.tenantId,
       entityType ?? "unattached",
-      entityId ?? "",
+      entityId,
       fieldName ?? "file",
       file.name,
       generateId(),

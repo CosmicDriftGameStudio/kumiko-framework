@@ -30,6 +30,7 @@ export {
   isFileProviderPlugin,
   makeFileProviderResolver,
 } from "./provider-resolver.js";
+export { resolveContentType } from "./resolve-content-type.js";
 export {
   fileRefStorageDelta,
   filesStorageTrackingFeature,

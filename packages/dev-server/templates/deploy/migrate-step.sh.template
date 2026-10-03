@@ -10,29 +10,11 @@
 # changes BEFORE the app container starts — runProdApp's boot gate would
 # otherwise abort with SchemaDriftError.
 #
-{{#stackNetworkDiscover}}
-# Network discovery: the _stack network is named `<dirname>_stack`
-# (compose convention). We discover it via `docker network ls` instead
-# of hard-coding.
-{{/stackNetworkDiscover}}
-{{#stackNetworkDirectory}}
 # Network: the exact `<dirname>_stack` name of the compose project this
-# script runs in (package.json#kumiko.deploy.stackNetwork = "directory").
-{{/stackNetworkDirectory}}
+# script runs in — never another project's network on a shared host.
 
 set -euo pipefail
 
-{{#stackNetworkDiscover}}
-# `|| true` keeps `set -e`/`pipefail` from aborting the script when `grep`
-# finds no match (exit 1) — the empty-check below owns that case and prints
-# the actionable hint instead of a bare pipefail abort.
-STACK_NETWORK=$(docker network ls --format "{{.Name}}" | grep -E "_stack$" | head -1 || true)
-if [ -z "$STACK_NETWORK" ]; then
-  echo "No _stack network found — compose project not running?" >&2
-  exit 1
-fi
-{{/stackNetworkDiscover}}
-{{#stackNetworkDirectory}}
 # Compose lowercases the project name and drops characters outside [a-z0-9_-].
 COMPOSE_PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')}"
 STACK_NETWORK="${COMPOSE_PROJECT}_stack"
@@ -40,7 +22,6 @@ if ! docker network inspect "$STACK_NETWORK" >/dev/null 2>&1; then
   echo "Stack network '$STACK_NETWORK' not found (derived from COMPOSE_PROJECT_NAME or the directory name '$(basename "$PWD")') — compose project not running?" >&2
   exit 1
 fi
-{{/stackNetworkDirectory}}
 
 # Import .env as bash env. `set -a` marks subsequent variable assignments
 # as auto-export. Bash's built-in parser respects quotes/escapes like

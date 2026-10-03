@@ -112,6 +112,21 @@ const testProviderBFeature = defineFeature("test-document-ingest-provider-b", (r
   );
 });
 
+const PROVIDER_XML_NAME = "test-provider-xml";
+
+const testProviderXmlFeature = defineFeature("test-document-ingest-provider-xml", (r) => {
+  r.requires("document-ingest-foundation");
+  r.useExtension(EXT_DOCUMENT_INGEST_PROVIDER, PROVIDER_XML_NAME, {
+    mimeTypes: ["application/xml", "text/xml"],
+    maxFileBytes: PROVIDER_B_MAX_BYTES,
+  });
+  r.job(
+    "test-provider-xml-worker",
+    { trigger: documentIngestProviderTrigger(PROVIDER_XML_NAME), runIn: "worker" },
+    async () => {},
+  );
+});
+
 let stack: TestStack;
 let provider: InMemoryFileProvider;
 
@@ -172,6 +187,7 @@ beforeAll(async () => {
       documentIngestFoundationFeature,
       testProviderAFeature,
       testProviderBFeature,
+      testProviderXmlFeature,
       agentDeleteFileRefFeature,
     ],
     files: { storageProvider: provider },
@@ -282,6 +298,20 @@ describe("fileRef.created → documentIngest.requested", () => {
       mimeType: "application/pdf",
       size: pdfBytes.length,
       provider: PROVIDER_A_NAME,
+    });
+  });
+
+  test("an octet-stream XML upload routes to the provider claiming application/xml", async () => {
+    const xmlBytes = new TextEncoder().encode('<?xml version="1.0"?><Invoice/>');
+    const { id } = await uploadFile("invoice.xml", xmlBytes, "application/octet-stream");
+
+    await stack.eventDispatcher?.runOnce();
+
+    const requested = await loadIngestRequestedEventsForFileRef(id);
+    expect(requested).toHaveLength(1);
+    expect(requested[0]?.payload).toMatchObject({
+      mimeType: "application/xml",
+      provider: PROVIDER_XML_NAME,
     });
   });
 

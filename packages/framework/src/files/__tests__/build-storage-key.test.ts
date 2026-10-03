@@ -17,6 +17,12 @@ describe("buildStorageKey", () => {
     expect(key).toBe("T1/invoice/1/attachment/u1.noext");
   });
 
+  test.each([undefined, ""])("never produces an empty segment when entityId is %p", (entityId) => {
+    const key = buildStorageKey("T1" as never, "unattached", entityId, "file", "a.xml", "u1");
+    expect(key).toBe("T1/unattached/none/file/u1.xml");
+    expect(key.split("/").every((segment) => segment !== "")).toBe(true);
+  });
+
   test("rejects a path-traversal filename and falls back to bin instead of leaking the payload", () => {
     const key = buildStorageKey(
       "T1" as never,

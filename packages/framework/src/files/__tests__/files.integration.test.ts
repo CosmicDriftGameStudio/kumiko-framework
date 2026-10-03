@@ -493,6 +493,32 @@ describe("file upload flow via API", () => {
     ...Array(100).fill(0),
   ]);
 
+  test("an octet-stream XML upload is stored as application/xml", async () => {
+    const res = await uploadFile(
+      adminUser,
+      "invoice.xml",
+      new TextEncoder().encode('<?xml version="1.0"?><Invoice/>'),
+      "application/octet-stream",
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.mimeType).toBe("application/xml");
+  });
+
+  test("a concrete declared type survives the upload unchanged", async () => {
+    const res = await uploadFile(
+      adminUser,
+      "notes.txt",
+      new TextEncoder().encode("<?xml version='1.0'?><a/>"),
+      "text/plain",
+    );
+
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.mimeType).toStartWith("text/plain");
+  });
+
   test("upload a logo image", async () => {
     const res = await uploadFile(adminUser, "logo.png", testPngContent, "image/png", {
       entityType: "tenant",

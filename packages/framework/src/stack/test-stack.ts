@@ -22,6 +22,7 @@ import {
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
+  createRedisTenantTimezoneSyncSignal,
   dispatcherToWriteRef,
 } from "../pipeline/index.js";
 import { createRateLimitResolver } from "../rate-limit/index.js";
@@ -216,6 +217,18 @@ export type TestStackOptions = {
   /** Forwarded to buildServer's top-level `ServerOptions.trustedProxyHops`
    *  — see there. Default 0. */
   trustedProxyHops?: number;
+  /** Second stack on the Redis namespace of `owner`: own connection, same
+   *  keyPrefix, so rate-limit buckets, locks, idempotency keys and the
+   *  tenant-timezone invalidation channel are shared across both. The derived
+   *  queueNamePrefix is identical too, so both stacks share BullMQ queues.
+   *  Cleanup only disconnects; the owner flushes the namespace and queues, so
+   *  clean up the borrowing stack first. The DB is NOT shared — pass the same
+   *  `dbName` + `persistentDb` for that. */
+  sharedRedisWith?: TestStack;
+  /** Publish/receive tenant-timezone cache invalidations over Redis Pub/Sub,
+   *  namespaced by this stack's keyPrefix. Implied by `sharedRedisWith`; set it
+   *  on the owner stack too, or its writes never reach the borrower. */
+  tenantTimezoneSync?: boolean;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -247,7 +260,9 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.dbName !== undefined && { dbName: options.dbName }),
       ...(options.persistentDb !== undefined && { persistent: options.persistentDb }),
     }),
-    createTestRedis(),
+    createTestRedis(
+      options.sharedRedisWith && { borrowKeyPrefix: options.sharedRedisWith.redis.keyPrefix },
+    ),
   ]);
 
   // Any throw in this DDL region must still drop the just-created ephemeral
@@ -317,6 +332,17 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     }
     throw error;
   }
+
+  // Sync only where two stacks can actually disagree; a plain stack keeps its
+  // cache local and avoids two extra Pub/Sub connections. null opts out of
+  // buildServer's REDIS_URL default (which would use an unnamespaced channel).
+  const tenantTimezoneSync =
+    options.tenantTimezoneSync || options.sharedRedisWith
+      ? createRedisTenantTimezoneSyncSignal({
+          redisUrl: testRedis.redisUrl,
+          channelPrefix: testRedis.keyPrefix,
+        })
+      : null;
 
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
@@ -491,6 +517,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.observability ? { observability: options.observability } : {}),
       dispatcherOptions: {
         idempotency,
+        tenantTimezoneSync,
         ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
         ...(jobRunner && { jobRunner }),
       },
@@ -586,6 +613,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         if (jobRunner) await jobRunner.stop();
         if (eventDispatcher) await eventDispatcher.stop();
         await server.observability.shutdown();
+        await tenantTimezoneSync?.close();
         await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
       },
     };
@@ -603,6 +631,11 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       } catch {
         // ignore — `error` is the one that matters
       }
+    }
+    try {
+      await tenantTimezoneSync?.close();
+    } catch {
+      // ignore — `error` is the one that matters
     }
     try {
       await testDb.cleanup();

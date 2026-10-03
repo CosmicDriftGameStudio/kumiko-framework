@@ -82,3 +82,13 @@ export {
   SEARCH_CONSUMER_NAME,
   SSE_BROADCAST_CONSUMER_NAME,
 } from "./system-hooks.js";
+export type {
+  RedisTenantTimezoneSyncOptions,
+  RedisTenantTimezoneSyncSignal,
+  TenantTimezoneInvalidation,
+  TenantTimezoneSyncSignal,
+} from "./tenant-timezone-sync-signal.js";
+export {
+  createDefaultTenantTimezoneSync,
+  createRedisTenantTimezoneSyncSignal,
+} from "./tenant-timezone-sync-signal.js";

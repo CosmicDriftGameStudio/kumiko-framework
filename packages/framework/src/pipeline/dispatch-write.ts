@@ -55,6 +55,7 @@ import {
 } from "./dispatcher-utils.js";
 import { handlerAccessError } from "./handler-access-error.js";
 import { runProjections } from "./projections-runner.js";
+import type { TenantTimezoneInvalidation } from "./tenant-timezone-sync-signal.js";
 
 function getTable(
   ctx: DispatchContext,
@@ -114,6 +115,7 @@ function invalidateTenantTimezoneCache(
   type: string,
   user: SessionUser,
   result: WriteResult,
+  { publishToOtherProcesses }: { publishToOtherProcesses: boolean },
 ): void {
   // skip: failed write, nothing to invalidate
   if (!result.isSuccess) return;
@@ -121,11 +123,13 @@ function invalidateTenantTimezoneCache(
   if (type !== CONFIG_WRITE_SET_TYPE && type !== CONFIG_WRITE_RESET_TYPE) return;
   // skip: write was for a different config key
   if (!isConfigWriteResultForKey(result.data, TENANT_TIMEZONE_CONFIG_KEY)) return;
-  if (result.data.scope === ConfigScopes.system) {
-    ctx.tenantTimezoneCache.clear();
-  } else {
-    ctx.tenantTimezoneCache.invalidate(user.tenantId);
-  }
+  const invalidation: TenantTimezoneInvalidation =
+    result.data.scope === ConfigScopes.system ? { scope: "all" } : { tenantId: user.tenantId };
+  if ("scope" in invalidation) ctx.tenantTimezoneCache.clear();
+  else ctx.tenantTimezoneCache.invalidate(invalidation.tenantId);
+  // Only after commit: a pod receiving this earlier would re-read the
+  // pre-write row and cache the stale value again.
+  if (publishToOtherProcesses) ctx.tenantTimezoneSync?.publish(invalidation);
 }
 
 // Runs lifecycle hooks for a handler result. inTransaction hooks fire NOW
@@ -654,12 +658,12 @@ async function executeWriteInner(
       afterCommitHooks.push(() => jobRunner.handleEvent(type, eventData, user));
     }
 
-    invalidateTenantTimezoneCache(ctx, type, user, result);
+    invalidateTenantTimezoneCache(ctx, type, user, result, { publishToOtherProcesses: false });
     // Again after commit: a query landing between the drop above and the
     // commit would read the pre-write row (tx not yet visible) and
     // repopulate the cache with the stale value for a full TTL.
     afterCommitHooks.push(async () => {
-      invalidateTenantTimezoneCache(ctx, type, user, result);
+      invalidateTenantTimezoneCache(ctx, type, user, result, { publishToOtherProcesses: true });
     });
   }
 

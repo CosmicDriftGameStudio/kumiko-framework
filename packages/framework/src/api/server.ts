@@ -53,6 +53,10 @@ import {
   createSseBroadcastEventConsumer,
 } from "../pipeline/system-hooks.js";
 import {
+  createDefaultTenantTimezoneSync,
+  type RedisTenantTimezoneSyncSignal,
+} from "../pipeline/tenant-timezone-sync-signal.js";
+import {
   type AuthEndpointRateLimitOptions,
   authEndpointRateLimit,
   createRateLimitResolver,
@@ -421,6 +425,16 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ownedRedisSseBroker = defaults.ownedRedisSseBroker;
   }
 
+  // Same decision as the SSE broker: an explicit dispatcherOptions value
+  // (incl. null = opt out) wins, otherwise REDIS_URL turns on the
+  // cross-replica tenant-timezone cache invalidation.
+  let tenantTimezoneSync = options.dispatcherOptions?.tenantTimezoneSync;
+  let ownedTenantTimezoneSync: RedisTenantTimezoneSyncSignal | undefined;
+  if (tenantTimezoneSync === undefined) {
+    ownedTenantTimezoneSync = createDefaultTenantTimezoneSync();
+    tenantTimezoneSync = ownedTenantTimezoneSync;
+  }
+
   // Resolve the per-process instance identifier. Prefer explicit
   // ServerOptions.instanceId (tests, deliberate wiring), fall back to the
   // deploy-env variable, finally a boot-time UUID. Validator rejects the
@@ -532,6 +546,7 @@ export function buildServer(options: ServerOptions): KumikoServer {
     ...options.dispatcherOptions,
     lifecycle,
     sseBroker,
+    tenantTimezoneSync,
     ...(options.auth ? { membershipQuery: options.auth.membershipQuery } : {}),
   });
 
@@ -702,6 +717,13 @@ export function buildServer(options: ServerOptions): KumikoServer {
     const broker = ownedRedisSseBroker;
     options.lifecycle.registerShutdownHook("redisSseBroker", async () => {
       await broker.close();
+    });
+  }
+
+  if (options.lifecycle && ownedTenantTimezoneSync) {
+    const sync = ownedTenantTimezoneSync;
+    options.lifecycle.registerShutdownHook("tenantTimezoneSync", async () => {
+      await sync.close();
     });
   }
 

@@ -38,6 +38,7 @@ import type { IdempotencyGuard } from "./idempotency.js";
 import type { LifecycleHooks } from "./lifecycle-pipeline.js";
 import { createMemberReaderFn } from "./member-reader.js";
 import { createTenantTimezoneCache } from "./tenant-timezone-cache.js";
+import type { TenantTimezoneSyncSignal } from "./tenant-timezone-sync-signal.js";
 import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 
 // Re-export for callers that reach for dispatcher-adjacent types (tests,
@@ -77,6 +78,9 @@ export type DispatcherOptions = {
   // user-scoped access-invalidation channel on it. Absent in setups without
   // SSE wired up (dispatch-stream then just skips the subscription).
   sseBroker?: SseBroker;
+  // Cross-process invalidation of the per-dispatcher tenant-timezone cache.
+  // Absent/null = invalidation stays local to this process.
+  tenantTimezoneSync?: TenantTimezoneSyncSignal | null;
 };
 
 export type Dispatcher = {
@@ -184,6 +188,11 @@ export function createDispatcher(
   // One per dispatcher instance (not a module-level singleton) so caches
   // never leak across separately-booted apps or test stacks.
   const tenantTimezoneCache = createTenantTimezoneCache();
+  const tenantTimezoneSync = options.tenantTimezoneSync ?? undefined;
+  tenantTimezoneSync?.onMessage((invalidation) => {
+    if ("scope" in invalidation) tenantTimezoneCache.clear();
+    else tenantTimezoneCache.invalidate(invalidation.tenantId);
+  });
   const escapeHatchReportWindow = createEscapeHatchReportWindow();
 
   const dispatcherTracer = context.tracer ?? getFallbackTracer();
@@ -216,6 +225,7 @@ export function createDispatcher(
     tableCache,
     transitionCache,
     tenantTimezoneCache,
+    tenantTimezoneSync,
     escapeHatchReportWindow,
     tracer: dispatcherTracer,
     meter: dispatcherMeter,
