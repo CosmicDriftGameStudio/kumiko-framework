@@ -40,6 +40,58 @@ export const BILLING_FOUNDATION_I18N: Readonly<Record<string, LocalizedString>> 
   "billing-foundation.plans.subscriptionPending": {
     en: "Your plan change is being processed.",
   },
+  "billing-foundation.consent.title": { en: "Review your order" },
+  "billing-foundation.consent.cancelAnytime": {
+    en: "You can cancel at any time, effective at the end of the current period.",
+  },
+  "billing-foundation.consent.renews.day": { en: "Renews every day until cancelled." },
+  "billing-foundation.consent.renews.week": { en: "Renews every week until cancelled." },
+  "billing-foundation.consent.renews.month": { en: "Renews every month until cancelled." },
+  "billing-foundation.consent.renews.year": { en: "Renews every year until cancelled." },
+  "billing-foundation.consent.renewsEvery.day": {
+    en: "Renews every {count} days until cancelled.",
+  },
+  "billing-foundation.consent.renewsEvery.week": {
+    en: "Renews every {count} weeks until cancelled.",
+  },
+  "billing-foundation.consent.renewsEvery.month": {
+    en: "Renews every {count} months until cancelled.",
+  },
+  "billing-foundation.consent.renewsEvery.year": {
+    en: "Renews every {count} years until cancelled.",
+  },
+  "billing-foundation.consent.link.terms": { en: "Terms" },
+  "billing-foundation.consent.link.withdrawal": { en: "Withdrawal policy" },
+  "billing-foundation.consent.link.privacy": { en: "Privacy policy" },
+  "billing-foundation.consent.order": { en: "Order with obligation to pay" },
+  "billing-foundation.consent.back": { en: "Back" },
+  "billing-foundation.cancel.open": { en: "Cancel contract here" },
+  "billing-foundation.cancel.title": { en: "Cancel contract" },
+  "billing-foundation.cancel.declaration": { en: "Declaration" },
+  "billing-foundation.cancel.declaration.termination": { en: "Termination" },
+  "billing-foundation.cancel.declaration.withdrawal": { en: "Withdrawal" },
+  "billing-foundation.cancel.withdrawalHint": {
+    en: "A withdrawal is only possible within the statutory withdrawal period.",
+  },
+  "billing-foundation.cancel.kind": { en: "Type of termination" },
+  "billing-foundation.cancel.kind.ordinary": { en: "Ordinary" },
+  "billing-foundation.cancel.kind.extraordinary": { en: "Extraordinary (for cause)" },
+  "billing-foundation.cancel.reason": { en: "Reason" },
+  "billing-foundation.cancel.continue": { en: "Continue" },
+  "billing-foundation.cancel.back": { en: "Back" },
+  "billing-foundation.cancel.close": { en: "Close" },
+  "billing-foundation.cancel.confirmQuestion": {
+    en: "Do you want to submit this declaration now? Declaration: {declaration}, type: {kind}.",
+  },
+  "billing-foundation.cancel.submit": { en: "Cancel now" },
+  "billing-foundation.cancel.receivedAt": { en: "We received your declaration on {date}." },
+  "billing-foundation.cancel.effectiveAt": { en: "It takes effect on {date}." },
+  "billing-foundation.cancel.effectiveUnknown": {
+    en: "We will confirm the effective date by email.",
+  },
+  "billing-foundation.cancel.emailConfirmation": {
+    en: "You will receive a confirmation by email.",
+  },
   "billing-foundation.errors.redirectOriginNotAllowed": {
     en: "This redirect URL is not allowed for this app.",
   },

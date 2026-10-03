@@ -1,4 +1,4 @@
-// Consent gate on checkout (fw#3468): real HTTP writes through setupTestStack,
+// Consent gate on checkout: real HTTP writes through setupTestStack,
 // a stub provider that records what createCheckoutSession received, and the
 // event stream read back from the event store.
 

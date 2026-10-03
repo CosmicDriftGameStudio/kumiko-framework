@@ -1,6 +1,6 @@
 // @runtime client
 
-import { toInstant } from "@cosmicdrift/kumiko-headless";
+import { toInstant, type WriteResult } from "@cosmicdrift/kumiko-headless";
 import {
   type ExtensionSectionProps,
   useLocale,
@@ -23,6 +23,8 @@ import {
   SubscriptionStatuses,
 } from "../constants.js";
 import type { BillingPlansResult, BillingPlanView } from "../types.js";
+import { CancelContractDialog } from "./cancel-contract-dialog.js";
+import { CheckoutConsentDialog, type CheckoutConsentPayload } from "./checkout-consent-dialog.js";
 
 type UseTranslation = ReturnType<typeof useTranslation>;
 
@@ -31,6 +33,13 @@ function intervalKey(price: BillingPlanView["price"]): string | undefined {
   return price.intervalCount !== null && price.intervalCount > 1
     ? `billing-foundation.plans.everyInterval.${price.interval}`
     : `billing-foundation.plans.perInterval.${price.interval}`;
+}
+
+function renewalKey(price: BillingPlanView["price"]): string | undefined {
+  if (price === null || price.interval === null) return undefined;
+  return price.intervalCount !== null && price.intervalCount > 1
+    ? `billing-foundation.consent.renewsEvery.${price.interval}`
+    : `billing-foundation.consent.renews.${price.interval}`;
 }
 
 function localizedParams(
@@ -119,7 +128,7 @@ function planCta(
 export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   const t = useTranslation();
   const locale = useLocale().locale();
-  const { Banner } = usePrimitives();
+  const { Banner, Button } = usePrimitives();
   const query = useQuery<BillingPlansResult | null>(SubscriptionFoundationQueries.billingPlans, {});
   const checkoutMutation = useMutation<{ readonly url: string }>(
     SubscriptionFoundationHandlers.startPlanCheckout,
@@ -137,8 +146,26 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   // enabled during its own in-flight request — a double-click risk — and
   // `mutation.pending` alone drops before `window.location.assign` completes.
   const [redirecting, setRedirecting] = useState(false);
+  const [consentTier, setConsentTier] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+
+  async function orderWithConsent(
+    tier: string,
+    consent: CheckoutConsentPayload,
+  ): Promise<WriteResult<{ readonly url: string }>> {
+    const result = await checkoutMutation.mutate({ tier, consent });
+    if (result.isSuccess) {
+      setRedirecting(true);
+      window.location.assign(result.data.url);
+    }
+    return result;
+  }
 
   async function handleAction(tier: string, kind: "checkout" | "switch"): Promise<void> {
+    if (kind === "checkout" && query.data?.consumerProtection !== undefined) {
+      setConsentTier(tier);
+      return;
+    }
     setRedirecting(true);
     const mutation = kind === "checkout" ? checkoutMutation : switchMutation;
     const result = await mutation.mutate({ tier });
@@ -176,7 +203,11 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   if (!query.data) return null;
   const result: BillingPlansResult = query.data;
 
-  const mutationError = checkoutMutation.error ?? switchMutation.error ?? portalMutation.error;
+  // The consent dialog shows the checkout error itself.
+  const mutationError =
+    (consentTier === null ? checkoutMutation.error : null) ??
+    switchMutation.error ??
+    portalMutation.error;
   const canManage =
     result.subscription !== null && !result.subscription.terminal && result.canPurchase;
 
@@ -220,6 +251,9 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
   // (a legacy/free/pilot tier outside `catalog.plans`) — when none of the
   // rendered plans is the current one, a synthetic current-tier card (no
   // price, no cta) keeps it visible regardless of enabled/disabled.
+  const consentPlan =
+    consentTier !== null ? result.plans.find((plan) => plan.tier === consentTier) : undefined;
+  const consumerProtection = result.consumerProtection;
   const currentTierInPlans = result.plans.some((plan) => plan.isCurrent);
   const visiblePlans = result.enabled
     ? result.plans
@@ -259,6 +293,17 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
             {t("billing-foundation.plans.switchRequiresReactivation")}
           </Banner>
         )}
+      {consumerProtection !== undefined && canManage && (
+        <div>
+          <Button
+            variant="secondary"
+            onClick={() => setCancelOpen(true)}
+            testId="billing-plans-cancel-contract"
+          >
+            {t("billing-foundation.cancel.open")}
+          </Button>
+        </div>
+      )}
       <PlanGrid testId="billing-plans-grid">
         {!currentTierInPlans && (
           <PlanCard
@@ -285,6 +330,32 @@ export function BillingPlansPanel(_props: ExtensionSectionProps): ReactNode {
           />
         ))}
       </PlanGrid>
+      {consumerProtection !== undefined &&
+        consentPlan !== undefined &&
+        consentPlan.price !== null && (
+          <CheckoutConsentDialog
+            open
+            onOpenChange={(open) => {
+              if (!open) setConsentTier(null);
+            }}
+            planName={t(consentPlan.labelKey)}
+            price={{
+              amount: formatMoney(consentPlan.price.unitAmount, consentPlan.price.currency, locale),
+              renewalKey: renewalKey(consentPlan.price),
+              count: new Intl.NumberFormat(locale).format(consentPlan.price.intervalCount ?? 1),
+            }}
+            consumerProtection={consumerProtection}
+            onOrder={(consent) => orderWithConsent(consentPlan.tier, consent)}
+            onConsentTextOutdated={() => void query.refetch()}
+          />
+        )}
+      {consumerProtection !== undefined && canManage && (
+        <CancelContractDialog
+          open={cancelOpen}
+          onOpenChange={setCancelOpen}
+          onTerminated={() => void query.refetch()}
+        />
+      )}
     </div>
   );
 }

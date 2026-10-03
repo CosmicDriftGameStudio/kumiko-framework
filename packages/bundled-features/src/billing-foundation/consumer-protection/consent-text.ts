@@ -1,11 +1,15 @@
 import { createHash } from "node:crypto";
+import type { ConsentLocale } from "./consent-locale.js";
+
+export {
+  CONSENT_LOCALES,
+  type ConsentLocale,
+  FALLBACK_CONSENT_LOCALE,
+  resolveConsentLocale,
+} from "./consent-locale.js";
 
 // Legal texts, deliberately inline de/en: the wording is part of the recorded
 // consent, so it cannot follow the en-only i18n convention.
-export const CONSENT_LOCALES = ["de", "en"] as const;
-export type ConsentLocale = (typeof CONSENT_LOCALES)[number];
-export const FALLBACK_CONSENT_LOCALE: ConsentLocale = "de";
-
 export type ConsentTexts = {
   readonly earlyPerformance: string;
   readonly withdrawalLoss: string;
@@ -43,19 +47,6 @@ export function consentTextVersion(locale: ConsentLocale): string {
     .update(`${earlyPerformance}\n${withdrawalLoss}`)
     .digest("hex")
     .slice(0, CONSENT_TEXT_VERSION_LENGTH);
-}
-
-function isConsentLocale(value: string): value is ConsentLocale {
-  return (CONSENT_LOCALES as readonly string[]).includes(value);
-}
-
-/** Exact match, else the language part ("de-AT" → "de"), else the fallback. */
-export function resolveConsentLocale(input?: string): ConsentLocale {
-  if (input === undefined) return FALLBACK_CONSENT_LOCALE;
-  const lower = input.toLowerCase();
-  if (isConsentLocale(lower)) return lower;
-  const language = lower.split("-")[0] ?? "";
-  return isConsentLocale(language) ? language : FALLBACK_CONSENT_LOCALE;
 }
 
 export function submitMessageFor(locale: ConsentLocale, mode: "subscription" | "payment"): string {

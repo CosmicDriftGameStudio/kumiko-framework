@@ -13,7 +13,7 @@ export type TerminationTexts = {
   readonly name: string;
   readonly email: string;
   readonly customerReference: string;
-  readonly reason: string;
+  readonly reasonFieldLabel: string;
   readonly receiptSubject: Readonly<Record<ContractTerminationDeclarationType, string>>;
   readonly receiptIntro: string;
   readonly receiptNextSteps: string;
@@ -88,7 +88,7 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
     name: "Name",
     email: "E-Mail",
     customerReference: "Kundennummer / Referenz",
-    reason: "Begründung",
+    reasonFieldLabel: "Begründung",
     receiptSubject: {
       termination: "Eingangsbestätigung Ihrer Kündigung",
       withdrawal: "Eingangsbestätigung Ihres Widerrufs",
@@ -171,7 +171,7 @@ export const TERMINATION_TEXTS: Readonly<Record<ConsentLocale, TerminationTexts>
     name: "Name",
     email: "Email",
     customerReference: "Customer number / reference",
-    reason: "Reason",
+    reasonFieldLabel: "Reason",
     receiptSubject: {
       termination: "Receipt for your termination",
       withdrawal: "Receipt for your withdrawal",

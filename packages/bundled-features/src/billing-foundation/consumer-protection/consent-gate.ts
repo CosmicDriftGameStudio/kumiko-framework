@@ -6,8 +6,11 @@ import type { HandlerContext } from "@cosmicdrift/kumiko-framework/engine";
 import { UnprocessableError } from "@cosmicdrift/kumiko-framework/errors";
 import { generateId } from "@cosmicdrift/kumiko-framework/utils";
 import * as z from "zod";
-import { requireTemplateResolver, TemplateNotFoundError } from "../../template-resolver/api.js";
-import { TEXT_BLOCK_KIND } from "../../template-resolver/constants.js";
+import {
+  requireTemplateResolver,
+  TEXT_BLOCK_KIND,
+  TemplateNotFoundError,
+} from "../../template-resolver/index.js";
 import { paymentAggregateId, subscriptionAggregateId } from "../aggregate-id.js";
 import {
   CHECKOUT_CONSENT_RECORDED_EVENT_QN,

@@ -1,4 +1,4 @@
-// § 312k contract termination (fw#3468): anonymous declarations through real
+// § 312k contract termination: anonymous declarations through real
 // HTTP (/api/write and the public pages), the account path through
 // /api/write with a session, provider cancel recorded by a mock plugin, mails
 // captured by the in-memory email transport after the job cascade drained.
@@ -113,8 +113,10 @@ const mockProviderFeature = defineFeature("test-mock-termination-provider", (r) 
 let stack: TestStack;
 let ipCounter = 0;
 
-beforeAll(async () => {
-  stack = await setupTestStack({
+type StackAnonymousAccess = NonNullable<Parameters<typeof setupTestStack>[0]["anonymousAccess"]>;
+
+async function createTerminationStack(anonymousAccess: StackAnonymousAccess): Promise<TestStack> {
+  const terminationStack = await setupTestStack({
     features: [
       createConfigFeature(),
       createUserFeature(),
@@ -142,14 +144,19 @@ beforeAll(async () => {
       templateResolver: createTemplateResolverApi(deps.db),
     }),
     extraRoutes: [createSubscriptionWebhookRoute(), ...createContractTerminationRoutes()],
-    anonymousAccess: { defaultTenantId: ANONYMOUS_TENANT },
+    anonymousAccess,
     jobs: { consumerLane: "worker", queueNamePrefix: `contract-termination-${generateId()}` },
   });
-  await unsafeCreateEntityTable(stack.db, userEntity);
-  await unsafeCreateEntityTable(stack.db, tenantEntity);
-  await unsafeCreateEntityTable(stack.db, tenantComplianceProfileEntity);
-  await unsafeCreateEntityTable(stack.db, templateResourceEntity);
-  await unsafeCreateEntityTable(stack.db, notificationPreferenceEntity);
+  await unsafeCreateEntityTable(terminationStack.db, userEntity);
+  await unsafeCreateEntityTable(terminationStack.db, tenantEntity);
+  await unsafeCreateEntityTable(terminationStack.db, tenantComplianceProfileEntity);
+  await unsafeCreateEntityTable(terminationStack.db, templateResourceEntity);
+  await unsafeCreateEntityTable(terminationStack.db, notificationPreferenceEntity);
+  return terminationStack;
+}
+
+beforeAll(async () => {
+  stack = await createTerminationStack({ defaultTenantId: ANONYMOUS_TENANT });
 });
 
 afterAll(async () => {
@@ -659,5 +666,60 @@ describe("terminate-contract (account path)", () => {
 
     expect(error.httpStatus).toBe(403);
     expect(cancelCalls).toEqual([]);
+  });
+});
+
+describe("public pages on a host that resolves no tenant", () => {
+  let noTenantStack: TestStack;
+
+  beforeAll(async () => {
+    noTenantStack = await createTerminationStack({
+      tenantResolver: () => null,
+      resolverTrust: "authoritative",
+      tenantExists: async (id) => id === ANONYMOUS_TENANT,
+    });
+  });
+
+  afterAll(async () => {
+    await noTenantStack.cleanup();
+  });
+
+  // An authoritative resolver's silence is final: the anonymous dispatcher
+  // answers tenant_required before the handler runs, so the routes must be
+  // mounted on a host that resolves a tenant.
+  test("the confirm step cannot record a declaration and shows the generic error", async () => {
+    const res = await noTenantStack.app.request(
+      "/legal/kuendigen",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          declarationType: "termination",
+          terminationKind: "ordinary",
+          name: DECLARANT_NAME,
+          email: "no-tenant-host@example.com",
+          step: "confirm",
+        }).toString(),
+      },
+      nextClientIp(),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.text()).not.toContain("Ihre Erklärung ist eingegangen");
+    const direct = await noTenantStack.app.request(
+      "/api/write",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          type: SubscriptionFoundationHandlers.requestContractTermination,
+          payload: declarationPayload({ email: "no-tenant-host@example.com" }),
+        }),
+      },
+      nextClientIp(),
+    );
+    expect(direct.status).toBe(400);
+    const body = (await direct.json()) as { error: { code: string } };
+    expect(body.error.code).toBe("tenant_required");
   });
 });
