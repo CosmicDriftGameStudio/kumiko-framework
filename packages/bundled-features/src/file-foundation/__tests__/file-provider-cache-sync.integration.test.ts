@@ -166,7 +166,7 @@ describe("file provider cache on secret writes", () => {
       extraContext: ({ registry, db }) => ({
         configResolver: resolver,
         _configAccessorFactory: createConfigAccessorFactory(registry, resolver),
-        secrets: createSecretsContext({ db, masterKeyProvider }),
+        secrets: createSecretsContext({ db, masterKeyProvider, registry }),
       }),
     });
     await unsafePushTables(stack.db, {
