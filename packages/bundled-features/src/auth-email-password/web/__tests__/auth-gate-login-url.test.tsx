@@ -5,7 +5,7 @@ import {
   PrimitivesProvider,
 } from "@cosmicdrift/kumiko-renderer";
 import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../../i18n.js";
 import { makeSessionAuthGate, type SessionAuthGateOptions } from "../auth-gate.js";
@@ -96,6 +96,20 @@ describe("auth gate with loginUrl", () => {
     expect(screen.queryByTestId("protected")).toBeNull();
     expect(screen.queryByLabelText(/password/i)).toBeNull();
   });
+
+  test.each(["/login", "/login?next=%2Fa%2Fsettings"])(
+    "a gate on the loginUrl page itself (%s) does not redirect",
+    async (currentUrl) => {
+      window.history.replaceState(null, "", currentUrl);
+      mockBackend({ signedIn: false });
+
+      renderGate({ loginUrl: "/login" });
+
+      // No csrf cookie: the session settles unauthenticated without a fetch; act flushes that and the gate effect.
+      await act(async () => {});
+      expect(replaceMock).not.toHaveBeenCalled();
+    },
+  );
 
   test("without loginUrl the built-in login screen renders and nothing navigates", async () => {
     mockBackend({ signedIn: false });
