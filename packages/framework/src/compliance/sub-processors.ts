@@ -137,13 +137,21 @@ export const KUMIKO_SUB_PROCESSORS: readonly SubProcessor[] = [
   },
   {
     name: "Scaleway SAS",
-    purpose:
-      "Offsite Backup Mirror (Object Storage); planned: platform key custody (Key Manager) and Transactional Email",
+    purpose: "Offsite Backup Mirror (Object Storage)",
     region: "EU (France)",
     dpa: "https://www.scaleway.com/en/contracts/",
     addedAt: "2026-09-18",
     appliesTo: ["all-tiers"],
     status: "active",
+  },
+  {
+    name: "Scaleway SAS",
+    purpose: "Platform key custody (Key Manager) and Transactional Email Delivery",
+    region: "EU (France)",
+    dpa: "https://www.scaleway.com/en/contracts/",
+    addedAt: "2026-09-18",
+    appliesTo: ["all-tiers"],
+    status: "planned",
   },
 ];
 
