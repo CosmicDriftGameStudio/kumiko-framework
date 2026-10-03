@@ -98,6 +98,54 @@ const piiOrderEntity = createEntity({
 });
 const piiOrderTable = buildEntityTable("refSearchPiiOrder", piiOrderEntity);
 
+// Plaintext label (ILIKE path) on a target with row-owned read, and on a
+// target whose label field itself has restricted read access.
+const ownedPlainCustomerEntity = createEntity({
+  table: "read_ref_search_owned_customers",
+  fields: {
+    ownerId: createTextField({ personal: false, reason: "test_fixture", required: true }),
+    name: createTextField({ required: true, personal: false, reason: "test_fixture" }),
+  },
+  access: {
+    read: { Admin: "all", User: from("user:id", "ownerId") },
+  },
+});
+const ownedPlainCustomerTable = buildEntityTable(
+  "refSearchOwnedCustomer",
+  ownedPlainCustomerEntity,
+);
+
+const labelRestrictedCustomerEntity = createEntity({
+  table: "read_ref_search_label_restricted_customers",
+  fields: {
+    name: createTextField({
+      required: true,
+      personal: false,
+      reason: "test_fixture",
+      access: { read: { Admin: "all" } },
+    }),
+  },
+  access: {
+    read: { Admin: "all", User: "all" },
+  },
+});
+const labelRestrictedCustomerTable = buildEntityTable(
+  "refSearchLabelRestrictedCustomer",
+  labelRestrictedCustomerEntity,
+);
+
+const guardedTargets: Readonly<Record<string, EntityDefinition>> = {
+  refSearchOwnedCustomer: ownedPlainCustomerEntity,
+  refSearchLabelRestrictedCustomer: labelRestrictedCustomerEntity,
+};
+
+function guardedReferenceSearch(targetEntityName: string) {
+  return {
+    fields: [{ fieldName: "customerId", targetEntityName, labelField: "name" }],
+    resolveEntity: (name: string) => guardedTargets[name],
+  };
+}
+
 function resolvePiiEntity(name: string): EntityDefinition | undefined {
   return name === "refSearchPiiCustomer" ? piiCustomerEntity : undefined;
 }
@@ -155,6 +203,12 @@ beforeAll(async () => {
   await unsafeCreateEntityTable(testDb.db, restrictedOrderEntity, "refSearchRestrictedOrder");
   await unsafeCreateEntityTable(testDb.db, piiCustomerEntity, "refSearchPiiCustomer");
   await unsafeCreateEntityTable(testDb.db, piiOrderEntity, "refSearchPiiOrder");
+  await unsafeCreateEntityTable(testDb.db, ownedPlainCustomerEntity, "refSearchOwnedCustomer");
+  await unsafeCreateEntityTable(
+    testDb.db,
+    labelRestrictedCustomerEntity,
+    "refSearchLabelRestrictedCustomer",
+  );
   await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
   tdbA = createTenantDb(testDb.db, admin.tenantId);
   tdbB = createTenantDb(testDb.db, otherTenantAdmin.tenantId);
@@ -168,7 +222,8 @@ beforeEach(async () => {
   await asRawClient(testDb.db).unsafe(
     "TRUNCATE kumiko_events, read_ref_search_customers, read_ref_search_orders, " +
       "read_ref_search_restricted_orders, read_ref_search_pii_customers, " +
-      "read_ref_search_pii_orders, read_tenants RESTART IDENTITY CASCADE",
+      "read_ref_search_pii_orders, read_ref_search_owned_customers, " +
+      "read_ref_search_label_restricted_customers, read_tenants RESTART IDENTITY CASCADE",
   );
 });
 
@@ -487,6 +542,12 @@ describe("event-store-executor.list — searchable reference fields (fw#2660)", 
       });
       expect(res.rows).toHaveLength(0);
     } finally {
+      await unsafeCreateEntityTable(testDb.db, ownedPlainCustomerEntity, "refSearchOwnedCustomer");
+      await unsafeCreateEntityTable(
+        testDb.db,
+        labelRestrictedCustomerEntity,
+        "refSearchLabelRestrictedCustomer",
+      );
       await unsafeCreateEntityTable(testDb.db, tenantMetaEntity, "tenant");
     }
   });
@@ -771,5 +832,84 @@ describe("event-store-executor.list — searchable reference to an encrypted/PII
       referenceSearch: piiReferenceSearch,
     });
     expect(res.rows).toHaveLength(0);
+  });
+});
+
+describe("event-store-executor.list — plaintext reference label respects target read access", () => {
+  async function seedOrderFor(targetId: string): Promise<string> {
+    const [order] = await seedRows(testDb.db, orderTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        note: "unrelated",
+        customerId: targetId,
+      },
+    ]);
+    return (order as { id: string }).id;
+  }
+
+  test("row-level ownership on the target filters the ILIKE label match", async () => {
+    const [ownRow, otherRow] = await seedRows(testDb.db, ownedPlainCustomerTable, [
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: TestUsers.user.id,
+        name: "Shared Label",
+      },
+      {
+        id: crypto.randomUUID(),
+        tenantId: admin.tenantId,
+        ownerId: admin.id,
+        name: "Shared Label",
+      },
+    ]);
+    const ownOrderId = await seedOrderFor((ownRow as { id: string }).id);
+    await seedOrderFor((otherRow as { id: string }).id);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+    const res = await orderExec.list({ search: "shared" }, TestUsers.user, tdbA, {
+      searchAdapter,
+      referenceSearch: guardedReferenceSearch("refSearchOwnedCustomer"),
+    });
+    expect(res.rows.map((r) => r["id"])).toEqual([ownOrderId]);
+  });
+
+  test("a role without any read grant on the target gets no ILIKE label match", async () => {
+    const [row] = await seedRows(testDb.db, ownedPlainCustomerTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, ownerId: admin.id, name: "Driver Spot" },
+    ]);
+    await seedOrderFor((row as { id: string }).id);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+    const res = await orderExec.list({ search: "driver" }, TestUsers.driver, tdbA, {
+      searchAdapter,
+      referenceSearch: guardedReferenceSearch("refSearchOwnedCustomer"),
+    });
+    expect(res.rows).toHaveLength(0);
+  });
+
+  test("a label field with restricted read access is not searchable through the reference", async () => {
+    const [row] = await seedRows(testDb.db, labelRestrictedCustomerTable, [
+      { id: crypto.randomUUID(), tenantId: admin.tenantId, name: "Confidential Name" },
+    ]);
+    const orderId = await seedOrderFor((row as { id: string }).id);
+
+    const searchAdapter = createInMemorySearchAdapter();
+    await searchAdapter.configure(admin.tenantId, { searchableFields: ["note"] });
+    const referenceSearch = guardedReferenceSearch("refSearchLabelRestrictedCustomer");
+
+    const asUser = await orderExec.list({ search: "confidential" }, TestUsers.user, tdbA, {
+      searchAdapter,
+      referenceSearch,
+    });
+    expect(asUser.rows).toHaveLength(0);
+
+    const asAdmin = await orderExec.list({ search: "confidential" }, admin, tdbA, {
+      searchAdapter,
+      referenceSearch,
+    });
+    expect(asAdmin.rows.map((r) => r["id"])).toEqual([orderId]);
   });
 });
