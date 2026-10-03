@@ -23,6 +23,10 @@ import {
   createDateField,
   createEmbeddedField,
   createEntity,
+  createFileField,
+  createFilesField,
+  createImageField,
+  createImagesField,
   createLocatedTimestampField,
   createLongTextField,
   createMultiSelectField,
@@ -32,7 +36,7 @@ import {
   createTimestampField,
   createTzField,
 } from "../factories.js";
-import type { LongTextFieldDef, TextFieldDef } from "../types/index.js";
+import type { FieldDefinition, LongTextFieldDef, TextFieldDef } from "../types/index.js";
 import { unannotatedLongText, unannotatedText } from "./unannotated-fields.js";
 
 // The new personal/find union can no longer express some flag combinations
@@ -424,6 +428,41 @@ describe("validateBoot — PII annotations", () => {
       String(args[0]).includes("PII-typical name"),
     );
     expect(matchingWarn).toBeUndefined();
+  });
+
+  describe("file fields without a personal annotation", () => {
+    const fileFieldWarning = () =>
+      warnSpy.mock.calls.find((args: unknown[]) => String(args[0]).includes("File field"));
+
+    const bootWithField = (field: FieldDefinition) =>
+      validateBoot(
+        [
+          defineFeature("test", (r) => {
+            r.entity("statement", createEntity({ fields: { pdfFile: field } }));
+          }),
+        ],
+        { env: { FILE_STORAGE_PROVIDER: "local" } },
+      );
+
+    test.each([
+      ["file", createFileField()],
+      ["image", createImageField()],
+      ["files", createFilesField()],
+      ["images", createImagesField()],
+    ] as const)("warns for an unannotated %s field", (_type, field) => {
+      bootWithField(field);
+      expect(fileFieldWarning()).toBeDefined();
+    });
+
+    test("personal annotation silences the warning", () => {
+      bootWithField(createFileField({ personal: "self" }));
+      expect(fileFieldWarning()).toBeUndefined();
+    });
+
+    test("an explicit business-data stance silences the warning", () => {
+      bootWithField(createFileField({ personal: false, reason: "is_business_data" }));
+      expect(fileFieldWarning()).toBeUndefined();
+    });
   });
 
   test("pii: true on email field silences PII-name heuristic warning", () => {

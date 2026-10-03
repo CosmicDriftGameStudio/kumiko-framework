@@ -21,6 +21,13 @@ const FRAMEWORK_TIMESTAMP_FIELDS: ReadonlySet<string> = new Set([
 // werden statt erst beim ersten Cleanup-Run.
 const KEEP_FOR_PATTERN = /^\d+[hdwmy]$/;
 
+const FILE_FIELD_TYPES: ReadonlySet<FieldDefinition["type"]> = new Set([
+  "file",
+  "image",
+  "files",
+  "images",
+]);
+
 // Excludes subjectRef: its `personal: "ref"` union member structurally
 // forbids `anonymize` (packages/types/src/fields.ts) — #2336.
 function hasAnonymizableSubjectField(annot: ResolvedPiiFlags): boolean {
@@ -252,7 +259,12 @@ export function validatePiiAndRetention(feature: FeatureDefinition): void {
       const noAnnotation = annotCount === 0 && !annot.allowPlaintext;
       if (noAnnotation) {
         const lower = fieldName.toLowerCase();
-        if (PII_DIRECT_NAME_HINTS.has(lower)) {
+        if (FILE_FIELD_TYPES.has(field.type)) {
+          // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
+          console.warn(
+            `[kumiko:boot] [Feature ${feature.name}] File field "${fieldName}" on entity "${entityName}" has no personal annotation. A forget with strategy "delete" then only severs the uploader link and keeps the binary. If the file holds personal data, mark it { personal: "self" } or { personal: { of: "<ownerField>" } }. If it is business data, set { personal: false, reason: "is_business_data" } to silence.`,
+          );
+        } else if (PII_DIRECT_NAME_HINTS.has(lower)) {
           // biome-ignore lint/suspicious/noConsole: boot-time dev hint, no logger available yet
           console.warn(
             `[kumiko:boot] [Feature ${feature.name}] Field "${fieldName}" on entity "${entityName}" has a PII-typical name but no personal annotation. If this is PII, mark it { personal: "self", find: ... }. If business data, set { personal: false, reason: "is_business_data" } to silence.`,
