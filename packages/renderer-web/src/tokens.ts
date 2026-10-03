@@ -19,15 +19,15 @@ import { DEFAULT_COLOR_SCHEME_VARIABLE } from "./default-color-scheme.js";
 // jedem Class-Wechsel hochzählen. So bleibt die DOM-Klasse die einzige
 // Wahrheit — readCurrentMode liest sie frisch bei jedem getSnapshot.
 //
-// Persistenz: die Wahl landet in localStorage (THEME_STORAGE_KEY) und
-// wird beim ersten Hook-Mount restored — ohne das war der Toggle nach
-// jedem Reload weg ("dark/light geht nicht", Prod-Bug 2026-06-07).
-// Preference: "auto" folgt prefers-color-scheme live (matchMedia-Listener),
-// "light"/"dark" sind explizite Wahlen und haben Vorrang. Ohne gespeicherte
-// Wahl gilt AppTheme.defaultColorScheme (CSS-Variable), sonst der HTML-Stand.
+// Persistence: the choice is stored in localStorage (THEME_STORAGE_KEY) and
+// restored on the first hook mount; without it the toggle was lost on every
+// reload (prod bug 2026-06-07).
+// Preference: "auto" follows prefers-color-scheme live (matchMedia listener),
+// "light"/"dark" are explicit choices and win. Without a stored choice,
+// AppTheme.defaultColorScheme (CSS variable) applies, otherwise the HTML state.
 //
-// Gegen FOUC gehört zusätzlich ein synchrones Inline-Script in die
-// Host-HTML, VOR dem Stylesheet-Link (nonce/hash bei strenger CSP):
+// Against FOUC the host HTML also needs a synchronous inline script BEFORE
+// the stylesheet link (nonce/hash under a strict CSP):
 //
 //   <script>try{var s=localStorage.getItem("kumiko:theme");
 //     if(s==="dark"||(s==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))
@@ -69,8 +69,8 @@ function readStoredPreference(): ThemePreference | undefined {
     const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
     return isThemePreference(stored) ? stored : undefined;
   } catch {
-    // skip: localStorage kann werfen (Private-Mode) — ohne gespeicherte
-    // Wahl bleibt der Default stehen.
+    // skip: localStorage can throw (private mode); without a stored choice
+    // the default stays.
     return undefined;
   }
 }
@@ -108,10 +108,10 @@ function applyPreference(preference: ThemePreference): void {
   notifyThemeChange();
 }
 
-/** Liest die persistierte Theme-Wahl (oder den App-Default) und setzt die
- *  `.dark`-Class. Wird beim ersten useBrowserTokensApi-Mount aufgerufen; das
- *  Inline-Script in der Host-HTML (siehe Header-Kommentar) macht dasselbe
- *  synchron vor dem ersten Paint. */
+/** Reads the persisted theme choice (or the app default) and sets the `.dark`
+ *  class. Called on the first useBrowserTokensApi mount; the inline script in
+ *  the host HTML (see header comment) does the same synchronously before the
+ *  first paint. */
 export function applyStoredThemeMode(): void {
   // skip: no document (SSR/non-DOM context), nothing to apply
   if (typeof document === "undefined") return;
