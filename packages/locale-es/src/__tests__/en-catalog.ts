@@ -697,6 +697,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "Showing the first {count} entries. More are available but not loaded — this list does not paginate.",
   "kumiko.list.row-actions.more": "More actions",
   "kumiko.page-header.actions": "Page actions",
+  "kumiko.theme.auto": "Automatic theme",
   "kumiko.theme.dark": "Dark theme",
   "kumiko.theme.light": "Light theme",
   "kumiko.list.row.collapse": "Collapse {title}",

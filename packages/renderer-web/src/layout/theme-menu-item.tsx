@@ -5,8 +5,10 @@ import { useThemeToggleLabel } from "./theme-label.js";
 export type ThemeMenuItemProps = {
   readonly lightIcon?: ReactNode;
   readonly darkIcon?: ReactNode;
+  readonly autoIcon?: ReactNode;
   readonly titleInDark?: string;
   readonly titleInLight?: string;
+  readonly titleForAuto?: string;
   readonly testId?: string;
 };
 
@@ -14,20 +16,27 @@ export type ThemeMenuItemProps = {
 export function ThemeMenuItem({
   lightIcon = "☀",
   darkIcon = "☾",
+  autoIcon = "◐",
   titleInDark,
   titleInLight,
+  titleForAuto,
   testId,
 }: ThemeMenuItemProps): ReactNode {
-  const { isDark, title, toggleMode } = useThemeToggleLabel({ titleInDark, titleInLight });
+  const { nextPreference, title, cyclePreference } = useThemeToggleLabel({
+    titleInDark,
+    titleInLight,
+    titleForAuto,
+  });
+  const icons = { light: lightIcon, dark: darkIcon, auto: autoIcon };
   return (
     <DropdownMenuItem
       data-testid={testId}
       onSelect={(event) => {
         event.preventDefault();
-        toggleMode();
+        cyclePreference();
       }}
     >
-      <span aria-hidden="true">{isDark ? lightIcon : darkIcon}</span>
+      <span aria-hidden="true">{icons[nextPreference]}</span>
       <span>{title}</span>
     </DropdownMenuItem>
   );

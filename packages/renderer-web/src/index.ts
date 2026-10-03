@@ -47,6 +47,7 @@ export type {
   SpacingTokens,
   TextProps,
   ThemeMode,
+  ThemePreference,
   Tokens,
   TokensApi,
   TokensProviderProps,
