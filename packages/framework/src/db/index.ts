@@ -1,6 +1,7 @@
 export { assertExistsIn } from "./assert-exists-in.js";
 export {
   nullBlindIndexesForSubject,
+  recordEventExistsInTenant,
   recordRowExistsInTenant,
   recordRowOwningTenantId,
   subjectRowExistsInTenant,
