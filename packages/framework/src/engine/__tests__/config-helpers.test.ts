@@ -273,6 +273,31 @@ describe("config helpers — group (Settings-Hub namespace override)", () => {
   });
 });
 
+describe("config helpers — validate (async write gate)", () => {
+  test("validate attaches to the definition and receives the typed value", async () => {
+    const seen: string[] = [];
+    const key = createTenantConfig("text", {
+      default: "",
+      validate: async (value) => {
+        seen.push(value);
+      },
+    });
+    if (!key.validate) throw new Error("unreachable");
+    await key.validate("https://example.com", {
+      key: "demo:config:endpoint",
+      scope: "tenant",
+      tenantId: "00000000-0000-4000-8000-000000000001" as never,
+      userId: null,
+      db: {} as never,
+    });
+    expect(seen).toEqual(["https://example.com"]);
+  });
+
+  test("no validate → field absent on the definition", () => {
+    expect("validate" in createTenantConfig("text", { default: "" })).toBe(false);
+  });
+});
+
 describe("config helpers — computed (plan-based / derived values)", () => {
   test("computed function attaches to the definition and returns the typed value", async () => {
     const key = createTenantConfig("number", {

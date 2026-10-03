@@ -19,6 +19,7 @@ export type ManifestConfigKey = {
   readonly default: string | number | boolean | null;
   readonly encrypted: boolean;
   readonly computed: boolean;
+  readonly validated: boolean;
   readonly options: readonly string[] | null;
   readonly bounds: { readonly min?: number; readonly max?: number } | null;
   // Serializable write-time validator for type="text" keys (hex/https/length).
@@ -109,6 +110,7 @@ export function buildManifestFromRegistry(
         default: def.default ?? null,
         encrypted: isEncryptedAtRest(def),
         computed: def.computed !== undefined,
+        validated: def.validate !== undefined,
         options: def.options ?? null,
         bounds: def.bounds ?? null,
         pattern: def.pattern ?? null,

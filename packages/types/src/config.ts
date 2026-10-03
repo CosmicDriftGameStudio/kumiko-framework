@@ -69,6 +69,19 @@ export type ConfigComputedFn<T extends ConfigKeyType = ConfigKeyType> = (
   ctx: ConfigComputedContext,
 ) => Promise<ConfigValue<T>>;
 
+export type ConfigValidateContext = {
+  readonly key: string;
+  readonly scope: ConfigScope;
+  readonly tenantId: TenantId;
+  readonly userId: string | null;
+  readonly db: DbConnection | TenantDb;
+};
+
+export type ConfigValidateFn<T extends ConfigKeyType = ConfigKeyType> = (
+  value: ConfigValue<T>,
+  ctx: ConfigValidateContext,
+) => Promise<void>;
+
 // Storage-Backing eines provisionierten Config-Keys. "config" (Default) =
 // config_values-Projektion mit voller Cascade (user→tenant→system→app→default).
 // "secrets" = read_tenant_secrets (flach pro (tenant,key), AES-GCM-Envelope mit
@@ -120,6 +133,14 @@ export type ConfigKeyDefinition<T extends ConfigKeyType = ConfigKeyType> = {
   // regex applied to it would be a ReDoS vector.
   readonly pattern?: { readonly regex: string; readonly flags?: string };
   readonly computed?: ConfigComputedFn<T>;
+  // Async write gate: runs in config:write:set after type/bounds/pattern and before
+  // persisting, for every scope and backing. Rejects by throwing a KumikoError
+  // (ValidationError/UnprocessableError). Not run on reads, env/app-override defaults or
+  // boot seeds (seedConfigValues skips bounds/pattern too; seeds are developer-authored
+  // and boot must not depend on a validator's I/O).
+  // The error reaches the caller unchanged: keep the raw value out of its details for
+  // encrypted keys.
+  readonly validate?: ConfigValidateFn<T>;
   // Per-Request opt-in. Default false — resolveConfigOrParam wirft für
   // Keys ohne diese Marke, auch wenn der Caller paramValue übergibt. Das
   // zwingt Feature-Devs zur expliziten Entscheidung "dieser Key darf pro

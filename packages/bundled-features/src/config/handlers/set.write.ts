@@ -13,6 +13,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
   InternalError,
+  isKumikoError,
   UnprocessableError,
   writeFailure,
 } from "@cosmicdrift/kumiko-framework/errors";
@@ -40,7 +41,7 @@ const executor = createEventStoreExecutor(configValuesTable, configValueEntity, 
 export const setWrite = defineWriteHandler({
   name: "set",
   description:
-    "Stores a config value for one key at the requested scope (user, tenant or system) after type, bounds and pattern validation, encrypting it when the key declares that; use it to change a setting.",
+    "Stores a config value for one key at the requested scope (user, tenant or system) after type, bounds, pattern and the key's own validator, encrypting it when the key declares that; use it to change a setting.",
   schema: z.object({
     key: z.string(),
     value: z.union([z.string(), z.number(), z.boolean()]),
@@ -102,6 +103,21 @@ export const setWrite = defineWriteHandler({
 
     const patternError = validatePattern(event.payload.value, keyDef);
     if (patternError) return writeFailure(patternError);
+
+    if (keyDef.validate) {
+      try {
+        await keyDef.validate(event.payload.value, {
+          key: event.payload.key,
+          scope,
+          tenantId,
+          userId,
+          db,
+        });
+      } catch (error) {
+        if (isKumikoError(error)) return writeFailure(error);
+        throw error;
+      }
+    }
 
     // The batch idempotency cache stores this result and only masks entity
     // writeOnly fields, so an at-rest-encrypted value must not be echoed.

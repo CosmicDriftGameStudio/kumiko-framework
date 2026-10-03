@@ -134,4 +134,23 @@ describe("buildManifestFromRegistry — deterministic codepoint sort (#330)", ()
     expect(byKey("api-key")?.encrypted).toBe(true);
     expect(byKey("plain-flag")?.encrypted).toBe(false);
   });
+
+  test("validated flag reflects a key's write validator", () => {
+    const feature = defineFeature("demo", (r) => {
+      r.config({
+        keys: {
+          endpoint: createSystemConfig("text", { validate: async () => {} }),
+          "plain-flag": createSystemConfig("boolean", {}),
+        },
+      });
+    });
+    const registry = createRegistry([feature]);
+
+    const manifest = buildManifestFromRegistry(registry, { source: "test" });
+    const demo = manifest.features.find((f) => f.name === "demo");
+    const byKey = (key: string) => demo?.configKeys.find((k) => k.key === key);
+
+    expect(byKey("endpoint")?.validated).toBe(true);
+    expect(byKey("plain-flag")?.validated).toBe(false);
+  });
 });

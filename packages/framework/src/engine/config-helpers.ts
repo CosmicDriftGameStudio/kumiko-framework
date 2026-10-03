@@ -8,6 +8,7 @@ import type {
   ConfigKeyType,
   ConfigMask,
   ConfigSeedDef,
+  ConfigValidateFn,
   ConfigValue,
   CreateSeedOptions,
   CreateTenantSeedOptions,
@@ -93,6 +94,7 @@ type ConfigKeyOptions<T extends ConfigKeyType> = {
   // ReDoS vector. See ConfigKeyDefinition.pattern.
   pattern?: T extends "text" ? { regex: string; flags?: string } : never;
   computed?: ConfigComputedFn<T>;
+  validate?: ConfigValidateFn<T>;
   allowPerRequest?: T extends "text" ? never : boolean;
   required?: boolean;
   env?: string;
@@ -144,6 +146,7 @@ function createConfigKey<T extends ConfigKeyType>(
     bounds: opts.bounds as ConfigBounds | undefined, // @cast-boundary schema-walk
     ...(opts.pattern ? { pattern: opts.pattern } : {}),
     computed: opts.computed,
+    ...(opts.validate ? { validate: opts.validate } : {}),
     ...(opts.allowPerRequest === true ? { allowPerRequest: true } : {}),
     ...(opts.required === true ? { required: true } : {}),
     ...(opts.env ? { env: opts.env } : {}),
