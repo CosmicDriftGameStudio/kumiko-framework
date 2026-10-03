@@ -67,6 +67,5 @@ playwright-report/
 .check-app-tsc-out/
 .check-app-tsc-solution.json
 
-# Staged by scripts/stage-samples-package.ts during pack (prepack/postpack).
-packages/samples/samples/
-packages/samples/packages/
+# packages/samples/{samples,packages} hold checked-in symlinks (workspace layout);
+# scripts/stage-samples-package.ts swaps them for real copies during pack.
