@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "configEdit number and money fields start empty without a default",
+    "detail": "Number and money fields without a default no longer show 0, so saving does not write an unintended 0. Clearing a stored value resets this scope's override instead of sending an empty number."
+  },
+  {
     "version": "0.337.1",
     "type": "improvement",
     "title": "Secrets screen hides keys the user cannot write",

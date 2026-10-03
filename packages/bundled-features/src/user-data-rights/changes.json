@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "Forget cleanup covers tenants the user already left",
+    "detail": "`runForgetCleanup` builds the per-user tenant list from live memberships plus the user's `tenant-membership.created` history (read from the event payload, so cross-tenant SystemAdmin adds count too), deduplicated. Delete hooks, such as the notes-history mention shred, therefore also run in tenants the user left before the request. The `tenantIdsBeforeDelete` list passed to the deletion-executed mail still contains only the live memberships. Mentions written before notes recorded structured mention rows for non-members are not covered."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Public deletion and download handlers rate-limit per IP and handler"

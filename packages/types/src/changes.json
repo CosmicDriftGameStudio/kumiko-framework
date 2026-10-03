@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "ctx.configFor on the handler context types",
+    "detail": "`configFor?: (tenantId: TenantId) => ConfigAccessor` is part of the shared handler context fields, optional like `config`.",
+    "migration": "No code change needed."
+  },
+  {
     "version": "0.337.0",
     "type": "improvement",
     "title": "relatedList groupBy.label is optional; groups without a header show their rows directly",

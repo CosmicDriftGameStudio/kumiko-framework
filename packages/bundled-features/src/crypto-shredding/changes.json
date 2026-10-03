@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "forget-denied audit digest is keyed and omitted without a blind-index key",
+    "detail": "crypto-shredding: the forget-denied audit event now stores `subjectKeyDigest` as a keyed blind-index HMAC instead of a bare SHA-256 of the subject key, so a candidate id cannot be matched against it. Without a configured blind-index key the digest is omitted (`subjectKeyDigest` is now optional in the payload).",
+    "migration": "No action needed. Existing denial events keep their old digest; configure the blind-index key to get a digest on new ones."
+  },
+  {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "forget-subject tenant check falls back to event-store provenance",
+    "detail": "forget-subject now accepts a record subject for a DPO when the owning tenant is proven by the event stream, not only by a projection row. A record whose row was already deleted, or a custom aggregate without a registered entity, can be shredded by the DPO of the tenant that owns it. A DPO of another tenant is still denied, and so is any DPO when events for the same aggregate id exist in more than one tenant."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "forget-denied audit events record the specific tenant-gate denial reason",

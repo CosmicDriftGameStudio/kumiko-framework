@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "Mollie checkout carries consentId through payment and subscription metadata",
+    "detail": "`consentId` from the checkout options is stored in the first payment's metadata, copied onto the subscription created from it, and returned as `SubscriptionEvent.consentId` when valid. `cancelSubscription` stays unimplemented for Mollie.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "Mollie webhooks no longer archive the subscription and payment objects",
+    "detail": "Subscription events parsed from Mollie webhooks no longer include the serialized subscription and trigger payment, which can carry consumer name and account data."
+  },
+  {
     "version": "0.335.0",
     "type": "breaking",
     "title": "Mollie one-off prices no longer need an interval; a subscription price without one is rejected",

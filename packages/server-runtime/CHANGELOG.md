@@ -1,5 +1,76 @@
 # @cosmicdrift/kumiko-server-runtime
 
+## 0.338.0
+
+### Minor Changes
+
+- a71189f: `hostDispatch` can answer `{ kind: "not-found" }` with a custom page. Prod takes `file` and optional `csp`, dev takes `file` or `entryName`. The page is served with status 404 instead of the plain "Not Found" text. Without those fields nothing changes.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: hostDispatch not-found can serve a custom 404 page
+  detail: |
+    `HostDispatchResult` `{ kind: "not-found" }` accepts `file` (relative to `staticDir`) and `csp`. The page goes through the same delivery as `kind: "html"` (page head, `Vary: Host`, CSP) with status 404. A missing file answers 500 with the same message as `html`.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: dev hostDispatch not-found can serve a custom 404 page
+  detail: |
+    `DevHostDispatchResult` `{ kind: "not-found" }` accepts `file` (served like `static-html`) or `entryName` (that entry's shell), both with status 404. A missing file answers 500 with `hostDispatch: file not found`. Without fields the plain "Not Found" 404 stays.
+  migration: |
+    No code change needed.
+  -->
+
+### Patch Changes
+
+- f093d93: runProdApp warns at boot when neither `trustedProxyHops` nor `KUMIKO_TRUSTED_PROXY_HOPS` is set. Behind a reverse proxy all clients then share one IP-keyed rate-limit bucket.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: boot warning when trustedProxyHops is unset
+  migration: |
+    Set `KUMIKO_TRUSTED_PROXY_HOPS` (for example 1 behind one ingress) or pass `trustedProxyHops` to runProdApp.
+  -->
+
+- Updated dependencies [e5c62d2]
+- Updated dependencies [e5c62d2]
+- Updated dependencies [e234ce6]
+- Updated dependencies [9fa543d]
+- Updated dependencies [6016fa6]
+- Updated dependencies [fcaebd3]
+- Updated dependencies [81bafe8]
+- Updated dependencies [39b8cd4]
+- Updated dependencies [6c1c880]
+- Updated dependencies [6c1c880]
+- Updated dependencies [421334d]
+- Updated dependencies [c710f1e]
+- Updated dependencies [1522b9e]
+- Updated dependencies [3613e5a]
+- Updated dependencies [ca99e95]
+- Updated dependencies [916c6c0]
+- Updated dependencies [3451156]
+- Updated dependencies [4a13a0e]
+- Updated dependencies [7042edb]
+- Updated dependencies [57467b5]
+- Updated dependencies [43dfcf4]
+- Updated dependencies [e8e5e2f]
+- Updated dependencies [bac056f]
+- Updated dependencies [f4f3d4a]
+- Updated dependencies [87938e0]
+- Updated dependencies [51b4867]
+- Updated dependencies [4c168d6]
+- Updated dependencies [d1bba78]
+  - @cosmicdrift/kumiko-bundled-features@0.338.0
+  - @cosmicdrift/kumiko-framework@0.338.0
+  - @cosmicdrift/kumiko-renderer-web@0.338.0
+  - @cosmicdrift/kumiko-headless@0.338.0
+
 ## 0.337.1
 
 ### Patch Changes

@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "tenant broadcast recipient query no longer reads across tenants through ctx.db",
+    "detail": "delivery: the `tenantUserIdsQuery` handler of a tenant broadcast now always gets a tenant-filtered `ctx.db` and `ctx.dbOutsideTransaction`, also when it is declared `r.systemScope()`. A systemScope handler could previously read the memberships of every tenant through `ctx.db` and notify users of foreign tenants. Cross-tenant reads stay available through `ctx.systemDb`.",
+    "migration": "No action needed for handlers that resolve recipients through `ctx.systemDb`, like `tenant:query:resolveUserIds`. A systemScope handler that read `ctx.db` unfiltered now sees only the broadcast tenant's rows."
+  },
+  {
     "version": "0.336.0",
     "type": "fix",
     "title": "Delivery log paging no longer skips rows tied on the sort value",

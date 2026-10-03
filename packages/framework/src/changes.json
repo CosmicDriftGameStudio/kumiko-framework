@@ -1,5 +1,66 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "ctx.configFor(tenantId) resolves config for another tenant",
+    "detail": "Query and write handler contexts get `configFor(tenantId)` next to `config`, present when the config feature wired its accessor factory. The accessor runs as the target tenant's system user on a db scoped to that tenant, so the caller's user-scope values never leak into the result. Calls for another tenant throw `AccessDeniedError` unless the caller is the system identity or has the `SystemAdmin` role; the caller's own tenant needs no privilege and returns the same accessor as `ctx.config`.",
+    "migration": "No code change needed. Handlers that compute values for a tenant other than the caller's (limits, quotas, billing previews) call `ctx.configFor(tenantId)` instead of passing `ctx.config`."
+  },
+  {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "escapeHatch grants split the SYSTEM identity switch from raw access",
+    "detail": "escapeHatch: new optional `grants` (`systemIdentity`, `globalWrites`, `unsafeRaw`) narrows what a declaration unlocks. Without `grants` the declaration keeps unlocking all three. An empty or unknown `grants` list is a boot error. Bundled handlers that only needed the raw runner now declare `grants: [\"unsafeRaw\"]`, so they no longer gain the SYSTEM identity switch.",
+    "migration": "No action needed: `grants` is additive and an escapeHatch without it behaves as before.\nDeclare `grants: [\"unsafeRaw\"]` on handlers that only call ctx.db.unsafeRaw to drop the SYSTEM identity switch."
+  },
+  {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "boot warning for file and image fields without a personal annotation",
+    "detail": "Boot validation warns for every `file`, `image`, `files` and `images` field without a `personal` annotation. A forget with strategy `delete` keeps the binary of such a field and only severs the uploader link, so the stance has to be declared.",
+    "migration": "Mark fields that hold personal data with `personal: \"self\"` or `personal: { of: \"<ownerField>\" }`, and business data with `personal: false, reason: \"is_business_data\"`. Unannotated fields keep their binary on forget."
+  },
+  {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "reference label search applies target read access on the plaintext path",
+    "detail": "Searching a list by a reference field's label now respects the target entity's row-level `access.read` and the label field's own `access.read` on the plaintext (ILIKE) path. Before, a viewer who could not read the target row or its label could probe names through the match results."
+  },
+  {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "/api/schema answers 401 instead of 400 tenant_required after logout",
+    "detail": "With `anonymousAccess` and an authoritative tenant resolver, a request without a token to `/api/schema` ran through tenant resolution and failed with 400 `tenant_required`. Paths that need a session but no tenant (`/api/auth/*` and `/api/schema`) are now listed in `isSessionRequiredApiPath` and answer 401 `missing_token` before any tenant lookup.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.338.0",
+    "type": "breaking",
+    "title": "searchable text fields must not declare a restricted access.read",
+    "detail": "Boot validation rejects a text field that is `searchable` (or `find: \"fuzzy\"`) and also has a restricted `access.read`. The search index is not filtered per role, so search matches leaked the value to roles that cannot read the field.",
+    "migration": "Remove `searchable` / `find: \"fuzzy\"` from the field, or remove the read restriction. Write-only `access.write` restrictions are unaffected."
+  },
+  {
+    "version": "0.338.0",
+    "type": "breaking",
+    "title": "signature routes with a :param segment or wildcard must not match framework paths",
+    "detail": "Boot validation rejects `entry: \"signature\"` extra routes whose pattern, including `:param` segments, matches a framework path such as `/api/write`. Such a route skipped the JWT, origin and CSRF guards for that path.",
+    "migration": "Give the route a static prefix, for example `/api/webhooks/:provider` instead of `/api/:provider` or `/:provider/write`."
+  },
+  {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "planned Scaleway purposes listed as planned sub-processor entry",
+    "detail": "The sub-processor list now carries the planned Scaleway purposes (key custody and transactional email) as their own `status: \"planned\"` entry. The active Scaleway entry only names the backup mirror, so the public `planned` section and change notifications see the upcoming processing."
+  },
+  {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "unsafeRaw audit events carry the declared escapeHatch reason",
+    "detail": "`ctx.db.unsafeRaw(reason)` and `ctx.systemDb.unsafeRaw(reason)` now write the reason declared on the handler or hook `escapeHatch` into the escape-hatch audit event, not the string passed at the call. A call-site string can no longer put arbitrary text into the audit trail.",
+    "migration": "No action needed: calls that pass the same reason as the declaration audit unchanged. Calls with a different string now audit the declared reason."
+  },
+  {
     "version": "0.337.1",
     "type": "improvement",
     "title": "Designer reads and creates r.secretNamespace, edits writeRoles on secrets",

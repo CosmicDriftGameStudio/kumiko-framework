@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "hostDispatch not-found can serve a custom 404 page",
+    "detail": "`HostDispatchResult` `{ kind: \"not-found\" }` accepts `file` (relative to `staticDir`) and `csp`. The page goes through the same delivery as `kind: \"html\"` (page head, `Vary: Host`, CSP) with status 404. A missing file answers 500 with the same message as `html`.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "boot warning when trustedProxyHops is unset",
+    "detail": "runProdApp warns at boot when neither `trustedProxyHops` nor `KUMIKO_TRUSTED_PROXY_HOPS` is set. Behind a reverse proxy all clients then share one IP-keyed rate-limit bucket.",
+    "migration": "Set `KUMIKO_TRUSTED_PROXY_HOPS` (for example 1 behind one ingress) or pass `trustedProxyHops` to runProdApp."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Client bundle mapping matches exact entry names; page-head HTML is validated by ETag only",

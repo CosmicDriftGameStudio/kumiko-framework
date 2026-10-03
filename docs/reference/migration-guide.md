@@ -2,13 +2,67 @@
 title: Migration Guide
 description: Breaking changes and migration hints for Kumiko upgrades
 status: reference
-verified: 2026-10-02
+verified: 2026-10-03
 ---
 
 # Migration Guide
 
 This document lists breaking changes across all bundled features.
 Use `kumiko upgrade` to check what's new since your current version.
+
+## 0.338.0
+
+### billing-foundation
+
+**SubscriptionProviderPlugin.cancelSubscription takes { providerSubscriptionId, when }**
+
+`cancelSubscription(ctx, { providerSubscriptionId, when })` replaces the positional `providerSubscriptionId` argument. `when` is `SubscriptionCancelTimings.periodEnd` (`"period-end"`, the subscription runs to the end of the paid period) or `SubscriptionCancelTimings.immediately` (`"immediately"`). `createCheckoutSession` options gain optional `consentId`, `locale` and `submitMessage`; `SubscriptionEvent` and `PaymentEvent` gain an optional `consentId`, validated by `parseProviderConsentId` (max 100 characters of `A-Z a-z 0-9 _ -`), and `subscription` / `payment` event payloads store it.
+
+**Migration:** Custom provider plugins that implement `cancelSubscription` change the signature to `(ctx, { providerSubscriptionId, when })` and honor `when`. A provider that can only cancel immediately may treat both values the same or leave the method out. Callers pass `{ providerSubscriptionId, when: SubscriptionCancelTimings.immediately }` to keep the old behavior.
+
+**Remove rawPayload from provider events and event headers**
+
+`rawPayload` is removed from `SubscriptionEvent`, `PaymentEvent`, `ProviderSubscriptionSnapshot`, the `process-event` and `process-payment-event` schemas and `SubscriptionEventHeaders` / `PaymentEventHeaders`. New events carry `providerEventId` and `providerName` in their headers; payment events also carry the optional `providerCheckoutId` (Stripe checkout session id).
+
+**Migration:** Custom subscription provider plugins must stop returning `rawPayload`; TypeScript flags the removed field. Code that read the checkout session id out of `headers.rawPayload` reads `headers.providerCheckoutId` instead. Events already stored keep their old `rawPayload` header; this release does not rewrite stored events.
+
+### cap-overview
+
+**caps:usage and my-caps default to admin roles; widen with usageVisibleTo**
+
+`createCapOverviewFeature` gets `usageVisibleTo?: readonly string[]`. Without it, the `caps:usage` query and the `my-caps` screen accept `access.admin` (TenantAdmin, Admin, SystemAdmin) instead of every tenant member. The screen and the query share the resolved roles. Only built-in roles are accepted (User, Member, Editor, Admin, TenantAdmin, SystemAdmin); an unknown or empty list throws at feature definition. The SystemAdmin `tenantId` override and the platform-wide screens are unchanged. The `MY_CAPS_ACCESS_ROLES` export is replaced by `DEFAULT_CAP_USAGE_ROLES` (the admin default), and `myCapsScreen` by `createMyCapsScreen(roles)`.
+
+**Migration:** Apps whose regular members should keep seeing their usage pass `createCapOverviewFeature({ ..., usageVisibleTo: ["User", "Editor", "Admin", "TenantAdmin", "SystemAdmin"] })`. Code that imported `MY_CAPS_ACCESS_ROLES` (handlers or nav entries mirroring the screen rule) imports `DEFAULT_CAP_USAGE_ROLES` for the admin default, or reuses the same `usageVisibleTo` array it passed to the feature.
+
+### enterprise:repo-manifest
+
+**manifest patterns reject symlinks escaping the repo root behind wildcard segments**
+
+repo-manifest: the root-containment check also resolves wildcard segments. A symlink such as `packages/evil -> /` matched by `packages/*/src` is now rejected; before, only the static prefix before the first glob segment was checked. Segments below a `**` are still not walked, so glob consumers must not follow symlinks inside such a tree.
+
+**Migration:** A kumiko.json whose wildcard pattern matches a symlink that leaves the repo root now fails to load. Point the pattern at paths inside the repo or remove the symlink.
+
+### framework-core
+
+**searchable text fields must not declare a restricted access.read**
+
+Boot validation rejects a text field that is `searchable` (or `find: "fuzzy"`) and also has a restricted `access.read`. The search index is not filtered per role, so search matches leaked the value to roles that cannot read the field.
+
+**Migration:** Remove `searchable` / `find: "fuzzy"` from the field, or remove the read restriction. Write-only `access.write` restrictions are unaffected.
+
+**signature routes with a :param segment or wildcard must not match framework paths**
+
+Boot validation rejects `entry: "signature"` extra routes whose pattern, including `:param` segments, matches a framework path such as `/api/write`. Such a route skipped the JWT, origin and CSRF guards for that path.
+
+**Migration:** Give the route a static prefix, for example `/api/webhooks/:provider` instead of `/api/:provider` or `/:provider/write`.
+
+### tags
+
+**ownership.write applies to assign-tag, remove-tag and add-note**
+
+tags and notes-history: `ownership.write` is now enforced by `assign-tag`, `remove-tag` and `add-note`. Each feature instance builds its write executor from the entity it registers; before, the handlers used a module-level executor without the mount's ownership, so a `from()` write rule never applied to them. The `delete-tag` cascade stays ungated.
+
+**Migration:** Mounts that set `ownership.write` now see ownership_denied for callers the rule does not cover. Make sure the rule covers every role that tags or notes, or leave it unset.
 
 ## 0.337.0
 
