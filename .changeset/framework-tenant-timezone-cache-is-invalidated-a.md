@@ -4,7 +4,7 @@
 
 Tenant timezone cache is invalidated across processes
 
-A config write to tenant:config:timezone now publishes a Redis Pub/Sub invalidation after commit, so other API and worker pods drop their cached value instead of serving it until the 5 minute TTL. Active when REDIS_URL is set; DispatcherOptions.tenantTimezoneSync overrides it (null opts out). setupTestStack gains sharedRedisWith and tenantTimezoneSync to test two instances on one Redis.
+A config write to tenant:config:timezone now invalidates the cached value on every API and worker pod after commit, instead of letting it live until the 5 minute TTL. The signal travels over the new CacheSyncBus (Redis when REDIS_URL is set, process-local otherwise); DispatcherOptions.cacheSync overrides it and null opts out. setupTestStack gains cacheSync, implied by sharedRedisWith, to test two instances on one Redis. This replaces the earlier tenantTimezoneSync option.
 
 <!-- kumiko-changes
 feature: framework

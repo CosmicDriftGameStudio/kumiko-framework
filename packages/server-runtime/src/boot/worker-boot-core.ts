@@ -38,6 +38,11 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  type CacheSyncBus,
+  createRedisCacheSyncBus,
+  redisClientOptionsFromEnv,
+} from "@cosmicdrift/kumiko-framework/redis";
 import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import { Redis } from "ioredis";
@@ -104,11 +109,12 @@ async function buildTierEffectiveFeatures(
   features: readonly FeatureDefinition[],
   db: DbConnection,
   registry: Registry,
+  cacheSync: CacheSyncBus,
 ): Promise<EffectiveFeaturesResolver | undefined> {
   const tierResolverUsage = findTierResolverUsage(features);
   if (!tierResolverUsage) return undefined;
   const plugin = tierResolverUsage.options as TierResolverPlugin;
-  return plugin.build({ db, registry });
+  return plugin.build({ db, registry, cacheSync });
 }
 
 async function assertWorkerSchemaCurrent(
@@ -187,8 +193,13 @@ export async function bootWorkerProcess(
   const { db, close: closeDb } = createDbConnection(databaseUrl);
   const redis = new Redis(redisUrl, { maxRetriesPerRequest: null });
 
+  const cacheSync = createRedisCacheSyncBus({
+    redisUrl,
+    clientOptions: redisClientOptionsFromEnv(envSource),
+  });
   const resolvedEffectiveFeatures =
-    options.effectiveFeatures ?? (await buildTierEffectiveFeatures(features, db, registry));
+    options.effectiveFeatures ??
+    (await buildTierEffectiveFeatures(features, db, registry, cacheSync));
 
   if (options.migrations !== false) {
     try {
@@ -196,6 +207,7 @@ export async function bootWorkerProcess(
     } catch (err) {
       await closeDb();
       redis.disconnect();
+      await cacheSync.close();
       throw err;
     }
   }
@@ -238,6 +250,7 @@ export async function bootWorkerProcess(
     jwtSecret: jwtSecretOrKeyring,
     dispatcherOptions: {
       idempotency,
+      cacheSync,
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
@@ -252,6 +265,10 @@ export async function bootWorkerProcess(
       getActiveTenantIds: options.jobs.getActiveTenantIds,
     }),
     ...(options.eventDispatcher && { eventDispatcher: options.eventDispatcher }),
+  });
+
+  entrypoint.lifecycle.registerShutdownHook("workerCacheSync", async () => {
+    await cacheSync.close();
   });
 
   return {

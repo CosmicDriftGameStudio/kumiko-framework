@@ -139,6 +139,10 @@ import {
   createEventDedup,
   createIdempotencyGuard,
 } from "@cosmicdrift/kumiko-framework/pipeline";
+import {
+  createRedisCacheSyncBus,
+  redisClientOptionsFromEnv,
+} from "@cosmicdrift/kumiko-framework/redis";
 import type { MasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { warnIfNonUtcServerTimeZone } from "@cosmicdrift/kumiko-framework/time";
 import type {
@@ -931,12 +935,18 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // effectiveFeatures, build the resolver here (db + registry are
   // available) before the dispatcher is constructed. App-Author sees
   // nothing — `createTierEngineFeature(opts)` mounts + framework auto-wires.
+  // One bus per process: the tier resolver, the dispatcher and the file-provider
+  // resolver all subscribe to it (invalidation across the API pods).
+  const cacheSync = createRedisCacheSyncBus({
+    redisUrl,
+    clientOptions: redisClientOptionsFromEnv(envSource),
+  });
   let resolvedEffectiveFeatures: EffectiveFeaturesResolver | undefined = options.effectiveFeatures;
   if (resolvedEffectiveFeatures === undefined) {
     const tierResolverUsage = findTierResolverUsage(features);
     if (tierResolverUsage) {
       const plugin = tierResolverUsage.options as TierResolverPlugin;
-      resolvedEffectiveFeatures = await plugin.build({ db, registry });
+      resolvedEffectiveFeatures = await plugin.build({ db, registry, cacheSync });
     }
   }
 
@@ -1100,6 +1110,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(instanceId && { instanceId }),
     dispatcherOptions: {
       idempotency,
+      cacheSync,
       ...(resolvedEffectiveFeatures && { effectiveFeatures: resolvedEffectiveFeatures }),
     },
     eventDedup,
@@ -1252,6 +1263,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // (which already registered the eventDispatcher/jobRunner hooks above),
   // so it drains LIFO before those, matching the close-before-teardown
   // order fw#2630 established for buildServer's own hook.
+  entrypoint.lifecycle.registerShutdownHook("prodAppCacheSync", async () => {
+    await cacheSync.close();
+  });
   if (ownedRedisSseBroker) {
     const broker = ownedRedisSseBroker;
     entrypoint.lifecycle.registerShutdownHook("prodAppRedisSseBroker", async () => {

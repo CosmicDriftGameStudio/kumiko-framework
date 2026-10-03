@@ -22,10 +22,14 @@ import {
   createEntityCache,
   createEventDedup,
   createIdempotencyGuard,
-  createRedisTenantTimezoneSyncSignal,
   dispatcherToWriteRef,
 } from "../pipeline/index.js";
 import { createRateLimitResolver } from "../rate-limit/index.js";
+import {
+  type ClosableCacheSyncBus,
+  createLocalCacheSyncBus,
+  createRedisCacheSyncBus,
+} from "../redis/cache-sync-bus.js";
 import { createInMemorySearchAdapter } from "../search/index.js";
 import type { SearchAdapter } from "../search/types.js";
 import { createTestDb } from "./db.js";
@@ -41,6 +45,9 @@ export type TestStack = {
   registry: Registry;
   db: import("../db/index.js").DbConnection;
   redis: TestRedis;
+  // The bus this stack publishes/subscribes on; pass to TierResolverPlugin.build
+  // so a tier-engine resolver built outside buildServer joins the same sync.
+  cacheSync: ClosableCacheSyncBus;
   search: SearchAdapter;
   events: EventCollector;
   http: RequestHelper;
@@ -219,16 +226,17 @@ export type TestStackOptions = {
   trustedProxyHops?: number;
   /** Second stack on the Redis namespace of `owner`: own connection, same
    *  keyPrefix, so rate-limit buckets, locks, idempotency keys and the
-   *  tenant-timezone invalidation channel are shared across both. The derived
+   *  cache-sync channel are shared across both. The derived
    *  queueNamePrefix is identical too, so both stacks share BullMQ queues.
    *  Cleanup only disconnects; the owner flushes the namespace and queues, so
    *  clean up the borrowing stack first. The DB is NOT shared — pass the same
    *  `dbName` + `persistentDb` for that. */
   sharedRedisWith?: TestStack;
-  /** Publish/receive tenant-timezone cache invalidations over Redis Pub/Sub,
-   *  namespaced by this stack's keyPrefix. Implied by `sharedRedisWith`; set it
-   *  on the owner stack too, or its writes never reach the borrower. */
-  tenantTimezoneSync?: boolean;
+  /** Publish/receive cache invalidations (tenant timezone, file providers,
+   *  tier sets) over Redis Pub/Sub, namespaced by this stack's keyPrefix.
+   *  Implied by `sharedRedisWith`; set it on the owner stack too, or its writes
+   *  never reach the borrower. Without it the stack uses a process-local bus. */
+  cacheSync?: boolean;
 };
 
 const DEFAULT_JWT_SECRET = "test-stack-secret-minimum-32-characters!!";
@@ -333,16 +341,17 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
     throw error;
   }
 
-  // Sync only where two stacks can actually disagree; a plain stack keeps its
-  // cache local and avoids two extra Pub/Sub connections. null opts out of
-  // buildServer's REDIS_URL default (which would use an unnamespaced channel).
-  const tenantTimezoneSync =
-    options.tenantTimezoneSync || options.sharedRedisWith
-      ? createRedisTenantTimezoneSyncSignal({
+  // Redis only where two stacks can actually disagree (avoids two extra
+  // Pub/Sub connections); otherwise a local bus so invalidation still works
+  // inside this stack. Passing it explicitly keeps buildServer from using its
+  // REDIS_URL default (an unnamespaced channel).
+  const cacheSync: ClosableCacheSyncBus =
+    options.cacheSync || options.sharedRedisWith
+      ? createRedisCacheSyncBus({
           redisUrl: testRedis.redisUrl,
           channelPrefix: testRedis.keyPrefix,
         })
-      : null;
+      : createLocalCacheSyncBus();
 
   const searchAdapter = createInMemorySearchAdapter();
   const events = createEventCollector();
@@ -517,7 +526,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       ...(options.observability ? { observability: options.observability } : {}),
       dispatcherOptions: {
         idempotency,
-        tenantTimezoneSync,
+        cacheSync,
         ...(options.effectiveFeatures && { effectiveFeatures: options.effectiveFeatures }),
         ...(jobRunner && { jobRunner }),
       },
@@ -598,6 +607,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       registry,
       db: testDb.db,
       redis: testRedis,
+      cacheSync,
       search: searchAdapter,
       events,
       http,
@@ -613,7 +623,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
         if (jobRunner) await jobRunner.stop();
         if (eventDispatcher) await eventDispatcher.stop();
         await server.observability.shutdown();
-        await tenantTimezoneSync?.close();
+        await cacheSync.close();
         await Promise.all([testDb.cleanup(), testRedis.cleanup()]);
       },
     };
@@ -633,7 +643,7 @@ export async function setupTestStack(options: TestStackOptions): Promise<TestSta
       }
     }
     try {
-      await tenantTimezoneSync?.close();
+      await cacheSync.close();
     } catch {
       // ignore — `error` is the one that matters
     }

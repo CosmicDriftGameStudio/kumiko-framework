@@ -1,5 +1,6 @@
 import type { Redis } from "ioredis";
 import type { ZodType } from "zod";
+import type { CacheSyncBus } from "./cache-sync-types.js";
 import type { ConfigAccessor, ConfigAccessorFactory, ConfigResolver } from "./config.js";
 import type { DbConnection } from "./db-connection.js";
 import type { DerivativesContext } from "./derivatives-types.js";
@@ -444,6 +445,8 @@ export type EscapeHatchReporter = (
 // Shared optional fields across all execution contexts
 type SharedContextFields = {
   readonly redis?: Redis;
+  // Cross-process cache invalidation. Absent in contexts without a bus; callers treat that as "local only".
+  readonly cacheSync?: CacheSyncBus;
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: ConfigResolver;
   readonly config?: ConfigAccessor;

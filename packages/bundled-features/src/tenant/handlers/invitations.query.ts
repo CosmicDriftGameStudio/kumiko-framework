@@ -4,6 +4,7 @@ import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { decryptStoredPii, mapWithConcurrency } from "../../shared/index.js";
 import { INVITATION_STATUS, tenantInvitationsTable } from "../invitation-table.js";
+import { isSystemAdmin } from "./is-system-admin.js";
 
 // Bounded, not Promise.all/sequential: each decrypt hits the KMS adapter's
 // own small dedicated pool (PgKmsAdapter default max: 4). Promise.all fires
@@ -52,7 +53,20 @@ export const invitationsQuery = defineQueryHandler({
         typeof invitedBy === "string"
           ? await decryptStoredPii(invitedBy, "invitedBy", "tenant:invitations")
           : invitedBy;
-      return { ...row, email: decryptedEmail, invitedBy: decryptedInvitedBy };
+      // Explicit allowlist: the raw row also carries blind-index columns and
+      // globalRoles, which only a SystemAdmin may see.
+      return {
+        id: row["id"],
+        tenantId: row["tenantId"],
+        email: decryptedEmail,
+        role: row["role"],
+        status: row["status"],
+        invitedBy: decryptedInvitedBy,
+        expiresAt: row["expiresAt"],
+        insertedAt: row["insertedAt"],
+        version: row["version"],
+        ...(isSystemAdmin(query.user) && { globalRoles: row["globalRoles"] }),
+      };
     });
   },
 });

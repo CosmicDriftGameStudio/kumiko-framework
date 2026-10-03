@@ -24,14 +24,13 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 // `source: "manual"` markiert den Grant, damit ein späterer Stripe→Tier-Sync ihn
 // nicht plättet. Upsert: ein Aggregat pro Tenant (deterministische aggregate-id).
 //
-// **Effective-Set-Invalidation (kritisch):** der Executor-Write feuert NICHT
-// den `tier-assignment:postSave`-entityHook (Hooks laufen nur im Entity-
-// Handler-Pfad, nicht bei direktem executor.create/update). Ohne Cache-Update
-// bliebe das Feature-Gate auf dem alten Tier hängen — die Projektion zeigt
-// "pro", das Gate verhält sich weiter wie "free", bis der Prozess neu startet.
-// Daher ruft der Handler nach erfolgreichem Write `opts.onAssigned(tenantId,
-// tier)`; feature.ts verdrahtet das auf denselben Cache-Update wie der Hook
-// (storage-only ohne tierMap = no-op).
+// Effective-set invalidation: the executor write does not fire the
+// `tier-assignment:postSave` entity hook, and a per-handler postSave would not
+// fire either because this handler returns no lifecycle result (kind "save").
+// Without an explicit update the feature gate would stay on the old tier, so
+// `opts.onAssigned(tenantId, tier)` runs after commit (ctx.scheduleAfterCommit).
+// feature.ts uses it to update its cache and notify the other processes; in
+// storage-only mode without a tierMap it is a no-op.
 
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
 const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEntity, {
@@ -41,9 +40,9 @@ const executor = createEventStoreExecutor(tierAssignmentTable, tierAssignmentEnt
 const SET_TENANT_TIER_REASON = "SystemAdmin assigns the tier of the tenant named in the payload";
 
 export type SetTenantTierOptions = {
-  /** Nach erfolgreichem Write aufgerufen, damit feature.ts den Resolver-
-   *  Cache aktualisieren kann (der Executor-Write feuert den postSave-Hook
-   *  nicht). Ohne tierMap kein Resolver → no-op. */
+  /** Runs after the write commits so feature.ts can update the resolver cache
+   *  and notify the other processes. Without a tierMap there is no resolver
+   *  and this is a no-op. */
   readonly onAssigned?: (tenantId: TenantId, tier: string) => void;
   /** Tier-Namen aus der tierMap-Closure — ohne sie (storage-only-Mode) bleibt
    *  `tier` unvalidiert außer Length/Non-Empty. Mit ihr rejected der Handler
@@ -72,6 +71,12 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
       reason: SET_TENANT_TIER_REASON,
     },
     handler: async (event, ctx) => {
+      // Without a commit sink (unit harness) there is no transaction to wait for.
+      const afterCommit = (tenantId: TenantId, tier: string): void => {
+        const notify = async (): Promise<void> => opts.onAssigned?.(tenantId, tier);
+        if (ctx.scheduleAfterCommit) ctx.scheduleAfterCommit(notify);
+        else opts.onAssigned?.(tenantId, tier);
+      };
       const tenantId = event.payload.tenantId as TenantId; // @cast-boundary engine-bridge
       const rawDb = ctx.db.unsafeRaw();
       const tdb = createTenantDb(rawDb, tenantId, "system");
@@ -91,7 +96,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
           tdb,
         );
         if (!result.isSuccess) return result;
-        opts.onAssigned?.(tenantId, tier);
+        afterCommit(tenantId, tier);
         return { isSuccess: true as const, data: { tenantId, tier, isNew: false } };
       }
 
@@ -101,7 +106,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
         tdb,
       );
       if (!result.isSuccess) return result;
-      opts.onAssigned?.(tenantId, tier);
+      afterCommit(tenantId, tier);
       return { isSuccess: true as const, data: { tenantId, tier, isNew: true } };
     },
   });

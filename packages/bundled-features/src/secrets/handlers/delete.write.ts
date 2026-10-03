@@ -1,6 +1,7 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import { failNotFound } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
+import { announceSecretChange } from "../announce-secret-change.js";
 import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
 import { requireSecretsContext } from "../feature.js";
 import { checkSecretKeyWrite } from "../write-gate.js";
@@ -23,6 +24,7 @@ export function createDeleteHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS)
         deletedBy: event.user.id,
       });
       if (!removed) return failNotFound("tenant-secret", event.payload.key);
+      announceSecretChange(ctx, event.user.tenantId, event.payload.key);
       return { isSuccess: true, data: { key: event.payload.key } };
     },
   });

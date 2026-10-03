@@ -1,5 +1,6 @@
 import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
+import { announceSecretChange } from "../announce-secret-change.js";
 import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
 import { requireSecretsContext } from "../feature.js";
 import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.js";
@@ -44,6 +45,7 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
         ...(hint ? { hint } : {}),
         updatedBy: event.user.id,
       });
+      announceSecretChange(ctx, event.user.tenantId, key);
 
       return {
         isSuccess: true,

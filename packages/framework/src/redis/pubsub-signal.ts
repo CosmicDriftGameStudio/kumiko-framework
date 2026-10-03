@@ -11,6 +11,9 @@ import { createRedisClient, type RedisClientOptions } from "./client.js";
 export type PubSubSignal = {
   publish(channel: string, payload: unknown): void;
   onMessage(listener: (channel: string, payload: unknown) => void): void;
+  // Fires after the subscriber connection was lost and is subscribed again
+  // (never for the first connect). Messages published in between are gone.
+  onReconnect(listener: () => void): void;
   close(): Promise<void>;
 };
 
@@ -45,6 +48,7 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
   subscriber.on("error", logConnectionError(opts.label, "subscriber"));
 
   const listeners = new Set<(channel: string, payload: unknown) => void>();
+  const reconnectListeners = new Set<() => void>();
   // Sole purpose: stop close() from racing the initial psubscribe (see
   // below) and silence its logging once a shutdown is already underway —
   // not a defense against ioredis auto-reconnecting later (quit() below
@@ -87,6 +91,31 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
     console.error(`[kumiko:${opts.label}] psubscribe failed:`, err);
   });
 
+  // ioredis re-sends the psubscribe itself (autoResubscribe) but emits no ack
+  // event; repeating it here queues behind that one on the same connection,
+  // so its reply means the subscription is live again.
+  let hasBeenReady = false;
+  subscriber.on("ready", () => {
+    if (!hasBeenReady) {
+      hasBeenReady = true;
+      // skip: the first ready is the initial connect, not a reconnect
+      return;
+    }
+    subscriber.psubscribe(opts.channelPattern).then(
+      () => {
+        // skip: close() ran while the resubscribe was in flight
+        if (closed) return;
+        for (const listener of reconnectListeners) listener();
+      },
+      (err: unknown) => {
+        // skip: a close() already underway intentionally quit the connection
+        if (closed) return;
+        // biome-ignore lint/suspicious/noConsole: ops-visible fallback, see logConnectionError above.
+        console.error(`[kumiko:${opts.label}] resubscribe failed:`, err);
+      },
+    );
+  });
+
   return {
     publish(channel, payload) {
       publisher.publish(channel, JSON.stringify(payload)).catch((err: unknown) => {
@@ -99,6 +128,9 @@ export function createRedisPubSubSignal(opts: PubSubSignalOptions): PubSubSignal
     },
     onMessage(listener) {
       listeners.add(listener);
+    },
+    onReconnect(listener) {
+      reconnectListeners.add(listener);
     },
     async close(): Promise<void> {
       closed = true;

@@ -60,6 +60,7 @@ import type { Dispatcher, DispatcherOptions } from "../pipeline/dispatcher.js";
 import { dispatcherToWriteRef } from "../pipeline/dispatcher.js";
 import type { EventDedup, EventDispatcher } from "../pipeline/index.js";
 import type { SystemHooks } from "../pipeline/lifecycle-pipeline.js";
+import { resolveCacheSyncBus } from "../redis/cache-sync-bus.js";
 
 // Shared fields across all three modes. A caller that swaps between
 // modes can reuse the same options object.
@@ -204,6 +205,28 @@ function resolveObservability(
   return observability ?? createNoopProvider();
 }
 
+// One bus per process, decided before the file-provider resolver is built so
+// the resolver subscribes to it; buildServer then receives it explicitly and
+// does not create a second one.
+function resolveEntrypointCacheSync<T extends BaseEntrypointOptions>(
+  options: T,
+  lifecycle: Lifecycle,
+): { options: T; context: AppContext } {
+  const { bus, owned } = resolveCacheSyncBus(options.dispatcherOptions?.cacheSync);
+  if (owned) {
+    lifecycle.registerShutdownHook("cacheSync", async () => {
+      await owned.close();
+    });
+  }
+  return {
+    options: {
+      ...options,
+      dispatcherOptions: { ...options.dispatcherOptions, cacheSync: bus ?? null },
+    },
+    context: withFileProviderResolver(options.registry, options.context, bus),
+  };
+}
+
 function contextWithObservability(
   context: AppContext,
   observability: ObservabilityProvider,
@@ -339,7 +362,7 @@ function requireDispatcher(server: KumikoServer, mode: string): EventDispatcher 
 export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
-  const context = withFileProviderResolver(options.registry, options.context);
+  const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);
 
   // Boot-validation (Welle 2.6.c) — fail loud before traffic arrives:
   //   (a) Any jobs declared + no jobs-block → command-dispatcher would
@@ -392,7 +415,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
   // apply anywhere.
   const { runLocal: runLocalDispatcher, ...dispatcherTunables } = options.eventDispatcher ?? {};
   const server = buildApiServer(
-    { ...options, context },
+    { ...busOptions, context },
     lifecycle,
     runLocalDispatcher ? dispatcherTunables : { disabled: true },
     apiJobRunner,
@@ -430,7 +453,7 @@ export function createApiEntrypoint(options: ApiEntrypointOptions): ApiEntrypoin
 export function createWorkerEntrypoint(options: WorkerEntrypointOptions): WorkerEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
-  const context = withFileProviderResolver(options.registry, options.context);
+  const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);
   const jobRunner = buildJobRunnerWithHook(
     options.registry,
     contextWithObservability(context, observability, options.dispatcherOptions?.effectiveFeatures),
@@ -439,7 +462,7 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
     lifecycle,
     "jobRunner",
   );
-  const server = buildWorkerServer({ ...options, context }, lifecycle, jobRunner);
+  const server = buildWorkerServer({ ...busOptions, context }, lifecycle, jobRunner);
   jobRunner.attachDispatcher(dispatcherToWriteRef(server.dispatcher));
   const eventDispatcher = requireDispatcher(server, "worker");
 
@@ -465,7 +488,7 @@ export function createWorkerEntrypoint(options: WorkerEntrypointOptions): Worker
 export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): AllInOneEntrypoint {
   const lifecycle = options.lifecycle ?? createLifecycle({ startReady: true });
   const observability = resolveObservability(options.observability);
-  const context = withFileProviderResolver(options.registry, options.context);
+  const { options: busOptions, context } = resolveEntrypointCacheSync(options, lifecycle);
   const jobRunnerContext = contextWithObservability(
     context,
     observability,
@@ -504,7 +527,7 @@ export function createAllInOneEntrypoint(options: AllInOneEntrypointOptions): Al
   // the API-mode flag — all-in-one is always local, strip it.
   const { runLocal: _runLocal, ...allInOneDispatcherTunables } = options.eventDispatcher ?? {};
   const server = buildApiServer(
-    { ...options, context },
+    { ...busOptions, context },
     lifecycle,
     allInOneDispatcherTunables,
     workerJobRunner,

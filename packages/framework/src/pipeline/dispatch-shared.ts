@@ -1,3 +1,4 @@
+import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import { escapeHatchFor } from "@cosmicdrift/kumiko-types/handlers";
 import { requestContext, runWithOrigin } from "../api/request-context.js";
 import type { SseBroker } from "../api/sse-broker.js";
@@ -113,7 +114,6 @@ import {
   systemIdentitySwitchDenied,
 } from "./system-identity-switch.js";
 import type { TenantTimezoneCache } from "./tenant-timezone-cache.js";
-import type { TenantTimezoneSyncSignal } from "./tenant-timezone-sync-signal.js";
 import { buildPersonalDataGate, rootWriteOrigin, type WriteOrigin } from "./write-origin.js";
 
 export type { WriteOrigin } from "./write-origin.js";
@@ -161,7 +161,7 @@ export type DispatchContext = {
   tableCache: Map<string, ReturnType<typeof buildEntityTable>>;
   transitionCache: Map<string, ReturnType<typeof defineTransitions>>;
   tenantTimezoneCache: TenantTimezoneCache;
-  tenantTimezoneSync: TenantTimezoneSyncSignal | undefined;
+  cacheSync: CacheSyncBus | undefined;
   escapeHatchReportWindow: EscapeHatchReportWindow;
   tracer: ReturnType<typeof getFallbackTracer>;
   meter: ReturnType<typeof getFallbackMeter>;
@@ -926,6 +926,7 @@ export async function buildHandlerContext(
     // Propagate the feature-toggle resolver so the lifecycle pipeline,
     // MSP runner, and ctx.hasFeature all pull from the same source.
     ...(effectiveFeatures && { effectiveFeatures }),
+    ...(ctx.cacheSync && { cacheSync: ctx.cacheSync }),
     // Lets write handlers call ctx.jobRunner.dispatch(...) directly, same
     // as a follow-up job would (test-stack.ts wires the matching runner).
     ...(jobRunner && { jobRunner }),

@@ -50,6 +50,7 @@ import {
 import {
   GATE_CACHE_MAX_ENTRIES,
   resetTenantLifecycleGateCacheForTests,
+  TEARDOWN_GATE_SETTLE_MS,
   tenantLifecycleGateCacheSizeForTests,
 } from "../lifecycle-gate.js";
 import { runNextDestructionStage, runTenantDestructionSweep } from "../run-tenant-destroy.js";
@@ -410,6 +411,34 @@ function createSelectivePoisonTenantDataFeature() {
     });
   });
 }
+
+describe("tenant-lifecycle :: sweep waits for the gate to settle", () => {
+  test("a tenant whose grace just ended is only swept after TEARDOWN_GATE_SETTLE_MS", async () => {
+    await seedTenant();
+    await stack.http.writeOk(REQUEST, {}, tenantAdmin);
+    const graceEnd = getTemporal().Now.instant();
+    await updateRows(db, tenantTable, { gracePeriodEnd: graceEnd }, { id: tenantAdmin.tenantId });
+
+    const justAfterGrace = graceEnd.add({ seconds: 1 });
+    const early = await runTenantDestructionSweep({
+      db,
+      registry: stack.registry,
+      now: justAfterGrace,
+    });
+    expect(early.triggered).toBe(0);
+    const stillRequested = await selectMany(db, tenantTable, { id: tenantAdmin.tenantId });
+    expect(stillRequested[0]?.["status"]).toBe("destroyRequested");
+
+    const settled = await runTenantDestructionSweep({
+      db,
+      registry: stack.registry,
+      now: graceEnd.add({ milliseconds: TEARDOWN_GATE_SETTLE_MS }),
+    });
+    expect(settled.triggered).toBe(1);
+    const destroying = await selectMany(db, tenantTable, { id: tenantAdmin.tenantId });
+    expect(destroying[0]?.["status"]).toBe("destroying");
+  });
+});
 
 describe("tenant-lifecycle :: sweep isolates one tenant's failure from another's progress", () => {
   let isolationStack: TestStack;

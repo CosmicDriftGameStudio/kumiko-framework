@@ -23,6 +23,8 @@ export type TenantLifecycleGate = {
 // (cached as null) must not grow the Map without bound: past the cap, expired
 // entries are swept and, if still full, the oldest-inserted entries are evicted.
 const GATE_TTL_MS = 3000;
+// Covers other pods' GATE_TTL_MS plus requests still in flight when the grace period (0 under a compliance override) ends.
+export const TEARDOWN_GATE_SETTLE_MS = 60_000;
 /** @internal exported for the bounded-cache test */
 export const GATE_CACHE_MAX_ENTRIES = 5000;
 const gateCache = new Map<

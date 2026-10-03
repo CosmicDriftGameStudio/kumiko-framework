@@ -63,6 +63,13 @@ import {
   type TrialGate,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { getUnscopedAggregateStreamMaxVersion } from "@cosmicdrift/kumiko-framework/event-store";
+import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
+import {
+  CACHE_SYNC_TOPICS,
+  type CacheSyncBus,
+  isTierAssignmentSyncMessage,
+  type TierAssignmentSyncMessage,
+} from "@cosmicdrift/kumiko-framework/redis";
 import { getTemporal } from "@cosmicdrift/kumiko-framework/time";
 import * as z from "zod";
 import { tenantTable } from "../tenant/index.js";
@@ -80,6 +87,7 @@ import { isTrialActive, type TrialPolicy } from "./trial.js";
 // from the entity definition — same shape buildEntityTable would produce
 // in the App's drizzle/schema.generated.ts.
 const tierAssignmentTable = buildEntityTable("tier-assignment", tierAssignmentEntity);
+const log = createFallbackLogger("tier-engine");
 
 // Event-store-executor für direct-write aus dem auto-default-tier-hook.
 // Pattern wie tenant/seeding.ts: hook sieht AppContext (kein ctx.write),
@@ -227,10 +235,9 @@ export function createTierEngineFeature<
     // Cross-tenant set + read f\u00fcr den tier-admin-Screen. tier-options liefert
     // dem Client die App-Tier-Namen aus der tierMap-Closure (sonst hartkodiert).
     //
-    // onAssigned h\u00e4lt den Resolver-Cache nach einem direkten Executor-Write
-    // warm (der den postSave-Hook NICHT feuert). Late-bind via Holder: ohne
-    // tierMap bleibt es no-op (kein Resolver), im tierMap-Block unten wird
-    // die echte Cache-Update-Funktion eingeh\u00e4ngt \u2014 analog alwaysOnHolder.
+    // onAssigned runs after commit (the direct executor write fires no postSave
+    // hook). Late-bound: without tierMap it stays a no-op, the tierMap block
+    // below installs the real cache update + publish.
     const onTierAssigned: { fn: (tenantId: TenantId, tier: string) => void } = { fn: () => {} };
     r.writeHandler(
       createSetTenantTierWrite({
@@ -312,6 +319,21 @@ export function createTierEngineFeature<
     // mergeAlwaysOn-calls — Late-bind via mutable holder, gefüllt vor allen
     // Requests (build läuft pre-listen via runDevApp/runProdApp-pickup).
     const alwaysOnHolder: { set: ReadonlySet<string> } = { set: new Set() };
+    // Bus handed to build(); hooks fire outside build and publish through it.
+    const busHolder: { bus: CacheSyncBus | undefined } = { bus: undefined };
+    // Out-of-order guard: every cache mutation or reload start takes a ticket; a
+    // reload result is applied only while its ticket is still the tenant's latest.
+    let ticketCounter = 0;
+    const latestTicket = new Map<TenantId, number>();
+    const takeTicket = (tenantId: TenantId): number => {
+      ticketCounter += 1;
+      latestTicket.set(tenantId, ticketCounter);
+      return ticketCounter;
+    };
+    const publishAssignmentChange = (tenantId: TenantId): void => {
+      const message: TierAssignmentSyncMessage = { tenantId };
+      busHolder.bus?.publish(CACHE_SYNC_TOPICS.tierAssignment, message);
+    };
 
     // Trial: zeit-abgeleitet aus tenant.inserted_at (≈ Signup), live am
     // Feature-Gate geprüft — NICHT im Resolver-Cache. Der Resolver ist
@@ -330,16 +352,16 @@ export function createTierEngineFeature<
       : new Set();
     const nowMs = (): number => getTemporal().Now.instant().epochMilliseconds;
 
-    // set-tenant-tier schreibt direkt über den Executor → der postSave-Hook
-    // unten feuert dabei NICHT. Diese Funktion repliziert den Cache-Update
-    // des Hooks, damit ein manueller Grant das effektive Feature-Set sofort
-    // ändert (nicht nur die Projektion). Selber Cache, selbe mergeAlwaysOn-
-    // Semantik wie der Hook.
-    onTierAssigned.fn = (tenantId, tier) => {
+    // Immediate local visibility on the writing pod; other pods learn via the
+    // bus and re-read the row.
+    const applyAssignment = (tenantId: TenantId, tier: string): void => {
+      takeTicket(tenantId);
       cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, tier)));
+      publishAssignmentChange(tenantId);
     };
+    onTierAssigned.fn = applyAssignment;
 
-    // Invalidation: tier-assignment events update the cache.
+    // Invalidation: tier-assignment CRUD events (e.g. the billing webhook) update the cache.
     r.hook("postSave", { allOf: "tier-assignment" }, async (result) => {
       // result.data has tenantId + tier (after entity-update merge)
       const data = result.data as { tenantId?: unknown; tier?: unknown }; // @cast-boundary engine-payload
@@ -349,14 +371,16 @@ export function createTierEngineFeature<
       // throwing — der lifecycle-pipeline darf nicht durch hook-fehler
       // blocken (afterCommit-pattern, side-effect-best-effort).
       if (typeof data.tenantId !== "string" || typeof data.tier !== "string") return;
-      const tenantId = data.tenantId as TenantId;
-      cache.set(tenantId, mergeAlwaysOn(alwaysOnHolder.set, featuresForTier(tierMap, data.tier)));
+      applyAssignment(data.tenantId as TenantId, data.tier);
     });
     r.hook("postDelete", { allOf: "tier-assignment" }, async (payload) => {
       const data = payload.data as { tenantId?: unknown }; // @cast-boundary engine-payload
       // skip: gleiche type-guard semantik wie postSave-hook oben.
       if (typeof data.tenantId !== "string") return;
-      cache.delete(data.tenantId as TenantId);
+      const tenantId = data.tenantId as TenantId;
+      takeTicket(tenantId);
+      cache.delete(tenantId);
+      publishAssignmentChange(tenantId);
     });
 
     // Auto-default-tier-on-tenant-signup: hook fires inTransaction (atomic
@@ -472,6 +496,60 @@ export function createTierEngineFeature<
             mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
           );
         }
+
+        // Read first, then set — never clear-then-refill: a cache miss falls back
+        // to the default tier, which would lock paying tenants out meanwhile.
+        const reloadTenant = async (tenantId: TenantId): Promise<void> => {
+          const ticket = takeTicket(tenantId);
+          const row = await fetchOne<AssignmentRow>(deps.db, tierAssignmentTable, { tenantId });
+          // skip: a newer write or reload for this tenant started meanwhile and owns the entry
+          if (latestTicket.get(tenantId) !== ticket) return;
+          if (row) {
+            cache.set(
+              tenantId,
+              mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+            );
+          } else {
+            cache.delete(tenantId);
+          }
+        };
+        const reloadAllTenants = async (): Promise<void> => {
+          ticketCounter += 1;
+          const startedAtTicket = ticketCounter;
+          const current = await selectMany<AssignmentRow>(deps.db, tierAssignmentTable);
+          const loaded = new Map<TenantId, ReadonlySet<string>>();
+          for (const row of current) {
+            loaded.set(
+              row.tenantId as TenantId,
+              mergeAlwaysOn(computedAlwaysOn, featuresForTier(tierMap, row.tier)),
+            );
+          }
+          const isNewerThanSnapshot = (tenantId: TenantId): boolean =>
+            (latestTicket.get(tenantId) ?? 0) > startedAtTicket;
+          for (const tenantId of [...cache.keys()]) {
+            if (!loaded.has(tenantId) && !isNewerThanSnapshot(tenantId)) cache.delete(tenantId);
+          }
+          for (const [tenantId, features] of loaded) {
+            if (!isNewerThanSnapshot(tenantId)) cache.set(tenantId, features);
+          }
+        };
+
+        busHolder.bus = deps.cacheSync;
+        deps.cacheSync?.subscribe(CACHE_SYNC_TOPICS.tierAssignment, (message) => {
+          // skip: malformed message from another process
+          if (!isTierAssignmentSyncMessage(message)) return;
+          reloadTenant(message.tenantId).catch((err: unknown) => {
+            log.error("tier reload failed, keeping cached set", {
+              tenantId: message.tenantId,
+              err,
+            });
+          });
+        });
+        deps.cacheSync?.onResync(() => {
+          reloadAllTenants().catch((err: unknown) => {
+            log.error("tier resync failed, keeping cached sets", { err });
+          });
+        });
 
         // Synchronous resolver-callback for dispatcher hot-path.
         const resolver = (tenantId: TenantId): ReadonlySet<string> => {

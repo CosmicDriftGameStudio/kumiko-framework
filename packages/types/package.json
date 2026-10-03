@@ -222,6 +222,10 @@
       "types": "./src/file-provider-resolver-types.ts",
       "default": "./src/file-provider-resolver-types.ts"
     },
+    "./cache-sync-types": {
+      "types": "./src/cache-sync-types.ts",
+      "default": "./src/cache-sync-types.ts"
+    },
     "./derivatives-types": {
       "types": "./src/derivatives-types.ts",
       "default": "./src/derivatives-types.ts"
@@ -480,6 +484,10 @@
       "./file-provider-resolver-types": {
         "types": "./dist/file-provider-resolver-types.d.ts",
         "default": "./dist/file-provider-resolver-types.js"
+      },
+      "./cache-sync-types": {
+        "types": "./dist/cache-sync-types.d.ts",
+        "default": "./dist/cache-sync-types.js"
       },
       "./derivatives-types": {
         "types": "./dist/derivatives-types.d.ts",

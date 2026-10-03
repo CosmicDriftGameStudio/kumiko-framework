@@ -20,6 +20,7 @@
 // **Apps ohne tier-engine:** wenn keine plugin registriert ist, framework
 // macht nichts — `effectiveFeatures` bleibt undefined, alle features sind on.
 
+import type { CacheSyncBus } from "@cosmicdrift/kumiko-types/cache-sync-types";
 import type { DbConnection } from "../db/connection.js";
 import type { RegistrarExtensionRegistration } from "./types/config.js";
 import type { FeatureDefinition, Registry } from "./types/feature.js";
@@ -70,6 +71,8 @@ export type TierResolverPlugin = {
   readonly build: (deps: {
     readonly db: DbConnection;
     readonly registry: Registry;
+    // Cross-process invalidation; absent = this process is the only writer/reader.
+    readonly cacheSync?: CacheSyncBus;
   }) => Promise<EffectiveFeaturesResolver>;
 };
 
