@@ -840,6 +840,15 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     options.trustedProxyHops ??
     options.auth?.trustedProxyHops ??
     parseTrustedProxyHopsEnv(readEnv(TRUSTED_PROXY_HOPS_ENV, envSource), "runProdApp");
+  if (trustedProxyHops === undefined) {
+    // With 0 hops every request appears to come from the proxy pod, so all IP-keyed
+    // rate limiters collapse into one shared bucket behind a reverse proxy.
+    // biome-ignore lint/suspicious/noConsole: boot-time warn, no logger configured this early
+    console.warn(
+      `[runProdApp] trustedProxyHops / ${TRUSTED_PROXY_HOPS_ENV} is not set; client IP falls back to the socket address. ` +
+        "Behind a reverse proxy all clients share one rate-limit bucket.",
+    );
+  }
   const port = options.port ?? Number.parseInt(envSource["PORT"] ?? "3000", 10);
 
   // biome-ignore lint/suspicious/noConsole: boot-time progress hint, no logger configured this early

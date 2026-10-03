@@ -115,4 +115,32 @@ describe("runProdApp boot-mode env-source", () => {
     expect(logs.some((line) => line.includes("port 8123"))).toBe(true);
     expect(logs.some((line) => line.includes("port 3000"))).toBe(false);
   });
+
+  test("warns about the shared rate-limit bucket unless trustedProxyHops is configured", async () => {
+    async function bootAndCollectWarnings(extraEnv: Record<string, string>): Promise<string[]> {
+      const warnings: string[] = [];
+      const originalLog = console.log;
+      const originalWarn = console.warn;
+      console.log = () => {};
+      console.warn = (...args: unknown[]) => {
+        warnings.push(args.map(String).join(" "));
+      };
+      try {
+        const handle = await runProdApp({
+          features: [probeFeature],
+          autoListen: false,
+          migrations: false,
+          envSource: { ...DUMMY_ENV, ...extraEnv },
+        });
+        await handle.stop();
+      } finally {
+        console.log = originalLog;
+        console.warn = originalWarn;
+      }
+      return warnings.filter((line) => line.includes("rate-limit bucket"));
+    }
+
+    expect(await bootAndCollectWarnings({})).toHaveLength(1);
+    expect(await bootAndCollectWarnings({ KUMIKO_TRUSTED_PROXY_HOPS: "1" })).toHaveLength(0);
+  });
 });
