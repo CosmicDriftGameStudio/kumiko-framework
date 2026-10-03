@@ -758,6 +758,58 @@ function renderAndCompile(source: string): readonly string[] {
   return compileAgainstRegistrar(rendered);
 }
 
+describe("render → parse roundtrip — secretNamespace", () => {
+  const SOURCE = `
+defineFeature("hooks", (r) => {
+  r.secretNamespace("webhook-auth", {
+    label: { en: "Webhook auth" },
+    scope: "tenant",
+    writeRoles: ["TenantAdmin"],
+  });
+});
+`;
+
+  test("parses as secretNamespace (not unknown) and survives render → parse", () => {
+    const initial = parse(SOURCE);
+    expect(initial.patterns.map((p) => p.kind)).toEqual(["secretNamespace"]);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    const reparsed = parse(rendered);
+    expect(reparsed.patterns).toHaveLength(1);
+    expect(reparsed.patterns[0]).toMatchObject({
+      kind: "secretNamespace",
+      shortName: "webhook-auth",
+      options: {
+        label: { en: "Webhook auth" },
+        scope: "tenant",
+        writeRoles: ["TenantAdmin"],
+      },
+    });
+  });
+
+  test("nameSchema (Zod expression) and identifier options survive render verbatim", () => {
+    const initial = parse(`
+defineFeature("hooks", (r) => {
+  r.secretNamespace("webhook-auth", {
+    label: { en: "x" },
+    scope: "tenant",
+    nameSchema: z.string().min(3),
+  });
+  r.secretNamespace("other", OTHER_OPTIONS);
+});
+`);
+    expect(initial.patterns.map((p) => p.kind)).toEqual(["secretNamespace", "secretNamespace"]);
+    const rendered = renderFeatureFile({
+      featureName: initial.featureName ?? "",
+      patterns: initial.patterns,
+    });
+    expect(rendered).toContain("nameSchema: z.string().min(3)");
+    expect(rendered).toContain('r.secretNamespace("other", OTHER_OPTIONS);');
+  });
+});
+
 describe("render → compiles against the real FeatureRegistrar type", () => {
   test("compile check has teeth: an unknown registrar method is reported", () => {
     const diagnostics = compileAgainstRegistrar(`
@@ -822,6 +874,16 @@ defineFeature("catalog", (r) => {
   r.envSchema(z.object({ CATALOG_API_KEY: z.string() }));
   r.usesApi("compliance.forTenant");
   r.exposesApi("catalog.pricingFor");
+  r.secret("apiKey", {
+    label: { en: "API key" },
+    scope: "tenant",
+    writeRoles: ["TenantAdmin"],
+  });
+  r.secretNamespace("webhook-auth", {
+    label: { en: "Webhook auth" },
+    scope: "tenant",
+    writeRoles: ["TenantAdmin", "Operator"],
+  });
 });
 `;
 

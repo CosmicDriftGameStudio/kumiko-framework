@@ -267,6 +267,23 @@ describe("parsePatternChanges — structural validation", () => {
     );
   });
 
+  test("secretNamespace add and remove changes are accepted", () => {
+    const result = parsePatternChanges([
+      {
+        op: "add",
+        pattern: {
+          kind: "secretNamespace",
+          shortName: "webhook-auth",
+          options: { label: { en: "x" }, scope: "tenant" },
+        },
+      },
+      { op: "remove", id: { kind: "secretNamespace", shortName: "webhook-auth" } },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.changes.map((c) => c.op)).toEqual(["add", "remove"]);
+  });
+
   test("unknown op is rejected", () => {
     const result = parsePatternChanges([{ op: "upsert", pattern: { kind: "systemScope" } }]);
     expect(result.ok).toBe(false);

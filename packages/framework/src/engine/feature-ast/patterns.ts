@@ -64,7 +64,7 @@ import type {
   RunIn,
   TranslationKeys,
 } from "../types/config.js";
-import type { MetricOptions, SecretOptions } from "../types/feature.js";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../types/feature.js";
 import type { EntityDefinition } from "../types/fields.js";
 import type {
   AccessRule,
@@ -244,6 +244,17 @@ export type SecretPattern = {
   readonly source: SourceLocation;
   readonly shortName: string;
   readonly options: SecretOptions;
+};
+
+// `r.secretNamespace(shortName, options)` declares a family of tenant-scoped
+// secret keys whose suffix is chosen at runtime. A `nameSchema` (Zod
+// expression) or an identifier as options is kept as a raw-ref sentinel and
+// re-emitted verbatim by the renderer.
+export type SecretNamespacePattern = {
+  readonly kind: "secretNamespace";
+  readonly source: SourceLocation;
+  readonly shortName: string;
+  readonly options: SecretNamespaceOptions;
 };
 
 // `r.claimKey(shortName, { type })` — declares a session-claim key,
@@ -705,6 +716,7 @@ export type FeaturePattern =
   | UiHintsPattern
   | MetricPattern
   | SecretPattern
+  | SecretNamespacePattern
   | ClaimKeyPattern
   | ReferenceDataPattern
   | ReadsConfigPattern
@@ -764,6 +776,7 @@ export function getEditability(pattern: FeaturePattern): Editability {
     case "describe":
     case "metric":
     case "secret":
+    case "secretNamespace":
     case "claimKey":
     case "referenceData":
     case "readsConfig":

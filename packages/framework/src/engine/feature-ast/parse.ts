@@ -62,6 +62,7 @@ import {
   extractRequires,
   extractScreen,
   extractSecret,
+  extractSecretNamespace,
   extractStoreTable,
   extractStreamHandler,
   extractSystemScope,
@@ -567,6 +568,8 @@ function dispatchExtractor(
       return extractMetric(call, sourceFile);
     case "secret":
       return extractSecret(call, sourceFile);
+    case "secretNamespace":
+      return extractSecretNamespace(call, sourceFile);
     case "claimKey":
       return extractClaimKey(call, sourceFile);
     case "referenceData":

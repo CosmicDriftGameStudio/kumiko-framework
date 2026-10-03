@@ -1,7 +1,7 @@
 import type { CallExpression, SourceFile } from "ts-morph";
 import { SyntaxKind } from "ts-morph";
 import type { ConfigKeyDefinition, ConfigKeyType, TranslationKeys } from "../../types/config.js";
-import type { MetricOptions, SecretOptions } from "../../types/feature.js";
+import type { MetricOptions, SecretNamespaceOptions, SecretOptions } from "../../types/feature.js";
 import type { ClaimKeyType } from "../../types/handlers.js";
 import type { ParseError } from "../parse.js";
 import type {
@@ -9,6 +9,7 @@ import type {
   ConfigPattern,
   MetricPattern,
   ReferenceDataPattern,
+  SecretNamespacePattern,
   SecretPattern,
   TranslationsPattern,
   UseExtensionPattern,
@@ -192,6 +193,20 @@ export function extractSecret(
     source: sourceLocationFromNode(call, sourceFile),
     shortName: parsed.name,
     options: parsed.options as SecretOptions,
+  });
+}
+
+export function extractSecretNamespace(
+  call: CallExpression,
+  sourceFile: SourceFile,
+): ExtractOutput<SecretNamespacePattern> {
+  const parsed = readNamedOptions(call, sourceFile, "secretNamespace");
+  if (parsed.kind === "error") return parsed;
+  return ok({
+    kind: "secretNamespace",
+    source: sourceLocationFromNode(call, sourceFile),
+    shortName: parsed.name,
+    options: parsed.options as SecretNamespaceOptions,
   });
 }
 

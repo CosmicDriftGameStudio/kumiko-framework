@@ -40,6 +40,7 @@ const ALL_KINDS: FeaturePatternKind[] = [
   "translations",
   "metric",
   "secret",
+  "secretNamespace",
   "claimKey",
   "referenceData",
   "useExtension",
@@ -234,6 +235,13 @@ function makePlaceholderPattern(kind: FeaturePatternKind): FeaturePattern {
         options: { type: "counter" },
       };
     case "secret":
+      return {
+        kind,
+        source: PLACEHOLDER_LOC,
+        shortName: "x",
+        options: { label: { en: "x" }, scope: "tenant" },
+      };
+    case "secretNamespace":
       return {
         kind,
         source: PLACEHOLDER_LOC,
