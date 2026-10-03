@@ -36,6 +36,7 @@
 //       <chunk>-<hash>.js     ← split chunks
 //       styles-<hash>.css     ← Tailwind output
 //       <asset>-<hash>.<ext>  ← imported file-loader assets
+//     kumiko-bundled-assets/  ← package.json "kumiko.assets", never served over HTTP
 //     manifest.json           ← logical → hashed-URL mapping
 //     <public/* 1:1>          ← favicon.ico, robots.txt, og-image.png, …
 //
@@ -54,6 +55,12 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
+import {
+  BUNDLED_ASSETS_DIST_DIR,
+  type BundledAssetDeclaration,
+  readBundledAssetDeclarations,
+  resolveBundledAssetSource,
+} from "./bundled-assets.js";
 import {
   RENDERER_WEB_FONT_FILE_PATTERN,
   RENDERER_WEB_FONTS_DIST_DIR,
@@ -167,6 +174,8 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   const stylesheet = resolveStylesheetEntry(cwd, firstClientSource, options.stylesheet);
   const publicDir = resolve(cwd, "public");
   const hasPublicDir = existsSync(publicDir);
+  // Validated before the clean step so a bad declaration cannot leave a wiped dist/.
+  const bundledAssets = readBundledAssetDeclarations(cwd);
 
   if (clientEntries.length === 0 && !hasPublicDir) {
     throw new Error(
@@ -213,6 +222,10 @@ export async function buildProdBundle(options: BuildProdBundleOptions = {}): Pro
   if (hasPublicDir) {
     await copyPublicFolder(publicDir, outDir, templateBasenames);
   }
+
+  // 5a. Declared read-only assets (package.json "kumiko.assets"), copied after
+  //     public/ so a same-named public file cannot shadow them.
+  await copyBundledAssets(cwd, outDir, bundledAssets);
 
   // 5b. Build-Identität: Hash über die content-gehashten Asset-URLs +
   //     lesbarer Zeitstempel. Wird in index.html gebacken und als
@@ -661,6 +674,27 @@ async function copyRendererWebFonts(cwd: string, outDir: string): Promise<void> 
     if (RENDERER_WEB_FONT_FILE_PATTERN.test(file)) {
       await cp(join(fontsDir, file), join(target, file));
     }
+  }
+}
+
+// Fails the build on a missing source: a runtime readBundledAsset() miss in
+// prod would otherwise only surface on the first request that needs the file.
+async function copyBundledAssets(
+  cwd: string,
+  outDir: string,
+  declarations: readonly BundledAssetDeclaration[],
+): Promise<void> {
+  const target = join(outDir, BUNDLED_ASSETS_DIST_DIR);
+  for (const declaration of declarations) {
+    const source = resolveBundledAssetSource(cwd, declaration);
+    if (!existsSync(source) || !statSync(source).isFile()) {
+      throw new Error(
+        `[kumiko build] package.json "kumiko.assets" "${declaration.name}": source file not found ` +
+          `at ${source} (declared as "${declaration.source}").`,
+      );
+    }
+    await mkdir(target, { recursive: true });
+    await cp(source, join(target, declaration.name));
   }
 }
 

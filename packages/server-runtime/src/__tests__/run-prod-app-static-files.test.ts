@@ -10,6 +10,7 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import { BUNDLED_ASSETS_DIST_DIR } from "../bundled-assets.js";
 import type { PageHeadResolver } from "../run-prod-app.js";
 import {
   buildStaticFallback,
@@ -135,6 +136,24 @@ describe("buildStaticFallback hostDispatch", () => {
     const res = await redirect(new Request("http://t/"));
     expect(res.status).toBe(301);
     expect(res.headers.get("location")).toBe("https://example.com/");
+  });
+
+  test("bundled assets under dist are never served over HTTP", async () => {
+    await mkdir(join(tmp, BUNDLED_ASSETS_DIST_DIR), { recursive: true });
+    await writeFile(join(tmp, BUNDLED_ASSETS_DIST_DIR, "secret.ttf"), "font-bytes");
+    await writeFile(join(tmp, "public.txt"), "ok");
+    const handler = buildStaticFallback(() => noRouteMatchedResponse(), tmp);
+    expect(await (await handler(new Request("http://t/public.txt"))).text()).toBe("ok");
+    const res = await handler(new Request(`http://t/${BUNDLED_ASSETS_DIST_DIR}/secret.ttf`));
+    expect(res.status).toBe(404);
+    expect(await res.text()).not.toContain("font-bytes");
+    for (const bypass of [
+      `http://t//${BUNDLED_ASSETS_DIST_DIR}/secret.ttf`,
+      `http://t/${BUNDLED_ASSETS_DIST_DIR.toUpperCase()}/secret.ttf`,
+      `http://t/x/../${BUNDLED_ASSETS_DIST_DIR}/secret.ttf`,
+    ]) {
+      expect(await (await handler(new Request(bypass))).text()).not.toContain("font-bytes");
+    }
   });
 
   test("/api/* always hits apiHandler", async () => {

@@ -56,7 +56,7 @@ export type AstGuard = {
   /** `roots` are the same roots `runGuards` scanned `files` with — a guard classifying paths against repo roots (`relFromRepoRoot`) must use these, not re-derive its own single-repo `resolveRepoRoots()`, or a multi-root caller's roots never reach it. */
   run(files: readonly SourceFile[], roots?: readonly RepoRoot[]): GuardOutcome;
   /** Ratchet guards only: freeze the current findings into that guard's own baseline file. */
-  writeBaseline?(files: readonly SourceFile[]): void;
+  writeBaseline?(files: readonly SourceFile[], roots?: readonly RepoRoot[]): void;
 };
 
 export function isSecurityGuard(guard: Pick<AstGuard, "security">): boolean {
@@ -195,6 +195,8 @@ export function baselineRatchet(args: {
   readonly file: string;
   readonly formatVersion: number;
   readonly unit: string;
+  /** A missing baseline file counts as an empty baseline (every current entry is a regression) instead of a warning. For guards whose suppression must not hold without a frozen file. */
+  readonly failClosed?: boolean;
 }): {
   write(current: Readonly<Record<string, number>>): void;
   check(
@@ -229,6 +231,13 @@ export function baselineRatchet(args: {
       readonly resolveLine?: (file: string) => number;
     },
   ): GuardViolation[] => {
+    if (!existsSync(args.file) && args.failClosed === true) {
+      return compareToBaseline(current, {}).regressions.map((regression) => ({
+        file: regression.file,
+        line: opts?.resolveLine?.(regression.file) ?? 1,
+        message: `${args.unit} without a baseline file (${args.file}): ${regression.current} not frozen. ${remediation}`,
+      }));
+    }
     if (!existsSync(args.file)) {
       console.log(
         `  No baseline found (${args.file}). Freeze it first with \`--write-baseline\` — warning until then, no fail.`,

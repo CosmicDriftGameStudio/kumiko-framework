@@ -19,17 +19,29 @@
  * one repo cannot silently free node:fs in another under the same relative
  * path.
  *
+ * Repo-local exception for a justified import (tooling, build-time reads):
+ *   // kumiko-lint-ignore direct-fs <reason>
+ * on the import line or the line directly above. A bare tag without a reason
+ * does not count. The marker suppresses only while its `<file>::<reason>` pair
+ * is frozen in `.kumiko-direct-fs-baseline.json` at the repo root — fail-closed:
+ * no file, an unreadable file, a changed reason or more markers than frozen
+ * all make the guard fail. Freeze with:
+ *   kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"
+ *
  * Usage:
  *   bun guards/guard-no-direct-fs.ts
  *
  * Exit 1 on violations in non-allowlisted files, 0 when clean.
  */
 
-import { relative as pathRelative } from "node:path";
+import { existsSync } from "node:fs";
+import { join, relative as pathRelative } from "node:path";
 import { Node, type SourceFile, SyntaxKind } from "ts-morph";
 import {
   type AstGuard,
+  baselineRatchet,
   findRepoRootFor,
+  type GuardViolation,
   relFromRepoRoot,
   runStandalone,
   type ScanSpec,
@@ -86,8 +98,10 @@ const ALLOWLIST: readonly AllowEntry[] = [
   },
 
   // server-runtime: prod bundle build + static asset delivery from the
-  // build output (no user-controlled path).
+  // build output (no user-controlled path). bundled-assets.ts reads declared
+  // read-only assets, name-pattern + containment checked.
   { repo: "kumiko-framework", pattern: /^packages\/server-runtime\/src\/build-prod-bundle\.ts$/ },
+  { repo: "kumiko-framework", pattern: /^packages\/server-runtime\/src\/bundled-assets\.ts$/ },
   {
     repo: "kumiko-framework",
     pattern: /^packages\/server-runtime\/src\/run-prod-app-static-files\.ts$/,
@@ -109,12 +123,6 @@ const ALLOWLIST: readonly AllowEntry[] = [
   // Few-shot corpus loader: reads docs/few-shot-corpus.json via an upward
   // walk from cwd, no user input as a path.
   { repo: "kumiko-enterprise", pattern: /^packages\/ai-foundation\/src\/prompt\/corpus\.ts$/ },
-
-  // App repos: marketing landing-page renderer, iterates over a fixed
-  // language enum (LANGS/SUPPORTED_LANGS) — no user input in the path.
-  // repo:"*" — same relative path is intentional across flat-layout apps.
-  { repo: "*", pattern: /(^|\/)src\/marketing\/render-landing\.ts$/ },
-  { repo: "*", pattern: /(^|\/)src\/marketing\/rebuild-pages-job\.ts$/ },
 
   // kumiko-enterprise publish pipeline: materialize.ts is the guarded
   // place (writeMaterializedTree — resolve()+startsWith(root+sep) check,
@@ -151,6 +159,100 @@ export function isRepoAllowlisted(
 interface Violation {
   line: number;
   moduleSpecifier: string;
+}
+
+const BASELINE_FILE = ".kumiko-direct-fs-baseline.json";
+// Must sit in a // comment, so a string literal describing the marker does not suppress.
+const MARKER_WITH_REASON_RE = /(^|\s)\/\/\s*kumiko-lint-ignore direct-fs\s+(\S.*)$/;
+
+const MARKER_REMEDIATION =
+  "New, reworded or unfrozen direct-fs marker. Prefer FileStorageProvider or readBundledAsset; " +
+  'otherwise freeze the exception with `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"` ' +
+  "so the baseline diff shows up in review.";
+
+type RootMarkers = {
+  readonly root: RepoRoot;
+  /** `<file>::<reason>` -> distinct marker lines (1-based). */
+  readonly linesByKey: Map<string, Set<number>>;
+};
+
+function ratchetFor(root: RepoRoot) {
+  return baselineRatchet({
+    file: join(root.absPath, BASELINE_FILE),
+    formatVersion: 1,
+    unit: "direct-fs marker(s)",
+    failClosed: true,
+  });
+}
+
+function markerFor(
+  lines: readonly string[],
+  importLine: number,
+): { readonly reason: string; readonly line: number } | undefined {
+  const sameLine = MARKER_WITH_REASON_RE.exec(lines[importLine - 1] ?? "")?.[2];
+  if (sameLine !== undefined) return { reason: sameLine.trim(), line: importLine };
+  const above = MARKER_WITH_REASON_RE.exec(lines[importLine - 2] ?? "")?.[2];
+  return above === undefined ? undefined : { reason: above.trim(), line: importLine - 1 };
+}
+
+function countsOf(markers: RootMarkers): Record<string, number> {
+  return Object.fromEntries([...markers.linesByKey].map(([key, lines]) => [key, lines.size]));
+}
+
+function collect(
+  files: readonly SourceFile[],
+  roots: readonly RepoRoot[],
+): { readonly unsuppressed: GuardViolation[]; readonly markers: Map<string, RootMarkers> } {
+  const unsuppressed: GuardViolation[] = [];
+  const markers = new Map<string, RootMarkers>();
+
+  for (const sf of files) {
+    const file = sf.getFilePath();
+    const rel = relFromRepoRoot(file, roots);
+    if (EXCLUDE.test(rel)) continue;
+    const root = findRepoRootFor(file, roots);
+    if (isRepoAllowlisted(root?.name, rel)) continue;
+    const lines = sf.getFullText().split("\n");
+    for (const v of findDirectFsImports(sf)) {
+      const marker = root === undefined ? undefined : markerFor(lines, v.line);
+      if (root !== undefined && marker !== undefined) {
+        const entry = markers.get(root.absPath) ?? { root, linesByKey: new Map() };
+        const key = `${rel}::${marker.reason}`;
+        const set = entry.linesByKey.get(key) ?? new Set<number>();
+        set.add(marker.line);
+        entry.linesByKey.set(key, set);
+        markers.set(root.absPath, entry);
+        continue;
+      }
+      unsuppressed.push({
+        // cwd-relative, not repo-relative `rel` — the security baseline
+        // needs an unambiguous path to resolve back to (repo, relPath).
+        file: pathRelative(process.cwd(), file),
+        line: v.line,
+        message: `[${v.moduleSpecifier}] direct fs import outside allowlist`,
+      });
+    }
+  }
+  return { unsuppressed, markers };
+}
+
+function markerViolations(markers: ReadonlyMap<string, RootMarkers>): GuardViolation[] {
+  return [...markers.values()].flatMap((m) =>
+    ratchetFor(m.root)
+      .check(countsOf(m), MARKER_REMEDIATION, {
+        resolveLine: (key) => [...(m.linesByKey.get(key) ?? [])].sort((a, b) => a - b)[0] ?? 1,
+      })
+      .map((v) => {
+        const [relFile] = v.file.split("::");
+        const isMarkerKey = v.file.includes("::") && relFile !== undefined;
+        return {
+          ...v,
+          file: isMarkerKey ? pathRelative(process.cwd(), join(m.root.absPath, relFile)) : v.file,
+          // A frozen security baseline must never excuse an unfrozen marker.
+          neverFrozen: true,
+        };
+      }),
+  );
 }
 
 function findDynamicFsRequires(sf: SourceFile): Violation[] {
@@ -208,28 +310,20 @@ export const guard: AstGuard = {
   name: "No-Direct-Fs Guard",
   scan: SCAN,
   security: true,
-  hint: "Direct node:fs import outside the allowlist — use FileStorageProvider (packages/framework/src/files/) instead of wiring fs yourself. The path-traversal guard (resolveContainedPath) only exists there. Legitimate new tooling caller? Extend the allowlist in guard-no-direct-fs.ts, with a reason + repo scope.",
+  hint: 'Direct node:fs import outside the allowlist — use FileStorageProvider (packages/framework/src/files/) instead of wiring fs yourself; the path-traversal guard (resolveContainedPath) only exists there. Read-only files your own build ships: declare them under package.json `kumiko.assets` and use readBundledAsset(name) from @cosmicdrift/kumiko-server-runtime. Legitimate tooling exception: mark the import with `// kumiko-lint-ignore direct-fs <reason>` and freeze it with `kumiko-guards guards --write-baseline --guard="No-Direct-Fs Guard"` (.kumiko-direct-fs-baseline.json, reviewed as a diff).',
   run(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
-    const violations: Array<{ file: string; line: number; message: string }> = [];
-
-    for (const sf of files) {
-      const file = sf.getFilePath();
-      const rel = relFromRepoRoot(file, roots);
-      if (EXCLUDE.test(rel)) continue;
-      const root = findRepoRootFor(file, roots);
-      if (isRepoAllowlisted(root?.name, rel)) continue;
-      for (const v of findDirectFsImports(sf)) {
-        violations.push({
-          // cwd-relative, not repo-relative `rel` — the security baseline
-          // needs an unambiguous path to resolve back to (repo, relPath).
-          file: pathRelative(process.cwd(), file),
-          line: v.line,
-          message: `[${v.moduleSpecifier}] direct fs import outside allowlist`,
-        });
+    const { unsuppressed, markers } = collect(files, roots);
+    return { violations: [...unsuppressed, ...markerViolations(markers)] };
+  },
+  writeBaseline(files, roots: readonly RepoRoot[] = resolveRepoRoots()) {
+    const { markers } = collect(files, roots);
+    for (const m of markers.values()) ratchetFor(m.root).write(countsOf(m));
+    // A repo whose last marker is gone keeps a stale baseline unless it is shrunk too.
+    for (const root of roots) {
+      if (!markers.has(root.absPath) && existsSync(join(root.absPath, BASELINE_FILE))) {
+        ratchetFor(root).write({});
       }
     }
-
-    return { violations };
   },
 };
 

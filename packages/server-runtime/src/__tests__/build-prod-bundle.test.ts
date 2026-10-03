@@ -8,11 +8,12 @@
 
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   buildMissingTemplateError,
+  buildProdBundle,
   type ClientEntry,
   type ClientEntryDeclaration,
   computeBuildId,
@@ -23,6 +24,7 @@ import {
   readClientEntriesConfig,
   resolveClientEntries,
 } from "../build-prod-bundle.js";
+import { BUNDLED_ASSETS_DIST_DIR } from "../bundled-assets.js";
 
 // Synthetic single-entry: injectAssetTags only needs the shape, not a
 // resolveClientEntries round-trip.
@@ -742,5 +744,66 @@ describe("build-prod-bundle/isEntryOutputFor", () => {
     expect(isEntryOutputFor("client-admin-a1B2c3.js", "client-admin")).toBe(true);
     expect(isEntryOutputFor("client-admin-legacy-a1B2c3.js", "client-admin")).toBe(false);
     expect(isEntryOutputFor("client-admin-legacy-a1B2c3.js", "client-admin-legacy")).toBe(true);
+  });
+});
+
+describe("buildProdBundle bundled assets (kumiko.assets)", () => {
+  let workDir = "";
+
+  beforeEach(async () => {
+    workDir = await mkdtemp(join(tmpdir(), "kumiko-build-assets-"));
+    await mkdir(join(workDir, "public"), { recursive: true });
+    await writeFile(join(workDir, "public/index.html"), "<!doctype html>");
+    await mkdir(join(workDir, "fonts"), { recursive: true });
+    await writeFile(join(workDir, "fonts/inter-bold.ttf"), "ttf-bytes");
+  });
+
+  afterEach(async () => {
+    await rm(workDir, { recursive: true, force: true });
+  });
+
+  async function declare(assets: unknown): Promise<void> {
+    await writeJson(join(workDir, "package.json"), { name: "assets-app", kumiko: { assets } });
+  }
+
+  test("copies each declared asset into the non-served dist dir", async () => {
+    await declare([{ name: "inter-bold.ttf", source: "fonts/inter-bold.ttf" }]);
+    await buildProdBundle({ cwd: workDir, stylesheet: false });
+    const copied = join(workDir, "dist", BUNDLED_ASSETS_DIST_DIR, "inter-bold.ttf");
+    expect(await readFile(copied, "utf8")).toBe("ttf-bytes");
+  });
+
+  test("a missing source file fails the build with the declared name", async () => {
+    await declare([{ name: "gone.ttf", source: "fonts/gone.ttf" }]);
+    await expect(buildProdBundle({ cwd: workDir, stylesheet: false })).rejects.toThrow(
+      /"gone\.ttf": source file not found/,
+    );
+  });
+
+  test("an invalid name fails the build", async () => {
+    for (const name of ["../x.ttf", "a/b.ttf", "", ".hidden", "a..b"]) {
+      await declare([{ name, source: "fonts/inter-bold.ttf" }]);
+      await expect(buildProdBundle({ cwd: workDir, stylesheet: false })).rejects.toThrow(
+        /invalid asset name|must be a string/,
+      );
+    }
+  });
+
+  test("duplicate names and a source escaping the package dir fail the build", async () => {
+    await declare([
+      { name: "a.ttf", source: "fonts/inter-bold.ttf" },
+      { name: "a.ttf", source: "fonts/inter-bold.ttf" },
+    ]);
+    await expect(buildProdBundle({ cwd: workDir, stylesheet: false })).rejects.toThrow(/duplicate/);
+
+    await declare([{ name: "a.ttf", source: "../outside.ttf" }]);
+    await expect(buildProdBundle({ cwd: workDir, stylesheet: false })).rejects.toThrow(
+      /escapes the package dir/,
+    );
+
+    await declare([{ name: "a.ttf", source: join(workDir, "fonts/inter-bold.ttf") }]);
+    await expect(buildProdBundle({ cwd: workDir, stylesheet: false })).rejects.toThrow(
+      /must be relative/,
+    );
   });
 });
