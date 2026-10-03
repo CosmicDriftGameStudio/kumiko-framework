@@ -100,9 +100,10 @@ jobs:
         run: bash scripts/changeset-fold-check.sh
 
       - name: Changeset required
-        if: github.event_name == 'pull_request' && github.head_ref != 'changeset-release/main' && !startsWith(github.head_ref, 'renovate/')
+        if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
         run: bash scripts/changeset-required-check.sh
 
       - name: Run tests

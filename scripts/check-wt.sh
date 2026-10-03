@@ -8,11 +8,16 @@
 # + unit tests. These need no cross-repo import resolution and are correct in
 # the worktree.
 #
+# The AST guard suite runs through the same entry as CI's `kumiko check`
+# "guards" step (runGuardsCli([])), so every guard in GUARDS — complexity
+# included — is covered without a list here. The changeset-required check is
+# the CI script itself against origin/main.
+#
 # comment-lang scans the cwd directly (no sibling/cross-repo resolution), so
 # it is safe to run here scoped to the worktree. The public kumiko-guards
 # bundles (guards/ui/checks) are NOT wired in: this repo's own CI does not run
-# them (only the private kumiko-guard-no-logic-in-views, unrelated to the
-# public bundle), so there is nothing to mirror locally.
+# them as separate steps (only the private kumiko-guard-no-logic-in-views,
+# unrelated to the public bundle), so there is nothing more to mirror locally.
 set -uo pipefail
 
 echo "── Worktree check · $(pwd) ──"
@@ -43,6 +48,14 @@ bun scripts/check-app-tsc.ts || fail=1
 echo
 echo "→ biome check"
 bunx biome check . || fail=1
+
+echo
+echo "→ AST guards (bun packages/guards/src/run-guards.ts — CI entry runGuardsCli)"
+bun packages/guards/src/run-guards.ts || fail=1
+
+echo
+echo "→ changeset required (scripts/changeset-required-check.sh — CI script, BASE_REF=main)"
+BASE_REF=main bash scripts/changeset-required-check.sh || fail=1
 
 echo
 if [ -e node_modules/.bin/kumiko-guard-comment-lang ]; then
@@ -93,9 +106,9 @@ fi
 
 echo
 if [ "$fail" = 0 ] && [ "$ran_test_dom" = 1 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + comment-lang --touched + unit tests + component tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset check + comment-lang --touched + unit tests + component tests."
 elif [ "$fail" = 0 ]; then
-  echo "✓ Worktree check green — tsc + sample typecheck + Biome + comment-lang --touched + unit tests."
+  echo "✓ Worktree check green — tsc + sample typecheck + Biome + AST guards + changeset check + comment-lang --touched + unit tests."
 else
   echo "✗ Worktree check red — see above. Do not commit until green."
 fi
