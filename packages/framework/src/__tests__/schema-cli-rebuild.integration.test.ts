@@ -138,7 +138,10 @@ describe("runSchemaCli apply — projection rebuild", () => {
 
     const appCwd = writeMigration("0001_touch_counter", [COUNTER_TABLE]);
     const cap = captureOut();
-    const code = await runSchemaCli(["apply"], appCwd, cap.out, { features: [feature] });
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+    });
 
     expect(code).toBe(0);
     expect(cap.log.join("\n")).toContain("Rebuild 1 Projection");
@@ -165,7 +168,10 @@ describe("runSchemaCli apply — projection rebuild", () => {
 
     const appCwd = writeMigration("0003_no_marker", null);
     const cap = captureOut();
-    const code = await runSchemaCli(["apply"], appCwd, cap.out, { features: [feature] });
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+    });
 
     expect(code).toBe(0);
     expect(cap.log.join("\n")).not.toContain("Rebuild");
@@ -180,7 +186,10 @@ describe("runSchemaCli apply — projection rebuild", () => {
 
     const appCwd = writeMigration("0004_unknown_table", ["read_nonexistent_table"]);
     const cap = captureOut();
-    const code = await runSchemaCli(["apply"], appCwd, cap.out, { features: [feature] });
+    const code = await runSchemaCli(["apply"], appCwd, cap.out, {
+      features: [feature],
+      kmsSlots: [],
+    });
 
     expect(code).toBe(0);
     expect(cap.log.join("\n")).not.toContain("Rebuild");

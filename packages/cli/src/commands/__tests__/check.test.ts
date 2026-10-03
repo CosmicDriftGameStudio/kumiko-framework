@@ -17,12 +17,23 @@ function manifest(overrides: Partial<RepoManifest> = {}): RepoManifest {
     kind: "app",
     sourceRoots: ["src"],
     testGlobs: ["src/**/*.test.ts"],
+    uiRoots: [],
     ...overrides,
   };
 }
 
+function plan(m: RepoManifest, hasAppSchema = true, manifestSource: "file" | "derived" = "file") {
+  return resolveCheckSteps(m, { hasAppSchema, manifestSource });
+}
+
+function stepsOf(m: RepoManifest, hasAppSchema = true) {
+  const resolved = plan(m, hasAppSchema);
+  if (resolved.kind === "error") throw new Error(resolved.message);
+  return resolved;
+}
+
 function stepIds(m: RepoManifest, hasAppSchema = true): string[] {
-  return resolveCheckSteps(m, { hasAppSchema }).map((s) => s.id);
+  return stepsOf(m, hasAppSchema).steps.map((s) => s.id);
 }
 
 type Calls = {
@@ -65,6 +76,7 @@ function harness(
   options: {
     readonly repoManifest?: RepoManifest;
     readonly repoMissing?: boolean;
+    readonly manifestSource?: "file" | "derived";
     readonly appSchemaMissing?: boolean;
     readonly guardsLoadError?: Error;
     readonly schemaLoadError?: Error;
@@ -92,7 +104,7 @@ function harness(
             absPath: repoDir,
             kind: (options.repoManifest ?? manifest()).kind,
             manifest: options.repoManifest ?? manifest(),
-            manifestSource: "file",
+            manifestSource: options.manifestSource ?? "file",
           },
     runGuardsCli: (argv) => {
       calls.guards.push([...argv]);
@@ -158,9 +170,30 @@ describe("resolveCheckSteps", () => {
     ]);
   });
 
-  test("missing uiRoots and empty uiRoots both drop the UI step", () => {
-    expect(stepIds(manifest())).toEqual(["boot", "guards", "checks"]);
-    expect(stepIds(manifest({ uiRoots: [] }))).toEqual(["boot", "guards", "checks"]);
+  test("empty uiRoots on an app drops the UI step and records a waiver", () => {
+    const resolved = stepsOf(manifest({ uiRoots: [] }));
+    expect(resolved.steps.map((s) => s.id)).toEqual(["boot", "guards", "checks"]);
+    expect(resolved.waivers.join("\n")).toContain("uiRoots is []");
+  });
+
+  test('kind "app" without uiRoots is an error naming uiRoots', () => {
+    const resolved = plan(manifest({ uiRoots: undefined }));
+    expect(resolved.kind).toBe("error");
+    if (resolved.kind === "error") {
+      expect(resolved.message).toContain("uiRoots: []");
+      expect(resolved.message).not.toContain("Add a kumiko.json");
+    }
+  });
+
+  test("a derived manifest additionally hints at adding a kumiko.json", () => {
+    const resolved = plan(manifest({ uiRoots: undefined }), true, "derived");
+    expect(resolved.kind === "error" && resolved.message).toContain("Add a kumiko.json");
+  });
+
+  test('kind "library" without uiRoots keeps silently skipping the UI step', () => {
+    const resolved = stepsOf(manifest({ kind: "library", uiRoots: undefined }));
+    expect(resolved.steps.map((s) => s.id)).toEqual(["guards", "checks"]);
+    expect(resolved.waivers).toEqual([]);
   });
 
   test('kind "tooling" resolves no steps at all', () => {
@@ -172,7 +205,7 @@ describe("resolveCheckSteps", () => {
   });
 
   test("every step states why it was selected", () => {
-    const steps = resolveCheckSteps(manifest({ uiRoots: ["src/**/web"] }), { hasAppSchema: true });
+    const { steps } = stepsOf(manifest({ uiRoots: ["src/**/web"] }));
     expect(steps.every((s) => s.why.trim().length > 0)).toBe(true);
     expect(steps.find((s) => s.id === "ui")?.why).toContain("src/**/web");
   });
@@ -188,6 +221,42 @@ describe("kumiko check", () => {
     expect(h.calls.guards).toEqual([[]]);
     expect(h.calls.ui).toEqual([[]]);
     expect(h.calls.checks).toEqual([[]]);
+  });
+
+  test('kind "app" without uiRoots exits 1 with a hint before any step runs, also with --explain', async () => {
+    for (const argv of [[], ["--explain"]]) {
+      const h = harness({ repoManifest: manifest({ uiRoots: undefined }) });
+      const code = await runCheck({ argv, cwd: h.cwd, out: h.out }, h.deps);
+      expect(code).toBe(1);
+      expect(h.errs.join("\n")).toContain("uiRoots");
+      expect(h.calls.guards).toEqual([]);
+      expect(h.calls.checks).toEqual([]);
+      expect(h.calls.schema).toEqual([]);
+    }
+  });
+
+  test("a derived manifest without uiRoots names kumiko.json in the hint", async () => {
+    const h = harness({
+      repoManifest: manifest({ uiRoots: undefined }),
+      manifestSource: "derived",
+    });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(1);
+    expect(h.errs.join("\n")).toContain("Add a kumiko.json");
+  });
+
+  test("uiRoots: [] prints the waiver line, normally and with --explain, and runs no ui step", async () => {
+    for (const argv of [[], ["--explain"]]) {
+      const h = harness({ repoManifest: manifest({ uiRoots: [] }) });
+      expect(await runCheck({ argv, cwd: h.cwd, out: h.out }, h.deps)).toBe(0);
+      expect(h.logs.join("\n")).toContain("UI guards skipped on purpose");
+      expect(h.calls.ui).toEqual([]);
+    }
+  });
+
+  test("non-empty uiRoots runs the ui step", async () => {
+    const h = harness({ repoManifest: manifest({ uiRoots: ["src/app"] }) });
+    expect(await runCheck({ argv: [], cwd: h.cwd, out: h.out }, h.deps)).toBe(0);
+    expect(h.calls.ui).toEqual([[]]);
   });
 
   test("a failing suite fails the command", async () => {

@@ -176,8 +176,12 @@ export type BannerProps = {
   /** "error" for alerts (conflict, network error), "info" for neutral
    *  placeholders (not-found, loading), "loading" for load states, "warning"
    *  for a non-blocking but attention-grabbing notice (e.g. secretMint's
-   *  "this is shown only once"). */
-  readonly variant?: "error" | "info" | "loading" | "warning";
+   *  "this is shown only once"), "primary" for a call-to-action notice (neutral
+   *  background, accent in the primary color; pair it with `title` and `actions`). */
+  readonly variant?: "error" | "info" | "loading" | "warning" | "primary";
+  /** Bold heading above `children`, inside the text column. */
+  readonly title?: ReactNode;
+  readonly titleTestId?: string;
   readonly children: ReactNode;
   /** Optional — weitere Knöpfe/Elemente rechts vom Text (z.B. "Neu
    *  laden"). Inline, nicht als eigener Block. */

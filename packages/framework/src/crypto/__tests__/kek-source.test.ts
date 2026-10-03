@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { type KekSourceEnv, resolvePlatformKeks } from "../kek-source.js";
 import { buildPgKmsOptions, resolveKmsWiringAsync } from "../kms-wiring.js";
 
+const PLATFORM_SLOTS = ["PLATFORM_KEK", "PLATFORM_KEK_PREVIOUS", "KUMIKO_BLIND_INDEX_KEY"] as const;
 const TOKEN = "scw-secret-token";
 const CIPHERTEXT_A = Buffer.from("ciphertext-a").toString("base64");
 const CIPHERTEXT_B = Buffer.from("ciphertext-b").toString("base64");
@@ -37,7 +38,7 @@ describe("resolvePlatformKeks", () => {
     const { fetch, calls } = trackedFetch([]);
     const env: KekSourceEnv = { PLATFORM_KEK: PLAINTEXT_A };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result).toBe(env);
     expect(calls.length).toBe(0);
@@ -51,7 +52,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.PLATFORM_KEK).toBe(PLAINTEXT_A);
     expect(calls.length).toBe(1);
@@ -72,7 +73,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.PLATFORM_KEK).toBe("active-plaintext");
     expect(result.PLATFORM_KEK_PREVIOUS).toBe("previous-plaintext");
@@ -89,7 +90,7 @@ describe("resolvePlatformKeks", () => {
     };
 
     try {
-      await resolvePlatformKeks(env, { fetch });
+      await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
       throw new Error("unreachable");
     } catch (error) {
       expect(error).toBeInstanceOf(Error);
@@ -107,10 +108,12 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: undefined,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.toThrow(
       /PLATFORM_KEK_CIPHERTEXT is set but/,
     );
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.not.toThrow(new RegExp(TOKEN));
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.not.toThrow(
+      new RegExp(TOKEN),
+    );
   });
 
   test("retries a network failure and succeeds on the next attempt", async () => {
@@ -128,7 +131,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.PLATFORM_KEK).toBe(PLAINTEXT_A);
     expect(calls.length).toBe(2);
@@ -146,7 +149,9 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/network error or timeout/);
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.toThrow(
+      /network error or timeout/,
+    );
     expect(calls.length).toBe(3);
   });
 
@@ -158,7 +163,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.toThrow(
       /PLATFORM_KEK_PREVIOUS_VERSION must be set/,
     );
     expect(calls.length).toBe(0);
@@ -175,7 +180,9 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const error = await resolvePlatformKeks(env, { fetch }).catch((caught: unknown) => caught);
+    const error = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS }).catch(
+      (caught: unknown) => caught,
+    );
 
     expect(error instanceof Error ? error.cause : undefined).toBe(rootCause);
   });
@@ -203,7 +210,7 @@ describe("resolvePlatformKeks", () => {
     const { fetch, calls } = trackedFetch([]);
     const env: KekSourceEnv = { SUBJECT_KEYS_DATABASE_URL: "postgres://localhost/x" };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result).toBe(env);
     expect(calls.length).toBe(0);
@@ -220,7 +227,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.PLATFORM_KEK).toBe(PLAINTEXT_A);
     expect(calls.length).toBe(2);
@@ -234,7 +241,9 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/HTTP 403/);
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.toThrow(
+      /HTTP 403/,
+    );
     expect(calls.length).toBe(1);
   });
 
@@ -246,7 +255,9 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(/no plaintext field/);
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.toThrow(
+      /no plaintext field/,
+    );
   });
 
   // The slot-to-version mapping is the part that "silently corrupts data when
@@ -264,7 +275,7 @@ describe("resolvePlatformKeks", () => {
       SUBJECT_KEYS_DATABASE_URL: "postgres://localhost/x",
     };
 
-    const resolved = await resolvePlatformKeks(env, { fetch });
+    const resolved = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
     const options = buildPgKmsOptions({
       ...resolved,
       PLATFORM_KEK: resolved.PLATFORM_KEK ?? "",
@@ -285,7 +296,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_PREVIOUS_VERSION: "1",
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.PLATFORM_KEK).toBe("current-plaintext");
     expect(result.PLATFORM_KEK_PREVIOUS).toBe("rolled-back-plaintext");
@@ -302,7 +313,12 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await resolvePlatformKeks(env, { fetch, log: (line) => lines.push(line), logPrefix: "[ps]" });
+    await resolvePlatformKeks(env, {
+      fetch,
+      slots: PLATFORM_SLOTS,
+      log: (line) => lines.push(line),
+      logPrefix: "[ps]",
+    });
 
     expect(lines).toEqual([
       "[ps] PLATFORM_KEK source=plaintext-env (ciphertext present and ignored)",
@@ -318,7 +334,11 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    await resolvePlatformKeks(env, { fetch, log: (line) => lines.push(line) });
+    await resolvePlatformKeks(env, {
+      fetch,
+      slots: PLATFORM_SLOTS,
+      log: (line) => lines.push(line),
+    });
 
     expect(lines).toEqual(["PLATFORM_KEK source=key-manager keyId=key-1 region=fr-par"]);
     expect(lines.join("\n")).not.toContain(TOKEN);
@@ -329,7 +349,10 @@ describe("resolvePlatformKeks", () => {
     const { fetch } = trackedFetch([]);
     const lines: string[] = [];
 
-    await resolvePlatformKeks({}, { fetch, log: (line) => lines.push(line) });
+    await resolvePlatformKeks(
+      {},
+      { fetch, slots: PLATFORM_SLOTS, log: (line) => lines.push(line) },
+    );
 
     expect(lines).toEqual([]);
   });
@@ -342,7 +365,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.KUMIKO_BLIND_INDEX_KEY).toBe(PLAINTEXT_A);
     expect(calls.length).toBe(1);
@@ -352,7 +375,7 @@ describe("resolvePlatformKeks", () => {
     const { fetch, calls } = trackedFetch([]);
     const env: KekSourceEnv = { KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A };
 
-    await expect(resolvePlatformKeks(env, { fetch })).rejects.toThrow(
+    await expect(resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS })).rejects.toThrow(
       /KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT is set but/,
     );
     expect(calls.length).toBe(0);
@@ -368,7 +391,7 @@ describe("resolvePlatformKeks", () => {
         PLATFORM_KEK_KMS_KEY_ID: "key-1",
         PLATFORM_KEK_KMS_TOKEN: TOKEN,
       },
-      { fetch: decrypted.fetch, log: (line) => lines.push(line) },
+      { fetch: decrypted.fetch, slots: PLATFORM_SLOTS, log: (line) => lines.push(line) },
     );
 
     expect(lines).toEqual(["KUMIKO_BLIND_INDEX_KEY source=key-manager keyId=key-1 region=fr-par"]);
@@ -381,7 +404,11 @@ describe("resolvePlatformKeks", () => {
         KUMIKO_BLIND_INDEX_KEY: "blind-index-plaintext",
         KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A,
       },
-      { fetch: trackedFetch([]).fetch, log: (line) => plaintextWins.push(line) },
+      {
+        fetch: trackedFetch([]).fetch,
+        slots: PLATFORM_SLOTS,
+        log: (line) => plaintextWins.push(line),
+      },
     );
     expect(plaintextWins).toEqual([
       "KUMIKO_BLIND_INDEX_KEY source=plaintext-env (ciphertext present and ignored)",
@@ -395,7 +422,7 @@ describe("resolvePlatformKeks", () => {
       KUMIKO_BLIND_INDEX_KEY_CIPHERTEXT: CIPHERTEXT_A,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.KUMIKO_BLIND_INDEX_KEY).toBe("blind-index-plaintext");
     expect(calls.length).toBe(0);
@@ -409,7 +436,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(calls.length).toBe(0);
     expect(result["FOO"]).toBeUndefined();
@@ -428,7 +455,7 @@ describe("resolvePlatformKeks", () => {
       PLATFORM_KEK_KMS_TOKEN: TOKEN,
     };
 
-    const result = await resolvePlatformKeks(env, { fetch });
+    const result = await resolvePlatformKeks(env, { fetch, slots: PLATFORM_SLOTS });
 
     expect(result.PLATFORM_KEK).toBe("active-plaintext");
     expect(result.KUMIKO_BLIND_INDEX_KEY).toBe("blind-index-plaintext");

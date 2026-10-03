@@ -53,11 +53,13 @@ function listUnsubscribeHeaders(
 
 function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined): {
   from?: string;
+  fromName?: string;
   replyTo?: string;
   headers?: Readonly<Record<string, string>>;
 } {
   if (!data) return {};
   const from = typeof data["from"] === "string" ? data["from"] : undefined;
+  const fromName = typeof data["fromName"] === "string" ? data["fromName"] : undefined;
   const replyTo = typeof data["replyTo"] === "string" ? data["replyTo"] : undefined;
   const autoHeaders = listUnsubscribeHeaders(data);
   const explicitHeaders = stringHeaders(data["headers"]);
@@ -71,7 +73,12 @@ function emailEnvelopeFrom(data: Readonly<Record<string, unknown>> | undefined):
     (!overridesUnsubscribe && autoHeaders) || explicitHeaders
       ? { ...(overridesUnsubscribe ? undefined : autoHeaders), ...explicitHeaders }
       : undefined;
-  return { ...(from && { from }), ...(replyTo && { replyTo }), ...(headers && { headers }) };
+  return {
+    ...(from && { from }),
+    ...(fromName && { fromName }),
+    ...(replyTo && { replyTo }),
+    ...(headers && { headers }),
+  };
 }
 
 export type EmailChannelOptions = {

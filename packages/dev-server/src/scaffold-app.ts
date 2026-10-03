@@ -112,6 +112,9 @@ export async function scaffoldApp(options: ScaffoldAppOptions): Promise<Scaffold
   write(join(destination, "tsconfig.json"), renderTsconfig());
   files.push("tsconfig.json");
 
+  write(join(destination, "kumiko.json"), renderKumikoManifest());
+  files.push("kumiko.json");
+
   write(join(destination, "biome.json"), renderBiomeJson());
   files.push("biome.json");
 
@@ -920,6 +923,21 @@ function renderKumikoSchema(): string {
   ].join("\n");
 }
 
+// `kumiko check` fails a kind "app" without uiRoots, so a fresh app must declare them.
+function renderKumikoManifest(): string {
+  return `${JSON.stringify(
+    {
+      kind: "app",
+      sourceRoots: ["src", "bin"],
+      testGlobs: ["src/**/*.{test,integration}.{ts,tsx}"],
+      uiRoots: ["src/features/*/web"],
+      excludes: ["**/node_modules/**", "**/dist/**"],
+    },
+    null,
+    2,
+  )}\n`;
+}
+
 function renderBinKumiko(): string {
   return [
     "#!/usr/bin/env bun",
@@ -929,8 +947,10 @@ function renderBinKumiko(): string {
     "// consumer status|restart <name>` to recover a dead event consumer without",
     "// ad-hoc SQL. kumiko-build bundles this file to dist-server/kumiko.js.",
     "",
+    'import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";',
     'import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";',
     'import { runConsumerCli } from "@cosmicdrift/kumiko-framework/consumer-cli";',
+    'import { composeEnvSchema, kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";',
     'import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";',
     'import { APP_FEATURES, HAS_AUTH } from "../src/run-config";',
     "",
@@ -940,7 +960,8 @@ function renderBinKumiko(): string {
     "",
     'if (cmd === "schema") {',
     "  const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });",
-    "  process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features }));",
+    "  const kmsSlots = kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema);",
+    "  process.exit(await runSchemaCli(rest, process.env.INIT_CWD ?? process.cwd(), out, { features, kmsSlots }));",
     "}",
     "",
     'if (cmd === "consumer") {',

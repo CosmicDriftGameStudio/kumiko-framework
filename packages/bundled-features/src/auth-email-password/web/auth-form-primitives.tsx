@@ -15,7 +15,7 @@
 // die früheren authButtonClass/authMutedLinkClass sind dorthin gewandert.
 
 import { usePrimitives } from "@cosmicdrift/kumiko-renderer";
-import { BareFormProvider } from "@cosmicdrift/kumiko-renderer-web";
+import { BareFormProvider, cn } from "@cosmicdrift/kumiko-renderer-web";
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
 // Wrappt die zentrierte Auth-Card in ihre Umgebung. Default = Fullscreen-
@@ -47,25 +47,41 @@ export function useAuthShell(): AuthShellRenderer | null {
 export type AuthCardProps = {
   readonly title?: string;
   readonly subtitle?: ReactNode;
+  /** Merged onto the Card (default `w-full max-w-sm`). */
+  readonly className?: string;
+  readonly headerClassName?: string;
+  readonly titleClassName?: string;
+  /** Merged onto the body wrapper (default `p-6 pt-0 flex flex-col gap-4`). */
+  readonly bodyClassName?: string;
   readonly children: ReactNode;
 };
 
 // kumiko-lint-ignore no-custom-primitives Wraps usePrimitives().Card, pure domain name for the auth-screen chrome, not a primitive reimplementation
-export function AuthCard({ title, subtitle, children }: AuthCardProps): ReactNode {
+export function AuthCard({
+  title,
+  subtitle,
+  className,
+  headerClassName,
+  titleClassName,
+  bodyClassName,
+  children,
+}: AuthCardProps): ReactNode {
   const { Card } = usePrimitives();
   const shell = useAuthShell() ?? defaultAuthShell;
   // h1 (Seiten-Hauptüberschrift) via Header-Slot erhalten — die Card-Default-
   // Header wäre h3. padded:false = Form sitzt randlos wie bisher (bare form).
   const card = (
     <Card
-      className="w-full max-w-sm"
+      className={cn("w-full max-w-sm", className)}
       options={{ padded: false }}
       slots={{
         header:
           title !== undefined || subtitle !== undefined ? (
-            <div className="flex flex-col space-y-1.5 p-6 pb-4">
+            <div className={cn("flex flex-col space-y-1.5 p-6 pb-4", headerClassName)}>
               {title !== undefined && (
-                <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+                <h1 className={cn("text-xl font-semibold tracking-tight", titleClassName)}>
+                  {title}
+                </h1>
               )}
               {subtitle !== undefined && (
                 <p className="text-sm text-muted-foreground">{subtitle}</p>
@@ -74,7 +90,9 @@ export function AuthCard({ title, subtitle, children }: AuthCardProps): ReactNod
           ) : undefined,
       }}
     >
-      <BareFormProvider>{children}</BareFormProvider>
+      <BareFormProvider>
+        <div className={cn("p-6 pt-0 flex flex-col gap-4", bodyClassName)}>{children}</div>
+      </BareFormProvider>
     </Card>
   );
   return shell(card);

@@ -50,12 +50,10 @@ export function VerifyEmailScreen({
   if (status === "missing-token") {
     return (
       <AuthCard title={title ?? t("auth.verifyEmail.errorTitle")}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.missingToken")}</p>
-          <Link href={loginHref} variant="muted">
-            {t("auth.verifyEmail.goToLogin")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.missingToken")}</p>
+        <Link href={loginHref} variant="muted">
+          {t("auth.verifyEmail.goToLogin")}
+        </Link>
       </AuthCard>
     );
   }
@@ -75,12 +73,10 @@ export function VerifyEmailScreen({
   if (status === "success") {
     return (
       <AuthCard title={title ?? t("auth.verifyEmail.successTitle")}>
-        <div className="p-6 pt-0 flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.successBody")}</p>
-          <Link href={loginHref} variant="button">
-            {t("auth.verifyEmail.goToLogin")}
-          </Link>
-        </div>
+        <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.successBody")}</p>
+        <Link href={loginHref} variant="button">
+          {t("auth.verifyEmail.goToLogin")}
+        </Link>
       </AuthCard>
     );
   }
@@ -88,12 +84,10 @@ export function VerifyEmailScreen({
   // status === "error"
   return (
     <AuthCard title={title ?? t("auth.verifyEmail.errorTitle")}>
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.errorBody")}</p>
-        <Link href={loginHref} variant="muted">
-          {t("auth.verifyEmail.goToLogin")}
-        </Link>
-      </div>
+      <p className="text-sm text-muted-foreground">{t("auth.verifyEmail.errorBody")}</p>
+      <Link href={loginHref} variant="muted">
+        {t("auth.verifyEmail.goToLogin")}
+      </Link>
     </AuthCard>
   );
 }

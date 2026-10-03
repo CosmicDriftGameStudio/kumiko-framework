@@ -177,6 +177,45 @@ describe("Banner", () => {
     expect(slot?.textContent).toBe("undo");
   });
 
+  test("title renders bold above children with its own testId", () => {
+    render(
+      <Banner variant="info" testId="b" title="Settings changed" titleTestId="b-title">
+        Regenerate to apply
+      </Banner>,
+    );
+    const title = screen.getByTestId("b-title");
+    expect(title.textContent).toBe("Settings changed");
+    expect(title.className).toContain("font-semibold");
+    expect(screen.getByTestId("b").textContent).toBe("Settings changedRegenerate to apply");
+  });
+
+  test('variant="primary" has a primary left accent, neutral background and an actions slot', () => {
+    render(
+      <Banner variant="primary" testId="b" title="3 posts have no text" actions={<span>Go</span>}>
+        Generate them now
+      </Banner>,
+    );
+    const banner = screen.getByTestId("b");
+    expect(banner.getAttribute("data-variant")).toBe("primary");
+    expect(banner.className).toContain("border-l-primary");
+    expect(banner.className).toContain("bg-card");
+    expect(banner.className).toContain("sm:flex-row");
+    expect(banner.getAttribute("role")).toBeNull();
+    expect(banner.querySelector('[data-slot="actions"]')?.textContent).toBe("Go");
+  });
+
+  test("existing variants render without title wrapper or primary classes", () => {
+    render(
+      <Banner variant="info" testId="b">
+        Hi
+      </Banner>,
+    );
+    const banner = screen.getByTestId("b");
+    expect(banner.className).not.toContain("border-l-primary");
+    expect(banner.querySelector(".font-semibold")).toBeNull();
+    expect(banner.innerHTML).toBe('<div class="flex-1">Hi</div>');
+  });
+
   test("id prop (Field-as-control usage) sets role=group + aria-labelledby, not a bare id/htmlFor pairing", () => {
     render(
       <Field id="unsupported-field" label="Raw data">

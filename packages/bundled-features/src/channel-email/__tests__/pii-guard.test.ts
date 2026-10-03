@@ -45,6 +45,12 @@ describe("guardEmailMessage", () => {
     ).toThrow(/from address is a PII ciphertext/);
   });
 
+  test("ciphertext From-Name is refused", () => {
+    expect(() =>
+      guardEmailMessage({ to: "ok@example.com", fromName: CIPHERTEXT, subject: "Hi", html: "x" }),
+    ).toThrow(/from name is a PII ciphertext/);
+  });
+
   test("ciphertext in a custom header is refused", () => {
     expect(() =>
       guardEmailMessage({

@@ -4,6 +4,8 @@
 // migrate-step runs `bun /app/kumiko.js schema apply`; kumiko-build bundles
 // this file to dist-server/kumiko.js.
 
+import { frameworkCoreEnvSchema } from "@cosmicdrift/kumiko-dev-server/env-schema";
+import { composeEnvSchema, kmsSlotsOf } from "@cosmicdrift/kumiko-framework/env";
 import { runSchemaCli } from "@cosmicdrift/kumiko-framework/schema-cli";
 import { composeFeatures } from "@cosmicdrift/kumiko-server-runtime/compose-features";
 import { APP_FEATURES, HAS_AUTH } from "../src/run-config";
@@ -18,6 +20,12 @@ if (cmd !== "schema") {
 }
 
 const features = composeFeatures([...APP_FEATURES], { includeBundled: HAS_AUTH });
+const kmsSlots = kmsSlotsOf(composeEnvSchema({ core: frameworkCoreEnvSchema, features }).schema);
 // biome-ignore lint/suspicious/noConsole: CLI output is the feature.
 const out = { log: (l: string) => console.log(l), err: (l: string) => console.error(l) };
-process.exit(await runSchemaCli(rest, process.env["INIT_CWD"] ?? process.cwd(), out, { features }));
+process.exit(
+  await runSchemaCli(rest, process.env["INIT_CWD"] ?? process.cwd(), out, {
+    features,
+    kmsSlots,
+  }),
+);

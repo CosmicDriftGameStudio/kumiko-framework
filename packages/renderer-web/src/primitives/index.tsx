@@ -293,6 +293,8 @@ function DefaultButton({
 
 function DefaultBanner({
   variant = "info",
+  title,
+  titleTestId,
   children,
   actions,
   padded,
@@ -301,6 +303,7 @@ function DefaultBanner({
 }: BannerProps): ReactNode {
   const isError = variant === "error";
   const isWarning = variant === "warning";
+  const isPrimary = variant === "primary";
   // `id` is set when a <Field> wraps this Banner as its control (see
   // BannerProps.id). A <div> isn't labelable, so a <label htmlFor> pointing
   // at it is inert for screen readers — role="group" + aria-labelledby is
@@ -314,14 +317,25 @@ function DefaultBanner({
       data-variant={variant}
       className={cn(
         "relative w-full rounded-lg border px-4 py-3 text-sm flex items-center gap-3",
+        // Viewport breakpoint like the form footer bar; actions drop below the text on phones.
+        isPrimary && "flex-col items-start sm:flex-row sm:items-center",
         isError
           ? "border-destructive/50 text-destructive bg-destructive/10 dark:border-destructive"
           : isWarning
             ? "border-status-warn/30 bg-status-warn/10 text-status-warn"
-            : "bg-card text-card-foreground",
+            : isPrimary
+              ? "border-l-4 border-l-primary bg-card text-card-foreground"
+              : "bg-card text-card-foreground",
       )}
     >
-      <div className="flex-1">{children}</div>
+      <div className="flex-1">
+        {title !== undefined && (
+          <div data-testid={titleTestId} className="font-semibold">
+            {title}
+          </div>
+        )}
+        {children}
+      </div>
       {actions !== undefined && <div data-slot="actions">{actions}</div>}
     </div>
   );

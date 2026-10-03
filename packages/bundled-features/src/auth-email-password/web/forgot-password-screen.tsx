@@ -72,7 +72,7 @@ export function ForgotPasswordScreen({
   return (
     <AuthCard title={effectiveTitle} subtitle={subtitle}>
       {done ? (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <Banner variant="info">
             <p className="font-medium text-foreground">{t("auth.forgotPassword.successTitle")}</p>
             <p className="mt-1">{t("auth.forgotPassword.successBody")}</p>
@@ -80,9 +80,9 @@ export function ForgotPasswordScreen({
           <Link href={loginHref} variant="muted">
             {t("auth.forgotPassword.backToLogin")}
           </Link>
-        </div>
+        </>
       ) : (
-        <div className="p-6 pt-0 flex flex-col gap-4">
+        <>
           <p className="text-sm text-muted-foreground">{t("auth.forgotPassword.intro")}</p>
           <Form onSubmit={onSubmit}>
             <Field id="forgot-email" label={t("auth.forgotPassword.email")} required>
@@ -104,7 +104,7 @@ export function ForgotPasswordScreen({
           <Link href={loginHref} variant="muted" className="self-center">
             {t("auth.forgotPassword.backToLogin")}
           </Link>
-        </div>
+        </>
       )}
     </AuthCard>
   );

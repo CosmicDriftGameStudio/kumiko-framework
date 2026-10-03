@@ -195,104 +195,102 @@ export function LoginScreen({
 
   return (
     <AuthCard title={effectiveTitle} subtitle={subtitle}>
-      <div className="p-6 pt-0 flex flex-col gap-4">
-        <Form onSubmit={onSubmit}>
-          <Field id="login-email" label={t("auth.login.email")} required>
-            <Input
-              kind="email"
-              id="login-email"
-              name="login-email"
-              value={email}
-              onChange={setEmail}
-              disabled={submitting}
-              required
-              autoComplete="email"
-            />
-          </Field>
-          <Field id="login-password" label={t("auth.login.password")} required>
-            <Input
-              kind="password"
-              id="login-password"
-              name="login-password"
-              value={password}
-              onChange={setPassword}
-              disabled={submitting}
-              required
-              autoComplete="current-password"
-            />
-          </Field>
-          {session.signedOutReason === "session-ended" && (
-            <Banner variant="info">{t("auth.login.sessionEnded")}</Banner>
-          )}
-          {resendStatus.kind === "success" ? (
-            <Banner variant="info">{t("auth.login.resendSuccess")}</Banner>
-          ) : error !== null ? (
-            <Banner variant="error">
-              <div className="flex flex-col gap-1">
-                <span>
-                  {(() => {
-                    const { key, params } = reasonToKey(error);
-                    return t(key, params);
-                  })()}
-                </span>
-                {error.reason === "email_not_verified" &&
-                  email.trim().length > 0 &&
-                  email === failedLoginEmail && (
-                    <span className="self-start">
-                      <Button
-                        variant="link"
-                        onClick={() => void onResend()}
-                        disabled={resendStatus.kind === "sending"}
-                      >
-                        {resendStatus.kind === "sending"
-                          ? t("auth.login.submitting")
-                          : t("auth.login.resendVerification")}
-                      </Button>
-                    </span>
-                  )}
-                {error.reason === "account_locked" && unlockAccountHref !== undefined && (
+      <Form onSubmit={onSubmit}>
+        <Field id="login-email" label={t("auth.login.email")} required>
+          <Input
+            kind="email"
+            id="login-email"
+            name="login-email"
+            value={email}
+            onChange={setEmail}
+            disabled={submitting}
+            required
+            autoComplete="email"
+          />
+        </Field>
+        <Field id="login-password" label={t("auth.login.password")} required>
+          <Input
+            kind="password"
+            id="login-password"
+            name="login-password"
+            value={password}
+            onChange={setPassword}
+            disabled={submitting}
+            required
+            autoComplete="current-password"
+          />
+        </Field>
+        {session.signedOutReason === "session-ended" && (
+          <Banner variant="info">{t("auth.login.sessionEnded")}</Banner>
+        )}
+        {resendStatus.kind === "success" ? (
+          <Banner variant="info">{t("auth.login.resendSuccess")}</Banner>
+        ) : error !== null ? (
+          <Banner variant="error">
+            <div className="flex flex-col gap-1">
+              <span>
+                {(() => {
+                  const { key, params } = reasonToKey(error);
+                  return t(key, params);
+                })()}
+              </span>
+              {error.reason === "email_not_verified" &&
+                email.trim().length > 0 &&
+                email === failedLoginEmail && (
                   <span className="self-start">
-                    <Link href={unlockAccountHref} variant="default">
-                      {t("auth.login.unlockAccount")}
-                    </Link>
+                    <Button
+                      variant="link"
+                      onClick={() => void onResend()}
+                      disabled={resendStatus.kind === "sending"}
+                    >
+                      {resendStatus.kind === "sending"
+                        ? t("auth.login.submitting")
+                        : t("auth.login.resendVerification")}
+                    </Button>
                   </span>
                 )}
-                {resendStatus.kind === "rateLimited" && (
-                  <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
-                )}
-                {resendStatus.kind === "error" && (
-                  <span className="text-xs">{t("auth.login.resendError")}</span>
-                )}
-              </div>
-            </Banner>
-          ) : null}
-          <Button type="submit" loading={submitting} disabled={submitting}>
-            {submitting ? t("auth.login.submitting") : effectiveSubmit}
-          </Button>
-        </Form>
-        {forgotPasswordHref !== undefined && (
-          <Link href={forgotPasswordHref} variant="muted" className="self-center">
-            {t("auth.login.forgotPassword")}
-          </Link>
-        )}
-        {signupHref !== undefined && (
-          <Link href={signupHref} variant="muted" className="self-center">
-            {t("auth.signup.title")}
-          </Link>
-        )}
-        {legalLinks !== undefined && legalLinks.length > 0 && (
-          <nav
-            data-testid="login-legal-links"
-            className="flex items-center justify-center gap-3 pt-2 border-t border-border/50"
-          >
-            {legalLinks.map((link) => (
-              <Link key={link.href} href={link.href} variant="muted" className="text-xs">
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        )}
-      </div>
+              {error.reason === "account_locked" && unlockAccountHref !== undefined && (
+                <span className="self-start">
+                  <Link href={unlockAccountHref} variant="default">
+                    {t("auth.login.unlockAccount")}
+                  </Link>
+                </span>
+              )}
+              {resendStatus.kind === "rateLimited" && (
+                <span className="text-xs">{t("auth.login.resendRateLimited")}</span>
+              )}
+              {resendStatus.kind === "error" && (
+                <span className="text-xs">{t("auth.login.resendError")}</span>
+              )}
+            </div>
+          </Banner>
+        ) : null}
+        <Button type="submit" loading={submitting} disabled={submitting}>
+          {submitting ? t("auth.login.submitting") : effectiveSubmit}
+        </Button>
+      </Form>
+      {forgotPasswordHref !== undefined && (
+        <Link href={forgotPasswordHref} variant="muted" className="self-center">
+          {t("auth.login.forgotPassword")}
+        </Link>
+      )}
+      {signupHref !== undefined && (
+        <Link href={signupHref} variant="muted" className="self-center">
+          {t("auth.signup.title")}
+        </Link>
+      )}
+      {legalLinks !== undefined && legalLinks.length > 0 && (
+        <nav
+          data-testid="login-legal-links"
+          className="flex items-center justify-center gap-3 pt-2 border-t border-border/50"
+        >
+          {legalLinks.map((link) => (
+            <Link key={link.href} href={link.href} variant="muted" className="text-xs">
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </AuthCard>
   );
 }

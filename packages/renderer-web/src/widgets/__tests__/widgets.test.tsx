@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 import { fireEvent, render, screen } from "../../__tests__/test-utils.js";
-import { StatusBarChart, smoothPath, TimeseriesChart } from "../charts.js";
+import { StackedAreaChart, StatusBarChart, smoothPath, TimeseriesChart } from "../charts.js";
 import { CollapsibleSection } from "../collapsible-section.js";
 import { DetailList } from "../detail-list.js";
 import { ModeSwitch } from "../mode-switch.js";
@@ -609,10 +609,47 @@ describe("StatusBarChart", () => {
 });
 
 describe("TimeseriesChart", () => {
-  test("unter 2 Messwerten rendert emptyContent statt Chart", () => {
+  test("ein einzelner Messwert rendert einen Punkt statt emptyContent", () => {
     const { container } = render(
       <TimeseriesChart
         points={[{ atMs: 1000, value: 42 }]}
+        windowStartMs={0}
+        windowEndMs={2000}
+        ariaLabel="Antwortzeit"
+        referenceLines={[{ value: 100, label: "p95" }]}
+        emptyContent={<span>Noch keine Messdaten</span>}
+      />,
+    );
+    expect(screen.queryByText("Noch keine Messdaten")).toBeNull();
+    const circles = container.querySelectorAll("circle");
+    expect(circles.length).toBe(1);
+    expect(circles[0]?.getAttribute("cx")).toBe("150");
+    const cy = Number(circles[0]?.getAttribute("cy"));
+    expect(Number.isFinite(cy)).toBe(true);
+    expect(cy).toBeGreaterThan(0);
+    expect(cy).toBeLessThan(64);
+    expect(container.innerHTML).not.toContain("NaN");
+    expect(container.querySelectorAll("[data-reference-line]").length).toBe(1);
+  });
+
+  test("ein einzelner Wert ohne Referenzlinie sitzt nicht am Rand", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={[{ atMs: 1000, value: 42 }]}
+        windowStartMs={0}
+        windowEndMs={2000}
+        ariaLabel="Antwortzeit"
+      />,
+    );
+    const cy = Number(container.querySelector("circle")?.getAttribute("cy"));
+    expect(cy).toBeGreaterThan(10);
+    expect(cy).toBeLessThan(54);
+  });
+
+  test("ohne Messwert rendert emptyContent statt Chart", () => {
+    const { container } = render(
+      <TimeseriesChart
+        points={[{ atMs: 1000, value: null }]}
         windowStartMs={0}
         windowEndMs={2000}
         ariaLabel="Antwortzeit"
@@ -732,5 +769,54 @@ describe("TimeseriesChart", () => {
     expect(plain.querySelector("desc")).toBeNull();
     expect(plain.querySelector("[aria-describedby]")).toBeNull();
     expect(plain.querySelector(".relative")).toBeNull();
+  });
+});
+
+describe("StackedAreaChart", () => {
+  const baseProps = {
+    windowStartMs: 0,
+    windowEndMs: 2000,
+    ariaLabel: "Verlauf",
+    todayLabel: "Heute",
+    formatBucketLabel: String,
+  };
+  const point = (atMs: number, value: number) => ({ atMs, value });
+
+  test("ohne Datenpunkt rendert emptyContent", () => {
+    const { container } = render(
+      <StackedAreaChart
+        {...baseProps}
+        series={[{ key: "a", label: "A", points: [] }]}
+        emptyContent={<span>Keine Daten</span>}
+      />,
+    );
+    expect(screen.getByText("Keine Daten")).toBeTruthy();
+    expect(container.querySelector("svg")).toBeNull();
+  });
+
+  test("ein einzelner Bucket rendert einen Punkt statt emptyContent", () => {
+    const { container } = render(
+      <StackedAreaChart
+        {...baseProps}
+        series={[{ key: "a", label: "A", points: [point(1000, 10)] }]}
+        emptyContent={<span>Keine Daten</span>}
+      />,
+    );
+    expect(screen.queryByText("Keine Daten")).toBeNull();
+    const circles = container.querySelectorAll("circle");
+    expect(circles.length).toBe(1);
+    expect(Number(circles[0]?.getAttribute("cy"))).toBeGreaterThan(0);
+    expect(container.innerHTML).not.toContain("NaN");
+  });
+
+  test("zwei Buckets rendern weiter Flächen ohne Punkte", () => {
+    const { container } = render(
+      <StackedAreaChart
+        {...baseProps}
+        series={[{ key: "a", label: "A", points: [point(0, 10), point(2000, 20)] }]}
+      />,
+    );
+    expect(container.querySelectorAll("circle").length).toBe(0);
+    expect(container.querySelectorAll("path").length).toBe(1);
   });
 });

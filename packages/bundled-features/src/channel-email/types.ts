@@ -7,6 +7,10 @@ export type EmailMessage = {
   // app-wide default). Set when one send must originate from a specific
   // mailbox — a reply from the address the original mail reached, not noreply@.
   readonly from?: string;
+  // Display name for the From header. Combined with the address of `from`
+  // (or the transport default), so a per-tenant sender name needs no
+  // hand-built "Name <addr>" string.
+  readonly fromName?: string;
   // Reply-To header: where a recipient's answer goes when it differs from From.
   readonly replyTo?: string;
   // Extra RFC-5322 headers — In-Reply-To / References thread a reply into the

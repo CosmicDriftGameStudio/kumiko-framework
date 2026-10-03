@@ -72,6 +72,44 @@ describe("LanguageSwitcher", () => {
     expect(screen.getByText("de")).toBeTruthy();
   });
 
+  test("triggerContent label shows the active locale label, keeping aria-label", () => {
+    renderWithResolver(
+      makeStatefulResolver("de"),
+      <LanguageSwitcher locales={locales} triggerContent="label" testId="lang" />,
+    );
+    const trigger = screen.getByTestId("lang");
+    expect(trigger.textContent).toContain("Deutsch");
+    expect(trigger.textContent).not.toContain("de");
+    expect(trigger.getAttribute("aria-label")).toBe("Sprache");
+    expect(trigger.getAttribute("title")).toBe("Sprache");
+  });
+
+  test("triggerContent label falls back to the code root for an unknown locale", () => {
+    renderWithResolver(
+      makeStatefulResolver("fr"),
+      <LanguageSwitcher locales={locales} triggerContent="label" testId="lang" />,
+    );
+    expect(screen.getByTestId("lang").textContent).toContain("fr");
+  });
+
+  test("triggerContent icon-only shows neither code nor label", () => {
+    renderWithResolver(
+      makeStatefulResolver("de"),
+      <LanguageSwitcher locales={locales} triggerContent="icon-only" icon="*" testId="lang" />,
+    );
+    const trigger = screen.getByTestId("lang");
+    expect(trigger.textContent).toBe("*");
+    expect(trigger.getAttribute("aria-label")).toBe("Sprache");
+  });
+
+  test("triggerContent code (default) shows the code, not the label", () => {
+    renderWithResolver(
+      makeStatefulResolver("de"),
+      <LanguageSwitcher locales={locales} triggerContent="code" testId="lang" />,
+    );
+    expect(screen.getByTestId("lang").textContent).not.toContain("Deutsch");
+  });
+
   test("opens dropdown and lists all locales with active marker", async () => {
     const user = userEvent.setup();
     const resolver = makeStatefulResolver("de");

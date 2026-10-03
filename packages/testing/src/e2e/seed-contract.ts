@@ -90,6 +90,7 @@ const capturedMailSchema = z.object({
   subject: z.string(),
   html: z.string(),
   from: z.string().optional(),
+  fromName: z.string().optional(),
   replyTo: z.string().optional(),
   headers: z.record(z.string(), z.string()).optional(),
 });

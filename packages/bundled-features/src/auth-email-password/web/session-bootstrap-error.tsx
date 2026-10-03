@@ -44,22 +44,20 @@ export function SessionBootstrapErrorScreen({
 
   return (
     <div data-testid="session-bootstrap-error" data-http-status={failure.httpStatus ?? "network"}>
-      <AuthCard title={t("auth.sessionBootstrap.errorTitle")}>
-        <div className="flex flex-col gap-4 px-6 pb-4">
-          <Banner variant="error">
-            {failure.httpStatus === 429
-              ? t("auth.sessionBootstrap.rateLimitedBody")
-              : t("auth.sessionBootstrap.errorBody")}
-          </Banner>
-          <Button variant="primary" onClick={handleRetry} disabled={retrying}>
-            {retrying ? t("auth.sessionBootstrap.retrying") : t("auth.sessionBootstrap.retry")}
+      <AuthCard title={t("auth.sessionBootstrap.errorTitle")} bodyClassName="pb-4">
+        <Banner variant="error">
+          {failure.httpStatus === 429
+            ? t("auth.sessionBootstrap.rateLimitedBody")
+            : t("auth.sessionBootstrap.errorBody")}
+        </Banner>
+        <Button variant="primary" onClick={handleRetry} disabled={retrying}>
+          {retrying ? t("auth.sessionBootstrap.retrying") : t("auth.sessionBootstrap.retry")}
+        </Button>
+        {onSignOut !== undefined && (
+          <Button variant="secondary" onClick={() => void onSignOut()} disabled={retrying}>
+            {t("auth.sessionBootstrap.signOut")}
           </Button>
-          {onSignOut !== undefined && (
-            <Button variant="secondary" onClick={() => void onSignOut()} disabled={retrying}>
-              {t("auth.sessionBootstrap.signOut")}
-            </Button>
-          )}
-        </div>
+        )}
       </AuthCard>
     </div>
   );

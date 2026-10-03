@@ -90,17 +90,18 @@ function nextSequenceNumber(migrationsDir: string): number {
   return max + 1;
 }
 
-export type RunSchemaCliOptions = {
-  /** Composed app features. When given, `apply` rebuilds the projections whose
-   *  tables a freshly applied migration changed (via its `.rebuild.json`
-   *  marker). Omitted (dev `kumiko schema`) → no rebuild, migrations only. */
-  readonly features?: readonly FeatureDefinition[];
-  /** Schema-declared Key Manager slots, typically `kmsSlotsOf(composedEnv.schema)`.
-   *  This CLI parses no env schema, so `apply`'s KMS wiring cannot derive them
-   *  itself; omitted, `resolvePlatformKeks` (inside `resolveKmsWiringAsync`)
-   *  falls back to its own default. */
-  readonly kmsSlots?: readonly string[];
-};
+export type RunSchemaCliOptions =
+  | { readonly features?: undefined; readonly kmsSlots?: undefined }
+  | {
+      /** Composed app features. When given, `apply` rebuilds the projections whose
+       *  tables a freshly applied migration changed (via its `.rebuild.json`
+       *  marker). Omitted (dev `kumiko schema`) → no rebuild, migrations only. */
+      readonly features: readonly FeatureDefinition[];
+      /** Schema-declared Key Manager slots, `kmsSlotsOf(composedEnv.schema)`, or
+       *  `[]` when the app wires none. This CLI parses no env schema, so the
+       *  rebuild's KMS wiring cannot derive them itself. */
+      readonly kmsSlots: readonly string[];
+    };
 
 const SCHEMA_SUBCOMMANDS = ["generate", "validate", "apply", "baseline", "status"] as const;
 
@@ -114,6 +115,15 @@ export async function runSchemaCli(
   out: SchemaCliOut,
   options: RunSchemaCliOptions = {},
 ): Promise<number> {
+  // Runtime guard for untyped callers: the rebuild after `apply` needs the
+  // slots, and failing there would leave migrations applied but unrebuilt.
+  if (options.features && !options.kmsSlots) {
+    out.err(
+      "runSchemaCli: `features` requires `kmsSlots` — pass kmsSlots: kmsSlotsOf(<composedEnv>.schema), " +
+        "or [] when the app wires no Key Manager slots.",
+    );
+    return 1;
+  }
   // runProdApp/runDevApp install this at boot; the standalone CLI (the
   // migrate-db initContainer, `bun kumiko.js schema apply`) never goes through
   // that boot path, so a projection rebuild's tz/timestamp coercion throws
@@ -385,7 +395,7 @@ export async function runSchemaCli(
           wiring = await resolveKmsWiringAsync(process.env, {
             logPrefix: "[kumiko schema apply]",
             log: out.log,
-            ...(options.kmsSlots && { slots: options.kmsSlots }),
+            slots: options.kmsSlots,
           });
           if ("kms" in wiring) {
             configurePiiSubjectKms(wiring.kms);

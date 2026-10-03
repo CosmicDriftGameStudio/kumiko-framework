@@ -1,6 +1,6 @@
-// `schema apply`'s KMS wiring resolves the schema-declared slots
-// (RunSchemaCliOptions["kmsSlots"]) instead of resolvePlatformKeks's
-// LEGACY_SLOTS default. Real PgKmsAdapter + real blind-index decode, only
+// `schema apply`'s KMS wiring resolves exactly the caller-declared slots
+// (RunSchemaCliOptions["kmsSlots"]); `features` without `kmsSlots` is rejected
+// before any side effect. Real PgKmsAdapter + real blind-index decode, only
 // globalThis.fetch is mocked (the Key Manager decrypt call).
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
@@ -21,6 +21,7 @@ import {
 import { createEventStoreExecutor } from "../db/event-store-executor.js";
 import { writeRebuildMarker } from "../db/index.js";
 import { asRawClient } from "../db/query.js";
+import { tableExists } from "../db/schema-inspection.js";
 import { buildEntityTable } from "../db/table-builder.js";
 import { createTenantDb } from "../db/tenant-db.js";
 import { createEntity, createTextField, defineFeature } from "../engine/index.js";
@@ -31,6 +32,7 @@ import { ensureTemporalPolyfill } from "../time/polyfill.js";
 
 const feature = defineFeature("kmsslotstest", () => {});
 
+const GUARD_PROBE_TABLE = "kms_slots_guard_probe";
 const BIDX_TABLE = "read_kms_slots_persons";
 const personEntity = createEntity({
   table: BIDX_TABLE,
@@ -211,20 +213,32 @@ describe("runSchemaCli apply — kmsSlots", () => {
     expect(fetchCalls).toEqual([PLATFORM_KEK_CIPHERTEXT]);
   });
 
-  test("without kmsSlots, apply still resolves PLATFORM_KEK from its ciphertext (legacy default)", async () => {
-    process.env["SUBJECT_KEYS_DATABASE_URL"] = testDbUrl;
+  test("features without kmsSlots exits 1 before applying any migration or calling the Key Manager", async () => {
     process.env["PLATFORM_KEK_CIPHERTEXT"] = PLATFORM_KEK_CIPHERTEXT;
-    process.env["KUMIKO_BLIND_INDEX_KEY"] = BLIND_INDEX_PLAINTEXT;
     process.env["PLATFORM_KEK_KMS_KEY_ID"] = "key-1";
     process.env["PLATFORM_KEK_KMS_TOKEN"] = "token-1";
-    globalThis.fetch = mockDecryptFetch({ [PLATFORM_KEK_CIPHERTEXT]: PLATFORM_KEK_PLAINTEXT });
+    const fetchCalls: string[] = [];
+    globalThis.fetch = mockDecryptFetch({}, fetchCalls);
 
-    const appCwd = writeAppWithTrivialMigration("0001_init");
+    const appCwd = writeAppWithTrivialMigration("0002_guard_probe");
+    writeFileSync(
+      join(appCwd, "kumiko/migrations/0002_guard_probe.sql"),
+      `CREATE TABLE ${GUARD_PROBE_TABLE} (id integer);\n`,
+    );
     const cap = captureOut();
-    const code = await runSchemaCli(["apply"], appCwd, cap.out, { features: [feature] });
+    // Reflect.apply is untyped: simulates a JS/legacy caller that the
+    // RunSchemaCliOptions union rejects at compile time.
+    const code: number = await Reflect.apply(runSchemaCli, undefined, [
+      ["apply"],
+      appCwd,
+      cap.out,
+      { features: [feature] },
+    ]);
 
-    expect(code).toBe(0);
-    expect(cap.log.join("\n")).toContain("PLATFORM_KEK source=key-manager");
+    expect(code).toBe(1);
+    expect(cap.err.join("\n")).toContain("kmsSlots");
+    expect(fetchCalls).toEqual([]);
+    expect(await tableExists(testDb.db, GUARD_PROBE_TABLE)).toBe(false);
   });
 });
 

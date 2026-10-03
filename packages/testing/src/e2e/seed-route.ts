@@ -145,6 +145,7 @@ function toCapturedMail(message: EmailMessage): CapturedMail {
     subject: message.subject,
     html: message.html,
     ...(message.from !== undefined ? { from: message.from } : {}),
+    ...(message.fromName !== undefined ? { fromName: message.fromName } : {}),
     ...(message.replyTo !== undefined ? { replyTo: message.replyTo } : {}),
     ...(message.headers !== undefined ? { headers: message.headers } : {}),
   };
