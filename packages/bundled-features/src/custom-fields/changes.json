@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "field-definition list keeps TenantAdmin when fieldDefinitionWriteRoles is set",
+    "detail": "custom-fields: the field-definition list roles always include the default `TenantAdmin`, also when `fieldDefinitionWriteRoles` is set. `TenantAdmin` keeps saving values by default, so the form section must keep loading for it; `fieldDefinitionWriteRoles: []` no longer locks out the list.",
+    "migration": "No action needed. Set fieldDefinitionListRoles explicitly to narrow the list roles."
+  },
+  {
     "version": "0.146.0",
     "type": "improvement",
     "title": "custom-fields: PII-Support entfernt (#972) — custom fields sind für zusätzliche Business-…",

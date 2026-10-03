@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "config keys can declare an async write validator that rejects with a KumikoError",
+    "detail": "Config key definitions accept a new async `validate(value, ctx)` function. `config:write:set` runs it after the type, bounds and pattern checks and before the value is stored, for every scope and backing. A validator rejects the write by throwing a `KumikoError`, for example an `UnprocessableError`. The feature manifest reports `validated` per key.",
+    "migration": "No action needed: keys without `validate` behave as before."
+  },
+  {
     "version": "0.335.0",
     "type": "breaking",
     "title": "config:write:set masks the echoed value for encrypted-at-rest keys; validation errors no longer include the value",

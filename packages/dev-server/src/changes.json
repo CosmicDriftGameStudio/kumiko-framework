@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "Scaffolded migrate step percent-encodes DB_PASSWORD",
+    "detail": "dev-server: the scaffolded `deploy/migrate-step.sh` percent-encodes `DB_PASSWORD` in `DATABASE_URL`, so passwords with `@`, `:`, `/`, `#`, `%` or non-ASCII characters no longer break the URL. Re-run `kumiko init-deploy` to pick it up; apps with a hand-written `urlencode` should take the new version, which also encodes bytes >= 0x80 correctly."
+  },
+  {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "dev hostDispatch not-found can serve a custom 404 page",
+    "detail": "`DevHostDispatchResult` `{ kind: \"not-found\" }` accepts `file` (served like `static-html`) or `entryName` (that entry's shell), both with status 404. A missing file answers 500 with `hostDispatch: file not found`. Without fields the plain \"Not Found\" 404 stays.",
+    "migration": "No code change needed."
+  },
+  {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "New package @cosmicdrift/kumiko-samples with the corpus sources",
+    "detail": "New package with the sample recipes, sample apps and bundled-features sources\n`@cosmicdrift/kumiko-samples` ships the sample recipes, sample apps and bundled-features sources in the repository layout. Tools such as the few-shot corpus build can run against a pinned version of it and get the same entry ids and source paths as in the monorepo."
+  },
+  {
     "version": "0.337.1",
     "type": "improvement",
     "title": "createKumikoServer handle exposes the boot's jobQueueNamePrefix",

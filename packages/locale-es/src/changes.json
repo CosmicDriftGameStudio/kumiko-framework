@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "Spanish strings for the billing consent and cancel-contract dialogs",
+    "detail": "Adds the `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` keys in formal Spanish."
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "Spanish copy for the jobs invalid-payload error",

@@ -1,5 +1,40 @@
 # @cosmicdrift/kumiko-locale-de
 
+## 0.338.0
+
+### Patch Changes
+
+- 6016fa6: German and Spanish strings for the billing consent and cancel-contract dialogs of `BillingPlansPanel`, in the formal address, matching the wording of the cancellation pages.
+
+  <!-- kumiko-changes
+  feature: locale-de
+  type: improvement
+  title: German strings for the billing consent and cancel-contract dialogs
+  detail: |
+    Adds the `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` keys in formal German.
+  -->
+
+  <!-- kumiko-changes
+  feature: locale-es
+  type: improvement
+  title: Spanish strings for the billing consent and cancel-contract dialogs
+  detail: |
+    Adds the `billing-foundation.consent.*`, `billing-foundation.cancel.*`, `billing-foundation.errors.consentTextOutdated` and `billing-foundation.errors.termsUnavailable` keys in formal Spanish.
+  -->
+
+- Updated dependencies [c710f1e]
+- Updated dependencies [3613e5a]
+- Updated dependencies [3451156]
+- Updated dependencies [4a13a0e]
+- Updated dependencies [57467b5]
+- Updated dependencies [e8e5e2f]
+- Updated dependencies [bac056f]
+- Updated dependencies [f4f3d4a]
+- Updated dependencies [87938e0]
+- Updated dependencies [51b4867]
+- Updated dependencies [d1bba78]
+  - @cosmicdrift/kumiko-framework@0.338.0
+
 ## 0.337.1
 
 ### Patch Changes

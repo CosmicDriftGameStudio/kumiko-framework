@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "add-note rejects mentions of non-members; mention export lists mentioning notes",
+    "detail": "notes-history: `add-note` now rejects `mentions` of users who are not members of the current tenant, because their forget run only visits tenants they belong to and would never reach such a note. The notes-history user-data export hook now lists the notes that mention the exporting user.",
+    "migration": "No action needed unless a client mentions user ids that are not members of the tenant; those writes now fail validation."
+  },
+  {
     "version": "0.308.0",
     "type": "breaking",
     "title": "NotesSection no longer wraps its own \"new note\" / \"history\" blocks in a Card (fw#3234)",

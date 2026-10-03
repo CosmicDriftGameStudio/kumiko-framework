@@ -1,5 +1,34 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.338.0
+
+### Patch Changes
+
+- 42450a6: configEdit number and money fields without a default now start empty instead of showing 0, so saving no longer writes an unintended 0. Clearing a stored number or money value resets this scope's override.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: configEdit number and money fields start empty without a default
+  detail: |
+    Number and money fields without a default no longer show 0, so saving does not write an unintended 0. Clearing a stored value resets this scope's override instead of sending an empty number.
+  -->
+
+- Updated dependencies [c710f1e]
+- Updated dependencies [3613e5a]
+- Updated dependencies [3451156]
+- Updated dependencies [4a13a0e]
+- Updated dependencies [57467b5]
+- Updated dependencies [e8e5e2f]
+- Updated dependencies [bac056f]
+- Updated dependencies [f4f3d4a]
+- Updated dependencies [87938e0]
+- Updated dependencies [51b4867]
+- Updated dependencies [d1bba78]
+  - @cosmicdrift/kumiko-types@0.338.0
+  - @cosmicdrift/kumiko-framework@0.338.0
+  - @cosmicdrift/kumiko-headless@0.338.0
+
 ## 0.337.1
 
 ### Patch Changes

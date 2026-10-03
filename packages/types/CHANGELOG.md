@@ -1,5 +1,64 @@
 # @cosmicdrift/kumiko-types
 
+## 0.338.0
+
+### Minor Changes
+
+- c710f1e: Config key definitions accept a new async `validate(value, ctx)` function. `config:write:set` runs it after the type, bounds and pattern checks and before the value is stored, for every scope and backing. A validator rejects the write by throwing a `KumikoError`, for example an `UnprocessableError`. The feature manifest reports `validated` per key.
+
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: config keys can declare an async write validator that rejects with a KumikoError
+  migration: |
+    No action needed: keys without `validate` behave as before.
+  -->
+
+- 3613e5a: Handlers get `ctx.configFor(tenantId)`, a config accessor resolved for another tenant. The cap overview uses it so a cross-tenant limit reads the target tenant's config instead of the caller's.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ctx.configFor(tenantId) resolves config for another tenant
+  detail: |
+    Query and write handler contexts get `configFor(tenantId)` next to `config`, present when the config feature wired its accessor factory. The accessor runs as the target tenant's system user on a db scoped to that tenant, so the caller's user-scope values never leak into the result. Calls for another tenant throw `AccessDeniedError` unless the caller is the system identity or has the `SystemAdmin` role; the caller's own tenant needs no privilege and returns the same accessor as `ctx.config`.
+  migration: |
+    No code change needed. Handlers that compute values for a tenant other than the caller's (limits, quotas, billing previews) call `ctx.configFor(tenantId)` instead of passing `ctx.config`.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: ctx.configFor on the handler context types
+  detail: |
+    `configFor?: (tenantId: TenantId) => ConfigAccessor` is part of the shared handler context fields, optional like `config`.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: Cross-tenant cap limits read the target tenant's config
+  detail: |
+    `caps:usage` with a SystemAdmin `tenantId` override and `tenant-caps:list` passed the caller's config accessor to `CapSpec.limit`, so a limit that reads a tenant-scoped config key showed the caller's value for every tenant. Both now resolve one accessor per target tenant through `ctx.configFor`, and `tenant-caps:list` resolves each tenant's limit separately instead of once per tier.
+  migration: |
+    No code change needed.
+  -->
+
+### Patch Changes
+
+- 3451156: escapeHatch: new optional `grants` (`systemIdentity`, `globalWrites`, `unsafeRaw`) narrows what a declaration unlocks. Without `grants` the declaration keeps unlocking all three. An empty or unknown `grants` list is a boot error. Bundled handlers that only needed the raw runner now declare `grants: ["unsafeRaw"]`, so they no longer gain the SYSTEM identity switch.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: escapeHatch grants split the SYSTEM identity switch from raw access
+  migration: |
+    No action needed: `grants` is additive and an escapeHatch without it behaves as before.
+    Declare `grants: ["unsafeRaw"]` on handlers that only call ctx.db.unsafeRaw to drop the SYSTEM identity switch.
+  -->
+
 ## 0.337.1
 
 ### Patch Changes

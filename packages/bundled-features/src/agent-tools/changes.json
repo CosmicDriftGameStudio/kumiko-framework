@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.338.0",
+    "type": "improvement",
+    "title": "entity get/list tools honour agent.risk, PII-bearing system lists are high risk",
+    "detail": "agent-tools: `get_<entity>` and `list_<entity>` take their risk from the entity handler's `agent.risk` instead of a hard-coded `low`. The SystemAdmin `user:list`, `user:detail` and `download-attempt:list` handlers declare `risk: \"high\"`.",
+    "migration": "No action needed: handlers without an agent.risk hint stay low risk."
+  },
+  {
+    "version": "0.338.0",
+    "type": "fix",
+    "title": "agent entity tools no longer filter on read-restricted fields",
+    "detail": "agent-tools: `list_<entity>` filters and `find_<entity>_by_<field>` tools only offer filterable fields that every caller role may read without a row condition. A role- or ownership-restricted filterable field can no longer be probed through `totalCount` or hit/miss results.",
+    "migration": "No action needed: fields whose access.read is not unconditionally open to the agent's roles drop out of list filters and find-by tools."
+  },
+  {
     "version": "0.337.0",
     "type": "fix",
     "title": "agent tool name collisions are disambiguated, audit search is substring, encrypted config bounds errors do not echo the value",

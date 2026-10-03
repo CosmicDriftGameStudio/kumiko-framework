@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.338.0",
+    "type": "breaking",
+    "title": "ownership.write applies to assign-tag, remove-tag and add-note",
+    "detail": "tags and notes-history: `ownership.write` is now enforced by `assign-tag`, `remove-tag` and `add-note`. Each feature instance builds its write executor from the entity it registers; before, the handlers used a module-level executor without the mount's ownership, so a `from()` write rule never applied to them. The `delete-tag` cascade stays ungated.",
+    "migration": "Mounts that set `ownership.write` now see ownership_denied for callers the rule does not cover. Make sure the rule covers every role that tags or notes, or leave it unset."
+  },
+  {
     "version": "0.246.0",
     "type": "improvement",
     "title": "assign-tag and remove-tag now verify entityType/entityId against the host entity's own read path",

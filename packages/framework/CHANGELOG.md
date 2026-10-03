@@ -1,5 +1,146 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.338.0
+
+### Minor Changes
+
+- c710f1e: Config key definitions accept a new async `validate(value, ctx)` function. `config:write:set` runs it after the type, bounds and pattern checks and before the value is stored, for every scope and backing. A validator rejects the write by throwing a `KumikoError`, for example an `UnprocessableError`. The feature manifest reports `validated` per key.
+
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: config keys can declare an async write validator that rejects with a KumikoError
+  migration: |
+    No action needed: keys without `validate` behave as before.
+  -->
+
+- 3613e5a: Handlers get `ctx.configFor(tenantId)`, a config accessor resolved for another tenant. The cap overview uses it so a cross-tenant limit reads the target tenant's config instead of the caller's.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ctx.configFor(tenantId) resolves config for another tenant
+  detail: |
+    Query and write handler contexts get `configFor(tenantId)` next to `config`, present when the config feature wired its accessor factory. The accessor runs as the target tenant's system user on a db scoped to that tenant, so the caller's user-scope values never leak into the result. Calls for another tenant throw `AccessDeniedError` unless the caller is the system identity or has the `SystemAdmin` role; the caller's own tenant needs no privilege and returns the same accessor as `ctx.config`.
+  migration: |
+    No code change needed. Handlers that compute values for a tenant other than the caller's (limits, quotas, billing previews) call `ctx.configFor(tenantId)` instead of passing `ctx.config`.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: ctx.configFor on the handler context types
+  detail: |
+    `configFor?: (tenantId: TenantId) => ConfigAccessor` is part of the shared handler context fields, optional like `config`.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: Cross-tenant cap limits read the target tenant's config
+  detail: |
+    `caps:usage` with a SystemAdmin `tenantId` override and `tenant-caps:list` passed the caller's config accessor to `CapSpec.limit`, so a limit that reads a tenant-scoped config key showed the caller's value for every tenant. Both now resolve one accessor per target tenant through `ctx.configFor`, and `tenant-caps:list` resolves each tenant's limit separately instead of once per tier.
+  migration: |
+    No code change needed.
+  -->
+
+### Patch Changes
+
+- 3451156: escapeHatch: new optional `grants` (`systemIdentity`, `globalWrites`, `unsafeRaw`) narrows what a declaration unlocks. Without `grants` the declaration keeps unlocking all three. An empty or unknown `grants` list is a boot error. Bundled handlers that only needed the raw runner now declare `grants: ["unsafeRaw"]`, so they no longer gain the SYSTEM identity switch.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: escapeHatch grants split the SYSTEM identity switch from raw access
+  migration: |
+    No action needed: `grants` is additive and an escapeHatch without it behaves as before.
+    Declare `grants: ["unsafeRaw"]` on handlers that only call ctx.db.unsafeRaw to drop the SYSTEM identity switch.
+  -->
+
+- 4a13a0e: Boot validation warns for every `file`, `image`, `files` and `images` field without a `personal` annotation. A forget with strategy `delete` keeps the binary of such a field and only severs the uploader link, so the stance has to be declared.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: boot warning for file and image fields without a personal annotation
+  migration: |
+    Mark fields that hold personal data with `personal: "self"` or `personal: { of: "<ownerField>" }`, and business data with `personal: false, reason: "is_business_data"`. Unannotated fields keep their binary on forget.
+  -->
+
+- 57467b5: forget-subject now accepts a record subject for a DPO when the owning tenant is proven by the event stream, not only by a projection row. A record whose row was already deleted, or a custom aggregate without a registered entity, can be shredded by the DPO of the tenant that owns it. A DPO of another tenant is still denied, and so is any DPO when events for the same aggregate id exist in more than one tenant.
+
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject tenant check falls back to event-store provenance
+  -->
+
+- e8e5e2f: Searching a list by a reference field's label now respects the target entity's row-level `access.read` and the label field's own `access.read` on the plaintext (ILIKE) path. Before, a viewer who could not read the target row or its label could probe names through the match results.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: reference label search applies target read access on the plaintext path
+  -->
+
+- bac056f: `GET /api/schema` without a session now answers 401 `missing_token` even when `anonymousAccess` is on and the tenant resolver finds no tenant. Before, the request fell into the anonymous tenant flow and returned 400 `tenant_required`, so a client could not tell a logged-out session from a server error.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: /api/schema answers 401 instead of 400 tenant_required after logout
+  detail: |
+    With `anonymousAccess` and an authoritative tenant resolver, a request without a token to `/api/schema` ran through tenant resolution and failed with 400 `tenant_required`. Paths that need a session but no tenant (`/api/auth/*` and `/api/schema`) are now listed in `isSessionRequiredApiPath` and answer 401 `missing_token` before any tenant lookup.
+  migration: |
+    No code change needed.
+  -->
+
+- f4f3d4a: Boot validation rejects a text field that is `searchable` (or `find: "fuzzy"`) and also has a restricted `access.read`. The search index is not filtered per role, so search matches leaked the value to roles that cannot read the field.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: searchable text fields must not declare a restricted access.read
+  migration: |
+    Remove `searchable` / `find: "fuzzy"` from the field, or remove the read restriction. Write-only `access.write` restrictions are unaffected.
+  -->
+
+- 87938e0: Boot validation rejects `entry: "signature"` extra routes whose pattern, including `:param` segments, matches a framework path such as `/api/write`. Such a route skipped the JWT, origin and CSRF guards for that path.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: breaking
+  title: signature routes with a :param segment or wildcard must not match framework paths
+  migration: |
+    Give the route a static prefix, for example `/api/webhooks/:provider` instead of `/api/:provider` or `/:provider/write`.
+  -->
+
+- 51b4867: The sub-processor list now carries the planned Scaleway purposes (key custody and transactional email) as their own `status: "planned"` entry. The active Scaleway entry only names the backup mirror, so the public `planned` section and change notifications see the upcoming processing.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: fix
+  title: planned Scaleway purposes listed as planned sub-processor entry
+  -->
+
+- d1bba78: `ctx.db.unsafeRaw(reason)` and `ctx.systemDb.unsafeRaw(reason)` now write the reason declared on the handler or hook `escapeHatch` into the escape-hatch audit event, not the string passed at the call. A call-site string can no longer put arbitrary text into the audit trail.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: unsafeRaw audit events carry the declared escapeHatch reason
+  migration: |
+    No action needed: calls that pass the same reason as the declaration audit unchanged. Calls with a different string now audit the declared reason.
+  -->
+
+- Updated dependencies [c710f1e]
+- Updated dependencies [3613e5a]
+- Updated dependencies [3451156]
+  - @cosmicdrift/kumiko-types@0.338.0
+  - @cosmicdrift/kumiko-http@0.338.0
+
 ## 0.337.1
 
 ### Patch Changes

@@ -1,5 +1,316 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.338.0
+
+### Minor Changes
+
+- e234ce6: With `consumerProtection` set, `billing-foundation` sends the buyer a contract confirmation mail once the contract is live. Event-triggered jobs on `subscription-created`, `subscription-updated`, `invoice-paid` and `payment-received` pick up events that carry the `consentId` of a recorded checkout consent (subscription events only while `active` or `trialing`) and call the system-only `issue-contract-confirmation` handler. The mail repeats the plan, price, contract start and current period end, the VAT note, the confirmed consent texts with the time of consent, and the full terms text block in the consent language. A `contract-confirmation-issued` event is appended before the mail is handed to delivery, so a webhook replay, a second qualifying event or a concurrent run cannot send a second mail.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Contract confirmation mail after a recorded checkout consent
+  detail: |
+    With `consumerProtection`, four event-triggered jobs (`confirm-on-subscription-created`, `confirm-on-subscription-updated`, `confirm-on-invoice-paid`, `confirm-on-payment-received`) call the system-only `billing-foundation:write:issue-contract-confirmation` (`consentId`, `sourceAggregateId`, optional `currentPeriodEndIso`) for events carrying a `consentId`; subscription events only count with status `active` or `trialing`. The handler only reads the caller tenant's own subscription or payment stream, finds the `checkout-consent-recorded` event, appends `contract-confirmation-issued` (`consentId`, `issuedAtIso`, `locale`, `termsTemplateVersion`) at the fetched stream version and then notifies `billing-foundation:contract-confirmation` (critical priority) to the consenting user's email. A second run returns `{ issued: false, reason: "already_issued" }` or fails with a version conflict; an unknown consent returns `consent_not_found` and sends nothing. The mail is rendered in German or English (fallback German) as structured header/sections content for the email channel's renderer.
+  migration: |
+    Enabling `consumerProtection` additionally requires the `user` feature, and an email channel plus renderer must be mounted for the mail to go out.
+  -->
+
+- 9fa543d: `billing-foundation` can gate checkout behind a consumer-protection consent. With `createBillingFoundationFeature({ baseUrl, consumerProtection })`, `start-plan-checkout` and `create-checkout-session` require a `consent` payload (early performance requested, loss of withdrawal right acknowledged, the consent text version and the locale). The server rejects an outdated text version with `consent_text_outdated` and a missing terms text block with `terms_unavailable`. Once the provider has returned the checkout URL, a `checkout-consent-recorded` event is appended to the subscription or payment stream with the consent id, price, text version, terms hash and the acting user; the same consent id, a locale and a submit message go to the provider. The `billing-plans` query additionally returns the German and English consent texts with their versions and the configured legal links.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Optional consumer-protection consent gate on checkout
+  detail: |
+    `BillingFoundationOptions.consumerProtection` (`termsTextBlock`, `vatNote` with `de` and `en`, `operatorEmail`, `legalLinks`) requires `baseUrl` and additionally requires the `template-resolver` and `delivery` features. When set, `start-plan-checkout` and `create-checkout-session` take a strict `consent` object (`earlyPerformanceRequested: true`, `withdrawalLossAcknowledged: true`, `consentTextVersion`, `locale`); a missing or unchecked consent fails validation (400). The consent texts and their version (first 16 hex characters of the SHA-256 of the early-performance and withdrawal-loss texts) are owned by the framework in German and English. After the provider returned the checkout URL, `checkout-consent-recorded` is appended (no email, no IP). `billing-plans` returns `consumerProtection: { consentTexts, legalLinks }` so a client can render and echo the version.
+  migration: |
+    No code change needed unless you enable consumerProtection; then callers of start-plan-checkout/create-checkout-session must send `consent`.
+  -->
+
+- 6016fa6: With `consumerProtection` set, the `BillingPlansPanel` of `billing-foundation` now guards the checkout and offers the cancellation path. Choosing a plan opens an order summary (plan, price, renewal interval, cancellation note, links to terms, withdrawal policy and privacy) with two unchecked consent checkboxes that show the server-provided texts in the UI language (`de` or `en`, otherwise `de`). The "Order with obligation to pay" button stays disabled until both are ticked and sends the consent with the server's text version. If the texts changed (`consent_text_outdated`), the dialog shows the error, clears the boxes and reloads the plans. Tenant admins with a live subscription also get a "Cancel contract here" button: termination or withdrawal, ordinary or extraordinary (reason required), a confirmation step, then the receipt with time of receipt and effective date. Without `consumerProtection` the panel behaves as before.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: Consent dialog and cancel-contract button in the billing panel
+  detail: |
+    The checkout CTA opens `CheckoutConsentDialog` when `billing-plans` returns `consumerProtection`; `start-plan-checkout` then receives `consent: { earlyPerformanceRequested, withdrawalLossAcknowledged, consentTextVersion, locale }`. The locale rule (`resolveConsentLocale`) moved to the crypto-free `consumer-protection/consent-locale.ts` and is still re-exported from `consent-text.ts`. `CancelContractDialog` calls `billing-foundation:write:terminate-contract`. New English i18n keys under `billing-foundation.consent.*` and `billing-foundation.cancel.*`.
+  migration: |
+    No action. Apps that translate the panel add the new `billing-foundation.consent.*` and `billing-foundation.cancel.*` keys to their locale bundles.
+  -->
+
+- fcaebd3: The billing provider contract carries what consumer-protection checkout needs. `cancelSubscription` now takes `{ providerSubscriptionId, when }`, where `when` is `"period-end"` or `"immediately"`. `createCheckoutSession` accepts `consentId`, `locale` and `submitMessage`. Webhook events (`SubscriptionEvent`, `PaymentEvent`) echo an optional `consentId`, and `billing-foundation` stores it on the subscription and payment events. Stripe checkout always sets `submit_type: "pay"`, maps the app locale to a Stripe checkout locale and shows `submitMessage` next to the submit button.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: SubscriptionProviderPlugin.cancelSubscription takes { providerSubscriptionId, when }
+  detail: |
+    `cancelSubscription(ctx, { providerSubscriptionId, when })` replaces the positional `providerSubscriptionId` argument. `when` is `SubscriptionCancelTimings.periodEnd` (`"period-end"`, the subscription runs to the end of the paid period) or `SubscriptionCancelTimings.immediately` (`"immediately"`). `createCheckoutSession` options gain optional `consentId`, `locale` and `submitMessage`; `SubscriptionEvent` and `PaymentEvent` gain an optional `consentId`, validated by `parseProviderConsentId` (max 100 characters of `A-Z a-z 0-9 _ -`), and `subscription` / `payment` event payloads store it.
+  migration: |
+    Custom provider plugins that implement `cancelSubscription` change the signature to `(ctx, { providerSubscriptionId, when })` and honor `when`. A provider that can only cancel immediately may treat both values the same or leave the method out. Callers pass `{ providerSubscriptionId, when: SubscriptionCancelTimings.immediately }` to keep the old behavior.
+  -->
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: improvement
+  title: Stripe checkout sets submit_type, locale, submit text and consentId; cancel can run to period end
+  detail: |
+    Checkout sessions in both modes set `submit_type: "pay"`. `locale` maps to a Stripe checkout locale (exact match, else the language part such as `de-AT` to `de`, else `"auto"`), and `submitMessage` becomes `custom_text.submit.message` (capped at Stripe's 1200 characters). `consentId` is written to `subscription_data.metadata` or `payment_intent_data.metadata` next to `tenantId` and read back from the same place on the webhook. `cancelSubscription` with `when: "period-end"` sets `cancel_at_period_end`; `"immediately"` cancels the subscription.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: subscription-mollie
+  type: improvement
+  title: Mollie checkout carries consentId through payment and subscription metadata
+  detail: |
+    `consentId` from the checkout options is stored in the first payment's metadata, copied onto the subscription created from it, and returned as `SubscriptionEvent.consentId` when valid. `cancelSubscription` stays unimplemented for Mollie.
+  migration: |
+    No code change needed.
+  -->
+
+- 81bafe8: With `consumerProtection` set, `billing-foundation` gets the § 312k cancellation path. The new `createContractTerminationRoutes()` returns the public pages `/legal/kuendigen` (de) and `/legal/cancel` (en): a form for termination or withdrawal, a review page and a confirm step that works without JavaScript. The confirm step calls the anonymous `request-contract-termination` handler (5 requests per IP and 10 minutes), which finds the contract through the entered email (TenantAdmin of exactly one tenant with a non-terminal subscription). A single match cancels at the provider at period end; a public withdrawal is only recorded, never cancelled at the provider. No match or several matches are recorded as `contract-termination-unmatched` on a system-tenant stream. The answer and the receipt mail to the entered address are the same for every outcome, and the operator mail (`operatorEmail`) goes out for unmatched, ambiguous, withdrawal, extraordinary and provider-failure cases. Signed-in TenantAdmins use `terminate-contract` (termination at period end, withdrawal immediately). Events carry no name, email or reason; those only travel in the mails.
+
+  Mount the routes on a host that resolves a tenant: with an authoritative `tenantResolver` that returns no tenant, the anonymous dispatcher answers `tenant_required` and the confirm step shows the generic error instead of recording the declaration.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: § 312k cancellation pages and handlers with consumerProtection
+  detail: |
+    `contract-termination-requested` (on the tenant's subscription stream: `requestId`, `declarationType` termination|withdrawal, `terminationKind` ordinary|extraordinary, `channel` public|account, `receivedAtIso`, `effectiveAtIso`, `providerCancel` period-end|immediately|none) and `contract-termination-unmatched` (system-tenant stream, `matchResult` none|ambiguous) are appended by the system-only `record-contract-termination` and `record-unmatched-contract-termination` handlers. `billing-foundation:write:request-contract-termination` is anonymous and answers `{ requestId, receivedAtIso }` for every outcome; `billing-foundation:write:terminate-contract` (purchase roles) answers `{ requestId, receivedAtIso, effectiveAtIso, providerCancel }`. Provider errors or a provider without `cancelSubscription` still record the declaration (`providerCancel: none`) and notify the operator. `consumerProtection` now also requires the `tenant` and `user` features.
+  migration: |
+    Add `createContractTerminationRoutes()` from billing-foundation to the app's `extraRoutes`, make sure `anonymousAccess` is configured, and link `/legal/kuendigen` (or `/legal/cancel`) in the page footer.
+  -->
+
+- 39b8cd4: Billing no longer stores the raw provider event. Stripe and Mollie webhooks used to archive the whole provider payload as `rawPayload` in the event headers, which carries customer PII (email, name, address, phone, custom fields) in a place that is not crypto-shreddable. The field is gone from `SubscriptionEvent`, `PaymentEvent`, `ProviderSubscriptionSnapshot`, the `process-event` / `process-payment-event` payloads and the stored event headers. Idempotency still uses `providerEventId` plus `providerName`.
+
+  Consumers that parsed `rawPayload` for the Stripe checkout session id read `headers.providerCheckoutId` of the `payment-received` event instead. `PaymentEvent` and the `process-payment-event` payload carry an optional `providerCheckoutId`, which the Stripe plugin sets to the checkout session id; Mollie does not produce payment events.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: breaking
+  title: Remove rawPayload from provider events and event headers
+  detail: |
+    `rawPayload` is removed from `SubscriptionEvent`, `PaymentEvent`, `ProviderSubscriptionSnapshot`, the `process-event` and `process-payment-event` schemas and `SubscriptionEventHeaders` / `PaymentEventHeaders`. New events carry `providerEventId` and `providerName` in their headers; payment events also carry the optional `providerCheckoutId` (Stripe checkout session id).
+  migration: |
+    Custom subscription provider plugins must stop returning `rawPayload`; TypeScript flags the removed field. Code that read the checkout session id out of `headers.rawPayload` reads `headers.providerCheckoutId` instead. Events already stored keep their old `rawPayload` header; this release does not rewrite stored events.
+  -->
+
+  <!-- kumiko-changes
+  feature: subscription-stripe
+  type: fix
+  title: Stripe webhooks no longer archive the full provider event
+  detail: |
+    Subscription and one-off-payment events parsed from Stripe webhooks, and the snapshot returned by sync-subscriptions, no longer include the serialized Stripe event, so customer details never land in the event store.
+  -->
+
+  <!-- kumiko-changes
+  feature: subscription-mollie
+  type: fix
+  title: Mollie webhooks no longer archive the subscription and payment objects
+  detail: |
+    Subscription events parsed from Mollie webhooks no longer include the serialized subscription and trigger payment, which can carry consumer name and account data.
+  -->
+
+- 421334d: `cap-overview` shows tenant usage to admins by default again. `caps:usage` and the `my-caps` screen accept TenantAdmin, Admin and SystemAdmin; regular members (`User`, `Editor`) no longer get through unless the app opts in with the new `usageVisibleTo` option. The option is validated when the feature is defined: an empty list or a role the engine does not know throws.
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: breaking
+  title: caps:usage and my-caps default to admin roles; widen with usageVisibleTo
+  detail: |
+    `createCapOverviewFeature` gets `usageVisibleTo?: readonly string[]`. Without it, the `caps:usage` query and the `my-caps` screen accept `access.admin` (TenantAdmin, Admin, SystemAdmin) instead of every tenant member. The screen and the query share the resolved roles. Only built-in roles are accepted (User, Member, Editor, Admin, TenantAdmin, SystemAdmin); an unknown or empty list throws at feature definition. The SystemAdmin `tenantId` override and the platform-wide screens are unchanged. The `MY_CAPS_ACCESS_ROLES` export is replaced by `DEFAULT_CAP_USAGE_ROLES` (the admin default), and `myCapsScreen` by `createMyCapsScreen(roles)`.
+  migration: |
+    Apps whose regular members should keep seeing their usage pass `createCapOverviewFeature({ ..., usageVisibleTo: ["User", "Editor", "Admin", "TenantAdmin", "SystemAdmin"] })`. Code that imported `MY_CAPS_ACCESS_ROLES` (handlers or nav entries mirroring the screen rule) imports `DEFAULT_CAP_USAGE_ROLES` for the admin default, or reuses the same `usageVisibleTo` array it passed to the feature.
+  -->
+
+- c710f1e: Config key definitions accept a new async `validate(value, ctx)` function. `config:write:set` runs it after the type, bounds and pattern checks and before the value is stored, for every scope and backing. A validator rejects the write by throwing a `KumikoError`, for example an `UnprocessableError`. The feature manifest reports `validated` per key.
+
+  <!-- kumiko-changes
+  feature: config
+  type: improvement
+  title: config keys can declare an async write validator that rejects with a KumikoError
+  migration: |
+    No action needed: keys without `validate` behave as before.
+  -->
+
+### Patch Changes
+
+- e5c62d2: agent-tools: `get_<entity>` and `list_<entity>` take their risk from the entity handler's `agent.risk` instead of a hard-coded `low`. The SystemAdmin `user:list`, `user:detail` and `download-attempt:list` handlers declare `risk: "high"`.
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: improvement
+  title: entity get/list tools honour agent.risk, PII-bearing system lists are high risk
+  migration: |
+    No action needed: handlers without an agent.risk hint stay low risk.
+  -->
+
+- e5c62d2: agent-tools: `list_<entity>` filters and `find_<entity>_by_<field>` tools only offer filterable fields that every caller role may read without a row condition. A role- or ownership-restricted filterable field can no longer be probed through `totalCount` or hit/miss results.
+
+  <!-- kumiko-changes
+  feature: agent-tools
+  type: fix
+  title: agent entity tools no longer filter on read-restricted fields
+  migration: |
+    No action needed: fields whose access.read is not unconditionally open to the agent's roles drop out of list filters and find-by tools.
+  -->
+
+- 6c1c880: billing-foundation: `process-event` drops a non-`created` provider event that belongs to a different subscription than the one the tenant's row currently tracks, while that row still blocks checkout. A late webhook retry of a superseded subscription can no longer flip the live subscription to `canceled`. The webhook answers 200 with `stale: true`.
+
+  <!-- kumiko-changes
+  feature: billing-foundation
+  type: improvement
+  title: late events of a superseded provider subscription no longer overwrite the live row
+  migration: |
+    No action needed: events of the tracked subscription and `created` events behave as before.
+  -->
+
+- 6c1c880: cap-counter: corrected the documented reason why rolling cap booking still needs a `SystemAdmin` identity. The event-ownership check only guards `appendDomainEventCore`, not the entity-executor path, so the earlier "ownership rule rejects in-process appends" wording was inaccurate. Behavior is unchanged.
+
+  <!-- kumiko-changes
+  feature: cap-counter
+  type: improvement
+  title: corrected the documented reason rolling cap booking needs SystemAdmin
+  migration: |
+    No action needed: behavior is unchanged.
+  -->
+
+- 1522b9e: crypto-shredding: the forget-denied audit event now stores `subjectKeyDigest` as a keyed blind-index HMAC instead of a bare SHA-256 of the subject key, so a candidate id cannot be matched against it. Without a configured blind-index key the digest is omitted (`subjectKeyDigest` is now optional in the payload).
+
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: improvement
+  title: forget-denied audit digest is keyed and omitted without a blind-index key
+  migration: |
+    No action needed. Existing denial events keep their old digest; configure the blind-index key to get a digest on new ones.
+  -->
+
+- 3613e5a: Handlers get `ctx.configFor(tenantId)`, a config accessor resolved for another tenant. The cap overview uses it so a cross-tenant limit reads the target tenant's config instead of the caller's.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: ctx.configFor(tenantId) resolves config for another tenant
+  detail: |
+    Query and write handler contexts get `configFor(tenantId)` next to `config`, present when the config feature wired its accessor factory. The accessor runs as the target tenant's system user on a db scoped to that tenant, so the caller's user-scope values never leak into the result. Calls for another tenant throw `AccessDeniedError` unless the caller is the system identity or has the `SystemAdmin` role; the caller's own tenant needs no privilege and returns the same accessor as `ctx.config`.
+  migration: |
+    No code change needed. Handlers that compute values for a tenant other than the caller's (limits, quotas, billing previews) call `ctx.configFor(tenantId)` instead of passing `ctx.config`.
+  -->
+
+  <!-- kumiko-changes
+  feature: types
+  type: improvement
+  title: ctx.configFor on the handler context types
+  detail: |
+    `configFor?: (tenantId: TenantId) => ConfigAccessor` is part of the shared handler context fields, optional like `config`.
+  migration: |
+    No code change needed.
+  -->
+
+  <!-- kumiko-changes
+  feature: cap-overview
+  type: fix
+  title: Cross-tenant cap limits read the target tenant's config
+  detail: |
+    `caps:usage` with a SystemAdmin `tenantId` override and `tenant-caps:list` passed the caller's config accessor to `CapSpec.limit`, so a limit that reads a tenant-scoped config key showed the caller's value for every tenant. Both now resolve one accessor per target tenant through `ctx.configFor`, and `tenant-caps:list` resolves each tenant's limit separately instead of once per tier.
+  migration: |
+    No code change needed.
+  -->
+
+- ca99e95: custom-fields: the field-definition list roles always include the default `TenantAdmin`, also when `fieldDefinitionWriteRoles` is set. `TenantAdmin` keeps saving values by default, so the form section must keep loading for it; `fieldDefinitionWriteRoles: []` no longer locks out the list.
+
+  <!-- kumiko-changes
+  feature: custom-fields
+  type: fix
+  title: field-definition list keeps TenantAdmin when fieldDefinitionWriteRoles is set
+  migration: |
+    No action needed. Set fieldDefinitionListRoles explicitly to narrow the list roles.
+  -->
+
+- 916c6c0: delivery: the `tenantUserIdsQuery` handler of a tenant broadcast now always gets a tenant-filtered `ctx.db` and `ctx.dbOutsideTransaction`, also when it is declared `r.systemScope()`. A systemScope handler could previously read the memberships of every tenant through `ctx.db` and notify users of foreign tenants. Cross-tenant reads stay available through `ctx.systemDb`.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: tenant broadcast recipient query no longer reads across tenants through ctx.db
+  migration: |
+    No action needed for handlers that resolve recipients through `ctx.systemDb`, like `tenant:query:resolveUserIds`. A systemScope handler that read `ctx.db` unfiltered now sees only the broadcast tenant's rows.
+  -->
+
+- 3451156: escapeHatch: new optional `grants` (`systemIdentity`, `globalWrites`, `unsafeRaw`) narrows what a declaration unlocks. Without `grants` the declaration keeps unlocking all three. An empty or unknown `grants` list is a boot error. Bundled handlers that only needed the raw runner now declare `grants: ["unsafeRaw"]`, so they no longer gain the SYSTEM identity switch.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: escapeHatch grants split the SYSTEM identity switch from raw access
+  migration: |
+    No action needed: `grants` is additive and an escapeHatch without it behaves as before.
+    Declare `grants: ["unsafeRaw"]` on handlers that only call ctx.db.unsafeRaw to drop the SYSTEM identity switch.
+  -->
+
+- 7042edb: The forget run now also reaches tenants the user already left. `runForgetCleanup` used to run the user-data delete hooks only in tenants where the user was still a member, so a note mentioning the user in a tenant they had left stayed readable. It now takes the tenants from the live memberships plus the `tenant-membership.created` events for that user, runs each tenant once, and only falls back to the orphan pseudo-tenant when both are empty.
+
+  <!-- kumiko-changes
+  feature: user-data-rights
+  type: fix
+  title: Forget cleanup covers tenants the user already left
+  detail: |
+    `runForgetCleanup` builds the per-user tenant list from live memberships plus the user's `tenant-membership.created` history (read from the event payload, so cross-tenant SystemAdmin adds count too), deduplicated. Delete hooks, such as the notes-history mention shred, therefore also run in tenants the user left before the request. The `tenantIdsBeforeDelete` list passed to the deletion-executed mail still contains only the live memberships. Mentions written before notes recorded structured mention rows for non-members are not covered.
+  -->
+
+- 57467b5: forget-subject now accepts a record subject for a DPO when the owning tenant is proven by the event stream, not only by a projection row. A record whose row was already deleted, or a custom aggregate without a registered entity, can be shredded by the DPO of the tenant that owns it. A DPO of another tenant is still denied, and so is any DPO when events for the same aggregate id exist in more than one tenant.
+
+  <!-- kumiko-changes
+  feature: crypto-shredding
+  type: fix
+  title: forget-subject tenant check falls back to event-store provenance
+  -->
+
+- 43dfcf4: notes-history: `add-note` now rejects `mentions` of users who are not members of the current tenant, because their forget run only visits tenants they belong to and would never reach such a note. The notes-history user-data export hook now lists the notes that mention the exporting user.
+
+  <!-- kumiko-changes
+  feature: notes-history
+  type: improvement
+  title: add-note rejects mentions of non-members; mention export lists mentioning notes
+  migration: |
+    No action needed unless a client mentions user ids that are not members of the tenant; those writes now fail validation.
+  -->
+
+- 4c168d6: tags and notes-history: `ownership.write` is now enforced by `assign-tag`, `remove-tag` and `add-note`. Each feature instance builds its write executor from the entity it registers; before, the handlers used a module-level executor without the mount's ownership, so a `from()` write rule never applied to them. The `delete-tag` cascade stays ungated.
+
+  <!-- kumiko-changes
+  feature: tags
+  type: breaking
+  title: ownership.write applies to assign-tag, remove-tag and add-note
+  migration: |
+    Mounts that set `ownership.write` now see ownership_denied for callers the rule does not cover. Make sure the rule covers every role that tags or notes, or leave it unset.
+  -->
+
+- Updated dependencies [42450a6]
+- Updated dependencies [c710f1e]
+- Updated dependencies [3613e5a]
+- Updated dependencies [76ba2ab]
+- Updated dependencies [3451156]
+- Updated dependencies [4a13a0e]
+- Updated dependencies [57467b5]
+- Updated dependencies [e8e5e2f]
+- Updated dependencies [bac056f]
+- Updated dependencies [f4f3d4a]
+- Updated dependencies [87938e0]
+- Updated dependencies [51b4867]
+- Updated dependencies [d1bba78]
+  - @cosmicdrift/kumiko-renderer@0.338.0
+  - @cosmicdrift/kumiko-types@0.338.0
+  - @cosmicdrift/kumiko-framework@0.338.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.338.0
+  - @cosmicdrift/kumiko-renderer-web@0.338.0
+  - @cosmicdrift/kumiko-headless@0.338.0
+
 ## 0.337.1
 
 ### Patch Changes
