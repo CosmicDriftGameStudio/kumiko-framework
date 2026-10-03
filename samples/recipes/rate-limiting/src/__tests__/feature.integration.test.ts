@@ -69,7 +69,7 @@ describe("L3 — handler opt-in (per-user budget on expensive-search)", () => {
       error: { code: string; details?: { bucket?: string } };
     };
     expect(body.error.code).toBe("rate_limited");
-    expect(body.error.details?.bucket).toBe(`user:${admin.id}`);
+    expect(body.error.details?.bucket).toBe("user");
   });
 });
 
@@ -91,7 +91,7 @@ describe("L1 — global IP middleware (covers every /api/* request)", () => {
       error: { code: string; details: { bucket: string } };
     };
     expect(body.error.code).toBe("rate_limited");
-    expect(body.error.details.bucket).toBe("l1:10.99.0.1");
+    expect(body.error.details.bucket).toBe("l1");
   });
 });
 
@@ -118,6 +118,6 @@ describe("L2 — auth-endpoints middleware (tighter cap on /api/auth/*)", () => 
       error: { code: string; details: { bucket: string } };
     };
     expect(body.error.code).toBe("rate_limited");
-    expect(body.error.details.bucket).toBe("l2:10.99.0.2:/api/auth/login");
+    expect(body.error.details.bucket).toBe("l2");
   });
 });

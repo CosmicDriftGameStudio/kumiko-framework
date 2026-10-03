@@ -66,7 +66,7 @@ describe("dispatcher L3 — handler rateLimit opt-in", () => {
     expect(res.status).toBe(429);
     const body = (await res.json()) as { error: { code: string; details?: { bucket?: string } } };
     expect(body.error.code).toBe("rate_limited");
-    expect(body.error.details?.bucket).toBe(`user:${admin.id}`);
+    expect(body.error.details?.bucket).toBe("user");
   });
 
   test("isolates per user: blocked user does not block other user", async () => {

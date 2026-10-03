@@ -706,6 +706,6 @@ describe("Event Sourcing Showcase", () => {
     };
     expect(body.error.code).toBe("rate_limited");
     expect(body.error.details?.limit).toBe(5);
-    expect(body.error.details?.bucket).toBe(`user:${admin.id}`);
+    expect(body.error.details?.bucket).toBe("user");
   });
 });

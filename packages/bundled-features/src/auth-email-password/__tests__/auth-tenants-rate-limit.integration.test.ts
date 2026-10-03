@@ -114,6 +114,6 @@ describe("POST /api/auth/login keeps the default L2 limit (5/60s)", () => {
     expect(blocked.status).toBe(429);
     const body = (await blocked.json()) as { error: { code: string; details: { bucket: string } } };
     expect(body.error.code).toBe("rate_limited");
-    expect(body.error.details.bucket).toBe(`l2:${ip}:/api/auth/login`);
+    expect(body.error.details.bucket).toBe("l2");
   });
 });

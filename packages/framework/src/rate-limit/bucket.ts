@@ -41,21 +41,21 @@ export function buildBucketKey(option: RateLimitOption, ctx: BucketContext): Buc
 // and HMAC-hashed so Redis never holds it in plaintext.
 const PAYLOAD_BUCKET_PURPOSE = "kumiko:rate-limit:payload-bucket";
 
-const PAYLOAD_BUCKET_PREFIX = "payload+handler:";
-
 export function normalizePayloadBucketValue(value: string): string {
   return value.trim().toLowerCase();
 }
 
 export function buildPayloadBucketKey(handlerName: string, field: string, digest: string): string {
-  return `${PAYLOAD_BUCKET_PREFIX}${handlerName}:${field}:${digest}`;
+  return `payload+handler:${handlerName}:${field}:${digest}`;
 }
 
-// The digest is a stable pseudonym of the address: anyone who can guess an
-// address could confirm it from a 429 body, so error output drops it.
+// Everything after the scope tag identifies the caller (IP, user/tenant id,
+// auth target, payload digest). IPv6 addresses and handler names contain ":",
+// so no later segment can be kept safely by parsing; the client already knows
+// which handler/route it called.
 export function toPublicBucketName(bucket: string): string {
-  if (!bucket.startsWith(PAYLOAD_BUCKET_PREFIX)) return bucket;
-  return bucket.slice(0, bucket.lastIndexOf(":"));
+  const separator = bucket.indexOf(":");
+  return separator === -1 ? bucket : bucket.slice(0, separator);
 }
 
 // Rotating the JWT secret only resets these buckets (new digests); they are
