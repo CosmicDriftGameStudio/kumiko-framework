@@ -71,6 +71,8 @@ describe("channel-teams against a local HTTP stub", () => {
     stub,
     channel: "teams",
     seedConnection,
+    seedConnectionUnvalidated: (connection, urlOrPath) =>
+      harness.setSecretUnvalidated(secretKeyFor(connection), urlOrPath),
     urlFor: (path) => `${stub.origin}${path}`,
   }));
 

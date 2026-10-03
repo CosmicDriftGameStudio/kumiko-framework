@@ -102,6 +102,8 @@ export type ChatHarness = {
   buildJobContext(jobRunner?: unknown): JobContext;
   readonly attemptRows: AttemptRow[];
   setSecret(key: string, value: string): Promise<void>;
+  // Writes past the secrets write gate, like a value stored before valueSchema existed.
+  setSecretUnvalidated(key: string, value: string): Promise<void>;
   // Notifies via route, runs the dispatched delivery.send job, returns the attempt row.
   send(
     channel: string,
@@ -115,7 +117,9 @@ export const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 
 let notificationCounter = 0;
 
-export async function setupChatHarness(channelFeature: FeatureDefinition): Promise<ChatHarness> {
+export async function setupChatHarness(
+  ...channelFeatures: FeatureDefinition[]
+): Promise<ChatHarness> {
   // The PII subject KMS is process-global and CI runs every integration file
   // in one process: a KMS left configured by an earlier file would encrypt
   // recipientAddress here, and these tests assert on the plaintext row.
@@ -132,7 +136,7 @@ export async function setupChatHarness(channelFeature: FeatureDefinition): Promi
       createSecretsFeature(),
       createTenantFeature(),
       createDeliveryFeature(),
-      channelFeature,
+      ...channelFeatures,
     ],
     masterKeyProvider,
     extraContext: ({ db }) => ({
@@ -171,6 +175,12 @@ export async function setupChatHarness(channelFeature: FeatureDefinition): Promi
     attemptRows,
     async setSecret(key, value) {
       await stack.http.writeOk("secrets:write:set", { key, value }, tenantAdmin);
+    },
+    async setSecretUnvalidated(key, value) {
+      await secrets.set(tenantAdmin.tenantId, key, value, {
+        redact: () => "••••",
+        updatedBy: tenantAdmin.id,
+      });
     },
     async send(channel, address, data) {
       const dispatched: Array<{ name: string; payload: Record<string, unknown> }> = [];
@@ -243,6 +253,8 @@ export type FailureCaseContext = {
   readonly channel: string;
   // Seeds the credential that makes `connection` resolve to `url` / the stub path.
   seedConnection(connection: string, urlOrPath: string): Promise<void>;
+  // Same, bypassing the write-time URL check (a secret stored before it existed).
+  seedConnectionUnvalidated(connection: string, urlOrPath: string): Promise<void>;
   // Absolute URL on the stub for a path.
   urlFor(path: string): string;
 };
@@ -272,9 +284,9 @@ export function registerWebhookFailureCases(getContext: () => FailureCaseContext
   });
 
   test("host outside the allowlist -> failed host_not_allowed, no request", async () => {
-    const { harness, stub, channel, seedConnection, urlFor } = getContext();
+    const { harness, stub, channel, seedConnectionUnvalidated, urlFor } = getContext();
     // "localhost" resolves to the stub but is not the allowlisted "127.0.0.1".
-    await seedConnection(
+    await seedConnectionUnvalidated(
       "elsewhere",
       urlFor("/api/webhooks/1/blocked").replace("127.0.0.1", "localhost"),
     );

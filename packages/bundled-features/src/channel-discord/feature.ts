@@ -1,9 +1,16 @@
 import {
   chatConnectionNameSchema,
+  chatWebhookUrlSchema,
   DELIVERY_CHANNEL_EXTENSION,
+  resolveChatWebhookTarget,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createDiscordChannel, type DiscordChannelOptions } from "./discord-channel.js";
+import {
+  createDiscordChannel,
+  DISCORD_DEFAULT_ALLOWED_HOSTS,
+  DISCORD_WEBHOOK_PATH_PREFIX,
+  type DiscordChannelOptions,
+} from "./discord-channel.js";
 
 export function createChannelDiscordFeature(
   options: DiscordChannelOptions = {},
@@ -20,6 +27,13 @@ export function createChannelDiscordFeature(
     r.requires("delivery");
     r.requires("secrets");
 
+    const webhookTarget = resolveChatWebhookTarget(
+      {
+        defaultAllowedHosts: DISCORD_DEFAULT_ALLOWED_HOSTS,
+        requiredPathPrefix: DISCORD_WEBHOOK_PATH_PREFIX,
+      },
+      options,
+    );
     const webhooks = r.secretNamespace("webhooks", {
       label: { en: "Discord webhooks", de: "Discord-Webhooks", es: "Webhooks de Discord" },
       hint: {
@@ -29,6 +43,7 @@ export function createChannelDiscordFeature(
       },
       scope: "tenant",
       nameSchema: chatConnectionNameSchema,
+      valueSchema: chatWebhookUrlSchema(webhookTarget),
     });
 
     const channel = createDiscordChannel(options, webhooks.keyFor);

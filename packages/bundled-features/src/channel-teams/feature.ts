@@ -1,9 +1,15 @@
 import {
   chatConnectionNameSchema,
+  chatWebhookUrlSchema,
   DELIVERY_CHANNEL_EXTENSION,
+  resolveChatWebhookTarget,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createTeamsChannel, type TeamsChannelOptions } from "./teams-channel.js";
+import {
+  createTeamsChannel,
+  TEAMS_DEFAULT_ALLOWED_HOSTS,
+  type TeamsChannelOptions,
+} from "./teams-channel.js";
 
 export function createChannelTeamsFeature(options: TeamsChannelOptions = {}): FeatureDefinition {
   return defineFeature("channel-teams", (r) => {
@@ -18,6 +24,10 @@ export function createChannelTeamsFeature(options: TeamsChannelOptions = {}): Fe
     r.requires("delivery");
     r.requires("secrets");
 
+    const webhookTarget = resolveChatWebhookTarget(
+      { defaultAllowedHosts: TEAMS_DEFAULT_ALLOWED_HOSTS },
+      options,
+    );
     const webhooks = r.secretNamespace("webhooks", {
       label: {
         en: "Microsoft Teams webhooks",
@@ -31,6 +41,7 @@ export function createChannelTeamsFeature(options: TeamsChannelOptions = {}): Fe
       },
       scope: "tenant",
       nameSchema: chatConnectionNameSchema,
+      valueSchema: chatWebhookUrlSchema(webhookTarget),
     });
 
     const channel = createTeamsChannel(options, webhooks.keyFor);

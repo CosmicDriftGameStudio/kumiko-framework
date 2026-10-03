@@ -3,13 +3,17 @@ export {
   type ChatWebhookChannelOptions,
   chatMessageText,
   createChatWebhookChannel,
+  resolveChatWebhookTarget,
   toChannelResult,
 } from "./chat-webhook-channel.js";
 export {
   type ChatSendFailureCode,
   type ChatSendResult,
   type ChatWebhookRequest,
+  type ChatWebhookTarget,
   chatConnectionNameSchema,
+  chatWebhookUrlSchema,
+  checkChatWebhookTarget,
   DEFAULT_CHAT_TIMEOUT_MS,
   postChatWebhook,
   truncateChars,

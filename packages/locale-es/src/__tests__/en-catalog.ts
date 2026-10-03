@@ -874,6 +874,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "screen:waitlist-list.title": "Waitlist",
   "secrets.errors.unknownKey": "Unknown secret key.",
   "secrets.errors.writeDenied": "You are not allowed to change this secret.",
+  "secrets.errors.invalidValue": "This value is not valid for this secret.",
   "screen:api-token-create.title": "Create a new token",
   "screen:api-tokens.title": "Personal Access Tokens",
   "screen:audit-log-detail.title": "Event",

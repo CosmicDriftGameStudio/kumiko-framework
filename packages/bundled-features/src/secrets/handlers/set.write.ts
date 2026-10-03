@@ -2,7 +2,7 @@ import { type AccessRule, defineWriteHandler } from "@cosmicdrift/kumiko-framewo
 import * as z from "zod";
 import { DEFAULT_SECRETS_ACCESS } from "../constants.js";
 import { requireSecretsContext } from "../feature.js";
-import { checkSecretKeyWrite } from "../write-gate.js";
+import { checkSecretKeyWrite, checkSecretValue } from "../write-gate.js";
 
 export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
   return defineWriteHandler({
@@ -32,6 +32,8 @@ export function createSetHandler(access: AccessRule = DEFAULT_SECRETS_ACCESS) {
       // framework default unless the caller sent a specific preview.
       const gate = checkSecretKeyWrite(ctx.registry, event.user.roles, key);
       if (!gate.ok) return gate.failure;
+      const invalidValue = checkSecretValue(ctx.registry, key, value);
+      if (invalidValue) return invalidValue;
       const featureRedact = gate.keyDef?.redact;
       const redactFn: (v: string) => string = redactedPreview
         ? () => redactedPreview

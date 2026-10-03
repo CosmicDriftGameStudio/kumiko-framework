@@ -58,6 +58,8 @@ describe("channel-slack against a local HTTP stub", () => {
     stub,
     channel: "slack",
     seedConnection,
+    seedConnectionUnvalidated: (connection, urlOrPath) =>
+      harness.setSecretUnvalidated(secretKeyFor(connection), urlOrPath),
     urlFor: (path) => `${stub.origin}${path}`,
   }));
 

@@ -1,7 +1,7 @@
 ---
 status: reference
 verified: 2026-10-03
-evidence: "packages/types/src/feature.ts (SecretKeyDefinition, SecretNamespaceDefinition); packages/framework/src/engine/feature-config-events-jobs.ts (r.secret, r.secretNamespace); packages/bundled-features/src/secrets/write-gate.ts; packages/bundled-features/src/secrets/__tests__/; packages/framework/src/engine/build-config-feature-schema.ts; packages/renderer/src/app/secrets-edit-body.tsx; packages/renderer/src/app/__tests__/secrets-edit-body-write-roles.test.tsx; packages/framework/src/engine/feature-ast/__tests__/render-roundtrip.test.ts"
+evidence: "packages/types/src/feature.ts (SecretKeyDefinition, SecretNamespaceDefinition); packages/framework/src/engine/feature-config-events-jobs.ts (r.secret, r.secretNamespace); packages/bundled-features/src/secrets/write-gate.ts; packages/bundled-features/src/delivery/chat-webhook-sender.ts; packages/bundled-features/src/secrets/__tests__/; packages/framework/src/engine/build-config-feature-schema.ts; packages/renderer/src/app/secrets-edit-body.tsx; packages/renderer/src/app/__tests__/secrets-edit-body-write-roles.test.tsx; packages/framework/src/engine/feature-ast/__tests__/render-roundtrip.test.ts"
 ---
 
 # Secret keys, secret namespaces and write roles
@@ -43,6 +43,19 @@ webhookAuth.keyFor("crm"); // "step-dispatcher:webhook-auth.crm"
 - A key belongs to the namespace when it starts with the prefix and the rest is not empty. With `nameSchema`, the rest also has to pass that schema. Anything else is rejected with 404 `secrets.errors.unknownKey`.
 - Namespace keys are not listed on the generated secrets screen. The feature that owns them brings its own UI, since only it knows which names exist.
 - The Designer shows `r.secretNamespace` as its own pattern and can add one. Its form edits the name, label, scope and `writeRoles`. A `nameSchema` or an options constant stays exactly as written in the source, because the form cannot edit Zod code.
+
+## Value validation: `valueSchema`
+
+`valueSchema` on `r.secret` or `r.secretNamespace` is a `ZodType<string>` that `secrets:write:set` runs on the value, after the key and write-role checks. A failing value gets 400 `secrets.errors.invalidValue` on field `value`; the response carries neither the value nor Zod's issues.
+
+- Only new writes through the secrets API are checked. Stored secrets stay as they are, and feature code writing through `ctx.secrets.set` is not checked.
+- `secrets:write:delete` ignores it.
+
+The chat channels use it to reject a bad address when it is created: the webhook secrets of `channel-slack`, `channel-discord` and `channel-teams` must pass the channel's host allowlist (Discord also the `/api/webhooks/` path), the Telegram bot token must look like `<bot id>:<secret>`. The same checks are exported for app code: `checkChatWebhookTarget`, `chatWebhookUrlSchema` and `resolveChatWebhookTarget` from `delivery`, `isTelegramChatId` and `isTelegramBotToken` from `channel-telegram`.
+
+## Chat channel keys
+
+Each chat channel exports its key, so apps do not retype the strings: `SLACK_SECRET_KEYS`, `DISCORD_SECRET_KEYS` and `TEAMS_SECRET_KEYS` with `webhookPrefix` and `webhookKeyFor(connection)`, and `TELEGRAM_SECRET_KEYS.botToken`.
 
 ## Write roles
 

@@ -16,11 +16,20 @@ export type TelegramChannelOptions = {
 
 export const TELEGRAM_DEFAULT_API_BASE_URL = "https://api.telegram.org";
 export const TELEGRAM_TEXT_MAX_CHARS = 4096;
+export const TELEGRAM_SECRET_KEYS = { botToken: "channel-telegram:secret:bot-token" } as const;
 
 // Numeric chat/group id (groups and channels are negative) or a public @channelname.
 const TELEGRAM_CHAT_ID_PATTERN = /^(-?\d{1,20}|@[A-Za-z][A-Za-z0-9_]{3,31})$/;
 // `<bot id>:<secret>`; the token is spliced into the URL path, so only the real shape passes.
 const TELEGRAM_BOT_TOKEN_PATTERN = /^\d{1,20}:[A-Za-z0-9_-]{10,}$/;
+
+export function isTelegramChatId(address: string): boolean {
+  return TELEGRAM_CHAT_ID_PATTERN.test(address);
+}
+
+export function isTelegramBotToken(token: string): boolean {
+  return TELEGRAM_BOT_TOKEN_PATTERN.test(token);
+}
 
 export function createTelegramChannel(
   options: TelegramChannelOptions,
@@ -33,7 +42,7 @@ export function createTelegramChannel(
     mode: "queued",
 
     async send(address, message, ctx) {
-      if (!TELEGRAM_CHAT_ID_PATTERN.test(address)) {
+      if (!isTelegramChatId(address)) {
         return toChannelResult(address, { ok: false, code: "invalid_address" });
       }
       let token: string | undefined;
@@ -46,7 +55,7 @@ export function createTelegramChannel(
       } catch {
         token = undefined;
       }
-      if (!token || !TELEGRAM_BOT_TOKEN_PATTERN.test(token)) {
+      if (!token || !isTelegramBotToken(token)) {
         return toChannelResult(address, { ok: false, code: "missing_credentials" });
       }
 

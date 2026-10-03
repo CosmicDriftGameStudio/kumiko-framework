@@ -1,9 +1,15 @@
 import {
   chatConnectionNameSchema,
+  chatWebhookUrlSchema,
   DELIVERY_CHANNEL_EXTENSION,
+  resolveChatWebhookTarget,
 } from "@cosmicdrift/kumiko-bundled-features/delivery";
 import { defineFeature, type FeatureDefinition } from "@cosmicdrift/kumiko-framework/engine";
-import { createSlackChannel, type SlackChannelOptions } from "./slack-channel.js";
+import {
+  createSlackChannel,
+  SLACK_DEFAULT_ALLOWED_HOSTS,
+  type SlackChannelOptions,
+} from "./slack-channel.js";
 
 export function createChannelSlackFeature(options: SlackChannelOptions = {}): FeatureDefinition {
   return defineFeature("channel-slack", (r) => {
@@ -18,6 +24,10 @@ export function createChannelSlackFeature(options: SlackChannelOptions = {}): Fe
     r.requires("delivery");
     r.requires("secrets");
 
+    const webhookTarget = resolveChatWebhookTarget(
+      { defaultAllowedHosts: SLACK_DEFAULT_ALLOWED_HOSTS },
+      options,
+    );
     const webhooks = r.secretNamespace("webhooks", {
       label: { en: "Slack webhooks", de: "Slack-Webhooks", es: "Webhooks de Slack" },
       hint: {
@@ -27,6 +37,7 @@ export function createChannelSlackFeature(options: SlackChannelOptions = {}): Fe
       },
       scope: "tenant",
       nameSchema: chatConnectionNameSchema,
+      valueSchema: chatWebhookUrlSchema(webhookTarget),
     });
 
     const channel = createSlackChannel(options, webhooks.keyFor);
