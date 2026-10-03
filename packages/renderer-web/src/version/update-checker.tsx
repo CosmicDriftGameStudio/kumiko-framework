@@ -16,12 +16,12 @@ import { cn } from "../lib/cn.js";
 // <meta name="kumiko-build"> in die index.html gebacken (build-prod-bundle
 // injectAssetTags). Fehlt im Dev und in alten Bundles → der Checker macht
 // dann nichts (fail-safe).
-type KumikoBuild = {
+export type KumikoBuild = {
   readonly id: string;
   readonly builtAt: string;
 };
 
-function readLoadedBuild(): KumikoBuild | undefined {
+export function readLoadedBuild(): KumikoBuild | undefined {
   if (typeof document === "undefined") return undefined;
   const meta = document.querySelector('meta[name="kumiko-build"]');
   const id = meta?.getAttribute("content");

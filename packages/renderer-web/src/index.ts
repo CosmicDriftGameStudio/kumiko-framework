@@ -182,6 +182,8 @@ export {
 } from "./tokens.js";
 export { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "./ui/resizable.js";
 export { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider } from "./ui/sidebar.js";
+export type { KumikoBuild } from "./version/update-checker.js";
+export { readLoadedBuild } from "./version/update-checker.js";
 export type {
   AiTextAreaProps,
   AiTextFieldProps,

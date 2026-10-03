@@ -10,5 +10,5 @@ feature: server-runtime
 type: fix
 title: Prod builds no longer inject an inline script for the build info, so strict CSPs without unsafe-inline work without hashes or nonces
 migration: |
-  No code change needed. The build id now lives in <meta name="kumiko-build"> and the UpdateChecker reads it from there. Code that read window.__KUMIKO_BUILD__ directly must read the meta tag (content = id, data-built-at = timestamp) instead.
+  window.__KUMIKO_BUILD__ no longer exists. Code that read it (for example a version footer) now gets undefined and silently renders nothing. Replace the global with readLoadedBuild() from @cosmicdrift/kumiko-renderer-web, which returns { id, builtAt } from the new <meta name="kumiko-build"> tag, and drop the Window augmentation for __KUMIKO_BUILD__. The UpdateChecker needs no change.
 -->
