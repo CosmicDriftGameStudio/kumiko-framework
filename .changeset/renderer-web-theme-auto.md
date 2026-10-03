@@ -12,5 +12,5 @@ feature: renderer-web
 type: added
 title: Theme preference auto follows the OS color scheme live; ThemeToggle and ThemeMenuItem step through light, dark and auto, a stored choice wins, and defineAppTheme accepts defaultColorScheme
 migration: |
-  No code change needed. The toggle now has a third step. To avoid a flash on load, extend the inline script in the host HTML as documented in renderer-web tokens.ts so it also honors the stored value auto.
+  Apps with a theme-restore inline script in their host HTML must update it. The toggle can now store "auto", which an old script that only checks for "dark" treats as light, so dark-mode users see a light flash on load. Use the script from the comment in renderer-web tokens.ts, which also handles "auto" via matchMedia. Under a strict CSP, update the script hash or keep the nonce.
 -->
