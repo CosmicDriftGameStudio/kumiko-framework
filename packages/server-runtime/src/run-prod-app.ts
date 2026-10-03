@@ -587,17 +587,18 @@ export type RunProdAppOptions = {
    *  ist eine Begründung für den Audit-Trail (z.B. "kms rollout pending,
    *  infra#188"). Ohne Flag und ohne `kms` bricht der Boot ab. */
   readonly allowPlaintextPii?: string;
-  /** Deploy-Topologie. Default `true` (Single-Container): dieser Prozess
-   *  fährt HTTP + BEIDE Job-Lanes (api + worker) + den Event-Dispatcher
-   *  (MSP-Anwendung) inline — via `createAllInOneEntrypoint`. Damit laufen
-   *  worker-Lane-Crons (z.B. der Daten-Export `run-export-jobs`, default
-   *  `runIn:"worker"`) und r.multiStreamProjection ohne separaten Worker.
+  /** Deploy topology. Default `true` (single container): this process runs
+   *  HTTP, both job lanes (api + worker) and the event dispatcher (MSP apply)
+   *  inline via `createAllInOneEntrypoint`. Worker-lane crons (e.g. the data
+   *  export `run-export-jobs`, default `runIn:"worker"`), the delivery jobs
+   *  `delivery.render`/`delivery.send` (worker lane; mail, push and chat
+   *  delivery) and r.multiStreamProjection then run without a separate worker.
    *
-   *  `false` NUR mit einem dezidierten Worker-Deployment setzen: dann fährt
-   *  dieser Prozess API-only (`createApiEntrypoint`), und worker-Lane-Jobs
-   *  + MSPs werden NICHT mehr lokal angewandt — der Worker muss sie
-   *  übernehmen, sonst bleiben Export-Jobs pending und die Read-Side leer
-   *  (2026-06-11-Incident-Klasse). */
+   *  Set `false` ONLY with a dedicated worker deployment: this process then
+   *  runs API-only (`createApiEntrypoint`) and no longer applies worker-lane
+   *  jobs or MSPs locally. The worker has to take them over, otherwise export
+   *  jobs and queued delivery attempts (email/push/chat) stay pending and the
+   *  read side stays empty (2026-06-11 incident class). */
   readonly runSingleInstance?: boolean;
   /** Job-Block. Wenn das Feature `r.job(...)` registriert, wird er
    *  automatisch verdrahtet (siehe runSingleInstance). */

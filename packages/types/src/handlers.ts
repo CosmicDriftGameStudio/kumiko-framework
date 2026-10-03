@@ -371,14 +371,49 @@ export type NotifyOptions = {
   // forget-subject can reach recipientAddress under this subject. Ignored on
   // the `to` path — there the resolved user id is the recipientId, silently.
   readonly recipientId?: string;
+  // Deliver queued channels (email/push/chat) inline for this call, so the
+  // result carries sent/failed instead of queued. Deliberately bypasses the
+  // job pipeline and with it its retry — meant for "send test message" handlers.
+  readonly immediate?: boolean;
+};
+
+export type NotifyDeliveryStatus = "queued" | "sent" | "failed" | "skipped";
+
+export type NotifyDelivery = {
+  readonly channel: string;
+  readonly recipientId: string | null;
+  readonly status: NotifyDeliveryStatus;
+  readonly error: string | null;
+  // Set for queued attempts; the terminal event lands on the same attempt stream.
+  readonly deliveryAttemptId?: string;
+};
+
+export type NotifyResult = {
+  readonly deliveries: readonly NotifyDelivery[];
 };
 
 // Minimal interface for delivery notifications (concrete type in bundled-features/delivery)
-export type NotifyFn = (notificationType: string, options: NotifyOptions) => Promise<void>;
+export type NotifyFn = (notificationType: string, options: NotifyOptions) => Promise<NotifyResult>;
 
-// Factory that produces a bound NotifyFn for a specific user+tenant
+// Structural subset of the concrete JobRunner that delivery needs to hand
+// queued channels to the delivery.render/delivery.send jobs.
+export type NotifyJobDispatcher = {
+  dispatch(
+    jobName: string,
+    payload: Record<string, unknown>,
+    meta?: { readonly priority?: number },
+  ): Promise<unknown>;
+};
+
+// Factory that produces a bound NotifyFn for a specific user+tenant. The
+// dispatcher is the calling context's job runner; absent means queued
+// channels deliver inline.
 // Concrete implementation in bundled-features/delivery (cross-package boundary)
-export type NotifyFactory = (user: SessionUser, tenantId: TenantId) => NotifyFn;
+export type NotifyFactory = (
+  user: SessionUser,
+  tenantId: TenantId,
+  jobDispatcher?: NotifyJobDispatcher,
+) => NotifyFn;
 
 export type EscapeHatchKind =
   | "unsafe-raw"

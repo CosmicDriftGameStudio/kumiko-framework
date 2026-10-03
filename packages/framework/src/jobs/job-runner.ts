@@ -916,7 +916,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // must resolve for jobs the same way they do for write-handlers, or an
     // app-author job calling ctx.notify(...)/ctx.config(...) hits a TypeError
     // at runtime the write-handler path never would (framework#1532).
-    const notify = context._notifyFactory?.(jobSystemUser, tenantId);
+    const notify = context._notifyFactory?.(jobSystemUser, tenantId, selfRunner);
     const configDb = context.db as DbConnection | undefined; // @cast-boundary db-operator
     // Shared by the config accessor and ctx.derivatives below — both need the
     // same tenant-scoped db, and building it twice would let the two calls

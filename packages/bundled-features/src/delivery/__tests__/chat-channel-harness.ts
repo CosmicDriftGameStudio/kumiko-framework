@@ -8,7 +8,10 @@ import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { createSystemDbView, createTenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type { FeatureDefinition, JobContext } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
-import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
+import {
+  createEnvMasterKeyProvider,
+  type SecretsContext,
+} from "@cosmicdrift/kumiko-framework/secrets";
 import {
   createTestUser,
   setupTestStack,
@@ -95,6 +98,8 @@ export type AttemptRow = {
 
 export type ChatHarness = {
   readonly stack: TestStack;
+  readonly secrets: SecretsContext;
+  buildJobContext(jobRunner?: unknown): JobContext;
   readonly attemptRows: AttemptRow[];
   setSecret(key: string, value: string): Promise<void>;
   // Notifies via route, runs the dispatched delivery.send job, returns the attempt row.
@@ -106,7 +111,7 @@ export type ChatHarness = {
   cleanup(): Promise<void>;
 };
 
-const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
+export const tenantAdmin = createTestUser({ roles: ["TenantAdmin"] });
 
 let notificationCounter = 0;
 
@@ -144,8 +149,25 @@ export async function setupChatHarness(channelFeature: FeatureDefinition): Promi
   const secrets = createSecretsContext({ db, masterKeyProvider });
   const attemptRows: AttemptRow[] = [];
 
+  // Mirrors what job-runner.ts builds for a systemScope()'d job.
+  function buildJobContext(jobRunner?: unknown): JobContext {
+    return {
+      db,
+      registry: stack.registry,
+      secrets,
+      ...(jobRunner !== undefined && { jobRunner }),
+      systemDb: createSystemDbView(
+        createTenantDb(db, tenantAdmin.tenantId, "system", undefined, undefined, undefined, {
+          unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
+        }),
+      ),
+    } as unknown as JobContext; // @cast-boundary test-seam — fields the delivery jobs read
+  }
+
   return {
     stack,
+    secrets,
+    buildJobContext,
     attemptRows,
     async setSecret(key, value) {
       await stack.http.writeOk("secrets:write:set", { key, value }, tenantAdmin);
@@ -174,17 +196,7 @@ export async function setupChatHarness(channelFeature: FeatureDefinition): Promi
       const sendJob = dispatched.find((d) => d.name === DeliveryJobs.send);
       if (!sendJob) throw new Error("delivery.send was not dispatched");
 
-      // Mirrors what job-runner.ts builds for a systemScope()'d job.
-      const jobContext = {
-        db,
-        registry: stack.registry,
-        secrets,
-        systemDb: createSystemDbView(
-          createTenantDb(db, tenantAdmin.tenantId, "system", undefined, undefined, undefined, {
-            unsafeRaw: { reason: "test: job context mirrors systemScope() grant" },
-          }),
-        ),
-      } as unknown as JobContext; // @cast-boundary test-seam — fields deliverySendJob reads
+      const jobContext = buildJobContext();
       await deliverySendJob(sendJob.payload, jobContext);
 
       const rows = await selectMany<AttemptRow>(db, deliveryAttemptsTable, { notificationType });

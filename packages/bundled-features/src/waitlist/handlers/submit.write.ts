@@ -63,7 +63,7 @@ async function hasOpenEntryForEmail(email: string, ctx: HandlerContext): Promise
 async function sendBestEffort(
   ctx: HandlerContext,
   label: string,
-  send: (notify: NonNullable<HandlerContext["notify"]>) => Promise<void>,
+  send: (notify: NonNullable<HandlerContext["notify"]>) => Promise<unknown>,
 ): Promise<void> {
   try {
     if (!ctx.notify) {
