@@ -12,7 +12,7 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { CodegenResult } from "../run-codegen.js";
-import { watchAndRegenerate } from "../watch.js";
+import { isCodegenRelevantChange, watchAndRegenerate } from "../watch.js";
 
 const TEST_FIXTURE_DIR = join(__dirname, ".tmp-fixtures");
 const createdDirs: string[] = [];
@@ -170,53 +170,25 @@ export default defineFeature("orders", (r) => {
     expect(() => handle.close()).not.toThrow();
   });
 
-  test("non-ts file changes do not trigger codegen", async () => {
-    // Negative-assertion shape: prove that .css/.md changes do NOT add
-    // a codegen result. Naïve "sleep N ms then assert length stayed"
-    // is racy on macOS, where fs.watch can deliver stale events from
-    // pre-watcher writes after the watcher is attached. We sidestep
-    // that by anchoring on a POSITIVE control: a known-triggering .ts
-    // change at the end. waitFor proves the watcher is alive — so the
-    // pre-trigger count is trustworthy.
-    const appRoot = makeAppDir();
-    writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("ignore-css", "evt"));
-
-    const results: CodegenResult[] = [];
-    const handle = watchAndRegenerate({
-      appRoot,
-      debounceMs: 30,
-      onResult: (r) => results.push(r),
-    });
-    expect(results).toHaveLength(1);
-
-    // Drain any stale events from the pre-watcher feature.ts write —
-    // some platforms deliver these to a watcher attached after the
-    // write. Long enough to outlast debounce + scheduler jitter.
-    await new Promise((r) => setTimeout(r, 200));
-    const baseline = results.length;
-
-    // Non-ts writes — the regression we want to catch.
-    writeFile(appRoot, "src/styles.css", `body { color: red; }`);
-    writeFile(appRoot, "src/README.md", `# hi`);
-    await new Promise((r) => setTimeout(r, 200));
-    const afterNonTs = results.length;
-
-    // Positive control: a .ts change MUST trigger. waitFor exits as
-    // soon as the new result lands, confirming the watcher is alive.
-    // Re-touched on retry in case the triggering event is dropped
-    // rather than merely delayed under a loaded fs.watch backlog.
-    const triggerRewrite = () =>
-      writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("ignore-css", "after"));
-    triggerRewrite();
-    await waitFor(() => results.length > afterNonTs, {
-      timeout: 12000,
-      label: "ts-change result after non-ts noise",
-      retry: triggerRewrite,
-    });
-
-    // The non-ts writes should not have advanced the count past the
-    // baseline. If they did, the watcher's filter is broken.
-    expect(afterNonTs).toBe(baseline);
-    handle.close();
-  }, 15000);
+  // The filter is checked as a pure function: a negative assertion over real
+  // fs.watch events is racy, because macOS can deliver an event for a write
+  // made before the watcher attached at any later point and inflate the count.
+  test("only production .ts/.tsx changes are codegen-relevant", () => {
+    const relevant = ["feature.ts", "nested/screen.tsx", "nested\\win.ts"];
+    const ignored = [
+      "styles.css",
+      "README.md",
+      "config.json",
+      "types.generated.d.ts",
+      "feature.test.ts",
+      "screen.test.tsx",
+      "node_modules/dep/index.ts",
+      ".kumiko/out.ts",
+      "dist/bundle.ts",
+      "dist-server/entry.ts",
+      "__tests__/helper.ts",
+    ];
+    expect(relevant.filter(isCodegenRelevantChange)).toEqual(relevant);
+    expect(ignored.filter(isCodegenRelevantChange)).toEqual([]);
+  });
 });
