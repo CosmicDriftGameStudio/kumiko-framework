@@ -4,6 +4,7 @@ import {
   crossTenantOverrideDenied,
   defineQueryHandler,
   type QueryHandlerDefinition,
+  type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
@@ -71,10 +72,15 @@ export function createCapsUsageQuery(
           : assignmentRows;
       const tier = checkedRows[0]?.tier ?? "";
 
+      // Override path: limits must read the TARGET tenant's config, not the
+      // SystemAdmin caller's.
+      const config =
+        override === undefined ? ctx.config : ctx.configFor?.(targetTenantId as TenantId);
+
       const rows: CapUsageWithMeta[] = await Promise.all(
         caps.map(async (cap) => {
           const used = await cap.usage(db, targetTenantId);
-          const limit = await cap.limit(tier, { config: ctx.config });
+          const limit = await cap.limit(tier, { config });
           const base = {
             id: cap.id,
             label: cap.label,

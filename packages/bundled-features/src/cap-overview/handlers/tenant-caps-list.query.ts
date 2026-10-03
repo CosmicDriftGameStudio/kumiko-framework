@@ -1,6 +1,11 @@
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { buildEntityTable, decodeCursor, encodeCursor } from "@cosmicdrift/kumiko-framework/db";
-import { definePagedQueryHandler, MAX_LIST_LIMIT } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  type ConfigAccessor,
+  definePagedQueryHandler,
+  MAX_LIST_LIMIT,
+  type TenantId,
+} from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError, ValidationError } from "@cosmicdrift/kumiko-framework/errors";
 import * as z from "zod";
 import { subscriptionsProjectionTable } from "../../billing-foundation/index.js";
@@ -51,21 +56,24 @@ type FilterOp = z.infer<typeof FILTER_OP>;
 const SORTABLE_FIELDS = ["name", "tier", "billing"] as const;
 type SortableField = (typeof SORTABLE_FIELDS)[number];
 
-function capTierKey(capId: string, tier: string): string {
-  return JSON.stringify([capId, tier]);
+function tenantCapKey(tenantId: string, capId: string): string {
+  return JSON.stringify([tenantId, capId]);
 }
 
-async function resolveLimitsByCapAndTier(
+// One config accessor per tenant: limits may read tenant-scoped config keys, so
+// a limit shared across tenants of the same tier would show the wrong value.
+async function resolveLimitsByTenantAndCap(
   caps: readonly CapSpec[],
-  tiers: ReadonlySet<string>,
-  context: CapLimitContext,
+  tenants: readonly { readonly tenantId: string; readonly tier: string }[],
+  configFor: ((tenantId: TenantId) => ConfigAccessor) | undefined,
 ): Promise<ReadonlyMap<string, number | null>> {
   const entries = await Promise.all(
-    caps.flatMap((cap) =>
-      [...tiers].map(
-        async (tier) => [capTierKey(cap.id, tier), await cap.limit(tier, context)] as const,
-      ),
-    ),
+    tenants.flatMap(({ tenantId, tier }) => {
+      const context: CapLimitContext = { config: configFor?.(tenantId as TenantId) };
+      return caps.map(
+        async (cap) => [tenantCapKey(tenantId, cap.id), await cap.limit(tier, context)] as const,
+      );
+    }),
   );
   return new Map(entries);
 }
@@ -257,10 +265,10 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
         }),
       );
 
-      const limitByCapAndTier = await resolveLimitsByCapAndTier(
+      const limitByTenantAndCap = await resolveLimitsByTenantAndCap(
         listedCaps,
-        new Set(page.map((row) => row.tier)),
-        { config: ctx.config },
+        page,
+        ctx.configFor,
       );
 
       const rows: TenantCapsListRow[] = page.map((row) => {
@@ -270,7 +278,7 @@ export function createTenantCapsListQuery(caps: readonly CapSpec[], listCaps: re
           // only an explicit `null` value means "not measured".
           const rawUsed = usageByCap.get(cap.id)?.get(row.tenantId);
           const used = rawUsed === undefined ? 0 : rawUsed;
-          const limit = limitByCapAndTier.get(capTierKey(cap.id, row.tier)) ?? null;
+          const limit = limitByTenantAndCap.get(tenantCapKey(row.tenantId, cap.id)) ?? null;
           capFields[capFieldName(cap.id)] =
             used === null
               ? { used: null, limit, fraction: 0 }
