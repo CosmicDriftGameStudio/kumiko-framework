@@ -4135,6 +4135,26 @@ function mapFailedConfigCommandIssuesToField(
   };
 }
 
+// A number/money field without a declared default starts empty: buildInitialValues
+// maps it to 0, which a save would persist as a deliberate "0" override.
+function buildConfigEditDefaults(
+  fields: ConfigEditScreenDefinition["fields"],
+): Record<string, unknown> {
+  const defaults = buildInitialValues(fields) as Record<string, unknown>; // @cast-boundary render-helper
+  for (const [shortName, fieldDef] of Object.entries(fields)) {
+    const { type, default: fieldDefault } = fieldDef as { type?: string; default?: unknown }; // @cast-boundary schema-walk
+    if ((type === "number" || type === "money") && fieldDefault === undefined) {
+      defaults[shortName] = undefined;
+    }
+  }
+  return defaults;
+}
+
+function isEmptyNumericFormValue(value: unknown): boolean {
+  if (value === undefined || value === null || value === "") return true;
+  return typeof value === "number" && !Number.isFinite(value);
+}
+
 function ConfigEditBody({
   schema,
   screen,
@@ -4168,7 +4188,7 @@ function ConfigEditBody({
   const initial = useMemo<FormValues | null>(() => {
     if (valuesQuery.data === null) return null;
     const out: Record<string, unknown> = {};
-    const defaults = buildInitialValues(screen.fields) as Record<string, unknown>; // @cast-boundary render-helper
+    const defaults = buildConfigEditDefaults(screen.fields);
     for (const [shortName, fieldDef] of Object.entries(screen.fields)) {
       const qualified = screen.configKeys[shortName];
       if (qualified === undefined) {
@@ -4265,6 +4285,18 @@ function ConfigEditBody({
         // value. set can't do it: deleting the row is irreversible, reset is
         // the high-risk handler.
         if (ftype === "select" && fieldDef?.optionsQuery !== undefined && value === "") {
+          commandFieldNames.push(shortName);
+          commands.push({
+            type: "config:write:reset",
+            payload: { key: qualified, scope: screen.scope },
+          });
+          continue;
+        }
+        // Cleared number/money: drop this scope's override instead of storing an empty value.
+        if (
+          (ftype === "number" || ftype === "money") &&
+          isEmptyNumericFormValue(ftype === "money" ? unwrapMoneyValue(value) : value)
+        ) {
           commandFieldNames.push(shortName);
           commands.push({
             type: "config:write:reset",

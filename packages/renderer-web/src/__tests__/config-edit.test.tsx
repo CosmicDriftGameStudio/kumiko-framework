@@ -907,3 +907,140 @@ describe("KumikoScreen / configEdit write-only secret keys", () => {
     expect(input.placeholder).toBe("");
   });
 });
+
+describe("KumikoScreen / configEdit empty number fields", () => {
+  const limitScreen: ConfigEditScreenDefinition = {
+    id: "limits",
+    type: "configEdit",
+    scope: "tenant",
+    configKeys: {
+      siteName: "demo:config:site-name",
+      limit: "demo:config:limit",
+      retries: "demo:config:retries",
+    },
+    fields: {
+      siteName: { type: "text" },
+      limit: { type: "number" },
+      retries: { type: "number", default: 3 },
+      // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+    } as ConfigEditScreenDefinition["fields"],
+    layout: { sections: [{ title: "Limits", fields: ["siteName", "limit", "retries"] }] },
+  };
+  const limitSchema: FeatureSchema = { featureName: "demo", entities: {}, screens: [limitScreen] };
+
+  async function renderLimitScreen(stored: Record<string, unknown>) {
+    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const data = Object.fromEntries(
+      Object.entries(stored).map(([key, value]) => [key, { value, scope: "tenant" }]),
+    );
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({ isSuccess: true, data })) as unknown as Dispatcher["query"],
+      batch: batchSpy as unknown as Dispatcher["batch"],
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={limitSchema} qn="demo:screen:limits" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const inputOf = (field: string): HTMLInputElement => {
+      const input = screen.getByTestId(`field-${field}`).querySelector("input");
+      if (!input) throw new Error(`expected ${field} input`);
+      return input;
+    };
+    return { batchSpy, user, inputOf };
+  }
+
+  test("a number field without default and without stored value renders empty", async () => {
+    const { inputOf } = await renderLimitScreen({});
+
+    expect(inputOf("limit").value).toBe("");
+  });
+
+  test("saving another field sends no command for the untouched empty number", async () => {
+    const { batchSpy, user, inputOf } = await renderLimitScreen({});
+
+    await user.type(inputOf("siteName"), "Globex");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:site-name", value: "Globex", scope: "tenant" },
+      },
+    ]);
+  });
+
+  test("an explicitly typed 0 is saved as a set; a stored 0 shows as 0", async () => {
+    const { batchSpy, user, inputOf } = await renderLimitScreen({});
+
+    await user.type(inputOf("limit"), "0");
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      {
+        type: "config:write:set",
+        payload: { key: "demo:config:limit", value: 0, scope: "tenant" },
+      },
+    ]);
+
+    document.body.innerHTML = "";
+    const reloaded = await renderLimitScreen({ "demo:config:limit": 0 });
+    expect(reloaded.inputOf("limit").value).toBe("0");
+  });
+
+  test("a number field with a default and no stored value shows the default", async () => {
+    const { inputOf } = await renderLimitScreen({});
+
+    expect(inputOf("retries").value).toBe("3");
+  });
+
+  test("clearing a stored number sends a reset for that key", async () => {
+    const { batchSpy, user, inputOf } = await renderLimitScreen({ "demo:config:limit": 25 });
+
+    await user.clear(inputOf("limit"));
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      { type: "config:write:reset", payload: { key: "demo:config:limit", scope: "tenant" } },
+    ]);
+  });
+
+  test("clearing a stored money value sends a reset for that key", async () => {
+    const batchSpy = mock(async (_commands: ReadonlyArray<{ type: string; payload: unknown }>) => ({
+      isSuccess: true as const,
+      results: [],
+    }));
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async () => ({
+        isSuccess: true,
+        data: { "demo:config:price-limit": { value: 12.99, scope: "tenant" } },
+      })) as unknown as Dispatcher["query"],
+      batch: batchSpy as unknown as Dispatcher["batch"],
+    });
+    const user = userEvent.setup();
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={moneySchema} qn="demo:screen:money-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    const priceInput = screen.getByTestId("field-priceLimit").querySelector("input");
+    if (!priceInput) throw new Error("expected priceLimit input");
+
+    await user.clear(priceInput);
+    await user.click(screen.getByTestId("render-edit-submit"));
+
+    await waitFor(() => expect(batchSpy).toHaveBeenCalledTimes(1));
+    expect(batchSpy.mock.calls[0]?.[0]).toEqual([
+      { type: "config:write:reset", payload: { key: "demo:config:price-limit", scope: "tenant" } },
+    ]);
+  });
+});

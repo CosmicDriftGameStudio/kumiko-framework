@@ -115,6 +115,8 @@ const ordersFeature = defineFeature("orders", (r) => {
   return r.config({
     keys: {
       maxOrderCount: createTenantConfig("number", { default: 100, write: access.roles("Admin") }),
+      // No default and never set: resetting it must be a no-op.
+      unsetQuota: createTenantConfig("number", { write: access.roles("Admin") }),
       // Scenario 7: numeric key with bounds — reject-path for out-of-range values.
       maxUploadSizeMB: createTenantConfig("number", {
         default: 10,
@@ -1251,6 +1253,24 @@ describe("configValue lifecycle events", () => {
           "invoicing:config:mail-signature",
     );
     expect(deletes.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("reset of a number key that was never set succeeds as a no-op", async () => {
+    const key = "orders:config:unset-quota";
+    const eventsBefore = await selectMany(db, eventsTable, { aggregateType: "config-value" });
+
+    await stack.http.writeOk(ConfigHandlers.reset, { key }, tenantAdmin);
+
+    const configFn = createConfigAccessor(
+      stack.registry,
+      resolver,
+      tenantAdmin.tenantId,
+      tenantAdmin.id,
+      db,
+    );
+    expect(await configFn(key)).toBeUndefined();
+    const eventsAfter = await selectMany(db, eventsTable, { aggregateType: "config-value" });
+    expect(eventsAfter.length).toBe(eventsBefore.length);
   });
 
   test("first set on a fresh key emits configValue.created with key + serialized value", async () => {
