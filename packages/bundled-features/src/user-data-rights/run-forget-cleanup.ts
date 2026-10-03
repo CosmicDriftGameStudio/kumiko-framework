@@ -1,11 +1,13 @@
 // Forget-Cleanup-Runner (S2.U5b) — pure-Function Pipeline.
 //
-// Nach abgelaufener Grace-Period (S2.U5a setzt gracePeriodEnd) iteriert
-// dieser Runner ueber alle User in DeletionRequested-State und triggert
-// die EXT_USER_DATA-delete-Hooks pro Membership-Tenant.
+// After the grace period (S2.U5a sets gracePeriodEnd) this runner iterates
+// over all users in DeletionRequested state and triggers the EXT_USER_DATA
+// delete hooks in every tenant the user is or was a member of (membership
+// history from kumiko_events).
 //
-// **Cross-Tenant-Iteration:** Ein User-Forget-Antrag in Tenant A muss
-// die Daten des Users in ALLEN seinen Tenants entfernen — siehe
+// **Cross-tenant iteration:** a forget request in tenant A must remove the
+// user's data in ALL of their tenants, including tenants they left before
+// the request — see
 // docs/plans/architecture/user-data-rights.md "Cross-Tenant-Semantik".
 //
 // **Strategy-Dispatch:** Pro Entity entscheidet die data-retention-
@@ -390,16 +392,18 @@ async function processUser(args: {
   // [] in Email-args; App-Author-Template kann das case-handlen.
   const tenantIdsBeforeDelete: readonly TenantId[] = memberships.map((m) => m.tenantId);
 
-  // Edge-Case "0 Memberships": User hat alle Tenants schon verlassen
-  // bevor Forget triggerte. Wir laufen den Hook-Loop trotzdem mit einem
-  // Pseudo-Tenant — der user-Hook (user-data-rights-defaults) ist
-  // tenant-agnostisch und MUSS laufen damit email/displayName/passwordHash
-  // anonymisiert werden. Tenant-scoped Hooks (z.B. fileRefDeleteHook)
-  // finden im Pseudo-Tenant nichts und sind no-op. Ohne diesen Pfad
-  // wuerde status=Deleted gesetzt waehrend Original-PII liegen bleibt
-  // — sieht compliant aus, ist es nicht (advisor-Finding S2.U5b.fix1).
+  // Departed tenants: removeMember deletes only the projection row, so data
+  // the user left behind there (e.g. note mentions) must still be reached.
+  const historicalTenantIds = await readHistoricalMembershipTenantIds(db, userId);
+  const hookTenantIds = [...new Set([...tenantIdsBeforeDelete, ...historicalTenantIds])];
+
+  // Edge case "0 tenants" (neither membership nor history): the hook loop still
+  // runs with a pseudo tenant. The user hook is tenant-agnostic and MUST run so
+  // email/displayName/passwordHash get anonymized; tenant-scoped hooks find
+  // nothing there and no-op. Without this path status=Deleted would be set
+  // while the original PII stays — compliant-looking, but not compliant.
   const tenantList: TenantId[] =
-    memberships.length > 0 ? memberships.map((m) => m.tenantId) : [SYSTEM_TENANT_ID_FOR_ORPHANS];
+    hookTenantIds.length > 0 ? hookTenantIds : [SYSTEM_TENANT_ID_FOR_ORPHANS];
 
   // Per-User-Sub-Tx: hooks + status-flip atomar. Bei Hook-Throw rollt
   // nur dieser User zurueck, andere User bleiben commit-fest. Die Sub-Tx
@@ -589,7 +593,7 @@ async function resolveEffectiveTenantModel(
 // rows.
 //
 // Filter by payload->>'tenantId' (not the event column tenant_id): cross-
-// tenant SystemAdmin adds land under the actor's tenant_id (#2347).
+// tenant SystemAdmin adds land under the actor's tenant_id.
 //
 // Counting created-ROWS against distinct userIds latched a tenant to
 // multi-user as soon as its sole member was removed and re-added (#2608) —
@@ -621,6 +625,26 @@ async function everHadMultipleMembers(db: DbRunner, tenantId: TenantId): Promise
   // Unreadable / missing userId payloads: fail-safe to multi-user, each one
   // could name a second member.
   return row.event_count > row.readable_users;
+}
+
+// Filter by payload (not the event column tenant_id) for the same reason as
+// everHadMultipleMembers: cross-tenant SystemAdmin adds are billed to the
+// actor's tenant.
+async function readHistoricalMembershipTenantIds(
+  db: DbRunner,
+  userId: string,
+): Promise<TenantId[]> {
+  const rows = await executeRawQuery<{ tenant_id: string }>(
+    db,
+    `SELECT DISTINCT payload->>'tenantId' AS tenant_id
+     FROM kumiko_events
+     WHERE aggregate_type = 'tenant-membership'
+       AND type = $1
+       AND payload->>'userId' = $2
+       AND NULLIF(payload->>'tenantId', '') IS NOT NULL`,
+    [entityEventName("tenant-membership", "created"), userId],
+  );
+  return rows.map((row) => row.tenant_id as TenantId); // @cast-boundary db-row
 }
 
 // Mapping retention.strategy → user-data-rights.UserDataDeleteStrategy.
