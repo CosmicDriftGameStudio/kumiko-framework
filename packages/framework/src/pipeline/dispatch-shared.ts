@@ -12,6 +12,7 @@ import {
 } from "../db/tenant-db.js";
 import { createDerivativesContext } from "../derivatives/derivatives-context.js";
 import type { defineTransitions } from "../engine/state-machine.js";
+import { createSystemUser } from "../engine/system-user.js";
 import type { EffectiveFeaturesResolver } from "../engine/tier-resolver-extension.js";
 import type { TenantId } from "../engine/types/identifiers.js";
 import type {
@@ -21,6 +22,7 @@ import type {
   AppendEventArgs,
   AppendEventFn,
   AuthClaimsContext,
+  ConfigAccessor,
   FetchForWritingArgs,
   HandlerContext,
   JobRunnerRef,
@@ -33,6 +35,7 @@ import type {
 } from "../engine/types/index.js";
 import { isRateLimitDisabled, resolveAgentExposure } from "../engine/types/index.js";
 import {
+  AccessDeniedError,
   FeatureDisabledError,
   InternalError,
   memberResolutionReadOnlyDenied,
@@ -386,6 +389,29 @@ export async function buildHandlerContext(
           db,
           secrets: context.secrets,
         })
+      : undefined;
+  // Cross-tenant accessor for SystemAdmin/system callers. The
+  // identity is the target tenant's system user so the caller's own user-scope
+  // values never resolve into another tenant's config; the db is tenant-mode
+  // scoped to the target.
+  const configFactory = context._configAccessorFactory;
+  const configFor =
+    configFactory && dbSource
+      ? (targetTenantId: TenantId): ConfigAccessor => {
+          if (targetTenantId === user.tenantId && config) return config;
+          if (!isSystemIdentity(user) && !user.roles.includes("SystemAdmin")) {
+            throw new AccessDeniedError({
+              message: "ctx.configFor(otherTenant) requires the system role or SystemAdmin",
+              details: { reason: "config_for_requires_system_admin" },
+            });
+          }
+          const targetSystemUser = createSystemUser(targetTenantId);
+          return configFactory({
+            user: { id: targetSystemUser.id, tenantId: targetTenantId },
+            db: createTenantDb(dbSource, targetTenantId, "tenant", context.tracer, context.meter),
+            secrets: context.secrets,
+          });
+        }
       : undefined;
   // ctx.files resolved per-tenant through file-foundation (lazy — the
   // provider is only resolved when a handle actually does I/O). Boot wires
@@ -838,6 +864,7 @@ export async function buildHandlerContext(
     log,
     notify,
     ...(config && { config }),
+    ...(configFor && { configFor }),
     ...(files && { files }),
     ...(derivatives && { derivatives }),
     // preSave hooks need `changes`/`previous`/`isNew`, which only exist once

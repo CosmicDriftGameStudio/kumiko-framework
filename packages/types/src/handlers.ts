@@ -409,6 +409,14 @@ type SharedContextFields = {
   readonly jobRunner?: JobRunnerRef;
   readonly configResolver?: ConfigResolver;
   readonly config?: ConfigAccessor;
+  /**
+   * Config accessor resolved for ANOTHER tenant, identity = that tenant's system
+   * user (the caller's user-scope config never leaks in). Cross-tenant calls
+   * throw AccessDeniedError unless the caller is a system identity or has the
+   * SystemAdmin role; the caller's own tenant needs no privilege. Present when
+   * the config feature wired its accessor factory.
+   */
+  readonly configFor?: (tenantId: TenantId) => ConfigAccessor;
   readonly _configAccessorFactory?: ConfigAccessorFactory;
   // Encryption round-trip partner for the config feature. Separate from
   // configResolver so the read-only resolver contract stays clean — the
