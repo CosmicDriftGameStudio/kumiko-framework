@@ -11,7 +11,8 @@ import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/iden
 
 export const APP_VERSION_ENV = "KUMIKO_APP_VERSION";
 export const GIT_COMMIT_ENV = "KUMIKO_GIT_COMMIT";
-export const INSTANCE_ID_ENV = "HOSTNAME";
+export const INSTANCE_ID_ENV = "KUMIKO_INSTANCE_ID";
+export const HOSTNAME_ENV = "HOSTNAME";
 export const UNKNOWN_APP_VERSION = "unknown";
 
 type EnvSource = Readonly<Record<string, string | undefined>>;
@@ -36,7 +37,8 @@ export function resolveAppStartedPayload(
   return {
     version: nonEmpty(envSource[APP_VERSION_ENV]) ?? UNKNOWN_APP_VERSION,
     ...(commit !== undefined ? { commit } : {}),
-    instanceId: nonEmpty(envSource[INSTANCE_ID_ENV]) ?? fallbackHostname,
+    instanceId:
+      nonEmpty(envSource[INSTANCE_ID_ENV]) ?? nonEmpty(envSource[HOSTNAME_ENV]) ?? fallbackHostname,
     startedAt,
   };
 }
