@@ -20,7 +20,11 @@ import {
   isLifecycleResult,
   wrapToKumiko,
 } from "./dispatcher-utils.js";
-import { reserveBeforeTransaction, runAsCommand } from "./pre-transaction-reservations.js";
+import {
+  type PreTransactionReservations,
+  reserveBeforeTransaction,
+  runAsCommand,
+} from "./pre-transaction-reservations.js";
 import { effectiveWriteOrigin, isPersonalDataGated, rootWriteOrigin } from "./write-origin.js";
 import { maskBatchResultForClient } from "./write-result-masking.js";
 
@@ -35,6 +39,39 @@ function rewrapHooksWithOrigin(
     if (!original) continue;
     afterCommitHooks[i] = () => runWithWriteOrigin(origin, original);
   }
+}
+
+type ReservedCommandScope = {
+  readonly ctx: DispatchContext;
+  readonly user: SessionUser;
+  readonly inheritedOrigin: WriteOrigin | undefined;
+  readonly reservations: Extract<PreTransactionReservations, { isSuccess: true }>;
+  readonly origins: WriteOrigin[];
+  readonly afterCommitHooks: AfterCommitHook[];
+};
+
+async function runReservedCommand(
+  scope: ReservedCommandScope,
+  cmd: BatchCommand,
+  index: number,
+  tx: Parameters<typeof executeNestedWrite>[5],
+): Promise<WriteResult> {
+  const { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks } = scope;
+  const origin = effectiveWriteOrigin(
+    rootWriteOrigin(ctx.registry, cmd.type, user),
+    inheritedOrigin,
+  );
+  origins.push(origin);
+  const hookStart = afterCommitHooks.length;
+  const res = await runAsCommand(
+    reservations.reservedIndexes.has(index) ? cmd.type : undefined,
+    () =>
+      runWithWriteOrigin(origin, () =>
+        executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
+      ),
+  );
+  rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
+  return res;
 }
 
 // Core batch logic extracted so write() and command() can reuse it
@@ -199,28 +236,12 @@ async function runBatchBody(
     for (let i = 0; i < commands.length; i++) {
       const cmd = commands[i];
       if (!cmd) continue;
-      const origin = effectiveWriteOrigin(
-        rootWriteOrigin(ctx.registry, cmd.type, user),
-        inheritedOrigin,
+      const res = await runReservedCommand(
+        { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
+        cmd,
+        i,
+        undefined,
       );
-      origins.push(origin);
-      const hookStart = afterCommitHooks.length;
-      const res = await runAsCommand(
-        reservations.reservedIndexes.has(i) ? cmd.type : undefined,
-        () =>
-          runWithWriteOrigin(origin, () =>
-            executeNestedWrite(
-              ctx,
-              cmd.type,
-              cmd.payload,
-              user,
-              origin,
-              undefined,
-              afterCommitHooks,
-            ),
-          ),
-      );
-      rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
       results.push(res);
       if (!res.isSuccess) {
         // No tx means no rollback — but we still drop afterCommit hooks,
@@ -240,20 +261,12 @@ async function runBatchBody(
       for (let i = 0; i < commands.length; i++) {
         const cmd = commands[i];
         if (!cmd) continue;
-        const origin = effectiveWriteOrigin(
-          rootWriteOrigin(ctx.registry, cmd.type, user),
-          inheritedOrigin,
+        const res = await runReservedCommand(
+          { ctx, user, inheritedOrigin, reservations, origins, afterCommitHooks },
+          cmd,
+          i,
+          tx,
         );
-        origins.push(origin);
-        const hookStart = afterCommitHooks.length;
-        const res = await runAsCommand(
-          reservations.reservedIndexes.has(i) ? cmd.type : undefined,
-          () =>
-            runWithWriteOrigin(origin, () =>
-              executeNestedWrite(ctx, cmd.type, cmd.payload, user, origin, tx, afterCommitHooks),
-            ),
-        );
-        rewrapHooksWithOrigin(afterCommitHooks, hookStart, origin);
         results.push(res);
         if (!res.isSuccess) {
           throw new BatchRollback(i, res.error);
