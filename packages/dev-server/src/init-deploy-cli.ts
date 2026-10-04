@@ -28,6 +28,16 @@ export type RunInitDeployCliOptions = {
 const USAGE =
   "Usage: kumiko-init-deploy --app <name> [--port <n>] [--github-org <org>] [--out <dir>] [--force | --check]";
 
+const HELP = `${USAGE}
+
+  --app <name>         app name (default: package.json "name" without its @scope/)
+  --port <n>           port the container exposes
+  --github-org <org>   GitHub org for the image reference
+  --out <dir>          project directory to scaffold into (default: cwd)
+  --force              overwrite existing deploy files
+  --check              drift check only, exit 1 if deploy/ is stale
+  -h, --help           print this help and exit`;
+
 const packageNameSchema = z.object({ name: z.string().optional() });
 
 /** package.json `name` without its `@scope/` prefix, if present and valid. */
@@ -109,6 +119,10 @@ export async function runInitDeployCli({
   cwd,
   out,
 }: RunInitDeployCliOptions): Promise<number> {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    out.log(HELP);
+    return 0;
+  }
   const args = parseArgs(argv);
   const force = getFlag(args, "force");
   const check = getFlag(args, "check");

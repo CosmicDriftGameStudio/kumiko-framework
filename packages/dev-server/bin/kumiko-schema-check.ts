@@ -98,7 +98,13 @@ async function readMountedFeatures(runConfigPath: string): Promise<Set<string>> 
   return set;
 }
 
+const USAGE = "Usage: kumiko-schema-check [--run-config <path>] [--generate <path>]";
+
 async function main(): Promise<void> {
+  if (process.argv.slice(2).some((arg) => arg === "--help" || arg === "-h")) {
+    console.log(USAGE);
+    process.exit(0);
+  }
   const args = parseArgs(process.argv.slice(2));
 
   if (!existsSync(args.runConfigPath)) {

@@ -26,9 +26,14 @@ const MAX_CRASHES = 5;
 const CRASH_WINDOW_MS = 10_000;
 const CRASH_BACKOFF_MS = 500;
 
+const USAGE = "Usage: kumiko-dev <server-entry.ts> [server args...]\n";
 const entry = process.argv[2];
+if (entry === "--help" || entry === "-h") {
+  process.stdout.write(USAGE);
+  process.exit(0);
+}
 if (entry === undefined || entry === "") {
-  process.stderr.write("Usage: kumiko-dev <server-entry.ts>\n");
+  process.stderr.write(USAGE);
   process.exit(2);
 }
 
