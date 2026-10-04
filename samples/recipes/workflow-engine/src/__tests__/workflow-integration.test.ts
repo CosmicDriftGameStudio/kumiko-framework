@@ -61,7 +61,7 @@ describe("workflow-engine", () => {
 
     const result = await startAndRunWorkflow({
       runId: "wf-webhook-delivery-1",
-      workflow: webhookDeliveryWorkflow,
+      workflow: webhookDeliveryWorkflow as unknown as WorkflowDefinition,
       triggerEvent: {
         aggregateId: "agg_1",
         type: "data.processed",
