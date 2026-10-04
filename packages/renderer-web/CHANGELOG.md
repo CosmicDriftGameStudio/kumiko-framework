@@ -1,5 +1,15 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.348.1
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-framework@0.348.1
+- @cosmicdrift/kumiko-types@0.348.1
+- @cosmicdrift/kumiko-dispatcher-live@0.348.1
+- @cosmicdrift/kumiko-headless@0.348.1
+- @cosmicdrift/kumiko-renderer@0.348.1
+
 ## 0.348.0
 
 ### Minor Changes
