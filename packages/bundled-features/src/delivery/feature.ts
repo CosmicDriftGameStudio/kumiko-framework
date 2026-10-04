@@ -122,8 +122,14 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
               status: p.status,
               error: p.error,
               priority: p.priority,
+              confirmed: p.confirmed ?? null,
             },
-            { status: p.status, error: p.error, recipientAddress: p.recipientAddress },
+            {
+              status: p.status,
+              error: p.error,
+              recipientAddress: p.recipientAddress,
+              confirmed: p.confirmed ?? null,
+            },
           );
         },
       },
@@ -193,7 +199,7 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
           label: i18nKey("delivery.log.col.channel"),
           renderer: { react: { __component: DELIVERY_CHANNEL_CELL_COMPONENT } },
         },
-        { field: "recipient", label: i18nKey("delivery.log.col.recipient") },
+        { field: "recipientLabel", label: i18nKey("delivery.log.col.recipient") },
         {
           field: "status",
           label: i18nKey("delivery.log.col.status"),

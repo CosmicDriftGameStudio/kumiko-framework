@@ -6,6 +6,7 @@ export {
 } from "./db/queries/stream-tenant-backfill.js";
 export { createUserFeature } from "./feature.js";
 export { isPrincipalBlocked, principalStatusPlugin } from "./principal-status.js";
+export { resolveUserDisplayNames } from "./resolve-display-names.js";
 export type { UserStatus } from "./schema/user.js";
 export {
   USER_ANONYMIZED_DISPLAY_NAME,

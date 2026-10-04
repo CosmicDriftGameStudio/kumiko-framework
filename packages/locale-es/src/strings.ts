@@ -465,6 +465,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "delivery.status.sent": "Enviado",
   "delivery.status.failed": "Fallido",
   "delivery.status.skipped": "Omitido",
+  "delivery.status.sentUnconfirmed": "Enviado (sin confirmar)",
   "delivery.error.timeout": "Tiempo agotado",
   "delivery.error.network_error": "Error de red",
   "delivery.error.redirect_blocked": "Redirección bloqueada",

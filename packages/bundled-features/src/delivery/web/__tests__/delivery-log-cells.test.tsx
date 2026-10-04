@@ -77,6 +77,29 @@ describe("delivery log cells", () => {
     expect(screen.getByText("weird")).toBeTruthy();
   });
 
+  test("status: sent without provider confirmation reads Sent (unconfirmed)", () => {
+    render(
+      <Wrapper>
+        <DeliveryStatusCell
+          value="sent"
+          row={{ status: "sent", confirmed: false }}
+          column={{ field: "status" }}
+        />
+      </Wrapper>,
+    );
+    expect(screen.getByText("Sent (unconfirmed)")).toBeTruthy();
+    render(
+      <Wrapper>
+        <DeliveryStatusCell
+          value="sent"
+          row={{ status: "sent", confirmed: null }}
+          column={{ field: "status" }}
+        />
+      </Wrapper>,
+    );
+    expect(screen.getByText("Sent")).toBeTruthy();
+  });
+
   test("error: code label, http status parameter, raw unknown, empty for null", () => {
     render(cell(DeliveryErrorCell, "error", "send_failed"));
     expect(screen.getByText("Sending failed")).toBeTruthy();

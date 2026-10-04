@@ -1,17 +1,25 @@
 import { selectMany, type WhereObject } from "@cosmicdrift/kumiko-framework/bun-db";
-import { decodeKeysetCursor, encodeKeysetCursor } from "@cosmicdrift/kumiko-framework/db";
+import {
+  decodeKeysetCursor,
+  encodeKeysetCursor,
+  type TenantDb,
+} from "@cosmicdrift/kumiko-framework/db";
 import {
   access,
   type DeliveryErrorCode,
   definePagedQueryHandler,
   isDeliveryErrorCode,
+  isUuid,
   MAX_LIST_LIMIT,
   type NotifyPriority,
+  type Registry,
+  SYSTEM_USER_ID,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { InternalError } from "@cosmicdrift/kumiko-framework/errors";
 import { Temporal } from "temporal-polyfill";
 import * as z from "zod";
 import { decryptStoredPii } from "../../shared/index.js";
+import { resolveUserDisplayNames, USER_FEATURE } from "../../user/index.js";
 import type { DeliveryStatusValue } from "../constants.js";
 import { deliveryAttemptsTable } from "../tables.js";
 
@@ -26,6 +34,7 @@ type DeliveryLogRow = {
   // Legacy rows may hold free text; the handler masks those on the way out.
   error: string | null;
   priority: NotifyPriority;
+  confirmed: boolean | null;
   createdAt: Temporal.Instant;
 };
 
@@ -38,8 +47,9 @@ function toClientError(stored: string | null): DeliveryErrorCode | null {
 // declarative projectionList renderer marks every listed column uniformly
 // sortable and a header click sends `sort=<screen.columns[].field>`, not the
 // DB column name (see projection-list-shim.ts synthesizeProjectionEntity).
-// "recipient" is deliberately absent — it's PII decrypted per-row in
-// application code, so there is no column to ORDER BY in SQL for it.
+// "recipient" is deliberately absent — it's PII (name or decrypted address)
+// resolved in application code, so there is no column to ORDER BY in SQL for it.
+// A click on such a header sends an unlisted sort value and falls back to createdAt.
 const DELIVERY_LOG_SORT_COLUMNS = {
   createdAt: "createdAt",
   tenantId: "tenantId",
@@ -73,6 +83,48 @@ function decodeSortCursor(column: DeliveryLogSortColumn, cursor: string): Decode
   const raw = decoded.sortValue ?? decoded.id;
   const sortValue = column === "createdAt" ? Temporal.Instant.from(raw) : raw;
   return { sortValue, lastId: decoded.sortValue === undefined ? undefined : decoded.id };
+}
+
+// One batched name lookup for the whole page. Only when the user feature is
+// mounted: delivery does not require it, and a direct-address send has no user.
+async function loadDisplayNames(
+  db: TenantDb,
+  registry: Registry,
+  rows: readonly DeliveryLogRow[],
+): Promise<ReadonlyMap<string, string>> {
+  const recipientIds = [
+    ...new Set(
+      rows
+        .map((row) => row.recipientId)
+        .filter((id): id is string => id !== null && id !== SYSTEM_USER_ID && isUuid(id)),
+    ),
+  ];
+  if (recipientIds.length === 0 || registry.getFeature(USER_FEATURE) === undefined)
+    return new Map();
+  return resolveUserDisplayNames(db, recipientIds);
+}
+
+// recipientLabel: display name, else the decrypted address, else the id.
+async function toClientRow(row: DeliveryLogRow, displayNames: ReadonlyMap<string, string>) {
+  const address =
+    row.recipientAddress !== null
+      ? await decryptStoredPii(row.recipientAddress, "recipientAddress", "delivery-log")
+      : null;
+  const name = row.recipientId !== null ? displayNames.get(row.recipientId) : undefined;
+  return {
+    id: row.id,
+    tenantId: row.tenantId,
+    recipientId: row.recipientId,
+    type: row.notificationType,
+    channel: row.channel,
+    recipient: address,
+    recipientLabel: name ?? address ?? row.recipientId,
+    status: row.status,
+    error: toClientError(row.error),
+    priority: row.priority,
+    confirmed: row.confirmed,
+    createdAt: row.createdAt,
+  };
 }
 
 export const logQuery = definePagedQueryHandler({
@@ -161,24 +213,9 @@ export const logQuery = definePagedQueryHandler({
     // here, not in the client: a projectionList screen has no entity to
     // derive a field-mapping from, so the row shape the query returns is the
     // shape the declarative columns read directly.
+    const displayNames = await loadDisplayNames(db, ctx.registry, rows);
     return {
-      rows: await Promise.all(
-        rows.map(async (row) => ({
-          id: row.id,
-          tenantId: row.tenantId,
-          recipientId: row.recipientId,
-          type: row.notificationType,
-          channel: row.channel,
-          recipient:
-            row.recipientAddress !== null
-              ? await decryptStoredPii(row.recipientAddress, "recipientAddress", "delivery-log")
-              : row.recipientAddress,
-          status: row.status,
-          error: toClientError(row.error),
-          priority: row.priority,
-          createdAt: row.createdAt,
-        })),
-      ),
+      rows: await Promise.all(rows.map((row) => toClientRow(row, displayNames))),
       nextCursor,
     };
   },

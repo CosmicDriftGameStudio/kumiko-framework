@@ -31,6 +31,8 @@ export const deliveryAttemptSchema = z.object({
     ])
     .nullable(),
   priority: z.enum(["critical", "normal", "low"]),
+  // Provider accepted the request but does not confirm delivery (e.g. Teams 202).
+  confirmed: z.literal(false).optional(),
 });
 
 export type DeliveryAttemptPayload = z.infer<typeof deliveryAttemptSchema>;

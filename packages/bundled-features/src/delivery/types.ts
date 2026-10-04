@@ -96,6 +96,7 @@ export type DeliveryLogEntry = {
   readonly status: NotifyDeliveryStatus;
   readonly error: DeliveryErrorCode | null;
   readonly priority: NotifyPriority;
+  readonly confirmed?: false;
 };
 
 // --- Delivery Service ---
