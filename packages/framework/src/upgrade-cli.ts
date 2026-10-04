@@ -464,10 +464,18 @@ function carryOf(read: MarkerRead): MarkerCarry {
   return read.kind === "ok" ? read.marker : NO_CARRY;
 }
 
+// The marker file is editable repo content; a tampered title must not reach
+// the terminal as an escape sequence.
+function printable(text: string): string {
+  return text.replace(/\p{Cc}/gu, "");
+}
+
 function logOpenManual(out: UpgradeCliOut, open: readonly UpgradeMarkerManual[]): void {
   if (open.length === 0) return;
   out.log(`  ⚠ ${open.length} manual migration(s) still open:`);
-  for (const entry of open) out.log(`    ${entry.id} · ${entry.version} · ${entry.title}`);
+  for (const entry of open) {
+    out.log(`    ${printable(entry.id)} · ${printable(entry.version)} · ${printable(entry.title)}`);
+  }
   out.log(
     '  Migrate them by hand, then mark them done: kumiko-upgrade --resolve <id|version> --reason "<what you did>" [--not-applicable]',
   );
@@ -682,7 +690,9 @@ function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir
   });
   out.log("");
   out.log(`  ✓ Marked ${newlyResolved.length} manual migration(s) as ${resolution}:`);
-  for (const entry of newlyResolved) out.log(`    ${entry.id} · ${entry.title}`);
+  for (const entry of newlyResolved) {
+    out.log(`    ${printable(entry.id)} · ${printable(entry.title)}`);
+  }
   if (remaining.length > 0) logOpenManual(out, remaining);
   out.log("");
   return 0;

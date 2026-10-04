@@ -66,7 +66,7 @@ return {
 valueFormat: { kind: "currency", currency: "EUR", fractionDigits: 0 }
 ```
 
-The value is in minor units (cents). `fractionDigits` defaults to the currency's own decimals. On a stat panel the format applies to a numeric value; a string value is shown unchanged and the sparkline stays unformatted. On a chart it applies to the y axis ticks, legend totals and tooltips. The boot validator rejects a currency that is not three upper-case letters and a `fractionDigits` outside 0 to 4.
+The value is in minor units (cents). `fractionDigits` defaults to the currency's own decimals. On a stat panel the format applies to a numeric value; a string value is shown unchanged and the sparkline stays unformatted. On `stacked-bars`, `segment-bars` and `stacked-area` charts it applies to the y axis ticks, legend totals and tooltips. A `timeseries` chart uses it only for its y axis ticks. The boot validator rejects a currency that is not three upper-case letters and a `fractionDigits` outside 0 to 4.
 
 ## Scrolling stacked-area charts: `scrollable`
 

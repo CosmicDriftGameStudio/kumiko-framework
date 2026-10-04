@@ -983,7 +983,8 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly subtitle?: string;
     /** Series/segment key -> tone; unmapped keys fall back to a palette. */
     readonly seriesTones?: Readonly<Record<string, DashboardChartTone>>;
-    /** Y ticks, legend totals and tooltips format values as currency. */
+    /** Formats values as currency (minor units): y ticks, legend totals and tooltips on
+     *  stacked-bars/segment-bars/stacked-area, only the y ticks on timeseries. */
     readonly valueFormat?: DashboardValueFormat;
     /** Only for chart "stacked-area": fixed width per bucket, plot scrolls horizontally. */
     readonly scrollable?: boolean;

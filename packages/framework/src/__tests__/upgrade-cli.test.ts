@@ -1082,6 +1082,24 @@ describe("upgrade command — --resolve", () => {
     ]);
   });
 
+  test("strips control characters from marker titles before printing them", async () => {
+    const tampered = { version: "0.311.0", title: "evil\u001b[2J title" };
+    const cwd = tmp({
+      "packages/framework/src/changes.json": "[]",
+      "packages/bundled-features/package.json": JSON.stringify({ version: "0.312.0" }),
+      ".kumiko/upgrade-state.json": markerWithOpen({
+        pendingManual: [withId(OPEN_SINGLE), withId(tampered)],
+      }),
+    });
+
+    const { exit, spy } = await resolve(cwd, ["0.312.0", "--reason", "migrated"]);
+
+    expect(exit).toBe(0);
+    const printed = spy.logs.join("\n");
+    expect(printed).toContain("evil[2J title");
+    expect(printed).not.toContain("\u001b");
+  });
+
   test("resolves by a version that has exactly one open entry", async () => {
     const cwd = fixture();
 
