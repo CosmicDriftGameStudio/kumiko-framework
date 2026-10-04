@@ -2,6 +2,7 @@ import { describe, expect, it, mock } from "bun:test";
 import {
   computeDefinitionFingerprint,
   defineWorkflow,
+  STEP_DISPATCH_REQUESTED_TYPE,
   stepsPipeline,
   type WorkflowDefinition,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -10,9 +11,9 @@ import { type CronWorkflow, nextCronDate, runDueCronWorkflows } from "../cron-sc
 import { registerEventTrigger } from "../event-trigger";
 import {
   dailyReportWorkflow,
-  resilientWebhookWorkflow,
   userOnboardingSteps,
   userOnboardingWorkflow,
+  webhookDeliveryWorkflow,
 } from "../feature";
 import { createInMemorySuspendedRunFetcher } from "../postgres-resume-loop";
 import { runResumeLoop, type SuspendableRun } from "../resume-loop";
@@ -47,12 +48,35 @@ describe("workflow-engine", () => {
     expect(typeof userOnboardingWorkflow.idempotencyKey).toBe("function");
   });
 
-  it("defines a resilient-webhook workflow with event trigger", () => {
-    expect(resilientWebhookWorkflow.__kind).toBe("workflow");
-    expect(resilientWebhookWorkflow.name).toBe("resilient-webhook");
-    const trigger = resilientWebhookWorkflow.trigger;
+  it("defines a webhook-delivery workflow with event trigger", () => {
+    expect(webhookDeliveryWorkflow.__kind).toBe("workflow");
+    expect(webhookDeliveryWorkflow.name).toBe("webhook-delivery");
+    const trigger = webhookDeliveryWorkflow.trigger;
     if (trigger.kind !== "event") throw new Error("expected event trigger");
     expect(trigger.eventType).toBe("data.processed");
+  });
+
+  it("webhook-delivery completes with exactly one dispatch request", async () => {
+    const ctx = { unsafeAppendEvent: mock().mockResolvedValue(undefined) };
+
+    const result = await startAndRunWorkflow({
+      runId: "wf-webhook-delivery-1",
+      workflow: webhookDeliveryWorkflow as unknown as WorkflowDefinition,
+      triggerEvent: {
+        aggregateId: "agg_1",
+        type: "data.processed",
+        payload: { data: { id: 7 }, webhookUrl: "https://hooks.example.com/in" },
+      } as never,
+      handlerCtx: ctx as never,
+    });
+
+    expect(result.outcome).toBe("completed");
+    const dispatchRequests = ctx.unsafeAppendEvent.mock.calls
+      .map(([event]) => event as { type: string; payload: Record<string, unknown> })
+      .filter((event) => event.type === STEP_DISPATCH_REQUESTED_TYPE);
+    expect(dispatchRequests).toHaveLength(1);
+    expect(dispatchRequests[0]?.payload["url"]).toBe("https://hooks.example.com/in");
+    expect(dispatchRequests[0]?.payload["bodyJson"]).toBe(JSON.stringify({ id: 7 }));
   });
 
   it("defines a daily-report workflow with cron trigger", () => {

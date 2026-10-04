@@ -41,49 +41,26 @@ afterAll(() => {
   }
 });
 
-/**
- * Polls a predicate at `interval` ms until it returns true, or rejects
- * after `timeout`. Replaces fixed `setTimeout(...)` waits — those
- * implicitly assume "this many ms is enough", which is brittle on
- * loaded CI runners. The polling form converges as fast as the system
- * allows AND fails loudly with a useful message if the event never lands.
- *
- * `retry`/`retryIntervalMs`: for predicates gated on a native `fs.watch`
- * event, a single write only gets one chance at delivery — under macOS
- * FSEvents backlog (hundreds of concurrent recursive watches in a full
- * `bun test` run), events aren't just delayed, they're sometimes dropped
- * entirely, and Node doesn't surface a rescan signal. `retry` re-fires the
- * triggering action on a cadence so a dropped event costs one interval,
- * not the whole timeout. `retryIntervalMs` must stay well above the
- * watcher's `debounceMs` — a retry that lands mid-debounce just resets
- * the timer and can starve `fire()` forever.
- */
-async function waitFor(
-  predicate: () => boolean,
-  opts: {
-    timeout?: number;
-    interval?: number;
-    label?: string;
-    retry?: () => void;
-    retryIntervalMs?: number;
-  } = {},
-): Promise<void> {
-  const timeout = opts.timeout ?? 5000;
-  const interval = opts.interval ?? 25;
-  const retryIntervalMs = opts.retryIntervalMs ?? 250;
-  const deadline = Date.now() + timeout;
-  let nextRetryAt = Date.now() + retryIntervalMs;
-  // @timeout-exception: #3118 fs.watch can drop the trigger; retry re-fires it, unlike the shared waitFor
-  while (!predicate()) {
-    if (Date.now() > deadline) {
-      throw new Error(`waitFor: ${opts.label ?? "predicate"} not satisfied within ${timeout}ms`);
-    }
-    if (opts.retry && Date.now() >= nextRetryAt) {
-      opts.retry();
-      nextRetryAt = Date.now() + retryIntervalMs;
-    }
-    await new Promise((r) => setTimeout(r, interval));
-  }
+// Native fs events are not used here: macOS FSEvents starts asynchronously and can drop
+// writes, so the test drives the watcher's listener directly.
+type WatchListener = (eventType: string, filename: string | null) => void;
+
+function fakeWatchDirectory(): {
+  readonly watchDirectory: typeof import("node:fs").watch;
+  readonly emit: (filename: string) => void;
+} {
+  let listener: WatchListener | undefined;
+  const watchDirectory = ((_dir: string, _options: unknown, onEvent: WatchListener) => {
+    listener = onEvent;
+    return { close: () => {} };
+  }) as unknown as typeof import("node:fs").watch;
+  return {
+    watchDirectory,
+    emit: (filename) => {
+      if (!listener) throw new Error("watcher was never attached");
+      listener("change", filename);
+    },
+  };
 }
 
 const FEATURE_TEMPLATE = (featureName: string, eventName: string) => `
@@ -114,18 +91,27 @@ describe("watchAndRegenerate", () => {
   test("file change triggers a re-run after debounce", async () => {
     const appRoot = makeAppDir();
     writeFile(appRoot, "src/feature.ts", FEATURE_TEMPLATE("orders", "first"));
+    const { watchDirectory, emit } = fakeWatchDirectory();
 
     const results: CodegenResult[] = [];
+    let secondResult: (result: CodegenResult) => void = () => {};
+    const secondRun = new Promise<CodegenResult>((resolve) => {
+      secondResult = resolve;
+    });
     const handle = watchAndRegenerate({
       appRoot,
       debounceMs: 30,
-      onResult: (r) => results.push(r),
+      watchDirectory,
+      onResult: (r) => {
+        results.push(r);
+        if (results.length === 2) secondResult(r);
+      },
     });
 
-    expect(results).toHaveLength(1);
-    expect(results[0]?.eventCount).toBe(1);
+    try {
+      expect(results).toHaveLength(1);
+      expect(results[0]?.eventCount).toBe(1);
 
-    const rewrite = () =>
       writeFile(
         appRoot,
         "src/feature.ts",
@@ -139,28 +125,15 @@ export default defineFeature("orders", (r) => {
 });
 `,
       );
+      emit("feature.ts");
+      emit("feature.ts");
 
-    // Add a second event-definition by rewriting the feature.
-    rewrite();
-
-    // Poll until the watcher's debounced re-run has landed, re-touching
-    // the file every 250ms in case the triggering fs.watch event was
-    // dropped rather than merely delayed (see waitFor's `retry` doc).
-    // Waits on the expected *state* (eventCount 2), not just a length
-    // bump — writeFileSync truncates then writes, so an event fired
-    // mid-write would satisfy a length-only predicate with a stale
-    // (0 or 1) eventCount, especially with retries widening that window.
-    try {
-      await waitFor(() => results.some((r) => r.eventCount === 2), {
-        timeout: 12000,
-        label: "second codegen result",
-        retry: rewrite,
-      });
-      expect(results.at(-1)?.eventCount).toBe(2);
+      expect((await secondRun).eventCount).toBe(2);
+      expect(results).toHaveLength(2);
     } finally {
       handle.close();
     }
-  }, 15000);
+  });
 
   test("close() is idempotent", () => {
     const appRoot = makeAppDir();

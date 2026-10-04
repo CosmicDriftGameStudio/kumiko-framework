@@ -150,14 +150,15 @@ describe("tenant-lifecycle :: request / cancel / 410 gate", () => {
 
   test("cancel after grace expired returns grace_period_expired", async () => {
     await seedTenant();
+    await stack.http.writeOk(
+      SET_PROFILE,
+      {
+        profileKey: "eu-dsgvo",
+        override: JSON.stringify({ tenantDestroyGracePeriod: { hours: 0 } }),
+      },
+      tenantAdmin,
+    );
     await stack.http.writeOk(REQUEST, {}, tenantAdmin);
-    const past = (await import("@cosmicdrift/kumiko-framework/time"))
-      .getTemporal()
-      .Now.instant()
-      .subtract({
-        hours: 1,
-      });
-    await updateRows(db, tenantTable, { gracePeriodEnd: past }, { id: tenantAdmin.tenantId });
 
     const err = await stack.http.writeErr(CANCEL, {}, tenantAdmin);
     expect(err.httpStatus).toBe(422);
@@ -415,9 +416,12 @@ function createSelectivePoisonTenantDataFeature() {
 describe("tenant-lifecycle :: sweep waits for the gate to settle", () => {
   test("a tenant whose grace just ended is only swept after TEARDOWN_GATE_SETTLE_MS", async () => {
     await seedTenant();
-    await stack.http.writeOk(REQUEST, {}, tenantAdmin);
-    const graceEnd = getTemporal().Now.instant();
-    await updateRows(db, tenantTable, { gracePeriodEnd: graceEnd }, { id: tenantAdmin.tenantId });
+    const requested = await stack.http.writeOk<{ gracePeriodEnd: string }>(
+      REQUEST,
+      {},
+      tenantAdmin,
+    );
+    const graceEnd = getTemporal().Instant.from(requested.gracePeriodEnd);
 
     const justAfterGrace = graceEnd.add({ seconds: 1 });
     const early = await runTenantDestructionSweep({

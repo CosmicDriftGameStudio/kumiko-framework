@@ -25,9 +25,10 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { TestUsers } from "@cosmicdrift/kumiko-framework/stack";
-import { getSetCookieValue, waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { getSetCookieValue } from "@cosmicdrift/kumiko-framework/testing";
 import * as z from "zod";
 import {
+  type CreateKumikoServerOptions,
   createKumikoServer,
   type DevHostDispatchResult,
   type KumikoServerHandle,
@@ -690,6 +691,39 @@ describe("createKumikoServer — real Bun.build (buildClient)", () => {
   });
 });
 
+function fakeDirectoryWatch(): {
+  readonly watchDirectory: NonNullable<CreateKumikoServerOptions["_watchDirectory"]>;
+  readonly emit: (filename: string) => void;
+} {
+  const queued: string[] = [];
+  let wake: (() => void) | undefined;
+  const watchDirectory: NonNullable<CreateKumikoServerOptions["_watchDirectory"]> = (
+    _dir,
+    { signal },
+  ) => ({
+    async *[Symbol.asyncIterator]() {
+      while (!signal.aborted) {
+        const filename = queued.shift();
+        if (filename !== undefined) {
+          yield { filename };
+          continue;
+        }
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+          signal.addEventListener("abort", () => resolve(), { once: true });
+        });
+      }
+    },
+  });
+  return {
+    watchDirectory,
+    emit: (filename) => {
+      queued.push(filename);
+      wake?.();
+    },
+  };
+}
+
 describe("createKumikoServer — hot-reload broadcast", () => {
   test("file change under web/ rebuilds and broadcasts SSE reload", async () => {
     const tmpDir = mkdtempSync(join(tmpdir(), "kumiko-watch-"));
@@ -699,6 +733,7 @@ describe("createKumikoServer — hot-reload broadcast", () => {
     writeFileSync(entry, "export const ping = 1;\n");
 
     let builds = 0;
+    const watchEvents = fakeDirectoryWatch();
     try {
       handle = await createKumikoServer({
         features: [probeFeature],
@@ -706,6 +741,7 @@ describe("createKumikoServer — hot-reload broadcast", () => {
         installSignalHandlers: false,
         clientEntry: entry,
         stylesheet: false,
+        _watchDirectory: watchEvents.watchDirectory,
         // Only the entry dir is watched (no extra watchDirs) — a nested
         // web/page.tsx event arrives as "web/page.tsx" → hot-reload.
         // Watching web/ separately would fire bare "page.tsx" → restart
@@ -724,49 +760,29 @@ describe("createKumikoServer — hot-reload broadcast", () => {
 
       await reader.read(); // drain connected comment
 
-      // macOS FSEvents can replay the pre-boot client.tsx write after the watcher starts, and
-      // warm-up pokes can still be in flight; each reload names its file, so only page.tsx counts.
-      const reloadedFiles: string[] = [];
+      const initialBuilds = builds;
+      watchEvents.emit("web/page.tsx");
+
+      // Native fs events are not used: macOS FSEvents starts asynchronously and drops early writes.
       const decoder = new TextDecoder();
       let unparsed = "";
-      const collectReloads = (async () => {
-        for (;;) {
+      let reloadedFile: string | undefined;
+      try {
+        while (reloadedFile === undefined) {
           const { value, done } = await reader.read();
-          if (done) return;
+          if (done) break;
           unparsed += decoder.decode(value, { stream: true });
           const frames = unparsed.split("\n\n");
           unparsed = frames.pop() ?? "";
           for (const frame of frames) {
             const data = /^event: reload\ndata: (.*)$/m.exec(frame)?.[1];
-            if (data !== undefined) reloadedFiles.push(String(JSON.parse(data)));
+            if (data !== undefined) reloadedFile = String(JSON.parse(data));
           }
         }
-      })();
-
-      const threeSecondsIn100msSteps = Array.from({ length: 30 }, () => 100);
-      let initialBuilds = builds;
-      try {
-        // Bun's recursive watcher on macOS (FSEvents) goes live asynchronously and drops writes
-        // from its first milliseconds, so poke a warm-up file until the server reports it.
-        let poke = 0;
-        await waitFor(
-          () => {
-            if (reloadedFiles.includes("web/warmup.tsx")) return true;
-            writeFileSync(join(webDir, "warmup.tsx"), `export const poke = ${poke++};\n`);
-            return false;
-          },
-          { delays: threeSecondsIn100msSteps },
-        );
-
-        initialBuilds = builds;
-        writeFileSync(join(webDir, "page.tsx"), "export const x = 1;\n");
-        await waitFor(() => reloadedFiles.includes("web/page.tsx"), {
-          delays: threeSecondsIn100msSteps,
-        });
       } finally {
         await reader.cancel();
-        await collectReloads;
       }
+      expect(reloadedFile).toBe("web/page.tsx");
 
       expect(builds).toBeGreaterThan(initialBuilds);
 

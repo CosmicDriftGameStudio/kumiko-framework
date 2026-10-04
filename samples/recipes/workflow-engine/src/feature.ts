@@ -1,7 +1,7 @@
 // workflow-engine Sample — M.4 Tier-3 step-vocabulary showcase.
 //
-// Demonstrates defineWorkflow with wait, branch, mail.send, webhook.send,
-// retry, and the workflow-run lifecycle. Each workflow below is a real,
+// Demonstrates defineWorkflow with wait, branch, mail.send, webhook.send
+// and the workflow-run lifecycle. Each workflow below is a real,
 // runnable pipeline — no empty `build: () => []` stubs. The
 // integration-tests in __tests__/ exercise the suspension/resume cycle
 // against the in-memory fetcher and (separately) the postgres event-store.
@@ -17,7 +17,7 @@
 //     full HandlerContext surface. `r.step.read.findOne` works (db is
 //     present), `r.step.callFeature` does NOT yet (no `write`/`writeAs`
 //     on apply-ctx). Pipelines should stick to compute / branch / wait /
-//     retry / mail.send / webhook.send for now.
+//     mail.send / webhook.send for now.
 //   - The fetcher reads every suspension row whose wakeAt has expired
 //     (no `workflow_run_pending` read-side projection yet). Concurrency
 //     is safe via the event-store version-conflict path; performance is
@@ -98,28 +98,24 @@ export const userOnboardingWorkflow: WorkflowDefinition<{ email: string; userId:
   });
 
 /**
- * Retry-with-backoff workflow: wraps a deferred webhook in retry(3,
- * exponential). The retry step suspends the run between attempts and
- * the resume-loop re-enters it after the backoff window.
+ * Webhook-delivery workflow: one deferred webhook per `data.processed` event.
+ * `webhook.send` only enqueues a dispatch request; the step-dispatcher
+ * delivers it once and a failed delivery ends as `step.dispatch-failed`. A
+ * `retry` around it would never fire, because the step itself cannot throw
+ * on a delivery error.
  */
-export const resilientWebhookWorkflow: WorkflowDefinition<
+export const webhookDeliveryWorkflow: WorkflowDefinition<
   { data: unknown; webhookUrl: string },
   void
 > = defineWorkflow({
-  name: "resilient-webhook",
+  name: "webhook-delivery",
   trigger: { kind: "event", eventType: "data.processed" },
 
   steps: stepsPipeline<{ data: unknown; webhookUrl: string }, void>(({ r }) => [
-    r.step.retry({
-      times: 3,
-      backoff: "exponential",
-      do: [
-        r.step.webhook.send({
-          url: (ctx: PipelineCtx) => (ctx.event.payload as { webhookUrl: string }).webhookUrl,
-          body: (ctx: PipelineCtx) => (ctx.event.payload as { data: unknown }).data,
-          mode: "deferred",
-        }),
-      ],
+    r.step.webhook.send({
+      url: (ctx: PipelineCtx) => (ctx.event.payload as { webhookUrl: string }).webhookUrl,
+      body: (ctx: PipelineCtx) => (ctx.event.payload as { data: unknown }).data,
+      mode: "deferred",
     }),
     r.step.return({ isSuccess: true, data: undefined }),
   ]),
@@ -155,7 +151,7 @@ export const workflowEngineFeature = defineFeature("workflowEngine", (r) => {
   // The runtime only touches trigger/name/idempotencyKey + executes
   // the closure with the real event payload — payload-agnostic.
   registerEventTrigger(r, userOnboardingWorkflow as unknown as WorkflowDefinition);
-  registerEventTrigger(r, resilientWebhookWorkflow as unknown as WorkflowDefinition);
+  registerEventTrigger(r, webhookDeliveryWorkflow as unknown as WorkflowDefinition);
   // dailyReportWorkflow is cron-triggered — skip MSP registration
 });
 

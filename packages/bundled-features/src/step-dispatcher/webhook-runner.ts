@@ -234,6 +234,8 @@ export async function performWebhookDispatch(
       signal: AbortSignal.timeout(deps.requestTimeoutMs ?? WEBHOOK_REQUEST_TIMEOUT_MS),
       body: spec.body !== undefined ? JSON.stringify(spec.body) : undefined,
     });
+    // Only the status is used; an unread body would pin the socket until the timeout fires.
+    await res.body?.cancel().catch(() => {});
     if (!res.ok) {
       return { ok: false, error: `HTTP ${res.status}: ${res.statusText}` };
     }

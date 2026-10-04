@@ -57,11 +57,12 @@ jobs:
       contents: read
     outputs:
       skip_heavy: ${{ steps.classify.outputs.version_only }}
+      version_pr_stale: ${{ steps.freshness.outputs.stale }}
     steps:
       - uses: actions/checkout@v7
         if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
@@ -72,18 +73,40 @@ jobs:
         if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
         run: bun scripts/ci-version-only-pr.ts >> "$GITHUB_OUTPUT"
 
+      # A Version PR merged while stale ships versions that predate changesets
+      # already on main (0.343.0 without #3555, 0.345.0 without #3563). The
+      # stale flag is consumed by the required `test` job, which fails on it.
+      - id: freshness
+        if: github.event_name == 'pull_request' && github.head_ref == 'changeset-release/main'
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if git fetch --no-tags origin main \
+            && reason="$(bash scripts/verify-version-pr-fresh.sh "$PR_HEAD_SHA" FETCH_HEAD)"; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::error::${reason:-could not fetch origin/main to verify the Version PR}"
+          fi
+
   test:
     # GitHub-hosted: public repo → gratis + 4 Cores (statt 1-CPU cdgs-runner).
     # Kein Cluster-Zugriff nötig (pure typecheck/lint/test).
     runs-on: ubuntu-latest
     needs: version-pr-gate
-    if: ${{ !cancelled() && needs.version-pr-gate.outputs.skip_heavy != 'true' }}
+    if: ${{ !cancelled() && (needs.version-pr-gate.outputs.skip_heavy != 'true' || needs.version-pr-gate.outputs.version_pr_stale == 'true') }}
     timeout-minutes: 30
     permissions:
       contents: read
       packages: read
 
     steps:
+      - name: Fail stale Version PR
+        if: needs.version-pr-gate.outputs.version_pr_stale == 'true'
+        run: |
+          echo "::error::Stale Version PR: not on current main HEAD or missing changesets from main. Do not merge; re-run once the changesets bot has rebuilt it."
+          exit 1
+
       - uses: actions/checkout@v7
         with:
           # Diff-based guards need a merge-base with main; a shallow clone

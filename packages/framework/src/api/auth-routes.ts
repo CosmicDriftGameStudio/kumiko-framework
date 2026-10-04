@@ -1241,10 +1241,18 @@ export function createAuthRoutes(
             tenantKey: string;
             handover?: { entityType: string; id: string };
           }
-        | { kind: "mfa-challenge"; challengeToken: string }
-        | { kind: "mfa-setup-required"; preauthSetupToken: string };
+        | (PendingMfaStep & { signup: SignupOutcome });
 
-      if (data.kind !== "auth-session") return pendingMfaStepResponse(c, data);
+      if (data.kind !== "auth-session") {
+        // No session yet, but the account and a claimed handover exist: hand
+        // the signup landing to the client so the login that follows lands
+        // where a signup without the MFA gate would have.
+        return pendingMfaStepResponse(
+          c,
+          data,
+          landingPathFragment({ flow: "signup", ...data.signup }),
+        );
+      }
 
       // Session creation + JWT sign + cookies — see mintSessionAndRespond.
       const token = await mintSessionAndRespond(c, data.session);
@@ -1615,19 +1623,36 @@ export function createAuthRoutes(
   return api;
 }
 
+type SignupOutcome = {
+  readonly roles: readonly string[];
+  readonly tenantId: string;
+  readonly tenantKey: string;
+  readonly handover?: { readonly entityType: string; readonly id: string };
+};
+
 type PendingMfaStep =
   | { kind: "mfa-challenge"; challengeToken: string }
   | { kind: "mfa-setup-required"; preauthSetupToken: string };
 
-function pendingMfaStepResponse(c: Context, step: PendingMfaStep): Response {
+function pendingMfaStepResponse(
+  c: Context,
+  step: PendingMfaStep,
+  landing: { readonly landingPath?: string } = {},
+): Response {
   if (step.kind === "mfa-setup-required") {
     return c.json({
       isSuccess: true,
       mfaSetupRequired: true,
       preauthSetupToken: step.preauthSetupToken,
+      ...landing,
     });
   }
-  return c.json({ isSuccess: true, mfaRequired: true, challengeToken: step.challengeToken });
+  return c.json({
+    isSuccess: true,
+    mfaRequired: true,
+    challengeToken: step.challengeToken,
+    ...landing,
+  });
 }
 
 // --- shared route builders for token flows ---------------------------------

@@ -362,9 +362,11 @@ export type SignupConfirmSuccess = {
 
 // mfa-pending: account exists but the server issued no session because the
 // new roles require a second factor — the user must sign in to enroll.
+// landingPath is where the signup would have landed; the login that follows
+// should end there.
 export type SignupConfirmResult =
   | ({ readonly kind: "signed-in" } & SignupConfirmSuccess)
-  | { readonly kind: "mfa-pending" };
+  | { readonly kind: "mfa-pending"; readonly landingPath?: string };
 
 export async function confirmSignup(
   token: string,
@@ -383,7 +385,13 @@ export async function confirmSignup(
       readonly mfaSetupRequired?: boolean;
     };
     if (body.mfaRequired === true || body.mfaSetupRequired === true) {
-      return { ok: true, data: { kind: "mfa-pending" } };
+      return {
+        ok: true,
+        data: {
+          kind: "mfa-pending",
+          ...(typeof body.landingPath === "string" && { landingPath: body.landingPath }),
+        },
+      };
     }
     return { ok: true, data: { kind: "signed-in", ...body } };
   }

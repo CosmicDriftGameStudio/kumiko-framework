@@ -40,6 +40,9 @@ export type WatchOptions = {
   readonly onResult?: (result: ReturnType<typeof runCodegen>) => void;
   /** Callback bei runCodegen-Fehlern. Default: stderr-Warning. */
   readonly onError?: (err: unknown) => void;
+  /** Event source seam so tests can drive changes without native fs events
+   *  (macOS FSEvents starts asynchronously and can drop writes). Default: `node:fs` watch. */
+  readonly watchDirectory?: typeof watch;
 };
 
 export type WatchHandle = {
@@ -107,15 +110,19 @@ export function watchAndRegenerate(opts: WatchOptions): WatchHandle {
   fire();
 
   try {
-    watcher = watch(srcDir, { recursive: true }, (_eventType, filename) => {
-      // skip: watcher closed or no filename reported, nothing to act on
-      if (closed || !filename) return;
-      // skip: change cannot affect r.defineEvent calls
-      if (!isCodegenRelevantChange(filename.toString())) return;
+    watcher = (opts.watchDirectory ?? watch)(
+      srcDir,
+      { recursive: true },
+      (_eventType, filename) => {
+        // skip: watcher closed or no filename reported, nothing to act on
+        if (closed || !filename) return;
+        // skip: change cannot affect r.defineEvent calls
+        if (!isCodegenRelevantChange(filename.toString())) return;
 
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(fire, debounceMs);
-    });
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(fire, debounceMs);
+      },
+    );
   } catch (err) {
     // Watch failed (z.B. fs nicht recursive-fähig auf Linux ohne
     // patches) — degraded mode: codegen läuft nur beim initial-call.
