@@ -415,10 +415,7 @@ export type DeliveryErrorCode = DeliveryFailureCode | DeliverySkipReason | `http
 // Failures a chat webhook send can end in: http_<status> plus the transport codes.
 export type ChatSendFailureCode =
   | `http_${number}`
-  | Exclude<
-      DeliveryFailureCode,
-      "unexpected_response" | "render_failed" | "send_failed" | "channel_error"
-    >;
+  | Exclude<DeliveryFailureCode, "render_failed" | "send_failed" | "channel_error">;
 
 const HTTP_ERROR_CODE_PATTERN = /^http_\d{3}$/;
 
@@ -436,6 +433,9 @@ export type NotifyDelivery = {
   readonly recipientId: string | null;
   readonly status: NotifyDeliveryStatus;
   readonly error: DeliveryErrorCode | null;
+  // Only ever set to false: the provider accepted the message but did not confirm
+  // that it reached the target (e.g. a Teams workflow answering 202).
+  readonly confirmed?: false;
   // Set for queued attempts; the terminal event lands on the same attempt stream.
   readonly deliveryAttemptId?: string;
 };

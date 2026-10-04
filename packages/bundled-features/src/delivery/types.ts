@@ -37,6 +37,8 @@ export type ChannelMessage = {
 export type ChannelResult = {
   readonly status: "sent" | "failed" | "skipped";
   readonly error?: DeliveryErrorCode;
+  // Only ever set to false: the provider accepted the message but did not confirm delivery.
+  readonly confirmed?: false;
   readonly address?: string;
 };
 

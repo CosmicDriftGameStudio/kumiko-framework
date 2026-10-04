@@ -52,13 +52,18 @@ describe("postChatWebhook allowlist (checked on the parsed URL)", () => {
     expect(sendSpy).not.toHaveBeenCalled();
     expect(await post("https://discord.com/api/webhooks/1/abc", hosts, "/api/webhooks/")).toEqual({
       ok: true,
+      confirmed: true,
     });
   });
 
   test("exact host and dot-suffix subdomain pass", async () => {
-    expect(await post("https://hooks.slack.com/services/T/B/x", slackHosts)).toEqual({ ok: true });
+    expect(await post("https://hooks.slack.com/services/T/B/x", slackHosts)).toEqual({
+      ok: true,
+      confirmed: true,
+    });
     expect(await post("https://acme.webhook.office.com/webhookb2/x", teamsHosts)).toEqual({
       ok: true,
+      confirmed: true,
     });
   });
 
@@ -149,5 +154,72 @@ describe("chatWebhookUrlSchema (write-time check, same rules as postChatWebhook)
   test("cleartext opt-out accepts http on an allowed host and a port", () => {
     const target: ChatWebhookTarget = { allowedHosts: ["127.0.0.1"], requireHttps: false };
     expect(checkChatWebhookTarget(target, "http://127.0.0.1:8080/x")?.port).toBe("8080");
+  });
+});
+
+describe("postChatWebhook classifyResponse", () => {
+  // Endless body: reading it to the end would never return.
+  function endlessBody(state: { cancelled: boolean; pulls: number }): Response {
+    const chunk = new TextEncoder().encode("x".repeat(1000));
+    return new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          state.pulls += 1;
+          controller.enqueue(chunk);
+        },
+        cancel() {
+          state.cancelled = true;
+        },
+      }),
+    );
+  }
+
+  function postWith(classifyResponse: Parameters<typeof postChatWebhook>[0]["classifyResponse"]) {
+    return postChatWebhook({
+      url: "https://hooks.slack.com/services/T/B/x",
+      allowedHosts: slackHosts,
+      requireHttps: true,
+      timeoutMs: 1000,
+      body: {},
+      send: sendSpy,
+      ...(classifyResponse && { classifyResponse }),
+    });
+  }
+
+  test("reads at most 64 bytes and cancels the rest of the body", async () => {
+    const state = { cancelled: false, pulls: 0 };
+    sendSpy.mockImplementation(async () => endlessBody(state));
+    let prefix = "";
+
+    const result = await postWith(async (response) => {
+      prefix = await response.readBodyPrefix();
+      return { ok: true, confirmed: false };
+    });
+
+    expect(result).toEqual({ ok: true, confirmed: false });
+    expect(prefix).toBe("x".repeat(64));
+    expect(state.cancelled).toBe(true);
+    expect(state.pulls).toBeLessThan(5);
+  });
+
+  test("a throwing classifier becomes a failure code and the body is still cancelled", async () => {
+    const state = { cancelled: false, pulls: 0 };
+    sendSpy.mockImplementation(async () => endlessBody(state));
+
+    const result = await postWith(async (response) => {
+      await response.readBodyPrefix();
+      throw new Error("boom https://hooks.slack.com/services/SECRET");
+    });
+
+    expect(result).toEqual({ ok: false, code: "network_error" });
+    expect(state.cancelled).toBe(true);
+  });
+
+  test("is not called for non-2xx answers", async () => {
+    sendSpy.mockImplementation(async () => new Response("boom", { status: 500 }));
+    const classify = mock(async () => ({ ok: true as const, confirmed: true }));
+
+    expect(await postWith(classify)).toEqual({ ok: false, code: "http_500" });
+    expect(classify).not.toHaveBeenCalled();
   });
 });

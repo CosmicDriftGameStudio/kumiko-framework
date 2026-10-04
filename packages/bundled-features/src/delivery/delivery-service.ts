@@ -245,12 +245,14 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
     run: NotifyRun,
     entry: DeliveryLogEntry,
     deliveryAttemptId: string,
+    confirmed?: false,
   ): void {
     run.deliveries.push({
       channel: entry.channel,
       recipientId: entry.recipientId,
       status: entry.status,
       error: entry.error,
+      ...(confirmed === false && { confirmed }),
       deliveryAttemptId,
     });
   }
@@ -258,9 +260,13 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
   // Single-shot terminal log (inline channels, skips, idempotency dups). Async
   // attempts instead append a queued event up front and a terminal event from
   // the send job — see deliverViaChannel + jobs.ts.
-  async function logDelivery(run: NotifyRun, entry: DeliveryLogEntry): Promise<void> {
+  async function logDelivery(
+    run: NotifyRun,
+    entry: DeliveryLogEntry,
+    confirmed?: false,
+  ): Promise<void> {
     const attemptId = await logAttempt(db, registry, entry);
-    recordDelivery(run, entry, attemptId);
+    recordDelivery(run, entry, attemptId, confirmed);
   }
 
   // The stored/returned error is only the code; the redacted message goes to the log.
@@ -370,16 +376,20 @@ export function createDeliveryService(options: DeliveryServiceOptions): Delivery
         await logInlineFailure(run, args, "send_failed", err);
         return;
       }
-      await logDelivery(run, {
-        tenantId,
-        notificationType,
-        channel: channel.name,
-        recipientId,
-        recipientAddress: result.address ?? address,
-        status: result.status,
-        error: result.error ?? null,
-        priority,
-      });
+      await logDelivery(
+        run,
+        {
+          tenantId,
+          notificationType,
+          channel: channel.name,
+          recipientId,
+          recipientAddress: result.address ?? address,
+          status: result.status,
+          error: result.error ?? null,
+          priority,
+        },
+        result.confirmed,
+      );
     }
   }
 

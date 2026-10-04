@@ -50,7 +50,8 @@ export type ProviderStub = {
 };
 
 // 127.0.0.1 on an ephemeral port. A path containing REDIRECT302 answers 302 to
-// /never-hit, FAIL500 answers 500, HANG never answers, anything else 200. Markers
+// /never-hit, FAIL500 answers 500, HANG never answers, ACCEPTED202 answers 202 without a
+// body, EMPTY200 answers 200 without a body, ONE200 answers 200 "1", anything else 200 "ok". Markers
 // instead of fixed paths because the Telegram path embeds the bot token.
 export function startProviderStub(): ProviderStub {
   const requests: StubRequest[] = [];
@@ -75,6 +76,9 @@ export function startProviderStub(): ProviderStub {
           headers: { location: `http://localhost:${url.port}/never-hit` },
         });
       }
+      if (url.pathname.includes("ACCEPTED202")) return new Response(null, { status: 202 });
+      if (url.pathname.includes("EMPTY200")) return new Response(null, { status: 200 });
+      if (url.pathname.includes("ONE200")) return new Response("1");
       if (url.pathname.includes("FAIL500")) return new Response("boom", { status: 500 });
       if (url.pathname.includes("HANG")) return new Promise<Response>(() => undefined);
       return new Response("ok");

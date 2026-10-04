@@ -10,6 +10,7 @@ export {
   type ChatSendFailureCode,
   type ChatSendResult,
   type ChatWebhookRequest,
+  type ChatWebhookResponse,
   type ChatWebhookTarget,
   chatConnectionNameSchema,
   chatWebhookUrlSchema,

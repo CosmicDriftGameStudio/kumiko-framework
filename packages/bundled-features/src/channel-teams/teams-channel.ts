@@ -1,5 +1,7 @@
 import {
+  type ChatSendResult,
   type ChatWebhookChannelOptions,
+  type ChatWebhookResponse,
   createChatWebhookChannel,
   type DeliveryChannel,
 } from "../delivery/index.js";
@@ -40,6 +42,19 @@ export function buildTeamsAdaptiveCard(title: string, body: string | undefined):
   };
 }
 
+// Classic Office connectors answer 200 with the body "1". Workflow endpoints answer
+// 202 and never say whether the card reached the channel. Any other 2xx (an empty
+// 200 is what a made-up URL returns) is not a Teams success.
+export async function classifyTeamsResponse(
+  response: ChatWebhookResponse,
+): Promise<ChatSendResult> {
+  if (response.status === 202) return { ok: true, confirmed: false };
+  if (response.status === 200 && (await response.readBodyPrefix()).trim() === "1") {
+    return { ok: true, confirmed: true };
+  }
+  return { ok: false, code: "unexpected_response" };
+}
+
 export function createTeamsChannel(
   options: TeamsChannelOptions,
   keyFor: (connection: string) => string,
@@ -49,6 +64,7 @@ export function createTeamsChannel(
     featureName: "channel-teams",
     defaultAllowedHosts: TEAMS_DEFAULT_ALLOWED_HOSTS,
     keyFor,
+    classifyResponse: classifyTeamsResponse,
     buildBody: (message) => buildTeamsAdaptiveCard(message.title, message.body),
     options,
   });
