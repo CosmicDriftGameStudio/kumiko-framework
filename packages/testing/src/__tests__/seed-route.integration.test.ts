@@ -653,6 +653,22 @@ describe("GET /__test/inbox", () => {
     expect(body.messages.map((message) => message.subject)).toEqual(["outbox mail"]);
   });
 
+  test("passes the plain-text part through, and omits `text` for html-only mails", async () => {
+    const outbox = createInMemoryTransport();
+    const h = await boot([noteFeature], { mailOutbox: outbox });
+    const to = "text-part@example.test";
+    await outbox.send({ to, subject: "html only", html: "<p>h</p>" });
+    await outbox.send({ to, subject: "multipart", html: "<p>h</p>", text: "plain body" });
+
+    const res = await inbox(h, undefined, to);
+
+    expect(res.status).toBe(200);
+    const body = inboxResponseSchema.parse(await res.json());
+    const bySubject = new Map(body.messages.map((message) => [message.subject, message]));
+    expect(bySubject.get("multipart")?.text).toBe("plain body");
+    expect(bySubject.get("html only")).not.toHaveProperty("text");
+  });
+
   test("a tenantId request with only mailOutbox mounted returns the outbox mail, not 501", async () => {
     const outbox = createInMemoryTransport();
     const h = await boot([noteFeature], { mailOutbox: outbox });
