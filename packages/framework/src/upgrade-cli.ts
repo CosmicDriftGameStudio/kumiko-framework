@@ -471,6 +471,7 @@ function printable(text: string): string {
 }
 
 function logOpenManual(out: UpgradeCliOut, open: readonly UpgradeMarkerManual[]): void {
+  // skip: no open manual migrations, nothing to report
   if (open.length === 0) return;
   out.log(`  ⚠ ${open.length} manual migration(s) still open:`);
   for (const entry of open) {
@@ -627,32 +628,27 @@ async function applyCodemods(
   return 0;
 }
 
-function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir: string): number {
-  const fail = (...lines: string[]): number => {
-    out.err("");
-    for (const line of lines) out.err(`  ${line}`);
-    out.err("");
-    return 1;
-  };
-  if (getFlag(args, "apply")) return fail("--resolve cannot be combined with --apply.");
-  const refsRaw = getStringFlag(args, "resolve");
-  const refs = (refsRaw ?? "")
+function parseResolveInput(
+  args: ParsedArgs,
+): { readonly refs: readonly string[]; readonly reason: string } | { readonly error: string } {
+  if (getFlag(args, "apply")) return { error: "--resolve cannot be combined with --apply." };
+  const refs = (getStringFlag(args, "resolve") ?? "")
     .split(",")
     .map((ref) => ref.trim())
     .filter((ref) => ref.length > 0);
-  if (refs.length === 0) return fail("--resolve needs at least one id or version.");
+  if (refs.length === 0) return { error: "--resolve needs at least one id or version." };
   const reason = getStringFlag(args, "reason")?.trim() ?? "";
-  if (reason.length === 0) return fail('--resolve requires --reason "<text>".');
+  if (reason.length === 0) return { error: '--resolve requires --reason "<text>".' };
   if (reason.length > MAX_RESOLVE_REASON_LENGTH) {
-    return fail(`--reason is too long (max ${MAX_RESOLVE_REASON_LENGTH} characters).`);
+    return { error: `--reason is too long (max ${MAX_RESOLVE_REASON_LENGTH} characters).` };
   }
-  const read = readMarker(targetDir);
-  if (read.kind === "missing") {
-    return fail(`No .kumiko/upgrade-state.json under ${targetDir}, nothing to resolve.`);
-  }
-  if (read.kind === "invalid") return fail("invalid .kumiko/upgrade-state.json, fix it first.");
+  return { refs, reason };
+}
 
-  const open = read.marker.pendingManual;
+function matchManualRefs(
+  open: readonly UpgradeMarkerManual[],
+  refs: readonly string[],
+): { readonly resolvedIds: ReadonlySet<string>; readonly errors: readonly string[] } {
   const resolvedIds = new Set<string>();
   const errors: string[] = [];
   for (const ref of refs) {
@@ -670,7 +666,28 @@ function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir
       errors.push(`"${ref}" matches no open manual migration`);
     }
   }
+  return { resolvedIds, errors };
+}
+
+function resolveManualMigrations(out: UpgradeCliOut, args: ParsedArgs, targetDir: string): number {
+  const fail = (...lines: string[]): number => {
+    out.err("");
+    for (const line of lines) out.err(`  ${line}`);
+    out.err("");
+    return 1;
+  };
+  const input = parseResolveInput(args);
+  if ("error" in input) return fail(input.error);
+  const read = readMarker(targetDir);
+  if (read.kind === "missing") {
+    return fail(`No .kumiko/upgrade-state.json under ${targetDir}, nothing to resolve.`);
+  }
+  if (read.kind === "invalid") return fail("invalid .kumiko/upgrade-state.json, fix it first.");
+
+  const open = read.marker.pendingManual;
+  const { resolvedIds, errors } = matchManualRefs(open, input.refs);
   if (errors.length > 0) return fail(...errors, "Nothing was written.");
+  const { reason } = input;
 
   const notApplicableFlag = args.flags.get("not-applicable");
   const resolution: ManualResolution =
