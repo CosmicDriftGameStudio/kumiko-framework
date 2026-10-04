@@ -1,3 +1,4 @@
+import { PII_ERASED_SENTINEL } from "@cosmicdrift/kumiko-framework/crypto";
 import type { DbRow } from "@cosmicdrift/kumiko-framework/db";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
@@ -8,6 +9,7 @@ import {
   type NotificationRenderer,
   type RenderedMessage,
 } from "../delivery/index.js";
+import { decryptStoredPii } from "../shared/index.js";
 import { guardEmailMessage } from "./pii-guard.js";
 import type { EmailTransport } from "./types.js";
 
@@ -117,8 +119,12 @@ export function createEmailChannel(options: EmailChannelOptions): DeliveryChanne
     name: "email",
     mode: "queued",
 
+    // resolveEmail typically returns the raw stored user.email, which is ciphertext under an active KMS.
     async resolve(userId, ctx) {
-      return resolveEmail(userId, ctx);
+      const stored = await resolveEmail(userId, ctx);
+      if (stored === null) return null;
+      const address = await decryptStoredPii(stored, "email", "channel-email:resolve");
+      return address === PII_ERASED_SENTINEL ? null : address;
     },
 
     render(message, _ctx) {
