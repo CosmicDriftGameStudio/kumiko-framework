@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.347.0",
+    "type": "fix",
+    "title": "Dev-server file watchers take an injectable event source so watcher tests no longer depend on FSEvents timing",
+    "detail": "Dev-server file watchers accept an injected event source\n`watchAndRegenerate` takes `watchDirectory` and `createKumikoServer` takes `_watchDirectory`. Production behavior is unchanged (native `fs.watch`); the hot-reload and codegen-watch tests drive changes through the seam instead of macOS FSEvents, which starts asynchronously and drops early writes."
+  },
+  {
     "version": "0.345.0",
     "type": "fix",
     "title": "generated migrate-step.sh honours COMPOSE_PROJECT_NAME from .env",

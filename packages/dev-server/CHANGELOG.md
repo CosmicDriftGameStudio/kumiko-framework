@@ -1,5 +1,44 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.347.0
+
+### Patch Changes
+
+- 69c182c: Dev-server file watchers accept an injected event source
+
+  `watchAndRegenerate` takes `watchDirectory` and `createKumikoServer` takes `_watchDirectory`. Production behavior is unchanged (native `fs.watch`); the hot-reload and codegen-watch tests drive changes through the seam instead of macOS FSEvents, which starts asynchronously and drops early writes.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: fix
+  title: Dev-server file watchers take an injectable event source so watcher tests no longer depend on FSEvents timing
+  -->
+
+- a35ad24: runProdApp and runDevApp pass retiredCookieDomains through
+
+  `auth.retiredCookieDomains` is now accepted by both runners and reaches the auth routes. Before, the option existed only on the lower-level route config, so apps starting through the runners could not clear a retired cookie domain.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: fix
+  title: runProdApp and runDevApp forward auth.retiredCookieDomains to the auth routes
+  -->
+
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [69c182c]
+- Updated dependencies [69c182c]
+  - @cosmicdrift/kumiko-bundled-features@0.347.0
+  - @cosmicdrift/kumiko-framework@0.347.0
+  - @cosmicdrift/kumiko-renderer-web@0.347.0
+  - @cosmicdrift/kumiko-server-runtime@0.347.0
+  - @cosmicdrift/kumiko-headless@0.347.0
+
 ## 0.346.0
 
 ### Patch Changes

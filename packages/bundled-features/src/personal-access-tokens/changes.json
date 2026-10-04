@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.347.0",
+    "type": "improvement",
+    "title": "API-token screens hide behind the tier gate and can fall back to an upgrade screen via lockedFallbackScreen",
+    "detail": "Token screens follow the tier gate of personal-access-tokens\nThe list and mint screens carry a `visibleWhen` on the new `personal-access-tokens:query:availability` probe. For a tenant whose tier excludes the feature (`toggleable`), the dispatcher already rejected every token handler with `feature_disabled`; now the screens also show the unavailable notice instead of an empty list with a broken Create button. A new option `lockedFallbackScreen` names a screen (for example an upgrade notice) to show in its place. Without `toggleable` nothing changes: the feature stays always on."
+  },
+  {
     "version": "0.336.0",
     "type": "fix",
     "title": "PAT revoke and its revoked-event commit atomically when called on a pool"

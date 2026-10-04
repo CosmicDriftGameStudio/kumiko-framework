@@ -1,5 +1,65 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.347.0
+
+### Minor Changes
+
+- a35ad24: actionForm screens can confirm a submit with the chosen record
+
+  A new `successMessage` i18n key on an `actionForm` screen shows a confirmation above the form after a successful submit, for screens that stay put (no `redirect`, not in a drawer). `{field}` placeholders take the submitted values, and a `reference` field shows the chosen record's label instead of its id. The tier-engine admin form uses it: "Tier assigned: Acme → Pro", so choosing the wrong tenant is visible right away. New i18n key: `tier-admin.success` (en/de/es). `RenderEdit`'s `onSubmit` receives the submitted values as a second argument.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm successMessage names the chosen record's label after a successful submit
+  -->
+
+- a35ad24: Token screens follow the tier gate of personal-access-tokens
+
+  The list and mint screens carry a `visibleWhen` on the new `personal-access-tokens:query:availability` probe. For a tenant whose tier excludes the feature (`toggleable`), the dispatcher already rejected every token handler with `feature_disabled`; now the screens also show the unavailable notice instead of an empty list with a broken Create button. A new option `lockedFallbackScreen` names a screen (for example an upgrade notice) to show in its place. Without `toggleable` nothing changes: the feature stays always on.
+
+  <!-- kumiko-changes
+  feature: personal-access-tokens
+  type: improvement
+  title: API-token screens hide behind the tier gate and can fall back to an upgrade screen via lockedFallbackScreen
+  -->
+
+### Patch Changes
+
+- 69c182c: Signup with an MFA requirement keeps its landing path
+
+  When the MFA policy asks for a factor at self-registration, `/auth/signup-confirm` now also returns the `landingPath` that `auth.postAuthLanding` resolves for the signup flow (including a claimed handover). `SignupCompleteScreen` passes it to the login link as `?next=`, so the login that follows can land where a signup without MFA would have.
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: fix
+  title: Signup-confirm under an MFA policy returns the signup landing path and the activation screen forwards it to login as next
+  -->
+
+- 69c182c: Webhook dispatch releases the connection right after the status
+
+  The step-dispatcher only needs the response status, so it now cancels the unread response body instead of leaving the socket open until the 10 s request timeout fires.
+
+  <!-- kumiko-changes
+  feature: step-dispatcher
+  type: fix
+  title: Webhook dispatch cancels the unread response body so a stalling receiver cannot hold the connection
+  -->
+
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [69c182c]
+  - @cosmicdrift/kumiko-types@0.347.0
+  - @cosmicdrift/kumiko-renderer@0.347.0
+  - @cosmicdrift/kumiko-framework@0.347.0
+  - @cosmicdrift/kumiko-renderer-web@0.347.0
+  - @cosmicdrift/kumiko-headless@0.347.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.347.0
+
 ## 0.346.0
 
 ### Minor Changes

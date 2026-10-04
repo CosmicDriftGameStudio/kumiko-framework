@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.347.0",
+    "type": "improvement",
+    "title": "New kumiko-guards comment-lang subcommand replaces the kumiko-guard-comment-lang bin",
+    "detail": "`kumiko-guards comment-lang` runs the comment-language ratchet\nThe subcommand takes `--touched --base=<ref>`, `--list`, `--write-baseline` and `--no-baseline`. The pre-push hook calls it instead of the separate `kumiko-guard-comment-lang` bin."
+  },
+  {
     "version": "0.341.0",
     "type": "breaking",
     "title": "Repo-local direct-fs exceptions with a frozen reason, bundled read-only assets",

@@ -1,5 +1,50 @@
 # @cosmicdrift/kumiko-renderer
 
+## 0.347.0
+
+### Minor Changes
+
+- a35ad24: actionForm screens can confirm a submit with the chosen record
+
+  A new `successMessage` i18n key on an `actionForm` screen shows a confirmation above the form after a successful submit, for screens that stay put (no `redirect`, not in a drawer). `{field}` placeholders take the submitted values, and a `reference` field shows the chosen record's label instead of its id. The tier-engine admin form uses it: "Tier assigned: Acme → Pro", so choosing the wrong tenant is visible right away. New i18n key: `tier-admin.success` (en/de/es). `RenderEdit`'s `onSubmit` receives the submitted values as a second argument.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: actionForm successMessage names the chosen record's label after a successful submit
+  -->
+
+### Patch Changes
+
+- a35ad24: Settings screens show their stored values after switching screens
+
+  Moving from one generated settings screen to another kept the previous screen's form state, so the fields of the new screen rendered empty and a select showed no active option even though a tenant value was set. Each config and secrets screen now mounts its own form.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: Switching between generated config screens no longer shows empty fields for stored values
+  -->
+
+- a35ad24: A locked screen's fallback shows no breadcrumb
+
+  When `visibleWhen` is unmet, the route still names the locked screen, so the shell header kept that screen's breadcrumb above the fallback or the unavailable notice. The gate now mounts `<PageHeader hideBreadcrumb />`, and the shell header drops the breadcrumb while it is mounted. Embedded screens (dashboard panels, drawers) are not affected.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The shell header drops the locked screen's breadcrumb while a visibleWhen fallback or notice is shown
+  -->
+
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [69c182c]
+  - @cosmicdrift/kumiko-types@0.347.0
+  - @cosmicdrift/kumiko-framework@0.347.0
+  - @cosmicdrift/kumiko-headless@0.347.0
+
 ## 0.346.0
 
 ### Patch Changes

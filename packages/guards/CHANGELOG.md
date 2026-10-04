@@ -1,5 +1,23 @@
 # @cosmicdrift/kumiko-guards
 
+## 0.347.0
+
+### Minor Changes
+
+- a35ad24: `kumiko-guards comment-lang` runs the comment-language ratchet
+
+  The subcommand takes `--touched --base=<ref>`, `--list`, `--write-baseline` and `--no-baseline`. The pre-push hook calls it instead of the separate `kumiko-guard-comment-lang` bin.
+
+  <!-- kumiko-changes
+  feature: guards
+  type: improvement
+  title: New kumiko-guards comment-lang subcommand replaces the kumiko-guard-comment-lang bin
+  -->
+
+### Patch Changes
+
+- @cosmicdrift/kumiko-repo-manifest@0.347.0
+
 ## 0.346.0
 
 ### Patch Changes

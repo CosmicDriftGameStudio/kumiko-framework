@@ -1,5 +1,32 @@
 # @cosmicdrift/kumiko-renderer-web
 
+## 0.347.0
+
+### Patch Changes
+
+- a35ad24: A locked screen's fallback shows no breadcrumb
+
+  When `visibleWhen` is unmet, the route still names the locked screen, so the shell header kept that screen's breadcrumb above the fallback or the unavailable notice. The gate now mounts `<PageHeader hideBreadcrumb />`, and the shell header drops the breadcrumb while it is mounted. Embedded screens (dashboard panels, drawers) are not affected.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: fix
+  title: The shell header drops the locked screen's breadcrumb while a visibleWhen fallback or notice is shown
+  -->
+
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [a35ad24]
+- Updated dependencies [69c182c]
+  - @cosmicdrift/kumiko-types@0.347.0
+  - @cosmicdrift/kumiko-renderer@0.347.0
+  - @cosmicdrift/kumiko-framework@0.347.0
+  - @cosmicdrift/kumiko-headless@0.347.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.347.0
+
 ## 0.346.0
 
 ### Patch Changes
