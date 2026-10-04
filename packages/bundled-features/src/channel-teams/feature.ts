@@ -45,6 +45,7 @@ export function createChannelTeamsFeature(options: TeamsChannelOptions = {}): Fe
     });
 
     const channel = createTeamsChannel(options, webhooks.keyFor);
+    r.translations({ keys: { "delivery.channel.teams": { en: "Microsoft Teams" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "teams", {
       mode: channel.mode,
       send: channel.send,

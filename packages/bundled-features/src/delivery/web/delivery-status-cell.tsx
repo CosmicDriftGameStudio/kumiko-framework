@@ -4,9 +4,10 @@
 // in feature.ts). The list frame itself is the generic declarative
 // projectionList renderer — only this one cell stays TSX.
 
-import type { ColumnRendererProps } from "@cosmicdrift/kumiko-renderer";
+import { type ColumnRendererProps, useTranslation } from "@cosmicdrift/kumiko-renderer";
 import { StatusBadge, type StatusTone } from "@cosmicdrift/kumiko-renderer-web";
 import type { ReactNode } from "react";
+import { translateOrRaw } from "../../shared/web/translate-or-raw.js";
 import { DeliveryStatus } from "../public-names.js";
 
 const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
@@ -17,10 +18,11 @@ const STATUS_TONE: Readonly<Record<string, StatusTone>> = {
 };
 
 export function DeliveryStatusCell({ row }: ColumnRendererProps): ReactNode {
+  const t = useTranslation();
   const status = typeof row["status"] === "string" ? row["status"] : "";
   return (
     <StatusBadge tone={STATUS_TONE[status] ?? "muted"} testId="delivery-status-cell">
-      {status}
+      {translateOrRaw(t, `delivery.status.${status}`, status)}
     </StatusBadge>
   );
 }
