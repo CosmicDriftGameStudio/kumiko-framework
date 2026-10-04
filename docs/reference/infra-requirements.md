@@ -54,12 +54,15 @@ bundled-feature you mount.
 
 ## Optional: app version in the event log
 
-`runProdApp` writes one `kumiko:system:app.started` event per start under the
-system tenant (stream type `app-instance`). It carries the version, the
-instance id (`HOSTNAME`, the pod name on Kubernetes, else the OS hostname) and
-the start time. The deployment sets `KUMIKO_APP_VERSION` (and optionally
-`KUMIKO_GIT_COMMIT`); without a version the event records `"unknown"`. A
-failed write is logged and does not stop the boot.
+`runProdApp` and `runWorkerApp` write one `kumiko:system:app.started` event per
+start under the system tenant (stream type `app-instance`). It carries the
+version, the instance id (`KUMIKO_INSTANCE_ID`, else `HOSTNAME`, the pod name
+on Kubernetes, else the OS hostname) and the start time. Replicas that share
+one `KUMIKO_INSTANCE_ID` record the same instance id. The deployment sets
+`KUMIKO_APP_VERSION` (and optionally `KUMIKO_GIT_COMMIT`); without a version
+the event records `"unknown"`. A failed write is logged and does not stop the
+boot. A SystemAdmin reads these events through `audit:query:list` with
+`scope: "system"`.
 
 ## Local dev stack
 

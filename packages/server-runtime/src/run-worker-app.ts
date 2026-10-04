@@ -33,6 +33,7 @@ import type {
 import type { MasterKeyProvider, SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
+import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
 import { bootWorkerProcess, resolveWorkerEnvSource } from "./boot/worker-boot-core.js";
 import {
   startWorkerMetricsServer,
@@ -178,6 +179,7 @@ export async function runWorkerApp(options: RunWorkerAppOptions): Promise<Worker
     stop: boot.close,
     ...(metricsServer && { metricsServer }),
   };
+  await recordAppStartedOnBoot({ db, envSource });
   startPiiEventBackfillOnBoot({
     db,
     registry,

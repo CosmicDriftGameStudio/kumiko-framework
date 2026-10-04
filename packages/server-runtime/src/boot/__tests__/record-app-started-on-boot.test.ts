@@ -23,7 +23,27 @@ describe("resolveAppStartedPayload", () => {
     expect("commit" in payload).toBe(false);
   });
 
-  test("falls back to the OS hostname when HOSTNAME is missing", () => {
+  test("KUMIKO_INSTANCE_ID wins over HOSTNAME", () => {
+    expect(
+      resolveAppStartedPayload(
+        { KUMIKO_INSTANCE_ID: "app-0", HOSTNAME: "pod-a" },
+        "fallback-host",
+        STARTED_AT,
+      ).instanceId,
+    ).toBe("app-0");
+  });
+
+  test("an empty KUMIKO_INSTANCE_ID falls back to HOSTNAME", () => {
+    expect(
+      resolveAppStartedPayload(
+        { KUMIKO_INSTANCE_ID: "", HOSTNAME: "pod-a" },
+        "fallback-host",
+        STARTED_AT,
+      ).instanceId,
+    ).toBe("pod-a");
+  });
+
+  test("falls back to the OS hostname when both instance variables are missing", () => {
     expect(resolveAppStartedPayload({}, "fallback-host", STARTED_AT).instanceId).toBe(
       "fallback-host",
     );

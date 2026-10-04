@@ -31,8 +31,11 @@ import {
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  APP_INSTANCE_STREAM_TYPE,
+  APP_STARTED_EVENT_TYPE,
   createArchivedStreamsTable,
   createEventsTable,
+  loadAllEventsByType,
 } from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createNoopProvider,
@@ -44,6 +47,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/pipeline";
 import { unsafeEnsureEntityTable, unsafePushTables } from "@cosmicdrift/kumiko-framework/stack";
 import { waitFor } from "@cosmicdrift/kumiko-framework/testing";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { Redis } from "ioredis";
 import postgres from "postgres";
 import * as z from "zod";
@@ -178,6 +182,35 @@ describe("runWorkerApp", () => {
     const handle = await boot();
     expect(handle.entrypoint.mode).toBe("worker");
     expect(handle.entrypoint.dispatcher).toBeDefined();
+  });
+
+  test("records one app.started event under the system tenant with instance id and version", async () => {
+    const dbUrl = ADMIN_URL.replace(/\/[^/]+$/, `/${TEST_DB}`);
+    await boot({
+      envSource: {
+        DATABASE_URL: dbUrl,
+        REDIS_URL: process.env["REDIS_URL"] ?? "redis://localhost:16379",
+        JWT_SECRET: "test-runworker-secret-32-chars-min!!",
+        KUMIKO_INSTANCE_ID: "worker-app-started-probe",
+        KUMIKO_APP_VERSION: "4.5.6",
+        HOSTNAME: "ignored-pod",
+      },
+    });
+
+    const { db, close } = createDbConnection(dbUrl);
+    try {
+      const events = await loadAllEventsByType(db, APP_INSTANCE_STREAM_TYPE);
+      const mine = events.filter(
+        (event) =>
+          event.type === APP_STARTED_EVENT_TYPE &&
+          event.payload["instanceId"] === "worker-app-started-probe",
+      );
+      expect(mine).toHaveLength(1);
+      expect(mine[0]?.tenantId).toBe(SYSTEM_TENANT_ID);
+      expect(mine[0]?.payload).toMatchObject({ version: "4.5.6" });
+    } finally {
+      await close();
+    }
   });
 
   test("event-triggered job runs end-to-end with Temporal already defined (fw#1725 regression)", async () => {
