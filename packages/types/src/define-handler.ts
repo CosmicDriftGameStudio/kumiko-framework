@@ -7,6 +7,7 @@ import type {
   EscapeHatchDeclaration,
   HandlerContext,
   PayloadRateLimitOption,
+  PreTransactionReservation,
   QueryEvent,
   RateLimitDeclaration,
   WriteEvent,
@@ -44,6 +45,7 @@ export type WriteHandlerDefinition<
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly tenantlessAnonymous?: boolean;
   readonly handler: (
     event: WriteEvent<z.infer<TSchema>>,
@@ -74,6 +76,7 @@ export type WriteHandlerInput<
   readonly rateLimit?: RateLimitDeclaration;
   readonly additionalRateLimits?: readonly PayloadRateLimitOption[];
   readonly escapeHatch?: EscapeHatchDeclaration;
+  readonly reserveBeforeTransaction?: PreTransactionReservation;
   readonly tenantlessAnonymous?: boolean;
 } & (
   | {

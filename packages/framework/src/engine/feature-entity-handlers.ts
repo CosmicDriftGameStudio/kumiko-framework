@@ -180,6 +180,9 @@ export function buildEntityHandlerMethods<TName extends string>(
           ...(def.rateLimit && { rateLimit: def.rateLimit }),
           ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
           ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+          ...(def.reserveBeforeTransaction && {
+            reserveBeforeTransaction: def.reserveBeforeTransaction,
+          }),
           ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
           // Forward the pipeline-build closure so boot-validators and
           // Designer/AI tooling can inspect the step list. Absent on

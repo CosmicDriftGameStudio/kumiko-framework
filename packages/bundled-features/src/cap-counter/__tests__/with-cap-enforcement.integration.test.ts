@@ -649,6 +649,14 @@ describe("bookCapUsage — parallel bookings for the same period", () => {
   });
 });
 
+// postgres.js keeps its pool size on the client's `options`; the DbConnection type does not expose it.
+function connectionPoolSize(connection: DbConnection): number {
+  const options: unknown = Reflect.get(connection, "options");
+  const max = typeof options === "object" && options !== null ? Reflect.get(options, "max") : null;
+  if (typeof max !== "number") throw new Error("connection pool size is not readable");
+  return max;
+}
+
 function resetAtomicState(mode: typeof atomicHandlerMode) {
   atomicHandlerRuns = 0;
   atomicHandlerMode = mode;
@@ -712,7 +720,7 @@ describe("withCapEnforcement - atomic reservation", () => {
   });
 
   test("capped requests beyond the pool size all complete (no connection held across the handler)", async () => {
-    const poolSize = asRawClient(db).options.max;
+    const poolSize = connectionPoolSize(db);
     const user = tenantAdminOnlyFor(2707);
 
     const responses = await Promise.all(
