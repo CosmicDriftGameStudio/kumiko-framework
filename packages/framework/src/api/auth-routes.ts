@@ -1521,13 +1521,15 @@ export function createAuthRoutes(
   // POST /auth/switch-tenant — switch to a different tenant
   api.post(Routes.authSwitchTenant, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ tenantId?: unknown }>();
+    const raw: unknown = await c.req.json().catch(() => null);
+    const body: { tenantId?: unknown } =
+      raw !== null && typeof raw === "object" ? raw : {};
     // The id seeds a SYSTEM identity in resolveActiveMembership — reject anything
     // that is not a non-empty string before it gets that far.
     if (!isNonEmptyString(body.tenantId)) {
       return c.json({ error: "invalid_tenant" }, 400);
     }
-    const targetTenantId = body.tenantId as TenantId; // @cast-boundary request-body
+    const targetTenantId = body.tenantId as TenantId;
 
     if (targetTenantId === user.tenantId) {
       return c.json({ error: "already_in_tenant" }, 400);
