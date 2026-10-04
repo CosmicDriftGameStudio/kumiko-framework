@@ -1,15 +1,13 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
-import type {
-  EscapeHatchAuditSink,
-  Registry,
-  TenantId,
-} from "@cosmicdrift/kumiko-framework/engine";
+import type { EscapeHatchAuditSink, Registry } from "@cosmicdrift/kumiko-framework/engine";
 import type { JobRunner } from "@cosmicdrift/kumiko-framework/jobs";
 import type { Logger } from "@cosmicdrift/kumiko-framework/logging";
+import type { SecretsContext } from "@cosmicdrift/kumiko-framework/secrets";
 import type { Redis } from "ioredis";
 import type { KillSwitchResolver, RateLimitConfig } from "./delivery-service.js";
 import { collectChannels, createDeliveryService } from "./delivery-service.js";
+import { createDeliveryNotifyFactory } from "./notify-factory.js";
 import type { DeliveryService } from "./types.js";
 
 export type CreateDeliveryTestContextOptions = {
@@ -19,6 +17,7 @@ export type CreateDeliveryTestContextOptions = {
   readonly escapeHatchAuditSink?: EscapeHatchAuditSink;
   readonly log?: Logger;
   readonly jobRunner?: JobRunner;
+  readonly secrets?: SecretsContext;
 };
 
 /**
@@ -47,9 +46,6 @@ export function createDeliveryTestContext(
 
   return {
     deliveryService, // exposed so tests can inspect/call directly if needed
-    _notifyFactory:
-      (user: { id: number; tenantId: TenantId }, tenantId: TenantId) =>
-      (notificationType: string, notifyOptions: Record<string, unknown>) =>
-        deliveryService.notify(notificationType, notifyOptions as never, user as never, tenantId), // @cast-boundary engine-bridge
+    _notifyFactory: createDeliveryNotifyFactory(deliveryService),
   };
 }

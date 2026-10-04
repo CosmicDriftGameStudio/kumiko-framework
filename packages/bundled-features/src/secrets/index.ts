@@ -1,4 +1,9 @@
-export { DEFAULT_SECRETS_ACCESS, DEFAULT_SECRETS_ROLES } from "./constants.js";
+export {
+  DEFAULT_SECRETS_ACCESS,
+  DEFAULT_SECRETS_ROLES,
+  INVALID_SECRET_VALUE_CODE,
+  SECRETS_ERROR_KEYS,
+} from "./constants.js";
 export {
   createSecretsContext,
   createSecretsFeature,
@@ -21,3 +26,4 @@ export {
   rotateJob,
 } from "./handlers/rotate.job.js";
 export { createSetHandler } from "./handlers/set.write.js";
+export { isInvalidSecretValueError } from "./write-gate.js";

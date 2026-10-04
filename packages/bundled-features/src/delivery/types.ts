@@ -1,6 +1,7 @@
 import type { SseBroker } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantDb } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  DeliveryErrorCode,
   NotifyDeliveryStatus,
   NotifyJobDispatcher,
   NotifyOptions,
@@ -35,7 +36,9 @@ export type ChannelMessage = {
 
 export type ChannelResult = {
   readonly status: "sent" | "failed" | "skipped";
-  readonly error?: string;
+  readonly error?: DeliveryErrorCode;
+  // Only ever set to false: the provider accepted the message but did not confirm delivery.
+  readonly confirmed?: false;
   readonly address?: string;
 };
 
@@ -91,7 +94,7 @@ export type DeliveryLogEntry = {
   readonly recipientId: string | null;
   readonly recipientAddress: string | null;
   readonly status: NotifyDeliveryStatus;
-  readonly error: string | null;
+  readonly error: DeliveryErrorCode | null;
   readonly priority: NotifyPriority;
 };
 

@@ -3,6 +3,11 @@
 // delivery-service.ts (validates payloads before the low-level append()
 // — out-of-dispatcher writes otherwise skip schema enforcement).
 
+import {
+  DELIVERY_FAILURE_CODES,
+  DELIVERY_SKIP_REASONS,
+  HTTP_ERROR_CODE_PATTERN,
+} from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { DeliveryStatus } from "./constants.js";
 
@@ -17,7 +22,14 @@ export const deliveryAttemptSchema = z.object({
     DeliveryStatus.failed,
     DeliveryStatus.skipped,
   ]),
-  error: z.string().nullable(),
+  // Closed code set; z.custom would not serialize to JSON-Schema. Events written
+  // before the code vocabulary may hold free text, they are not re-validated on replay.
+  error: z
+    .union([
+      z.enum([...DELIVERY_FAILURE_CODES, ...DELIVERY_SKIP_REASONS]),
+      z.string().regex(HTTP_ERROR_CODE_PATTERN),
+    ])
+    .nullable(),
   priority: z.enum(["critical", "normal", "low"]),
 });
 

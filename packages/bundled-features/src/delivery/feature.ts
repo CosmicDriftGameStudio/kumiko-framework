@@ -8,9 +8,13 @@ import {
 import type * as z from "zod";
 import {
   DELIVERY_ATTEMPT_EVENT,
+  DELIVERY_CHANNEL_CELL_COMPONENT,
   DELIVERY_CHANNEL_EXTENSION,
+  DELIVERY_ERROR_CELL_COMPONENT,
   DELIVERY_LOG_SCREEN_ID,
   DELIVERY_STATUS_CELL_COMPONENT,
+  DELIVERY_TIME_CELL_COMPONENT,
+  DELIVERY_TYPE_CELL_COMPONENT,
   DeliveryJobNames,
   DeliveryQueries,
 } from "./constants.js";
@@ -169,18 +173,36 @@ export function createDeliveryFeature(options?: DeliveryFeatureOptions): Feature
       query: DeliveryQueries.log,
       columns: [
         {
+          field: "createdAt",
+          label: i18nKey("delivery.log.col.createdAt"),
+          renderer: { react: { __component: DELIVERY_TIME_CELL_COMPONENT } },
+        },
+        {
           field: "tenantId",
           label: i18nKey("delivery.log.col.tenantId"),
           refEntity: "tenant:tenant",
           refLabelField: "name",
         },
-        { field: "type", label: i18nKey("delivery.log.col.type") },
-        { field: "channel", label: i18nKey("delivery.log.col.channel") },
+        {
+          field: "type",
+          label: i18nKey("delivery.log.col.type"),
+          renderer: { react: { __component: DELIVERY_TYPE_CELL_COMPONENT } },
+        },
+        {
+          field: "channel",
+          label: i18nKey("delivery.log.col.channel"),
+          renderer: { react: { __component: DELIVERY_CHANNEL_CELL_COMPONENT } },
+        },
         { field: "recipient", label: i18nKey("delivery.log.col.recipient") },
         {
           field: "status",
           label: i18nKey("delivery.log.col.status"),
           renderer: { react: { __component: DELIVERY_STATUS_CELL_COMPONENT } },
+        },
+        {
+          field: "error",
+          label: i18nKey("delivery.log.col.error"),
+          renderer: { react: { __component: DELIVERY_ERROR_CELL_COMPONENT } },
         },
       ],
       // Cursor-based paging: deliveryAttemptsTable's id is an event-stream

@@ -7,6 +7,7 @@
 
 import type { DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import type {
+  DeliveryErrorCode,
   JobContext,
   JobHandlerFn,
   Registry,
@@ -18,7 +19,7 @@ import * as z from "zod";
 import { appendAttemptEvent } from "./attempt-log.js";
 import { buildChannelContext } from "./channel-context.js";
 import { DeliveryJobs, deliveryPriorityRank } from "./constants.js";
-import { collectChannels } from "./delivery-service.js";
+import { collectChannels, redactedMessageOf } from "./delivery-service.js";
 import type {
   ChannelMessage,
   DeliveryChannel,
@@ -90,7 +91,7 @@ function toMessage(p: RenderJobPayload): ChannelMessage {
 function entryFor(
   p: RenderJobPayload,
   status: DeliveryLogEntry["status"],
-  error: string | null,
+  error: DeliveryErrorCode | null,
   address: string | null,
 ): DeliveryLogEntry {
   return {
@@ -105,8 +106,29 @@ function entryFor(
   };
 }
 
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+// The job runner stores err.message in the run row, and BullMQ keeps failedReason and
+// the stack trace in Redis in plain text, so the rethrown error carries only the code.
+// The redacted message goes to the log.
+async function failAttempt(
+  ctx: JobContext,
+  db: DbConnection,
+  registry: Registry,
+  p: RenderJobPayload,
+  code: DeliveryErrorCode,
+  err: unknown,
+): Promise<never> {
+  const message = redactedMessageOf(err);
+  ctx.log.error(`delivery.${p.channelName} ${code}: ${message}`, {
+    notificationType: p.notificationType,
+    channel: p.channelName,
+  });
+  await appendAttemptEvent(
+    db,
+    registry,
+    p.deliveryAttemptId,
+    entryFor(p, "failed", code, p.address),
+  );
+  throw new Error(code);
 }
 
 // Render the message and hand off to delivery.send. On failure: record the
@@ -119,11 +141,16 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
   const channel = resolveChannel(registry, p.channelName);
   const channelCtx = buildChannelContext(db, registry, undefined, tenantId, ctx.secrets);
 
+  let rendered: RenderedMessage;
   try {
     if (!channel.render) {
       throw new Error(`delivery.render: channel "${p.channelName}" has no render step`);
     }
-    const rendered: RenderedMessage = await channel.render(toMessage(p), channelCtx);
+    rendered = await channel.render(toMessage(p), channelCtx);
+  } catch (err) {
+    return failAttempt(ctx, db, registry, p, "render_failed", err);
+  }
+  try {
     const jobRunner = ctx["jobRunner"] as JobRunner; // @cast-boundary dynamic-key — dispatch lives on the concrete runner
     await jobRunner.dispatch(
       DeliveryJobs.send,
@@ -131,13 +158,7 @@ export const deliveryRenderJob: JobHandlerFn = async (payload, ctx) => {
       { priority: deliveryPriorityRank[p.priority] },
     );
   } catch (err) {
-    await appendAttemptEvent(
-      db,
-      registry,
-      p.deliveryAttemptId,
-      entryFor(p, "failed", `render: ${messageOf(err)}`, p.address),
-    );
-    throw err;
+    return failAttempt(ctx, db, registry, p, "channel_error", err);
   }
 };
 
@@ -160,12 +181,6 @@ export const deliverySendJob: JobHandlerFn = async (payload, ctx) => {
       entryFor(p, result.status, result.error ?? null, result.address ?? p.address),
     );
   } catch (err) {
-    await appendAttemptEvent(
-      db,
-      registry,
-      p.deliveryAttemptId,
-      entryFor(p, "failed", `send: ${messageOf(err)}`, p.address),
-    );
-    throw err;
+    return failAttempt(ctx, db, registry, p, "send_failed", err);
   }
 };

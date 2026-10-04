@@ -16,6 +16,7 @@ export function createChannelEmailFeature(options: EmailChannelOptions): Feature
     });
     r.requires("delivery");
 
+    r.translations({ keys: { "delivery.channel.email": { en: "Email" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "email", {
       mode: channel.mode,
       resolve: channel.resolve,

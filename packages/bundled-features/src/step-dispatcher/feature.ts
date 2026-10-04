@@ -25,12 +25,8 @@ import {
 import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
-import {
-  type MailSpec,
-  mailSpecSchema,
-  performMailDispatch,
-  redactEmailAddresses,
-} from "./mail-runner.js";
+import { redactEmailAddresses } from "../shared/index.js";
+import { type MailSpec, mailSpecSchema, performMailDispatch } from "./mail-runner.js";
 import {
   performWebhookDispatch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,

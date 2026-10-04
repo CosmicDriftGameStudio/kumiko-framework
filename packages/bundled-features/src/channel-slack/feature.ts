@@ -41,6 +41,7 @@ export function createChannelSlackFeature(options: SlackChannelOptions = {}): Fe
     });
 
     const channel = createSlackChannel(options, webhooks.keyFor);
+    r.translations({ keys: { "delivery.channel.slack": { en: "Slack" } } });
     r.useExtension(DELIVERY_CHANNEL_EXTENSION, "slack", {
       mode: channel.mode,
       send: channel.send,

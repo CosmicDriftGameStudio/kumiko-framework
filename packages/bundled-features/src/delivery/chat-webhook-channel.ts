@@ -1,6 +1,7 @@
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import {
   type ChatSendResult,
+  type ChatWebhookRequest,
   type ChatWebhookTarget,
   chatConnectionNameSchema,
   DEFAULT_CHAT_TIMEOUT_MS,
@@ -17,9 +18,10 @@ export type ChatWebhookChannelOptions = {
 };
 
 export function toChannelResult(address: string, result: ChatSendResult): ChannelResult {
-  return result.ok
+  if (!result.ok) return { status: "failed", error: result.code, address };
+  return result.confirmed
     ? { status: "sent", address }
-    : { status: "failed", error: result.code, address };
+    : { status: "sent", confirmed: false, address };
 }
 
 export function chatMessageText(message: ChannelMessage): string {
@@ -50,6 +52,8 @@ export type ChatWebhookChannelSpec = {
   // Resolves the secret key for a validated connection name.
   readonly keyFor: (connection: string) => string;
   readonly buildBody: (message: ChannelMessage) => unknown;
+  // Providers whose 2xx does not by itself mean "delivered" check the answer here.
+  readonly classifyResponse?: ChatWebhookRequest["classifyResponse"];
   readonly options: ChatWebhookChannelOptions;
 };
 
@@ -82,6 +86,7 @@ export function createChatWebhookChannel(spec: ChatWebhookChannelSpec): Delivery
         ...resolveChatWebhookTarget(spec, options),
         timeoutMs: options.timeoutMs ?? DEFAULT_CHAT_TIMEOUT_MS,
         body: spec.buildBody(message),
+        ...(spec.classifyResponse && { classifyResponse: spec.classifyResponse }),
       });
       return toChannelResult(address, result);
     },

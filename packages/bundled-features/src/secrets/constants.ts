@@ -10,3 +10,13 @@ import type { AccessRule } from "@cosmicdrift/kumiko-framework/engine";
 // design, not a per-tenant RBAC surface.
 export const DEFAULT_SECRETS_ROLES = ["TenantAdmin"] as const;
 export const DEFAULT_SECRETS_ACCESS: AccessRule = { roles: DEFAULT_SECRETS_ROLES };
+
+// Error i18n keys of the secrets write path. Shared by the write gate, the
+// bundled translations and callers that need to recognise a specific failure.
+export const SECRETS_ERROR_KEYS = {
+  unknownKey: "secrets.errors.unknownKey",
+  writeDenied: "secrets.errors.writeDenied",
+  invalidValue: "secrets.errors.invalidValue",
+} as const;
+
+export const INVALID_SECRET_VALUE_CODE = "invalid_secret_value" as const;
