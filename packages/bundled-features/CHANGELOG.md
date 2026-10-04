@@ -1,5 +1,141 @@
 # @cosmicdrift/kumiko-bundled-features
 
+## 0.343.0
+
+### Minor Changes
+
+- 23b0bec: The audit job `escape-hatch-retention` now deletes `escapeHatchUse` events after the `auditLog.retention` of the tenant's compliance profile. A tenant override can only lengthen that period, never go below the base retention of the selected profile. Cross-tenant audits (with `targetTenantId`, e.g. `identity-switch`) additionally follow the profile of the target tenant. The config key `audit:config:escape-hatch-retention-days` is only the fallback when compliance-profiles is not mounted.
+
+  `pruneEvents` gains the optional `aggregateIds` option to restrict the prune to specific aggregates. `@cosmicdrift/kumiko-framework/compliance` exports `subtractRetentionSpec` and the `RetentionSpec` type for calendar-aware cutoffs (months and years).
+
+  <!-- kumiko-changes
+  feature: audit
+  type: improvement
+  title: escape-hatch retention follows the tenant compliance profile
+  -->
+
+- 446b714: Auth mails state the link validity as a duration and in the user's time zone
+
+  The five token mail renderers replace the UTC timestamp with `{duration}` (for example "1 day") and `{when}` (medium date and short time with zone abbreviation, in the recipient's locale). `RenderTokenContentArgs` gains `issuedAt` (default now) and `timeZone` (default UTC; an invalid zone falls back to UTC); the handlers pass the token issue time and `ctx.tz.user`. German strings use "Konto" instead of "Account".
+
+  <!-- kumiko-changes
+  feature: auth-email-password
+  type: improvement
+  title: Mail expiry shows duration and local time with time zone
+  migration: |
+    Custom `auth.mail.*.expiry` translations should use the new `{duration}` and `{when}` placeholders; `{when}` now includes the time and zone abbreviation instead of a UTC timestamp.
+  -->
+
+- 446b714: Jobs whose `escapeHatch` grants `unsafeRaw` get `ctx.crossTenantReads` with `selectMany`, `fetchOne` and `count` across all tenants, read-only. Each call is reported as the new escape-hatch kind `cross-tenant-read`; system crons audit it once per process and the metric `kumiko_escape_hatch_uses_total` counts every call. `EscapeHatchKind` and the `escape-hatch-used` audit schema gain `cross-tenant-read`.
+
+  `tenant-lifecycle:job:run-tenant-destruction` checks through `ctx.crossTenantReads` whether a tenant is due and only then calls `ctx.db.unsafeRaw()`, so idle minutes no longer write an `unsafe-raw` audit event.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: ctx.crossTenantReads for read-only cross-tenant job reads
+  -->
+
+- 75cb7c0: The delivery log now records when a provider accepted a send without confirming delivery (for example a Teams webhook answering 202). `store_delivery_attempts` gets a nullable boolean column `confirmed`: `false` means accepted but unconfirmed, `null` means confirmed or not applicable. The `deliveryAttempt` event carries `confirmed: false` on both the inline and the job path, `delivery:query:log` returns `confirmed` per row, and the status cell shows "Sent (unconfirmed)" for such rows.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery log marks sends the provider did not confirm
+  migration: |
+    New nullable column store_delivery_attempts.confirmed. Consumers generate the migration with the generator (kumiko-schema generate) and apply it; existing rows stay null.
+  -->
+
+- cf6d31b: Delivery stores and returns only fixed error codes, never raw error messages. `delivery_attempts.error`, the `deliveryAttempt` event, `NotifyResult.deliveries[].error` and the job failure now hold one of `DELIVERY_FAILURE_CODES` (`timeout`, `network_error`, `redirect_blocked`, `host_not_allowed`, `missing_credentials`, `invalid_address`, `unexpected_response`, `render_failed`, `send_failed`, `channel_error`), one of `DELIVERY_SKIP_REASONS`, or `http_<status>`. A throwing channel ends as `send_failed` or `render_failed`; a failure around resolve or dispatch ends as `channel_error`. The full error goes to the log with URLs and email addresses redacted. `redactUrls` and `redactErrorText` are new next to `redactEmailAddresses`, which moved out of the step dispatcher.
+
+  `@cosmicdrift/kumiko-framework/engine` exports `DELIVERY_FAILURE_CODES`, `DELIVERY_SKIP_REASONS`, `isDeliveryErrorCode` and the types `DeliveryErrorCode`, `DeliveryFailureCode`, `DeliverySkipReason` and `ChatSendFailureCode`. `NotifyDelivery.error`, `ChannelResult.error` and `DeliveryLogEntry.error` are now `DeliveryErrorCode`. `delivery:query:log` returns `channel_error` for stored rows that still hold free text.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: breaking
+  title: Delivery errors are fixed codes instead of raw messages
+  migration: |
+    NotifyDelivery.error is now a DeliveryErrorCode. Code that matches on error text must match the code instead (for example send_failed). Custom channels must return a DeliveryErrorCode in ChannelResult.error. Existing attempt events keep their free text; reading them through delivery:query:log masks it as channel_error.
+  -->
+
+- cf6d31b: The delivery log screen shows the time and the error of each attempt and translates type, channel, status and error. Error codes map to `delivery.error.<code>` (`http_<status>` to `delivery.error.http` with a `status` parameter), statuses to `delivery.status.<status>`, channels to `delivery.channel.<name>`. Every bundled channel feature registers its own channel label. Notification types are shown through `<scope>.notification.<name>` for a type `<scope>:notify:<name>`; apps register those labels, and the short name is shown when none exists. English, German and Spanish texts are included for the bundled keys.
+
+  `translateOrRaw` moved from the tenant web folder to `shared/web`; it is internal.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery log shows time and error and translates its values
+  -->
+
+- 75cb7c0: `delivery:query:log` returns a `recipientLabel` per row and the delivery log screen shows it in the recipient column: the user's display name, else the decrypted address, else the recipient id. Names are resolved with one batched lookup per page, and only when the user feature is mounted. The new `resolveUserDisplayNames(db, userIds)` is exported from the user feature. The recipient column is not sortable.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: Delivery log shows the recipient name
+  -->
+
+- cf6d31b: `createDeliveryTestContext` now behaves like the production `ctx.notify`. It takes a `secrets` option for inline-delivered chat channels and passes the calling context's job dispatcher to `notify()` on every call. Queued channels now go through the delivery jobs when the stack has a job consumer (`jobs: { consumerLane: "worker" }`); call `stack.drainJobs()` before asserting on the result. With `jobs: {}` and no `consumerLane` the attempts stay queued and `drainJobs()` never finishes. Without `jobs` they still deliver inline.
+
+  New export `createDeliveryNotifyFactory(deliveryService, { deliverQueuedInline? })` builds this `NotifyFactory` for custom setups.
+
+  <!-- kumiko-changes
+  feature: delivery
+  type: improvement
+  title: createDeliveryTestContext matches production notify
+  -->
+
+- 446b714: A `masterKey` provider on runProdApp and runWorkerApp is enough for the boot checks
+
+  The boot probe for `encrypted: true` entity fields now accepts the cipher the runner builds from `masterKey` (new `ValidateBootOptions.entityFieldCipher`), and the env-schema parse no longer requires `KUMIKO_SECRETS_MASTER_KEY_V1` when `masterKey` is set. The framework exports `withOptionalEnvKeys` for that, and the secrets feature exports `SECRETS_MASTER_KEK_ENV_KEYS`. Without `masterKey`, a missing env KEK still stops the boot; the message now names both ways to provide a key. A malformed env KEK now fails during boot validation, so `KUMIKO_DRY_RUN_ENV=boot` reports it too.
+
+  <!-- kumiko-changes
+  feature: server-runtime
+  type: improvement
+  title: masterKey on runProdApp and runWorkerApp replaces the env KEK for the boot checks
+  migration: |
+    Apps that pass `masterKey` can drop `KUMIKO_SECRETS_MASTER_KEY_V1` from their env and deployment config. Apps without `masterKey` change nothing.
+  -->
+
+- cf6d31b: `secrets` exports `isInvalidSecretValueError`, which recognises the validation error that `secrets:write:set` and `ctx.secrets.set` raise when a value fails the key's `valueSchema`. It also exports `SECRETS_ERROR_KEYS` (the i18n keys of the secrets write errors) and `INVALID_SECRET_VALUE_CODE` (the field error code), so callers can map the failure to their own message instead of matching strings.
+
+  <!-- kumiko-changes
+  feature: secrets
+  type: improvement
+  title: Recognise the invalid-secret-value error
+  -->
+
+- cf6d31b: `channel-teams` no longer reports every 2xx answer as sent. A 200 with the body `1` (classic Office connector) is a confirmed send. A 202 (Power Automate / Workflows endpoints) means the message was accepted but not confirmed: the attempt is `sent` and `NotifyResult.deliveries[].confirmed` is `false`. Any other 2xx, including an empty 200 as a made-up URL returns, fails with `unexpected_response`.
+
+  `NotifyDelivery.confirmed` and `ChannelResult.confirmed` are new and only ever `false`. `createChatWebhookChannel` takes an optional `classifyResponse`, which `postChatWebhook` calls for 2xx answers with a status and a lazy `readBodyPrefix()` (at most 64 bytes; the body is always cancelled afterwards). `ChatSendResult` success now carries `confirmed`. `confirmed` is returned for inline delivery only; jobs do not carry it yet.
+
+  <!-- kumiko-changes
+  feature: channel-teams
+  type: fix
+  title: Teams no longer reports any 2xx as delivered
+  -->
+
+### Patch Changes
+
+- Updated dependencies [23b0bec]
+- Updated dependencies [446b714]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [446b714]
+- Updated dependencies [d32e123]
+- Updated dependencies [6adca33]
+- Updated dependencies [cf6d31b]
+- Updated dependencies [446b714]
+  - @cosmicdrift/kumiko-framework@0.343.0
+  - @cosmicdrift/kumiko-types@0.343.0
+  - @cosmicdrift/kumiko-renderer@0.343.0
+  - @cosmicdrift/kumiko-renderer-web@0.343.0
+  - @cosmicdrift/kumiko-headless@0.343.0
+  - @cosmicdrift/kumiko-dispatcher-live@0.343.0
+
 ## 0.342.0
 
 ### Minor Changes

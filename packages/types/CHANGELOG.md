@@ -1,5 +1,29 @@
 # @cosmicdrift/kumiko-types
 
+## 0.343.0
+
+### Minor Changes
+
+- 446b714: Jobs whose `escapeHatch` grants `unsafeRaw` get `ctx.crossTenantReads` with `selectMany`, `fetchOne` and `count` across all tenants, read-only. Each call is reported as the new escape-hatch kind `cross-tenant-read`; system crons audit it once per process and the metric `kumiko_escape_hatch_uses_total` counts every call. `EscapeHatchKind` and the `escape-hatch-used` audit schema gain `cross-tenant-read`.
+
+  `tenant-lifecycle:job:run-tenant-destruction` checks through `ctx.crossTenantReads` whether a tenant is due and only then calls `ctx.db.unsafeRaw()`, so idle minutes no longer write an `unsafe-raw` audit event.
+
+  <!-- kumiko-changes
+  feature: jobs
+  type: improvement
+  title: ctx.crossTenantReads for read-only cross-tenant job reads
+  -->
+
+- 6adca33: Screens take `visibleWhen` and `fallback`. Every screen definition accepts an optional `visibleWhen: { query, field, eq }` (the same `DashboardPanelVisibility` as dashboard screen panels) and an optional `fallback` (same-feature short id or `<feature>:screen:<id>`). `KumikoScreen` evaluates the condition before the screen content mounts, so it also applies when the screen is opened by URL. While the query loads only a loading banner shows. If the condition is not met or the query fails, the fallback screen renders, or without a fallback a standard notice (`kumiko.screen.unavailable`, en/de/es). The gate is UI only; handlers still enforce access. The boot validator checks the query, the output field and the fallback screen, and rejects a `fallback` without `visibleWhen`. Panels with `visibleWhen` behave as before and share the new `evalVisibleWhen` helper exported from the renderer.
+
+  <!-- kumiko-changes
+  feature: renderer
+  type: improvement
+  title: Screens take visibleWhen and fallback
+  detail: |
+    Any screen can gate itself on a query field with `visibleWhen`, including on direct URL access. Unmet or failed conditions render the `fallback` screen or a standard notice instead of the content. New i18n key: `kumiko.screen.unavailable`.
+  -->
+
 ## 0.342.0
 
 ## 0.341.0
