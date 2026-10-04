@@ -1247,15 +1247,19 @@ export async function enforceRateLimit(
   }
   // A nested dispatch re-hitting a bucket its entry dispatch already charged
   // (e.g. a per:"ip" handler delegating via queryAs) must not cost a second token.
+  // The mark is set only after a successful enforce and includes the limit
+  // parameters: a denied or failed check never lets a later nested call through,
+  // and a nested handler with a stricter limit on the same bucket is still checked.
   const charged = reqCtx?.chargedRateLimitBuckets;
-  if (charged?.has(bucket.key)) return;
-  charged?.add(bucket.key);
+  const chargedKey = `${bucket.key}|${effective.limit}|${effective.windowSeconds}|${effective.cost}`;
+  if (charged?.has(chargedKey)) return;
   try {
     await context.rateLimit.enforce(bucket.key, {
       limit: effective.limit,
       windowSeconds: effective.windowSeconds,
       cost: effective.cost,
     });
+    charged?.add(chargedKey);
   } catch (error) {
     // Backend failure (Redis down): fail closed as 503, same as L1/L2.
     if (error instanceof RateLimitError) throw error;

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineFeature } from "../../engine/index.js";
+import { RateLimitError } from "../../errors/index.js";
 import type {
   RateLimitConfig,
   RateLimitDecision,
@@ -22,10 +23,22 @@ function allow(config: RateLimitConfig): RateLimitDecision {
   };
 }
 
+let denyUserBucket = false;
+
 const resolver: RateLimitResolver = {
   check: async (_bucket, config) => allow(config),
   enforce: async (bucket, config) => {
     recorded.push({ bucket, config });
+    if (denyUserBucket && bucket.startsWith("user:")) {
+      throw new RateLimitError({
+        bucket,
+        limit: config.limit,
+        windowSeconds: config.windowSeconds,
+        remaining: 0,
+        retryAfterSeconds: 1,
+        resetAt: "1970-01-01T00:00:00.000Z",
+      });
+    }
     return allow(config);
   },
   peek: async (_bucket, config) => allow(config),
@@ -52,6 +65,33 @@ const nestedFeature = defineFeature("rl-nested", (r) => {
     "outer-other-bucket",
     z.object({}),
     async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-user", {}) }),
+    { access: { roles: ["Admin"] }, rateLimit: ipLimit },
+  );
+  r.queryHandler("inner-ip-strict", z.object({}), async () => ({ ok: true }), {
+    access: { roles: ["Admin"] },
+    rateLimit: { per: "ip", limit: 5, windowSeconds: 60 },
+  });
+  r.queryHandler(
+    "outer-stricter-nested",
+    z.object({}),
+    async (_event, ctx) => ({ inner: await ctx.query("rl-nested:query:inner-ip-strict", {}) }),
+    { access: { roles: ["Admin"] }, rateLimit: ipLimit },
+  );
+  r.queryHandler(
+    "outer-retry-after-denial",
+    z.object({}),
+    async (_event, ctx) => {
+      const outcomes: boolean[] = [];
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await ctx.query("rl-nested:query:inner-user", {});
+          outcomes.push(true);
+        } catch {
+          outcomes.push(false);
+        }
+      }
+      return { outcomes };
+    },
     { access: { roles: ["Admin"] }, rateLimit: ipLimit },
   );
   r.writeHandler("touch", z.object({}), async () => ({ isSuccess: true as const, data: {} }), {
@@ -100,5 +140,24 @@ describe("rate limit counts a request once per bucket, however many handlers it 
     );
     expect(res.status).toBe(200);
     expect(recorded.map((entry) => entry.bucket.split(":")[0])).toEqual(["user", "user"]);
+  });
+
+  test("a nested call with a stricter limit on the same bucket is still enforced", async () => {
+    recorded.length = 0;
+    const res = await stack.http.query("rl-nested:query:outer-stricter-nested", {}, admin);
+    expect(res.status).toBe(200);
+    expect(recorded.map((entry) => entry.config.limit)).toEqual([60, 5]);
+  });
+
+  test("a denied nested check is not remembered: a retry in the same request is checked again", async () => {
+    recorded.length = 0;
+    denyUserBucket = true;
+    try {
+      const res = await stack.http.query("rl-nested:query:outer-retry-after-denial", {}, admin);
+      expect(res.status).toBe(200);
+      expect(recorded.filter((entry) => entry.bucket.startsWith("user:"))).toHaveLength(2);
+    } finally {
+      denyUserBucket = false;
+    }
   });
 });
