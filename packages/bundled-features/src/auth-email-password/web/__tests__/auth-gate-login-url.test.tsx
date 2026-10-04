@@ -8,7 +8,11 @@ import { defaultPrimitives } from "@cosmicdrift/kumiko-renderer-web";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { defaultTranslations } from "../../i18n.js";
-import { makeSessionAuthGate, type SessionAuthGateOptions } from "../auth-gate.js";
+import {
+  makeSessionAuthGate,
+  resolveLoginRedirect,
+  type SessionAuthGateOptions,
+} from "../auth-gate.js";
 import { useSession } from "../session.js";
 
 const originalFetch = globalThis.fetch;
@@ -65,6 +69,26 @@ function mockBackend(opts: { readonly signedIn: boolean }): void {
   }) as unknown as typeof fetch;
 }
 
+function mockLoginBackend(): void {
+  let loggedIn = false;
+  globalThis.fetch = mock(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input.toString();
+    const user = { id: "u1", email: "u@example.com", displayName: "U", roles: [] };
+    if (url === "/api/auth/login") {
+      loggedIn = true;
+      return new Response(JSON.stringify({ isSuccess: true, token: "t", user }), { status: 200 });
+    }
+    if (!loggedIn) return new Response(null, { status: 401 });
+    if (url === "/api/auth/tenants") {
+      return new Response(JSON.stringify({ tenants: [], activeTenantId: "t1" }), { status: 200 });
+    }
+    if (url === "/api/query") {
+      return new Response(JSON.stringify({ data: { ...user, roles: "[]" } }), { status: 200 });
+    }
+    return new Response(null, { status: 401 });
+  }) as unknown as typeof fetch;
+}
+
 beforeEach(() => {
   replaceMock.mockClear();
   assignMock.mockClear();
@@ -108,6 +132,7 @@ describe("auth gate with loginUrl", () => {
       // No csrf cookie: the session settles unauthenticated without a fetch; act flushes that and the gate effect.
       await act(async () => {});
       expect(replaceMock).not.toHaveBeenCalled();
+      expect(screen.getByLabelText(/password/i)).toBeTruthy();
     },
   );
 
@@ -132,6 +157,74 @@ describe("auth gate with loginUrl", () => {
 
   test("a javascript: loginUrl is rejected when the gate is built", () => {
     expect(() => makeSessionAuthGate({ loginUrl: "javascript:alert(1)" })).toThrow(/loginUrl/);
+  });
+});
+
+describe("auth gate login route and builder", () => {
+  test("a function loginUrl gets the active locale and the current path", async () => {
+    window.history.replaceState(null, "", "/a/settings?tab=2");
+    mockBackend({ signedIn: false });
+    const buildUrl = mock(
+      (locale: string, returnPath: string) =>
+        `/${locale}/login?next=${encodeURIComponent(returnPath)}`,
+    );
+
+    renderGate({ loginUrl: buildUrl });
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledTimes(1));
+    expect(buildUrl).toHaveBeenCalledWith("en", "/a/settings?tab=2");
+    expect(replaceMock.mock.calls[0]?.[0]).toBe("/en/login?next=%2Fa%2Fsettings%3Ftab%3D2");
+  });
+
+  test("a function loginUrl returning a javascript: URL is refused", () => {
+    expect(() =>
+      resolveLoginRedirect(() => "javascript:alert(1)", "en", {
+        origin: "https://app.example",
+        pathname: "/a",
+        search: "",
+        hash: "",
+      }),
+    ).toThrow(/loginUrl/);
+  });
+
+  test.each(["string", "function"] as const)(
+    "on the login route (%s loginUrl) the gate renders the login screen",
+    async (kind) => {
+      window.history.replaceState(null, "", "/en/login?next=%2Fa%2Fsettings");
+      mockBackend({ signedIn: false });
+
+      renderGate({ loginUrl: kind === "string" ? "/en/login" : (locale) => `/${locale}/login` });
+
+      await waitFor(() => expect(screen.getByLabelText(/password/i)).toBeTruthy());
+      expect(replaceMock).not.toHaveBeenCalled();
+    },
+  );
+
+  test("a successful login on the login route follows a valid next", async () => {
+    window.history.replaceState(null, "", "/login?next=%2Fa%2Fsettings%3Ftab%3D2");
+    mockLoginBackend();
+
+    renderGate({ loginUrl: "/login" });
+    await waitFor(() => screen.getByLabelText(/^Email/));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "u@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "pw-1234567" } });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/a/settings?tab=2"));
+  });
+
+  test("a successful login ignores an open-redirect next", async () => {
+    window.history.replaceState(null, "", "/login?next=%2F%2Fevil.example");
+    mockLoginBackend();
+
+    renderGate({ loginUrl: "/login" });
+    await waitFor(() => screen.getByLabelText(/^Email/));
+    fireEvent.change(screen.getByLabelText(/^Email/), { target: { value: "u@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Password/), { target: { value: "pw-1234567" } });
+    fireEvent.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await act(async () => {});
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 });
 

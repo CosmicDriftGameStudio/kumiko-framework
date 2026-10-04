@@ -1,5 +1,5 @@
 // withCapEnforcement / withRollingCapEnforcement — handler-wrapper die
-// pre-call enforceCap-And-Notify + post-call booking um den
+// pre-call enforceCap-And-Notify + atomic reservation um den
 // gewrappten Handler legen.
 //
 // **Warum Wrapper statt manuelle Calls im Handler:**
@@ -26,9 +26,10 @@ import type {
   WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
 import { reraiseAsKumikoError } from "@cosmicdrift/kumiko-framework/errors";
-import { bookCapUsage } from "./book-cap-usage.js";
+import { bookCapUsage, releaseCapUsage } from "./book-cap-usage.js";
 import { CapCounterHandlers } from "./constants.js";
 import {
+  assertBelowHardCap,
   type CapToleranceProfileName,
   enforceCapAndMaybeNotify,
   enforceRollingCapAndMaybeNotify,
@@ -72,8 +73,8 @@ export type CalendarCapResolver = (
  *   1. resolve cap-spec via `capResolver(event, ctx)`
  *   2. pre-call: `enforceCapAndMaybeNotify` — throws CapExceededError
  *      on hard-hit (handler never runs), notifies on soft-hit-crossing
- *   3. invoke the wrapped handler
- *   4. post-success: book usage via `bookCapUsage` with `amount`
+ *   3. reserve `amount` (hard-cap check + increment in one version-guarded write)
+ *   4. invoke the wrapped handler; release the reservation if it fails
  *
  * The returned handler-def keeps the original name/schema/access
  * untouched — only the handler-fn is wrapped. The dispatcher sees
@@ -99,19 +100,29 @@ export function withCapEnforcement(
         limit: cap.limit,
         profile: cap.profile,
         notify: cap.notify,
+        ...(cap.amount !== undefined && { amount: cap.amount }),
       });
+
+      // The pre-check above only drives the soft warning; this reservation is the hard gate. It checks and books in one version-guarded write, so parallel calls cannot all pass the same stale read.
+      const amount = cap.amount ?? 1;
+      const reserved = await bookCapUsage(ctx, {
+        capName: cap.capName,
+        amount,
+        periodStartIso: cap.periodStartIso,
+        guardCurrentValue: (currentValue) => assertBelowHardCap(currentValue + amount - 1, cap),
+      });
+      if (!reserved.isSuccess) throw reraiseAsKumikoError(reserved.error);
 
       const result = await handler.handler(event, ctx);
 
-      // Post-success increment. Skip on failure so a failed write
-      // doesn't burn cap-quota. amount default 1.
-      if (result.isSuccess) {
-        const booked = await bookCapUsage(ctx, {
+      // A failed write must not burn quota.
+      if (!result.isSuccess) {
+        const released = await releaseCapUsage(ctx, {
           capName: cap.capName,
-          amount: cap.amount ?? 1,
+          amount,
           periodStartIso: cap.periodStartIso,
         });
-        if (!booked.isSuccess) throw reraiseAsKumikoError(booked.error);
+        if (!released.isSuccess) throw reraiseAsKumikoError(released.error);
       }
 
       return result;

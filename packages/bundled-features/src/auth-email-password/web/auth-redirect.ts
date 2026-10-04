@@ -58,3 +58,17 @@ export function buildLoginRedirectUrl(
   const isSameOrigin = target.origin === currentOrigin;
   return isSameOrigin ? `${target.pathname}${target.search}${target.hash}` : target.href;
 }
+
+// Login screens call this after a successful login. `next` is re-validated
+// here because it is read from the URL, i.e. attacker-controlled. Returns
+// true when it navigated.
+export function followNextAfterLogin(
+  location: Pick<Location, "search" | "pathname" | "replace"> = window.location,
+): boolean {
+  const next = readNextFromSearch(location.search);
+  if (next === null) return false;
+  // Following a next that points at the login page itself would reload it forever.
+  if (new URL(next, "https://next.invalid").pathname === location.pathname) return false;
+  location.replace(next);
+  return true;
+}

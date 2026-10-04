@@ -1,7 +1,8 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 import {
   assertNavigableUrl,
   buildLoginRedirectUrl,
+  followNextAfterLogin,
   isSafeNextPath,
   readNextFromSearch,
 } from "../auth-redirect.js";
@@ -89,5 +90,41 @@ describe("buildLoginRedirectUrl", () => {
 
   test("never forwards an unsafe return path", () => {
     expect(buildLoginRedirectUrl("/login", "//evil.example", origin)).toBe("/login");
+  });
+});
+
+describe("followNextAfterLogin", () => {
+  function locationAt(pathname: string, search: string) {
+    const replace = mock((_url: string): void => {});
+    return { location: { pathname, search, replace }, replace };
+  }
+
+  test("follows a safe next", () => {
+    const { location, replace } = locationAt("/login", "?next=%2Fa%2Fsettings%3Ftab%3D2");
+
+    expect(followNextAfterLogin(location)).toBe(true);
+    expect(replace).toHaveBeenCalledWith("/a/settings?tab=2");
+  });
+
+  test.each([
+    "//evil.example",
+    "/\\evil.example",
+    "https://evil.example",
+    "javascript:alert(1)",
+    "/\t/evil.example",
+    "/a\u0000b",
+  ])("rejects the open-redirect candidate %j", (candidate) => {
+    const { location, replace } = locationAt("/login", `?next=${encodeURIComponent(candidate)}`);
+
+    expect(followNextAfterLogin(location)).toBe(false);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  test("ignores a missing next and a next pointing at the login page itself", () => {
+    for (const search of ["", "?next=%2Flogin%3Fx%3D1"]) {
+      const { location, replace } = locationAt("/login", search);
+      expect(followNextAfterLogin(location)).toBe(false);
+      expect(replace).not.toHaveBeenCalled();
+    }
   });
 });

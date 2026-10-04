@@ -63,6 +63,20 @@ export type EnforceCapResult =
       readonly crossed: boolean;
     };
 
+export function assertBelowHardCap(
+  valueSeenByLastUnit: number,
+  cap: {
+    readonly capName: string;
+    readonly limit: number;
+    readonly profile: CapToleranceProfileName;
+  },
+): void {
+  const tolerance = CAP_TOLERANCES[cap.profile];
+  if (valueSeenByLastUnit >= cap.limit * tolerance.hard) {
+    throw new CapExceededError(cap.capName, cap.limit, valueSeenByLastUnit, tolerance);
+  }
+}
+
 // =============================================================================
 // Enforce-Cap helper
 // =============================================================================
@@ -82,7 +96,8 @@ export type EnforceCapResult =
  *
  * **Sync read implication:** the counter reflects the state at this
  * exact transaction. Two parallel writes can each see "value < hard"
- * and both pass — that's a race. Cap-tolerance-buffers (soft 110% /
+ * and both pass — that's a race (withCapEnforcement closes it with an atomic reservation;
+ * bare enforceCap stays a read). Cap-tolerance-buffers (soft 110% /
  * hard 120% for burstable caps) cover this; truly hard slots
  * (apps-count) need stricter serialization at the create-handler
  * level (e.g. uniqueness-index on apps.tenantId+slot-number).
@@ -112,7 +127,6 @@ export async function enforceCap(
 
   const tolerance = CAP_TOLERANCES[options.profile];
   const softThreshold = options.limit * tolerance.soft;
-  const hardThreshold = options.limit * tolerance.hard;
 
   const rows = await ctx.db.selectMany(
     table,
@@ -125,9 +139,7 @@ export async function enforceCap(
   // The last of `amount` units sees this value before its own increment.
   const value = storedValue + amount - 1;
 
-  if (value >= hardThreshold) {
-    throw new CapExceededError(options.capName, options.limit, value, tolerance);
-  }
+  assertBelowHardCap(value, options);
 
   if (value >= softThreshold) {
     const lastSoftWarnedAt = row ? row["lastSoftWarnedAt"] : null;

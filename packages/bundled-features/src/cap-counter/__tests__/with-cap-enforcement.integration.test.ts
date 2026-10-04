@@ -3,7 +3,7 @@
 //   1. Pre-call: enforceCapAndMaybeNotify dispatched (notifier feuert,
 //      mark-soft-warned-handler kippt das DB-Flag)
 //   2. Handler runs — only when below hard-cap
-//   3. Post-success: ctx.write(increment) — counter steigt um `amount`
+//   3. Atomic reservation before the handler — counter steigt um `amount`
 //   4. Hard-hit: handler runs NICHT, counter NICHT inkrementiert
 //   5. Failed handler: counter NICHT inkrementiert (cap-quota nicht
 //      verbrannt für gescheiterte writes)
@@ -134,6 +134,40 @@ const bookOutsideTxThenFailHandler: WriteHandlerDef = {
   },
 };
 
+const ATOMIC_CAP_LIMIT = 3;
+const ATOMIC_CAP_NAME = "atomic-hard-slot-cap";
+let atomicHandlerRuns = 0;
+let atomicHandlerReturnsFailure = false;
+const atomicHandler: WriteHandlerDef = {
+  name: "atomic-slot",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: async () => {
+    atomicHandlerRuns += 1;
+    if (atomicHandlerReturnsFailure) {
+      return {
+        isSuccess: false as const,
+        error: {
+          code: "slot_rejected",
+          httpStatus: 422,
+          message: "rejected",
+          i18nKey: "errors.slot",
+          details: {},
+        },
+      };
+    }
+    return { isSuccess: true as const, data: {} };
+  },
+};
+const wrappedAtomic = withCapEnforcement(atomicHandler, () => ({
+  capName: ATOMIC_CAP_NAME,
+  periodStartIso: TENANT_ONLY_PERIOD,
+  limit: ATOMIC_CAP_LIMIT,
+  profile: "hardSlot",
+  notify: recordingNotifier,
+}));
+const ATOMIC_QN = "newsletter:write:atomic-slot";
+
 const NEWSLETTER_TENANT_ONLY_QN = "newsletter:write:send-newsletter-tenant-only";
 const BOOK_OUTSIDE_TX_QN = "newsletter:write:book-outside-tx-then-fail";
 
@@ -188,6 +222,7 @@ const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedCalendar);
   r.writeHandler(wrappedRolling);
   r.writeHandler(wrappedCalendarTenantOnly);
+  r.writeHandler(wrappedAtomic);
   r.writeHandler(bookOutsideTxThenFailHandler);
   r.writeHandler(bookCapUsageInTxHandler);
   r.writeHandler(bookCapUsageOutsideTxHandler);
@@ -526,6 +561,41 @@ describe("bookCapUsage — parallel bookings for the same period", () => {
       TENANT_ONLY_PERIOD,
     );
     expect(afterUpdateRace!["value"]).toBe(PARALLEL_BOOKINGS * 2);
+  });
+});
+
+describe("withCapEnforcement - atomic reservation", () => {
+  test("N parallel calls at limit L run the handler and book exactly L", async () => {
+    atomicHandlerRuns = 0;
+    atomicHandlerReturnsFailure = false;
+    const user = tenantAdminOnlyFor(2701);
+
+    const responses = await Promise.all(
+      Array.from({ length: PARALLEL_BOOKINGS }, () => stack.http.write(ATOMIC_QN, {}, user)),
+    );
+
+    const rejected = responses.filter((r) => r.status === 429);
+    expect(responses.filter((r) => r.status === 200)).toHaveLength(ATOMIC_CAP_LIMIT);
+    expect(rejected).toHaveLength(PARALLEL_BOOKINGS - ATOMIC_CAP_LIMIT);
+    expect(atomicHandlerRuns).toBe(ATOMIC_CAP_LIMIT);
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(ATOMIC_CAP_LIMIT);
+  });
+
+  test("a handler failure leaves no quota burned and the full limit stays usable", async () => {
+    atomicHandlerRuns = 0;
+    atomicHandlerReturnsFailure = true;
+    const user = tenantAdminOnlyFor(2702);
+
+    await stack.http.writeErr(ATOMIC_QN, {}, user);
+    expect(atomicHandlerRuns).toBe(1);
+    atomicHandlerReturnsFailure = false;
+
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row?.["value"] ?? 0).toBe(0);
+    for (let i = 0; i < ATOMIC_CAP_LIMIT; i++) {
+      await stack.http.writeOk(ATOMIC_QN, {}, user);
+    }
   });
 });
 
