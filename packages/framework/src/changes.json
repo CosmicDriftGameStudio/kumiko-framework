@@ -1,5 +1,12 @@
 [
   {
+    "version": "0.349.0",
+    "type": "improvement",
+    "title": "kumiko-upgrade advances in one --apply run, tracks open manual migrations with ids and resolves them via --resolve",
+    "detail": "kumiko-upgrade: one --apply run advances, manual items are resolved with --resolve\n`--apply` now moves the marker to the installed version in a single run. Breaking changes without a codemod stay in the marker as `pendingManual` with a stable id (`<version>:<8-char title hash>`) and are listed after every run; the upgrade guard no longer fails on them. `--resolve <id|version>[,...] --reason \"<text>\" [--not-applicable]` moves entries to `resolvedManual` (version must match exactly one open entry; unknown refs write nothing). Resolved ids do not come back. The plain report lists open entries, and `--json` carries them as `pendingManual`.",
+    "migration": "If you relied on a second --apply to acknowledge manual migrations, run kumiko-upgrade --resolve <id> --reason \"<text>\" instead."
+  },
+  {
     "version": "0.348.0",
     "type": "improvement",
     "title": "runSeedWritesAt runs regular writes with a caller-set event time, only in seed mode",

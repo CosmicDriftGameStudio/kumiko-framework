@@ -1,5 +1,38 @@
 # @cosmicdrift/kumiko-framework
 
+## 0.349.0
+
+### Minor Changes
+
+- 6e850b8: Dashboard panels: translatable texts, currency format, scrollable stacked-area
+
+  Query handlers can send `{ i18nKey, i18nParams? }` (`DashboardI18nText`) wherever a dashboard panel shows text: stat value and sub line, feed `primary`/`trailing`, progress-list `label`/`value`, chart marker labels. Plain strings are shown unchanged. Params may be strings, numbers, nested `DashboardI18nText` (resolved first, e.g. a duration built from two plural keys), `{ kind: "money", amountMinor, currency }` (user locale) or `{ kind: "date", atMs }` (medium date, user time zone).
+
+  `valueFormat: { kind: "currency", currency, fractionDigits? }` on stat and chart panels formats minor-unit values as currency in stat values, y ticks, legend totals and tooltips. `scrollable: true` on a `stacked-area` chart gives each bucket a fixed width, scrolls the plot horizontally with the y ticks fixed on the left, and opens at "today". The boot validator rejects an invalid currency code, `fractionDigits` outside 0..4 and `scrollable` on other chart kinds. `formatMoney` takes an optional `fractionDigits`.
+
+  <!-- kumiko-changes
+  feature: renderer-web
+  type: improvement
+  title: Dashboard panel texts are translatable (i18nKey/i18nParams with nested, money and date params), panels get a currency valueFormat and stacked-area charts can scroll
+  -->
+
+- 6e850b8: kumiko-upgrade: one --apply run advances, manual items are resolved with --resolve
+
+  `--apply` now moves the marker to the installed version in a single run. Breaking changes without a codemod stay in the marker as `pendingManual` with a stable id (`<version>:<8-char title hash>`) and are listed after every run; the upgrade guard no longer fails on them. `--resolve <id|version>[,...] --reason "<text>" [--not-applicable]` moves entries to `resolvedManual` (version must match exactly one open entry; unknown refs write nothing). Resolved ids do not come back. The plain report lists open entries, and `--json` carries them as `pendingManual`.
+
+  <!-- kumiko-changes
+  feature: framework
+  type: improvement
+  title: kumiko-upgrade advances in one --apply run, tracks open manual migrations with ids and resolves them via --resolve
+  migration: If you relied on a second --apply to acknowledge manual migrations, run kumiko-upgrade --resolve <id> --reason "<text>" instead.
+  -->
+
+### Patch Changes
+
+- Updated dependencies [6e850b8]
+  - @cosmicdrift/kumiko-types@0.349.0
+  - @cosmicdrift/kumiko-http@0.349.0
+
 ## 0.348.1
 
 ### Patch Changes

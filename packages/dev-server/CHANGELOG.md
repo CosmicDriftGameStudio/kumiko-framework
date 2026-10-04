@@ -1,5 +1,30 @@
 # @cosmicdrift/kumiko-dev-server
 
+## 0.349.0
+
+### Minor Changes
+
+- 6e850b8: init-deploy: `package.json#kumiko.deploy.dbName`
+
+  `migrate-step.sh` builds `DATABASE_URL` with `kumiko.deploy.dbName` as the database (default: appName), validated like `dbUser`. Apps without the key render byte-identical output.
+
+  <!-- kumiko-changes
+  feature: dev-server
+  type: improvement
+  title: init-deploy reads kumiko.deploy.dbName for the migrate step's DATABASE_URL
+  -->
+
+### Patch Changes
+
+- Updated dependencies [6e850b8]
+- Updated dependencies [6e850b8]
+- Updated dependencies [6e850b8]
+  - @cosmicdrift/kumiko-framework@0.349.0
+  - @cosmicdrift/kumiko-renderer-web@0.349.0
+  - @cosmicdrift/kumiko-bundled-features@0.349.0
+  - @cosmicdrift/kumiko-headless@0.349.0
+  - @cosmicdrift/kumiko-server-runtime@0.349.0
+
 ## 0.348.1
 
 ### Patch Changes
