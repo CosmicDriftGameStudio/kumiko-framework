@@ -1,5 +1,11 @@
 [
   {
+    "version": "0.344.0",
+    "type": "improvement",
+    "title": "Optional title heading on legal pages",
+    "detail": "`LegalPageRoute` has an optional `titleHeading` flag. When `true`, the page body starts with an `<h1>` holding the escaped page title. The default (`false`) leaves the body unchanged."
+  },
+  {
     "version": "0.335.0",
     "type": "fix",
     "title": "Legal pages fail fast on custom routes without required blocks; seed race honours skip",
