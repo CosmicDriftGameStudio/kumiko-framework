@@ -1,3 +1,4 @@
+export { APP_INSTANCE_STREAM_TYPE, APP_STARTED_EVENT_TYPE } from "../crypto/system-event-pii.js";
 export {
   backfillEventPiiEncryption,
   backfillEventPiiEncryptionBatch,

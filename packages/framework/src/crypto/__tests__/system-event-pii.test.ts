@@ -15,6 +15,7 @@ import {
 import type { EventSubjectEnvelope } from "../subject-resolver.js";
 import {
   AGGREGATE_TRANSFERRED_EVENT_TYPE,
+  APP_STARTED_EVENT_TYPE,
   SYSTEM_EVENT_PII_STANCES,
   SYSTEM_EVENT_PREFIX,
 } from "../system-event-pii.js";
@@ -40,6 +41,7 @@ describe("system event PII stances", () => {
             typeof value === "string" && value.startsWith(SYSTEM_EVENT_PREFIX),
         ),
       AGGREGATE_TRANSFERRED_EVENT_TYPE,
+      APP_STARTED_EVENT_TYPE,
     ];
     expect(declaredTypes.length).toBeGreaterThanOrEqual(11);
     for (const type of declaredTypes) {

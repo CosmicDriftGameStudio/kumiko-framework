@@ -24,6 +24,10 @@ export const SYSTEM_EVENT_PREFIX = "kumiko:system:";
 // an event-store import cycle; transfer.ts re-exports it.
 export const AGGREGATE_TRANSFERRED_EVENT_TYPE = `${SYSTEM_EVENT_PREFIX}aggregate.transferred`;
 
+// Payload is version/commit/pod name/start time — no personal data.
+export const APP_STARTED_EVENT_TYPE = `${SYSTEM_EVENT_PREFIX}app.started`;
+export const APP_INSTANCE_STREAM_TYPE = "app-instance";
+
 const SELF = { personal: "self" } as const;
 
 // Workflow run-stream payloads carry references and step bookkeeping only,
@@ -47,6 +51,7 @@ export const SYSTEM_EVENT_PII_STANCES: ReadonlyMap<string, EventPiiStance> = new
   [STEP_DISPATCHED_TYPE, "none"],
   [STEP_DISPATCH_FAILED_TYPE, "none"],
   [AGGREGATE_TRANSFERRED_EVENT_TYPE, "none"],
+  [APP_STARTED_EVENT_TYPE, "none"],
   [WORKFLOW_WAITING_TYPE, "none"],
   [WORKFLOW_WAITING_FOR_EVENT_TYPE, "none"],
   [WORKFLOW_RESUMED_TYPE, "none"],

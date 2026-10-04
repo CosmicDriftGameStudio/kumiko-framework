@@ -158,6 +158,7 @@ import { applyBootSeeds } from "./boot/apply-boot-seeds.js";
 import { resolveBootCrypto } from "./boot/boot-crypto.js";
 import { jobRunLoggerCallbacks } from "./boot/job-run-logger.js";
 import { startPiiEventBackfillOnBoot } from "./boot/pii-event-backfill-on-boot.js";
+import { recordAppStartedOnBoot } from "./boot/record-app-started-on-boot.js";
 import { buildBunServeOptions, resolveDerivedMaxRequestBodySize } from "./bun-serve-options.js";
 import { buildComposeAuthOptions, composeFeatures } from "./compose-features.js";
 import { makeDispatchSystemWrite, type SystemWireDeps } from "./extra-routes-deps.js";
@@ -1352,6 +1353,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   }
 
   await entrypoint.start();
+  await recordAppStartedOnBoot({ db, envSource });
   startPiiEventBackfillOnBoot({
     db,
     registry,
