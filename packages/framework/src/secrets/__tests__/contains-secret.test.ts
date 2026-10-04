@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import * as z from "zod";
 import { defineQueryHandler } from "../../engine/define-handler.js";
-import type { TenantId } from "../../engine/index.js";
+import type { DashboardI18nText, DashboardText, TenantId } from "../../engine/index.js";
 import { type ContainsSecret, createSecret, type Secret } from "../index.js";
 
 // R6 is a COMPILE-TIME guard. The type-level assertions below are the real
@@ -44,7 +44,18 @@ export type _R6TypeAssertions = [
   // accidental compile-time blind spot.
   Expect<Equal<ContainsSecret<Map<string, Secret<string>>>, false>>,
   Expect<Equal<ContainsSecret<Set<Secret<string>>>, false>>,
+  // Self-referential types (DashboardI18nText -> DashboardTextParam ->
+  // DashboardI18nText) must not blow up the mapped-type recursion (TS2615).
+  Expect<Equal<ContainsSecret<{ t: DashboardI18nText }>, false>>,
+  Expect<Equal<ContainsSecret<{ t: DashboardText }>, false>>,
+  // A recursive type that carries a Secret on level 2 is still found.
+  Expect<Equal<ContainsSecret<{ node: RecursiveNode }>, true>>,
 ];
+
+type RecursiveNode = {
+  readonly child?: RecursiveNode;
+  readonly inner?: { secret: Secret<string> };
+};
 
 const schema = z.object({ q: z.string() });
 declare const aSecret: Secret<string>;
@@ -93,6 +104,18 @@ defineQueryHandler({
   schema,
   access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
   handler: async () => cleanUnion,
+});
+
+// Query results carrying DashboardText fields (recursive via i18nParams) must
+// register: the compile of this call is the assertion.
+defineQueryHandler({
+  name: "t:query:dashboard-text",
+  schema,
+  access: { openToAll: { reason: "test handler callable by any signed-in test user" } },
+  handler: async (): Promise<{
+    rows: { primary: DashboardText; trailing?: DashboardText }[];
+    value: DashboardText;
+  }> => ({ rows: [{ primary: "a", trailing: { i18nKey: "k" } }], value: "v" }),
 });
 
 describe("R6 ContainsSecret", () => {
