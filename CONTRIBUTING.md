@@ -37,6 +37,9 @@ likely be green in CI too.
 - **Each new framework feature needs a sample** in `samples/recipes/` or
   `samples/apps/`. Samples are tested documentation — without one, the
   feature is not done.
+- **Changesets name UI text changes.** Renaming a user-facing string (locale
+  catalogs, `i18n.ts` defaults) is a behavior change for consumers who match
+  or screenshot it: say which string changed in the changeset.
 - **Commit messages:** use conventional prefixes (`feat:`, `fix:`, `cleanup:`,
   `docs:`, `refactor:`). Subject line under 70 chars, body explains the *why*.
 
