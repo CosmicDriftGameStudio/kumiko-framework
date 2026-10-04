@@ -19,7 +19,11 @@ export type SeededCredentials = {
   readonly password: string;
 };
 
-export type SeededUser = SeededCredentials & { readonly session: SessionUser };
+export type SeededUser = SeededCredentials & {
+  readonly session: SessionUser;
+  // Base32 TOTP secret, present when the e2e fixture enrolled the user via `mfa: "totp"`.
+  readonly mfaTotpSecret?: string;
+};
 
 export type SeedPart = (ctx: { readonly tenant: SeededTenant }) => Promise<void>;
 

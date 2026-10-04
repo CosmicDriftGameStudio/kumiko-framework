@@ -6,7 +6,12 @@ import * as z from "zod";
 import type { BoundApi } from "../seed-types";
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "./constants";
 
-export type LoginCredentials = { readonly email: string; readonly password: string };
+export type LoginCredentials = {
+  readonly email: string;
+  readonly password: string;
+  // Base32 TOTP secret of an enrolled account; answers the MFA challenge after the password step.
+  readonly mfaTotpSecret?: string;
+};
 
 type ApiEndpoint = "/api/write" | "/api/query" | "/api/command";
 
@@ -16,6 +21,15 @@ const successEnvelope = z.looseObject({
   isSuccess: z.boolean().optional(),
   data: z.unknown().optional(),
   error: z.unknown().optional(),
+});
+const loginReplySchema = z.looseObject({
+  mfaRequired: z.boolean().optional(),
+  challengeToken: z.string().optional(),
+  mfaSetupRequired: z.boolean().optional(),
+  preauthSetupToken: z.string().optional(),
+  setupToken: z.string().optional(),
+  otpauthUri: z.string().optional(),
+  totpSecret: z.string().optional(),
 });
 const errorEnvelope = z.looseObject({ error: z.looseObject({ code: z.string() }) });
 
@@ -45,19 +59,132 @@ export function syntheticClientIpFor(key: string): string {
 
 export const CLIENT_IP_HEADER = "x-forwarded-for";
 
+async function postAuth(
+  request: APIRequestContext,
+  path: string,
+  data: Record<string, unknown>,
+  email: string,
+): Promise<APIResponse> {
+  const response = await request.post(path, {
+    data,
+    headers: { [CLIENT_IP_HEADER]: syntheticClientIpFor(email) },
+  });
+  if (!response.ok()) {
+    throw new Error(
+      `loginViaApi(${email}): POST ${path} -> ${response.status()} ${await response.text()}`,
+    );
+  }
+  return response;
+}
+
+async function postAuthJson(
+  request: APIRequestContext,
+  path: string,
+  data: Record<string, unknown>,
+  email: string,
+): Promise<z.infer<typeof loginReplySchema>> {
+  return loginReplySchema.parse(await (await postAuth(request, path, data, email)).json());
+}
+
 export async function loginViaApi(
   request: APIRequestContext,
   credentials: LoginCredentials,
 ): Promise<void> {
-  const response = await request.post("/api/auth/login", {
-    data: { email: credentials.email, password: credentials.password },
-    headers: { [CLIENT_IP_HEADER]: syntheticClientIpFor(credentials.email) },
-  });
-  if (!response.ok()) {
-    throw new Error(
-      `loginViaApi(${credentials.email}): POST /api/auth/login -> ${response.status()} ${await response.text()}`,
-    );
+  const response = await postAuth(
+    request,
+    "/api/auth/login",
+    { email: credentials.email, password: credentials.password },
+    credentials.email,
+  );
+  if (credentials.mfaTotpSecret === undefined) return;
+  const reply = loginReplySchema.parse(await response.json());
+  if (reply.mfaRequired !== true) return;
+  if (reply.challengeToken === undefined) {
+    throw new Error(`loginViaApi(${credentials.email}): MFA required but no challengeToken`);
   }
+  await postAuth(
+    request,
+    "/api/auth/mfa/verify",
+    {
+      challengeToken: reply.challengeToken,
+      code: await unburnedTotpCode(credentials.mfaTotpSecret),
+    },
+    credentials.email,
+  );
+}
+
+const TOTP_STEP_MS = 30_000;
+const lastLoginCounterBySecret = new Map<string, number>();
+
+// The server burns an accepted login code for its whole ±1-step window, so a
+// second login within the same step needs the next counter. Only counters up
+// to one step ahead are valid; beyond that wait until the clock is in range.
+async function unburnedTotpCode(secret: string): Promise<string> {
+  const currentCounter = Math.floor(Date.now() / TOTP_STEP_MS);
+  const counter = Math.max(currentCounter, (lastLoginCounterBySecret.get(secret) ?? -1) + 1);
+  lastLoginCounterBySecret.set(secret, counter);
+  const validFromMs = (counter - 1) * TOTP_STEP_MS;
+  const waitMs = validFromMs - Date.now();
+  if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
+  return totpCode(secret, counter * TOTP_STEP_MS);
+}
+
+function totpSecretFromOtpauthUri(otpauthUri: string): string {
+  const secret = new URL(otpauthUri).searchParams.get("secret");
+  if (secret === null) throw new Error("otpauth URI carries no secret");
+  return secret;
+}
+
+/**
+ * Enrolls a confirmed TOTP factor through the real auth-mfa endpoints and
+ * returns its base32 secret. The context ends up logged in. Works under an
+ * MFA-required policy (pre-auth enrollment) and without one (session enrollment).
+ */
+export async function enrollTotpViaApi(
+  request: APIRequestContext,
+  credentials: Pick<LoginCredentials, "email" | "password">,
+): Promise<string> {
+  const reply = await postAuthJson(
+    request,
+    "/api/auth/login",
+    { email: credentials.email, password: credentials.password },
+    credentials.email,
+  );
+  if (reply.mfaRequired === true) {
+    throw new Error(`enrollTotpViaApi(${credentials.email}): account already has an MFA factor`);
+  }
+  if (reply.mfaSetupRequired === true && reply.preauthSetupToken !== undefined) {
+    const started = await postAuthJson(
+      request,
+      "/api/auth/mfa/preauth-enable-start",
+      { preauthSetupToken: reply.preauthSetupToken, accountLabel: credentials.email },
+      credentials.email,
+    );
+    if (started.setupToken === undefined || started.otpauthUri === undefined) {
+      throw new Error(
+        `enrollTotpViaApi(${credentials.email}): preauth-enable-start returned no setup`,
+      );
+    }
+    const secret = totpSecretFromOtpauthUri(started.otpauthUri);
+    await postAuthJson(
+      request,
+      "/api/auth/mfa/preauth-confirm",
+      { setupToken: started.setupToken, code: await totpCode(secret) },
+      credentials.email,
+    );
+    return secret;
+  }
+  const { AuthMfaHandlers } = await import("@cosmicdrift/kumiko-bundled-features/auth-mfa");
+  const started = await apiWrite<{ setupToken: string; totpSecret: string }>(
+    request,
+    AuthMfaHandlers.enableStart,
+    {},
+  );
+  await apiWrite(request, AuthMfaHandlers.enableConfirm, {
+    setupToken: started.setupToken,
+    code: await totpCode(started.totpSecret),
+  });
+  return started.totpSecret;
 }
 
 // Leaves the app page first: an app page still open while its cookies vanish redirects itself
@@ -75,6 +202,14 @@ export async function loginViaUi(page: Page, credentials: LoginCredentials): Pro
   await page.locator("#login-password").fill(credentials.password);
   await page.locator("#login-password").press("Enter");
   await expect(page.locator("#login-password")).toHaveCount(0);
+  if (credentials.mfaTotpSecret === undefined) return;
+  // A secret means an enrolled factor, so the MFA step must come; waiting for it
+  // avoids racing the transition from the password form.
+  const codeField = page.locator("#mfa-verify-code");
+  await expect(codeField).toBeVisible();
+  await codeField.fill(await unburnedTotpCode(credentials.mfaTotpSecret));
+  await codeField.press("Enter");
+  await expect(codeField).toHaveCount(0);
 }
 
 async function postApi(

@@ -23,6 +23,7 @@ import {
   CLIENT_IP_HEADER,
   clearSession,
   createHttpApi,
+  enrollTotpViaApi,
   loginViaApi,
   syntheticClientIpFor,
 } from "./auth-kit";
@@ -36,7 +37,11 @@ import {
   seedUserResponseSchema,
 } from "./seed-contract";
 
-export type E2eSeedTenantOptions = Omit<SeedTenantOptions, "persist">;
+export type E2eSeedTenantOptions = Omit<SeedTenantOptions, "persist"> & {
+  // Enrolls the admin with a confirmed TOTP factor (needed when the app
+  // enforces MFA); the secret comes back as `admin.mfaTotpSecret`.
+  readonly mfa?: "totp";
+};
 
 export type E2eSeededTenant = SeededTenant & {
   readonly loginAs: (page: Page, user: SeededUser) => Promise<void>;
@@ -137,8 +142,13 @@ export async function provideSeedTenant(
     const toUser = (credentials: SeededCredentials, roles: readonly string[]): SeededUser =>
       withSession(credentials, tenantId, roles);
 
-    const admin = toUser(seeded.admin, [ROLES.TenantAdmin]);
-    await loginViaApi(context.request, admin);
+    const adminRow = toUser(seeded.admin, [ROLES.TenantAdmin]);
+    let admin = adminRow;
+    if (opts.mfa === "totp") {
+      admin = { ...adminRow, mfaTotpSecret: await enrollTotpViaApi(context.request, adminRow) };
+    } else {
+      await loginViaApi(context.request, adminRow);
+    }
 
     const tenant: E2eSeededTenant = {
       id: tenantId,
