@@ -22,6 +22,7 @@ import { type FormEvent, type ReactNode, useState } from "react";
 import { confirmSignup, type SignupConfirmSuccess } from "./auth-client.js";
 import { passwordPairIssue, resolvePostAuthHref } from "./auth-form-logic.js";
 import { AuthCard, useUrlToken } from "./auth-form-primitives.js";
+import { buildLoginRedirectUrl } from "./auth-redirect.js";
 
 export type SignupCompleteScreenProps = {
   readonly title?: string;
@@ -76,7 +77,11 @@ export function SignupCompleteScreen({
     if (res.ok) {
       if (res.data.kind === "mfa-pending") {
         setMfaPending(true);
-        setContinueHref(loginHref);
+        setContinueHref(
+          res.data.landingPath === undefined
+            ? loginHref
+            : buildLoginRedirectUrl(loginHref, res.data.landingPath, window.location.origin),
+        );
         return;
       }
       // Cookies are already set (auto-login). Show a confirmation with an

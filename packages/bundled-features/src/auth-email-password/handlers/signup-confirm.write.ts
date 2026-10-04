@@ -76,7 +76,16 @@ export type SignupConfirmData =
       // actually succeeded (see the handler body below).
       readonly handover?: { readonly entityType: string; readonly id: string };
     }
-  | Exclude<LoginResult, { readonly kind: "auth-session" }>;
+  | (Exclude<LoginResult, { readonly kind: "auth-session" }> & {
+      // What the response needs to resolve the signup landing although no
+      // session is issued yet.
+      readonly signup: {
+        readonly roles: readonly string[];
+        readonly tenantId: TenantId;
+        readonly tenantKey: string;
+        readonly handover?: ClaimedHandover;
+      };
+    });
 
 export type SignupConfirmOptions = Pick<LoginHandlerOptions, "mfaStatusChecker">;
 
@@ -240,7 +249,18 @@ export function createSignupConfirmHandler(opts: SignupConfirmOptions = {}) {
 
         if (mfaGate !== undefined) {
           committed = true;
-          return { isSuccess: true, data: mfaGate };
+          return {
+            isSuccess: true,
+            data: {
+              ...mfaGate,
+              signup: {
+                roles: session.roles,
+                tenantId: provisioned.tenantId,
+                tenantKey,
+                ...(handover !== undefined && { handover }),
+              },
+            },
+          };
         }
 
         committed = true;

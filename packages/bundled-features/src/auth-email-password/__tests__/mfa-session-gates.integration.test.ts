@@ -40,7 +40,7 @@ import { createUserFeature } from "../../user/feature.js";
 import { userEntity, userTable } from "../../user/schema/user.js";
 import { AuthErrors, AuthHandlers, AuthQueries } from "../constants.js";
 import { createAuthEmailPasswordFeature } from "../feature.js";
-import { seedUser } from "../seeding.js";
+import { INITIAL_SIGNUP_ROLES, seedUser } from "../seeding.js";
 
 const PASSWORD = "mfa-gates-pw-1234";
 const emailTransport = createInMemoryTransport();
@@ -84,6 +84,8 @@ beforeAll(async () => {
       configEncryption: encryption,
     }),
     authConfig: {
+      postAuthLanding: (args) =>
+        args.flow === "signup" ? `/landing/${args.tenantKey}/${args.roles.join(",")}` : undefined,
       membershipQuery: "tenant:query:memberships",
       loginHandler: AuthHandlers.login,
       mfaVerifyHandler: AuthMfaHandlers.verify,
@@ -329,6 +331,10 @@ describe("signup-confirm runs the login's MFA gate", () => {
     expect(body.token).toBeUndefined();
     expect(res.headers.get("set-cookie")).toBeNull();
     expect(await selectMany(stack.db, userTable, { email })).toHaveLength(1);
+
+    // Same landing a signup without the MFA gate would have returned.
+    const [tenant] = await selectMany(stack.db, tenantTable, { name: email });
+    expect(body.landingPath).toBe(`/landing/${tenant?.["key"]}/${INITIAL_SIGNUP_ROLES.join(",")}`);
 
     const login = await stack.http.raw("POST", "/api/auth/login", { email, password });
     expect(login.status).toBe(200);

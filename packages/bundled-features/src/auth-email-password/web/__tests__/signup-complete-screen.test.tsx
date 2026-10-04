@@ -107,6 +107,49 @@ describe("SignupCompleteScreen", () => {
     }
   });
 
+  test("MFA-pending: Weiter führt zum Login mit dem Signup-Landing-Pfad als next", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({
+            isSuccess: true,
+            mfaSetupRequired: true,
+            preauthSetupToken: "setup-token",
+            landingPath: "/acme/start",
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    renderWithProviders(<SignupCompleteScreen token="abc-token" />);
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe(
+        "/login?next=%2Facme%2Fstart",
+      );
+    });
+  });
+
+  test("MFA-pending ohne Landing-Pfad: Weiter führt zum nackten Login", async () => {
+    globalThis.fetch = mock(
+      async () =>
+        new Response(
+          JSON.stringify({ isSuccess: true, mfaSetupRequired: true, preauthSetupToken: "t" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+    ) as unknown as typeof fetch;
+
+    renderWithProviders(<SignupCompleteScreen token="abc-token" />);
+    fillPasswords("validpass1", "validpass1");
+    fireEvent.click(screen.getByRole("button", { name: "Activate account" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Continue" }).getAttribute("href")).toBe("/login");
+    });
+  });
+
   test("loggedInHref-Function bekommt die Rollen aus der signup-confirm-Response", async () => {
     globalThis.fetch = mock(
       async () =>
