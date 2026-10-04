@@ -668,6 +668,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
   "kumiko.dashboard.panel.error.retry": "Try again",
   "kumiko.dashboard.panel.error.title": "{label} could not be loaded",
   "kumiko.dashboard.time-range": "Time range",
+  "kumiko.screen.unavailable": "This page is not available right now.",
   "kumiko.dashboard.today": "Today",
   "kumiko.dashboard.updated-at": "As of {time}",
   "kumiko.dialog.cancel": "Cancel",

@@ -109,6 +109,7 @@ export type { EmbeddedScreenTarget } from "./app/use-embedded-screen.js";
 export { useEmbeddedScreen } from "./app/use-embedded-screen.js";
 export type { VariableChipsProps } from "./app/variable-chips.js";
 export { VariableChips } from "./app/variable-chips.js";
+export { evalVisibleWhen, type VisibleWhenVerdict } from "./app/visible-when.js";
 export { dispatcherErrorText, WriteFailedError } from "./app/write-failed-error.js";
 export { RelatedListSection } from "./components/related-list-section.js";
 export type {

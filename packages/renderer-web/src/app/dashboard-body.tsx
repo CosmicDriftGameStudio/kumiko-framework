@@ -58,6 +58,7 @@ import {
   type DashboardBodyProps,
   dispatcherErrorText,
   EmbeddedScreenProvider,
+  evalVisibleWhen,
   extensionSectionName,
   KumikoScreen,
   type UseQueryResult,
@@ -1013,9 +1014,10 @@ function ScreenPanelTile({
   const target = useEmbeddedScreen(featureName, panel.screen);
   if (target === undefined) return null;
   if (visibleWhen !== undefined) {
+    const verdict = evalVisibleWhen(visibleWhen, visibility);
     // A failed gate query must not silently drop the panel: on the
     // account-security page that would hide every MFA enable/disable path.
-    if (visibility?.error) {
+    if (verdict === "error" && visibility?.error) {
       return (
         <div className={WIDE_PANEL} data-testid={`dashboard-panel-${panel.id}`}>
           <PanelError
@@ -1026,7 +1028,7 @@ function ScreenPanelTile({
         </div>
       );
     }
-    if (visibility?.data?.[visibleWhen.field] !== visibleWhen.eq) return null;
+    if (verdict !== "visible") return null;
   }
   const screenBody = <KumikoScreen schema={target.schema} qn={target.qn} translate={translate} />;
   const embedded =

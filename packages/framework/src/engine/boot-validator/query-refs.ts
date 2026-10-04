@@ -119,6 +119,13 @@ function checkScreenQueryRefs(
   screenId: string,
   screen: ScreenDefinition,
 ): void {
+  if (screen.visibleWhen !== undefined) {
+    checkQueryRef(
+      queryHandlers,
+      screen.visibleWhen.query,
+      () => `[Feature ${featureName}] Screen "${screenId}" (${screen.type}) visibleWhen`,
+    );
+  }
   if (screen.type === "projectionList") {
     checkQueryRef(
       queryHandlers,
