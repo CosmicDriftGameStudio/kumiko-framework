@@ -209,3 +209,32 @@ describe("email channel List-Unsubscribe headers", () => {
     expect(sent.headers).toEqual({ "list-unsubscribe": "<mailto:override@example.com>" });
   });
 });
+
+describe("email channel text part", () => {
+  const message: ChannelMessage = {
+    notificationType: "x",
+    title: "Hallo",
+    body: "Dein Code ist 1234.",
+    data: undefined,
+  };
+
+  test("a renderer with renderText puts its output into the rendered message and the mail", async () => {
+    const transport = createInMemoryTransport();
+    const channel = createEmailChannel({
+      transport,
+      renderer: { ...stubRenderer, renderText: async () => "rendered as text" },
+      resolveEmail,
+    });
+    const renderedMessage = await channel.render?.(message, ctx);
+    expect(renderedMessage?.text).toBe("rendered as text");
+    await channel.send("user@example.com", message, ctx, renderedMessage);
+    expect(transport.sent[0]?.text).toBe("rendered as text");
+  });
+
+  test("a renderer without renderText sends html only", async () => {
+    const transport = createInMemoryTransport();
+    await channelWith(transport).send("user@example.com", message, ctx);
+    expect(transport.sent[0]?.html).toBe("<p>rendered</p>");
+    expect(transport.sent[0]).not.toHaveProperty("text");
+  });
+});

@@ -3,6 +3,9 @@ export type EmailMessage = {
   readonly to: string;
   readonly subject: string;
   readonly html: string;
+  // Plain-text alternative to `html`. Set → the mail goes out as
+  // multipart/alternative, and clients without HTML show this part.
+  readonly text?: string;
   // Per-message From override. Absent → the transport's configured From (the
   // app-wide default). Set when one send must originate from a specific
   // mailbox — a reply from the address the original mail reached, not noreply@.

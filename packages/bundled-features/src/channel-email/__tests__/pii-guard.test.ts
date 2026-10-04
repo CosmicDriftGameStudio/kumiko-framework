@@ -39,6 +39,28 @@ describe("guardEmailMessage", () => {
     expect(out.subject).toBe("Re: [pii-redacted]");
     expect(out.html).toBe("<p>[pii-redacted]</p>");
   });
+
+  test("ciphertext in the text part fails loud outside production", () => {
+    expect(() =>
+      guardEmailMessage({
+        to: "marc@example.com",
+        subject: "Hi",
+        html: "<p>Hi</p>",
+        text: `Hi ${CIPHERTEXT}`,
+      }),
+    ).toThrow(/subject\/body contains a PII ciphertext/);
+  });
+
+  test("production redacts the text part as well", () => {
+    process.env["NODE_ENV"] = "production";
+    const out = guardEmailMessage({
+      to: "marc@example.com",
+      subject: "Hi",
+      html: `<p>${CIPHERTEXT}</p>`,
+      text: `Hi ${CIPHERTEXT}`,
+    });
+    expect(out.text).toBe("Hi [pii-redacted]");
+  });
   test("ciphertext From is refused like a ciphertext recipient", () => {
     expect(() =>
       guardEmailMessage({ to: "ok@example.com", from: CIPHERTEXT, subject: "Hi", html: "x" }),

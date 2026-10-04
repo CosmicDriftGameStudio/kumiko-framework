@@ -1,5 +1,6 @@
 // Builds the real MIME message through nodemailer's stream transport, so the
-// From header encoding (quoting, injection handling) is proven, not assumed.
+// From header encoding (quoting, injection handling) and the MIME structure
+// are proven, not assumed.
 // The mock is restored in afterAll — see smtp-transport-pinning.test.ts.
 
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
@@ -82,5 +83,22 @@ describe("createSmtpTransport — fromName", () => {
     const transport = createSmtpTransport({ host: "localhost", from: "App <noreply@x.test>" });
     await transport.send({ ...mail, fromName: " \r\n\t " });
     expect(headerLines("From")).toEqual(["From: App <noreply@x.test>"]);
+  });
+});
+
+describe("createSmtpTransport — text part", () => {
+  test("text alongside html yields multipart/alternative with both parts", async () => {
+    const transport = createSmtpTransport({ host: "localhost", from: "noreply@x.test" });
+    await transport.send({ ...mail, text: "plain body" });
+    expect(headerBlock()).toMatch(/Content-Type: multipart\/alternative;/);
+    expect(rawMessage).toMatch(/Content-Type: text\/plain; charset=utf-8\r?\n[\s\S]*?plain body/);
+    expect(rawMessage).toMatch(/Content-Type: text\/html; charset=utf-8/);
+  });
+
+  test("without text the mail stays a single html part", async () => {
+    const transport = createSmtpTransport({ host: "localhost", from: "noreply@x.test" });
+    await transport.send(mail);
+    expect(headerBlock()).toMatch(/Content-Type: text\/html; charset=utf-8/);
+    expect(rawMessage).not.toContain("multipart/alternative");
   });
 });

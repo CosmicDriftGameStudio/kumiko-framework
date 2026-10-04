@@ -117,27 +117,53 @@ function renderBrandingHeader(
   return `<div style="margin:0 0 24px;padding:0 0 16px;border-bottom:3px solid ${escapeHtmlAttr(primaryColor)}">${logo}</div>`;
 }
 
-function renderBrandingFooter(
-  branding: MailBranding | undefined,
+type ResolvedBrandingFooter = {
+  readonly footerText: string | undefined;
+  readonly links: readonly { readonly label: string; readonly url: string }[];
+};
+
+function resolveBrandingFooter(
+  branding: MailBranding,
   locale: string | undefined,
-): string {
-  if (!branding) return "";
+): ResolvedBrandingFooter {
   const pick = (value: LocalizedText | undefined): string | undefined =>
     resolveLocalized(value, locale, branding.defaultLocale);
   const links = (branding.footerLinks ?? []).flatMap((link) => {
     const url = pick(link.url);
     if (url === undefined || !isHttpUrl(url)) return [];
-    return [
-      `<a href="${escapeHtmlAttr(url)}" style="color:#999">${escapeHtml(pick(link.label) ?? "")}</a>`,
-    ];
+    return [{ label: pick(link.label) ?? "", url }];
   });
-  const footerText = pick(branding.footerText);
+  return { footerText: pick(branding.footerText), links };
+}
+
+function renderBrandingFooter(
+  branding: MailBranding | undefined,
+  locale: string | undefined,
+): string {
+  if (!branding) return "";
+  const { footerText, links: resolvedLinks } = resolveBrandingFooter(branding, locale);
+  const links = resolvedLinks.map(
+    (link) =>
+      `<a href="${escapeHtmlAttr(link.url)}" style="color:#999">${escapeHtml(link.label)}</a>`,
+  );
   const footerPartsHtml = [footerText ? escapeHtml(footerText) : "", links.join(" · ")].filter(
     (part) => part !== "",
   );
   if (footerPartsHtml.length === 0) return "";
   const footerHtml = footerPartsHtml.join("<br />");
   return `<p style="margin:16px 0 0;color:#999;font-size:12px">${footerHtml}</p>`;
+}
+
+function brandingFooterLines(
+  branding: MailBranding | undefined,
+  locale: string | undefined,
+): readonly string[] {
+  if (!branding) return [];
+  const { footerText, links } = resolveBrandingFooter(branding, locale);
+  return [
+    ...(footerText ? [footerText] : []),
+    ...links.map((link) => (link.label ? `${link.label}: ${link.url}` : link.url)),
+  ];
 }
 
 type Section =
@@ -155,6 +181,29 @@ type EmailTemplateData = {
   readonly title?: string;
   readonly body?: string;
 };
+
+function templateContent(variables: Readonly<Record<string, unknown>>): {
+  readonly header: string | undefined;
+  readonly sections: readonly Section[] | undefined;
+  readonly footer: string | undefined;
+} {
+  const data = variables as EmailTemplateData; // @cast-boundary render-helper
+  // Without structured fields, title + body become the header and a single text section.
+  return {
+    header: data.header ?? data.title,
+    sections: data.sections ?? (data.body ? [{ text: data.body }] : undefined),
+    footer: data.footer,
+  };
+}
+
+// Markdown stays as written: its source is already readable plain text.
+function sectionText(section: Section): string {
+  if ("text" in section) return section.text;
+  if ("heading" in section) return section.heading;
+  if ("markdown" in section) return section.markdown;
+  if ("button" in section) return `${section.button.label}: ${section.button.url}`;
+  return "";
+}
 
 function renderSection(section: Section, primaryColor: string): string {
   if ("text" in section) {
@@ -183,11 +232,7 @@ export function createSimpleRenderer(branding?: MailBranding): NotificationRende
     name: "simple",
 
     async render(input) {
-      const data = input.variables as EmailTemplateData; // @cast-boundary render-helper
-
-      // Fallback: if no structured fields, use title + body as header + single text section
-      const header = data.header ?? data.title;
-      const sections = data.sections ?? (data.body ? [{ text: data.body }] : undefined);
+      const { header, sections, footer } = templateContent(input.variables);
 
       const parts: string[] = [];
       parts.push('<!DOCTYPE html><html><body style="margin:0;padding:0;font-family:sans-serif">');
@@ -206,15 +251,23 @@ export function createSimpleRenderer(branding?: MailBranding): NotificationRende
         }
       }
 
-      if (data.footer) {
+      if (footer) {
         parts.push(
-          `<p style="margin:24px 0 0;color:#999;font-size:12px;border-top:1px solid #eee;padding-top:16px">${escapeHtml(data.footer)}</p>`,
+          `<p style="margin:24px 0 0;color:#999;font-size:12px;border-top:1px solid #eee;padding-top:16px">${escapeHtml(footer)}</p>`,
         );
       }
 
       parts.push(renderBrandingFooter(branding, input.locale));
       parts.push("</div></body></html>");
       return parts.join("");
+    },
+
+    async renderText(input) {
+      const { header, sections, footer } = templateContent(input.variables);
+      const brandingFooter = brandingFooterLines(branding, input.locale).join("\n");
+      return [header, ...(sections ?? []).map(sectionText), footer, brandingFooter]
+        .filter((block): block is string => block !== undefined && block !== "")
+        .join("\n\n");
     },
   };
 }

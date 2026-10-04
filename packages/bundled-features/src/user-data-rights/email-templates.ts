@@ -44,6 +44,7 @@ registerMailTranslations("en", GDPR_MAIL_EN);
 export type RenderedEmail = {
   readonly subject: string;
   readonly html: string;
+  readonly text: string;
 };
 
 export type RenderExportReadyEmailArgs = {
@@ -89,7 +90,13 @@ export function renderExportReadyEmail(args: RenderExportReadyEmailArgs): Render
     <p style="margin: 0 0 24px;">${renderButton({ url: args.downloadUrl, label: t(locale, "gdpr.mail.exportReady.button") })}</p>
     <p style="margin: 0 0 8px; font-size: 13px; color: #555;">${escapeHtml(t(locale, "gdpr.mail.exportReady.expiry", { when: formatTimestamp(args.expiresAt) }))}</p>
     ${renderFallbackUrl({ url: args.downloadUrl, label: t(locale, "gdpr.mail.fallbackUrl") })}`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
+  const text = plainTextBody([
+    t(locale, "gdpr.mail.greeting"),
+    t(locale, "gdpr.mail.exportReady.intro", { app }),
+    `${t(locale, "gdpr.mail.exportReady.button")}: ${args.downloadUrl}`,
+    t(locale, "gdpr.mail.exportReady.expiry", { when: formatTimestamp(args.expiresAt) }),
+  ]);
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }), text };
 }
 
 export function renderExportFailedEmail(args: RenderExportFailedEmailArgs): RenderedEmail {
@@ -99,7 +106,11 @@ export function renderExportFailedEmail(args: RenderExportFailedEmailArgs): Rend
   const body = `
     <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
     <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.exportFailed.intro", { app }))}</p>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
+  const text = plainTextBody([
+    t(locale, "gdpr.mail.greeting"),
+    t(locale, "gdpr.mail.exportFailed.intro", { app }),
+  ]);
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }), text };
 }
 
 export function renderDeletionRequestedEmail(
@@ -113,7 +124,12 @@ export function renderDeletionRequestedEmail(
     <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
     <p style="margin: 0 0 16px; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.deletionRequested.intro", { app, when }))}</p>
     <p style="margin: 0; font-size: 13px; color: #555;">${escapeHtml(t(locale, "gdpr.mail.deletionRequested.cancel"))}</p>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
+  const text = plainTextBody([
+    t(locale, "gdpr.mail.greeting"),
+    t(locale, "gdpr.mail.deletionRequested.intro", { app, when }),
+    t(locale, "gdpr.mail.deletionRequested.cancel"),
+  ]);
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }), text };
 }
 
 export function renderDeletionExecutedEmail(args: RenderDeletionExecutedEmailArgs): RenderedEmail {
@@ -124,7 +140,15 @@ export function renderDeletionExecutedEmail(args: RenderDeletionExecutedEmailArg
   const body = `
     <p style="margin: 0 0 16px; font-size: 16px;">${escapeHtml(t(locale, "gdpr.mail.greeting"))}</p>
     <p style="margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(t(locale, "gdpr.mail.deletionExecuted.intro", { app, when }))}</p>`;
-  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }) };
+  const text = plainTextBody([
+    t(locale, "gdpr.mail.greeting"),
+    t(locale, "gdpr.mail.deletionExecuted.intro", { app, when }),
+  ]);
+  return { subject, html: renderShell({ title: subject, bodyHtml: wrapCell(body), locale }), text };
+}
+
+function plainTextBody(paragraphs: readonly string[]): string {
+  return paragraphs.join("\n\n");
 }
 
 function wrapCell(bodyHtml: string): string {
