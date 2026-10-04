@@ -47,6 +47,9 @@ describe("scaffoldDeploy", () => {
     expect(migrate).toMatch(/-e DATABASE_URL\b(?!=)/);
     expect(migrate).not.toContain('-e DATABASE_URL="postgresql://myapp:');
     expect(migrate).toMatch(/STACK_NETWORK="\$\{COMPOSE_PROJECT\}_stack"/);
+    // A COMPOSE_PROJECT_NAME from .env must decide the network, so it is read first.
+    expect(migrate.indexOf(". ./.env")).toBeGreaterThan(-1);
+    expect(migrate.indexOf(". ./.env")).toBeLessThan(migrate.indexOf("COMPOSE_PROJECT="));
   });
 
   it("uses defaults when port + githubOrg are omitted", () => {
