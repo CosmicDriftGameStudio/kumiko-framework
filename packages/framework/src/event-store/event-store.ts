@@ -30,6 +30,7 @@ import { isStreamArchived } from "./archive.js";
 import { IdempotentAppendConflictError, VersionConflictError } from "./errors.js";
 import { eventsTable } from "./events-schema.js";
 import { toStoredEvent } from "./row-to-stored-event.js";
+import { currentSeedCreatedAt } from "./seed-clock.js";
 
 export type { EventMetadata, StoredEvent } from "@cosmicdrift/kumiko-types/event-store-types";
 
@@ -92,6 +93,7 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
     aggregateId: event.aggregateId,
   });
   const toStore = stampOrigin(payload === event.payload ? event : { ...event, payload });
+  const seedCreatedAt = currentSeedCreatedAt();
   const newVersion = toStore.expectedVersion + 1;
   const eventVersion = toStore.eventVersion ?? 1;
 
@@ -100,8 +102,8 @@ export async function append(db: DbRunner, event: EventToAppend): Promise<Stored
 
     const row =
       toStore.expectedVersion === 0
-        ? await insertFirstEvent(db, toStore, newVersion, eventVersion)
-        : await insertSubsequentEvent(db, toStore, newVersion, eventVersion);
+        ? await insertFirstEvent(db, toStore, newVersion, eventVersion, seedCreatedAt)
+        : await insertSubsequentEvent(db, toStore, newVersion, eventVersion, seedCreatedAt);
 
     // NOTIFY after the INSERT: outside a transaction each statement commits
     // on its own, so a NOTIFY sent first would wake the dispatcher before
@@ -152,6 +154,7 @@ async function insertFirstEvent(
   event: EventToAppend,
   newVersion: number,
   eventVersion: number,
+  seedCreatedAt: Temporal.Instant | undefined,
 ): Promise<InsertReturn> {
   const row = await insertOne<{ id: bigint; createdAt: Temporal.Instant }>(db, eventsTable, {
     aggregateId: event.aggregateId,
@@ -163,6 +166,7 @@ async function insertFirstEvent(
     payload: event.payload,
     metadata: event.metadata,
     createdBy: event.metadata.userId,
+    ...(seedCreatedAt !== undefined && { createdAt: seedCreatedAt }),
   });
   if (!row) throw new Error("insertFirstEvent: INSERT RETURNING produced no row");
   return { id: row.id, createdAt: row.createdAt };
@@ -177,6 +181,7 @@ async function insertSubsequentEvent(
   event: EventToAppend,
   newVersion: number,
   eventVersion: number,
+  seedCreatedAt: Temporal.Instant | undefined,
 ): Promise<InsertReturn> {
   const row = await insertSubsequentEventRow(db, {
     aggregateId: event.aggregateId,
@@ -189,6 +194,7 @@ async function insertSubsequentEvent(
     metadata: event.metadata,
     createdBy: event.metadata.userId,
     expectedVersion: event.expectedVersion,
+    createdAt: seedCreatedAt?.toString(),
   });
   if (!row) throw new VersionConflictError(event.aggregateId, event.expectedVersion);
   const createdAt =

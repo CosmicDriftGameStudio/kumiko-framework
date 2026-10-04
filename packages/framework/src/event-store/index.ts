@@ -51,6 +51,13 @@ export {
 } from "./rebuild-dead-letter.js";
 export { toStoredEvent } from "./row-to-stored-event.js";
 export {
+  assertSeedModeNotInProduction,
+  isSeedModeEnabled,
+  runSeedWritesAt,
+  SEED_MODE_ENV,
+  SeedModeDisabledError,
+} from "./seed-clock.js";
+export {
   createSnapshotsTable,
   type LoadAggregateWithSnapshotOptions,
   type LoadAggregateWithSnapshotResult,

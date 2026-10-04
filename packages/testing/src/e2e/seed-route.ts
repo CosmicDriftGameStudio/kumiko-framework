@@ -11,6 +11,7 @@ import {
   signatureRoute,
 } from "@cosmicdrift/kumiko-framework/api";
 import type { TenantId } from "@cosmicdrift/kumiko-framework/engine";
+import { isSeedModeEnabled } from "@cosmicdrift/kumiko-framework/event-store";
 import * as z from "zod";
 import {
   persistTenantRows,
@@ -19,7 +20,7 @@ import {
   unwrapSavedRow,
   unwrapWriteData,
 } from "../seed-tenant";
-import { SEED_ENABLE_ENV, SEED_ROUTES, SEED_TOKEN_ENV, SEED_TOKEN_HEADER } from "./constants";
+import { SEED_ROUTES, SEED_TOKEN_ENV, SEED_TOKEN_HEADER } from "./constants";
 import {
   type CapturedMail,
   createSeedUserRequestSchema,
@@ -65,7 +66,7 @@ function parseOrReject<T>(value: ParsedBody<T>): T {
 // then never carries the seed routes at all, rather than relying solely on
 // each route's own per-request assertGateOpen() check.
 export function isE2eSeedingEnabled(): boolean {
-  return process.env[SEED_ENABLE_ENV] === "1" && process.env["NODE_ENV"] !== "production";
+  return isSeedModeEnabled();
 }
 
 function digest(value: string): Buffer {
