@@ -353,6 +353,7 @@ export async function buildHandlerContext(
         report: reportEscapeHatch,
         memberReadOnly: isMemberResolutionPrincipal(user),
         personalDataGate: buildPersonalDataGate(registry, origin),
+        projectionRegistry: registry,
       },
     );
   // Propagate the request's AbortSignal so every TenantDb query throws when
@@ -436,7 +437,15 @@ export async function buildHandlerContext(
           const targetSystemUser = createSystemUser(targetTenantId);
           return configFactory({
             user: { id: targetSystemUser.id, tenantId: targetTenantId },
-            db: createTenantDb(dbSource, targetTenantId, "tenant", context.tracer, context.meter),
+            db: createTenantDb(
+              dbSource,
+              targetTenantId,
+              "tenant",
+              context.tracer,
+              context.meter,
+              undefined,
+              { projectionRegistry: registry },
+            ),
             secrets: context.secrets,
           });
         }
@@ -1325,6 +1334,7 @@ function buildAuthClaimsContext(ctx: DispatchContext, user: SessionUser): AuthCl
         log: context.log,
         window: ctx.escapeHatchReportWindow,
       }),
+      projectionRegistry: ctx.registry,
     },
   );
   const configAccessor = context._configAccessorFactory

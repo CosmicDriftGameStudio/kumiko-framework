@@ -220,5 +220,5 @@ function respondRateLimited(c: Context, decision: RateLimitDecision, bucket: str
   c.header("Retry-After", String(Math.max(1, decision.retryAfterSeconds)));
   setRateLimitHeaders(c, decision);
   const reqId = requestContext.get()?.requestId;
-  return c.json(serializeError(err, reqId), 429);
+  return c.json(serializeError(err, reqId, requestContext.get()?.errorDocs), 429);
 }

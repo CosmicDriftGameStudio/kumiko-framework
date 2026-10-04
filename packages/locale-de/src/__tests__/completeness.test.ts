@@ -34,4 +34,11 @@ describe("locale-de completeness", () => {
     }
     expect(offenders).toEqual([]);
   });
+
+  test("no German value uses the English word Account", () => {
+    const offenders = Object.entries(localeDeBundle)
+      .filter(([, value]) => /\bAccount/.test(value))
+      .map(([key]) => key);
+    expect(offenders).toEqual([]);
+  });
 });

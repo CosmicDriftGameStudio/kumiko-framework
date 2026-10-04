@@ -12,6 +12,7 @@ import { createSystemUser } from "../engine/system-user.js";
 import {
   type AppContext,
   type DispatchWriteRef,
+  type EscapeHatchReporter,
   type JobContext,
   type JobDefinition,
   type JobRunIn,
@@ -239,6 +240,27 @@ function missingDbProxy(jobName: string): TenantDb {
       });
     },
   });
+}
+
+function createCrossTenantReads(
+  systemModeDb: TenantDb,
+  reason: string,
+  report: EscapeHatchReporter,
+): NonNullable<JobContext["crossTenantReads"]> {
+  return {
+    selectMany(table, where, options) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.selectMany(table, where, options);
+    },
+    fetchOne(table, where) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.fetchOne(table, where);
+    },
+    count(table, where) {
+      report("cross-tenant-read", reason);
+      return systemModeDb.count(table, where);
+    },
+  };
 }
 
 function priorAttemptsOf(data: Record<string, unknown>): number {
@@ -488,7 +510,11 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
   // must not depend on buildServer having done it first. Idempotent.
   if (context.meter) registerStandardMetrics(context.meter);
   // Instance-scoped, not module-level: each runner (and each test) audits a system cron's declared hatch once.
-  const systemCronEscapeHatchDedup = createEscapeHatchProcessDedup(["unsafe-raw", "global-write"]);
+  const systemCronEscapeHatchDedup = createEscapeHatchProcessDedup([
+    "unsafe-raw",
+    "global-write",
+    "cross-tenant-read",
+  ]);
   // Set at the top of stop() — a graceful shutdown closes the redis/BullMQ
   // clients itself, which fires the exact same 'error' listeners below with
   // an expected "Connection is closed." Downgrading to debug once stopping
@@ -930,15 +956,10 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
     // unchecked cross-tenant escape hatch for such a job. Gated like jobDb so
     // ctx.systemDb, built from it, is gated too.
     const tenantScopedDb = configDb
-      ? createTenantDb(
-          configDb,
-          tenantId,
-          "system",
-          undefined,
-          undefined,
-          undefined,
-          jobPersonalDataGate ? { personalDataGate: jobPersonalDataGate } : undefined,
-        )
+      ? createTenantDb(configDb, tenantId, "system", undefined, undefined, undefined, {
+          projectionRegistry: registry,
+          ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
+        })
       : undefined;
     const isSystemJob = registry.isJobSystemScoped(jobName);
     // One reporter for ctx.systemDb and ctx.db.unsafeRaw() so both dedupe in the same window.
@@ -962,9 +983,15 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
           unsafeRaw: escapeHatchFor(jobDef.escapeHatch, "unsafeRaw"),
           globalWrites: escapeHatchFor(jobDef.escapeHatch, "globalWrites"),
           report: reportEscapeHatch,
+          projectionRegistry: registry,
           ...(jobPersonalDataGate && { personalDataGate: jobPersonalDataGate }),
         })
       : undefined;
+    const crossTenantReadsReason = escapeHatchFor(jobDef.escapeHatch, "unsafeRaw")?.reason;
+    const crossTenantReads =
+      tenantScopedDb && crossTenantReadsReason !== undefined
+        ? createCrossTenantReads(tenantScopedDb, crossTenantReadsReason, reportEscapeHatch)
+        : undefined;
     const config =
       context._configAccessorFactory && tenantScopedDb
         ? context._configAccessorFactory({
@@ -995,6 +1022,7 @@ export function createJobRunner(options: JobRunnerOptions): JobRunner {
       ...(notify !== undefined && { notify }),
       ...(config !== undefined && { config }),
       ...(systemDb && { systemDb }),
+      ...(crossTenantReads && { crossTenantReads }),
       // The runner owns the registry it resolved this job from — expose it so
       // workers can reach projections/jobs without the app author duplicating
       // it into `context` (the JobContext contract guarantees `registry`).

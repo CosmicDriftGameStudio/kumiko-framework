@@ -12,6 +12,8 @@ export { resolveAuthClaims } from "./auth-claims-resolver.js";
 export { createCascadeDeleteHook } from "./cascade-handler.js";
 export type { Dispatcher } from "./dispatcher.js";
 export { createDispatcher, dispatcherToWriteRef } from "./dispatcher.js";
+export type { FailedWriteResult } from "./dispatcher-utils.js";
+export { isFailedWriteResult } from "./dispatcher-utils.js";
 export type { DistributedLock } from "./distributed-lock.js";
 export { createDistributedLock } from "./distributed-lock.js";
 export type { EntityCache, EntityCacheOptions } from "./entity-cache.js";

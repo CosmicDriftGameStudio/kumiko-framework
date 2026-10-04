@@ -7,7 +7,13 @@ import { describe, expect, test } from "bun:test";
 import { registerMailTranslations } from "@cosmicdrift/kumiko-framework/i18n";
 import { localeDeBundle } from "@cosmicdrift/kumiko-locale-de";
 import type { AuthMailContent } from "../email-templates.js";
-import { renderResetPasswordEmail, renderVerifyEmail } from "../email-templates.js";
+import {
+  renderActivationEmail,
+  renderInviteEmail,
+  renderResetPasswordEmail,
+  renderUnlockAccountEmail,
+  renderVerifyEmail,
+} from "../email-templates.js";
 
 function buttonUrl(content: AuthMailContent): string | undefined {
   for (const section of content.sections) {
@@ -33,8 +39,8 @@ describe("renderResetPasswordEmail", () => {
     expect(out.subject).toBe("Account — Reset your password");
     expect(out.header).toBe("Reset password");
     expect(buttonUrl(out)).toBe(baseArgs.url);
-    // expiresAt wird zu human-readable-Format formatiert (UTC-pinned).
-    expect(textOf(out)).toContain("2026-05-04 13:45 UTC");
+    // Without a timeZone the expiry is formatted in UTC.
+    expect(textOf(out)).toMatch(/May 4, 2026.*1:45\sPM UTC/);
   });
 
   test("locale 'de' liefert deutsche Subjects + Body", () => {
@@ -74,7 +80,7 @@ describe("renderVerifyEmail", () => {
     expect(out.subject).toBe("Account — Verify your email");
     expect(out.header).toBe("Verify email");
     expect(buttonUrl(out)).toBe(baseArgs.url);
-    expect(textOf(out)).toContain("2026-05-04 13:45 UTC");
+    expect(textOf(out)).toMatch(/May 4, 2026.*1:45\sPM UTC/);
   });
 
   test("locale 'de' liefert deutsche Subjects + Body", () => {
@@ -103,5 +109,64 @@ describe("Reset vs Verify haben separate subjects + headers", () => {
   test("header-CTA unterscheiden sich", () => {
     expect(reset.header).toBe("Reset password");
     expect(verify.header).toBe("Verify email");
+  });
+});
+
+describe("expiry sentence", () => {
+  const args = {
+    url: "https://acme.example/reset?token=t",
+    issuedAt: "2026-05-03T13:45:00.000Z",
+    expiresAt: "2026-05-04T13:45:00.000Z",
+  };
+
+  test("de + Europe/Berlin: duration and local time with zone abbreviation", () => {
+    const text = textOf(
+      renderResetPasswordEmail({ ...args, locale: "de", timeZone: "Europe/Berlin" }),
+    );
+    expect(text).toContain("Der Link ist 1 Tag gültig");
+    expect(text).toContain("04.05.2026, 15:45 MESZ");
+  });
+
+  test("en without timeZone: UTC", () => {
+    const text = textOf(renderResetPasswordEmail(args));
+    expect(text).toContain("The link is valid for 1 day");
+    expect(text).toMatch(/May 4, 2026.*1:45\sPM UTC/);
+  });
+
+  test("an invalid timeZone falls back to UTC instead of throwing", () => {
+    const text = textOf(renderResetPasswordEmail({ ...args, timeZone: "Nope/Zone" }));
+    expect(text).toMatch(/1:45\sPM UTC/);
+  });
+
+  test("duration uses the largest fitting unit", () => {
+    const hours = textOf(
+      renderResetPasswordEmail({ ...args, expiresAt: "2026-05-03T15:45:00.000Z" }),
+    );
+    expect(hours).toContain("valid for 2 hours");
+    const minutes = textOf(
+      renderResetPasswordEmail({ ...args, expiresAt: "2026-05-03T14:15:00.000Z" }),
+    );
+    expect(minutes).toContain("valid for 30 minutes");
+    const ninetyMinutes = textOf(
+      renderResetPasswordEmail({ ...args, expiresAt: "2026-05-03T15:15:00.000Z" }),
+    );
+    expect(ninetyMinutes).toContain("valid for 90 minutes");
+    const dayPlusJitter = textOf(
+      renderResetPasswordEmail({ ...args, expiresAt: "2026-05-04T13:45:00.004Z" }),
+    );
+    expect(dayPlusJitter).toContain("valid for 1 day");
+  });
+
+  test("all five renderers carry the duration sentence", () => {
+    const contents = [
+      renderResetPasswordEmail(args),
+      renderVerifyEmail(args),
+      renderActivationEmail(args),
+      renderUnlockAccountEmail(args),
+      renderInviteEmail({ ...args, role: "Member" }),
+    ];
+    for (const content of contents) {
+      expect(textOf(content)).toContain("The link is valid for 1 day (until ");
+    }
   });
 });

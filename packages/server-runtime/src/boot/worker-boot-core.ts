@@ -49,7 +49,11 @@ import { Redis } from "ioredis";
 import { composeFeatures } from "../compose-features.js";
 import { assertPiiBootInvariants } from "../pii-boot-gate.js";
 import { requireEnv } from "../run-prod-app.js";
-import { addConfigAccessorFactory, buildBootExtraContext } from "../run-prod-app-boot-context.js";
+import {
+  addConfigAccessorFactory,
+  buildBootExtraContext,
+  loggerFromExtraContext,
+} from "../run-prod-app-boot-context.js";
 import type { RunWorkerAppOptions, WorkerDeps } from "../run-worker-app.js";
 import { resolveBootCrypto } from "./boot-crypto.js";
 import { jobRunLoggerCallbacks } from "./job-run-logger.js";
@@ -158,7 +162,12 @@ export async function bootWorkerProcess(
     includeBundled,
     ...(profile.authOptions && { authOptions: profile.authOptions }),
   });
-  validateBoot(features, { env: envSource, ...options.validateBootOptions });
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  validateBoot(features, {
+    env: envSource,
+    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
+    ...options.validateBootOptions,
+  });
   warnIfNonUtcServerTimeZone();
   assertWorkerMetricsOptions(options.metrics, options.observability, processName);
   assertPiiBootInvariants(features, {
@@ -224,10 +233,10 @@ export async function bootWorkerProcess(
       ? options.extraContext(deps)
       : (options.extraContext ?? {});
 
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
   configurePiiSubjectKms(options.kms);
   configureBlindIndexKey(options.blindIndexKey);
+  const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -237,6 +246,7 @@ export async function bootWorkerProcess(
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
     ...(profile.deliverQueuedInline === true && { deliverQueuedInline: true }),
+    ...(bootLogger && { log: bootLogger }),
   });
   const extraContext = addConfigAccessorFactory(
     { ...autoExtraContext, ...resolvedExtraContext },

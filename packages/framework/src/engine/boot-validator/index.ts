@@ -1,4 +1,5 @@
 import { validateEntityFieldEncryptionAvailable } from "../../db/entity-field-encryption.js";
+import type { EnvelopeCipher } from "../../secrets/envelope-cipher.js";
 import { dedupeFeatures } from "../dedupe-features.js";
 import { FILE_STORAGE_PROVIDER_ENV } from "../extension-names.js";
 import { QnTypes, qualifyEntityName } from "../qualified-name.js";
@@ -110,7 +111,61 @@ export type ValidateBootOptions = {
    *  `process.env`; runners pass their resolved env so a ciphertext-only
    *  key (already decrypted at boot) is visible to the probe. */
   readonly env?: Readonly<Record<string, string | undefined>>;
+  /** The cipher the runner injects after validation (built from the app's
+   *  `masterKey` or the env keyring). Satisfies the availability check for
+   *  `encrypted: true` fields without an env KEK. */
+  readonly entityFieldCipher?: EnvelopeCipher;
 };
+
+// Test stacks mount feature subsets, so a reference into a feature that is not
+// mounted cannot be judged: it counts as present. A reference into a mounted
+// feature must still resolve.
+function mountedPrefixOf(qn: string): string {
+  return qn.split(":", 1)[0] ?? qn;
+}
+
+class PrefixTolerantSet extends Set<string> {
+  constructor(
+    members: Iterable<string>,
+    private readonly mountedFeatures: ReadonlySet<string>,
+  ) {
+    super(members);
+  }
+  override has(qn: string): boolean {
+    return super.has(qn) || !this.mountedFeatures.has(mountedPrefixOf(qn));
+  }
+}
+
+class PrefixTolerantMap<V> extends Map<string, V> {
+  constructor(
+    members: Iterable<readonly [string, V]>,
+    private readonly mountedFeatures: ReadonlySet<string>,
+  ) {
+    super(members);
+  }
+  override has(qn: string): boolean {
+    return super.has(qn) || !this.mountedFeatures.has(mountedPrefixOf(qn));
+  }
+}
+
+/**
+ * Subset-safe slice of validateBoot for test stacks: nav references (screen,
+ * parent, workspace, tree actions), workspaces and nav cycles. The checks that
+ * need the whole app composition (screens, ref entities) run only in validateBoot.
+ */
+export function validateNavBootSubset(rawFeatures: readonly FeatureDefinition[]): void {
+  const features = dedupeFeatures(rawFeatures);
+  const mounted: ReadonlySet<string> = new Set(features.map((f) => f.name));
+  const allNavQns = collectNavQns(features);
+  const tolerantScreens = new PrefixTolerantSet(collectScreenQns(features), mounted);
+  const tolerantNavs = new PrefixTolerantMap(allNavQns, mounted);
+  const tolerantWorkspaces = new PrefixTolerantMap(collectWorkspaceQns(features), mounted);
+  for (const feature of features) {
+    validateNavs(feature, tolerantScreens, tolerantNavs, tolerantWorkspaces);
+    validateWorkspaces(feature, tolerantNavs);
+  }
+  validateNavCycles(allNavQns);
+}
 
 /**
  * Validates all feature configurations at boot time.
@@ -296,7 +351,7 @@ export function validateBoot(
     // catches malformed keys (wrong length, bad base64) at boot instead of
     // on the first encrypted read in prod. An injected cipher (test seam,
     // custom KMS provider) satisfies the requirement without env keys.
-    validateEntityFieldEncryptionAvailable(options?.env);
+    validateEntityFieldEncryptionAvailable(options?.env, options?.entityFieldCipher);
   }
 
   if (hasFileFields && !(options?.env ?? process.env)[FILE_STORAGE_PROVIDER_ENV]) {

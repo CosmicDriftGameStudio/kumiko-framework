@@ -89,6 +89,19 @@ r.storeTable(deriveEntityTableMeta("note", noteEntity, { source: "unmanaged" }),
 // forget hook may updateMany/deleteMany without events — rebuild must not replay
 ```
 
+## Executor writes and custom projections
+
+`EventStoreExecutor` verbs (`create`, `update`, `delete`, `forget`, `restore`)
+append the event, apply the entity projection and then run the custom
+projections registered for that event. This holds whenever the `TenantDb` was
+built by the dispatcher or the job runner, which bind the registry to it. A
+projection that throws rolls back the executor write.
+
+Projection runs are idempotent per event object: the dispatcher's own
+projection pass after the handler sees the already-projected event and skips it.
+A `TenantDb` built outside the dispatcher or job runner has no registry bound
+and skips custom projections.
+
 ## CI guard
 
 `infra/guards/guard-direct-entity-writes.ts` (bin: `kumiko-guard-direct-entity-writes`)

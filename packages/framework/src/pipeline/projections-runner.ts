@@ -44,23 +44,36 @@ export async function runProjections(
 // CRUD path (via runProjections) and the ctx.appendEvent path (domain events
 // emitted inside a write handler). Keeping one function means an auto-event
 // and a r.defineEvent-event land in the same inline-projection pipeline.
+// Events whose projections already ran. The EventStoreExecutor projects right
+// after its write and hands the same object back on the LifecycleResult, so the
+// dispatcher's later runProjections() and manual calls become no-ops instead of
+// double-applying. Marked only after a successful run: a rolled-back write is
+// retried with a fresh event object, so a thrown projection never blocks a retry.
+const projectedEvents = new WeakSet<StoredEvent>();
+
+// Implicit projections exist only for rebuildProjection: the EventStoreExecutor
+// already writes their table on the live path, so applying them live would write
+// twice and hit a unique key violation.
+function liveProjectionsForEvent(event: StoredEvent, registry: Registry) {
+  return registry
+    .getProjectionsForSource(event.aggregateType)
+    .filter((proj) => !proj.isImplicit && proj.apply[event.type] !== undefined);
+}
+
+export function hasLiveProjectionsForEvent(event: StoredEvent, registry: Registry): boolean {
+  return liveProjectionsForEvent(event, registry).length > 0;
+}
+
 export async function runProjectionsForEvent(
   event: StoredEvent,
   registry: Registry,
   tx: DbRunner,
 ): Promise<void> {
-  const projections = registry.getProjectionsForSource(event.aggregateType);
-  // skip: no projection feeds off this entity — fast path for the common case
-  if (projections.length === 0) return;
-  for (const proj of projections) {
-    // ImplicitProjections existieren nur für rebuildProjection — der
-    // EventStoreExecutor schreibt im Live-Pfad bereits direkt in die
-    // Tabelle. Live-Apply der Implicit würde doppelt schreiben → unique
-    // key violation. Filter ist Pflicht.
-    if (proj.isImplicit) continue;
+  // skip: this event object was already projected in this write
+  if (projectedEvents.has(event)) return;
+  for (const proj of liveProjectionsForEvent(event, registry)) {
     const applyFn = proj.apply[event.type];
-    // skip: this projection doesn't care about this event type
-    if (!applyFn) continue;
-    await applyFn(event, tx, proj.table);
+    if (applyFn) await applyFn(event, tx, proj.table);
   }
+  projectedEvents.add(event);
 }

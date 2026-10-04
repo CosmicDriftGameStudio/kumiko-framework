@@ -10,6 +10,7 @@ import {
   createNoopProvider,
   createPrometheusMeter,
 } from "@cosmicdrift/kumiko-framework/observability";
+import { createEnvMasterKeyProvider } from "@cosmicdrift/kumiko-framework/secrets";
 import { runWorkerApp } from "../run-worker-app.js";
 import { makeProbeFeature, withClearedBootEnv } from "./boot-probe-fixture.js";
 
@@ -222,5 +223,41 @@ describe("runWorkerApp boot-mode", () => {
       console.log = originalLog;
       console.info = originalInfo;
     }
+  });
+
+  test("masterKey: an app-supplied provider satisfies encrypted fields without any env KEK", async () => {
+    const encryptedFeature = defineFeature("worker-master-key-probe", (r) => {
+      r.entity(
+        "note",
+        createEntity({
+          table: "worker_master_key_probe_note",
+          fields: {
+            body: createTextField({ personal: false, reason: "test_fixture", encrypted: true }),
+          },
+        }),
+      );
+    });
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.map(String).join(" "));
+    };
+    try {
+      const handle = await runWorkerApp({
+        features: [encryptedFeature],
+        migrations: false,
+        envSource: { ...DUMMY_ENV, KUMIKO_DRY_RUN_ENV: "boot" },
+        masterKey: createEnvMasterKeyProvider({
+          env: {
+            KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32, 7).toString("base64"),
+            KUMIKO_SECRETS_MASTER_KEY_CURRENT_VERSION: "1",
+          },
+        }),
+      });
+      await handle.stop();
+    } finally {
+      console.log = originalLog;
+    }
+    expect(logs.some((line) => line.includes("boot validation OK"))).toBe(true);
   });
 });

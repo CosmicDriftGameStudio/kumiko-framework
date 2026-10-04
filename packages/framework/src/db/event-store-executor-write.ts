@@ -1,3 +1,4 @@
+import type { TenantDb } from "@cosmicdrift/kumiko-types/tenant-db-types";
 import { checkWriteFieldOwnership } from "../engine/field-access.js";
 import { instructionFieldNames } from "../engine/instruction-fields.js";
 import { userCanCreateFieldRow, userCanWriteFieldRow } from "../engine/ownership.js";
@@ -18,16 +19,21 @@ import {
   IdempotentAppendConflictError as EventStoreIdempotentAppendConflict,
   VersionConflictError as EventStoreVersionConflict,
   getStreamVersion,
+  type StoredEvent,
 } from "../event-store/index.js";
 import {
   assertInstructionFieldWriteAllowed,
   assertIrreversibleOperationAllowed,
   isIrreversibleEntityVerb,
 } from "../pipeline/irreversible-operation-gate.js";
+import {
+  hasLiveProjectionsForEvent,
+  runProjectionsForEvent,
+} from "../pipeline/projections-runner.js";
 import { generateId } from "../utils/index.js";
 import { applyEntityEvent } from "./apply-entity-event.js";
 import { flattenCompoundTypes, rehydrateCompoundTypes } from "./compound-types.js";
-import type { DbRow } from "./connection.js";
+import type { DbRow, DbRunner } from "./connection.js";
 import type { EventStoreExecutor } from "./event-store-executor.js";
 import {
   buildEventMetadata,
@@ -36,9 +42,26 @@ import {
   isForeignTenantOnGlobalEntity,
   tryMapUniqueViolation,
 } from "./event-store-executor-context.js";
+import { projectionRegistryOf } from "./projection-registry-binding.js";
 import { runInSavepointIfSupported } from "./query.js";
 import { assertPersonalDataWrite, tableNameOf } from "./tenant-db.js";
 import { tenantDbRunner } from "./tenant-db-runner.js";
+
+// Custom projections for a write that did not go through the dispatcher (hook or
+// job writing a second aggregate). Savepoint like applyEntityEvent: a throwing
+// projection fails the write and the caller's transaction rolls it back.
+async function projectEntityEvent(
+  db: TenantDb,
+  runner: DbRunner,
+  event: StoredEvent,
+): Promise<void> {
+  const registry = projectionRegistryOf(db);
+  // skip: TenantDb not built by a dispatcher/job runner — nothing bound to project with
+  if (!registry) return;
+  // skip: no live projection listens — avoid a SAVEPOINT round trip on every plain write
+  if (!hasLiveProjectionsForEvent(event, registry)) return;
+  await runInSavepointIfSupported(runner, (sp) => runProjectionsForEvent(event, registry, sp));
+}
 
 // Art. 17 erasure runs as the framework operator, not as a row owner; a
 // per-role ownership map can never cover it, and a silent deny means the
@@ -311,6 +334,11 @@ export function createWriteVerbs(
         await entityCache.del(user.tenantId, entityName, aggregateId);
       }
 
+      // The echoed event is the one projections see (and the dispatcher later
+      // skips), so build it before projecting.
+      const echoEvent = { ...event, payload: stripSensitive(flatCreateData) };
+      await projectEntityEvent(db, runner, echoEvent);
+
       return {
         isSuccess: true,
         data: {
@@ -323,7 +351,7 @@ export function createWriteVerbs(
           entityName,
           // Persisted event carries ciphertext by design — the caller-facing
           // echo must be plaintext like every other response field (#820).
-          event: { ...event, payload: stripSensitive(flatCreateData) },
+          event: echoEvent,
         },
       };
     },
@@ -552,6 +580,15 @@ export function createWriteVerbs(
           await entityCache.del(user.tenantId, entityName, payload.id);
         }
 
+        const echoEvent = {
+          ...event,
+          payload: {
+            changes: stripSensitive(flatChangesPlain),
+            previous: stripSensitive(previous),
+          },
+        };
+        await projectEntityEvent(db, runner, echoEvent);
+
         return {
           isSuccess: true,
           data: {
@@ -562,13 +599,7 @@ export function createWriteVerbs(
             previous,
             isNew: false,
             entityName,
-            event: {
-              ...event,
-              payload: {
-                changes: stripSensitive(flatChangesPlain),
-                previous: stripSensitive(previous),
-              },
-            },
+            event: echoEvent,
           },
         };
       } catch (e) {
@@ -677,6 +708,9 @@ export function createWriteVerbs(
         await entityCache.del(user.tenantId, entityName, payload.id);
       }
 
+      const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
+      await projectEntityEvent(db, runner, echoEvent);
+
       return {
         isSuccess: true,
         data: {
@@ -684,7 +718,7 @@ export function createWriteVerbs(
           id: payload.id,
           data: existing,
           entityName,
-          event: { ...event, payload: { previous: stripSensitive(existing) } },
+          event: echoEvent,
         },
       };
     },
@@ -769,6 +803,9 @@ export function createWriteVerbs(
         await entityCache.del(user.tenantId, entityName, payload.id);
       }
 
+      const echoEvent = { ...event, payload: { previous: stripSensitive(existing) } };
+      await projectEntityEvent(db, runner, echoEvent);
+
       return {
         isSuccess: true,
         data: {
@@ -776,7 +813,7 @@ export function createWriteVerbs(
           id: payload.id,
           data: existing,
           entityName,
-          event: { ...event, payload: { previous: stripSensitive(existing) } },
+          event: echoEvent,
         },
       };
     },
@@ -898,6 +935,8 @@ export function createWriteVerbs(
       );
 
       const previousPlain = await decryptForRead(data);
+      const echoEvent = { ...event, payload: { previous: stripSensitive(previousPlain) } };
+      await projectEntityEvent(db, runner, echoEvent);
       return {
         isSuccess: true,
         data: {
@@ -908,7 +947,7 @@ export function createWriteVerbs(
           previous: previousPlain,
           isNew: false,
           entityName,
-          event: { ...event, payload: { previous: stripSensitive(previousPlain) } },
+          event: echoEvent,
         },
       };
     },

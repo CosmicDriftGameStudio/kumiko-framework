@@ -1,4 +1,5 @@
 import type { Context, Next } from "hono";
+import type { ErrorDocsConfig } from "../errors/docs-url.js";
 import { resolveHeaderLocale } from "../i18n/request-locale.js";
 import { LOCALE_HEADER_NAME } from "./api-constants.js";
 import {
@@ -125,6 +126,7 @@ export function requestIdMiddleware(options?: {
   // standalone callers (no buildServer).
   readonly resolver?: ClientIpResolver;
   readonly trustedProxyHops?: number;
+  readonly errorDocs?: ErrorDocsConfig;
 }) {
   // Created once per middleware mount (not per request) so the warn-once
   // flag in the resolver actually fires only once per server boot.
@@ -132,7 +134,10 @@ export function requestIdMiddleware(options?: {
     options?.resolver ??
     createClientIpResolver(options?.trustedProxyHops ?? 0, "requestIdMiddleware");
   return async (c: Context, next: Next) => {
-    const data = buildRequestContextData(c, resolver);
+    const data = {
+      ...buildRequestContextData(c, resolver),
+      ...(options?.errorDocs && { errorDocs: options.errorDocs }),
+    };
     c.header(REQUEST_ID_HEADER, data.requestId);
     c.header(CORRELATION_ID_HEADER, data.correlationId);
     c.set("requestId", data.requestId);

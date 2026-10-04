@@ -4,6 +4,7 @@ import type { SchemaTable } from "../../db/dialect.js";
 import { table, text } from "../../db/dialect.js";
 import { rowMetaFieldNames } from "../../db/table-builder.js";
 import { withBootValidatorFixture } from "../../testing/boot-validator-fixture.js";
+import { createTestEnvelopeCipher } from "../../testing/index.js";
 import { LIST_ROW_META_COLUMNS } from "../../ui-types/list-row-meta.js";
 import { validateEntityListScreens } from "../boot-validator/entity-list-screens.js";
 import { validateBoot as validateBootRaw } from "../boot-validator.js";
@@ -269,6 +270,36 @@ describe("boot-validator", () => {
       }),
     ];
     expect(() => validateBoot(features)).toThrow(/master key/i);
+  });
+
+  describe("entityFieldCipher option", () => {
+    const encryptedFeatures = [
+      defineFeature("a", (r) => {
+        r.entity(
+          "secret",
+          createEntity({
+            table: "Secrets",
+            fields: { apiKey: { type: "text", encrypted: true } },
+          }),
+        );
+      }),
+    ];
+
+    test("a runner-provided cipher satisfies encrypted fields without any env KEK", () => {
+      const cipher = createTestEnvelopeCipher(Buffer.alloc(32, 7).toString("base64"));
+      expect(() =>
+        validateBootRaw(withBootValidatorFixture(encryptedFeatures), {
+          env: {},
+          entityFieldCipher: cipher,
+        }),
+      ).not.toThrow();
+    });
+
+    test("without the cipher and without an env KEK the error names both ways out", () => {
+      expect(() =>
+        validateBootRaw(withBootValidatorFixture(encryptedFeatures), { env: {} }),
+      ).toThrow(/KUMIKO_SECRETS_MASTER_KEY_V1.*masterKey/s);
+    });
   });
 
   test("throws when longText encrypted field exists but no master key is available", () => {

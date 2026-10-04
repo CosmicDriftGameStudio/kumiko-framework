@@ -1,3 +1,4 @@
+import { type ErrorDocsConfig, resolveErrorDocsUrl } from "./docs-url.js";
 import type { KumikoError } from "./kumiko-error.js";
 
 // Wire format every 4xx/5xx response must match. The API routes use this
@@ -5,8 +6,9 @@ import type { KumikoError } from "./kumiko-error.js";
 //
 // `docsUrl` is the deep-link for self-service: default web/mobile renderers
 // show a "Mehr erfahren →" link pointing here. Computed from `details.reason`
-// (when set) or fallback to `code`. Always present, even when `details` is
-// stripped from the response (e.g. internal_error in production).
+// (when set) or fallback to `code`, even when `details` is stripped from the
+// response (e.g. internal_error in production). Absent for an app's own reason
+// that `errorDocs` does not cover — see resolveErrorDocsUrl.
 export type ErrorResponseBody = {
   readonly error: {
     readonly code: string;
@@ -14,7 +16,7 @@ export type ErrorResponseBody = {
     readonly i18nParams?: Readonly<Record<string, unknown>>;
     readonly message: string;
     readonly details?: unknown;
-    readonly docsUrl: string;
+    readonly docsUrl?: string;
     readonly requestId?: string;
     readonly timestamp: string;
   };
@@ -51,7 +53,11 @@ function devCauseDetail(cause: unknown): DevCauseDetail | undefined {
   };
 }
 
-export function serializeError(err: KumikoError, requestId?: string): ErrorResponseBody {
+export function serializeError(
+  err: KumikoError,
+  requestId?: string,
+  errorDocs?: ErrorDocsConfig,
+): ErrorResponseBody {
   const stripped = CODES_WITHOUT_CLIENT_DETAILS.has(err.code) && isProductionEnv();
   const exposeDeclaredDetails = err.details !== undefined && !stripped;
 
@@ -67,6 +73,7 @@ export function serializeError(err: KumikoError, requestId?: string): ErrorRespo
     return undefined;
   })();
 
+  const docsUrl = resolveErrorDocsUrl(err, errorDocs);
   return {
     error: {
       code: err.code,
@@ -74,7 +81,7 @@ export function serializeError(err: KumikoError, requestId?: string): ErrorRespo
       ...(err.i18nParams && { i18nParams: err.i18nParams }),
       message: err.message,
       ...(detailsForResponse !== undefined && { details: detailsForResponse }),
-      docsUrl: err.docsUrl,
+      ...(docsUrl !== undefined && { docsUrl }),
       ...(requestId && { requestId }),
       timestamp: new Date().toISOString(),
     },

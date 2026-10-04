@@ -137,6 +137,7 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
       }
 
       const { token, expiresAt } = spec.sign(user.id, ttl, opts.hmacSecret);
+      const issuedAt = expiresAt.subtract({ minutes: ttl }).toString();
 
       const locale = resolveHandlerMailLocale(ctx, opts.locale);
 
@@ -154,6 +155,8 @@ export function createTokenRequestHandler<TName extends string, TSuccessKind ext
           appUrl: opts.appUrl,
           token,
           expiresAt: expiresAt.toString(),
+          issuedAt,
+          timeZone: ctx.tz.user,
           ...(opts.appName !== undefined && { appName: opts.appName }),
           locale,
         },

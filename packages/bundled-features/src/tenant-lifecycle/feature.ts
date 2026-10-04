@@ -34,7 +34,11 @@ import {
 } from "./events.js";
 import { cancelDestructionWrite } from "./handlers/cancel-destruction.write.js";
 import { requestDestructionWrite } from "./handlers/request-destruction.write.js";
-import { resolveTenantLifecycleGate, runTenantDestructionSweep } from "./run-tenant-destroy.js";
+import {
+  hasTenantDestructionWork,
+  resolveTenantLifecycleGate,
+  runTenantDestructionSweep,
+} from "./run-tenant-destroy.js";
 
 const tenantLifecycleStatusPlugin: TenantLifecycleStatusPlugin = {
   async resolveStatus(tenantId, { db }) {
@@ -125,10 +129,16 @@ export function createTenantLifecycleFeature(): FeatureDefinition {
           throw new Error("run-tenant-destruction: ctx.registry required (JobContext incomplete)");
         }
         const T = (await import("@cosmicdrift/kumiko-framework/time")).getTemporal();
+        const now = T.Now.instant();
+        // Without crossTenantReads (undeclared hatch) fall through to the sweep.
+        if (ctx.crossTenantReads && !(await hasTenantDestructionWork(ctx.crossTenantReads, now))) {
+          // skip: no tenant is due, so the sweep would not touch anything
+          return;
+        }
         await runTenantDestructionSweep({
           db: ctx.db.unsafeRaw() as import("@cosmicdrift/kumiko-framework/db").DbConnection, // @cast-boundary db-operator — jobs never run inside a DbTx
           registry: ctx.registry,
-          now: T.Now.instant(),
+          now,
           log: (message) => ctx.log?.warn(message),
           fileProviderResolver: ctx._fileProviderResolver,
           escapeHatchAuditSink: ctx._escapeHatchAuditSink,

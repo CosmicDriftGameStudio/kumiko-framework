@@ -1,13 +1,15 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as z from "zod";
 import {
   AccessDeniedError,
   buildErrorLog,
   ConflictError,
+  FrameworkReasons,
   InternalError,
   isKumikoError,
   KumikoError,
   NotFoundError,
+  resolveErrorDocsUrl,
   serializeError,
   UnconfiguredError,
   UnprocessableError,
@@ -28,48 +30,86 @@ describe("KumikoError: abstract base", () => {
     expect(isKumikoError(inner)).toBe(false);
   });
 
-  describe("docsUrl getter — Self-Service-Link", () => {
-    test("uses details.reason when set (NotFoundError sets entity-specific reason)", () => {
-      const err = new NotFoundError("order", 42);
-      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/order_not_found");
+  describe("resolveErrorDocsUrl — Self-Service-Link", () => {
+    let originalDocsUrl: string | undefined;
+    beforeEach(() => {
+      originalDocsUrl = process.env["KUMIKO_DOCS_URL"];
+      delete process.env["KUMIKO_DOCS_URL"];
+    });
+    afterEach(() => {
+      if (originalDocsUrl === undefined) delete process.env["KUMIKO_DOCS_URL"];
+      else process.env["KUMIKO_DOCS_URL"] = originalDocsUrl;
     });
 
-    test("uses details.reason when explicitly set (ConflictError-style)", () => {
-      const err = new ConflictError({ details: { reason: "stale_state" } });
-      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/stale_state");
+    test("framework reason links to the framework docs", () => {
+      const err = new ConflictError({ details: { reason: FrameworkReasons.staleState } });
+      expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/stale_state");
     });
 
     test("falls back to code when details has no reason field", () => {
       const err = new ConflictError({ details: { foo: "bar" } });
-      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
+      expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/conflict");
     });
 
     test("falls back to code when details is undefined", () => {
-      const err = new ConflictError();
-      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
+      expect(resolveErrorDocsUrl(new ConflictError())).toBe(
+        "https://docs.kumiko.rocks/errors/conflict",
+      );
     });
 
-    test("respects KUMIKO_DOCS_URL env override (Self-Hosted-Kunden)", () => {
-      const original = process.env["KUMIKO_DOCS_URL"];
+    test("falls back to code when reason equals the code", () => {
+      const err = new ConflictError({ details: { reason: "conflict" } });
+      expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/conflict");
+    });
+
+    test("app reason without errorDocs has no link", () => {
+      const err = new ConflictError({ details: { reason: "order_locked" } });
+      expect(resolveErrorDocsUrl(err)).toBeUndefined();
+    });
+
+    test("app reason listed in errorDocs.reasons links to the app docs", () => {
+      const err = new ConflictError({ details: { reason: "order_locked" } });
+      const errorDocs = { baseUrl: "https://docs.acme.example", reasons: ["order_locked"] };
+      expect(resolveErrorDocsUrl(err, errorDocs)).toBe(
+        "https://docs.acme.example/errors/order_locked",
+      );
+    });
+
+    test("app reason not in errorDocs.reasons has no link", () => {
+      const err = new ConflictError({ details: { reason: "order_locked" } });
+      const errorDocs = { baseUrl: "https://docs.acme.example", reasons: ["other"] };
+      expect(resolveErrorDocsUrl(err, errorDocs)).toBeUndefined();
+    });
+
+    test('errorDocs.reasons "all" covers every app reason', () => {
+      const err = new ConflictError({ details: { reason: "order_locked" } });
+      const errorDocs = { baseUrl: "https://docs.acme.example", reasons: "all" } as const;
+      expect(resolveErrorDocsUrl(err, errorDocs)).toBe(
+        "https://docs.acme.example/errors/order_locked",
+      );
+    });
+
+    test("respects KUMIKO_DOCS_URL for framework reasons", () => {
       process.env["KUMIKO_DOCS_URL"] = "https://docs.acme.example";
-      try {
-        const err = new ConflictError({ details: { reason: "stale_state" } });
-        expect(err.docsUrl).toBe("https://docs.acme.example/errors/stale_state");
-      } finally {
-        if (original === undefined) delete process.env["KUMIKO_DOCS_URL"];
-        else process.env["KUMIKO_DOCS_URL"] = original;
-      }
+      const err = new ConflictError();
+      expect(resolveErrorDocsUrl(err)).toBe("https://docs.acme.example/errors/conflict");
     });
 
-    test("serializeError exposes docsUrl in the wire response", () => {
-      const err = new ConflictError({ details: { reason: "stale_state" } });
-      const body = serializeError(err);
-      expect(body.error.docsUrl).toBe("https://docs.kumiko.rocks/errors/stale_state");
+    test("serializeError exposes docsUrl only when resolvable", () => {
+      const app = new ConflictError({ details: { reason: "order_locked" } });
+      expect(serializeError(app).error.docsUrl).toBeUndefined();
+      expect(
+        serializeError(app, undefined, { baseUrl: "https://d.example", reasons: "all" }).error
+          .docsUrl,
+      ).toBe("https://d.example/errors/order_locked");
+      expect(serializeError(new ConflictError()).error.docsUrl).toBe(
+        "https://docs.kumiko.rocks/errors/conflict",
+      );
     });
 
     test("falls back to code when reason slug is not URL-safe", () => {
       const err = new ConflictError({ details: { reason: "stale state/../x" } });
-      expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/conflict");
+      expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/conflict");
     });
   });
 });
@@ -335,7 +375,7 @@ describe("UnprocessableError", () => {
       details: { orderId: 7 },
     });
     expect(err.details).toEqual({ reason: "order.already_cancelled", orderId: 7 });
-    expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/order.already_cancelled");
+    expect(resolveErrorDocsUrl(err)).toBeUndefined();
   });
 });
 
@@ -431,7 +471,7 @@ class KumikoErrorStub extends KumikoError {
 describe("UnconfiguredError", () => {
   test("docsUrl uses stable unconfigured slug, not the freestext message", () => {
     const err = new UnconfiguredError({ feature: "billing", key: "apiKey" });
-    expect(err.docsUrl).toBe("https://docs.kumiko.rocks/errors/unconfigured");
+    expect(resolveErrorDocsUrl(err)).toBe("https://docs.kumiko.rocks/errors/unconfigured");
     expect(err.details).toMatchObject({
       reason: "unconfigured",
       feature: "billing",

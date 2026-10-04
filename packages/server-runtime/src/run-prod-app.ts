@@ -68,6 +68,7 @@ import {
   PAT_FEATURE,
   patRateLimitFromFeature,
 } from "@cosmicdrift/kumiko-bundled-features/personal-access-tokens";
+import { SECRETS_MASTER_KEK_ENV_KEYS } from "@cosmicdrift/kumiko-bundled-features/secrets";
 import { SESSIONS_FEATURE } from "@cosmicdrift/kumiko-bundled-features/sessions";
 import { TenantQueries } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { UserQueries } from "@cosmicdrift/kumiko-bundled-features/user";
@@ -117,8 +118,10 @@ import {
   KumikoBootError,
   kmsSlotsOf,
   parseEnv,
+  withOptionalEnvKeys,
 } from "@cosmicdrift/kumiko-framework/env";
 import { type DryRunMode, renderDryRun } from "@cosmicdrift/kumiko-framework/env/dry-run";
+import type { ErrorDocsConfig } from "@cosmicdrift/kumiko-framework/errors";
 import {
   createEsOperationsTable,
   createSeedMigrationContext,
@@ -163,6 +166,7 @@ import {
   addConfigAccessorFactory,
   buildBootExtraContext,
   buildProdSessionAuth,
+  loggerFromExtraContext,
   resolveAuthMail,
   wireProdPatAutoRevoke,
 } from "./run-prod-app-boot-context.js";
@@ -176,6 +180,7 @@ export { buildBunServeOptions } from "./bun-serve-options.js";
 export {
   addConfigAccessorFactory,
   buildBootExtraContext,
+  loggerFromExtraContext,
   resolveAuthMail,
 } from "./run-prod-app-boot-context.js";
 export { staticCachePolicy } from "./run-prod-app-static-files.js";
@@ -406,9 +411,13 @@ export type RunProdAppAuthOptions = {
 
 /** Hook for app-specific seeding — runs after the admin (when auth is
  *  active). Each seed is responsible for its own idempotence (seeds are
- *  expected to check "is my row already there?" before inserting). */
+ *  expected to check "is my row already there?" before inserting). Write
+ *  through `dispatcher.write(...)` rather than `db` so projections and
+ *  hooks run; `registry` is the boot registry. */
 export type ProdSeedFn = (deps: {
   db: import("@cosmicdrift/kumiko-framework/db").DbConnection;
+  registry: import("@cosmicdrift/kumiko-framework/engine").Registry;
+  dispatcher: import("@cosmicdrift/kumiko-framework/pipeline").Dispatcher;
 }) => Promise<void>;
 
 /** Boot-Time-Deps die `extraContext` + `anonymousAccess` Factories als
@@ -566,10 +575,11 @@ export type RunProdAppOptions = {
    *  no locale signal. Merged into AppContext before extraContext (app wins). */
   readonly defaultLocale?: string;
   readonly extraContext?: ExtraContextOption;
-  /** MasterKeyProvider für die auto-verdrahtete `ctx.secrets`. Default:
-   *  `createEnvMasterKeyProvider` (KEK aus `KUMIKO_SECRETS_MASTER_KEY_V<n>`).
-   *  Override für KMS-Backends (AWS/GCP/Azure) statt env-KEK. Nur relevant
-   *  wenn das `secrets`-Feature gemountet ist. */
+  /** MasterKeyProvider replacing the env KEK (`KUMIKO_SECRETS_MASTER_KEY_V<n>`)
+   *  for `ctx.secrets`, encrypted config keys and `encrypted: true` entity
+   *  fields. Default: `createEnvMasterKeyProvider`. Use it for KMS backends
+   *  (AWS/GCP/Azure); with it set, `KUMIKO_SECRETS_MASTER_KEY_V1` is not
+   *  required in the env. */
   readonly masterKey?: MasterKeyProvider;
   /** Subject-Key-Adapter für Crypto-Shredding (DSGVO Art. 17). Wenn gesetzt,
    *  steht er Feature-Code als `ctx.kms` zur Verfügung und der Boot prüft
@@ -707,6 +717,8 @@ export type RunProdAppOptions = {
    *  `auth.trustedProxyHops` and `KUMIKO_TRUSTED_PROXY_HOPS`. Default 0 =
    *  trust no proxy header, only the socket address (or "unknown") counts. */
   readonly trustedProxyHops?: number;
+  /** Links the app's own error reasons to its own docs (`docsUrl` in error responses); framework reasons keep the framework docs link. */
+  readonly errorDocs?: ErrorDocsConfig;
 };
 
 export type ProdAppHandle = {
@@ -793,7 +805,10 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     // a real env-check (all required vars present + schema-valid) before
     // it asserts feature-wiring works.
     try {
-      parseEnv(options.envSchema.schema, rawEnvSource, {
+      const envSchema = options.masterKey
+        ? withOptionalEnvKeys(options.envSchema.schema, SECRETS_MASTER_KEK_ENV_KEYS)
+        : options.envSchema.schema;
+      parseEnv(envSchema, rawEnvSource, {
         sources: options.envSchema.sources,
         ...(options.pulumiPrefix ? { pulumiPrefix: options.pulumiPrefix } : {}),
       });
@@ -880,7 +895,12 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(composeAuthOptions && { authOptions: composeAuthOptions }),
   });
 
-  validateBoot(features, { env: envSource, ...options.validateBootOptions });
+  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
+  validateBoot(features, {
+    env: envSource,
+    ...(bootCrypto.entityFieldCipher && { entityFieldCipher: bootCrypto.entityFieldCipher }),
+    ...options.validateBootOptions,
+  });
   warnIfNonUtcServerTimeZone();
   validateAppCustomScreenWriteQns(process.cwd(), collectWriteHandlerQns(features));
   assertPiiBootInvariants(features, {
@@ -1008,7 +1028,6 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
 
   // Framework-Default-Provider zuerst, App-Werte (resolvedExtraContext)
   // gewinnen immer (z.B. money-horse's eigener configResolver).
-  const bootCrypto = resolveBootCrypto(envSource, options.masterKey);
   // App-wide cipher for `encrypted: true` entity fields — executors resolve
   // it lazily, entities without encrypted fields never touch it.
   configureEntityFieldEncryption(bootCrypto.entityFieldCipher);
@@ -1022,6 +1041,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // jeder Equality-Lookup (Login by email!) liefe ins Leere. Fail-fast statt
   // silent-broken-auth.
   configureBlindIndexKey(options.blindIndexKey);
+  const bootLogger = loggerFromExtraContext(resolvedExtraContext);
   const autoExtraContext = buildBootExtraContext({
     db,
     features,
@@ -1031,6 +1051,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     sseBroker,
     crypto: bootCrypto,
     ...(options.kms && { kms: options.kms }),
+    ...(bootLogger && { log: bootLogger }),
   });
   const extraContext = {
     ...addConfigAccessorFactory({ ...autoExtraContext, ...resolvedExtraContext }, registry),
@@ -1119,6 +1140,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     ...(options.metrics && { metrics: options.metrics }),
     ...(options.rateLimit && { rateLimit: options.rateLimit }),
     ...(trustedProxyHops !== undefined && { trustedProxyHops }),
+    ...(options.errorDocs && { errorDocs: options.errorDocs }),
     ...(options.extraRoutes && { extraRoutes: options.extraRoutes }),
     ...(effectiveAuth && {
       auth: {
@@ -1300,8 +1322,14 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
     db,
     ...(bootCrypto.configCipher && { cipher: bootCrypto.configCipher }),
   });
-  for (const seed of options.seeds ?? []) {
-    await seed({ db });
+  const seedDispatcher =
+    (options.seeds?.length ?? 0) > 0 || options.seedsDir !== undefined
+      ? createDispatcher(registry, { db, redis, entityCache, registry, ...extraContext })
+      : undefined;
+  if (seedDispatcher) {
+    for (const seed of options.seeds ?? []) {
+      await seed({ db, registry, dispatcher: seedDispatcher });
+    }
   }
 
   // ES-Operations / Seed-Migrations (Phase 1). Läuft NACH applyBootSeeds +
@@ -1309,15 +1337,8 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
   // if-missing"-Schicht; seed-migrations sind die "diff-and-update"-
   // Schicht für Drift den existing Seeds nicht erfassen können (z.B.
   // Membership-Roles-Change nach initialer Seed-Erstellung).
-  if (options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
+  if (seedDispatcher && options.seedsDir !== undefined && envSource["KUMIKO_SKIP_ES_OPS"] !== "1") {
     await createEsOperationsTable(db);
-    const seedDispatcher = createDispatcher(registry, {
-      db,
-      redis,
-      entityCache,
-      registry,
-      ...extraContext,
-    });
     await runPendingSeedMigrations({
       db,
       seedsDir: options.seedsDir,

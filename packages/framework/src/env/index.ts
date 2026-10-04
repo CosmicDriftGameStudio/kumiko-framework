@@ -188,6 +188,21 @@ function optionalKeepingKmsMeta(field: z.ZodType): z.ZodType {
     : optional;
 }
 
+/** Makes the named env keys optional while keeping their `kms` meta. Keys
+ *  missing from the schema shape are ignored. */
+export function withOptionalEnvKeys(
+  schema: z.ZodObject<z.ZodRawShape>,
+  keys: readonly string[],
+): z.ZodObject<z.ZodRawShape> {
+  const shape = zodShape(schema);
+  const relaxed: Record<string, z.ZodType> = {};
+  for (const key of keys) {
+    const field = shape[key];
+    if (field) relaxed[key] = optionalKeepingKmsMeta(field);
+  }
+  return Object.keys(relaxed).length === 0 ? schema : schema.safeExtend(relaxed);
+}
+
 export function composeEnvSchema(options: ComposeEnvSchemaOptions): ComposedEnvSchema {
   const optionalSet = new Set(options.optionalFeatures ?? []);
   const merged: Record<string, z.ZodType> = {};

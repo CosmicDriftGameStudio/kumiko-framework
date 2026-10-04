@@ -49,9 +49,8 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isPlainObject, parseJsonOrThrow } from "@cosmicdrift/kumiko-framework/utils";
 import { escapeHtmlAttr } from "@cosmicdrift/kumiko-headless";
 import { Temporal } from "temporal-polyfill";
@@ -731,21 +730,85 @@ export async function runTailwindOnce(entry: string, cwd: string): Promise<strin
       `[kumiko build] tailwindcss nicht auflösbar für ${entry} — peer dependency fehlt am Stylesheet-Ort.`,
     );
   }
-  const tmpDir = await mkdtemp(join(tmpdir(), "kumiko-build-tw-"));
-  const outPath = join(tmpDir, "styles.css");
-  const bunPath = process.argv[0] ?? "bun";
-  const proc = Bun.spawn([bunPath, "run", cliPath, "-i", entry, "-o", outPath, "--minify"], {
-    cwd,
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const code = await proc.exited;
-  if (code !== 0) {
-    throw new Error(`[kumiko build] tailwind exit ${code}`);
+  const { compile, optimize, Scanner } = await loadTailwindEngine(cliPath, bunResolver);
+  const input = resolve(cwd, entry);
+  if (!existsSync(input)) {
+    throw new Error(`[kumiko build] tailwind: stylesheet not found: ${input}`);
   }
-  const css = await readFile(outPath, "utf8");
-  await rm(tmpDir, { recursive: true, force: true });
-  return css;
+  const css = await readFile(input, "utf8");
+  // Mirrors `@tailwindcss/cli -i <entry> -o <file> --minify` option for option, so the output
+  // stays byte-identical to the CLI without spawning a child process.
+  const compiler = await compile(css, {
+    from: input,
+    base: dirname(input),
+    onDependency: () => {},
+  });
+  const rootSources =
+    compiler.root === "none"
+      ? []
+      : compiler.root === null
+        ? [{ base: resolve(cwd), pattern: "**/*", negated: false }]
+        : [{ ...compiler.root, negated: false }];
+  const scanner = new Scanner({
+    sources: [
+      ...rootSources,
+      ...compiler.sources,
+      { base: dirname(process.execPath), pattern: basename(process.execPath), negated: true },
+    ],
+  });
+  return optimize(compiler.build(scanner.scan()), { file: input, minify: true }).code;
+}
+
+type TailwindSource = { base: string; pattern: string; negated: boolean };
+type TailwindCompiler = {
+  root: "none" | null | { base: string; pattern: string };
+  sources: TailwindSource[];
+  build: (candidates: string[]) => string;
+};
+type TailwindEngine = {
+  compile: (
+    css: string,
+    opts: { from: string; base: string; onDependency: (path: string) => void },
+  ) => Promise<TailwindCompiler>;
+  optimize: (css: string, opts: { file: string; minify: boolean }) => { code: string };
+  Scanner: new (opts: { sources: TailwindSource[] }) => { scan: () => string[] };
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+type TailwindEngineCandidate = { compile: unknown; optimize: unknown; Scanner: unknown };
+
+// Dynamic import of an external package: only the shape is checkable, the signatures are the documented Tailwind v4 API.
+function isTailwindEngine(candidate: TailwindEngineCandidate): candidate is TailwindEngine {
+  return (
+    typeof candidate.compile === "function" &&
+    typeof candidate.optimize === "function" &&
+    typeof candidate.Scanner === "function"
+  );
+}
+
+// Both packages are the CLI's own dependencies, so they resolve from the CLI package directory
+// (same version the CLI would run), not from the app root.
+async function loadTailwindEngine(
+  cliPath: string,
+  bun: { resolveSync: (id: string, from: string) => string },
+): Promise<TailwindEngine> {
+  const cliDir = dirname(bun.resolveSync("@tailwindcss/cli/package.json", dirname(cliPath)));
+  const node: unknown = await import(bun.resolveSync("@tailwindcss/node", cliDir));
+  const oxide: unknown = await import(bun.resolveSync("@tailwindcss/oxide", cliDir));
+  const engine: TailwindEngineCandidate = {
+    compile: isRecord(node) ? node["compile"] : undefined,
+    optimize: isRecord(node) ? node["optimize"] : undefined,
+    Scanner: isRecord(oxide) ? oxide["Scanner"] : undefined,
+  };
+  if (!isTailwindEngine(engine)) {
+    throw new Error(
+      "[kumiko build] @tailwindcss/node or @tailwindcss/oxide has an unexpected API.",
+    );
+  }
+  return engine;
 }
 
 // Exact `<base>-<hash>.js` match: a plain prefix check would let

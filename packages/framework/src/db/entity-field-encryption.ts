@@ -136,9 +136,10 @@ export function resetEntityFieldEncryptionCacheForTests(): void {
 // configureEntityFieldEncryption, so the env probe is the common path.
 export function validateEntityFieldEncryptionAvailable(
   env: Readonly<Record<string, string | undefined>> = process.env,
+  bootCipher?: EnvelopeCipher,
 ): void {
-  // skip: an injected cipher (test seam / custom KMS) satisfies availability
-  if (injectedCipher) return;
+  // skip: an injected cipher (test seam / custom KMS) or the runner's boot cipher satisfies availability
+  if (bootCipher ?? injectedCipher) return;
   try {
     createEnvMasterKeyProvider({
       env: {
@@ -151,8 +152,8 @@ export function validateEntityFieldEncryptionAvailable(
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
       `encrypted entity fields in use but no usable master key (${reason}) — set ` +
-        "KUMIKO_SECRETS_MASTER_KEY_V1 (32 bytes, base64) or inject a cipher via " +
-        "configureEntityFieldEncryption().",
+        "KUMIKO_SECRETS_MASTER_KEY_V1 (32 bytes, base64) or pass `masterKey` to " +
+        "runProdApp/runWorkerApp (or inject a cipher via configureEntityFieldEncryption()).",
     );
   }
 }

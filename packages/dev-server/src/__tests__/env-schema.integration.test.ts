@@ -200,7 +200,7 @@ describe("runProdApp envSchema integration", () => {
         envSchema: composed,
         envSource: {
           KUMIKO_DRY_RUN_ENV: "boot",
-          KUMIKO_SECRETS_MASTER_KEY_V1: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          KUMIKO_SECRETS_MASTER_KEY_V1: Buffer.alloc(32).toString("base64"),
           JWT_SECRET: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           STUDIO_ADMIN_EMAIL: "ops@example.com",
           DATABASE_URL: "postgres://dummy:dummy@127.0.0.1:1/dummy",

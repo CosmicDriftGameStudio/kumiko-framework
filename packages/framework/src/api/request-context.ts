@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { isPersonalDataGated, type WriteOrigin } from "@cosmicdrift/kumiko-types/event-store-types";
 import type { AgentRisk } from "@cosmicdrift/kumiko-types/handlers";
+import type { ErrorDocsConfig } from "../errors/docs-url.js";
 import { generateId } from "../utils/index.js";
 
 // Request-scoped propagation. Populated by the HTTP middleware and by the
@@ -29,6 +30,8 @@ export type RequestContextData = {
   readonly correlationId: string;
   readonly causationId?: string;
   readonly signal?: AbortSignal;
+  // App-level error docs mapping, read when an error response is serialized.
+  readonly errorDocs?: ErrorDocsConfig;
   // Client IP for per-IP rate limiting (L1, L2, L3 with per: "ip*").
   // Populated by requestIdMiddleware via the shared trustedProxyHops-aware
   // resolver (see api/client-ip.ts) — never skipped

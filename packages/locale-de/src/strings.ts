@@ -100,9 +100,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.inviteAccept.submit": "Annehmen + Anmelden",
   "auth.inviteAccept.submitting": "…",
   "auth.inviteAccept.title": "Einladung annehmen",
-  "auth.inviteAccept.toggleExisting": "Ich habe schon einen Account",
-  "auth.inviteAccept.toggleNew": "Ich habe noch keinen Account",
-  "auth.inviteAccept.useOtherAccount": "Mit anderem Account anmelden",
+  "auth.inviteAccept.toggleExisting": "Ich habe schon ein Konto",
+  "auth.inviteAccept.toggleNew": "Ich habe noch kein Konto",
+  "auth.inviteAccept.useOtherAccount": "Mit anderem Konto anmelden",
   "auth.login.email": "E-Mail",
   "auth.login.forgotPassword": "Passwort vergessen?",
   "auth.login.password": "Passwort",
@@ -115,17 +115,17 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.login.submitting": "…",
   "auth.login.title": "Anmelden",
   "auth.login.unlockAccount": "Konto entsperren?",
-  "auth.mail.activation.button": "Account aktivieren",
-  "auth.mail.activation.expiry": "Der Link läuft am {when} ab.",
+  "auth.mail.activation.button": "Konto aktivieren",
+  "auth.mail.activation.expiry": "Der Link ist {duration} gültig (bis {when}).",
   "auth.mail.activation.greeting": "Willkommen,",
   "auth.mail.activation.ignore":
-    "Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren. Es wird kein Account erstellt, solange du den Link nicht öffnest.",
+    "Falls du dich nicht registriert hast, kannst du diese E-Mail ignorieren. Es wird kein Konto erstellt, solange du den Link nicht öffnest.",
   "auth.mail.activation.intro":
-    "klicke auf den folgenden Link, um deinen {app}-Account zu aktivieren. Im nächsten Schritt setzt du dein Passwort:",
-  "auth.mail.activation.subject": "{app} — Account aktivieren",
+    "klicke auf den folgenden Link, um dein {app}-Konto zu aktivieren. Im nächsten Schritt setzt du dein Passwort:",
+  "auth.mail.activation.subject": "{app} — Konto aktivieren",
   "auth.mail.appNameDefault": "Konto",
   "auth.mail.invite.button": "Einladung annehmen",
-  "auth.mail.invite.expiry": "Der Link läuft am {when} ab.",
+  "auth.mail.invite.expiry": "Der Link ist {duration} gültig (bis {when}).",
   "auth.mail.invite.greeting": "Hallo,",
   "auth.mail.invite.ignore":
     "Falls du diese Einladung nicht erwartet hast, kannst du diese E-Mail ignorieren.",
@@ -133,7 +133,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "du wurdest zu einem {app}-Workspace als {role} eingeladen. Klicke auf den folgenden Link, um die Einladung anzunehmen:",
   "auth.mail.invite.subject": "{app} — Einladung zum Workspace",
   "auth.mail.reset.button": "Passwort zurücksetzen",
-  "auth.mail.reset.expiry": "Der Link läuft am {when} ab.",
+  "auth.mail.reset.expiry": "Der Link ist {duration} gültig (bis {when}).",
   "auth.mail.reset.greeting": "Hallo,",
   "auth.mail.reset.ignore":
     "Falls du keinen Reset angefordert hast, kannst du diese E-Mail einfach ignorieren. Dein Passwort bleibt unverändert.",
@@ -141,7 +141,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "du hast den Reset deines Passworts für {app} angefordert. Klicke auf den folgenden Link, um ein neues Passwort zu setzen:",
   "auth.mail.reset.subject": "{app} — Passwort zurücksetzen",
   "auth.mail.unlock.button": "Konto entsperren",
-  "auth.mail.unlock.expiry": "Der Link läuft am {when} ab.",
+  "auth.mail.unlock.expiry": "Der Link ist {duration} gültig (bis {when}).",
   "auth.mail.unlock.greeting": "Hallo,",
   "auth.mail.unlock.ignore":
     "Falls du diese Sperre nicht ausgelöst hast, kannst du diese E-Mail ignorieren. Die Sperre läuft von selbst wieder ab.",
@@ -149,7 +149,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
     "dein {app}-Konto wurde nach mehreren fehlgeschlagenen Anmeldeversuchen vorübergehend gesperrt. Klicke auf den folgenden Link, um es sofort zu entsperren:",
   "auth.mail.unlock.subject": "{app} — Konto entsperren",
   "auth.mail.verify.button": "E-Mail bestätigen",
-  "auth.mail.verify.expiry": "Der Link läuft am {when} ab.",
+  "auth.mail.verify.expiry": "Der Link ist {duration} gültig (bis {when}).",
   "auth.mail.verify.greeting": "Willkommen,",
   "auth.mail.verify.ignore":
     "Falls du dieses Konto nicht angelegt hast, kannst du diese E-Mail ignorieren.",
@@ -241,7 +241,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.sessionBootstrap.retrying": "Wird erneut versucht …",
   "auth.sessionBootstrap.signOut": "Abmelden",
   "auth.signup.email": "E-Mail",
-  "auth.signup.haveAccount": "Bereits einen Account? Anmelden",
+  "auth.signup.haveAccount": "Bereits ein Konto? Anmelden",
   "auth.signup.intro":
     "Gib deine E-Mail-Adresse ein. Wir schicken dir einen Aktivierungs-Link, mit dem du dein Passwort setzt.",
   "auth.signup.resend": "Mail erneut senden",
@@ -250,18 +250,17 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "auth.signup.successBody":
     "Wir haben dir einen Aktivierungs-Link an deine E-Mail-Adresse geschickt. Klicke ihn an, um dein Passwort zu setzen und dich einzuloggen.",
   "auth.signup.successTitle": "Mail gesendet",
-  "auth.signup.title": "Account erstellen",
+  "auth.signup.title": "Konto erstellen",
   "auth.signupComplete.activated": "Dein Konto ist jetzt aktiv und du bist angemeldet.",
   "auth.signupComplete.activatedTitle": "Konto aktiviert",
   "auth.signupComplete.confirmPassword": "Passwort bestätigen",
   "auth.signupComplete.continue": "Weiter",
-  "auth.signupComplete.intro":
-    "Wähle ein Passwort mit mindestens 8 Zeichen für deinen neuen Account.",
+  "auth.signupComplete.intro": "Wähle ein Passwort mit mindestens 8 Zeichen für dein neues Konto.",
   "auth.signupComplete.mismatch": "Die Passwörter stimmen nicht überein.",
   "auth.signupComplete.missingToken":
     "Der Aktivierungs-Link enthält keinen Token. Bitte fordere einen neuen an.",
   "auth.signupComplete.password": "Passwort",
-  "auth.signupComplete.submit": "Account aktivieren",
+  "auth.signupComplete.submit": "Konto aktivieren",
   "auth.signupComplete.submitting": "…",
   "auth.signupComplete.title": "Passwort setzen",
   "auth.signupComplete.tooShort": "Passwort muss mindestens 8 Zeichen lang sein.",
@@ -1141,7 +1140,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "user:entity:user:field:timezone": "Zeitzone",
   "userDataRights.deletion.confirm.error": "Etwas ist schief gegangen. Bitte erneut versuchen.",
   "userDataRights.deletion.confirm.intro":
-    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft kannst du die Löschung im eingeloggten Account wieder abbrechen.",
+    "Mit dem Bestätigen startet die Lösch-Frist. Bis sie abläuft kannst du die Löschung im eingeloggten Konto wieder abbrechen.",
   "userDataRights.deletion.confirm.invalidToken":
     "Der Link ist ungültig oder abgelaufen. Bitte fordere einen neuen an.",
   "userDataRights.deletion.confirm.missingToken":
@@ -1149,9 +1148,9 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.confirm.submit": "Löschung bestätigen",
   "userDataRights.deletion.confirm.submitting": "…",
   "userDataRights.deletion.confirm.successBody":
-    "Dein Account wird nach Ablauf der Frist gelöscht. Du kannst die Löschung bis dahin im eingeloggten Account abbrechen.",
+    "Dein Konto wird nach Ablauf der Frist gelöscht. Du kannst die Löschung bis dahin im eingeloggten Konto abbrechen.",
   "userDataRights.deletion.confirm.successTitle": "Löschung vorgemerkt",
-  "userDataRights.deletion.confirm.title": "Account-Löschung bestätigen",
+  "userDataRights.deletion.confirm.title": "Konto-Löschung bestätigen",
   "userDataRights.deletion.request.email": "E-Mail",
   "userDataRights.deletion.request.error": "Etwas ist schief gegangen. Bitte erneut versuchen.",
   "userDataRights.deletion.request.intro":
@@ -1161,7 +1160,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "userDataRights.deletion.request.successBody":
     "Falls die E-Mail in unserem System existiert, ist eine Nachricht mit einem Bestätigungs-Link unterwegs. Bitte schau in deinen Posteingang.",
   "userDataRights.deletion.request.successTitle": "Mail gesendet",
-  "userDataRights.deletion.request.title": "Account-Löschung beantragen",
+  "userDataRights.deletion.request.title": "Konto-Löschung beantragen",
   "userDataRights.errors.download.expired":
     "Dein Download ist abgelaufen. Bitte fordere einen neuen Export an.",
   "userDataRights.errors.download.notFound":

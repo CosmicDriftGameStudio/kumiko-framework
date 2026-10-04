@@ -13,7 +13,7 @@ import type { GeoTzProvider } from "./geo-tz.js";
 import type { Logger } from "./logger.js";
 import type { Meter, MetricsHandle, Tracer } from "./observability/index.js";
 import type { SearchAdapter } from "./search-adapter.js";
-import type { TenantDb } from "./tenant-db-types.js";
+import type { CrossTenantReads, TenantDb } from "./tenant-db-types.js";
 import type { TzContext } from "./tz-context.js";
 
 // --- Access ---
@@ -472,7 +472,8 @@ export type EscapeHatchKind =
   | "acknowledge-cross-tenant"
   | "global-write"
   | "identity-switch"
-  | "unsafe-all-tenants";
+  | "unsafe-all-tenants"
+  | "cross-tenant-read";
 export type EscapeHatchTarget = { readonly id: string; readonly tenantId: TenantId };
 export type EscapeHatchUseEvent = {
   readonly handler: string;
@@ -920,6 +921,9 @@ export type JobContext = SharedContextFields & {
   // tenant-unfiltered DbRunner instead comes from ctx.systemDb.unsafeRaw(reason)
   // — only safe for a helper that filters by tenantId itself (e.g. reindexEntity).
   readonly systemDb?: UncheckedSystemDb;
+  // Read-only reads across all tenants. Present only when the job's escapeHatch
+  // grants unsafeRaw; every call is reported as kind "cross-tenant-read".
+  readonly crossTenantReads?: CrossTenantReads;
   readonly write: (qn: string, payload: unknown) => Promise<WriteResult>;
   readonly writeAs: (user: SessionUser, qn: string, payload: unknown) => Promise<WriteResult>;
   readonly queryAs: (user: SessionUser, qn: string, payload: unknown) => Promise<unknown>;

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "bun:test";
 import { runGit } from "../../_git-test-helpers";
 import { makeContext, makeSpyOutput, makeTempCwd } from "../_test-helpers";
-import { statusCommand } from "../status";
+import { runStatus, statusCommand } from "../status";
 
 const cleanups: Array<() => void> = [];
 afterEach(() => {
@@ -26,20 +26,12 @@ describe("status command", () => {
     expect(statusCommand.category).toBe("lifecycle");
   });
 
-  test("non-git cwd reports gracefully", async () => {
+  test("non-git cwd reports gracefully; a failing docker probe reads as not running", async () => {
     const cwd = tmp();
-    const binDir = mkdtempSync(join(tmpdir(), "kumiko-fakebin-"));
-    writeFileSync(join(binDir, "docker"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
-    const originalPath = process.env["PATH"];
-    cleanups.push(() => {
-      if (originalPath === undefined) delete process.env["PATH"];
-      else process.env["PATH"] = originalPath;
-      rmSync(binDir, { recursive: true, force: true });
-    });
-    process.env["PATH"] = originalPath === undefined ? binDir : `${binDir}:${originalPath}`;
-
     const spy = makeSpyOutput();
-    const exit = await statusCommand.run(makeContext({ cwd, out: spy.out }));
+    const exit = await runStatus(makeContext({ cwd, out: spy.out }), {
+      probeDocker: async () => ({ status: 1, stdout: "", stderr: "", timedOut: false }),
+    });
     expect(exit).toBe(0);
     const joined = spy.logs.join("\n");
     expect(joined).toContain("Services");

@@ -160,7 +160,8 @@ async function issueInvitation(
 
   const email = request.email.toLowerCase();
   const tenantId = inviter.tenantId;
-  const expiresAt = Temporal.Now.instant().add({ seconds: ttlSeconds });
+  const issuedAt = Temporal.Now.instant();
+  const expiresAt = issuedAt.add({ seconds: ttlSeconds });
 
   // The unique index allows one row per (tenantId, email). Whatever its
   // status, a re-invite resets it to pending with a fresh token.
@@ -233,6 +234,8 @@ async function issueInvitation(
       appUrl: opts.appUrl,
       token,
       expiresAt: expiresAt.toString(),
+      issuedAt: issuedAt.toString(),
+      timeZone: ctx.tz.user,
       ...(opts.appName !== undefined && { appName: opts.appName }),
       locale,
     },
