@@ -554,6 +554,7 @@ export async function runDevApp(options: RunDevAppOptions): Promise<KumikoServer
         ...patAuthFragment,
         ...(mfaFeature && {
           mfaVerifyHandler: AuthMfaHandlers.verify,
+          switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
           mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
           mfaPreauthConfirmHandler: AuthMfaHandlers.enableConfirmPreauth,
         }),

@@ -25,6 +25,7 @@ import {
   clearSession,
   createHttpApi,
   enrollTotpViaApi,
+  loginEnrollingIfRequired,
   loginViaApi,
   syntheticClientIpFor,
 } from "./auth-kit";
@@ -153,12 +154,14 @@ export async function provideSeedTenant(
       withSession(credentials, tenantId, roles);
 
     const adminRow = toUser(seeded.admin, [ROLES.TenantAdmin]);
-    let admin = adminRow;
-    if (opts.mfa === "totp") {
-      admin = { ...adminRow, mfaTotpSecret: await enrollTotpViaApi(context.request, adminRow) };
-    } else {
-      await loginViaApi(context.request, adminRow);
-    }
+    // Without the option, a policy that demands MFA still gets the admin enrolled
+    // (the login answers with a required setup); mfa: "totp" forces it without one.
+    const adminSecret =
+      opts.mfa === "totp"
+        ? await enrollTotpViaApi(context.request, adminRow)
+        : await loginEnrollingIfRequired(context.request, adminRow);
+    const admin =
+      adminSecret === undefined ? adminRow : { ...adminRow, mfaTotpSecret: adminSecret };
 
     const tenant: E2eSeededTenant = {
       id: tenantId,

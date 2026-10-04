@@ -155,6 +155,16 @@ describe("e2e kit under an MFA-required policy", () => {
     });
   });
 
+  test("seedTenant() without options enrolls the admin when the policy demands MFA", async () => {
+    await withSeedFixture(async (seedTenant) => {
+      const tenant = await seedTenant();
+
+      expect(tenant.admin.mfaTotpSecret).toMatch(/^[A-Z2-7]+$/);
+      await tenant.api.writeOk(NOTE_CREATE, { title: "auto enrolled" });
+      expect(await tenant.api.queryOk<string[]>(NOTE_LIST, {})).toEqual(["auto enrolled"]);
+    });
+  });
+
   test("an admin seeded without mfa is blocked by the policy until enrolled", async () => {
     const anon = await newContext();
     const seeded = seedTenantResponseSchema.parse(

@@ -87,6 +87,15 @@ async function postAuthJson(
   return loginReplySchema.parse(await (await postAuth(request, path, data, email)).json());
 }
 
+function assertNoUnansweredMfa(email: string, reply: z.infer<typeof loginReplySchema>): void {
+  if (reply.mfaRequired === true || reply.mfaSetupRequired === true) {
+    throw new Error(
+      `loginViaApi(${email}): the account needs MFA but no mfaTotpSecret was given; ` +
+        `use seedTenant({ mfa: "totp" }) or addUser(roles, { mfa: "totp" })`,
+    );
+  }
+}
+
 export async function loginViaApi(
   request: APIRequestContext,
   credentials: LoginCredentials,
@@ -99,12 +108,7 @@ export async function loginViaApi(
   );
   const reply = loginReplySchema.parse(await response.json());
   if (credentials.mfaTotpSecret === undefined) {
-    if (reply.mfaRequired === true || reply.mfaSetupRequired === true) {
-      throw new Error(
-        `loginViaApi(${credentials.email}): the account needs MFA but no mfaTotpSecret was given; ` +
-          `use seedTenant({ mfa: "totp" }) or addUser(roles, { mfa: "totp" })`,
-      );
-    }
+    assertNoUnansweredMfa(credentials.email, reply);
     return;
   }
   if (reply.mfaRequired !== true) return;
@@ -144,6 +148,51 @@ function totpSecretFromOtpauthUri(otpauthUri: string): string {
   return secret;
 }
 
+async function enrollPreauth(
+  request: APIRequestContext,
+  email: string,
+  preauthSetupToken: string,
+): Promise<string> {
+  const started = await postAuthJson(
+    request,
+    "/api/auth/mfa/preauth-enable-start",
+    { preauthSetupToken, accountLabel: email },
+    email,
+  );
+  if (started.setupToken === undefined || started.otpauthUri === undefined) {
+    throw new Error(`enrollTotpViaApi(${email}): preauth-enable-start returned no setup`);
+  }
+  const secret = totpSecretFromOtpauthUri(started.otpauthUri);
+  await postAuthJson(
+    request,
+    "/api/auth/mfa/preauth-confirm",
+    { setupToken: started.setupToken, code: await totpCode(secret) },
+    email,
+  );
+  return secret;
+}
+
+/**
+ * Logs in; when the app's MFA policy answers with a required setup, enrolls a TOTP
+ * factor on the spot. Returns the secret in that case, undefined for a plain login.
+ */
+export async function loginEnrollingIfRequired(
+  request: APIRequestContext,
+  credentials: Pick<LoginCredentials, "email" | "password">,
+): Promise<string | undefined> {
+  const reply = await postAuthJson(
+    request,
+    "/api/auth/login",
+    { email: credentials.email, password: credentials.password },
+    credentials.email,
+  );
+  if (reply.mfaSetupRequired === true && reply.preauthSetupToken !== undefined) {
+    return enrollPreauth(request, credentials.email, reply.preauthSetupToken);
+  }
+  assertNoUnansweredMfa(credentials.email, reply);
+  return undefined;
+}
+
 /**
  * Enrolls a confirmed TOTP factor through the real auth-mfa endpoints and
  * returns its base32 secret. The context ends up logged in. Works under an
@@ -163,25 +212,7 @@ export async function enrollTotpViaApi(
     throw new Error(`enrollTotpViaApi(${credentials.email}): account already has an MFA factor`);
   }
   if (reply.mfaSetupRequired === true && reply.preauthSetupToken !== undefined) {
-    const started = await postAuthJson(
-      request,
-      "/api/auth/mfa/preauth-enable-start",
-      { preauthSetupToken: reply.preauthSetupToken, accountLabel: credentials.email },
-      credentials.email,
-    );
-    if (started.setupToken === undefined || started.otpauthUri === undefined) {
-      throw new Error(
-        `enrollTotpViaApi(${credentials.email}): preauth-enable-start returned no setup`,
-      );
-    }
-    const secret = totpSecretFromOtpauthUri(started.otpauthUri);
-    await postAuthJson(
-      request,
-      "/api/auth/mfa/preauth-confirm",
-      { setupToken: started.setupToken, code: await totpCode(secret) },
-      credentials.email,
-    );
-    return secret;
+    return enrollPreauth(request, credentials.email, reply.preauthSetupToken);
   }
   const started = await apiWrite<{ setupToken: string; totpSecret: string }>(
     request,

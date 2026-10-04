@@ -28,6 +28,7 @@ import {
   createSignupRequestHandler,
   type SignupRequestOptions,
 } from "./handlers/signup-request.write.js";
+import { createSwitchTenantMfaGateHandler } from "./handlers/switch-tenant-mfa-gate.write.js";
 import { createVerifyEmailHandler } from "./handlers/verify-email.write.js";
 
 /**
@@ -221,6 +222,10 @@ export function createAuthEmailPasswordFeature(
       logout: r.writeHandler(logoutWrite),
     };
 
+    if (opts.mfaStatusChecker) {
+      r.writeHandler(createSwitchTenantMfaGateHandler({ mfaStatusChecker: opts.mfaStatusChecker }));
+    }
+
     if (opts.passwordReset) {
       r.writeHandler(createRequestPasswordResetHandler(opts.passwordReset));
       r.writeHandler(createResetPasswordHandler(opts.passwordReset));
@@ -258,7 +263,9 @@ export function createAuthEmailPasswordFeature(
           strictEmailVerification: strictVerification,
         }),
       );
-      r.writeHandler(createInviteSignupCompleteHandler());
+      r.writeHandler(
+        createInviteSignupCompleteHandler({ mfaStatusChecker: opts.mfaStatusChecker }),
+      );
     }
 
     if (opts.accountUnlock) {

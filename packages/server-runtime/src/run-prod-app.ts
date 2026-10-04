@@ -1174,6 +1174,7 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         ...patAuthFragment,
         ...(mfaFeature && {
           mfaVerifyHandler: AuthMfaHandlers.verify,
+          switchTenantMfaGateHandler: AuthHandlers.switchTenantMfaGate,
           mfaPreauthEnableStartHandler: AuthMfaHandlers.enableStartPreauth,
           mfaPreauthConfirmHandler: AuthMfaHandlers.enableConfirmPreauth,
           mfaVerifyRateLimit: createRedisLoginRateLimiter(
