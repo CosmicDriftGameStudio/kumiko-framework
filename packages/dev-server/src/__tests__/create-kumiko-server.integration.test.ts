@@ -760,7 +760,9 @@ describe("createKumikoServer — hot-reload broadcast", () => {
 
         initialBuilds = builds;
         writeFileSync(join(webDir, "page.tsx"), "export const x = 1;\n");
-        await waitFor(() => reloadedFiles.includes("web/page.tsx"), { delays: threeSecondsIn100msSteps });
+        await waitFor(() => reloadedFiles.includes("web/page.tsx"), {
+          delays: threeSecondsIn100msSteps,
+        });
       } finally {
         await reader.cancel();
         await collectReloads;
