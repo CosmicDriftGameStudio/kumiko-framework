@@ -341,3 +341,34 @@ describe("auth-routes cookieDomain", () => {
     expect(csrfDeletes.some((c) => !/Domain=/i.test(c))).toBe(true);
   });
 });
+
+describe("auth-routes retiredCookieDomains validation", () => {
+  const buildWith = (retired: readonly string[], cookieDomain?: string) => () =>
+    createAuthRoutes(createStubDispatcher(), createJwtHelper(JWT_SECRET), {
+      membershipQuery: "tenant:query:memberships",
+      loginHandler: "auth:write:login",
+      ...(cookieDomain !== undefined && { cookieDomain }),
+      retiredCookieDomains: retired,
+    });
+
+  test.each([
+    ["empty", ""],
+    ["lone dot", "."],
+    ["semicolon", "a.com; Path=/"],
+    ["comma", "a.com,b.com"],
+    ["space", "a .com"],
+    ["tab", "a\t.com"],
+    ["CR", "a.com\r"],
+    ["LF", "a.com\nSet-Cookie: x=y"],
+  ])("rejects an entry that is %s", (_label, entry) => {
+    expect(buildWith([entry])).toThrow(/retiredCookieDomains/);
+  });
+
+  test("rejects an entry equal to cookieDomain (case-insensitive, leading dot ignored)", () => {
+    expect(buildWith([".Example.EU"], "example.eu")).toThrow(/equals cookieDomain/);
+  });
+
+  test("accepts valid entries different from cookieDomain", () => {
+    expect(buildWith(["old.example.eu", ".other.eu"], "example.eu")).not.toThrow();
+  });
+});

@@ -61,6 +61,7 @@ function setAuthCookies(
     csrfToken: string;
     sameSite: "lax" | "strict";
     domain?: string | undefined;
+    retiredDomains: readonly string[];
     // Cookie lifetime must track the JWT's exp claim — both are issued
     // together, both reference the same session. Callers pass jwt.ttlSeconds
     // so the two never drift apart.
@@ -85,6 +86,12 @@ function setAuthCookies(
     deleteCookie(c, AUTH_COOKIE_NAME, { path: "/" });
     deleteCookie(c, CSRF_COOKIE_NAME, { path: "/" });
   }
+  // Must precede the setCookie calls: browsers apply Set-Cookie in order and
+  // a retired domain equal to the new one is rejected at config time.
+  for (const retiredDomain of opts.retiredDomains) {
+    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain: retiredDomain });
+    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain: retiredDomain });
+  }
 
   setCookie(c, AUTH_COOKIE_NAME, opts.token, { ...common, httpOnly: true });
   // Intentionally NOT HttpOnly — the web client has to read this from
@@ -92,7 +99,11 @@ function setAuthCookies(
   setCookie(c, CSRF_COOKIE_NAME, opts.csrfToken, { ...common, httpOnly: false });
 }
 
-function clearAuthCookies(c: Context, domain?: string): void {
+function clearAuthCookies(
+  c: Context,
+  domain: string | undefined,
+  retiredDomains: readonly string[],
+): void {
   // Beide Varianten löschen: mit Domain (aktuelle Cookies) UND host-only
   // (Bestand aus der Zeit vor cookieDomain) — sonst bleibt nach einem
   // Deploy mit neu gesetztem cookieDomain der alte Cookie liegen und der
@@ -102,6 +113,40 @@ function clearAuthCookies(c: Context, domain?: string): void {
   if (domain !== undefined) {
     deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain });
     deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain });
+  }
+  for (const retiredDomain of retiredDomains) {
+    deleteCookie(c, AUTH_COOKIE_NAME, { path: "/", domain: retiredDomain });
+    deleteCookie(c, CSRF_COOKIE_NAME, { path: "/", domain: retiredDomain });
+  }
+}
+
+const INVALID_COOKIE_DOMAIN_CHARS = /[;,\s]/;
+
+function normalizeCookieDomain(domain: string): string {
+  return domain.replace(/^\./, "").toLowerCase();
+}
+
+// A malformed entry would corrupt the Set-Cookie header; an entry equal to the
+// current cookieDomain would make login delete the cookie it just sets.
+export function assertRetiredCookieDomains(
+  retiredCookieDomains: readonly string[] | undefined,
+  cookieDomain: string | undefined,
+): void {
+  const current = cookieDomain === undefined ? undefined : normalizeCookieDomain(cookieDomain);
+  for (const entry of retiredCookieDomains ?? []) {
+    if (entry === "" || normalizeCookieDomain(entry) === "") {
+      throw new Error("createAuthRoutes: retiredCookieDomains must not contain an empty entry");
+    }
+    if (INVALID_COOKIE_DOMAIN_CHARS.test(entry)) {
+      throw new Error(
+        `createAuthRoutes: retiredCookieDomains entry "${entry}" contains an invalid character (;, comma or whitespace)`,
+      );
+    }
+    if (normalizeCookieDomain(entry) === current) {
+      throw new Error(
+        `createAuthRoutes: retiredCookieDomains entry "${entry}" equals cookieDomain; login would delete its own cookie`,
+      );
+    }
   }
 }
 
@@ -454,6 +499,16 @@ export type AuthRoutesConfig = {
   // wide cookie makes the JS-readable csrf cookie reachable from every
   // subdomain, weakening the double-submit defence).
   cookieDomain?: string;
+  // Domains that previously carried the auth cookies (an earlier `cookieDomain`
+  // value). Login and logout additionally send delete headers for these
+  // domains, so a stale `Domain=<old>` cookie cannot shadow the new one after
+  // the switch (browsers keep name+domain pairs distinct). Remove the entry
+  // once the session TTL has passed since the switch: by then every old cookie
+  // has expired. Must not equal `cookieDomain`; createAuthRoutes throws if so.
+  // Browsers ignore a delete for a domain the responding host is not part of,
+  // so an entry only takes effect when login/logout run on that domain or one
+  // of its subdomains.
+  retiredCookieDomains?: readonly string[];
   // Origin-allowlist for the server-side CSRF-hardening guard (origin-
   // middleware). When non-empty, every cookie-authenticated, state-changing
   // /api request must carry an `Origin` header that exact-matches one of
@@ -702,6 +757,8 @@ export function createAuthRoutes(
   // working. High-security apps can opt into "strict" — see AuthRoutesConfig.
   const cookieSameSite = config.cookieSameSite ?? "lax";
   const cookieDomain = config.cookieDomain;
+  assertRetiredCookieDomains(config.retiredCookieDomains, cookieDomain);
+  const retiredCookieDomains = config.retiredCookieDomains ?? [];
   // Single hop-count-aware IP getter for every rate-limit call site below —
   // see AuthRoutesConfig.trustedProxyHops and client-ip.ts's resolveClientIp
   // doc comment. createClientIpResolver fails loud on a non-finite/negative
@@ -730,6 +787,7 @@ export function createAuthRoutes(
       csrfToken,
       sameSite: cookieSameSite,
       domain: cookieDomain,
+      retiredDomains: retiredCookieDomains,
       ttlSeconds: jwt.ttlSeconds,
     });
     return token;
@@ -1380,7 +1438,7 @@ export function createAuthRoutes(
     }
     // Clear cookies on the cookie-transport path. Idempotent — clearing a
     // missing cookie is a no-op, so bearer-only clients aren't affected.
-    clearAuthCookies(c, cookieDomain);
+    clearAuthCookies(c, cookieDomain, retiredCookieDomains);
     return c.json({ isSuccess: true });
   });
 
