@@ -42,8 +42,8 @@ ORDER BY events DESC;
 ```
 
 `escapeHatchUse` rows are the escape-hatch audit entries. The config key
-With compliance-profiles mounted, each tenant's `auditLog.retention` (profile default, overridable per
-tenant) sets how long they are kept. `audit:config:escape-hatch-retention-days` (default 90 days) is only
+With compliance-profiles mounted, each tenant's `auditLog.retention` (profile default; a tenant override can only
+lengthen it, and cross-tenant audits also follow the target tenant) sets how long they are kept. `audit:config:escape-hatch-retention-days` (default 90 days) is only
 the fallback for apps without compliance-profiles.
 
 ## 2. Reclaim the space

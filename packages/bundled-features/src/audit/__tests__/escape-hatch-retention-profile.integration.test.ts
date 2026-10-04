@@ -2,6 +2,7 @@
 // auditLog.retention (eu-dsgvo 24 months, no profile row -> minimal-no-region 3 months).
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { SYSTEM_TENANT_ID } from "@cosmicdrift/kumiko-framework/engine";
 import { eventsTable } from "@cosmicdrift/kumiko-framework/event-store";
 import { appendRaw } from "@cosmicdrift/kumiko-framework/event-store/admin-api";
 import {
@@ -32,6 +33,8 @@ const RETENTION_JOB = "audit:job:escape-hatch-retention";
 const SET_PROFILE = "compliance-profiles:write:set-profile";
 const tenantA = testTenantId(11);
 const tenantB = testTenantId(12);
+const tenantC = testTenantId(13);
+const adminB = createTestUser({ id: 13, tenantId: tenantC, roles: ["TenantAdmin"] });
 const adminA = createTestUser({ id: 11, tenantId: tenantA, roles: ["TenantAdmin"] });
 
 let stack: TestStack;
@@ -58,7 +61,11 @@ beforeEach(async () => {
   await resetEventStore(stack, ["read_tenant_compliance_profiles"]);
 });
 
-async function seedEvent(tenantId: typeof tenantA, ageDays: number): Promise<string> {
+async function seedEvent(
+  tenantId: typeof tenantA,
+  ageDays: number,
+  targetTenantId?: string,
+): Promise<string> {
   const aggregateId = generateId();
   await appendRaw(stack.db, {
     aggregateId,
@@ -66,7 +73,13 @@ async function seedEvent(tenantId: typeof tenantA, ageDays: number): Promise<str
     tenantId,
     expectedVersion: 0,
     type: ESCAPE_HATCH_USED_EVENT,
-    payload: { handler: "seed", kind: "unsafe-raw", reason: "seed", actor: "system" },
+    payload: {
+      handler: "seed",
+      kind: targetTenantId ? "identity-switch" : "unsafe-raw",
+      reason: "seed",
+      actor: "system",
+      ...(targetTenantId && { targetTenantId }),
+    },
     metadata: { userId: "system" },
     createdAt: getTemporal()
       .Now.instant()
@@ -74,6 +87,22 @@ async function seedEvent(tenantId: typeof tenantA, ageDays: number): Promise<str
     createdBy: "system",
   });
   return aggregateId;
+}
+
+async function runRetention(): Promise<Set<string>> {
+  await drainEventConsumers(stack, ["system:consumer:sse-broadcast"]);
+  if (!stack.jobRunner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
+  await stack.jobRunner.dispatch(RETENTION_JOB, {});
+  await stack.drainJobs();
+  const rows = await selectMany<{ aggregateId: string; payload: { handler?: string } }>(
+    stack.db,
+    eventsTable,
+    { aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE },
+  );
+  // The job's own audit event (handler = job name) is not part of the seeded set.
+  return new Set(
+    rows.filter((row) => row.payload.handler === "seed").map((row) => row.aggregateId),
+  );
 }
 
 describe("escape-hatch retention with compliance-profiles", () => {
@@ -85,21 +114,39 @@ describe("escape-hatch retention with compliance-profiles", () => {
     const b100 = await seedEvent(tenantB, 100);
     const b800 = await seedEvent(tenantB, 800);
 
-    await drainEventConsumers(stack, ["system:consumer:sse-broadcast"]);
-    if (!stack.jobRunner) throw new Error("setupTestStack({ jobs }) did not wire a jobRunner");
-    await stack.jobRunner.dispatch(RETENTION_JOB, {});
-    await stack.drainJobs();
-
-    const remaining = new Set(
-      (
-        await selectMany<{ aggregateId: string }>(stack.db, eventsTable, {
-          aggregateType: ESCAPE_HATCH_USE_AGGREGATE_TYPE,
-        })
-      ).map((row) => row.aggregateId),
-    );
+    const remaining = await runRetention();
     expect(remaining.has(a100)).toBe(true);
     expect(remaining.has(a800)).toBe(false);
     expect(remaining.has(b100)).toBe(false);
     expect(remaining.has(b800)).toBe(false);
+  });
+
+  test("an override cannot shorten the profile's base retention", async () => {
+    await stack.http.writeOk(
+      SET_PROFILE,
+      {
+        profileKey: "eu-dsgvo",
+        override: JSON.stringify({ auditLog: { retention: { hours: 0 } } }),
+      },
+      adminB,
+    );
+    const kept = await seedEvent(tenantC, 100);
+    const expired = await seedEvent(tenantC, 800);
+
+    const remaining = await runRetention();
+    expect(remaining.has(kept)).toBe(true);
+    expect(remaining.has(expired)).toBe(false);
+  });
+
+  test("cross-tenant audits in the system tenant follow the target tenant's profile", async () => {
+    await stack.http.writeOk(SET_PROFILE, { profileKey: "eu-dsgvo" }, adminA);
+    const targeted100 = await seedEvent(SYSTEM_TENANT_ID, 100, tenantA);
+    const untargeted100 = await seedEvent(SYSTEM_TENANT_ID, 100);
+    const targeted800 = await seedEvent(SYSTEM_TENANT_ID, 800, tenantA);
+
+    const remaining = await runRetention();
+    expect(remaining.has(targeted100)).toBe(true);
+    expect(remaining.has(untargeted100)).toBe(false);
+    expect(remaining.has(targeted800)).toBe(false);
   });
 });

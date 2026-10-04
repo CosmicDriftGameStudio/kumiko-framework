@@ -28,7 +28,7 @@ export const AUDIT_LOG_DETAIL_SCREEN_ID = "audit-log-detail" as const;
 /**
  * Config key (system scope) for how long `escapeHatchUse` audit events are kept. Only a fallback
  * for apps without compliance-profiles; with it mounted, the tenant profile's `auditLog.retention`
- * applies (overridable per tenant).
+ * applies (a tenant override can only lengthen it).
  */
 export const ESCAPE_HATCH_RETENTION_DAYS_KEY = "audit:config:escape-hatch-retention-days" as const;
 
