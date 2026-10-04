@@ -166,6 +166,42 @@ export type TimeseriesPoint = {
   readonly value: number | null;
 };
 
+export type TimeseriesYAxis = {
+  /** Number of gridlines including the zero baseline (min 2). Tick values are
+   *  rounded to 1/2/5 x 10^n steps and the y-scale reaches the top tick. */
+  readonly ticks: number;
+  /** Label text per tick value (unit, locale). Default: the plain number. */
+  readonly format?: (value: number) => string;
+};
+
+export type TimeseriesXAxis = {
+  /** Number of evenly spaced time labels (min 2). */
+  readonly ticks: number;
+  readonly format: (atMs: number) => string;
+};
+
+const DEFAULT_TIMESERIES_HEIGHT_CLASS = "h-16";
+const MIN_AXIS_TICKS = 2;
+const MAX_AXIS_TICKS = 20;
+
+function clampTickCount(requested: number): number {
+  return Math.min(
+    MAX_AXIS_TICKS,
+    Math.max(MIN_AXIS_TICKS, Math.floor(requested) || MIN_AXIS_TICKS),
+  );
+}
+
+function evenlySpaced(count: number): readonly number[] {
+  const n = clampTickCount(count);
+  return Array.from({ length: n }, (_, i) => i / (n - 1));
+}
+
+function yTickPosition(index: number, count: number): string {
+  if (index === 0) return "-translate-y-full";
+  if (index === count - 1) return "";
+  return "-translate-y-1/2";
+}
+
 export type TimeseriesReferenceLine = {
   /** Same unit as the point values (e.g. a p95 or SLO threshold in ms). */
   readonly value: number;
@@ -184,6 +220,9 @@ export function TimeseriesChart({
   tone = "ok",
   ariaLabel,
   axisLabels,
+  xAxis,
+  yAxis,
+  height,
   markers,
   formatMarkerTime,
   referenceLines,
@@ -197,6 +236,12 @@ export function TimeseriesChart({
   readonly ariaLabel: string;
   /** Achsen-Zeile unter dem Chart (translated/formatiert vom Caller). */
   readonly axisLabels?: { readonly start: string; readonly mid?: string; readonly end: string };
+  /** Date axis with n evenly spaced labels; replaces `axisLabels` when set. */
+  readonly xAxis?: TimeseriesXAxis;
+  /** Gridlines plus value labels in a left gutter. */
+  readonly yAxis?: TimeseriesYAxis;
+  /** Chart height in px. Default: 64 (`h-16`). */
+  readonly height?: number;
   /** Numbered pins on the x-axis plus a numbered list below the chart. */
   readonly markers?: readonly ChartMarker[];
   readonly formatMarkerTime?: (atMs: number) => string;
@@ -212,11 +257,19 @@ export function TimeseriesChart({
   const descId = useId();
   const chartWidth = 300;
   const chartHeight = 64;
+  const heightClass = height === undefined ? DEFAULT_TIMESERIES_HEIGHT_CLASS : undefined;
+  const heightStyle = height === undefined ? undefined : { height };
 
   const values = points.map((p) => p.value).filter((v): v is number => v !== null);
   if (values.length === 0) {
     return (
-      <div className="flex h-16 items-center justify-center text-[13px] text-muted-foreground">
+      <div
+        className={cn(
+          "flex items-center justify-center text-[13px] text-muted-foreground",
+          heightClass,
+        )}
+        style={heightStyle}
+      >
         {emptyContent}
       </div>
     );
@@ -228,11 +281,13 @@ export function TimeseriesChart({
   const singleValue = values.length === 1 ? values[0] : undefined;
   // A lone value at the top edge would sit on the clip boundary; doubling the
   // scale centres it.
-  const maxValue = Math.max(
+  const dataMax = Math.max(
     ...values.map((value) => (singleValue === undefined ? value : value * 2)),
     ...drawableLines.map((line) => line.value),
     1,
   );
+  const yTicks = yAxis === undefined ? [] : niceYTicks(dataMax, yAxis.ticks);
+  const maxValue = yTicks.length > 0 ? (yTicks[yTicks.length - 1] ?? dataMax) : dataMax;
   const yOf = (value: number) => chartHeight - (value / maxValue) * chartHeight;
   const span = Math.max(1, windowEndMs - windowStartMs);
   const xOf = (atMs: number) =>
@@ -255,7 +310,8 @@ export function TimeseriesChart({
     <svg
       viewBox={`0 0 ${chartWidth} ${chartHeight}`}
       preserveAspectRatio="none"
-      className="block h-16 w-full"
+      className={cn("block w-full", heightClass)}
+      style={heightStyle}
       role="img"
       aria-label={ariaLabel}
       aria-describedby={hasReferenceLines ? descId : undefined}
@@ -268,6 +324,19 @@ export function TimeseriesChart({
           <stop offset="100%" stopColor={color} stopOpacity={0.02} />
         </linearGradient>
       </defs>
+      {yTicks.map((tick) => (
+        <line
+          key={`grid-${tick}`}
+          data-grid-line=""
+          x1={0}
+          x2={chartWidth}
+          y1={yOf(tick)}
+          y2={yOf(tick)}
+          stroke="var(--color-border)"
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
       {singleValue === undefined ? (
         <>
           <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />
@@ -306,8 +375,8 @@ export function TimeseriesChart({
     </svg>
   );
 
-  return (
-    <div data-testid={testId} className={STATUS_TONE_TEXT[tone]}>
+  const plot = (
+    <>
       {hasReferenceLines ? (
         <div className="relative">
           {svg}
@@ -330,11 +399,55 @@ export function TimeseriesChart({
       ) : (
         svg
       )}
-      {axisLabels !== undefined && (
+      {xAxis !== undefined ? (
         <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{axisLabels.start}</span>
-          {axisLabels.mid !== undefined && <span>{axisLabels.mid}</span>}
-          <span>{axisLabels.end}</span>
+          {evenlySpaced(xAxis.ticks).map((fraction) => (
+            <span key={fraction} data-x-label="">
+              {xAxis.format(windowStartMs + fraction * (windowEndMs - windowStartMs))}
+            </span>
+          ))}
+        </div>
+      ) : (
+        axisLabels !== undefined && (
+          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+            <span>{axisLabels.start}</span>
+            {axisLabels.mid !== undefined && <span>{axisLabels.mid}</span>}
+            <span>{axisLabels.end}</span>
+          </div>
+        )
+      )}
+    </>
+  );
+
+  return (
+    <div data-testid={testId} className={STATUS_TONE_TEXT[tone]}>
+      {yAxis === undefined ? (
+        plot
+      ) : (
+        <div className="flex gap-1.5">
+          <div
+            aria-hidden="true"
+            className={cn(
+              "relative w-12 shrink-0 text-right text-[11px] text-muted-foreground",
+              heightClass,
+            )}
+            style={heightStyle}
+          >
+            {yTicks.map((tick, index) => (
+              <span
+                key={tick}
+                data-y-label=""
+                className={cn(
+                  "absolute right-0 whitespace-nowrap leading-none",
+                  yTickPosition(index, yTicks.length),
+                )}
+                style={{ top: `${(yOf(tick) / chartHeight) * 100}%` }}
+              >
+                {(yAxis.format ?? String)(tick)}
+              </span>
+            ))}
+          </div>
+          <div className="min-w-0 flex-1">{plot}</div>
         </div>
       )}
       {markers !== undefined && markers.length > 0 && (
@@ -398,6 +511,12 @@ function niceCeil(max: number): number {
   const normalized = max / magnitude;
   const step = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
   return step * magnitude;
+}
+
+function niceYTicks(max: number, tickCount: number): readonly number[] {
+  const count = clampTickCount(tickCount);
+  const step = niceCeil(max / (count - 1));
+  return Array.from({ length: count }, (_, i) => i * step);
 }
 
 function bucketTimes(series: readonly ChartSeries[]): readonly number[] {

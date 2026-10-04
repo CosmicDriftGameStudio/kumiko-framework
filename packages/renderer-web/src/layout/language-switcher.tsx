@@ -39,6 +39,9 @@ export type LanguageSwitcherProps = {
   /** What the trigger shows next to the icon: the uppercase code (default), the active
    *  locale's label, or the icon only. aria-label/title are unaffected. */
   readonly triggerContent?: "code" | "label" | "icon-only";
+  /** `default`: icon plus code/label button. `chip`: compact monospace chip with
+   *  the uppercase code in a border; `icon` and `triggerContent` are ignored. */
+  readonly variant?: "default" | "chip";
   readonly testId?: string;
 };
 
@@ -47,6 +50,7 @@ export function LanguageSwitcher({
   icon = "🌐",
   label,
   triggerContent = "code",
+  variant = "default",
   testId,
 }: LanguageSwitcherProps): ReactNode {
   const resolver = useLocale();
@@ -87,18 +91,22 @@ export function LanguageSwitcher({
           title={resolvedLabel}
           data-testid={testId}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-2 text-sm",
+            "inline-flex items-center border bg-background",
             "hover:bg-accent hover:text-accent-foreground",
             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            variant === "chip"
+              ? "h-7 rounded-md px-2 font-mono text-xs text-foreground"
+              : "h-8 gap-1.5 rounded-md px-2 text-sm",
           )}
         >
-          <span aria-hidden="true">{icon}</span>
-          {triggerContent === "label" && (
+          {variant === "chip" && (activeOption?.code ?? activeLocale.slice(0, 2)).toUpperCase()}
+          {variant === "default" && <span aria-hidden="true">{icon}</span>}
+          {variant === "default" && triggerContent === "label" && (
             <span className="text-xs text-muted-foreground">
               {activeOption?.label ?? activeLocale.slice(0, 2)}
             </span>
           )}
-          {triggerContent === "code" && (
+          {variant === "default" && triggerContent === "code" && (
             <span className="uppercase text-xs text-muted-foreground">
               {activeOption?.code ?? activeLocale.slice(0, 2)}
             </span>

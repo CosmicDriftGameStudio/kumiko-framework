@@ -197,6 +197,7 @@ export type {
   FloatingPanelProps,
   InfinityListProps,
   InfinityListSelection,
+  ModeSwitchVariant,
   NumberFieldProps,
   PhotoSlotSpec,
   PhotoSlotsProps,
@@ -224,6 +225,8 @@ export type {
   TextFieldProps,
   TimeseriesPoint,
   TimeseriesReferenceLine,
+  TimeseriesXAxis,
+  TimeseriesYAxis,
   UploadZoneProps,
 } from "./widgets/index.js";
 export {

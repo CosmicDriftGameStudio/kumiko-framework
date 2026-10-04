@@ -1,6 +1,7 @@
 import type { Dispatcher, DispatcherStatus } from "@cosmicdrift/kumiko-headless";
-import { createContext, type ReactNode, useContext } from "react";
+import { createContext, type ReactNode, useContext, useState } from "react";
 import { useStore } from "../hooks/use-store.js";
+import { createQueryPools, type QueryPools } from "./query-pool.js";
 
 // React Context threading the Dispatcher through the tree. An app
 // wraps its root in <DispatcherProvider dispatcher={createLiveDispatcher()}>
@@ -13,6 +14,7 @@ import { useStore } from "../hooks/use-store.js";
 // status listeners). Tests wire a fake dispatcher in directly.
 
 const DispatcherContext = createContext<Dispatcher | null>(null);
+const QueryPoolsContext = createContext<QueryPools | null>(null);
 
 export type DispatcherProviderProps = {
   readonly dispatcher: Dispatcher;
@@ -20,7 +22,17 @@ export type DispatcherProviderProps = {
 };
 
 export function DispatcherProvider({ dispatcher, children }: DispatcherProviderProps): ReactNode {
-  return <DispatcherContext value={dispatcher}>{children}</DispatcherContext>;
+  // Pools live with the provider so every hook of one query name shares them.
+  const [queryPools] = useState(createQueryPools);
+  return (
+    <DispatcherContext value={dispatcher}>
+      <QueryPoolsContext value={queryPools}>{children}</QueryPoolsContext>
+    </DispatcherContext>
+  );
+}
+
+export function useOptionalQueryPools(): QueryPools | undefined {
+  return useContext(QueryPoolsContext) ?? undefined;
 }
 
 // Reads the ambient Dispatcher. Throws instead of returning null when
