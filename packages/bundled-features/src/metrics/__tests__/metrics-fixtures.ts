@@ -215,3 +215,118 @@ export const ALL_TEST_METRICS: readonly MetricDefinition[] = [
   manyUsersMetric,
   globalMetric,
 ];
+
+export const filesTable = defineUnmanagedTable({
+  tableName: "store_metrics_files_it",
+  columns: [
+    {
+      name: "id",
+      pgType: "uuid",
+      notNull: true,
+      primaryKey: true,
+      defaultSql: "gen_random_uuid()",
+    },
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "folder_id", pgType: "uuid", notNull: true },
+    { name: "kind", pgType: "text", notNull: true },
+    { name: "size_class", pgType: "integer", notNull: true },
+    { name: "archived", pgType: "boolean", notNull: true },
+  ],
+});
+
+export const FOLDER_A1 = "11111111-1111-4111-8111-111111111111";
+export const FOLDER_A2 = "22222222-2222-4222-8222-222222222222";
+export const FOLDER_B1 = "33333333-3333-4333-8333-333333333333";
+
+const fileRows = [
+  { tenantId: TENANT_A, folderId: FOLDER_A1, kind: "pdf", sizeClass: 1, archived: false },
+  { tenantId: TENANT_A, folderId: FOLDER_A1, kind: "png", sizeClass: 2, archived: false },
+  { tenantId: TENANT_A, folderId: FOLDER_A2, kind: "pdf", sizeClass: 1, archived: false },
+  { tenantId: TENANT_A, folderId: FOLDER_A2, kind: "pdf", sizeClass: 1, archived: true },
+  { tenantId: TENANT_B, folderId: FOLDER_B1, kind: "pdf", sizeClass: 1, archived: false },
+  { tenantId: TENANT_B, folderId: FOLDER_B1, kind: "pdf", sizeClass: 2, archived: false },
+  { tenantId: TENANT_B, folderId: FOLDER_B1, kind: "png", sizeClass: 2, archived: false },
+  { tenantId: TENANT_B, folderId: FOLDER_B1, kind: "png", sizeClass: 2, archived: false },
+];
+
+export async function seedFileRows(db: TestDb): Promise<void> {
+  for (const file of fileRows) await insertOne(db, filesTable, file);
+}
+
+export const filesByKindMetric = defineMetric({
+  id: "files-by-kind",
+  description: "Active files per kind, narrowable by folder, kind and size class",
+  source: filesTable,
+  measure: { fn: "count" },
+  where: { archived: false },
+  groupBy: "kind",
+  filters: { folderId: "folderId", kind: "kind", sizeClass: "sizeClass" },
+  scopes: bothScopes,
+});
+
+export const filesCountMetric = defineMetric({
+  id: "files-count",
+  description: "Active files, narrowable by folder",
+  source: filesTable,
+  measure: { fn: "count" },
+  where: { archived: false },
+  filters: { folderId: "folderId" },
+  scopes: bothScopes,
+});
+
+export const folderTreeTable = defineUnmanagedTable({
+  tableName: "store_metrics_folder_tree_it",
+  columns: [
+    {
+      name: "id",
+      pgType: "uuid",
+      notNull: true,
+      primaryKey: true,
+      defaultSql: "gen_random_uuid()",
+    },
+    { name: "tenant_id", pgType: "uuid", notNull: true },
+    { name: "parent_id", pgType: "uuid", notNull: true },
+    { name: "child_id", pgType: "uuid", notNull: true },
+  ],
+});
+
+const folderTreeRows = [
+  { tenantId: TENANT_A, parentId: FOLDER_A1, childId: FOLDER_A1 },
+  { tenantId: TENANT_A, parentId: FOLDER_A1, childId: FOLDER_A2 },
+  { tenantId: TENANT_B, parentId: FOLDER_B1, childId: FOLDER_B1 },
+];
+
+export async function seedFolderTreeRows(db: TestDb): Promise<void> {
+  for (const row of folderTreeRows) await insertOne(db, folderTreeTable, row);
+}
+
+export const filesInFolderTreeMetric = defineMetric({
+  id: "files-in-folder-tree",
+  description: "Active files in a folder and its subfolders (assignment table)",
+  source: filesTable,
+  measure: { fn: "count" },
+  where: { archived: false },
+  filters: {
+    treeFolderId: {
+      column: "folderId",
+      valueKind: "uuid",
+      resolve: async (folderId, ctx) => {
+        const rows = await ctx.db.selectMany(folderTreeTable, { parentId: folderId });
+        return rows.flatMap((row) => (typeof row["childId"] === "string" ? [row["childId"]] : []));
+      },
+    },
+  },
+  scopes: ["tenant"],
+});
+
+export const filesWithForeignIdsMetric = defineMetric({
+  id: "files-foreign-resolver",
+  description: "Resolver that returns another tenant's folder id",
+  source: filesTable,
+  measure: { fn: "count" },
+  where: { archived: false },
+  filters: {
+    anyFolder: { column: "folderId", valueKind: "string", resolve: async () => [FOLDER_B1] },
+  },
+  scopes: ["tenant"],
+});

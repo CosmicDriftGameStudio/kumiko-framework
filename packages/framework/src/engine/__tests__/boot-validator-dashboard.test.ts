@@ -582,6 +582,60 @@ describe("validateBoot — dashboard timeRange, scope and new panel fields", () 
     expect(() => validateBoot([feature])).not.toThrow();
   });
 
+  test("accepts valueFormat on stat and chart panels and scrollable on stacked-area", () => {
+    const feature = dashboardFeature([
+      { ...STAT_PANEL, valueFormat: { kind: "currency", currency: "EUR", fractionDigits: 0 } },
+      {
+        kind: "chart",
+        id: "area",
+        label: "demo:dashboard:panel:latest",
+        chart: "stacked-area",
+        query: "demo:query:incident:latest",
+        valueFormat: { kind: "currency", currency: "EUR" },
+        scrollable: true,
+      },
+    ]);
+    expect(() => validateBoot([feature])).not.toThrow();
+  });
+
+  test.each([
+    ["lowercase", { kind: "currency", currency: "eur" }],
+    ["too long", { kind: "currency", currency: "EURO" }],
+    ["negative digits", { kind: "currency", currency: "EUR", fractionDigits: -1 }],
+    ["fractional digits", { kind: "currency", currency: "EUR", fractionDigits: 1.5 }],
+    ["too many digits", { kind: "currency", currency: "EUR", fractionDigits: 5 }],
+  ] as const)("rejects an invalid valueFormat (%s)", (_name, valueFormat) => {
+    const feature = dashboardFeature([{ ...STAT_PANEL, valueFormat }]);
+    expect(() => validateBoot([feature])).toThrow(/valueFormat/);
+  });
+
+  test("rejects an invalid valueFormat on a stat-group child", () => {
+    const feature = dashboardFeature([
+      {
+        kind: "stat-group",
+        id: "kpis",
+        stats: [{ ...STAT_PANEL, valueFormat: { kind: "currency", currency: "€" } }],
+      },
+    ]);
+    expect(() => validateBoot([feature])).toThrow(/valueFormat\.currency/);
+  });
+
+  test("rejects scrollable on every chart kind except stacked-area", () => {
+    for (const chart of ["timeseries", "stacked-bars", "segment-bars"] as const) {
+      const feature = dashboardFeature([
+        {
+          kind: "chart",
+          id: "c",
+          label: "demo:dashboard:panel:latest",
+          chart,
+          query: "demo:query:incident:latest",
+          scrollable: true,
+        },
+      ]);
+      expect(() => validateBoot([feature])).toThrow(/only "stacked-area" supports it/);
+    }
+  });
+
   test("a chart panel with an unregistered query is still rejected", () => {
     const feature = dashboardFeature([
       {

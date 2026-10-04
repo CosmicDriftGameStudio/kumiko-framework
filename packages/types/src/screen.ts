@@ -843,8 +843,48 @@ export type ProjectionDetailScreenDefinition = {
 // Deklaratives Panel-Grid — Kennzahlen, Verläufe und Kurzlisten ohne
 // Custom JSX. Each panel pulls its data from its own query
 // (fully-qualified QN, cross-feature allowed like projectionList).
-// Formatting is the query handler's job: string values arrive display-ready
-// from the read projection; the renderer formats numbers with the user locale.
+// Plain strings arrive display-ready and are shown unchanged; translatable text
+// is sent as DashboardI18nText and resolved by the renderer. Numbers are
+// formatted by the renderer with the user locale.
+
+/** Text a query handler can send untranslated: the renderer translates it. */
+export type DashboardI18nText = {
+  readonly i18nKey: string;
+  readonly i18nParams?: Readonly<Record<string, DashboardTextParam>>;
+};
+
+/** Minor units (like Money fields), formatted with the user locale. */
+export type DashboardMoneyParam = {
+  readonly kind: "money";
+  readonly amountMinor: number;
+  readonly currency: string;
+};
+
+/** Epoch ms, rendered as a medium date in the user time zone. */
+export type DashboardDateParam = {
+  readonly kind: "date";
+  readonly atMs: number;
+};
+
+/** Nested DashboardI18nText params resolve first (e.g. a duration "{years} {months}"
+ *  with one plural key each); numbers stay raw so plural rules can read `count`. */
+export type DashboardTextParam =
+  | string
+  | number
+  | DashboardI18nText
+  | DashboardMoneyParam
+  | DashboardDateParam;
+
+/** Plain string is displayed as-is; DashboardI18nText is translated by the renderer. */
+export type DashboardText = string | DashboardI18nText;
+
+/** Chart/stat values are minor units, formatted with the user locale. */
+export type DashboardValueFormat = {
+  readonly kind: "currency";
+  readonly currency: string;
+  /** Defaults to the currency's own decimals. */
+  readonly fractionDigits?: number;
+};
 
 // Shared by every panel that runs a query.
 export type DashboardPanelQueryOptions = {
@@ -872,8 +912,8 @@ export type DashboardPanelEmptyState = {
 };
 
 // Query result contract: flat record; `valueField` points at the
-// value (string is display-ready, number is locale-formatted), `subField`
-// optionally at a sub line, `toneField` optionally at
+// value (string is display-ready, number is locale-formatted, DashboardI18nText
+// is translated), `subField` optionally at a sub line (string | DashboardI18nText), `toneField` optionally at
 // "default" | "positive" | "warn" | "negative".
 export type DashboardStatPanel = DashboardPanelQueryOptions & {
   readonly kind: "stat";
@@ -885,6 +925,8 @@ export type DashboardStatPanel = DashboardPanelQueryOptions & {
   readonly valueField: string;
   readonly subField?: string;
   readonly toneField?: string;
+  /** Formats a numeric value as currency (minor units); ignored for string values. The sparkline is not formatted. */
+  readonly valueFormat?: DashboardValueFormat;
   /** Fixed tone when `toneField` is unset or yields none; not applied while the value is 0. */
   readonly tone?: "default" | "positive" | "warn" | "negative";
   /** Record field holding `{ atMs, value | null }[]` (MetricResult.points),
@@ -917,7 +959,7 @@ export type DashboardChartTone = "positive" | "negative" | "active" | "neutral";
 // Query result contracts (field names like MetricResult); series/segment/row
 // labels go through t():
 //   timeseries    { points: { atMs, value | null }[], windowStartMs, windowEndMs,
-//                   markers?: { atMs, label }[] } — value=null draws a
+//                   markers?: { atMs, label: DashboardText }[] } — value=null draws a
 //                   dip; markers = numbered pins on the x axis plus a
 //                   numbered legend below.
 //   stacked-bars  { series: { key, label, points: { atMs, value | null }[] }[],
@@ -941,6 +983,10 @@ export type DashboardChartPanel = DashboardPanelQueryOptions &
     readonly subtitle?: string;
     /** Series/segment key -> tone; unmapped keys fall back to a palette. */
     readonly seriesTones?: Readonly<Record<string, DashboardChartTone>>;
+    /** Y ticks, legend totals and tooltips format values as currency. */
+    readonly valueFormat?: DashboardValueFormat;
+    /** Only for chart "stacked-area": fixed width per bucket, plot scrolls horizontally. */
+    readonly scrollable?: boolean;
   };
 
 // Kurzliste im Dashboard — Query-Contract wie projectionList
@@ -966,7 +1012,7 @@ export type DashboardStatGroupPanel = {
 };
 
 // Nicht-tabellarische Kurzliste (z.B. "nächste Termine"). Query-Result-
-// Contract: `{ rows: { primary: string; trailing?: string }[] }`.
+// Contract: `{ rows: { primary: DashboardText; trailing?: DashboardText }[] }`.
 export type DashboardFeedPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState & {
     readonly kind: "feed";
@@ -976,7 +1022,7 @@ export type DashboardFeedPanel = DashboardPanelQueryOptions &
   };
 
 // Liste aus Label/Wert/Fortschrittsbalken (z.B. Tilgungsfortschritt pro
-// Kredit). Query-Result-Contract: `{ rows: { label: string; value: string;
+// Kredit). Query-Result-Contract: `{ rows: { label: DashboardText; value: DashboardText;
 // fraction: number }[] }` — fraction wird auf 0..1 geclampt.
 export type DashboardProgressListPanel = DashboardPanelQueryOptions &
   DashboardPanelEmptyState & {

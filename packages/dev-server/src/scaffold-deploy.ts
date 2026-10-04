@@ -60,9 +60,11 @@ export type ScaffoldDeployDetected = {
    *  `bun install` in the manifests-first install variant. */
   readonly registryConfigFiles: readonly RegistryConfigFile[];
   /** DB user for migrate-step.sh's DATABASE_URL — from
-   *  `package.json#kumiko.deploy.dbUser`, default = appName. The db name
-   *  always stays appName regardless of this value. */
+   *  `package.json#kumiko.deploy.dbUser`, default = appName. */
   readonly dbUser: string;
+  /** DB name for migrate-step.sh's DATABASE_URL — from
+   *  `package.json#kumiko.deploy.dbName`, default = appName. */
+  readonly dbName: string;
 };
 
 export type ScaffoldedFile = {
@@ -149,6 +151,7 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     githubOrg,
     installManifests,
     dbUser: detected.dbUser,
+    dbName: detected.dbName,
   };
 
   const flags: Readonly<Record<string, boolean>> = {
@@ -157,6 +160,7 @@ export function renderDeployFiles(options: RenderDeployFilesOptions): RenderDepl
     installFromFullTree: detected.installFromFullTree,
     installFromManifests: !detected.installFromFullTree,
     customDbUser: detected.dbUser !== options.appName,
+    customDbName: detected.dbName !== options.appName,
   };
 
   const dir = templatesDir();
@@ -236,14 +240,15 @@ function extractDeployConfigRaw(raw: unknown): unknown {
 
 const LOCAL_DEP_SPEC_RE = /^(file:|workspace:|link:)/;
 
-// The user part of DATABASE_URL — deliberately stricter than a full Postgres
-// role-name grammar (no quoting support) since it is interpolated into a
-// shell string, not passed through a driver's escaping.
-const DB_USER_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$/;
+// The user and database parts of DATABASE_URL — deliberately stricter than a
+// full Postgres identifier grammar (no quoting support) since they are
+// interpolated into a shell string, not passed through a driver's escaping.
+const DB_IDENTIFIER_RE = /^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,62}$/;
 
 const kumikoDeployConfigSchema = z
   .object({
-    dbUser: z.string().regex(DB_USER_RE).optional(),
+    dbUser: z.string().regex(DB_IDENTIFIER_RE).optional(),
+    dbName: z.string().regex(DB_IDENTIFIER_RE).optional(),
     // "directory" is the only behaviour left; the key stays valid so existing
     // package.json files keep scaffolding.
     stackNetwork: z
@@ -259,8 +264,8 @@ const kumikoDeployConfigSchema = z
 type KumikoDeployConfig = z.infer<typeof kumikoDeployConfigSchema>;
 
 /** `package.json#kumiko.deploy` must be well-formed — silently falling back
- *  to defaults on an invalid `dbUser`/`stackNetwork` would render a migrate
- *  step that talks to the wrong DB user or the wrong stack network, breaking
+ *  to defaults on an invalid `dbUser`/`dbName`/`stackNetwork` would render a migrate
+ *  step that talks to the wrong DB user, DB or stack network, breaking
  *  prod migrations without anyone noticing. Unlike detectOptionalSurfaces'
  *  malformed-JSON fallback, this throws (fail loud) and names the field. */
 function parseDeployConfig(raw: unknown): KumikoDeployConfig {
@@ -279,27 +284,39 @@ function parseDeployConfig(raw: unknown): KumikoDeployConfig {
   );
 }
 
-function resolveDeployConfig(
-  deployConfigRaw: unknown,
+function resolveDbIdentifier(
+  configured: string | undefined,
   appName: string,
-): Pick<ScaffoldDeployDetected, "dbUser"> {
-  const config = parseDeployConfig(deployConfigRaw);
-  const dbUser = config.dbUser ?? appName;
+  field: "dbUser" | "dbName",
+  role: string,
+): string {
+  const effective = configured ?? appName;
   // The default (appName) already passed isKebabSegment's charset check but
-  // not DB_USER_RE's length cap — validate the effective value so an
-  // over-long appName fails loud here instead of producing a DB user
+  // not DB_IDENTIFIER_RE's length cap — validate the effective value so an
+  // over-long appName fails loud here instead of producing a DB identifier
   // Postgres itself would reject at migrate-time.
-  if (!DB_USER_RE.test(dbUser)) {
-    if (config.dbUser === undefined) {
+  if (!DB_IDENTIFIER_RE.test(effective)) {
+    if (configured === undefined) {
       throw new Error(
-        `scaffoldDeploy: appName "${appName}" cannot serve as the default DB user (must match ${DB_USER_RE}); set package.json#kumiko.deploy.dbUser`,
+        `scaffoldDeploy: appName "${appName}" cannot serve as the default ${role} (must match ${DB_IDENTIFIER_RE}); set package.json#kumiko.deploy.${field}`,
       );
     }
     throw new Error(
-      `scaffoldDeploy: invalid package.json#kumiko.deploy.dbUser — effective value "${dbUser}" (defaulted from appName) does not match ${DB_USER_RE}`,
+      `scaffoldDeploy: invalid package.json#kumiko.deploy.${field} — effective value "${effective}" does not match ${DB_IDENTIFIER_RE}`,
     );
   }
-  return { dbUser };
+  return effective;
+}
+
+function resolveDeployConfig(
+  deployConfigRaw: unknown,
+  appName: string,
+): Pick<ScaffoldDeployDetected, "dbUser" | "dbName"> {
+  const config = parseDeployConfig(deployConfigRaw);
+  return {
+    dbUser: resolveDbIdentifier(config.dbUser, appName, "dbUser", "DB user"),
+    dbName: resolveDbIdentifier(config.dbName, appName, "dbName", "DB name"),
+  };
 }
 
 function detectOptionalSurfaces(sourceDir: string, appName: string): ScaffoldDeployDetected {

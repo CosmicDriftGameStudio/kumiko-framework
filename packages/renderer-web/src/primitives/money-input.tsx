@@ -166,15 +166,21 @@ export function MoneyInput({
 // rehydrateMoney) throws a RangeError inside Intl.NumberFormat, and with
 // no ErrorBoundary in this render tree that would take down the whole
 // page instead of just this cell.
-export function formatMoney(amountMinor: number, currency: string, locale?: string): string {
+export function formatMoney(
+  amountMinor: number,
+  currency: string,
+  locale?: string,
+  fractionDigits?: number,
+): string {
   if (!/^[A-Za-z]{3}$/.test(currency)) return String(amountMinor);
   const decimals = currencyDecimals(currency);
+  const displayDigits = fractionDigits ?? decimals;
   const resolvedLocale = resolveSafeLocale(locale);
   return new Intl.NumberFormat(resolvedLocale, {
     style: "currency",
     currency,
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
+    minimumFractionDigits: displayDigits,
+    maximumFractionDigits: displayDigits,
   }).format(amountMinor / 10 ** decimals);
 }
 

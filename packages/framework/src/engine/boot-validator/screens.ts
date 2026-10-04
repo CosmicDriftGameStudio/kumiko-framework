@@ -42,6 +42,7 @@ import type {
   DashboardScreenPanel,
   DashboardStatGroupPanel,
   DashboardTimeRangeDefinition,
+  DashboardValueFormat,
   EditFieldSpec,
   EditLayout,
   EditRelatedListSection,
@@ -2826,6 +2827,34 @@ function validateDashboardStatGroupPanel(
         `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-group "${panel.id}" child "${stat.id}" has empty valueField.`,
       );
     }
+    validateDashboardValueFormat(featureName, screenId, stat.id, stat.valueFormat);
+  }
+}
+
+const CURRENCY_CODE_RE = /^[A-Z]{3}$/;
+const MAX_VALUE_FORMAT_FRACTION_DIGITS = 4;
+
+function validateDashboardValueFormat(
+  featureName: string,
+  screenId: string,
+  panelId: string,
+  valueFormat: DashboardValueFormat | undefined,
+): void {
+  if (valueFormat === undefined) return;
+  const where = `[Feature ${featureName}] Screen "${screenId}" (dashboard) panel "${panelId}" valueFormat`;
+  if (!CURRENCY_CODE_RE.test(valueFormat.currency)) {
+    throw new Error(
+      `${where}.currency "${String(valueFormat.currency)}" must be a 3-letter uppercase ISO currency code.`,
+    );
+  }
+  const digits = valueFormat.fractionDigits;
+  if (
+    digits !== undefined &&
+    (!Number.isInteger(digits) || digits < 0 || digits > MAX_VALUE_FORMAT_FRACTION_DIGITS)
+  ) {
+    throw new Error(
+      `${where}.fractionDigits "${String(digits)}" must be an integer from 0 to ${MAX_VALUE_FORMAT_FRACTION_DIGITS}.`,
+    );
   }
 }
 
@@ -2870,6 +2899,21 @@ function validateDashboardQueryPanel(
     throw new Error(
       `[Feature ${featureName}] Screen "${screenId}" (dashboard) stat-panel "${panel.id}" has empty valueField.`,
     );
+  }
+  if (panel.kind === "stat" || panel.kind === "chart") {
+    validateDashboardValueFormat(featureName, screenId, panel.id, panel.valueFormat);
+  }
+  if (panel.kind === "chart" && panel.scrollable !== undefined) {
+    if (typeof panel.scrollable !== "boolean") {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}" has a non-boolean scrollable.`,
+      );
+    }
+    if (panel.scrollable && panel.chart !== "stacked-area") {
+      throw new Error(
+        `[Feature ${featureName}] Screen "${screenId}" (dashboard) chart-panel "${panel.id}" sets scrollable on chart "${panel.chart}" — only "stacked-area" supports it.`,
+      );
+    }
   }
   if (panel.kind === "list") {
     if (panel.columns.length === 0) {

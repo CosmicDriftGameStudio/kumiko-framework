@@ -1,8 +1,10 @@
 import { extractTableInfo, isTimestamptzType } from "@cosmicdrift/kumiko-framework/bun-db";
 import { METRIC_RANGES } from "./constants.js";
+import { filterValueKindOf, metricFilterEntries, RESERVED_PAYLOAD_KEYS } from "./filters.js";
 import type { MetricDefinition } from "./types.js";
 
 const KEBAB_ID = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
+const FILTER_PAYLOAD_KEY = /^[a-z][a-zA-Z0-9]*$/;
 const TENANT_ID_FIELD = "tenantId";
 
 export function metricHasTenantColumn(metric: MetricDefinition): boolean {
@@ -32,6 +34,7 @@ function validateMetric(metric: MetricDefinition): void {
 
   const info = extractTableInfo(metric.source);
   validateColumns(metric, info, fail);
+  validateFilters(metric, info, fail);
   validateTimeSettings(metric, info, fail);
   validateShape(metric, fail);
   if (metric.scopes.includes("tenant") && !metricHasTenantColumn(metric)) {
@@ -48,6 +51,37 @@ function validateColumns(metric: MetricDefinition, info: TableInfo, fail: Fail):
   if (metric.groupBy !== undefined) requireColumn(metric.groupBy, "groupBy field");
   if (metric.stackBy !== undefined) requireColumn(metric.stackBy, "stackBy field");
   if (metric.timeField !== undefined) requireColumn(metric.timeField, "timeField");
+}
+
+function validateFilters(metric: MetricDefinition, info: TableInfo, fail: Fail): void {
+  const baseWhereColumns = new Set(Object.keys(metric.where ?? {}).map((f) => info.columnOf(f)));
+  for (const { payloadKey, column: field, resolver } of metricFilterEntries(metric)) {
+    if (resolver !== undefined && metric.scopes.includes("system")) {
+      fail(
+        `filter "${payloadKey}" uses a resolver, which runs with the tenant context and cannot be combined with scope "system"`,
+      );
+    }
+    if (!FILTER_PAYLOAD_KEY.test(payloadKey)) {
+      fail(`has filter key "${payloadKey}" that is not a camelCase identifier`);
+    }
+    if (RESERVED_PAYLOAD_KEYS.includes(payloadKey)) {
+      fail(`has filter key "${payloadKey}" that is reserved by the metric payload`);
+    }
+    if (!info.hasColumn(field))
+      fail(`filter "${payloadKey}" column "${field}" is not a column of ${info.name}`);
+    const column = info.columnOf(field);
+    if (column === info.columnOf(TENANT_ID_FIELD)) {
+      fail(`filter "${payloadKey}" targets the tenant column, which only the scope may set`);
+    }
+    if (baseWhereColumns.has(column)) {
+      fail(`filter "${payloadKey}" column "${field}" is already fixed by the metric where`);
+    }
+    if (filterValueKindOf(info.pgTypeOf(column)) === undefined) {
+      fail(
+        `filter "${payloadKey}" column "${field}" has type ${info.pgTypeOf(column)}, only uuid, text and numeric columns can be filtered`,
+      );
+    }
+  }
 }
 
 function validateTimeSettings(metric: MetricDefinition, info: TableInfo, fail: Fail): void {

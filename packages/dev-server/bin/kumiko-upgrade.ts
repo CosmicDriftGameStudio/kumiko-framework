@@ -1,5 +1,8 @@
 #!/usr/bin/env bun
 // Shipped, app-facing upgrade CLI: `kumiko-upgrade [--from <version>] [--json] [--verbose]`.
+// `--apply` runs the codemods and moves the marker to the installed version in one run;
+// breaking changes without a codemod stay open in the marker until
+// `--resolve <id|version> --reason "<text>" [--not-applicable]` marks them done.
 //
 // Self-contained — delegates to the framework's runUpgradeCli core, so apps
 // check for breaking changes without the full dev `kumiko` CLI. Run from the
