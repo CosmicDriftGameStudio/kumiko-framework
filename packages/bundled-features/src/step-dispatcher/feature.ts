@@ -8,12 +8,7 @@
 // the audit trail lives in the event log only — no separate status table.
 
 import { requestContext } from "@cosmicdrift/kumiko-framework/api";
-import {
-  configuredPiiSubjectKms,
-  decryptPiiValueForSubject,
-  isPiiCiphertext,
-  PII_ERASED_SENTINEL,
-} from "@cosmicdrift/kumiko-framework/crypto";
+import { configuredPiiSubjectKms } from "@cosmicdrift/kumiko-framework/crypto";
 import {
   defineFeature,
   type FeatureDefinition,
@@ -26,13 +21,17 @@ import { createFallbackLogger } from "@cosmicdrift/kumiko-framework/logging";
 import { SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import * as z from "zod";
 import { redactEmailAddresses } from "../shared/index.js";
-import { type MailSpec, mailSpecSchema, performMailDispatch } from "./mail-runner.js";
+import {
+  buildDispatchSpec,
+  dispatchRequestedPayloadSchema,
+  rawStepKindOf,
+  readPayloadFields,
+} from "./dispatch-payload.js";
+import { performMailDispatch } from "./mail-runner.js";
 import {
   performWebhookDispatch,
   WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR,
   WEBHOOK_AUTH_SECRET_NAMESPACE_OPTIONS,
-  type WebhookSpec,
-  webhookSpecSchema,
 } from "./webhook-runner.js";
 
 const log = createFallbackLogger("step-dispatcher");
@@ -48,32 +47,6 @@ export const stepDispatcherEnvSchema = z.object({
 
 export { STEP_DISPATCH_AGGREGATE_TYPE };
 
-// PII fields of the flat payload are ciphertext under the per-dispatch
-// record key (system-event-pii.ts). `to`/`headersJson`/`bodyJson` are JSON
-// strings because event PII encryption only handles top-level strings.
-// Runtime-validated instead of cast — `event.payload` is `unknown` at the
-// MSP-apply boundary, so a payload in another shape must end as
-// dispatch-failed, never reach the runners.
-const dispatchRequestedPayloadSchema = z.discriminatedUnion("stepKind", [
-  z.object({
-    stepKind: z.literal("webhook.send"),
-    url: z.string(),
-    method: webhookSpecSchema.shape.method,
-    headersJson: z.string(),
-    bodyJson: z.string().optional(),
-    auth: webhookSpecSchema.shape.auth,
-  }),
-  z.object({
-    stepKind: z.literal("mail.send"),
-    to: z.string(),
-    subject: z.string(),
-    body: z.string(),
-    from: z.string().optional(),
-  }),
-]);
-
-type DispatchRequestedPayload = z.infer<typeof dispatchRequestedPayloadSchema>;
-
 // zod issue messages can echo the invalid value (e.g. a rejected url) back
 // into the tenant-visible dispatch-failed event — keep this generic.
 const INVALID_DISPATCH_PAYLOAD_ERROR = "invalid dispatch payload";
@@ -83,110 +56,8 @@ const PAYLOAD_UNREADABLE_ERROR = "dispatch payload is not readable";
 const MAIL_DELIVERY_FAILED_ERROR = "mail delivery failed";
 const PAYLOAD_ERASED_ERROR = "dispatch payload erased before an outcome was recorded";
 
-const rawStepKindSchema = z.object({ stepKind: z.string() });
-
-function rawStepKindOf(payload: unknown): string {
-  const parsed = rawStepKindSchema.safeParse(payload);
-  return parsed.success ? parsed.data.stepKind : "unknown";
-}
-
-const jsonStringSchema = z.string().transform((raw, refinementCtx) => {
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return parsed;
-  } catch {
-    refinementCtx.addIssue({ code: "custom", message: "invalid json" });
-    return z.NEVER;
-  }
-});
-
-const headersJsonSchema = jsonStringSchema.pipe(z.record(z.string(), z.string()));
-const mailToJsonSchema = jsonStringSchema.pipe(mailSpecSchema.shape.to);
-
-type PayloadFieldName = "to" | "subject" | "body" | "from" | "url" | "headersJson" | "bodyJson";
-
-function piiFieldsOf(payload: DispatchRequestedPayload): readonly PayloadFieldName[] {
-  return payload.stepKind === "mail.send"
-    ? ["to", "subject", "body", "from"]
-    : ["url", "headersJson", "bodyJson"];
-}
-
-function payloadFieldValue(
-  payload: DispatchRequestedPayload,
-  field: PayloadFieldName,
-): string | undefined {
-  const values: Readonly<Partial<Record<PayloadFieldName, string>>> =
-    payload.stepKind === "mail.send"
-      ? { to: payload.to, subject: payload.subject, body: payload.body, from: payload.from }
-      : { url: payload.url, headersJson: payload.headersJson, bodyJson: payload.bodyJson };
-  return values[field];
-}
-
-type ReadPayloadResult =
-  | { readonly kind: "ready"; readonly fields: Readonly<Partial<Record<PayloadFieldName, string>>> }
-  | { readonly kind: "erased" }
-  | { readonly kind: "unreadable" };
-
-async function readPayloadFields(payload: DispatchRequestedPayload): Promise<ReadPayloadResult> {
-  const kms = configuredPiiSubjectKms();
-  const requestId = requestContext.get()?.requestId ?? "step-dispatcher";
-  const fields: Partial<Record<PayloadFieldName, string>> = {};
-  for (const field of piiFieldsOf(payload)) {
-    const value = payloadFieldValue(payload, field);
-    if (value === undefined) continue;
-    if (!isPiiCiphertext(value)) {
-      fields[field] = value;
-      continue;
-    }
-    if (!kms) return { kind: "unreadable" };
-    const plain = await decryptPiiValueForSubject(kms, value, { requestId }, field);
-    if (plain === PII_ERASED_SENTINEL) return { kind: "erased" };
-    fields[field] = plain;
-  }
-  return { kind: "ready", fields };
-}
-
-type DispatchSpec =
-  | { readonly stepKind: "mail.send"; readonly spec: MailSpec }
-  | { readonly stepKind: "webhook.send"; readonly spec: WebhookSpec };
-
-// Parse failures return null — the caller records a generic error, never the
-// (decrypted) values.
-function buildDispatchSpec(
-  payload: DispatchRequestedPayload,
-  fields: Readonly<Partial<Record<PayloadFieldName, string>>>,
-): DispatchSpec | null {
-  if (payload.stepKind === "mail.send") {
-    const to = mailToJsonSchema.safeParse(fields.to);
-    if (!to.success || fields.subject === undefined || fields.body === undefined) return null;
-    return {
-      stepKind: "mail.send",
-      spec: {
-        to: to.data,
-        subject: fields.subject,
-        body: fields.body,
-        ...(fields.from !== undefined && { from: fields.from }),
-      },
-    };
-  }
-  const headers = headersJsonSchema.safeParse(fields.headersJson);
-  if (!headers.success || fields.url === undefined) return null;
-  let body: unknown;
-  if (fields.bodyJson !== undefined) {
-    const parsedBody = jsonStringSchema.safeParse(fields.bodyJson);
-    if (!parsedBody.success) return null;
-    body = parsedBody.data;
-  }
-  return {
-    stepKind: "webhook.send",
-    spec: {
-      url: fields.url,
-      method: payload.method,
-      headers: headers.data,
-      ...(body !== undefined && { body }),
-      ...(payload.auth && { auth: payload.auth }),
-    },
-  };
+function isDispatchOutcome(e: { readonly type: string }): boolean {
+  return e.type === STEP_DISPATCHED_TYPE || e.type === STEP_DISPATCH_FAILED_TYPE;
 }
 
 export function createStepDispatcherFeature(): FeatureDefinition {
@@ -210,9 +81,20 @@ export function createStepDispatcherFeature(): FeatureDefinition {
           const kms = configuredPiiSubjectKms();
           const requestId = requestContext.get()?.requestId ?? "step-dispatcher";
 
+          const eraseDispatchKey = async (): Promise<void> => {
+            await kms?.eraseKey(
+              { kind: "record", entity: STEP_DISPATCH_AGGREGATE_TYPE, id: event.aggregateId },
+              { requestId, eraseReason: "step-dispatch-outcome-recorded" },
+            );
+          };
+
           // Outcome events are plaintext and generic; the request payload's
           // per-dispatch key is erased right after, so the PII dies with the
-          // dispatch instead of living in the event log.
+          // dispatch instead of living in the event log. The outcome is
+          // appended before the erase on purpose: if the erase throws, the
+          // outcome survives and a redelivery only repeats the erase. A crash
+          // between the send and the outcome append still re-sends under the
+          // same Idempotency-Key — the one remaining double-send case.
           const recordOutcome = async (
             type: typeof STEP_DISPATCHED_TYPE | typeof STEP_DISPATCH_FAILED_TYPE,
             payload: Record<string, unknown>,
@@ -223,13 +105,17 @@ export function createStepDispatcherFeature(): FeatureDefinition {
               type,
               payload,
             });
-            await kms?.eraseKey(
-              { kind: "record", entity: STEP_DISPATCH_AGGREGATE_TYPE, id: event.aggregateId },
-              { requestId, eraseReason: "step-dispatch-outcome-recorded" },
-            );
+            await eraseDispatchKey();
           };
           const recordFailure = (stepKind: string, error: string) =>
             recordOutcome(STEP_DISPATCH_FAILED_TYPE, { stepKind, error, attempt: 1 });
+
+          const stream = await ctx.loadAggregate(event.aggregateId);
+          if (stream.some(isDispatchOutcome)) {
+            await eraseDispatchKey();
+            // skip: redelivery after an outcome was recorded — only the erase is repeated
+            return;
+          }
 
           const parsed = dispatchRequestedPayloadSchema.safeParse(event.payload);
           if (!parsed.success) {
@@ -246,12 +132,6 @@ export function createStepDispatcherFeature(): FeatureDefinition {
             return;
           }
           if (read.kind === "erased") {
-            const stream = await ctx.loadAggregate(event.aggregateId);
-            const hasOutcome = stream.some(
-              (e) => e.type === STEP_DISPATCHED_TYPE || e.type === STEP_DISPATCH_FAILED_TYPE,
-            );
-            // skip: redelivery after the key was erased — the outcome is already recorded
-            if (hasOutcome) return;
             await recordFailure(payload.stepKind, PAYLOAD_ERASED_ERROR);
             // skip: erased payload recorded via step.dispatch-failed above
             return;
