@@ -124,16 +124,27 @@ const WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR = "webhook auth secret is not availa
 
 export const WEBHOOK_IDEMPOTENCY_KEY_HEADER = "idempotency-key";
 
-function hasIdempotencyKeyHeader(headers: Readonly<Record<string, string>>): boolean {
-  return Object.keys(headers).some((name) => name.toLowerCase() === WEBHOOK_IDEMPOTENCY_KEY_HEADER);
+function hasHeader(headers: Readonly<Record<string, string>>, lowerCaseName: string): boolean {
+  return Object.keys(headers).some((name) => name.toLowerCase() === lowerCaseName);
+}
+
+// Header names are case-insensitive: two keys differing only in case would be
+// comma-joined by `Headers`, so a replacement must drop every spelling first.
+function setHeader(headers: Record<string, string>, name: string, value: string): void {
+  const lowerCaseName = name.toLowerCase();
+  for (const existing of Object.keys(headers)) {
+    if (existing.toLowerCase() === lowerCaseName) delete headers[existing];
+  }
+  headers[name] = value;
 }
 
 async function buildWebhookHeaders(
   spec: WebhookSpec,
   deps: WebhookDispatchDeps,
 ): Promise<{ ok: true; headers: Record<string, string> } | { ok: false; error: string }> {
-  const headers: Record<string, string> = { "content-type": "application/json", ...spec.headers };
-  if (!hasIdempotencyKeyHeader(headers)) {
+  const headers: Record<string, string> = { ...spec.headers };
+  if (!hasHeader(headers, "content-type")) headers["content-type"] = "application/json";
+  if (!hasHeader(headers, WEBHOOK_IDEMPOTENCY_KEY_HEADER)) {
     headers[WEBHOOK_IDEMPOTENCY_KEY_HEADER] = deps.idempotencyKey;
   }
   if (!spec.auth) return { ok: true, headers };
@@ -154,9 +165,9 @@ async function buildWebhookHeaders(
     return { ok: false, error: WEBHOOK_AUTH_SECRET_UNAVAILABLE_ERROR };
   }
   if (spec.auth.kind === "bearer") {
-    headers["authorization"] = `Bearer ${secret}`;
+    setHeader(headers, "authorization", `Bearer ${secret}`);
   } else {
-    headers[spec.auth.name] = secret;
+    setHeader(headers, spec.auth.name, secret);
   }
   return { ok: true, headers };
 }

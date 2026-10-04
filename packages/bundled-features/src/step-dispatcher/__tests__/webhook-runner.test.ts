@@ -359,3 +359,45 @@ describe("performWebhookDispatch — Idempotency-Key", () => {
     expect(names).toEqual(["Idempotency-Key"]);
   });
 });
+
+describe("performWebhookDispatch — case-insensitive header merge", () => {
+  async function sentHeaders(
+    headers: Record<string, string>,
+    auth?: { kind: "bearer"; secret: string } | { kind: "header"; name: string; secret: string },
+  ): Promise<Headers> {
+    process.env[WEBHOOK_ALLOWED_PRIVATE_HOSTS_ENV_VAR] = "hooks.example";
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    setWebhookFetch(fetchMock as unknown as typeof fetch);
+    await performWebhookDispatch(
+      { url: "https://hooks.example/hook", method: "POST", headers, ...(auth && { auth }) },
+      { ...noSecretsDeps, secrets: fakeSecrets("the-secret").secrets },
+    );
+    return new Headers(fetchMock.mock.calls[0]?.[1]?.headers);
+  }
+
+  test("a caller Content-Type replaces the default instead of merging", async () => {
+    expect((await sentHeaders({ "Content-Type": "text/plain" })).get("content-type")).toBe(
+      "text/plain",
+    );
+  });
+
+  test("content-type defaults to application/json", async () => {
+    expect((await sentHeaders({})).get("content-type")).toBe("application/json");
+  });
+
+  test("bearer auth wins over a caller Authorization header", async () => {
+    const headers = await sentHeaders(
+      { Authorization: "Basic x" },
+      { kind: "bearer", secret: "s" },
+    );
+    expect(headers.get("authorization")).toBe("Bearer the-secret");
+  });
+
+  test("header auth wins over a caller header of the same name in another casing", async () => {
+    const headers = await sentHeaders(
+      { "X-Hub-Signature": "spoof" },
+      { kind: "header", name: "x-hub-signature", secret: "s" },
+    );
+    expect(headers.get("x-hub-signature")).toBe("the-secret");
+  });
+});
