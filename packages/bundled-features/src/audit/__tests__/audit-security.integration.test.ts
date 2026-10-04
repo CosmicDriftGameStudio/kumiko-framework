@@ -2,7 +2,7 @@
 // Real HTTP via setupTestStack — no mocks.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
-import { asRawClient } from "@cosmicdrift/kumiko-framework/bun-db";
+import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import {
   access,
   createEntity,
@@ -12,6 +12,12 @@ import {
   type SessionUser,
   type TenantId,
 } from "@cosmicdrift/kumiko-framework/engine";
+import {
+  APP_INSTANCE_STREAM_TYPE,
+  APP_STARTED_EVENT_TYPE,
+  append,
+  eventsTable,
+} from "@cosmicdrift/kumiko-framework/event-store";
 import {
   createTestUser,
   resetEventStore,
@@ -23,6 +29,8 @@ import {
   unsafePushTables,
 } from "@cosmicdrift/kumiko-framework/stack";
 import { rolesOf } from "@cosmicdrift/kumiko-framework/testing";
+import { generateId } from "@cosmicdrift/kumiko-framework/utils";
+import { SYSTEM_TENANT_ID, SYSTEM_USER_ID } from "@cosmicdrift/kumiko-types/identifiers";
 import { createConfigFeature } from "../../config/feature.js";
 import { hashPassword } from "../../shared/index.js";
 import { createTenantFeature } from "../../tenant/feature.js";
@@ -32,7 +40,7 @@ import { seedTenant, seedTenantMembership } from "../../tenant/seeding.js";
 import { createUserFeature } from "../../user/feature.js";
 import { userEntity } from "../../user/schema/user.js";
 import { seedUser } from "../../user/seeding.js";
-import { AUDIT_LOG_SCREEN_ID, AuditQueries } from "../constants.js";
+import { AUDIT_LOG_SCREEN_ID, AuditQueries, AuditScopes } from "../constants.js";
 import { createAuditFeature } from "../feature.js";
 
 const widgetEntity = createEntity({
@@ -197,5 +205,130 @@ describe("audit list filters", () => {
     );
     expect(res.rows.length).toBeGreaterThanOrEqual(1);
     expect(res.rows.every((r) => r.type === "widget.created")).toBe(true);
+  });
+});
+
+describe("system scope", () => {
+  type EventRow = { id: string; type: string; aggregateId: string };
+  let systemAggregateId: string;
+
+  beforeEach(async () => {
+    systemAggregateId = generateId();
+    await append(stack.db, {
+      aggregateId: systemAggregateId,
+      aggregateType: APP_INSTANCE_STREAM_TYPE,
+      tenantId: SYSTEM_TENANT_ID,
+      expectedVersion: 0,
+      type: APP_STARTED_EVENT_TYPE,
+      payload: { version: "1.0.0", instanceId: "test", startedAt: "2026-01-01T00:00:00Z" },
+      metadata: { userId: SYSTEM_USER_ID },
+    });
+  });
+
+  async function systemEventId(): Promise<string> {
+    const res = await stack.http.queryOk<{ rows: readonly EventRow[] }>(
+      AuditQueries.list,
+      { scope: AuditScopes.system },
+      systemAdmin,
+    );
+    const row = res.rows.find((r) => r.aggregateId === systemAggregateId);
+    if (!row) throw new Error("system event missing");
+    return row.id;
+  }
+
+  test("SystemAdmin lists and reads the system event with scope system", async () => {
+    const res = await stack.http.queryOk<{ rows: readonly EventRow[] }>(
+      AuditQueries.list,
+      { scope: AuditScopes.system },
+      systemAdmin,
+    );
+    expect(res.rows.map((r) => [r.type, r.aggregateId])).toEqual([
+      [APP_STARTED_EVENT_TYPE, systemAggregateId],
+    ]);
+
+    const details = await stack.http.queryOk<EventRow | null>(
+      AuditQueries.details,
+      { id: res.rows[0]?.id, scope: AuditScopes.system },
+      systemAdmin,
+    );
+    expect(details?.type).toBe(APP_STARTED_EVENT_TYPE);
+    expect(details?.aggregateId).toBe(systemAggregateId);
+  });
+
+  test("SystemAdmin without scope does not see the system event", async () => {
+    const id = await systemEventId();
+    const res = await stack.http.queryOk<{ rows: readonly EventRow[] }>(
+      AuditQueries.list,
+      {},
+      systemAdmin,
+    );
+    expect(res.rows.some((r) => r.aggregateId === systemAggregateId)).toBe(false);
+    const details = await stack.http.queryOk<EventRow | null>(
+      AuditQueries.details,
+      { id },
+      systemAdmin,
+    );
+    expect(details).toBeNull();
+  });
+
+  test("TenantAdmin is denied scope system on list and details", async () => {
+    const id = await systemEventId();
+    const list = await stack.http.query(
+      AuditQueries.list,
+      { scope: AuditScopes.system },
+      tenantAdmin(),
+    );
+    expect(list.status).toBe(403);
+    const details = await stack.http.query(
+      AuditQueries.details,
+      { id, scope: AuditScopes.system },
+      tenantAdmin(),
+    );
+    expect(details.status).toBe(403);
+  });
+
+  test("scope system exposes only app-instance streams, not other system-tenant streams", async () => {
+    const foreignAggregateId = generateId();
+    await append(stack.db, {
+      aggregateId: foreignAggregateId,
+      aggregateType: "session-revocation",
+      tenantId: SYSTEM_TENANT_ID,
+      expectedVersion: 0,
+      type: APP_STARTED_EVENT_TYPE,
+      payload: { version: "0", instanceId: "foreign-stream", startedAt: "2026-01-01T00:00:00Z" },
+      metadata: { userId: SYSTEM_USER_ID },
+    });
+    const listed = await stack.http.queryOk<{ rows: readonly EventRow[] }>(
+      AuditQueries.list,
+      { scope: AuditScopes.system, aggregateType: "session-revocation" },
+      systemAdmin,
+    );
+    expect(listed.rows.some((r) => r.aggregateId === foreignAggregateId)).toBe(false);
+
+    const all = await stack.http.queryOk<{ rows: readonly EventRow[] }>(
+      AuditQueries.list,
+      { scope: AuditScopes.system },
+      systemAdmin,
+    );
+    expect(all.rows.map((r) => r.aggregateId)).toEqual([systemAggregateId]);
+
+    const [foreign] = await selectMany<{ id: bigint }>(stack.db, eventsTable, {
+      aggregateId: foreignAggregateId,
+    });
+    const details = await stack.http.queryOk<EventRow | null>(
+      AuditQueries.details,
+      { id: String(foreign?.id), scope: AuditScopes.system },
+      systemAdmin,
+    );
+    expect(details).toBeNull();
+  });
+
+  test("Admin without scope sees only the own tenant", async () => {
+    const res = await stack.http.queryOk<{ rows: readonly EventRow[] }>(
+      AuditQueries.list,
+      {},
+      createTestUser({ id: 43, tenantId: TENANT_ID, roles: ["Admin"] }),
+    );
+    expect(res.rows.some((r) => r.aggregateId === systemAggregateId)).toBe(false);
   });
 });

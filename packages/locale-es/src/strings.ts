@@ -40,6 +40,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
     "Está viendo datos de todas las organizaciones. Las consultas entre organizaciones se registran en el registro de auditoría.",
   "admin-shell:workspace.platform": "Plataforma",
   "admin-shell:workspace.tenant": "Administración",
+  "audit.errors.systemScopeRequiresSystemAdmin": "Solo SystemAdmin puede leer eventos del sistema.",
   "audit.log.col.actor": "Actor",
   "audit.log.col.aggregateId": "ID de agregado",
   "audit.log.col.aggregateType": "Tipo de agregado",

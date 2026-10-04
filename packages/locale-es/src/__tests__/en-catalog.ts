@@ -39,6 +39,7 @@ export const frameworkEnCatalog: Readonly<Record<string, string>> = {
     "You are viewing data of all tenants. Cross-tenant queries are recorded in the audit log.",
   "admin-shell:workspace.platform": "Platform",
   "admin-shell:workspace.tenant": "Administration",
+  "audit.errors.systemScopeRequiresSystemAdmin": "Only SystemAdmin may read system events.",
   "audit.log.col.actor": "Actor",
   "audit.log.col.aggregateId": "Aggregate ID",
   "audit.log.col.aggregateType": "Aggregate type",
