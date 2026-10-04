@@ -75,7 +75,12 @@ import * as z from "zod";
 import { tenantTable } from "../tenant/index.js";
 import { tierAssignmentAggregateId } from "./aggregate-id.js";
 import type { TierMap } from "./compose-app.js";
-import { TIER_ADMIN_SCREEN_ID, TIER_ENGINE_FEATURE, TierEngineHandlers } from "./constants.js";
+import {
+  TIER_ADMIN_SCREEN_ID,
+  TIER_ENGINE_FEATURE,
+  TierAssignmentSources,
+  TierEngineHandlers,
+} from "./constants.js";
 import { tierAssignmentEntity } from "./entity.js";
 import { getActiveTierQuery } from "./handlers/active-tier.query.js";
 import { getTenantTierQuery } from "./handlers/get-tenant-tier.query.js";
@@ -450,7 +455,7 @@ export function createTierEngineFeature<
           const tdb = createTenantDb(rawDb, newTenantId, "system");
 
           await tierAssignmentExecutor.create(
-            { id: aggregateId, tier: defaultTier, source: "default" },
+            { id: aggregateId, tier: defaultTier, source: TierAssignmentSources.default },
             systemUser,
             tdb,
           );

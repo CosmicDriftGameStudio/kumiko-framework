@@ -7,6 +7,7 @@ import {
 import { defineWriteHandler, type TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import * as z from "zod";
 import { tierAssignmentAggregateId } from "../aggregate-id.js";
+import { TierAssignmentSources } from "../constants.js";
 import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 
 // SystemAdmin setzt das Tier eines BELIEBIGEN Tenants — manueller Grant ohne
@@ -21,8 +22,8 @@ import { type TierAssignmentRow, tierAssignmentEntity } from "../entity.js";
 // funktioniert nur für SYSTEM_TENANT_ID (immer im IN-Filter). Dies ist das
 // auto-default-Hook-Muster (feature.ts), generalisiert auf einen Request-Handler.
 //
-// `source: "manual"` markiert den Grant, damit ein späterer Stripe→Tier-Sync ihn
-// nicht plättet. Upsert: ein Aggregat pro Tenant (deterministische aggregate-id).
+// `source: TierAssignmentSources.manual` marks the grant so the billing sync skips it.
+// Upsert: one aggregate per tenant (deterministic aggregate id).
 //
 // Effective-set invalidation: the executor write does not fire the
 // `tier-assignment:postSave` entity hook, and a per-handler postSave would not
@@ -90,7 +91,7 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
           {
             id: existing.id,
             version: existing.version,
-            changes: { tier, source: "manual" },
+            changes: { tier, source: TierAssignmentSources.manual },
           },
           systemUser,
           tdb,
@@ -101,7 +102,12 @@ export function createSetTenantTierWrite(opts: SetTenantTierOptions = {}) {
       }
 
       const result = await executor.create(
-        { id: tierAssignmentAggregateId(tenantId), tier, source: "manual", tenantId },
+        {
+          id: tierAssignmentAggregateId(tenantId),
+          tier,
+          source: TierAssignmentSources.manual,
+          tenantId,
+        },
         systemUser,
         tdb,
       );

@@ -41,7 +41,10 @@ const RETENTION_JOB = "audit:job:escape-hatch-retention";
 const cronProbeFeature = defineFeature("cron-probe", (r) => {
   r.job({
     name: "touch-raw",
-    trigger: { cron: "0 * * * * *" },
+    // The worker lane really schedules this cron. A per-minute pattern fired a
+    // fourth run whenever the test crossed a minute boundary; yearly keeps the
+    // system-cron path without a real tick during the test.
+    trigger: { cron: "0 0 0 1 1 *" },
     concurrency: "skip",
     escapeHatch: { reason: "cron probe reads raw", grants: ["unsafeRaw"] },
     handler: async (_payload, ctx) => {

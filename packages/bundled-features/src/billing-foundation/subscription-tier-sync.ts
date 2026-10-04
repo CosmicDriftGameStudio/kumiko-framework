@@ -4,6 +4,7 @@
 // so it is now a factory parameter.
 
 import {
+  TierAssignmentSources,
   TierEngineHandlers,
   TierEngineQueries,
   tierAssignmentAggregateId,
@@ -61,6 +62,24 @@ function asRows(result: unknown): ReadonlyArray<Record<string, unknown>> {
   throw new Error("expected a { rows: [...] } list-query result");
 }
 
+type ExistingTierAssignment = {
+  readonly id: string;
+  readonly version: number;
+  readonly tier: unknown;
+  readonly source: unknown;
+};
+
+function findTierAssignment(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  tenantId: TenantId,
+): ExistingTierAssignment | undefined {
+  const row = rows.find((candidate) => candidate["tenantId"] === tenantId);
+  if (!row || typeof row["id"] !== "string" || typeof row["version"] !== "number") {
+    return undefined;
+  }
+  return { id: row["id"], version: row["version"], tier: row["tier"], source: row["source"] };
+}
+
 export function createSubscriptionTierSync<TTier extends string>(
   deps: SubscriptionTierSyncDeps<TTier>,
 ) {
@@ -94,15 +113,15 @@ export function createSubscriptionTierSync<TTier extends string>(
           tenantId,
         }),
       );
-      const assignment = tierAssignmentRows.find((row) => row["tenantId"] === tenantId);
-      if (
-        !assignment ||
-        typeof assignment["id"] !== "string" ||
-        typeof assignment["version"] !== "number"
-      ) {
+      const assignment = findTierAssignment(tierAssignmentRows, tenantId);
+      if (!assignment) {
         const created = await routeDeps.dispatchSystemWrite({
           handlerQn: TierEngineHandlers.create,
-          payload: { id: tierAssignmentAggregateId(tenantId), tier: effective },
+          payload: {
+            id: tierAssignmentAggregateId(tenantId),
+            tier: effective,
+            source: TierAssignmentSources.billing,
+          },
           tenantId,
         });
         if (!created.isSuccess) {
@@ -113,14 +132,15 @@ export function createSubscriptionTierSync<TTier extends string>(
         }
         return null;
       }
-      if (assignment["tier"] === effective) return null;
+      if (assignment.source === TierAssignmentSources.manual) return null;
+      if (assignment.tier === effective) return null;
 
       const result = await routeDeps.dispatchSystemWrite({
         handlerQn: TierEngineHandlers.update,
         payload: {
-          id: assignment["id"],
-          version: assignment["version"],
-          changes: { tier: effective },
+          id: assignment.id,
+          version: assignment.version,
+          changes: { tier: effective, source: TierAssignmentSources.billing },
         },
         tenantId,
       });
