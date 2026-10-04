@@ -10,9 +10,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
-import { createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
+import { asRawClient, createTenantDb, type DbConnection } from "@cosmicdrift/kumiko-framework/db";
 import {
+  createEntity,
   createEntityExecutor,
+  createTextField,
   defineFeature,
   type WriteHandlerDef,
 } from "@cosmicdrift/kumiko-framework/engine";
@@ -188,6 +190,53 @@ const nestedAtomicCaller: WriteHandlerDef = {
 };
 const ATOMIC_NESTED_QN = "newsletter:write:atomic-slot-nested";
 
+const commitProbeEntity = createEntity({
+  table: "cap_commit_probes",
+  fields: {
+    label: createTextField({ personal: false, reason: "test_fixture", required: true }),
+  },
+});
+const { table: commitProbeTable, executor: commitProbeExecutor } = createEntityExecutor(
+  "commit-probe",
+  commitProbeEntity,
+);
+// The handler succeeds; the deferred trigger created in beforeAll rejects the row only at COMMIT.
+const commitFailingHandler: WriteHandlerDef = {
+  name: "atomic-commit-fails",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: (event, ctx) =>
+    commitProbeExecutor.create({ label: "commit-fails" }, event.user, ctx.db),
+};
+const COMMIT_FAIL_CAP_NAME = "atomic-commit-fail-cap";
+const wrappedCommitFailing = withCapEnforcement(commitFailingHandler, () => ({
+  capName: COMMIT_FAIL_CAP_NAME,
+  periodStartIso: TENANT_ONLY_PERIOD,
+  limit: ATOMIC_CAP_LIMIT,
+  profile: "hardSlot",
+  notify: recordingNotifier,
+}));
+const COMMIT_FAIL_QN = "newsletter:write:atomic-commit-fails";
+
+const POOL_CAP_NAME = "atomic-pool-cap";
+const poolSlotHandler: WriteHandlerDef = {
+  name: "atomic-pool-slot",
+  schema: z.object({}),
+  access: { roles: ["TenantAdmin"] },
+  handler: async () => {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return { isSuccess: true as const, data: {} };
+  },
+};
+const wrappedPoolSlot = withCapEnforcement(poolSlotHandler, () => ({
+  capName: POOL_CAP_NAME,
+  periodStartIso: TENANT_ONLY_PERIOD,
+  limit: 1000,
+  profile: "hardSlot",
+  notify: recordingNotifier,
+}));
+const POOL_SLOT_QN = "newsletter:write:atomic-pool-slot";
+
 const NEWSLETTER_TENANT_ONLY_QN = "newsletter:write:send-newsletter-tenant-only";
 const BOOK_OUTSIDE_TX_QN = "newsletter:write:book-outside-tx-then-fail";
 
@@ -244,6 +293,9 @@ const newsletterFeature = defineFeature("newsletter", (r) => {
   r.writeHandler(wrappedCalendarTenantOnly);
   r.writeHandler(wrappedAtomic);
   r.writeHandler(nestedAtomicCaller);
+  r.writeHandler(wrappedCommitFailing);
+  r.writeHandler(wrappedPoolSlot);
+  r.entity("commit-probe", commitProbeEntity);
   r.writeHandler(bookOutsideTxThenFailHandler);
   r.writeHandler(bookCapUsageInTxHandler);
   r.writeHandler(bookCapUsageOutsideTxHandler);
@@ -261,6 +313,18 @@ beforeAll(async () => {
   stack = await setupTestStack({ features: [capCounterFeature, newsletterFeature] });
   db = stack.db;
   await unsafeCreateEntityTable(db, capCounterEntity);
+  await unsafeCreateEntityTable(db, commitProbeEntity);
+  await asRawClient(db).unsafe(`
+    CREATE FUNCTION cap_commit_probe_reject_at_commit() RETURNS trigger AS $$
+    BEGIN
+      RAISE EXCEPTION 'rejected at commit';
+    END;
+    $$ LANGUAGE plpgsql`);
+  await asRawClient(db).unsafe(`
+    CREATE CONSTRAINT TRIGGER cap_commit_probe_commit_gate
+    AFTER INSERT ON "${commitProbeTable.tableName}"
+    DEFERRABLE INITIALLY DEFERRED
+    FOR EACH ROW EXECUTE FUNCTION cap_commit_probe_reject_at_commit()`);
 });
 
 afterAll(async () => {
@@ -585,6 +649,14 @@ describe("bookCapUsage — parallel bookings for the same period", () => {
   });
 });
 
+// postgres.js keeps its pool size on the client's `options`; the DbConnection type does not expose it.
+function connectionPoolSize(connection: DbConnection): number {
+  const options: unknown = Reflect.get(connection, "options");
+  const max = typeof options === "object" && options !== null ? Reflect.get(options, "max") : null;
+  if (typeof max !== "number") throw new Error("connection pool size is not readable");
+  return max;
+}
+
 function resetAtomicState(mode: typeof atomicHandlerMode) {
   atomicHandlerRuns = 0;
   atomicHandlerMode = mode;
@@ -626,18 +698,72 @@ describe("withCapEnforcement - atomic reservation", () => {
     expect(atomicMaxInFlight).toBe(2);
   });
 
-  test("a capped handler reached through a nested ctx.write still reserves and enforces", async () => {
+  test("a capped handler reached through a nested ctx.write is rejected instead of running unreserved", async () => {
     resetAtomicState("ok");
     const user = tenantAdminOnlyFor(2705);
 
-    for (let i = 0; i < ATOMIC_CAP_LIMIT; i++) {
-      await stack.http.writeOk(ATOMIC_NESTED_QN, {}, user);
-    }
-    const blocked = await stack.http.writeErr(ATOMIC_NESTED_QN, {}, user);
+    const response = await stack.http.write(ATOMIC_NESTED_QN, {}, user);
 
-    expect(blocked.code).toBe("cap_exceeded");
+    expect(response.status).toBe(500);
+    expect(atomicHandlerRuns).toBe(0);
+    expect(await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD)).toBeNull();
+  });
+
+  test("one reservation covers one execution: a batch whose second command re-enters the capped handler is rejected and releases", async () => {
+    resetAtomicState("ok");
+    const user = tenantAdminOnlyFor(2708);
+
+    const response = await stack.http.batch(
+      [
+        { type: ATOMIC_QN, payload: {} },
+        { type: ATOMIC_NESTED_QN, payload: {} },
+      ],
+      user,
+    );
+
+    expect(response.status).toBe(500);
     const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
-    expect(row!["value"]).toBe(ATOMIC_CAP_LIMIT);
+    expect(row!["value"]).toBe(0);
+  });
+
+  test("a batch with the same capped handler twice reserves once per command", async () => {
+    resetAtomicState("ok");
+    const user = tenantAdminOnlyFor(2709);
+
+    const response = await stack.http.batch(
+      [
+        { type: ATOMIC_QN, payload: {} },
+        { type: ATOMIC_QN, payload: {} },
+      ],
+      user,
+    );
+
+    expect(response.status).toBe(200);
+    const row = await readCounter(user, ATOMIC_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(2);
+  });
+
+  test("a failed COMMIT after a successful handler gives the reservation back", async () => {
+    const user = tenantAdminOnlyFor(2706);
+
+    const response = await stack.http.write(COMMIT_FAIL_QN, {}, user);
+
+    expect(response.status).toBeGreaterThanOrEqual(500);
+    const row = await readCounter(user, COMMIT_FAIL_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(0);
+  });
+
+  test("capped requests beyond the pool size all complete (no connection held across the handler)", async () => {
+    const poolSize = connectionPoolSize(db);
+    const user = tenantAdminOnlyFor(2707);
+
+    const responses = await Promise.all(
+      Array.from({ length: poolSize + 2 }, () => stack.http.write(POOL_SLOT_QN, {}, user)),
+    );
+
+    expect(responses.map((r) => r.status)).toEqual(Array(poolSize + 2).fill(200));
+    const row = await readCounter(user, POOL_CAP_NAME, TENANT_ONLY_PERIOD);
+    expect(row!["value"]).toBe(poolSize + 2);
   });
 
   test("a handler that throws gives the reservation back", async () => {

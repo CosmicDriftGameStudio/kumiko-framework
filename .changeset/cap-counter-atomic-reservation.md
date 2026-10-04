@@ -1,14 +1,16 @@
 ---
 "@cosmicdrift/kumiko-bundled-features": patch
+"@cosmicdrift/kumiko-framework": patch
+"@cosmicdrift/kumiko-types": patch
 ---
 
-withCapEnforcement reserves cap usage atomically
+withCapEnforcement reserves cap usage before the handler transaction
 
-`withCapEnforcement` used to check the cap and book the usage in two separate steps, so parallel calls could all pass the same stale read and exceed the hard limit. It now reserves the usage before the handler runs: the hard-cap check and the increment are one short, version-guarded write that commits at once in its own transaction, so the counter stream is not held while the handler runs and capped calls on the same counter still run in parallel. A version-conflict retry re-reads and re-checks. If the handler throws or returns a failure result, a compensating release books the amount back (never below 0). `bookCapUsage` accepts a `guardCurrentValue` callback, `markCapSoftWarned` and `enforceCapAndMaybeNotify` can write outside the handler transaction, and the soft-warning pre-check now honors `amount`. `withRollingCapEnforcement` is unchanged and keeps its check-then-book race.
+`withCapEnforcement` used to check the cap and book the usage in two separate steps, so parallel calls could all pass the same stale read and exceed the hard limit. The wrapper now only declares the cap through the new `WriteHandlerDef.reserveBeforeTransaction` hook. The dispatcher runs the hook after the access, feature and schema checks and before the handler transaction opens. The hard-cap check and the increment are one short, version-guarded write that commits at once, so no connection is held across the handler and capped calls on the same counter still run in parallel. The returned release gives the amount back (never below 0) after the transaction ended without committing: rollback, failure result, throw or failed commit. Each reservation covers exactly one top-level execution: a capped handler reached through a nested `ctx.write` or run a second time in the same command is rejected. A wrapped handler now keeps its own `rateLimit`, `escapeHatch` and `additionalRateLimits` (the old wrapper dropped them). The reservation runs before the rate-limit gate, so a rate-limited caller can still cause reserve and release writes. If a COMMIT fails with an unknown outcome, the release can under-count. `bookCapUsage` accepts a `guardCurrentValue` callback, `markCapSoftWarned` and `enforceCapAndMaybeNotify` can write outside the handler transaction, and the soft-warning pre-check now honors `amount`. `withRollingCapEnforcement` is unchanged and keeps its check-then-book race.
 
 <!-- kumiko-changes
 feature: cap-counter
 type: fix
-title: withCapEnforcement reserves cap usage atomically so parallel calls cannot exceed the hard limit
-migration: No action needed. Calls above the hard limit are now rejected with cap_exceeded even when they race.
+title: withCapEnforcement reserves cap usage before the handler transaction so parallel calls cannot exceed the hard limit
+migration: No action needed. Calls above the hard limit are now rejected with cap_exceeded even when they race. A capped handler must not be called through ctx.write from another handler.
 -->

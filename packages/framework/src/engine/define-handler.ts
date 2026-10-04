@@ -88,6 +88,7 @@ export function defineWriteHandler<
     ...(def.rateLimit && { rateLimit: def.rateLimit }),
     ...(def.additionalRateLimits && { additionalRateLimits: def.additionalRateLimits }),
     ...(def.escapeHatch && { escapeHatch: def.escapeHatch }),
+    ...(def.reserveBeforeTransaction && { reserveBeforeTransaction: def.reserveBeforeTransaction }),
     ...(def.tenantlessAnonymous && { tenantlessAnonymous: true }),
   };
 
