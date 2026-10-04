@@ -1605,6 +1605,12 @@ export type ActionFormScreenDefinition = {
    *  whose handler is destructive (terminate, revoke, delete), so the warning
    *  isn't lost on the way from the calling screen to this one. Default "primary". */
   readonly submitStyle?: "primary" | "danger";
+  /** i18n key of a confirmation shown above the form after a successful submit
+   *  when the screen stays put (no `redirect`, not drawer-hosted). `{field}`
+   *  placeholders resolve from the submitted values; a `reference` field shows
+   *  the chosen record's label (its `labelField`), not the id — so a
+   *  cross-tenant admin form can name the record it just changed. */
+  readonly successMessage?: string;
   /** Navigate to this screen ID after a successful submit: either a short
    *  ID (e.g. "item-list" — same feature, the nav-router resolves to the
    *  full path) or a fully-qualified cross-feature QN

@@ -1044,3 +1044,133 @@ describe("KumikoScreen / configEdit empty number fields", () => {
     ]);
   });
 });
+
+describe("KumikoScreen / configEdit — tenant value shows in the control", () => {
+  const layoutScreen: ConfigEditScreenDefinition = {
+    id: "site-settings",
+    type: "configEdit",
+    scope: "tenant",
+    configKeys: {
+      siteName: "demo:config:site-name",
+      layout: "demo:config:layout",
+    },
+    fields: {
+      siteName: { type: "text" },
+      layout: { type: "select", options: ["minimal", "centered", "wide"] },
+      // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+    } as ConfigEditScreenDefinition["fields"],
+    layout: {
+      variant: "settings-list",
+      sections: [{ title: "Site", fields: ["siteName", "layout"] }],
+    },
+  };
+  const layoutSchema: FeatureSchema = {
+    featureName: "demo",
+    entities: {},
+    screens: [layoutScreen],
+  };
+
+  function cascadeFor(value: string, fallback: string) {
+    return {
+      value,
+      source: "tenant-row",
+      levels: [
+        { source: "tenant-row", label: "tenant-row", value, isActive: true, hasValue: true },
+        { source: "default", label: "default", value: fallback, isActive: false, hasValue: true },
+      ],
+    };
+  }
+
+  test("a set tenant value prefills the text input and marks the select option without opening the cascade", async () => {
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === "config:query:cascade") {
+          return {
+            isSuccess: true,
+            data: {
+              "demo:config:site-name": cascadeFor("Acme", "Site"),
+              "demo:config:layout": cascadeFor("wide", "centered"),
+            },
+          };
+        }
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+            "demo:config:layout": { value: "wide", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={layoutSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("field-siteName").querySelector('[data-testid="config-cascade"]'),
+      ).toBeTruthy(),
+    );
+    expect(screen.getByTestId("field-siteName").querySelector("input")?.value).toBe("Acme");
+    const wide = screen
+      .getByTestId("field-layout")
+      .querySelector('[role="radio"][aria-checked="true"]');
+    expect(wide?.textContent).toBe("wide");
+  });
+
+  test("switching to another config screen shows that screen's stored values, not the previous form state", async () => {
+    const otherScreen: ConfigEditScreenDefinition = {
+      id: "other-settings",
+      type: "configEdit",
+      scope: "tenant",
+      configKeys: { tagline: "demo:config:tagline", mode: "demo:config:mode" },
+      fields: {
+        tagline: { type: "text" },
+        mode: { type: "select", options: ["a", "b"] },
+        // @cast-boundary inline schema-author shape — FieldDefinition union too narrow
+      } as ConfigEditScreenDefinition["fields"],
+      layout: {
+        variant: "settings-list",
+        sections: [{ title: "Other", fields: ["tagline", "mode"] }],
+      },
+    };
+    const twoScreenSchema: FeatureSchema = {
+      featureName: "demo",
+      entities: {},
+      screens: [layoutScreen, otherScreen],
+    };
+    const dispatcher: Dispatcher = createMockDispatcher({
+      query: (async (qn: string) => {
+        if (qn === "config:query:cascade") return { isSuccess: true, data: {} };
+        return {
+          isSuccess: true,
+          data: {
+            "demo:config:site-name": { value: "Acme", scope: "tenant", source: "tenant-row" },
+            "demo:config:layout": { value: "wide", scope: "tenant", source: "tenant-row" },
+            "demo:config:tagline": { value: "Hello", scope: "tenant", source: "tenant-row" },
+            "demo:config:mode": { value: "b", scope: "tenant", source: "tenant-row" },
+          },
+        };
+      }) as unknown as Dispatcher["query"],
+    });
+    const view = render(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={twoScreenSchema} qn="demo:screen:site-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("render-edit-form"));
+    view.rerender(
+      <DispatcherProvider dispatcher={dispatcher}>
+        <KumikoScreen schema={twoScreenSchema} qn="demo:screen:other-settings" />
+      </DispatcherProvider>,
+    );
+    await waitFor(() => screen.getByTestId("field-tagline"));
+    expect(screen.getByTestId("field-tagline").querySelector("input")?.value).toBe("Hello");
+    expect(
+      screen.getByTestId("field-mode").querySelector('[role="radio"][aria-checked="true"]')
+        ?.textContent,
+    ).toBe("b");
+  });
+});

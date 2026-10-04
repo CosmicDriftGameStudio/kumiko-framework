@@ -58,11 +58,23 @@ bundled-feature you mount.
 start under the system tenant (stream type `app-instance`). It carries the
 version, the instance id (`KUMIKO_INSTANCE_ID`, else `HOSTNAME`, the pod name
 on Kubernetes, else the OS hostname) and the start time. Replicas that share
-one `KUMIKO_INSTANCE_ID` record the same instance id. The deployment sets
+one `KUMIKO_INSTANCE_ID` cannot be told apart in these events, so give each
+replica its own (see "Instance id per pod"). The deployment sets
 `KUMIKO_APP_VERSION` (and optionally `KUMIKO_GIT_COMMIT`); without a version
 the event records `"unknown"`. A failed write is logged and does not stop the
 boot. A SystemAdmin reads these events through `audit:query:list` with
 `scope: "system"`.
+
+## Instance id per pod
+
+Set `KUMIKO_INSTANCE_ID` to the pod name on every replica (Kubernetes downward
+API, `metadata.name`). SSE delivery is no longer per instance: the built-in SSE
+consumers use one shared cursor and the Redis broker fans events out to every
+pod's clients (fw#2625, fw#2630); with several replicas this needs `REDIS_URL`. The id still labels the process in the
+`app.started` event and keys the cursor row of any consumer that opts into
+`delivery: "per-instance"`. Without a stable id the server generates a random one
+per boot, logs a warning, and such a consumer leaves an orphaned cursor row
+behind on every restart that pins event pruning.
 
 ## Local dev stack
 

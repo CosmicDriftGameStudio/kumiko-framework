@@ -47,7 +47,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
 
   api.post(Routes.write, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ type: string; payload: unknown; requestId?: string }>();
+    const body = await readDispatchBody(c);
 
     try {
       assertPayloadDepthAllowed(body.payload);
@@ -64,10 +64,10 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
 
   api.post(Routes.batch, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{
-      commands: Array<{ type: string; payload: unknown }>;
+    const body = await readJsonObject<{
+      commands?: Array<{ type: string; payload: unknown }>;
       requestId?: string;
-    }>();
+    }>(c);
 
     if (!Array.isArray(body.commands)) {
       // Client-shape violation → ValidationError (400, code=validation_error)
@@ -124,7 +124,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
 
   api.post(Routes.query, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ type: string; payload: unknown }>();
+    const body = await readDispatchBody(c);
 
     try {
       assertPayloadDepthAllowed(body.payload);
@@ -138,7 +138,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
 
   api.post(Routes.command, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ type: string; payload: unknown }>();
+    const body = await readDispatchBody(c);
 
     try {
       assertPayloadDepthAllowed(body.payload);
@@ -162,7 +162,7 @@ export function createApiRoutes(dispatcher: Dispatcher, options: ApiRoutesOption
   // queryErrorResponse instead of a flushed-200 error frame (framework#1517).
   api.post(Routes.stream, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ type: string; payload: unknown }>();
+    const body = await readDispatchBody(c);
     const requestId = requestContext.get()?.requestId;
 
     let generator: AsyncGenerator<unknown>;
@@ -303,6 +303,41 @@ function payloadDepth(value: unknown, depth: number): number {
     if (max > MAX_PAYLOAD_DEPTH) break;
   }
   return max;
+}
+
+function invalidBodyError(path: string, expected: string, received: string): ValidationError {
+  return new ValidationError({
+    fields: [
+      {
+        path,
+        code: "invalid_type",
+        i18nKey: "errors.validation.invalid_type",
+        params: { expected, received },
+      },
+    ],
+  });
+}
+
+// Malformed or non-object JSON is a client error; letting c.req.json() throw
+// would surface as an unclassified 500.
+// @cast-boundary request-body — shape is validated per route right after
+async function readJsonObject<T extends object>(c: Context): Promise<T> {
+  const raw: unknown = await c.req.json().catch(() => undefined);
+  if (raw === undefined) throw invalidBodyError("body", "json", "malformed");
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw invalidBodyError("body", "object", raw === null ? "null" : typeof raw);
+  }
+  return raw as T;
+}
+
+async function readDispatchBody(
+  c: Context,
+): Promise<{ type: string; payload: unknown; requestId?: string }> {
+  const body = await readJsonObject<{ type?: unknown; payload?: unknown; requestId?: string }>(c);
+  if (typeof body.type !== "string" || body.type === "") {
+    throw invalidBodyError("type", "string", typeof body.type);
+  }
+  return { type: body.type, payload: body.payload, requestId: body.requestId };
 }
 
 // Rejects payloads nested deeper than MAX_PAYLOAD_DEPTH before they reach

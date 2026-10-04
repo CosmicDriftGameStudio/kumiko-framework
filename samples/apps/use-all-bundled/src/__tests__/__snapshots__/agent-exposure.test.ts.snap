@@ -152,6 +152,7 @@ exports[`use-all-bundled agent exposure every bundled handler keeps its recorded
   "notes-demo:write:note:update expose=true risk=mid",
   "notes-history:query:note-entry:list expose=true risk=low",
   "notes-history:write:add-note expose=true risk=mid",
+  "personal-access-tokens:query:availability expose=true risk=low",
   "personal-access-tokens:query:available-scopes expose=true risk=low",
   "personal-access-tokens:query:mine expose=true risk=low",
   "personal-access-tokens:write:create expose=false risk=mid",

@@ -62,6 +62,10 @@ export type RequestContextData = {
   // writeAs target) — nested dispatches inherit it unchanged, so the
   // irreversible-operation gate always sees the outermost caller's risk.
   readonly entryHandler?: { readonly qn: string; readonly risk: AgentRisk };
+  // Rate-limit bucket keys already charged by this entry dispatch. Nested
+  // ctx.query/queryAs/write calls share the entry's set, so one request costs
+  // one token per bucket however many handlers it fans out to.
+  readonly chargedRateLimitBuckets?: Set<string>;
 };
 
 const storage = new AsyncLocalStorage<RequestContextData>();
@@ -104,6 +108,9 @@ export function runWithOrigin<T>(
       // The outermost dispatch wins — a nested ctx.write/writeAs must not
       // overwrite the entry handler that the irreversible-operation gate reads.
       entryHandler: current?.entryHandler ?? origin.entryHandler,
+      chargedRateLimitBuckets: current?.entryHandler
+        ? current.chargedRateLimitBuckets
+        : new Set<string>(),
     },
     fn,
   );

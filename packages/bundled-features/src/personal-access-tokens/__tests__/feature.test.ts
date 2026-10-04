@@ -74,6 +74,30 @@ describe("createPersonalAccessTokensFeature — declarative screens (fw#2548 Tei
   });
 });
 
+describe("createPersonalAccessTokensFeature — tier gate on the screens", () => {
+  test("both screens render only when the availability probe answers enabled", () => {
+    const feature = createPersonalAccessTokensFeature({ scopes: {} });
+    for (const id of [PAT_SCREEN_ID, PAT_MINT_SCREEN_ID]) {
+      expect(feature.screens[id]?.visibleWhen).toEqual({
+        query: PatQueries.availability,
+        field: "enabled",
+        eq: true,
+      });
+      expect(feature.screens[id]?.fallback).toBeUndefined();
+    }
+  });
+
+  test("lockedFallbackScreen becomes the fallback of both screens", () => {
+    const feature = createPersonalAccessTokensFeature({
+      scopes: {},
+      lockedFallbackScreen: "upgrade-notice",
+    });
+    for (const id of [PAT_SCREEN_ID, PAT_MINT_SCREEN_ID]) {
+      expect(feature.screens[id]?.fallback).toBe("upgrade-notice");
+    }
+  });
+});
+
 describe("patGrantOptions (fw#2548 Teil B)", () => {
   test("a read-only domain yields only <domain>:read", () => {
     const scopes: PatScopeConfig = { billing: { label: "Billing", read: ["billing:query:*"] } };

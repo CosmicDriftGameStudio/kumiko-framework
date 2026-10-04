@@ -1101,6 +1101,7 @@ export const localeEsBundle: Readonly<Record<string, string>> = {
   "tier-admin.explainer":
     "Asigna un tier a una organización sin necesidad de compra. La asignación se marca como «manual» y no será sobrescrita por una sincronización de facturación posterior.",
   "tier-admin.submit": "Asignar tier",
+  "tier-admin.success": "Tier asignado: {tenantId} → {tier}",
   "tier-engine:entity:__action-form__:field:tenantId": "Organización",
   "tier-engine:entity:__action-form__:field:tier": "Nuevo tier",
   "user-data-rights:entity:download-attempt:field:attemptedAt": "Fecha y hora",

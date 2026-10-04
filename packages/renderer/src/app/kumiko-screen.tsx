@@ -32,6 +32,7 @@ import {
 } from "@cosmicdrift/kumiko-framework/ui-types";
 import type {
   Command,
+  Dispatcher,
   DispatcherError,
   FormSnapshot,
   FormValues,
@@ -71,8 +72,10 @@ import { RenderList } from "../components/render-list.js";
 import { useDispatcher, useOptionalDispatcher } from "../context/dispatcher-context.js";
 import { useIsEmbeddedScreen } from "../context/embedded-screen-context.js";
 import { useUserRoles } from "../context/user-roles-context.js";
+import { REFERENCE_LIST_LOOKUP_LIMIT } from "../hooks/reference-limits.js";
 import { type ListSort, PAGE_SIZE_OPTIONS, useListUrlState } from "../hooks/use-list-url-state.js";
 import { type UseQueryResult, useQuery } from "../hooks/use-query.js";
+import { referenceLookupSource } from "../hooks/use-reference-lookup.js";
 import { useLocale, useOptionalTimeZone, useTranslation } from "../i18n.js";
 import { InsideDrawerProvider, useInsideDrawer } from "../inside-drawer.js";
 import {
@@ -287,7 +290,8 @@ function ScreenVisibilityGate({
   readonly translate?: Translate;
   readonly children: ReactNode;
 }): ReactNode {
-  const { Banner } = usePrimitives();
+  const { Banner, PageHeader } = usePrimitives();
+  const pageHeaderSlotAvailable = usePageHeaderSlotAvailable();
   const t = useTranslation();
   const result = useQuery<Readonly<Record<string, unknown>>>(visibleWhen.query, {}, { live: true });
   const verdict = evalVisibleWhen(visibleWhen, result);
@@ -299,13 +303,20 @@ function ScreenVisibilityGate({
       </Banner>
     );
   }
-  if (fallback !== undefined) {
-    return <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />;
-  }
+  // The route still names the locked screen; its breadcrumb must not label what stands in for it.
+  const hideLockedBreadcrumb =
+    PageHeader !== undefined && pageHeaderSlotAvailable ? <PageHeader hideBreadcrumb /> : null;
   return (
-    <Banner padded variant="info" testId="kumiko-screen-unavailable">
-      {t("kumiko.screen.unavailable")}
-    </Banner>
+    <>
+      {hideLockedBreadcrumb}
+      {fallback !== undefined ? (
+        <FallbackScreen featureName={featureName} fallback={fallback} translate={translate} />
+      ) : (
+        <Banner padded variant="info" testId="kumiko-screen-unavailable">
+          {t("kumiko.screen.unavailable")}
+        </Banner>
+      )}
+    </>
   );
 }
 
@@ -402,9 +413,14 @@ function renderScreenBody({
     case "secretMint":
       return <SecretMintBody schema={schema} screen={screen} translate={translate} />;
     case "configEdit":
-      return <ConfigEditBody schema={schema} screen={screen} translate={translate} />;
+      // Keyed by screen id: the form state is seeded once at mount, so switching
+      // between two settings screens must remount instead of carrying the
+      // previous screen's (empty) field state over.
+      return (
+        <ConfigEditBody key={screen.id} schema={schema} screen={screen} translate={translate} />
+      );
     case "secretsEdit":
-      return <SecretsEditBody screen={screen} translate={translate} />;
+      return <SecretsEditBody key={screen.id} screen={screen} translate={translate} />;
     case "custom":
       return <CustomScreenBody screenId={screen.id} featureName={schema.featureName} />;
   }
@@ -744,6 +760,40 @@ function formatSummaryParams(
   return Object.fromEntries(
     Object.entries(prefill ?? {}).map(([name, value]) => [name, formatSummaryValue(value, locale)]),
   );
+}
+
+// Placeholders of `successMessage`: formatted submitted values, with a
+// reference field resolved to the chosen record's label. A lookup that fails or
+// misses the row (the lookup list is capped) falls back to the raw id.
+async function resolveSuccessMessageParams(
+  screen: ActionFormScreenDefinition,
+  featureName: string,
+  values: Readonly<Record<string, unknown>>,
+  dispatcher: Dispatcher,
+  locale: string,
+): Promise<Record<string, string>> {
+  const params = formatSummaryParams(values, locale);
+  await Promise.all(
+    Object.entries(screen.fields).map(async ([name, def]) => {
+      const raw = values[name];
+      if (def.type !== "reference" || typeof raw !== "string" || raw === "") return;
+      const target = parseRefTarget(def.entity, featureName);
+      const { queryQn, labelKey } = referenceLookupSource(
+        target.featureName,
+        target.entityName,
+        def.labelField ?? "id",
+      );
+      const lookup = await dispatcher.query<{ rows: ReadonlyArray<Record<string, unknown>> }>(
+        queryQn,
+        { limit: REFERENCE_LIST_LOOKUP_LIMIT },
+      );
+      if (!lookup.isSuccess) return;
+      const row = lookup.data.rows.find((candidate) => candidate["id"] === raw);
+      const label = row?.[labelKey];
+      if (label !== undefined && label !== null) params[name] = String(label);
+    }),
+  );
+  return params;
 }
 
 function resolveActionFormSummary(
@@ -4058,12 +4108,36 @@ function ActionFormBody({
     () => resolveActionFormSummary(screen.summary, initialOverrides, effectiveTranslate, locale),
     [screen.summary, initialOverrides, effectiveTranslate, locale],
   );
+  const dispatcher = useDispatcher();
+  const [successText, setSuccessText] = useState<string | undefined>(undefined);
+  // A slow label lookup of an earlier submit must not overwrite the banner of a later one.
+  const successSequence = useRef(0);
+  useEffect(
+    () => () => {
+      successSequence.current += 1;
+    },
+    [],
+  );
   const handleSubmitted = useCallback(
-    (result: SubmitResult<unknown>) => {
+    (result: SubmitResult<unknown>, values: FormValues) => {
+      successSequence.current += 1;
+      const sequence = successSequence.current;
+      setSuccessText(undefined);
       if (!result.isSuccess) return;
       if (onSuccess !== undefined) {
         onSuccess();
         return;
+      }
+      if (screen.successMessage !== undefined && screen.redirect === undefined) {
+        const messageKey = screen.successMessage;
+        const show = (params: Record<string, string>): void => {
+          if (successSequence.current === sequence) {
+            setSuccessText(effectiveTranslate(messageKey, params));
+          }
+        };
+        void resolveSuccessMessageParams(screen, schema.featureName, values, dispatcher, locale)
+          .then(show)
+          .catch(() => show(formatSummaryParams(values, locale)));
       }
       // Without a redirect the form stays put; returnTo only replaces an existing
       // navigation, and never one to a record screen (see redirectTargetsRecord).
@@ -4081,7 +4155,17 @@ function ActionFormBody({
         }
       }
     },
-    [nav, screen.redirect, onSuccess, schema, appFeatures, returnTarget],
+    [
+      nav,
+      screen,
+      onSuccess,
+      schema,
+      appFeatures,
+      returnTarget,
+      dispatcher,
+      locale,
+      effectiveTranslate,
+    ],
   );
   // Cancel ist nur sinnvoll wenn ein Navigations-Ziel existiert —
   // sonst hätte der Button nirgendwo hin zu navigieren. cancelTarget
@@ -4117,6 +4201,13 @@ function ActionFormBody({
       // — anders als im entityEdit gibt es hier keinen record, aus dem
       // sie Kontext ziehen könnten.
       extensionInitialValues={initial}
+      {...(successText !== undefined && {
+        leadContent: (
+          <Banner variant="info" testId="action-form-success">
+            {successText}
+          </Banner>
+        ),
+      })}
       writeCommand={screen.handler}
       payloadMode="values"
       onSubmit={handleSubmitted}

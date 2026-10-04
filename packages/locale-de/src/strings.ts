@@ -1106,6 +1106,7 @@ export const localeDeBundle: Readonly<Record<string, string>> = {
   "tier-admin.explainer":
     "Weise einem Mandanten ein Tier ohne Kauf zu. Die manuelle Zuweisung bleibt bestehen, auch wenn sich die Abrechnung später automatisch aktualisiert.",
   "tier-admin.submit": "Tier zuweisen",
+  "tier-admin.success": "Tier zugewiesen: {tenantId} → {tier}",
   "tier-engine:entity:__action-form__:field:tenantId": "Mandant",
   "tier-engine:entity:__action-form__:field:tier": "Neues Tier",
   "user-data-rights:entity:download-attempt:field:attemptedAt": "Zeitpunkt",

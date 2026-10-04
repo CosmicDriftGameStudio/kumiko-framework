@@ -66,13 +66,8 @@ echo "→ feature-changelog guard (bunx kumiko-guard-feature-changelog)"
 bunx kumiko-guard-feature-changelog || fail=1
 
 echo
-if [ -e node_modules/.bin/kumiko-guard-comment-lang ]; then
-  echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
-  bun kumiko-guard-comment-lang --touched --base="$MERGE_BASE" || fail=1
-else
-  echo "✗ missing guard binary: node_modules/.bin/kumiko-guard-comment-lang — install broken, comment-lang did not run"
-  fail=1
-fi
+echo "→ comment-lang guard --touched (base=$MERGE_BASE)"
+bun packages/guards/src/cli.ts comment-lang --touched --base="$MERGE_BASE" || fail=1
 
 echo
 echo "→ bun test (unit suite)"

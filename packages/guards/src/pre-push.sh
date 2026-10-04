@@ -7,7 +7,7 @@
 #   2. Else if running inside a worktree under the parent workspace (no
 #      check-wt.sh), run this worktree's own package.json scripts
 #      (typecheck, lint, test, test:dom) plus the consumer-CI guards
-#      (kumiko-guards guards/checks, kumiko-guard-comment-lang) directly —
+#      (kumiko-guards guards/checks/comment-lang) directly —
 #      the parent's `bun check` would otherwise check the main checkout
 #      instead of the worktree.
 #   3. Else if running inside the cosmicdriftgamestudio Parent-Workspace,
@@ -175,7 +175,7 @@ if [ "$(git rev-parse --path-format=absolute --git-dir)" != "$GIT_COMMON_DIR" ] 
   done
   run_guard_bin guards kumiko-guards guards
   run_guard_bin checks kumiko-guards checks
-  run_guard_bin comment-lang kumiko-guard-comment-lang --touched --base=origin/main
+  run_guard_bin comment-lang kumiko-guards comment-lang --touched --base=origin/main
   if [ -n "$FAILED" ]; then
     echo "[pre-push] worktree check failed:$FAILED" >&2
     exit 1

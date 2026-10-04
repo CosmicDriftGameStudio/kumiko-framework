@@ -25,6 +25,7 @@ export const TIER_ENGINE_I18N: Readonly<Record<string, LocalizedString>> = {
   "tier-engine:entity:__action-form__:field:tenantId": { en: "Tenant" },
   "tier-engine:entity:__action-form__:field:tier": { en: "New tier" },
   "tier-admin.submit": { en: "Assign tier" },
+  "tier-admin.success": { en: "Tier assigned: {tenantId} → {tier}" },
 };
 
 export const defaultTranslations: TranslationsByLocale =

@@ -94,9 +94,11 @@ export function ShellHeader({
   const overflowItems = slot?.overflowItems ?? [];
   const hasOverflow = compact && (overflowItems.length > 0 || headerActions !== undefined);
   const shownCrumbs =
-    crumbs !== undefined && recordTitle !== undefined && crumbs.length > 0
-      ? [...crumbs.slice(0, -1), { label: recordTitle }, ...crumbs.slice(-1)]
-      : crumbs;
+    slot?.breadcrumbHidden === true
+      ? undefined
+      : crumbs !== undefined && recordTitle !== undefined && crumbs.length > 0
+        ? [...crumbs.slice(0, -1), { label: recordTitle }, ...crumbs.slice(-1)]
+        : crumbs;
 
   return (
     <header

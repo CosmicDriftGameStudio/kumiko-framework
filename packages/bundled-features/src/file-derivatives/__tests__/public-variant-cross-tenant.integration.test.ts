@@ -143,6 +143,17 @@ describe("file-derivatives :: publicTenantResolution 'fileRef' — cross-tenant 
     expect(receivedArgs[0]?.tenantId).toBe(TENANT_B);
   });
 
+  test("one /media request costs one rate-limit token: 31 GETs from one IP all succeed against a limit of 60", async () => {
+    const fileId = await uploadImage(stack, userB, "public-1");
+
+    for (let i = 0; i < 31; i++) {
+      const res = await stack.app.request(`http://${HOST_A}/media/${fileId}/thumb`, {
+        headers: { "x-forwarded-for": "203.0.113.31" },
+      });
+      expect(res.status).toBe(200);
+    }
+  });
+
   test("a tenant A public file is also served through tenant A's host", async () => {
     const fileId = await uploadImage(stack, userA, "public-1");
 

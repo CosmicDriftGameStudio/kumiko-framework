@@ -454,21 +454,21 @@ export function buildServer(options: ServerOptions): KumikoServer {
         `pick any other stable string.`,
     );
   }
-  // Warn when we fell back to a random UUID: the default SSE system-consumer
-  // is delivery="per-instance", so every boot gets a fresh cursor-row in
-  // kumiko_event_consumers. The previous boot's row stays behind on its last
-  // cursor and pins pruneEvents (retention-guard uses MIN(lastProcessedEventId)
-  // across all shards). Without a stable KUMIKO_INSTANCE_ID this accumulates
-  // on every restart, not just scale-down. Silent when options.instanceId or
-  // KUMIKO_INSTANCE_ID is explicit — those are deliberate choices (the test
-  // suite sets KUMIKO_INSTANCE_ID="test-instance" in vitest config).
+  // Warn when we fell back to a random UUID. The built-in SSE consumer is
+  // delivery="shared" (one cursor for all pods, fw#2625), so it no longer
+  // writes a row per instance. The id still labels this process in the
+  // app.started event and in per-instance consumers (opt-in delivery), where a
+  // fresh id per boot leaves an orphaned cursor-row that pins pruneEvents
+  // (retention-guard uses MIN(lastProcessedEventId) across all shards). Silent
+  // when options.instanceId or KUMIKO_INSTANCE_ID is explicit — those are
+  // deliberate choices (the test suite sets KUMIKO_INSTANCE_ID="test-instance").
   const instanceIdWasRandom =
     options.instanceId === undefined && !process.env["KUMIKO_INSTANCE_ID"];
   if (instanceIdWasRandom) {
     console.warn(
       `[kumiko:boot] No ServerOptions.instanceId / KUMIKO_INSTANCE_ID set — generated a random UUID (${resolvedInstanceId}). ` +
-        `Per-instance consumers (SSE by default) write one cursor-row per instance; without a stable id, each restart leaves an orphaned row behind and pins events-retention on its last cursor. ` +
-        `Set KUMIKO_INSTANCE_ID to a stable value (e.g. hostname, pod name) in production.`,
+        `SSE no longer needs a per-instance cursor, but the id labels this process in the app.started event and in per-instance consumers; without a stable id each restart leaves an orphaned cursor-row behind for those and pins events-retention on its last cursor. ` +
+        `Set KUMIKO_INSTANCE_ID to the pod name (e.g. from the Kubernetes downward API metadata.name) in production.`,
     );
   }
 

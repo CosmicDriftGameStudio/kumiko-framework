@@ -1519,6 +1519,9 @@ export type PageHeaderProps = {
   readonly actions?: ReactNode;
   /** Land in the shell header's overflow menu at phone width. */
   readonly overflowItems?: readonly ActionMenuItemSpec[];
+  /** Hide the shell header's breadcrumb while mounted, for a screen that stands in
+   *  for the one the route names (a locked screen's fallback). */
+  readonly hideBreadcrumb?: boolean;
 };
 
 /** One item in an `ActionOverflowMenu` (A7: header/row actions beyond the

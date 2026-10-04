@@ -297,6 +297,7 @@ export function createTierEngineFeature<
         ],
       },
       submitLabel: "tier-admin.submit",
+      successMessage: "tier-admin.success",
       cancelTarget: false,
       description: "tier-admin.screen.subtitle",
       access: { roles: ["SystemAdmin"] },

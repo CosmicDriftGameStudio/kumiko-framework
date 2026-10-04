@@ -753,6 +753,14 @@ export function createRedisLoginRateLimiter(
   };
 }
 
+// A missing, malformed or non-object body reads as {} so callers answer with their own 400.
+async function readJsonObjectOrEmpty(req: {
+  json(): Promise<unknown>;
+}): Promise<{ tenantId?: unknown }> {
+  const raw: unknown = await req.json().catch(() => null);
+  return raw !== null && typeof raw === "object" ? raw : {};
+}
+
 export function createAuthRoutes(
   dispatcher: Dispatcher,
   jwt: JwtHelper,
@@ -1521,7 +1529,7 @@ export function createAuthRoutes(
   // POST /auth/switch-tenant — switch to a different tenant
   api.post(Routes.authSwitchTenant, async (c) => {
     const user = getUser(c);
-    const body = await c.req.json<{ tenantId?: unknown }>();
+    const body = await readJsonObjectOrEmpty(c.req);
     // The id seeds a SYSTEM identity in resolveActiveMembership — reject anything
     // that is not a non-empty string before it gets that far.
     if (!isNonEmptyString(body.tenantId)) {

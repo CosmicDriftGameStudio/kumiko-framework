@@ -5,17 +5,19 @@
 // flags, which each runner's own *Cli function validates and applies so this
 // bin and the direct `bun run-*.ts` invocation can never drift apart.
 import { buildGuardKitInventory, cliFlagsError } from "./_lib/guard-kit";
+import { COMMENT_LANG_FLAGS, runCommentLangCli } from "./guard-comment-lang";
 import { GUARD_FLAGS, GUARDS, runGuardsCli } from "./run-guards";
 import { REPO_CHECK_FLAGS, REPO_CHECKS, runRepoChecksCli } from "./run-repo-checks";
 import { runUiGuardsCli, UI_GUARD_FLAGS, UI_GUARDS } from "./run-ui-guards";
 
-const SUBCOMMANDS = ["guards", "ui", "checks", "list"] as const;
+const SUBCOMMANDS = ["guards", "ui", "checks", "comment-lang", "list"] as const;
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
 const SUBCOMMAND_FLAGS: Record<Subcommand, readonly string[]> = {
   guards: GUARD_FLAGS,
   ui: UI_GUARD_FLAGS,
   checks: REPO_CHECK_FLAGS,
+  "comment-lang": [...COMMENT_LANG_FLAGS, "--base=<ref>"],
   list: [],
 };
 
@@ -24,7 +26,7 @@ function isSubcommand(value: string): value is Subcommand {
 }
 
 function printHelp(): void {
-  console.log("Usage: kumiko-guards [guards|ui|checks|list] [flags]");
+  console.log("Usage: kumiko-guards [guards|ui|checks|comment-lang|list] [flags]");
   console.log();
   for (const sub of SUBCOMMANDS) {
     const flags = SUBCOMMAND_FLAGS[sub];
@@ -69,6 +71,11 @@ async function main(): Promise<void> {
     });
     console.log(JSON.stringify(inventory));
     return;
+  }
+
+  // Not part of the no-subcommand run: it needs a baseline or a git base ref.
+  if (subcommand === "comment-lang") {
+    process.exit(runCommentLangCli(flags));
   }
 
   let failed = 0;

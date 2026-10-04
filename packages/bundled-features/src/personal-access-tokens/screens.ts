@@ -9,9 +9,18 @@ import type { PatScopeConfig } from "./scopes.js";
 
 const PAT_STATUS_OPTION_KEY_PREFIX = "pat.list.status.";
 
+// Both screens render only for tenants whose tier includes the feature; the
+// availability query is rejected by the feature gate otherwise.
+const PAT_SCREEN_VISIBLE_WHEN = {
+  query: PatQueries.availability,
+  field: "enabled",
+  eq: true,
+} as const;
+
 export const patListScreen: ProjectionListScreenDefinition = {
   id: PAT_SCREEN_ID,
   type: "projectionList",
+  visibleWhen: PAT_SCREEN_VISIBLE_WHEN,
   query: PatQueries.mine,
   // The `mine` handler honours `limit` only (no offset/total), so a pager would
   // show page 1 forever: send one max-size request and render no pager.
@@ -86,6 +95,7 @@ export function createPatMintScreen(scopes: PatScopeConfig): SecretMintScreenDef
   return {
     id: PAT_MINT_SCREEN_ID,
     type: "secretMint",
+    visibleWhen: PAT_SCREEN_VISIBLE_WHEN,
     handler: PatHandlers.create,
     fields: {
       name: { type: "text", required: true, maxLength: 120 },

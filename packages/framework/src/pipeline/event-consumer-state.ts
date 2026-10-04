@@ -33,9 +33,9 @@ export const SHARED_INSTANCE_SENTINEL = "__shared__";
 // One row per (consumer name, instance_id) shard. Shared-delivery consumers
 // have exactly one row with instance_id = SHARED_INSTANCE_SENTINEL — this
 // preserves the pre-Welle-2.7 single-cursor semantic unchanged. Per-instance
-// consumers get N rows (one per dispatcher instance), each with its own
-// cursor — used by SSE so every API process pushes the same events to its
-// own clients without a pub/sub transport. Read by the event-dispatcher
+// consumers (opt-in) get N rows (one per dispatcher instance), each with its
+// own cursor. The built-in SSE consumers are shared since fw#2625/#2630: the
+// Redis-backed broker fans events out to every pod's clients. Read by the event-dispatcher
 // (cursor + locking), surfaced by the CLI for ops inspection.
 //
 // Columns:

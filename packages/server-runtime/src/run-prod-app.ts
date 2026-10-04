@@ -386,6 +386,9 @@ export type RunProdAppAuthOptions = {
    *  AuthRoutesConfig.cookieDomain). Set to the registrable parent
    *  domain when login and app live on different subdomains. */
   readonly cookieDomain?: string;
+  /** Former cookie domains cleared on login/logout (see
+   *  AuthRoutesConfig.retiredCookieDomains). */
+  readonly retiredCookieDomains?: readonly string[];
   /** Server-side Origin allowlist for the CSRF guard (see
    *  AuthRoutesConfig.allowedOrigins). REQUIRED once `cookieDomain` is set —
    *  buildServer fails closed otherwise. Apex + admin host, never tenant
@@ -1160,6 +1163,9 @@ export async function runProdApp(options: RunProdAppOptions): Promise<ProdAppHan
         loginRateLimit: createRedisLoginRateLimiter(redis),
         ...(effectiveAuth.cookieDomain !== undefined && {
           cookieDomain: effectiveAuth.cookieDomain,
+        }),
+        ...(effectiveAuth.retiredCookieDomains !== undefined && {
+          retiredCookieDomains: effectiveAuth.retiredCookieDomains,
         }),
         ...(effectiveAuth.allowedOrigins !== undefined && {
           allowedOrigins: effectiveAuth.allowedOrigins,
