@@ -144,9 +144,8 @@ function formatSearch(options: NavigateOptions | undefined): string | undefined 
 
 function pushPath(path: string, search: string | undefined): void {
   if (typeof window === "undefined") return;
-  // Nur pushen wenn sich der Pfad wirklich ändert — doppelte navigate()
-  // Aufrufe mit demselben Ziel sollen nicht die History fluten. Without
-  // explicit search params the current query counts as unchanged.
+  // Repeated navigate() calls to the same URL must not flood the history.
+  // Without explicit search params the current query counts as unchanged.
   const unchanged =
     window.location.pathname === path &&
     (search === undefined || window.location.search === search);
