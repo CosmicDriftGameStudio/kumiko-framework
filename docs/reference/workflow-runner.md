@@ -21,6 +21,9 @@ Die Engine-API `defineWorkflow` (aus `@cosmicdrift/kumiko-framework/engine`,
   Startbedingung.
 - **`steps`** — `stepsPipeline(({ event, r }) => [...])` mit `r.step.*`
   (mail.send, wait, read.findOne, branch, retry, webhook.send, …).
+  `webhook.send` stellt nur eine Dispatch-Anfrage ein; der
+  step-dispatcher liefert genau einmal, ein Zustellfehler endet als
+  `step.dispatch-failed`. Ein `retry` darum wiederholt keine Zustellung.
 
 `WorkflowDefinition<TPayload, TData>` und `WorkflowInput` sind die
 zugehörigen Typen (exportiert über `engine/index.ts`).
