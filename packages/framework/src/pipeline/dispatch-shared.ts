@@ -1245,6 +1245,11 @@ export async function enforceRateLimit(
       message: `Handler "${handlerName}" declares rateLimit but no RateLimitResolver is configured. Load the rate-limiting feature or remove the option.`,
     });
   }
+  // A nested dispatch re-hitting a bucket its entry dispatch already charged
+  // (e.g. a per:"ip" handler delegating via queryAs) must not cost a second token.
+  const charged = reqCtx?.chargedRateLimitBuckets;
+  if (charged?.has(bucket.key)) return;
+  charged?.add(bucket.key);
   try {
     await context.rateLimit.enforce(bucket.key, {
       limit: effective.limit,
