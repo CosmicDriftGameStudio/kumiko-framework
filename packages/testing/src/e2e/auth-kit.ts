@@ -112,6 +112,12 @@ export async function loginViaApi(
     // skip: no secret, assertNoUnansweredMfa already threw if MFA was pending
     return;
   }
+  if (reply.mfaSetupRequired === true) {
+    throw new Error(
+      `loginViaApi(${credentials.email}): an mfaTotpSecret was given but the account has no enrolled factor; ` +
+        `enroll it with enrollTotpViaApi first`,
+    );
+  }
   // skip: no MFA step for this account, the login already set the session
   if (reply.mfaRequired !== true) return;
   if (reply.challengeToken === undefined) {
