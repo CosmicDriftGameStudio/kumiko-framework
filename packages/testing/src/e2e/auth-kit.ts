@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { AuthMfaHandlers, base32Decode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
 import { currentTotpCode } from "@cosmicdrift/kumiko-bundled-features/auth-mfa/testing";
 import type { WriteErrorInfo } from "@cosmicdrift/kumiko-framework/errors";
 import { type APIRequestContext, type APIResponse, expect, type Page } from "@playwright/test";
@@ -96,8 +97,16 @@ export async function loginViaApi(
     { email: credentials.email, password: credentials.password },
     credentials.email,
   );
-  if (credentials.mfaTotpSecret === undefined) return;
   const reply = loginReplySchema.parse(await response.json());
+  if (credentials.mfaTotpSecret === undefined) {
+    if (reply.mfaRequired === true || reply.mfaSetupRequired === true) {
+      throw new Error(
+        `loginViaApi(${credentials.email}): the account needs MFA but no mfaTotpSecret was given; ` +
+          `use seedTenant({ mfa: "totp" }) or addUser(roles, { mfa: "totp" })`,
+      );
+    }
+    return;
+  }
   if (reply.mfaRequired !== true) return;
   if (reply.challengeToken === undefined) {
     throw new Error(`loginViaApi(${credentials.email}): MFA required but no challengeToken`);
@@ -174,7 +183,6 @@ export async function enrollTotpViaApi(
     );
     return secret;
   }
-  const { AuthMfaHandlers } = await import("@cosmicdrift/kumiko-bundled-features/auth-mfa");
   const started = await apiWrite<{ setupToken: string; totpSecret: string }>(
     request,
     AuthMfaHandlers.enableStart,
@@ -297,9 +305,6 @@ export function createHttpApi(request: APIRequestContext): BoundApi {
 }
 
 export async function totpCode(secret: Buffer | string, nowMs?: number): Promise<string> {
-  const key =
-    typeof secret === "string"
-      ? (await import("@cosmicdrift/kumiko-bundled-features/auth-mfa")).base32Decode(secret)
-      : secret;
+  const key = typeof secret === "string" ? base32Decode(secret) : secret;
   return currentTotpCode(key, nowMs);
 }

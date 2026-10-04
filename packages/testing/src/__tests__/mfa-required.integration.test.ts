@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createAuthMfaFeature } from "@cosmicdrift/kumiko-bundled-features/auth-mfa";
+import { TenantHandlers } from "@cosmicdrift/kumiko-bundled-features/tenant";
 import { type KumikoServerHandle, runDevApp } from "@cosmicdrift/kumiko-dev-server";
+import { ROLES } from "@cosmicdrift/kumiko-framework/auth";
 import { type APIRequestContext, request as playwrightRequest } from "@playwright/test";
 import { createHttpApi, csrfFetch, loginViaApi } from "../e2e/auth-kit";
 import {
@@ -82,7 +84,10 @@ afterAll(async () => {
 });
 
 async function withSeedFixture(
-  body: (seed: Parameters<Parameters<typeof provideSeedTenant>[1]>[0]) => Promise<void>,
+  body: (
+    seed: Parameters<Parameters<typeof provideSeedTenant>[1]>[0],
+    browserRequest: APIRequestContext,
+  ) => Promise<void>,
 ): Promise<void> {
   const request = await newContext();
   const browserRequest = await newContext();
@@ -94,7 +99,7 @@ async function withSeedFixture(
       playwright: { request: playwrightRequest } as unknown as ProvideSeedTenantDeps["playwright"],
       baseURL,
     },
-    body,
+    (seed) => body(seed, browserRequest),
   );
 }
 
@@ -115,15 +120,38 @@ describe("e2e kit under an MFA-required policy", () => {
     });
   });
 
-  test("without the secret the enrolled admin stays on the MFA challenge and gets no session", async () => {
+  test("without the secret loginViaApi fails loudly on the unanswered MFA challenge", async () => {
     await withSeedFixture(async (seedTenant) => {
       const tenant = await seedTenant({ mfa: "totp" });
       const context = await newContext();
 
-      await loginViaApi(context, { email: tenant.admin.email, password: tenant.admin.password });
+      await expect(
+        loginViaApi(context, { email: tenant.admin.email, password: tenant.admin.password }),
+      ).rejects.toThrow(/needs MFA/);
+    });
+  });
 
-      const denied = await csrfFetch(context, "/api/query", { type: NOTE_LIST, payload: {} });
-      expect(denied.status()).toBeGreaterThanOrEqual(401);
+  test("addUser({ mfa: 'totp' }) enrolls a member in-session; once promoted to admin it logs in with the secret and the seeded admin keeps its session", async () => {
+    await withSeedFixture(async (seedTenant, browserRequest) => {
+      const tenant = await seedTenant({ mfa: "totp" });
+
+      const member = await tenant.addUser([ROLES.Member], { mfa: "totp" });
+      expect(member.mfaTotpSecret).toMatch(/^[A-Z2-7]+$/);
+
+      // The admin's own cookie jar (the fixture's context) survived the member's enrollment.
+      expect(await createHttpApi(browserRequest).queryOk<string[]>(NOTE_LIST, {})).toEqual([]);
+
+      await tenant.api.writeOk(TenantHandlers.updateMemberRoles, {
+        userId: member.id,
+        roles: [ROLES.TenantAdmin],
+      });
+
+      const context = await newContext();
+      await loginViaApi(context, member);
+      await createHttpApi(context).writeOk(NOTE_CREATE, { title: "by promoted member" });
+      expect(await createHttpApi(context).queryOk<string[]>(NOTE_LIST, {})).toEqual([
+        "by promoted member",
+      ]);
     });
   });
 
@@ -139,7 +167,7 @@ describe("e2e kit under an MFA-required policy", () => {
     );
     const context = await newContext();
 
-    await loginViaApi(context, seeded.admin);
+    await expect(loginViaApi(context, seeded.admin)).rejects.toThrow(/needs MFA/);
 
     const denied = await csrfFetch(context, "/api/query", { type: NOTE_LIST, payload: {} });
     expect(denied.status()).toBeGreaterThanOrEqual(401);

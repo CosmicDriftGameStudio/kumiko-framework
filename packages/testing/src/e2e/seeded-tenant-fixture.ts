@@ -13,6 +13,7 @@ import {
 import type * as z from "zod";
 import {
   type BoundApi,
+  type SeedAdminIdentity,
   type SeededCredentials,
   type SeededTenant,
   type SeededUser,
@@ -43,7 +44,16 @@ export type E2eSeedTenantOptions = Omit<SeedTenantOptions, "persist"> & {
   readonly mfa?: "totp";
 };
 
-export type E2eSeededTenant = SeededTenant & {
+export type E2eSeedUserIdentity = SeedAdminIdentity & {
+  // Enrolls the new user with a confirmed TOTP factor; the secret comes back as `mfaTotpSecret`.
+  readonly mfa?: "totp";
+};
+
+export type E2eSeededTenant = Omit<SeededTenant, "addUser"> & {
+  readonly addUser: (
+    roles?: readonly string[],
+    identity?: E2eSeedUserIdentity,
+  ) => Promise<SeededUser>;
   readonly loginAs: (page: Page, user: SeededUser) => Promise<void>;
   // Runs an app seeder registered via createE2eSeedRoutes({ extraSeeders })
   // inside this tenant and resolves to its JSON result, unvalidated.
@@ -156,8 +166,8 @@ export async function provideSeedTenant(
       name: seeded.name,
       admin,
       members: seeded.members.map((member) => toUser(member, [ROLES.Member])),
-      addUser: async (roles = [ROLES.Member], identity = {}) =>
-        toUser(
+      addUser: async (roles = [ROLES.Member], identity = {}) => {
+        const user = toUser(
           await postSeedRoute(
             request,
             SEED_ROUTES.seedUser,
@@ -170,7 +180,19 @@ export async function provideSeedTenant(
             seedUserResponseSchema,
           ),
           roles,
-        ),
+        );
+        if (identity.mfa !== "totp") return user;
+        // Enrollment logs its context in; a throwaway one keeps the admin's session intact.
+        const enrollContext = await playwright.request.newContext({
+          baseURL,
+          extraHTTPHeaders: { [CLIENT_IP_HEADER]: syntheticClientIpFor(user.email) },
+        });
+        try {
+          return { ...user, mfaTotpSecret: await enrollTotpViaApi(enrollContext, user) };
+        } finally {
+          await enrollContext.dispose();
+        }
+      },
       api: httpApiFor(admin),
       apiAs: httpApiFor,
       loginAs,

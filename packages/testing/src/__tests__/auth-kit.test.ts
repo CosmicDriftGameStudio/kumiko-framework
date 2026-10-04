@@ -14,7 +14,12 @@ type CapturedPost = {
 };
 
 function fakeRequestContext(onPost: (call: CapturedPost) => void): APIRequestContext {
-  const fakeResponse = { ok: () => true, status: () => 200, text: async () => "" } as APIResponse;
+  const fakeResponse = {
+    ok: () => true,
+    status: () => 200,
+    text: async () => "{}",
+    json: async () => ({}),
+  } as APIResponse;
   return {
     post: async (path: string, options?: { headers?: Record<string, string> }) => {
       onPost({ path, options: options ?? {} });
