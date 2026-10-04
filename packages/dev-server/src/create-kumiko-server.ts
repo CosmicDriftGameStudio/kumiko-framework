@@ -180,6 +180,8 @@ export type CreateKumikoServerOptions = {
     readonly js: string;
     readonly map: string;
   }>;
+  /** @internal — replaces the native directory watcher in tests. */
+  readonly _watchDirectory?: DirectoryWatchEvents;
   /** Absolute path to the CSS entry (typically styles.css with
    *  @import "tailwindcss"). The dev-server builds it with the Tailwind
    *  CLI and serves the result at /styles.css; `stylesheetWatch` decides
@@ -547,17 +549,23 @@ async function tryServePublicAsset(
   return honoTry.response;
 }
 
+type DirectoryWatchEvents = (
+  dir: string,
+  options: { readonly recursive: true; readonly signal: AbortSignal },
+) => AsyncIterable<{ readonly filename: string | null }>;
+
 async function watchDir(
   dir: string,
   onChange: (filename: string) => void,
   signal: AbortSignal,
+  watchEvents: DirectoryWatchEvents,
 ): Promise<void> {
   // AbortSignal wird vom Server-stop() ausgelöst: ohne den Abort liefe
   // die for-await-Schleife bis zum Process-Exit weiter. Im Test-Setup
   // (afterEach räumt tmpdir mit rmSync auf) sähe der Watcher dann das
   // rmSync, klassifizierte's als "restart" und riefe process.exit(75) —
   // bubbles als unhandled error in vitest hoch.
-  const watcher = watch(dir, { recursive: true, signal });
+  const watcher = watchEvents(dir, { recursive: true, signal });
   try {
     for await (const ev of watcher) {
       if (ev.filename) onChange(ev.filename);
@@ -1386,6 +1394,7 @@ export async function createKumikoServer(
           }
         },
         watcherAbort.signal,
+        options._watchDirectory ?? watch,
       );
     }
   }
