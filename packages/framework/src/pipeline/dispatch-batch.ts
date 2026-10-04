@@ -176,15 +176,7 @@ async function runBatchBody(
 
   // Reserve before the transaction opens so no extra connection is held while the handler tx is
   // open; the release below runs only after that tx has ended without committing.
-  let reservations: Awaited<ReturnType<typeof reserveBeforeTransaction>>;
-  try {
-    reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
-  } catch (e) {
-    return releaseOrFinalize(
-      { isSuccess: false, error: toWriteErrorInfo(wrapToKumiko(e)), failedIndex: 0, results },
-      true,
-    );
-  }
+  const reservations = await reserveBeforeTransaction(ctx, commands, user, inheritedOrigin);
   if (!reservations.isSuccess) {
     return releaseOrFinalize(
       {

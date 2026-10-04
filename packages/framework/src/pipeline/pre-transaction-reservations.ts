@@ -2,7 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import type { ReservationRelease } from "@cosmicdrift/kumiko-types/handlers";
 import { hasAccess } from "../engine/access.js";
 import type { SessionUser } from "../engine/types/index.js";
-import { isKumikoError, toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.js";
+import { toWriteErrorInfo, type WriteErrorInfo } from "../errors/index.js";
 import { createFallbackLogger } from "../logging/utils.js";
 import type { BatchCommand, DispatchContext } from "./dispatch-shared.js";
 import {
@@ -10,6 +10,7 @@ import {
   checkFeatureEnabled,
   isMemberResolutionPrincipal,
 } from "./dispatch-shared.js";
+import { wrapToKumiko } from "./dispatcher-utils.js";
 import type { WriteOrigin } from "./write-origin.js";
 import { effectiveWriteOrigin, rootWriteOrigin } from "./write-origin.js";
 
@@ -81,10 +82,7 @@ export async function reserveBeforeTransaction(
       reservedIndexes.add(index);
     } catch (error) {
       await releaseAll(ctx, releases);
-      if (isKumikoError(error)) {
-        return { isSuccess: false, error: toWriteErrorInfo(error), failedIndex: index };
-      }
-      throw error;
+      return { isSuccess: false, error: toWriteErrorInfo(wrapToKumiko(error)), failedIndex: index };
     }
   }
 
