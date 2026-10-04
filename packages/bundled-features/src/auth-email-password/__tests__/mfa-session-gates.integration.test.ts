@@ -5,10 +5,11 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { randomBytes } from "node:crypto";
-import { asRawClient, selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
+import { selectMany } from "@cosmicdrift/kumiko-framework/bun-db";
 import { configureEntityFieldEncryption } from "@cosmicdrift/kumiko-framework/db";
 import type { SessionUser, TenantId } from "@cosmicdrift/kumiko-framework/engine";
 import {
+  resetEventStore,
   setupTestStack,
   type TestStack,
   unsafeCreateEntityTable,
@@ -119,12 +120,13 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  const raw = asRawClient(stack.db);
-  await raw.unsafe(`DELETE FROM "${userTable.tableName}"`);
-  await raw.unsafe(`DELETE FROM "${tenantMembershipsTable.tableName}"`);
-  await raw.unsafe(`DELETE FROM "${tenantInvitationsTable.tableName}"`);
-  await raw.unsafe(`DELETE FROM "${tenantTable.tableName}"`);
-  await raw.unsafe(`DELETE FROM "${userMfaEntity.table}"`);
+  await resetEventStore(stack, [
+    userTable,
+    tenantMembershipsTable,
+    tenantInvitationsTable,
+    tenantTable,
+    userMfaEntity.table,
+  ]);
   emailTransport.sent.length = 0;
   await stack.redis.flushNamespace();
   tenantA = crypto.randomUUID() as TenantId;
